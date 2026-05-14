@@ -28,8 +28,15 @@ export type {
 } from './_internal-symbols.ts';
 export {
   addSlide,
+  addSlideImage,
+  addSlideLine,
+  addSlideShape,
+  addSlideTable,
+  addSlideTextBox,
   clearShapeFill,
   clearShapeStroke,
+  clearSlideBackground,
+  clearSlideTransition,
   createPresentation,
   duplicateSlide,
   findSlidePlaceholder,
@@ -45,6 +52,7 @@ export {
   getShapeText,
   getSlideLayout,
   getSlideLayouts,
+  getSlideNotes,
   getSlideShapes,
   getSlideText,
   getSlides,
@@ -60,6 +68,7 @@ export {
   setShapeFill,
   setShapeFlip,
   setShapeHyperlink,
+  setShapeImage,
   setShapeNoFill,
   setShapeNoStroke,
   setShapePosition,
@@ -68,6 +77,9 @@ export {
   setShapeStroke,
   setShapeText,
   setShapeTextFormat,
+  setSlideBackground,
+  setSlideNotes,
+  setSlideTransition,
 } from './fn.ts';
 
 export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';

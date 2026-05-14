@@ -26,6 +26,7 @@ import {
   applyHyperlinkToAllRuns,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
+  getPictureEmbedRId,
   readFlip,
   readPosition,
   readRotation,
@@ -44,7 +45,11 @@ import {
 import type { Emu } from './units.ts';
 import {
   basename,
+  contentTypeForFormat,
+  detectImageFormat,
   emptyRels,
+  extensionForFormat,
+  type ImageFormat,
   nextRelId,
   type PartName,
   partName,
@@ -54,8 +59,17 @@ import {
 import { OpcPackage } from '../internal/parts/index.ts';
 import {
   REL_TYPES,
+  type PresetShape,
   type ShapeKind,
+  type TransitionOptions,
+  buildConnector,
+  buildEmptyNotesSlide,
+  buildPicture,
+  buildShape,
   buildSlideFromLayout,
+  buildTable,
+  buildTextBox,
+  buildTransition,
   readPresentationPart,
   readSlideLayoutPart,
   readSlidePart,
@@ -918,4 +932,522 @@ export const removeShape = (shape: SlideShapeData): void => {
   spTree.children.splice(idx, 1);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
+};
+
+// ---------------------------------------------------------------------------
+// Slide-level shape authoring.
+//
+// Each `addXxx` builds an XML element via an internal builder, appends
+// it to the slide's `<p:spTree>`, commits, rebuilds the typed view, and
+// returns the new SlideShapeData.
+
+const requireSpTree = (slide: SlideData): XmlElement => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('slide has no <p:cSld>');
+  const spTree = firstChildElement(cSld, NAME_SP_TREE);
+  if (!spTree) throw new Error('slide has no <p:spTree>');
+  return spTree;
+};
+
+const nextShapeId = (slide: SlideData): number => {
+  let maxId = 0;
+  for (const s of slide[SLIDE_PART].shapes) {
+    if (s.id > maxId) maxId = s.id;
+  }
+  return Math.max(maxId, 1) + 1;
+};
+
+const appendAndReturnNewShape = (slide: SlideData, child: XmlElement): SlideShapeData => {
+  const spTree = requireSpTree(slide);
+  spTree.children.push(child);
+  commitSlideData(slide);
+  const previousLength = slide[SLIDE_SHAPES].length;
+  rebuildShapesFromDocument(slide);
+  const created = slide[SLIDE_SHAPES][previousLength];
+  if (!created) throw new Error('appendShape: post-condition failed');
+  return created;
+};
+
+/**
+ * Adds a free-form text box to the slide. Returns the new shape.
+ *
+ * The box is a plain rectangle with no fill or outline carrying one
+ * paragraph with one run. The shape id is allocated as one more than
+ * the current max id.
+ */
+export const addSlideTextBox = (
+  slide: SlideData,
+  opts: { x: Emu; y: Emu; w: Emu; h: Emu; text: string; name?: string },
+): SlideShapeData => {
+  const sp = buildTextBox({
+    id: nextShapeId(slide),
+    ...(opts.name !== undefined ? { name: opts.name } : {}),
+    x: opts.x,
+    y: opts.y,
+    w: opts.w,
+    h: opts.h,
+    text: opts.text,
+  });
+  return appendAndReturnNewShape(slide, sp);
+};
+
+/**
+ * Adds a preset shape (rectangle, ellipse, arrow, ...) to the slide.
+ * Optional `text` seeds a single run.
+ */
+export const addSlideShape = (
+  slide: SlideData,
+  opts: {
+    preset: PresetShape | string;
+    x: Emu;
+    y: Emu;
+    w: Emu;
+    h: Emu;
+    text?: string;
+    textAnchor?: 'l' | 'ctr' | 'r' | 't' | 'b';
+    name?: string;
+  },
+): SlideShapeData => {
+  const sp = buildShape({
+    id: nextShapeId(slide),
+    ...(opts.name !== undefined ? { name: opts.name } : {}),
+    preset: opts.preset,
+    x: opts.x,
+    y: opts.y,
+    w: opts.w,
+    h: opts.h,
+    ...(opts.text !== undefined ? { text: opts.text } : {}),
+    ...(opts.textAnchor !== undefined ? { textAnchor: opts.textAnchor } : {}),
+  });
+  return appendAndReturnNewShape(slide, sp);
+};
+
+/** Adds a straight-line connector between two points. */
+export const addSlideLine = (
+  slide: SlideData,
+  opts: {
+    from: { x: Emu; y: Emu };
+    to: { x: Emu; y: Emu };
+    color?: string;
+    widthEmu?: number;
+    name?: string;
+  },
+): SlideShapeData => {
+  const cxn = buildConnector({
+    id: nextShapeId(slide),
+    ...(opts.name !== undefined ? { name: opts.name } : {}),
+    from: opts.from,
+    to: opts.to,
+    ...(opts.color !== undefined ? { color: opts.color } : {}),
+    ...(opts.widthEmu !== undefined ? { widthEmu: opts.widthEmu } : {}),
+  });
+  return appendAndReturnNewShape(slide, cxn);
+};
+
+/**
+ * Adds a table to the slide. Cells render as plain text with default
+ * theme-aware styling; `firstRow` / `bandRow` flags drive PowerPoint's
+ * banded-header look unless options say otherwise.
+ */
+export const addSlideTable = (
+  slide: SlideData,
+  opts: {
+    x: Emu;
+    y: Emu;
+    w: Emu;
+    h: Emu;
+    rows: ReadonlyArray<ReadonlyArray<string>>;
+    colWidths?: ReadonlyArray<Emu>;
+    rowHeights?: ReadonlyArray<Emu>;
+    firstRow?: boolean;
+    bandRow?: boolean;
+    name?: string;
+  },
+): SlideShapeData => {
+  const frame = buildTable({
+    id: nextShapeId(slide),
+    ...(opts.name !== undefined ? { name: opts.name } : {}),
+    x: opts.x,
+    y: opts.y,
+    w: opts.w,
+    h: opts.h,
+    rows: opts.rows,
+    ...(opts.colWidths !== undefined ? { colWidths: opts.colWidths } : {}),
+    ...(opts.rowHeights !== undefined ? { rowHeights: opts.rowHeights } : {}),
+    ...(opts.firstRow !== undefined ? { firstRow: opts.firstRow } : {}),
+    ...(opts.bandRow !== undefined ? { bandRow: opts.bandRow } : {}),
+  });
+  return appendAndReturnNewShape(slide, frame);
+};
+
+/**
+ * Adds a picture to the slide from raw bytes. Returns the new shape.
+ *
+ * Allocates a `/ppt/media/imageN.<ext>` part, registers a Content_Types
+ * Default if the extension isn't yet covered, allocates a slide→image
+ * rel, and appends a `<p:pic>` element to the slide's `<p:spTree>`.
+ *
+ * Format is detected from magic bytes; pass `opts.format` to override.
+ */
+export const addSlideImage = (
+  slide: SlideData,
+  bytes: Uint8Array,
+  opts: { x: Emu; y: Emu; w: Emu; h: Emu; format?: ImageFormat; name?: string },
+): SlideShapeData => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const format = opts.format ?? detectImageFormat(bytes);
+  if (format === null) {
+    throw new Error('addSlideImage: could not detect image format. Pass options.format explicitly.');
+  }
+  const contentType = contentTypeForFormat(format);
+  const extension = extensionForFormat(format);
+
+  let nextN = 1;
+  const mediaPattern = /^\/ppt\/media\/image(\d+)\./;
+  for (const p of pkg.parts) {
+    const m = p.name.match(mediaPattern);
+    if (m?.[1] !== undefined) {
+      const n = Number.parseInt(m[1], 10);
+      if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+    }
+  }
+  const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
+
+  const hasDefault = pkg.contentTypes.defaults.some(
+    (d) => d.extension.toLowerCase() === extension,
+  );
+  if (!hasDefault) {
+    pkg.contentTypes.defaults.push({ extension, contentType });
+  }
+  pkg.addPart(newMediaName, contentType, bytes);
+
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const newRId = nextRelId(rels.items.map((r) => r.id));
+  rels.items.push({
+    id: newRId,
+    type: REL_TYPES.image,
+    target: `../media/image${nextN}.${extension}`,
+    targetMode: 'Internal',
+  });
+  pkg.setRels(slide[SLIDE_PART_NAME], rels);
+
+  const pic = buildPicture({
+    id: nextShapeId(slide),
+    ...(opts.name !== undefined ? { name: opts.name } : {}),
+    rEmbed: newRId,
+    x: opts.x,
+    y: opts.y,
+    w: opts.w,
+    h: opts.h,
+  });
+  return appendAndReturnNewShape(slide, pic);
+};
+
+// ---------------------------------------------------------------------------
+// Slide-level background + transition.
+
+const removeTransition = (slide: SlideData): void => {
+  slide[SLIDE_DOCUMENT].root.children = slide[SLIDE_DOCUMENT].root.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.pml &&
+        c.name.localName === 'transition'
+      ),
+  );
+};
+
+const insertAfterClrMapOvr = (slide: SlideData, t: XmlElement): void => {
+  const children = slide[SLIDE_DOCUMENT].root.children;
+  let insertAt = children.length;
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i];
+    if (c?.kind !== 'element' || c.name.namespaceURI !== NS.pml) continue;
+    if (c.name.localName === 'clrMapOvr') {
+      insertAt = i + 1;
+    } else if (c.name.localName === 'cSld' && insertAt === children.length) {
+      insertAt = i + 1;
+    }
+  }
+  children.splice(insertAt, 0, t);
+};
+
+/** Sets the slide's transition effect. */
+export const setSlideTransition = (slide: SlideData, options: TransitionOptions): void => {
+  removeTransition(slide);
+  insertAfterClrMapOvr(slide, buildTransition(options));
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+/** Removes any existing transition on the slide. */
+export const clearSlideTransition = (slide: SlideData): void => {
+  removeTransition(slide);
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+const setSlideBackgroundXml = (
+  slide: SlideData,
+  configure: (bgPr: XmlElement) => void,
+): void => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('slide has no <p:cSld>');
+  const bgName = qname('p', 'bg', NS.pml);
+  const bgPrName = qname('p', 'bgPr', NS.pml);
+  let bg = firstChildElement(cSld, bgName);
+  if (bg === null) {
+    bg = { kind: 'element', name: bgName, attrs: [], prefixDecls: new Map(), children: [] };
+    cSld.children.unshift(bg);
+  }
+  bg.children = [];
+  const bgPr: XmlElement = {
+    kind: 'element',
+    name: bgPrName,
+    attrs: [],
+    prefixDecls: new Map(),
+    children: [],
+  };
+  bg.children.push(bgPr);
+  configure(bgPr);
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+/** Sets a solid fill on the slide's background. */
+export const setSlideBackground = (slide: SlideData, color: string): void => {
+  setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
+};
+
+/** Clears any explicit slide background, restoring layout inheritance. */
+export const clearSlideBackground = (slide: SlideData): void => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) return;
+  cSld.children = cSld.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'bg'),
+  );
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+// ---------------------------------------------------------------------------
+// Speaker notes.
+
+const findNotesPartName = (slide: SlideData): PartName | null => {
+  const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const notesRel = rels.items.find((r) => r.type === REL_TYPES.notesSlide);
+  if (!notesRel) return null;
+  return notesRel.target.startsWith('/')
+    ? partName(notesRel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], notesRel.target);
+};
+
+/**
+ * Returns the slide's speaker notes (`null` if none). Pulls plain text
+ * from the `body` placeholder; multi-line notes use `\n`.
+ */
+export const getSlideNotes = (slide: SlideData): string | null => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return null;
+  const part = slide[INTERNAL_PACKAGE].getPart(notesPartName);
+  if (part === null) return null;
+  const root = parseXml(decode(part.data)).root;
+  const cSld = firstChildElement(root, NAME_CSLD);
+  if (!cSld) return null;
+  const spTree = firstChildElement(cSld, NAME_SP_TREE);
+  if (!spTree) return null;
+  for (const child of spTree.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
+    if (child.name.localName !== 'sp') continue;
+    const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+    if (!nvSpPr) continue;
+    const nvPr = firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+    if (!nvPr) continue;
+    const ph = firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+    if (!ph) continue;
+    const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+    if (!txBody) continue;
+    const lines: string[] = [];
+    for (const p of txBody.children) {
+      if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
+        continue;
+      }
+      let line = '';
+      for (const r of p.children) {
+        if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
+          continue;
+        }
+        for (const tElement of r.children) {
+          if (
+            tElement.kind === 'element' &&
+            tElement.name.namespaceURI === NS.dml &&
+            tElement.name.localName === 't'
+          ) {
+            for (const tc of tElement.children) {
+              if (tc.kind === 'text') line += tc.data;
+            }
+          }
+        }
+      }
+      lines.push(line);
+    }
+    return lines.join('\n');
+  }
+  return null;
+};
+
+/**
+ * Sets the slide's speaker notes. Creates the `notesSlide` part and
+ * wires up the rels (slide ↔ notesSlide ↔ notesMaster) on first call;
+ * subsequent calls just replace the body placeholder text.
+ */
+export const setSlideNotes = (slide: SlideData, value: string): void => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName !== null) {
+    const part = pkg.getPart(notesPartName);
+    if (part === null) throw new Error(`notes rel points at missing part ${notesPartName}`);
+    const doc = parseXml(decode(part.data));
+    const cSld = firstChildElement(doc.root, NAME_CSLD);
+    if (!cSld) throw new Error('notesSlide has no <p:cSld>');
+    const spTree = firstChildElement(cSld, NAME_SP_TREE);
+    if (!spTree) throw new Error('notesSlide has no <p:spTree>');
+    for (const child of spTree.children) {
+      if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
+      if (child.name.localName !== 'sp') continue;
+      const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+      if (!nvSpPr) continue;
+      const nvPr = firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+      if (!nvPr) continue;
+      const ph = firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+      if (!ph) continue;
+      const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+      if (!txBody) continue;
+      setTextBody(txBody, value);
+      part.data = encode(serializeXml(doc));
+      return;
+    }
+    throw new Error('notesSlide has no body placeholder to fill');
+  }
+
+  // Create a new notesSlide part.
+  const notesMasterPart = pkg.parts.find((p) => p.contentType.endsWith('notesMaster+xml'));
+  let nextN = 1;
+  const pattern = /^\/ppt\/notesSlides\/notesSlide(\d+)\.xml$/;
+  for (const p of pkg.parts) {
+    const m = p.name.match(pattern);
+    if (m?.[1] !== undefined) {
+      const n = Number.parseInt(m[1], 10);
+      if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+    }
+  }
+  const notesName = partName(`/ppt/notesSlides/notesSlide${nextN}.xml`);
+  const doc = buildEmptyNotesSlide(value);
+  pkg.addPart(
+    notesName,
+    'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml',
+    encode(serializeXml(doc)),
+  );
+
+  const notesRels = emptyRels();
+  const slideBase = slide[SLIDE_PART_NAME].split('/').pop() ?? 'slide.xml';
+  notesRels.items.push({
+    id: 'rId1',
+    type: REL_TYPES.slide,
+    target: `../slides/${slideBase}`,
+    targetMode: 'Internal',
+  });
+  if (notesMasterPart) {
+    const notesMasterBase = notesMasterPart.name.split('/').pop() ?? 'notesMaster1.xml';
+    notesRels.items.push({
+      id: 'rId2',
+      type: REL_TYPES.notesMaster,
+      target: `../notesMasters/${notesMasterBase}`,
+      targetMode: 'Internal',
+    });
+  }
+  pkg.setRels(notesName, notesRels);
+
+  const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const existingIds = slideRels.items.map((r) => r.id);
+  let n = 1;
+  while (existingIds.includes(`rId${n}`)) n++;
+  slideRels.items.push({
+    id: `rId${n}`,
+    type: REL_TYPES.notesSlide,
+    target: `../notesSlides/notesSlide${nextN}.xml`,
+    targetMode: 'Internal',
+  });
+  pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+};
+
+// ---------------------------------------------------------------------------
+// Shape image replacement.
+
+/**
+ * Replaces a picture's media with `bytes`. Same-format replacements
+ * write in place; cross-format replacements allocate a new media part
+ * and repoint the rel. The original geometry — crop, sizing, transform —
+ * is preserved.
+ */
+export const setShapeImage = (
+  shape: SlideShapeData,
+  bytes: Uint8Array,
+  options: { format?: ImageFormat } = {},
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
+    throw new Error(`setShapeImage only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`);
+  }
+  const format = options.format ?? detectImageFormat(bytes);
+  if (format === null) {
+    throw new Error('setShapeImage: could not detect image format. Pass options.format explicitly.');
+  }
+  const rEmbed = getPictureEmbedRId(shape[SHAPE_ELEMENT]);
+  if (rEmbed === null) {
+    throw new Error(`picture "${shape[SHAPE_SNAPSHOT].name}" has no r:embed`);
+  }
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (rels === null) throw new Error(`slide ${slide[SLIDE_PART_NAME]} has no rels`);
+  const rel = rels.items.find((r) => r.id === rEmbed);
+  if (!rel) throw new Error(`slide rels missing entry for r:embed="${rEmbed}"`);
+
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+  const newExtension = extensionForFormat(format);
+  const newContentType = contentTypeForFormat(format);
+  const dotIdx = mediaName.lastIndexOf('.');
+  const currentExtension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1).toLowerCase() : '';
+
+  if (currentExtension === newExtension) {
+    const part = pkg.getPart(mediaName);
+    if (!part) throw new Error(`media part missing: ${mediaName}`);
+    part.data = bytes;
+    part.contentType = newContentType;
+    return;
+  }
+
+  let nextN = 1;
+  const mediaPathRegex = /^\/ppt\/media\/image(\d+)\./;
+  for (const p of pkg.parts) {
+    const m = p.name.match(mediaPathRegex);
+    if (m?.[1] !== undefined) {
+      const num = Number.parseInt(m[1], 10);
+      if (Number.isFinite(num) && num >= nextN) nextN = num + 1;
+    }
+  }
+  const newPartName = partName(`/ppt/media/image${nextN}.${newExtension}`);
+  const hasDefault = pkg.contentTypes.defaults.some(
+    (d) => d.extension.toLowerCase() === newExtension,
+  );
+  if (!hasDefault) {
+    pkg.contentTypes.defaults.push({ extension: newExtension, contentType: newContentType });
+  }
+  pkg.addPart(newPartName, newContentType, bytes);
+  rel.target = `../media/image${nextN}.${newExtension}`;
+  pkg.setRels(slide[SLIDE_PART_NAME], rels);
 };
