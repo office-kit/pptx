@@ -8,7 +8,6 @@ import {
   addSlide,
   getSlideLayouts,
   getSlideTitle,
-  getSlides,
   loadPresentation,
   savePresentation,
   setSlideTitle,

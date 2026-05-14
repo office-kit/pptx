@@ -2218,6 +2218,94 @@ export const validatePresentation = (pres: PresentationData): ReadonlyArray<Vali
   validatePresentationPackage(pres[INTERNAL_PACKAGE]);
 
 // ---------------------------------------------------------------------------
+// Picture cropping — `<a:srcRect>` inside the picture's `<p:blipFill>`.
+//
+// Percentages are 0-1 fractions per side, converted to ECMA-376's
+// `ST_Percentage` units (1/1000 of a percent, so 0.25 → "25000"). Pass
+// `null` to remove an existing crop.
+
+/** Crop a picture by fraction of each side. Omitted sides default to 0. */
+export interface ImageCrop {
+  readonly left?: number;
+  readonly top?: number;
+  readonly right?: number;
+  readonly bottom?: number;
+}
+
+const NAME_BLIP_FILL_FN = qname('p', 'blipFill', NS.pml);
+const NAME_SRC_RECT_FN = qname('a', 'srcRect', NS.dml);
+const NAME_BLIP_FN = qname('a', 'blip', NS.dml);
+const ATTR_CROP_L = qname('', 'l', '');
+const ATTR_CROP_T = qname('', 't', '');
+const ATTR_CROP_R = qname('', 'r', '');
+const ATTR_CROP_B = qname('', 'b', '');
+
+const fractionToST = (n: number | undefined): string | null => {
+  if (n === undefined || n === 0) return null;
+  if (!Number.isFinite(n) || n < 0 || n >= 1) {
+    throw new RangeError(`crop fraction must be in [0, 1), got ${n}`);
+  }
+  return String(Math.round(n * 100000));
+};
+
+/**
+ * Sets (or clears) a `<a:srcRect>` on a picture shape, cropping the
+ * embedded image by the given fraction on each side. Pass `null` to
+ * remove an existing crop.
+ *
+ * Fractions are in `[0, 1)` per side. `{ left: 0.25 }` clips 25% off
+ * the left edge; the visible image stretches to fill the original
+ * frame. The shape's geometry (`<a:xfrm>`) is unchanged.
+ */
+export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
+    throw new Error(
+      `setShapeImageCrop only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const pic = shape[SHAPE_ELEMENT];
+  const blipFill = firstChildElement(pic, NAME_BLIP_FILL_FN);
+  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+
+  // Remove any existing srcRect first.
+  blipFill.children = blipFill.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'srcRect'),
+  );
+
+  if (crop === null) {
+    commitAndRefresh(shape);
+    return;
+  }
+
+  const attrs: Array<ReturnType<typeof attr>> = [];
+  const l = fractionToST(crop.left);
+  const t = fractionToST(crop.top);
+  const r = fractionToST(crop.right);
+  const b = fractionToST(crop.bottom);
+  if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
+  if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
+  if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
+  if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
+
+  // <a:srcRect> sits between <a:blip> and <a:stretch> per the schema.
+  const srcRect = elem(NAME_SRC_RECT_FN, { attrs });
+  const blipIdx = blipFill.children.findIndex(
+    (c) =>
+      c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'blip',
+  );
+  if (blipIdx === -1) {
+    // No <a:blip>? Just prepend the srcRect.
+    blipFill.children.unshift(srcRect);
+  } else {
+    blipFill.children.splice(blipIdx + 1, 0, srcRect);
+  }
+  commitAndRefresh(shape);
+};
+
+void NAME_BLIP_FN;
+
+// ---------------------------------------------------------------------------
 // Animations (single-effect, click-triggered).
 //
 // v1 scope: exactly one effect per slide, click-triggered, entrance or

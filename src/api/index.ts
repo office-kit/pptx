@@ -38,6 +38,7 @@ export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/inde
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
+export type { ImageCrop } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -96,6 +97,7 @@ export {
   setShapeFlip,
   setShapeHyperlink,
   setShapeImage,
+  setShapeImageCrop,
   setShapeNoFill,
   setShapeNoStroke,
   setShapePosition,
