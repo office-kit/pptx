@@ -6,8 +6,9 @@
 
 import { partName } from '../internal/opc/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
-import { readPresentationPart } from '../internal/presentationml/index.ts';
+import { readPresentationPart, readSlideLayoutPart } from '../internal/presentationml/index.ts';
 import { parseXml } from '../internal/xml/index.ts';
+import { SlideLayout } from './slide-layout.ts';
 import { _internalCreateSlide, type Slide } from './slide.ts';
 
 /**
@@ -142,6 +143,30 @@ export class Presentation {
       n += slide.replaceTokens(tokens);
     }
     return n;
+  }
+
+  /**
+   * Every slide layout in the package, in the order their parts appear on
+   * disk. Read-only at this phase; authoring methods will land alongside
+   * `Presentation.slides.add(...)`.
+   *
+   * Layouts are surfaced flat rather than grouped under their slide master
+   * because most callers want to pick one by name (`Title and Content`),
+   * not navigate the master → layouts tree.
+   */
+  get slideLayouts(): ReadonlyArray<SlideLayout> {
+    const pkg = this[INTERNAL_PACKAGE];
+    const out: SlideLayout[] = [];
+    for (const part of pkg.parts) {
+      if (
+        part.contentType ===
+        'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
+      ) {
+        const root = parseXml(new TextDecoder().decode(part.data)).root;
+        out.push(new SlideLayout(part.name, readSlideLayoutPart(root)));
+      }
+    }
+    return out;
   }
 
   /** @internal */

@@ -155,6 +155,30 @@ const collectShapes = (spTree: XmlElement, out: SlideShape[], recurseIntoGroups:
 };
 
 /**
+ * Reads the shape tree from a slide / layout / master root element.
+ * Exported so the sibling readers (`readSlideLayoutPart`,
+ * `readSlideMasterPart`) can reuse it.
+ */
+export const readShapeTreeFromCsldRoot = (
+  root: XmlElement,
+  expectedLocalName: 'sld' | 'sldLayout' | 'sldMaster',
+  options: { recurseIntoGroups?: boolean } = {},
+): { shapes: SlideShape[]; cSld: XmlElement } => {
+  if (root.name.namespaceURI !== NS.pml || root.name.localName !== expectedLocalName) {
+    throw new Error(
+      `expected <p:${expectedLocalName}>, got <${root.name.prefix}:${root.name.localName}>`,
+    );
+  }
+  const cSld = firstChildElement(root, NAME_CSLD);
+  if (cSld === null) throw new Error(`<p:${expectedLocalName}>: missing <p:cSld>`);
+  const spTree = firstChildElement(cSld, NAME_SP_TREE);
+  if (spTree === null) throw new Error('<p:cSld>: missing <p:spTree>');
+  const shapes: SlideShape[] = [];
+  collectShapes(spTree, shapes, options.recurseIntoGroups ?? true);
+  return { shapes, cSld };
+};
+
+/**
  * Parses a slide root element (`p:sld`) into the typed view above.
  *
  * `recurseIntoGroups` controls whether group descendants are flattened into
@@ -165,16 +189,7 @@ export const readSlidePart = (
   root: XmlElement,
   options: { recurseIntoGroups?: boolean } = {},
 ): SlidePart => {
-  if (root.name.namespaceURI !== NS.pml || root.name.localName !== 'sld') {
-    throw new Error(`expected <p:sld>, got <${root.name.prefix}:${root.name.localName}>`);
-  }
-  const cSld = firstChildElement(root, NAME_CSLD);
-  if (cSld === null) throw new Error('<p:sld>: missing <p:cSld>');
-  const spTree = firstChildElement(cSld, NAME_SP_TREE);
-  if (spTree === null) throw new Error('<p:cSld>: missing <p:spTree>');
-
-  const shapes: SlideShape[] = [];
-  collectShapes(spTree, shapes, options.recurseIntoGroups ?? true);
+  const { shapes } = readShapeTreeFromCsldRoot(root, 'sld', options);
   return { shapes, root };
 };
 

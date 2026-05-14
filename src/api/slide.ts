@@ -16,6 +16,8 @@ import {
   setTextBody,
   type Size,
 } from '../internal/drawingml/index.ts';
+import { REL_TYPES, readSlideLayoutPart } from '../internal/presentationml/index.ts';
+import { SlideLayout } from './slide-layout.ts';
 import {
   type ImageFormat,
   type PartName,
@@ -99,6 +101,27 @@ export class Slide {
   /** Concatenated visible text from every shape. */
   get text(): string {
     return slideText(this._part);
+  }
+
+  /**
+   * The slide layout this slide is bound to, or `null` if the slide has no
+   * layout relationship (which is malformed for a PPTX but tolerated here).
+   *
+   * Looked up via the slide's `.rels` graph: the unique rel whose type is
+   * the `slideLayout` relationship type points at the layout part.
+   */
+  get layout(): SlideLayout | null {
+    const rels = this._pkg.getRels(this._partName);
+    if (rels === null) return null;
+    const layoutRel = rels.items.find((r) => r.type === REL_TYPES.slideLayout);
+    if (!layoutRel) return null;
+    const layoutName = layoutRel.target.startsWith('/')
+      ? partName(layoutRel.target)
+      : resolveTarget(this._partName, layoutRel.target);
+    const layoutPart = this._pkg.getPart(layoutName);
+    if (layoutPart === null) return null;
+    const root = parseXml(decoder.decode(layoutPart.data)).root;
+    return new SlideLayout(layoutName, readSlideLayoutPart(root));
   }
 
   /**
