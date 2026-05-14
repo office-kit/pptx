@@ -4,7 +4,13 @@
 // save, and a read-only `slides` view. Authoring methods land as the
 // internal PresentationML / DrawingML layers grow real width.
 
-import { basename, emptyRels, nextRelId, partName } from '../internal/opc/index.ts';
+import {
+  basename,
+  emptyRels,
+  nextRelId,
+  partName,
+  relsPartNameFor,
+} from '../internal/opc/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
 import {
   REL_TYPES,
@@ -333,6 +339,69 @@ export class Presentation {
     const lastSlide = slides[slides.length - 1];
     if (!lastSlide) throw new Error('addSlide: post-condition failed; slide not in cache');
     return lastSlide;
+  }
+
+  /**
+   * Removes the given slide from the deck.
+   *
+   * Side effects:
+   *
+   *   - The slide's `<p:sldId>` entry is dropped from `<p:sldIdLst>`.
+   *   - The slide's relationship is removed from `presentation.xml.rels`.
+   *   - The slide part and its sibling `.rels` part are deleted from the
+   *     package, along with their `Content_Types` `Override` entries.
+   *
+   * The freed `sldId` is NOT reused on subsequent `addSlide` calls — older
+   * PowerPoint builds mis-routed relationships when an id came back from
+   * the dead, and the plan calls this out as a fixed-from-day-one quirk.
+   *
+   * Media parts referenced from the removed slide are kept in place: they
+   * may be shared with other slides, and orphan media is harmless.
+   *
+   * Throws if `slide` does not belong to this presentation.
+   */
+  removeSlide(slide: Slide): void {
+    const pkg = this[INTERNAL_PACKAGE];
+    const slidePartName = slide._partName;
+
+    // Sanity: confirm the slide is in this package.
+    if (pkg.getPart(slidePartName) === null) {
+      throw new Error(`removeSlide: ${slidePartName} not present in package`);
+    }
+
+    // 1. Drop the rel from presentation.xml.rels and find its rId.
+    const presRels = pkg.getRels(PRES_PART_NAME);
+    if (!presRels) throw new Error('presentation.xml has no rels');
+    const slideTargetRel = `slides/${basename(slidePartName)}`;
+    const removedRel = presRels.items.find(
+      (r) => r.type === REL_TYPES.slide && r.target === slideTargetRel,
+    );
+    if (!removedRel) {
+      throw new Error(`presentation.xml.rels missing entry for slide ${slidePartName}`);
+    }
+    presRels.items = presRels.items.filter((r) => r.id !== removedRel.id);
+    pkg.setRels(PRES_PART_NAME, presRels);
+
+    // 2. Drop the `<p:sldId>` entry that pointed at that rId.
+    const presPart = pkg.getPart(PRES_PART_NAME);
+    if (!presPart) throw new Error('presentation.xml missing');
+    const presDoc = parseXml(decoder.decode(presPart.data));
+    const sldIdLst = firstChildElement(presDoc.root, NAME_SLD_ID_LST);
+    if (sldIdLst !== null) {
+      sldIdLst.children = sldIdLst.children.filter((c) => {
+        if (c.kind !== 'element') return true;
+        if (c.name.namespaceURI !== NS.pml || c.name.localName !== 'sldId') return true;
+        return getAttrValue(c, ATTR_R_ID) !== removedRel.id;
+      });
+    }
+    presPart.data = encoder.encode(serializeXml(presDoc));
+
+    // 3. Remove the slide's `.rels` part and the slide part itself.
+    pkg.removePart(relsPartNameFor(slidePartName));
+    pkg.removePart(slidePartName);
+
+    // 4. Invalidate the cached slides array.
+    this._slidesCache = null;
   }
 
   /** @internal */
