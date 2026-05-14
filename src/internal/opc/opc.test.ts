@@ -1,0 +1,221 @@
+import { describe, expect, it } from 'vitest';
+import {
+  basename,
+  dirname,
+  emptyContentTypes,
+  emptyRels,
+  fromZipPath,
+  lookupContentType,
+  nextRelId,
+  parseContentTypes,
+  parseRels,
+  partName,
+  partNamesEqual,
+  readZip,
+  relsPartNameFor,
+  resolveTarget,
+  serializeContentTypes,
+  serializeRels,
+  shouldStore,
+  toZipPath,
+  writeZip,
+} from './index.ts';
+
+const utf8 = (s: string): Uint8Array => new TextEncoder().encode(s);
+const decode = (b: Uint8Array): string => new TextDecoder().decode(b);
+
+describe('zip', () => {
+  it('round-trips a small archive preserving entry order', () => {
+    const original = [
+      { name: 'a.xml', data: utf8('<a/>') },
+      { name: 'b/c.xml', data: utf8('<c/>') },
+      { name: 'd.bin', data: new Uint8Array([1, 2, 3]) },
+    ];
+    const zip = writeZip(original);
+    const out = readZip(zip);
+    expect(out.entries.map((e) => e.name)).toEqual(original.map((e) => e.name));
+    for (let i = 0; i < original.length; i++) {
+      expect(out.entries[i]?.data).toEqual(original[i]?.data);
+    }
+  });
+
+  it('classifies known-compressed extensions as STORE', () => {
+    expect(shouldStore('media/image1.png')).toBe(true);
+    expect(shouldStore('media/image1.JPG')).toBe(true);
+    expect(shouldStore('audio.mp3')).toBe(true);
+    expect(shouldStore('ppt/slides/slide1.xml')).toBe(false);
+    expect(shouldStore('plain.txt')).toBe(false);
+    expect(shouldStore('noext')).toBe(false);
+  });
+});
+
+describe('part names', () => {
+  it('accepts valid names', () => {
+    expect(partName('/ppt/slides/slide1.xml')).toBe('/ppt/slides/slide1.xml');
+    expect(partName('/x')).toBe('/x');
+  });
+
+  it('rejects invalid names', () => {
+    expect(() => partName('')).toThrow();
+    expect(() => partName('no-leading-slash.xml')).toThrow();
+    expect(() => partName('/trailing/')).toThrow();
+    expect(() => partName('/a//b')).toThrow();
+    expect(() => partName('/a/./b')).toThrow();
+    expect(() => partName('/a/../b')).toThrow();
+  });
+
+  it('compares case-insensitively', () => {
+    expect(
+      partNamesEqual(partName('/Ppt/Slides/SLIDE1.xml'), partName('/ppt/slides/slide1.xml')),
+    ).toBe(true);
+    expect(partNamesEqual(partName('/a.xml'), partName('/b.xml'))).toBe(false);
+  });
+
+  it('converts to/from zip paths', () => {
+    const pn = partName('/ppt/x.xml');
+    expect(toZipPath(pn)).toBe('ppt/x.xml');
+    expect(fromZipPath('ppt/x.xml')).toBe('/ppt/x.xml');
+  });
+
+  it('computes dirname and basename', () => {
+    expect(dirname(partName('/ppt/slides/slide1.xml'))).toBe('/ppt/slides');
+    expect(basename(partName('/ppt/slides/slide1.xml'))).toBe('slide1.xml');
+    expect(dirname(partName('/top.xml'))).toBe('/');
+  });
+
+  it('locates the rels part name', () => {
+    expect(relsPartNameFor(partName('/ppt/presentation.xml'))).toBe(
+      '/ppt/_rels/presentation.xml.rels',
+    );
+    expect(relsPartNameFor(partName('/ppt/slides/slide1.xml'))).toBe(
+      '/ppt/slides/_rels/slide1.xml.rels',
+    );
+  });
+
+  it('resolves relative relationship targets against a base', () => {
+    const base = partName('/ppt/slides/slide1.xml');
+    expect(resolveTarget(base, '../slideLayouts/slideLayout1.xml')).toBe(
+      '/ppt/slideLayouts/slideLayout1.xml',
+    );
+    expect(resolveTarget(base, '../media/image1.png')).toBe('/ppt/media/image1.png');
+    expect(resolveTarget(base, '/ppt/theme/theme1.xml')).toBe('/ppt/theme/theme1.xml');
+  });
+
+  it('rejects targets that escape the package root', () => {
+    expect(() => resolveTarget(partName('/a.xml'), '../escape.xml')).toThrow();
+  });
+});
+
+describe('Content_Types', () => {
+  const sampleXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/></Types>`;
+
+  it('parses defaults and overrides', () => {
+    const ct = parseContentTypes(sampleXml);
+    expect(ct.defaults).toEqual([
+      {
+        extension: 'rels',
+        contentType: 'application/vnd.openxmlformats-package.relationships+xml',
+      },
+      { extension: 'xml', contentType: 'application/xml' },
+    ]);
+    expect(ct.overrides[0]?.partName).toBe('/ppt/presentation.xml');
+  });
+
+  it('round-trips byte-equivalent', () => {
+    const ct = parseContentTypes(sampleXml);
+    expect(serializeContentTypes(ct)).toBe(sampleXml);
+  });
+
+  it('looks up content type via Override then Default', () => {
+    const ct = parseContentTypes(sampleXml);
+    expect(lookupContentType(ct, partName('/ppt/presentation.xml'))).toBe(
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    );
+    expect(lookupContentType(ct, partName('/_rels/.rels'))).toBe(
+      'application/vnd.openxmlformats-package.relationships+xml',
+    );
+    expect(lookupContentType(ct, partName('/unknown/file.bin'))).toBeNull();
+  });
+
+  it('rejects non-Types root', () => {
+    expect(() => parseContentTypes('<NotTypes/>')).toThrow();
+  });
+
+  it('provides an empty starter value', () => {
+    const ct = emptyContentTypes();
+    expect(ct.defaults.length).toBe(2);
+    expect(ct.overrides.length).toBe(0);
+  });
+});
+
+describe('rels', () => {
+  const sampleXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink" Target="https://example.com" TargetMode="External"/></Relationships>`;
+
+  it('parses relationships including TargetMode', () => {
+    const rels = parseRels(sampleXml);
+    expect(rels.items.length).toBe(3);
+    expect(rels.items[0]).toEqual({
+      id: 'rId1',
+      type: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+      target: 'ppt/presentation.xml',
+      targetMode: 'Internal',
+    });
+    expect(rels.items[2]?.targetMode).toBe('External');
+  });
+
+  it('round-trips byte-equivalent', () => {
+    const rels = parseRels(sampleXml);
+    expect(serializeRels(rels)).toBe(sampleXml);
+  });
+
+  it('rejects malformed input', () => {
+    expect(() => parseRels('<Relationships xmlns="urn:wrong"/>')).toThrow();
+  });
+
+  it('next rId picks the smallest free number after the existing max', () => {
+    expect(nextRelId([])).toBe('rId1');
+    expect(nextRelId(['rId1', 'rId2'])).toBe('rId3');
+    expect(nextRelId(['rId7', 'rId2'])).toBe('rId8');
+    // Non-conforming IDs are tolerated and ignored for the counter.
+    expect(nextRelId(['xyz', 'rId5'])).toBe('rId6');
+  });
+
+  it('exposes an empty starter value', () => {
+    expect(emptyRels()).toEqual({ items: [] });
+  });
+});
+
+describe('OPC end-to-end zip + content-types + rels round-trip', () => {
+  it('round-trips a synthetic minimal package', () => {
+    // Build a package whose only "interesting" parts are the package-root
+    // rels (one relationship to a fake presentation.xml) and a
+    // [Content_Types].xml describing both. This is the absolute minimum that
+    // exercises the OPC layer without yet requiring PresentationML.
+    const ct = emptyContentTypes();
+    ct.overrides.push({
+      partName: partName('/ppt/presentation.xml'),
+      contentType:
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    });
+    const rootRels = parseRels(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/></Relationships>`,
+    );
+
+    const entries = [
+      { name: '[Content_Types].xml', data: utf8(serializeContentTypes(ct)) },
+      { name: '_rels/.rels', data: utf8(serializeRels(rootRels)) },
+      { name: 'ppt/presentation.xml', data: utf8('<p:sld xmlns:p="urn:p"/>') },
+    ];
+    const bytes = writeZip(entries);
+
+    const re = readZip(bytes);
+    expect(re.entries.map((e) => e.name)).toEqual(entries.map((e) => e.name));
+
+    const ctOut = parseContentTypes(decode(re.entries[0]?.data ?? new Uint8Array()));
+    const relsOut = parseRels(decode(re.entries[1]?.data ?? new Uint8Array()));
+    expect(lookupContentType(ctOut, partName('/ppt/presentation.xml'))).toBe(
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml',
+    );
+    expect(relsOut.items[0]?.target).toBe('ppt/presentation.xml');
+  });
+});
