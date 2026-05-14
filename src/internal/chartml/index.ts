@@ -3,5 +3,6 @@
 
 export type { ChartKind, ChartSeries, ChartSpec } from './types.ts';
 export { buildChartSpaceDoc } from './chart-builder.ts';
+export { readChartSpec } from './chart-reader.ts';
 export type { DataRow } from './embedded-xlsx.ts';
 export { buildEmbeddedXlsx, cellAddr, cellRange } from './embedded-xlsx.ts';

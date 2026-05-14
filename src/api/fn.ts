@@ -113,6 +113,7 @@ import {
   type ChartSpec,
   buildChartSpaceDoc,
   buildEmbeddedXlsx,
+  readChartSpec,
 } from '../internal/chartml/index.ts';
 import {
   NS,
@@ -3143,6 +3144,60 @@ export const addSlideChart = (
 
 // Re-export chart types for consumers.
 export type { ChartKind, ChartSeries, ChartSpec };
+
+/**
+ * A chart sitting on a slide. `shape` is the `<p:graphicFrame>`
+ * wrapper; `spec` is the chart definition parsed from the linked
+ * `/ppt/charts/chart{N}.xml` part. `null` `spec` means the chart uses
+ * a kind we don't model (callers can fall through to pass-through).
+ */
+export interface SlideChartData {
+  readonly shape: SlideShapeData;
+  readonly spec: ChartSpec | null;
+}
+
+const NAME_A_GRAPHIC_FN = qname('a', 'graphic', NS.dml);
+const NAME_A_GRAPHIC_DATA_FN = qname('a', 'graphicData', NS.dml);
+const NAME_C_CHART_FN = qname('c', 'chart', NS.chart);
+
+/**
+ * Returns every chart on the slide, with its `ChartSpec` parsed from
+ * the linked chart part. Skips graphic frames that don't carry a
+ * `<c:chart>` reference (e.g. tables, diagrams).
+ */
+export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const out: SlideChartData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (shape[SHAPE_SNAPSHOT].kind !== 'graphicFrame') continue;
+    const graphic = firstChildElement(shape[SHAPE_ELEMENT], NAME_A_GRAPHIC_FN);
+    if (!graphic) continue;
+    const graphicData = firstChildElement(graphic, NAME_A_GRAPHIC_DATA_FN);
+    if (!graphicData) continue;
+    const chartRef = firstChildElement(graphicData, NAME_C_CHART_FN);
+    if (!chartRef) continue;
+    const rId = getAttrValue(chartRef, qname('r', 'id', NS.officeDocRels));
+    if (rId === null) continue;
+    const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]);
+    if (!slideRels) continue;
+    const rel = slideRels.items.find((r) => r.id === rId);
+    if (!rel) continue;
+    const chartPartName = rel.target.startsWith('/')
+      ? partName(rel.target)
+      : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+    const chartPart = pkg.getPart(chartPartName);
+    if (!chartPart) continue;
+    let spec: ChartSpec | null;
+    try {
+      const root = parseXml(decode(chartPart.data)).root;
+      spec = readChartSpec(root);
+    } catch {
+      spec = null;
+    }
+    out.push({ shape, spec });
+  }
+  return out;
+};
 
 void textNode;
 
