@@ -3,30 +3,36 @@
   "version": "0.0.0",
   "description": "Generate and edit .pptx (OOXML PresentationML) files from TypeScript, in Node and the browser.",
   "keywords": [
-    "pptx",
-    "powerpoint",
-    "ooxml",
-    "ecma-376",
-    "presentationml",
     "drawingml",
+    "ecma-376",
     "office",
-    "presentation"
+    "ooxml",
+    "powerpoint",
+    "pptx",
+    "presentation",
+    "presentationml"
   ],
+  "homepage": "https://github.com/baseballyama/pptx-kit#readme",
+  "bugs": {
+    "url": "https://github.com/baseballyama/pptx-kit/issues"
+  },
   "license": "MIT",
   "author": "Yuichiro Yamashita",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/baseballyama/pptx-kit.git"
   },
-  "bugs": {
-    "url": "https://github.com/baseballyama/pptx-kit/issues"
-  },
-  "homepage": "https://github.com/baseballyama/pptx-kit#readme",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "type": "module",
   "sideEffects": false,
-  "engines": {
-    "node": ">=20"
-  },
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -38,37 +44,37 @@
     },
     "./package.json": "./package.json"
   },
-  "main": "./dist/index.js",
-  "module": "./dist/index.js",
-  "types": "./dist/index.d.ts",
-  "files": ["dist", "README.md", "LICENSE", "CHANGELOG.md"],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "format": "biome format --write .",
-    "format:check": "biome format .",
+    "lint": "oxlint",
+    "lint:fix": "oxlint --fix",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
     "test": "vitest run",
     "test:watch": "vitest",
     "changeset": "changeset",
     "release": "changeset publish",
     "prepublishOnly": "pnpm run build"
   },
+  "dependencies": {
+    "fflate": "^0.8.2"
+  },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
     "@changesets/cli": "^2.27.11",
     "@types/node": "^20.17.10",
+    "oxfmt": "^0.49.0",
+    "oxlint": "^1.64.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },
-  "publishConfig": {
-    "access": "public",
-    "provenance": true
-  },
-  "dependencies": {
-    "fflate": "^0.8.2"
+  "engines": {
+    "node": ">=20"
   }
 }

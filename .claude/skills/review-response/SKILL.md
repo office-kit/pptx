@@ -10,18 +10,18 @@ GitHub review comments are a back-and-forth, not a checklist. The right loop:
 
 ## Principles
 
-| Principle                  | Detail                                                                |
-| -------------------------- | --------------------------------------------------------------------- |
-| Only unresolved threads    | If the reviewer marked it resolved, don't reopen it.                  |
-| One at a time              | Even with many comments, address them sequentially.                   |
-| Always reply               | Every comment gets a response — fix or explain.                       |
-| Reference the commit hash  | Replies that say "fixed" without a hash leave the reviewer guessing.  |
-| Decline with a reason      | "Won't fix" is fine; silent or hand-wavy "won't fix" is not.          |
-| Get user approval first    | Decide the plan with the user before posting anything visible.        |
+| Principle                 | Detail                                                               |
+| ------------------------- | -------------------------------------------------------------------- |
+| Only unresolved threads   | If the reviewer marked it resolved, don't reopen it.                 |
+| One at a time             | Even with many comments, address them sequentially.                  |
+| Always reply              | Every comment gets a response — fix or explain.                      |
+| Reference the commit hash | Replies that say "fixed" without a hash leave the reviewer guessing. |
+| Decline with a reason     | "Won't fix" is fine; silent or hand-wavy "won't fix" is not.         |
+| Get user approval first   | Decide the plan with the user before posting anything visible.       |
 
 ## Step 0 — Fetch unresolved threads
 
-GitHub's REST endpoint returns *all* review comments — including resolved ones. Use
+GitHub's REST endpoint returns _all_ review comments — including resolved ones. Use
 GraphQL to filter for unresolved.
 
 ```bash
@@ -69,18 +69,18 @@ Also fetch:
 
 Before writing any code or replies, present the plan as a table:
 
-| #   | Where                  | Comment (summary)               | Decision               | Plan                                        |
-| --- | ---------------------- | ------------------------------- | ---------------------- | ------------------------------------------- |
-| 1   | src/foo.ts:42          | Possible N+1 in this loop       | **Fix**                | Replace `find` with `Map`-based lookup.     |
-| 2   | src/bar.ts:17          | Should add a comment here       | **Decline (won't fix)** | The function name already states this. Reply explaining. |
-| 3   | docs/README.md:108     | Typo: "lenght" → "length"       | **Fix**                | One-character change.                       |
+| #   | Where              | Comment (summary)         | Decision                | Plan                                                     |
+| --- | ------------------ | ------------------------- | ----------------------- | -------------------------------------------------------- |
+| 1   | src/foo.ts:42      | Possible N+1 in this loop | **Fix**                 | Replace `find` with `Map`-based lookup.                  |
+| 2   | src/bar.ts:17      | Should add a comment here | **Decline (won't fix)** | The function name already states this. Reply explaining. |
+| 3   | docs/README.md:108 | Typo: "lenght" → "length" | **Fix**                 | One-character change.                                    |
 
 Decision options:
 
 - **Fix** — the comment is correct; we'll change the code.
 - **Defer** — fair point but out of scope for this PR; we'll file a follow-up issue.
 - **Decline** — disagreement (technical mistake in the comment, already addressed,
-  out of project scope, etc.). Must include the *reason* you'd give in the reply.
+  out of project scope, etc.). Must include the _reason_ you'd give in the reply.
 
 **Wait for the user's approval** of this table before doing anything visible. If the
 user revises decisions, follow the revision.
@@ -182,7 +182,7 @@ The same class of issue may exist elsewhere or come up again. Consider:
 
 The same false positive will probably come back on the next PR. Consider:
 
-1. Add a note to the relevant skill explaining *why* this pattern is fine in this
+1. Add a note to the relevant skill explaining _why_ this pattern is fine in this
    project. The skills act as the project's "knowledge base" for AI tools, so
    recording the rationale once reduces repeat false positives.
 2. Mention to the user that you added context.

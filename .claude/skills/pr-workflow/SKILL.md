@@ -21,7 +21,7 @@ later is much higher than getting it right once.
    again / really fix this time."
 4. **The change has an issue or design discussion to point at**, unless it's
    trivially small (typo, comment, single-line bugfix). For non-trivial features, the
-   discussion happens *before* the PR, not in PR review.
+   discussion happens _before_ the PR, not in PR review.
 
 ## Branch name
 
@@ -42,18 +42,18 @@ drive the changelog and make scanning history easy.
 <type>(<optional-scope>)<!?>: <imperative summary>
 ```
 
-| Prefix     | When to use                                                  |
-| ---------- | ------------------------------------------------------------ |
-| `feat`     | New user-visible capability                                  |
-| `fix`      | Bug fix                                                      |
-| `refactor` | Internal change with no user-visible behavior change         |
-| `perf`     | Performance improvement                                      |
-| `docs`     | Documentation only                                           |
-| `test`     | Tests only                                                   |
-| `build`    | Build system, dependencies                                   |
-| `ci`       | CI configuration                                             |
-| `chore`    | Tooling, repo plumbing                                       |
-| `revert`   | Reverting a previous commit                                  |
+| Prefix     | When to use                                          |
+| ---------- | ---------------------------------------------------- |
+| `feat`     | New user-visible capability                          |
+| `fix`      | Bug fix                                              |
+| `refactor` | Internal change with no user-visible behavior change |
+| `perf`     | Performance improvement                              |
+| `docs`     | Documentation only                                   |
+| `test`     | Tests only                                           |
+| `build`    | Build system, dependencies                           |
+| `ci`       | CI configuration                                     |
+| `chore`    | Tooling, repo plumbing                               |
+| `revert`   | Reverting a previous commit                          |
 
 Add `!` for breaking changes (e.g., `feat(api)!: rename loadWorkbook to readWorkbook`),
 or note `BREAKING CHANGE:` in the body.
@@ -88,7 +88,7 @@ The body must include the anchors used by the `template-compliance` workflow.
 <!-- The problem this solves. Link to the issue or design discussion that proposed it.
      If there is none, explain why this was opened without one. -->
 
-Closes #<issue-number>  <!-- if applicable -->
+Closes #<issue-number> <!-- if applicable -->
 
 ## Changes
 
@@ -162,7 +162,7 @@ Read your own diff as if you were the reviewer:
 - Are there commented-out blocks? Print statements left in? Generated/scratch files?
 - Is each new identifier necessary, or did you keep an intermediate variable for no reason?
 - Does every comment still match the code next to it after your edits?
-- For a stranger picking this up cold: is the *why* visible in the PR body, the
+- For a stranger picking this up cold: is the _why_ visible in the PR body, the
   commit messages, or the comments — at least one of those?
 
 If anything is off, fix it before tagging reviewers. Reviewers' time is the most

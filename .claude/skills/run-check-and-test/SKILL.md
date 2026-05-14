@@ -14,15 +14,15 @@ Do not assume.
 
 Look in this order, depending on what's in the repo root:
 
-| File                     | Where to look                                     |
-| ------------------------ | ------------------------------------------------- |
-| `package.json`           | `scripts` field (npm/pnpm/yarn/bun)               |
-| `Cargo.toml`             | `cargo fmt`, `cargo clippy`, `cargo test`         |
-| `pyproject.toml`         | `[tool.*]` sections, common: `ruff`, `pytest`, `mypy` |
-| `Makefile`               | Common targets: `make check`, `make test`, `make lint` |
-| `justfile` / `Taskfile`  | The recipes within                                |
-| `mise.toml` / `.mise.toml` | Tasks defined under `[tasks]`                   |
-| `CLAUDE.md`              | Project-specific overrides may be documented here |
+| File                       | Where to look                                          |
+| -------------------------- | ------------------------------------------------------ |
+| `package.json`             | `scripts` field (npm/pnpm/yarn/bun)                    |
+| `Cargo.toml`               | `cargo fmt`, `cargo clippy`, `cargo test`              |
+| `pyproject.toml`           | `[tool.*]` sections, common: `ruff`, `pytest`, `mypy`  |
+| `Makefile`                 | Common targets: `make check`, `make test`, `make lint` |
+| `justfile` / `Taskfile`    | The recipes within                                     |
+| `mise.toml` / `.mise.toml` | Tasks defined under `[tasks]`                          |
+| `CLAUDE.md`                | Project-specific overrides may be documented here      |
 
 If the user has explicitly told you the commands once before in the session, use
 those. Otherwise re-discover — scripts get renamed.

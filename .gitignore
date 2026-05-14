@@ -10,6 +10,9 @@ references/specs/xsd/
 # Local cloning of external (large / copyleft) references — see references/EXTERNAL.md.
 references/external/
 
+# Claude Code session lock files
+.claude/*.lock
+
 .DS_Store
 *.log
 .env

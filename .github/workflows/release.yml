@@ -32,9 +32,9 @@ on:
       - main
 
 permissions:
-  contents: write       # create/merge release PR, push tags, GitHub Releases
-  pull-requests: write  # open the "Version Packages" PR
-  id-token: write       # OIDC for npm provenance
+  contents: write # create/merge release PR, push tags, GitHub Releases
+  pull-requests: write # open the "Version Packages" PR
+  id-token: write # OIDC for npm provenance
 
 concurrency:
   group: release-${{ github.ref }}

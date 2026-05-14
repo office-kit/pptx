@@ -58,11 +58,7 @@ export const textContent = (e: XmlElement): string => {
  * root. The visitor returns `false` to skip descending into the current
  * element's children. Returning nothing (or `true`) descends as usual.
  */
-export const walkElements = (
-  root: XmlElement,
-  // biome-ignore lint/suspicious/noConfusingVoidType: callback may omit return; treat as "descend"
-  visit: (e: XmlElement) => boolean | void,
-): void => {
+export const walkElements = (root: XmlElement, visit: (e: XmlElement) => boolean | void): void => {
   const stack: XmlElement[] = [root];
   while (stack.length > 0) {
     const node = stack.pop();

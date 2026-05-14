@@ -31,7 +31,7 @@ slide masters / layouts, comments, notes).
 - **Build**: `tsup` → ESM + `.d.ts`.
 - **Test**: `vitest` (unit + golden-file fixture comparisons against real
   PPTX bytes).
-- **Lint / format**: Biome.
+- **Lint / format**: oxlint + oxfmt.
 - **Release**: changesets + npm OIDC trusted publisher (see
   `.github/workflows/release.yml`).
 - **Dependencies**: keep the runtime dep list **tiny**. ZIP and XML are the
@@ -108,13 +108,13 @@ confused**, not for your own convenience.
 
 Every line of code must be justified.
 
-| Principle             | Meaning                                                                            |
-| --------------------- | ---------------------------------------------------------------------------------- |
-| Simplicity            | No premature abstraction, no features for hypothetical futures. YAGNI.             |
-| Consistency           | Match existing patterns. New patterns require an explicit reason.                  |
-| Performance           | Don't write N+1 / O(n²) in the first place. Defend with code shape, not profilers. |
-| Security              | Validate at boundaries (external input, file I/O, external APIs). Watch OWASP.    |
-| Maintainability       | Write code that you in 6 months and a new contributor can read and understand.     |
+| Principle               | Meaning                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| Simplicity              | No premature abstraction, no features for hypothetical futures. YAGNI.                  |
+| Consistency             | Match existing patterns. New patterns require an explicit reason.                       |
+| Performance             | Don't write N+1 / O(n²) in the first place. Defend with code shape, not profilers.      |
+| Security                | Validate at boundaries (external input, file I/O, external APIs). Watch OWASP.          |
+| Maintainability         | Write code that you in 6 months and a new contributor can read and understand.          |
 | Backwards compatibility | Public API is preserved unless a breaking change is genuinely justified. Follow SemVer. |
 
 ## "One way to do one thing"
@@ -151,14 +151,14 @@ Decision flow when evaluating a feature request:
 
 **Yes at boundaries; no internally.**
 
-| Situation                                  | Defend?  | Example                                                |
-| ------------------------------------------ | -------- | ------------------------------------------------------ |
-| External input (HTTP, CLI args, files)     | **Yes**  | Schema-validate, fail loudly on invalid input          |
-| External API / third-party calls           | **Yes**  | Error handling, retries, timeouts                      |
-| Untrusted data (user uploads, etc.)        | **Yes**  | Validate / sanitize                                    |
-| Already validated upstream                 | No       | Don't re-validate — that's noise                       |
-| Already guaranteed by the type system      | No       | Don't write redundant null checks / optional chaining  |
-| Cases that are impossible by type definition | No     | No "just in case" guards                               |
+| Situation                                    | Defend? | Example                                               |
+| -------------------------------------------- | ------- | ----------------------------------------------------- |
+| External input (HTTP, CLI args, files)       | **Yes** | Schema-validate, fail loudly on invalid input         |
+| External API / third-party calls             | **Yes** | Error handling, retries, timeouts                     |
+| Untrusted data (user uploads, etc.)          | **Yes** | Validate / sanitize                                   |
+| Already validated upstream                   | No      | Don't re-validate — that's noise                      |
+| Already guaranteed by the type system        | No      | Don't write redundant null checks / optional chaining |
+| Cases that are impossible by type definition | No      | No "just in case" guards                              |
 
 "Just in case" checks pile up and **bury the real validation** under noise. If a value
 has already been validated upstream or is guaranteed by the type system, do not
@@ -189,7 +189,9 @@ Comments explain **why**, not what.
 ```ts
 // ❌ Self-evident "what" — drop it.
 /** Get a user. */
-const getUser = (id: string) => { /* ... */ };
+const getUser = (id: string) => {
+  /* ... */
+};
 
 // ✅ "Why" — the code can't say this on its own.
 // Salesforce caps batch upsert at 100; we chunk to stay under the limit.
@@ -219,12 +221,12 @@ const batches = chunk(records, 100);
 
 ## Use the type system
 
-| Pattern                      | What it buys                                                          |
-| ---------------------------- | --------------------------------------------------------------------- |
-| Branded / newtype IDs        | Don't mix up `UserId` and `OrderId`                                   |
-| Discriminated unions         | Eliminate "both null" / "both set" invalid states at the type level   |
-| Exhaustiveness checks        | `switch` / `match` with `never` so adding a new variant fails to compile |
-| Parse, don't validate        | Convert input into a validated type once at the boundary; trust internally |
+| Pattern               | What it buys                                                               |
+| --------------------- | -------------------------------------------------------------------------- |
+| Branded / newtype IDs | Don't mix up `UserId` and `OrderId`                                        |
+| Discriminated unions  | Eliminate "both null" / "both set" invalid states at the type level        |
+| Exhaustiveness checks | `switch` / `match` with `never` so adding a new variant fails to compile   |
+| Parse, don't validate | Convert input into a validated type once at the boundary; trust internally |
 
 These translate to languages without first-class type systems too: the principle is
 "inside the system, values are already in the right shape — guarantee that at the boundary."
@@ -289,13 +291,13 @@ to the public.
 The `.claude/skills/` directory contains workflow-specific guides. Use them when the
 situation matches.
 
-| Skill                | When to use                                                          |
-| -------------------- | -------------------------------------------------------------------- |
-| `pr-workflow`        | Creating a PR                                                        |
+| Skill                | When to use                                                            |
+| -------------------- | ---------------------------------------------------------------------- |
+| `pr-workflow`        | Creating a PR                                                          |
 | `full-code-review`   | Reviewing a branch from a maintainer's perspective before opening a PR |
-| `review-response`    | Responding to GitHub review comments                                 |
-| `run-check-and-test` | Running quality checks and tests before commit / PR                  |
-| `issue-triage`       | Classifying a GitHub issue and routing it to the right workflow      |
+| `review-response`    | Responding to GitHub review comments                                   |
+| `run-check-and-test` | Running quality checks and tests before commit / PR                    |
+| `issue-triage`       | Classifying a GitHub issue and routing it to the right workflow        |
 
 When you add a new skill, append it to this table.
 

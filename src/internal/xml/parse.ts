@@ -29,7 +29,6 @@ import {
   type XmlDeclaration,
   type XmlDocument,
   type XmlElement,
-  type XmlNode,
   type XmlPI,
   attr,
   cdata,

@@ -28,25 +28,25 @@ one trade-off:
 - Output that passes Microsoft's
   [Open XML SDK Productivity Tool](https://github.com/dotnet/Open-XML-SDK)
   validator, not just PowerPoint's "open and pray."
-- Two complementary paths: **author from scratch** *or* **edit a template**.
+- Two complementary paths: **author from scratch** _or_ **edit a template**.
 
 ## Scope
 
 The work is split into four levels of completeness. The v1.0 release targets
 levels 1-3 in full and level 4 in part:
 
-| Level | Capability | v1.0 |
-|---|---|---|
-| L1 | Read an existing PPTX, save it back without corruption | ✅ |
-| L2 | Template edit — text replacement, image swap, add slide from layout | ✅ |
-| L3 | Authoring — shapes, text, tables, themes, masters, layouts | ✅ |
-| L3 | Charts (all common types) with embedded data | ✅ |
-| L4 | Notes, comments, transitions | ✅ |
-| L4 | Simple animations (entrance / exit / emphasis presets) | ✅ |
-| L4 | SmartArt authoring | ❌ post-1.0 (read pass-through) |
-| L4 | Complex animation timing trees | ❌ post-1.0 |
-| L4 | OLE / ActiveX authoring | ❌ post-1.0 (read pass-through) |
-| L4 | Document encryption (read + write) | ❌ post-1.0 |
+| Level | Capability                                                          | v1.0                            |
+| ----- | ------------------------------------------------------------------- | ------------------------------- |
+| L1    | Read an existing PPTX, save it back without corruption              | ✅                              |
+| L2    | Template edit — text replacement, image swap, add slide from layout | ✅                              |
+| L3    | Authoring — shapes, text, tables, themes, masters, layouts          | ✅                              |
+| L3    | Charts (all common types) with embedded data                        | ✅                              |
+| L4    | Notes, comments, transitions                                        | ✅                              |
+| L4    | Simple animations (entrance / exit / emphasis presets)              | ✅                              |
+| L4    | SmartArt authoring                                                  | ❌ post-1.0 (read pass-through) |
+| L4    | Complex animation timing trees                                      | ❌ post-1.0                     |
+| L4    | OLE / ActiveX authoring                                             | ❌ post-1.0 (read pass-through) |
+| L4    | Document encryption (read + write)                                  | ❌ post-1.0                     |
 
 Out-of-scope content is still **preserved on round-trip** — `pptx-kit` will
 never silently strip parts it doesn't model. That's the L1 contract.
