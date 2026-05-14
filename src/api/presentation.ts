@@ -105,11 +105,11 @@ const normalize = async (input: PresentationInput): Promise<Uint8Array> => {
 };
 
 /**
- * Internal symbol used to hand the underlying `OpcPackage` to subclasses
- * (such as the Node-specific extension in `pptx-kit/node`) without
- * exposing it on the public type. Treat as `@internal`.
+ * Shared internal symbol. Lives in `_internal-symbols.ts` so the
+ * tree-shakeable free-function API can use the same key without dragging
+ * this file's class definition into consumer bundles. Treat as `@internal`.
  */
-const INTERNAL_PACKAGE = Symbol('pptx-kit.package');
+import { INTERNAL_PACKAGE } from './_internal-symbols.ts';
 
 export class Presentation {
   /** @internal */

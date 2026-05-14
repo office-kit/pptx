@@ -56,7 +56,7 @@ const bundleEntry = async (source: string): Promise<BundleResult> => {
 };
 
 describe('tree-shake: minimal load+save entry', () => {
-  it('bundles successfully', async () => {
+  it('bundles successfully (class API — full bundle)', async () => {
     const result = await bundleEntry(`
       import { Presentation } from 'pptx-kit';
       export async function run(bytes) {
@@ -67,6 +67,62 @@ describe('tree-shake: minimal load+save entry', () => {
     expect(result.bytes).toBeGreaterThan(0);
     // Sanity: fflate is part of the load/save path and must be present.
     expect(result.text).toContain('zip');
+  });
+
+  it('bundles successfully (free-function API — tree-shaken)', async () => {
+    const result = await bundleEntry(`
+      import { loadPresentation, savePresentation } from 'pptx-kit';
+      export async function run(bytes) {
+        const pres = await loadPresentation(bytes);
+        return await savePresentation(pres);
+      }
+    `);
+    expect(result.bytes).toBeGreaterThan(0);
+    expect(result.text).toContain('zip');
+  });
+
+  it('free-function bundle is strictly smaller than class-bundle', async () => {
+    const cls = await bundleEntry(`
+      import { Presentation } from 'pptx-kit';
+      export async function run(bytes) {
+        const pres = await Presentation.load(bytes);
+        return await pres.save();
+      }
+    `);
+    const fn = await bundleEntry(`
+      import { loadPresentation, savePresentation } from 'pptx-kit';
+      export async function run(bytes) {
+        const pres = await loadPresentation(bytes);
+        return await savePresentation(pres);
+      }
+    `);
+    process.stderr.write(
+      `tree-shake: class=${cls.bytes}B, fn=${fn.bytes}B, saved=${cls.bytes - fn.bytes}B\n`,
+    );
+    expect(fn.bytes).toBeLessThan(cls.bytes);
+  });
+
+  it("free-function bundle drops authoring identifiers it doesn't use", async () => {
+    const fn = await bundleEntry(`
+      import { loadPresentation, savePresentation } from 'pptx-kit';
+      export async function run(bytes) {
+        const pres = await loadPresentation(bytes);
+        return await savePresentation(pres);
+      }
+    `);
+    const dropped = [
+      'addTable',
+      'setTransition',
+      'addLine',
+      'addTextBox',
+      'addShape',
+      'duplicateSlide',
+      'setHyperlink',
+      'setBullets',
+    ];
+    for (const name of dropped) {
+      expect(fn.text, `bundle still references ${name}`).not.toContain(name);
+    }
   });
 
   // The capabilities below are NOT touched by the minimal entry. After
