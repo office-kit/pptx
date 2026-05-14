@@ -40,12 +40,15 @@ import type { Emu } from './units.ts';
 import {
   type PresetShape,
   REL_TYPES,
+  type TransitionEffect,
+  type TransitionOptions,
   buildConnector,
   buildEmptyNotesSlide,
   buildPicture,
   buildShape,
   buildTable,
   buildTextBox,
+  buildTransition,
   readSlideLayoutPart,
 } from '../internal/presentationml/index.ts';
 import { SlideLayout } from './slide-layout.ts';
@@ -519,6 +522,54 @@ export class Slide {
     configure(bgPr);
     this._commit();
     this._refresh();
+  }
+
+  /**
+   * Sets the slide's transition effect. Pass `{ effect: 'none' }` (or
+   * call `clearTransition()`) to remove an existing transition.
+   *
+   * Schema ordering: `<p:transition>` follows `<p:cSld>` and
+   * `<p:clrMapOvr>` per the spec. We insert / replace accordingly.
+   */
+  setTransition(options: TransitionOptions): void {
+    this._removeTransition();
+    const t = buildTransition(options);
+    this._insertAfterClrMapOvr(t);
+    this._commit();
+    this._refresh();
+  }
+
+  /** Removes any existing transition. */
+  clearTransition(): void {
+    this._removeTransition();
+    this._commit();
+    this._refresh();
+  }
+
+  private _removeTransition(): void {
+    this._document.root.children = this._document.root.children.filter(
+      (c) =>
+        !(
+          c.kind === 'element' &&
+          c.name.namespaceURI === NS.pml &&
+          c.name.localName === 'transition'
+        ),
+    );
+  }
+
+  private _insertAfterClrMapOvr(t: XmlElement): void {
+    const children = this._document.root.children;
+    let insertAt = children.length;
+    for (let i = 0; i < children.length; i++) {
+      const c = children[i];
+      if (c?.kind !== 'element' || c.name.namespaceURI !== NS.pml) continue;
+      if (c.name.localName === 'clrMapOvr') {
+        insertAt = i + 1;
+      } else if (c.name.localName === 'cSld' && insertAt === children.length) {
+        insertAt = i + 1;
+      }
+    }
+    children.splice(insertAt, 0, t);
   }
 
   /**
