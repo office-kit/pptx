@@ -9,8 +9,12 @@
 
 import {
   getPictureEmbedRId,
+  type Position,
+  readPosition,
+  readSize,
   replaceTokensInTree,
   setTextBody,
+  type Size,
 } from '../internal/drawingml/index.ts';
 import {
   type ImageFormat,
@@ -194,6 +198,24 @@ export class SlideShape {
 
   get text(): string {
     return this._snapshot.text;
+  }
+
+  /**
+   * The shape's position on the slide in EMU, or `null` when the shape
+   * inherits its position from a layout / master placeholder. To resolve
+   * the inherited value, walk the slide → layout → master chain by hand
+   * for now; a built-in helper lands when the layout reader is in place.
+   */
+  get position(): Position | null {
+    return readPosition(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * The shape's size in EMU, or `null` when the shape inherits its size
+   * from a layout / master placeholder. Same caveat as `position`.
+   */
+  get size(): Size | null {
+    return readSize(this._element, this._snapshot.kind);
   }
 
   /**
