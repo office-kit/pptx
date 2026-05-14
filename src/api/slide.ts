@@ -40,7 +40,6 @@ import type { Emu } from './units.ts';
 import {
   type PresetShape,
   REL_TYPES,
-  type TransitionEffect,
   type TransitionOptions,
   buildConnector,
   buildEmptyNotesSlide,
