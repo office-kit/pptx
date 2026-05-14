@@ -100,6 +100,30 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(presPart?.data ?? new Uint8Array()), 'pml');
   });
 
+  skipIfNoXmllint('comments + commentAuthors parts validate against pml.xsd', async () => {
+    const { addSlideComment, getSlides, loadPresentation, savePresentation } = await import(
+      '../src/api/index.ts'
+    );
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    addSlideComment(slide, {
+      author: { name: 'Reviewer', initials: 'R' },
+      text: 'A schema-valid comment.',
+      position: { x: 1000000, y: 1000000 },
+      date: new Date('2026-05-15T12:00:00.000Z'),
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(reloaded);
+    const authors = pkg.parts.find((p) => p.name === '/ppt/commentAuthors.xml');
+    expect(authors).not.toBeNull();
+    expectSchemaValid(decode(authors?.data ?? new Uint8Array()), 'pml');
+    const comments = pkg.parts.find((p) => p.name === '/ppt/comments/comment1.xml');
+    expect(comments).not.toBeNull();
+    expectSchemaValid(decode(comments?.data ?? new Uint8Array()), 'pml');
+  });
+
   skipIfNoXmllint(
     'every emitted slide / presentation in the end-to-end deck validates',
     async () => {

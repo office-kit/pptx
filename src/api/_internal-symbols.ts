@@ -11,7 +11,12 @@
 
 import type { PartName } from '../internal/opc/index.ts';
 import type { OpcPackage } from '../internal/parts/index.ts';
-import type { SlideLayoutPart, SlidePart } from '../internal/presentationml/index.ts';
+import type {
+  CommentAuthor,
+  SlideComment,
+  SlideLayoutPart,
+  SlidePart,
+} from '../internal/presentationml/index.ts';
 import type { XmlDocument, XmlElement } from '../internal/xml/index.ts';
 
 export const INTERNAL_PACKAGE = Symbol('pptx-kit.package');
@@ -24,6 +29,8 @@ export const SHAPE_ELEMENT = Symbol('pptx-kit.shape.element');
 export const SHAPE_SNAPSHOT = Symbol('pptx-kit.shape.snapshot');
 export const LAYOUT_PART_NAME = Symbol('pptx-kit.layout.partName');
 export const LAYOUT_PART = Symbol('pptx-kit.layout.part');
+export const COMMENT_SLIDE = Symbol('pptx-kit.comment.slide');
+export const COMMENT_SNAPSHOT = Symbol('pptx-kit.comment.snapshot');
 
 /**
  * Data shape backing every `Presentation` value. The class implements
@@ -57,4 +64,14 @@ export interface SlideShapeData {
 export interface SlideLayoutData {
   readonly [LAYOUT_PART_NAME]: PartName;
   readonly [LAYOUT_PART]: SlideLayoutPart;
+}
+
+/**
+ * Opaque handle for one comment on a slide. The `author` is resolved
+ * on read against the package-level `commentAuthors.xml`.
+ */
+export interface SlideCommentData {
+  readonly [COMMENT_SLIDE]: SlideData;
+  readonly [COMMENT_SNAPSHOT]: SlideComment;
+  readonly author: CommentAuthor;
 }

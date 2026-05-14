@@ -59,10 +59,15 @@ import {
 import { OpcPackage } from '../internal/parts/index.ts';
 import {
   REL_TYPES,
+  type CommentAuthor,
+  type CommentPosition,
   type PresetShape,
   type ShapeKind,
+  type SlideComment,
   type SlideLayoutType,
   type TransitionOptions,
+  buildCommentAuthorListDoc,
+  buildCommentListDoc,
   buildConnector,
   buildEmptyNotesSlide,
   buildPicture,
@@ -71,6 +76,8 @@ import {
   buildTable,
   buildTextBox,
   buildTransition,
+  readCommentAuthorList,
+  readCommentList,
   readPresentationPart,
   readSlideLayoutPart,
   readSlidePart,
@@ -90,6 +97,8 @@ import {
   serializeXml,
 } from '../internal/xml/index.ts';
 import {
+  COMMENT_SLIDE,
+  COMMENT_SNAPSHOT,
   INTERNAL_PACKAGE,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
@@ -101,6 +110,7 @@ import {
   SLIDE_PART,
   SLIDE_PART_NAME,
   SLIDE_SHAPES,
+  type SlideCommentData,
   type SlideData,
   type SlideLayoutData,
   type SlideShapeData,
@@ -1398,6 +1408,261 @@ export const setSlideNotes = (slide: SlideData, value: string): void => {
 
 // ---------------------------------------------------------------------------
 // Shape image replacement.
+
+// ---------------------------------------------------------------------------
+// Comments.
+//
+// Legacy schema (ECMA-376 Part 1 §19.4):
+//   * One package-level `/ppt/commentAuthors.xml` holds every author.
+//   * One `/ppt/comments/comment{N}.xml` per slide that has comments;
+//     N matches the slide's part name.
+//   * Slide rels reference the slide's comments part; presentation rels
+//     reference the author list.
+//
+// Authors are deduped by (name, initials). `idx` allocation is per-author
+// monotonic; we read each author's `lastIdx` and bump it on add.
+
+const COMMENT_AUTHORS_PART_NAME = partName('/ppt/commentAuthors.xml');
+const COMMENT_AUTHORS_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml';
+const COMMENTS_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.comments+xml';
+
+const slideNumberFromPartName = (name: PartName): number => {
+  const m = name.match(/^\/ppt\/slides\/slide(\d+)\.xml$/);
+  if (!m?.[1]) {
+    throw new Error(`comments: cannot derive slide number from ${name}`);
+  }
+  return Number.parseInt(m[1], 10);
+};
+
+const commentsPartNameForSlide = (slide: SlideData): PartName => {
+  const slideN = slideNumberFromPartName(slide[SLIDE_PART_NAME]);
+  return partName(`/ppt/comments/comment${slideN}.xml`);
+};
+
+const loadAuthorList = (pkg: OpcPackage): CommentAuthor[] => {
+  const part = pkg.getPart(COMMENT_AUTHORS_PART_NAME);
+  if (part === null) return [];
+  const list = readCommentAuthorList(parseXml(decode(part.data)).root);
+  return list.authors.slice();
+};
+
+const writeAuthorList = (pkg: OpcPackage, authors: ReadonlyArray<CommentAuthor>): void => {
+  const doc = buildCommentAuthorListDoc(authors);
+  const bytes = encode(serializeXml(doc));
+  const existing = pkg.getPart(COMMENT_AUTHORS_PART_NAME);
+  if (existing !== null) {
+    existing.data = bytes;
+    return;
+  }
+  pkg.addPart(COMMENT_AUTHORS_PART_NAME, COMMENT_AUTHORS_CONTENT_TYPE, bytes);
+  // presentation → commentAuthors rel.
+  const presRels = pkg.getRels(PRES_PART_NAME) ?? emptyRels();
+  const exists = presRels.items.some(
+    (r) => r.type === REL_TYPES.commentAuthors && r.target.endsWith('commentAuthors.xml'),
+  );
+  if (!exists) {
+    presRels.items.push({
+      id: nextRelId(presRels.items.map((r) => r.id)),
+      type: REL_TYPES.commentAuthors,
+      target: 'commentAuthors.xml',
+      targetMode: 'Internal',
+    });
+    pkg.setRels(PRES_PART_NAME, presRels);
+  }
+};
+
+const loadCommentsForSlide = (slide: SlideData): SlideComment[] => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const partNameValue = commentsPartNameForSlide(slide);
+  const part = pkg.getPart(partNameValue);
+  if (part === null) return [];
+  const list = readCommentList(parseXml(decode(part.data)).root);
+  return list.comments.slice();
+};
+
+const writeCommentsForSlide = (
+  slide: SlideData,
+  comments: ReadonlyArray<SlideComment>,
+): void => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const commentsName = commentsPartNameForSlide(slide);
+
+  if (comments.length === 0) {
+    // Drop the comments part + slide → comments rel when no comments
+    // remain. Leaves an empty part orphaned otherwise.
+    if (pkg.getPart(commentsName) !== null) {
+      pkg.removePart(commentsName);
+    }
+    const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]);
+    if (slideRels !== null) {
+      const before = slideRels.items.length;
+      slideRels.items = slideRels.items.filter((r) => r.type !== REL_TYPES.comments);
+      if (slideRels.items.length !== before) {
+        pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+      }
+    }
+    return;
+  }
+
+  const doc = buildCommentListDoc(comments);
+  const bytes = encode(serializeXml(doc));
+  const existing = pkg.getPart(commentsName);
+  if (existing !== null) {
+    existing.data = bytes;
+    return;
+  }
+  pkg.addPart(commentsName, COMMENTS_CONTENT_TYPE, bytes);
+
+  const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const hasRel = slideRels.items.some((r) => r.type === REL_TYPES.comments);
+  if (!hasRel) {
+    const slideN = slideNumberFromPartName(slide[SLIDE_PART_NAME]);
+    slideRels.items.push({
+      id: nextRelId(slideRels.items.map((r) => r.id)),
+      type: REL_TYPES.comments,
+      target: `../comments/comment${slideN}.xml`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+  }
+};
+
+const asCommentData = (slide: SlideData, snap: SlideComment, author: CommentAuthor): SlideCommentData => ({
+  [COMMENT_SLIDE]: slide,
+  [COMMENT_SNAPSHOT]: snap,
+  author,
+});
+
+/**
+ * Every author known to the package's `commentAuthors.xml`.
+ * Returns an empty array when no author list exists.
+ */
+export const getCommentAuthors = (pres: PresentationData): ReadonlyArray<CommentAuthor> =>
+  loadAuthorList(pres[INTERNAL_PACKAGE]);
+
+/**
+ * Returns every comment attached to the slide, with the author already
+ * resolved. The list is read-only — use `addSlideComment` /
+ * `removeSlideComment` to mutate.
+ */
+export const getSlideComments = (slide: SlideData): ReadonlyArray<SlideCommentData> => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const authors = loadAuthorList(pkg);
+  const authorById = new Map<number, CommentAuthor>();
+  for (const a of authors) authorById.set(a.id, a);
+
+  const comments = loadCommentsForSlide(slide);
+  const out: SlideCommentData[] = [];
+  for (const snap of comments) {
+    const author = authorById.get(snap.authorId);
+    if (!author) {
+      // Comment references an unknown author — surface a synthetic
+      // placeholder rather than dropping the comment silently.
+      out.push(
+        asCommentData(slide, snap, {
+          id: snap.authorId,
+          name: '',
+          initials: '',
+          lastIdx: snap.idx,
+          clrIdx: null,
+        }),
+      );
+      continue;
+    }
+    out.push(asCommentData(slide, snap, author));
+  }
+  return out;
+};
+
+/**
+ * Adds a comment to the slide. Returns the new comment handle.
+ *
+ * Author handling: if an author with the given `name`+`initials` already
+ * exists in `commentAuthors.xml`, the existing record is reused (and its
+ * `lastIdx` is bumped). Otherwise a new author is allocated. `initials`
+ * defaults to the first character of `name`.
+ *
+ * `position` is in EMU; pass `null` to omit the `<p:pos>` element.
+ * `date` defaults to the current time.
+ */
+export const addSlideComment = (
+  slide: SlideData,
+  opts: {
+    author: { name: string; initials?: string };
+    text: string;
+    position?: CommentPosition | null;
+    date?: Date;
+  },
+): SlideCommentData => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const initials =
+    opts.author.initials ?? (opts.author.name.length > 0 ? opts.author.name.charAt(0) : '?');
+
+  const authors = loadAuthorList(pkg);
+  let author = authors.find((a) => a.name === opts.author.name && a.initials === initials);
+  if (!author) {
+    let maxId = -1;
+    for (const a of authors) if (a.id > maxId) maxId = a.id;
+    author = {
+      id: maxId + 1,
+      name: opts.author.name,
+      initials,
+      lastIdx: 0,
+      clrIdx: null,
+    };
+    authors.push(author);
+  }
+  const newIdx = author.lastIdx + 1;
+  // Bump lastIdx on the author for the persisted list.
+  const updatedAuthor: CommentAuthor = { ...author, lastIdx: newIdx };
+  const persistedAuthors = authors.map((a) => (a.id === author!.id ? updatedAuthor : a));
+  writeAuthorList(pkg, persistedAuthors);
+
+  const dt = (opts.date ?? new Date()).toISOString();
+  const snap: SlideComment = {
+    authorId: updatedAuthor.id,
+    idx: newIdx,
+    dt,
+    text: opts.text,
+    position: opts.position ?? null,
+  };
+
+  const comments = loadCommentsForSlide(slide);
+  comments.push(snap);
+  writeCommentsForSlide(slide, comments);
+
+  return asCommentData(slide, snap, updatedAuthor);
+};
+
+/**
+ * Removes the comment from its slide's comments part. If the comment
+ * was the last one on the slide, the comments part and the
+ * slide → comments rel are also removed. The author entry in
+ * `commentAuthors.xml` is left intact (an author may have comments on
+ * other slides).
+ */
+export const removeSlideComment = (comment: SlideCommentData): void => {
+  const slide = comment[COMMENT_SLIDE];
+  const target = comment[COMMENT_SNAPSHOT];
+  const remaining = loadCommentsForSlide(slide).filter(
+    (c) => !(c.authorId === target.authorId && c.idx === target.idx),
+  );
+  writeCommentsForSlide(slide, remaining);
+};
+
+// Accessors over CommentAuthor / SlideCommentData for tree-shake convenience.
+
+export const getCommentAuthor = (comment: SlideCommentData): CommentAuthor => comment.author;
+export const getCommentText = (comment: SlideCommentData): string =>
+  comment[COMMENT_SNAPSHOT].text;
+export const getCommentDate = (comment: SlideCommentData): string | null =>
+  comment[COMMENT_SNAPSHOT].dt;
+export const getCommentPosition = (comment: SlideCommentData): CommentPosition | null =>
+  comment[COMMENT_SNAPSHOT].position;
+
+// ---------------------------------------------------------------------------
 
 /**
  * Replaces a picture's media with `bytes`. Same-format replacements

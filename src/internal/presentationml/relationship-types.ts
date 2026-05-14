@@ -55,6 +55,12 @@ export const REL_TYPES = {
   authors: `${MS_2015}/authors`,
   // Modern comments per slide
   modernComment: `${MS_2015}/comments`,
+
+  // Legacy comments — universally supported by every PPTX consumer.
+  // Authors list lives at /ppt/commentAuthors.xml (one per package);
+  // per-slide comments at /ppt/comments/comment{N}.xml.
+  comments: `${OFFICE_DOC}/comments`,
+  commentAuthors: `${OFFICE_DOC}/commentAuthors`,
 } as const;
 
 export type RelType = (typeof REL_TYPES)[keyof typeof REL_TYPES];

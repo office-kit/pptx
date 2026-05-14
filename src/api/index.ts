@@ -22,12 +22,19 @@ export { SlideLayout } from './slide-layout.ts';
 // Tree-shakeable free-function API.
 export type {
   PresentationData,
+  SlideCommentData,
   SlideData,
   SlideLayoutData,
   SlideShapeData,
 } from './_internal-symbols.ts';
+export type {
+  CommentAuthor,
+  CommentPosition,
+  SlideComment,
+} from '../internal/presentationml/index.ts';
 export {
   addSlide,
+  addSlideComment,
   addSlideImage,
   addSlideLine,
   addSlideShape,
@@ -40,6 +47,11 @@ export {
   createPresentation,
   duplicateSlide,
   findSlidePlaceholder,
+  getCommentAuthor,
+  getCommentAuthors,
+  getCommentDate,
+  getCommentPosition,
+  getCommentText,
   getShapeFlip,
   getShapeId,
   getShapeKind,
@@ -50,6 +62,7 @@ export {
   getShapeRotation,
   getShapeSize,
   getShapeText,
+  getSlideComments,
   getSlideLayout,
   getSlideLayoutName,
   getSlideLayouts,
@@ -62,6 +75,7 @@ export {
   moveSlide,
   removeShape,
   removeSlide,
+  removeSlideComment,
   replaceTokensInPresentation,
   replaceTokensInSlide,
   savePresentation,
