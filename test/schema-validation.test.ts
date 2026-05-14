@@ -141,6 +141,40 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(slidePart!.data), 'pml');
   });
 
+  skipIfNoXmllint('doughnut and area charts validate', async () => {
+    const { addSlideChart, getSlides, loadPresentation, savePresentation } = await import(
+      '../src/api/index.ts'
+    );
+    for (const kind of ['doughnut', 'area'] as const) {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const slide = getSlides(pres)[0];
+      if (!slide) throw new Error('expected slide');
+      addSlideChart(slide, {
+        x: inches(0.5),
+        y: inches(0.5),
+        w: inches(4),
+        h: inches(3),
+        spec: {
+          kind,
+          categories: ['A', 'B', 'C'],
+          series:
+            kind === 'doughnut'
+              ? [{ name: 'S', values: [1, 2, 3] }]
+              : [
+                  { name: 'X', values: [1, 2, 3] },
+                  { name: 'Y', values: [3, 2, 1] },
+                ],
+        },
+      });
+      const bytes = await savePresentation(pres);
+      const reloaded = await Presentation.load(bytes);
+      const pkg = _internalPackageOf(reloaded);
+      const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
+      expect(chartPart, `chart not found for ${kind}`).not.toBeUndefined();
+      expectSchemaValid(decode(chartPart!.data), 'chart');
+    }
+  });
+
   skipIfNoXmllint('a column chart generated via addSlideChart validates', async () => {
     const { addSlideChart, getSlides, loadPresentation, savePresentation } = await import(
       '../src/api/index.ts'

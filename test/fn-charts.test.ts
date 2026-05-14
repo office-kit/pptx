@@ -89,11 +89,11 @@ describe('fn API: addSlideChart', () => {
     expect(sheetXml).toContain('<v>10</v>');
   });
 
-  it('bar / line / pie chart kinds all save and reload', async () => {
-    for (const kind of ['bar', 'line', 'pie'] as const) {
+  it('bar / line / pie / doughnut / area chart kinds all save and reload', async () => {
+    for (const kind of ['bar', 'line', 'pie', 'doughnut', 'area'] as const) {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0]!;
-      const seriesCount = kind === 'pie' ? 1 : 2;
+      const seriesCount = kind === 'pie' || kind === 'doughnut' ? 1 : 2;
       addSlideChart(slide, {
         x: inches(0),
         y: inches(0),
@@ -113,6 +113,54 @@ describe('fn API: addSlideChart', () => {
       const reloadedShape = reloaded.slides[0]?.shapes.find((s) => s.kind === 'graphicFrame');
       expect(reloadedShape, `${kind} chart lost on round-trip`).toBeDefined();
     }
+  });
+
+  it('doughnut chart emits holeSize attribute', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(5),
+      h: inches(3),
+      spec: {
+        kind: 'doughnut',
+        categories: ['X', 'Y', 'Z'],
+        series: [{ name: 'A', values: [1, 2, 3] }],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const pres2 = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(pres2);
+    const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
+    expect(chartPart).not.toBeUndefined();
+    const chartStr = new TextDecoder().decode(chartPart!.data);
+    expect(chartStr).toContain('<c:doughnutChart>');
+    expect(chartStr).toContain('<c:holeSize');
+  });
+
+  it('area chart uses areaChart element with axes', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(5),
+      h: inches(3),
+      spec: {
+        kind: 'area',
+        categories: ['Jan', 'Feb', 'Mar'],
+        series: [{ name: 'Revenue', values: [10, 20, 30] }],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const pres2 = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(pres2);
+    const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
+    const chartStr = new TextDecoder().decode(chartPart!.data);
+    expect(chartStr).toContain('<c:areaChart>');
+    expect(chartStr).toContain('<c:catAx>');
+    expect(chartStr).toContain('<c:valAx>');
   });
 
   it('multi-series column chart records each series with its own color', async () => {

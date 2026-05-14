@@ -7,7 +7,7 @@
 // public shape.
 
 /** Chart type tokens we support today. */
-export type ChartKind = 'bar' | 'column' | 'line' | 'pie';
+export type ChartKind = 'bar' | 'column' | 'line' | 'pie' | 'doughnut' | 'area';
 
 /** One labelled series of numeric values. */
 export interface ChartSeries {

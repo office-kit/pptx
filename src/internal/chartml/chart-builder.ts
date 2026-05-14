@@ -182,6 +182,34 @@ const buildPieChart = (spec: ChartSpec, sheet: string): XmlElement => {
   });
 };
 
+const buildDoughnutChart = (spec: ChartSpec, sheet: string): XmlElement => {
+  if (spec.series.length !== 1) {
+    throw new Error('doughnut chart requires exactly one series');
+  }
+  const ser = seriesElement(spec, 0, sheet);
+  return elem(c('doughnutChart'), {
+    children: [
+      valNode(c('varyColors'), '1'),
+      ser,
+      // 50% hole — PowerPoint's default.
+      valNode(c('holeSize'), '50'),
+    ],
+  });
+};
+
+const buildAreaChart = (spec: ChartSpec, sheet: string): XmlElement => {
+  const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
+  return elem(c('areaChart'), {
+    children: [
+      valNode(c('grouping'), 'standard'),
+      valNode(c('varyColors'), '0'),
+      ...ser,
+      valNode(c('axId'), CAT_AX_ID),
+      valNode(c('axId'), VAL_AX_ID),
+    ],
+  });
+};
+
 const titleElement = (title: string): XmlElement => {
   const rPr = elem(a('defRPr'), { attrs: [attr(qname('', 'sz', ''), '1400')] });
   const pPr = elem(a('pPr'), { children: [rPr] });
@@ -239,14 +267,21 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
     case 'pie':
       plotted = buildPieChart(spec, sheet);
       break;
+    case 'doughnut':
+      plotted = buildDoughnutChart(spec, sheet);
+      break;
+    case 'area':
+      plotted = buildAreaChart(spec, sheet);
+      break;
     default: {
       const exhaustive: never = spec.kind;
       throw new Error(`unsupported chart kind: ${String(exhaustive)}`);
     }
   }
 
+  const axisless = spec.kind === 'pie' || spec.kind === 'doughnut';
   const plotAreaChildren: XmlElement[] = [elem(c('layout')), plotted];
-  if (spec.kind !== 'pie') {
+  if (!axisless) {
     plotAreaChildren.push(catAxis(), valAxis());
   }
   const plotArea = elem(c('plotArea'), { children: plotAreaChildren });
