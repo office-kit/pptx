@@ -45,7 +45,7 @@ export type {
   PatternFillOptions,
   PatternPreset,
 } from '../internal/drawingml/index.ts';
-export type { ShapeFill, SlideBackground } from './fn.ts';
+export type { ShapeFill, SlideBackground, TextAnchor } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -129,6 +129,7 @@ export {
   setShapeSize,
   setShapeStroke,
   setShapeText,
+  setShapeTextAnchor,
   setShapeTextFormat,
   setSlideBackground,
   setSlideNotes,

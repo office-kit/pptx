@@ -1130,6 +1130,38 @@ export const setShapeText = (
   commitAndRefresh(shape);
 };
 
+/**
+ * Sets the vertical text anchor on the shape's text body
+ * (`<a:bodyPr anchor="..."/>`). Choices map to ECMA-376 tokens:
+ *
+ *   - `'top'`    → `anchor="t"`
+ *   - `'center'` → `anchor="ctr"`
+ *   - `'bottom'` → `anchor="b"`
+ *
+ * The bodyPr is created if absent. Throws for non-text-bearing shape
+ * kinds.
+ */
+export type TextAnchor = 'top' | 'center' | 'bottom';
+
+const NAME_A_BODY_PR = qname('a', 'bodyPr', NS.dml);
+
+export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
+  const txBody = requireTxBody(shape);
+  let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (bodyPr === null) {
+    bodyPr = elem(NAME_A_BODY_PR);
+    txBody.children.unshift(bodyPr);
+  }
+  const token = anchor === 'top' ? 't' : anchor === 'center' ? 'ctr' : 'b';
+  const ATTR_ANCHOR = qname('', 'anchor', '');
+  // Replace any existing anchor attribute.
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchor'),
+  );
+  bodyPr.attrs.push(attr(ATTR_ANCHOR, token));
+  commitAndRefresh(shape);
+};
+
 /** Sets the bullet style on every paragraph in the shape's text body. */
 export const setShapeBullets = (shape: SlideShapeData, style: BulletStyle): void => {
   applyBulletToAllParagraphs(requireTxBody(shape), style);
