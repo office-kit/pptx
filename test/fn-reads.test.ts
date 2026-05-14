@@ -44,9 +44,8 @@ describe('fn API: slide reads', () => {
 
     expect(getSlideShapes(fnSlide).length).toBe(clsSlide.shapes.length);
     expect(getSlideText(fnSlide)).toBe(clsSlide.text);
-    expect(getSlideLayout(fnSlide)?.[Symbol.for('pptx-kit.layout.partName')]).toBeUndefined();
-    // We can't access the layout name through the SlideLayoutData
-    // symbol surface from a test, so just confirm presence/absence.
+    // SlideLayoutData uses internal Symbol keys — not addressable from
+    // tests. Confirm presence/absence parity with the class API.
     expect(getSlideLayout(fnSlide) === null).toBe(clsSlide.layout === null);
 
     // findSlidePlaceholder for the "title" placeholder must match.

@@ -14,14 +14,34 @@
 // shrink and eventually disappear.
 
 import {
+  type BulletStyle,
+  type ParagraphAlignment,
   type Position,
   type Size,
+  type StrokeOptions,
+  type TextFormat,
+  applyAlignmentToAllParagraphs,
+  applyBulletToAllParagraphs,
+  applyFormatToAllRuns,
+  applyHyperlinkToAllRuns,
+  clearFill as clearFillImpl,
+  clearStroke as clearStrokeImpl,
   readFlip,
   readPosition,
   readRotation,
   readSize,
   replaceTokensInTree,
+  setFlip as writeFlip,
+  setNoFill as setNoFillImpl,
+  setNoStroke as setNoStrokeImpl,
+  setPosition as writePosition,
+  setRotation as writeRotation,
+  setSize as writeSize,
+  setSolidFill,
+  setSolidStroke,
+  setTextBody,
 } from '../internal/drawingml/index.ts';
+import type { Emu } from './units.ts';
 import {
   basename,
   emptyRels,
@@ -655,4 +675,247 @@ const refreshSlideData = (slide: SlideData): void => {
     existing[SHAPE_ELEMENT] = next.element;
     existing[SHAPE_SNAPSHOT] = next;
   }
+};
+
+// Rebuild shape handles entirely — used when the shape count changes
+// (e.g. removeShape). Existing SlideShapeData identities are dropped;
+// SHAPE_SLIDE back-pointers stay consistent because the SlideData
+// reference is preserved.
+const rebuildShapesFromDocument = (slide: SlideData): void => {
+  const fresh = readSlidePart(slide[SLIDE_DOCUMENT].root);
+  slide[SLIDE_PART] = fresh;
+  const shapes: SlideShapeData[] = [];
+  for (const snap of fresh.shapes) {
+    shapes.push({
+      [SHAPE_SLIDE]: slide,
+      [SHAPE_ELEMENT]: snap.element,
+      [SHAPE_SNAPSHOT]: snap,
+    });
+  }
+  slide[SLIDE_SHAPES] = shapes;
+};
+
+// ---------------------------------------------------------------------------
+// Shape mutation — geometry.
+
+const NAME_TX_BODY_FN = qname('p', 'txBody', NS.pml);
+
+const requireSpPr = (shape: SlideShapeData): XmlElement => {
+  const kind = shape[SHAPE_SNAPSHOT].kind;
+  if (kind !== 'shape' && kind !== 'picture' && kind !== 'connector') {
+    throw new Error(`fill/stroke is not supported on ${kind} shapes`);
+  }
+  const spPrName = qname('p', 'spPr', NS.pml);
+  const el = shape[SHAPE_ELEMENT];
+  let spPr = firstChildElement(el, spPrName);
+  if (spPr === null) {
+    spPr = { kind: 'element', name: spPrName, attrs: [], prefixDecls: new Map(), children: [] };
+    el.children.push(spPr);
+  }
+  return spPr;
+};
+
+const requireTxBody = (shape: SlideShapeData): XmlElement => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
+    throw new Error(
+      `text operations require a shape kind; ${shape[SHAPE_SNAPSHOT].kind} is not text-bearing`,
+    );
+  }
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (txBody === null) {
+    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
+  }
+  return txBody;
+};
+
+const commitAndRefresh = (shape: SlideShapeData): void => {
+  commitSlideData(shape[SHAPE_SLIDE]);
+  refreshSlideData(shape[SHAPE_SLIDE]);
+};
+
+/** Sets the shape's position in EMU. Companion to `setShapeSize`. */
+export const setShapePosition = (shape: SlideShapeData, x: Emu, y: Emu): void => {
+  writePosition(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, x, y);
+  commitAndRefresh(shape);
+};
+
+/** Sets the shape's size in EMU. */
+export const setShapeSize = (shape: SlideShapeData, w: Emu, h: Emu): void => {
+  writeSize(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, w, h);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the shape's rotation in degrees (positive clockwise). Values are
+ * normalized into `[0, 360)`; pass `0` to clear an existing rotation.
+ */
+export const setShapeRotation = (shape: SlideShapeData, degrees: number): void => {
+  writeRotation(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, degrees);
+  commitAndRefresh(shape);
+};
+
+/** Sets the shape's flip flags. Properties default to current state when omitted. */
+export const setShapeFlip = (
+  shape: SlideShapeData,
+  options: { horizontal?: boolean; vertical?: boolean },
+): void => {
+  writeFlip(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, options);
+  commitAndRefresh(shape);
+};
+
+// ---------------------------------------------------------------------------
+// Shape mutation — fill / stroke.
+
+/** Sets a solid fill on the shape (color in `#RRGGBB` or scheme token). */
+export const setShapeFill = (shape: SlideShapeData, color: string): void => {
+  setSolidFill(requireSpPr(shape), color);
+  commitAndRefresh(shape);
+};
+
+/** Sets `<a:noFill>` on the shape, leaving it transparent. */
+export const setShapeNoFill = (shape: SlideShapeData): void => {
+  setNoFillImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Removes any fill choice from the shape; it then inherits its fill
+ * from the layout / master placeholder it descends from.
+ */
+export const clearShapeFill = (shape: SlideShapeData): void => {
+  clearFillImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+/** Sets a solid-color outline on the shape. */
+export const setShapeStroke = (
+  shape: SlideShapeData,
+  options: { color?: string; widthEmu?: number },
+): void => {
+  setSolidStroke(requireSpPr(shape), options as StrokeOptions);
+  commitAndRefresh(shape);
+};
+
+/** Sets an explicit "no outline" on the shape. */
+export const setShapeNoStroke = (shape: SlideShapeData): void => {
+  setNoStrokeImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+/** Removes any outline override; the shape then inherits stroke from layout. */
+export const clearShapeStroke = (shape: SlideShapeData): void => {
+  clearStrokeImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+// ---------------------------------------------------------------------------
+// Shape mutation — text.
+
+/**
+ * Replaces the shape's visible text with `value`. Newlines start a new
+ * paragraph. Existing run/paragraph properties are preserved so font,
+ * color, size, alignment, and bullet style stay intact.
+ */
+export const setShapeText = (
+  shape: SlideShapeData,
+  value: string,
+  options: { bullets?: BulletStyle } = {},
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
+    throw new Error(
+      `setShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (txBody === null) {
+    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
+  }
+  setTextBody(txBody, value);
+  if (options.bullets !== undefined) {
+    applyBulletToAllParagraphs(txBody, options.bullets);
+  }
+  commitAndRefresh(shape);
+};
+
+/** Sets the bullet style on every paragraph in the shape's text body. */
+export const setShapeBullets = (shape: SlideShapeData, style: BulletStyle): void => {
+  applyBulletToAllParagraphs(requireTxBody(shape), style);
+  commitAndRefresh(shape);
+};
+
+/** Sets the horizontal alignment of every paragraph in the shape's text. */
+export const setShapeAlignment = (
+  shape: SlideShapeData,
+  align: ParagraphAlignment,
+): void => {
+  applyAlignmentToAllParagraphs(requireTxBody(shape), align);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Applies `format` to every run in the shape's text. Run-property
+ * attributes not addressed by `format` are preserved, so partial
+ * updates compose.
+ */
+export const setShapeTextFormat = (shape: SlideShapeData, format: TextFormat): void => {
+  applyFormatToAllRuns(requireTxBody(shape), format);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets an external hyperlink on every run in the shape's text. Allocates
+ * (or reuses) a `hyperlink` relationship on the slide's `.rels`. Pass
+ * `null` to clear.
+ */
+export const setShapeHyperlink = (shape: SlideShapeData, url: string | null): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const txBody = requireTxBody(shape);
+  if (url === null) {
+    applyHyperlinkToAllRuns(txBody, null);
+  } else {
+    const pkg = slide[INTERNAL_PACKAGE];
+    const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+    const existing = rels.items.find(
+      (r) => r.type === REL_TYPES.hyperlink && r.target === url && r.targetMode === 'External',
+    );
+    const rId =
+      existing?.id ??
+      (() => {
+        const nextId = nextRelId(rels.items.map((r) => r.id));
+        rels.items.push({
+          id: nextId,
+          type: REL_TYPES.hyperlink,
+          target: url,
+          targetMode: 'External',
+        });
+        pkg.setRels(slide[SLIDE_PART_NAME], rels);
+        return nextId;
+      })();
+    applyHyperlinkToAllRuns(txBody, rId);
+  }
+  commitAndRefresh(shape);
+};
+
+// ---------------------------------------------------------------------------
+// Shape mutation — removal.
+
+/**
+ * Removes the shape from its slide's shape tree. Subsequent property
+ * reads on this handle reflect the stale snapshot — discard it after.
+ *
+ * Removing a picture does NOT delete the underlying media part — it
+ * may be referenced from other slides.
+ */
+export const removeShape = (shape: SlideShapeData): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const doc = slide[SLIDE_DOCUMENT];
+  const cSld = firstChildElement(doc.root, qname('p', 'cSld', NS.pml));
+  if (!cSld) return;
+  const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+  if (!spTree) return;
+  const idx = spTree.children.indexOf(shape[SHAPE_ELEMENT]);
+  if (idx < 0) return;
+  spTree.children.splice(idx, 1);
+  commitSlideData(slide);
+  rebuildShapesFromDocument(slide);
 };
