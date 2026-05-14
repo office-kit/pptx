@@ -14,3 +14,4 @@ export type { ShapeKind, SlidePart, SlideShape } from './slide-part.ts';
 export { readShapeTreeFromCsldRoot, readSlidePart, slideText } from './slide-part.ts';
 export type { SlideLayoutPart, SlideLayoutType } from './slide-layout-part.ts';
 export { readSlideLayoutPart } from './slide-layout-part.ts';
+export { buildSlideFromLayout } from './slide-builder.ts';

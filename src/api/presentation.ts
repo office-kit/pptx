@@ -4,12 +4,77 @@
 // save, and a read-only `slides` view. Authoring methods land as the
 // internal PresentationML / DrawingML layers grow real width.
 
-import { partName } from '../internal/opc/index.ts';
+import { basename, emptyRels, nextRelId, partName } from '../internal/opc/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
-import { readPresentationPart, readSlideLayoutPart } from '../internal/presentationml/index.ts';
-import { parseXml } from '../internal/xml/index.ts';
+import {
+  REL_TYPES,
+  buildSlideFromLayout,
+  readPresentationPart,
+  readSlideLayoutPart,
+} from '../internal/presentationml/index.ts';
+import {
+  NS,
+  type XmlElement,
+  allChildElements,
+  attr,
+  elem,
+  firstChildElement,
+  getAttrValue,
+  parseXml,
+  qname,
+  serializeXml,
+} from '../internal/xml/index.ts';
 import { SlideLayout } from './slide-layout.ts';
 import { _internalCreateSlide, type Slide } from './slide.ts';
+
+const encoder = new TextEncoder();
+const decoder = new TextDecoder();
+
+const NAME_PRESENTATION = qname('p', 'presentation', NS.pml);
+const NAME_SLD_MASTER_ID_LST = qname('p', 'sldMasterIdLst', NS.pml);
+const NAME_SLD_ID_LST = qname('p', 'sldIdLst', NS.pml);
+const NAME_SLD_ID = qname('p', 'sldId', NS.pml);
+const ATTR_ID = qname('', 'id', '');
+const ATTR_R_ID = qname('r', 'id', NS.officeDocRels);
+
+const PRES_PART_NAME = partName('/ppt/presentation.xml');
+const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
+
+// PowerPoint accepts sldIds in [256, 2³¹−1024]. Reuse the cap.
+const SLD_ID_MIN = 256;
+const SLD_ID_MAX = 2147482623;
+
+// Ensures presentation.xml has a `<p:sldIdLst>` and returns it. Inserts it
+// immediately after `<p:sldMasterIdLst>` if it didn't exist — the spec's
+// element-sequence requires that ordering.
+const ensureSldIdLst = (presentationRoot: XmlElement): XmlElement => {
+  const existing = firstChildElement(presentationRoot, NAME_SLD_ID_LST);
+  if (existing !== null) return existing;
+  const fresh = elem(NAME_SLD_ID_LST);
+  const masterLst = firstChildElement(presentationRoot, NAME_SLD_MASTER_ID_LST);
+  if (masterLst === null) {
+    presentationRoot.children.unshift(fresh);
+    return fresh;
+  }
+  const idx = presentationRoot.children.indexOf(masterLst);
+  presentationRoot.children.splice(idx + 1, 0, fresh);
+  return fresh;
+};
+
+const allocateSldId = (sldIdLst: XmlElement): number => {
+  let max = SLD_ID_MIN - 1;
+  for (const sldId of allChildElements(sldIdLst, NAME_SLD_ID)) {
+    const raw = getAttrValue(sldId, ATTR_ID);
+    if (raw === null) continue;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isFinite(n) && n > max) max = n;
+  }
+  const next = Math.max(SLD_ID_MIN, max + 1);
+  if (next > SLD_ID_MAX) {
+    throw new Error(`sldId allocator exhausted (next would be ${next}, max ${SLD_ID_MAX})`);
+  }
+  return next;
+};
 
 /**
  * Anything that can be turned into a `Uint8Array` of PPTX bytes:
@@ -162,11 +227,112 @@ export class Presentation {
         part.contentType ===
         'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml'
       ) {
-        const root = parseXml(new TextDecoder().decode(part.data)).root;
+        const root = parseXml(decoder.decode(part.data)).root;
         out.push(new SlideLayout(part.name, readSlideLayoutPart(root)));
       }
     }
     return out;
+  }
+
+  /**
+   * Adds a new slide bound to `layout`. Returns the new `Slide`.
+   *
+   * What changes in the package:
+   *
+   *   - A new `/ppt/slides/slideN.xml` part is allocated. N is the lowest
+   *     free index (so deleting slide5 and adding leaves the next add at 5,
+   *     not at 6 — matches PowerPoint's behavior).
+   *   - The new slide's XML carries placeholder stubs cloned from the
+   *     layout: each layout `<p:ph>` becomes an empty placeholder shape
+   *     on the slide, ready for `slide.findPlaceholder(...).setText(...)`.
+   *   - `[Content_Types].xml` gets an `Override` for the new part.
+   *   - The slide's own `.rels` gets a `slideLayout` relationship pointing
+   *     at the chosen layout.
+   *   - `presentation.xml.rels` gets a `slide` relationship pointing at
+   *     the new slide part.
+   *   - `presentation.xml`'s `<p:sldIdLst>` gets a new `<p:sldId>` with a
+   *     freshly allocated id in `[256, 2³¹−1024]`. The `sldIdLst` is
+   *     created if it didn't exist.
+   *
+   * The new slide is appended to deck order. To insert at a different
+   * position, reorder the underlying `<p:sldId>` element after the call
+   * (a `move` helper lands when collection methods do).
+   */
+  addSlide(options: { layout: SlideLayout }): Slide {
+    const pkg = this[INTERNAL_PACKAGE];
+    const layout = options.layout;
+
+    // 1. Parse presentation.xml.
+    const presPart = pkg.getPart(PRES_PART_NAME);
+    if (!presPart) throw new Error('presentation.xml is missing');
+    const presDoc = parseXml(decoder.decode(presPart.data));
+    if (
+      presDoc.root.name.namespaceURI !== NAME_PRESENTATION.namespaceURI ||
+      presDoc.root.name.localName !== 'presentation'
+    ) {
+      throw new Error('presentation.xml root is not <p:presentation>');
+    }
+
+    // 2. Allocate identifiers.
+    const sldIdLst = ensureSldIdLst(presDoc.root);
+    const newSldId = allocateSldId(sldIdLst);
+
+    let slideN = 1;
+    for (const p of pkg.parts) {
+      const m = p.name.match(/^\/ppt\/slides\/slide(\d+)\.xml$/);
+      if (m?.[1] !== undefined) {
+        const n = Number.parseInt(m[1], 10);
+        if (Number.isFinite(n) && n >= slideN) slideN = n + 1;
+      }
+    }
+    const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
+
+    // 3. Build the slide XML from the layout's placeholders.
+    const layoutCsld = firstChildElement(layout._part.root, qname('p', 'cSld', NS.pml));
+    if (!layoutCsld) throw new Error(`layout ${layout._partName} missing <p:cSld>`);
+    const layoutSpTree = firstChildElement(layoutCsld, qname('p', 'spTree', NS.pml));
+    if (!layoutSpTree) throw new Error(`layout ${layout._partName} missing <p:spTree>`);
+    const slideDoc = buildSlideFromLayout(layoutSpTree);
+    const slideBytes = encoder.encode(serializeXml(slideDoc));
+
+    // 4. Add the slide part with its content-type override.
+    pkg.addPart(newSlidePartName, SLIDE_CONTENT_TYPE, slideBytes);
+
+    // 5. slide → layout rel.
+    const slideRels = emptyRels();
+    const layoutBasename = basename(layout._partName);
+    slideRels.items.push({
+      id: 'rId1',
+      type: REL_TYPES.slideLayout,
+      target: `../slideLayouts/${layoutBasename}`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(newSlidePartName, slideRels);
+
+    // 6. presentation → slide rel.
+    const presRels = pkg.getRels(PRES_PART_NAME) ?? emptyRels();
+    const newRId = nextRelId(presRels.items.map((r) => r.id));
+    presRels.items.push({
+      id: newRId,
+      type: REL_TYPES.slide,
+      target: `slides/slide${slideN}.xml`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(PRES_PART_NAME, presRels);
+
+    // 7. presentation.xml's sldIdLst entry.
+    const newSldIdElement = elem(NAME_SLD_ID, {
+      attrs: [attr(ATTR_ID, String(newSldId)), attr(ATTR_R_ID, newRId)],
+    });
+    sldIdLst.children.push(newSldIdElement);
+    presPart.data = encoder.encode(serializeXml(presDoc));
+
+    // 8. Invalidate the slides cache and return the new Slide.
+    this._slidesCache = null;
+    const slides = this.slides;
+    const lastSlide = slides[slides.length - 1];
+    if (!lastSlide) throw new Error('addSlide: post-condition failed; slide not in cache');
+    return lastSlide;
   }
 
   /** @internal */
