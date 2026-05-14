@@ -18,12 +18,16 @@ import {
   getPictureEmbedRId,
   type ParagraphAlignment,
   type Position,
+  readFlip,
   readPosition,
+  readRotation,
   readSize,
   replaceTokensInTree,
+  setFlip as writeFlip,
   setNoFill,
   setNoStroke,
   setPosition as writePosition,
+  setRotation as writeRotation,
   setSize as writeSize,
   setSolidFill,
   setSolidStroke,
@@ -551,6 +555,45 @@ export class SlideShape {
    */
   get size(): Size | null {
     return readSize(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * The shape's rotation in degrees (positive clockwise). Defaults to `0`
+   * when the shape carries no rotation. PowerPoint serializes the value
+   * in 60000ths of a degree internally; the public accessor returns plain
+   * degrees.
+   */
+  get rotation(): number {
+    return readRotation(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * The shape's flip state, or `null` when the shape has no transform of
+   * its own (geometry inherited from layout).
+   */
+  get flip(): { horizontal: boolean; vertical: boolean } | null {
+    return readFlip(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * Sets the shape's rotation in degrees. Negative values rotate
+   * counter-clockwise; values are normalized into `[0, 360)`. Pass `0`
+   * to clear an existing rotation.
+   */
+  setRotation(degrees: number): void {
+    writeRotation(this._element, this._snapshot.kind, degrees);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /**
+   * Sets the shape's flip flags. Independent on each axis; pass only the
+   * properties you want to change.
+   */
+  setFlip(options: { horizontal?: boolean; vertical?: boolean }): void {
+    writeFlip(this._element, this._snapshot.kind, options);
+    this._slide._commit();
+    this._slide._refresh();
   }
 
   /**

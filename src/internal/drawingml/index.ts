@@ -20,5 +20,5 @@ export { clearStroke, setNoStroke, setSolidStroke } from './stroke.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';
-export { readPosition, readSize } from './geometry.ts';
-export { setPosition, setSize } from './geometry-mutation.ts';
+export { readFlip, readPosition, readRotation, readSize } from './geometry.ts';
+export { setFlip, setPosition, setRotation, setSize } from './geometry-mutation.ts';

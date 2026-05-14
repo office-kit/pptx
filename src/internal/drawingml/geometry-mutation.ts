@@ -94,3 +94,44 @@ export const setSize = (
   }
   ext.attrs = [attr(ATTR_CX, String(w)), attr(ATTR_CY, String(h))];
 };
+
+const ATTR_ROT = qname('', 'rot', '');
+const ATTR_FLIP_H = qname('', 'flipH', '');
+const ATTR_FLIP_V = qname('', 'flipV', '');
+
+/**
+ * Sets the shape's rotation. `degrees` is degrees (positive clockwise),
+ * fractional values allowed. PowerPoint serializes the value in
+ * 60000ths of a degree per ECMA-376 ST_Angle, which we mirror.
+ *
+ * The full range is `0..360`; values outside that range are normalized.
+ */
+export const setRotation = (
+  shape: XmlElement,
+  kind: ShapeKindForGeometry,
+  degrees: number,
+): void => {
+  const xfrm = ensureTransform(shape, kind);
+  // Normalize into `[0, 360)`.
+  const normalized = ((degrees % 360) + 360) % 360;
+  const value = Math.round(normalized * 60000);
+  xfrm.attrs = xfrm.attrs.filter((a) => a.name.localName !== 'rot');
+  if (value !== 0) xfrm.attrs.push(attr(ATTR_ROT, String(value)));
+};
+
+/** Sets `flipH` / `flipV` boolean attributes on the shape's transform. */
+export const setFlip = (
+  shape: XmlElement,
+  kind: ShapeKindForGeometry,
+  options: { horizontal?: boolean; vertical?: boolean },
+): void => {
+  const xfrm = ensureTransform(shape, kind);
+  if (options.horizontal !== undefined) {
+    xfrm.attrs = xfrm.attrs.filter((a) => a.name.localName !== 'flipH');
+    if (options.horizontal) xfrm.attrs.push(attr(ATTR_FLIP_H, '1'));
+  }
+  if (options.vertical !== undefined) {
+    xfrm.attrs = xfrm.attrs.filter((a) => a.name.localName !== 'flipV');
+    if (options.vertical) xfrm.attrs.push(attr(ATTR_FLIP_V, '1'));
+  }
+};

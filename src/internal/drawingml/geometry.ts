@@ -93,3 +93,32 @@ export const readSize = (shape: XmlElement, kind: ShapeKindForGeometry): Size | 
   if (w === null || h === null) return null;
   return { w, h };
 };
+
+const ATTR_ROT_R = qname('', 'rot', '');
+const ATTR_FLIP_H_R = qname('', 'flipH', '');
+const ATTR_FLIP_V_R = qname('', 'flipV', '');
+
+/**
+ * Returns the shape's rotation in degrees, or `0` if no rotation is set.
+ * ECMA-376 stores rotation in 60000ths of a degree; we divide.
+ */
+export const readRotation = (shape: XmlElement, kind: ShapeKindForGeometry): number => {
+  const xfrm = findTransform(shape, kind);
+  if (xfrm === null) return 0;
+  const raw = parseIntOr(getAttrValue(xfrm, ATTR_ROT_R));
+  if (raw === null) return 0;
+  return raw / 60000;
+};
+
+/** Returns the shape's flip state (h/v boolean) or `null` when no xfrm exists. */
+export const readFlip = (
+  shape: XmlElement,
+  kind: ShapeKindForGeometry,
+): { horizontal: boolean; vertical: boolean } | null => {
+  const xfrm = findTransform(shape, kind);
+  if (xfrm === null) return null;
+  return {
+    horizontal: getAttrValue(xfrm, ATTR_FLIP_H_R) === '1',
+    vertical: getAttrValue(xfrm, ATTR_FLIP_V_R) === '1',
+  };
+};
