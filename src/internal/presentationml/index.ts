@@ -21,3 +21,4 @@ export type { PictureOptions } from './picture-builder.ts';
 export { buildPicture } from './picture-builder.ts';
 export type { TableOptions } from './table-builder.ts';
 export { buildTable } from './table-builder.ts';
+export { buildEmptyNotesSlide } from './notes-slide-builder.ts';

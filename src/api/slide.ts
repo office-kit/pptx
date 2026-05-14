@@ -39,6 +39,7 @@ import {
 import type { Emu } from './units.ts';
 import {
   REL_TYPES,
+  buildEmptyNotesSlide,
   buildPicture,
   buildTable,
   buildTextBox,
@@ -129,6 +130,192 @@ export class Slide {
   /** Concatenated visible text from every shape. */
   get text(): string {
     return slideText(this._part);
+  }
+
+  /**
+   * Speaker notes for this slide, or `null` if no notesSlide exists.
+   * Returns the concatenated text of the `body` placeholder; multi-line
+   * notes use `\n` between paragraphs.
+   */
+  get notes(): string | null {
+    const notesPart = this._findNotesPart();
+    if (notesPart === null) return null;
+    const root = parseXml(decoder.decode(notesPart.data)).root;
+    const cSld = firstChildElement(root, qname('p', 'cSld', NS.pml));
+    if (!cSld) return null;
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) return null;
+    for (const child of spTree.children) {
+      if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
+      if (child.name.localName !== 'sp') continue;
+      const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+      if (!nvSpPr) continue;
+      const nvPr = firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+      if (!nvPr) continue;
+      const ph = firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+      if (!ph) continue;
+      // ph type "body" with idx "1" is the notes-text placeholder.
+      const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+      if (!txBody) continue;
+      // Pull lines out of every `<a:p>`.
+      const lines: string[] = [];
+      for (const p of txBody.children) {
+        if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
+          continue;
+        }
+        let line = '';
+        for (const r of p.children) {
+          if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
+            continue;
+          }
+          for (const tElement of r.children) {
+            if (
+              tElement.kind === 'element' &&
+              tElement.name.namespaceURI === NS.dml &&
+              tElement.name.localName === 't'
+            ) {
+              for (const tc of tElement.children) {
+                if (tc.kind === 'text') line += tc.data;
+              }
+            }
+          }
+        }
+        lines.push(line);
+      }
+      return lines.join('\n');
+    }
+    return null;
+  }
+
+  /**
+   * Sets speaker notes for this slide. Creates the `notesSlide` part and
+   * wires up the rels (slide↔notesSlide↔notesMaster) on first call.
+   * Subsequent calls just replace the body placeholder text.
+   *
+   * Throws if the package has no `notesMaster` to bind against; that
+   * means the deck wasn't built from a PowerPoint-compatible template.
+   */
+  setNotes(value: string): void {
+    const notesPartName = this._findNotesPartName();
+    if (notesPartName !== null) {
+      const part = this._pkg.getPart(notesPartName);
+      if (part === null) {
+        throw new Error(`notes rel points at missing part ${notesPartName}`);
+      }
+      const doc = parseXml(decoder.decode(part.data));
+      const cSld = firstChildElement(doc.root, qname('p', 'cSld', NS.pml));
+      if (!cSld) throw new Error('notesSlide has no <p:cSld>');
+      const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+      if (!spTree) throw new Error('notesSlide has no <p:spTree>');
+      for (const child of spTree.children) {
+        if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
+        if (child.name.localName !== 'sp') continue;
+        const nvSpPr = firstChildElement(child, qname('p', 'nvSpPr', NS.pml));
+        if (!nvSpPr) continue;
+        const nvPr = firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
+        if (!nvPr) continue;
+        const ph = firstChildElement(nvPr, qname('p', 'ph', NS.pml));
+        if (!ph) continue;
+        const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
+        if (!txBody) continue;
+        setTextBody(txBody, value);
+        part.data = encoder.encode(serializeXml(doc));
+        return;
+      }
+      throw new Error('notesSlide has no body placeholder to fill');
+    }
+
+    this._createNotesPart(value);
+  }
+
+  /** @internal */
+  private _findNotesPartName(): PartName | null {
+    const rels = this._pkg.getRels(this._partName);
+    if (!rels) return null;
+    const notesRel = rels.items.find((r) => r.type === REL_TYPES.notesSlide);
+    if (!notesRel) return null;
+    return notesRel.target.startsWith('/')
+      ? partName(notesRel.target)
+      : resolveTarget(this._partName, notesRel.target);
+  }
+
+  private _findNotesPart(): { data: Uint8Array; name: PartName; contentType: string } | null {
+    const name = this._findNotesPartName();
+    if (name === null) return null;
+    const part = this._pkg.getPart(name);
+    if (!part) return null;
+    return { data: part.data, name, contentType: part.contentType };
+  }
+
+  private _createNotesPart(notes: string): void {
+    const pkg = this._pkg;
+
+    // notesMaster is optional in the package; python-pptx's blank
+    // template ships without one. PowerPoint generally accepts a
+    // notesSlide whose rels point only at the slide.
+    const notesMasterPart = pkg.parts.find((p) => p.contentType.endsWith('notesMaster+xml'));
+
+    // Allocate /ppt/notesSlides/notesSlideN.xml.
+    let nextN = 1;
+    const pattern = /^\/ppt\/notesSlides\/notesSlide(\d+)\.xml$/;
+    for (const p of pkg.parts) {
+      const m = p.name.match(pattern);
+      if (m?.[1] !== undefined) {
+        const n = Number.parseInt(m[1], 10);
+        if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+      }
+    }
+    const notesName = partName(`/ppt/notesSlides/notesSlide${nextN}.xml`);
+
+    // Build and add the notesSlide part.
+    const doc = buildEmptyNotesSlide(notes);
+    const bytes = encoder.encode(serializeXml(doc));
+    pkg.addPart(
+      notesName,
+      'application/vnd.openxmlformats-officedocument.presentationml.notesSlide+xml',
+      bytes,
+    );
+
+    // Wire the notesSlide's own rels: → slide (always) and → notesMaster
+    // (if present in the package).
+    const notesRels = {
+      items: [] as Array<{
+        id: string;
+        type: string;
+        target: string;
+        targetMode: 'Internal' | 'External';
+      }>,
+    };
+    const slideBase = this._partName.split('/').pop() ?? 'slide.xml';
+    notesRels.items.push({
+      id: 'rId1',
+      type: REL_TYPES.slide,
+      target: `../slides/${slideBase}`,
+      targetMode: 'Internal',
+    });
+    if (notesMasterPart) {
+      const notesMasterBase = notesMasterPart.name.split('/').pop() ?? 'notesMaster1.xml';
+      notesRels.items.push({
+        id: 'rId2',
+        type: REL_TYPES.notesMaster,
+        target: `../notesMasters/${notesMasterBase}`,
+        targetMode: 'Internal',
+      });
+    }
+    pkg.setRels(notesName, notesRels);
+
+    // Wire the slide → notesSlide rel.
+    const slideRels = pkg.getRels(this._partName) ?? { items: [] };
+    const existingIds = slideRels.items.map((r) => r.id);
+    let n = 1;
+    while (existingIds.includes(`rId${n}`)) n++;
+    slideRels.items.push({
+      id: `rId${n}`,
+      type: REL_TYPES.notesSlide,
+      target: `../notesSlides/notesSlide${nextN}.xml`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(this._partName, slideRels);
   }
 
   /**
