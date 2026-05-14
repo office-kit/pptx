@@ -123,6 +123,7 @@ export {
   setShapeNoStroke,
   setShapePatternFill,
   setParagraphAlignment,
+  setParagraphBullet,
   setParagraphLevel,
   setShapePosition,
   setShapeRotation,

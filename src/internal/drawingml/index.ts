@@ -5,6 +5,7 @@ export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.t
 export {
   applyAlignmentToAllParagraphs,
   applyBulletToAllParagraphs,
+  applyBulletToParagraph,
   type BulletStyle,
   type ParagraphAlignment,
   replaceTokensInTree,

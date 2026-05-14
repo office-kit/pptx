@@ -237,6 +237,32 @@ export const applyAlignmentToAllParagraphs = (
 };
 
 /**
+ * Sets the bullet style on a single `<a:p>` paragraph. Drops any
+ * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
+ * before inserting the new one. Creates `<a:pPr>` if absent.
+ */
+export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle): void => {
+  let pPr = firstChildElement(paragraph, NAME_PPR_FOR_BULLET);
+  if (pPr === null) {
+    pPr = elem(NAME_PPR_FOR_BULLET);
+    // <a:pPr> must be the first child of <a:p>.
+    paragraph.children.unshift(pPr);
+  }
+  // Remove any existing bullet child.
+  pPr.children = pPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        (c.name.localName === 'buChar' ||
+          c.name.localName === 'buAutoNum' ||
+          c.name.localName === 'buNone')
+      ),
+  );
+  pPr.children.push(buildBulletElement(style));
+};
+
+/**
  * Sets the bullet style on every paragraph in `txBody`. Drops any
  * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
  * before inserting the new one. Creates `<a:pPr>` if absent.
@@ -250,24 +276,7 @@ export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyl
     ) {
       continue;
     }
-    let pPr = firstChildElement(p, NAME_PPR_FOR_BULLET);
-    if (pPr === null) {
-      pPr = elem(NAME_PPR_FOR_BULLET);
-      // <a:pPr> must be the first child of <a:p>.
-      p.children.unshift(pPr);
-    }
-    // Remove any existing bullet child.
-    pPr.children = pPr.children.filter(
-      (c) =>
-        !(
-          c.kind === 'element' &&
-          c.name.namespaceURI === NS.dml &&
-          (c.name.localName === 'buChar' ||
-            c.name.localName === 'buAutoNum' ||
-            c.name.localName === 'buNone')
-        ),
-    );
-    pPr.children.push(buildBulletElement(style));
+    applyBulletToParagraph(p, style);
   }
 };
 

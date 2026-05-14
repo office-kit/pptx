@@ -76,6 +76,27 @@ describe('fn API: per-paragraph control', () => {
     expect(() => setParagraphLevel(tb, 0, -1)).toThrow(RangeError);
   });
 
+  it('setParagraphBullet targets one paragraph with its own style', async () => {
+    const { setParagraphBullet } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const tb = addSlideTextBox(slide, {
+      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      text: 'A\nB\nC',
+    });
+    setParagraphBullet(tb, 0, 'bullet');
+    setParagraphBullet(tb, 1, { char: '★' });
+    setParagraphBullet(tb, 2, 'none');
+
+    const xml = await slideXml(await savePresentation(pres), 0);
+    // <a:buChar char="•"/> for paragraph 0
+    expect(xml).toMatch(/<a:buChar char="•"\/?>/);
+    // Star bullet for paragraph 1
+    expect(xml).toContain('char="★"');
+    // <a:buNone/> for paragraph 2
+    expect(xml).toContain('<a:buNone');
+  });
+
   it('setShapeText then setParagraphLevel composes cleanly', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

@@ -24,6 +24,7 @@ import {
   type TextFormat,
   applyAlignmentToAllParagraphs,
   applyBulletToAllParagraphs,
+  applyBulletToParagraph,
   applyFormatToAllRuns,
   applyHyperlinkToAllRuns,
   applyRunFormat as applyRunFormatInternal,
@@ -1363,6 +1364,21 @@ export const setParagraphLevel = (
   const pPr = ensurePPr(paragraph);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
   if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the bullet style on a single paragraph. Same `BulletStyle` shape
+ * as `setShapeBullets` — pass `'bullet'` / `'number'` / `'none'` or an
+ * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.
+ */
+export const setParagraphBullet = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  style: BulletStyle,
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  applyBulletToParagraph(paragraph, style);
   commitAndRefresh(shape);
 };
 
