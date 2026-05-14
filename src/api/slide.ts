@@ -33,6 +33,7 @@ import type { Emu } from './units.ts';
 import {
   REL_TYPES,
   buildPicture,
+  buildTable,
   buildTextBox,
   readSlideLayoutPart,
 } from '../internal/presentationml/index.ts';
@@ -321,6 +322,63 @@ export class Slide {
     configure(bgPr);
     this._commit();
     this._refresh();
+  }
+
+  /**
+   * Adds a table to this slide. Returns the new `SlideShape` (kind
+   * `graphicFrame`). Table cells render as plain text with default
+   * theme-aware styling; the table's `firstRow` and `bandRow` flags drive
+   * PowerPoint's banded-header look unless `options` says otherwise.
+   *
+   * Cell content is row-major (`rows[i][j]` is row `i`, column `j`). All
+   * rows must have the same length. Column widths and row heights default
+   * to equal distribution of the frame's geometry.
+   */
+  addTable(opts: {
+    x: Emu;
+    y: Emu;
+    w: Emu;
+    h: Emu;
+    rows: ReadonlyArray<ReadonlyArray<string>>;
+    colWidths?: ReadonlyArray<Emu>;
+    rowHeights?: ReadonlyArray<Emu>;
+    firstRow?: boolean;
+    bandRow?: boolean;
+    name?: string;
+  }): SlideShape {
+    let maxId = 0;
+    for (const s of this._part.shapes) {
+      if (s.id > maxId) maxId = s.id;
+    }
+    const newId = Math.max(maxId, 1) + 1;
+
+    const frame = buildTable({
+      id: newId,
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+      x: opts.x,
+      y: opts.y,
+      w: opts.w,
+      h: opts.h,
+      rows: opts.rows,
+      ...(opts.colWidths !== undefined ? { colWidths: opts.colWidths } : {}),
+      ...(opts.rowHeights !== undefined ? { rowHeights: opts.rowHeights } : {}),
+      ...(opts.firstRow !== undefined ? { firstRow: opts.firstRow } : {}),
+      ...(opts.bandRow !== undefined ? { bandRow: opts.bandRow } : {}),
+    });
+
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) throw new Error('slide has no <p:cSld>');
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) throw new Error('slide has no <p:spTree>');
+    spTree.children.push(frame);
+
+    this._commit();
+    const previousLength = this._shapes.length;
+    this._part = readSlidePart(this._document.root);
+    this._shapes = this._part.shapes.map((s) => new SlideShape(this, s.element, s));
+    const created = this._shapes[previousLength];
+    if (!created) throw new Error('addTable: post-condition failed');
+    return created;
   }
 
   /**

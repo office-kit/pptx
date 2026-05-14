@@ -19,3 +19,5 @@ export type { TextBoxOptions } from './text-box-builder.ts';
 export { buildTextBox } from './text-box-builder.ts';
 export type { PictureOptions } from './picture-builder.ts';
 export { buildPicture } from './picture-builder.ts';
+export type { TableOptions } from './table-builder.ts';
+export { buildTable } from './table-builder.ts';
