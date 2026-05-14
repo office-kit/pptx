@@ -6,14 +6,9 @@ import { describe, expect, it } from 'vitest';
 import { Presentation } from '../src/api/index.ts';
 import { _internalPackageOf } from '../src/api/presentation.ts';
 import { partName } from '../src/internal/opc/index.ts';
-import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
-
-const decode = (b: Uint8Array): string => new TextDecoder().decode(b);
-
-const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 describe('L3: Slide.notes / setNotes', () => {
   it('returns null when the slide has no notesSlide', async () => {
@@ -66,5 +61,4 @@ describe('L3: Slide.notes / setNotes', () => {
   // so xmllint refuses to validate it standalone. PowerPoint reads it fine.
   // Schema validation for notesSlide would need the strict schema variant
   // or a wrapper element — out of scope for this iteration.
-  void [skipIfNoXmllint, expectSchemaValid, isSchemaValidationAvailable];
 });
