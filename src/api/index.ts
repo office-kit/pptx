@@ -37,6 +37,7 @@ export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/index.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
+export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -48,6 +49,7 @@ export {
   addSlideTextBox,
   clearShapeFill,
   clearShapeStroke,
+  clearSlideAnimations,
   clearSlideBackground,
   clearSlideTransition,
   createPresentation,
@@ -87,6 +89,7 @@ export {
   replaceTokensInSlide,
   savePresentation,
   setShapeAlignment,
+  setShapeAnimation,
   setShapeBullets,
   setShapeFill,
   setShapeFlip,

@@ -59,6 +59,8 @@ import {
 import { OpcPackage } from '../internal/parts/index.ts';
 import {
   REL_TYPES,
+  type AnimationEffect,
+  type AnimationOptions,
   type CommentAuthor,
   type CommentPosition,
   type PresetShape,
@@ -72,6 +74,7 @@ import {
   buildEmptyNotesSlide,
   buildPicture,
   buildShape,
+  buildSingleEffectTiming,
   buildSlideFromLayout,
   buildTable,
   buildTextBox,
@@ -2213,3 +2216,66 @@ export type { IssueSeverity, ValidationIssue };
  */
 export const validatePresentation = (pres: PresentationData): ReadonlyArray<ValidationIssue> =>
   validatePresentationPackage(pres[INTERNAL_PACKAGE]);
+
+// ---------------------------------------------------------------------------
+// Animations (single-effect, click-triggered).
+//
+// v1 scope: exactly one effect per slide, click-triggered, entrance or
+// exit preset family. The plan calls this the curated subset; full
+// multi-effect timing-tree authoring is post-1.0.
+
+export type { AnimationEffect, AnimationOptions };
+
+const NAME_TIMING_FN = qname('p', 'timing', NS.pml);
+
+const removeExistingTiming = (slide: SlideData): void => {
+  slide[SLIDE_DOCUMENT].root.children = slide[SLIDE_DOCUMENT].root.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing'),
+  );
+};
+
+const insertTimingAtEnd = (slide: SlideData, timing: XmlElement): void => {
+  // Schema ordering: `<p:timing>` is one of the last children of `<p:sld>`
+  // (after cSld, clrMapOvr, transition). Appending to the end of
+  // `<p:sld>` keeps the file valid.
+  slide[SLIDE_DOCUMENT].root.children.push(timing);
+};
+
+/**
+ * Sets a single click-triggered animation effect on the given shape.
+ * Replaces any existing `<p:timing>` block on the slide — v1 supports
+ * exactly one effect per slide. Calling this on a second shape replaces
+ * the first.
+ *
+ * Supported `effect` tokens:
+ *
+ *   - `'fadeIn'`   entrance fade
+ *   - `'fadeOut'`  exit fade
+ *   - `'appear'`   instant entrance
+ *   - `'disappear'` instant exit
+ *
+ * `durationMs` defaults to 500ms (fades only — `appear`/`disappear`
+ * are instantaneous).
+ */
+export const setShapeAnimation = (
+  shape: SlideShapeData,
+  opts: AnimationOptions,
+): void => {
+  const slide = shape[SHAPE_SLIDE];
+  removeExistingTiming(slide);
+  const spid = shape[SHAPE_SNAPSHOT].id;
+  const timing = buildSingleEffectTiming(spid, opts);
+  insertTimingAtEnd(slide, timing);
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+/** Removes the slide's `<p:timing>` element entirely. */
+export const clearSlideAnimations = (slide: SlideData): void => {
+  removeExistingTiming(slide);
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+void NAME_TIMING_FN;

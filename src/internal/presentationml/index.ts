@@ -28,6 +28,8 @@ export { buildTable } from './table-builder.ts';
 export { buildEmptyNotesSlide } from './notes-slide-builder.ts';
 export type { TransitionEffect, TransitionOptions } from './transition-builder.ts';
 export { buildTransition } from './transition-builder.ts';
+export type { AnimationEffect, AnimationOptions } from './animation-builder.ts';
+export { buildSingleEffectTiming } from './animation-builder.ts';
 export type {
   CommentAuthor,
   CommentAuthorList,
