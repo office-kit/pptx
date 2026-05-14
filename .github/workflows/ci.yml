@@ -1,0 +1,76 @@
+name: CI
+
+# Quality gate for the project. Adapt the steps below to the language / package
+# manager of the project that uses this template.
+#
+# Defaults assume Node.js + pnpm. For other stacks (Cargo, Python, Go, ...),
+# replace the install / typecheck / lint / test / build steps accordingly. The
+# overall structure (cheap static gate, then test matrix) is stack-agnostic and
+# worth keeping.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancel in-flight runs on the same ref so a fast-forward push doesn't spend
+# minutes on stale CI.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Cheap, single-version gate. Catches typing / lint / format violations before
+  # the test matrix spins up.
+  static:
+    name: Static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # TEMPLATE: replace the toolchain setup below for non-Node stacks.
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Format check
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+  # Multi-version test matrix. Adapt the matrix to the runtimes the project
+  # supports. Drop versions that are past their EOL date.
+  test:
+    name: Test (Node ${{ matrix.node-version }})
+    needs: static
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ['20', '22', '24']
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test

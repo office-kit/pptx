@@ -1,0 +1,21 @@
+node_modules
+dist
+coverage
+.vitest-cache
+
+# Spec downloads — references/specs/fetch.sh fetches into here. Not redistributed.
+references/specs/downloads/
+references/specs/xsd/
+
+# Local cloning of external (large / copyleft) references — see references/EXTERNAL.md.
+references/external/
+
+.DS_Store
+*.log
+.env
+.env.local
+
+.idea
+.vscode
+!.vscode/extensions.json
+!.vscode/settings.json

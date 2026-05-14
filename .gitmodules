@@ -1,0 +1,30 @@
+[submodule "references/python-pptx"]
+	path = references/python-pptx
+	url = https://github.com/scanny/python-pptx.git
+[submodule "references/PptxGenJS"]
+	path = references/PptxGenJS
+	url = https://github.com/gitbrent/PptxGenJS.git
+[submodule "references/pptx-automizer"]
+	path = references/pptx-automizer
+	url = https://github.com/singerla/pptx-automizer.git
+[submodule "references/Open-XML-SDK"]
+	path = references/Open-XML-SDK
+	url = https://github.com/dotnet/Open-XML-SDK.git
+[submodule "references/ShapeCrawler"]
+	path = references/ShapeCrawler
+	url = https://github.com/ShapeCrawler/ShapeCrawler.git
+[submodule "references/open-xml-docs"]
+	path = references/open-xml-docs
+	url = https://github.com/OfficeDev/open-xml-docs.git
+[submodule "references/ecma-376-5th"]
+	path = references/ecma-376-5th
+	url = https://github.com/QtExcel/ecma-376-5th.git
+[submodule "references/docxtemplater"]
+	path = references/docxtemplater
+	url = https://github.com/open-xml-templating/docxtemplater.git
+[submodule "references/officecrypto-tool"]
+	path = references/officecrypto-tool
+	url = https://github.com/zurmokeeper/officecrypto-tool.git
+[submodule "references/pptx-renderer"]
+	path = references/pptx-renderer
+	url = https://github.com/aiden0z/pptx-renderer.git

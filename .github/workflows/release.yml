@@ -1,0 +1,90 @@
+name: Release
+
+# Changesets-driven publish to npm.
+#
+# Flow:
+#   1. PRs land on `main` with a `.changeset/*.md` file describing the bump.
+#   2. This workflow opens (or updates) a "Version Packages" PR that bumps
+#      package.json + CHANGELOG.md and removes consumed changesets.
+#   3. Merging that PR re-runs this workflow, which now finds no pending
+#      changesets and instead publishes to npm with provenance and creates a
+#      GitHub Release for each version bump.
+#
+# Authentication:
+#   Publishing uses npm Trusted Publishers (OIDC). The package on npm must be
+#   configured to trust this repo + workflow at
+#   https://www.npmjs.com/package/<package-name>/access. No NPM_TOKEN secret is
+#   needed; OIDC is brokered via the `id-token: write` permission below. If you
+#   prefer a classic NPM_TOKEN, set it as a repo secret and add
+#   `NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}` under env on the publish step.
+#
+# Required repo settings:
+#   - Settings → Actions → General → Workflow permissions:
+#     "Read and write permissions" + "Allow GitHub Actions to create and approve
+#     pull requests" (so changesets/action can open the release PR).
+#
+# Adapt this file for non-npm registries (Cargo, PyPI, ...) — the changesets
+# action ships only the npm path; other ecosystems need their own publish step.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write       # create/merge release PR, push tags, GitHub Releases
+  pull-requests: write  # open the "Version Packages" PR
+  id-token: write       # OIDC for npm provenance
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+
+      # Use Node 24 here. `changeset publish` shells out to `npm publish`, and
+      # OIDC Trusted Publishers require npm CLI >= 11.5.1, which ships with
+      # Node 24. CI keeps testing the full Node 20/22/24 matrix; only the
+      # publish job needs the newer npm.
+      #
+      # Note: do NOT set `registry-url` here unless you want token auth — it
+      # would have setup-node write `_authToken=${NODE_AUTH_TOKEN}` into .npmrc
+      # and force token auth, blocking the OIDC code path.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # Run the gates one more time before publishing — the release workflow is
+      # the last line of defense.
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm build
+
+      - name: Create Release PR or publish to npm
+        id: changesets
+        uses: changesets/action@v1
+        with:
+          # `pnpm changeset version` consumes pending changesets and writes the
+          # version bump + CHANGELOG. `pnpm release` is the project-defined
+          # publish script (typically `changeset publish`).
+          version: pnpm changeset version
+          publish: pnpm release
+          title: 'chore(release): version packages'
+          commit: 'chore(release): version packages'
+          createGithubReleases: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_PROVENANCE: 'true'
