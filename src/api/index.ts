@@ -40,10 +40,12 @@ export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type {
+  GlowOptions,
   GradientFillOptions,
   GradientStop,
   PatternFillOptions,
   PatternPreset,
+  ShadowOptions,
 } from '../internal/drawingml/index.ts';
 export type { ShapeFill, SlideBackground, TextAnchor } from './fn.ts';
 export {
@@ -57,6 +59,7 @@ export {
   addSlideShape,
   addSlideTable,
   addSlideTextBox,
+  clearShapeEffects,
   clearShapeFill,
   clearShapeStroke,
   clearSlideAnimations,
@@ -117,7 +120,9 @@ export {
   setShapeBullets,
   setShapeFill,
   setShapeFlip,
+  setShapeGlow,
   setShapeGradientFill,
+  setShapeShadow,
   setShapeHyperlink,
   setShapeImage,
   setShapeImageCrop,

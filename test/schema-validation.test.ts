@@ -177,6 +177,31 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(slidePart!.data), 'pml');
   });
 
+  skipIfNoXmllint('a shape with outerShdw / glow validates', async () => {
+    const { addSlideShape, getSlides, loadPresentation, savePresentation, setShapeShadow, setShapeGlow } =
+      await import('../src/api/index.ts');
+    for (const variant of ['shadow', 'glow'] as const) {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const slide = getSlides(pres)[0];
+      if (!slide) throw new Error('expected slide');
+      const shape = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(2),
+      });
+      if (variant === 'shadow') setShapeShadow(shape, { color: '#000000', opacity: 0.5 });
+      else setShapeGlow(shape, { color: '#FF0000', radiusEmu: 50800 });
+      const bytes = await savePresentation(pres);
+      const reloaded = await Presentation.load(bytes);
+      const pkg = _internalPackageOf(reloaded);
+      const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+      expect(slidePart, `slide xml not found for ${variant}`).not.toBeUndefined();
+      expectSchemaValid(decode(slidePart!.data), 'pml');
+    }
+  });
+
   skipIfNoXmllint('a textbox with nested bullets validates', async () => {
     const {
       addSlideTextBox,

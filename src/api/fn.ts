@@ -28,8 +28,11 @@ import {
   applyFormatToAllRuns,
   applyHyperlinkToAllRuns,
   applyRunFormat as applyRunFormatInternal,
+  clearEffects as clearEffectsImpl,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
+  type GlowOptions,
+  type ShadowOptions,
   getPictureEmbedRId,
   readFlip,
   readPosition,
@@ -37,8 +40,10 @@ import {
   readSize,
   replaceTokensInTree,
   setFlip as writeFlip,
+  setGlow,
   setGradientFill,
   setPatternFill,
+  setShadow,
   setNoFill as setNoFillImpl,
   setNoStroke as setNoStrokeImpl,
   setPosition as writePosition,
@@ -1099,6 +1104,35 @@ export const setShapeNoStroke = (shape: SlideShapeData): void => {
 /** Removes any outline override; the shape then inherits stroke from layout. */
 export const clearShapeStroke = (shape: SlideShapeData): void => {
   clearStrokeImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+// ---------------------------------------------------------------------------
+// Effects: shadow + glow.
+
+/**
+ * Sets an outer drop shadow on the shape. Defaults: black, 4pt blur,
+ * 3pt offset, 45° (down-right). Pass `opacity` (0–1) to soften the
+ * shadow.
+ */
+export const setShapeShadow = (shape: SlideShapeData, options: ShadowOptions = {}): void => {
+  setShadow(requireSpPr(shape), options);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets a glow around the shape. The radius is in EMU (default 5pt =
+ * 63500). Mutually exclusive with `setShapeShadow` in v1 — calling
+ * either replaces the prior `<a:effectLst>` entirely.
+ */
+export const setShapeGlow = (shape: SlideShapeData, options: GlowOptions): void => {
+  setGlow(requireSpPr(shape), options);
+  commitAndRefresh(shape);
+};
+
+/** Removes any effects (shadow / glow / future presets) from the shape. */
+export const clearShapeEffects = (shape: SlideShapeData): void => {
+  clearEffectsImpl(requireSpPr(shape));
   commitAndRefresh(shape);
 };
 

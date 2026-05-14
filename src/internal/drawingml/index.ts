@@ -17,6 +17,8 @@ export type { ParsedColor } from './color.ts';
 export { buildColorElement, parseColor } from './color.ts';
 export type { GradientFillOptions, GradientStop, PatternFillOptions, PatternPreset } from './fill.ts';
 export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
+export type { GlowOptions, ShadowOptions } from './effects.ts';
+export { clearEffects, setGlow, setShadow } from './effects.ts';
 export type { StrokeOptions } from './stroke.ts';
 export { clearStroke, setNoStroke, setSolidStroke } from './stroke.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
