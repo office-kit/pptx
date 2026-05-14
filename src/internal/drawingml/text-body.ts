@@ -25,8 +25,6 @@ import type { XmlElement } from '../xml/index.ts';
 const NAME_P = qname('a', 'p', NS.dml);
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
-const NAME_FLD = qname('a', 'fld', NS.dml);
-const NAME_BR = qname('a', 'br', NS.dml);
 
 /**
  * Returns the visible text of a single paragraph (`a:p`). Concatenates all

@@ -11,4 +11,4 @@ export type {
 } from './presentation-part.ts';
 export { readPresentationPart } from './presentation-part.ts';
 export type { ShapeKind, SlidePart, SlideShape } from './slide-part.ts';
-export { countAllShapesInSlideXml, readSlidePart, slideText } from './slide-part.ts';
+export { readSlidePart, slideText } from './slide-part.ts';

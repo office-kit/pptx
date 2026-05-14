@@ -22,14 +22,7 @@
 // drawingml/ once we need them.
 
 import { textBodyText } from '../drawingml/index.ts';
-import {
-  NS,
-  allChildElements,
-  firstChildElement,
-  getAttrValue,
-  qname,
-  walkElements,
-} from '../xml/index.ts';
+import { NS, firstChildElement, getAttrValue, qname } from '../xml/index.ts';
 import type { XmlElement } from '../xml/index.ts';
 
 export type ShapeKind = 'shape' | 'picture' | 'group' | 'graphicFrame' | 'connector';
@@ -65,14 +58,8 @@ export interface SlidePart {
   readonly root: XmlElement;
 }
 
-const NAME_SLD = qname('p', 'sld', NS.pml);
 const NAME_CSLD = qname('p', 'cSld', NS.pml);
 const NAME_SP_TREE = qname('p', 'spTree', NS.pml);
-const NAME_SP = qname('p', 'sp', NS.pml);
-const NAME_PIC = qname('p', 'pic', NS.pml);
-const NAME_GRP_SP = qname('p', 'grpSp', NS.pml);
-const NAME_GRAPHIC_FRAME = qname('p', 'graphicFrame', NS.pml);
-const NAME_CXN_SP = qname('p', 'cxnSp', NS.pml);
 const NAME_NV_SP_PR = qname('p', 'nvSpPr', NS.pml);
 const NAME_NV_PIC_PR = qname('p', 'nvPicPr', NS.pml);
 const NAME_NV_GRP_SP_PR = qname('p', 'nvGrpSpPr', NS.pml);
@@ -201,20 +188,3 @@ export const slideText = (slide: SlidePart, joiner = '\n'): string =>
     .filter((t) => t.length > 0)
     .join(joiner);
 
-/**
- * Counts every element under `p:spTree` that classifies as a shape. Used
- * mainly to assert reader correctness without exposing the AST.
- */
-export const countAllShapesInSlideXml = (root: XmlElement): number => {
-  let n = 0;
-  walkElements(root, (el) => {
-    if (classify(el) !== null) n++;
-  });
-  // `classify` matches `p:spTree` is NOT a shape (it's a container). Same
-  // for `p:cSld`. But it does match `p:grpSp` itself. The outer `p:spTree`
-  // also is not matched, so the count is unambiguous.
-  // (Subtract 1 to exclude the slide root if it ever matches — currently
-  // it doesn't, but we keep this defensive.)
-  void NAME_SLD;
-  return n;
-};
