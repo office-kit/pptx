@@ -103,6 +103,7 @@ export {
   setShapeHyperlink,
   setShapeImage,
   setShapeImageCrop,
+  setShapeImageFill,
   setShapeNoFill,
   setShapeNoStroke,
   setShapeClickAction,

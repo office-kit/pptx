@@ -847,6 +847,96 @@ export const setShapeGradientFill = (
   commitAndRefresh(shape);
 };
 
+/**
+ * Sets a picture fill on the shape, embedding `bytes` as a new media
+ * part and replacing any prior fill choice on the shape's `<p:spPr>`.
+ *
+ * The image stretches to fill the shape (`<a:stretch><a:fillRect/>`).
+ * Format is detected from magic bytes; pass `options.format` to
+ * override (useful for SVG or unusual extensions).
+ *
+ * Throws if the format can't be detected and isn't provided explicitly,
+ * or if the shape kind doesn't carry a `<p:spPr>` (e.g. groups).
+ */
+export const setShapeImageFill = (
+  shape: SlideShapeData,
+  bytes: Uint8Array,
+  options: { format?: ImageFormat } = {},
+): void => {
+  const format = options.format ?? detectImageFormat(bytes);
+  if (format === null) {
+    throw new Error(
+      'setShapeImageFill: could not detect image format. Pass options.format explicitly.',
+    );
+  }
+  const contentType = contentTypeForFormat(format);
+  const extension = extensionForFormat(format);
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+
+  // Allocate /ppt/media/imageN.<ext> (shared with addSlideImage's
+  // numbering — both feed off the same /ppt/media space).
+  let nextN = 1;
+  const mediaPattern = /^\/ppt\/media\/image(\d+)\./;
+  for (const p of pkg.parts) {
+    const m = p.name.match(mediaPattern);
+    if (m?.[1] !== undefined) {
+      const n = Number.parseInt(m[1], 10);
+      if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+    }
+  }
+  const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
+  setOpcDefault(pkg, extension, contentType);
+  pkg.addPart(newMediaName, contentType, bytes);
+
+  // Slide → image rel.
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const newRId = nextRelId(rels.items.map((r) => r.id));
+  rels.items.push({
+    id: newRId,
+    type: REL_TYPES.image,
+    target: `../media/image${nextN}.${extension}`,
+    targetMode: 'Internal',
+  });
+  pkg.setRels(slide[SLIDE_PART_NAME], rels);
+
+  // Replace the shape's fill choice with <a:blipFill>.
+  const spPr = requireSpPr(shape);
+  const FILL_CHOICES = new Set(['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill']);
+  spPr.children = spPr.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && FILL_CHOICES.has(c.name.localName)),
+  );
+  const blipName = qname('a', 'blip', NS.dml);
+  const stretchName = qname('a', 'stretch', NS.dml);
+  const fillRectName = qname('a', 'fillRect', NS.dml);
+  const blipFillName = qname('a', 'blipFill', NS.dml);
+  const blip = elem(blipName, { attrs: [attr(qname('r', 'embed', NS.officeDocRels), newRId)] });
+  const stretch = elem(stretchName, { children: [elem(fillRectName)] });
+  const blipFill = elem(blipFillName, { children: [blip, stretch] });
+  // <a:blipFill> takes the same slot as <a:solidFill>; insert at the
+  // current insertion index. We use the same heuristic as setSolidFill —
+  // before <a:ln> / effectLst / scene3d / extLst.
+  let insertAt = spPr.children.length;
+  for (let i = 0; i < spPr.children.length; i++) {
+    const c = spPr.children[i];
+    if (c?.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (
+      c.name.localName === 'ln' ||
+      c.name.localName === 'effectLst' ||
+      c.name.localName === 'effectDag' ||
+      c.name.localName === 'scene3d' ||
+      c.name.localName === 'sp3d' ||
+      c.name.localName === 'extLst'
+    ) {
+      insertAt = i;
+      break;
+    }
+  }
+  spPr.children.splice(insertAt, 0, blipFill);
+  commitAndRefresh(shape);
+};
+
 /** Sets `<a:noFill>` on the shape, leaving it transparent. */
 export const setShapeNoFill = (shape: SlideShapeData): void => {
   setNoFillImpl(requireSpPr(shape));

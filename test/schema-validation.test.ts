@@ -100,6 +100,33 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(presPart?.data ?? new Uint8Array()), 'pml');
   });
 
+  skipIfNoXmllint('an image-filled shape validates', async () => {
+    const {
+      addSlideShape,
+      setShapeImageFill,
+      getSlides,
+      loadPresentation,
+      savePresentation,
+    } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(3),
+      h: inches(2),
+    });
+    setShapeImageFill(shape, PNG_1X1, { format: 'png' });
+    const bytes = await savePresentation(pres);
+    const reloaded = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(reloaded);
+    const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(slidePart).not.toBeUndefined();
+    expectSchemaValid(decode(slidePart!.data), 'pml');
+  });
+
   skipIfNoXmllint('a gradient-filled shape validates', async () => {
     const { setShapeGradientFill, getSlides, getSlideShapes, loadPresentation, savePresentation } =
       await import('../src/api/index.ts');
