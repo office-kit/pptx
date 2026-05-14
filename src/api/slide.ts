@@ -7,8 +7,16 @@
 // template, fill a few placeholders, save" — that's a handful of round
 // trips, which is fine.
 
-import { setTextBody } from '../internal/drawingml/index.ts';
-import type { PartName } from '../internal/opc/index.ts';
+import { getPictureEmbedRId, setTextBody } from '../internal/drawingml/index.ts';
+import {
+  type ImageFormat,
+  type PartName,
+  contentTypeForFormat,
+  detectImageFormat,
+  extensionForFormat,
+  partName,
+  resolveTarget,
+} from '../internal/opc/index.ts';
 import type { OpcPackage } from '../internal/parts/index.ts';
 import {
   type ShapeKind,
@@ -185,6 +193,98 @@ export class SlideShape {
     setTextBody(txBody, value);
     this._slide._commit();
     this._slide._refresh();
+  }
+
+  /**
+   * Replaces the picture's media with `bytes`. The format is detected from
+   * the magic bytes; pass `options.format` to override (useful for
+   * SVG-from-XML or odd file extensions). The original geometry — crop,
+   * sizing, transform — is preserved.
+   *
+   * Replacement strategy:
+   *
+   *   - Same format as the existing media: the bytes are written in place,
+   *     no rels or content-types change.
+   *   - Different format: a new media part is allocated under
+   *     `/ppt/media/imageN.<ext>`, the content type is registered as
+   *     a Default if `<ext>` is not yet present, and the slide's `r:embed`
+   *     rel is repointed at the new media. The old media part is left in
+   *     place (it may be referenced by other slides).
+   *
+   * Throws if the shape is not a `<p:pic>` or if the format cannot be
+   * detected and was not provided explicitly.
+   */
+  setImage(bytes: Uint8Array, options: { format?: ImageFormat } = {}): void {
+    if (this._snapshot.kind !== 'picture') {
+      throw new Error(`setImage only works on picture shapes; ${this._snapshot.kind} is not one`);
+    }
+    const format = options.format ?? detectImageFormat(bytes);
+    if (format === null) {
+      throw new Error('setImage: could not detect image format. Pass options.format explicitly.');
+    }
+
+    const rEmbed = getPictureEmbedRId(this._element);
+    if (rEmbed === null) {
+      throw new Error(`picture "${this._snapshot.name}" has no r:embed (external reference?)`);
+    }
+    const pkg = this._slide._pkg;
+    const rels = pkg.getRels(this._slide._partName);
+    if (rels === null) {
+      throw new Error(`slide ${this._slide._partName} has no rels`);
+    }
+    const rel = rels.items.find((r) => r.id === rEmbed);
+    if (!rel) {
+      throw new Error(`slide rels missing entry for r:embed="${rEmbed}"`);
+    }
+
+    const mediaName = rel.target.startsWith('/')
+      ? partName(rel.target)
+      : resolveTarget(this._slide._partName, rel.target);
+    const newExtension = extensionForFormat(format);
+    const newContentType = contentTypeForFormat(format);
+
+    const dotIdx = mediaName.lastIndexOf('.');
+    const currentExtension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1).toLowerCase() : '';
+
+    if (currentExtension === newExtension) {
+      const part = pkg.getPart(mediaName);
+      if (!part) throw new Error(`media part missing: ${mediaName}`);
+      part.data = bytes;
+      part.contentType = newContentType;
+      return;
+    }
+
+    // Cross-format: allocate a new media part.
+    let nextN = 1;
+    const mediaPathRegex = /^\/ppt\/media\/image(\d+)\./;
+    for (const p of pkg.parts) {
+      const m = p.name.match(mediaPathRegex);
+      if (m?.[1] !== undefined) {
+        const n = Number.parseInt(m[1], 10);
+        if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+      }
+    }
+    const newPartName = partName(`/ppt/media/image${nextN}.${newExtension}`);
+
+    // Make sure Content_Types covers the new extension. If a Default for the
+    // extension exists, addPart won't need an Override; otherwise it adds one.
+    const hasDefault = pkg.contentTypes.defaults.some(
+      (d) => d.extension.toLowerCase() === newExtension,
+    );
+    if (!hasDefault) {
+      pkg.contentTypes.defaults.push({
+        extension: newExtension,
+        contentType: newContentType,
+      });
+    }
+
+    pkg.addPart(newPartName, newContentType, bytes);
+
+    // Repoint the rel at the new media part. The slide lives at
+    // `/ppt/slides/slideN.xml`, media at `/ppt/media/imageM.<ext>` — relative
+    // target is `../media/imageM.<ext>`.
+    rel.target = `../media/image${nextN}.${newExtension}`;
+    pkg.setRels(this._slide._partName, rels);
   }
 }
 
