@@ -9,13 +9,16 @@
 
 import {
   applyFormatToAllRuns,
+  clearFill,
   getPictureEmbedRId,
   type Position,
   readPosition,
   readSize,
   replaceTokensInTree,
+  setNoFill,
   setPosition as writePosition,
   setSize as writeSize,
+  setSolidFill,
   setTextBody,
   type Size,
   type TextFormat,
@@ -268,6 +271,53 @@ export class Slide {
   }
 
   /**
+   * Sets a solid fill on the slide's background. Creates `<p:bg>` inside
+   * `<p:cSld>` if absent. Any existing background reference (`p:bgRef`)
+   * or `p:bgPr` is replaced.
+   */
+  setBackground(color: string): void {
+    this._setBackground((bgPr) => setSolidFill(bgPr, color));
+  }
+
+  /** Clears any explicit slide background, restoring layout inheritance. */
+  clearBackground(): void {
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) return;
+    cSld.children = cSld.children.filter(
+      (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'bg'),
+    );
+    this._commit();
+    this._refresh();
+  }
+
+  private _setBackground(configure: (bgPr: XmlElement) => void): void {
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) throw new Error('slide has no <p:cSld>');
+
+    const bgName = qname('p', 'bg', NS.pml);
+    const bgPrName = qname('p', 'bgPr', NS.pml);
+    let bg = firstChildElement(cSld, bgName);
+    if (bg === null) {
+      bg = { kind: 'element', name: bgName, attrs: [], prefixDecls: new Map(), children: [] };
+      // Per the schema, <p:bg> comes BEFORE <p:spTree> inside <p:cSld>.
+      cSld.children.unshift(bg);
+    }
+    // Replace any existing bg child with a fresh bgPr.
+    bg.children = [];
+    const bgPr: XmlElement = {
+      kind: 'element',
+      name: bgPrName,
+      attrs: [],
+      prefixDecls: new Map(),
+      children: [],
+    };
+    bg.children.push(bgPr);
+    configure(bgPr);
+    this._commit();
+    this._refresh();
+  }
+
+  /**
    * Adds a free-form text box to this slide. Returns the new `SlideShape`.
    *
    * The box is a plain rectangle with no fill or outline, containing one
@@ -412,6 +462,59 @@ export class SlideShape {
    */
   get size(): Size | null {
     return readSize(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * Sets a solid fill on this shape. Accepts the same color formats as
+   * `setTextFormat({ color })`: `#RRGGBB`, `RRGGBB`, scheme tokens
+   * (`accent1`, `bg1`, ...).
+   *
+   * The shape's `<p:spPr>` is created if it didn't yet exist. Any prior
+   * fill (`noFill`, `gradFill`, `blipFill`, ...) is replaced.
+   */
+  setFill(color: string): void {
+    const spPr = this._ensureSpPr();
+    setSolidFill(spPr, color);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /** Sets `<a:noFill>` on this shape, leaving it transparent. */
+  setNoFill(): void {
+    const spPr = this._ensureSpPr();
+    setNoFill(spPr);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /**
+   * Clears any fill choice from this shape. The shape then inherits its
+   * fill from the layout / master placeholder it descends from.
+   */
+  clearFill(): void {
+    const spPr = this._ensureSpPr();
+    clearFill(spPr);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  private _ensureSpPr(): XmlElement {
+    // Only sp / pic / cxnSp use <p:spPr>; group shapes use grpSpPr and
+    // graphic frames have no fill of their own.
+    if (
+      this._snapshot.kind !== 'shape' &&
+      this._snapshot.kind !== 'picture' &&
+      this._snapshot.kind !== 'connector'
+    ) {
+      throw new Error(`fill is not supported on ${this._snapshot.kind} shapes`);
+    }
+    const spPrName = qname('p', 'spPr', NS.pml);
+    let spPr = firstChildElement(this._element, spPrName);
+    if (spPr === null) {
+      spPr = { kind: 'element', name: spPrName, attrs: [], prefixDecls: new Map(), children: [] };
+      this._element.children.push(spPr);
+    }
+    return spPr;
   }
 
   /**

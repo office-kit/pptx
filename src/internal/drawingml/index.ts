@@ -5,6 +5,9 @@ export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.t
 export { replaceTokensInTree, setTextBody } from './text-body-mutation.ts';
 export type { TextFormat } from './text-format.ts';
 export { applyFormatToAllRuns, applyRunFormat } from './text-format.ts';
+export type { ParsedColor } from './color.ts';
+export { buildColorElement, parseColor } from './color.ts';
+export { clearFill, setNoFill, setSolidFill } from './fill.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';
 export { readPosition, readSize } from './geometry.ts';
