@@ -155,6 +155,7 @@ export {
   setShapeTextFormat,
   setSlideBackground,
   setSlideHidden,
+  setSlideLayout,
   setSlideNotes,
   setSlideSize,
   setSlideTitle,

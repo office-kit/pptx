@@ -679,6 +679,41 @@ export const getSlideShapes = (slide: SlideData): ReadonlyArray<SlideShapeData> 
   slide[SLIDE_SHAPES];
 
 /**
+ * Rebinds the slide to a different layout. The slide's own content
+ * (shapes, text, geometry) is preserved verbatim; only the
+ * `slideLayout` rel is updated so PowerPoint re-renders with the new
+ * layout's placeholder positions and theme.
+ *
+ * The new layout must already be a part of the package — pass one
+ * returned by `getSlideLayouts(pres)` or `findSlideLayout(pres, name)`.
+ */
+export const setSlideLayout = (slide: SlideData, layout: SlideLayoutData): void => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const layoutPartName = layout[LAYOUT_PART_NAME];
+  if (pkg.getPart(layoutPartName) === null) {
+    throw new Error(`setSlideLayout: layout ${layoutPartName} not in package`);
+  }
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const layoutBase = basename(layoutPartName);
+  const newTarget = `../slideLayouts/${layoutBase}`;
+
+  // Replace any existing slideLayout rel. Keep the same rId where
+  // possible so other parts that already reference it stay valid.
+  const existing = rels.items.find((r) => r.type === REL_TYPES.slideLayout);
+  if (existing) {
+    existing.target = newTarget;
+  } else {
+    rels.items.push({
+      id: nextRelId(rels.items.map((r) => r.id)),
+      type: REL_TYPES.slideLayout,
+      target: newTarget,
+      targetMode: 'Internal',
+    });
+  }
+  pkg.setRels(slide[SLIDE_PART_NAME], rels);
+};
+
+/**
  * The slide layout this slide is bound to, or `null` if the slide has
  * no layout relationship.
  */
