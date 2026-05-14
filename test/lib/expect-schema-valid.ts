@@ -22,6 +22,7 @@ import { join } from 'node:path';
 const SCHEMAS = {
   pml: 'ECMA-376/OfficeOpenXML-XMLSchema-Transitional/pml.xsd',
   dml: 'ECMA-376/OfficeOpenXML-XMLSchema-Transitional/dml-main.xsd',
+  chart: 'ECMA-376/OfficeOpenXML-XMLSchema-Transitional/dml-chart.xsd',
   rels: 'ECMA-376/OpenPackagingConventions-XMLSchema/opc-relationships.xsd',
   contentTypes: 'ECMA-376/OpenPackagingConventions-XMLSchema/opc-contentTypes.xsd',
 } as const;

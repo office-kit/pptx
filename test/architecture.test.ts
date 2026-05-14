@@ -18,7 +18,9 @@ const allowed: Record<Module, ReadonlyArray<Module> | 'any-internal'> = {
   'internal/parts': ['internal/opc', 'internal/xml'],
   'internal/drawingml': ['internal/xml'],
   'internal/presentationml': ['internal/drawingml', 'internal/parts', 'internal/xml'],
-  'internal/chartml': ['internal/drawingml', 'internal/parts', 'internal/xml'],
+  // chartml additionally needs `internal/opc` for the ZIP writer it uses to
+  // emit the embedded xlsx workbook each chart wraps.
+  'internal/chartml': ['internal/drawingml', 'internal/opc', 'internal/parts', 'internal/xml'],
   'internal/diagram': ['internal/drawingml', 'internal/parts', 'internal/xml'],
   'internal/io': [
     'internal/opc',

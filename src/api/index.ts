@@ -34,8 +34,10 @@ export type {
 } from '../internal/presentationml/index.ts';
 export type { SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
+export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/index.ts';
 export {
   addSlide,
+  addSlideChart,
   addSlideComment,
   addSlideImage,
   addSlideLine,

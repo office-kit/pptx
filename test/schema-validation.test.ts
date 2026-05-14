@@ -100,6 +100,33 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(presPart?.data ?? new Uint8Array()), 'pml');
   });
 
+  skipIfNoXmllint('a column chart generated via addSlideChart validates', async () => {
+    const { addSlideChart, getSlides, loadPresentation, savePresentation } = await import(
+      '../src/api/index.ts'
+    );
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+        series: [{ name: 'Revenue', values: [10, 20, 15, 30] }],
+        title: 'Quarterly Revenue',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(reloaded);
+    const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
+    expect(chartPart).not.toBeUndefined();
+    expectSchemaValid(decode(chartPart!.data), 'chart');
+  });
+
   skipIfNoXmllint('comments + commentAuthors parts validate against pml.xsd', async () => {
     const { addSlideComment, getSlides, loadPresentation, savePresentation } = await import(
       '../src/api/index.ts'

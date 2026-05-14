@@ -95,7 +95,15 @@ import {
   parseXml,
   qname,
   serializeXml,
+  text as textNode,
 } from '../internal/xml/index.ts';
+import {
+  type ChartKind,
+  type ChartSeries,
+  type ChartSpec,
+  buildChartSpaceDoc,
+  buildEmbeddedXlsx,
+} from '../internal/chartml/index.ts';
 import {
   COMMENT_SLIDE,
   COMMENT_SNAPSHOT,
@@ -1475,24 +1483,26 @@ export const setSlideSize = (pres: PresentationData, opts: SlideSize): void => {
   presPart.data = encode(serializeXml(doc));
 };
 
+import { emu as emuValue } from './units.ts';
+
 /** 10in × 7.5in (`screen4x3`). */
 export const SLIDE_SIZE_4_3: SlideSize = {
-  width: 9144000 as Emu,
-  height: 6858000 as Emu,
+  width: emuValue(9144000),
+  height: emuValue(6858000),
   type: 'screen4x3',
 };
 
 /** 13.333in × 7.5in (`screen16x9`) — Office 2013+ default. */
 export const SLIDE_SIZE_16_9: SlideSize = {
-  width: 12192000 as Emu,
-  height: 6858000 as Emu,
+  width: emuValue(12192000),
+  height: emuValue(6858000),
   type: 'screen16x9',
 };
 
 /** 13.333in × 8.33in (`screen16x10`). */
 export const SLIDE_SIZE_16_10: SlideSize = {
-  width: 12192000 as Emu,
-  height: 7620000 as Emu,
+  width: emuValue(12192000),
+  height: emuValue(7620000),
   type: 'screen16x10',
 };
 
@@ -1816,3 +1826,190 @@ export const setShapeImage = (
   rel.target = `../media/image${nextN}.${newExtension}`;
   pkg.setRels(slide[SLIDE_PART_NAME], rels);
 };
+
+// ---------------------------------------------------------------------------
+// Charts.
+//
+// Authoring path for ChartML (`/ppt/charts/chart{N}.xml`) + the embedded
+// `/ppt/embeddings/Microsoft_Excel_Worksheet{N}.xlsx` workbook that
+// PowerPoint requires for the "Edit data" action to work. See plan §P9
+// and §Risks for the scope constraints.
+//
+// Public surface is intentionally narrow: one `addSlideChart` entry point
+// that takes a typed `ChartSpec`. The internal layer handles the chart
+// XML, the embedded xlsx ZIP, and all the relationship wiring.
+
+const CHART_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const EMBEDDED_XLSX_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+
+const allocateChartIndex = (pkg: OpcPackage): number => {
+  let next = 1;
+  const re = /^\/ppt\/charts\/chart(\d+)\.xml$/;
+  for (const p of pkg.parts) {
+    const m = p.name.match(re);
+    if (m?.[1] !== undefined) {
+      const n = Number.parseInt(m[1], 10);
+      if (Number.isFinite(n) && n >= next) next = n + 1;
+    }
+  }
+  return next;
+};
+
+const NAME_GRAPHIC_FRAME = qname('p', 'graphicFrame', NS.pml);
+const NAME_NV_GRAPHIC_FRAME_PR = qname('p', 'nvGraphicFramePr', NS.pml);
+const NAME_C_NV_PR_FN = qname('p', 'cNvPr', NS.pml);
+const NAME_C_NV_GRAPHIC_FRAME_PR = qname('p', 'cNvGraphicFramePr', NS.pml);
+const NAME_NV_PR = qname('p', 'nvPr', NS.pml);
+const NAME_XFRM = qname('p', 'xfrm', NS.pml);
+const NAME_OFF = qname('a', 'off', NS.dml);
+const NAME_EXT = qname('a', 'ext', NS.dml);
+const NAME_GRAPHIC = qname('a', 'graphic', NS.dml);
+const NAME_GRAPHIC_DATA = qname('a', 'graphicData', NS.dml);
+const NAME_C_CHART = qname('c', 'chart', NS.chart);
+
+const buildChartGraphicFrame = (opts: {
+  id: number;
+  name: string;
+  x: Emu;
+  y: Emu;
+  w: Emu;
+  h: Emu;
+  rEmbed: string;
+}): XmlElement => {
+  const cNvPr = elem(NAME_C_NV_PR_FN, {
+    attrs: [attr(qname('', 'id', ''), String(opts.id)), attr(qname('', 'name', ''), opts.name)],
+  });
+  const nvGraphicFramePr = elem(NAME_NV_GRAPHIC_FRAME_PR, {
+    children: [cNvPr, elem(NAME_C_NV_GRAPHIC_FRAME_PR), elem(NAME_NV_PR)],
+  });
+  const off = elem(NAME_OFF, {
+    attrs: [attr(qname('', 'x', ''), String(opts.x)), attr(qname('', 'y', ''), String(opts.y))],
+  });
+  const ext = elem(NAME_EXT, {
+    attrs: [attr(qname('', 'cx', ''), String(opts.w)), attr(qname('', 'cy', ''), String(opts.h))],
+  });
+  const xfrm = elem(NAME_XFRM, { children: [off, ext] });
+  const chartRef = elem(NAME_C_CHART, {
+    prefixDecls: new Map([
+      ['c', NS.chart],
+      ['r', NS.officeDocRels],
+    ]),
+    attrs: [attr(qname('r', 'id', NS.officeDocRels), opts.rEmbed)],
+  });
+  const graphicData = elem(NAME_GRAPHIC_DATA, {
+    attrs: [attr(qname('', 'uri', ''), NS.chart)],
+    children: [chartRef],
+  });
+  const graphic = elem(NAME_GRAPHIC, { children: [graphicData] });
+  return elem(NAME_GRAPHIC_FRAME, { children: [nvGraphicFramePr, xfrm, graphic] });
+};
+
+const setOpcDefault = (pkg: OpcPackage, extension: string, contentType: string): void => {
+  const has = pkg.contentTypes.defaults.some((d) => d.extension.toLowerCase() === extension);
+  if (!has) pkg.contentTypes.defaults.push({ extension, contentType });
+};
+
+/**
+ * Adds a chart to the slide. Returns the new shape handle (kind
+ * `graphicFrame`). Supported chart kinds today: `bar`, `column`,
+ * `line`, `pie` — see `ChartSpec.kind`.
+ *
+ * Side effects:
+ *
+ *   - Allocates `/ppt/charts/chart{N}.xml` for the chart definition.
+ *   - Allocates `/ppt/embeddings/Microsoft_Excel_Worksheet{N}.xlsx` as
+ *     a placeholder workbook (single sheet, header row + one row per
+ *     category). PowerPoint reads the inline `<c:strCache>` /
+ *     `<c:numCache>` so the workbook is for "Edit data" only.
+ *   - Slide → chart and chart → workbook rels are wired with fresh rIds.
+ *   - `<a:graphicFrame>` is appended to the slide's `<p:spTree>`.
+ *
+ * Constraints:
+ *
+ *   - `pie` charts require exactly one series.
+ *   - All series should have at most `categories.length` values; missing
+ *     values are treated as blanks (gaps in the visualization).
+ */
+export const addSlideChart = (
+  slide: SlideData,
+  opts: {
+    spec: ChartSpec;
+    x: Emu;
+    y: Emu;
+    w: Emu;
+    h: Emu;
+    name?: string;
+  },
+): SlideShapeData => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const chartN = allocateChartIndex(pkg);
+  const chartPartName = partName(`/ppt/charts/chart${chartN}.xml`);
+  const xlsxPartName = partName(`/ppt/embeddings/Microsoft_Excel_Worksheet${chartN}.xlsx`);
+
+  // Build the embedded xlsx bytes. Each row in the sheet corresponds to
+  // one category; header row carries the series names.
+  const xlsxRows = opts.spec.categories.map((label, i) => ({
+    label,
+    values: opts.spec.series.map((s) => s.values[i] ?? null),
+  }));
+  const xlsxBytes = buildEmbeddedXlsx(
+    opts.spec.series.map((s) => s.name),
+    xlsxRows,
+  );
+
+  // Build the chart XML and serialize.
+  const chartDoc = buildChartSpaceDoc(opts.spec);
+  const chartBytes = encode(serializeXml(chartDoc));
+
+  // Add the chart part + its rel → embedded xlsx.
+  pkg.addPart(chartPartName, CHART_CONTENT_TYPE, chartBytes);
+
+  // The xlsx is a binary part; xlsx is already an OPC zip so we add a
+  // Content_Types override (no Default, since `.xlsx` shouldn't override
+  // unrelated archive entries even though there's only one such part
+  // here in practice).
+  pkg.addPart(xlsxPartName, EMBEDDED_XLSX_CONTENT_TYPE, xlsxBytes);
+
+  // Make sure `.rels` is a recognized Default (it always is by the time
+  // we get here, but be defensive for new packages).
+  setOpcDefault(pkg, 'rels', 'application/vnd.openxmlformats-package.relationships+xml');
+
+  const chartRels = emptyRels();
+  chartRels.items.push({
+    id: 'rId1',
+    type: REL_TYPES.package,
+    target: `../embeddings/Microsoft_Excel_Worksheet${chartN}.xlsx`,
+    targetMode: 'Internal',
+  });
+  pkg.setRels(chartPartName, chartRels);
+
+  // Slide → chart rel.
+  const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const slideChartRId = nextRelId(slideRels.items.map((r) => r.id));
+  slideRels.items.push({
+    id: slideChartRId,
+    type: REL_TYPES.chart,
+    target: `../charts/chart${chartN}.xml`,
+    targetMode: 'Internal',
+  });
+  pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+
+  // Build and append the <p:graphicFrame> wrapper.
+  const frame = buildChartGraphicFrame({
+    id: nextShapeId(slide),
+    name: opts.name ?? `Chart ${chartN}`,
+    x: opts.x,
+    y: opts.y,
+    w: opts.w,
+    h: opts.h,
+    rEmbed: slideChartRId,
+  });
+  return appendAndReturnNewShape(slide, frame);
+};
+
+// Re-export chart types for consumers.
+export type { ChartKind, ChartSeries, ChartSpec };
+
+void textNode;

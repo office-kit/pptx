@@ -11,6 +11,7 @@ import {
   Presentation,
   SLIDE_SIZE_16_9,
   SLIDE_SIZE_4_3,
+  emu,
   getSlideSize,
   loadPresentation,
   savePresentation,
@@ -47,8 +48,8 @@ describe('fn API: slide size', () => {
   it('setSlideSize accepts arbitrary EMU dimensions', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     setSlideSize(pres, {
-      width: 10_000_000 as number & { readonly __brand: 'Emu' },
-      height: 5_000_000 as number & { readonly __brand: 'Emu' },
+      width: emu(10_000_000),
+      height: emu(5_000_000),
       type: 'custom',
     });
     const after = getSlideSize(pres);
