@@ -1,4 +1,4 @@
 // internal/drawingml — a: namespace: shapes, text, geometry, color, effects.
 // Allowed imports: internal/xml.
 
-export {};
+export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.ts';

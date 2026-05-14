@@ -1,10 +1,14 @@
 // Public `Presentation` entry point.
 //
-// The class wraps an internal `OpcPackage` and currently exposes nothing
-// beyond load + save. The slide / shape model lands as subsequent phases
-// fill in the PresentationML layer.
+// The class wraps an internal `OpcPackage` and currently exposes load,
+// save, and a read-only `slides` view. Authoring methods land as the
+// internal PresentationML / DrawingML layers grow real width.
 
+import { partName } from '../internal/opc/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
+import { readPresentationPart, readSlidePart } from '../internal/presentationml/index.ts';
+import { parseXml } from '../internal/xml/index.ts';
+import { Slide } from './slide.ts';
 
 /**
  * Anything that can be turned into a `Uint8Array` of PPTX bytes:
@@ -73,6 +77,45 @@ export class Presentation {
    */
   save(): Promise<Uint8Array> {
     return Promise.resolve(this[INTERNAL_PACKAGE].save());
+  }
+
+  /**
+   * Read-only enumeration of slides in presentation order. Throws if any
+   * referenced slide part is missing — a structurally invalid PPTX would
+   * mean we cannot honor the L1 contract.
+   *
+   * Authoring methods (`add`, `remove`, `move`) will arrive as the parts
+   * layer grows; for now this exposes a flat snapshot.
+   */
+  get slides(): ReadonlyArray<Slide> {
+    const pkg = this[INTERNAL_PACKAGE];
+    const presPart = pkg.getPart(partName('/ppt/presentation.xml'));
+    if (presPart === null) return [];
+    const presRels = pkg.getRels(partName('/ppt/presentation.xml'));
+    if (presRels === null) return [];
+
+    const presRoot = parseXml(new TextDecoder().decode(presPart.data)).root;
+    const presModel = readPresentationPart(presRoot);
+
+    const out: Slide[] = [];
+    for (const sld of presModel.slides) {
+      const rel = presRels.items.find((r) => r.id === sld.rId);
+      if (!rel) {
+        throw new Error(`presentation.xml.rels missing entry for ${sld.rId}`);
+      }
+      // The target is relative to /ppt/presentation.xml's location.
+      const target = rel.target;
+      // Quick relative-resolve: presentation.xml lives at /ppt/; slide
+      // targets are like "slides/slideN.xml".
+      const slideName = partName(target.startsWith('/') ? target : `/ppt/${target}`);
+      const slidePart = pkg.getPart(slideName);
+      if (slidePart === null) {
+        throw new Error(`slide part ${slideName} not found`);
+      }
+      const slideRoot = parseXml(new TextDecoder().decode(slidePart.data)).root;
+      out.push(new Slide(readSlidePart(slideRoot)));
+    }
+    return out;
   }
 
   /** @internal */
