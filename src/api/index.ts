@@ -39,6 +39,7 @@ export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
+export type { GradientFillOptions, GradientStop } from '../internal/drawingml/index.ts';
 export {
   addSlide,
   addSlideChart,
@@ -98,6 +99,7 @@ export {
   setShapeBullets,
   setShapeFill,
   setShapeFlip,
+  setShapeGradientFill,
   setShapeHyperlink,
   setShapeImage,
   setShapeImageCrop,

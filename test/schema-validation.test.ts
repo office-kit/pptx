@@ -100,6 +100,30 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(presPart?.data ?? new Uint8Array()), 'pml');
   });
 
+  skipIfNoXmllint('a gradient-filled shape validates', async () => {
+    const { setShapeGradientFill, getSlides, getSlideShapes, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = getSlideShapes(slide)[0];
+    if (!shape) throw new Error('expected shape');
+    setShapeGradientFill(shape, {
+      stops: [
+        { offset: 0, color: '#FF0000' },
+        { offset: 0.5, color: '#00FF00' },
+        { offset: 1, color: '#0000FF' },
+      ],
+      angleDeg: 45,
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(reloaded);
+    const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(slidePart).not.toBeUndefined();
+    expectSchemaValid(decode(slidePart!.data), 'pml');
+  });
+
   skipIfNoXmllint('a slide with a click-effect animation validates', async () => {
     const { setShapeAnimation, getSlides, getSlideShapes, loadPresentation, savePresentation } =
       await import('../src/api/index.ts');

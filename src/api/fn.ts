@@ -15,6 +15,7 @@
 
 import {
   type BulletStyle,
+  type GradientFillOptions,
   type ParagraphAlignment,
   type Position,
   type Size,
@@ -34,6 +35,7 @@ import {
   readSize,
   replaceTokensInTree,
   setFlip as writeFlip,
+  setGradientFill,
   setNoFill as setNoFillImpl,
   setNoStroke as setNoStrokeImpl,
   setPosition as writePosition,
@@ -823,6 +825,25 @@ export const setShapeFlip = (
 /** Sets a solid fill on the shape (color in `#RRGGBB` or scheme token). */
 export const setShapeFill = (shape: SlideShapeData, color: string): void => {
   setSolidFill(requireSpPr(shape), color);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets a linear gradient fill on the shape. Stops must lie in `[0, 1]`;
+ * `angleDeg` defaults to `90` (top → bottom).
+ *
+ * Example: red → blue top-to-bottom:
+ *
+ *   setShapeGradientFill(shape, {
+ *     stops: [{ offset: 0, color: '#FF0000' }, { offset: 1, color: '#0000FF' }],
+ *     angleDeg: 90,
+ *   });
+ */
+export const setShapeGradientFill = (
+  shape: SlideShapeData,
+  options: GradientFillOptions,
+): void => {
+  setGradientFill(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
 

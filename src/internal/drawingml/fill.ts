@@ -9,11 +9,20 @@
 // previous fill choice (`noFill`/`solidFill`/`gradFill`/`blipFill`/
 // `pattFill`/`grpFill`) before inserting the new `solidFill`.
 
-import { NS, type XmlElement, elem, qname } from '../xml/index.ts';
+import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
 
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
 const NAME_NO_FILL = qname('a', 'noFill', NS.dml);
+const NAME_GRAD_FILL = qname('a', 'gradFill', NS.dml);
+const NAME_GS_LST = qname('a', 'gsLst', NS.dml);
+const NAME_GS = qname('a', 'gs', NS.dml);
+const NAME_LIN = qname('a', 'lin', NS.dml);
+const ATTR_POS = qname('', 'pos', '');
+const ATTR_ANG = qname('', 'ang', '');
+const ATTR_SCALED = qname('', 'scaled', '');
+const ATTR_FLIP = qname('', 'flip', '');
+const ATTR_ROT_WITH_SHAPE = qname('', 'rotWithShape', '');
 
 const FILL_CHOICE_LOCAL_NAMES = new Set([
   'noFill',
@@ -75,4 +84,58 @@ export const setNoFill = (host: XmlElement): void => {
  */
 export const clearFill = (host: XmlElement): void => {
   removeAnyFill(host);
+};
+
+/** One stop in a linear gradient. */
+export interface GradientStop {
+  /** Position on the gradient axis, 0-1. */
+  readonly offset: number;
+  /** `#RRGGBB`, bare `RRGGBB`, or a scheme color token. */
+  readonly color: string;
+}
+
+export interface GradientFillOptions {
+  /** Two or more color stops along the axis. */
+  readonly stops: ReadonlyArray<GradientStop>;
+  /**
+   * Gradient axis angle, in degrees. ECMA-376 measures clockwise from
+   * the right (3 o'clock); `0` is a left-to-right gradient, `90` is
+   * top-to-bottom, `180` right-to-left, `270` bottom-to-top. Defaults
+   * to `90` (top → bottom).
+   */
+  readonly angleDeg?: number;
+}
+
+/** Sets `<a:gradFill>` on `host`, replacing any previous fill choice. */
+export const setGradientFill = (host: XmlElement, options: GradientFillOptions): void => {
+  if (options.stops.length < 2) {
+    throw new Error('gradient fill requires at least two stops');
+  }
+  removeAnyFill(host);
+
+  const stops = options.stops.map((s) => {
+    if (!Number.isFinite(s.offset) || s.offset < 0 || s.offset > 1) {
+      throw new RangeError(`gradient stop offset must be in [0, 1], got ${s.offset}`);
+    }
+    const posST = String(Math.round(s.offset * 100000));
+    return elem(NAME_GS, {
+      attrs: [attr(ATTR_POS, posST)],
+      children: [buildColorElement(s.color)],
+    });
+  });
+
+  const angleDeg = options.angleDeg ?? 90;
+  // ECMA-376 ST_PositiveFixedAngle: 60000 units per degree, range
+  // [0, 21600000). Normalize negatives via modulo.
+  const norm = ((angleDeg % 360) + 360) % 360;
+  const angleAttr = String(Math.round(norm * 60000));
+
+  const grad = elem(NAME_GRAD_FILL, {
+    attrs: [attr(ATTR_FLIP, 'none'), attr(ATTR_ROT_WITH_SHAPE, '1')],
+    children: [
+      elem(NAME_GS_LST, { children: stops }),
+      elem(NAME_LIN, { attrs: [attr(ATTR_ANG, angleAttr), attr(ATTR_SCALED, '0')] }),
+    ],
+  });
+  host.children.splice(fillInsertionIndex(host), 0, grad);
 };
