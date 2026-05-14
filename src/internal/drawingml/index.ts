@@ -2,3 +2,4 @@
 // Allowed imports: internal/xml.
 
 export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.ts';
+export { setTextBody } from './text-body-mutation.ts';

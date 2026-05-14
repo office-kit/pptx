@@ -6,9 +6,9 @@
 
 import { partName } from '../internal/opc/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
-import { readPresentationPart, readSlidePart } from '../internal/presentationml/index.ts';
+import { readPresentationPart } from '../internal/presentationml/index.ts';
 import { parseXml } from '../internal/xml/index.ts';
-import { Slide } from './slide.ts';
+import { _internalCreateSlide, type Slide } from './slide.ts';
 
 /**
  * Anything that can be turned into a `Uint8Array` of PPTX bytes:
@@ -79,20 +79,32 @@ export class Presentation {
     return Promise.resolve(this[INTERNAL_PACKAGE].save());
   }
 
+  /** @internal — populated lazily on first `slides` read; reused for mutation. */
+  private _slidesCache: Slide[] | null = null;
+
   /**
-   * Read-only enumeration of slides in presentation order. Throws if any
-   * referenced slide part is missing — a structurally invalid PPTX would
-   * mean we cannot honor the L1 contract.
+   * Enumerates slides in presentation order. Returns cached `Slide`
+   * instances so that mutations made through one handle (e.g.
+   * `slide.shapes[0].setText('...')`) persist for the lifetime of this
+   * `Presentation`.
    *
-   * Authoring methods (`add`, `remove`, `move`) will arrive as the parts
-   * layer grows; for now this exposes a flat snapshot.
+   * Throws if any referenced slide part is missing — a structurally
+   * invalid PPTX cannot honor the L1 contract.
    */
   get slides(): ReadonlyArray<Slide> {
+    if (this._slidesCache !== null) return this._slidesCache;
+
     const pkg = this[INTERNAL_PACKAGE];
     const presPart = pkg.getPart(partName('/ppt/presentation.xml'));
-    if (presPart === null) return [];
+    if (presPart === null) {
+      this._slidesCache = [];
+      return this._slidesCache;
+    }
     const presRels = pkg.getRels(partName('/ppt/presentation.xml'));
-    if (presRels === null) return [];
+    if (presRels === null) {
+      this._slidesCache = [];
+      return this._slidesCache;
+    }
 
     const presRoot = parseXml(new TextDecoder().decode(presPart.data)).root;
     const presModel = readPresentationPart(presRoot);
@@ -103,7 +115,6 @@ export class Presentation {
       if (!rel) {
         throw new Error(`presentation.xml.rels missing entry for ${sld.rId}`);
       }
-      // The target is relative to /ppt/presentation.xml's location.
       const target = rel.target;
       // Quick relative-resolve: presentation.xml lives at /ppt/; slide
       // targets are like "slides/slideN.xml".
@@ -112,9 +123,9 @@ export class Presentation {
       if (slidePart === null) {
         throw new Error(`slide part ${slideName} not found`);
       }
-      const slideRoot = parseXml(new TextDecoder().decode(slidePart.data)).root;
-      out.push(new Slide(readSlidePart(slideRoot)));
+      out.push(_internalCreateSlide(pkg, slideName, slidePart.data));
     }
+    this._slidesCache = out;
     return out;
   }
 

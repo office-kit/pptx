@@ -187,4 +187,3 @@ export const slideText = (slide: SlidePart, joiner = '\n'): string =>
     .map((s) => s.text)
     .filter((t) => t.length > 0)
     .join(joiner);
-
