@@ -1289,6 +1289,83 @@ export const getShapeRunText = (
   runIndex: number,
 ): string => readRunText(requireRun(shape, paragraphIndex, runIndex));
 
+const NAME_A_PPR = qname('a', 'pPr', NS.dml);
+const ATTR_LVL = qname('', 'lvl', '');
+const ATTR_ALGN_FN = qname('', 'algn', '');
+
+const ensurePPr = (paragraph: XmlElement): XmlElement => {
+  const existing = firstChildElement(paragraph, NAME_A_PPR);
+  if (existing !== null) return existing;
+  const fresh = elem(NAME_A_PPR);
+  // <a:pPr> must be the first child of <a:p>.
+  paragraph.children.unshift(fresh);
+  return fresh;
+};
+
+const alignTokenForFn = (a: ParagraphAlignment): string => {
+  switch (a) {
+    case 'left':
+    case 'l':
+      return 'l';
+    case 'center':
+    case 'ctr':
+      return 'ctr';
+    case 'right':
+    case 'r':
+      return 'r';
+    case 'justify':
+    case 'just':
+      return 'just';
+    case 'distribute':
+    case 'dist':
+      return 'dist';
+    default:
+      return a;
+  }
+};
+
+/**
+ * Sets the horizontal alignment of a single paragraph. Same token set
+ * as `setShapeAlignment`. Other paragraphs are untouched.
+ */
+export const setParagraphAlignment = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  align: ParagraphAlignment,
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = ensurePPr(paragraph);
+  pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'algn');
+  pPr.attrs.push(attr(ATTR_ALGN_FN, alignTokenForFn(align)));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the paragraph's nesting level (`<a:pPr lvl="N"/>`). Levels are
+ * 0-indexed; PowerPoint accepts 0 through 8. Pass `0` to clear an
+ * existing level — `<a:pPr lvl="0"/>` is the same as omitting the attr.
+ *
+ * Used in tandem with bullets to author nested lists:
+ *
+ *   setShapeText(shape, 'Item 1\nNested\nItem 2');
+ *   setShapeBullets(shape, 'bullet');
+ *   setParagraphLevel(shape, 1, 1);  // indent the second line
+ */
+export const setParagraphLevel = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  level: number,
+): void => {
+  if (!Number.isInteger(level) || level < 0 || level > 8) {
+    throw new RangeError(`paragraph level must be an integer in [0, 8], got ${level}`);
+  }
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = ensurePPr(paragraph);
+  pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
+  if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
+  commitAndRefresh(shape);
+};
+
 /**
  * Sets the text of a single run. Existing rPr (font, size, color, ...)
  * is preserved — only the visible characters change.

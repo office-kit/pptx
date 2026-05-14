@@ -122,6 +122,8 @@ export {
   setShapeNoFill,
   setShapeNoStroke,
   setShapePatternFill,
+  setParagraphAlignment,
+  setParagraphLevel,
   setShapePosition,
   setShapeRotation,
   setShapeRunFormat,

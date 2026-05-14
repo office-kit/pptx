@@ -177,6 +177,35 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(slidePart!.data), 'pml');
   });
 
+  skipIfNoXmllint('a textbox with nested bullets validates', async () => {
+    const {
+      addSlideTextBox,
+      getSlides,
+      loadPresentation,
+      savePresentation,
+      setParagraphLevel,
+      setShapeBullets,
+    } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const tb = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(3),
+      text: 'Top\nNested\nBack',
+    });
+    setShapeBullets(tb, 'bullet');
+    setParagraphLevel(tb, 1, 1);
+    const bytes = await savePresentation(pres);
+    const reloaded = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(reloaded);
+    const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(slidePart).not.toBeUndefined();
+    expectSchemaValid(decode(slidePart!.data), 'pml');
+  });
+
   skipIfNoXmllint('a slide with a click-effect animation validates', async () => {
     const { setShapeAnimation, getSlides, getSlideShapes, loadPresentation, savePresentation } =
       await import('../src/api/index.ts');
