@@ -8,7 +8,9 @@
 // trips, which is fine.
 
 import {
+  applyBulletToAllParagraphs,
   applyFormatToAllRuns,
+  type BulletStyle,
   clearFill,
   clearStroke,
   getPictureEmbedRId,
@@ -578,10 +580,15 @@ export class SlideShape {
    * paragraph. The first existing run/paragraph properties are cloned so
    * font, color, size, alignment, and bullet style are preserved.
    *
+   * Pass `options.bullets` to override the layout's bullet style for every
+   * paragraph; common shorthands are `'bullet'` (• prefix) and `'number'`
+   * (`1.`, `2.`, ...). For custom characters or numbering schemes, pass an
+   * object: `{ char: '◆' }` or `{ autoNum: 'romanLcPeriod' }`.
+   *
    * Throws if the shape is not a `<p:sp>` with a text body. Pictures,
    * graphic frames, groups, and connectors are not text-bearing.
    */
-  setText(value: string): void {
+  setText(value: string, options: { bullets?: BulletStyle } = {}): void {
     if (this._snapshot.kind !== 'shape') {
       throw new Error(
         `setText only works on text-bearing shapes; ${this._snapshot.kind} is not one`,
@@ -592,6 +599,29 @@ export class SlideShape {
       throw new Error(`shape "${this._snapshot.name}" has no <p:txBody>`);
     }
     setTextBody(txBody, value);
+    if (options.bullets !== undefined) {
+      applyBulletToAllParagraphs(txBody, options.bullets);
+    }
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /**
+   * Sets the bullet style on every paragraph in this shape's text body
+   * without touching the text content. Use to add or change bullets on
+   * existing text.
+   */
+  setBullets(style: BulletStyle): void {
+    if (this._snapshot.kind !== 'shape') {
+      throw new Error(
+        `setBullets only works on text-bearing shapes; ${this._snapshot.kind} is not one`,
+      );
+    }
+    const txBody = firstChildElement(this._element, NAME_TX_BODY);
+    if (txBody === null) {
+      throw new Error(`shape "${this._snapshot.name}" has no <p:txBody>`);
+    }
+    applyBulletToAllParagraphs(txBody, style);
     this._slide._commit();
     this._slide._refresh();
   }

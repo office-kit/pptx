@@ -3,7 +3,7 @@
 export { type Emu, cm, emu, inches, mm, pt } from './units.ts';
 export { Presentation, type PresentationInput, _internalPackageOf } from './presentation.ts';
 export { type PlaceholderType, Slide, SlideShape } from './slide.ts';
-export type { TextFormat } from '../internal/drawingml/index.ts';
+export type { BulletStyle, TextFormat } from '../internal/drawingml/index.ts';
 export { SlideLayout } from './slide-layout.ts';
 
 // Library version. Replaced at build time by the package version.

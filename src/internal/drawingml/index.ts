@@ -2,7 +2,12 @@
 // Allowed imports: internal/xml.
 
 export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.ts';
-export { replaceTokensInTree, setTextBody } from './text-body-mutation.ts';
+export {
+  applyBulletToAllParagraphs,
+  type BulletStyle,
+  replaceTokensInTree,
+  setTextBody,
+} from './text-body-mutation.ts';
 export type { TextFormat } from './text-format.ts';
 export { applyFormatToAllRuns, applyRunFormat } from './text-format.ts';
 export type { ParsedColor } from './color.ts';

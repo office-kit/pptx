@@ -19,6 +19,12 @@ import {
   walkElements,
 } from '../xml/index.ts';
 
+const NAME_BU_CHAR = qname('a', 'buChar', NS.dml);
+const NAME_BU_AUTO_NUM = qname('a', 'buAutoNum', NS.dml);
+const NAME_BU_NONE = qname('a', 'buNone', NS.dml);
+const ATTR_CHAR = qname('', 'char', '');
+const ATTR_BU_TYPE = qname('', 'type', '');
+
 const NAME_P = qname('a', 'p', NS.dml);
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
@@ -120,6 +126,79 @@ export const replaceTokensInTree = (root: XmlElement, tokens: Record<string, str
     }
   });
   return count;
+};
+
+/**
+ * Bullet style descriptor for a paragraph.
+ *
+ *   - `'bullet'` — shortcut for `{ char: '•' }`.
+ *   - `'number'` — shortcut for `{ autoNum: 'arabicPeriod' }` (1., 2., 3.).
+ *   - `'none'` — emits `<a:buNone/>`, forcing the paragraph to be bullet-free
+ *     even if the layout has a bullet default.
+ *   - `{ char }` — custom bullet character (any single grapheme).
+ *   - `{ autoNum }` — any ECMA-376 `ST_TextAutonumberScheme` token
+ *     (`arabicPeriod`, `romanLcParenR`, `alphaUcPeriod`, ...).
+ */
+export type BulletStyle = 'bullet' | 'number' | 'none' | { char: string } | { autoNum: string };
+
+const normalizeBulletStyle = (
+  s: BulletStyle,
+): { kind: 'char'; char: string } | { kind: 'autoNum'; type: string } | { kind: 'none' } => {
+  if (s === 'bullet') return { kind: 'char', char: '•' };
+  if (s === 'number') return { kind: 'autoNum', type: 'arabicPeriod' };
+  if (s === 'none') return { kind: 'none' };
+  if ('char' in s) return { kind: 'char', char: s.char };
+  return { kind: 'autoNum', type: s.autoNum };
+};
+
+const buildBulletElement = (style: BulletStyle): XmlElement => {
+  const n = normalizeBulletStyle(style);
+  switch (n.kind) {
+    case 'char':
+      return elem(NAME_BU_CHAR, { attrs: [attr(ATTR_CHAR, n.char)] });
+    case 'autoNum':
+      return elem(NAME_BU_AUTO_NUM, { attrs: [attr(ATTR_BU_TYPE, n.type)] });
+    case 'none':
+      return elem(NAME_BU_NONE);
+  }
+};
+
+const NAME_PPR_FOR_BULLET = qname('a', 'pPr', NS.dml);
+const NAME_P_FOR_BULLET = qname('a', 'p', NS.dml);
+
+/**
+ * Sets the bullet style on every paragraph in `txBody`. Drops any
+ * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
+ * before inserting the new one. Creates `<a:pPr>` if absent.
+ */
+export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyle): void => {
+  for (const p of txBody.children) {
+    if (
+      p.kind !== 'element' ||
+      p.name.namespaceURI !== NAME_P_FOR_BULLET.namespaceURI ||
+      p.name.localName !== 'p'
+    ) {
+      continue;
+    }
+    let pPr = firstChildElement(p, NAME_PPR_FOR_BULLET);
+    if (pPr === null) {
+      pPr = elem(NAME_PPR_FOR_BULLET);
+      // <a:pPr> must be the first child of <a:p>.
+      p.children.unshift(pPr);
+    }
+    // Remove any existing bullet child.
+    pPr.children = pPr.children.filter(
+      (c) =>
+        !(
+          c.kind === 'element' &&
+          c.name.namespaceURI === NS.dml &&
+          (c.name.localName === 'buChar' ||
+            c.name.localName === 'buAutoNum' ||
+            c.name.localName === 'buNone')
+        ),
+    );
+    pPr.children.push(buildBulletElement(style));
+  }
 };
 
 /**
