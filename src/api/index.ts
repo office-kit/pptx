@@ -36,6 +36,7 @@ export type { SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/index.ts';
 export type { ShapeClickAction } from './fn.ts';
+export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -104,6 +105,7 @@ export {
   setSlideNotes,
   setSlideSize,
   setSlideTransition,
+  validatePresentation,
 } from './fn.ts';
 
 export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';

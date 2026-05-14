@@ -1,4 +1,5 @@
 // internal/validator — OOXML invariant + XSD schema checks.
 // Allowed imports: any internal/* (read-only).
 
-export {};
+export type { IssueSeverity, ValidationIssue } from './validate-presentation.ts';
+export { validatePresentationPackage } from './validate-presentation.ts';
