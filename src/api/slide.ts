@@ -8,6 +8,7 @@
 // trips, which is fine.
 
 import {
+  applyFormatToAllRuns,
   getPictureEmbedRId,
   type Position,
   readPosition,
@@ -17,6 +18,7 @@ import {
   setSize as writeSize,
   setTextBody,
   type Size,
+  type TextFormat,
 } from '../internal/drawingml/index.ts';
 import type { Emu } from './units.ts';
 import {
@@ -410,6 +412,27 @@ export class SlideShape {
    */
   get size(): Size | null {
     return readSize(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * Applies `format` to every run in this shape's text body. Existing
+   * run-property attributes not addressed by `format` are preserved, so
+   * partial updates compose:
+   *
+   *     shape.setTextFormat({ bold: true });
+   *     shape.setTextFormat({ color: '#FF0000' });
+   *     // Result: bold + red.
+   *
+   * Throws if the shape has no text body.
+   */
+  setTextFormat(format: TextFormat): void {
+    const txBody = firstChildElement(this._element, NAME_TX_BODY);
+    if (txBody === null) {
+      throw new Error(`shape "${this._snapshot.name}" has no <p:txBody>`);
+    }
+    applyFormatToAllRuns(txBody, format);
+    this._slide._commit();
+    this._slide._refresh();
   }
 
   /**
