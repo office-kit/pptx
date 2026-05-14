@@ -40,6 +40,7 @@ import {
   readPosition,
   readRotation,
   readSize,
+  replaceTextInTree,
   replaceTokensInTree,
   setFlip as writeFlip,
   setGlow,
@@ -399,6 +400,52 @@ export const replaceTokensInPresentation = (
   }
   pres._slidesCache = null;
   return count;
+};
+
+/**
+ * Replaces every occurrence of `from` in every slide's text with `to`.
+ * `from` may be a string (treated as a literal) or a `RegExp`. Returns
+ * the number of `<a:t>` elements mutated across the whole deck.
+ *
+ * Use this for the broad "rename product X to Y" pattern; for
+ * `{{token}}` style substitutions, prefer
+ * `replaceTokensInPresentation` which is more explicit about intent.
+ */
+export const replaceTextInPresentation = (
+  pres: PresentationData,
+  from: string | RegExp,
+  to: string,
+): number => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  let count = 0;
+  for (const part of pkg.parts) {
+    if (part.contentType !== SLIDE_CONTENT_TYPE) continue;
+    const doc = parseXml(decode(part.data));
+    const n = replaceTextInTree(doc.root, from, to);
+    if (n > 0) {
+      part.data = encode(serializeXml(doc));
+      count += n;
+    }
+  }
+  pres._slidesCache = null;
+  return count;
+};
+
+/**
+ * Replaces every occurrence of `from` in the slide's text with `to`.
+ * Returns the number of `<a:t>` elements mutated on this slide.
+ */
+export const replaceTextInSlide = (
+  slide: SlideData,
+  from: string | RegExp,
+  to: string,
+): number => {
+  const n = replaceTextInTree(slide[SLIDE_DOCUMENT].root, from, to);
+  if (n > 0) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
+  }
+  return n;
 };
 
 // ---------------------------------------------------------------------------

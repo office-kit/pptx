@@ -8,6 +8,7 @@ export {
   applyBulletToParagraph,
   type BulletStyle,
   type ParagraphAlignment,
+  replaceTextInTree,
   replaceTokensInTree,
   setTextBody,
 } from './text-body-mutation.ts';

@@ -117,6 +117,8 @@ export {
   removeShape,
   removeSlide,
   removeSlideComment,
+  replaceTextInPresentation,
+  replaceTextInSlide,
   replaceTokensInPresentation,
   replaceTokensInSlide,
   savePresentation,

@@ -129,6 +129,46 @@ export const replaceTokensInTree = (root: XmlElement, tokens: Record<string, str
 };
 
 /**
+ * Replaces every occurrence of `from` in every `<a:t>` element under
+ * `root` with `to`. `from` may be a string (literal) or a `RegExp`
+ * (matched per-run). Returns the count of `<a:t>` elements that were
+ * mutated — not the count of substitutions inside them, since callers
+ * usually want "did anything change" rather than "how many letters
+ * moved."
+ *
+ * Same single-run constraint as `replaceTokensInTree`: matches must
+ * fit inside one `<a:t>`. Use this for the broader "find/replace
+ * across the deck" use case where {{token}} syntax isn't a fit.
+ */
+export const replaceTextInTree = (
+  root: XmlElement,
+  from: string | RegExp,
+  to: string,
+): number => {
+  // Build a global RegExp so .replace() touches every occurrence per run.
+  const pattern =
+    typeof from === 'string'
+      ? new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
+      : from.global
+        ? from
+        : new RegExp(from.source, `${from.flags}g`);
+  let count = 0;
+  walkElements(root, (el) => {
+    if (el.name.namespaceURI !== NAME_T.namespaceURI) return;
+    if (el.name.localName !== 't') return;
+    const child = el.children[0];
+    if (!child || child.kind !== 'text') return;
+    const before = child.data;
+    const after = before.replace(pattern, to);
+    if (after !== before) {
+      child.data = after;
+      count++;
+    }
+  });
+  return count;
+};
+
+/**
  * Bullet style descriptor for a paragraph.
  *
  *   - `'bullet'` — shortcut for `{ char: '•' }`.
