@@ -32,6 +32,8 @@ export type {
   CommentPosition,
   SlideComment,
 } from '../internal/presentationml/index.ts';
+export type { SlideSize } from './fn.ts';
+export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export {
   addSlide,
   addSlideComment,
@@ -64,6 +66,7 @@ export {
   getShapeText,
   getSlideComments,
   getSlideLayout,
+  getSlideSize,
   getSlideLayoutName,
   getSlideLayouts,
   getSlideLayoutType,
@@ -95,6 +98,7 @@ export {
   setShapeTextFormat,
   setSlideBackground,
   setSlideNotes,
+  setSlideSize,
   setSlideTransition,
 } from './fn.ts';
 
