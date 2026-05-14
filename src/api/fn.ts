@@ -24,6 +24,7 @@ import {
   applyBulletToAllParagraphs,
   applyFormatToAllRuns,
   applyHyperlinkToAllRuns,
+  applyRunFormat as applyRunFormatInternal,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
   getPictureEmbedRId,
@@ -912,6 +913,143 @@ export const setShapeAlignment = (
  */
 export const setShapeTextFormat = (shape: SlideShapeData, format: TextFormat): void => {
   applyFormatToAllRuns(requireTxBody(shape), format);
+  commitAndRefresh(shape);
+};
+
+// ---------------------------------------------------------------------------
+// Per-run text accessors.
+//
+// Lets callers reach into a shape's text body to read or format a
+// specific paragraph or run. `applyFormatToAllRuns` covers the bulk-edit
+// case; these helpers cover "make this one word red."
+
+const NAME_A_P = qname('a', 'p', NS.dml);
+const NAME_A_R = qname('a', 'r', NS.dml);
+const NAME_A_RPR = qname('a', 'rPr', NS.dml);
+const NAME_A_T = qname('a', 't', NS.dml);
+
+const paragraphsOf = (txBody: XmlElement): XmlElement[] =>
+  txBody.children.filter(
+    (c): c is XmlElement =>
+      c.kind === 'element' &&
+      c.name.namespaceURI === NAME_A_P.namespaceURI &&
+      c.name.localName === 'p',
+  );
+
+const runsOf = (paragraph: XmlElement): XmlElement[] =>
+  paragraph.children.filter(
+    (c): c is XmlElement =>
+      c.kind === 'element' &&
+      c.name.namespaceURI === NAME_A_R.namespaceURI &&
+      c.name.localName === 'r',
+  );
+
+const requireParagraph = (shape: SlideShapeData, paragraphIndex: number): XmlElement => {
+  const txBody = requireTxBody(shape);
+  const paragraphs = paragraphsOf(txBody);
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) {
+    throw new RangeError(
+      `paragraph index ${paragraphIndex} out of range (have ${paragraphs.length})`,
+    );
+  }
+  return paragraph;
+};
+
+const requireRun = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): XmlElement => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const runs = runsOf(paragraph);
+  const run = runs[runIndex];
+  if (!run) {
+    throw new RangeError(
+      `run index ${runIndex} out of range in paragraph ${paragraphIndex} (have ${runs.length})`,
+    );
+  }
+  return run;
+};
+
+const ensureRPr = (run: XmlElement): XmlElement => {
+  const existing = firstChildElement(run, NAME_A_RPR);
+  if (existing !== null) return existing;
+  // `<a:rPr>` is the first child of `<a:r>` per the schema.
+  const fresh = elem(NAME_A_RPR);
+  run.children.unshift(fresh);
+  return fresh;
+};
+
+const readRunText = (run: XmlElement): string => {
+  const tEl = firstChildElement(run, NAME_A_T);
+  if (tEl === null) return '';
+  let out = '';
+  for (const child of tEl.children) {
+    if (child.kind === 'text' || child.kind === 'cdata') out += child.data;
+  }
+  return out;
+};
+
+const writeRunText = (run: XmlElement, value: string): void => {
+  let tEl = firstChildElement(run, NAME_A_T);
+  if (tEl === null) {
+    tEl = elem(NAME_A_T);
+    run.children.push(tEl);
+  }
+  tEl.children = [{ kind: 'text', data: value }];
+};
+
+/** Number of paragraphs in the shape's text body. Throws for non-text shapes. */
+export const getShapeParagraphCount = (shape: SlideShapeData): number =>
+  paragraphsOf(requireTxBody(shape)).length;
+
+/**
+ * Number of text runs in the given paragraph. Throws on out-of-range
+ * paragraph index or non-text shapes.
+ */
+export const getShapeRunCount = (shape: SlideShapeData, paragraphIndex: number): number =>
+  runsOf(requireParagraph(shape, paragraphIndex)).length;
+
+/** Visible text of a single run. */
+export const getShapeRunText = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): string => readRunText(requireRun(shape, paragraphIndex, runIndex));
+
+/**
+ * Sets the text of a single run. Existing rPr (font, size, color, ...)
+ * is preserved — only the visible characters change.
+ */
+export const setShapeRunText = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+  text: string,
+): void => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  writeRunText(run, text);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Applies `format` to a single run. Run-property attributes not
+ * addressed by `format` are preserved — partial updates compose.
+ *
+ * Example: bold the second word of the first paragraph:
+ *
+ *   setShapeRunFormat(shape, 0, 1, { bold: true, color: '#FF0000' });
+ */
+export const setShapeRunFormat = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+  format: TextFormat,
+): void => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  const rPr = ensureRPr(run);
+  applyRunFormatInternal(rPr, format);
   commitAndRefresh(shape);
 };
 
