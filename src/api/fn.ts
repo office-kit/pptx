@@ -1454,6 +1454,108 @@ export const setShapeHyperlink = (shape: SlideShapeData, url: string | null): vo
 // ---------------------------------------------------------------------------
 // Shape mutation — removal.
 
+// ---------------------------------------------------------------------------
+// Z-order — move shapes forward / backward inside the slide's spTree.
+//
+// OOXML shape z-order is just the document order of children of
+// `<p:spTree>`: the first child renders behind, the last in front.
+// PowerPoint's "Bring to Front" / "Send to Back" affordances translate
+// directly to reordering those children.
+//
+// Each function targets only "real" shape children — `<p:sp>`, `<p:pic>`,
+// `<p:cxnSp>`, `<p:graphicFrame>`, `<p:grpSp>`. The required
+// `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface stays at the top.
+
+const SHAPE_CHILD_LOCALS = new Set(['sp', 'pic', 'cxnSp', 'graphicFrame', 'grpSp']);
+
+const isShapeChild = (node: { kind: string; name?: { namespaceURI: string; localName: string } }): boolean =>
+  node.kind === 'element' &&
+  node.name?.namespaceURI === NS.pml &&
+  SHAPE_CHILD_LOCALS.has(node.name.localName);
+
+/** Move `shape` to the end of its spTree (render in front of all others). */
+export const bringShapeToFront = (shape: SlideShapeData): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const spTree = requireSpTree(slide);
+  const target = shape[SHAPE_ELEMENT];
+  const idx = spTree.children.indexOf(target);
+  if (idx < 0) return;
+  if (idx === spTree.children.length - 1) return; // already at front
+  spTree.children.splice(idx, 1);
+  spTree.children.push(target);
+  commitSlideData(slide);
+  rebuildShapesFromDocument(slide);
+};
+
+/**
+ * Move `shape` behind every other shape on the slide. The
+ * `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface — required by the schema —
+ * stays at the top.
+ */
+export const sendShapeToBack = (shape: SlideShapeData): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const spTree = requireSpTree(slide);
+  const target = shape[SHAPE_ELEMENT];
+  const idx = spTree.children.indexOf(target);
+  if (idx < 0) return;
+
+  // First "shape child" position — after nvGrpSpPr / grpSpPr.
+  let firstShapeAt = spTree.children.length;
+  for (let i = 0; i < spTree.children.length; i++) {
+    const c = spTree.children[i];
+    if (c && isShapeChild(c)) {
+      firstShapeAt = i;
+      break;
+    }
+  }
+  if (idx <= firstShapeAt) return;
+  spTree.children.splice(idx, 1);
+  spTree.children.splice(firstShapeAt, 0, target);
+  commitSlideData(slide);
+  rebuildShapesFromDocument(slide);
+};
+
+/** Swap `shape` with the next shape sibling (move one step forward). */
+export const bringShapeForward = (shape: SlideShapeData): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const spTree = requireSpTree(slide);
+  const target = shape[SHAPE_ELEMENT];
+  const idx = spTree.children.indexOf(target);
+  if (idx < 0) return;
+  // Find next shape sibling.
+  for (let i = idx + 1; i < spTree.children.length; i++) {
+    const c = spTree.children[i];
+    if (c && isShapeChild(c)) {
+      const next = c;
+      spTree.children[idx] = next;
+      spTree.children[i] = target;
+      commitSlideData(slide);
+      rebuildShapesFromDocument(slide);
+      return;
+    }
+  }
+};
+
+/** Swap `shape` with the previous shape sibling (move one step backward). */
+export const sendShapeBackward = (shape: SlideShapeData): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const spTree = requireSpTree(slide);
+  const target = shape[SHAPE_ELEMENT];
+  const idx = spTree.children.indexOf(target);
+  if (idx < 0) return;
+  for (let i = idx - 1; i >= 0; i--) {
+    const c = spTree.children[i];
+    if (c && isShapeChild(c)) {
+      const prev = c;
+      spTree.children[idx] = prev;
+      spTree.children[i] = target;
+      commitSlideData(slide);
+      rebuildShapesFromDocument(slide);
+      return;
+    }
+  }
+};
+
 /**
  * Removes the shape from its slide's shape tree. Subsequent property
  * reads on this handle reflect the stale snapshot — discard it after.

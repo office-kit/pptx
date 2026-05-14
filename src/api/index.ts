@@ -49,6 +49,8 @@ export type { ShapeFill, SlideBackground, TextAnchor } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
+  bringShapeForward,
+  bringShapeToFront,
   addSlideComment,
   addSlideImage,
   addSlideLine,
@@ -108,6 +110,8 @@ export {
   replaceTokensInPresentation,
   replaceTokensInSlide,
   savePresentation,
+  sendShapeBackward,
+  sendShapeToBack,
   setShapeAlignment,
   setShapeAnimation,
   setShapeBullets,
