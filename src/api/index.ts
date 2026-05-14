@@ -79,6 +79,7 @@ export {
   getSlideNotes,
   getSlideShapes,
   getSlideText,
+  getSlideTitle,
   getSlides,
   loadPresentation,
   moveSlide,
@@ -107,6 +108,7 @@ export {
   setSlideBackground,
   setSlideNotes,
   setSlideSize,
+  setSlideTitle,
   setSlideTransition,
   validatePresentation,
 } from './fn.ts';

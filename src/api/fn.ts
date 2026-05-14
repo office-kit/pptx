@@ -2279,3 +2279,35 @@ export const clearSlideAnimations = (slide: SlideData): void => {
 };
 
 void NAME_TIMING_FN;
+
+// ---------------------------------------------------------------------------
+// Slide title convenience.
+//
+// Most decks bind their title placeholder to `type="title"` or `type="ctrTitle"`
+// (the latter is the centered hero title on a "Title Slide" layout).
+// These two helpers cover ~90% of the "set the slide title" use case.
+
+/**
+ * Returns the slide's title text, or `null` if neither a `title` nor
+ * a `ctrTitle` placeholder is present.
+ */
+export const getSlideTitle = (slide: SlideData): string | null => {
+  const titleShape =
+    findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle');
+  if (titleShape === null) return null;
+  return titleShape[SHAPE_SNAPSHOT].text ?? null;
+};
+
+/**
+ * Sets the slide's title text. Looks for a `title` placeholder first,
+ * falling back to `ctrTitle`. Throws if neither exists — the slide's
+ * layout has no title slot.
+ */
+export const setSlideTitle = (slide: SlideData, title: string): void => {
+  const titleShape =
+    findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle');
+  if (titleShape === null) {
+    throw new Error('setSlideTitle: slide has no title / ctrTitle placeholder');
+  }
+  setShapeText(titleShape, title);
+};
