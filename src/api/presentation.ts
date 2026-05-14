@@ -405,6 +405,78 @@ export class Presentation {
   }
 
   /**
+   * Duplicates a slide. Returns the new `Slide` appended to deck order.
+   *
+   * The slide's part bytes and `.rels` are cloned verbatim, so the
+   * duplicate inherits every shape, text, picture, layout binding, and
+   * media reference of the source. Media parts are NOT copied; the
+   * duplicate's rels point at the same media as the original (PowerPoint
+   * does the same — media sharing across slides is canonical).
+   *
+   * Identifiers are freshly allocated:
+   *   - new slide part name `/ppt/slides/slideN.xml`
+   *   - new `sldId` in [256, 2³¹−1024]
+   *   - new presentation→slide `rId`
+   */
+  duplicateSlide(slide: Slide): Slide {
+    const pkg = this[INTERNAL_PACKAGE];
+
+    const sourcePart = pkg.getPart(slide._partName);
+    if (!sourcePart) throw new Error(`duplicateSlide: source ${slide._partName} not found`);
+
+    // Allocate new slide part name + sldId + rId.
+    const presPart = pkg.getPart(PRES_PART_NAME);
+    if (!presPart) throw new Error('presentation.xml missing');
+    const presDoc = parseXml(decoder.decode(presPart.data));
+    const sldIdLst = ensureSldIdLst(presDoc.root);
+    const newSldId = allocateSldId(sldIdLst);
+
+    let slideN = 1;
+    for (const p of pkg.parts) {
+      const m = p.name.match(/^\/ppt\/slides\/slide(\d+)\.xml$/);
+      if (m?.[1] !== undefined) {
+        const n = Number.parseInt(m[1], 10);
+        if (Number.isFinite(n) && n >= slideN) slideN = n + 1;
+      }
+    }
+    const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
+
+    // Add the duplicate part with a copy of the bytes.
+    pkg.addPart(newSlidePartName, sourcePart.contentType, new Uint8Array(sourcePart.data));
+
+    // Clone the source slide's rels so the duplicate keeps every link
+    // (layout, media, hyperlinks, etc.) intact.
+    const sourceRels = pkg.getRels(slide._partName);
+    if (sourceRels !== null) {
+      pkg.setRels(newSlidePartName, { items: sourceRels.items.map((r) => ({ ...r })) });
+    }
+
+    // presentation → new slide rel.
+    const presRels = pkg.getRels(PRES_PART_NAME) ?? emptyRels();
+    const newRId = nextRelId(presRels.items.map((r) => r.id));
+    presRels.items.push({
+      id: newRId,
+      type: REL_TYPES.slide,
+      target: `slides/slide${slideN}.xml`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(PRES_PART_NAME, presRels);
+
+    // Add `<p:sldId>` entry.
+    const newSldIdElement = elem(NAME_SLD_ID, {
+      attrs: [attr(ATTR_ID, String(newSldId)), attr(ATTR_R_ID, newRId)],
+    });
+    sldIdLst.children.push(newSldIdElement);
+    presPart.data = encoder.encode(serializeXml(presDoc));
+
+    this._slidesCache = null;
+    const slides = this.slides;
+    const dup = slides[slides.length - 1];
+    if (!dup) throw new Error('duplicateSlide: post-condition failed');
+    return dup;
+  }
+
+  /**
    * Moves a slide to a new index in deck order. Indices are clamped to
    * `[0, slides.length - 1]`. The operation is a pure reorder — sldIds,
    * rels, parts, and content types are not touched.

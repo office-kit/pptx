@@ -3,11 +3,10 @@
 Generate and edit `.pptx` (PowerPoint / Office Open XML Presentation) files
 from TypeScript — in **Node.js or the browser**, from a single ESM bundle.
 
-> **Status: alpha — not yet usable.** The library is in P0 bootstrap. No
-> `Presentation` class exists yet. The roadmap and design rationale will be
-> published under `docs/` before the first usable release.
->
-> Pin exact versions once any 0.x ships.
+> **Status: pre-1.0, evolving fast.** L1 (load → save round-trip) and L2
+> (template editing) are working end-to-end against real PPTX fixtures;
+> L3 (authoring) is in. Public API is subject to change. Pin exact
+> versions until 1.0.
 
 ## Why
 
@@ -77,35 +76,74 @@ yarn add pptx-kit
 > shape and will fill in as features land. See `CHANGELOG.md` for what is
 > actually implemented in the current version.
 
-### Author a presentation from scratch
-
-```ts
-import { Presentation, inches, pt } from 'pptx-kit';
-
-const pres = Presentation.create({ slideSize: '16:9' });
-const slide = pres.slides.add({ layout: pres.slideLayouts.at(1) });
-slide.shapes.addText('Hello, OOXML', {
-  x: inches(1),
-  y: inches(1),
-  w: inches(5),
-  h: inches(1),
-  font: { name: 'Calibri', size: pt(28) },
-});
-
-const bytes: Uint8Array = await pres.save();
-// Node:    fs.writeFile('out.pptx', bytes)
-// Browser: new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
-```
-
 ### Edit a template
 
 ```ts
 import { Presentation } from 'pptx-kit';
 
 const pres = await Presentation.load(existingPptxBytes);
-const cover = pres.slides.at(0);
+const cover = pres.slides[0];
 cover.findPlaceholder('title')?.setText('Q3 Review');
+cover.findPlaceholder('body')?.setText('Numbers up and to the right.');
 
+const out: Uint8Array = await pres.save();
+// Node:    fs.writeFile('out.pptx', out)
+// Browser: new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
+```
+
+### Token-based template fill
+
+```ts
+import { Presentation } from 'pptx-kit';
+
+const pres = await Presentation.load(templateBytes);
+// Replaces `{{name}}`, `{{event}}`, `{{date}}` across every slide.
+pres.replaceTokens({ name: 'Alice', event: 'Re:Invent', date: '2026-12-01' });
+const out = await pres.save();
+```
+
+### Build a deck from a blank template
+
+```ts
+import { Presentation, inches, pt } from 'pptx-kit';
+
+const pres = await Presentation.load(await fetch('/blank.pptx').then((r) => r.arrayBuffer()));
+
+const titleLayout = pres.slideLayouts.find((l) => l.name === 'Title Slide');
+const slide1 = pres.addSlide({ layout: titleLayout! });
+slide1.findPlaceholder('ctrTitle')?.setText('pptx-kit demo');
+slide1.findPlaceholder('subTitle')?.setText('an OOXML library for TypeScript');
+
+const blank = pres.slideLayouts.find((l) => l.name === 'Blank');
+const slide2 = pres.addSlide({ layout: blank! });
+slide2.addTextBox({
+  x: inches(1),
+  y: inches(1),
+  w: inches(8),
+  h: inches(1),
+  text: 'Free-form text box',
+});
+slide2.addImage(imageBytes, { x: inches(1), y: inches(3), w: inches(3), h: inches(3) });
+
+const dup = pres.duplicateSlide(slide2);
+pres.moveSlide(dup, 0);
+
+const out: Uint8Array = await pres.save();
+```
+
+### Replace an image in place
+
+```ts
+import { Presentation } from 'pptx-kit';
+
+const pres = await Presentation.load(templateBytes);
+for (const slide of pres.slides) {
+  for (const shape of slide.shapes) {
+    if (shape.kind === 'picture' && shape.name === 'Logo') {
+      shape.setImage(newLogoBytes); // format auto-detected; geometry preserved
+    }
+  }
+}
 const out = await pres.save();
 ```
 
@@ -114,9 +152,26 @@ const out = await pres.save();
 ```ts
 import { Presentation } from 'pptx-kit/node';
 
-const pres = await Presentation.load('./template.pptx');
+const pres = await Presentation.loadFile('./template.pptx');
+pres.replaceTokens({ name: 'Alice' });
 await pres.saveTo('./out.pptx');
 ```
+
+### API surface (current state)
+
+| Capability       | API                                                                                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Load / save      | `Presentation.load(input)`, `Presentation.loadFile(path)` (node), `pres.save()`, `pres.saveTo(path)` (node)                                      |
+| Slide CRUD       | `pres.slides` (iterable), `pres.addSlide({ layout })`, `pres.removeSlide(slide)`, `pres.moveSlide(slide, toIndex)`, `pres.duplicateSlide(slide)` |
+| Layouts          | `pres.slideLayouts` (read-only), `slide.layout`                                                                                                  |
+| Placeholders     | `slide.findPlaceholder('title' \| 'body' \| ...)`                                                                                                |
+| Text             | `shape.text`, `shape.setText(value)` (with `\n` for new paragraphs)                                                                              |
+| Token fill       | `pres.replaceTokens({ key: value })`, `slide.replaceTokens(...)`                                                                                 |
+| Pictures         | `shape.setImage(bytes)`, `slide.addImage(bytes, { x, y, w, h })`                                                                                 |
+| Free-form shapes | `slide.addTextBox({ x, y, w, h, text })`                                                                                                         |
+| Geometry         | `shape.position` / `shape.size`, `shape.setPosition(x, y)`, `shape.setSize(w, h)`                                                                |
+| Removal          | `shape.remove()`                                                                                                                                 |
+| Units            | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                  |
 
 ## Compatibility
 
