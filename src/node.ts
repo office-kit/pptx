@@ -5,11 +5,34 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import {
   Presentation as BasePresentation,
+  type PresentationData,
   type PresentationInput,
   _internalPackageOf,
+  loadPresentation,
+  savePresentation,
 } from './api/index.ts';
 
 export * from './api/index.ts';
+
+/**
+ * Reads a `.pptx` from disk and returns a `PresentationData`. Convenience
+ * over `loadPresentation(await fs.readFile(path))` — the tree-shakeable
+ * sibling of `Presentation.loadFile`.
+ */
+export const loadPresentationFile = async (path: string): Promise<PresentationData> => {
+  const bytes = await readFile(path);
+  return loadPresentation(bytes);
+};
+
+/**
+ * Serializes a `PresentationData` and writes the bytes to disk.
+ */
+export const savePresentationToFile = async (
+  pres: PresentationData,
+  path: string,
+): Promise<void> => {
+  await writeFile(path, await savePresentation(pres));
+};
 
 /**
  * Node-only subclass of `Presentation` that adds `loadFile` and `saveTo`
