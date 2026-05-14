@@ -13,10 +13,27 @@
 // methods migrate to live exclusively here, the class definitions will
 // shrink and eventually disappear.
 
+import { replaceTokensInTree } from '../internal/drawingml/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
-import { INTERNAL_PACKAGE, type PresentationData } from './_internal-symbols.ts';
+import { readSlideLayoutPart } from '../internal/presentationml/index.ts';
+import { parseXml, serializeXml } from '../internal/xml/index.ts';
+import {
+  INTERNAL_PACKAGE,
+  LAYOUT_PART,
+  LAYOUT_PART_NAME,
+  type PresentationData,
+  type SlideLayoutData,
+} from './_internal-symbols.ts';
 
 const TEXT_DECODER = new TextDecoder();
+const TEXT_ENCODER = new TextEncoder();
+const decode = (b: Uint8Array): string => TEXT_DECODER.decode(b);
+const encode = (s: string): Uint8Array => TEXT_ENCODER.encode(s);
+
+const SLIDE_LAYOUT_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
+const SLIDE_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 
 /**
  * Anything that can be turned into a `Uint8Array` of PPTX bytes:
@@ -66,6 +83,50 @@ export const savePresentation = (pres: PresentationData): Promise<Uint8Array> =>
   return Promise.resolve(pres[INTERNAL_PACKAGE].save());
 };
 
-// Suppress unused-import warning for the decoder — kept available for
-// follow-up free functions that need text decoding inline.
+/**
+ * Enumerates every slide layout in the package. Returns plain
+ * `SlideLayoutData` values that work as inputs to other authoring
+ * functions (`addSlide`, etc.) once those land.
+ */
+export const getSlideLayouts = (pres: PresentationData): ReadonlyArray<SlideLayoutData> => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const out: SlideLayoutData[] = [];
+  for (const part of pkg.parts) {
+    if (part.contentType !== SLIDE_LAYOUT_CONTENT_TYPE) continue;
+    const root = parseXml(decode(part.data)).root;
+    out.push({
+      [LAYOUT_PART_NAME]: part.name,
+      [LAYOUT_PART]: readSlideLayoutPart(root),
+    });
+  }
+  return out;
+};
+
+/**
+ * Replaces `{{key}}` tokens on every slide. Returns the total number of
+ * substitutions performed.
+ *
+ * Walks XML parts directly so no slide model is required — the function
+ * stays minimal-bundle-friendly when the caller imports only this and
+ * `loadPresentation` / `savePresentation`.
+ */
+export const replaceTokensInPresentation = (
+  pres: PresentationData,
+  tokens: Record<string, string>,
+): number => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  let count = 0;
+  for (const part of pkg.parts) {
+    if (part.contentType !== SLIDE_CONTENT_TYPE) continue;
+    const doc = parseXml(decode(part.data));
+    const n = replaceTokensInTree(doc.root, tokens);
+    if (n > 0) {
+      part.data = encode(serializeXml(doc));
+      count += n;
+    }
+  }
+  pres._slidesCache = null;
+  return count;
+};
+
 void TEXT_DECODER;

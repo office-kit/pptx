@@ -20,8 +20,19 @@ export { type PlaceholderType, Slide, SlideShape } from './slide.ts';
 export { SlideLayout } from './slide-layout.ts';
 
 // Tree-shakeable free-function API.
-export type { PresentationData } from './_internal-symbols.ts';
-export { createPresentation, loadPresentation, savePresentation } from './fn.ts';
+export type {
+  PresentationData,
+  SlideData,
+  SlideLayoutData,
+  SlideShapeData,
+} from './_internal-symbols.ts';
+export {
+  createPresentation,
+  getSlideLayouts,
+  loadPresentation,
+  replaceTokensInPresentation,
+  savePresentation,
+} from './fn.ts';
 
 export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';
 export type {
