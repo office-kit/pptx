@@ -122,6 +122,7 @@ export {
   setShapeImage,
   setShapeImageCrop,
   setShapeImageFill,
+  setShapeImageOpacity,
   setShapeClickAction,
   setShapeNoFill,
   setShapeNoStroke,

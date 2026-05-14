@@ -2917,6 +2917,55 @@ export const validatePresentation = (pres: PresentationData): ReadonlyArray<Vali
   validatePresentationPackage(pres[INTERNAL_PACKAGE]);
 
 // ---------------------------------------------------------------------------
+// Picture opacity — `<a:alphaModFix>` inside the picture's `<a:blip>`.
+//
+// `amt` is ECMA-376's ST_PositiveFixedPercentage (0–100000, scale 1/1000
+// of a percent). PowerPoint defaults to fully opaque when the element
+// is absent. Pass `null` to remove a prior `<a:alphaModFix>`.
+
+const NAME_ALPHA_MOD_FIX_FN = qname('a', 'alphaModFix', NS.dml);
+const ATTR_AMT_FN = qname('', 'amt', '');
+
+/**
+ * Sets the picture's opacity (0–1 fraction; `1` is fully opaque, `0`
+ * fully transparent). Pass `null` to remove an existing opacity
+ * override and restore PowerPoint's default behavior.
+ *
+ * Throws for non-picture shapes and on opacities outside `[0, 1]`.
+ */
+export const setShapeImageOpacity = (
+  shape: SlideShapeData,
+  opacity: number | null,
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
+    throw new Error(
+      `setShapeImageOpacity only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
+
+  blip.children = blip.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'alphaModFix'),
+  );
+
+  if (opacity !== null) {
+    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) {
+      throw new RangeError(`opacity must be in [0, 1], got ${opacity}`);
+    }
+    blip.children.push(
+      elem(NAME_ALPHA_MOD_FIX_FN, {
+        attrs: [attr(ATTR_AMT_FN, String(Math.round(opacity * 100000)))],
+      }),
+    );
+  }
+  commitAndRefresh(shape);
+};
+
+// ---------------------------------------------------------------------------
 // Picture cropping — `<a:srcRect>` inside the picture's `<p:blipFill>`.
 //
 // Percentages are 0-1 fractions per side, converted to ECMA-376's
