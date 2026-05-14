@@ -18,6 +18,7 @@ import {
   Presentation,
   addSlide,
   duplicateSlide,
+  findSlideLayout,
   getSlideLayouts,
   getSlideText,
   getSlides,
@@ -49,19 +50,9 @@ describe('fn API: deck manipulation', () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     expect(getSlides(pres).length).toBe(0);
 
-    const layouts = getSlideLayouts(pres);
-    // The free-function `SlideLayoutData` doesn't expose `.name` in the
-    // public surface (the symbol key is internal). Pick the same layout
-    // via the class API for assertion convenience, but call `addSlide`
-    // via the fn API to verify the parallel implementation.
-    const reloadedForLayoutLookup = await Presentation.load(await savePresentation(pres));
-    const targetIdx = reloadedForLayoutLookup.slideLayouts.findIndex(
-      (l) => l.name === 'Title and Content',
-    );
-    expect(targetIdx).toBeGreaterThanOrEqual(0);
-
-    const layout = layouts[targetIdx]!;
-    const slide = addSlide(pres, { layout });
+    const layout = findSlideLayout(pres, 'Title and Content');
+    expect(layout).not.toBeNull();
+    const slide = addSlide(pres, { layout: layout! });
     expect(slide).toBeDefined();
     expect(getSlides(pres).length).toBe(1);
 

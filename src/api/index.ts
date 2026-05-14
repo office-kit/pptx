@@ -56,6 +56,7 @@ export {
   clearSlideTransition,
   createPresentation,
   duplicateSlide,
+  findSlideLayout,
   findSlidePlaceholder,
   getCommentAuthor,
   getCommentAuthors,

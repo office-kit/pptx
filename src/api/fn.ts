@@ -210,6 +210,20 @@ export const getSlideLayoutName = (layout: SlideLayoutData): string =>
   layout[LAYOUT_PART].name;
 
 /**
+ * Finds the first slide layout whose user-visible name matches `name`,
+ * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
+ */
+export const findSlideLayout = (
+  pres: PresentationData,
+  name: string,
+): SlideLayoutData | null => {
+  for (const layout of getSlideLayouts(pres)) {
+    if (layout[LAYOUT_PART].name === name) return layout;
+  }
+  return null;
+};
+
+/**
  * Layout type token, when present (`title`, `obj`, `twoObj`, ...).
  * `null` when omitted — the spec default for that case is `cust`.
  */

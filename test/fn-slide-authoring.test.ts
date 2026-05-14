@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   Presentation,
   _internalPackageOf,
+  addSlide,
   addSlideImage,
   addSlideLine,
   addSlideShape,
@@ -15,6 +16,7 @@ import {
   addSlideTextBox,
   clearSlideBackground,
   clearSlideTransition,
+  findSlideLayout,
   getShapeKind,
   getShapeText,
   getSlideNotes,
@@ -57,13 +59,10 @@ const tinyJpeg = (): Uint8Array =>
 describe('fn API: slide authoring', () => {
   it('addSlideTextBox appends a new text-bearing shape', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
-    // blank.pptx has no slides; add one via the class API to get a target slide.
-    const seed = await Presentation.load(await savePresentation(pres));
-    const layout = seed.slideLayouts.find((l) => l.name === 'Title Only');
+    const layout = findSlideLayout(pres, 'Title Only');
     if (!layout) throw new Error('Title Only layout missing');
-    seed.addSlide({ layout });
-    const reloaded = await loadPresentation(await seed.save());
-    const slide = getSlides(reloaded)[0]!;
+    addSlide(pres, { layout });
+    const slide = getSlides(pres)[0]!;
     const beforeCount = getSlideShapes(slide).length;
 
     const tb = addSlideTextBox(slide, {
