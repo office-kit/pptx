@@ -10,17 +10,21 @@
 import {
   applyFormatToAllRuns,
   clearFill,
+  clearStroke,
   getPictureEmbedRId,
   type Position,
   readPosition,
   readSize,
   replaceTokensInTree,
   setNoFill,
+  setNoStroke,
   setPosition as writePosition,
   setSize as writeSize,
   setSolidFill,
+  setSolidStroke,
   setTextBody,
   type Size,
+  type StrokeOptions,
   type TextFormat,
 } from '../internal/drawingml/index.ts';
 import type { Emu } from './units.ts';
@@ -462,6 +466,37 @@ export class SlideShape {
    */
   get size(): Size | null {
     return readSize(this._element, this._snapshot.kind);
+  }
+
+  /**
+   * Sets a solid-color outline (`<a:ln>`) on this shape. `widthEmu` is the
+   * stroke width in EMU; use the unit helpers (`pt(1)`, `mm(0.5)`) to
+   * spell it out at the call site.
+   *
+   * Width and color are independently optional — pass only what you want
+   * to set. Existing outline attributes not addressed are preserved.
+   */
+  setStroke(options: { color?: string; widthEmu?: number }): void {
+    const spPr = this._ensureSpPr();
+    setSolidStroke(spPr, options as StrokeOptions);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /** Sets an explicit "no outline" on this shape. */
+  setNoStroke(): void {
+    const spPr = this._ensureSpPr();
+    setNoStroke(spPr);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /** Removes any outline override, restoring inheritance. */
+  clearStroke(): void {
+    const spPr = this._ensureSpPr();
+    clearStroke(spPr);
+    this._slide._commit();
+    this._slide._refresh();
   }
 
   /**
