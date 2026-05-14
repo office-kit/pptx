@@ -668,6 +668,47 @@ export const findSlidePlaceholder = (
 };
 
 /**
+ * First shape on the slide whose `cNvPr@name` equals `name`, or `null`
+ * if none. Use the multi-match variant when more than one shape can
+ * share the same name (common with template-cloned shapes).
+ */
+export const findShapeByName = (slide: SlideData, name: string): SlideShapeData | null => {
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (shape[SHAPE_SNAPSHOT].name === name) return shape;
+  }
+  return null;
+};
+
+/** Every shape on the slide whose `cNvPr@name` equals `name`. */
+export const findShapesByName = (
+  slide: SlideData,
+  name: string,
+): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].name === name);
+
+/** Every shape on the slide of the given kind. */
+export const findShapesByKind = (
+  slide: SlideData,
+  kind: ShapeKind,
+): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].kind === kind);
+
+/**
+ * Walks every slide and returns the first shape whose name matches.
+ * Useful for "find the logo placeholder anywhere in the deck."
+ */
+export const findShapeInPresentation = (
+  pres: PresentationData,
+  name: string,
+): SlideShapeData | null => {
+  for (const slide of getSlides(pres)) {
+    const hit = findShapeByName(slide, name);
+    if (hit !== null) return hit;
+  }
+  return null;
+};
+
+/**
  * Replaces `{{key}}` tokens in every text-bearing shape on this slide.
  * Returns the number of substitutions performed.
  *
@@ -721,6 +762,62 @@ export const getShapeFlip = (
   shape: SlideShapeData,
 ): { horizontal: boolean; vertical: boolean } | null =>
   readFlip(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+/**
+ * Reads back the fill choice on the shape's `<p:spPr>`. Returns:
+ *
+ *   - `{ kind: 'solid', color: '#RRGGBB' }` for a solid sRGB fill.
+ *   - `{ kind: 'solid', color: 'scheme:accent1' }` for a scheme color.
+ *   - `{ kind: 'gradient' }` / `'pattern'` / `'image'` for those choices
+ *     (without breaking out their parameters — call the dedicated
+ *     setter to overwrite).
+ *   - `{ kind: 'none' }` for `<a:noFill>`.
+ *   - `{ kind: 'inherit' }` when no fill choice is present on this
+ *     shape (it inherits from the layout / master placeholder).
+ */
+export type ShapeFill =
+  | { readonly kind: 'solid'; readonly color: string }
+  | { readonly kind: 'gradient' }
+  | { readonly kind: 'pattern' }
+  | { readonly kind: 'image' }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'inherit' };
+
+export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
+  const spPrName = qname('p', 'spPr', NS.pml);
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], spPrName);
+  if (!spPr) return { kind: 'inherit' };
+  for (const c of spPr.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    switch (c.name.localName) {
+      case 'noFill':
+        return { kind: 'none' };
+      case 'solidFill': {
+        // Look for the immediate color choice; report sRGB verbatim,
+        // scheme colors as "scheme:<token>".
+        for (const inner of c.children) {
+          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+          if (inner.name.localName === 'srgbClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+          }
+          if (inner.name.localName === 'schemeClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+          }
+        }
+        return { kind: 'solid', color: '' };
+      }
+      case 'gradFill':
+        return { kind: 'gradient' };
+      case 'pattFill':
+        return { kind: 'pattern' };
+      case 'blipFill':
+        return { kind: 'image' };
+    }
+  }
+  return { kind: 'inherit' };
+};
 
 // ---------------------------------------------------------------------------
 // @internal — used by mutation functions to write SlideData state back

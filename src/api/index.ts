@@ -40,6 +40,7 @@ export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type { GradientFillOptions, GradientStop } from '../internal/drawingml/index.ts';
+export type { ShapeFill } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -56,6 +57,10 @@ export {
   clearSlideTransition,
   createPresentation,
   duplicateSlide,
+  findShapeByName,
+  findShapeInPresentation,
+  findShapesByKind,
+  findShapesByName,
   findSlideLayout,
   findSlidePlaceholder,
   getCommentAuthor,
@@ -63,6 +68,7 @@ export {
   getCommentDate,
   getCommentPosition,
   getCommentText,
+  getShapeFill,
   getShapeFlip,
   getShapeId,
   getShapeKind,
