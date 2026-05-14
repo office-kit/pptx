@@ -101,8 +101,8 @@ const equalShares = (total: number, n: number): number[] => {
   // Distribute integer EMU values so they sum exactly to `total` (no
   // 1-EMU drift). The last cell absorbs any rounding remainder.
   const base = Math.floor(total / n);
-  const shares = new Array<number>(n).fill(base);
-  shares[n - 1] = (shares[n - 1] ?? base) + (total - base * n);
+  const shares = Array.from({ length: n }, () => base);
+  shares[n - 1] = base + (total - base * n);
   return shares;
 };
 
