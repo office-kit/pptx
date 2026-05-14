@@ -13,6 +13,8 @@ import {
   readPosition,
   readSize,
   replaceTokensInTree,
+  setPosition as writePosition,
+  setSize as writeSize,
   setTextBody,
   type Size,
 } from '../internal/drawingml/index.ts';
@@ -312,6 +314,24 @@ export class Slide {
     return created;
   }
 
+  /**
+   * @internal — drop the given shape XML element from the shape tree.
+   * Used by `SlideShape.remove`.
+   */
+  _removeShape(element: XmlElement): void {
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) return;
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) return;
+    const idx = spTree.children.indexOf(element);
+    if (idx < 0) return;
+    spTree.children.splice(idx, 1);
+    this._commit();
+    // Rebuild shape handles; the removed slot disappears and indices shift.
+    this._part = readSlidePart(this._document.root);
+    this._shapes = this._part.shapes.map((s) => new SlideShape(this, s.element, s));
+  }
+
   /** @internal — re-parse the typed view after the underlying XML mutates. */
   _refresh(): void {
     this._part = readSlidePart(this._document.root);
@@ -413,6 +433,37 @@ export class SlideShape {
     setTextBody(txBody, value);
     this._slide._commit();
     this._slide._refresh();
+  }
+
+  /**
+   * Sets this shape's position in EMU. Creates the `<a:xfrm>` host (and
+   * its parent `<p:spPr>` / `<p:grpSpPr>` / `<p:xfrm>` as appropriate) if
+   * the shape was previously inheriting position from its layout.
+   */
+  setPosition(x: Emu, y: Emu): void {
+    writePosition(this._element, this._snapshot.kind, x, y);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /** Sets this shape's size in EMU. Companion to `setPosition`. */
+  setSize(w: Emu, h: Emu): void {
+    writeSize(this._element, this._snapshot.kind, w, h);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /**
+   * Removes this shape from its slide's shape tree. Subsequent property
+   * reads on this handle reflect the stale snapshot — discard the handle
+   * after calling.
+   *
+   * Removing a picture does NOT delete the underlying media part — it may
+   * be referenced from other slides. Use `_internalPackageOf(pres)` if
+   * you need to garbage-collect orphan media.
+   */
+  remove(): void {
+    this._slide._removeShape(this._element);
   }
 
   /**
