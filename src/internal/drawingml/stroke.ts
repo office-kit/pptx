@@ -77,3 +77,36 @@ export const clearStroke = (spPr: XmlElement): void => {
     (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'ln'),
   );
 };
+
+/**
+ * ECMA-376 §20.1.10.49 `ST_PresetLineDashVal` tokens. PowerPoint's
+ * "Dash type" dropdown maps to these.
+ */
+export type LineDash =
+  | 'solid'
+  | 'dot'
+  | 'dash'
+  | 'lgDash'
+  | 'dashDot'
+  | 'lgDashDot'
+  | 'lgDashDotDot'
+  | 'sysDash'
+  | 'sysDot'
+  | 'sysDashDot'
+  | 'sysDashDotDot';
+
+const NAME_PRST_DASH = qname('a', 'prstDash', NS.dml);
+const ATTR_VAL = qname('', 'val', '');
+
+/**
+ * Sets `<a:prstDash val="..."/>` inside the shape's `<a:ln>`. Creates
+ * `<a:ln>` if absent. Replacing the dash choice on subsequent calls.
+ */
+export const setStrokeDash = (spPr: XmlElement, dash: LineDash): void => {
+  const ln = ensureLn(spPr);
+  ln.children = ln.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'prstDash'),
+  );
+  ln.children.push(elem(NAME_PRST_DASH, { attrs: [attr(ATTR_VAL, dash)] }));
+};

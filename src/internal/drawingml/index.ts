@@ -19,8 +19,8 @@ export type { GradientFillOptions, GradientStop, PatternFillOptions, PatternPres
 export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
 export type { GlowOptions, ShadowOptions } from './effects.ts';
 export { clearEffects, setGlow, setShadow } from './effects.ts';
-export type { StrokeOptions } from './stroke.ts';
-export { clearStroke, setNoStroke, setSolidStroke } from './stroke.ts';
+export type { LineDash, StrokeOptions } from './stroke.ts';
+export { clearStroke, setNoStroke, setSolidStroke, setStrokeDash } from './stroke.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';

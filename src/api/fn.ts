@@ -32,6 +32,7 @@ import {
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
   type GlowOptions,
+  type LineDash,
   type ShadowOptions,
   getPictureEmbedRId,
   readFlip,
@@ -51,6 +52,7 @@ import {
   setSize as writeSize,
   setSolidFill,
   setSolidStroke,
+  setStrokeDash,
   setTextBody,
 } from '../internal/drawingml/index.ts';
 import type { Emu } from './units.ts';
@@ -342,6 +344,36 @@ export const getSlideText = (slide: SlideData): string => slideText(slide[SLIDE_
 export const getSlideIndex = (pres: PresentationData, slide: SlideData): number => {
   const slides = getSlides(pres);
   return slides.indexOf(slide);
+};
+
+// ---------------------------------------------------------------------------
+// Slide visibility — `<p:sld show="0">` hides a slide from the slideshow
+// without removing it from the deck. `show="1"` (or omission) is visible.
+
+const ATTR_SHOW = qname('', 'show', '');
+
+/**
+ * Returns `true` when the slide carries `show="0"` on its root
+ * `<p:sld>` element. PowerPoint hides such slides from the slideshow
+ * but keeps them in the editing surface.
+ */
+export const isSlideHidden = (slide: SlideData): boolean => {
+  const show = getAttrValue(slide[SLIDE_DOCUMENT].root, ATTR_SHOW);
+  return show === '0';
+};
+
+/**
+ * Toggles the slide's visibility in the slideshow. Hiding adds
+ * `show="0"`; showing removes the attribute (PowerPoint treats absence
+ * as the default `show="1"`).
+ */
+export const setSlideHidden = (slide: SlideData, hidden: boolean): void => {
+  const root = slide[SLIDE_DOCUMENT].root;
+  root.attrs = root.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'show'),
+  );
+  if (hidden) root.attrs.push(attr(ATTR_SHOW, '0'));
+  commitSlideData(slide);
 };
 
 /**
@@ -1166,6 +1198,22 @@ export const setShapeStroke = (
 /** Sets an explicit "no outline" on the shape. */
 export const setShapeNoStroke = (shape: SlideShapeData): void => {
   setNoStrokeImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the dash pattern for the shape's outline (`<a:prstDash>`). One
+ * of ECMA-376's `ST_PresetLineDashVal` tokens:
+ *
+ *   `'solid'` | `'dot'` | `'dash'` | `'lgDash'` | `'dashDot'` |
+ *   `'lgDashDot'` | `'lgDashDotDot'` | `'sysDash'` | `'sysDot'` |
+ *   `'sysDashDot'` | `'sysDashDotDot'`
+ *
+ * Creates `<a:ln>` if absent. Pairs naturally with `setShapeStroke`:
+ * users typically set a color + width first, then the dash.
+ */
+export const setShapeStrokeDash = (shape: SlideShapeData, dash: LineDash): void => {
+  setStrokeDash(requireSpPr(shape), dash);
   commitAndRefresh(shape);
 };
 
