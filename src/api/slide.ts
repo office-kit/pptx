@@ -40,6 +40,7 @@ import type { Emu } from './units.ts';
 import {
   type PresetShape,
   REL_TYPES,
+  buildConnector,
   buildEmptyNotesSlide,
   buildPicture,
   buildShape,
@@ -518,6 +519,51 @@ export class Slide {
     configure(bgPr);
     this._commit();
     this._refresh();
+  }
+
+  /**
+   * Adds a straight-line connector between two points. Returns the new
+   * `SlideShape` (kind `connector`).
+   *
+   * Coordinates are in EMU; direction is captured via `flipH` / `flipV`
+   * on the underlying transform when the "from" point is to the right
+   * of or below the "to" point.
+   */
+  addLine(opts: {
+    from: { x: Emu; y: Emu };
+    to: { x: Emu; y: Emu };
+    color?: string;
+    widthEmu?: number;
+    name?: string;
+  }): SlideShape {
+    let maxId = 0;
+    for (const s of this._part.shapes) {
+      if (s.id > maxId) maxId = s.id;
+    }
+    const newId = Math.max(maxId, 1) + 1;
+
+    const cxn = buildConnector({
+      id: newId,
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+      from: opts.from,
+      to: opts.to,
+      ...(opts.color !== undefined ? { color: opts.color } : {}),
+      ...(opts.widthEmu !== undefined ? { widthEmu: opts.widthEmu } : {}),
+    });
+
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) throw new Error('slide has no <p:cSld>');
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) throw new Error('slide has no <p:spTree>');
+    spTree.children.push(cxn);
+
+    this._commit();
+    const previousLength = this._shapes.length;
+    this._part = readSlidePart(this._document.root);
+    this._shapes = this._part.shapes.map((s) => new SlideShape(this, s.element, s));
+    const created = this._shapes[previousLength];
+    if (!created) throw new Error('addLine: post-condition failed');
+    return created;
   }
 
   /**
