@@ -125,6 +125,57 @@ describe('tree-shake: minimal load+save entry', () => {
     }
   });
 
+  it('deck-manipulation free-function bundle still drops authoring identifiers', async () => {
+    // Pulls in every deck-level free function. It should NOT drag any
+    // SlideShape mutation method (addTable, setTransition, addImage, ...)
+    // into the bundle, because those still live on the class API and the
+    // fn-API path never references them.
+    const fn = await bundleEntry(`
+      import {
+        loadPresentation,
+        savePresentation,
+        getSlides,
+        getSlideText,
+        getSlideLayouts,
+        addSlide,
+        removeSlide,
+        moveSlide,
+        duplicateSlide,
+        replaceTokensInPresentation,
+      } from 'pptx-kit';
+      export async function run(bytes, layout) {
+        const pres = await loadPresentation(bytes);
+        const slides = getSlides(pres);
+        if (slides[0]) getSlideText(slides[0]);
+        for (const l of getSlideLayouts(pres)) {
+          const s = addSlide(pres, { layout: l });
+          if (slides[0]) {
+            moveSlide(pres, s, 0);
+            duplicateSlide(pres, s);
+            removeSlide(pres, s);
+          }
+          break;
+        }
+        replaceTokensInPresentation(pres, { name: 'x' });
+        return await savePresentation(pres);
+      }
+    `);
+    const dropped = [
+      'addTable',
+      'setTransition',
+      'addLine',
+      'addTextBox',
+      'addShape',
+      'setHyperlink',
+      'setBullets',
+      'setBackground',
+      'addImage',
+    ];
+    for (const name of dropped) {
+      expect(fn.text, `bundle still references ${name}`).not.toContain(name);
+    }
+  });
+
   // The capabilities below are NOT touched by the minimal entry. After
   // the class → free-function refactor, every name listed here must be
   // absent from the minimal bundle. We mark the test as `todo` so the

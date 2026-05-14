@@ -27,9 +27,15 @@ export type {
   SlideShapeData,
 } from './_internal-symbols.ts';
 export {
+  addSlide,
   createPresentation,
+  duplicateSlide,
   getSlideLayouts,
+  getSlideText,
+  getSlides,
   loadPresentation,
+  moveSlide,
+  removeSlide,
   replaceTokensInPresentation,
   savePresentation,
 } from './fn.ts';
