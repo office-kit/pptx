@@ -3,10 +3,11 @@
 Generate and edit `.pptx` (PowerPoint / Office Open XML Presentation) files
 from TypeScript — in **Node.js or the browser**, from a single ESM bundle.
 
-> **Status: pre-1.0, evolving fast.** L1 (load → save round-trip) and L2
-> (template editing) are working end-to-end against real PPTX fixtures;
-> L3 (authoring) is in. Public API is subject to change. Pin exact
-> versions until 1.0.
+> **Status: pre-1.0, feature-complete for L1–L4 targets.** Every v1.0
+> capability in the table below works end-to-end against real PPTX
+> fixtures, with every emitted XML part validated against the
+> ECMA-376 schemas via `xmllint` in CI. Public API is still subject to
+> change — pin exact versions until 1.0.
 
 ## Why
 
@@ -70,11 +71,39 @@ pnpm add pptx-kit
 yarn add pptx-kit
 ```
 
-## Usage
+## Two APIs
 
-> The API is still being built out — examples below describe the intended
-> shape and will fill in as features land. See `CHANGELOG.md` for what is
-> actually implemented in the current version.
+pptx-kit ships two parallel public surfaces:
+
+1. **Class API** — `Presentation`, `Slide`, `SlideShape`, `SlideLayout`.
+   Fluent and discoverable; ideal for quick scripts. Importing
+   `Presentation` pulls every authoring method into your bundle.
+
+2. **Tree-shakeable free-function API** — `loadPresentation`,
+   `savePresentation`, `addSlideTextBox`, `setShapeFill`, etc. Bundlers
+   drop every method you don't import, so the minimal `load → save`
+   bundle is **~57 KB** instead of ~171 KB.
+
+Both APIs read and write the same opaque internal state, so values
+produced by one work with the other. CI enforces the tree-shake bound
+in `test/tree-shake.test.ts`.
+
+```ts
+// Class API
+import { Presentation } from 'pptx-kit';
+const pres = await Presentation.load(bytes);
+pres.slides[0]?.findPlaceholder('title')?.setText('Hello');
+await pres.save();
+
+// Free-function API — tree-shakeable
+import { loadPresentation, findSlidePlaceholder, getSlides, setShapeText, savePresentation } from 'pptx-kit';
+const pres2 = await loadPresentation(bytes);
+const titleShape = findSlidePlaceholder(getSlides(pres2)[0]!, 'title');
+if (titleShape) setShapeText(titleShape, 'Hello');
+await savePresentation(pres2);
+```
+
+## Usage
 
 ### Edit a template
 
@@ -157,21 +186,125 @@ pres.replaceTokens({ name: 'Alice' });
 await pres.saveTo('./out.pptx');
 ```
 
+Or with the free-function path:
+
+```ts
+import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+
+const pres = await loadPresentationFile('./template.pptx');
+await savePresentationToFile(pres, './out.pptx');
+```
+
+### Charts
+
+```ts
+import { addSlideChart, getSlides, loadPresentation, savePresentation, inches } from 'pptx-kit';
+
+const pres = await loadPresentation(templateBytes);
+const slide = getSlides(pres)[0];
+addSlideChart(slide!, {
+  x: inches(0.5),
+  y: inches(0.5),
+  w: inches(8),
+  h: inches(4.5),
+  spec: {
+    kind: 'column', // bar | column | line | pie | doughnut | area
+    categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+    series: [
+      { name: 'Revenue', values: [120, 180, 240, 300] },
+      { name: 'Cost',    values: [80,  90,  130, 160] },
+    ],
+    title: 'FY26 plan',
+  },
+});
+
+await savePresentation(pres);
+```
+
+The embedded xlsx that PowerPoint requires for "Edit data" is generated
+automatically. Inline `<c:strCache>` / `<c:numCache>` caches mean the
+chart renders without opening the workbook.
+
+### Animations
+
+```ts
+import { setShapeAnimation, getSlideShapes, getSlides } from 'pptx-kit';
+
+const slide = getSlides(pres)[0]!;
+const shape = getSlideShapes(slide)[0]!;
+setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 800 });
+// effects: 'fadeIn' | 'fadeOut' | 'appear' | 'disappear'
+```
+
+### Comments
+
+```ts
+import { addSlideComment, getSlides } from 'pptx-kit';
+
+const slide = getSlides(pres)[0]!;
+addSlideComment(slide, {
+  author: { name: 'Reviewer A' },
+  text: 'Punch up the numbers here.',
+  position: { x: 1_000_000, y: 1_000_000 }, // optional EMU coords
+});
+```
+
+### Gradient fills
+
+```ts
+import { setShapeGradientFill } from 'pptx-kit';
+
+setShapeGradientFill(shape, {
+  stops: [
+    { offset: 0,   color: '#FF0000' },
+    { offset: 1,   color: '#0000FF' },
+  ],
+  angleDeg: 90, // top → bottom
+});
+```
+
+### Validation
+
+```ts
+import { validatePresentation } from 'pptx-kit';
+
+const issues = validatePresentation(pres);
+for (const i of issues) console.error(i.severity, i.message);
+// Catches missing rels, dangling slide ids, layouts without masters, etc.
+```
+
 ### API surface (current state)
 
-| Capability       | API                                                                                                                                              |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Load / save      | `Presentation.load(input)`, `Presentation.loadFile(path)` (node), `pres.save()`, `pres.saveTo(path)` (node)                                      |
-| Slide CRUD       | `pres.slides` (iterable), `pres.addSlide({ layout })`, `pres.removeSlide(slide)`, `pres.moveSlide(slide, toIndex)`, `pres.duplicateSlide(slide)` |
-| Layouts          | `pres.slideLayouts` (read-only), `slide.layout`                                                                                                  |
-| Placeholders     | `slide.findPlaceholder('title' \| 'body' \| ...)`                                                                                                |
-| Text             | `shape.text`, `shape.setText(value)` (with `\n` for new paragraphs)                                                                              |
-| Token fill       | `pres.replaceTokens({ key: value })`, `slide.replaceTokens(...)`                                                                                 |
-| Pictures         | `shape.setImage(bytes)`, `slide.addImage(bytes, { x, y, w, h })`                                                                                 |
-| Free-form shapes | `slide.addTextBox({ x, y, w, h, text })`                                                                                                         |
-| Geometry         | `shape.position` / `shape.size`, `shape.setPosition(x, y)`, `shape.setSize(w, h)`                                                                |
-| Removal          | `shape.remove()`                                                                                                                                 |
-| Units            | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                  |
+Each row lists the free-function entry point; the class API exposes the
+same capability as a method (`pres.save()` vs `savePresentation(pres)`).
+
+| Capability                | API                                                                                                                                      |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| Load / save               | `loadPresentation(input)`, `savePresentation(pres)`, `loadPresentationFile(path)` (node), `savePresentationToFile(pres, path)` (node)    |
+| Create                    | `createPresentation()`                                                                                                                   |
+| Slide CRUD                | `getSlides(pres)`, `addSlide(pres, { layout })`, `removeSlide(pres, slide)`, `moveSlide(pres, slide, toIndex)`, `duplicateSlide(pres, slide)` |
+| Slide layouts             | `getSlideLayouts(pres)`, `getSlideLayoutName(layout)`, `getSlideLayoutType(layout)`                                                      |
+| Slide size                | `getSlideSize(pres)`, `setSlideSize(pres, opts)`, presets `SLIDE_SIZE_4_3` / `SLIDE_SIZE_16_9` / `SLIDE_SIZE_16_10`                      |
+| Slide title               | `getSlideTitle(slide)`, `setSlideTitle(slide, title)`                                                                                    |
+| Placeholders              | `findSlidePlaceholder(slide, 'title' \| 'body' \| ...)`                                                                                  |
+| Token fill                | `replaceTokensInPresentation(pres, tokens)`, `replaceTokensInSlide(slide, tokens)`                                                       |
+| Background                | `setSlideBackground(slide, color)`, `clearSlideBackground(slide)`                                                                        |
+| Notes                     | `getSlideNotes(slide)`, `setSlideNotes(slide, text)`                                                                                     |
+| Transitions               | `setSlideTransition(slide, opts)`, `clearSlideTransition(slide)`                                                                         |
+| Animations                | `setShapeAnimation(shape, { effect: 'fadeIn' \| 'fadeOut' \| 'appear' \| 'disappear' })`, `clearSlideAnimations(slide)`                  |
+| Comments                  | `addSlideComment(slide, opts)`, `getSlideComments(slide)`, `removeSlideComment(c)`, `getCommentAuthors(pres)`                            |
+| Shape authoring           | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                    |
+| Shape text                | `setShapeText`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink`                                        |
+| Per-run text              | `setShapeRunFormat`, `setShapeRunText`, `getShapeParagraphCount`, `getShapeRunCount`, `getShapeRunText`                                  |
+| Fill                      | `setShapeFill`, `setShapeGradientFill`, `setShapeNoFill`, `clearShapeFill`                                                               |
+| Stroke                    | `setShapeStroke`, `setShapeNoStroke`, `clearShapeStroke`                                                                                 |
+| Geometry                  | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`; `getShapePosition` / `getShapeSize` / etc.                       |
+| Pictures                  | `setShapeImage(bytes)`, `setShapeImageCrop(shape, crop)`                                                                                 |
+| Click actions             | `setShapeClickAction(shape, { kind: 'url' \| 'slide' \| 'nextSlide' \| ... })`                                                           |
+| Shape removal             | `removeShape(shape)`                                                                                                                     |
+| Charts                    | `addSlideChart(slide, { spec: { kind: 'bar' \| 'column' \| 'line' \| 'pie' \| 'doughnut' \| 'area', categories, series } })`             |
+| Validation                | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                             |
+| Units                     | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                          |
 
 ## Compatibility
 
