@@ -1571,6 +1571,53 @@ const insertAfterClrMapOvr = (slide: SlideData, t: XmlElement): void => {
   children.splice(insertAt, 0, t);
 };
 
+/**
+ * Reads back the slide's current transition (or `null` if no
+ * `<p:transition>` is present). The returned shape mirrors what
+ * `setSlideTransition` accepts.
+ */
+export const getSlideTransition = (slide: SlideData): TransitionOptions | null => {
+  const transition = slide[SLIDE_DOCUMENT].root.children.find(
+    (c): c is XmlElement =>
+      c.kind === 'element' &&
+      c.name.namespaceURI === NS.pml &&
+      c.name.localName === 'transition',
+  );
+  if (!transition) return null;
+  const speed = getAttrValue(transition, qname('', 'spd', '')) as
+    | 'slow'
+    | 'med'
+    | 'fast'
+    | null;
+  const advClick = getAttrValue(transition, qname('', 'advClick', ''));
+  const advTm = getAttrValue(transition, qname('', 'advTm', ''));
+  // First child element identifies the effect (`p:fade`, `p:wipe`, ...).
+  let effect: string | null = null;
+  let direction: string | null = null;
+  let orientation: 'horz' | 'vert' | null = null;
+  let thruBlack: boolean | undefined;
+  for (const child of transition.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
+    effect = child.name.localName;
+    direction = getAttrValue(child, qname('', 'dir', ''));
+    const o = getAttrValue(child, qname('', 'orient', ''));
+    if (o === 'horz' || o === 'vert') orientation = o;
+    const tb = getAttrValue(child, qname('', 'thruBlk', ''));
+    if (tb !== null) thruBlack = tb === '1';
+    break;
+  }
+  if (effect === null) return null;
+  return {
+    effect,
+    ...(speed !== null ? { speed } : {}),
+    ...(direction !== null ? { direction } : {}),
+    ...(orientation !== null ? { orientation } : {}),
+    ...(thruBlack !== undefined ? { thruBlack } : {}),
+    ...(advClick !== null ? { advanceOnClick: advClick !== '0' } : {}),
+    ...(advTm !== null ? { advanceAfterMs: Number.parseInt(advTm, 10) } : {}),
+  };
+};
+
 /** Sets the slide's transition effect. */
 export const setSlideTransition = (slide: SlideData, options: TransitionOptions): void => {
   removeTransition(slide);
@@ -1611,6 +1658,54 @@ const setSlideBackgroundXml = (
   configure(bgPr);
   commitSlideData(slide);
   refreshSlideData(slide);
+};
+
+/**
+ * Reads back the slide's current background. Returns a discriminated
+ * union mirroring `getShapeFill`'s shape, plus `inherit` when no
+ * `<p:bg>` element is present (the slide picks up its background from
+ * the layout / master).
+ */
+export type SlideBackground =
+  | { readonly kind: 'solid'; readonly color: string }
+  | { readonly kind: 'gradient' }
+  | { readonly kind: 'pattern' }
+  | { readonly kind: 'image' }
+  | { readonly kind: 'inherit' };
+
+export const getSlideBackground = (slide: SlideData): SlideBackground => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) return { kind: 'inherit' };
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return { kind: 'inherit' };
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return { kind: 'inherit' };
+  for (const c of bgPr.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    switch (c.name.localName) {
+      case 'solidFill': {
+        for (const inner of c.children) {
+          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+          if (inner.name.localName === 'srgbClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+          }
+          if (inner.name.localName === 'schemeClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+          }
+        }
+        return { kind: 'solid', color: '' };
+      }
+      case 'gradFill':
+        return { kind: 'gradient' };
+      case 'pattFill':
+        return { kind: 'pattern' };
+      case 'blipFill':
+        return { kind: 'image' };
+    }
+  }
+  return { kind: 'inherit' };
 };
 
 /** Sets a solid fill on the slide's background. */
