@@ -92,25 +92,28 @@ export const buildTextBox = (opts: TextBoxOptions): XmlElement => {
     children: [xfrm, prstGeom, elem(NAME_NO_FILL)],
   });
 
-  // Whitespace preservation: PowerPoint emits xml:space="preserve" when the
-  // text starts or ends with whitespace. We mirror that.
-  const needsPreserve =
-    opts.text.length > 0 &&
-    (opts.text.startsWith(' ') || opts.text.endsWith(' ') || /[\t\n]/.test(opts.text));
-  const t = elem(NAME_T, {
-    attrs: needsPreserve ? [attr(ATTR_XML_SPACE, 'preserve')] : [],
-    children: opts.text.length > 0 ? [textNode(opts.text)] : [],
+  // Build one `<a:p>` per line of `opts.text`. Each `<a:t>` therefore
+  // contains at most one line, so we never need `xml:space="preserve"`
+  // (the strict ECMA schema disallows that attribute on `<a:t>`, even
+  // though PowerPoint sometimes emits it). Leading/trailing-space
+  // preservation is handled by the bodyPr, not by xml:space.
+  const lines = opts.text.split('\n');
+  const paragraphs: XmlElement[] = lines.map((line) => {
+    const t = elem(NAME_T, {
+      children: line.length > 0 ? [textNode(line)] : [],
+    });
+    const r = elem(NAME_R, {
+      children: [elem(NAME_RPR, { attrs: [attr(ATTR_LANG, 'en-US')] }), t],
+    });
+    return elem(NAME_P, { children: [r] });
   });
-  const r = elem(NAME_R, {
-    children: [elem(NAME_RPR, { attrs: [attr(ATTR_LANG, 'en-US')] }), t],
-  });
-  const p = elem(NAME_P, { children: [r] });
   const bodyPr = elem(NAME_BODY_PR, {
     attrs: [attr(ATTR_WRAP, 'square'), attr(ATTR_RTL_COL, '0')],
   });
   const txBody = elem(NAME_TX_BODY, {
-    children: [bodyPr, elem(NAME_LST_STYLE), p],
+    children: [bodyPr, elem(NAME_LST_STYLE), ...paragraphs],
   });
+  void ATTR_XML_SPACE;
 
   return elem(NAME_SP, { children: [nvSpPr, spPr, txBody] });
 };

@@ -3,8 +3,10 @@
 
 export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.ts';
 export {
+  applyAlignmentToAllParagraphs,
   applyBulletToAllParagraphs,
   type BulletStyle,
+  type ParagraphAlignment,
   replaceTokensInTree,
   setTextBody,
 } from './text-body-mutation.ts';
@@ -15,6 +17,7 @@ export { buildColorElement, parseColor } from './color.ts';
 export { clearFill, setNoFill, setSolidFill } from './fill.ts';
 export type { StrokeOptions } from './stroke.ts';
 export { clearStroke, setNoStroke, setSolidStroke } from './stroke.ts';
+export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';
 export { readPosition, readSize } from './geometry.ts';

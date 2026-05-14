@@ -8,12 +8,15 @@
 // trips, which is fine.
 
 import {
+  applyAlignmentToAllParagraphs,
   applyBulletToAllParagraphs,
   applyFormatToAllRuns,
+  applyHyperlinkToAllRuns,
   type BulletStyle,
   clearFill,
   clearStroke,
   getPictureEmbedRId,
+  type ParagraphAlignment,
   type Position,
   readPosition,
   readSize,
@@ -431,6 +434,28 @@ export class Slide {
   }
 
   /**
+   * @internal — return an `rId` on this slide's `.rels` that points at
+   * `url` as an external hyperlink. Adds the relationship if no matching
+   * one exists; otherwise reuses the existing rId.
+   */
+  _ensureHyperlinkRel(url: string): string {
+    const rels = this._pkg.getRels(this._partName) ?? { items: [] };
+    const existing = rels.items.find(
+      (r) => r.type === REL_TYPES.hyperlink && r.target === url && r.targetMode === 'External',
+    );
+    if (existing) return existing.id;
+    const nextId = nextRelId(rels.items.map((r) => r.id));
+    rels.items.push({
+      id: nextId,
+      type: REL_TYPES.hyperlink,
+      target: url,
+      targetMode: 'External',
+    });
+    this._pkg.setRels(this._partName, rels);
+    return nextId;
+  }
+
+  /**
    * @internal — drop the given shape XML element from the shape tree.
    * Used by `SlideShape.remove`.
    */
@@ -662,6 +687,52 @@ export class SlideShape {
     }
     this._slide._commit();
     this._slide._refresh();
+  }
+
+  /**
+   * Sets the horizontal alignment of every paragraph in this shape's
+   * text body. Accepts plain names (`left` / `center` / `right` /
+   * `justify` / `distribute`) and ECMA-376 tokens (`l` / `ctr` / `r` /
+   * `just` / `dist` / `justLow` / `thaiDist`).
+   */
+  setAlignment(align: ParagraphAlignment): void {
+    const txBody = this._requireTxBody();
+    applyAlignmentToAllParagraphs(txBody, align);
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  /**
+   * Sets an external hyperlink on every run in this shape's text body.
+   * Allocates a new `hyperlink` relationship on the slide's `.rels` (or
+   * reuses an existing one with the same target). Pass `null` to clear.
+   *
+   * The hyperlink covers the entire shape text; per-run hyperlinks
+   * require post-mutation editing of the AST directly for now.
+   */
+  setHyperlink(url: string | null): void {
+    const txBody = this._requireTxBody();
+    if (url === null) {
+      applyHyperlinkToAllRuns(txBody, null);
+    } else {
+      const rId = this._slide._ensureHyperlinkRel(url);
+      applyHyperlinkToAllRuns(txBody, rId);
+    }
+    this._slide._commit();
+    this._slide._refresh();
+  }
+
+  private _requireTxBody(): XmlElement {
+    if (this._snapshot.kind !== 'shape') {
+      throw new Error(
+        `text operations require a shape kind; ${this._snapshot.kind} is not text-bearing`,
+      );
+    }
+    const txBody = firstChildElement(this._element, NAME_TX_BODY);
+    if (txBody === null) {
+      throw new Error(`shape "${this._snapshot.name}" has no <p:txBody>`);
+    }
+    return txBody;
   }
 
   /**

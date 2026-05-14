@@ -167,6 +167,76 @@ const NAME_PPR_FOR_BULLET = qname('a', 'pPr', NS.dml);
 const NAME_P_FOR_BULLET = qname('a', 'p', NS.dml);
 
 /**
+ * Paragraph horizontal alignment per `ST_TextAlignType` (ECMA-376
+ * §17.18.59). The library accepts plain-English names and translates to
+ * the spec tokens; advanced callers can pass the raw token directly.
+ */
+export type ParagraphAlignment =
+  | 'left'
+  | 'center'
+  | 'right'
+  | 'justify'
+  | 'distribute'
+  | 'l'
+  | 'ctr'
+  | 'r'
+  | 'just'
+  | 'dist'
+  | 'justLow'
+  | 'thaiDist';
+
+const alignToken = (a: ParagraphAlignment): string => {
+  switch (a) {
+    case 'left':
+    case 'l':
+      return 'l';
+    case 'center':
+    case 'ctr':
+      return 'ctr';
+    case 'right':
+    case 'r':
+      return 'r';
+    case 'justify':
+    case 'just':
+      return 'just';
+    case 'distribute':
+    case 'dist':
+      return 'dist';
+    default:
+      return a;
+  }
+};
+
+const ATTR_ALGN = qname('', 'algn', '');
+
+/**
+ * Sets `<a:pPr algn="...">` on every paragraph in `txBody`. Existing
+ * pPr attributes other than `algn` are preserved.
+ */
+export const applyAlignmentToAllParagraphs = (
+  txBody: XmlElement,
+  align: ParagraphAlignment,
+): void => {
+  const token = alignToken(align);
+  for (const p of txBody.children) {
+    if (
+      p.kind !== 'element' ||
+      p.name.namespaceURI !== NAME_P_FOR_BULLET.namespaceURI ||
+      p.name.localName !== 'p'
+    ) {
+      continue;
+    }
+    let pPr = firstChildElement(p, NAME_PPR_FOR_BULLET);
+    if (pPr === null) {
+      pPr = elem(NAME_PPR_FOR_BULLET);
+      p.children.unshift(pPr);
+    }
+    pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'algn');
+    pPr.attrs.push(attr(ATTR_ALGN, token));
+  }
+};
+
+/**
  * Sets the bullet style on every paragraph in `txBody`. Drops any
  * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
  * before inserting the new one. Creates `<a:pPr>` if absent.
@@ -222,11 +292,11 @@ export const setTextBody = (txBody: XmlElement, value: string): void => {
 
   const lines = value.split('\n');
   for (const line of lines) {
+    // Per the strict ECMA schema, `<a:t>` does NOT accept `xml:space`. We
+    // split on `\n` so each `<a:t>` holds a single line and leading /
+    // trailing whitespace is handled by the body / lst style, not by an
+    // illegal attribute on the text element.
     const t = elem(NAME_T, {
-      attrs:
-        line.length > 0 && (line.startsWith(' ') || line.endsWith(' ') || line.includes('\t'))
-          ? [attr(ATTR_XML_SPACE, 'preserve')]
-          : [],
       children: line.length > 0 ? [text(line)] : [],
     });
     const r = elem(NAME_R, {
@@ -237,4 +307,5 @@ export const setTextBody = (txBody: XmlElement, value: string): void => {
     });
     txBody.children.push(p);
   }
+  void ATTR_XML_SPACE;
 };
