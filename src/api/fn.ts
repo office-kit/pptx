@@ -13,7 +13,15 @@
 // methods migrate to live exclusively here, the class definitions will
 // shrink and eventually disappear.
 
-import { replaceTokensInTree } from '../internal/drawingml/index.ts';
+import {
+  type Position,
+  type Size,
+  readFlip,
+  readPosition,
+  readRotation,
+  readSize,
+  replaceTokensInTree,
+} from '../internal/drawingml/index.ts';
 import {
   basename,
   emptyRels,
@@ -21,10 +29,12 @@ import {
   type PartName,
   partName,
   relsPartNameFor,
+  resolveTarget,
 } from '../internal/opc/index.ts';
 import { OpcPackage } from '../internal/parts/index.ts';
 import {
   REL_TYPES,
+  type ShapeKind,
   buildSlideFromLayout,
   readPresentationPart,
   readSlideLayoutPart,
@@ -515,4 +525,134 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
   const dup = slides[slides.length - 1];
   if (!dup) throw new Error('duplicateSlide: post-condition failed');
   return dup;
+};
+
+// ---------------------------------------------------------------------------
+// Slide-level reads.
+
+/**
+ * Shapes on a slide, in document order with group children flattened.
+ */
+export const getSlideShapes = (slide: SlideData): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES];
+
+/**
+ * The slide layout this slide is bound to, or `null` if the slide has
+ * no layout relationship.
+ */
+export const getSlideLayout = (slide: SlideData): SlideLayoutData | null => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (rels === null) return null;
+  const layoutRel = rels.items.find((r) => r.type === REL_TYPES.slideLayout);
+  if (!layoutRel) return null;
+  const layoutName = layoutRel.target.startsWith('/')
+    ? partName(layoutRel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], layoutRel.target);
+  const layoutPart = pkg.getPart(layoutName);
+  if (layoutPart === null) return null;
+  const root = parseXml(decode(layoutPart.data)).root;
+  return {
+    [LAYOUT_PART_NAME]: layoutName,
+    [LAYOUT_PART]: readSlideLayoutPart(root),
+  };
+};
+
+/**
+ * Returns the first placeholder shape with the given `type` (or `null`
+ * if no match). Shapes whose `<p:ph>` omits an explicit type default to
+ * `'body'` per ECMA-376 §19.7.10.
+ */
+export const findSlidePlaceholder = (
+  slide: SlideData,
+  type: string,
+): SlideShapeData | null => {
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const snap = shape[SHAPE_SNAPSHOT];
+    if (snap.placeholderType === type) return shape;
+    if (type === 'body' && snap.placeholderType === null && snap.placeholderIdx !== null) {
+      return shape;
+    }
+  }
+  return null;
+};
+
+/**
+ * Replaces `{{key}}` tokens in every text-bearing shape on this slide.
+ * Returns the number of substitutions performed.
+ *
+ * Tokens must fit within a single text run (see `replaceTokensInTree`
+ * in `drawingml/`). Cross-run replacements aren't supported — use
+ * `findSlidePlaceholder` + a setText path when PowerPoint has
+ * fragmented the run sequence.
+ */
+export const replaceTokensInSlide = (
+  slide: SlideData,
+  tokens: Record<string, string>,
+): number => {
+  const n = replaceTokensInTree(slide[SLIDE_DOCUMENT].root, tokens);
+  if (n > 0) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
+  }
+  return n;
+};
+
+// ---------------------------------------------------------------------------
+// SlideShape-level reads.
+
+export const getShapeKind = (shape: SlideShapeData): ShapeKind =>
+  shape[SHAPE_SNAPSHOT].kind;
+
+export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHOT].id;
+
+export const getShapeName = (shape: SlideShapeData): string =>
+  shape[SHAPE_SNAPSHOT].name;
+
+export const getShapePlaceholderType = (shape: SlideShapeData): string | null =>
+  shape[SHAPE_SNAPSHOT].placeholderType;
+
+export const getShapePlaceholderIdx = (shape: SlideShapeData): number | null =>
+  shape[SHAPE_SNAPSHOT].placeholderIdx;
+
+export const getShapeText = (shape: SlideShapeData): string =>
+  shape[SHAPE_SNAPSHOT].text;
+
+export const getShapePosition = (shape: SlideShapeData): Position | null =>
+  readPosition(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+export const getShapeSize = (shape: SlideShapeData): Size | null =>
+  readSize(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+export const getShapeRotation = (shape: SlideShapeData): number =>
+  readRotation(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+export const getShapeFlip = (
+  shape: SlideShapeData,
+): { horizontal: boolean; vertical: boolean } | null =>
+  readFlip(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+// ---------------------------------------------------------------------------
+// @internal — used by mutation functions to write SlideData state back
+// into the package and rebuild the typed view. Free functions, no class
+// dependency.
+
+const commitSlideData = (slide: SlideData): void => {
+  const xml = serializeXml(slide[SLIDE_DOCUMENT]);
+  const part = slide[INTERNAL_PACKAGE].getPart(slide[SLIDE_PART_NAME]);
+  if (!part) throw new Error(`slide part missing: ${slide[SLIDE_PART_NAME]}`);
+  part.data = encode(xml);
+};
+
+const refreshSlideData = (slide: SlideData): void => {
+  const fresh = readSlidePart(slide[SLIDE_DOCUMENT].root);
+  slide[SLIDE_PART] = fresh;
+  const shapes = slide[SLIDE_SHAPES];
+  for (let i = 0; i < shapes.length; i++) {
+    const next = fresh.shapes[i];
+    const existing = shapes[i];
+    if (!next || !existing) continue;
+    existing[SHAPE_ELEMENT] = next.element;
+    existing[SHAPE_SNAPSHOT] = next;
+  }
 };

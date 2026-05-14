@@ -125,6 +125,60 @@ describe('tree-shake: minimal load+save entry', () => {
     }
   });
 
+  it('slide+shape read free-function bundle still drops mutation identifiers', async () => {
+    // Pulls in every read-side slide / shape free function. None of them
+    // should drag SlideShape mutation methods into the bundle.
+    const fn = await bundleEntry(`
+      import {
+        loadPresentation,
+        savePresentation,
+        getSlides,
+        getSlideText,
+        getSlideShapes,
+        getSlideLayout,
+        findSlidePlaceholder,
+        getShapeKind,
+        getShapeId,
+        getShapeName,
+        getShapeText,
+        getShapePosition,
+        getShapeSize,
+        getShapeRotation,
+        getShapeFlip,
+        replaceTokensInSlide,
+      } from 'pptx-kit';
+      export async function run(bytes) {
+        const pres = await loadPresentation(bytes);
+        for (const s of getSlides(pres)) {
+          getSlideText(s); getSlideLayout(s);
+          const ph = findSlidePlaceholder(s, 'title');
+          for (const sh of getSlideShapes(s)) {
+            getShapeKind(sh); getShapeId(sh); getShapeName(sh);
+            getShapeText(sh); getShapePosition(sh); getShapeSize(sh);
+            getShapeRotation(sh); getShapeFlip(sh);
+          }
+          if (ph) replaceTokensInSlide(s, { name: 'x' });
+        }
+        return await savePresentation(pres);
+      }
+    `);
+    const dropped = [
+      'addTable',
+      'setTransition',
+      'addLine',
+      'addTextBox',
+      'addShape',
+      'setHyperlink',
+      'setBullets',
+      'setBackground',
+      'addImage',
+      'duplicateSlide',
+    ];
+    for (const name of dropped) {
+      expect(fn.text, `bundle still references ${name}`).not.toContain(name);
+    }
+  });
+
   it('deck-manipulation free-function bundle still drops authoring identifiers', async () => {
     // Pulls in every deck-level free function. It should NOT drag any
     // SlideShape mutation method (addTable, setTransition, addImage, ...)
