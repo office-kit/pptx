@@ -31,6 +31,7 @@ import {
   clearEffects as clearEffectsImpl,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
+  type ArrowOptions,
   type GlowOptions,
   type LineDash,
   type ShadowOptions,
@@ -52,6 +53,7 @@ import {
   setSize as writeSize,
   setSolidFill,
   setSolidStroke,
+  setStrokeArrow,
   setStrokeDash,
   setTextBody,
 } from '../internal/drawingml/index.ts';
@@ -1214,6 +1216,24 @@ export const setShapeNoStroke = (shape: SlideShapeData): void => {
  */
 export const setShapeStrokeDash = (shape: SlideShapeData, dash: LineDash): void => {
   setStrokeDash(requireSpPr(shape), dash);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets an arrowhead on one end of the shape's outline.
+ *
+ *   - `end: 'head'` writes `<a:headEnd>` (the start of the line).
+ *   - `end: 'tail'` writes `<a:tailEnd>` (the end).
+ *
+ * Useful primarily on connector shapes added via `addSlideLine`.
+ * `type: 'none'` clears the arrowhead.
+ */
+export const setShapeStrokeArrow = (
+  shape: SlideShapeData,
+  end: 'head' | 'tail',
+  options: ArrowOptions,
+): void => {
+  setStrokeArrow(requireSpPr(shape), end, options);
   commitAndRefresh(shape);
 };
 

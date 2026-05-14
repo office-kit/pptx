@@ -40,10 +40,13 @@ export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type {
+  ArrowOptions,
   GlowOptions,
   GradientFillOptions,
   GradientStop,
   LineDash,
+  LineEndSize,
+  LineEndType,
   PatternFillOptions,
   PatternPreset,
   ShadowOptions,
@@ -145,6 +148,7 @@ export {
   setShapeRunText,
   setShapeSize,
   setShapeStroke,
+  setShapeStrokeArrow,
   setShapeStrokeDash,
   setShapeText,
   setShapeTextAnchor,

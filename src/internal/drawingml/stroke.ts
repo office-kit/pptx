@@ -110,3 +110,45 @@ export const setStrokeDash = (spPr: XmlElement, dash: LineDash): void => {
   );
   ln.children.push(elem(NAME_PRST_DASH, { attrs: [attr(ATTR_VAL, dash)] }));
 };
+
+/** ECMA-376 §20.1.10.39 `ST_LineEndType`. */
+export type LineEndType = 'none' | 'triangle' | 'stealth' | 'diamond' | 'oval' | 'arrow';
+
+/** ECMA-376 `ST_LineEndWidth` / `ST_LineEndLength`. */
+export type LineEndSize = 'sm' | 'med' | 'lg';
+
+export interface ArrowOptions {
+  readonly type: LineEndType;
+  readonly width?: LineEndSize;
+  readonly length?: LineEndSize;
+}
+
+const ATTR_TYPE = qname('', 'type', '');
+const ATTR_LEN = qname('', 'len', '');
+
+/**
+ * Sets an arrowhead on one end of the shape's outline. `end` selects
+ * which sentinel element: `'head'` → `<a:headEnd>`, `'tail'` →
+ * `<a:tailEnd>`. Creates `<a:ln>` if absent and replaces any prior
+ * arrowhead on the selected end.
+ *
+ * Pass `{ type: 'none' }` to clear an existing arrowhead (this still
+ * emits the element with `type="none"`, matching PowerPoint's
+ * behavior).
+ */
+export const setStrokeArrow = (
+  spPr: XmlElement,
+  end: 'head' | 'tail',
+  options: ArrowOptions,
+): void => {
+  const ln = ensureLn(spPr);
+  const localName = end === 'head' ? 'headEnd' : 'tailEnd';
+  ln.children = ln.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === localName),
+  );
+  const attrs = [attr(ATTR_TYPE, options.type)];
+  if (options.width !== undefined) attrs.push(attr(ATTR_W, options.width));
+  if (options.length !== undefined) attrs.push(attr(ATTR_LEN, options.length));
+  ln.children.push(elem(qname('a', localName, NS.dml), { attrs }));
+};
