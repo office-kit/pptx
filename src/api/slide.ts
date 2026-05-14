@@ -38,9 +38,11 @@ import {
 } from '../internal/drawingml/index.ts';
 import type { Emu } from './units.ts';
 import {
+  type PresetShape,
   REL_TYPES,
   buildEmptyNotesSlide,
   buildPicture,
+  buildShape,
   buildTable,
   buildTextBox,
   readSlideLayoutPart,
@@ -516,6 +518,61 @@ export class Slide {
     configure(bgPr);
     this._commit();
     this._refresh();
+  }
+
+  /**
+   * Adds a preset shape (rectangle, ellipse, triangle, arrow, star, ...)
+   * to this slide. Returns the new `SlideShape`.
+   *
+   * Pass any ECMA-376 `ST_ShapeType` preset token (`rect`, `ellipse`,
+   * `rightArrow`, `cloud`, `star5`, ...). The full union for autocomplete
+   * lives in `PresetShape`; arbitrary strings are also accepted.
+   *
+   * Optionally include `text` to seed the shape with a single run.
+   * Use `setTextFormat` / `setBullets` / `setAlignment` afterwards for
+   * formatting.
+   */
+  addShape(opts: {
+    preset: PresetShape | string;
+    x: Emu;
+    y: Emu;
+    w: Emu;
+    h: Emu;
+    text?: string;
+    textAnchor?: 'l' | 'ctr' | 'r' | 't' | 'b';
+    name?: string;
+  }): SlideShape {
+    let maxId = 0;
+    for (const s of this._part.shapes) {
+      if (s.id > maxId) maxId = s.id;
+    }
+    const newId = Math.max(maxId, 1) + 1;
+
+    const sp = buildShape({
+      id: newId,
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+      preset: opts.preset,
+      x: opts.x,
+      y: opts.y,
+      w: opts.w,
+      h: opts.h,
+      ...(opts.text !== undefined ? { text: opts.text } : {}),
+      ...(opts.textAnchor !== undefined ? { textAnchor: opts.textAnchor } : {}),
+    });
+
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) throw new Error('slide has no <p:cSld>');
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) throw new Error('slide has no <p:spTree>');
+    spTree.children.push(sp);
+
+    this._commit();
+    const previousLength = this._shapes.length;
+    this._part = readSlidePart(this._document.root);
+    this._shapes = this._part.shapes.map((s) => new SlideShape(this, s.element, s));
+    const created = this._shapes[previousLength];
+    if (!created) throw new Error('addShape: post-condition failed');
+    return created;
   }
 
   /**
