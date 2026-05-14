@@ -35,6 +35,7 @@ export type {
 export type { SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/index.ts';
+export type { ShapeClickAction } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -96,6 +97,7 @@ export {
   setShapeRotation,
   setShapeSize,
   setShapeStroke,
+  setShapeClickAction,
   setShapeText,
   setShapeTextFormat,
   setSlideBackground,
