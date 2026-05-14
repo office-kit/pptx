@@ -15,3 +15,5 @@ export { readShapeTreeFromCsldRoot, readSlidePart, slideText } from './slide-par
 export type { SlideLayoutPart, SlideLayoutType } from './slide-layout-part.ts';
 export { readSlideLayoutPart } from './slide-layout-part.ts';
 export { buildSlideFromLayout } from './slide-builder.ts';
+export type { TextBoxOptions } from './text-box-builder.ts';
+export { buildTextBox } from './text-box-builder.ts';

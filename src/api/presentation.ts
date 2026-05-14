@@ -404,6 +404,60 @@ export class Presentation {
     this._slidesCache = null;
   }
 
+  /**
+   * Moves a slide to a new index in deck order. Indices are clamped to
+   * `[0, slides.length - 1]`. The operation is a pure reorder — sldIds,
+   * rels, parts, and content types are not touched.
+   *
+   * The slide identity (the `Slide` instance and its underlying part)
+   * stays the same; only `<p:sldIdLst>`'s child order changes.
+   */
+  moveSlide(slide: Slide, toIndex: number): void {
+    const pkg = this[INTERNAL_PACKAGE];
+    const slideRelTarget = `slides/${basename(slide._partName)}`;
+    const presRels = pkg.getRels(PRES_PART_NAME);
+    if (!presRels) throw new Error('presentation.xml has no rels');
+    const slideRel = presRels.items.find(
+      (r) => r.type === REL_TYPES.slide && r.target === slideRelTarget,
+    );
+    if (!slideRel) throw new Error(`moveSlide: slide ${slide._partName} has no rel`);
+
+    const presPart = pkg.getPart(PRES_PART_NAME);
+    if (!presPart) throw new Error('presentation.xml missing');
+    const presDoc = parseXml(decoder.decode(presPart.data));
+    const sldIdLst = firstChildElement(presDoc.root, NAME_SLD_ID_LST);
+    if (!sldIdLst) throw new Error('presentation.xml has no <p:sldIdLst>');
+
+    // Locate the element whose r:id matches the slide's rId.
+    const sldIdElements = sldIdLst.children.filter(
+      (c): c is XmlElement =>
+        c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'sldId',
+    );
+    const target = sldIdElements.find((e) => getAttrValue(e, ATTR_R_ID) === slideRel.id);
+    if (!target) throw new Error(`moveSlide: <p:sldId> for ${slideRel.id} not found`);
+
+    // Remove the target from the parent's children, then re-insert at the
+    // intended position. Indices count over `<p:sldId>` siblings only —
+    // intervening whitespace or comments are not visible to the user.
+    const remaining = sldIdLst.children.filter((c) => c !== target);
+    const remainingSldIds = remaining.filter(
+      (c): c is XmlElement =>
+        c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'sldId',
+    );
+    const clamped = Math.max(0, Math.min(toIndex, remainingSldIds.length));
+    if (clamped === remainingSldIds.length) {
+      remaining.push(target);
+    } else {
+      const before = remainingSldIds[clamped];
+      const insertAt = before === undefined ? remaining.length : remaining.indexOf(before);
+      remaining.splice(insertAt, 0, target);
+    }
+    sldIdLst.children = remaining;
+
+    presPart.data = encoder.encode(serializeXml(presDoc));
+    this._slidesCache = null;
+  }
+
   /** @internal */
   static _fromPackage(pkg: OpcPackage): Presentation {
     return new Presentation(pkg);

@@ -16,7 +16,8 @@ import {
   setTextBody,
   type Size,
 } from '../internal/drawingml/index.ts';
-import { REL_TYPES, readSlideLayoutPart } from '../internal/presentationml/index.ts';
+import type { Emu } from './units.ts';
+import { REL_TYPES, buildTextBox, readSlideLayoutPart } from '../internal/presentationml/index.ts';
 import { SlideLayout } from './slide-layout.ts';
 import {
   type ImageFormat,
@@ -159,6 +160,55 @@ export class Slide {
       this._refresh();
     }
     return n;
+  }
+
+  /**
+   * Adds a free-form text box to this slide. Returns the new `SlideShape`.
+   *
+   * The box is a plain rectangle with no fill or outline, containing one
+   * paragraph with one run of `text`. Position and size are in EMU; use
+   * the unit helpers (`inches`, `cm`, `pt`) from the public API to spell
+   * those out.
+   *
+   * The shape id is allocated as one more than the current max id on the
+   * slide, so the new shape never collides with existing shapes.
+   */
+  addTextBox(opts: { x: Emu; y: Emu; w: Emu; h: Emu; text: string; name?: string }): SlideShape {
+    // Allocate the next shape id (max existing + 1).
+    let maxId = 0;
+    for (const s of this._part.shapes) {
+      if (s.id > maxId) maxId = s.id;
+    }
+    // Also count the root group (which classify() doesn't surface). The
+    // canonical root has id=1; respect it.
+    const newId = Math.max(maxId, 1) + 1;
+
+    const sp = buildTextBox({
+      id: newId,
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+      x: opts.x,
+      y: opts.y,
+      w: opts.w,
+      h: opts.h,
+      text: opts.text,
+    });
+
+    // Find the spTree and append the new shape.
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) throw new Error('slide has no <p:cSld>');
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) throw new Error('slide has no <p:spTree>');
+    spTree.children.push(sp);
+
+    this._commit();
+    // Rebuild shape handles from the updated part — the existing handles
+    // remain valid; we just append a new one. Easiest: refresh whole list.
+    const previousLength = this._shapes.length;
+    this._part = readSlidePart(this._document.root);
+    this._shapes = this._part.shapes.map((s) => new SlideShape(this, s.element, s));
+    const created = this._shapes[previousLength];
+    if (!created) throw new Error('addTextBox: post-condition failed');
+    return created;
   }
 
   /** @internal — re-parse the typed view after the underlying XML mutates. */
