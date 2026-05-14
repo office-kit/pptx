@@ -17,7 +17,12 @@ import {
   type Size,
 } from '../internal/drawingml/index.ts';
 import type { Emu } from './units.ts';
-import { REL_TYPES, buildTextBox, readSlideLayoutPart } from '../internal/presentationml/index.ts';
+import {
+  REL_TYPES,
+  buildPicture,
+  buildTextBox,
+  readSlideLayoutPart,
+} from '../internal/presentationml/index.ts';
 import { SlideLayout } from './slide-layout.ts';
 import {
   type ImageFormat,
@@ -25,6 +30,7 @@ import {
   contentTypeForFormat,
   detectImageFormat,
   extensionForFormat,
+  nextRelId,
   partName,
   resolveTarget,
 } from '../internal/opc/index.ts';
@@ -160,6 +166,101 @@ export class Slide {
       this._refresh();
     }
     return n;
+  }
+
+  /**
+   * Adds a new picture to this slide from raw bytes. Returns the new shape.
+   *
+   * Side effects:
+   *   - A new media part is allocated under `/ppt/media/imageN.<ext>`.
+   *   - If the image's extension isn't yet covered by a `Content_Types`
+   *     `Default`, one is registered.
+   *   - The slide's `.rels` gets a new `image` relationship pointing at
+   *     the media part. The slide's `r:embed` references that rel.
+   *   - A `<p:pic>` element is appended to the slide's `<p:spTree>` with
+   *     the given geometry.
+   *
+   * Format detection follows the same magic-byte sniff as `setImage`. Pass
+   * `options.format` to override (useful for SVG or when the bytes are
+   * not yet realized).
+   */
+  addImage(
+    bytes: Uint8Array,
+    opts: { x: Emu; y: Emu; w: Emu; h: Emu; format?: ImageFormat; name?: string },
+  ): SlideShape {
+    const format = opts.format ?? detectImageFormat(bytes);
+    if (format === null) {
+      throw new Error('addImage: could not detect image format. Pass options.format explicitly.');
+    }
+    const contentType = contentTypeForFormat(format);
+    const extension = extensionForFormat(format);
+
+    const pkg = this._pkg;
+
+    // 1. Allocate the next /ppt/media/imageN.<ext> part name.
+    let nextN = 1;
+    const mediaPattern = /^\/ppt\/media\/image(\d+)\./;
+    for (const p of pkg.parts) {
+      const m = p.name.match(mediaPattern);
+      if (m?.[1] !== undefined) {
+        const n = Number.parseInt(m[1], 10);
+        if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+      }
+    }
+    const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
+
+    // 2. Register a Content_Types Default if this extension isn't covered.
+    const hasDefault = pkg.contentTypes.defaults.some(
+      (d) => d.extension.toLowerCase() === extension,
+    );
+    if (!hasDefault) {
+      pkg.contentTypes.defaults.push({ extension, contentType });
+    }
+
+    // 3. Add the media part.
+    pkg.addPart(newMediaName, contentType, bytes);
+
+    // 4. Add the slide→image rel.
+    const rels = pkg.getRels(this._partName) ?? { items: [] };
+    const newRId = nextRelId(rels.items.map((r) => r.id));
+    rels.items.push({
+      id: newRId,
+      type: REL_TYPES.image,
+      target: `../media/image${nextN}.${extension}`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(this._partName, rels);
+
+    // 5. Allocate the next shape id within this slide.
+    let maxId = 0;
+    for (const s of this._part.shapes) {
+      if (s.id > maxId) maxId = s.id;
+    }
+    const newId = Math.max(maxId, 1) + 1;
+
+    // 6. Build and append the <p:pic> element.
+    const pic = buildPicture({
+      id: newId,
+      ...(opts.name !== undefined ? { name: opts.name } : {}),
+      rEmbed: newRId,
+      x: opts.x,
+      y: opts.y,
+      w: opts.w,
+      h: opts.h,
+    });
+    const cSld = firstChildElement(this._document.root, qname('p', 'cSld', NS.pml));
+    if (!cSld) throw new Error('slide has no <p:cSld>');
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) throw new Error('slide has no <p:spTree>');
+    spTree.children.push(pic);
+
+    this._commit();
+    const previousLength = this._shapes.length;
+    this._part = readSlidePart(this._document.root);
+    this._shapes = this._part.shapes.map((s) => new SlideShape(this, s.element, s));
+    const created = this._shapes[previousLength];
+    if (!created) throw new Error('addImage: post-condition failed');
+    return created;
   }
 
   /**

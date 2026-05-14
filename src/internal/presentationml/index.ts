@@ -17,3 +17,5 @@ export { readSlideLayoutPart } from './slide-layout-part.ts';
 export { buildSlideFromLayout } from './slide-builder.ts';
 export type { TextBoxOptions } from './text-box-builder.ts';
 export { buildTextBox } from './text-box-builder.ts';
+export type { PictureOptions } from './picture-builder.ts';
+export { buildPicture } from './picture-builder.ts';
