@@ -106,6 +106,39 @@ export interface GradientFillOptions {
   readonly angleDeg?: number;
 }
 
+/** One of ECMA-376's `ST_PresetPatternVal` tokens (`pct50`, `dkUpDiag`, ...). */
+export type PatternPreset = string;
+
+export interface PatternFillOptions {
+  /** Preset pattern token, e.g. `'pct50'`, `'dkUpDiag'`, `'wave'`. */
+  readonly preset: PatternPreset;
+  /** Foreground (pattern stroke) color. `#RRGGBB`, bare `RRGGBB`, or scheme token. */
+  readonly foreground: string;
+  /** Background (fill behind the pattern) color. */
+  readonly background: string;
+}
+
+const NAME_PATT_FILL = qname('a', 'pattFill', NS.dml);
+const NAME_FG_CLR = qname('a', 'fgClr', NS.dml);
+const NAME_BG_CLR = qname('a', 'bgClr', NS.dml);
+const ATTR_PRST = qname('', 'prst', '');
+
+/**
+ * Sets `<a:pattFill>` on `host` with the given preset + colors.
+ * Replaces any previous fill choice.
+ */
+export const setPatternFill = (host: XmlElement, options: PatternFillOptions): void => {
+  removeAnyFill(host);
+  const pattFill = elem(NAME_PATT_FILL, {
+    attrs: [attr(ATTR_PRST, options.preset)],
+    children: [
+      elem(NAME_FG_CLR, { children: [buildColorElement(options.foreground)] }),
+      elem(NAME_BG_CLR, { children: [buildColorElement(options.background)] }),
+    ],
+  });
+  host.children.splice(fillInsertionIndex(host), 0, pattFill);
+};
+
 /** Sets `<a:gradFill>` on `host`, replacing any previous fill choice. */
 export const setGradientFill = (host: XmlElement, options: GradientFillOptions): void => {
   if (options.stops.length < 2) {

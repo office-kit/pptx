@@ -100,6 +100,32 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(presPart?.data ?? new Uint8Array()), 'pml');
   });
 
+  skipIfNoXmllint('a pattern-filled shape validates', async () => {
+    const { addSlideShape, setShapePatternFill, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+    });
+    setShapePatternFill(shape, {
+      preset: 'pct50',
+      foreground: '#FF0000',
+      background: '#FFFFFF',
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await Presentation.load(bytes);
+    const pkg = _internalPackageOf(reloaded);
+    const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(slidePart).not.toBeUndefined();
+    expectSchemaValid(decode(slidePart!.data), 'pml');
+  });
+
   skipIfNoXmllint('an image-filled shape validates', async () => {
     const {
       addSlideShape,

@@ -39,7 +39,12 @@ export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
-export type { GradientFillOptions, GradientStop } from '../internal/drawingml/index.ts';
+export type {
+  GradientFillOptions,
+  GradientStop,
+  PatternFillOptions,
+  PatternPreset,
+} from '../internal/drawingml/index.ts';
 export type { ShapeFill, SlideBackground } from './fn.ts';
 export {
   addSlide,
@@ -113,9 +118,10 @@ export {
   setShapeImage,
   setShapeImageCrop,
   setShapeImageFill,
+  setShapeClickAction,
   setShapeNoFill,
   setShapeNoStroke,
-  setShapeClickAction,
+  setShapePatternFill,
   setShapePosition,
   setShapeRotation,
   setShapeRunFormat,

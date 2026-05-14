@@ -17,6 +17,7 @@ import {
   type BulletStyle,
   type GradientFillOptions,
   type ParagraphAlignment,
+  type PatternFillOptions,
   type Position,
   type Size,
   type StrokeOptions,
@@ -36,6 +37,7 @@ import {
   replaceTokensInTree,
   setFlip as writeFlip,
   setGradientFill,
+  setPatternFill,
   setNoFill as setNoFillImpl,
   setNoStroke as setNoStrokeImpl,
   setPosition as writePosition,
@@ -955,6 +957,21 @@ export const setShapeGradientFill = (
   options: GradientFillOptions,
 ): void => {
   setGradientFill(requireSpPr(shape), options);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets a preset pattern fill on the shape (e.g. `pct50`, `dkUpDiag`).
+ *
+ * `foreground` is the pattern stroke color; `background` fills behind
+ * the pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens
+ * (`accent1`, `bg1`, ...).
+ */
+export const setShapePatternFill = (
+  shape: SlideShapeData,
+  options: PatternFillOptions,
+): void => {
+  setPatternFill(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
 
