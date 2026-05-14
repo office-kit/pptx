@@ -164,7 +164,7 @@ describe('fn API: slide background + transition', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
 
-    setSlideTransition(slide, { effect: 'fade', durationMs: 600 });
+    setSlideTransition(slide, { effect: 'fade', speed: 'med' });
     const wired = await slideXml(await savePresentation(pres), 0);
     expect(wired).toContain('<p:transition');
     expect(wired).toContain('<p:fade');

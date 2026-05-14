@@ -61,6 +61,7 @@ import {
   REL_TYPES,
   type PresetShape,
   type ShapeKind,
+  type SlideLayoutType,
   type TransitionOptions,
   buildConnector,
   buildEmptyNotesSlide,
@@ -174,6 +175,18 @@ export const savePresentation = (pres: PresentationData): Promise<Uint8Array> =>
 
 // ---------------------------------------------------------------------------
 // Slide layouts.
+
+/** PowerPoint's user-visible layout name. */
+export const getSlideLayoutName = (layout: SlideLayoutData): string =>
+  layout[LAYOUT_PART].name;
+
+/**
+ * Layout type token, when present (`title`, `obj`, `twoObj`, ...).
+ * `null` when omitted — the spec default for that case is `cust`.
+ */
+export const getSlideLayoutType = (
+  layout: SlideLayoutData,
+): SlideLayoutType | string | null => layout[LAYOUT_PART].layoutType;
 
 /**
  * Enumerates every slide layout in the package.

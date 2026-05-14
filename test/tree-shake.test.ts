@@ -179,6 +179,43 @@ describe('tree-shake: minimal load+save entry', () => {
     }
   });
 
+  it('full fn-API bundle stays meaningfully smaller than the class bundle', async () => {
+    // A consumer that uses every free-function entry point should still
+    // ship a bundle smaller than the class-API minimal entry, because the
+    // fn API doesn't drag prototypes / unused methods along by reference.
+    const fn = await bundleEntry(`
+      import * as kit from 'pptx-kit';
+      export async function run(bytes) {
+        const pres = await kit.loadPresentation(bytes);
+        const slides = kit.getSlides(pres);
+        if (slides[0]) {
+          const sh = kit.getSlideShapes(slides[0])[0];
+          if (sh) {
+            kit.setShapeText(sh, 'x');
+            kit.setShapeFill(sh, '#FFFFFF');
+            kit.setShapeStroke(sh, { color: '#000000' });
+            kit.setShapePosition(sh, 1, 1);
+            kit.setShapeSize(sh, 1, 1);
+            kit.setShapeRotation(sh, 45);
+          }
+          kit.addSlideTextBox(slides[0], { x: 0, y: 0, w: 1, h: 1, text: 'x' });
+          kit.addSlideShape(slides[0], { preset: 'rect', x: 0, y: 0, w: 1, h: 1 });
+          kit.addSlideLine(slides[0], { from: { x: 0, y: 0 }, to: { x: 1, y: 1 } });
+          kit.addSlideTable(slides[0], { x: 0, y: 0, w: 1, h: 1, rows: [['a']] });
+          kit.addSlideImage(slides[0], new Uint8Array([0]), { x: 0, y: 0, w: 1, h: 1, format: 'png' });
+          kit.setSlideBackground(slides[0], '#FF0000');
+          kit.setSlideTransition(slides[0], { effect: 'fade' });
+          kit.setSlideNotes(slides[0], 'x');
+        }
+        return await kit.savePresentation(pres);
+      }
+    `);
+    // Wide upper bound — the test serves to detect class-pulled-in
+    // regression, not to enforce a tight cap.
+    expect(fn.bytes).toBeLessThan(250_000);
+    process.stderr.write(`tree-shake: full-fn-API bundle = ${fn.bytes} bytes\n`);
+  });
+
   it('deck-manipulation free-function bundle still drops authoring identifiers', async () => {
     // Pulls in every deck-level free function. It should NOT drag any
     // SlideShape mutation method (addTable, setTransition, addImage, ...)
