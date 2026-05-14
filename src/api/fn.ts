@@ -335,6 +335,16 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
 export const getSlideText = (slide: SlideData): string => slideText(slide[SLIDE_PART]);
 
 /**
+ * Returns the 0-based index of `slide` within `pres`, or `-1` if the
+ * slide doesn't belong to this presentation (e.g. after a removeSlide
+ * call, or if it was constructed from a different package).
+ */
+export const getSlideIndex = (pres: PresentationData, slide: SlideData): number => {
+  const slides = getSlides(pres);
+  return slides.indexOf(slide);
+};
+
+/**
  * Replaces `{{key}}` tokens on every slide. Returns the total number of
  * substitutions performed.
  */
@@ -790,6 +800,64 @@ export type ShapeFill =
   | { readonly kind: 'image' }
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
+
+/**
+ * Reads back the shape's stroke (`<a:ln>`). Returns:
+ *
+ *   - `{ kind: 'solid', color, widthEmu? }` for a solid-color outline.
+ *   - `{ kind: 'none' }` when an `<a:noFill>` sits inside `<a:ln>`.
+ *   - `{ kind: 'inherit' }` when no `<a:ln>` is present.
+ */
+export type ShapeStroke =
+  | { readonly kind: 'solid'; readonly color: string; readonly widthEmu?: number }
+  | { readonly kind: 'none' }
+  | { readonly kind: 'inherit' };
+
+export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return { kind: 'inherit' };
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return { kind: 'inherit' };
+
+  const wRaw = getAttrValue(ln, qname('', 'w', ''));
+  const widthEmu = wRaw !== null ? Number.parseInt(wRaw, 10) : undefined;
+
+  for (const c of ln.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'noFill') return { kind: 'none' };
+    if (c.name.localName === 'solidFill') {
+      for (const inner of c.children) {
+        if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+        if (inner.name.localName === 'srgbClr') {
+          const val = getAttrValue(inner, qname('', 'val', ''));
+          if (val !== null) {
+            return {
+              kind: 'solid',
+              color: `#${val.toUpperCase()}`,
+              ...(widthEmu !== undefined ? { widthEmu } : {}),
+            };
+          }
+        }
+        if (inner.name.localName === 'schemeClr') {
+          const val = getAttrValue(inner, qname('', 'val', ''));
+          if (val !== null) {
+            return {
+              kind: 'solid',
+              color: `scheme:${val}`,
+              ...(widthEmu !== undefined ? { widthEmu } : {}),
+            };
+          }
+        }
+      }
+      return {
+        kind: 'solid',
+        color: '',
+        ...(widthEmu !== undefined ? { widthEmu } : {}),
+      };
+    }
+  }
+  return { kind: 'inherit' };
+};
 
 export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
   const spPrName = qname('p', 'spPr', NS.pml);
