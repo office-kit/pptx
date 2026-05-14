@@ -129,6 +129,21 @@ export class Presentation {
     return out;
   }
 
+  /**
+   * Replaces `{{key}}` tokens on every slide with the value at
+   * `tokens[key]`. Returns the total number of substitutions performed.
+   *
+   * Convenience over `for (const s of pres.slides) s.replaceTokens(tokens)`.
+   * Useful for the common "fill the template once" workflow.
+   */
+  replaceTokens(tokens: Record<string, string>): number {
+    let n = 0;
+    for (const slide of this.slides) {
+      n += slide.replaceTokens(tokens);
+    }
+    return n;
+  }
+
   /** @internal */
   static _fromPackage(pkg: OpcPackage): Presentation {
     return new Presentation(pkg);

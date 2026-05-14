@@ -16,6 +16,7 @@ import {
   firstChildElement,
   qname,
   text,
+  walkElements,
 } from '../xml/index.ts';
 
 const NAME_P = qname('a', 'p', NS.dml);
@@ -77,6 +78,48 @@ const removeAllParagraphs = (txBody: XmlElement): void => {
   txBody.children = txBody.children.filter(
     (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'p'),
   );
+};
+
+// Token pattern: `{{key}}` where `key` matches any non-brace characters.
+// This is the same syntax docxtemplater / Handlebars use, and it survives
+// XML escaping cleanly since `{` and `}` are not XML metacharacters.
+const TOKEN_PATTERN = /\{\{([^{}]+)\}\}/g;
+
+/**
+ * Replaces `{{key}}` tokens in every `a:t` element under `root` with values
+ * from `tokens`. Tokens whose key is not in `tokens` are left untouched.
+ *
+ * Returns the number of substitutions performed. Useful for callers that
+ * want to know whether anything matched.
+ *
+ * Limitation: a token must fit entirely within one `<a:t>` element to
+ * match. PowerPoint normally serializes contiguous user text as a single
+ * `<a:t>`, so the limitation only bites when a placeholder was edited
+ * character-by-character (causing PowerPoint to split runs). For those
+ * cases, fall back to `setText()`.
+ */
+export const replaceTokensInTree = (root: XmlElement, tokens: Record<string, string>): number => {
+  let count = 0;
+  walkElements(root, (el) => {
+    if (el.name.namespaceURI !== NAME_T.namespaceURI) return;
+    if (el.name.localName !== 't') return;
+    const child = el.children[0];
+    if (!child || child.kind !== 'text') return;
+    const before = child.data;
+    let didMatch = false;
+    const after = before.replace(TOKEN_PATTERN, (match, key: string) => {
+      if (Object.hasOwn(tokens, key)) {
+        didMatch = true;
+        return tokens[key] ?? '';
+      }
+      return match;
+    });
+    if (didMatch) {
+      child.data = after;
+      count++;
+    }
+  });
+  return count;
 };
 
 /**

@@ -2,5 +2,5 @@
 // Allowed imports: internal/xml.
 
 export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.ts';
-export { setTextBody } from './text-body-mutation.ts';
+export { replaceTokensInTree, setTextBody } from './text-body-mutation.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';

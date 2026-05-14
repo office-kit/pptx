@@ -7,7 +7,11 @@
 // template, fill a few placeholders, save" — that's a handful of round
 // trips, which is fine.
 
-import { getPictureEmbedRId, setTextBody } from '../internal/drawingml/index.ts';
+import {
+  getPictureEmbedRId,
+  replaceTokensInTree,
+  setTextBody,
+} from '../internal/drawingml/index.ts';
 import {
   type ImageFormat,
   type PartName,
@@ -108,6 +112,26 @@ export class Slide {
       }
     }
     return null;
+  }
+
+  /**
+   * Replaces `{{key}}` tokens in every text-bearing shape on this slide
+   * with the value at `tokens[key]`. Tokens whose key is missing from
+   * `tokens` are left untouched. Returns the number of substitutions
+   * performed.
+   *
+   * Limitation: tokens must fit entirely within a single text run (see
+   * `replaceTokensInTree` in `drawingml/`). For tokens that have been
+   * fragmented by PowerPoint's interactive editing, use `setText()` on
+   * the affected shape instead.
+   */
+  replaceTokens(tokens: Record<string, string>): number {
+    const n = replaceTokensInTree(this._document.root, tokens);
+    if (n > 0) {
+      this._commit();
+      this._refresh();
+    }
+    return n;
   }
 
   /** @internal — re-parse the typed view after the underlying XML mutates. */
