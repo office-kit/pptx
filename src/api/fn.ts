@@ -6805,6 +6805,29 @@ export const getShapeChartKind = (shape: SlideShapeData): ChartKind | null => {
   return spec === null ? null : spec.kind;
 };
 
+/**
+ * Returns the categories axis labels of a chart shape, or `null`
+ * if the shape isn't a chart wrapper or its kind isn't modeled.
+ * Convenience over `getShapeChartSpec(shape)?.categories ?? null`.
+ */
+export const getShapeChartCategories = (
+  shape: SlideShapeData,
+): ReadonlyArray<string> | null => {
+  const spec = getShapeChartSpec(shape);
+  return spec === null ? null : spec.categories;
+};
+
+/**
+ * Returns the chart's series-name list (in spec order). `null`
+ * when the shape isn't a chart wrapper or the kind isn't modeled.
+ */
+export const getShapeChartSeriesNames = (
+  shape: SlideShapeData,
+): ReadonlyArray<string> | null => {
+  const spec = getShapeChartSpec(shape);
+  return spec === null ? null : spec.series.map((s) => s.name);
+};
+
 export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
   const slide = shape[SHAPE_SLIDE];
   const resolved = resolveChartPartName(slide, shape);
