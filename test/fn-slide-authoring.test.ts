@@ -6,8 +6,6 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   addSlide,
   addSlideImage,
   addSlideLine,
@@ -21,6 +19,7 @@ import {
   getShapeText,
   getSlideNotes,
   getSlideShapes,
+  getSlideXmlString,
   getSlides,
   inches,
   loadPresentation,
@@ -35,13 +34,8 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const slidePart = pkg.parts.find(
-    (p) => p.name === `/ppt/slides/slide${slideIndex + 1}.xml`,
-  );
-  if (!slidePart) throw new Error(`slide${slideIndex + 1}.xml not found`);
-  return new TextDecoder().decode(slidePart.data);
+  const pres = await loadPresentation(bytes);
+  return getSlideXmlString(getSlides(pres)[slideIndex]!);
 };
 
 const tinyPng = (): Uint8Array =>
@@ -141,8 +135,8 @@ describe('fn API: slide authoring', () => {
     expect(getShapeKind(pic)).toBe('picture');
     expect(getSlideShapes(slide).length).toBe(before + 1);
 
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    expect(reloaded.slides[0]?.shapes.length).toBe(before + 1);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideShapes(getSlides(reloaded)[0]!).length).toBe(before + 1);
   });
 });
 
@@ -194,8 +188,10 @@ describe('fn API: shape image replacement', () => {
     if (!picture) throw new Error('expected picture shape');
 
     setShapeImage(picture, tinyPng(), { format: 'png' });
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    const reloadedPic = reloaded.slides[0]?.shapes.find((s) => s.kind === 'picture');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const reloadedPic = getSlideShapes(getSlides(reloaded)[0]!).find(
+      (s) => getShapeKind(s) === 'picture',
+    );
     expect(reloadedPic).toBeDefined();
   });
 
@@ -206,7 +202,7 @@ describe('fn API: shape image replacement', () => {
     if (!picture) throw new Error('expected picture shape');
 
     setShapeImage(picture, tinyJpeg(), { format: 'jpeg' });
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    expect(reloaded.slides[0]?.shapes.length).toBeGreaterThan(0);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideShapes(getSlides(reloaded)[0]!).length).toBeGreaterThan(0);
   });
 });

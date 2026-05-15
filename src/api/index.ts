@@ -14,8 +14,8 @@
 
 export { type Emu, cm, emu, inches, mm, pt } from './units.ts';
 
-// Class-based legacy API.
-export { Presentation, type PresentationInput, _internalPackageOf } from './presentation.ts';
+// Class-based legacy API (being removed; see task #44).
+export { Presentation, type PresentationInput } from './presentation.ts';
 export { type PlaceholderType, Slide, SlideShape } from './slide.ts';
 export { SlideLayout } from './slide-layout.ts';
 
@@ -84,6 +84,7 @@ export type {
   TextWrap,
 } from './fn.ts';
 export {
+  _internalPackageOf,
   addBlankSlide,
   addContentSlide,
   addSectionHeaderSlide,

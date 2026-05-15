@@ -15,14 +15,13 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   addSlideComment,
   getCommentAuthor,
   getCommentAuthors,
   getCommentDate,
   getCommentPosition,
   getCommentText,
+  getPackagePartNames,
   getSlideComments,
   getSlides,
   loadPresentation,
@@ -33,14 +32,10 @@ import {
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-const partExists = (
-  presBytes: Uint8Array,
-  partPath: string,
-): Promise<boolean> =>
-  Presentation.load(presBytes).then((p) => {
-    const pkg = _internalPackageOf(p);
-    return pkg.parts.some((part) => part.name === partPath);
-  });
+const partExists = async (presBytes: Uint8Array, partPath: string): Promise<boolean> => {
+  const p = await loadPresentation(presBytes);
+  return getPackagePartNames(p).includes(partPath);
+};
 
 describe('fn API: comments', () => {
   it('addSlideComment bootstraps authors + comments parts on a clean slide', async () => {

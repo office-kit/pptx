@@ -8111,6 +8111,17 @@ export const validatePresentation = (pres: PresentationData): ReadonlyArray<Vali
 // or read a single part's bytes) without exposing the OpcPackage
 // class.
 
+/**
+ * Power-user escape hatch. Returns the underlying `OpcPackage`
+ * backing `pres`. Use this when you need to manipulate parts /
+ * rels directly. Most callers should use the typed helpers above
+ * (`listPackageParts`, `readPackagePart`, `getMediaParts`, etc.).
+ *
+ * @internal — used by `pptx-kit/node` to mount fs-backed helpers.
+ */
+export const _internalPackageOf = (pres: PresentationData): OpcPackage =>
+  pres[INTERNAL_PACKAGE];
+
 /** One entry in the package's parts list. */
 export interface PackagePartInfo {
   readonly name: string;

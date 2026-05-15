@@ -4,7 +4,6 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   _internalPackageOf,
   addSlideImage,
   compactPackage,
@@ -37,10 +36,8 @@ describe('fn API: compactPackage', () => {
       x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
     });
     // Save → reload → orphan the media by clearing slide rels.
-    const cls = await Presentation.load(await savePresentation(pres));
-    const pkg = _internalPackageOf(cls);
-    pkg.setRels(partName('/ppt/slides/slide1.xml'), { items: [] });
-    // Stash a manual layout rel back so the slide stays valid.
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
     pkg.setRels(partName('/ppt/slides/slide1.xml'), {
       items: [
         {
@@ -52,7 +49,7 @@ describe('fn API: compactPackage', () => {
       ],
     });
 
-    const after = await loadPresentation(await cls.save());
+    const after = await loadPresentation(await savePresentation(reloaded));
     expect(getMediaParts(after).length).toBeGreaterThan(0);
     const { removed } = compactPackage(after);
     expect(removed.length).toBeGreaterThan(0);
