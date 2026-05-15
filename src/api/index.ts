@@ -225,6 +225,7 @@ export {
   getPresentationChartCount,
   getPresentationHyperlinkCount,
   getPresentationImageCount,
+  getPresentationNotesLength,
   getPresentationNotesText,
   getPresentationShapeCount,
   getPresentationTableCount,

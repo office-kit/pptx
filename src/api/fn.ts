@@ -5829,6 +5829,18 @@ export const getPresentationNotesText = (
 };
 
 /**
+ * Total code-point length of speaker notes across every slide.
+ * Sibling of `getPresentationTextLength`; counts surrogate-pair
+ * characters as 1 each. Cheaper than `getPresentationNotesText`
+ * when the caller only needs the size.
+ */
+export const getPresentationNotesLength = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) n += getSlideNotesLength(slide);
+  return n;
+};
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.
