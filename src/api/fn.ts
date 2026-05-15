@@ -7328,6 +7328,16 @@ export const getSlideTitle = (slide: SlideData): string | null => {
 };
 
 /**
+ * Returns the slide's body text, or `null` if no `body` placeholder
+ * is present. Mirror of `getSlideTitle`; pairs with `setSlideBody`.
+ */
+export const getSlideBody = (slide: SlideData): string | null => {
+  const bodyShape = findSlidePlaceholder(slide, 'body');
+  if (bodyShape === null) return null;
+  return bodyShape[SHAPE_SNAPSHOT].text ?? null;
+};
+
+/**
  * Sets the slide's title text. Looks for a `title` placeholder first,
  * falling back to `ctrTitle`. Throws if neither exists — the slide's
  * layout has no title slot.

@@ -189,6 +189,7 @@ export {
   getShapeZIndex,
   getSlideAt,
   getSlideBackground,
+  getSlideBody,
   getSlideCharts,
   getSlideCount,
   getSlideComments,
