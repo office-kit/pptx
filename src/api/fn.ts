@@ -4987,6 +4987,66 @@ export const getMediaParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
 };
 
 /**
+ * Removes media parts that no rels graph references. Returns the
+ * list of removed part names. Useful after a sequence of slide
+ * removals leaves orphan images behind.
+ *
+ * Only `/ppt/media/...` parts are considered. The check walks every
+ * `.rels` part in the package and resolves each internal rel target
+ * against its source part name to build the live media set.
+ */
+export const compactPackage = (
+  pres: PresentationData,
+): { readonly removed: ReadonlyArray<string> } => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const referenced = new Set<string>();
+
+  const resolve = (sourcePart: string, target: string): string => {
+    if (target.startsWith('/')) return target;
+    const dir = sourcePart.split('/').slice(0, -1);
+    const segments: string[] = [];
+    for (const seg of [...dir, ...target.split('/')]) {
+      if (seg === '..') segments.pop();
+      else if (seg !== '.' && seg.length > 0) segments.push(seg);
+    }
+    return `/${segments.join('/')}`;
+  };
+
+  for (const part of pkg.parts) {
+    if (!part.name.endsWith('.rels')) continue;
+    // /ppt/slides/_rels/slide1.xml.rels → /ppt/slides/slide1.xml
+    // /_rels/.rels                       → / (package root)
+    let sourceName = part.name.replace('/_rels/', '/').replace(/\.rels$/, '');
+    if (sourceName === '/' || sourceName === '') {
+      // Root rels — `rel.target` is relative to the package root.
+      // We don't need to consult pkg.getRels for it (the only thing it
+      // points at that we care about is the presentation.xml, which
+      // has its own rels we'll walk). Just parse the part data
+      // directly for completeness.
+      sourceName = '/';
+    }
+    const rels = sourceName === '/' ? null : pkg.getRels(partName(sourceName));
+    if (!rels) continue;
+    for (const rel of rels.items) {
+      if (rel.targetMode === 'External') continue;
+      referenced.add(resolve(sourceName, rel.target));
+    }
+  }
+
+  const removed: string[] = [];
+  const orphans: string[] = [];
+  for (const part of pkg.parts) {
+    if (!part.name.startsWith('/ppt/media/')) continue;
+    if (!referenced.has(part.name)) orphans.push(part.name);
+  }
+  for (const name of orphans) {
+    pkg.removePart(partName(name));
+    removed.push(name);
+  }
+  return { removed };
+};
+
+/**
  * Replaces the bytes of a media part in place. Returns `true` if the
  * part was found and updated, `false` otherwise. The content type is
  * preserved.
