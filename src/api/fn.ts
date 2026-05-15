@@ -5616,6 +5616,21 @@ export const getDistinctHyperlinkUrls = (
 };
 
 /**
+ * Returns every slide carrying at least one shape with an external
+ * hyperlink. Built on `findHyperlinkedShapes`. Useful for navigation
+ * UIs that want to surface only the slides containing outbound URLs.
+ */
+export const findSlidesWithHyperlinks = (
+  pres: PresentationData,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (findHyperlinkedShapes(slide).length > 0) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
