@@ -223,6 +223,7 @@ export {
   getOrphanMediaPartNames,
   getOutlineText,
   getPackageSize,
+  getPresentationCommenterCount,
   getPresentationCommenters,
   getPresentationCreated,
   getPresentationFonts,

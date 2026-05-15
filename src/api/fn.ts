@@ -6342,6 +6342,19 @@ export const getPresentationCommenters = (
 };
 
 /**
+ * Fast count of distinct comment authors across the deck. Cheaper
+ * than `getPresentationCommenters(pres).length` when only the
+ * number matters — no intermediate array.
+ */
+export const getPresentationCommenterCount = (pres: PresentationData): number => {
+  const seen = new Set<number>();
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) seen.add(c.author.id);
+  }
+  return seen.size;
+};
+
+/**
  * Returns every distinct author who has at least one comment on the
  * slide. Deduplicated by author id; preserves first-seen order.
  * Useful for "who reviewed this slide?" annotations.
