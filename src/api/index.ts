@@ -257,6 +257,7 @@ export {
   getSlideCommentCount,
   getSlideComments,
   getSlideCount,
+  getSlideHyperlinkUrls,
   getSlideImageCount,
   getSlideIndex,
   getSlideInfo,

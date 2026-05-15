@@ -8072,6 +8072,21 @@ export const findHyperlinkedShapes = (
   slide[SLIDE_SHAPES].filter((s) => getShapeHyperlink(s) !== null);
 
 /**
+ * Returns every external URL on the slide in document order. Each
+ * hyperlinked shape contributes its first URL once; duplicates are
+ * preserved (use a `Set` to dedupe). Slide-level sibling of
+ * `getDistinctHyperlinkUrls`.
+ */
+export const getSlideHyperlinkUrls = (slide: SlideData): ReadonlyArray<string> => {
+  const out: string[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const url = getShapeHyperlink(shape);
+    if (url !== null) out.push(url);
+  }
+  return out;
+};
+
+/**
  * Returns every unordered pair of shapes on the slide whose
  * bounding boxes overlap. Built on `shapesOverlap`. Pairs are
  * returned with `a` strictly preceding `b` in document order, and
