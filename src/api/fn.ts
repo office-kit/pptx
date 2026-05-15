@@ -2772,6 +2772,26 @@ export const getShapeCenter = (
 };
 
 /**
+ * `true` when two shapes' axis-aligned bounding boxes overlap.
+ * Returns `false` when either shape has no bounds. Doesn't account
+ * for rotation — uses the raw `<a:xfrm>` rectangle, not the
+ * visual bounding box after rotation.
+ *
+ * Useful for collision detection in custom layout pipelines.
+ */
+export const shapesOverlap = (a: SlideShapeData, b: SlideShapeData): boolean => {
+  const ba = getShapeBounds(a);
+  const bb = getShapeBounds(b);
+  if (ba === null || bb === null) return false;
+  return (
+    ba.x < bb.x + bb.w &&
+    ba.x + ba.w > bb.x &&
+    ba.y < bb.y + bb.h &&
+    ba.y + ba.h > bb.y
+  );
+};
+
+/**
  * Sets both position and size in one call. Equivalent to calling
  * `setShapePosition` followed by `setShapeSize`, but commits the slide
  * just once.
