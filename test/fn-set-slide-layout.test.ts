@@ -4,10 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   addSlide,
   findSlideLayout,
+  getSlideLayout,
+  getSlideLayoutName,
   getSlideShapes,
+  getSlides,
   loadPresentation,
   savePresentation,
   setSlideLayout,
@@ -31,9 +33,9 @@ describe('fn API: setSlideLayout', () => {
     // Same content (no shapes added or removed).
     expect(getSlideShapes(slide).length).toBe(beforeShapeCount);
 
-    // Round-trip — the class API resolves the new layout name.
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    expect(reloaded.slides[0]?.layout?.name).toBe('Blank');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const reLayout = getSlideLayout(getSlides(reloaded)[0]!);
+    expect(reLayout && getSlideLayoutName(reLayout)).toBe('Blank');
   });
 
   it('throws when the layout is not in the package', async () => {

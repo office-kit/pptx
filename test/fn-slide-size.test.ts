@@ -8,7 +8,6 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   SLIDE_SIZE_16_9,
   SLIDE_SIZE_4_3,
   emu,
@@ -38,11 +37,8 @@ describe('fn API: slide size', () => {
     expect(after?.height).toBe(SLIDE_SIZE_16_9.height);
     expect(after?.type).toBe('screen16x9');
 
-    // Persists across round-trip and class-API readout.
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    expect(getSlideSize(await loadPresentation(await reloaded.save()))?.type).toBe(
-      'screen16x9',
-    );
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideSize(reloaded)?.type).toBe('screen16x9');
   });
 
   it('setSlideSize accepts arbitrary EMU dimensions', async () => {

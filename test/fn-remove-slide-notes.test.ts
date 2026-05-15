@@ -9,21 +9,21 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  _internalPackageOf,
+  getPackagePartNames,
   getSlideNotes,
   getSlides,
   loadPresentation,
   removeSlideNotes,
   savePresentation,
   setSlideNotes,
+  type PresentationData,
 } from '../src/api/index.ts';
-import type { Presentation } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-const hasPart = (pres: Awaited<ReturnType<typeof loadPresentation>>, part: string): boolean =>
-  _internalPackageOf(pres as unknown as Presentation).parts.some((p) => p.name === part);
+const hasPart = (pres: PresentationData, part: string): boolean =>
+  getPackagePartNames(pres).includes(part);
 
 describe('fn API: removeSlideNotes', () => {
   it('drops the notes part + rel when notes were present', async () => {

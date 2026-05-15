@@ -4,41 +4,51 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   findSlideByText,
   findSlidesByText,
+  getShapeText,
   getSlideIndex,
+  getSlideShapes,
+  getSlides,
   loadPresentation,
-  savePresentation,
+  setShapeText,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
+const seedFirstShapeOn = (
+  pres: ReturnType<typeof getSlides> extends ReadonlyArray<infer S>
+    ? Parameters<typeof getSlides>[0]
+    : never,
+  slideIndex: number,
+  value: string,
+): void => {
+  const slide = getSlides(pres)[slideIndex];
+  if (!slide) return;
+  const target = getSlideShapes(slide).find((s) => getShapeText(s).length > 0);
+  if (!target) throw new Error(`no text shape on slide ${slideIndex}`);
+  setShapeText(target, value);
+};
+
 describe('fn API: findSlideByText / findSlidesByText', () => {
   it('finds the first slide containing the needle', async () => {
-    // Seed deck text via the class API so we have something predictable.
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    const cls = await Presentation.load(await savePresentation(pres));
-    cls.slides[0]?.shapes.find((s) => s.text.length > 0)?.setText('Brand: Acme');
-    cls.slides[1]?.shapes.find((s) => s.text.length > 0)?.setText('Brand: Acme again');
-    const seeded = await loadPresentation(await cls.save());
+    seedFirstShapeOn(pres, 0, 'Brand: Acme');
+    seedFirstShapeOn(pres, 1, 'Brand: Acme again');
 
-    const first = findSlideByText(seeded, 'Acme');
+    const first = findSlideByText(pres, 'Acme');
     expect(first).not.toBeNull();
-    expect(getSlideIndex(seeded, first!)).toBe(0);
+    expect(getSlideIndex(pres, first!)).toBe(0);
 
-    const all = findSlidesByText(seeded, 'Acme');
+    const all = findSlidesByText(pres, 'Acme');
     expect(all).toHaveLength(2);
   });
 
   it('accepts a RegExp', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    const cls = await Presentation.load(await savePresentation(pres));
-    cls.slides[0]?.shapes.find((s) => s.text.length > 0)?.setText('Order #12345');
-    const seeded = await loadPresentation(await cls.save());
-
-    const found = findSlideByText(seeded, /#\d{5}/);
+    seedFirstShapeOn(pres, 0, 'Order #12345');
+    const found = findSlideByText(pres, /#\d{5}/);
     expect(found).not.toBeNull();
   });
 

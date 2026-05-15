@@ -4,9 +4,11 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   addSlide,
   findSlideLayout,
+  getSlideLayout,
+  getSlideLayoutName,
+  getSlides,
   getSlidesByLayout,
   loadPresentation,
   savePresentation,
@@ -32,9 +34,13 @@ describe('fn API: getSlidesByLayout', () => {
     const reloadedLayout = findSlideLayout(reloadedFn, 'Title Slide')!;
     expect(getSlidesByLayout(reloadedFn, reloadedLayout)).toHaveLength(2);
 
-    // Sanity: classes resolve the same.
-    const cls = await Presentation.load(await savePresentation(pres));
-    expect(cls.slides.filter((s) => s.layout?.name === 'Title Slide').length).toBe(2);
+    // Cross-check via layout name.
+    const reloaded2 = await loadPresentation(await savePresentation(pres));
+    const titled = getSlides(reloaded2).filter((s) => {
+      const l = getSlideLayout(s);
+      return l && getSlideLayoutName(l) === 'Title Slide';
+    });
+    expect(titled.length).toBe(2);
   });
 
   it('returns empty when no slide uses the layout', async () => {

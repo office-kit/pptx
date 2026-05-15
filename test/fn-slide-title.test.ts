@@ -4,10 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   addSlide,
   findSlideLayout,
+  findSlidePlaceholder,
+  getShapeText,
   getSlideTitle,
+  getSlides,
   loadPresentation,
   savePresentation,
   setSlideTitle,
@@ -26,8 +28,9 @@ describe('fn API: slide title convenience', () => {
     setSlideTitle(slide, 'Brand new slide');
     expect(getSlideTitle(slide)).toBe('Brand new slide');
 
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    expect(reloaded.slides[0]?.findPlaceholder('title')?.text).toBe('Brand new slide');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const title = findSlidePlaceholder(getSlides(reloaded)[0]!, 'title');
+    expect(title && getShapeText(title)).toBe('Brand new slide');
   });
 
   it('getSlideTitle returns null when no title placeholder exists', async () => {
