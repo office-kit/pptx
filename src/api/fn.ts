@@ -652,6 +652,30 @@ export interface CoreProperties {
  * no core-properties part. Each field is `null` when the
  * corresponding element is absent or empty.
  */
+/**
+ * Convenience: the timestamp from core-properties' `dcterms:created`,
+ * parsed as a `Date`. Returns `null` when no created field is set
+ * or the value isn't a recognizable W3C-DTF / ISO-8601 string.
+ */
+export const getPresentationCreated = (pres: PresentationData): Date | null => {
+  const props = getCoreProperties(pres);
+  if (!props || props.created === null) return null;
+  const d = new Date(props.created);
+  return Number.isFinite(d.getTime()) ? d : null;
+};
+
+/**
+ * Convenience: the timestamp from core-properties' `dcterms:modified`,
+ * parsed as a `Date`. Returns `null` when no modified field is set
+ * or the value isn't a recognizable W3C-DTF / ISO-8601 string.
+ */
+export const getPresentationModified = (pres: PresentationData): Date | null => {
+  const props = getCoreProperties(pres);
+  if (!props || props.modified === null) return null;
+  const d = new Date(props.modified);
+  return Number.isFinite(d.getTime()) ? d : null;
+};
+
 export const getCoreProperties = (pres: PresentationData): CoreProperties | null => {
   const pkg = pres[INTERNAL_PACKAGE];
   const part = pkg.getPart(CORE_PROPS_PART_NAME);
