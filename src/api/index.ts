@@ -271,6 +271,7 @@ export {
   getSlideShapeIds,
   getSlideShapeKinds,
   getSlideShapeNames,
+  getSlideShapeRotations,
   getSlideShapeTexts,
   getSlideShapes,
   getSlideSize,

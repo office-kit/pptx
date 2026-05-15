@@ -7938,6 +7938,20 @@ export const getSlideShapeBounds = (
 };
 
 /**
+ * Returns each shape's rotation (in degrees, clockwise from 0) on
+ * the slide in document order. Shapes without an `<a:xfrm@rot>`
+ * yield `0`; index alignment with `getSlideShapes` is preserved.
+ *
+ * Useful for "auto-straighten" pipelines that scan a slide for any
+ * rotated shape without holding per-shape handles.
+ */
+export const getSlideShapeRotations = (slide: SlideData): ReadonlyArray<number> => {
+  const out: number[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) out.push(getShapeRotation(shape));
+  return out;
+};
+
+/**
  * Returns every unordered pair of shapes on the slide whose
  * bounding boxes overlap. Built on `shapesOverlap`. Pairs are
  * returned with `a` strictly preceding `b` in document order, and
