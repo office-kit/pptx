@@ -230,6 +230,7 @@ export {
   getSlideText,
   getSlideTitle,
   getSlideTransition,
+  getSlideXmlString,
   getSlides,
   getSlidesByLayout,
   getSlidesWithCharts,

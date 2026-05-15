@@ -1425,6 +1425,19 @@ export const findSlideByPartName = (
 export const getSlidePartName = (slide: SlideData): string => slide[SLIDE_PART_NAME];
 
 /**
+ * Returns the slide's current XML body as a string. Re-serializes
+ * from the typed AST, so this reflects any pending edits that
+ * haven't been written back to the package yet.
+ *
+ * Intended for diagnostics: dumping into bug reports, asserting
+ * structure in tests, snapshotting before / after a transformation.
+ * Do NOT parse this back yourself — round-trip safely through
+ * `loadPresentation` / `savePresentation`.
+ */
+export const getSlideXmlString = (slide: SlideData): string =>
+  serializeXml(slide[SLIDE_DOCUMENT]);
+
+/**
  * Returns the first slide whose concatenated visible text contains
  * `needle` (substring; case-sensitive). Pass a `RegExp` to test
  * against the slide's text body instead. Returns `null` when no
