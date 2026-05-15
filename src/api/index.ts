@@ -53,7 +53,7 @@ export type {
   PatternPreset,
   ShadowOptions,
 } from '../internal/drawingml/index.ts';
-export type { ShapeFill, ShapeStroke, SlideBackground, TextAnchor } from './fn.ts';
+export type { ShapeBounds, ShapeFill, ShapeStroke, SlideBackground, TextAnchor } from './fn.ts';
 export {
   addSlide,
   addSlideChart,
@@ -85,6 +85,7 @@ export {
   getCommentDate,
   getCommentPosition,
   getCommentText,
+  getShapeBounds,
   getShapeFill,
   getShapeFlip,
   getShapeId,
@@ -135,6 +136,7 @@ export {
   setChartSpec,
   setShapeAlignment,
   setShapeAnimation,
+  setShapeBounds,
   setShapeBullets,
   setShapeFill,
   setShapeFlip,

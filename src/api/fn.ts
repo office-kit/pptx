@@ -904,6 +904,41 @@ export const getShapeFlip = (
   readFlip(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
 
 /**
+ * Combined bounds — position + size in one object. Returns `null` when
+ * the shape inherits both position and size from its layout (so the
+ * `<a:xfrm>` element is absent or incomplete).
+ */
+export interface ShapeBounds {
+  readonly x: Emu;
+  readonly y: Emu;
+  readonly w: Emu;
+  readonly h: Emu;
+}
+
+export const getShapeBounds = (shape: SlideShapeData): ShapeBounds | null => {
+  const pos = readPosition(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+  const size = readSize(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+  if (pos === null || size === null) return null;
+  return {
+    x: pos.x as Emu,
+    y: pos.y as Emu,
+    w: size.w as Emu,
+    h: size.h as Emu,
+  };
+};
+
+/**
+ * Sets both position and size in one call. Equivalent to calling
+ * `setShapePosition` followed by `setShapeSize`, but commits the slide
+ * just once.
+ */
+export const setShapeBounds = (shape: SlideShapeData, bounds: ShapeBounds): void => {
+  writePosition(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, bounds.x, bounds.y);
+  writeSize(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, bounds.w, bounds.h);
+  commitAndRefresh(shape);
+};
+
+/**
  * Reads back the fill choice on the shape's `<p:spPr>`. Returns:
  *
  *   - `{ kind: 'solid', color: '#RRGGBB' }` for a solid sRGB fill.
