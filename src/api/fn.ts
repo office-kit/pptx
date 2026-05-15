@@ -4906,6 +4906,30 @@ export const clearTableCellFill = (cell: TableCellData): void => {
   commitTableCell(cell);
 };
 
+/**
+ * Reads the cell's solid background color. Returns `#RRGGBB` for
+ * `<a:srgbClr>`, `scheme:<token>` for `<a:schemeClr>`, or `null` when
+ * the cell has no fill, no `<a:tcPr>`, or the fill is non-solid
+ * (gradient / pattern / image).
+ */
+export const getTableCellFill = (cell: TableCellData): string | null => {
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  if (!tcPr) return null;
+  const solid = firstChildElement(tcPr, qname('a', 'solidFill', NS.dml));
+  if (!solid) return null;
+  const srgb = firstChildElement(solid, qname('a', 'srgbClr', NS.dml));
+  if (srgb) {
+    const v = getAttrValue(srgb, qname('', 'val', ''));
+    if (v) return `#${v.toUpperCase()}`;
+  }
+  const scheme = firstChildElement(solid, qname('a', 'schemeClr', NS.dml));
+  if (scheme) {
+    const v = getAttrValue(scheme, qname('', 'val', ''));
+    if (v) return `scheme:${v}`;
+  }
+  return null;
+};
+
 /** Applies a TextFormat to every run in the cell's text. */
 export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
   const txBody = ensureCellTxBody(cell);

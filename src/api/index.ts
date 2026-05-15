@@ -177,6 +177,7 @@ export {
   getSlides,
   getSlidesByLayout,
   getTableCell,
+  getTableCellFill,
   getTableCellPosition,
   getTableCellText,
   getTableCells,
