@@ -6478,6 +6478,57 @@ export const findCommentsBefore = (
   return out;
 };
 
+const datedComments = (
+  pres: PresentationData,
+): ReadonlyArray<{ comment: SlideCommentData; t: number }> => {
+  const out: { comment: SlideCommentData; t: number }[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) {
+      const dt = c[COMMENT_SNAPSHOT].dt;
+      if (dt === null) continue;
+      const t = Date.parse(dt);
+      if (!Number.isNaN(t)) out.push({ comment: c, t });
+    }
+  }
+  return out;
+};
+
+/**
+ * Returns the oldest comment (smallest `@dt`) across the whole deck,
+ * or `null` when no comment carries a parseable timestamp. Useful
+ * for "when did review start?" timelines.
+ */
+export const getOldestComment = (
+  pres: PresentationData,
+): SlideCommentData | null => {
+  const dated = datedComments(pres);
+  if (dated.length === 0) return null;
+  let best = dated[0]!;
+  for (let i = 1; i < dated.length; i++) {
+    const item = dated[i]!;
+    if (item.t < best.t) best = item;
+  }
+  return best.comment;
+};
+
+/**
+ * Returns the newest comment (largest `@dt`) across the whole deck,
+ * or `null` when no comment carries a parseable timestamp. Useful
+ * for "what was the last thing said?" timeline UIs.
+ */
+export const getNewestComment = (
+  pres: PresentationData,
+): SlideCommentData | null => {
+  const dated = datedComments(pres);
+  if (dated.length === 0) return null;
+  let best = dated[0]!;
+  for (let i = 1; i < dated.length; i++) {
+    const item = dated[i]!;
+    if (item.t > best.t) best = item;
+  }
+  return best.comment;
+};
+
 /**
  * Returns every comment's text on the slide in stored order.
  * Slide-scoped sibling of `findCommentsByText` for compact
