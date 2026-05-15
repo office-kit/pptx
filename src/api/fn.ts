@@ -6327,6 +6327,15 @@ export const getMediaParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
 };
 
 /**
+ * Returns every image part in the package. Convenience over
+ * `getMediaParts(pres).filter(p => p.contentType.startsWith('image/'))`
+ * — drops audio / video / icon parts and gives the caller a clean
+ * "every embedded image" list.
+ */
+export const getImageParts = (pres: PresentationData): ReadonlyArray<MediaPart> =>
+  getMediaParts(pres).filter((p) => p.contentType.startsWith('image/'));
+
+/**
  * Removes media parts that no rels graph references. Returns the
  * list of removed part names. Useful after a sequence of slide
  * removals leaves orphan images behind.

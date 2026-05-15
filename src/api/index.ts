@@ -127,6 +127,7 @@ export {
   getCommentPosition,
   getCommentText,
   getCoreProperties,
+  getImageParts,
   getExtendedProperties,
   getParagraphAlignment,
   getParagraphBullet,
