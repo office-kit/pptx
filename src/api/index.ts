@@ -96,6 +96,7 @@ export {
   getCommentDate,
   getCommentPosition,
   getCommentText,
+  getParagraphBullet,
   getShapeAnimation,
   getShapeBounds,
   getShapeClickAction,

@@ -1922,6 +1922,35 @@ export const setParagraphLevel = (
 };
 
 /**
+ * Reads back the bullet style on a single paragraph, or `null` when
+ * no `<a:buChar>` / `<a:buAutoNum>` / `<a:buNone>` is present (the
+ * paragraph inherits its bullet from the layout / master).
+ */
+export const getParagraphBullet = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): BulletStyle | null => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (pPr === null) return null;
+  for (const c of pPr.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'buNone') return 'none';
+    if (c.name.localName === 'buChar') {
+      const char = getAttrValue(c, qname('', 'char', ''));
+      if (char === '•') return 'bullet';
+      if (char !== null) return { char };
+    }
+    if (c.name.localName === 'buAutoNum') {
+      const t = getAttrValue(c, qname('', 'type', ''));
+      if (t === 'arabicPeriod') return 'number';
+      if (t !== null) return { autoNum: t };
+    }
+  }
+  return null;
+};
+
+/**
  * Sets the bullet style on a single paragraph. Same `BulletStyle` shape
  * as `setShapeBullets` — pass `'bullet'` / `'number'` / `'none'` or an
  * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.
