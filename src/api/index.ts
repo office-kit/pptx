@@ -97,6 +97,7 @@ export {
   createPresentation,
   duplicateSlide,
   duplicateSlideAt,
+  findChartByKind,
   findShapeById,
   findShapeByName,
   findShapeInPresentation,

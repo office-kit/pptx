@@ -5390,6 +5390,22 @@ export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
   }
 };
 
+/**
+ * Returns the first chart on the slide whose parsed `kind` matches
+ * `kind` (e.g. `'bar'`, `'line'`, `'pie'`). Returns `null` when no
+ * chart on the slide has that kind, or when every chart on the slide
+ * uses a kind this version doesn't yet model.
+ */
+export const findChartByKind = (
+  slide: SlideData,
+  kind: ChartKind,
+): SlideChartData | null => {
+  for (const chart of getSlideCharts(slide)) {
+    if (chart.spec !== null && chart.spec.kind === kind) return chart;
+  }
+  return null;
+};
+
 export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> => {
   const pkg = slide[INTERNAL_PACKAGE];
   const out: SlideChartData[] = [];
