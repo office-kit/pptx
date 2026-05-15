@@ -5789,6 +5789,19 @@ export const getSlidesWithNotes = (pres: PresentationData): ReadonlyArray<SlideD
 };
 
 /**
+ * Predicate sibling of `getSlideNotes`. Returns `true` when the
+ * slide carries a non-empty `notesSlide` body — i.e. whatever
+ * `getSlideNotes(slide)` would surface is a non-empty string.
+ *
+ * Cheap to call in hot loops where the caller only needs to know
+ * "are there any notes here?" without materializing the text.
+ */
+export const hasSlideNotes = (slide: SlideData): boolean => {
+  const notes = getSlideNotes(slide);
+  return notes !== null && notes.length > 0;
+};
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.

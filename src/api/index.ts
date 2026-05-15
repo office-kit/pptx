@@ -318,6 +318,7 @@ export {
   getVisibleSlideCount,
   getVisibleSlides,
   hasShapeText,
+  hasSlideNotes,
   importSlide,
   incrementRevision,
   insertTableColumn,
