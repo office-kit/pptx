@@ -105,6 +105,7 @@ export {
   clearShapeEffects,
   clearShapeFill,
   clearAllAnimations,
+  clearAllHyperlinks,
   clearAllSlideBackgrounds,
   clearAllTransitions,
   clearShapeStroke,

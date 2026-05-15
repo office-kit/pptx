@@ -5684,6 +5684,25 @@ export const replaceHyperlink = (
 };
 
 /**
+ * Removes every external hyperlink across the deck — useful for
+ * sanitizing a template before sharing, or for stripping outbound
+ * URLs from an exported preview. Returns the number of shapes
+ * cleared. Each call goes through `setShapeHyperlink(_, null)`.
+ */
+export const clearAllHyperlinks = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      if (getShapeHyperlink(shape) !== null) {
+        setShapeHyperlink(shape, null);
+        n++;
+      }
+    }
+  }
+  return n;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
