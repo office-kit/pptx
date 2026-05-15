@@ -2838,6 +2838,27 @@ export const getMaxShapeId = (slide: SlideData): number => {
   return max;
 };
 
+/**
+ * Deck-wide sibling of `getMaxShapeId`. Returns the highest
+ * `cNvPr@id` across every shape on every slide, or `0` when the
+ * deck has no shapes.
+ *
+ * Note: shape ids are scoped to a slide in OOXML — collisions
+ * across slides are fine. This helper is for the rare cases where
+ * a caller wants a single id known to be higher than anything in
+ * the deck (e.g. to keep ids monotonically increasing).
+ */
+export const getMaxShapeIdInPresentation = (pres: PresentationData): number => {
+  let max = 0;
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      const id = shape[SHAPE_SNAPSHOT].id;
+      if (id > max) max = id;
+    }
+  }
+  return max;
+};
+
 export const getShapeName = (shape: SlideShapeData): string =>
   shape[SHAPE_SNAPSHOT].name;
 

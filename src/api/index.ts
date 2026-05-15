@@ -223,6 +223,7 @@ export {
   getShapeParagraphCount,
   getShapePlaceholderIdx,
   getMaxShapeId,
+  getMaxShapeIdInPresentation,
   getMediaParts,
   getNewestComment,
   getNotesSlideCount,
