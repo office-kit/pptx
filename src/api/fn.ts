@@ -761,6 +761,23 @@ export const getSlidesByLayout = (
 };
 
 /**
+ * Returns the first slide whose title-placeholder text equals
+ * `title` exactly. Returns `null` when no slide matches. Different
+ * from `findSlideByText`, which matches any visible text via
+ * substring / regex — this one is a strict equality match against
+ * the title placeholder only.
+ */
+export const findSlideByTitle = (
+  pres: PresentationData,
+  title: string,
+): SlideData | null => {
+  for (const slide of getSlides(pres)) {
+    if (getSlideTitle(slide) === title) return slide;
+  }
+  return null;
+};
+
+/**
  * Returns the first slide whose concatenated visible text contains
  * `needle` (substring; case-sensitive). Pass a `RegExp` to test
  * against the slide's text body instead. Returns `null` when no
