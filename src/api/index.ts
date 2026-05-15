@@ -183,6 +183,7 @@ export {
   getShapeParagraphCount,
   getShapePlaceholderIdx,
   getMediaParts,
+  getOutlineText,
   getPresentationCommenters,
   getPresentationCreated,
   getPresentationFonts,

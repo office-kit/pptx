@@ -1305,6 +1305,27 @@ export const getSlideOutline = (
 };
 
 /**
+ * Concatenated title + body text from every slide, joined with the
+ * given `separator` (defaults to `'\n\n'`). Useful for generating
+ * a table-of-contents handout from a deck. Slides without a title
+ * still contribute their body (and vice versa); slides without
+ * both are skipped.
+ */
+export const getOutlineText = (
+  pres: PresentationData,
+  separator: string = '\n\n',
+): string => {
+  const parts: string[] = [];
+  for (const entry of getSlideOutline(pres)) {
+    const segments: string[] = [];
+    if (entry.title !== null) segments.push(entry.title);
+    if (entry.body !== null) segments.push(entry.body);
+    if (segments.length > 0) parts.push(segments.join('\n'));
+  }
+  return parts.join(separator);
+};
+
+/**
  * Concatenated visible text from every slide, joined with the
  * given `separator` (defaults to a form-feed, `\f`, between slides).
  * Useful for search-indexing a whole deck without iterating slides
