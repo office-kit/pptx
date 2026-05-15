@@ -2155,6 +2155,37 @@ export const getShapeName = (shape: SlideShapeData): string =>
  * PowerPoint shows in the Selection Pane and what `findShapeByName`
  * matches on. Empty strings are allowed (matches PowerPoint behavior).
  */
+/**
+ * `true` when the shape's `<p:cNvPr hidden="1">` is set. Hidden
+ * shapes are skipped by PowerPoint's renderer but stay in the
+ * shape tree — useful for variant slides that toggle which boxes
+ * are visible.
+ */
+export const isShapeHidden = (shape: SlideShapeData): boolean => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) return false;
+  const v = getAttrValue(cNvPr, qname('', 'hidden', ''));
+  return v === '1' || v === 'true';
+};
+
+/**
+ * Sets or clears `<p:cNvPr hidden="...">` on the shape. Hidden
+ * shapes remain in the document but PowerPoint doesn't render them.
+ */
+export const setShapeHidden = (shape: SlideShapeData, hidden: boolean): void => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) {
+    throw new Error(
+      `setShapeHidden: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`,
+    );
+  }
+  cNvPr.attrs = cNvPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'hidden'),
+  );
+  if (hidden) cNvPr.attrs.push(attr(qname('', 'hidden', ''), '1'));
+  commitAndRefresh(shape);
+};
+
 export const renameShape = (shape: SlideShapeData, newName: string): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
