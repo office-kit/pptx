@@ -4953,6 +4953,32 @@ export interface PresentationChartEntry {
 }
 
 /**
+ * One entry per table in the deck, carrying the table shape and
+ * the 0-based slide it sits on. Sibling of `getAllCharts`.
+ */
+export interface PresentationTableEntry {
+  readonly slideIndex: number;
+  readonly table: SlideShapeData;
+}
+
+/**
+ * Returns every table across every slide in the deck, paired with
+ * the 0-based index of its slide. Built on `isTableShape`.
+ */
+export const getAllTables = (
+  pres: PresentationData,
+): ReadonlyArray<PresentationTableEntry> => {
+  const out: PresentationTableEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    for (const shape of slides[i]![SLIDE_SHAPES]) {
+      if (isTableShape(shape)) out.push({ slideIndex: i, table: shape });
+    }
+  }
+  return out;
+};
+
+/**
  * Returns every chart across every slide in the deck, paired with
  * the 0-based index of its slide. Useful for chart-inventory UIs
  * and bulk chart-update pipelines.
