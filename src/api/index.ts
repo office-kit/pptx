@@ -214,6 +214,7 @@ export {
   getShapeParagraphCount,
   getShapePlaceholderIdx,
   getMediaParts,
+  getNotesSlideCount,
   getOrphanMediaPartNames,
   getOutlineText,
   getPackageSize,

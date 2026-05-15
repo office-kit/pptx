@@ -5789,6 +5789,20 @@ export const getSlidesWithNotes = (pres: PresentationData): ReadonlyArray<SlideD
 };
 
 /**
+ * Fast count of slides carrying non-empty speaker notes. Cheaper
+ * than `getSlidesWithNotes(pres).length` when only the number is
+ * needed — no intermediate array.
+ */
+export const getNotesSlideCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    const notes = getSlideNotes(slide);
+    if (notes !== null && notes.length > 0) n++;
+  }
+  return n;
+};
+
+/**
  * Predicate sibling of `getSlideNotes`. Returns `true` when the
  * slide carries a non-empty `notesSlide` body — i.e. whatever
  * `getSlideNotes(slide)` would surface is a non-empty string.
