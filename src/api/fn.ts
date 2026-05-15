@@ -1936,6 +1936,23 @@ export const findSlidePlaceholder = (
 };
 
 /**
+ * Returns the first placeholder shape whose `<p:ph idx="...">`
+ * matches `idx`, or `null` when none does. Real templates often
+ * disambiguate same-type placeholders (e.g. two body slots) by
+ * `idx`, so this is what you reach for when type-only lookup is
+ * ambiguous.
+ */
+export const findSlidePlaceholderByIdx = (
+  slide: SlideData,
+  idx: number,
+): SlideShapeData | null => {
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (shape[SHAPE_SNAPSHOT].placeholderIdx === idx) return shape;
+  }
+  return null;
+};
+
+/**
  * Returns every placeholder shape with the given `type`. Useful for
  * "two-content" / "comparison" layouts where multiple body
  * placeholders share a type and the caller needs to fill them all.

@@ -111,6 +111,7 @@ export {
   findSlideLayout,
   findSlideLayoutByType,
   findSlidePlaceholder,
+  findSlidePlaceholderByIdx,
   findSlidePlaceholders,
   findSlidesByText,
   getAllShapes,
