@@ -8173,6 +8173,19 @@ export const getPackagePartNames = (pres: PresentationData): ReadonlyArray<strin
   pres[INTERNAL_PACKAGE].parts.map((p) => p.name);
 
 /**
+ * Returns the raw bytes of the named package part, or `null` when
+ * no such part exists. Useful for inspecting non-slide parts that
+ * the typed API doesn't yet model (e.g. `.rels`, theme XML, etc.).
+ */
+export const getPackagePart = (
+  pres: PresentationData,
+  partName: string,
+): Uint8Array | null => {
+  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name === partName);
+  return part ? part.data : null;
+};
+
+/**
  * Returns every `/ppt/media/...` part in the package. Useful for
  * audit / export workflows — e.g. "extract every embedded image."
  */

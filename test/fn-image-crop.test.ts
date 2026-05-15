@@ -7,10 +7,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   getShapeKind,
   getSlideShapes,
+  getSlideXmlString,
   getSlides,
   loadPresentation,
   savePresentation,
@@ -21,11 +20,8 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const part = pkg.parts.find((p) => p.name === `/ppt/slides/slide${slideIndex + 1}.xml`);
-  if (!part) throw new Error(`slide${slideIndex + 1}.xml not found`);
-  return new TextDecoder().decode(part.data);
+  const pres = await loadPresentation(bytes);
+  return getSlideXmlString(getSlides(pres)[slideIndex]!);
 };
 
 describe('fn API: setShapeImageCrop', () => {

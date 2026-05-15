@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   addSlideShape,
+  getMediaParts,
+  getSlideXmlString,
   getSlides,
   inches,
   loadPresentation,
@@ -18,11 +18,8 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const part = pkg.parts.find((p) => p.name === `/ppt/slides/slide${slideIndex + 1}.xml`);
-  if (!part) throw new Error(`slide${slideIndex + 1}.xml not found`);
-  return new TextDecoder().decode(part.data);
+  const pres = await loadPresentation(bytes);
+  return getSlideXmlString(getSlides(pres)[slideIndex]!);
 };
 
 const tinyPng = (): Uint8Array =>
@@ -53,9 +50,10 @@ describe('fn API: setShapeImageFill', () => {
     expect(xml).toContain('<a:stretch>');
 
     // A new media part should exist for the embedded image.
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    const pkg = _internalPackageOf(reloaded);
-    const media = pkg.parts.find((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name));
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const media = getMediaParts(reloaded).find((p) =>
+      /^\/ppt\/media\/image\d+\.png$/.test(p.name),
+    );
     expect(media).not.toBeUndefined();
   });
 

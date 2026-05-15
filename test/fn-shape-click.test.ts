@@ -7,9 +7,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
+  getPackagePart,
   getSlideShapes,
+  getSlideXmlString,
   getSlides,
   loadPresentation,
   savePresentation,
@@ -20,21 +20,14 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const part = pkg.parts.find((p) => p.name === `/ppt/slides/slide${slideIndex + 1}.xml`);
-  if (!part) throw new Error(`slide${slideIndex + 1}.xml not found`);
-  return new TextDecoder().decode(part.data);
+  const pres = await loadPresentation(bytes);
+  return getSlideXmlString(getSlides(pres)[slideIndex]!);
 };
 
 const slideRels = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const part = pkg.parts.find(
-    (p) => p.name === `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`,
-  );
-  if (!part) return '';
-  return new TextDecoder().decode(part.data);
+  const pres = await loadPresentation(bytes);
+  const bytesPart = getPackagePart(pres, `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`);
+  return bytesPart ? new TextDecoder().decode(bytesPart) : '';
 };
 
 describe('fn API: setShapeClickAction', () => {
