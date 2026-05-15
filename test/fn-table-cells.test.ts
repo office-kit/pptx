@@ -114,4 +114,12 @@ describe('fn API: table cell access', () => {
     expect(() => getTableCell(table, 9, 0)).toThrow(RangeError);
     expect(() => getTableCell(table, 0, 9)).toThrow(RangeError);
   });
+
+  it('getTableDimensions reports row + column counts', async () => {
+    const { getTableDimensions } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const table = addDemoTable(slide);
+    expect(getTableDimensions(table)).toEqual({ rows: 2, cols: 2 });
+  });
 });

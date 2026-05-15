@@ -163,6 +163,7 @@ export {
   getTableCellPosition,
   getTableCellText,
   getTableCells,
+  getTableDimensions,
   insertTableColumn,
   insertTableRow,
   isSlideHidden,

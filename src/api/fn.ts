@@ -4241,6 +4241,20 @@ export const getTableCells = (
 };
 
 /**
+ * Returns the table's row + column counts. Throws when the shape
+ * isn't a table graphic frame.
+ */
+export const getTableDimensions = (
+  table: SlideShapeData,
+): { readonly rows: number; readonly cols: number } => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('getTableDimensions: shape is not a table graphic frame');
+  const rows = tableRows(tbl);
+  const cols = rows[0] !== undefined ? rowCells(rows[0]).length : 0;
+  return { rows: rows.length, cols };
+};
+
+/**
  * Returns the cell at `(row, col)`. Throws on out-of-range coordinates
  * or non-table shapes.
  */
