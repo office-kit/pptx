@@ -6484,6 +6484,27 @@ export const removeSlideComment = (comment: SlideCommentData): void => {
   writeCommentsForSlide(slide, remaining);
 };
 
+/**
+ * Strips every comment from every slide in the deck. Returns the
+ * number of comments removed. Built on `writeCommentsForSlide`,
+ * so each slide's modern comment part is rewritten with an empty
+ * list. The `commentAuthors.xml` registry is left intact for any
+ * caller that still needs author identity.
+ *
+ * Useful as a sanitizer before sharing a draft externally — pairs
+ * with `clearAllSlideNotes` for a "remove reviewer chatter" pass.
+ */
+export const clearAllSlideComments = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    const comments = loadCommentsForSlide(slide);
+    if (comments.length === 0) continue;
+    n += comments.length;
+    writeCommentsForSlide(slide, []);
+  }
+  return n;
+};
+
 // Accessors over CommentAuthor / SlideCommentData for tree-shake convenience.
 
 export const getCommentAuthor = (comment: SlideCommentData): CommentAuthor => comment.author;
