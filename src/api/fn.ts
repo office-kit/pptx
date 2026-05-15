@@ -658,6 +658,33 @@ export const getSlideAt = (pres: PresentationData, index: number): SlideData | n
 };
 
 /**
+ * Per-slide summary suitable for slide pickers or audit reports.
+ *
+ * `index` is the 0-based position in the deck. `title` falls back to
+ * `null` when the slide has no title placeholder. `layoutName` falls
+ * back to `null` when the slide has no `slideLayout` rel or the
+ * layout doesn't carry a user-visible name.
+ */
+export interface SlideInfo {
+  readonly index: number;
+  readonly title: string | null;
+  readonly hidden: boolean;
+  readonly shapeCount: number;
+  readonly layoutName: string | null;
+}
+
+export const getSlideInfo = (pres: PresentationData, slide: SlideData): SlideInfo => {
+  const layout = getSlideLayout(slide);
+  return {
+    index: getSlideIndex(pres, slide),
+    title: getSlideTitle(slide),
+    hidden: isSlideHidden(slide),
+    shapeCount: getSlideShapes(slide).length,
+    layoutName: layout ? layout[LAYOUT_PART].name : null,
+  };
+};
+
+/**
  * Returns every slide bound to the given `layout`. Useful for "find
  * all slides using the `Title and Content` layout" workflows; pair
  * with `findSlideLayout(pres, name)` to look up the layout by name.
