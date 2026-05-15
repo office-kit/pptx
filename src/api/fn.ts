@@ -1740,6 +1740,30 @@ export const addBlankSlide = (pres: PresentationData): SlideData => {
   return addSlide(pres, { layout: layouts[0]! });
 };
 
+/**
+ * Sugar over `addSlide` + `setSlideTitle` for the common
+ * "title slide + set heading" pattern. Picks the `title` layout
+ * first, then falls back to the first non-blank layout.
+ *
+ * Throws when the package carries no layouts at all.
+ */
+export const addTitleSlide = (pres: PresentationData, title: string): SlideData => {
+  const titleLayout =
+    findSlideLayoutByType(pres, 'title') ??
+    findSlideLayoutByType(pres, 'obj') ??
+    null;
+  const layout =
+    titleLayout ??
+    getSlideLayouts(pres).find((l) => getSlideLayoutType(l) !== 'blank') ??
+    getSlideLayouts(pres)[0];
+  if (!layout) {
+    throw new Error('addTitleSlide: package has no slide layouts to inherit from');
+  }
+  const slide = addSlide(pres, { layout });
+  setSlideTitle(slide, title);
+  return slide;
+};
+
 export const addSlide = (
   pres: PresentationData,
   options: { layout: SlideLayoutData },

@@ -95,6 +95,7 @@ export {
   addSlideShape,
   addSlideTable,
   addSlideTextBox,
+  addTitleSlide,
   appendShapeText,
   appendSlideNotes,
   clearShapeEffects,
