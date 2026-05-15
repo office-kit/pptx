@@ -7876,6 +7876,19 @@ export const findShapesWithText = (
 ): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeText(s));
 
 /**
+ * Fast count of shapes on the slide carrying non-empty text. Cheaper
+ * than `findShapesWithText(slide).length` when only the number is
+ * needed (no intermediate array).
+ */
+export const getSlideTextShapeCount = (slide: SlideData): number => {
+  let n = 0;
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (hasShapeText(shape)) n++;
+  }
+  return n;
+};
+
+/**
  * Returns the package part name (`/ppt/media/imageN.ext`) of
  * whichever image the shape carries — picture (`<p:pic>`) or
  * image-fill (`<a:blipFill>` nested under `<p:spPr>`). Returns
