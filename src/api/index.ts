@@ -234,6 +234,7 @@ export {
   getSlideSize,
   getSlideText,
   getSlideTitle,
+  getSlideTitles,
   getSlideTransition,
   getSlideXmlString,
   getSlides,

@@ -1305,6 +1305,17 @@ export const getSlideOutline = (
 };
 
 /**
+ * Returns every slide's title in document order, or `null` for
+ * slides that have no title placeholder / empty title. Useful for
+ * thumbnail / TOC UIs that only need the headlines.
+ */
+export const getSlideTitles = (pres: PresentationData): ReadonlyArray<string | null> => {
+  const out: (string | null)[] = [];
+  for (const slide of getSlides(pres)) out.push(getSlideTitle(slide));
+  return out;
+};
+
+/**
  * Concatenated title + body text from every slide, joined with the
  * given `separator` (defaults to `'\n\n'`). Useful for generating
  * a table-of-contents handout from a deck. Slides without a title
