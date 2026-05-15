@@ -167,6 +167,7 @@ export {
   getShapeParagraphCount,
   getShapePlaceholderIdx,
   getMediaParts,
+  getPresentationCommenters,
   getPresentationCreated,
   getPresentationFonts,
   getPresentationModified,

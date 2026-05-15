@@ -5183,6 +5183,28 @@ export const getCommentAuthors = (pres: PresentationData): ReadonlyArray<Comment
   loadAuthorList(pres[INTERNAL_PACKAGE]);
 
 /**
+ * Returns every distinct author who has at least one comment
+ * anywhere in the deck. Deduplicates by author id; preserves
+ * first-seen order. Differs from `getCommentAuthors(pres)`, which
+ * surfaces every author registered in `commentAuthors.xml` even
+ * when no comments reference them.
+ */
+export const getPresentationCommenters = (
+  pres: PresentationData,
+): ReadonlyArray<CommentAuthor> => {
+  const seen = new Set<number>();
+  const out: CommentAuthor[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) {
+      if (seen.has(c.author.id)) continue;
+      seen.add(c.author.id);
+      out.push(c.author);
+    }
+  }
+  return out;
+};
+
+/**
  * Returns every distinct author who has at least one comment on the
  * slide. Deduplicated by author id; preserves first-seen order.
  * Useful for "who reviewed this slide?" annotations.
