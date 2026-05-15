@@ -6411,6 +6411,24 @@ export const getSlideCommentTexts = (slide: SlideData): ReadonlyArray<string> =>
 };
 
 /**
+ * Returns the distinct authors who commented on this slide, in
+ * first-seen order. Dedupes by author id. Sibling of
+ * `getPresentationCommenters` for a slide-scoped reviewer roster.
+ */
+export const getSlideCommentAuthors = (
+  slide: SlideData,
+): ReadonlyArray<CommentAuthor> => {
+  const seen = new Set<number>();
+  const out: CommentAuthor[] = [];
+  for (const c of getSlideComments(slide)) {
+    if (seen.has(c.author.id)) continue;
+    seen.add(c.author.id);
+    out.push(c.author);
+  }
+  return out;
+};
+
+/**
  * Total number of comments across every slide in the deck. Faster
  * than `getSlides(pres).flatMap(getSlideComments).length` when
  * callers just need the headline number.

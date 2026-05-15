@@ -265,6 +265,7 @@ export {
   getSlideBackground,
   getSlideBody,
   getSlideCharts,
+  getSlideCommentAuthors,
   getSlideCommentCount,
   getSlideCommentTexts,
   getSlideComments,
