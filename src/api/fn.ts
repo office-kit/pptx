@@ -6469,6 +6469,24 @@ export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
 };
 
 /**
+ * Returns every chart on the slide that carries a series whose name
+ * equals `seriesName` exactly. Useful for "find the revenue chart"
+ * patterns where chart kind alone isn't unique. Skips charts whose
+ * kind isn't modeled.
+ */
+export const findChartsBySeriesName = (
+  slide: SlideData,
+  seriesName: string,
+): ReadonlyArray<SlideChartData> => {
+  const out: SlideChartData[] = [];
+  for (const chart of getSlideCharts(slide)) {
+    if (chart.spec === null) continue;
+    if (chart.spec.series.some((s) => s.name === seriesName)) out.push(chart);
+  }
+  return out;
+};
+
+/**
  * Returns the first chart on the slide whose parsed `kind` matches
  * `kind` (e.g. `'bar'`, `'line'`, `'pie'`). Returns `null` when no
  * chart on the slide has that kind, or when every chart on the slide
