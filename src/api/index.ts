@@ -307,6 +307,7 @@ export {
   setTableRowHeight,
   setThumbnail,
   sortSlides,
+  swapSlides,
   validatePresentation,
 } from './fn.ts';
 

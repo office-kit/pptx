@@ -1728,6 +1728,31 @@ export const sortSlides = (
 };
 
 /**
+ * Swaps the positions of the slides at `indexA` and `indexB`.
+ * No-op when the indices are equal. Throws on out-of-range indices.
+ * Implemented on top of `moveSlide` for predictable rels behavior.
+ */
+export const swapSlides = (
+  pres: PresentationData,
+  indexA: number,
+  indexB: number,
+): void => {
+  if (indexA === indexB) return;
+  const slides = getSlides(pres);
+  const a = slides[indexA];
+  const b = slides[indexB];
+  if (!a) throw new RangeError(`swapSlides: indexA ${indexA} out of range (have ${slides.length})`);
+  if (!b) throw new RangeError(`swapSlides: indexB ${indexB} out of range (have ${slides.length})`);
+  // Move the lower-index slide to the higher index first so the
+  // remaining slide stays at its original index.
+  const [lo, hi] = indexA < indexB ? [indexA, indexB] : [indexB, indexA];
+  moveSlide(pres, slides[lo]!, hi);
+  // After the first move, the slide originally at hi is now at hi-1.
+  const refreshed = getSlides(pres);
+  moveSlide(pres, refreshed[hi - 1]!, lo);
+};
+
+/**
  * Reorders a slide. The slide's identity (part, rels, sldId) is
  * unchanged — only `<p:sldIdLst>`'s child order changes.
  */
