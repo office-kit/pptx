@@ -124,6 +124,7 @@ export {
   findEmptyPlaceholders,
   findLayoutsWithPlaceholderType,
   findFlippedShapes,
+  findHyperlinkedShapes,
   findOverlappingShapePairs,
   findRotatedShapes,
   findShapeById,

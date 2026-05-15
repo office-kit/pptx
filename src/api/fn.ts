@@ -7975,6 +7975,17 @@ export const findFlippedShapes = (
   });
 
 /**
+ * Returns every shape on the slide whose text carries an external
+ * hyperlink (`<a:hlinkClick>`). Built on `getShapeHyperlink`.
+ * Useful for "link audit" passes that need to check every URL in a
+ * deck before publishing.
+ */
+export const findHyperlinkedShapes = (
+  slide: SlideData,
+): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES].filter((s) => getShapeHyperlink(s) !== null);
+
+/**
  * Returns every unordered pair of shapes on the slide whose
  * bounding boxes overlap. Built on `shapesOverlap`. Pairs are
  * returned with `a` strictly preceding `b` in document order, and
