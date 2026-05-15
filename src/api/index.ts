@@ -288,6 +288,7 @@ export {
   setChartSpec,
   setCoreProperties,
   setExtendedProperties,
+  setAllSlidesBackground,
   setAllSlidesHidden,
   setAllSlidesTransition,
   setMediaPartBytes,

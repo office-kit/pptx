@@ -7723,6 +7723,15 @@ export const setAllSlidesTransition = (
   for (const slide of getSlides(pres)) setSlideTransition(slide, options);
 };
 
+/**
+ * Applies the same solid-color background to every slide. Useful
+ * for "brand the deck dark mode" / "watermark every slide" flows.
+ * Pair with `clearAllSlideBackgrounds` to revert.
+ */
+export const setAllSlidesBackground = (pres: PresentationData, color: string): void => {
+  for (const slide of getSlides(pres)) setSlideBackground(slide, color);
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);
