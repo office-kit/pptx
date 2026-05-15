@@ -259,6 +259,7 @@ export {
   getTableColumnWidths,
   getTableDimensions,
   getTableRowHeights,
+  getTableSize,
   getThumbnail,
   getTotalShapeCount,
   getVisibleSlides,

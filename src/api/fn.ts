@@ -6297,6 +6297,24 @@ export const getTableColumnWidths = (
 };
 
 /**
+ * Returns the table's nominal `(width, height)` derived from
+ * summing the `<a:gridCol w>` and `<a:tr h>` attributes (both in
+ * EMU). Useful for layout pipelines that want to know how big a
+ * table really is without dereferencing the shape's `<a:xfrm>`.
+ *
+ * Throws when the shape isn't a table graphic frame.
+ */
+export const getTableSize = (
+  table: SlideShapeData,
+): { readonly width: Emu; readonly height: Emu } => {
+  const widths = getTableColumnWidths(table);
+  const heights = getTableRowHeights(table);
+  const width = widths.reduce((sum, w) => sum + w, 0) as Emu;
+  const height = heights.reduce((sum, h) => sum + h, 0) as Emu;
+  return { width, height };
+};
+
+/**
  * Returns each row's height in EMU, in top-to-bottom order, from
  * `<a:tr h="...">`. Missing or unparseable heights default to 0.
  * Throws when the shape isn't a table graphic frame.
