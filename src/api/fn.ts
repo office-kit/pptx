@@ -2212,6 +2212,76 @@ export const getParagraphLevel = (
 };
 
 /**
+ * Sets the spacing before and/or after a paragraph, in points (where
+ * a "point" is 1/72 inch). PowerPoint stores these as hundredths of a
+ * point inside `<a:pPr><a:spcBef>/<a:spcAft><a:spcPts val="…"/>` —
+ * the helper converts.
+ *
+ *   setParagraphSpacing(shape, 0, { beforePts: 6, afterPts: 3 });
+ *
+ * Omitting a side keeps the existing value (or layout default).
+ * Passing a side as `null` removes that spacing element.
+ */
+export const setParagraphSpacing = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  opts: { beforePts?: number | null; afterPts?: number | null },
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = ensurePPr(paragraph);
+
+  const writeSide = (localName: 'spcBef' | 'spcAft', value: number | null | undefined): void => {
+    if (value === undefined) return;
+    pPr.children = pPr.children.filter(
+      (c) =>
+        !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === localName),
+    );
+    if (value === null) return;
+    if (!Number.isFinite(value) || value < 0) {
+      throw new RangeError(`paragraph ${localName} must be a non-negative number, got ${value}`);
+    }
+    const spcEl = elem(qname('a', localName, NS.dml), {
+      children: [
+        elem(qname('a', 'spcPts', NS.dml), {
+          attrs: [attr(qname('', 'val', ''), String(Math.round(value * 100)))],
+        }),
+      ],
+    });
+    pPr.children.push(spcEl);
+  };
+
+  writeSide('spcBef', opts.beforePts);
+  writeSide('spcAft', opts.afterPts);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads back paragraph spacing in points. Returns `{ beforePts,
+ * afterPts }`; each side is `null` when no `<a:spcBef>` / `<a:spcAft>`
+ * is present or when the inner element isn't `<a:spcPts>` (percentage
+ * spacing is reported as `null` for now).
+ */
+export const getParagraphSpacing = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): { readonly beforePts: number | null; readonly afterPts: number | null } => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (!pPr) return { beforePts: null, afterPts: null };
+  const readSide = (localName: 'spcBef' | 'spcAft'): number | null => {
+    const side = firstChildElement(pPr, qname('a', localName, NS.dml));
+    if (!side) return null;
+    const spcPts = firstChildElement(side, qname('a', 'spcPts', NS.dml));
+    if (!spcPts) return null;
+    const v = getAttrValue(spcPts, qname('', 'val', ''));
+    if (v === null) return null;
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n / 100 : null;
+  };
+  return { beforePts: readSide('spcBef'), afterPts: readSide('spcAft') };
+};
+
+/**
  * Reads back the bullet style on a single paragraph, or `null` when
  * no `<a:buChar>` / `<a:buAutoNum>` / `<a:buNone>` is present (the
  * paragraph inherits its bullet from the layout / master).
