@@ -2411,6 +2411,27 @@ export const findEmptyPlaceholders = (
 };
 
 /**
+ * Translates every shape in `shapes` by `(dxEmu, dyEmu)`. Useful
+ * for "move this group of shapes 1cm right" patterns without
+ * looping yourself. Shapes without bounds are skipped silently.
+ */
+export const translateShapes = (
+  shapes: ReadonlyArray<SlideShapeData>,
+  dxEmu: number,
+  dyEmu: number,
+): void => {
+  for (const shape of shapes) {
+    const bounds = getShapeBounds(shape);
+    if (bounds === null) continue;
+    setShapePosition(
+      shape,
+      (bounds.x + dxEmu) as Emu,
+      (bounds.y + dyEmu) as Emu,
+    );
+  }
+};
+
+/**
  * Returns every slide in the deck that has at least one empty
  * placeholder shape. Built on `findEmptyPlaceholders`. Useful for
  * "which slides still need editorial attention?" pre-publish

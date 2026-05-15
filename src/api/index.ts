@@ -385,6 +385,7 @@ export {
   sortSlides,
   swapSlides,
   touchModified,
+  translateShapes,
   validatePresentation,
 } from './fn.ts';
 
