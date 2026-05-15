@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  getPackagePartNames,
   getSlideNotes,
   getSlides,
+  listPackageParts,
   loadPresentation,
   savePresentation,
   setSlideNotes,
@@ -26,7 +26,7 @@ describe('L3: getSlideNotes / setSlideNotes', () => {
     const slide = getSlides(pres)[0]!;
     setSlideNotes(slide, 'Speaker note line 1\nLine 2');
 
-    const partNames = getPackagePartNames(pres);
+    const partNames = listPackageParts(pres).map((p) => p.name);
     expect(partNames).toContain('/ppt/notesSlides/notesSlide1.xml');
     expect(getSlideNotes(getSlides(pres)[0]!)).toBe('Speaker note line 1\nLine 2');
   });
@@ -38,8 +38,8 @@ describe('L3: getSlideNotes / setSlideNotes', () => {
     setSlideNotes(getSlides(pres)[0]!, 'second');
     expect(getSlideNotes(getSlides(pres)[0]!)).toBe('second');
 
-    const noteParts = getPackagePartNames(pres).filter((n) =>
-      n.startsWith('/ppt/notesSlides/notesSlide'),
+    const noteParts = listPackageParts(pres).filter((p) =>
+      p.name.startsWith('/ppt/notesSlides/notesSlide'),
     );
     expect(noteParts.length).toBe(1);
   });

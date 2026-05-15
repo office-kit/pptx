@@ -9,9 +9,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  getPackagePartNames,
   getSlideNotes,
   getSlides,
+  listPackageParts,
   loadPresentation,
   removeSlideNotes,
   savePresentation,
@@ -23,7 +23,7 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 const hasPart = (pres: PresentationData, part: string): boolean =>
-  getPackagePartNames(pres).includes(part);
+  listPackageParts(pres).some((p) => p.name === part);
 
 describe('fn API: removeSlideNotes', () => {
   it('drops the notes part + rel when notes were present', async () => {

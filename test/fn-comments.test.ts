@@ -21,9 +21,9 @@ import {
   getCommentDate,
   getCommentPosition,
   getCommentText,
-  getPackagePartNames,
   getSlideComments,
   getSlides,
+  listPackageParts,
   loadPresentation,
   removeSlideComment,
   savePresentation,
@@ -34,7 +34,7 @@ const fixture = (name: string): string =>
 
 const partExists = async (presBytes: Uint8Array, partPath: string): Promise<boolean> => {
   const p = await loadPresentation(presBytes);
-  return getPackagePartNames(p).includes(partPath);
+  return listPackageParts(p).some((part) => part.name === partPath);
 };
 
 describe('fn API: comments', () => {

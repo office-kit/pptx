@@ -10,7 +10,7 @@ import {
   clearShapeFill,
   clearShapeStroke,
   findSlidePlaceholder,
-  getPackagePart,
+  readPackagePart,
   getShapePosition,
   getShapeRotation,
   getShapeSize,
@@ -46,7 +46,7 @@ const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> 
 
 const slideRels = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
   const pres = await loadPresentation(bytes);
-  const data = getPackagePart(pres, `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`);
+  const data = readPackagePart(pres, `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`);
   if (!data) throw new Error(`slide${slideIndex + 1}.xml.rels not found`);
   return new TextDecoder().decode(data);
 };

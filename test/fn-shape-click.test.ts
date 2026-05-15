@@ -7,7 +7,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  getPackagePart,
+  readPackagePart,
   getSlideShapes,
   getSlideXmlString,
   getSlides,
@@ -26,7 +26,7 @@ const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> 
 
 const slideRels = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
   const pres = await loadPresentation(bytes);
-  const bytesPart = getPackagePart(pres, `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`);
+  const bytesPart = readPackagePart(pres, `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`);
   return bytesPart ? new TextDecoder().decode(bytesPart) : '';
 };
 

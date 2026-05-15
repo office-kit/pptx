@@ -5,12 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideChart,
-  getPackagePart,
-  getPackagePartNames,
   getSlideCharts,
   getSlides,
   inches,
+  listPackageParts,
   loadPresentation,
+  readPackagePart,
   savePresentation,
   setChartSpec,
 } from '../src/api/index.ts';
@@ -77,11 +77,11 @@ describe('fn API: setChartSpec', () => {
 
     const bytes = await savePresentation(reloaded);
     const after = await loadPresentation(bytes);
-    const xlsx = getPackagePartNames(after).find((n) =>
-      /^\/ppt\/embeddings\/Microsoft_Excel_Worksheet\d+\.xlsx$/.test(n),
+    const xlsx = listPackageParts(after).find((p) =>
+      /^\/ppt\/embeddings\/Microsoft_Excel_Worksheet\d+\.xlsx$/.test(p.name),
     );
     expect(xlsx).toBeDefined();
-    const chartBytes = getPackagePart(after, '/ppt/charts/chart1.xml');
+    const chartBytes = readPackagePart(after, '/ppt/charts/chart1.xml');
     expect(chartBytes).not.toBeNull();
     expect(new TextDecoder().decode(chartBytes!)).toContain('renamed-series');
   });

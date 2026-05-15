@@ -6,8 +6,8 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  getPackagePartNames,
   getThumbnail,
+  listPackageParts,
   loadPresentation,
   removeThumbnail,
   savePresentation,
@@ -27,7 +27,7 @@ const PNG = new Uint8Array([
 ]);
 
 const hasPart = (pres: PresentationData, partName: string): boolean =>
-  getPackagePartNames(pres).includes(partName);
+  listPackageParts(pres).some((p) => p.name === partName);
 
 describe('fn API: thumbnail helpers', () => {
   it('reads the JPEG thumbnail shipped with the fixture', async () => {

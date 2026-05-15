@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideChart,
-  getPackagePart,
+  readPackagePart,
   getShapeKind,
   getSlideShapes,
   getSlides,
@@ -35,7 +35,7 @@ const partBytes = async (
   partPath: string,
 ): Promise<Uint8Array | null> => {
   const pres = await loadPresentation(bytes);
-  return getPackagePart(pres, partPath);
+  return readPackagePart(pres, partPath);
 };
 
 describe('fn API: addSlideChart', () => {

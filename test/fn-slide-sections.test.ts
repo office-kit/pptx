@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  getPackagePart,
+  readPackagePart,
   getSlideSections,
   getSlides,
   loadPresentation,
@@ -47,7 +47,7 @@ describe('fn API: slide sections', () => {
     expect(getSlideSections(pres)).toEqual([]);
 
     const reloaded = await loadPresentation(await savePresentation(pres));
-    const presBytes = getPackagePart(reloaded, '/ppt/presentation.xml');
+    const presBytes = readPackagePart(reloaded, '/ppt/presentation.xml');
     expect(presBytes).not.toBeNull();
     const xml = new TextDecoder().decode(presBytes!);
     expect(xml).not.toContain('521415D9-36F7-43E2-AB2F-B90AF26B5E84');
