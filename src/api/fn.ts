@@ -1741,6 +1741,33 @@ export const addBlankSlide = (pres: PresentationData): SlideData => {
 };
 
 /**
+ * Sugar over `addSlide` + `setSlideTitle` + `setSlideBody` for the
+ * "title + body" pattern. Picks the `obj` (Title and Content)
+ * layout when present, falling back to the first layout with a
+ * body placeholder.
+ *
+ * Throws if no layout in the package offers a body slot.
+ */
+export const addContentSlide = (
+  pres: PresentationData,
+  opts: { title?: string; body?: string },
+): SlideData => {
+  const objLayout = findSlideLayoutByType(pres, 'obj');
+  const layout =
+    objLayout ??
+    getSlideLayouts(pres).find((l) =>
+      getSlideLayoutPlaceholders(l).some((p) => p.type === null || p.type === 'body'),
+    );
+  if (!layout) {
+    throw new Error('addContentSlide: no layout with a body placeholder found');
+  }
+  const slide = addSlide(pres, { layout });
+  if (opts.title !== undefined) setSlideTitle(slide, opts.title);
+  if (opts.body !== undefined) setSlideBody(slide, opts.body);
+  return slide;
+};
+
+/**
  * Sugar over `addSlide` + `setSlideTitle` for the common
  * "title slide + set heading" pattern. Picks the `title` layout
  * first, then falls back to the first non-blank layout.

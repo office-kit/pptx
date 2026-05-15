@@ -84,6 +84,7 @@ export type {
 } from './fn.ts';
 export {
   addBlankSlide,
+  addContentSlide,
   addSlide,
   addSlideAt,
   addSlideChart,
