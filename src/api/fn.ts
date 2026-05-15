@@ -228,6 +228,91 @@ export const savePresentation = (pres: PresentationData): Promise<Uint8Array> =>
 export const getSlideLayoutName = (layout: SlideLayoutData): string =>
   layout[LAYOUT_PART].name;
 
+// ---------------------------------------------------------------------------
+// Theme.
+
+/**
+ * The named color scheme on a presentation's theme. Each slot is a
+ * `#RRGGBB` string — `sysClr` slots are flattened to their cached
+ * `lastClr` value.
+ */
+export interface PresentationTheme {
+  readonly name: string;
+  readonly dark1: string;
+  readonly light1: string;
+  readonly dark2: string;
+  readonly light2: string;
+  readonly accent1: string;
+  readonly accent2: string;
+  readonly accent3: string;
+  readonly accent4: string;
+  readonly accent5: string;
+  readonly accent6: string;
+  readonly hyperlink: string;
+  readonly followedHyperlink: string;
+}
+
+const THEME_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.theme+xml';
+
+const NAME_THEME_ELEMENTS = qname('a', 'themeElements', NS.dml);
+const NAME_CLR_SCHEME = qname('a', 'clrScheme', NS.dml);
+const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
+const NAME_SYS_CLR = qname('a', 'sysClr', NS.dml);
+
+const readSchemeSlot = (parent: XmlElement, local: string): string => {
+  const slot = firstChildElement(parent, qname('a', local, NS.dml));
+  if (!slot) return '';
+  const srgb = firstChildElement(slot, NAME_SRGB_CLR);
+  if (srgb) {
+    const v = getAttrValue(srgb, qname('', 'val', ''));
+    if (v) return `#${v.toUpperCase()}`;
+  }
+  const sys = firstChildElement(slot, NAME_SYS_CLR);
+  if (sys) {
+    const last = getAttrValue(sys, qname('', 'lastClr', ''));
+    if (last) return `#${last.toUpperCase()}`;
+  }
+  return '';
+};
+
+/**
+ * Returns the first theme's color scheme as `#RRGGBB` strings, or
+ * `null` if the package carries no theme. Each accent slot maps
+ * directly to the `accent1`–`accent6` chart palette defaults.
+ *
+ * Multi-master decks may carry several themes — v1 surfaces only the
+ * first one found (alphabetical by part name). Per-master theme
+ * lookup will land if a concrete user need shows up.
+ */
+export const getPresentationTheme = (pres: PresentationData): PresentationTheme | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const themePart = pkg.parts
+    .filter((p) => p.contentType === THEME_CONTENT_TYPE)
+    .sort((a, b) => a.name.localeCompare(b.name))[0];
+  if (!themePart) return null;
+  const root = parseXml(decode(themePart.data)).root;
+  const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
+  if (!themeElements) return null;
+  const clrScheme = firstChildElement(themeElements, NAME_CLR_SCHEME);
+  if (!clrScheme) return null;
+  return {
+    name: getAttrValue(clrScheme, qname('', 'name', '')) ?? '',
+    dark1: readSchemeSlot(clrScheme, 'dk1'),
+    light1: readSchemeSlot(clrScheme, 'lt1'),
+    dark2: readSchemeSlot(clrScheme, 'dk2'),
+    light2: readSchemeSlot(clrScheme, 'lt2'),
+    accent1: readSchemeSlot(clrScheme, 'accent1'),
+    accent2: readSchemeSlot(clrScheme, 'accent2'),
+    accent3: readSchemeSlot(clrScheme, 'accent3'),
+    accent4: readSchemeSlot(clrScheme, 'accent4'),
+    accent5: readSchemeSlot(clrScheme, 'accent5'),
+    accent6: readSchemeSlot(clrScheme, 'accent6'),
+    hyperlink: readSchemeSlot(clrScheme, 'hlink'),
+    followedHyperlink: readSchemeSlot(clrScheme, 'folHlink'),
+  };
+};
+
 /**
  * Finds the first slide layout whose user-visible name matches `name`,
  * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
