@@ -4953,6 +4953,34 @@ export interface PresentationChartEntry {
 }
 
 /**
+ * One entry per image-bearing shape in the deck, carrying the
+ * shape (picture or image-filled) and the 0-based slide it lives
+ * on. Sibling of `getAllCharts` / `getAllTables`.
+ */
+export interface PresentationImageEntry {
+  readonly slideIndex: number;
+  readonly shape: SlideShapeData;
+}
+
+/**
+ * Returns every image-bearing shape across the deck (pictures and
+ * shapes with `<a:blipFill>`), paired with its 0-based slide
+ * index. Built on `hasShapeImage`.
+ */
+export const getAllImages = (
+  pres: PresentationData,
+): ReadonlyArray<PresentationImageEntry> => {
+  const out: PresentationImageEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    for (const shape of slides[i]![SLIDE_SHAPES]) {
+      if (hasShapeImage(shape)) out.push({ slideIndex: i, shape });
+    }
+  }
+  return out;
+};
+
+/**
  * One entry per table in the deck, carrying the table shape and
  * the 0-based slide it sits on. Sibling of `getAllCharts`.
  */
