@@ -989,6 +989,72 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
 };
 
 /**
+ * Reorders every slide in the deck via a custom comparator. The
+ * comparator is invoked with two `SlideData` handles and returns the
+ * usual `Array.prototype.sort` ordering (-1 / 0 / 1).
+ *
+ *   sortSlides(pres, (a, b) => getSlideTitle(a)?.localeCompare(getSlideTitle(b) ?? '') ?? 0);
+ *
+ * Internally walks `<p:sldIdLst>` and re-emits its `<p:sldId>` children
+ * in the new order. Slide parts and rels are untouched — only the
+ * order in which PowerPoint plays them changes.
+ */
+export const sortSlides = (
+  pres: PresentationData,
+  compareFn: (a: SlideData, b: SlideData) => number,
+): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const presPart = pkg.getPart(PRES_PART_NAME);
+  if (!presPart) throw new Error('presentation.xml missing');
+  const doc = parseXml(decode(presPart.data));
+  const sldIdLst = firstChildElement(doc.root, NAME_SLD_ID_LST);
+  if (!sldIdLst) return; // nothing to reorder
+
+  const slides = getSlides(pres);
+  const presRels = pkg.getRels(PRES_PART_NAME);
+  if (!presRels) return;
+
+  // Build a map from rId → SlideData and from rId → its <p:sldId> element.
+  const slideByRId = new Map<string, SlideData>();
+  for (const slide of slides) {
+    const rel = presRels.items.find(
+      (r) =>
+        r.type === REL_TYPES.slide &&
+        r.target === `slides/${basename(slide[SLIDE_PART_NAME])}`,
+    );
+    if (rel) slideByRId.set(rel.id, slide);
+  }
+  const sldIdElements = sldIdLst.children.filter(
+    (c): c is XmlElement =>
+      c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'sldId',
+  );
+  const sortedSlides = [...slides].sort(compareFn);
+  const newOrder: XmlElement[] = [];
+  for (const slide of sortedSlides) {
+    let matchedRId: string | undefined;
+    for (const [rId, s] of slideByRId.entries()) {
+      if (s === slide) {
+        matchedRId = rId;
+        break;
+      }
+    }
+    if (matchedRId === undefined) continue;
+    const el = sldIdElements.find((e) => getAttrValue(e, ATTR_R_ID) === matchedRId);
+    if (el) newOrder.push(el);
+  }
+
+  // Replace the children, preserving any non-sldId children (whitespace
+  // or comments — unlikely but defensive).
+  const nonSldIdChildren = sldIdLst.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'sldId'),
+  );
+  sldIdLst.children = [...nonSldIdChildren, ...newOrder];
+  presPart.data = encode(serializeXml(doc));
+  pres._slidesCache = null;
+};
+
+/**
  * Reorders a slide. The slide's identity (part, rels, sldId) is
  * unchanged — only `<p:sldIdLst>`'s child order changes.
  */

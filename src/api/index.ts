@@ -239,6 +239,7 @@ export {
   setTableCellFill,
   setTableCellText,
   setTableCellTextFormat,
+  sortSlides,
   validatePresentation,
 } from './fn.ts';
 
