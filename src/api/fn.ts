@@ -1355,6 +1355,30 @@ export const findSlideByTitle = (
 };
 
 /**
+ * Returns the slide whose package part name equals `partName`
+ * (typically `/ppt/slides/slideN.xml`), or `null` when no such
+ * slide exists. Useful for callers that walk validator output,
+ * `listPackageParts`, or any other low-level path-keyed API and
+ * need the matching `SlideData` handle.
+ */
+export const findSlideByPartName = (
+  pres: PresentationData,
+  partName: string,
+): SlideData | null => {
+  for (const slide of getSlides(pres)) {
+    if (slide[SLIDE_PART_NAME] === partName) return slide;
+  }
+  return null;
+};
+
+/**
+ * Returns the package part name (e.g. `/ppt/slides/slide3.xml`) of
+ * `slide`. Useful for surfacing slides in validator output, error
+ * messages, or any path-keyed sidebar UI.
+ */
+export const getSlidePartName = (slide: SlideData): string => slide[SLIDE_PART_NAME];
+
+/**
  * Returns the first slide whose concatenated visible text contains
  * `needle` (substring; case-sensitive). Pass a `RegExp` to test
  * against the slide's text body instead. Returns `null` when no
