@@ -1490,6 +1490,73 @@ export const clearShapeStroke = (shape: SlideShapeData): void => {
 // Effects: shadow + glow.
 
 /**
+ * Read-back for `setShapeShadow` / `setShapeGlow`. Returns the kind
+ * of effect currently on the shape's `<a:effectLst>`, or `null` when
+ * none. Decodes the configured color + numeric parameters when
+ * present.
+ */
+export type ShapeEffect =
+  | {
+      readonly kind: 'shadow';
+      readonly color: string;
+      readonly blurEmu: number;
+      readonly offsetEmu: number;
+      readonly angleDeg: number;
+      readonly opacity?: number;
+    }
+  | {
+      readonly kind: 'glow';
+      readonly color: string;
+      readonly radiusEmu: number;
+    };
+
+export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
+  if (!effectLst) return null;
+
+  const readColor = (host: XmlElement): { color: string; opacity?: number } => {
+    const srgb = firstChildElement(host, qname('a', 'srgbClr', NS.dml));
+    if (!srgb) return { color: '' };
+    const val = getAttrValue(srgb, qname('', 'val', ''));
+    const color = val !== null ? `#${val.toUpperCase()}` : '';
+    const alpha = firstChildElement(srgb, qname('a', 'alpha', NS.dml));
+    if (alpha) {
+      const a = getAttrValue(alpha, qname('', 'val', ''));
+      if (a !== null) {
+        const n = Number.parseInt(a, 10);
+        if (Number.isFinite(n)) return { color, opacity: n / 100000 };
+      }
+    }
+    return { color };
+  };
+
+  const outerShdw = firstChildElement(effectLst, qname('a', 'outerShdw', NS.dml));
+  if (outerShdw) {
+    const blur = Number.parseInt(getAttrValue(outerShdw, qname('', 'blurRad', '')) ?? '0', 10);
+    const dist = Number.parseInt(getAttrValue(outerShdw, qname('', 'dist', '')) ?? '0', 10);
+    const dirRaw = Number.parseInt(getAttrValue(outerShdw, qname('', 'dir', '')) ?? '0', 10);
+    const c = readColor(outerShdw);
+    return {
+      kind: 'shadow',
+      color: c.color,
+      blurEmu: blur,
+      offsetEmu: dist,
+      angleDeg: dirRaw / 60000,
+      ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+    };
+  }
+  const glow = firstChildElement(effectLst, qname('a', 'glow', NS.dml));
+  if (glow) {
+    const rad = Number.parseInt(getAttrValue(glow, qname('', 'rad', '')) ?? '0', 10);
+    const c = readColor(glow);
+    return { kind: 'glow', color: c.color, radiusEmu: rad };
+  }
+  return null;
+};
+
+/**
  * Sets an outer drop shadow on the shape. Defaults: black, 4pt blur,
  * 3pt offset, 45° (down-right). Pass `opacity` (0–1) to soften the
  * shadow.
