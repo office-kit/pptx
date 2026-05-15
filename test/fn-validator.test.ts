@@ -1,14 +1,16 @@
 // Lightweight invariant validator (`validatePresentation`).
-//
-// Confirms that a real, well-formed deck reports no issues, then forges
-// known-bad packages and asserts the corresponding error fires.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   _internalPackageOf,
+  addSlide,
+  addSlideImage,
+  findSlideLayout,
+  getMediaParts,
+  getSlides,
+  inches,
   loadPresentation,
   savePresentation,
   validatePresentation,
@@ -27,50 +29,42 @@ describe('fn API: validatePresentation', () => {
 
   it('reports a missing layout rel as an error', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    // Round-trip into the class-API to grab the package, drop the layout
-    // rel from slide1, save, reload, run the validator on the fn handle.
-    const clsApi = await Presentation.load(await savePresentation(pres));
-    const pkg = _internalPackageOf(clsApi);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
     const slideName = partName('/ppt/slides/slide1.xml');
     const rels = pkg.getRels(slideName);
     expect(rels).not.toBeNull();
-    rels!.items = rels!.items.filter(
-      (r) => !r.type.endsWith('/slideLayout'),
-    );
+    rels!.items = rels!.items.filter((r) => !r.type.endsWith('/slideLayout'));
     pkg.setRels(slideName, rels!);
 
-    const broken = await loadPresentation(await clsApi.save());
+    const broken = await loadPresentation(await savePresentation(reloaded));
     const issues = validatePresentation(broken);
     expect(issues.some((i) => i.message.includes('slideLayout'))).toBe(true);
   });
 
   it('reports a dangling slide rel as an error', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    const clsApi = await Presentation.load(await savePresentation(pres));
-    const pkg = _internalPackageOf(clsApi);
-    // Delete the second slide part but leave its rel + sldId in place.
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
     pkg.removePart(partName('/ppt/slides/slide2.xml'));
 
-    const broken = await loadPresentation(await clsApi.save());
+    const broken = await loadPresentation(await savePresentation(reloaded));
     const issues = validatePresentation(broken);
     expect(issues.some((i) => i.message.includes('slide2.xml'))).toBe(true);
   });
 
   it('reports nothing extra after a successful addSlide round-trip', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
-    const clsApi = await Presentation.load(await savePresentation(pres));
-    const layout = clsApi.slideLayouts.find((l) => l.name === 'Title and Content');
+    const layout = findSlideLayout(pres, 'Title and Content');
     if (!layout) throw new Error('expected Title and Content layout');
-    clsApi.addSlide({ layout });
-    const after = await loadPresentation(await clsApi.save());
+    addSlide(pres, { layout });
+    const after = await loadPresentation(await savePresentation(pres));
     expect(validatePresentation(after)).toEqual([]);
   });
 
   it('flags a dangling image rel after media removal', async () => {
-    const { addSlideImage, getSlides, inches } = await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
-    // Add an image to install a slide → image rel.
     addSlideImage(
       slide,
       new Uint8Array([
@@ -83,14 +77,12 @@ describe('fn API: validatePresentation', () => {
       { x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png' },
     );
 
-    // Save → reload → remove the media part directly via the class
-    // package (the slide still references it).
-    const cls = await Presentation.load(await savePresentation(pres));
-    const pkg = _internalPackageOf(cls);
-    const media = pkg.parts.find((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name));
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
+    const media = getMediaParts(reloaded).find((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name));
     if (!media) throw new Error('expected media part');
     pkg.removePart(media.name);
-    const broken = await loadPresentation(await cls.save());
+    const broken = await loadPresentation(await savePresentation(reloaded));
     const issues = validatePresentation(broken);
     expect(issues.some((i) => i.message.includes('image'))).toBe(true);
   });

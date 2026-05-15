@@ -4,8 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
+  getPackagePart,
   getSlideSections,
   getSlides,
   loadPresentation,
@@ -47,12 +46,10 @@ describe('fn API: slide sections', () => {
     setSlideSections(pres, []);
     expect(getSlideSections(pres)).toEqual([]);
 
-    // The extLst should have no sectionLst entry now.
-    const cls = await Presentation.load(await savePresentation(pres));
-    const pkg = _internalPackageOf(cls);
-    const presPart = pkg.parts.find((p) => p.name === '/ppt/presentation.xml');
-    expect(presPart).not.toBeUndefined();
-    const xml = new TextDecoder().decode(presPart!.data);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const presBytes = getPackagePart(reloaded, '/ppt/presentation.xml');
+    expect(presBytes).not.toBeNull();
+    const xml = new TextDecoder().decode(presBytes!);
     expect(xml).not.toContain('521415D9-36F7-43E2-AB2F-B90AF26B5E84');
   });
 });

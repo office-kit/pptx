@@ -4,11 +4,12 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   addSlide,
   addSlideImage,
   findSlideLayout,
   getMediaParts,
+  getSlideLayout,
+  getSlideLayoutName,
   getSlideShapes,
   getSlideText,
   getSlides,
@@ -46,9 +47,8 @@ describe('fn API: importSlide', () => {
     expect(getSlideText(imported)).toBe(sourceText);
     expect(getSlides(target)).toHaveLength(1);
 
-    // Round-trip — the target deck should still load cleanly.
-    const reloaded = await Presentation.load(await savePresentation(target));
-    expect(reloaded.slides.length).toBe(1);
+    const reloaded = await loadPresentation(await savePresentation(target));
+    expect(getSlides(reloaded).length).toBe(1);
   });
 
   it('copies image media along with the slide', async () => {
@@ -77,8 +77,10 @@ describe('fn API: importSlide', () => {
 
     importSlide(target, getSlides(source)[0]!, layout);
 
-    const reloaded = await Presentation.load(await savePresentation(target));
-    expect(reloaded.slides.at(-1)?.layout?.name).toBe('Blank');
+    const reloaded = await loadPresentation(await savePresentation(target));
+    const last = getSlides(reloaded).at(-1)!;
+    const lastLayout = getSlideLayout(last);
+    expect(lastLayout && getSlideLayoutName(lastLayout)).toBe('Blank');
     expect(getSlideShapes(getSlides(target).at(-1)!).length).toBeGreaterThan(0);
   });
 });
