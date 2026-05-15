@@ -3070,6 +3070,32 @@ export const getShapeRunText = (
   runIndex: number,
 ): string => readRunText(requireRun(shape, paragraphIndex, runIndex));
 
+/**
+ * Reads the external URL on a single run's `<a:hlinkClick>`. Per-run
+ * counterpart to `getShapeHyperlink` (which only surfaces the first
+ * link it finds). Returns `null` when this run has no link, or the
+ * link's `r:id` resolves to a non-hyperlink rel.
+ */
+export const getShapeRunHyperlink = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): string | null => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  const rPr = firstChildElement(run, qname('a', 'rPr', NS.dml));
+  if (!rPr) return null;
+  const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
+  if (!hlink) return null;
+  const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
+  if (!rId) return null;
+  const slide = shape[SHAPE_SLIDE];
+  const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const rel = rels.items.find((x) => x.id === rId);
+  if (rel?.type === REL_TYPES.hyperlink && rel.targetMode === 'External') return rel.target;
+  return null;
+};
+
 const NAME_A_PPR = qname('a', 'pPr', NS.dml);
 const ATTR_LVL = qname('', 'lvl', '');
 const ATTR_ALGN_FN = qname('', 'algn', '');

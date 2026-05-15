@@ -155,6 +155,7 @@ export {
   getShapeRotation,
   getShapeRunCount,
   getShapeRunFormat,
+  getShapeRunHyperlink,
   getShapeRunText,
   getShapeSize,
   getShapeStroke,
