@@ -355,6 +355,15 @@ export const getSlideIndex = (pres: PresentationData, slide: SlideData): number 
   return slides.indexOf(slide);
 };
 
+/**
+ * Returns the slide at the given 0-based `index`, or `null` if `index`
+ * is out of range. Convenience over `getSlides(pres)[index] ?? null`.
+ */
+export const getSlideAt = (pres: PresentationData, index: number): SlideData | null => {
+  const slides = getSlides(pres);
+  return slides[index] ?? null;
+};
+
 // ---------------------------------------------------------------------------
 // Slide visibility — `<p:sld show="0">` hides a slide from the slideshow
 // without removing it from the deck. `show="1"` (or omission) is visible.
@@ -1892,6 +1901,24 @@ export const sendShapeBackward = (shape: SlideShapeData): void => {
  * Removing a picture does NOT delete the underlying media part — it
  * may be referenced from other slides.
  */
+/**
+ * Removes every shape (sp / pic / cxnSp / graphicFrame / grpSp) from
+ * the slide's `<p:spTree>`. The required `<p:nvGrpSpPr>` and
+ * `<p:grpSpPr>` preface stays in place, so the slide is still valid
+ * and re-applies its layout's placeholders on the next open.
+ *
+ * Useful for "start this slide over but keep its layout binding."
+ */
+export const clearSlideShapes = (slide: SlideData): void => {
+  const spTree = requireSpTree(slide);
+  spTree.children = spTree.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.pml && SHAPE_CHILD_LOCALS.has(c.name.localName)),
+  );
+  commitSlideData(slide);
+  rebuildShapesFromDocument(slide);
+};
+
 export const removeShape = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
   const doc = slide[SLIDE_DOCUMENT];
