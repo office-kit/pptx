@@ -5370,6 +5370,20 @@ export const getSlidesWithCharts = (pres: PresentationData): ReadonlyArray<Slide
 };
 
 /**
+ * Returns every slide where at least two shapes have overlapping
+ * bounding boxes. Built on `findOverlappingShapePairs`. Useful for
+ * deck-wide layout audits — surfacing slides that may have stacked
+ * or accidentally-colliding content for human review.
+ */
+export const findSlidesWithOverlap = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (findOverlappingShapePairs(slide).length > 0) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns every slide carrying at least one table graphic frame.
  * Built on `isTableShape`.
  */

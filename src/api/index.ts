@@ -148,6 +148,7 @@ export {
   findSlidesByLayoutType,
   findSlidesByText,
   findSlidesWithCommentsByAuthor,
+  findSlidesWithOverlap,
   getAllCharts,
   getAllComments,
   getAllImages,
