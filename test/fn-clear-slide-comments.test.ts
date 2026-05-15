@@ -8,7 +8,7 @@ import {
   addSlideComment,
   clearSlideComments,
   findSlideLayout,
-  getSlideCommentCount,
+  getSlideComments,
   getSlides,
   loadPresentation,
 } from '../src/api/index.ts';
@@ -29,8 +29,8 @@ describe('fn API: clearSlideComments', () => {
     slides = getSlides(pres);
     expect(clearSlideComments(slides[0]!)).toBe(1);
     slides = getSlides(pres);
-    expect(getSlideCommentCount(slides[0]!)).toBe(0);
-    expect(getSlideCommentCount(slides[1]!)).toBe(2);
+    expect(getSlideComments(slides[0]!)).toHaveLength(0);
+    expect(getSlideComments(slides[1]!)).toHaveLength(2);
   });
 
   it('returns 0 when slide has nothing to clear', async () => {

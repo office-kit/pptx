@@ -7,8 +7,8 @@ import {
   addSlide,
   clearAllSlideNotes,
   findSlideLayout,
-  getNotesSlideCount,
   getSlides,
+  getSlidesWithNotes,
   hasSlideNotes,
   loadPresentation,
   setSlideNotes,
@@ -26,9 +26,9 @@ describe('fn API: clearAllSlideNotes', () => {
     const slides = getSlides(pres);
     setSlideNotes(slides[0]!, 'internal comment');
     setSlideNotes(slides[1]!, 'launch on monday');
-    expect(getNotesSlideCount(pres)).toBe(2);
+    expect(getSlidesWithNotes(pres).length).toBe(2);
     expect(clearAllSlideNotes(pres)).toBe(2);
-    expect(getNotesSlideCount(pres)).toBe(0);
+    expect(getSlidesWithNotes(pres).length).toBe(0);
     for (const slide of getSlides(pres)) {
       expect(hasSlideNotes(slide)).toBe(false);
     }

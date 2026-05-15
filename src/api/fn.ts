@@ -5488,31 +5488,6 @@ export const getVisibleSlides = (pres: PresentationData): ReadonlyArray<SlideDat
 };
 
 /**
- * Fast count of slides flagged hidden (`<p:sldId show="0">`).
- * Cheaper than `getHiddenSlides(pres).length` when the caller only
- * needs the number — no intermediate array.
- */
-export const getHiddenSlideCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    if (isSlideHidden(slide)) n++;
-  }
-  return n;
-};
-
-/**
- * Fast count of slides *not* flagged hidden. Sibling of
- * `getHiddenSlideCount`; sums with it to `getSlides(pres).length`.
- */
-export const getVisibleSlideCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    if (!isSlideHidden(slide)) n++;
-  }
-  return n;
-};
-
-/**
  * Returns every slide carrying at least one chart graphic frame.
  * Built on `isChartShape`.
  */
@@ -5882,20 +5857,6 @@ export const getSlidesWithNotes = (pres: PresentationData): ReadonlyArray<SlideD
     if (notes !== null && notes.length > 0) out.push(slide);
   }
   return out;
-};
-
-/**
- * Fast count of slides carrying non-empty speaker notes. Cheaper
- * than `getSlidesWithNotes(pres).length` when only the number is
- * needed — no intermediate array.
- */
-export const getNotesSlideCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    const notes = getSlideNotes(slide);
-    if (notes !== null && notes.length > 0) n++;
-  }
-  return n;
 };
 
 /**
@@ -6570,13 +6531,6 @@ export const getSlideCommentAuthors = (
   }
   return out;
 };
-
-/**
- * Number of comments attached to a single slide. Convenience over
- * `getSlideComments(slide).length`.
- */
-export const getSlideCommentCount = (slide: SlideData): number =>
-  loadCommentsForSlide(slide).length;
 
 /**
  * Returns every comment attached to the slide, with the author already
