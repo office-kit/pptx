@@ -6400,6 +6400,17 @@ export const findCommentsByText = (
 };
 
 /**
+ * Returns every comment's text on the slide in stored order.
+ * Slide-scoped sibling of `findCommentsByText` for compact
+ * "show the comments on this slide" UIs.
+ */
+export const getSlideCommentTexts = (slide: SlideData): ReadonlyArray<string> => {
+  const out: string[] = [];
+  for (const c of getSlideComments(slide)) out.push(c[COMMENT_SNAPSHOT].text);
+  return out;
+};
+
+/**
  * Total number of comments across every slide in the deck. Faster
  * than `getSlides(pres).flatMap(getSlideComments).length` when
  * callers just need the headline number.
