@@ -1768,6 +1768,30 @@ export const addContentSlide = (
 };
 
 /**
+ * Sugar over `addSlide` + `setSlideTitle` for the section-divider
+ * pattern. Picks `<p:sldLayout type="secHead">` when present (the
+ * PowerPoint "Section Header" layout); otherwise falls back to a
+ * `title`-typed layout or the first available layout.
+ */
+export const addSectionHeaderSlide = (
+  pres: PresentationData,
+  title: string,
+): SlideData => {
+  const layout =
+    findSlideLayoutByType(pres, 'secHead') ??
+    findSlideLayoutByType(pres, 'title') ??
+    getSlideLayouts(pres)[0];
+  if (!layout) {
+    throw new Error(
+      'addSectionHeaderSlide: package has no slide layouts to inherit from',
+    );
+  }
+  const slide = addSlide(pres, { layout });
+  setSlideTitle(slide, title);
+  return slide;
+};
+
+/**
  * Sugar over `addSlide` + `setSlideTitle` for the common
  * "title slide + set heading" pattern. Picks the `title` layout
  * first, then falls back to the first non-blank layout.

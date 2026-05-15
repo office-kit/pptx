@@ -85,6 +85,7 @@ export type {
 export {
   addBlankSlide,
   addContentSlide,
+  addSectionHeaderSlide,
   addSlide,
   addSlideAt,
   addSlideChart,
