@@ -653,6 +653,30 @@ export interface CoreProperties {
  * corresponding element is absent or empty.
  */
 /**
+ * Convenience: bumps core-properties' `cp:revision` by one (treating
+ * an unset / unparseable value as 0). Returns the new revision
+ * number. Useful right before `savePresentation` so consumers can
+ * tell decks apart.
+ */
+export const incrementRevision = (pres: PresentationData): number => {
+  const props = getCoreProperties(pres);
+  const current = props?.revision === null || props?.revision === undefined ? 0 : Number.parseInt(props.revision, 10);
+  const next = (Number.isFinite(current) ? current : 0) + 1;
+  setCoreProperties(pres, { revision: String(next) });
+  return next;
+};
+
+/**
+ * Convenience: writes `new Date().toISOString()` to
+ * `dcterms:modified`. Useful right before `savePresentation` so
+ * "last edited" shows the actual save time. Pass an explicit
+ * `Date` to set a specific value.
+ */
+export const touchModified = (pres: PresentationData, at: Date = new Date()): void => {
+  setCoreProperties(pres, { modified: at.toISOString() });
+};
+
+/**
  * Convenience: the timestamp from core-properties' `dcterms:created`,
  * parsed as a `Date`. Returns `null` when no created field is set
  * or the value isn't a recognizable W3C-DTF / ISO-8601 string.

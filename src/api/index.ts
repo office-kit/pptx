@@ -217,6 +217,7 @@ export {
   getTableRowHeights,
   getThumbnail,
   importSlide,
+  incrementRevision,
   insertTableColumn,
   insertTableRow,
   isChartShape,
@@ -308,6 +309,7 @@ export {
   setThumbnail,
   sortSlides,
   swapSlides,
+  touchModified,
   validatePresentation,
 } from './fn.ts';
 
