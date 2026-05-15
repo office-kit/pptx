@@ -4,9 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   addSlideChart,
+  getPackagePart,
+  getPackagePartNames,
   getSlideCharts,
   getSlides,
   inches,
@@ -75,19 +75,15 @@ describe('fn API: setChartSpec', () => {
       series: [{ name: 'renamed-series', values: [42] }],
     });
 
-    // Read back the embedded xlsx and verify it contains the new series name.
     const bytes = await savePresentation(reloaded);
-    const cls = await Presentation.load(bytes);
-    const pkg = _internalPackageOf(cls);
-    const xlsx = pkg.parts.find((p) =>
-      /^\/ppt\/embeddings\/Microsoft_Excel_Worksheet\d+\.xlsx$/.test(p.name),
+    const after = await loadPresentation(bytes);
+    const xlsx = getPackagePartNames(after).find((n) =>
+      /^\/ppt\/embeddings\/Microsoft_Excel_Worksheet\d+\.xlsx$/.test(n),
     );
-    expect(xlsx).not.toBeUndefined();
-    // The xlsx is a zip; the worksheet inside carries inline strings —
-    // 'renamed-series' will be one of them in compressed bytes. Spot-check
-    // the chart XML proper too.
-    const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
-    expect(new TextDecoder().decode(chartPart!.data)).toContain('renamed-series');
+    expect(xlsx).toBeDefined();
+    const chartBytes = getPackagePart(after, '/ppt/charts/chart1.xml');
+    expect(chartBytes).not.toBeNull();
+    expect(new TextDecoder().decode(chartBytes!)).toContain('renamed-series');
   });
 
   it('throws when invoked on a shape that is not a chart frame', async () => {

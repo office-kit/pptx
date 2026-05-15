@@ -4,9 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   clearSlideBackground,
+  getMediaParts,
   getSlideBackground,
   getSlides,
   loadPresentation,
@@ -35,10 +34,9 @@ describe('fn API: setSlideBackgroundImage', () => {
     expect(getSlideBackground(slide).kind).toBe('image');
 
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
-    const pkg = _internalPackageOf(reloaded);
+    const reloaded = await loadPresentation(bytes);
     expect(
-      pkg.parts.some((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name)),
+      getMediaParts(reloaded).some((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name)),
     ).toBe(true);
   });
 

@@ -7,16 +7,16 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   clearShapeFill,
   clearShapeStroke,
   findSlidePlaceholder,
+  getPackagePart,
   getShapePosition,
   getShapeRotation,
   getShapeSize,
   getShapeText,
   getSlideShapes,
+  getSlideXmlString,
   getSlides,
   inches,
   loadPresentation,
@@ -39,32 +39,16 @@ import {
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-// Re-load via the class API just so we can pull the package out and
-// dig into the unzipped slide part bytes via _internalPackageOf.
-const slideXml = async (
-  bytes: Uint8Array,
-  slideIndex: number,
-): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const slidePart = pkg.parts.find(
-    (p) => p.name === `/ppt/slides/slide${slideIndex + 1}.xml`,
-  );
-  if (!slidePart) throw new Error(`slide${slideIndex + 1}.xml not found`);
-  return new TextDecoder().decode(slidePart.data);
+const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
+  const pres = await loadPresentation(bytes);
+  return getSlideXmlString(getSlides(pres)[slideIndex]!);
 };
 
-const slideRels = async (
-  bytes: Uint8Array,
-  slideIndex: number,
-): Promise<string> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const relsPart = pkg.parts.find(
-    (p) => p.name === `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`,
-  );
-  if (!relsPart) throw new Error(`slide${slideIndex + 1}.xml.rels not found`);
-  return new TextDecoder().decode(relsPart.data);
+const slideRels = async (bytes: Uint8Array, slideIndex: number): Promise<string> => {
+  const pres = await loadPresentation(bytes);
+  const data = getPackagePart(pres, `/ppt/slides/_rels/slide${slideIndex + 1}.xml.rels`);
+  if (!data) throw new Error(`slide${slideIndex + 1}.xml.rels not found`);
+  return new TextDecoder().decode(data);
 };
 
 describe('fn API: shape text mutation', () => {
@@ -79,10 +63,12 @@ describe('fn API: shape text mutation', () => {
     setShapeAlignment(shape, 'center');
     setShapeTextFormat(shape, { bold: true, color: '#FF0000' });
 
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    const reloadedShape = reloaded.slides[0]?.shapes.find((s) => s.text.includes('Line'));
-    expect(reloadedShape?.text).toContain('Line one');
-    expect(reloadedShape?.text).toContain('Line two');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const reloadedShape = getSlideShapes(getSlides(reloaded)[0]!).find(
+      (s) => getShapeText(s).includes('Line'),
+    );
+    expect(reloadedShape && getShapeText(reloadedShape)).toContain('Line one');
+    expect(reloadedShape && getShapeText(reloadedShape)).toContain('Line two');
   });
 
   it('setShapeHyperlink wires + clears an external link', async () => {
@@ -164,8 +150,8 @@ describe('fn API: shape removal', () => {
     const target = getSlideShapes(slide)[0]!;
     removeShape(target);
 
-    expect(getSlideShapes(slide).length).toBe(before - 1);
-    const reloaded = await Presentation.load(await savePresentation(pres));
-    expect(reloaded.slides[0]?.shapes.length).toBe(before - 1);
+    expect(getSlideShapes(getSlides(pres)[0]!).length).toBe(before - 1);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideShapes(getSlides(reloaded)[0]!).length).toBe(before - 1);
   });
 });

@@ -16,9 +16,8 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
-  _internalPackageOf,
   addSlideChart,
+  getPackagePart,
   getShapeKind,
   getSlideShapes,
   getSlides,
@@ -35,10 +34,8 @@ const partBytes = async (
   bytes: Uint8Array,
   partPath: string,
 ): Promise<Uint8Array | null> => {
-  const pres = await Presentation.load(bytes);
-  const pkg = _internalPackageOf(pres);
-  const part = pkg.parts.find((p) => p.name === partPath);
-  return part?.data ?? null;
+  const pres = await loadPresentation(bytes);
+  return getPackagePart(pres, partPath);
 };
 
 describe('fn API: addSlideChart', () => {
@@ -108,9 +105,10 @@ describe('fn API: addSlideChart', () => {
           })),
         },
       });
-      const reloaded = await Presentation.load(await savePresentation(pres));
-      // The graphic frame must round-trip back as a shape on the slide.
-      const reloadedShape = reloaded.slides[0]?.shapes.find((s) => s.kind === 'graphicFrame');
+      const reloaded = await loadPresentation(await savePresentation(pres));
+      const reloadedShape = getSlideShapes(getSlides(reloaded)[0]!).find(
+        (s) => getShapeKind(s) === 'graphicFrame',
+      );
       expect(reloadedShape, `${kind} chart lost on round-trip`).toBeDefined();
     }
   });
@@ -130,11 +128,9 @@ describe('fn API: addSlideChart', () => {
       },
     });
     const bytes = await savePresentation(pres);
-    const pres2 = await Presentation.load(bytes);
-    const pkg = _internalPackageOf(pres2);
-    const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
-    expect(chartPart).not.toBeUndefined();
-    const chartStr = new TextDecoder().decode(chartPart!.data);
+    const chartBytes = await partBytes(bytes, '/ppt/charts/chart1.xml');
+    expect(chartBytes).not.toBeNull();
+    const chartStr = new TextDecoder().decode(chartBytes!);
     expect(chartStr).toContain('<c:doughnutChart>');
     expect(chartStr).toContain('<c:holeSize');
   });
@@ -153,11 +149,8 @@ describe('fn API: addSlideChart', () => {
         series: [{ name: 'Revenue', values: [10, 20, 30] }],
       },
     });
-    const bytes = await savePresentation(pres);
-    const pres2 = await Presentation.load(bytes);
-    const pkg = _internalPackageOf(pres2);
-    const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
-    const chartStr = new TextDecoder().decode(chartPart!.data);
+    const chartBytes = await partBytes(await savePresentation(pres), '/ppt/charts/chart1.xml');
+    const chartStr = new TextDecoder().decode(chartBytes!);
     expect(chartStr).toContain('<c:areaChart>');
     expect(chartStr).toContain('<c:catAx>');
     expect(chartStr).toContain('<c:valAx>');

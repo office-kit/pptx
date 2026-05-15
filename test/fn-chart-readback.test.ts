@@ -8,7 +8,6 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  Presentation,
   addSlideChart,
   getSlideCharts,
   getSlides,
@@ -124,10 +123,8 @@ describe('fn API: getSlideCharts', () => {
       },
     });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
-    // Use the class API to reach the slide, fn API to read charts.
-    const reloadedFn = await loadPresentation(await reloaded.save());
-    const charts = getSlideCharts(getSlides(reloadedFn)[0]!);
+    const reloaded = await loadPresentation(bytes);
+    const charts = getSlideCharts(getSlides(reloaded)[0]!);
     expect(charts[0]!.spec!.kind).toBe('line');
   });
 });
