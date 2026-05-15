@@ -216,6 +216,7 @@ export {
   sendShapeBackward,
   sendShapeToBack,
   setChartSpec,
+  setCoreProperties,
   setMediaPartBytes,
   setShapeAlignment,
   setShapeAnimation,

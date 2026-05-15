@@ -622,6 +622,114 @@ export const getCoreProperties = (pres: PresentationData): CoreProperties | null
   };
 };
 
+const CORE_PROPS_CONTENT_TYPE =
+  'application/vnd.openxmlformats-package.core-properties+xml';
+
+const CORE_PROP_FIELDS: ReadonlyArray<{
+  key: keyof CoreProperties;
+  uri: string;
+  prefix: string;
+  local: string;
+}> = [
+  { key: 'title', uri: NS_DC, prefix: 'dc', local: 'title' },
+  { key: 'subject', uri: NS_DC, prefix: 'dc', local: 'subject' },
+  { key: 'creator', uri: NS_DC, prefix: 'dc', local: 'creator' },
+  { key: 'keywords', uri: NS_CORE_PROPS, prefix: 'cp', local: 'keywords' },
+  { key: 'description', uri: NS_DC, prefix: 'dc', local: 'description' },
+  { key: 'lastModifiedBy', uri: NS_CORE_PROPS, prefix: 'cp', local: 'lastModifiedBy' },
+  { key: 'revision', uri: NS_CORE_PROPS, prefix: 'cp', local: 'revision' },
+  { key: 'created', uri: NS_DCTERMS, prefix: 'dcterms', local: 'created' },
+  { key: 'modified', uri: NS_DCTERMS, prefix: 'dcterms', local: 'modified' },
+  { key: 'category', uri: NS_CORE_PROPS, prefix: 'cp', local: 'category' },
+];
+
+const buildEmptyCorePropsRoot = (): XmlElement => {
+  const prefixDecls = new Map<string, string>([
+    ['cp', NS_CORE_PROPS],
+    ['dc', NS_DC],
+    ['dcterms', NS_DCTERMS],
+  ]);
+  return {
+    kind: 'element',
+    name: qname('cp', 'coreProperties', NS_CORE_PROPS),
+    attrs: [],
+    prefixDecls,
+    children: [],
+  };
+};
+
+/**
+ * Writes selected fields on `/docProps/core.xml`. Unspecified fields
+ * are left as-is; pass `null` to clear a field that's currently set.
+ * Bootstraps the part (and the `/_rels/.rels` entry + content-type
+ * override) if the package didn't have one.
+ *
+ * Note: setting `created` / `modified` requires an ISO-8601 timestamp
+ * string (e.g. `'2026-05-15T12:34:56Z'`). PowerPoint expects the
+ * `xsi:type="dcterms:W3CDTF"` attribute on these elements but readers
+ * we tested all accept missing-attribute output too; this helper
+ * therefore omits the attribute for simplicity.
+ */
+export const setCoreProperties = (
+  pres: PresentationData,
+  values: Partial<CoreProperties>,
+): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  let part = pkg.getPart(CORE_PROPS_PART_NAME);
+  let root: XmlElement;
+  let doc: ReturnType<typeof parseXml>;
+  if (part) {
+    doc = parseXml(decode(part.data));
+    root = doc.root;
+  } else {
+    root = buildEmptyCorePropsRoot();
+    doc = { root, prolog: [] };
+  }
+
+  for (const field of CORE_PROP_FIELDS) {
+    if (!(field.key in values)) continue;
+    const value = values[field.key] ?? null;
+    const name = qname(field.prefix, field.local, field.uri);
+    const existing = firstChildElement(root, name);
+    if (value === null) {
+      if (existing) {
+        existing.children = [];
+      }
+      continue;
+    }
+    if (existing) {
+      existing.children = [textNode(value)];
+    } else {
+      root.children.push(
+        elem(name, { children: [textNode(value)] }),
+      );
+    }
+  }
+
+  const bytes = encode(serializeXml(doc));
+  if (part) {
+    part.data = bytes;
+    return;
+  }
+
+  // Bootstrap: register override, add part, wire root rel.
+  pkg.contentTypes.overrides.push({
+    partName: CORE_PROPS_PART_NAME,
+    contentType: CORE_PROPS_CONTENT_TYPE,
+  });
+  pkg.addPart(CORE_PROPS_PART_NAME, CORE_PROPS_CONTENT_TYPE, bytes);
+
+  const rootRels = pkg.rootRels() ?? emptyRels();
+  const rId = nextRelId(rootRels.items.map((r) => r.id));
+  rootRels.items.push({
+    id: rId,
+    type: REL_TYPES.coreProperties,
+    target: 'docProps/core.xml',
+    targetMode: 'Internal',
+  });
+  pkg.setRootRels(rootRels);
+};
+
 /**
  * Finds the first slide layout whose user-visible name matches `name`,
  * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
