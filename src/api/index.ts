@@ -195,6 +195,7 @@ export {
   getShapeParagraphCount,
   getShapePlaceholderIdx,
   getMediaParts,
+  getOrphanMediaPartNames,
   getOutlineText,
   getPresentationCommenters,
   getPresentationCreated,

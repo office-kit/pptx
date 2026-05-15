@@ -7259,6 +7259,55 @@ export const getImageParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
   getMediaParts(pres).filter((p) => p.contentType.startsWith('image/'));
 
 /**
+ * Returns every media part NOT referenced by any rels in the
+ * package — the set `compactPackage` would remove. Non-destructive;
+ * the caller decides whether to delete.
+ *
+ * Useful for audit UIs that want to surface bloat before cleaning,
+ * and for "is this asset still used?" checks.
+ */
+export const getOrphanMediaPartNames = (pres: PresentationData): ReadonlyArray<string> => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const referenced = new Set<string>();
+  const resolve = (sourcePart: string, target: string): string => {
+    if (target.startsWith('/')) return target;
+    const dir = sourcePart.split('/').slice(0, -1);
+    const segments: string[] = [];
+    for (const seg of [...dir, ...target.split('/')]) {
+      if (seg === '..') segments.pop();
+      else if (seg !== '.' && seg.length > 0) segments.push(seg);
+    }
+    return `/${segments.join('/')}`;
+  };
+  for (const part of pkg.parts) {
+    if (!part.name.endsWith('.rels')) continue;
+    // /ppt/slides/_rels/slide1.xml.rels → /ppt/slides/slide1.xml
+    const m = part.name.match(/^(.*)\/_rels\/(.+)\.rels$/);
+    let sourceName: string;
+    if (part.name === '/_rels/.rels') {
+      sourceName = '/';
+    } else if (m) {
+      sourceName = `${m[1]}/${m[2]}`;
+    } else {
+      continue;
+    }
+    const sourceRels =
+      sourceName === '/' ? pkg.rootRels() : pkg.getRels(sourceName as never);
+    if (!sourceRels) continue;
+    for (const rel of sourceRels.items) {
+      if (rel.targetMode === 'External') continue;
+      referenced.add(resolve(sourceName, rel.target));
+    }
+  }
+  const out: string[] = [];
+  for (const part of pkg.parts) {
+    if (!part.name.startsWith('/ppt/media/')) continue;
+    if (!referenced.has(part.name)) out.push(part.name);
+  }
+  return out;
+};
+
+/**
  * Returns every media part name the slide's rels reference
  * (typically `/ppt/media/imageN.ext`). Walks the slide's rels
  * graph and resolves each internal target. Useful for "which
