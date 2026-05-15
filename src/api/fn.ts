@@ -7952,6 +7952,16 @@ export const getSlideShapeRotations = (slide: SlideData): ReadonlyArray<number> 
 };
 
 /**
+ * Returns every shape on the slide whose rotation is non-zero.
+ * Useful for "find anything off-axis" audit passes — e.g. before a
+ * straight-line render check.
+ */
+export const findRotatedShapes = (
+  slide: SlideData,
+): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES].filter((s) => getShapeRotation(s) !== 0);
+
+/**
  * Returns every unordered pair of shapes on the slide whose
  * bounding boxes overlap. Built on `shapesOverlap`. Pairs are
  * returned with `a` strictly preceding `b` in document order, and
