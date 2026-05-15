@@ -7924,6 +7924,40 @@ export const getSlideShapeBounds = (
 };
 
 /**
+ * Returns the union bounding box of every shape on the slide that
+ * has a resolvable `<a:xfrm>`. Shapes without bounds are skipped.
+ * Returns `null` if no shape on the slide has bounds.
+ *
+ * Useful for "is the content within the slide canvas?" checks and
+ * auto-fit / cropping pipelines.
+ */
+export const getSlideBoundingBox = (slide: SlideData): ShapeBounds | null => {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let found = false;
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const b = getShapeBounds(shape);
+    if (b === null) continue;
+    found = true;
+    if (b.x < minX) minX = b.x;
+    if (b.y < minY) minY = b.y;
+    const right = b.x + b.w;
+    const bottom = b.y + b.h;
+    if (right > maxX) maxX = right;
+    if (bottom > maxY) maxY = bottom;
+  }
+  if (!found) return null;
+  return {
+    x: minX as Emu,
+    y: minY as Emu,
+    w: (maxX - minX) as Emu,
+    h: (maxY - minY) as Emu,
+  };
+};
+
+/**
  * Every slide whose layout's `cSld@name` matches the given string.
  * Useful for batch operations on slides sharing a layout — for
  * example, restyling every "Title and Content" slide in a deck.
