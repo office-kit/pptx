@@ -3071,6 +3071,62 @@ export const getShapeRunText = (
 ): string => readRunText(requireRun(shape, paragraphIndex, runIndex));
 
 /**
+ * Sets `<a:hlinkClick>` on a single run. Per-run counterpart to
+ * `setShapeHyperlink` (which targets every run in the shape). Pass
+ * `null` to clear the link on that run alone — other runs are
+ * untouched. Allocates or reuses a hyperlink rel on the slide
+ * exactly like the shape-level setter.
+ */
+export const setShapeRunHyperlink = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+  url: string | null,
+): void => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  let rPr = firstChildElement(run, qname('a', 'rPr', NS.dml));
+  if (rPr === null) {
+    rPr = elem(qname('a', 'rPr', NS.dml));
+    run.children.unshift(rPr);
+  }
+  rPr.children = rPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === 'hlinkClick'
+      ),
+  );
+  if (url !== null) {
+    const slide = shape[SHAPE_SLIDE];
+    const pkg = slide[INTERNAL_PACKAGE];
+    const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+    const existing = rels.items.find(
+      (r) => r.type === REL_TYPES.hyperlink && r.target === url && r.targetMode === 'External',
+    );
+    let rId: string;
+    if (existing) {
+      rId = existing.id;
+    } else {
+      rId = nextRelId(rels.items.map((r) => r.id));
+      rels.items.push({
+        id: rId,
+        type: REL_TYPES.hyperlink,
+        target: url,
+        targetMode: 'External',
+      });
+      pkg.setRels(slide[SLIDE_PART_NAME], rels);
+    }
+    rPr.children.push(
+      elem(qname('a', 'hlinkClick', NS.dml), {
+        attrs: [attr(qname('r', 'id', NS.officeDocRels), rId)],
+      }),
+    );
+  }
+  commitAndRefresh(shape);
+};
+
+/**
  * Reads the external URL on a single run's `<a:hlinkClick>`. Per-run
  * counterpart to `getShapeHyperlink` (which only surfaces the first
  * link it finds). Returns `null` when this run has no link, or the

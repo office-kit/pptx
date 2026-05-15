@@ -255,6 +255,7 @@ export {
   setShapePosition,
   setShapeRotation,
   setShapeRunFormat,
+  setShapeRunHyperlink,
   setShapeRunText,
   setShapeSize,
   setShapeStroke,
