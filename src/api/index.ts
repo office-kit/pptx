@@ -179,6 +179,7 @@ export {
   getCommentPosition,
   getCommentSlide,
   getCommentText,
+  getCommentsSortedByDate,
   getCoreProperties,
   getDistinctHyperlinkUrls,
   getHiddenSlideCount,

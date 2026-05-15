@@ -6530,6 +6530,19 @@ export const getNewestComment = (
 };
 
 /**
+ * Returns every comment carrying a parseable `@dt`, sorted oldest
+ * to newest. Comments without a date are omitted. Sibling of
+ * `getOldestComment` / `getNewestComment` for full-timeline UIs.
+ */
+export const getCommentsSortedByDate = (
+  pres: PresentationData,
+): ReadonlyArray<SlideCommentData> => {
+  const dated = [...datedComments(pres)];
+  dated.sort((a, b) => a.t - b.t);
+  return dated.map((d) => d.comment);
+};
+
+/**
  * Returns every comment's text on the slide in stored order.
  * Slide-scoped sibling of `findCommentsByText` for compact
  * "show the comments on this slide" UIs.
