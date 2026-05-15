@@ -187,6 +187,7 @@ export {
   removeShape,
   removeSlide,
   removeSlideComment,
+  removeSlideNotes,
   removeTableColumn,
   removeTableRow,
   renameShape,

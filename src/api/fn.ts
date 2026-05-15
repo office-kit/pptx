@@ -3818,6 +3818,26 @@ export const setSlideNotes = (slide: SlideData, value: string): void => {
   pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
 };
 
+/**
+ * Removes the slide's speaker-notes part entirely. Drops the
+ * `notesSlide` part + its `.rels`, and unwires the slide → notesSlide
+ * relationship. No-op when the slide has no notes.
+ *
+ * The shared `notesMaster` part is left alone; other slides may still
+ * reference it.
+ */
+export const removeSlideNotes = (slide: SlideData): void => {
+  const notesPartName = findNotesPartName(slide);
+  if (notesPartName === null) return;
+  const pkg = slide[INTERNAL_PACKAGE];
+  pkg.removePart(notesPartName);
+  pkg.removePart(relsPartNameFor(notesPartName));
+  const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (slideRels === null) return;
+  slideRels.items = slideRels.items.filter((r) => r.type !== REL_TYPES.notesSlide);
+  pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
+};
+
 // ---------------------------------------------------------------------------
 // Shape image replacement.
 
