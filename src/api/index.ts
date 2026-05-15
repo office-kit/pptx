@@ -292,6 +292,7 @@ export {
   getSlideLayouts,
   getSlideLayoutType,
   getSlideLayoutTypes,
+  getSlideMasterCount,
   getSlideMediaPartNames,
   getSlideNotes,
   getSlideNotesLength,

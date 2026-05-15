@@ -2859,6 +2859,23 @@ export const getMaxShapeIdInPresentation = (pres: PresentationData): number => {
   return max;
 };
 
+/**
+ * Returns the number of slide masters declared in the
+ * presentation's `<p:sldMasterIdLst>`. Most decks use exactly one
+ * master; multi-master decks come from templates that combine
+ * brand variants (e.g. a corporate master + a sponsor master).
+ *
+ * Returns `0` if `presentation.xml` is missing.
+ */
+export const getSlideMasterCount = (pres: PresentationData): number => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const presPart = pkg.getPart(PRES_PART_NAME);
+  if (presPart === null) return 0;
+  const root = parseXml(decode(presPart.data)).root;
+  const model = readPresentationPart(root);
+  return model.slideMasters.length;
+};
+
 export const getShapeName = (shape: SlideShapeData): string =>
   shape[SHAPE_SNAPSHOT].name;
 
