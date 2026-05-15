@@ -83,6 +83,7 @@ export type {
   TextWrap,
 } from './fn.ts';
 export {
+  addBlankSlide,
   addSlide,
   addSlideAt,
   addSlideChart,

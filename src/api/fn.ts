@@ -1720,6 +1720,26 @@ const requirePresentationDoc = (pkg: OpcPackage): XmlDocument => {
  * and `<p:sldIdLst>`. The deck-cache on `pres` is invalidated so the
  * next `getSlides` call sees the new entry.
  */
+/**
+ * Convenience over `addSlide` that picks a layout automatically:
+ *
+ *   1. The layout with `<p:sldLayout type="blank">`, if present.
+ *   2. Otherwise, the first available layout (alphabetical by
+ *      part name).
+ *
+ * Throws when the package carries no layouts at all (which would
+ * be a structurally-broken deck).
+ */
+export const addBlankSlide = (pres: PresentationData): SlideData => {
+  const blank = findSlideLayoutByType(pres, 'blank');
+  if (blank) return addSlide(pres, { layout: blank });
+  const layouts = getSlideLayouts(pres);
+  if (layouts.length === 0) {
+    throw new Error('addBlankSlide: package has no slide layouts to inherit from');
+  }
+  return addSlide(pres, { layout: layouts[0]! });
+};
+
 export const addSlide = (
   pres: PresentationData,
   options: { layout: SlideLayoutData },
