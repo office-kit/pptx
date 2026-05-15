@@ -164,6 +164,7 @@ export {
   getTableCellText,
   getTableCells,
   getTableDimensions,
+  importSlide,
   insertTableColumn,
   insertTableRow,
   isSlideHidden,
