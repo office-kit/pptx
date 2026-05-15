@@ -205,6 +205,7 @@ export {
   getSlideTransition,
   getSlides,
   getSlidesByLayout,
+  getSlidesWithNotes,
   getTableCell,
   getTableCellAlignment,
   getTableCellFill,

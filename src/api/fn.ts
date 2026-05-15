@@ -4737,6 +4737,20 @@ export const getSlideNotes = (slide: SlideData): string | null => {
  * subsequent calls just replace the body placeholder text.
  */
 /**
+ * Returns every slide in the presentation that carries non-empty
+ * speaker notes. Convenience over `getSlides(pres).filter(s =>
+ * getSlideNotes(s) !== null && getSlideNotes(s) !== '')`.
+ */
+export const getSlidesWithNotes = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const notes = getSlideNotes(slide);
+    if (notes !== null && notes.length > 0) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.
