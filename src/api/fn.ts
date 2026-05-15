@@ -2805,6 +2805,29 @@ export const findShapesAtPoint = (
   slide[SLIDE_SHAPES].filter((s) => pointInShape(s, x, y));
 
 /**
+ * Moves the shape so its center sits at the slide canvas center.
+ * Reads the presentation's slide size, then sets the shape's
+ * position to `(slideWidth/2 - shapeWidth/2, slideHeight/2 - shapeHeight/2)`.
+ *
+ * No-op when the shape has no bounds or the presentation has no
+ * configured slide size.
+ */
+export const centerShapeOnSlide = (shape: SlideShapeData): void => {
+  const bounds = getShapeBounds(shape);
+  if (bounds === null) return;
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const presPart = pkg.getPart(PRES_PART_NAME);
+  if (!presPart) return;
+  const presRoot = parseXml(decode(presPart.data)).root;
+  const model = readPresentationPart(presRoot);
+  if (model.slideSize === null) return;
+  const newX = Math.round(model.slideSize.cx / 2 - bounds.w / 2) as Emu;
+  const newY = Math.round(model.slideSize.cy / 2 - bounds.h / 2) as Emu;
+  setShapePosition(shape, newX, newY);
+};
+
+/**
  * `true` when two shapes' axis-aligned bounding boxes overlap.
  * Returns `false` when either shape has no bounds. Doesn't account
  * for rotation — uses the raw `<a:xfrm>` rectangle, not the

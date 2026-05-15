@@ -91,6 +91,7 @@ export {
   addSlideChart,
   bringShapeForward,
   bringShapeToFront,
+  centerShapeOnSlide,
   addSlideComment,
   addSlideImage,
   addSlideLine,
