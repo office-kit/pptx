@@ -4758,6 +4758,22 @@ const findTblElement = (shape: SlideShapeData): XmlElement | null => {
   return firstChildElement(graphicData, NAME_A_TBL);
 };
 
+/**
+ * `true` when the shape is a `<p:graphicFrame>` wrapping `<a:tbl>` —
+ * i.e. a table. Sharper than `getShapeKind(shape) === 'graphicFrame'`,
+ * which also matches charts and SmartArt frames.
+ */
+export const isTableShape = (shape: SlideShapeData): boolean =>
+  findTblElement(shape) !== null;
+
+/**
+ * `true` when the shape is a `<p:graphicFrame>` wrapping a chart
+ * reference (`<c:chart>`). Charts, tables, and SmartArt all share
+ * the graphic-frame kind; this predicate filters down to charts only.
+ */
+export const isChartShape = (shape: SlideShapeData): boolean =>
+  resolveChartPartName(shape[SHAPE_SLIDE], shape) !== null;
+
 const NAME_A_GRID_COL = qname('a', 'gridCol', NS.dml);
 const ATTR_W_TBL = qname('', 'w', '');
 const ATTR_H_TBL = qname('', 'h', '');
