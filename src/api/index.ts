@@ -209,6 +209,7 @@ export {
   getPresentationFonts,
   getPresentationModified,
   getPresentationSummary,
+  getPresentationImageCount,
   getPresentationText,
   getPresentationTextLength,
   getPresentationTheme,

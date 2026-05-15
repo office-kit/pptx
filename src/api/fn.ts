@@ -5444,6 +5444,22 @@ export const getAllImages = (
 };
 
 /**
+ * Fast count of image-bearing shapes across the whole deck. Cheaper
+ * than `getAllImages(pres).length` when only the number is needed
+ * (no intermediate array). Note: counts shape *occurrences*, so the
+ * same media part referenced from two slides counts as two.
+ */
+export const getPresentationImageCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      if (hasShapeImage(shape)) n++;
+    }
+  }
+  return n;
+};
+
+/**
  * One entry per table in the deck, carrying the table shape and
  * the 0-based slide it sits on. Sibling of `getAllCharts`.
  */
