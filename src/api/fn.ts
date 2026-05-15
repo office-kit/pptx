@@ -6537,6 +6537,28 @@ export const getShapeImageBytes = (shape: SlideShapeData): Uint8Array | null => 
 };
 
 /**
+ * `true` when the shape carries an embedded image — either a
+ * `<p:pic>` picture or a `<p:spPr>/<a:blipFill>` image fill on a
+ * regular shape. External `r:link` references count too.
+ */
+export const hasShapeImage = (shape: SlideShapeData): boolean => {
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    return getPictureEmbedRId(shape[SHAPE_ELEMENT]) !== null;
+  }
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return false;
+  return firstChildElement(spPr, qname('a', 'blipFill', NS.dml)) !== null;
+};
+
+/**
+ * Every shape on the slide that carries an embedded image. Walks
+ * `getSlideShapes` and filters by `hasShapeImage`.
+ */
+export const findShapesWithImages = (
+  slide: SlideData,
+): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeImage(s));
+
+/**
  * Returns the package part name (`/ppt/media/imageN.ext`) of
  * whichever image the shape carries — picture (`<p:pic>`) or
  * image-fill (`<a:blipFill>` nested under `<p:spPr>`). Returns
