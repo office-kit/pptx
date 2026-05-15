@@ -5545,6 +5545,38 @@ export const getAllCharts = (
 };
 
 /**
+ * One entry per external hyperlink found in a shape's text body,
+ * carrying the URL, the linked shape, and the 0-based slide index.
+ * Each hyperlinked shape is reported once (the URL of its first
+ * `<a:hlinkClick>` run).
+ */
+export interface PresentationHyperlinkEntry {
+  readonly slideIndex: number;
+  readonly shape: SlideShapeData;
+  readonly url: string;
+}
+
+/**
+ * Returns every external hyperlink in the deck — one entry per
+ * shape whose text body carries an `<a:hlinkClick>`. Useful for
+ * "link audit" passes before publishing, and for building a
+ * deck-wide table of contents of outbound URLs.
+ */
+export const getAllHyperlinks = (
+  pres: PresentationData,
+): ReadonlyArray<PresentationHyperlinkEntry> => {
+  const out: PresentationHyperlinkEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    for (const shape of slides[i]![SLIDE_SHAPES]) {
+      const url = getShapeHyperlink(shape);
+      if (url !== null) out.push({ slideIndex: i, shape, url });
+    }
+  }
+  return out;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
