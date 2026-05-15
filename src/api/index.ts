@@ -160,6 +160,7 @@ export {
   getShapeImagePartName,
   getShapeImageCrop,
   getShapeImageOpacity,
+  getShapeIndex,
   getShapeKind,
   getShapeName,
   getShapeParagraphCount,

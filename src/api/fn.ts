@@ -2322,6 +2322,16 @@ export const findShapesByKind = (
 export const getShapeSlide = (shape: SlideShapeData): SlideData => shape[SHAPE_SLIDE];
 
 /**
+ * Returns the 0-based document-order index of `shape` on its slide,
+ * or `-1` when the shape is stale (e.g. after a `removeShape` that
+ * rebuilt the slide's shape list).
+ */
+export const getShapeIndex = (shape: SlideShapeData): number => {
+  const shapes = shape[SHAPE_SLIDE][SLIDE_SHAPES];
+  return shapes.indexOf(shape);
+};
+
+/**
  * Walks every slide and returns the first shape whose name matches.
  * Useful for "find the logo placeholder anywhere in the deck."
  */
