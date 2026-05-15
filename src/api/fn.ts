@@ -7693,6 +7693,15 @@ export const clearAllTransitions = (pres: PresentationData): void => {
   for (const slide of getSlides(pres)) clearSlideTransition(slide);
 };
 
+/**
+ * Removes every slide background override across the whole deck.
+ * Slides revert to inheriting from their layout / master. Sibling
+ * of `clearAllAnimations` / `clearAllTransitions`.
+ */
+export const clearAllSlideBackgrounds = (pres: PresentationData): void => {
+  for (const slide of getSlides(pres)) clearSlideBackground(slide);
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);

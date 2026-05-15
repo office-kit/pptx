@@ -99,6 +99,7 @@ export {
   clearShapeEffects,
   clearShapeFill,
   clearAllAnimations,
+  clearAllSlideBackgrounds,
   clearAllTransitions,
   clearShapeStroke,
   clearShapeText,
