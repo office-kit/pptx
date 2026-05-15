@@ -126,6 +126,7 @@ export {
   savePresentation,
   sendShapeBackward,
   sendShapeToBack,
+  setChartSpec,
   setShapeAlignment,
   setShapeAnimation,
   setShapeBullets,

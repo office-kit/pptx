@@ -3161,6 +3161,91 @@ const NAME_A_GRAPHIC_DATA_FN = qname('a', 'graphicData', NS.dml);
 const NAME_C_CHART_FN = qname('c', 'chart', NS.chart);
 
 /**
+ * Resolves the chart part backing a graphic-frame shape, or `null` if
+ * the shape isn't a chart wrapper.
+ */
+const resolveChartPartName = (
+  slide: SlideData,
+  shape: SlideShapeData,
+): { partName: PartName; rId: string } | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'graphicFrame') return null;
+  const graphic = firstChildElement(shape[SHAPE_ELEMENT], NAME_A_GRAPHIC_FN);
+  if (!graphic) return null;
+  const graphicData = firstChildElement(graphic, NAME_A_GRAPHIC_DATA_FN);
+  if (!graphicData) return null;
+  const chartRef = firstChildElement(graphicData, NAME_C_CHART_FN);
+  if (!chartRef) return null;
+  const rId = getAttrValue(chartRef, qname('r', 'id', NS.officeDocRels));
+  if (rId === null) return null;
+  const slideRels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
+  if (!slideRels) return null;
+  const rel = slideRels.items.find((r) => r.id === rId);
+  if (!rel) return null;
+  const partNameValue = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+  return { partName: partNameValue, rId };
+};
+
+/**
+ * Replaces the chart definition on an existing graphic-frame chart
+ * shape. Updates the inline `<c:strCache>` / `<c:numCache>` blocks so
+ * PowerPoint renders the new data without opening the embedded
+ * workbook. The shape's geometry (position / size / rotation) is
+ * preserved verbatim.
+ *
+ * The embedded xlsx is re-written too — it's what the "Edit data"
+ * affordance opens. The previous workbook is replaced wholesale (no
+ * attempt to preserve styles a user added through Excel).
+ *
+ * Pass any `ChartSpec`, including a different `kind` from the
+ * original; this acts as "change my column chart to a line chart with
+ * fresh data."
+ */
+export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
+  const slide = chart.shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const resolved = resolveChartPartName(slide, chart.shape);
+  if (!resolved) {
+    throw new Error('setChartSpec: shape is not a chart graphic frame');
+  }
+
+  // Rewrite the chart XML.
+  const doc = buildChartSpaceDoc(spec);
+  const chartBytes = encode(serializeXml(doc));
+  const chartPart = pkg.getPart(resolved.partName);
+  if (!chartPart) {
+    throw new Error(`setChartSpec: chart part ${resolved.partName} not found`);
+  }
+  chartPart.data = chartBytes;
+
+  // Rewrite the embedded xlsx (the part chart→package rel points at).
+  // Reuse the existing rel; fall back to creating a fresh xlsx part if
+  // the chart had no package rel (unusual for charts we authored).
+  const chartRels = pkg.getRels(resolved.partName);
+  if (chartRels) {
+    const xlsxRel = chartRels.items.find((r) => r.type === REL_TYPES.package);
+    if (xlsxRel) {
+      const xlsxName = xlsxRel.target.startsWith('/')
+        ? partName(xlsxRel.target)
+        : resolveTarget(resolved.partName, xlsxRel.target);
+      const xlsxPart = pkg.getPart(xlsxName);
+      const rows = spec.categories.map((label, i) => ({
+        label,
+        values: spec.series.map((s) => s.values[i] ?? null),
+      }));
+      const xlsxBytes = buildEmbeddedXlsx(
+        spec.series.map((s) => s.name),
+        rows,
+      );
+      if (xlsxPart) {
+        xlsxPart.data = xlsxBytes;
+      }
+    }
+  }
+};
+
+/**
  * Returns every chart on the slide, with its `ChartSpec` parsed from
  * the linked chart part. Skips graphic frames that don't carry a
  * `<c:chart>` reference (e.g. tables, diagrams).
@@ -3169,23 +3254,9 @@ export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> 
   const pkg = slide[INTERNAL_PACKAGE];
   const out: SlideChartData[] = [];
   for (const shape of slide[SLIDE_SHAPES]) {
-    if (shape[SHAPE_SNAPSHOT].kind !== 'graphicFrame') continue;
-    const graphic = firstChildElement(shape[SHAPE_ELEMENT], NAME_A_GRAPHIC_FN);
-    if (!graphic) continue;
-    const graphicData = firstChildElement(graphic, NAME_A_GRAPHIC_DATA_FN);
-    if (!graphicData) continue;
-    const chartRef = firstChildElement(graphicData, NAME_C_CHART_FN);
-    if (!chartRef) continue;
-    const rId = getAttrValue(chartRef, qname('r', 'id', NS.officeDocRels));
-    if (rId === null) continue;
-    const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]);
-    if (!slideRels) continue;
-    const rel = slideRels.items.find((r) => r.id === rId);
-    if (!rel) continue;
-    const chartPartName = rel.target.startsWith('/')
-      ? partName(rel.target)
-      : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
-    const chartPart = pkg.getPart(chartPartName);
+    const resolved = resolveChartPartName(slide, shape);
+    if (!resolved) continue;
+    const chartPart = pkg.getPart(resolved.partName);
     if (!chartPart) continue;
     let spec: ChartSpec | null;
     try {
