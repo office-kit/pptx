@@ -86,14 +86,16 @@ const buildTextCellBody = (value: string): XmlElement => {
   return elem(NAME_TX_BODY, { children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), p] });
 };
 
-const buildCell = (value: string): XmlElement => {
+/** @internal — used by row-mutation paths in the public API. */
+export const buildTableCell = (value: string): XmlElement => {
   return elem(NAME_TC, { children: [buildTextCellBody(value), elem(NAME_TC_PR)] });
 };
 
-const buildRow = (cells: ReadonlyArray<string>, h: number): XmlElement =>
+/** @internal — used by row-mutation paths in the public API. */
+export const buildTableRow = (cells: ReadonlyArray<string>, h: number): XmlElement =>
   elem(NAME_TR, {
     attrs: [attr(ATTR_H, String(Math.round(h)))],
-    children: cells.map(buildCell),
+    children: cells.map(buildTableCell),
   });
 
 const equalShares = (total: number, n: number): number[] => {
@@ -167,7 +169,7 @@ export const buildTable = (opts: TableOptions): XmlElement => {
       elem(NAME_GRID_COL, { attrs: [attr(ATTR_W, String(Math.round(w)))] }),
     ),
   });
-  const tableRows = rows.map((row, i) => buildRow(row, rowHeights[i] ?? 0));
+  const tableRows = rows.map((row, i) => buildTableRow(row, rowHeights[i] ?? 0));
   const tbl = elem(NAME_TBL, { children: [tblPr, tblGrid, ...tableRows] });
 
   const graphicData = elem(NAME_GRAPHIC_DATA, {

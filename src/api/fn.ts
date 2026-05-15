@@ -93,6 +93,8 @@ import {
   buildSingleEffectTiming,
   buildSlideFromLayout,
   buildTable,
+  buildTableCell,
+  buildTableRow,
   buildTextBox,
   buildTransition,
   readCommentAuthorList,
@@ -3538,6 +3540,166 @@ export const getTableCellPosition = (cell: TableCellData): { row: number; col: n
   row: cell[CELL_ROW],
   col: cell[CELL_COL],
 });
+
+const requireTbl = (table: SlideShapeData): XmlElement => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('table shape is not a table graphic frame');
+  return tbl;
+};
+
+const NAME_A_GRID_COL = qname('a', 'gridCol', NS.dml);
+const ATTR_W_TBL = qname('', 'w', '');
+const ATTR_H_TBL = qname('', 'h', '');
+
+const tableColumnCount = (tbl: XmlElement): number => {
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  if (!grid) return 0;
+  return allChildElements(grid, NAME_A_GRID_COL).length;
+};
+
+const rowDefaultHeight = (tbl: XmlElement): number => {
+  // Use the average height of existing rows, or 370000 (≈ 0.4in) as a
+  // sane default when the table has no rows yet.
+  const rows = tableRows(tbl);
+  if (rows.length === 0) return 370000;
+  let sum = 0;
+  let count = 0;
+  for (const r of rows) {
+    const h = getAttrValue(r, ATTR_H_TBL);
+    if (h !== null) {
+      const n = Number.parseInt(h, 10);
+      if (Number.isFinite(n)) {
+        sum += n;
+        count++;
+      }
+    }
+  }
+  return count > 0 ? Math.round(sum / count) : 370000;
+};
+
+/**
+ * Inserts a row into the table. `atIndex` is 0-based; `undefined`
+ * appends at the end. `cells` supplies cell values; missing cells
+ * become blank, extras are dropped. The row's height matches the
+ * average of existing rows (or a 0.4in default for empty tables).
+ */
+export const insertTableRow = (
+  table: SlideShapeData,
+  atIndex?: number,
+  cells: ReadonlyArray<string> = [],
+): void => {
+  const tbl = requireTbl(table);
+  const colCount = tableColumnCount(tbl);
+  const padded: string[] = [];
+  for (let i = 0; i < colCount; i++) padded.push(cells[i] ?? '');
+  const row = buildTableRow(padded, rowDefaultHeight(tbl));
+
+  const rows = tableRows(tbl);
+  const insertAt = atIndex !== undefined ? Math.max(0, Math.min(atIndex, rows.length)) : rows.length;
+  if (insertAt === rows.length) {
+    tbl.children.push(row);
+  } else {
+    const target = rows[insertAt]!;
+    const idx = tbl.children.indexOf(target);
+    tbl.children.splice(idx, 0, row);
+  }
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/** Removes the row at `atIndex` from the table. Throws on out-of-range. */
+export const removeTableRow = (table: SlideShapeData, atIndex: number): void => {
+  const tbl = requireTbl(table);
+  const rows = tableRows(tbl);
+  if (atIndex < 0 || atIndex >= rows.length) {
+    throw new RangeError(`removeTableRow: index ${atIndex} out of range (have ${rows.length})`);
+  }
+  const target = rows[atIndex]!;
+  tbl.children = tbl.children.filter((c) => c !== target);
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/**
+ * Inserts a column into the table. `atIndex` defaults to the end.
+ * `widthEmu` defaults to the average of existing column widths (or
+ * 914400 = 1in if the table has no columns). Existing rows get a new
+ * blank cell at `atIndex`.
+ */
+export const insertTableColumn = (
+  table: SlideShapeData,
+  atIndex?: number,
+  widthEmu?: number,
+): void => {
+  const tbl = requireTbl(table);
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  if (!grid) throw new Error('table is missing <a:tblGrid>');
+  const cols = allChildElements(grid, NAME_A_GRID_COL);
+  const insertAt = atIndex !== undefined ? Math.max(0, Math.min(atIndex, cols.length)) : cols.length;
+
+  // Default width: average of existing widths.
+  let defaultWidth = widthEmu;
+  if (defaultWidth === undefined) {
+    let sum = 0;
+    let count = 0;
+    for (const col of cols) {
+      const w = getAttrValue(col, ATTR_W_TBL);
+      if (w !== null) {
+        const n = Number.parseInt(w, 10);
+        if (Number.isFinite(n)) {
+          sum += n;
+          count++;
+        }
+      }
+    }
+    defaultWidth = count > 0 ? Math.round(sum / count) : 914400;
+  }
+  const newCol = elem(NAME_A_GRID_COL, { attrs: [attr(ATTR_W_TBL, String(defaultWidth))] });
+  if (insertAt === cols.length) {
+    grid.children.push(newCol);
+  } else {
+    const target = cols[insertAt]!;
+    const idx = grid.children.indexOf(target);
+    grid.children.splice(idx, 0, newCol);
+  }
+
+  // Add a blank <a:tc> at the same column index in every row.
+  for (const tr of tableRows(tbl)) {
+    const tcs = rowCells(tr);
+    const newCell = buildTableCell('');
+    if (insertAt >= tcs.length) {
+      tr.children.push(newCell);
+    } else {
+      const target = tcs[insertAt]!;
+      const idx = tr.children.indexOf(target);
+      tr.children.splice(idx, 0, newCell);
+    }
+  }
+
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/** Removes the column at `atIndex` (and the corresponding cell in every row). */
+export const removeTableColumn = (table: SlideShapeData, atIndex: number): void => {
+  const tbl = requireTbl(table);
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  if (!grid) throw new Error('table is missing <a:tblGrid>');
+  const cols = allChildElements(grid, NAME_A_GRID_COL);
+  if (atIndex < 0 || atIndex >= cols.length) {
+    throw new RangeError(`removeTableColumn: index ${atIndex} out of range (have ${cols.length})`);
+  }
+  const targetCol = cols[atIndex]!;
+  grid.children = grid.children.filter((c) => c !== targetCol);
+  for (const tr of tableRows(tbl)) {
+    const tcs = rowCells(tr);
+    if (atIndex < tcs.length) {
+      tr.children = tr.children.filter((c) => c !== tcs[atIndex]);
+    }
+  }
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
 
 /**
  * A chart sitting on a slide. `shape` is the `<p:graphicFrame>`
