@@ -301,6 +301,7 @@ export {
   replaceTextInSlide,
   replaceTokensInPresentation,
   replaceTokensInSlide,
+  reverseSlides,
   savePresentation,
   sendShapeBackward,
   sendShapeToBack,

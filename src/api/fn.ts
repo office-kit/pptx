@@ -1987,6 +1987,16 @@ export const sortSlides = (
 };
 
 /**
+ * Reverses the slide order across the whole deck. Built on
+ * `sortSlides` for predictable rels behavior.
+ */
+export const reverseSlides = (pres: PresentationData): void => {
+  const indexBy = new Map<SlideData, number>();
+  for (const [i, slide] of getSlides(pres).entries()) indexBy.set(slide, i);
+  sortSlides(pres, (a, b) => (indexBy.get(b) ?? 0) - (indexBy.get(a) ?? 0));
+};
+
+/**
  * Swaps the positions of the slides at `indexA` and `indexB`.
  * No-op when the indices are equal. Throws on out-of-range indices.
  * Implemented on top of `moveSlide` for predictable rels behavior.
