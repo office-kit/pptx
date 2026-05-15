@@ -562,6 +562,62 @@ export const getPresentationTheme = (pres: PresentationData): PresentationTheme 
   };
 };
 
+/**
+ * The theme's font scheme, flattened to the typefaces the runs in a
+ * deck inherit by default. `major*` is the heading font (slide
+ * titles, chart titles); `minor*` is the body font.
+ *
+ * Each field carries the Latin / East-Asian / Complex-Script
+ * typeface name as written on the theme. Empty values are
+ * normalized to `null`.
+ */
+export interface PresentationFonts {
+  readonly majorLatin: string | null;
+  readonly majorEastAsian: string | null;
+  readonly majorComplexScript: string | null;
+  readonly minorLatin: string | null;
+  readonly minorEastAsian: string | null;
+  readonly minorComplexScript: string | null;
+}
+
+const readTypeface = (parent: XmlElement | null, local: string): string | null => {
+  if (!parent) return null;
+  const el = firstChildElement(parent, qname('a', local, NS.dml));
+  if (!el) return null;
+  const v = getAttrValue(el, qname('', 'typeface', ''));
+  if (!v) return null;
+  return v;
+};
+
+/**
+ * Returns the first theme's font scheme, or `null` when the package
+ * carries no theme. As with `getPresentationTheme`, multi-master
+ * decks surface only the first theme found (alphabetical by part
+ * name); per-master font lookup will land if needed.
+ */
+export const getPresentationFonts = (pres: PresentationData): PresentationFonts | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const themePart = pkg.parts
+    .filter((p) => p.contentType === THEME_CONTENT_TYPE)
+    .sort((a, b) => a.name.localeCompare(b.name))[0];
+  if (!themePart) return null;
+  const root = parseXml(decode(themePart.data)).root;
+  const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
+  if (!themeElements) return null;
+  const fontScheme = firstChildElement(themeElements, qname('a', 'fontScheme', NS.dml));
+  if (!fontScheme) return null;
+  const majorFont = firstChildElement(fontScheme, qname('a', 'majorFont', NS.dml));
+  const minorFont = firstChildElement(fontScheme, qname('a', 'minorFont', NS.dml));
+  return {
+    majorLatin: readTypeface(majorFont, 'latin'),
+    majorEastAsian: readTypeface(majorFont, 'ea'),
+    majorComplexScript: readTypeface(majorFont, 'cs'),
+    minorLatin: readTypeface(minorFont, 'latin'),
+    minorEastAsian: readTypeface(minorFont, 'ea'),
+    minorComplexScript: readTypeface(minorFont, 'cs'),
+  };
+};
+
 // ---------------------------------------------------------------------------
 // Core properties (`/docProps/core.xml`).
 
