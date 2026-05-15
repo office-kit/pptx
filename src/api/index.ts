@@ -153,6 +153,7 @@ export {
   findSlidesByHyperlink,
   findSlidesByLayoutName,
   findSlidesByLayoutType,
+  findSlidesByNotes,
   findSlidesByText,
   findSlidesWithCommentsByAuthor,
   findSlidesWithHyperlinks,

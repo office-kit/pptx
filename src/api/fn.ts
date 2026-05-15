@@ -1576,6 +1576,29 @@ export const findSlidesByText = (
 };
 
 /**
+ * Every slide whose speaker notes contain `needle` (substring) or
+ * match the given `RegExp`. Sibling of `findSlidesByText` — useful
+ * for surfacing reviewer-facing annotations stored in notes (e.g.
+ * "every slide whose notes say TODO").
+ *
+ * Slides without notes are skipped.
+ */
+export const findSlidesByNotes = (
+  pres: PresentationData,
+  needle: string | RegExp,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const notes = getSlideNotes(slide);
+    if (notes === null || notes.length === 0) continue;
+    if (typeof needle === 'string' ? notes.includes(needle) : needle.test(notes)) {
+      out.push(slide);
+    }
+  }
+  return out;
+};
+
+/**
  * Every shape on every slide, paired with its slide and the slide's
  * 0-based index. Useful for cross-deck audits ("find every picture",
  * "list shape names anywhere") without writing the nested-loop
