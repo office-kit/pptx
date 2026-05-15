@@ -106,6 +106,7 @@ export {
   findSlideLayout,
   findSlideLayoutByType,
   findSlidePlaceholder,
+  findSlidePlaceholders,
   findSlidesByText,
   getAllShapes,
   getCommentAuthor,

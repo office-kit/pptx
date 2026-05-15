@@ -1498,6 +1498,31 @@ export const findSlidePlaceholder = (
 };
 
 /**
+ * Returns every placeholder shape with the given `type`. Useful for
+ * "two-content" / "comparison" layouts where multiple body
+ * placeholders share a type and the caller needs to fill them all.
+ * Like `findSlidePlaceholder`, omitted `<p:ph type>` is treated as
+ * `body` per ECMA-376 §19.7.10.
+ */
+export const findSlidePlaceholders = (
+  slide: SlideData,
+  type: string,
+): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const snap = shape[SHAPE_SNAPSHOT];
+    if (snap.placeholderType === type) {
+      out.push(shape);
+      continue;
+    }
+    if (type === 'body' && snap.placeholderType === null && snap.placeholderIdx !== null) {
+      out.push(shape);
+    }
+  }
+  return out;
+};
+
+/**
  * First shape on the slide whose `cNvPr@name` equals `name`, or `null`
  * if none. Use the multi-match variant when more than one shape can
  * share the same name (common with template-cloned shapes).
