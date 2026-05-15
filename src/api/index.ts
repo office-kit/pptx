@@ -125,6 +125,7 @@ export {
   getShapeId,
   getShapeImageBrightness,
   getShapeImageBytes,
+  getShapeImageFillBytes,
   getShapeImageContrast,
   getShapeImageCrop,
   getShapeImageOpacity,

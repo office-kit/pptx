@@ -5422,6 +5422,37 @@ export const getShapeImageBytes = (shape: SlideShapeData): Uint8Array | null => 
 };
 
 /**
+ * Returns the bytes of the image used as this shape's *fill*
+ * (`<a:blipFill>` nested under `<p:spPr>`, as written by
+ * `setShapeImageFill`). Distinct from `getShapeImageBytes`, which only
+ * applies to `<p:pic>` picture shapes.
+ *
+ * Returns null if the shape has no image fill, the blip has no
+ * `r:embed`, or the embed points at an external `r:link`.
+ */
+export const getShapeImageFillBytes = (shape: SlideShapeData): Uint8Array | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const blipFill = firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  if (rEmbed === null) return null;
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const rel = rels.items.find((r) => r.id === rEmbed);
+  if (!rel || rel.targetMode === 'External') return null;
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+  const part = pkg.getPart(mediaName);
+  return part?.data ?? null;
+};
+
+/**
  * Reads the picture's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.
