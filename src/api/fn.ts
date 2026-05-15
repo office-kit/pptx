@@ -7711,6 +7711,18 @@ export const setAllSlidesHidden = (pres: PresentationData, hidden: boolean): voi
   for (const slide of getSlides(pres)) setSlideHidden(slide, hidden);
 };
 
+/**
+ * Applies the same transition to every slide in the deck. Useful
+ * for "make the whole deck fade" workflows. Pass through whatever
+ * `TransitionOptions` `setSlideTransition` accepts.
+ */
+export const setAllSlidesTransition = (
+  pres: PresentationData,
+  options: TransitionOptions,
+): void => {
+  for (const slide of getSlides(pres)) setSlideTransition(slide, options);
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);

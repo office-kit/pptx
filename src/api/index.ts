@@ -289,6 +289,7 @@ export {
   setCoreProperties,
   setExtendedProperties,
   setAllSlidesHidden,
+  setAllSlidesTransition,
   setMediaPartBytes,
   setShapeAlignment,
   setShapeAltTitle,
