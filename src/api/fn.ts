@@ -658,6 +658,24 @@ export const getSlideAt = (pres: PresentationData, index: number): SlideData | n
 };
 
 /**
+ * Returns every slide bound to the given `layout`. Useful for "find
+ * all slides using the `Title and Content` layout" workflows; pair
+ * with `findSlideLayout(pres, name)` to look up the layout by name.
+ */
+export const getSlidesByLayout = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): ReadonlyArray<SlideData> => {
+  const target = layout[LAYOUT_PART_NAME];
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const found = getSlideLayout(slide);
+    if (found !== null && found[LAYOUT_PART_NAME] === target) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns the first slide whose concatenated visible text contains
  * `needle` (substring; case-sensitive). Pass a `RegExp` to test
  * against the slide's text body instead. Returns `null` when no

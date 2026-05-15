@@ -164,6 +164,7 @@ export {
   getSlideTitle,
   getSlideTransition,
   getSlides,
+  getSlidesByLayout,
   getTableCell,
   getTableCellPosition,
   getTableCellText,
