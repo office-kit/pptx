@@ -5295,6 +5295,15 @@ export const getCommentDate = (comment: SlideCommentData): string | null =>
 export const getCommentPosition = (comment: SlideCommentData): CommentPosition | null =>
   comment[COMMENT_SNAPSHOT].position;
 
+/**
+ * Returns the slide that owns this comment. Counterpart to
+ * `getShapeSlide(shape)` — handy when filtering across the deck
+ * with `findCommentsByAuthor` and the caller needs to know which
+ * slide each hit came from.
+ */
+export const getCommentSlide = (comment: SlideCommentData): SlideData =>
+  comment[COMMENT_SLIDE];
+
 // ---------------------------------------------------------------------------
 
 /**

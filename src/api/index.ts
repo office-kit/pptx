@@ -130,6 +130,7 @@ export {
   getCommentCount,
   getCommentDate,
   getCommentPosition,
+  getCommentSlide,
   getCommentText,
   getCoreProperties,
   getImageParts,
