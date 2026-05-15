@@ -4609,6 +4609,83 @@ export const readPackagePart = (pres: PresentationData, name: string): Uint8Arra
   return part?.data ?? null;
 };
 
+/**
+ * High-level snapshot of the presentation's structure. Useful as a
+ * diagnostic checklist when debugging a template or generating audit
+ * reports. The numbers reflect what's reachable through the typed
+ * API on the current package state.
+ */
+export interface PresentationSummary {
+  readonly slideCount: number;
+  readonly hiddenSlideCount: number;
+  readonly totalShapes: number;
+  readonly shapesByKind: Readonly<Record<ShapeKind, number>>;
+  readonly layoutCount: number;
+  readonly sectionCount: number;
+  readonly partCount: number;
+  readonly hasCharts: boolean;
+  readonly hasComments: boolean;
+  readonly hasAnimations: boolean;
+  readonly themeName: string | null;
+}
+
+const CHART_CONTENT_TYPE_FN =
+  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const COMMENTS_CONTENT_TYPE_FN =
+  'application/vnd.openxmlformats-officedocument.presentationml.comments+xml';
+
+export const getPresentationSummary = (pres: PresentationData): PresentationSummary => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const slides = getSlides(pres);
+  let hiddenSlideCount = 0;
+  let totalShapes = 0;
+  const shapesByKind: Record<ShapeKind, number> = {
+    shape: 0,
+    picture: 0,
+    group: 0,
+    graphicFrame: 0,
+    connector: 0,
+  };
+  let hasAnimations = false;
+  for (const slide of slides) {
+    if (isSlideHidden(slide)) hiddenSlideCount++;
+    for (const s of slide[SLIDE_SHAPES]) {
+      totalShapes++;
+      shapesByKind[s[SHAPE_SNAPSHOT].kind]++;
+    }
+    // <p:timing> presence = at least one animation.
+    if (
+      !hasAnimations &&
+      slide[SLIDE_DOCUMENT].root.children.some(
+        (c) =>
+          c.kind === 'element' &&
+          c.name.namespaceURI === NS.pml &&
+          c.name.localName === 'timing',
+      )
+    ) {
+      hasAnimations = true;
+    }
+  }
+
+  const hasCharts = pkg.parts.some((p) => p.contentType === CHART_CONTENT_TYPE_FN);
+  const hasComments = pkg.parts.some((p) => p.contentType === COMMENTS_CONTENT_TYPE_FN);
+  const theme = getPresentationTheme(pres);
+
+  return {
+    slideCount: slides.length,
+    hiddenSlideCount,
+    totalShapes,
+    shapesByKind,
+    layoutCount: getSlideLayouts(pres).length,
+    sectionCount: getSlideSections(pres).length,
+    partCount: pkg.parts.length,
+    hasCharts,
+    hasComments,
+    hasAnimations,
+    themeName: theme?.name ?? null,
+  };
+};
+
 // ---------------------------------------------------------------------------
 // Picture opacity — `<a:alphaModFix>` inside the picture's `<a:blip>`.
 //

@@ -56,6 +56,7 @@ export type {
 export type {
   AllShapesEntry,
   PackagePartInfo,
+  PresentationSummary,
   PresentationTheme,
   ShapeBounds,
   ShapeEffect,
@@ -126,6 +127,7 @@ export {
   getShapeRunCount,
   getShapeRunFormat,
   getShapeRunText,
+  getPresentationSummary,
   getPresentationTheme,
   getShapeSize,
   getShapeStroke,
