@@ -5812,6 +5812,23 @@ export const getCommentAuthors = (pres: PresentationData): ReadonlyArray<Comment
   loadAuthorList(pres[INTERNAL_PACKAGE]);
 
 /**
+ * Returns every slide that has at least one comment by the given
+ * author name. Sibling of `findCommentsByAuthor` (which returns
+ * the comments themselves). Case-sensitive equality.
+ */
+export const findSlidesWithCommentsByAuthor = (
+  pres: PresentationData,
+  authorName: string,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const hit = getSlideComments(slide).some((c) => c.author.name === authorName);
+    if (hit) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns every distinct author who has at least one comment
  * anywhere in the deck. Deduplicates by author id; preserves
  * first-seen order. Differs from `getCommentAuthors(pres)`, which
