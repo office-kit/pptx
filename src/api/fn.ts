@@ -1092,6 +1092,27 @@ export const findSlideLayout = (
 };
 
 /**
+ * Returns every slide layout in the package that exposes a
+ * placeholder of the given type token (`'title'`, `'body'`,
+ * `'ftr'`, etc.). Useful for "find every layout that can host a
+ * body" lookups before `addSlide`.
+ */
+export const findLayoutsWithPlaceholderType = (
+  pres: PresentationData,
+  type: string,
+): ReadonlyArray<SlideLayoutData> => {
+  const out: SlideLayoutData[] = [];
+  for (const layout of getSlideLayouts(pres)) {
+    const phs = getSlideLayoutPlaceholders(layout);
+    const hit = phs.some(
+      (p) => p.type === type || (type === 'body' && p.type === null && p.idx !== null),
+    );
+    if (hit) out.push(layout);
+  }
+  return out;
+};
+
+/**
  * Finds the first slide layout with the given `<p:sldLayout type="...">`
  * token. Unlike `findSlideLayout` (which matches the user-visible
  * name, and is therefore locale-sensitive), this matches the spec
