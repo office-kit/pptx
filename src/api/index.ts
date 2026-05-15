@@ -135,6 +135,7 @@ export {
   getCommentSlide,
   getCommentText,
   getCoreProperties,
+  getHiddenSlides,
   getImageParts,
   getExtendedProperties,
   getParagraphAlignment,
