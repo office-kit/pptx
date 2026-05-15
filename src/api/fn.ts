@@ -1174,6 +1174,43 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
 export const getSlideText = (slide: SlideData): string => slideText(slide[SLIDE_PART]);
 
 /**
+ * A single slide's outline entry: its index, title (or `null`), and
+ * the text of its body placeholder (or `null`). Used by
+ * `getSlideOutline`.
+ */
+export interface SlideOutlineEntry {
+  readonly index: number;
+  readonly title: string | null;
+  readonly body: string | null;
+}
+
+/**
+ * Returns a one-entry-per-slide outline: title + body-placeholder
+ * text. Useful for building thumbnail panes, table-of-contents
+ * inserts, or quick-look previews without rendering the slide.
+ *
+ * "Body" here is the first matching `body` placeholder per
+ * `findSlidePlaceholder(slide, 'body')`. Non-placeholder text on
+ * the slide isn't surfaced; use `getSlideText(slide)` for that.
+ */
+export const getSlideOutline = (
+  pres: PresentationData,
+): ReadonlyArray<SlideOutlineEntry> => {
+  const out: SlideOutlineEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i]!;
+    const body = findSlidePlaceholder(slide, 'body');
+    out.push({
+      index: i,
+      title: getSlideTitle(slide),
+      body: body !== null ? body[SHAPE_SNAPSHOT].text : null,
+    });
+  }
+  return out;
+};
+
+/**
  * Concatenated visible text from every slide, joined with the
  * given `separator` (defaults to a form-feed, `\f`, between slides).
  * Useful for search-indexing a whole deck without iterating slides
