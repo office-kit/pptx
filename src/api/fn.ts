@@ -1171,6 +1171,21 @@ const buildSlideData = (
  * invalid PPTX cannot honor the L1 contract.
  */
 /**
+ * Number of shapes on the slide. Equivalent to
+ * `getSlideShapes(slide).length`.
+ */
+export const getShapeCount = (slide: SlideData): number => slide[SLIDE_SHAPES].length;
+
+/**
+ * Total shapes across every slide in the deck.
+ */
+export const getTotalShapeCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) n += slide[SLIDE_SHAPES].length;
+  return n;
+};
+
+/**
  * Returns the slide count without forcing every slide part to be
  * parsed. Reads only `presentation.xml` and walks `<p:sldIdLst>`.
  *
