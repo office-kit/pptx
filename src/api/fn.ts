@@ -1177,6 +1177,14 @@ const buildSlideData = (
 export const getShapeCount = (slide: SlideData): number => slide[SLIDE_SHAPES].length;
 
 /**
+ * Returns the shape at the given 0-based `index` on the slide, or
+ * `null` when `index` is out of range. Convenience over
+ * `getSlideShapes(slide)[index] ?? null`.
+ */
+export const getShapeAt = (slide: SlideData, index: number): SlideShapeData | null =>
+  slide[SLIDE_SHAPES][index] ?? null;
+
+/**
  * Total shapes across every slide in the deck.
  */
 export const getTotalShapeCount = (pres: PresentationData): number => {

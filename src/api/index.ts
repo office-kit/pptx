@@ -144,6 +144,7 @@ export {
   getParagraphSpacing,
   getShapeAltTitle,
   getShapeAnimation,
+  getShapeAt,
   getShapeBounds,
   getShapeChartKind,
   getShapeChartSpec,
