@@ -103,6 +103,7 @@ export {
   findShapesByName,
   findSlideByText,
   findSlideLayout,
+  findSlideLayoutByType,
   findSlidePlaceholder,
   findSlidesByText,
   getAllShapes,

@@ -577,6 +577,23 @@ export const findSlideLayout = (
 };
 
 /**
+ * Finds the first slide layout with the given `<p:sldLayout type="...">`
+ * token. Unlike `findSlideLayout` (which matches the user-visible
+ * name, and is therefore locale-sensitive), this matches the spec
+ * token — `title`, `obj`, `twoObj`, `blank`, etc. — and is stable
+ * across PowerPoint UI languages.
+ */
+export const findSlideLayoutByType = (
+  pres: PresentationData,
+  layoutType: SlideLayoutType | string,
+): SlideLayoutData | null => {
+  for (const layout of getSlideLayouts(pres)) {
+    if (layout[LAYOUT_PART].layoutType === layoutType) return layout;
+  }
+  return null;
+};
+
+/**
  * Layout type token, when present (`title`, `obj`, `twoObj`, ...).
  * `null` when omitted — the spec default for that case is `cust`.
  */
