@@ -1698,18 +1698,6 @@ export const getAllShapes = (pres: PresentationData): ReadonlyArray<AllShapesEnt
   return out;
 };
 
-/**
- * Fast count of all shapes across every slide in the deck. Cheaper
- * than `getAllShapes(pres).length` when only the number is needed
- * (no intermediate array). Useful as a coarse complexity / sizing
- * metric for a presentation.
- */
-export const getPresentationShapeCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) n += slide[SLIDE_SHAPES].length;
-  return n;
-};
-
 // ---------------------------------------------------------------------------
 // Slide visibility — `<p:sld show="0">` hides a slide from the slideshow
 // without removing it from the deck. `show="1"` (or omission) is visible.
