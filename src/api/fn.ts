@@ -7924,6 +7924,30 @@ export const getSlideShapeBounds = (
 };
 
 /**
+ * Returns every unordered pair of shapes on the slide whose
+ * bounding boxes overlap. Built on `shapesOverlap`. Pairs are
+ * returned with `a` strictly preceding `b` in document order, and
+ * each pair appears at most once.
+ *
+ * Useful for layout audits — "do any boxes collide on this slide?"
+ * Shapes without `<a:xfrm>` bounds never overlap anything.
+ */
+export const findOverlappingShapePairs = (
+  slide: SlideData,
+): ReadonlyArray<readonly [SlideShapeData, SlideShapeData]> => {
+  const shapes = slide[SLIDE_SHAPES];
+  const out: (readonly [SlideShapeData, SlideShapeData])[] = [];
+  for (let i = 0; i < shapes.length; i++) {
+    for (let j = i + 1; j < shapes.length; j++) {
+      if (shapesOverlap(shapes[i]!, shapes[j]!)) {
+        out.push([shapes[i]!, shapes[j]!] as const);
+      }
+    }
+  }
+  return out;
+};
+
+/**
  * Returns every shape on the slide whose bounding box extends past
  * the slide canvas (`getSlideSize(pres)`). Useful audit helper for
  * catching shapes that PowerPoint will silently render off-screen
