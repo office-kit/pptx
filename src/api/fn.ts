@@ -4548,6 +4548,17 @@ export const getSlideNotes = (slide: SlideData): string | null => {
  * wires up the rels (slide ↔ notesSlide ↔ notesMaster) on first call;
  * subsequent calls just replace the body placeholder text.
  */
+/**
+ * Appends `text` to the slide's existing notes on its own line.
+ * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
+ * minus the leading newline when there were no notes yet.
+ */
+export const appendSlideNotes = (slide: SlideData, text: string): void => {
+  const existing = getSlideNotes(slide);
+  const value = existing === null || existing.length === 0 ? text : `${existing}\n${text}`;
+  setSlideNotes(slide, value);
+};
+
 export const setSlideNotes = (slide: SlideData, value: string): void => {
   const pkg = slide[INTERNAL_PACKAGE];
   const notesPartName = findNotesPartName(slide);
