@@ -4150,6 +4150,69 @@ export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
   };
 };
 
+/**
+ * Adjusts the picture's brightness by writing `<a:lumOff val="…"/>`
+ * inside `<a:blip>`. The value is a -1..1 fraction:
+ *
+ *   - `1`     → +100% brightness
+ *   - `0` or `null` → no offset (any prior `<a:lumOff>` is removed)
+ *   - `-1`    → -100% brightness
+ *
+ * Throws for non-picture shapes and on values outside [-1, 1].
+ *
+ * Note: PowerPoint's "Picture Format › Corrections" UI couples this
+ * with `<a:lumMod>` for some presets; this primitive sets only
+ * `lumOff` to keep the surface honest. Read it back via
+ * `getShapeImageBrightness`.
+ */
+export const setShapeImageBrightness = (
+  shape: SlideShapeData,
+  value: number | null,
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
+    throw new Error(
+      `setShapeImageBrightness only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
+  blip.children = blip.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'lumOff'),
+  );
+  if (value !== null && value !== 0) {
+    if (!Number.isFinite(value) || value < -1 || value > 1) {
+      throw new RangeError(`brightness must be in [-1, 1], got ${value}`);
+    }
+    blip.children.push(
+      elem(qname('a', 'lumOff', NS.dml), {
+        attrs: [attr(qname('', 'val', ''), String(Math.round(value * 100000)))],
+      }),
+    );
+  }
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads the picture's brightness offset (the `<a:lumOff>` fraction
+ * in [-1, 1]). Returns `null` when no `<a:lumOff>` is present.
+ */
+export const getShapeImageBrightness = (shape: SlideShapeData): number | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const lumOff = firstChildElement(blip, qname('a', 'lumOff', NS.dml));
+  if (!lumOff) return null;
+  const v = getAttrValue(lumOff, qname('', 'val', ''));
+  if (v === null) return null;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n / 100000 : null;
+};
+
 export const setShapeImageOpacity = (
   shape: SlideShapeData,
   opacity: number | null,
