@@ -4669,6 +4669,27 @@ export const readPackagePart = (pres: PresentationData, name: string): Uint8Arra
   return part?.data ?? null;
 };
 
+/** A media (image / video / audio) part embedded in the package. */
+export interface MediaPart {
+  readonly name: string;
+  readonly contentType: string;
+  readonly data: Uint8Array;
+}
+
+/**
+ * Returns every `/ppt/media/...` part in the package. Useful for
+ * audit / export workflows — e.g. "extract every embedded image."
+ */
+export const getMediaParts = (pres: PresentationData): ReadonlyArray<MediaPart> => {
+  const out: MediaPart[] = [];
+  for (const p of pres[INTERNAL_PACKAGE].parts) {
+    if (p.name.startsWith('/ppt/media/')) {
+      out.push({ name: p.name, contentType: p.contentType, data: p.data });
+    }
+  }
+  return out;
+};
+
 /**
  * High-level snapshot of the presentation's structure. Useful as a
  * diagnostic checklist when debugging a template or generating audit
