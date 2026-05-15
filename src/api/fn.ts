@@ -5356,6 +5356,32 @@ const ATTR_AMT_FN = qname('', 'amt', '');
  * Throws for non-picture shapes and on opacities outside `[0, 1]`.
  */
 /**
+ * Returns the embedded image bytes for a picture shape, or `null`
+ * when the shape isn't a picture or has no `r:embed` reference
+ * (external images aren't followed).
+ *
+ * The returned `Uint8Array` is a live view into the package media
+ * part — treat it as read-only; copy if you need an independent
+ * buffer.
+ */
+export const getShapeImageBytes = (shape: SlideShapeData): Uint8Array | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
+  const rEmbed = getPictureEmbedRId(shape[SHAPE_ELEMENT]);
+  if (rEmbed === null) return null;
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const rel = rels.items.find((r) => r.id === rEmbed);
+  if (!rel || rel.targetMode === 'External') return null;
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+  const part = pkg.getPart(mediaName);
+  return part?.data ?? null;
+};
+
+/**
  * Reads the picture's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.

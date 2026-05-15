@@ -122,6 +122,7 @@ export {
   getShapeHyperlink,
   getShapeId,
   getShapeImageBrightness,
+  getShapeImageBytes,
   getShapeImageContrast,
   getShapeImageCrop,
   getShapeImageOpacity,
