@@ -356,6 +356,7 @@ export {
   setSlideHidden,
   setSlideLayout,
   setSlideNotes,
+  setSlidePlaceholders,
   setSlideSections,
   setSlideSize,
   setSlideTitle,

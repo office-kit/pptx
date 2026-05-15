@@ -8023,6 +8023,28 @@ export const setSlideTitle = (slide: SlideData, title: string): void => {
 };
 
 /**
+ * Bulk-fills slide placeholders by type token. Each entry in
+ * `byType` maps a `<p:ph type>` token (e.g. `'title'`, `'body'`,
+ * `'ftr'`, `'dt'`) to the text to set. Silently skips entries
+ * whose placeholder isn't present on the slide.
+ *
+ * Useful for template-fill workflows where the caller has all the
+ * data in one struct.
+ */
+export const setSlidePlaceholders = (
+  slide: SlideData,
+  byType: Readonly<Record<string, string>>,
+): void => {
+  for (const [type, text] of Object.entries(byType)) {
+    const shape =
+      type === 'title'
+        ? findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle')
+        : findSlidePlaceholder(slide, type);
+    if (shape !== null) setShapeText(shape, text);
+  }
+};
+
+/**
  * Writes `text` into the first body placeholder on the slide.
  * Newlines start a new paragraph (each becomes its own bullet on
  * layouts that bullet their body placeholder).
