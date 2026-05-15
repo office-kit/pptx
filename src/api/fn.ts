@@ -1316,6 +1316,17 @@ export const getSlideTitles = (pres: PresentationData): ReadonlyArray<string | n
 };
 
 /**
+ * Returns the user-visible name of every slide layout in the
+ * package (in part-name order). Useful for "pick a layout" pickers
+ * and layout audits.
+ */
+export const getSlideLayoutNames = (pres: PresentationData): ReadonlyArray<string> => {
+  const out: string[] = [];
+  for (const layout of getSlideLayouts(pres)) out.push(getSlideLayoutName(layout));
+  return out;
+};
+
+/**
  * Concatenated title + body text from every slide, joined with the
  * given `separator` (defaults to `'\n\n'`). Useful for generating
  * a table-of-contents handout from a deck. Slides without a title
