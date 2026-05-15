@@ -5813,6 +5813,22 @@ export const getSlideNotesLength = (slide: SlideData): number => {
 };
 
 /**
+ * Concatenated speaker notes from every slide, joined with the
+ * given `separator` (defaults to a form-feed, `\f`). Slides with
+ * no notes contribute the empty string. Sibling of
+ * `getPresentationText` — useful for search-indexing notes
+ * across a whole deck.
+ */
+export const getPresentationNotesText = (
+  pres: PresentationData,
+  separator: string = '\f',
+): string => {
+  const parts: string[] = [];
+  for (const slide of getSlides(pres)) parts.push(getSlideNotes(slide) ?? '');
+  return parts.join(separator);
+};
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.
