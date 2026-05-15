@@ -3596,6 +3596,51 @@ const ATTR_AMT_FN = qname('', 'amt', '');
  *
  * Throws for non-picture shapes and on opacities outside `[0, 1]`.
  */
+/**
+ * Reads the picture's opacity (0–1 fraction). Returns `null` when no
+ * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
+ * opaque); returns `1` when an explicit alphaModFix sets full opacity.
+ */
+export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const alpha = firstChildElement(blip, qname('a', 'alphaModFix', NS.dml));
+  if (!alpha) return null;
+  const amt = getAttrValue(alpha, qname('', 'amt', ''));
+  if (amt === null) return 1;
+  const n = Number.parseInt(amt, 10);
+  if (!Number.isFinite(n)) return null;
+  return n / 100000;
+};
+
+/**
+ * Reads the picture's crop fractions. Returns `null` when no
+ * `<a:srcRect>` is present; otherwise returns a fully-populated object
+ * with every side filled in (0 for omitted sides on disk).
+ */
+export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) return null;
+  const srcRect = firstChildElement(blipFill, qname('a', 'srcRect', NS.dml));
+  if (!srcRect) return null;
+  const parseSide = (local: string): number => {
+    const v = getAttrValue(srcRect, qname('', local, ''));
+    if (v === null) return 0;
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n / 100000 : 0;
+  };
+  return {
+    left: parseSide('l'),
+    top: parseSide('t'),
+    right: parseSide('r'),
+    bottom: parseSide('b'),
+  };
+};
+
 export const setShapeImageOpacity = (
   shape: SlideShapeData,
   opacity: number | null,

@@ -91,6 +91,8 @@ export {
   getShapeFill,
   getShapeFlip,
   getShapeId,
+  getShapeImageCrop,
+  getShapeImageOpacity,
   getShapeKind,
   getShapeName,
   getShapeParagraphCount,
