@@ -350,6 +350,7 @@ export {
   replaceTextInNotes,
   replaceTextInPresentation,
   replaceTextInSlide,
+  replaceTextInSlideNotes,
   replaceTokensInPresentation,
   replaceTokensInSlide,
   reverseSlides,

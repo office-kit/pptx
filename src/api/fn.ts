@@ -1613,25 +1613,37 @@ export const replaceTextInNotes = (
 ): number => {
   let n = 0;
   for (const slide of getSlides(pres)) {
-    const notes = getSlideNotes(slide);
-    if (notes === null || notes.length === 0) continue;
-    let next: string;
-    if (typeof from === 'string') {
-      if (!notes.includes(from)) continue;
-      next = notes.split(from).join(to);
-    } else {
-      const re = from.global ? from : new RegExp(from.source, `${from.flags}g`);
-      if (!re.test(notes)) continue;
-      // Reset lastIndex from .test before .replace.
-      re.lastIndex = 0;
-      next = notes.replace(re, to);
-    }
-    if (next !== notes) {
-      setSlideNotes(slide, next);
-      n++;
-    }
+    if (replaceTextInSlideNotes(slide, from, to)) n++;
   }
   return n;
+};
+
+/**
+ * Slide-scoped sibling of `replaceTextInNotes`. Replaces every
+ * occurrence of `from` in the slide's speaker notes with `to`.
+ * Returns `true` if the notes changed, `false` otherwise (no notes
+ * present, or no match).
+ */
+export const replaceTextInSlideNotes = (
+  slide: SlideData,
+  from: string | RegExp,
+  to: string,
+): boolean => {
+  const notes = getSlideNotes(slide);
+  if (notes === null || notes.length === 0) return false;
+  let next: string;
+  if (typeof from === 'string') {
+    if (!notes.includes(from)) return false;
+    next = notes.split(from).join(to);
+  } else {
+    const re = from.global ? from : new RegExp(from.source, `${from.flags}g`);
+    if (!re.test(notes)) return false;
+    re.lastIndex = 0;
+    next = notes.replace(re, to);
+  }
+  if (next === notes) return false;
+  setSlideNotes(slide, next);
+  return true;
 };
 
 /**
