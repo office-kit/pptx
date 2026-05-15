@@ -157,6 +157,7 @@ export {
   getMediaParts,
   getPresentationFonts,
   getPresentationSummary,
+  getPresentationText,
   getPresentationTheme,
   getShapePlaceholderType,
   getShapePosition,

@@ -1174,6 +1174,21 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
 export const getSlideText = (slide: SlideData): string => slideText(slide[SLIDE_PART]);
 
 /**
+ * Concatenated visible text from every slide, joined with the
+ * given `separator` (defaults to a form-feed, `\f`, between slides).
+ * Useful for search-indexing a whole deck without iterating slides
+ * yourself.
+ */
+export const getPresentationText = (
+  pres: PresentationData,
+  separator: string = '\f',
+): string => {
+  const parts: string[] = [];
+  for (const slide of getSlides(pres)) parts.push(slideText(slide[SLIDE_PART]));
+  return parts.join(separator);
+};
+
+/**
  * Returns the 0-based index of `slide` within `pres`, or `-1` if the
  * slide doesn't belong to this presentation (e.g. after a removeSlide
  * call, or if it was constructed from a different package).
