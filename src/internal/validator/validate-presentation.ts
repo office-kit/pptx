@@ -225,6 +225,59 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
         partName: layoutName,
       });
     }
+
+    // Dangling media / chart / hyperlink rels.
+    for (const rel of slideRels.items) {
+      if (rel.targetMode === 'External') continue;
+      if (
+        rel.type !== REL_TYPES.image &&
+        rel.type !== REL_TYPES.chart &&
+        rel.type !== REL_TYPES.notesSlide &&
+        rel.type !== REL_TYPES.comments &&
+        rel.type !== REL_TYPES.oleObject &&
+        rel.type !== REL_TYPES.package
+      ) {
+        continue;
+      }
+      const targetName = targetPartName(slideName, rel);
+      if (pkg.getPart(targetName) === null) {
+        issues.push({
+          severity: 'error',
+          message: `slide ${slideName} has dangling ${rel.type.split('/').pop()} rel → ${targetName}`,
+          partName: slideName,
+        });
+      }
+    }
+  }
+
+  // Chart parts must resolve to their embedded xlsx workbooks.
+  for (const part of pkg.parts) {
+    if (
+      part.contentType !==
+      'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
+    ) {
+      continue;
+    }
+    const chartRels = pkg.getRels(part.name);
+    if (!chartRels) {
+      issues.push({
+        severity: 'warning',
+        message: `chart part ${part.name} has no .rels`,
+        partName: part.name,
+      });
+      continue;
+    }
+    const xlsxRel = chartRels.items.find((r) => r.type === REL_TYPES.package);
+    if (xlsxRel) {
+      const xlsxName = targetPartName(part.name, xlsxRel);
+      if (pkg.getPart(xlsxName) === null) {
+        issues.push({
+          severity: 'error',
+          message: `chart ${part.name} references missing embedded workbook ${xlsxName}`,
+          partName: part.name,
+        });
+      }
+    }
   }
 
   return issues;

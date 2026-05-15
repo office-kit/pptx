@@ -65,4 +65,33 @@ describe('fn API: validatePresentation', () => {
     const after = await loadPresentation(await clsApi.save());
     expect(validatePresentation(after)).toEqual([]);
   });
+
+  it('flags a dangling image rel after media removal', async () => {
+    const { addSlideImage, getSlides, inches } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    // Add an image to install a slide → image rel.
+    addSlideImage(
+      slide,
+      new Uint8Array([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
+        0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x62, 0x00, 0x01, 0x00, 0x00,
+        0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
+        0x42, 0x60, 0x82,
+      ]),
+      { x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png' },
+    );
+
+    // Save → reload → remove the media part directly via the class
+    // package (the slide still references it).
+    const cls = await Presentation.load(await savePresentation(pres));
+    const pkg = _internalPackageOf(cls);
+    const media = pkg.parts.find((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name));
+    if (!media) throw new Error('expected media part');
+    pkg.removePart(media.name);
+    const broken = await loadPresentation(await cls.save());
+    const issues = validatePresentation(broken);
+    expect(issues.some((i) => i.message.includes('image'))).toBe(true);
+  });
 });
