@@ -4998,6 +4998,25 @@ export const getTableCellPosition = (cell: TableCellData): { row: number; col: n
   col: cell[CELL_COL],
 });
 
+/**
+ * Reads the horizontal alignment from the cell's first paragraph
+ * (`l`, `ctr`, `r`, `just`, `dist`, `justLow`, `thaiDist`). Returns
+ * `null` when the cell has no `<a:txBody>` or its first paragraph
+ * has no explicit `algn` attribute (PowerPoint then defaults to `l`).
+ */
+export const getTableCellAlignment = (cell: TableCellData): ParagraphAlignment | null => {
+  const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+  if (!txBody) return null;
+  for (const p of txBody.children) {
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') continue;
+    const pPr = firstChildElement(p, qname('a', 'pPr', NS.dml));
+    if (!pPr) return null;
+    const v = getAttrValue(pPr, qname('', 'algn', ''));
+    return (v as ParagraphAlignment | null) ?? null;
+  }
+  return null;
+};
+
 const requireTbl = (table: SlideShapeData): XmlElement => {
   const tbl = findTblElement(table);
   if (!tbl) throw new Error('table shape is not a table graphic frame');
