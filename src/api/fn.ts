@@ -4944,6 +4944,33 @@ export interface PresentationNotesEntry {
 }
 
 /**
+ * One entry per chart in the deck, carrying both the chart and the
+ * 0-based slide it was attached to.
+ */
+export interface PresentationChartEntry {
+  readonly slideIndex: number;
+  readonly chart: SlideChartData;
+}
+
+/**
+ * Returns every chart across every slide in the deck, paired with
+ * the 0-based index of its slide. Useful for chart-inventory UIs
+ * and bulk chart-update pipelines.
+ */
+export const getAllCharts = (
+  pres: PresentationData,
+): ReadonlyArray<PresentationChartEntry> => {
+  const out: PresentationChartEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    for (const c of getSlideCharts(slides[i]!)) {
+      out.push({ slideIndex: i, chart: c });
+    }
+  }
+  return out;
+};
+
+/**
  * One entry per comment in the deck, carrying both the comment and
  * the 0-based slide it was attached to.
  */
