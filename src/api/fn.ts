@@ -5592,6 +5592,30 @@ export const getPresentationHyperlinkCount = (pres: PresentationData): number =>
 };
 
 /**
+ * Returns every distinct external URL referenced by any shape in
+ * the deck, in first-seen order. Sibling of `getAllHyperlinks`
+ * (which keeps duplicates and slide indices). Useful for "are
+ * these URLs all live?" audits where checking each URL once is
+ * enough.
+ */
+export const getDistinctHyperlinkUrls = (
+  pres: PresentationData,
+): ReadonlyArray<string> => {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      const url = getShapeHyperlink(shape);
+      if (url !== null && !seen.has(url)) {
+        seen.add(url);
+        out.push(url);
+      }
+    }
+  }
+  return out;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).

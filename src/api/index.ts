@@ -168,6 +168,7 @@ export {
   getCommentSlide,
   getCommentText,
   getCoreProperties,
+  getDistinctHyperlinkUrls,
   getHiddenSlideCount,
   getHiddenSlides,
   getImageParts,
