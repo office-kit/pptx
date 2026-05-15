@@ -2756,6 +2756,22 @@ export const getShapeBounds = (shape: SlideShapeData): ShapeBounds | null => {
 };
 
 /**
+ * Returns the center point of the shape's bounds in EMU, or `null`
+ * when the shape has no `<a:xfrm>`. Convenience for layout
+ * pipelines that compute alignment / overlap from center points.
+ */
+export const getShapeCenter = (
+  shape: SlideShapeData,
+): { readonly x: Emu; readonly y: Emu } | null => {
+  const bounds = getShapeBounds(shape);
+  if (bounds === null) return null;
+  return {
+    x: (bounds.x + Math.round(bounds.w / 2)) as Emu,
+    y: (bounds.y + Math.round(bounds.h / 2)) as Emu,
+  };
+};
+
+/**
  * Sets both position and size in one call. Equivalent to calling
  * `setShapePosition` followed by `setShapeSize`, but commits the slide
  * just once.

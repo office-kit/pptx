@@ -164,6 +164,7 @@ export {
   getShapeAnimation,
   getShapeAt,
   getShapeBounds,
+  getShapeCenter,
   getShapeChartCategories,
   getShapeChartKind,
   getShapeChartSeriesNames,
