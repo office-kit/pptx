@@ -219,6 +219,7 @@ export {
   getSlideTransition,
   getSlides,
   getSlidesByLayout,
+  getSlidesWithComments,
   getSlidesWithNotes,
   getTableCell,
   getTableCellAlignment,

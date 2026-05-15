@@ -4833,6 +4833,19 @@ export const getSlideNotes = (slide: SlideData): string | null => {
  * subsequent calls just replace the body placeholder text.
  */
 /**
+ * Returns every slide that has at least one comment attached.
+ * Convenience over `getSlides(pres).filter(s =>
+ * getSlideComments(s).length > 0)`.
+ */
+export const getSlidesWithComments = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (getSlideComments(slide).length > 0) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns every slide in the presentation that carries non-empty
  * speaker notes. Convenience over `getSlides(pres).filter(s =>
  * getSlideNotes(s) !== null && getSlideNotes(s) !== '')`.
