@@ -7769,6 +7769,17 @@ export const getSlideShapeNames = (slide: SlideData): ReadonlyArray<string> => {
 };
 
 /**
+ * Returns each shape's numeric `cNvPr@id` on the slide in document
+ * order. Pairs with `getShapeId` for compact inventory dumps and
+ * `findShapeById` lookups.
+ */
+export const getSlideShapeIds = (slide: SlideData): ReadonlyArray<number> => {
+  const out: number[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].id);
+  return out;
+};
+
+/**
  * Every shape on the slide whose visible text body is non-empty.
  * Sibling of `findShapesWithImages`. Useful for "find all
  * caption / label boxes on this slide" patterns.
