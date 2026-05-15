@@ -222,6 +222,8 @@ describe('tree-shake: minimal load+save entry', () => {
       }
     `);
     process.stderr.write(`tree-shake: minimal-bundle = ${result.bytes} bytes\n`);
-    expect(result.bytes).toBeLessThan(120_000);
+    // Tightened after class-API removal. Current size is ~60 KB;
+    // 75 KB is the regression cap.
+    expect(result.bytes).toBeLessThan(75_000);
   });
 });
