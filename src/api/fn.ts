@@ -658,6 +658,43 @@ export const getSlideAt = (pres: PresentationData, index: number): SlideData | n
 };
 
 /**
+ * Returns the first slide whose concatenated visible text contains
+ * `needle` (substring; case-sensitive). Pass a `RegExp` to test
+ * against the slide's text body instead. Returns `null` when no
+ * slide matches.
+ */
+export const findSlideByText = (
+  pres: PresentationData,
+  needle: string | RegExp,
+): SlideData | null => {
+  for (const slide of getSlides(pres)) {
+    const text = slideText(slide[SLIDE_PART]);
+    if (typeof needle === 'string' ? text.includes(needle) : needle.test(text)) {
+      return slide;
+    }
+  }
+  return null;
+};
+
+/**
+ * Every slide whose concatenated visible text contains `needle`
+ * (substring) or matches the given `RegExp`.
+ */
+export const findSlidesByText = (
+  pres: PresentationData,
+  needle: string | RegExp,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const text = slideText(slide[SLIDE_PART]);
+    if (typeof needle === 'string' ? text.includes(needle) : needle.test(text)) {
+      out.push(slide);
+    }
+  }
+  return out;
+};
+
+/**
  * Every shape on every slide, paired with its slide and the slide's
  * 0-based index. Useful for cross-deck audits ("find every picture",
  * "list shape names anywhere") without writing the nested-loop
