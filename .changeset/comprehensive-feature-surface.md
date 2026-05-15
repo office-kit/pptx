@@ -85,9 +85,8 @@ plan. Highlights:
 
 **Tree-shake**
 
-- Free-function API in `'pptx-kit'` drops to ~57 KB for the minimal
-  `load`+`save` bundle vs ~171 KB for the class API entry. CI
-  guard via `test/tree-shake.test.ts`.
+- The minimal `load`+`save` import is ~60 KB; the full fn-API
+  bundle ~123 KB. CI guard via `test/tree-shake.test.ts`.
 
 All emitted XML validates against the ECMA-376 strict schemas
 (pml.xsd, dml-chart.xsd, opc-relationships.xsd, opc-contentTypes.xsd)
