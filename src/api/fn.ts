@@ -1424,6 +1424,19 @@ export const findShapeByName = (slide: SlideData, name: string): SlideShapeData 
   return null;
 };
 
+/**
+ * Returns the shape with the given OOXML internal id (`cNvPr@id`), or
+ * `null` when no such shape exists. Shape ids are unique within a
+ * slide; pair with `getShapeId` to round-trip references that arrive
+ * from external XML (e.g. animations, hyperlinks).
+ */
+export const findShapeById = (slide: SlideData, id: number): SlideShapeData | null => {
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (shape[SHAPE_SNAPSHOT].id === id) return shape;
+  }
+  return null;
+};
+
 /** Every shape on the slide whose `cNvPr@name` equals `name`. */
 export const findShapesByName = (
   slide: SlideData,

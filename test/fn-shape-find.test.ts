@@ -85,6 +85,19 @@ describe('fn API: shape lookup helpers', () => {
     }
   });
 
+  it('findShapeById returns the shape with that OOXML id', async () => {
+    const { findShapeById, getShapeId } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const tb = addSlideTextBox(slide, {
+      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      text: 'hi', name: 'Spot',
+    });
+    const id = getShapeId(tb);
+    expect(findShapeById(slide, id)).not.toBeNull();
+    expect(findShapeById(slide, 9999)).toBeNull();
+  });
+
   it('findShapeInPresentation walks every slide', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first, second] = getSlides(pres);
