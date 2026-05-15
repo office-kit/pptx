@@ -307,6 +307,7 @@ export {
   setTableColumnWidth,
   setTableRowHeight,
   setThumbnail,
+  slidesUsingMediaPart,
   sortSlides,
   swapSlides,
   touchModified,

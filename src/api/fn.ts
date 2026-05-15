@@ -6446,6 +6446,41 @@ export const getImageParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
   getMediaParts(pres).filter((p) => p.contentType.startsWith('image/'));
 
 /**
+ * Returns every slide that references the given media part name
+ * (typically `/ppt/media/imageN.ext`). Walks each slide's rels and
+ * checks whether any internal rel resolves to `mediaPartName`.
+ *
+ * Useful for image-audit workflows: "before I replace this image,
+ * which slides will the change affect?"
+ */
+export const slidesUsingMediaPart = (
+  pres: PresentationData,
+  mediaPartName: string,
+): ReadonlyArray<SlideData> => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const resolve = (sourcePart: string, target: string): string => {
+    if (target.startsWith('/')) return target;
+    const dir = sourcePart.split('/').slice(0, -1);
+    const segments: string[] = [];
+    for (const seg of [...dir, ...target.split('/')]) {
+      if (seg === '..') segments.pop();
+      else if (seg !== '.' && seg.length > 0) segments.push(seg);
+    }
+    return `/${segments.join('/')}`;
+  };
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+    if (!rels) continue;
+    const hit = rels.items.some(
+      (r) => r.targetMode !== 'External' && resolve(slide[SLIDE_PART_NAME], r.target) === mediaPartName,
+    );
+    if (hit) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Removes media parts that no rels graph references. Returns the
  * list of removed part names. Useful after a sequence of slide
  * removals leaves orphan images behind.
