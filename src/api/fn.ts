@@ -7908,6 +7908,22 @@ export const getSlideShapeTexts = (slide: SlideData): ReadonlyArray<string> => {
 };
 
 /**
+ * Returns each shape's bounds (`x`, `y`, `w`, `h` in EMU) on the
+ * slide in document order. Shapes without an `<a:xfrm>` yield
+ * `null`; index alignment with `getSlideShapes` is preserved.
+ *
+ * Useful for layout pipelines that need every shape's box in one
+ * pass without re-walking the tree.
+ */
+export const getSlideShapeBounds = (
+  slide: SlideData,
+): ReadonlyArray<ShapeBounds | null> => {
+  const out: (ShapeBounds | null)[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) out.push(getShapeBounds(shape));
+  return out;
+};
+
+/**
  * Every slide whose layout's `cSld@name` matches the given string.
  * Useful for batch operations on slides sharing a layout — for
  * example, restyling every "Title and Content" slide in a deck.

@@ -263,6 +263,7 @@ export {
   getSlideOutline,
   getSlidePartName,
   getSlideSections,
+  getSlideShapeBounds,
   getSlideShapeIds,
   getSlideShapeKinds,
   getSlideShapeNames,
