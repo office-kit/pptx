@@ -234,6 +234,7 @@ export {
   getTableRowHeights,
   getThumbnail,
   getTotalShapeCount,
+  getVisibleSlides,
   importSlide,
   incrementRevision,
   insertTableColumn,

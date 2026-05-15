@@ -4848,6 +4848,20 @@ export const getSlideNotes = (slide: SlideData): string | null => {
  * subsequent calls just replace the body placeholder text.
  */
 /**
+ * Returns every slide in document order whose `<p:sldId show="0">`
+ * flag is *not* set. Convenience over `getSlides(pres).filter(s =>
+ * !isSlideHidden(s))` — useful when an export pipeline needs to
+ * skip hidden slides without touching the `show` attribute itself.
+ */
+export const getVisibleSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (!isSlideHidden(slide)) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns every slide that has at least one comment attached.
  * Convenience over `getSlides(pres).filter(s =>
  * getSlideComments(s).length > 0)`.
