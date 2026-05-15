@@ -1599,6 +1599,42 @@ export const findSlidesByNotes = (
 };
 
 /**
+ * Replaces every occurrence of `from` in every slide's speaker
+ * notes with `to`. Returns the number of slides updated. Sibling
+ * of `replaceTextInPresentation` for the reviewer-annotation pass.
+ *
+ * Slides without notes are skipped. For string needles, replacement
+ * is global; for RegExp needles, the global flag is forced.
+ */
+export const replaceTextInNotes = (
+  pres: PresentationData,
+  from: string | RegExp,
+  to: string,
+): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    const notes = getSlideNotes(slide);
+    if (notes === null || notes.length === 0) continue;
+    let next: string;
+    if (typeof from === 'string') {
+      if (!notes.includes(from)) continue;
+      next = notes.split(from).join(to);
+    } else {
+      const re = from.global ? from : new RegExp(from.source, `${from.flags}g`);
+      if (!re.test(notes)) continue;
+      // Reset lastIndex from .test before .replace.
+      re.lastIndex = 0;
+      next = notes.replace(re, to);
+    }
+    if (next !== notes) {
+      setSlideNotes(slide, next);
+      n++;
+    }
+  }
+  return n;
+};
+
+/**
  * Every shape on every slide, paired with its slide and the slide's
  * 0-based index. Useful for cross-deck audits ("find every picture",
  * "list shape names anywhere") without writing the nested-loop
