@@ -3152,6 +3152,26 @@ export const setShapeText = (
 };
 
 /**
+ * Empties the shape's text body, preserving the underlying paragraph
+ * and run properties (so the next `setShapeText` reuses the original
+ * font / color / size). Equivalent to `setShapeText(shape, '')` but
+ * more explicit about intent.
+ */
+export const clearShapeText = (shape: SlideShapeData): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
+    throw new Error(
+      `clearShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (txBody === null) {
+    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
+  }
+  setTextBody(txBody, '');
+  commitAndRefresh(shape);
+};
+
+/**
  * Appends `value` to the shape's existing text on a new line. The
  * shape's existing run / paragraph formatting is preserved by
  * `setTextBody`; the new paragraph inherits the same template.

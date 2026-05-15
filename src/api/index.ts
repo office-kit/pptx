@@ -94,6 +94,7 @@ export {
   clearShapeEffects,
   clearShapeFill,
   clearShapeStroke,
+  clearShapeText,
   clearSlideAnimations,
   clearSlideBackground,
   clearSlideShapes,
