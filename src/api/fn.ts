@@ -3091,6 +3091,66 @@ export const setSlideBackground = (slide: SlideData, color: string): void => {
   setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
 };
 
+/**
+ * Sets a picture as the slide's background. Embeds `bytes` as a new
+ * media part, wires a slide → image rel, and replaces any prior
+ * background with a `<p:bgPr><a:blipFill><a:blip r:embed="…"/>
+ * <a:stretch><a:fillRect/></a:stretch></a:blipFill></p:bgPr>` payload.
+ *
+ * Format is detected from magic bytes; pass `options.format` to
+ * override.
+ */
+export const setSlideBackgroundImage = (
+  slide: SlideData,
+  bytes: Uint8Array,
+  options: { format?: ImageFormat } = {},
+): void => {
+  const format = options.format ?? detectImageFormat(bytes);
+  if (format === null) {
+    throw new Error(
+      'setSlideBackgroundImage: could not detect image format. Pass options.format explicitly.',
+    );
+  }
+  const contentType = contentTypeForFormat(format);
+  const extension = extensionForFormat(format);
+  const pkg = slide[INTERNAL_PACKAGE];
+
+  // Allocate media part name.
+  let nextN = 1;
+  const mediaPattern = /^\/ppt\/media\/image(\d+)\./;
+  for (const p of pkg.parts) {
+    const m = p.name.match(mediaPattern);
+    if (m?.[1] !== undefined) {
+      const n = Number.parseInt(m[1], 10);
+      if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+    }
+  }
+  const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
+  setOpcDefault(pkg, extension, contentType);
+  pkg.addPart(newMediaName, contentType, bytes);
+
+  // Slide → image rel.
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
+  const newRId = nextRelId(rels.items.map((r) => r.id));
+  rels.items.push({
+    id: newRId,
+    type: REL_TYPES.image,
+    target: `../media/image${nextN}.${extension}`,
+    targetMode: 'Internal',
+  });
+  pkg.setRels(slide[SLIDE_PART_NAME], rels);
+
+  setSlideBackgroundXml(slide, (bgPr) => {
+    const blip = elem(qname('a', 'blip', NS.dml), {
+      attrs: [attr(qname('r', 'embed', NS.officeDocRels), newRId)],
+    });
+    const stretch = elem(qname('a', 'stretch', NS.dml), {
+      children: [elem(qname('a', 'fillRect', NS.dml))],
+    });
+    bgPr.children.push(elem(qname('a', 'blipFill', NS.dml), { children: [blip, stretch] }));
+  });
+};
+
 /** Clears any explicit slide background, restoring layout inheritance. */
 export const clearSlideBackground = (slide: SlideData): void => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
