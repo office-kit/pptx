@@ -1,5 +1,5 @@
-// hasShapeImage / findShapesWithImages — predicates that surface
-// shapes carrying images (picture or image-fill).
+// hasShapeImage — predicate that flags shapes carrying images
+// (picture or image-fill).
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -8,7 +8,6 @@ import {
   addSlideImage,
   addSlideShape,
   addSlideTextBox,
-  findShapesWithImages,
   getSlides,
   hasShapeImage,
   inches,
@@ -27,7 +26,7 @@ const PNG = new Uint8Array([
   0x42, 0x60, 0x82,
 ]);
 
-describe('fn API: hasShapeImage / findShapesWithImages', () => {
+describe('fn API: hasShapeImage', () => {
   it('predicate is true for picture shapes and image-filled shapes', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
@@ -56,20 +55,4 @@ describe('fn API: hasShapeImage / findShapesWithImages', () => {
     expect(hasShapeImage(tb)).toBe(false);
   });
 
-  it('findShapesWithImages yields every image-bearing shape', async () => {
-    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    const slide = getSlides(pres)[0]!;
-    addSlideImage(slide, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
-    });
-    addSlideImage(slide, PNG, {
-      x: inches(2), y: inches(0), w: inches(1), h: inches(1),
-    });
-    addSlideShape(slide, {
-      preset: 'rect', x: inches(4), y: inches(0), w: inches(1), h: inches(1),
-    });
-    const found = findShapesWithImages(slide);
-    expect(found.length).toBe(2);
-    for (const s of found) expect(hasShapeImage(s)).toBe(true);
-  });
 });

@@ -8380,27 +8380,6 @@ export const hasShapeImage = (shape: SlideShapeData): boolean => {
 };
 
 /**
- * Every shape on the slide that carries an embedded image. Walks
- * `getSlideShapes` and filters by `hasShapeImage`.
- */
-export const findShapesWithImages = (
-  slide: SlideData,
-): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeImage(s));
-
-/**
- * Fast count of image-bearing shapes on a slide. Cheaper than
- * `findShapesWithImages(slide).length` when only the number is
- * needed (no intermediate array).
- */
-export const getSlideImageCount = (slide: SlideData): number => {
-  let n = 0;
-  for (const shape of slide[SLIDE_SHAPES]) {
-    if (hasShapeImage(shape)) n++;
-  }
-  return n;
-};
-
-/**
  * Returns each shape's `ShapeKind` on the slide in document order.
  * Useful for compact "what's on this slide?" reports without
  * holding the full shape handles.
@@ -8646,28 +8625,6 @@ export const findSlidesByLayoutType = (
     if (layout !== null && getSlideLayoutType(layout) === layoutType) out.push(slide);
   }
   return out;
-};
-
-/**
- * Every shape on the slide whose visible text body is non-empty.
- * Sibling of `findShapesWithImages`. Useful for "find all
- * caption / label boxes on this slide" patterns.
- */
-export const findShapesWithText = (
-  slide: SlideData,
-): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeText(s));
-
-/**
- * Fast count of shapes on the slide carrying non-empty text. Cheaper
- * than `findShapesWithText(slide).length` when only the number is
- * needed (no intermediate array).
- */
-export const getSlideTextShapeCount = (slide: SlideData): number => {
-  let n = 0;
-  for (const shape of slide[SLIDE_SHAPES]) {
-    if (hasShapeText(shape)) n++;
-  }
-  return n;
 };
 
 /**
