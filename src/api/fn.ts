@@ -4883,6 +4883,30 @@ export const getVisibleSlides = (pres: PresentationData): ReadonlyArray<SlideDat
 };
 
 /**
+ * Returns every slide carrying at least one chart graphic frame.
+ * Built on `isChartShape`.
+ */
+export const getSlidesWithCharts = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (slide[SLIDE_SHAPES].some((s) => isChartShape(s))) out.push(slide);
+  }
+  return out;
+};
+
+/**
+ * Returns every slide carrying at least one table graphic frame.
+ * Built on `isTableShape`.
+ */
+export const getSlidesWithTables = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (slide[SLIDE_SHAPES].some((s) => isTableShape(s))) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns every slide carrying at least one image-bearing shape
  * (a `<p:pic>` picture or a regular shape with `<a:blipFill>`).
  * Built on `hasShapeImage`.
