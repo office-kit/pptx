@@ -7702,6 +7702,15 @@ export const clearAllSlideBackgrounds = (pres: PresentationData): void => {
   for (const slide of getSlides(pres)) clearSlideBackground(slide);
 };
 
+/**
+ * Sets the `show` flag on every slide in one call. Useful for
+ * "hide everything, then selectively re-show" workflows that
+ * filter the deck down to a subset of slides.
+ */
+export const setAllSlidesHidden = (pres: PresentationData, hidden: boolean): void => {
+  for (const slide of getSlides(pres)) setSlideHidden(slide, hidden);
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);
