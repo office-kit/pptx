@@ -179,6 +179,7 @@ export {
   removeSlideComment,
   removeTableColumn,
   removeTableRow,
+  renameShape,
   replaceTextInPresentation,
   replaceTextInSlide,
   replaceTokensInPresentation,

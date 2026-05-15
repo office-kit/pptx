@@ -1435,6 +1435,25 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
 export const getShapeName = (shape: SlideShapeData): string =>
   shape[SHAPE_SNAPSHOT].name;
 
+/**
+ * Renames the shape's `cNvPr@name`. The display name is what
+ * PowerPoint shows in the Selection Pane and what `findShapeByName`
+ * matches on. Empty strings are allowed (matches PowerPoint behavior).
+ */
+export const renameShape = (shape: SlideShapeData, newName: string): void => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) {
+    throw new Error(
+      `renameShape: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr to rename`,
+    );
+  }
+  cNvPr.attrs = cNvPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'name'),
+  );
+  cNvPr.attrs.push(attr(qname('', 'name', ''), newName));
+  commitAndRefresh(shape);
+};
+
 export const getShapePlaceholderType = (shape: SlideShapeData): string | null =>
   shape[SHAPE_SNAPSHOT].placeholderType;
 
