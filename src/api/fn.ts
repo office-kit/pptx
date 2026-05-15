@@ -2496,6 +2496,18 @@ export const getShapePlaceholderType = (shape: SlideShapeData): string | null =>
 export const getShapePlaceholderIdx = (shape: SlideShapeData): number | null =>
   shape[SHAPE_SNAPSHOT].placeholderIdx;
 
+/**
+ * `true` when the shape carries `<p:nvSpPr><p:nvPr><p:ph>` — i.e. it
+ * inherits from a layout/master placeholder. False for decorative
+ * geometry the slide author dropped onto the canvas. Decoupled from
+ * the more specific `getShapePlaceholderType` / `getShapePlaceholderIdx`
+ * (either can be null on a real placeholder; together they identify it).
+ */
+export const isShapePlaceholder = (shape: SlideShapeData): boolean => {
+  const snap = shape[SHAPE_SNAPSHOT];
+  return snap.placeholderType !== null || snap.placeholderIdx !== null;
+};
+
 export const getShapeText = (shape: SlideShapeData): string =>
   shape[SHAPE_SNAPSHOT].text;
 

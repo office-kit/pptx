@@ -231,6 +231,7 @@ export {
   insertTableRow,
   isChartShape,
   isShapeHidden,
+  isShapePlaceholder,
   isSlideHidden,
   isTableShape,
   listPackageParts,
