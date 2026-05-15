@@ -106,6 +106,7 @@ export {
   getAllShapes,
   getCommentAuthor,
   getCommentAuthors,
+  getCommentCount,
   getCommentDate,
   getCommentPosition,
   getCommentText,

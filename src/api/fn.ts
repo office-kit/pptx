@@ -4017,6 +4017,19 @@ export const getCommentAuthors = (pres: PresentationData): ReadonlyArray<Comment
   loadAuthorList(pres[INTERNAL_PACKAGE]);
 
 /**
+ * Total number of comments across every slide in the deck. Faster
+ * than `getSlides(pres).flatMap(getSlideComments).length` when
+ * callers just need the headline number.
+ */
+export const getCommentCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    n += loadCommentsForSlide(slide).length;
+  }
+  return n;
+};
+
+/**
  * Returns every comment attached to the slide, with the author already
  * resolved. The list is read-only — use `addSlideComment` /
  * `removeSlideComment` to mutate.
