@@ -250,6 +250,7 @@ export {
   getThumbnail,
   getTotalShapeCount,
   getVisibleSlides,
+  hasShapeText,
   importSlide,
   incrementRevision,
   insertTableColumn,

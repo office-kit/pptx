@@ -7125,6 +7125,16 @@ export const getShapeImageBytes = (shape: SlideShapeData): Uint8Array | null => 
 };
 
 /**
+ * `true` when the shape's text body carries any visible characters.
+ * Tighter than checking `getShapeText(shape) !== ''` because it
+ * doesn't allocate the concatenated string.
+ */
+export const hasShapeText = (shape: SlideShapeData): boolean => {
+  const text = shape[SHAPE_SNAPSHOT].text;
+  return typeof text === 'string' && text.length > 0;
+};
+
+/**
  * `true` when the shape carries an embedded image — either a
  * `<p:pic>` picture or a `<p:spPr>/<a:blipFill>` image fill on a
  * regular shape. External `r:link` references count too.
