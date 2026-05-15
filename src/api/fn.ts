@@ -7772,6 +7772,19 @@ export const findShapesWithImages = (
 ): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeImage(s));
 
 /**
+ * Fast count of image-bearing shapes on a slide. Cheaper than
+ * `findShapesWithImages(slide).length` when only the number is
+ * needed (no intermediate array).
+ */
+export const getSlideImageCount = (slide: SlideData): number => {
+  let n = 0;
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (hasShapeImage(shape)) n++;
+  }
+  return n;
+};
+
+/**
  * Returns each shape's `ShapeKind` on the slide in document order.
  * Useful for compact "what's on this slide?" reports without
  * holding the full shape handles.
