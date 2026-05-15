@@ -1599,6 +1599,31 @@ export const findSlidesByNotes = (
 };
 
 /**
+ * Returns every slide where `needle` appears in **either** the
+ * visible text or the speaker notes. Each slide is reported once,
+ * in document order. Sibling of `findSlidesByText` /
+ * `findSlidesByNotes` — useful for a generic "search the deck"
+ * UX where the caller doesn't care which surface matched.
+ */
+export const searchSlides = (
+  pres: PresentationData,
+  needle: string | RegExp,
+): ReadonlyArray<SlideData> => {
+  const matchesString = (haystack: string): boolean =>
+    typeof needle === 'string' ? haystack.includes(needle) : needle.test(haystack);
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (matchesString(slideText(slide[SLIDE_PART]))) {
+      out.push(slide);
+      continue;
+    }
+    const notes = getSlideNotes(slide);
+    if (notes !== null && notes.length > 0 && matchesString(notes)) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Replaces every occurrence of `from` in every slide's speaker
  * notes with `to`. Returns the number of slides updated. Sibling
  * of `replaceTextInPresentation` for the reviewer-annotation pass.

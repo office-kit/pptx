@@ -358,6 +358,7 @@ export {
   replaceTokensInSlide,
   reverseSlides,
   savePresentation,
+  searchSlides,
   sendShapeBackward,
   sendShapeToBack,
   setChartSpec,
