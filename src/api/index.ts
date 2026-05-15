@@ -254,6 +254,7 @@ export {
   getSlideOutline,
   getSlidePartName,
   getSlideSections,
+  getSlideShapeNames,
   getSlideShapes,
   getSlideSize,
   getSlideText,

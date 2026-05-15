@@ -7747,6 +7747,17 @@ export const findShapesWithImages = (
 ): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeImage(s));
 
 /**
+ * Returns each shape's `cNvPr@name` (selection-pane name) on the
+ * slide in document order. Useful for "ls" / inventory UIs that
+ * want a compact view of every shape's name.
+ */
+export const getSlideShapeNames = (slide: SlideData): ReadonlyArray<string> => {
+  const out: string[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].name);
+  return out;
+};
+
+/**
  * Every shape on the slide whose visible text body is non-empty.
  * Sibling of `findShapesWithImages`. Useful for "find all
  * caption / label boxes on this slide" patterns.
