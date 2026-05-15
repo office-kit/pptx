@@ -125,7 +125,7 @@ via Layer-1 tests.
   `findSlidePlaceholders`, `findSlidePlaceholderByIdx`.
 - Mutation: `setShapeRunHyperlink`, `getShapeRunHyperlink`,
   `setShapeBody`, `getSlideBody`, `appendShapeText`,
-  `appendSlideNotes`, `clearShapeText`, `removeSlideNotes`,
+  `appendSlideNotes`, `removeSlideNotes`,
   `swapSlides`, `mergePresentations`, `slidesUsingMediaPart`,
   `setTableColumnWidth`, `setTableRowHeight`, `getTableColumnWidths`,
   `getTableRowHeights`, `getTableCellAlignment`, `getTableCellFill`.

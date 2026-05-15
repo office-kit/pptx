@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import {
   addSlideShape,
   addSlideTextBox,
-  clearShapeText,
   getSlides,
   hasShapeText,
   inches,
@@ -34,7 +33,7 @@ describe('fn API: hasShapeText', () => {
       x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'set',
     });
     expect(hasShapeText(tb)).toBe(true);
-    clearShapeText(tb);
+    setShapeText(tb, '');
     expect(hasShapeText(tb)).toBe(false);
   });
 

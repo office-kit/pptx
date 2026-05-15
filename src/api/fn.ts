@@ -3808,25 +3808,6 @@ export const setShapeText = (
   commitAndRefresh(shape);
 };
 
-/**
- * Empties the shape's text body, preserving the underlying paragraph
- * and run properties (so the next `setShapeText` reuses the original
- * font / color / size). Equivalent to `setShapeText(shape, '')` but
- * more explicit about intent.
- */
-export const clearShapeText = (shape: SlideShapeData): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
-    throw new Error(
-      `clearShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
-  if (txBody === null) {
-    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
-  }
-  setTextBody(txBody, '');
-  commitAndRefresh(shape);
-};
 
 /**
  * Appends `value` to the shape's existing text on a new line. The
@@ -9306,62 +9287,6 @@ export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null
 };
 
 /** Removes the slide's `<p:timing>` element entirely. */
-/**
- * Removes every slide animation across the whole deck. Convenience
- * over `for (const slide of getSlides(pres)) clearSlideAnimations(slide)`.
- * Useful for "scrub animations before printing / exporting" workflows.
- */
-export const clearAllAnimations = (pres: PresentationData): void => {
-  for (const slide of getSlides(pres)) clearSlideAnimations(slide);
-};
-
-/**
- * Removes every slide transition across the whole deck. Sibling of
- * `clearAllAnimations`.
- */
-export const clearAllTransitions = (pres: PresentationData): void => {
-  for (const slide of getSlides(pres)) clearSlideTransition(slide);
-};
-
-/**
- * Removes every slide background override across the whole deck.
- * Slides revert to inheriting from their layout / master. Sibling
- * of `clearAllAnimations` / `clearAllTransitions`.
- */
-export const clearAllSlideBackgrounds = (pres: PresentationData): void => {
-  for (const slide of getSlides(pres)) clearSlideBackground(slide);
-};
-
-/**
- * Sets the `show` flag on every slide in one call. Useful for
- * "hide everything, then selectively re-show" workflows that
- * filter the deck down to a subset of slides.
- */
-export const setAllSlidesHidden = (pres: PresentationData, hidden: boolean): void => {
-  for (const slide of getSlides(pres)) setSlideHidden(slide, hidden);
-};
-
-/**
- * Applies the same transition to every slide in the deck. Useful
- * for "make the whole deck fade" workflows. Pass through whatever
- * `TransitionOptions` `setSlideTransition` accepts.
- */
-export const setAllSlidesTransition = (
-  pres: PresentationData,
-  options: TransitionOptions,
-): void => {
-  for (const slide of getSlides(pres)) setSlideTransition(slide, options);
-};
-
-/**
- * Applies the same solid-color background to every slide. Useful
- * for "brand the deck dark mode" / "watermark every slide" flows.
- * Pair with `clearAllSlideBackgrounds` to revert.
- */
-export const setAllSlidesBackground = (pres: PresentationData, color: string): void => {
-  for (const slide of getSlides(pres)) setSlideBackground(slide, color);
-};
-
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);
