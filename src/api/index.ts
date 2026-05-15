@@ -227,6 +227,7 @@ export {
   getSlideLayoutPlaceholders,
   getSlideLayouts,
   getSlideLayoutType,
+  getSlideLayoutTypes,
   getSlideNotes,
   getSlideOutline,
   getSlidePartName,

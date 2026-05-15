@@ -1327,6 +1327,20 @@ export const getSlideLayoutNames = (pres: PresentationData): ReadonlyArray<strin
 };
 
 /**
+ * Returns the ECMA-376 `<p:sldLayout type>` token of every layout
+ * in part-name order. Useful for locale-stable audit reports (the
+ * type tokens — `'title'`, `'obj'`, `'blank'`, ... — are the same
+ * across PowerPoint UI languages, whereas the names are localized).
+ */
+export const getSlideLayoutTypes = (
+  pres: PresentationData,
+): ReadonlyArray<string | null> => {
+  const out: (string | null)[] = [];
+  for (const layout of getSlideLayouts(pres)) out.push(getSlideLayoutType(layout));
+  return out;
+};
+
+/**
  * Concatenated title + body text from every slide, joined with the
  * given `separator` (defaults to `'\n\n'`). Useful for generating
  * a table-of-contents handout from a deck. Slides without a title
