@@ -98,6 +98,7 @@ export {
   appendSlideNotes,
   clearShapeEffects,
   clearShapeFill,
+  clearAllAnimations,
   clearShapeStroke,
   clearShapeText,
   clearSlideAnimations,

@@ -7676,6 +7676,15 @@ export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null
 };
 
 /** Removes the slide's `<p:timing>` element entirely. */
+/**
+ * Removes every slide animation across the whole deck. Convenience
+ * over `for (const slide of getSlides(pres)) clearSlideAnimations(slide)`.
+ * Useful for "scrub animations before printing / exporting" workflows.
+ */
+export const clearAllAnimations = (pres: PresentationData): void => {
+  for (const slide of getSlides(pres)) clearSlideAnimations(slide);
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);
