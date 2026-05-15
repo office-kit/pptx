@@ -288,6 +288,7 @@ export {
   getSlideLayoutName,
   getSlideLayoutNames,
   getSlideLayoutPartName,
+  getSlideLayoutPartNames,
   getSlideLayoutPlaceholders,
   getSlideLayouts,
   getSlideLayoutType,

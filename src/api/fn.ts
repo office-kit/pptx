@@ -445,6 +445,19 @@ export const getSlideLayoutPartName = (layout: SlideLayoutData): string =>
   layout[LAYOUT_PART_NAME];
 
 /**
+ * Returns every slide-layout's package part name in the deck, in
+ * `getSlideLayouts` order. Sibling of `getSlideMasterPartNames`
+ * for tooling that needs the layout URIs.
+ */
+export const getSlideLayoutPartNames = (
+  pres: PresentationData,
+): ReadonlyArray<string> => {
+  const out: string[] = [];
+  for (const layout of getSlideLayouts(pres)) out.push(layout[LAYOUT_PART_NAME]);
+  return out;
+};
+
+/**
  * Returns the slide layout whose package part name equals
  * `partName`, or `null` when no such layout exists. Mirror of
  * `findSlideByPartName` for layouts.
