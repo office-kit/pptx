@@ -1416,6 +1416,42 @@ export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): v
   commitAndRefresh(shape);
 };
 
+/**
+ * Sets the internal margins of the shape's text frame in EMU. Each
+ * side is independent; omitted sides keep their current value (or the
+ * layout-inherited default when the attribute is absent).
+ *
+ * PowerPoint's defaults for a textbox: left/right 91440 (0.1in),
+ * top/bottom 45720 (0.05in).
+ *
+ *   setShapeTextMargins(shape, { left: 0, right: 0 }); // flush-left text
+ */
+export const setShapeTextMargins = (
+  shape: SlideShapeData,
+  margins: { left?: number; top?: number; right?: number; bottom?: number },
+): void => {
+  const txBody = requireTxBody(shape);
+  let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (bodyPr === null) {
+    bodyPr = elem(NAME_A_BODY_PR);
+    txBody.children.unshift(bodyPr);
+  }
+  const writes: Array<{ name: string; value: number }> = [];
+  if (margins.left !== undefined) writes.push({ name: 'lIns', value: margins.left });
+  if (margins.top !== undefined) writes.push({ name: 'tIns', value: margins.top });
+  if (margins.right !== undefined) writes.push({ name: 'rIns', value: margins.right });
+  if (margins.bottom !== undefined) writes.push({ name: 'bIns', value: margins.bottom });
+
+  const localsToClear = new Set(writes.map((w) => w.name));
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && localsToClear.has(a.name.localName)),
+  );
+  for (const w of writes) {
+    bodyPr.attrs.push(attr(qname('', w.name, ''), String(Math.round(w.value))));
+  }
+  commitAndRefresh(shape);
+};
+
 /** Sets the bullet style on every paragraph in the shape's text body. */
 export const setShapeBullets = (shape: SlideShapeData, style: BulletStyle): void => {
   applyBulletToAllParagraphs(requireTxBody(shape), style);

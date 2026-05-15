@@ -158,6 +158,7 @@ export {
   setShapeText,
   setShapeTextAnchor,
   setShapeTextFormat,
+  setShapeTextMargins,
   setSlideBackground,
   setSlideHidden,
   setSlideLayout,
