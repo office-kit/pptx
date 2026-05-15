@@ -126,6 +126,7 @@ export {
   duplicateSlideAt,
   findChartByKind,
   findChartsBySeriesName,
+  findCommentAuthorByName,
   findCommentsByAuthor,
   findCommentsByText,
   findEmptyPlaceholders,

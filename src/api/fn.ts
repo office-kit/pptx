@@ -6355,6 +6355,23 @@ export const getPresentationCommenterCount = (pres: PresentationData): number =>
 };
 
 /**
+ * Looks up a `CommentAuthor` from `commentAuthors.xml` by display
+ * name (case-sensitive equality). Returns `null` when no author has
+ * that name. Sibling of `findCommentsByAuthor` — the latter returns
+ * the matching comments; this returns the author handle for
+ * downstream metadata reads (id, initials, color).
+ */
+export const findCommentAuthorByName = (
+  pres: PresentationData,
+  authorName: string,
+): CommentAuthor | null => {
+  for (const a of getCommentAuthors(pres)) {
+    if (a.name === authorName) return a;
+  }
+  return null;
+};
+
+/**
  * Returns every distinct author who has at least one comment on the
  * slide. Deduplicated by author id; preserves first-seen order.
  * Useful for "who reviewed this slide?" annotations.
