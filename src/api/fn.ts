@@ -2096,6 +2096,45 @@ export const findShapesByName = (
 ): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].name === name);
 
+/**
+ * First shape on the slide whose visible text matches `needle`
+ * (substring or `RegExp`), or `null` when none does. Convenience
+ * over `getSlideShapes(slide).find(...)` when the caller is hunting
+ * for a label in a template ("find the box that says 'Q1'").
+ */
+export const findShapeByText = (
+  slide: SlideData,
+  needle: string | RegExp,
+): SlideShapeData | null => {
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const text = shape[SHAPE_SNAPSHOT].text;
+    if (typeof needle === 'string' ? text.includes(needle) : needle.test(text)) {
+      return shape;
+    }
+  }
+  return null;
+};
+
+/**
+ * Every shape on the slide whose visible text matches `needle`. Use
+ * when more than one shape can share the same text (common with
+ * cloned bullet templates) — multi-match variant of
+ * `findShapeByText`.
+ */
+export const findShapesByText = (
+  slide: SlideData,
+  needle: string | RegExp,
+): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const text = shape[SHAPE_SNAPSHOT].text;
+    if (typeof needle === 'string' ? text.includes(needle) : needle.test(text)) {
+      out.push(shape);
+    }
+  }
+  return out;
+};
+
 /** Every shape on the slide of the given kind. */
 export const findShapesByKind = (
   slide: SlideData,
