@@ -1871,6 +1871,99 @@ export type TextAnchor = 'top' | 'center' | 'bottom';
 const NAME_A_BODY_PR = qname('a', 'bodyPr', NS.dml);
 
 /**
+ * Word wrap mode on a text body. `'square'` (PowerPoint default for
+ * textboxes) wraps lines at the shape's width; `'none'` lets text
+ * overflow horizontally.
+ */
+export type TextWrap = 'none' | 'square';
+
+/** Auto-fit mode on a text body. */
+export type TextAutoFit =
+  | 'none' // <a:noAutofit/>
+  | 'normal' // <a:normAutofit/> — shrink text to fit
+  | 'shape'; // <a:spAutoFit/> — resize shape to fit text
+
+const AUTO_FIT_LOCALS = new Set(['noAutofit', 'normAutofit', 'spAutoFit']);
+
+const requireBodyPr = (shape: SlideShapeData): XmlElement => {
+  const txBody = requireTxBody(shape);
+  let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (bodyPr === null) {
+    bodyPr = elem(NAME_A_BODY_PR);
+    txBody.children.unshift(bodyPr);
+  }
+  return bodyPr;
+};
+
+/**
+ * Sets the text-body word-wrap mode.
+ *
+ *   - `'square'` writes `wrap="square"` — PowerPoint default for textboxes.
+ *   - `'none'`   writes `wrap="none"`  — text can overflow horizontally.
+ *
+ * Throws for non-text-bearing shape kinds.
+ */
+export const setShapeTextWrap = (shape: SlideShapeData, wrap: TextWrap): void => {
+  const bodyPr = requireBodyPr(shape);
+  const ATTR_WRAP = qname('', 'wrap', '');
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'wrap'),
+  );
+  bodyPr.attrs.push(attr(ATTR_WRAP, wrap));
+  commitAndRefresh(shape);
+};
+
+/** Reads back the bodyPr `wrap` attribute, or `null` when absent. */
+export const getShapeTextWrap = (shape: SlideShapeData): TextWrap | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  const v = getAttrValue(bodyPr, qname('', 'wrap', ''));
+  if (v === 'none' || v === 'square') return v;
+  return null;
+};
+
+/**
+ * Sets the text-body auto-fit mode:
+ *
+ *   - `'none'`   → `<a:noAutofit/>`
+ *   - `'normal'` → `<a:normAutofit/>`   shrink text to fit the shape
+ *   - `'shape'`  → `<a:spAutoFit/>`     grow the shape to fit text
+ *
+ * Replaces any prior auto-fit child on `<a:bodyPr>`. Throws for
+ * non-text-bearing shape kinds.
+ */
+export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): void => {
+  const bodyPr = requireBodyPr(shape);
+  bodyPr.children = bodyPr.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && AUTO_FIT_LOCALS.has(c.name.localName)),
+  );
+  const local = mode === 'none' ? 'noAutofit' : mode === 'normal' ? 'normAutofit' : 'spAutoFit';
+  bodyPr.children.push(elem(qname('a', local, NS.dml)));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads back the bodyPr auto-fit child, or `null` when none is
+ * present (PowerPoint applies a layout-inherited default in that case).
+ */
+export const getShapeTextAutoFit = (shape: SlideShapeData): TextAutoFit | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  for (const c of bodyPr.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'noAutofit') return 'none';
+    if (c.name.localName === 'normAutofit') return 'normal';
+    if (c.name.localName === 'spAutoFit') return 'shape';
+  }
+  return null;
+};
+
+/**
  * Reads back the vertical text anchor on the shape's `<a:bodyPr>`.
  * Maps the ECMA-376 tokens back to the public union:
  *
