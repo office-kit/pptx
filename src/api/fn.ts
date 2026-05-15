@@ -1289,6 +1289,15 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
 export const getSlideText = (slide: SlideData): string => slideText(slide[SLIDE_PART]);
 
 /**
+ * Length (in code points) of the slide's concatenated visible text.
+ * Counts Unicode code points via `Array.from`, so surrogate-pair
+ * characters (emoji, supplementary CJK) count as 1, matching the
+ * library's invariant on text editing.
+ */
+export const getSlideTextLength = (slide: SlideData): number =>
+  Array.from(getSlideText(slide)).length;
+
+/**
  * A single slide's outline entry: its index, title (or `null`), and
  * the text of its body placeholder (or `null`). Used by
  * `getSlideOutline`.

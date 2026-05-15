@@ -265,6 +265,7 @@ export {
   getSlideShapes,
   getSlideSize,
   getSlideText,
+  getSlideTextLength,
   getSlideTextShapeCount,
   getSlideTitle,
   getSlideTitles,
