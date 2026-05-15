@@ -6537,6 +6537,47 @@ export const getShapeImageBytes = (shape: SlideShapeData): Uint8Array | null => 
 };
 
 /**
+ * Returns the package part name (`/ppt/media/imageN.ext`) of
+ * whichever image the shape carries — picture (`<p:pic>`) or
+ * image-fill (`<a:blipFill>` nested under `<p:spPr>`). Returns
+ * `null` when the shape has no embedded image, or the rel points
+ * at an external `r:link` rather than an internal target.
+ *
+ * Useful for addressing the media part directly with
+ * `setMediaPartBytes` or `readPackagePart`.
+ */
+export const getShapeImagePartName = (shape: SlideShapeData): string | null => {
+  const slide = shape[SHAPE_SLIDE];
+  const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+
+  const resolve = (rEmbed: string | null): string | null => {
+    if (rEmbed === null) return null;
+    const rel = rels.items.find((r) => r.id === rEmbed);
+    if (!rel || rel.targetMode === 'External') return null;
+    const name = rel.target.startsWith('/')
+      ? partName(rel.target)
+      : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+    return name;
+  };
+
+  // Picture shape: <p:pic><p:blipFill><a:blip r:embed="..."/>.
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    const rEmbed = getPictureEmbedRId(shape[SHAPE_ELEMENT]);
+    return resolve(rEmbed);
+  }
+
+  // Other shapes with image fill: <p:spPr><a:blipFill><a:blip r:embed="..."/>.
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const blipFill = firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  return resolve(getAttrValue(blip, qname('r', 'embed', NS.officeDocRels)));
+};
+
+/**
  * Returns the bytes of the image used as this shape's *fill*
  * (`<a:blipFill>` nested under `<p:spPr>`, as written by
  * `setShapeImageFill`). Distinct from `getShapeImageBytes`, which only
