@@ -2393,6 +2393,24 @@ export const findSlidePlaceholder = (
 };
 
 /**
+ * Returns every placeholder shape on the slide whose text body is
+ * empty. Useful for "spot the slots that still need filling" UIs
+ * before a slide is published, and for validation hooks that warn
+ * about empty slots.
+ */
+export const findEmptyPlaceholders = (
+  slide: SlideData,
+): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (!isShapePlaceholder(shape)) continue;
+    if (hasShapeText(shape)) continue;
+    out.push(shape);
+  }
+  return out;
+};
+
+/**
  * Returns the first placeholder shape whose `<p:ph idx="...">`
  * matches `idx`, or `null` when none does. Real templates often
  * disambiguate same-type placeholders (e.g. two body slots) by
