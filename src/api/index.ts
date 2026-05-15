@@ -112,6 +112,7 @@ export {
   clearShapeText,
   clearSlideAnimations,
   clearSlideBackground,
+  clearSlideHyperlinks,
   clearSlideShapes,
   clearSlideTransition,
   clearTableCellFill,

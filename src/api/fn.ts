@@ -5703,6 +5703,22 @@ export const clearAllHyperlinks = (pres: PresentationData): number => {
 };
 
 /**
+ * Slide-scoped sibling of `clearAllHyperlinks`. Removes every
+ * external hyperlink on this slide and returns the number of
+ * shapes cleared.
+ */
+export const clearSlideHyperlinks = (slide: SlideData): number => {
+  let n = 0;
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (getShapeHyperlink(shape) !== null) {
+      setShapeHyperlink(shape, null);
+      n++;
+    }
+  }
+  return n;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
