@@ -61,6 +61,7 @@ export type {
   ShapeFill,
   ShapeStroke,
   SlideBackground,
+  SlideSection,
   TextAnchor,
 } from './fn.ts';
 export {
@@ -139,8 +140,9 @@ export {
   getSlideLayouts,
   getSlideLayoutType,
   getSlideNotes,
-  getSlideSize,
+  getSlideSections,
   getSlideShapes,
+  getSlideSize,
   getSlideText,
   getSlideTitle,
   getSlideTransition,
@@ -206,6 +208,7 @@ export {
   setSlideHidden,
   setSlideLayout,
   setSlideNotes,
+  setSlideSections,
   setSlideSize,
   setSlideTitle,
   setSlideTransition,
