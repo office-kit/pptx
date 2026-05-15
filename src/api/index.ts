@@ -127,6 +127,7 @@ export {
   findChartByKind,
   findChartsBySeriesName,
   findCommentsByAuthor,
+  findCommentsByText,
   findEmptyPlaceholders,
   findLayoutsWithPlaceholderType,
   findFlippedShapes,

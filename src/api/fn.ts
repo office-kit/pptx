@@ -6380,6 +6380,26 @@ export const findCommentsByAuthor = (
 };
 
 /**
+ * Returns every comment whose text matches `needle` (substring or
+ * `RegExp`) across the whole deck. Sibling of `findCommentsByAuthor`
+ * — useful for "find every comment that mentions X" reviewer flows.
+ */
+export const findCommentsByText = (
+  pres: PresentationData,
+  needle: string | RegExp,
+): ReadonlyArray<SlideCommentData> => {
+  const out: SlideCommentData[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) {
+      const text = c[COMMENT_SNAPSHOT].text;
+      const hit = typeof needle === 'string' ? text.includes(needle) : needle.test(text);
+      if (hit) out.push(c);
+    }
+  }
+  return out;
+};
+
+/**
  * Total number of comments across every slide in the deck. Faster
  * than `getSlides(pres).flatMap(getSlideComments).length` when
  * callers just need the headline number.
