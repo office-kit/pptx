@@ -197,6 +197,7 @@ export {
   getMediaParts,
   getOrphanMediaPartNames,
   getOutlineText,
+  getPackageSize,
   getPresentationCommenters,
   getPresentationCreated,
   getPresentationFonts,

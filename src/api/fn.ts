@@ -7236,6 +7236,19 @@ export interface MediaPart {
 }
 
 /**
+ * Returns the total size of the package's parts in bytes
+ * (uncompressed). Useful for storage estimation, quota checks,
+ * and "how big is this deck before save?" diagnostics. The
+ * actual `savePresentation` output is typically smaller after
+ * DEFLATE; this is an upper bound.
+ */
+export const getPackageSize = (pres: PresentationData): number => {
+  let total = 0;
+  for (const part of pres[INTERNAL_PACKAGE].parts) total += part.data.byteLength;
+  return total;
+};
+
+/**
  * Returns every `/ppt/media/...` part in the package. Useful for
  * audit / export workflows — e.g. "extract every embedded image."
  */
