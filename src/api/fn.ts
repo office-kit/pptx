@@ -7418,6 +7418,15 @@ export const findShapesWithImages = (
 ): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeImage(s));
 
 /**
+ * Every shape on the slide whose visible text body is non-empty.
+ * Sibling of `findShapesWithImages`. Useful for "find all
+ * caption / label boxes on this slide" patterns.
+ */
+export const findShapesWithText = (
+  slide: SlideData,
+): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeText(s));
+
+/**
  * Returns the package part name (`/ppt/media/imageN.ext`) of
  * whichever image the shape carries — picture (`<p:pic>`) or
  * image-fill (`<a:blipFill>` nested under `<p:spPr>`). Returns

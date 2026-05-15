@@ -128,6 +128,7 @@ export {
   findShapesByName,
   findShapesByText,
   findShapesWithImages,
+  findShapesWithText,
   findSlideByPartName,
   findSlideByText,
   findSlideByTitle,
