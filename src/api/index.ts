@@ -204,6 +204,7 @@ export {
   getShapeTextAutoFit,
   getShapeTextMargins,
   getShapeTextWrap,
+  getShapeXmlString,
   getShapeZIndex,
   getSlideAt,
   getSlideAuthors,

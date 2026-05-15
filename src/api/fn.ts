@@ -2358,6 +2358,14 @@ export const findShapesByKind = (
 export const getShapeSlide = (shape: SlideShapeData): SlideData => shape[SHAPE_SLIDE];
 
 /**
+ * Returns the shape's current XML element as a string. Diagnostic
+ * sibling of `getSlideXmlString`; useful for snapshot tests, bug
+ * reports, and before/after dumps during transformations.
+ */
+export const getShapeXmlString = (shape: SlideShapeData): string =>
+  serializeXml({ kind: 'document', decl: null, root: shape[SHAPE_ELEMENT], prolog: [], epilog: [] });
+
+/**
  * Returns the 0-based document-order index of `shape` on its slide,
  * or `-1` when the shape is stale (e.g. after a `removeShape` that
  * rebuilt the slide's shape list).
