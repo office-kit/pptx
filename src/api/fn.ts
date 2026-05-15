@@ -562,6 +562,66 @@ export const getPresentationTheme = (pres: PresentationData): PresentationTheme 
   };
 };
 
+// ---------------------------------------------------------------------------
+// Core properties (`/docProps/core.xml`).
+
+const NS_CORE_PROPS = 'http://schemas.openxmlformats.org/package/2006/metadata/core-properties';
+const NS_DC = 'http://purl.org/dc/elements/1.1/';
+const NS_DCTERMS = 'http://purl.org/dc/terms/';
+const CORE_PROPS_PART_NAME = partName('/docProps/core.xml');
+
+/**
+ * Document-level metadata from `/docProps/core.xml` (Open Packaging
+ * Conventions). Surfaces the fields PowerPoint, Keynote, and
+ * everyone else exchange via OPC core-properties — these are the
+ * values shown in PowerPoint's "File › Properties" / "Info" panel.
+ */
+export interface CoreProperties {
+  readonly title: string | null;
+  readonly subject: string | null;
+  readonly creator: string | null;
+  readonly keywords: string | null;
+  readonly description: string | null;
+  readonly lastModifiedBy: string | null;
+  readonly revision: string | null;
+  /** ISO-8601 timestamp string when set; `null` otherwise. */
+  readonly created: string | null;
+  /** ISO-8601 timestamp string when set; `null` otherwise. */
+  readonly modified: string | null;
+  readonly category: string | null;
+}
+
+/**
+ * Reads `/docProps/core.xml`. Returns `null` when the package has
+ * no core-properties part. Each field is `null` when the
+ * corresponding element is absent or empty.
+ */
+export const getCoreProperties = (pres: PresentationData): CoreProperties | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const part = pkg.getPart(CORE_PROPS_PART_NAME);
+  if (!part) return null;
+  const root = parseXml(decode(part.data)).root;
+  const read = (uri: string, local: string): string | null => {
+    const el = firstChildElement(root, qname('', local, uri));
+    if (!el) return null;
+    let s = '';
+    for (const c of el.children) if (c.kind === 'text') s += c.data;
+    return s.length === 0 ? null : s;
+  };
+  return {
+    title: read(NS_DC, 'title'),
+    subject: read(NS_DC, 'subject'),
+    creator: read(NS_DC, 'creator'),
+    keywords: read(NS_CORE_PROPS, 'keywords'),
+    description: read(NS_DC, 'description'),
+    lastModifiedBy: read(NS_CORE_PROPS, 'lastModifiedBy'),
+    revision: read(NS_CORE_PROPS, 'revision'),
+    created: read(NS_DCTERMS, 'created'),
+    modified: read(NS_DCTERMS, 'modified'),
+    category: read(NS_CORE_PROPS, 'category'),
+  };
+};
+
 /**
  * Finds the first slide layout whose user-visible name matches `name`,
  * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.

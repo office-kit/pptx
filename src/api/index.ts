@@ -56,6 +56,7 @@ export type {
 } from '../internal/drawingml/index.ts';
 export type {
   AllShapesEntry,
+  CoreProperties,
   MediaPart,
   PackagePartInfo,
   PresentationSummary,
@@ -117,6 +118,7 @@ export {
   getCommentDate,
   getCommentPosition,
   getCommentText,
+  getCoreProperties,
   getParagraphAlignment,
   getParagraphBullet,
   getParagraphLevel,
