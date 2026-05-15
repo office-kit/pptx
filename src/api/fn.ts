@@ -2156,6 +2156,78 @@ export const getShapeName = (shape: SlideShapeData): string =>
  * matches on. Empty strings are allowed (matches PowerPoint behavior).
  */
 /**
+ * Reads the shape's alt-text description (`<p:cNvPr descr="...">`).
+ * Accessibility tools (screen readers, contrast checkers) and
+ * PowerPoint's "Alt Text" pane look at this field. Returns `null`
+ * when no description is set.
+ */
+export const getShapeDescription = (shape: SlideShapeData): string | null => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) return null;
+  return getAttrValue(cNvPr, qname('', 'descr', ''));
+};
+
+/**
+ * Sets the shape's alt-text description (`<p:cNvPr descr="...">`).
+ * Pass `null` to clear. Important for accessibility — image shapes
+ * and decorative graphics should carry a descr that conveys the
+ * visual meaning to screen readers.
+ */
+export const setShapeDescription = (
+  shape: SlideShapeData,
+  description: string | null,
+): void => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) {
+    throw new Error(
+      `setShapeDescription: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`,
+    );
+  }
+  cNvPr.attrs = cNvPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'descr'),
+  );
+  if (description !== null && description !== '') {
+    cNvPr.attrs.push(attr(qname('', 'descr', ''), description));
+  }
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads the shape's alt-text title (`<p:cNvPr title="...">`).
+ * PowerPoint surfaces this alongside `descr` in its Alt Text pane
+ * as a short heading. Returns `null` when no title is set.
+ */
+export const getShapeAltTitle = (shape: SlideShapeData): string | null => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) return null;
+  return getAttrValue(cNvPr, qname('', 'title', ''));
+};
+
+/**
+ * Sets the shape's alt-text title (`<p:cNvPr title="...">`). Pass
+ * `null` to clear. Distinct from `renameShape`, which writes the
+ * `name` attribute used in the selection pane.
+ */
+export const setShapeAltTitle = (
+  shape: SlideShapeData,
+  title: string | null,
+): void => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) {
+    throw new Error(
+      `setShapeAltTitle: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`,
+    );
+  }
+  cNvPr.attrs = cNvPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'title'),
+  );
+  if (title !== null && title !== '') {
+    cNvPr.attrs.push(attr(qname('', 'title', ''), title));
+  }
+  commitAndRefresh(shape);
+};
+
+/**
  * `true` when the shape's `<p:cNvPr hidden="1">` is set. Hidden
  * shapes are skipped by PowerPoint's renderer but stay in the
  * shape tree — useful for variant slides that toggle which boxes
