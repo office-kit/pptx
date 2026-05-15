@@ -88,6 +88,7 @@ export {
   addSlideShape,
   addSlideTable,
   addSlideTextBox,
+  appendShapeText,
   appendSlideNotes,
   clearShapeEffects,
   clearShapeFill,

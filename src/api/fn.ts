@@ -2922,6 +2922,30 @@ export const setShapeText = (
 };
 
 /**
+ * Appends `value` to the shape's existing text on a new line. The
+ * shape's existing run / paragraph formatting is preserved by
+ * `setTextBody`; the new paragraph inherits the same template.
+ *
+ * Equivalent to `setShapeText(shape, getShapeText(shape) + '\n' + value)`,
+ * minus the leading newline when there was no existing text.
+ */
+export const appendShapeText = (shape: SlideShapeData, value: string): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
+    throw new Error(
+      `appendShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (txBody === null) {
+    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
+  }
+  const existing = shape[SHAPE_SNAPSHOT].text;
+  const combined = existing.length === 0 ? value : `${existing}\n${value}`;
+  setTextBody(txBody, combined);
+  commitAndRefresh(shape);
+};
+
+/**
  * Sets the vertical text anchor on the shape's text body
  * (`<a:bodyPr anchor="..."/>`). Choices map to ECMA-376 tokens:
  *
