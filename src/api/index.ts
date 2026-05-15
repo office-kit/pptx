@@ -114,6 +114,7 @@ export {
   clearShapeText,
   clearSlideAnimations,
   clearSlideBackground,
+  clearSlideComments,
   clearSlideHyperlinks,
   clearSlideShapes,
   clearSlideTransition,

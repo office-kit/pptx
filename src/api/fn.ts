@@ -6496,13 +6496,19 @@ export const removeSlideComment = (comment: SlideCommentData): void => {
  */
 export const clearAllSlideComments = (pres: PresentationData): number => {
   let n = 0;
-  for (const slide of getSlides(pres)) {
-    const comments = loadCommentsForSlide(slide);
-    if (comments.length === 0) continue;
-    n += comments.length;
-    writeCommentsForSlide(slide, []);
-  }
+  for (const slide of getSlides(pres)) n += clearSlideComments(slide);
   return n;
+};
+
+/**
+ * Slide-scoped sibling of `clearAllSlideComments`. Removes every
+ * comment on the given slide and returns the number removed.
+ */
+export const clearSlideComments = (slide: SlideData): number => {
+  const comments = loadCommentsForSlide(slide);
+  if (comments.length === 0) return 0;
+  writeCommentsForSlide(slide, []);
+  return comments.length;
 };
 
 // Accessors over CommentAuthor / SlideCommentData for tree-shake convenience.
