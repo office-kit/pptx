@@ -275,36 +275,43 @@ for (const i of issues) console.error(i.severity, i.message);
 
 ### API surface (current state)
 
-Each row lists the free-function entry point; the class API exposes the
-same capability as a method (`pres.save()` vs `savePresentation(pres)`).
+Each row lists the free-function entry points; the class API exposes
+the same capabilities as methods. Read/write pairs are shown together.
 
-| Capability                | API                                                                                                                                      |
-| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Load / save               | `loadPresentation(input)`, `savePresentation(pres)`, `loadPresentationFile(path)` (node), `savePresentationToFile(pres, path)` (node)    |
-| Create                    | `createPresentation()`                                                                                                                   |
-| Slide CRUD                | `getSlides(pres)`, `addSlide(pres, { layout })`, `removeSlide(pres, slide)`, `moveSlide(pres, slide, toIndex)`, `duplicateSlide(pres, slide)` |
-| Slide layouts             | `getSlideLayouts(pres)`, `getSlideLayoutName(layout)`, `getSlideLayoutType(layout)`                                                      |
-| Slide size                | `getSlideSize(pres)`, `setSlideSize(pres, opts)`, presets `SLIDE_SIZE_4_3` / `SLIDE_SIZE_16_9` / `SLIDE_SIZE_16_10`                      |
-| Slide title               | `getSlideTitle(slide)`, `setSlideTitle(slide, title)`                                                                                    |
-| Placeholders              | `findSlidePlaceholder(slide, 'title' \| 'body' \| ...)`                                                                                  |
-| Token fill                | `replaceTokensInPresentation(pres, tokens)`, `replaceTokensInSlide(slide, tokens)`                                                       |
-| Background                | `setSlideBackground(slide, color)`, `clearSlideBackground(slide)`                                                                        |
-| Notes                     | `getSlideNotes(slide)`, `setSlideNotes(slide, text)`                                                                                     |
-| Transitions               | `setSlideTransition(slide, opts)`, `clearSlideTransition(slide)`                                                                         |
-| Animations                | `setShapeAnimation(shape, { effect: 'fadeIn' \| 'fadeOut' \| 'appear' \| 'disappear' })`, `clearSlideAnimations(slide)`                  |
-| Comments                  | `addSlideComment(slide, opts)`, `getSlideComments(slide)`, `removeSlideComment(c)`, `getCommentAuthors(pres)`                            |
-| Shape authoring           | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                    |
-| Shape text                | `setShapeText`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink`                                        |
-| Per-run text              | `setShapeRunFormat`, `setShapeRunText`, `getShapeParagraphCount`, `getShapeRunCount`, `getShapeRunText`                                  |
-| Fill                      | `setShapeFill`, `setShapeGradientFill`, `setShapeNoFill`, `clearShapeFill`                                                               |
-| Stroke                    | `setShapeStroke`, `setShapeNoStroke`, `clearShapeStroke`                                                                                 |
-| Geometry                  | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`; `getShapePosition` / `getShapeSize` / etc.                       |
-| Pictures                  | `setShapeImage(bytes)`, `setShapeImageCrop(shape, crop)`                                                                                 |
-| Click actions             | `setShapeClickAction(shape, { kind: 'url' \| 'slide' \| 'nextSlide' \| ... })`                                                           |
-| Shape removal             | `removeShape(shape)`                                                                                                                     |
-| Charts                    | `addSlideChart(slide, { spec: { kind: 'bar' \| 'column' \| 'line' \| 'pie' \| 'doughnut' \| 'area', categories, series } })`             |
-| Validation                | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                             |
-| Units                     | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                          |
+| Capability               | API                                                                                                                                            |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Load / save              | `loadPresentation(input)`, `savePresentation(pres)`, `loadPresentationFile(path)` (node), `savePresentationToFile(pres, path)` (node)          |
+| Create                   | `createPresentation()`                                                                                                                         |
+| Slide CRUD               | `getSlides`, `getSlideAt`, `getSlideIndex`, `addSlide`, `removeSlide`, `moveSlide`, `duplicateSlide`, `clearSlideShapes`                       |
+| Slide layout             | `getSlideLayouts`, `findSlideLayout`, `getSlideLayout(slide)`, `setSlideLayout(slide, layout)`, `getSlideLayoutName`, `getSlideLayoutType`     |
+| Slide metadata           | `getSlideTitle` / `setSlideTitle`, `getSlideSize` / `setSlideSize`, `isSlideHidden` / `setSlideHidden`, `getSlideText`                         |
+| Slide sections           | `getSlideSections`, `setSlideSections` (p14 sectionLst)                                                                                        |
+| Placeholders             | `findSlidePlaceholder(slide, 'title' \| 'body' \| ...)`                                                                                        |
+| Token / text replace     | `replaceTokensInPresentation`, `replaceTokensInSlide`, `replaceTextInPresentation`, `replaceTextInSlide`                                       |
+| Background               | `getSlideBackground` / `setSlideBackground` / `clearSlideBackground`                                                                           |
+| Notes                    | `getSlideNotes` / `setSlideNotes`                                                                                                              |
+| Transitions              | `getSlideTransition` / `setSlideTransition` / `clearSlideTransition`                                                                           |
+| Animations               | `getShapeAnimation` / `setShapeAnimation` (`fadeIn` / `fadeOut` / `appear` / `disappear`), `clearSlideAnimations`                              |
+| Comments                 | `addSlideComment`, `getSlideComments`, `removeSlideComment`, `getCommentAuthors`, `getCommentText` / `getCommentAuthor` / `getCommentPosition` |
+| Shape authoring          | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                          |
+| Shape lookup             | `findShapeByName`, `findShapesByName`, `findShapesByKind`, `findShapeInPresentation`, `getAllShapes`, `getSlideShapes`                         |
+| Shape text               | `setShapeText`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink` / `getShapeHyperlink`                        |
+| Per-paragraph            | `setParagraphAlignment` / `getParagraphAlignment`, `setParagraphLevel` / `getParagraphLevel`, `setParagraphBullet` / `getParagraphBullet`      |
+| Per-run text             | `setShapeRunText` / `getShapeRunText`, `setShapeRunFormat` / `getShapeRunFormat`, `getShapeParagraphCount`, `getShapeRunCount`                 |
+| Text frame               | `setShapeTextAnchor` / `getShapeTextAnchor`, `setShapeTextMargins` / `getShapeTextMargins`                                                     |
+| Fill                     | `setShapeFill` / `getShapeFill`, `setShapeGradientFill`, `setShapePatternFill`, `setShapeImageFill`, `setShapeNoFill`, `clearShapeFill`        |
+| Stroke                   | `setShapeStroke` / `getShapeStroke`, `setShapeStrokeDash` / `getShapeStrokeDash`, `setShapeStrokeArrow` / `getShapeStrokeArrow`, `…NoStroke`   |
+| Effects                  | `setShapeShadow` / `setShapeGlow` / `getShapeEffect`, `clearShapeEffects`                                                                      |
+| Geometry                 | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`, `setShapeBounds` / `getShapeBounds`                                    |
+| Pictures                 | `setShapeImage`, `setShapeImageCrop` / `getShapeImageCrop`, `setShapeImageOpacity` / `getShapeImageOpacity`, `setShapeImageBrightness`, `…Contrast` |
+| Z-order                  | `bringShapeToFront`, `sendShapeToBack`, `bringShapeForward`, `sendShapeBackward`                                                               |
+| Click actions            | `setShapeClickAction` / `getShapeClickAction` (`url` / `slide` / `nextSlide` / `prevSlide` / `firstSlide` / `lastSlide`)                       |
+| Shape removal            | `removeShape`                                                                                                                                  |
+| Tables                   | `getTableCell` / `getTableCells`, `setTableCellText` / `getTableCellText`, `setTableCellFill` / `clearTableCellFill`, `setTableCellAlignment`, `setTableCellTextFormat`, `insertTableRow` / `removeTableRow`, `insertTableColumn` / `removeTableColumn` |
+| Charts                   | `addSlideChart`, `getSlideCharts`, `setChartSpec` — kinds: `bar`, `column`, `line`, `pie`, `doughnut`, `area`                                  |
+| Theme                    | `getPresentationTheme` — color scheme (`accent1`..`accent6`, `dark1`, `light1`, `hyperlink`, ...)                                              |
+| Validation               | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                   |
+| Units                    | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                |
 
 ## Compatibility
 
