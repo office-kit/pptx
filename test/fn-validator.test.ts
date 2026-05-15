@@ -81,7 +81,7 @@ describe('fn API: validatePresentation', () => {
     const pkg = _internalPackageOf(reloaded);
     const media = getMediaParts(reloaded).find((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name));
     if (!media) throw new Error('expected media part');
-    pkg.removePart(media.name);
+    pkg.removePart(partName(media.name));
     const broken = await loadPresentation(await savePresentation(reloaded));
     const issues = validatePresentation(broken);
     expect(issues.some((i) => i.message.includes('image'))).toBe(true);

@@ -14,11 +14,6 @@
 
 export { type Emu, cm, emu, inches, mm, pt } from './units.ts';
 
-// Class-based legacy API (being removed; see task #44).
-export { Presentation, type PresentationInput } from './presentation.ts';
-export { type PlaceholderType, Slide, SlideShape } from './slide.ts';
-export { SlideLayout } from './slide-layout.ts';
-
 // Tree-shakeable free-function API.
 export type {
   PresentationData,
@@ -33,7 +28,7 @@ export type {
   CommentPosition,
   SlideComment,
 } from '../internal/presentationml/index.ts';
-export type { SlideSize } from './fn.ts';
+export type { PresentationInput, SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
 export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/index.ts';

@@ -8,7 +8,6 @@ import {
   addSlideComment,
   findCommentAuthorByName,
   findSlideLayout,
-  getSlides,
   loadPresentation,
 } from '../src/api/index.ts';
 

@@ -9,7 +9,6 @@ import {
   findCommentsAfter,
   findSlideLayout,
   getCommentText,
-  getSlides,
   loadPresentation,
 } from '../src/api/index.ts';
 

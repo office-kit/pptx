@@ -823,7 +823,7 @@ export const setCoreProperties = (
     root = doc.root;
   } else {
     root = buildEmptyCorePropsRoot();
-    doc = { root, prolog: [] };
+    doc = { kind: 'document', decl: null, prolog: [], root, epilog: [] };
   }
 
   for (const field of CORE_PROP_FIELDS) {

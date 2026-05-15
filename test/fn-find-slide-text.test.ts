@@ -18,9 +18,7 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 const seedFirstShapeOn = (
-  pres: ReturnType<typeof getSlides> extends ReadonlyArray<infer S>
-    ? Parameters<typeof getSlides>[0]
-    : never,
+  pres: Parameters<typeof getSlides>[0],
   slideIndex: number,
   value: string,
 ): void => {

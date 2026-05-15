@@ -10,7 +10,6 @@ import {
   getSlideIndex,
   getSlideLayout,
   getSlideLayoutName,
-  getSlides,
   loadPresentation,
 } from '../src/api/index.ts';
 

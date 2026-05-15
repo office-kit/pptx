@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { OpcPackage } from '../../src/internal/parts/index.ts';
 import { partName } from '../../src/internal/opc/index.ts';
-import { Presentation } from '../../src/api/index.ts';
+import { loadPresentation, savePresentation } from '../../src/api/index.ts';
 import { expectSemanticallyEqual } from '../lib/semantic-equal.ts';
 
 const fixture = (name: string): string =>
@@ -43,13 +43,13 @@ describe('real-PPTX round-trip (python-pptx fixtures)', () => {
       expectSemanticallyEqual(pkg1, pkg2);
     });
 
-    it(`${name} round-trips through the public Presentation API`, async () => {
+    it(`${name} round-trips through the public fn API`, async () => {
       const bytes = await readFile(fixture(name));
-      const pres = await Presentation.load(bytes);
-      const out = await pres.save();
-      // Confirm the second save also loads cleanly through Presentation.
-      const again = await Presentation.load(out);
-      expect(again).toBeInstanceOf(Presentation);
+      const pres = await loadPresentation(bytes);
+      const out = await savePresentation(pres);
+      // Confirm the second save also loads cleanly.
+      const again = await loadPresentation(out);
+      expect(again).toBeDefined();
     });
   }
 });
