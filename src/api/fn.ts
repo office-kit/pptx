@@ -2820,6 +2820,24 @@ export const getShapeKind = (shape: SlideShapeData): ShapeKind =>
 
 export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHOT].id;
 
+/**
+ * Returns the highest `cNvPr@id` used by any shape on the slide,
+ * or `0` when the slide has no shapes with non-negative ids.
+ *
+ * Useful when hand-rolling a custom shape and you need an id known
+ * not to collide. The official allocator inside `addSlideShape` /
+ * `addSlideTextBox` etc. already does this — call those instead
+ * when you don't need a custom id.
+ */
+export const getMaxShapeId = (slide: SlideData): number => {
+  let max = 0;
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const id = shape[SHAPE_SNAPSHOT].id;
+    if (id > max) max = id;
+  }
+  return max;
+};
+
 export const getShapeName = (shape: SlideShapeData): string =>
   shape[SHAPE_SNAPSHOT].name;
 
