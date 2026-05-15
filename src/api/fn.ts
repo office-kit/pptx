@@ -7747,6 +7747,17 @@ export const findShapesWithImages = (
 ): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => hasShapeImage(s));
 
 /**
+ * Returns each shape's `ShapeKind` on the slide in document order.
+ * Useful for compact "what's on this slide?" reports without
+ * holding the full shape handles.
+ */
+export const getSlideShapeKinds = (slide: SlideData): ReadonlyArray<ShapeKind> => {
+  const out: ShapeKind[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].kind);
+  return out;
+};
+
+/**
  * Returns each shape's `cNvPr@name` (selection-pane name) on the
  * slide in document order. Useful for "ls" / inventory UIs that
  * want a compact view of every shape's name.
