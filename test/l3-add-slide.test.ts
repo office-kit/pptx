@@ -1,76 +1,79 @@
 // Level-3 first feature: add a new slide from a chosen layout.
-//
-// Scenario:
-//   1. Load `blank.pptx` (no slides yet).
-//   2. Pick the "Title and Content" layout.
-//   3. Call `pres.addSlide({ layout })`.
-//   4. Fill the title placeholder.
-//   5. Save → reload → assert the deck now has one slide with our title.
-//
-// Also exercises:
-//   - sldIdLst creation when presentation.xml didn't have one.
-//   - sldId allocation in [256, 2³¹−1024].
-//   - Multiple sequential adds.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { Presentation } from '../src/api/index.ts';
+import {
+  addSlide,
+  findSlidePlaceholder,
+  getShapeText,
+  getSlideLayout,
+  getSlideLayoutName,
+  getSlideLayouts,
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  setShapeText,
+} from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('L3: addSlide from a layout', () => {
   it('adds a single slide bound to the chosen layout and persists', async () => {
-    const pres = await Presentation.load(await readFile(fixture('blank.pptx')));
-    expect(pres.slides.length).toBe(0);
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    expect(getSlides(pres).length).toBe(0);
 
-    const layout = pres.slideLayouts.find((l) => l.name === 'Title and Content');
+    const layout = getSlideLayouts(pres).find((l) => getSlideLayoutName(l) === 'Title and Content');
     if (!layout) throw new Error('expected Title and Content layout');
 
-    const slide = pres.addSlide({ layout });
+    const slide = addSlide(pres, { layout });
     expect(slide).toBeDefined();
-    expect(pres.slides.length).toBe(1);
+    expect(getSlides(pres).length).toBe(1);
 
-    // The new slide carries placeholder stubs from the layout.
-    const title = slide.findPlaceholder('title');
+    const title = findSlidePlaceholder(slide, 'title');
     expect(title).not.toBeNull();
-    title?.setText('Brand new slide');
+    if (title) setShapeText(title, 'Brand new slide');
 
-    const reloaded = await Presentation.load(await pres.save());
-    expect(reloaded.slides.length).toBe(1);
-    expect(reloaded.slides[0]?.findPlaceholder('title')?.text).toBe('Brand new slide');
-    expect(reloaded.slides[0]?.layout?.name).toBe('Title and Content');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlides(reloaded).length).toBe(1);
+    const reSlide = getSlides(reloaded)[0]!;
+    const reTitle = findSlidePlaceholder(reSlide, 'title');
+    expect(reTitle).not.toBeNull();
+    expect(reTitle && getShapeText(reTitle)).toBe('Brand new slide');
+    const reLayout = getSlideLayout(reSlide);
+    expect(reLayout && getSlideLayoutName(reLayout)).toBe('Title and Content');
   });
 
   it('preserves existing slides and appends in order', async () => {
-    const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
-    const baseline = pres.slides.length;
-    const layout = pres.slideLayouts.find((l) => l.name === 'Title Only');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const baseline = getSlides(pres).length;
+    const layout = getSlideLayouts(pres).find((l) => getSlideLayoutName(l) === 'Title Only');
     if (!layout) throw new Error('expected Title Only layout');
-    pres.addSlide({ layout });
-    pres.addSlide({ layout });
+    addSlide(pres, { layout });
+    addSlide(pres, { layout });
 
-    expect(pres.slides.length).toBe(baseline + 2);
-    const reloaded = await Presentation.load(await pres.save());
-    expect(reloaded.slides.length).toBe(baseline + 2);
+    expect(getSlides(pres).length).toBe(baseline + 2);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlides(reloaded).length).toBe(baseline + 2);
   });
 
   it('builds blank.pptx into a usable single-slide deck end-to-end', async () => {
-    // Round-trip the "create from blank → add slide → fill text → save"
-    // pipeline through a second load so we know the output is structurally
-    // sound.
-    const pres = await Presentation.load(await readFile(fixture('blank.pptx')));
-    const layout = pres.slideLayouts.find((l) => l.name === 'Title Slide');
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = getSlideLayouts(pres).find((l) => getSlideLayoutName(l) === 'Title Slide');
     if (!layout) throw new Error('expected Title Slide layout');
-    const slide = pres.addSlide({ layout });
-    slide.findPlaceholder('ctrTitle')?.setText('pptx-kit');
-    slide.findPlaceholder('subTitle')?.setText('an OOXML library for TypeScript');
+    const slide = addSlide(pres, { layout });
+    const ctrTitle = findSlidePlaceholder(slide, 'ctrTitle');
+    if (ctrTitle) setShapeText(ctrTitle, 'pptx-kit');
+    const subTitle = findSlidePlaceholder(slide, 'subTitle');
+    if (subTitle) setShapeText(subTitle, 'an OOXML library for TypeScript');
 
-    const bytes = await pres.save();
-    const reloaded = await Presentation.load(bytes);
-    const reSlide = reloaded.slides[0];
-    expect(reSlide?.findPlaceholder('ctrTitle')?.text).toBe('pptx-kit');
-    expect(reSlide?.findPlaceholder('subTitle')?.text).toBe('an OOXML library for TypeScript');
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const reSlide = getSlides(reloaded)[0]!;
+    const reCtr = findSlidePlaceholder(reSlide, 'ctrTitle');
+    const reSub = findSlidePlaceholder(reSlide, 'subTitle');
+    expect(reCtr && getShapeText(reCtr)).toBe('pptx-kit');
+    expect(reSub && getShapeText(reSub)).toBe('an OOXML library for TypeScript');
   });
 });
