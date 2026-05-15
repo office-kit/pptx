@@ -261,6 +261,8 @@ export {
   setTableCellFill,
   setTableCellText,
   setTableCellTextFormat,
+  setTableColumnWidth,
+  setTableRowHeight,
   sortSlides,
   validatePresentation,
 } from './fn.ts';

@@ -4857,6 +4857,54 @@ export const getTableRowHeights = (
 };
 
 /**
+ * Sets a single column's width on the table grid. Throws on
+ * out-of-range column indices or non-table shapes. The total table
+ * width is not auto-adjusted — callers are responsible for keeping
+ * the sum consistent with the table's `<a:xfrm>` extent if PowerPoint
+ * is to render the table without clipping.
+ */
+export const setTableColumnWidth = (
+  table: SlideShapeData,
+  col: number,
+  width: Emu,
+): void => {
+  const tbl = requireTbl(table);
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  if (!grid) throw new Error('table has no <a:tblGrid>');
+  const cols = allChildElements(grid, NAME_A_GRID_COL);
+  const target = cols[col];
+  if (!target) throw new RangeError(`table column ${col} out of range (have ${cols.length})`);
+  target.attrs = target.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'w'),
+  );
+  target.attrs.push(attr(ATTR_W_TBL, String(Math.round(width))));
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/**
+ * Sets a single row's height. Throws on out-of-range row indices or
+ * non-table shapes. As with `setTableColumnWidth`, the table's
+ * `<a:xfrm>` extent is left to the caller.
+ */
+export const setTableRowHeight = (
+  table: SlideShapeData,
+  row: number,
+  height: Emu,
+): void => {
+  const tbl = requireTbl(table);
+  const rows = tableRows(tbl);
+  const target = rows[row];
+  if (!target) throw new RangeError(`table row ${row} out of range (have ${rows.length})`);
+  target.attrs = target.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'h'),
+  );
+  target.attrs.push(attr(ATTR_H_TBL, String(Math.round(height))));
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/**
  * Returns the cell at `(row, col)`. Throws on out-of-range coordinates
  * or non-table shapes.
  */
