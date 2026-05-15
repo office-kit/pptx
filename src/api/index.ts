@@ -131,6 +131,7 @@ export {
   findShapesByName,
   findShapesAtPoint,
   findShapesByText,
+  findShapesOutsideCanvas,
   findShapesWithImages,
   findShapesWithText,
   findSlideByPartName,

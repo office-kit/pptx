@@ -7924,6 +7924,35 @@ export const getSlideShapeBounds = (
 };
 
 /**
+ * Returns every shape on the slide whose bounding box extends past
+ * the slide canvas (`getSlideSize(pres)`). Useful audit helper for
+ * catching shapes that PowerPoint will silently render off-screen
+ * or clip on export. Shapes without `<a:xfrm>` bounds are skipped.
+ *
+ * If the presentation has no slide-size declared, every positioned
+ * shape is returned (caller can't audit against an absent canvas).
+ */
+export const findShapesOutsideCanvas = (
+  slide: SlideData,
+  pres: PresentationData,
+): ReadonlyArray<SlideShapeData> => {
+  const size = getSlideSize(pres);
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const b = getShapeBounds(shape);
+    if (b === null) continue;
+    if (size === null) {
+      out.push(shape);
+      continue;
+    }
+    if (b.x < 0 || b.y < 0 || b.x + b.w > size.width || b.y + b.h > size.height) {
+      out.push(shape);
+    }
+  }
+  return out;
+};
+
+/**
  * Returns the union bounding box of every shape on the slide that
  * has a resolvable `<a:xfrm>`. Shapes without bounds are skipped.
  * Returns `null` if no shape on the slide has bounds.
