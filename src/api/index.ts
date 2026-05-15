@@ -88,6 +88,7 @@ export {
   clearSlideShapes,
   clearSlideTransition,
   clearTableCellFill,
+  copyShape,
   createPresentation,
   duplicateSlide,
   findShapeByName,
