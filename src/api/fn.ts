@@ -1850,6 +1850,37 @@ export const importSlide = (
   return last;
 };
 
+/**
+ * Appends every slide from `sourcePres` into `targetPres`, in source
+ * order. Built on top of `importSlide`: media is propagated, charts
+ * are dropped (not yet supported across decks), and the slide's
+ * layout is rebound to `targetLayout` on the target side.
+ *
+ * `targetLayout` can be a single layout used for every imported
+ * slide (common), or a function called once per source slide for
+ * per-slide layout selection.
+ *
+ * Returns the imported slides in target order.
+ */
+export const mergePresentations = (
+  targetPres: PresentationData,
+  sourcePres: PresentationData,
+  targetLayout: SlideLayoutData | ((sourceSlide: SlideData, index: number) => SlideLayoutData),
+): ReadonlyArray<SlideData> => {
+  const sourceSlides = getSlides(sourcePres);
+  const out: SlideData[] = [];
+  const resolveLayout =
+    typeof targetLayout === 'function'
+      ? targetLayout
+      : (): SlideLayoutData => targetLayout;
+  for (let i = 0; i < sourceSlides.length; i++) {
+    const src = sourceSlides[i]!;
+    const layout = resolveLayout(src, i);
+    out.push(importSlide(targetPres, src, layout));
+  }
+  return out;
+};
+
 // ---------------------------------------------------------------------------
 // Slide-level reads.
 

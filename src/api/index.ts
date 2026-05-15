@@ -207,6 +207,7 @@ export {
   isTableShape,
   listPackageParts,
   loadPresentation,
+  mergePresentations,
   moveSlide,
   readPackagePart,
   removeShape,
