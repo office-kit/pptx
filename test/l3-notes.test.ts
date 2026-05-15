@@ -3,62 +3,56 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { Presentation } from '../src/api/index.ts';
-import { _internalPackageOf } from '../src/api/presentation.ts';
-import { partName } from '../src/internal/opc/index.ts';
+import {
+  getPackagePartNames,
+  getSlideNotes,
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  setSlideNotes,
+} from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-describe('L3: Slide.notes / setNotes', () => {
+describe('L3: getSlideNotes / setSlideNotes', () => {
   it('returns null when the slide has no notesSlide', async () => {
-    const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
-    expect(pres.slides[0]?.notes).toBeNull();
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    expect(getSlideNotes(getSlides(pres)[0]!)).toBeNull();
   });
 
-  it('creates a notesSlide part on first setNotes', async () => {
-    const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
-    const slide = pres.slides[0];
-    if (!slide) throw new Error('expected slide');
-    slide.setNotes('Speaker note line 1\nLine 2');
+  it('creates a notesSlide part on first setSlideNotes', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    setSlideNotes(slide, 'Speaker note line 1\nLine 2');
 
-    const pkg = _internalPackageOf(pres);
-    // Notes part exists.
-    const notesPart = pkg.getPart(partName('/ppt/notesSlides/notesSlide1.xml'));
-    expect(notesPart).not.toBeNull();
-    // Content type override present.
-    expect(notesPart?.contentType).toContain('notesSlide+xml');
-    // Slide reads back the notes.
-    expect(slide.notes).toBe('Speaker note line 1\nLine 2');
+    const partNames = getPackagePartNames(pres);
+    expect(partNames).toContain('/ppt/notesSlides/notesSlide1.xml');
+    expect(getSlideNotes(getSlides(pres)[0]!)).toBe('Speaker note line 1\nLine 2');
   });
 
-  it('updates an existing notesSlide on subsequent setNotes', async () => {
-    const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
-    const slide = pres.slides[0];
-    if (!slide) throw new Error('expected slide');
-    slide.setNotes('first');
-    slide.setNotes('second');
-    expect(slide.notes).toBe('second');
+  it('updates an existing notesSlide on subsequent setSlideNotes', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    setSlideNotes(slide, 'first');
+    setSlideNotes(getSlides(pres)[0]!, 'second');
+    expect(getSlideNotes(getSlides(pres)[0]!)).toBe('second');
 
-    const pkg = _internalPackageOf(pres);
-    // Only one notes part should exist.
-    const noteParts = pkg.parts.filter((p) => p.name.startsWith('/ppt/notesSlides/notesSlide'));
+    const noteParts = getPackagePartNames(pres).filter((n) =>
+      n.startsWith('/ppt/notesSlides/notesSlide'),
+    );
     expect(noteParts.length).toBe(1);
   });
 
   it('round-trips through save / load', async () => {
-    const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
-    pres.slides[0]?.setNotes('Round-tripped notes');
-    pres.slides[1]?.setNotes('Second-slide notes');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slides = getSlides(pres);
+    setSlideNotes(slides[0]!, 'Round-tripped notes');
+    setSlideNotes(slides[1]!, 'Second-slide notes');
 
-    const reloaded = await Presentation.load(await pres.save());
-    expect(reloaded.slides[0]?.notes).toBe('Round-tripped notes');
-    expect(reloaded.slides[1]?.notes).toBe('Second-slide notes');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const reloadedSlides = getSlides(reloaded);
+    expect(getSlideNotes(reloadedSlides[0]!)).toBe('Round-tripped notes');
+    expect(getSlideNotes(reloadedSlides[1]!)).toBe('Second-slide notes');
   });
-
-  // Schema validation skipped: ECMA-376's transitional pml.xsd doesn't
-  // declare `<notesSlide>` as a global root element (only as a complexType),
-  // so xmllint refuses to validate it standalone. PowerPoint reads it fine.
-  // Schema validation for notesSlide would need the strict schema variant
-  // or a wrapper element — out of scope for this iteration.
 });

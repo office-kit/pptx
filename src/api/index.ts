@@ -230,6 +230,7 @@ export {
   getOldestComment,
   getOrphanMediaPartNames,
   getOutlineText,
+  getPackagePartNames,
   getPackageSize,
   getPresentationCommenterCount,
   getPresentationCommenters,

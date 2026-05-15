@@ -8163,6 +8163,16 @@ export const getPackageSize = (pres: PresentationData): number => {
 };
 
 /**
+ * Returns every package part name (absolute path inside the OPC
+ * container, e.g. `/ppt/slides/slide1.xml`). Useful for audits,
+ * snapshot tests, and any tool that wants the raw URI list. Order
+ * matches the package's internal order, which mirrors the source
+ * `.pptx` for loaded files.
+ */
+export const getPackagePartNames = (pres: PresentationData): ReadonlyArray<string> =>
+  pres[INTERNAL_PACKAGE].parts.map((p) => p.name);
+
+/**
  * Returns every `/ppt/media/...` part in the package. Useful for
  * audit / export workflows — e.g. "extract every embedded image."
  */
