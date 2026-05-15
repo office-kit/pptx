@@ -5802,6 +5802,17 @@ export const hasSlideNotes = (slide: SlideData): boolean => {
 };
 
 /**
+ * Code-point length of the slide's speaker notes, or `0` when the
+ * slide has no notes. Counts via `Array.from`, so surrogate-pair
+ * characters (emoji, supplementary CJK) count as 1 — matches
+ * `getSlideTextLength`.
+ */
+export const getSlideNotesLength = (slide: SlideData): number => {
+  const notes = getSlideNotes(slide);
+  return notes === null ? 0 : Array.from(notes).length;
+};
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.

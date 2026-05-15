@@ -275,6 +275,7 @@ export {
   getSlideLayoutTypes,
   getSlideMediaPartNames,
   getSlideNotes,
+  getSlideNotesLength,
   getSlideOutline,
   getSlidePartName,
   getSlideSections,
