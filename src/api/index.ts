@@ -97,6 +97,7 @@ export {
   getCommentText,
   getShapeAnimation,
   getShapeBounds,
+  getShapeClickAction,
   getShapeFill,
   getShapeFlip,
   getShapeId,

@@ -3110,6 +3110,59 @@ const findExistingHyperlinkRel = (
 };
 
 /**
+ * Reads the click action attached to the shape's cNvPr, or `null` if
+ * none. Mirrors `setShapeClickAction`:
+ *
+ *   - `{ kind: 'url', url }`     — `hyperlink` rel + targetMode=External
+ *   - `{ kind: 'slide', slide }` — `slide` rel + `ppaction://hlinksldjump`
+ *   - `{ kind: 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' }`
+ *     — preset show-navigation `ppaction`.
+ *
+ * For `kind: 'slide'`, the matching slide is resolved by part name.
+ * Returns `null` for unknown `ppaction` strings.
+ */
+export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | null => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) return null;
+  const hlink = firstChildElement(cNvPr, NAME_HLINK_CLICK_FN);
+  if (!hlink) return null;
+  const action = getAttrValue(hlink, qname('', 'action', ''));
+  const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
+
+  if (action === 'ppaction://hlinkshowjump?jump=nextslide') return { kind: 'nextSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=previousslide') return { kind: 'prevSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=firstslide') return { kind: 'firstSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
+
+  if (rId !== null && rId !== '') {
+    const slide = shape[SHAPE_SLIDE];
+    const pkg = slide[INTERNAL_PACKAGE];
+    const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+    if (!rels) return null;
+    const rel = rels.items.find((r) => r.id === rId);
+    if (!rel) return null;
+
+    if (action === 'ppaction://hlinksldjump' && rel.type === REL_TYPES.slide) {
+      // Resolve to the SlideData of the target slide.
+      const targetPartName = rel.target.startsWith('/')
+        ? partName(rel.target)
+        : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+      const pres: PresentationData = { [INTERNAL_PACKAGE]: pkg, _slidesCache: null };
+      for (const candidate of getSlides(pres)) {
+        if (candidate[SLIDE_PART_NAME] === targetPartName) {
+          return { kind: 'slide', slide: candidate };
+        }
+      }
+      return null;
+    }
+    if (rel.type === REL_TYPES.hyperlink && rel.targetMode === 'External') {
+      return { kind: 'url', url: rel.target };
+    }
+  }
+  return null;
+};
+
+/**
  * Sets (or clears) the click action on the shape. Side effects:
  *
  *   - For `kind: 'url'`, a `hyperlink` rel is added (or reused) on the
