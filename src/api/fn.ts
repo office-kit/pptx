@@ -436,6 +436,47 @@ export const setSlideSections = (
 export const getSlideLayoutName = (layout: SlideLayoutData): string =>
   layout[LAYOUT_PART].name;
 
+/**
+ * Read-only view of one placeholder on a slide layout. Surfaces the
+ * three fields a slide-author cares about when binding a slide to a
+ * layout: which slot is for the title, which is for the body, etc.
+ */
+export interface SlideLayoutPlaceholder {
+  /** `<p:ph type="...">`. `null` when omitted — spec default is `body`. */
+  readonly type: string | null;
+  /** `<p:ph idx="...">`. `null` when omitted — spec default is `0`. */
+  readonly idx: number | null;
+  /** `<p:cNvPr name="...">` — what PowerPoint shows in the selection pane. */
+  readonly name: string;
+}
+
+/**
+ * Enumerates the placeholder shapes on a slide layout. Non-placeholder
+ * shapes (decorative rectangles, watermarks added to the layout) are
+ * filtered out; only entries with a `<p:ph>` element are returned.
+ *
+ * Use this when you need to discover which placeholder indices a
+ * layout exposes — e.g. before `findSlidePlaceholder(slide, ...)` to
+ * confirm the slot exists.
+ */
+export const getSlideLayoutPlaceholders = (
+  layout: SlideLayoutData,
+): ReadonlyArray<SlideLayoutPlaceholder> => {
+  const out: SlideLayoutPlaceholder[] = [];
+  for (const shape of layout[LAYOUT_PART].shapes) {
+    // Only `p:sp` shapes carry placeholders in real templates; pictures
+    // and connectors can technically have `<p:ph>` per the schema but
+    // PowerPoint never authors that. Filter for safety either way.
+    if (shape.placeholderType === null && shape.placeholderIdx === null) continue;
+    out.push({
+      type: shape.placeholderType,
+      idx: shape.placeholderIdx,
+      name: shape.name,
+    });
+  }
+  return out;
+};
+
 // ---------------------------------------------------------------------------
 // Theme.
 
