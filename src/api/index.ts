@@ -257,6 +257,7 @@ export {
   getSlideShapeIds,
   getSlideShapeKinds,
   getSlideShapeNames,
+  getSlideShapeTexts,
   getSlideShapes,
   getSlideSize,
   getSlideText,

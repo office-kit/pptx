@@ -7780,6 +7780,17 @@ export const getSlideShapeIds = (slide: SlideData): ReadonlyArray<number> => {
 };
 
 /**
+ * Returns each shape's visible text on the slide in document order.
+ * Shapes without a text body yield empty strings — index alignment
+ * with `getSlideShapes` is preserved.
+ */
+export const getSlideShapeTexts = (slide: SlideData): ReadonlyArray<string> => {
+  const out: string[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].text);
+  return out;
+};
+
+/**
  * Every shape on the slide whose visible text body is non-empty.
  * Sibling of `findShapesWithImages`. Useful for "find all
  * caption / label boxes on this slide" patterns.
