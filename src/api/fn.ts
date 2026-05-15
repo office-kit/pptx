@@ -4933,6 +4933,33 @@ export const getSlidesWithComments = (pres: PresentationData): ReadonlyArray<Sli
 };
 
 /**
+ * One entry per slide with non-empty notes, carrying its 0-based
+ * slide index and the notes text. Useful for "export speaker
+ * notes to a separate document" workflows that need both the
+ * notes and the slide they belong to.
+ */
+export interface PresentationNotesEntry {
+  readonly slideIndex: number;
+  readonly notes: string;
+}
+
+/**
+ * Returns every slide's speaker notes alongside its 0-based index.
+ * Skips slides whose notes are empty / unset.
+ */
+export const getAllNotes = (
+  pres: PresentationData,
+): ReadonlyArray<PresentationNotesEntry> => {
+  const out: PresentationNotesEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    const notes = getSlideNotes(slides[i]!);
+    if (notes !== null && notes.length > 0) out.push({ slideIndex: i, notes });
+  }
+  return out;
+};
+
+/**
  * Returns every slide in the presentation that carries non-empty
  * speaker notes. Convenience over `getSlides(pres).filter(s =>
  * getSlideNotes(s) !== null && getSlideNotes(s) !== '')`.
