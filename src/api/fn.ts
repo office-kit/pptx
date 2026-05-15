@@ -4758,6 +4758,10 @@ const findTblElement = (shape: SlideShapeData): XmlElement | null => {
   return firstChildElement(graphicData, NAME_A_TBL);
 };
 
+const NAME_A_GRID_COL = qname('a', 'gridCol', NS.dml);
+const ATTR_W_TBL = qname('', 'w', '');
+const ATTR_H_TBL = qname('', 'h', '');
+
 const tableRows = (tbl: XmlElement): XmlElement[] =>
   tbl.children.filter(
     (c): c is XmlElement =>
@@ -4809,6 +4813,47 @@ export const getTableDimensions = (
   const rows = tableRows(tbl);
   const cols = rows[0] !== undefined ? rowCells(rows[0]).length : 0;
   return { rows: rows.length, cols };
+};
+
+/**
+ * Returns each column's width in EMU, in left-to-right order, as
+ * declared on `<a:tblGrid>/<a:gridCol w="...">`. Missing or
+ * unparseable widths default to 0. Throws when the shape isn't a
+ * table graphic frame.
+ */
+export const getTableColumnWidths = (
+  table: SlideShapeData,
+): ReadonlyArray<Emu> => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('getTableColumnWidths: shape is not a table graphic frame');
+  const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  if (!grid) return [];
+  const out: Emu[] = [];
+  for (const col of allChildElements(grid, NAME_A_GRID_COL)) {
+    const v = getAttrValue(col, ATTR_W_TBL);
+    const n = v !== null ? Number.parseInt(v, 10) : 0;
+    out.push((Number.isFinite(n) ? n : 0) as Emu);
+  }
+  return out;
+};
+
+/**
+ * Returns each row's height in EMU, in top-to-bottom order, from
+ * `<a:tr h="...">`. Missing or unparseable heights default to 0.
+ * Throws when the shape isn't a table graphic frame.
+ */
+export const getTableRowHeights = (
+  table: SlideShapeData,
+): ReadonlyArray<Emu> => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('getTableRowHeights: shape is not a table graphic frame');
+  const out: Emu[] = [];
+  for (const tr of tableRows(tbl)) {
+    const v = getAttrValue(tr, ATTR_H_TBL);
+    const n = v !== null ? Number.parseInt(v, 10) : 0;
+    out.push((Number.isFinite(n) ? n : 0) as Emu);
+  }
+  return out;
 };
 
 /**
@@ -4958,10 +5003,6 @@ const requireTbl = (table: SlideShapeData): XmlElement => {
   if (!tbl) throw new Error('table shape is not a table graphic frame');
   return tbl;
 };
-
-const NAME_A_GRID_COL = qname('a', 'gridCol', NS.dml);
-const ATTR_W_TBL = qname('', 'w', '');
-const ATTR_H_TBL = qname('', 'h', '');
 
 const tableColumnCount = (tbl: XmlElement): number => {
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
