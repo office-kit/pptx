@@ -5504,6 +5504,19 @@ export const getAllCharts = (
 };
 
 /**
+ * Fast count of charts across the whole deck. Cheaper than
+ * `getAllCharts(pres).length` when only the number is needed
+ * (no intermediate array).
+ */
+export const getPresentationChartCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    n += getSlideCharts(slide).length;
+  }
+  return n;
+};
+
+/**
  * One entry per comment in the deck, carrying both the comment and
  * the 0-based slide it was attached to.
  */
