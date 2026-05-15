@@ -262,6 +262,7 @@ export {
   getSlidesByLayout,
   getSlidesWithCharts,
   getSlidesWithComments,
+  getSlidesWithEmptyPlaceholders,
   getSlidesWithImages,
   getSlidesWithNotes,
   getSlidesWithTables,

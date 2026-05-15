@@ -2411,6 +2411,22 @@ export const findEmptyPlaceholders = (
 };
 
 /**
+ * Returns every slide in the deck that has at least one empty
+ * placeholder shape. Built on `findEmptyPlaceholders`. Useful for
+ * "which slides still need editorial attention?" pre-publish
+ * audits.
+ */
+export const getSlidesWithEmptyPlaceholders = (
+  pres: PresentationData,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (findEmptyPlaceholders(slide).length > 0) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns the first placeholder shape whose `<p:ph idx="...">`
  * matches `idx`, or `null` when none does. Real templates often
  * disambiguate same-type placeholders (e.g. two body slots) by
