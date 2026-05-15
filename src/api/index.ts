@@ -338,6 +338,7 @@ export {
   removeTableColumn,
   removeTableRow,
   renameShape,
+  replaceHyperlink,
   replaceTextInPresentation,
   replaceTextInSlide,
   replaceTokensInPresentation,

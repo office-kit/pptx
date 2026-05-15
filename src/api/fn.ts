@@ -5656,6 +5656,34 @@ export const findSlidesByHyperlink = (
 };
 
 /**
+ * Bulk URL migration. Re-points every shape across the deck whose
+ * first hyperlink exactly equals `from` to instead point at `to`.
+ * Returns the number of shapes updated. Built on
+ * `setShapeHyperlink`, so each update goes through the standard
+ * rels-allocation path and stays schema-valid.
+ *
+ * Matching is exact (case-sensitive). To migrate by pattern, use
+ * `findSlidesByHyperlink` to locate slides and rewrite each shape
+ * yourself.
+ */
+export const replaceHyperlink = (
+  pres: PresentationData,
+  from: string,
+  to: string,
+): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      if (getShapeHyperlink(shape) === from) {
+        setShapeHyperlink(shape, to);
+        n++;
+      }
+    }
+  }
+  return n;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
