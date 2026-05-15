@@ -26,6 +26,7 @@ export type {
   SlideData,
   SlideLayoutData,
   SlideShapeData,
+  TableCellData,
 } from './_internal-symbols.ts';
 export type {
   CommentAuthor,
@@ -67,6 +68,7 @@ export {
   clearShapeEffects,
   clearShapeFill,
   clearShapeStroke,
+  clearTableCellFill,
   clearSlideAnimations,
   clearSlideBackground,
   clearSlideTransition,
@@ -113,6 +115,10 @@ export {
   getSlideTitle,
   getSlideTransition,
   getSlides,
+  getTableCell,
+  getTableCellPosition,
+  getTableCellText,
+  getTableCells,
   isSlideHidden,
   loadPresentation,
   moveSlide,
@@ -166,6 +172,10 @@ export {
   setSlideSize,
   setSlideTitle,
   setSlideTransition,
+  setTableCellAlignment,
+  setTableCellFill,
+  setTableCellText,
+  setTableCellTextFormat,
   validatePresentation,
 } from './fn.ts';
 

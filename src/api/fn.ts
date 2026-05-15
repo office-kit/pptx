@@ -130,6 +130,10 @@ import {
   text as textNode,
 } from '../internal/xml/index.ts';
 import {
+  CELL_COL,
+  CELL_ELEMENT,
+  CELL_ROW,
+  CELL_TABLE,
   COMMENT_SLIDE,
   COMMENT_SNAPSHOT,
   INTERNAL_PACKAGE,
@@ -147,6 +151,7 @@ import {
   type SlideData,
   type SlideLayoutData,
   type SlideShapeData,
+  type TableCellData,
 } from './_internal-symbols.ts';
 
 const TEXT_DECODER = new TextDecoder();
@@ -3180,6 +3185,188 @@ export const addSlideChart = (
 
 // Re-export chart types for consumers.
 export type { ChartKind, ChartSeries, ChartSpec };
+
+// ---------------------------------------------------------------------------
+// Table cell access.
+//
+// `addSlideTable` builds the cell tree under `<a:graphic>/<a:graphicData>/
+// <a:tbl>`. These helpers let callers reach individual `<a:tc>` cells to
+// re-fill text, paint backgrounds, or align contents without rebuilding
+// the table.
+
+export type { TableCellData };
+
+const NAME_A_GRAPHIC_TBL = qname('a', 'graphic', NS.dml);
+const NAME_A_GRAPHIC_DATA_TBL = qname('a', 'graphicData', NS.dml);
+const NAME_A_TBL = qname('a', 'tbl', NS.dml);
+const NAME_A_TC_PR = qname('a', 'tcPr', NS.dml);
+const NAME_A_TX_BODY_TBL = qname('a', 'txBody', NS.dml);
+
+const findTblElement = (shape: SlideShapeData): XmlElement | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'graphicFrame') return null;
+  const graphic = firstChildElement(shape[SHAPE_ELEMENT], NAME_A_GRAPHIC_TBL);
+  if (!graphic) return null;
+  const graphicData = firstChildElement(graphic, NAME_A_GRAPHIC_DATA_TBL);
+  if (!graphicData) return null;
+  return firstChildElement(graphicData, NAME_A_TBL);
+};
+
+const tableRows = (tbl: XmlElement): XmlElement[] =>
+  tbl.children.filter(
+    (c): c is XmlElement =>
+      c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tr',
+  );
+
+const rowCells = (tr: XmlElement): XmlElement[] =>
+  tr.children.filter(
+    (c): c is XmlElement =>
+      c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tc',
+  );
+
+const buildCellHandle = (
+  table: SlideShapeData,
+  tc: XmlElement,
+  row: number,
+  col: number,
+): TableCellData => ({
+  [CELL_TABLE]: table,
+  [CELL_ELEMENT]: tc,
+  [CELL_ROW]: row,
+  [CELL_COL]: col,
+});
+
+/**
+ * Returns a 2D array of cell handles for the given table shape, in
+ * row-major order. Throws if the shape isn't a table graphic frame.
+ */
+export const getTableCells = (
+  table: SlideShapeData,
+): ReadonlyArray<ReadonlyArray<TableCellData>> => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('getTableCells: shape is not a table graphic frame');
+  const rows = tableRows(tbl);
+  return rows.map((tr, rowIdx) =>
+    rowCells(tr).map((tc, colIdx) => buildCellHandle(table, tc, rowIdx, colIdx)),
+  );
+};
+
+/**
+ * Returns the cell at `(row, col)`. Throws on out-of-range coordinates
+ * or non-table shapes.
+ */
+export const getTableCell = (
+  table: SlideShapeData,
+  row: number,
+  col: number,
+): TableCellData => {
+  const cells = getTableCells(table);
+  const r = cells[row];
+  if (!r) throw new RangeError(`table row ${row} out of range (have ${cells.length})`);
+  const c = r[col];
+  if (!c) throw new RangeError(`table column ${col} out of range in row ${row} (have ${r.length})`);
+  return c;
+};
+
+const commitTableCell = (cell: TableCellData): void => {
+  const shape = cell[CELL_TABLE];
+  commitSlideData(shape[SHAPE_SLIDE]);
+  refreshSlideData(shape[SHAPE_SLIDE]);
+};
+
+const ensureCellTxBody = (cell: TableCellData): XmlElement => {
+  const tc = cell[CELL_ELEMENT];
+  let txBody = firstChildElement(tc, NAME_A_TX_BODY_TBL);
+  if (txBody === null) {
+    txBody = elem(NAME_A_TX_BODY_TBL);
+    // bodyPr lstStyle a:p — keep the canonical ordering.
+    txBody.children.push(elem(qname('a', 'bodyPr', NS.dml)));
+    txBody.children.push(elem(qname('a', 'lstStyle', NS.dml)));
+    // Insert before <a:tcPr> per the schema.
+    const tcPrIdx = tc.children.findIndex(
+      (c) =>
+        c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tcPr',
+    );
+    if (tcPrIdx >= 0) tc.children.splice(tcPrIdx, 0, txBody);
+    else tc.children.push(txBody);
+  }
+  return txBody;
+};
+
+const ensureCellTcPr = (cell: TableCellData): XmlElement => {
+  const tc = cell[CELL_ELEMENT];
+  let tcPr = firstChildElement(tc, NAME_A_TC_PR);
+  if (tcPr === null) {
+    tcPr = elem(NAME_A_TC_PR);
+    // <a:tcPr> is the LAST child of <a:tc>.
+    tc.children.push(tcPr);
+  }
+  return tcPr;
+};
+
+/** Replaces a cell's text. `\n` starts a new paragraph. */
+export const setTableCellText = (cell: TableCellData, text: string): void => {
+  const txBody = ensureCellTxBody(cell);
+  setTextBody(txBody, text);
+  commitTableCell(cell);
+};
+
+/** Reads the cell's plain text (paragraphs joined with `\n`). */
+export const getTableCellText = (cell: TableCellData): string => {
+  const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+  if (!txBody) return '';
+  const lines: string[] = [];
+  for (const p of txBody.children) {
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') continue;
+    let line = '';
+    for (const r of p.children) {
+      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') continue;
+      const tEl = firstChildElement(r, qname('a', 't', NS.dml));
+      if (!tEl) continue;
+      for (const child of tEl.children) {
+        if (child.kind === 'text' || child.kind === 'cdata') line += child.data;
+      }
+    }
+    lines.push(line);
+  }
+  return lines.join('\n');
+};
+
+/** Sets a solid background color on a cell (`<a:tcPr><a:solidFill>`). */
+export const setTableCellFill = (cell: TableCellData, color: string): void => {
+  const tcPr = ensureCellTcPr(cell);
+  setSolidFill(tcPr, color);
+  commitTableCell(cell);
+};
+
+/** Removes any background fill from a cell. */
+export const clearTableCellFill = (cell: TableCellData): void => {
+  const tcPr = ensureCellTcPr(cell);
+  clearFillImpl(tcPr);
+  commitTableCell(cell);
+};
+
+/** Applies a TextFormat to every run in the cell's text. */
+export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
+  const txBody = ensureCellTxBody(cell);
+  applyFormatToAllRuns(txBody, format);
+  commitTableCell(cell);
+};
+
+/** Sets horizontal alignment on every paragraph in the cell. */
+export const setTableCellAlignment = (
+  cell: TableCellData,
+  align: ParagraphAlignment,
+): void => {
+  const txBody = ensureCellTxBody(cell);
+  applyAlignmentToAllParagraphs(txBody, align);
+  commitTableCell(cell);
+};
+
+/** Zero-based (row, col) of the cell. */
+export const getTableCellPosition = (cell: TableCellData): { row: number; col: number } => ({
+  row: cell[CELL_ROW],
+  col: cell[CELL_COL],
+});
 
 /**
  * A chart sitting on a slide. `shape` is the `<p:graphicFrame>`

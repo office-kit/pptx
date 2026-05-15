@@ -31,6 +31,10 @@ export const LAYOUT_PART_NAME = Symbol('pptx-kit.layout.partName');
 export const LAYOUT_PART = Symbol('pptx-kit.layout.part');
 export const COMMENT_SLIDE = Symbol('pptx-kit.comment.slide');
 export const COMMENT_SNAPSHOT = Symbol('pptx-kit.comment.snapshot');
+export const CELL_TABLE = Symbol('pptx-kit.cell.table');
+export const CELL_ELEMENT = Symbol('pptx-kit.cell.element');
+export const CELL_ROW = Symbol('pptx-kit.cell.row');
+export const CELL_COL = Symbol('pptx-kit.cell.col');
 
 /**
  * Data shape backing every `Presentation` value. The class implements
@@ -74,4 +78,16 @@ export interface SlideCommentData {
   readonly [COMMENT_SLIDE]: SlideData;
   readonly [COMMENT_SNAPSHOT]: SlideComment;
   readonly author: CommentAuthor;
+}
+
+/**
+ * Opaque handle for one cell of a table graphic-frame shape. Carries
+ * its zero-based row/column position plus the parent table shape so
+ * mutations can commit back through the standard slide path.
+ */
+export interface TableCellData {
+  readonly [CELL_TABLE]: SlideShapeData;
+  readonly [CELL_ELEMENT]: XmlElement;
+  readonly [CELL_ROW]: number;
+  readonly [CELL_COL]: number;
 }
