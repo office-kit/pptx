@@ -1407,6 +1407,20 @@ export const getPresentationText = (
 };
 
 /**
+ * Total code-point length of visible text across every slide.
+ * Sibling of `getSlideTextLength`; counts surrogate-pair characters
+ * (emoji, supplementary CJK) as 1 each. Cheaper than building the
+ * concatenated string when only the length matters.
+ */
+export const getPresentationTextLength = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    n += Array.from(slideText(slide[SLIDE_PART])).length;
+  }
+  return n;
+};
+
+/**
  * Returns the 0-based index of `slide` within `pres`, or `-1` if the
  * slide doesn't belong to this presentation (e.g. after a removeSlide
  * call, or if it was constructed from a different package).

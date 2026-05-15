@@ -210,6 +210,7 @@ export {
   getPresentationModified,
   getPresentationSummary,
   getPresentationText,
+  getPresentationTextLength,
   getPresentationTheme,
   getShapePlaceholderType,
   getShapePosition,
