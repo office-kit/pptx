@@ -2411,6 +2411,38 @@ export const findEmptyPlaceholders = (
 };
 
 /**
+ * Returns the union bounding box of a group of shapes, or `null`
+ * when none of them have bounds. Useful for "select all and move
+ * together" patterns where the caller needs a single rectangle
+ * across the group.
+ */
+export const getShapesBounds = (
+  shapes: ReadonlyArray<SlideShapeData>,
+): ShapeBounds | null => {
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let found = false;
+  for (const shape of shapes) {
+    const b = getShapeBounds(shape);
+    if (!b) continue;
+    found = true;
+    if (b.x < minX) minX = b.x;
+    if (b.y < minY) minY = b.y;
+    if (b.x + b.w > maxX) maxX = b.x + b.w;
+    if (b.y + b.h > maxY) maxY = b.y + b.h;
+  }
+  if (!found) return null;
+  return {
+    x: minX as Emu,
+    y: minY as Emu,
+    w: (maxX - minX) as Emu,
+    h: (maxY - minY) as Emu,
+  };
+};
+
+/**
  * Translates every shape in `shapes` by `(dxEmu, dyEmu)`. Useful
  * for "move this group of shapes 1cm right" patterns without
  * looping yourself. Shapes without bounds are skipped silently.

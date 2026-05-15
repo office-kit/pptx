@@ -214,6 +214,7 @@ export {
   getShapeRunHyperlink,
   getShapeRunText,
   getShapeSize,
+  getShapesBounds,
   getShapeSlide,
   getShapeStroke,
   getShapeStrokeArrow,
