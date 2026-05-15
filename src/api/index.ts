@@ -55,6 +55,7 @@ export type {
 } from '../internal/drawingml/index.ts';
 export type {
   AllShapesEntry,
+  PackagePartInfo,
   PresentationTheme,
   ShapeBounds,
   ShapeEffect,
@@ -159,8 +160,10 @@ export {
   insertTableColumn,
   insertTableRow,
   isSlideHidden,
+  listPackageParts,
   loadPresentation,
   moveSlide,
+  readPackagePart,
   removeShape,
   removeSlide,
   removeSlideComment,

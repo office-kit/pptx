@@ -4571,6 +4571,45 @@ export const validatePresentation = (pres: PresentationData): ReadonlyArray<Vali
   validatePresentationPackage(pres[INTERNAL_PACKAGE]);
 
 // ---------------------------------------------------------------------------
+// Package introspection escape hatches.
+//
+// `_internalPackageOf` is the heavy escape hatch for hot-path power
+// users; these two helpers cover the 80% case (just enumerate parts
+// or read a single part's bytes) without exposing the OpcPackage
+// class.
+
+/** One entry in the package's parts list. */
+export interface PackagePartInfo {
+  readonly name: string;
+  readonly contentType: string;
+  readonly byteLength: number;
+}
+
+/**
+ * Enumerates every OPC part in the package. Useful for advanced
+ * inspection (e.g. "what parts does this template carry?") without
+ * dropping to `_internalPackageOf`.
+ */
+export const listPackageParts = (pres: PresentationData): ReadonlyArray<PackagePartInfo> =>
+  pres[INTERNAL_PACKAGE].parts.map((p) => ({
+    name: p.name,
+    contentType: p.contentType,
+    byteLength: p.data.byteLength,
+  }));
+
+/**
+ * Reads a single OPC part's bytes by part name (e.g.
+ * `'/ppt/slides/slide1.xml'`). Returns `null` when no such part
+ * exists. The returned `Uint8Array` is a live view into the
+ * package — DO NOT mutate it. Use this for read-only inspection
+ * (e.g. parsing custom extension parts).
+ */
+export const readPackagePart = (pres: PresentationData, name: string): Uint8Array | null => {
+  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name === name);
+  return part?.data ?? null;
+};
+
+// ---------------------------------------------------------------------------
 // Picture opacity — `<a:alphaModFix>` inside the picture's `<a:blip>`.
 //
 // `amt` is ECMA-376's ST_PositiveFixedPercentage (0–100000, scale 1/1000
