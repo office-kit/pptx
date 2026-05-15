@@ -2792,6 +2792,19 @@ export const pointInShape = (
 };
 
 /**
+ * Returns every shape on the slide whose bounds contain `(x, y)`
+ * (in EMU). Built on `pointInShape`. The list is in document
+ * order, so callers can index by z-stack from front (last) to
+ * back (first) if they want one-hit semantics.
+ */
+export const findShapesAtPoint = (
+  slide: SlideData,
+  x: number,
+  y: number,
+): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES].filter((s) => pointInShape(s, x, y));
+
+/**
  * `true` when two shapes' axis-aligned bounding boxes overlap.
  * Returns `false` when either shape has no bounds. Doesn't account
  * for rotation — uses the raw `<a:xfrm>` rectangle, not the

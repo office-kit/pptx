@@ -126,6 +126,7 @@ export {
   findShapeInPresentation,
   findShapesByKind,
   findShapesByName,
+  findShapesAtPoint,
   findShapesByText,
   findShapesWithImages,
   findShapesWithText,
