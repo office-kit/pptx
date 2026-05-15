@@ -143,6 +143,7 @@ export {
   findSlidePlaceholderByIdx,
   findSlidePlaceholders,
   findSlidesByLayoutName,
+  findSlidesByLayoutType,
   findSlidesByText,
   findSlidesWithCommentsByAuthor,
   getAllCharts,

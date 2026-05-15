@@ -7836,6 +7836,24 @@ export const findSlidesByLayoutName = (
 };
 
 /**
+ * Every slide whose layout `@type` (e.g. `'title'`, `'blank'`,
+ * `'obj'`) matches. Sibling of `findSlidesByLayoutName`, but keyed
+ * on the OOXML layout-type enum rather than the human-facing name —
+ * stable across locales and template providers.
+ */
+export const findSlidesByLayoutType = (
+  pres: PresentationData,
+  layoutType: SlideLayoutType | string,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const layout = getSlideLayout(slide);
+    if (layout !== null && getSlideLayoutType(layout) === layoutType) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Every shape on the slide whose visible text body is non-empty.
  * Sibling of `findShapesWithImages`. Useful for "find all
  * caption / label boxes on this slide" patterns.
