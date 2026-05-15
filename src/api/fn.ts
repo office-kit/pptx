@@ -6433,6 +6433,17 @@ export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
  * when the caller already has the shape in hand (e.g. iterating
  * `getSlideShapes`).
  */
+/**
+ * Convenience over `getShapeChartSpec(shape)?.kind ?? null`. Returns
+ * the chart's `ChartKind` ('bar', 'line', 'pie', …) when the shape
+ * is a chart wrapper, or `null` for non-charts and charts whose
+ * kind isn't modeled yet.
+ */
+export const getShapeChartKind = (shape: SlideShapeData): ChartKind | null => {
+  const spec = getShapeChartSpec(shape);
+  return spec === null ? null : spec.kind;
+};
+
 export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
   const slide = shape[SHAPE_SLIDE];
   const resolved = resolveChartPartName(slide, shape);

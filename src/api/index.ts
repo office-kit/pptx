@@ -143,6 +143,7 @@ export {
   getShapeAltTitle,
   getShapeAnimation,
   getShapeBounds,
+  getShapeChartKind,
   getShapeChartSpec,
   getShapeClickAction,
   getShapeDescription,
