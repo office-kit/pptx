@@ -4196,6 +4196,66 @@ export const setShapeImageBrightness = (
 };
 
 /**
+ * Adjusts the picture's contrast by writing `<a:lumMod val="…"/>` on
+ * `<a:blip>`. The value is a 0..2 fraction:
+ *
+ *   - `1` or `null` → no modulation (any prior `<a:lumMod>` is removed)
+ *   - `0.5`         → 50% of original luminance variance (washed out)
+ *   - `1.5`         → 150% (boosted contrast; PowerPoint clamps to
+ *                       what the renderer supports)
+ *
+ * Throws on non-picture shapes and on values outside `[0, 2]`. The
+ * primitive maps directly to `ST_PositiveFixedPercentage` × 100000.
+ */
+export const setShapeImageContrast = (
+  shape: SlideShapeData,
+  value: number | null,
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
+    throw new Error(
+      `setShapeImageContrast only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
+  blip.children = blip.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'lumMod'),
+  );
+  if (value !== null && value !== 1) {
+    if (!Number.isFinite(value) || value < 0 || value > 2) {
+      throw new RangeError(`contrast must be in [0, 2], got ${value}`);
+    }
+    blip.children.push(
+      elem(qname('a', 'lumMod', NS.dml), {
+        attrs: [attr(qname('', 'val', ''), String(Math.round(value * 100000)))],
+      }),
+    );
+  }
+  commitAndRefresh(shape);
+};
+
+/**
+ * Reads the picture's contrast modulation (the `<a:lumMod>` fraction
+ * in [0, 2]). Returns `null` when no `<a:lumMod>` is present.
+ */
+export const getShapeImageContrast = (shape: SlideShapeData): number | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const lumMod = firstChildElement(blip, qname('a', 'lumMod', NS.dml));
+  if (!lumMod) return null;
+  const v = getAttrValue(lumMod, qname('', 'val', ''));
+  if (v === null) return null;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n / 100000 : null;
+};
+
+/**
  * Reads the picture's brightness offset (the `<a:lumOff>` fraction
  * in [-1, 1]). Returns `null` when no `<a:lumOff>` is present.
  */
