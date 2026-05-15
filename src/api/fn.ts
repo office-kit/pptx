@@ -3051,6 +3051,52 @@ export const bringShapeForward = (shape: SlideShapeData): void => {
   }
 };
 
+/**
+ * Returns the shape's z-index among the slide's "real" shape children
+ * (`<p:sp>` / `<p:pic>` / `<p:cxnSp>` / `<p:graphicFrame>` / `<p:grpSp>`),
+ * skipping the required `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface.
+ * Higher numbers render in front.
+ */
+export const getShapeZIndex = (shape: SlideShapeData): number => {
+  const slide = shape[SHAPE_SLIDE];
+  const spTree = requireSpTree(slide);
+  let i = 0;
+  for (const c of spTree.children) {
+    if (!isShapeChild(c)) continue;
+    if (c === shape[SHAPE_ELEMENT]) return i;
+    i++;
+  }
+  return -1;
+};
+
+/**
+ * Moves the shape to a specific z-index among the slide's "real"
+ * shape children. Index is clamped to the available range. Higher
+ * numbers render in front. The required preface elements stay at the
+ * top of `<p:spTree>`.
+ */
+export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => {
+  const slide = shape[SHAPE_SLIDE];
+  const spTree = requireSpTree(slide);
+  const target = shape[SHAPE_ELEMENT];
+  const allShapeChildren = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
+  const clamped = Math.max(0, Math.min(toIndex, allShapeChildren.length - 1));
+
+  // Remove the target from the tree, then re-insert at the position
+  // corresponding to z-index `clamped` among the remaining shapes.
+  spTree.children = spTree.children.filter((c) => c !== target);
+  const remainingShapes = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
+  if (clamped >= remainingShapes.length) {
+    spTree.children.push(target);
+  } else {
+    const anchor = remainingShapes[clamped]!;
+    const anchorIdx = spTree.children.indexOf(anchor);
+    spTree.children.splice(anchorIdx, 0, target);
+  }
+  commitSlideData(slide);
+  rebuildShapesFromDocument(slide);
+};
+
 /** Swap `shape` with the previous shape sibling (move one step backward). */
 export const sendShapeBackward = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
