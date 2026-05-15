@@ -71,6 +71,7 @@ export type {
 } from './fn.ts';
 export {
   addSlide,
+  addSlideAt,
   addSlideChart,
   bringShapeForward,
   bringShapeToFront,
@@ -92,6 +93,7 @@ export {
   copyShape,
   createPresentation,
   duplicateSlide,
+  duplicateSlideAt,
   findShapeByName,
   findShapeInPresentation,
   findShapesByKind,

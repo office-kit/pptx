@@ -1152,6 +1152,38 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
 };
 
 /**
+ * Convenience over `addSlide` + `moveSlide`. Inserts the new slide
+ * at the given 0-based index (clamped to `[0, getSlides(pres).length]`).
+ */
+export const addSlideAt = (
+  pres: PresentationData,
+  atIndex: number,
+  options: { layout: SlideLayoutData },
+): SlideData => {
+  const slide = addSlide(pres, options);
+  moveSlide(pres, slide, atIndex);
+  const slides = getSlides(pres);
+  const clamped = Math.max(0, Math.min(atIndex, slides.length - 1));
+  return slides[clamped]!;
+};
+
+/**
+ * Convenience over `duplicateSlide` + `moveSlide`. Duplicates `slide`
+ * and inserts the duplicate at `atIndex` instead of at the end.
+ */
+export const duplicateSlideAt = (
+  pres: PresentationData,
+  atIndex: number,
+  slide: SlideData,
+): SlideData => {
+  const dup = duplicateSlide(pres, slide);
+  moveSlide(pres, dup, atIndex);
+  const slides = getSlides(pres);
+  const clamped = Math.max(0, Math.min(atIndex, slides.length - 1));
+  return slides[clamped]!;
+};
+
+/**
  * Imports a slide from another presentation into `targetPres`. The
  * slide's part bytes are copied verbatim; image rels are followed and
  * the linked media is copied into the target package with fresh part
