@@ -3770,6 +3770,78 @@ export const setShapeAnimation = (
   refreshSlideData(slide);
 };
 
+/**
+ * Returns the animation effect bound to this shape via the slide's
+ * `<p:timing>` tree, or `null` if the shape has no animation in the
+ * v1 single-effect schema we model. Unknown presets are reported as a
+ * raw `null` rather than guessing.
+ */
+export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null => {
+  const slide = shape[SHAPE_SLIDE];
+  const timing = slide[SLIDE_DOCUMENT].root.children.find(
+    (c): c is XmlElement =>
+      c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
+  );
+  if (!timing) return null;
+
+  // Confirm the shape's spid appears in <p:bldLst><p:bldP spid="..."/>.
+  const bldLst = firstChildElement(timing, qname('p', 'bldLst', NS.pml));
+  if (!bldLst) return null;
+  const spidStr = String(shape[SHAPE_SNAPSHOT].id);
+  const matched = allChildElements(bldLst, qname('p', 'bldP', NS.pml)).some(
+    (b) => getAttrValue(b, qname('', 'spid', '')) === spidStr,
+  );
+  if (!matched) return null;
+
+  // Walk the timing tree to find the effect cTn for this shape. Our
+  // builder emits `<p:cTn presetID="N" presetClass="entr|exit" ...
+  // nodeType="clickEffect">` with a `<p:spTgt spid="..."/>` inside. We
+  // accept any cTn carrying that combination.
+  let presetID: string | null = null;
+  let presetClass: string | null = null;
+  const walk = (el: XmlElement): boolean => {
+    if (el.name.namespaceURI === NS.pml && el.name.localName === 'cTn') {
+      const cls = getAttrValue(el, qname('', 'presetClass', ''));
+      const id = getAttrValue(el, qname('', 'presetID', ''));
+      if (cls && id) {
+        // Confirm this cTn targets our shape via a descendant spTgt.
+        const targetsShape = (sub: XmlElement): boolean => {
+          if (
+            sub.name.namespaceURI === NS.pml &&
+            sub.name.localName === 'spTgt' &&
+            getAttrValue(sub, qname('', 'spid', '')) === spidStr
+          ) {
+            return true;
+          }
+          for (const c of sub.children) {
+            if (c.kind === 'element' && targetsShape(c)) return true;
+          }
+          return false;
+        };
+        if (targetsShape(el)) {
+          presetClass = cls;
+          presetID = id;
+          return true;
+        }
+      }
+    }
+    for (const c of el.children) {
+      if (c.kind === 'element' && walk(c)) return true;
+    }
+    return false;
+  };
+  walk(timing);
+  if (!presetID || !presetClass) return null;
+
+  // Map back to AnimationEffect.
+  const id = Number.parseInt(presetID, 10);
+  if (presetClass === 'entr' && id === 1) return 'appear';
+  if (presetClass === 'entr' && id === 10) return 'fadeIn';
+  if (presetClass === 'exit' && id === 1) return 'disappear';
+  if (presetClass === 'exit' && id === 10) return 'fadeOut';
+  return null;
+};
+
 /** Removes the slide's `<p:timing>` element entirely. */
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);

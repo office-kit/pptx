@@ -86,6 +86,7 @@ export {
   getCommentDate,
   getCommentPosition,
   getCommentText,
+  getShapeAnimation,
   getShapeBounds,
   getShapeFill,
   getShapeFlip,
