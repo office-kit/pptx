@@ -7685,6 +7685,14 @@ export const clearAllAnimations = (pres: PresentationData): void => {
   for (const slide of getSlides(pres)) clearSlideAnimations(slide);
 };
 
+/**
+ * Removes every slide transition across the whole deck. Sibling of
+ * `clearAllAnimations`.
+ */
+export const clearAllTransitions = (pres: PresentationData): void => {
+  for (const slide of getSlides(pres)) clearSlideTransition(slide);
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);
