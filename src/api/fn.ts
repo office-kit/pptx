@@ -5577,6 +5577,21 @@ export const getAllHyperlinks = (
 };
 
 /**
+ * Fast count of hyperlinked shapes across the whole deck. Cheaper
+ * than `getAllHyperlinks(pres).length` when only the number is
+ * needed (no intermediate array).
+ */
+export const getPresentationHyperlinkCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      if (getShapeHyperlink(shape) !== null) n++;
+    }
+  }
+  return n;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
