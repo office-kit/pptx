@@ -192,6 +192,7 @@ export {
   getShapeTextWrap,
   getShapeZIndex,
   getSlideAt,
+  getSlideAuthors,
   getSlideBackground,
   getSlideBody,
   getSlideCharts,
