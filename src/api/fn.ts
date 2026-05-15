@@ -1847,6 +1847,54 @@ export const setShapeRunText = (
 };
 
 /**
+ * Reads back the format of a single run. Returns `null` when the run
+ * has no `<a:rPr>` (it inherits its format from the paragraph /
+ * layout / master). Boolean attributes that are explicitly `"0"`
+ * decode to `false`.
+ */
+export const getShapeRunFormat = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): TextFormat | null => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  const rPr = firstChildElement(run, NAME_A_RPR);
+  if (rPr === null) return null;
+  const out: TextFormat = {};
+  const sz = getAttrValue(rPr, qname('', 'sz', ''));
+  if (sz !== null) {
+    const n = Number.parseInt(sz, 10);
+    if (Number.isFinite(n)) (out as { size?: number }).size = n / 100;
+  }
+  const b = getAttrValue(rPr, qname('', 'b', ''));
+  if (b !== null) (out as { bold?: boolean }).bold = b !== '0';
+  const i = getAttrValue(rPr, qname('', 'i', ''));
+  if (i !== null) (out as { italic?: boolean }).italic = i !== '0';
+  const u = getAttrValue(rPr, qname('', 'u', ''));
+  if (u !== null) {
+    if (u === 'none') (out as { underline?: false }).underline = false;
+    else if (u === 'sng') (out as { underline?: true }).underline = true;
+    else (out as { underline?: string }).underline = u;
+  }
+  // Color: <a:solidFill><a:srgbClr val="..."/></a:solidFill>
+  const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
+  if (solidFill !== null) {
+    const srgb = firstChildElement(solidFill, qname('a', 'srgbClr', NS.dml));
+    if (srgb !== null) {
+      const v = getAttrValue(srgb, qname('', 'val', ''));
+      if (v !== null) (out as { color?: string }).color = `#${v.toUpperCase()}`;
+    }
+  }
+  // Font face: <a:latin typeface="..."/>
+  const latin = firstChildElement(rPr, qname('a', 'latin', NS.dml));
+  if (latin !== null) {
+    const t = getAttrValue(latin, qname('', 'typeface', ''));
+    if (t !== null) (out as { font?: string }).font = t;
+  }
+  return out;
+};
+
+/**
  * Applies `format` to a single run. Run-property attributes not
  * addressed by `format` are preserved — partial updates compose.
  *

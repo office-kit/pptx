@@ -110,6 +110,7 @@ export {
   getShapePosition,
   getShapeRotation,
   getShapeRunCount,
+  getShapeRunFormat,
   getShapeRunText,
   getPresentationTheme,
   getShapeSize,
