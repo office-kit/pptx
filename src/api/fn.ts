@@ -6036,6 +6036,22 @@ export const removeSlideNotes = (slide: SlideData): void => {
   pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
 };
 
+/**
+ * Removes the speaker-notes part from every slide that has one.
+ * Built on `removeSlideNotes`. Returns the number of slides
+ * stripped. Useful as a privacy/sharing helper before exporting a
+ * deck whose notes contain internal commentary.
+ */
+export const clearAllSlideNotes = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    if (findNotesPartName(slide) === null) continue;
+    removeSlideNotes(slide);
+    n++;
+  }
+  return n;
+};
+
 // ---------------------------------------------------------------------------
 // Shape image replacement.
 

@@ -107,6 +107,7 @@ export {
   clearAllAnimations,
   clearAllHyperlinks,
   clearAllSlideBackgrounds,
+  clearAllSlideNotes,
   clearAllTransitions,
   clearShapeStroke,
   clearShapeText,
