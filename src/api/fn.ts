@@ -5141,6 +5141,28 @@ export const getCommentAuthors = (pres: PresentationData): ReadonlyArray<Comment
   loadAuthorList(pres[INTERNAL_PACKAGE]);
 
 /**
+ * Returns every comment whose author name matches `authorName`
+ * exactly, across every slide in the deck. Useful for reviewer-
+ * specific filters ("show me all of Alice's notes").
+ *
+ * Case-sensitive equality. Use `findShapesByText` (with a slide
+ * predicate of your choosing) for fuzzier text matching against
+ * comment bodies.
+ */
+export const findCommentsByAuthor = (
+  pres: PresentationData,
+  authorName: string,
+): ReadonlyArray<SlideCommentData> => {
+  const out: SlideCommentData[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) {
+      if (c.author.name === authorName) out.push(c);
+    }
+  }
+  return out;
+};
+
+/**
  * Total number of comments across every slide in the deck. Faster
  * than `getSlides(pres).flatMap(getSlideComments).length` when
  * callers just need the headline number.
