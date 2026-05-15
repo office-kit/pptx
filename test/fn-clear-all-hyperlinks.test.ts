@@ -8,8 +8,8 @@ import {
   addSlideTextBox,
   clearAllHyperlinks,
   findSlideLayout,
+  getAllHyperlinks,
   getDistinctHyperlinkUrls,
-  getPresentationHyperlinkCount,
   inches,
   loadPresentation,
   setShapeHyperlink,
@@ -31,9 +31,9 @@ describe('fn API: clearAllHyperlinks', () => {
       x: inches(0), y: inches(1), w: inches(2), h: inches(1), text: 'b',
     });
     setShapeHyperlink(b, 'https://example.com/b');
-    expect(getPresentationHyperlinkCount(pres)).toBe(2);
+    expect(getAllHyperlinks(pres).length).toBe(2);
     expect(clearAllHyperlinks(pres)).toBe(2);
-    expect(getPresentationHyperlinkCount(pres)).toBe(0);
+    expect(getAllHyperlinks(pres).length).toBe(0);
     expect(getDistinctHyperlinkUrls(pres)).toEqual([]);
   });
 

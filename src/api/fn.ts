@@ -5625,22 +5625,6 @@ export const getAllImages = (
 };
 
 /**
- * Fast count of image-bearing shapes across the whole deck. Cheaper
- * than `getAllImages(pres).length` when only the number is needed
- * (no intermediate array). Note: counts shape *occurrences*, so the
- * same media part referenced from two slides counts as two.
- */
-export const getPresentationImageCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    for (const shape of slide[SLIDE_SHAPES]) {
-      if (hasShapeImage(shape)) n++;
-    }
-  }
-  return n;
-};
-
-/**
  * One entry per table in the deck, carrying the table shape and
  * the 0-based slide it sits on. Sibling of `getAllCharts`.
  */
@@ -5664,21 +5648,6 @@ export const getAllTables = (
     }
   }
   return out;
-};
-
-/**
- * Fast count of tables across the whole deck. Cheaper than
- * `getAllTables(pres).length` when only the number is needed
- * (no intermediate array).
- */
-export const getPresentationTableCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    for (const shape of slide[SLIDE_SHAPES]) {
-      if (isTableShape(shape)) n++;
-    }
-  }
-  return n;
 };
 
 /**
@@ -5729,21 +5698,6 @@ export const getAllHyperlinks = (
     }
   }
   return out;
-};
-
-/**
- * Fast count of hyperlinked shapes across the whole deck. Cheaper
- * than `getAllHyperlinks(pres).length` when only the number is
- * needed (no intermediate array).
- */
-export const getPresentationHyperlinkCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    for (const shape of slide[SLIDE_SHAPES]) {
-      if (getShapeHyperlink(shape) !== null) n++;
-    }
-  }
-  return n;
 };
 
 /**
@@ -5869,19 +5823,6 @@ export const clearSlideHyperlinks = (slide: SlideData): number => {
       setShapeHyperlink(shape, null);
       n++;
     }
-  }
-  return n;
-};
-
-/**
- * Fast count of charts across the whole deck. Cheaper than
- * `getAllCharts(pres).length` when only the number is needed
- * (no intermediate array).
- */
-export const getPresentationChartCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    n += getSlideCharts(slide).length;
   }
   return n;
 };
@@ -6628,19 +6569,6 @@ export const getSlideCommentAuthors = (
     out.push(c.author);
   }
   return out;
-};
-
-/**
- * Total number of comments across every slide in the deck. Faster
- * than `getSlides(pres).flatMap(getSlideComments).length` when
- * callers just need the headline number.
- */
-export const getCommentCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) {
-    n += loadCommentsForSlide(slide).length;
-  }
-  return n;
 };
 
 /**

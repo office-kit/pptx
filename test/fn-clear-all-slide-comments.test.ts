@@ -8,7 +8,7 @@ import {
   addSlideComment,
   clearAllSlideComments,
   findSlideLayout,
-  getCommentCount,
+  getAllComments,
   getSlides,
   loadPresentation,
 } from '../src/api/index.ts';
@@ -26,9 +26,9 @@ describe('fn API: clearAllSlideComments', () => {
     addSlideComment(slides[0]!, { author: { name: 'A' }, text: 'one' });
     addSlideComment(slides[1]!, { author: { name: 'A' }, text: 'two' });
     addSlideComment(slides[1]!, { author: { name: 'B' }, text: 'three' });
-    expect(getCommentCount(pres)).toBe(3);
+    expect(getAllComments(pres).length).toBe(3);
     expect(clearAllSlideComments(pres)).toBe(3);
-    expect(getCommentCount(pres)).toBe(0);
+    expect(getAllComments(pres).length).toBe(0);
   });
 
   it('returns 0 when no slide has comments', async () => {

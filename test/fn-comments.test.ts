@@ -131,15 +131,15 @@ describe('fn API: comments', () => {
     );
   });
 
-  it('getCommentCount totals comments across every slide', async () => {
-    const { getCommentCount } = await import('../src/api/index.ts');
+  it('getAllComments totals comments across every slide', async () => {
+    const { getAllComments } = await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    expect(getCommentCount(pres)).toBe(0);
+    expect(getAllComments(pres)).toHaveLength(0);
     const slides = getSlides(pres);
     addSlideComment(slides[0]!, { author: { name: 'A' }, text: 'one' });
     addSlideComment(slides[0]!, { author: { name: 'A' }, text: 'two' });
     addSlideComment(slides[1]!, { author: { name: 'B' }, text: 'three' });
-    expect(getCommentCount(pres)).toBe(3);
+    expect(getAllComments(pres)).toHaveLength(3);
   });
 
   it('keeps unrelated comments on other slides when one is removed', async () => {
