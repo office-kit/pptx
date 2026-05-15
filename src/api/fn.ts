@@ -5798,6 +5798,13 @@ export const getCommentCount = (pres: PresentationData): number => {
 };
 
 /**
+ * Number of comments attached to a single slide. Convenience over
+ * `getSlideComments(slide).length`.
+ */
+export const getSlideCommentCount = (slide: SlideData): number =>
+  loadCommentsForSlide(slide).length;
+
+/**
  * Returns every comment attached to the slide, with the author already
  * resolved. The list is read-only — use `addSlideComment` /
  * `removeSlideComment` to mutate.
