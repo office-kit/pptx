@@ -6,14 +6,14 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
-  _internalPackageOf,
+  getPackagePartNames,
   getThumbnail,
   loadPresentation,
   removeThumbnail,
   savePresentation,
   setThumbnail,
+  type PresentationData,
 } from '../src/api/index.ts';
-import type { Presentation } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -26,8 +26,8 @@ const PNG = new Uint8Array([
   0x42, 0x60, 0x82,
 ]);
 
-const hasPart = (pres: unknown, partName: string): boolean =>
-  _internalPackageOf(pres as Presentation).parts.some((p) => p.name === partName);
+const hasPart = (pres: PresentationData, partName: string): boolean =>
+  getPackagePartNames(pres).includes(partName);
 
 describe('fn API: thumbnail helpers', () => {
   it('reads the JPEG thumbnail shipped with the fixture', async () => {
