@@ -7259,6 +7259,39 @@ export const getImageParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
   getMediaParts(pres).filter((p) => p.contentType.startsWith('image/'));
 
 /**
+ * Returns every media part name the slide's rels reference
+ * (typically `/ppt/media/imageN.ext`). Walks the slide's rels
+ * graph and resolves each internal target. Useful for "which
+ * media files does this slide depend on?" audits.
+ */
+export const getSlideMediaPartNames = (slide: SlideData): ReadonlyArray<string> => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return [];
+  const resolve = (sourcePart: string, target: string): string => {
+    if (target.startsWith('/')) return target;
+    const dir = sourcePart.split('/').slice(0, -1);
+    const segments: string[] = [];
+    for (const seg of [...dir, ...target.split('/')]) {
+      if (seg === '..') segments.pop();
+      else if (seg !== '.' && seg.length > 0) segments.push(seg);
+    }
+    return `/${segments.join('/')}`;
+  };
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const rel of rels.items) {
+    if (rel.targetMode === 'External') continue;
+    const resolved = resolve(slide[SLIDE_PART_NAME], rel.target);
+    if (!resolved.startsWith('/ppt/media/')) continue;
+    if (seen.has(resolved)) continue;
+    seen.add(resolved);
+    out.push(resolved);
+  }
+  return out;
+};
+
+/**
  * Returns every slide that references the given media part name
  * (typically `/ppt/media/imageN.ext`). Walks each slide's rels and
  * checks whether any internal rel resolves to `mediaPartName`.
