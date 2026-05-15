@@ -6828,6 +6828,21 @@ export const getShapeChartSeriesNames = (
   return spec === null ? null : spec.series.map((s) => s.name);
 };
 
+/**
+ * Returns the values for the named series on a chart shape, or
+ * `null` when the shape isn't a chart, the kind isn't modeled, or
+ * no series matches `seriesName`.
+ */
+export const getShapeChartSeriesValues = (
+  shape: SlideShapeData,
+  seriesName: string,
+): ReadonlyArray<number | null> | null => {
+  const spec = getShapeChartSpec(shape);
+  if (spec === null) return null;
+  const series = spec.series.find((s) => s.name === seriesName);
+  return series ? series.values : null;
+};
+
 export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
   const slide = shape[SHAPE_SLIDE];
   const resolved = resolveChartPartName(slide, shape);

@@ -162,6 +162,7 @@ export {
   getShapeChartCategories,
   getShapeChartKind,
   getShapeChartSeriesNames,
+  getShapeChartSeriesValues,
   getShapeChartSpec,
   getShapeCount,
   getShapeClickAction,
