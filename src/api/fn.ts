@@ -2315,6 +2315,13 @@ export const findShapesByKind = (
   slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].kind === kind);
 
 /**
+ * Returns the slide that owns `shape`. Useful when callers receive a
+ * shape from an unfiltered walk (`getAllShapes`, `findShapeInPresentation`,
+ * search results) and need to know which slide it's on.
+ */
+export const getShapeSlide = (shape: SlideShapeData): SlideData => shape[SHAPE_SLIDE];
+
+/**
  * Walks every slide and returns the first shape whose name matches.
  * Useful for "find the logo placeholder anywhere in the deck."
  */
