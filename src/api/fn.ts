@@ -5486,6 +5486,21 @@ export const getAllTables = (
 };
 
 /**
+ * Fast count of tables across the whole deck. Cheaper than
+ * `getAllTables(pres).length` when only the number is needed
+ * (no intermediate array).
+ */
+export const getPresentationTableCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      if (isTableShape(shape)) n++;
+    }
+  }
+  return n;
+};
+
+/**
  * Returns every chart across every slide in the deck, paired with
  * the 0-based index of its slide. Useful for chart-inventory UIs
  * and bulk chart-update pipelines.
