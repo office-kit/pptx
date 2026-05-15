@@ -370,6 +370,7 @@ export {
   setTableColumnWidth,
   setTableRowHeight,
   setThumbnail,
+  pointInShape,
   shapesOverlap,
   slidesUsingMediaPart,
   sortSlides,

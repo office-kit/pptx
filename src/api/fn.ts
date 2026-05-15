@@ -2772,6 +2772,26 @@ export const getShapeCenter = (
 };
 
 /**
+ * `true` when point `(x, y)` (in EMU) lies inside the shape's
+ * axis-aligned bounds. Closed on the top-left edge, open on the
+ * bottom-right (standard half-open rectangle). Returns `false`
+ * when the shape has no bounds.
+ *
+ * Useful for hit-testing in custom interaction handlers.
+ */
+export const pointInShape = (
+  shape: SlideShapeData,
+  x: number,
+  y: number,
+): boolean => {
+  const bounds = getShapeBounds(shape);
+  if (bounds === null) return false;
+  return (
+    x >= bounds.x && x < bounds.x + bounds.w && y >= bounds.y && y < bounds.y + bounds.h
+  );
+};
+
+/**
  * `true` when two shapes' axis-aligned bounding boxes overlap.
  * Returns `false` when either shape has no bounds. Doesn't account
  * for rotation — uses the raw `<a:xfrm>` rectangle, not the
