@@ -1915,6 +1915,38 @@ export const setShapeRunFormat = (
 };
 
 /**
+ * Reads the external URL the first run in the shape's text-body links
+ * to (set via `setShapeHyperlink`). Returns `null` when no run carries
+ * an `<a:hlinkClick r:id=…/>` or the rId resolves to a non-hyperlink
+ * target.
+ */
+export const getShapeHyperlink = (shape: SlideShapeData): string | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') return null;
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  for (const p of txBody.children) {
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') continue;
+    for (const r of p.children) {
+      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') continue;
+      const rPr = firstChildElement(r, qname('a', 'rPr', NS.dml));
+      if (!rPr) continue;
+      const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
+      if (!hlink) continue;
+      const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
+      if (!rId) continue;
+      const slide = shape[SHAPE_SLIDE];
+      const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
+      if (!rels) continue;
+      const rel = rels.items.find((x) => x.id === rId);
+      if (rel?.type === REL_TYPES.hyperlink && rel.targetMode === 'External') {
+        return rel.target;
+      }
+    }
+  }
+  return null;
+};
+
+/**
  * Sets an external hyperlink on every run in the shape's text. Allocates
  * (or reuses) a `hyperlink` relationship on the slide's `.rels`. Pass
  * `null` to clear.

@@ -100,6 +100,7 @@ export {
   getShapeClickAction,
   getShapeFill,
   getShapeFlip,
+  getShapeHyperlink,
   getShapeId,
   getShapeImageCrop,
   getShapeImageOpacity,
