@@ -2798,6 +2798,26 @@ export type ShapeStroke =
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
 
+/**
+ * Convenience over `getShapeStroke(shape)`: returns the solid-
+ * stroke color (`#RRGGBB` / `scheme:<token>`) or `null` when the
+ * stroke is inherited / removed.
+ */
+export const getShapeStrokeColor = (shape: SlideShapeData): string | null => {
+  const stroke = getShapeStroke(shape);
+  return stroke.kind === 'solid' ? stroke.color : null;
+};
+
+/**
+ * Convenience over `getShapeStroke(shape)`: returns the stroke
+ * width in EMU when the stroke is solid and an explicit width is
+ * set, or `null` otherwise.
+ */
+export const getShapeStrokeWidth = (shape: SlideShapeData): number | null => {
+  const stroke = getShapeStroke(shape);
+  return stroke.kind === 'solid' && stroke.widthEmu !== undefined ? stroke.widthEmu : null;
+};
+
 export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return { kind: 'inherit' };
