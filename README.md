@@ -71,51 +71,51 @@ pnpm add pptx-kit
 yarn add pptx-kit
 ```
 
-## Two APIs
+## One API
 
-pptx-kit ships two parallel public surfaces:
-
-1. **Class API** — `Presentation`, `Slide`, `SlideShape`, `SlideLayout`.
-   Fluent and discoverable; ideal for quick scripts. Importing
-   `Presentation` pulls every authoring method into your bundle.
-
-2. **Tree-shakeable free-function API** — `loadPresentation`,
-   `savePresentation`, `addSlideTextBox`, `setShapeFill`, etc. Bundlers
-   drop every method you don't import, so the minimal `load → save`
-   bundle is **~57 KB** instead of ~171 KB.
-
-Both APIs read and write the same opaque internal state, so values
-produced by one work with the other. CI enforces the tree-shake bound
-in `test/tree-shake.test.ts`.
+pptx-kit exposes a single tree-shakeable free-function API. Every
+capability is a named export — `loadPresentation`, `savePresentation`,
+`addSlideTextBox`, `setShapeFill`, etc. Bundlers drop every entry you
+don't import, so the minimal `load → save` bundle is **~60 KB**.
 
 ```ts
-// Class API
-import { Presentation } from 'pptx-kit';
-const pres = await Presentation.load(bytes);
-pres.slides[0]?.findPlaceholder('title')?.setText('Hello');
-await pres.save();
+import {
+  findSlidePlaceholder,
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  setShapeText,
+} from 'pptx-kit';
 
-// Free-function API — tree-shakeable
-import { loadPresentation, findSlidePlaceholder, getSlides, setShapeText, savePresentation } from 'pptx-kit';
-const pres2 = await loadPresentation(bytes);
-const titleShape = findSlidePlaceholder(getSlides(pres2)[0]!, 'title');
-if (titleShape) setShapeText(titleShape, 'Hello');
-await savePresentation(pres2);
+const pres = await loadPresentation(bytes);
+const title = findSlidePlaceholder(getSlides(pres)[0]!, 'title');
+if (title) setShapeText(title, 'Hello');
+const out = await savePresentation(pres);
 ```
+
+CI enforces the tree-shake bound in `test/tree-shake.test.ts`.
 
 ## Usage
 
 ### Edit a template
 
 ```ts
-import { Presentation } from 'pptx-kit';
+import {
+  findSlidePlaceholder,
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  setShapeText,
+} from 'pptx-kit';
 
-const pres = await Presentation.load(existingPptxBytes);
-const cover = pres.slides[0];
-cover.findPlaceholder('title')?.setText('Q3 Review');
-cover.findPlaceholder('body')?.setText('Numbers up and to the right.');
+const pres = await loadPresentation(existingPptxBytes);
+const cover = getSlides(pres)[0]!;
+const title = findSlidePlaceholder(cover, 'title');
+if (title) setShapeText(title, 'Q3 Review');
+const body = findSlidePlaceholder(cover, 'body');
+if (body) setShapeText(body, 'Numbers up and to the right.');
 
-const out: Uint8Array = await pres.save();
+const out: Uint8Array = await savePresentation(pres);
 // Node:    fs.writeFile('out.pptx', out)
 // Browser: new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation' })
 ```
@@ -123,70 +123,77 @@ const out: Uint8Array = await pres.save();
 ### Token-based template fill
 
 ```ts
-import { Presentation } from 'pptx-kit';
+import { loadPresentation, replaceTokensInPresentation, savePresentation } from 'pptx-kit';
 
-const pres = await Presentation.load(templateBytes);
+const pres = await loadPresentation(templateBytes);
 // Replaces `{{name}}`, `{{event}}`, `{{date}}` across every slide.
-pres.replaceTokens({ name: 'Alice', event: 'Re:Invent', date: '2026-12-01' });
-const out = await pres.save();
+replaceTokensInPresentation(pres, { name: 'Alice', event: 'Re:Invent', date: '2026-12-01' });
+const out = await savePresentation(pres);
 ```
 
 ### Build a deck from a blank template
 
 ```ts
-import { Presentation, inches, pt } from 'pptx-kit';
+import {
+  addSlide,
+  addSlideImage,
+  addSlideTextBox,
+  duplicateSlide,
+  findSlideLayout,
+  findSlidePlaceholder,
+  inches,
+  loadPresentation,
+  moveSlide,
+  savePresentation,
+  setShapeText,
+} from 'pptx-kit';
 
-const pres = await Presentation.load(await fetch('/blank.pptx').then((r) => r.arrayBuffer()));
+const pres = await loadPresentation(await fetch('/blank.pptx').then((r) => r.arrayBuffer()));
 
-const titleLayout = pres.slideLayouts.find((l) => l.name === 'Title Slide');
-const slide1 = pres.addSlide({ layout: titleLayout! });
-slide1.findPlaceholder('ctrTitle')?.setText('pptx-kit demo');
-slide1.findPlaceholder('subTitle')?.setText('an OOXML library for TypeScript');
+const titleLayout = findSlideLayout(pres, 'Title Slide')!;
+const slide1 = addSlide(pres, { layout: titleLayout });
+setShapeText(findSlidePlaceholder(slide1, 'ctrTitle')!, 'pptx-kit demo');
+setShapeText(findSlidePlaceholder(slide1, 'subTitle')!, 'an OOXML library for TypeScript');
 
-const blank = pres.slideLayouts.find((l) => l.name === 'Blank');
-const slide2 = pres.addSlide({ layout: blank! });
-slide2.addTextBox({
-  x: inches(1),
-  y: inches(1),
-  w: inches(8),
-  h: inches(1),
+const blank = findSlideLayout(pres, 'Blank')!;
+const slide2 = addSlide(pres, { layout: blank });
+addSlideTextBox(slide2, {
+  x: inches(1), y: inches(1), w: inches(8), h: inches(1),
   text: 'Free-form text box',
 });
-slide2.addImage(imageBytes, { x: inches(1), y: inches(3), w: inches(3), h: inches(3) });
+addSlideImage(slide2, imageBytes, { x: inches(1), y: inches(3), w: inches(3), h: inches(3) });
 
-const dup = pres.duplicateSlide(slide2);
-pres.moveSlide(dup, 0);
+const dup = duplicateSlide(pres, slide2);
+moveSlide(pres, dup, 0);
 
-const out: Uint8Array = await pres.save();
+const out: Uint8Array = await savePresentation(pres);
 ```
 
 ### Replace an image in place
 
 ```ts
-import { Presentation } from 'pptx-kit';
+import {
+  getShapeKind,
+  getShapeName,
+  getSlideShapes,
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  setShapeImage,
+} from 'pptx-kit';
 
-const pres = await Presentation.load(templateBytes);
-for (const slide of pres.slides) {
-  for (const shape of slide.shapes) {
-    if (shape.kind === 'picture' && shape.name === 'Logo') {
-      shape.setImage(newLogoBytes); // format auto-detected; geometry preserved
+const pres = await loadPresentation(templateBytes);
+for (const slide of getSlides(pres)) {
+  for (const shape of getSlideShapes(slide)) {
+    if (getShapeKind(shape) === 'picture' && getShapeName(shape) === 'Logo') {
+      setShapeImage(shape, newLogoBytes); // format auto-detected; geometry preserved
     }
   }
 }
-const out = await pres.save();
+const out = await savePresentation(pres);
 ```
 
 ### Node convenience entry
-
-```ts
-import { Presentation } from 'pptx-kit/node';
-
-const pres = await Presentation.loadFile('./template.pptx');
-pres.replaceTokens({ name: 'Alice' });
-await pres.saveTo('./out.pptx');
-```
-
-Or with the free-function path:
 
 ```ts
 import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
@@ -275,8 +282,8 @@ for (const i of issues) console.error(i.severity, i.message);
 
 ### API surface (current state)
 
-Each row lists the free-function entry points; the class API exposes
-the same capabilities as methods. Read/write pairs are shown together.
+Each row lists the free-function entry points. Read/write pairs are
+shown together.
 
 | Capability               | API                                                                                                                                            |
 | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,16 +1,9 @@
 // Public API surface. The only directory users are intended to import from.
 //
-// Two parallel APIs are exposed:
-//
-//   1. The class-based API (`Presentation`, `Slide`, `SlideShape`,
-//      `SlideLayout`) — convenient, fluent, and what existing tests use.
-//   2. The tree-shakeable free-function API (`loadPresentation`,
-//      `savePresentation`, `createPresentation`, ...) — importing only
-//      what you use lets modern bundlers drop the class definitions. See
-//      `test/tree-shake.test.ts` for the CI guard.
-//
-// Both APIs operate on the same opaque internal state, so values produced
-// by one can flow into the other.
+// pptx-kit exposes a single tree-shakeable free-function API
+// (`loadPresentation`, `savePresentation`, `addSlide`, ...). Importing
+// only what you use lets modern bundlers drop the rest. See
+// `test/tree-shake.test.ts` for the CI guard.
 
 export { type Emu, cm, emu, inches, mm, pt } from './units.ts';
 

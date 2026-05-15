@@ -1,17 +1,9 @@
-// Tree-shakeable free-function entry points.
+// Tree-shakeable free-function entry points — the canonical public API.
 //
-// Every operation in this module is a standalone export that operates on
-// the opaque `PresentationData` / `SlideData` interfaces (shared with the
-// class-based API via `_internal-symbols.ts`). Crucially, none of these
-// functions references any class — when a consumer imports only what they
-// need from this module, modern bundlers drop the class definitions in
-// `presentation.ts` / `slide.ts` / etc. entirely.
-//
-// The class-based API in those files is preserved as a legacy facade
-// (re-exported from `./index.ts` as `Presentation`, `Slide`, etc.) so
-// existing tests and downstream consumers continue to work. As class
-// methods migrate to live exclusively here, the class definitions will
-// shrink and eventually disappear.
+// Every operation is a standalone export that operates on the opaque
+// `PresentationData` / `SlideData` interfaces defined in
+// `_internal-symbols.ts`. Consumers can import only what they use and
+// modern bundlers drop the rest.
 
 import {
   type BulletStyle,
@@ -1196,10 +1188,8 @@ const buildSlideData = (
 };
 
 /**
- * Enumerates slides in presentation order. Returns plain `SlideData`
- * values — opaque handles whose internal symbols are shared with the
- * class API so either representation can be passed to slide-level
- * functions.
+ * Enumerates slides in presentation order. Returns opaque `SlideData`
+ * handles that pass to every slide-level fn-API helper.
  *
  * Throws if any referenced slide part is missing — a structurally
  * invalid PPTX cannot honor the L1 contract.
@@ -1879,11 +1869,11 @@ const requirePresentationDoc = (pkg: OpcPackage): XmlDocument => {
 /**
  * Adds a new slide bound to `layout`. Returns the new `SlideData`.
  *
- * Mirrors `Presentation.addSlide`: allocates a fresh part name, sldId,
- * and rId; clones layout placeholders into the slide; writes
- * `[Content_Types].xml`, the slide's `.rels`, presentation's `.rels`,
- * and `<p:sldIdLst>`. The deck-cache on `pres` is invalidated so the
- * next `getSlides` call sees the new entry.
+ * Allocates a fresh part name, sldId, and rId; clones layout
+ * placeholders into the slide; writes `[Content_Types].xml`, the
+ * slide's `.rels`, presentation's `.rels`, and `<p:sldIdLst>`. The
+ * deck-cache on `pres` is invalidated so the next `getSlides` call
+ * sees the new entry.
  */
 /**
  * Convenience over `addSlide` that picks a layout automatically:
