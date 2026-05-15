@@ -6430,6 +6430,31 @@ export const findCommentsByText = (
 };
 
 /**
+ * Returns every comment whose `@dt` timestamp is **strictly after**
+ * `since` (an ISO-8601 string or `Date`). Comments missing a `dt`
+ * are skipped. Sibling of `findCommentsByText` / `findCommentsByAuthor`
+ * — useful for "what's new since my last review?" surfaces.
+ */
+export const findCommentsAfter = (
+  pres: PresentationData,
+  since: string | Date,
+): ReadonlyArray<SlideCommentData> => {
+  const threshold = typeof since === 'string' ? Date.parse(since) : since.getTime();
+  if (Number.isNaN(threshold)) return [];
+  const out: SlideCommentData[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) {
+      const dt = c[COMMENT_SNAPSHOT].dt;
+      if (dt === null) continue;
+      const t = Date.parse(dt);
+      if (Number.isNaN(t)) continue;
+      if (t > threshold) out.push(c);
+    }
+  }
+  return out;
+};
+
+/**
  * Returns every comment's text on the slide in stored order.
  * Slide-scoped sibling of `findCommentsByText` for compact
  * "show the comments on this slide" UIs.
