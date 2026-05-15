@@ -5531,6 +5531,18 @@ export const getShapeImageFillBytes = (shape: SlideShapeData): Uint8Array | null
 };
 
 /**
+ * Returns the image format token (`'png'`, `'jpeg'`, …) for whichever
+ * image bytes the shape carries — picture (`<p:pic>`) or image-fill
+ * (`<a:blipFill>` on `<p:spPr>`). Returns `null` if the shape has no
+ * embedded image or the bytes don't match a recognized signature.
+ */
+export const getShapeImageFormat = (shape: SlideShapeData): ImageFormat | null => {
+  const bytes = getShapeImageBytes(shape) ?? getShapeImageFillBytes(shape);
+  if (bytes === null) return null;
+  return detectImageFormat(bytes);
+};
+
+/**
  * Reads the picture's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.

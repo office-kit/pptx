@@ -35,6 +35,7 @@ export type {
 } from '../internal/presentationml/index.ts';
 export type { SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
+export type { ImageFormat } from '../internal/opc/index.ts';
 export type { ChartKind, ChartSeries, ChartSpec } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
@@ -129,6 +130,7 @@ export {
   getShapeImageBytes,
   getShapeImageFillBytes,
   getShapeImageContrast,
+  getShapeImageFormat,
   getShapeImageCrop,
   getShapeImageOpacity,
   getShapeKind,
