@@ -1043,6 +1043,39 @@ const buildSlideData = (
  * Throws if any referenced slide part is missing — a structurally
  * invalid PPTX cannot honor the L1 contract.
  */
+/**
+ * Returns the slide count without forcing every slide part to be
+ * parsed. Reads only `presentation.xml` and walks `<p:sldIdLst>`.
+ *
+ * Equivalent to `getSlides(pres).length`, but cheaper on cold reads
+ * — useful when the caller only wants a count for UI badges or
+ * validation logic.
+ */
+export const getSlideCount = (pres: PresentationData): number => {
+  const cached = pres._slidesCache;
+  if (cached !== null) return cached.length;
+  const pkg = pres[INTERNAL_PACKAGE];
+  const presPart = pkg.getPart(PRES_PART_NAME);
+  if (!presPart) return 0;
+  const root = parseXml(decode(presPart.data)).root;
+  const model = readPresentationPart(root);
+  return model.slides.length;
+};
+
+/**
+ * Returns the number of slide layouts in the package. Walks the
+ * content-type map; cheaper than `getSlideLayouts(pres).length`
+ * because it avoids parsing each layout's XML body.
+ */
+export const getSlideLayoutCount = (pres: PresentationData): number => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  let n = 0;
+  for (const part of pkg.parts) {
+    if (part.contentType === SLIDE_LAYOUT_CONTENT_TYPE) n++;
+  }
+  return n;
+};
+
 export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
   const cached = pres._slidesCache;
   if (cached !== null) return cached as ReadonlyArray<SlideData>;
