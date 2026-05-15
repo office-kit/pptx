@@ -57,6 +57,7 @@ export type {
 export type {
   AllShapesEntry,
   CoreProperties,
+  ExtendedProperties,
   MediaPart,
   PackagePartInfo,
   PresentationSummary,
@@ -119,6 +120,7 @@ export {
   getCommentPosition,
   getCommentText,
   getCoreProperties,
+  getExtendedProperties,
   getParagraphAlignment,
   getParagraphBullet,
   getParagraphLevel,

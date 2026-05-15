@@ -730,6 +730,59 @@ export const setCoreProperties = (
   pkg.setRootRels(rootRels);
 };
 
+// ---------------------------------------------------------------------------
+// Extended properties (`/docProps/app.xml`).
+
+const NS_EXT_PROPS =
+  'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties';
+const EXT_PROPS_PART_NAME = partName('/docProps/app.xml');
+
+/**
+ * Selected string fields from `/docProps/app.xml`
+ * (extended-properties / "app props"). PowerPoint exposes these
+ * under File › Info / Properties as the "Origin" and "Related
+ * People" groups.
+ *
+ * Numeric / derived fields (`Slides`, `Words`, `Paragraphs`, …) are
+ * intentionally omitted — they're recomputed by PowerPoint on save
+ * and reading them tends to lie about decks edited outside Office.
+ */
+export interface ExtendedProperties {
+  readonly application: string | null;
+  readonly appVersion: string | null;
+  readonly company: string | null;
+  readonly manager: string | null;
+  readonly presentationFormat: string | null;
+  readonly hyperlinkBase: string | null;
+}
+
+/**
+ * Reads `/docProps/app.xml`. Returns `null` if the package has no
+ * extended-properties part. Each field is `null` when the
+ * corresponding element is absent or empty.
+ */
+export const getExtendedProperties = (pres: PresentationData): ExtendedProperties | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const part = pkg.getPart(EXT_PROPS_PART_NAME);
+  if (!part) return null;
+  const root = parseXml(decode(part.data)).root;
+  const read = (local: string): string | null => {
+    const el = firstChildElement(root, qname('', local, NS_EXT_PROPS));
+    if (!el) return null;
+    let s = '';
+    for (const c of el.children) if (c.kind === 'text') s += c.data;
+    return s.length === 0 ? null : s;
+  };
+  return {
+    application: read('Application'),
+    appVersion: read('AppVersion'),
+    company: read('Company'),
+    manager: read('Manager'),
+    presentationFormat: read('PresentationFormat'),
+    hyperlinkBase: read('HyperlinkBase'),
+  };
+};
+
 /**
  * Finds the first slide layout whose user-visible name matches `name`,
  * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
