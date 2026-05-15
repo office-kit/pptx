@@ -4883,6 +4883,19 @@ export const getVisibleSlides = (pres: PresentationData): ReadonlyArray<SlideDat
 };
 
 /**
+ * Returns every slide carrying at least one image-bearing shape
+ * (a `<p:pic>` picture or a regular shape with `<a:blipFill>`).
+ * Built on `hasShapeImage`.
+ */
+export const getSlidesWithImages = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (slide[SLIDE_SHAPES].some((s) => hasShapeImage(s))) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Returns every slide that has at least one comment attached.
  * Convenience over `getSlides(pres).filter(s =>
  * getSlideComments(s).length > 0)`.
