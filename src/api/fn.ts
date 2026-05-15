@@ -7962,6 +7962,19 @@ export const findRotatedShapes = (
   slide[SLIDE_SHAPES].filter((s) => getShapeRotation(s) !== 0);
 
 /**
+ * Returns every shape on the slide that is mirrored — horizontally
+ * (`flipH`), vertically (`flipV`), or both. Sibling of
+ * `findRotatedShapes` for the broader "off-axis" audit pass.
+ */
+export const findFlippedShapes = (
+  slide: SlideData,
+): ReadonlyArray<SlideShapeData> =>
+  slide[SLIDE_SHAPES].filter((s) => {
+    const flip = getShapeFlip(s);
+    return flip !== null && (flip.horizontal || flip.vertical);
+  });
+
+/**
  * Returns every unordered pair of shapes on the slide whose
  * bounding boxes overlap. Built on `shapesOverlap`. Pairs are
  * returned with `a` strictly preceding `b` in document order, and

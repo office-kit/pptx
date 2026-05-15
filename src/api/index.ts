@@ -123,6 +123,7 @@ export {
   findCommentsByAuthor,
   findEmptyPlaceholders,
   findLayoutsWithPlaceholderType,
+  findFlippedShapes,
   findOverlappingShapePairs,
   findRotatedShapes,
   findShapeById,
