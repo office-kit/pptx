@@ -449,6 +449,30 @@ export const getSlideAt = (pres: PresentationData, index: number): SlideData | n
   return slides[index] ?? null;
 };
 
+/**
+ * Every shape on every slide, paired with its slide and the slide's
+ * 0-based index. Useful for cross-deck audits ("find every picture",
+ * "list shape names anywhere") without writing the nested-loop
+ * boilerplate yourself.
+ */
+export interface AllShapesEntry {
+  readonly slide: SlideData;
+  readonly slideIndex: number;
+  readonly shape: SlideShapeData;
+}
+
+export const getAllShapes = (pres: PresentationData): ReadonlyArray<AllShapesEntry> => {
+  const out: AllShapesEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    const slide = slides[i]!;
+    for (const shape of getSlideShapes(slide)) {
+      out.push({ slide, slideIndex: i, shape });
+    }
+  }
+  return out;
+};
+
 // ---------------------------------------------------------------------------
 // Slide visibility — `<p:sld show="0">` hides a slide from the slideshow
 // without removing it from the deck. `show="1"` (or omission) is visible.

@@ -54,6 +54,7 @@ export type {
   ShadowOptions,
 } from '../internal/drawingml/index.ts';
 export type {
+  AllShapesEntry,
   PresentationTheme,
   ShapeBounds,
   ShapeFill,
@@ -88,6 +89,7 @@ export {
   findShapesByName,
   findSlideLayout,
   findSlidePlaceholder,
+  getAllShapes,
   getCommentAuthor,
   getCommentAuthors,
   getCommentDate,
