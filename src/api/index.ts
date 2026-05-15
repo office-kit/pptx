@@ -148,6 +148,7 @@ export {
   findSlidePlaceholder,
   findSlidePlaceholderByIdx,
   findSlidePlaceholders,
+  findSlidesByHyperlink,
   findSlidesByLayoutName,
   findSlidesByLayoutType,
   findSlidesByText,

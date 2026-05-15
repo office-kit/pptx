@@ -5631,6 +5631,31 @@ export const findSlidesWithHyperlinks = (
 };
 
 /**
+ * Returns every slide containing at least one shape whose external
+ * hyperlink matches `needle` (substring or `RegExp`). Sibling of
+ * `findSlidesByText` for outbound-URL audits — e.g. "every slide
+ * that links to old.docs.example.com".
+ */
+export const findSlidesByHyperlink = (
+  pres: PresentationData,
+  needle: string | RegExp,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      const url = getShapeHyperlink(shape);
+      if (url === null) continue;
+      const hit = typeof needle === 'string' ? url.includes(needle) : needle.test(url);
+      if (hit) {
+        out.push(slide);
+        break;
+      }
+    }
+  }
+  return out;
+};
+
+/**
  * Fast count of charts across the whole deck. Cheaper than
  * `getAllCharts(pres).length` when only the number is needed
  * (no intermediate array).
