@@ -120,6 +120,7 @@ export {
   getParagraphSpacing,
   getShapeAnimation,
   getShapeBounds,
+  getShapeChartSpec,
   getShapeClickAction,
   getShapeEffect,
   getShapeFill,

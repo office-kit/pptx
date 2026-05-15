@@ -5326,6 +5326,29 @@ export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
  * the linked chart part. Skips graphic frames that don't carry a
  * `<c:chart>` reference (e.g. tables, diagrams).
  */
+/**
+ * For a graphic-frame shape that wraps a chart, returns the parsed
+ * `ChartSpec`. Returns `null` when the shape isn't a chart wrapper
+ * or the chart uses a kind we don't model (e.g. surface, radar).
+ *
+ * Convenience over `getSlideCharts(...).find((c) => c.shape === shape)`
+ * when the caller already has the shape in hand (e.g. iterating
+ * `getSlideShapes`).
+ */
+export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
+  const slide = shape[SHAPE_SLIDE];
+  const resolved = resolveChartPartName(slide, shape);
+  if (!resolved) return null;
+  const part = slide[INTERNAL_PACKAGE].getPart(resolved.partName);
+  if (!part) return null;
+  try {
+    const root = parseXml(decode(part.data)).root;
+    return readChartSpec(root);
+  } catch {
+    return null;
+  }
+};
+
 export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> => {
   const pkg = slide[INTERNAL_PACKAGE];
   const out: SlideChartData[] = [];
