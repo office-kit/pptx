@@ -5298,6 +5298,31 @@ export const getVisibleSlides = (pres: PresentationData): ReadonlyArray<SlideDat
 };
 
 /**
+ * Fast count of slides flagged hidden (`<p:sldId show="0">`).
+ * Cheaper than `getHiddenSlides(pres).length` when the caller only
+ * needs the number — no intermediate array.
+ */
+export const getHiddenSlideCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    if (isSlideHidden(slide)) n++;
+  }
+  return n;
+};
+
+/**
+ * Fast count of slides *not* flagged hidden. Sibling of
+ * `getHiddenSlideCount`; sums with it to `getSlides(pres).length`.
+ */
+export const getVisibleSlideCount = (pres: PresentationData): number => {
+  let n = 0;
+  for (const slide of getSlides(pres)) {
+    if (!isSlideHidden(slide)) n++;
+  }
+  return n;
+};
+
+/**
  * Returns every slide carrying at least one chart graphic frame.
  * Built on `isChartShape`.
  */
