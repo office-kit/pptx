@@ -1664,6 +1664,57 @@ export type TextAnchor = 'top' | 'center' | 'bottom';
 
 const NAME_A_BODY_PR = qname('a', 'bodyPr', NS.dml);
 
+/**
+ * Reads back the vertical text anchor on the shape's `<a:bodyPr>`.
+ * Maps the ECMA-376 tokens back to the public union:
+ *
+ *   `'t'` → `'top'`, `'ctr'` → `'center'`, `'b'` → `'bottom'`
+ *
+ * Returns `null` when the bodyPr is absent or has no anchor attribute.
+ */
+export const getShapeTextAnchor = (shape: SlideShapeData): TextAnchor | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  const v = getAttrValue(bodyPr, qname('', 'anchor', ''));
+  if (v === 't') return 'top';
+  if (v === 'ctr') return 'center';
+  if (v === 'b') return 'bottom';
+  return null;
+};
+
+/**
+ * Reads back the internal margins of the shape's text frame. Sides
+ * that are absent in the XML default to `null` (PowerPoint applies
+ * its built-in default for the missing side).
+ */
+export const getShapeTextMargins = (
+  shape: SlideShapeData,
+): {
+  readonly left: number | null;
+  readonly top: number | null;
+  readonly right: number | null;
+  readonly bottom: number | null;
+} | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  const readSide = (local: string): number | null => {
+    const v = getAttrValue(bodyPr, qname('', local, ''));
+    if (v === null) return null;
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    left: readSide('lIns'),
+    top: readSide('tIns'),
+    right: readSide('rIns'),
+    bottom: readSide('bIns'),
+  };
+};
+
 export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
   const txBody = requireTxBody(shape);
   let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
@@ -1919,6 +1970,39 @@ export const setParagraphLevel = (
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
   if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
   commitAndRefresh(shape);
+};
+
+/**
+ * Reads the paragraph's horizontal alignment. Returns `null` when no
+ * `algn` attribute is present (inherits from layout / master).
+ */
+export const getParagraphAlignment = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): ParagraphAlignment | null => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (pPr === null) return null;
+  const v = getAttrValue(pPr, ATTR_ALGN_FN);
+  return (v as ParagraphAlignment | null) ?? null;
+};
+
+/**
+ * Reads the paragraph's nesting level (`lvl` attribute), or `0` when
+ * absent — PowerPoint's default. Returns `null` for non-existent
+ * paragraphs.
+ */
+export const getParagraphLevel = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): number => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (pPr === null) return 0;
+  const v = getAttrValue(pPr, ATTR_LVL);
+  if (v === null) return 0;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n : 0;
 };
 
 /**
