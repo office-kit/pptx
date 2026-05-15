@@ -783,6 +783,55 @@ export const getExtendedProperties = (pres: PresentationData): ExtendedPropertie
   };
 };
 
+const EXT_PROP_FIELDS: ReadonlyArray<{ key: keyof ExtendedProperties; local: string }> = [
+  { key: 'application', local: 'Application' },
+  { key: 'appVersion', local: 'AppVersion' },
+  { key: 'company', local: 'Company' },
+  { key: 'manager', local: 'Manager' },
+  { key: 'presentationFormat', local: 'PresentationFormat' },
+  { key: 'hyperlinkBase', local: 'HyperlinkBase' },
+];
+
+/**
+ * Writes selected fields on `/docProps/app.xml`. Throws when the
+ * package has no extended-properties part — unlike core-properties,
+ * we don't bootstrap app.xml from scratch because its schema
+ * requires several derived `<vt:*>` elements (`HeadingPairs`,
+ * `TitlesOfParts`, …) that aren't user-facing.
+ *
+ * Pass `null` to clear an existing field's text. Unspecified keys
+ * are left untouched.
+ */
+export const setExtendedProperties = (
+  pres: PresentationData,
+  values: Partial<ExtendedProperties>,
+): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const part = pkg.getPart(EXT_PROPS_PART_NAME);
+  if (!part) {
+    throw new Error(
+      'setExtendedProperties: /docProps/app.xml not present; cannot bootstrap',
+    );
+  }
+  const doc = parseXml(decode(part.data));
+  for (const field of EXT_PROP_FIELDS) {
+    if (!(field.key in values)) continue;
+    const value = values[field.key] ?? null;
+    const name = qname('', field.local, NS_EXT_PROPS);
+    const existing = firstChildElement(doc.root, name);
+    if (value === null) {
+      if (existing) existing.children = [];
+      continue;
+    }
+    if (existing) {
+      existing.children = [textNode(value)];
+    } else {
+      doc.root.children.push(elem(name, { children: [textNode(value)] }));
+    }
+  }
+  part.data = encode(serializeXml(doc));
+};
+
 /**
  * Finds the first slide layout whose user-visible name matches `name`,
  * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
