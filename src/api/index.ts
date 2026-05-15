@@ -301,6 +301,7 @@ export {
   setShapeZIndex,
   setSlideBackground,
   setSlideBackgroundImage,
+  setSlideBody,
   setSlideHidden,
   setSlideLayout,
   setSlideNotes,

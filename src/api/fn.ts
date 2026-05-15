@@ -7340,3 +7340,20 @@ export const setSlideTitle = (slide: SlideData, title: string): void => {
   }
   setShapeText(titleShape, title);
 };
+
+/**
+ * Writes `text` into the first body placeholder on the slide.
+ * Newlines start a new paragraph (each becomes its own bullet on
+ * layouts that bullet their body placeholder).
+ *
+ * Throws when the slide has no body placeholder — pair with
+ * `findSlideLayoutByType(pres, 'obj')` / `'tx'` to add the slide
+ * onto a layout that has one.
+ */
+export const setSlideBody = (slide: SlideData, text: string): void => {
+  const bodyShape = findSlidePlaceholder(slide, 'body');
+  if (bodyShape === null) {
+    throw new Error('setSlideBody: slide has no body placeholder');
+  }
+  setShapeText(bodyShape, text);
+};
