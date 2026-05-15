@@ -2844,6 +2844,18 @@ export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
   return { kind: 'inherit' };
 };
 
+/**
+ * Convenience over `getShapeFill(shape)`: returns the solid-fill
+ * color string (`#RRGGBB` or `scheme:<token>`) when the shape has
+ * one, or `null` otherwise. Use when the caller only cares about
+ * the color and doesn't need to distinguish "inherit" / "no fill" /
+ * "gradient" / "pattern" / "image" from each other.
+ */
+export const getShapeFillColor = (shape: SlideShapeData): string | null => {
+  const fill = getShapeFill(shape);
+  return fill.kind === 'solid' ? fill.color : null;
+};
+
 export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
   const spPrName = qname('p', 'spPr', NS.pml);
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], spPrName);

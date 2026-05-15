@@ -173,6 +173,7 @@ export {
   getShapeDescription,
   getShapeEffect,
   getShapeFill,
+  getShapeFillColor,
   getShapeFlip,
   getShapeHyperlink,
   getShapeId,
