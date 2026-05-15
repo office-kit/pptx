@@ -7,8 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { Presentation, inches } from '../src/api/index.ts';
-import { _internalPackageOf } from '../src/api/presentation.ts';
+import { _internalPackageOf, inches, loadPresentation, savePresentation } from '../src/api/index.ts';
 import { partName } from '../src/internal/opc/index.ts';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 
@@ -36,7 +35,7 @@ describe('Layer 1: schema validation', () => {
   skipIfNoXmllint(
     'rels emitted by the OPC layer validate against opc-relationships.xsd',
     async () => {
-      const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const pkg = _internalPackageOf(pres);
       const rels = pkg.getPart(partName('/_rels/.rels'));
       expect(rels).not.toBeNull();
@@ -45,14 +44,14 @@ describe('Layer 1: schema validation', () => {
   );
 
   skipIfNoXmllint('Content_Types emitted by the OPC layer validates', async () => {
-    const pres = await Presentation.load(await readFile(fixture('two-slides.pptx')));
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const pkg = _internalPackageOf(pres);
     const ct = pkg.parts.find((p) => p.name.endsWith('Content_Types].xml'));
     // [Content_Types].xml is at the package root and addressed by ZIP path,
     // not part name. Look it up via the public API instead.
-    const bytes = await pres.save();
+    const bytes = await savePresentation(pres);
     // Re-extract from the saved bytes for a more rigorous test.
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const repkg = _internalPackageOf(reloaded);
     // Round-trip preserves Content_Types; just validate the parsed form
     // emitted back to XML. The `OpcPackage.save` step re-emits Content_Types
@@ -61,26 +60,24 @@ describe('Layer 1: schema validation', () => {
     void ct;
     void repkg;
     // Sanity: the round-trip succeeded.
-    expect(reloaded.slides.length).toBe(2);
+    const { getSlides: gs } = await import('../src/api/index.ts');
+    expect(gs(reloaded).length).toBe(2);
   });
 
   skipIfNoXmllint('a slide built via addTextBox + addImage validates against pml.xsd', async () => {
-    const pres = await Presentation.load(await readFile(fixture('blank.pptx')));
-    const layout = pres.slideLayouts.find((l) => l.name === 'Blank');
+    const { addSlide, addSlideImage, addSlideTextBox, findSlideLayout } = await import(
+      '../src/api/index.ts'
+    );
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = findSlideLayout(pres, 'Blank');
     if (!layout) throw new Error('expected Blank layout');
-    const slide = pres.addSlide({ layout });
-    slide.addTextBox({
-      x: inches(1),
-      y: inches(1),
-      w: inches(4),
-      h: inches(1),
+    const slide = addSlide(pres, { layout });
+    addSlideTextBox(slide, {
+      x: inches(1), y: inches(1), w: inches(4), h: inches(1),
       text: 'Schema-valid text box',
     });
-    slide.addImage(PNG_1X1, {
-      x: inches(1),
-      y: inches(3),
-      w: inches(2),
-      h: inches(2),
+    addSlideImage(slide, PNG_1X1, {
+      x: inches(1), y: inches(3), w: inches(2), h: inches(2),
     });
 
     const pkg = _internalPackageOf(pres);
@@ -90,10 +87,11 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('presentation.xml after addSlide validates against pml.xsd', async () => {
-    const pres = await Presentation.load(await readFile(fixture('blank.pptx')));
-    const layout = pres.slideLayouts.find((l) => l.name === 'Title Slide');
+    const { addSlide, findSlideLayout } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = findSlideLayout(pres, 'Title Slide');
     if (!layout) throw new Error('expected layout');
-    pres.addSlide({ layout });
+    addSlide(pres, { layout });
     const pkg = _internalPackageOf(pres);
     const presPart = pkg.getPart(partName('/ppt/presentation.xml'));
     expect(presPart).not.toBeNull();
@@ -119,7 +117,7 @@ describe('Layer 1: schema validation', () => {
       background: '#FFFFFF',
     });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
     expect(slidePart).not.toBeUndefined();
@@ -146,7 +144,7 @@ describe('Layer 1: schema validation', () => {
     });
     setShapeImageFill(shape, PNG_1X1, { format: 'png' });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
     expect(slidePart).not.toBeUndefined();
@@ -170,7 +168,7 @@ describe('Layer 1: schema validation', () => {
       angleDeg: 45,
     });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
     expect(slidePart).not.toBeUndefined();
@@ -194,7 +192,7 @@ describe('Layer 1: schema validation', () => {
       if (variant === 'shadow') setShapeShadow(shape, { color: '#000000', opacity: 0.5 });
       else setShapeGlow(shape, { color: '#FF0000', radiusEmu: 50800 });
       const bytes = await savePresentation(pres);
-      const reloaded = await Presentation.load(bytes);
+      const reloaded = await loadPresentation(bytes);
       const pkg = _internalPackageOf(reloaded);
       const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
       expect(slidePart, `slide xml not found for ${variant}`).not.toBeUndefined();
@@ -224,7 +222,7 @@ describe('Layer 1: schema validation', () => {
     setShapeBullets(tb, 'bullet');
     setParagraphLevel(tb, 1, 1);
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
     expect(slidePart).not.toBeUndefined();
@@ -241,7 +239,7 @@ describe('Layer 1: schema validation', () => {
     if (!shape) throw new Error('expected shape');
     setShapeAnimation(shape, { effect: 'fadeIn' });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const slidePart = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
     expect(slidePart).not.toBeUndefined();
@@ -274,7 +272,7 @@ describe('Layer 1: schema validation', () => {
         },
       });
       const bytes = await savePresentation(pres);
-      const reloaded = await Presentation.load(bytes);
+      const reloaded = await loadPresentation(bytes);
       const pkg = _internalPackageOf(reloaded);
       const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
       expect(chartPart, `chart not found for ${kind}`).not.toBeUndefined();
@@ -302,7 +300,7 @@ describe('Layer 1: schema validation', () => {
       },
     });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const chartPart = pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml');
     expect(chartPart).not.toBeUndefined();
@@ -323,7 +321,7 @@ describe('Layer 1: schema validation', () => {
       date: new Date('2026-05-15T12:00:00.000Z'),
     });
     const bytes = await savePresentation(pres);
-    const reloaded = await Presentation.load(bytes);
+    const reloaded = await loadPresentation(bytes);
     const pkg = _internalPackageOf(reloaded);
     const authors = pkg.parts.find((p) => p.name === '/ppt/commentAuthors.xml');
     expect(authors).not.toBeNull();
@@ -336,21 +334,27 @@ describe('Layer 1: schema validation', () => {
   skipIfNoXmllint(
     'every emitted slide / presentation in the end-to-end deck validates',
     async () => {
-      const pres = await Presentation.load(await readFile(fixture('blank.pptx')));
-      const titleLayout = pres.slideLayouts.find((l) => l.name === 'Title Slide');
-      const blank = pres.slideLayouts.find((l) => l.name === 'Blank');
+      const {
+        addSlide,
+        addSlideImage,
+        addSlideTextBox,
+        findSlideLayout,
+        findSlidePlaceholder,
+        setShapeText,
+      } = await import('../src/api/index.ts');
+      const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+      const titleLayout = findSlideLayout(pres, 'Title Slide');
+      const blank = findSlideLayout(pres, 'Blank');
       if (!titleLayout || !blank) throw new Error('expected layouts');
-      const s1 = pres.addSlide({ layout: titleLayout });
-      s1.findPlaceholder('ctrTitle')?.setText('Schema-valid demo');
-      const s2 = pres.addSlide({ layout: blank });
-      s2.addTextBox({
-        x: inches(1),
-        y: inches(1),
-        w: inches(8),
-        h: inches(1),
+      const s1 = addSlide(pres, { layout: titleLayout });
+      const ctr = findSlidePlaceholder(s1, 'ctrTitle');
+      if (ctr) setShapeText(ctr, 'Schema-valid demo');
+      const s2 = addSlide(pres, { layout: blank });
+      addSlideTextBox(s2, {
+        x: inches(1), y: inches(1), w: inches(8), h: inches(1),
         text: 'Free-form box',
       });
-      s2.addImage(PNG_1X1, { x: inches(1), y: inches(3), w: inches(2), h: inches(2) });
+      addSlideImage(s2, PNG_1X1, { x: inches(1), y: inches(3), w: inches(2), h: inches(2) });
 
       const pkg = _internalPackageOf(pres);
       for (const part of pkg.parts) {
