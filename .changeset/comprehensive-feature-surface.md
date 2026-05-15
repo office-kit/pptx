@@ -92,3 +92,43 @@ plan. Highlights:
 All emitted XML validates against the ECMA-376 strict schemas
 (pml.xsd, dml-chart.xsd, opc-relationships.xsd, opc-contentTypes.xsd)
 via Layer-1 tests.
+
+**Additional helpers** (all tree-shakeable free functions)
+
+- Properties: `getCoreProperties` / `setCoreProperties`,
+  `getExtendedProperties` / `setExtendedProperties`, plus convenience
+  `getPresentationCreated`, `getPresentationModified`,
+  `incrementRevision`, `touchModified`.
+- Thumbnail: `getThumbnail` / `setThumbnail` / `removeThumbnail`.
+- Theme: `getPresentationTheme`, `getPresentationFonts`.
+- Slide queries: `getSlideCount`, `getSlideLayoutCount`,
+  `getVisibleSlides`, `getHiddenSlides`, `getSlidesWithNotes`,
+  `getSlidesWithComments`, `getSlidesWithImages`,
+  `getSlidesWithCharts`, `getSlidesWithTables`,
+  `getSlidesByLayout`, `findSlideByTitle`, `findSlideByText`,
+  `findSlidesByText`, `findSlideByPartName`,
+  `findSlideLayoutByType`, `findSlideLayoutByPartName`.
+- Bulk inventories: `getAllNotes`, `getAllComments`, `getAllCharts`,
+  `getAllTables`, `getAllImages`, `getPresentationText`,
+  `getSlideOutline`.
+- Shape introspection: `getShapeCount`, `getTotalShapeCount`,
+  `getShapeAt`, `getShapeIndex`, `getShapeSlide`,
+  `getShapeXmlString`, `getShapeChartKind`, `getShapeChartSpec`,
+  `getShapeImageFillBytes`, `getShapeImageFormat`,
+  `getShapeImagePartName`, `getShapeAltTitle` /
+  `setShapeAltTitle`, `getShapeDescription` / `setShapeDescription`.
+- Shape predicates: `isChartShape`, `isTableShape`,
+  `isShapeHidden` / `setShapeHidden`, `isShapePlaceholder`,
+  `hasShapeImage`, `hasShapeText`.
+- Shape search: `findShapeByText`, `findShapesByText`,
+  `findShapesWithImages`, `findChartByKind`,
+  `findChartsBySeriesName`, `findCommentsByAuthor`,
+  `findSlidePlaceholders`, `findSlidePlaceholderByIdx`.
+- Mutation: `setShapeRunHyperlink`, `getShapeRunHyperlink`,
+  `setShapeBody`, `getSlideBody`, `appendShapeText`,
+  `appendSlideNotes`, `clearShapeText`, `removeSlideNotes`,
+  `swapSlides`, `mergePresentations`, `slidesUsingMediaPart`,
+  `setTableColumnWidth`, `setTableRowHeight`, `getTableColumnWidths`,
+  `getTableRowHeights`, `getTableCellAlignment`, `getTableCellFill`.
+- Diagnostics: `getSlideXmlString`, `getSlidePartName`,
+  `getSlideLayoutPartName`, `getImageParts`, `getSlidesByLayout`.
