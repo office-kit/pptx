@@ -2876,6 +2876,37 @@ export const getSlideMasterCount = (pres: PresentationData): number => {
   return model.slideMasters.length;
 };
 
+/**
+ * Returns the package part name of every slide master declared in
+ * `presentation.xml`, resolved through the presentation's `.rels`.
+ * Sibling of `getSlideMasterCount` for downstream tooling that
+ * needs the master URIs (e.g. byte-level diff, custom validators).
+ *
+ * Returns an empty array when `presentation.xml` or its `.rels`
+ * are missing.
+ */
+export const getSlideMasterPartNames = (
+  pres: PresentationData,
+): ReadonlyArray<string> => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const presPart = pkg.getPart(PRES_PART_NAME);
+  if (presPart === null) return [];
+  const root = parseXml(decode(presPart.data)).root;
+  const model = readPresentationPart(root);
+  const rels = pkg.getRels(PRES_PART_NAME);
+  if (rels === null) return [];
+  const out: string[] = [];
+  for (const m of model.slideMasters) {
+    const rel = rels.items.find((r) => r.id === m.rId);
+    if (rel === undefined) continue;
+    const resolved = rel.target.startsWith('/')
+      ? partName(rel.target)
+      : resolveTarget(PRES_PART_NAME, rel.target);
+    out.push(resolved);
+  }
+  return out;
+};
+
 export const getShapeName = (shape: SlideShapeData): string =>
   shape[SHAPE_SNAPSHOT].name;
 
