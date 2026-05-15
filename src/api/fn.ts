@@ -4691,6 +4691,27 @@ export const getMediaParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
 };
 
 /**
+ * Replaces the bytes of a media part in place. Returns `true` if the
+ * part was found and updated, `false` otherwise. The content type is
+ * preserved.
+ *
+ * Useful for the "swap every instance of this logo" workflow — pick
+ * the right `partName` via `getMediaParts` and call this once. Every
+ * `<a:blip r:embed="…"/>` reference is unaffected because the rels
+ * already point at this part name.
+ */
+export const setMediaPartBytes = (
+  pres: PresentationData,
+  partName: string,
+  bytes: Uint8Array,
+): boolean => {
+  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name === partName);
+  if (!part) return false;
+  part.data = bytes;
+  return true;
+};
+
+/**
  * High-level snapshot of the presentation's structure. Useful as a
  * diagnostic checklist when debugging a template or generating audit
  * reports. The numbers reflect what's reachable through the typed
