@@ -4944,6 +4944,33 @@ export interface PresentationNotesEntry {
 }
 
 /**
+ * One entry per comment in the deck, carrying both the comment and
+ * the 0-based slide it was attached to.
+ */
+export interface PresentationCommentEntry {
+  readonly slideIndex: number;
+  readonly comment: SlideCommentData;
+}
+
+/**
+ * Returns every comment across every slide in the deck, each paired
+ * with the 0-based index of its slide. Useful for review-summary
+ * UIs that show all annotations in one chronological list.
+ */
+export const getAllComments = (
+  pres: PresentationData,
+): ReadonlyArray<PresentationCommentEntry> => {
+  const out: PresentationCommentEntry[] = [];
+  const slides = getSlides(pres);
+  for (let i = 0; i < slides.length; i++) {
+    for (const c of getSlideComments(slides[i]!)) {
+      out.push({ slideIndex: i, comment: c });
+    }
+  }
+  return out;
+};
+
+/**
  * Returns every slide's speaker notes alongside its 0-based index.
  * Skips slides whose notes are empty / unset.
  */
