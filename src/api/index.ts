@@ -119,6 +119,8 @@ export {
   getPresentationTheme,
   getShapeSize,
   getShapeStroke,
+  getShapeStrokeArrow,
+  getShapeStrokeDash,
   getShapeText,
   getSlideAt,
   getSlideBackground,

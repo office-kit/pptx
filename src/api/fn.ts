@@ -1446,6 +1446,44 @@ export const setShapeNoStroke = (shape: SlideShapeData): void => {
   commitAndRefresh(shape);
 };
 
+/** Reads back the shape's stroke dash style, or `null` if none. */
+export const getShapeStrokeDash = (shape: SlideShapeData): LineDash | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return null;
+  const prstDash = firstChildElement(ln, qname('a', 'prstDash', NS.dml));
+  if (!prstDash) return null;
+  const v = getAttrValue(prstDash, qname('', 'val', ''));
+  return (v as LineDash | null) ?? null;
+};
+
+/**
+ * Reads back the shape's arrowhead on one end of `<a:ln>`, or `null`
+ * when no `<a:headEnd>` / `<a:tailEnd>` is present.
+ */
+export const getShapeStrokeArrow = (
+  shape: SlideShapeData,
+  end: 'head' | 'tail',
+): ArrowOptions | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return null;
+  const arr = firstChildElement(ln, qname('a', end === 'head' ? 'headEnd' : 'tailEnd', NS.dml));
+  if (!arr) return null;
+  const type = getAttrValue(arr, qname('', 'type', ''));
+  if (!type) return null;
+  const width = getAttrValue(arr, qname('', 'w', ''));
+  const length = getAttrValue(arr, qname('', 'len', ''));
+  const result: { type: ArrowOptions['type']; width?: 'sm' | 'med' | 'lg'; length?: 'sm' | 'med' | 'lg' } = {
+    type: type as ArrowOptions['type'],
+  };
+  if (width === 'sm' || width === 'med' || width === 'lg') result.width = width;
+  if (length === 'sm' || length === 'med' || length === 'lg') result.length = length;
+  return result;
+};
+
 /**
  * Sets the dash pattern for the shape's outline (`<a:prstDash>`). One
  * of ECMA-376's `ST_PresetLineDashVal` tokens:
