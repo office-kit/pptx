@@ -7816,6 +7816,26 @@ export const getSlideShapeTexts = (slide: SlideData): ReadonlyArray<string> => {
 };
 
 /**
+ * Every slide whose layout's `cSld@name` matches the given string.
+ * Useful for batch operations on slides sharing a layout — for
+ * example, restyling every "Title and Content" slide in a deck.
+ *
+ * Matching is exact (case-sensitive). Slides without a resolved
+ * layout are skipped.
+ */
+export const findSlidesByLayoutName = (
+  pres: PresentationData,
+  layoutName: string,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const layout = getSlideLayout(slide);
+    if (layout !== null && getSlideLayoutName(layout) === layoutName) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Every shape on the slide whose visible text body is non-empty.
  * Sibling of `findShapesWithImages`. Useful for "find all
  * caption / label boxes on this slide" patterns.
