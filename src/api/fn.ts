@@ -437,6 +437,29 @@ export const getSlideLayoutName = (layout: SlideLayoutData): string =>
   layout[LAYOUT_PART].name;
 
 /**
+ * Returns the package part name (e.g. `/ppt/slideLayouts/slideLayout3.xml`)
+ * of `layout`. Useful for surfacing layouts in validator output and
+ * other path-keyed UIs.
+ */
+export const getSlideLayoutPartName = (layout: SlideLayoutData): string =>
+  layout[LAYOUT_PART_NAME];
+
+/**
+ * Returns the slide layout whose package part name equals
+ * `partName`, or `null` when no such layout exists. Mirror of
+ * `findSlideByPartName` for layouts.
+ */
+export const findSlideLayoutByPartName = (
+  pres: PresentationData,
+  partName: string,
+): SlideLayoutData | null => {
+  for (const layout of getSlideLayouts(pres)) {
+    if (layout[LAYOUT_PART_NAME] === partName) return layout;
+  }
+  return null;
+};
+
+/**
  * Read-only view of one placeholder on a slide layout. Surfaces the
  * three fields a slide-author cares about when binding a slide to a
  * layout: which slot is for the title, which is for the body, etc.
