@@ -427,10 +427,15 @@ const renderTextBody = (
   if (!hasAnyText) return '';
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
+  // The default text color matters: the site is dark-mode, so without
+  // an explicit color CSS inherits white-on-white and the text
+  // disappears. Resolve to the theme's `tx1` (usually near-black on a
+  // light slide) and let per-run colors override.
+  const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
   // Use an inset div for the body, full-bleed foreignObject so the SVG
   // transform / clipping behaves cleanly. Word-break:break-word keeps
   // long URLs / words from overflowing the shape.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};word-break:break-word">${paragraphs.join('')}</div>`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
   return `<foreignObject x="${innerX}" y="${innerY}" width="${innerW}" height="${innerH}">${body}</foreignObject>`;
 };
 
