@@ -1338,17 +1338,6 @@ export const getSlideOutline = (
 };
 
 /**
- * Returns every slide's title in document order, or `null` for
- * slides that have no title placeholder / empty title. Useful for
- * thumbnail / TOC UIs that only need the headlines.
- */
-export const getSlideTitles = (pres: PresentationData): ReadonlyArray<string | null> => {
-  const out: (string | null)[] = [];
-  for (const slide of getSlides(pres)) out.push(getSlideTitle(slide));
-  return out;
-};
-
-/**
  * Returns the user-visible name of every slide layout in the
  * package (in part-name order). Useful for "pick a layout" pickers
  * and layout audits.
@@ -5709,7 +5698,9 @@ export const findSlidesWithHyperlinks = (
 ): ReadonlyArray<SlideData> => {
   const out: SlideData[] = [];
   for (const slide of getSlides(pres)) {
-    if (findHyperlinkedShapes(slide).length > 0) out.push(slide);
+    if (slide[SLIDE_SHAPES].some((s) => getShapeHyperlink(s) !== null)) {
+      out.push(slide);
+    }
   }
   return out;
 };
@@ -8369,82 +8360,8 @@ export const hasShapeImage = (shape: SlideShapeData): boolean => {
 };
 
 /**
- * Returns each shape's `ShapeKind` on the slide in document order.
- * Useful for compact "what's on this slide?" reports without
- * holding the full shape handles.
- */
-export const getSlideShapeKinds = (slide: SlideData): ReadonlyArray<ShapeKind> => {
-  const out: ShapeKind[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].kind);
-  return out;
-};
-
-/**
- * Returns each shape's `cNvPr@name` (selection-pane name) on the
- * slide in document order. Useful for "ls" / inventory UIs that
- * want a compact view of every shape's name.
- */
-export const getSlideShapeNames = (slide: SlideData): ReadonlyArray<string> => {
-  const out: string[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].name);
-  return out;
-};
-
-/**
- * Returns each shape's numeric `cNvPr@id` on the slide in document
- * order. Pairs with `getShapeId` for compact inventory dumps and
- * `findShapeById` lookups.
- */
-export const getSlideShapeIds = (slide: SlideData): ReadonlyArray<number> => {
-  const out: number[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].id);
-  return out;
-};
-
-/**
- * Returns each shape's bounds (`x`, `y`, `w`, `h` in EMU) on the
- * slide in document order. Shapes without an `<a:xfrm>` yield
- * `null`; index alignment with `getSlideShapes` is preserved.
- *
- * Useful for layout pipelines that need every shape's box in one
- * pass without re-walking the tree.
- */
-export const getSlideShapeBounds = (
-  slide: SlideData,
-): ReadonlyArray<ShapeBounds | null> => {
-  const out: (ShapeBounds | null)[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) out.push(getShapeBounds(shape));
-  return out;
-};
-
-/**
- * Returns each shape's rotation (in degrees, clockwise from 0) on
- * the slide in document order. Shapes without an `<a:xfrm@rot>`
- * yield `0`; index alignment with `getSlideShapes` is preserved.
- *
- * Useful for "auto-straighten" pipelines that scan a slide for any
- * rotated shape without holding per-shape handles.
- */
-export const getSlideShapeRotations = (slide: SlideData): ReadonlyArray<number> => {
-  const out: number[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) out.push(getShapeRotation(shape));
-  return out;
-};
-
-/**
- * Returns every shape on the slide whose rotation is non-zero.
- * Useful for "find anything off-axis" audit passes — e.g. before a
- * straight-line render check.
- */
-export const findRotatedShapes = (
-  slide: SlideData,
-): ReadonlyArray<SlideShapeData> =>
-  slide[SLIDE_SHAPES].filter((s) => getShapeRotation(s) !== 0);
-
-/**
  * Returns every shape on the slide that is mirrored — horizontally
- * (`flipH`), vertically (`flipV`), or both. Sibling of
- * `findRotatedShapes` for the broader "off-axis" audit pass.
+ * (`flipH`), vertically (`flipV`), or both.
  */
 export const findFlippedShapes = (
   slide: SlideData,
@@ -8453,17 +8370,6 @@ export const findFlippedShapes = (
     const flip = getShapeFlip(s);
     return flip !== null && (flip.horizontal || flip.vertical);
   });
-
-/**
- * Returns every shape on the slide whose text carries an external
- * hyperlink (`<a:hlinkClick>`). Built on `getShapeHyperlink`.
- * Useful for "link audit" passes that need to check every URL in a
- * deck before publishing.
- */
-export const findHyperlinkedShapes = (
-  slide: SlideData,
-): ReadonlyArray<SlideShapeData> =>
-  slide[SLIDE_SHAPES].filter((s) => getShapeHyperlink(s) !== null);
 
 /**
  * Returns every unordered pair of shapes on the slide whose
