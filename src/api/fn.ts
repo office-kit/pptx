@@ -6392,45 +6392,9 @@ const datedComments = (
 };
 
 /**
- * Returns the oldest comment (smallest `@dt`) across the whole deck,
- * or `null` when no comment carries a parseable timestamp. Useful
- * for "when did review start?" timelines.
- */
-export const getOldestComment = (
-  pres: PresentationData,
-): SlideCommentData | null => {
-  const dated = datedComments(pres);
-  if (dated.length === 0) return null;
-  let best = dated[0]!;
-  for (let i = 1; i < dated.length; i++) {
-    const item = dated[i]!;
-    if (item.t < best.t) best = item;
-  }
-  return best.comment;
-};
-
-/**
- * Returns the newest comment (largest `@dt`) across the whole deck,
- * or `null` when no comment carries a parseable timestamp. Useful
- * for "what was the last thing said?" timeline UIs.
- */
-export const getNewestComment = (
-  pres: PresentationData,
-): SlideCommentData | null => {
-  const dated = datedComments(pres);
-  if (dated.length === 0) return null;
-  let best = dated[0]!;
-  for (let i = 1; i < dated.length; i++) {
-    const item = dated[i]!;
-    if (item.t > best.t) best = item;
-  }
-  return best.comment;
-};
-
-/**
  * Returns every comment carrying a parseable `@dt`, sorted oldest
- * to newest. Comments without a date are omitted. Sibling of
- * `getOldestComment` / `getNewestComment` for full-timeline UIs.
+ * to newest. Comments without a date are omitted. Use `.at(0)` for
+ * the oldest and `.at(-1)` for the newest.
  */
 export const getCommentsSortedByDate = (
   pres: PresentationData,
@@ -8368,40 +8332,6 @@ export const findShapesOutsideCanvas = (
     }
   }
   return out;
-};
-
-/**
- * Returns the union bounding box of every shape on the slide that
- * has a resolvable `<a:xfrm>`. Shapes without bounds are skipped.
- * Returns `null` if no shape on the slide has bounds.
- *
- * Useful for "is the content within the slide canvas?" checks and
- * auto-fit / cropping pipelines.
- */
-export const getSlideBoundingBox = (slide: SlideData): ShapeBounds | null => {
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-  let found = false;
-  for (const shape of slide[SLIDE_SHAPES]) {
-    const b = getShapeBounds(shape);
-    if (b === null) continue;
-    found = true;
-    if (b.x < minX) minX = b.x;
-    if (b.y < minY) minY = b.y;
-    const right = b.x + b.w;
-    const bottom = b.y + b.h;
-    if (right > maxX) maxX = right;
-    if (bottom > maxY) maxY = bottom;
-  }
-  if (!found) return null;
-  return {
-    x: minX as Emu,
-    y: minY as Emu,
-    w: (maxX - minX) as Emu,
-    h: (maxY - minY) as Emu,
-  };
 };
 
 /**
