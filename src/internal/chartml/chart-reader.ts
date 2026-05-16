@@ -30,6 +30,8 @@ const NAME_STR_REF = qname('c', 'strRef', NS_C);
 const NAME_NUM_REF = qname('c', 'numRef', NS_C);
 const NAME_STR_CACHE = qname('c', 'strCache', NS_C);
 const NAME_NUM_CACHE = qname('c', 'numCache', NS_C);
+const NAME_STR_LIT = qname('c', 'strLit', NS_C);
+const NAME_NUM_LIT = qname('c', 'numLit', NS_C);
 const NAME_PT = qname('c', 'pt', NS_C);
 const NAME_V = qname('c', 'v', NS_C);
 const NAME_TITLE = qname('c', 'title', NS_C);
@@ -86,26 +88,49 @@ const readPtArray = (
   return out;
 };
 
-const readStringRef = (parent: XmlElement): string[] | null => {
+// `<c:strRef>` (cell range) and `<c:strLit>` (literal array) both serialise
+// their points the same way: `<c:pt idx="...">...<c:v>text</c:v></c:pt>`.
+// PowerPoint authors usually emit `strRef` with a `strCache`; other writers
+// (python-pptx, pptxgenjs's older paths, hand-edited XML) skip the cache or
+// drop the workbook entirely and emit `strLit`. Either way the cached points
+// are enough to render the chart, so we accept both.
+const readStringChannel = (parent: XmlElement): string[] | null => {
   const ref = firstChildElement(parent, NAME_STR_REF);
-  if (!ref) return null;
-  const cache = firstChildElement(ref, NAME_STR_CACHE);
-  if (!cache) return null;
-  return readPtArray(cache);
+  if (ref) {
+    const cache = firstChildElement(ref, NAME_STR_CACHE);
+    if (cache) return readPtArray(cache);
+  }
+  const lit = firstChildElement(parent, NAME_STR_LIT);
+  if (lit) return readPtArray(lit);
+  return null;
 };
 
-const readNumRef = (parent: XmlElement): Array<number | null> | null => {
+const readStringRef = (parent: XmlElement): string[] | null => readStringChannel(parent);
+
+// Same dual handling for numeric channels — `<c:numRef>/<c:numCache>` for
+// workbook-referenced values, `<c:numLit>` for literal arrays. Without this
+// fallback, charts authored as inline literals come through with empty
+// `values` arrays and the renderer has nothing to plot.
+const readNumChannel = (parent: XmlElement): Array<number | null> | null => {
   const ref = firstChildElement(parent, NAME_NUM_REF);
-  if (!ref) return null;
-  const cache = firstChildElement(ref, NAME_NUM_CACHE);
-  if (!cache) return null;
-  const raw = readPtArray(cache);
+  let raw: string[] | null = null;
+  if (ref) {
+    const cache = firstChildElement(ref, NAME_NUM_CACHE);
+    if (cache) raw = readPtArray(cache);
+  }
+  if (!raw) {
+    const lit = firstChildElement(parent, NAME_NUM_LIT);
+    if (lit) raw = readPtArray(lit);
+  }
+  if (!raw) return null;
   return raw.map((s) => {
     if (s === undefined || s === '') return null;
     const n = Number.parseFloat(s);
     return Number.isFinite(n) ? n : null;
   });
 };
+
+const readNumRef = (parent: XmlElement): Array<number | null> | null => readNumChannel(parent);
 
 const readSeriesName = (ser: XmlElement): string => {
   const tx = firstChildElement(ser, NAME_TX);
