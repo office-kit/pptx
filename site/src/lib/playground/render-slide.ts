@@ -642,16 +642,27 @@ const renderChartLegend = (f: ChartFrame, names: ReadonlyArray<string>, colors: 
   return out.join('');
 };
 
+// Charts can ship without an explicit `<c:cat>` channel — the series'
+// `<c:val>` array alone is enough; PowerPoint then labels the x-axis
+// 1, 2, 3, ... Use the longest series as the point count when
+// `spec.categories` is empty so those charts still plot.
+const pointCount = (spec: ChartSpec): number => {
+  if (spec.categories.length > 0) return spec.categories.length;
+  let n = 0;
+  for (const s of spec.series) if (s.values.length > n) n = s.values.length;
+  return n;
+};
+
 const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
-  const cats = spec.categories;
-  if (cats.length === 0) return '';
+  const N = pointCount(spec);
+  if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
   const range = max - min;
-  const groupW = f.plotW / cats.length;
+  const groupW = f.plotW / N;
   const barW = (groupW * 0.8) / spec.series.length;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
-  for (let c = 0; c < cats.length; c++) {
+  for (let c = 0; c < N; c++) {
     for (let s = 0; s < spec.series.length; s++) {
       const v = spec.series[s]?.values[c] ?? 0;
       const x0 = f.plotX + c * groupW + groupW * 0.1 + s * barW;
@@ -667,15 +678,15 @@ const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray
 };
 
 const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
-  const cats = spec.categories;
-  if (cats.length === 0) return '';
+  const N = pointCount(spec);
+  if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
   const range = max - min;
-  const groupH = f.plotH / cats.length;
+  const groupH = f.plotH / N;
   const barH = (groupH * 0.8) / spec.series.length;
   const baseX = f.plotX + ((0 - min) / range) * f.plotW;
   const out: string[] = [];
-  for (let c = 0; c < cats.length; c++) {
+  for (let c = 0; c < N; c++) {
     for (let s = 0; s < spec.series.length; s++) {
       const v = spec.series[s]?.values[c] ?? 0;
       const y0 = f.plotY + c * groupH + groupH * 0.1 + s * barH;
@@ -690,11 +701,11 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
 };
 
 const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, fill: boolean): string => {
-  const cats = spec.categories;
-  if (cats.length === 0) return '';
+  const N = pointCount(spec);
+  if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
   const range = max - min;
-  const step = cats.length > 1 ? f.plotW / (cats.length - 1) : 0;
+  const step = N > 1 ? f.plotW / (N - 1) : 0;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
   out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
@@ -703,7 +714,7 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
     if (!series) continue;
     const color = colors[s % colors.length];
     const pts: Array<[number, number]> = [];
-    for (let c = 0; c < cats.length; c++) {
+    for (let c = 0; c < N; c++) {
       const v = series.values[c] ?? 0;
       const xp = f.plotX + c * step;
       const yp = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
@@ -711,7 +722,7 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
     }
     const dPath = pts.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
     if (fill) {
-      const areaPath = `${dPath} L${px(f.plotX + (cats.length - 1) * step)},${px(baseY)} L${px(f.plotX)},${px(baseY)} Z`;
+      const areaPath = `${dPath} L${px(f.plotX + (N - 1) * step)},${px(baseY)} L${px(f.plotX)},${px(baseY)} Z`;
       out.push(`<path d="${areaPath}" fill="${color}" fill-opacity="0.25" stroke="none"/>`);
     }
     out.push(`<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
