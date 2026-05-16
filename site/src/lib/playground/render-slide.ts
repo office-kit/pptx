@@ -945,8 +945,12 @@ const renderShape = (
     let label = 'graphicFrame';
     try {
       if (isChartShape(shape)) {
-        const chartKind = getShapeChartKind(shape);
-        label = chartKind ? `chart (${chartKind})` : 'chart';
+        // We reached this branch *because* renderChart returned null — the
+        // chart part exists (`isChartShape` is true) but `readChartSpec`
+        // couldn't model it. pptx-kit currently models only the 6 kinds in
+        // its `ChartKind` union; 3D bars, scatter, bubble, stock, radar,
+        // surface, of-pie etc. all land here.
+        label = 'chart (unsupported kind)';
       } else if (isTableShape(shape)) {
         const t = getTableDimensions(shape);
         label = `table (${t.rows}×${t.cols})`;
