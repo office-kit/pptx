@@ -1,39 +1,73 @@
-// Shape-level SVG renderer for the playground.
+// Per-slide SVG renderer for the playground.
 //
-// pptx-kit doesn't model the full DrawingML rendering pipeline — that
-// would be a renderer in its own right (see python-pptx-renderer,
-// pptxgenjs-renderer, etc). What we do here is build a reasonable
-// approximation: geometry by preset name, fill / stroke / rotation /
-// flip applied, embedded pictures shown via data URL, and text laid
-// out as centered SVG <text>.
+// pptx-kit does not ship a full DrawingML renderer — that would be a
+// project in its own right (see python-pptx-renderer, pptxgenjs viewer,
+// or the LibreOffice headless pipeline). What we do here is build a
+// reasonable approximation by:
 //
-// Good enough to confirm "the shapes are where I expect" without
-// pulling in a real OOXML renderer.
+//   1. Painting each shape's preset geometry on the slide canvas at its
+//      actual EMU bounds, with the rotation / flip / solid fill / stroke
+//      pptx-kit reports.
+//   2. Laying the shape's text on top via an SVG `<foreignObject>` that
+//      hosts real HTML — that's how we get proper word wrap, per-run
+//      bold / italic / underline / font, paragraph alignment, vertical
+//      anchor, and bullets without re-implementing line-break logic.
+//   3. Resolving theme colors (`scheme:accent1`, `scheme:tx1`, ...) via
+//      `getPresentationTheme` so brand colors light up correctly.
+//
+// Embedded charts, tables, SmartArt, gradient / pattern / picture fills,
+// the full text-property inheritance cascade (rPr → defRPr → lstStyle →
+// placeholder → master → theme), and custom geometry stay as labelled
+// placeholders — proper handling needs a real renderer.
 
 import {
+  getParagraphAlignment,
+  getParagraphBullet,
+  getParagraphLevel,
+  getPresentationTheme,
   getShapeBounds,
   getShapeFill,
   getShapeFlip,
   getShapeImageBytes,
   getShapeImageFormat,
   getShapeKind,
+  getShapeParagraphCount,
+  getShapePlaceholderType,
   getShapePreset,
   getShapeRotation,
+  getShapeRunCount,
+  getShapeRunFormat,
+  getShapeRunText,
   getShapeStroke,
-  getShapeText,
+  getShapeTextAnchor,
+  getShapeTextMargins,
   getSlideBackground,
   getSlideShapes,
   getSlideSize,
   type PresentationData,
+  type PresentationTheme,
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
   type SlideShapeData,
+  type TextFormat,
 } from 'pptx-kit';
 
-// 16:9 fallback in EMU (10" × 5.625" doesn't exist as a real preset;
-// 13.333" × 7.5" widescreen does — see ECMA-376 §19.3.1.39).
+// Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
+// default since 2013. See ECMA-376 §19.3.1.39 `SlideSizeType`.
 const DEFAULT_SIZE = { width: 12_192_000, height: 6_858_000 };
+
+// EMU per point — used to convert font sizes (which are in points).
+const EMU_PER_PT = 12_700;
+
+const DEFAULT_BODY_PT = 18;
+const DEFAULT_TITLE_PT = 36;
+const DEFAULT_FONT = 'Calibri, "Helvetica Neue", Arial, sans-serif';
+
+// Default body inset (PowerPoint default), per ECMA-376: 91440 EMU
+// horizontal × 45720 EMU vertical.
+const DEFAULT_INSET_X = 91_440;
+const DEFAULT_INSET_Y = 45_720;
 
 const u8ToBase64 = (data: Uint8Array): string => {
   let s = '';
@@ -62,42 +96,89 @@ const escapeXml = (s: string): string =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
 
-const safeColor = (c: string | null | undefined): string | null => {
-  if (!c) return null;
-  // pptx-kit normalizes scheme tokens as "scheme:<token>". The playground
-  // is not theme-aware, so substitute a recognisable placeholder gray
-  // when the resolved color isn't an #RRGGBB literal.
-  if (c.startsWith('scheme:')) return '#9CA3AF';
-  if (c.startsWith('#')) return c;
-  if (/^[0-9A-Fa-f]{6}$/.test(c)) return `#${c}`;
-  return c;
+// ---------------------------------------------------------------------------
+// Color resolution.
+
+const SCHEME_TO_THEME: Record<string, keyof Omit<PresentationTheme, 'name'>> = {
+  tx1: 'dark1',
+  bg1: 'light1',
+  tx2: 'dark2',
+  bg2: 'light2',
+  dk1: 'dark1',
+  lt1: 'light1',
+  dk2: 'dark2',
+  lt2: 'light2',
+  accent1: 'accent1',
+  accent2: 'accent2',
+  accent3: 'accent3',
+  accent4: 'accent4',
+  accent5: 'accent5',
+  accent6: 'accent6',
+  hlink: 'hyperlink',
+  folHlink: 'followedHyperlink',
 };
 
-// Returns the SVG attributes (fill, stroke, stroke-width) for a shape's
-// solid / inherited / none paints. The renderer falls back to a tinted
-// gray when a shape inherits its fill from the layout — pptx-kit doesn't
-// resolve the inheritance chain at read time, and the playground stays
-// readable either way.
-const paint = (fill: ShapeFill, stroke: ShapeStroke): {
-  fill: string;
-  stroke: string;
-  strokeWidth: number;
-} => {
-  let fillColor = '#E5E7EB'; // inherit fallback
-  if (fill.kind === 'solid') fillColor = safeColor(fill.color) ?? fillColor;
-  else if (fill.kind === 'none') fillColor = 'none';
-  else if (fill.kind === 'gradient') fillColor = '#FDBA74';
-  else if (fill.kind === 'pattern') fillColor = '#BFDBFE';
-  else if (fill.kind === 'image') fillColor = '#DDD6FE';
+const normalizeHex = (s: string): string => {
+  if (s.startsWith('#')) return s;
+  if (/^[0-9A-Fa-f]{6}$/.test(s)) return `#${s}`;
+  if (/^[0-9A-Fa-f]{8}$/.test(s)) return `#${s.slice(2)}`; // alpha-prefixed
+  return s;
+};
 
-  let strokeColor = '#9CA3AF';
-  let strokeWidth = 9525; // 1pt default
+const resolveColor = (
+  c: string | null | undefined,
+  theme: PresentationTheme | null,
+  fallback = '#1F2937',
+): string => {
+  if (!c) return fallback;
+  if (c.startsWith('scheme:')) {
+    const token = c.slice('scheme:'.length);
+    if (theme) {
+      const key = SCHEME_TO_THEME[token];
+      if (key) return normalizeHex(theme[key]);
+    }
+    // Sensible per-token fallbacks when the theme is missing.
+    if (token === 'tx1' || token === 'dk1') return '#000000';
+    if (token === 'bg1' || token === 'lt1') return '#FFFFFF';
+    if (token === 'tx2' || token === 'dk2') return '#1F2937';
+    if (token === 'bg2' || token === 'lt2') return '#E5E7EB';
+    return fallback;
+  }
+  return normalizeHex(c);
+};
+
+// ---------------------------------------------------------------------------
+// Fill / stroke paint with theme resolution.
+
+const paint = (
+  fill: ShapeFill,
+  stroke: ShapeStroke,
+  theme: PresentationTheme | null,
+  isPlaceholder: boolean,
+): { fill: string; stroke: string; strokeWidth: number } => {
+  let fillColor: string;
+  if (fill.kind === 'solid') {
+    fillColor = resolveColor(fill.color, theme, '#E5E7EB');
+  } else if (fill.kind === 'none') {
+    fillColor = 'none';
+  } else if (fill.kind === 'gradient') {
+    fillColor = '#FDBA74';
+  } else if (fill.kind === 'pattern') {
+    fillColor = '#BFDBFE';
+  } else if (fill.kind === 'image') {
+    fillColor = '#DDD6FE';
+  } else {
+    // `inherit`: placeholders inherit from layout/master, which is usually
+    // transparent for text placeholders. Drawing them as a filled tile
+    // would obscure real shapes — leave them transparent.
+    fillColor = isPlaceholder ? 'none' : '#F3F4F6';
+  }
+
+  let strokeColor = 'none';
+  let strokeWidth = 0;
   if (stroke.kind === 'solid') {
-    strokeColor = safeColor(stroke.color) ?? strokeColor;
-    if (stroke.widthEmu !== undefined) strokeWidth = stroke.widthEmu;
-  } else if (stroke.kind === 'none') {
-    strokeColor = 'none';
-    strokeWidth = 0;
+    strokeColor = resolveColor(stroke.color, theme, '#9CA3AF');
+    strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
   }
   return { fill: fillColor, stroke: strokeColor, strokeWidth };
 };
@@ -125,8 +206,6 @@ const star = (points: number, innerRatio = 0.42): Array<[number, number]> => {
   return out;
 };
 
-// Each entry returns normalized polygon points in [0,1] for a 1×1 bounding
-// box; the caller scales by the actual shape bounds.
 const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
   triangle: () => [[0.5, 0], [1, 1], [0, 1]],
   rtTriangle: () => [[0, 0], [1, 1], [0, 1]],
@@ -219,34 +298,156 @@ const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
   ],
 };
 
-const renderTextNode = (
-  text: string,
-  cx: number,
-  cy: number,
-  fontPx: number,
-  color: string,
-): string => {
-  if (!text.trim()) return '';
-  const lines = text.split('\n').slice(0, 6);
-  const lineHeight = fontPx * 1.15;
-  const totalHeight = lineHeight * (lines.length - 1);
-  const startY = cy - totalHeight / 2 + fontPx * 0.35;
-  const tspans = lines
-    .map((line, i) => {
-      const trimmed = line.length > 32 ? `${line.slice(0, 30)}…` : line;
-      return `<tspan x="${cx}" y="${startY + i * lineHeight}">${escapeXml(trimmed)}</tspan>`;
-    })
-    .join('');
-  return `<text text-anchor="middle" font-size="${fontPx}" font-family="sans-serif" fill="${color}">${tspans}</text>`;
+// ---------------------------------------------------------------------------
+// Text body rendering via foreignObject + XHTML.
+
+const ALIGNMENT_TO_CSS: Record<string, string> = {
+  left: 'left',
+  center: 'center',
+  right: 'right',
+  justify: 'justify',
 };
 
-// EMU helper.
-const E = (n: number): string => n.toFixed(0);
+const ANCHOR_TO_CSS: Record<string, string> = {
+  top: 'flex-start',
+  center: 'center',
+  bottom: 'flex-end',
+};
 
-const renderShape = (shape: SlideShapeData): string => {
+const placeholderDefaultPt = (phType: string | null): number => {
+  if (phType === 'title' || phType === 'ctrTitle') return DEFAULT_TITLE_PT;
+  if (phType === 'subTitle') return 24;
+  return DEFAULT_BODY_PT;
+};
+
+const bulletChar = (level: number): string =>
+  level <= 0 ? '•' : level === 1 ? '◦' : '▪';
+
+const renderRun = (
+  text: string,
+  format: TextFormat | null,
+  theme: PresentationTheme | null,
+  defaultPt: number,
+): string => {
+  if (text === '') return '';
+  const styles: string[] = [];
+  const sizePt = format?.size ?? defaultPt;
+  styles.push(`font-size:${sizePt * EMU_PER_PT}px`);
+  styles.push(`line-height:1.2`);
+  if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
+  if (format?.bold) styles.push('font-weight:700');
+  if (format?.italic) styles.push('font-style:italic');
+  const underline = format?.underline;
+  if (underline !== undefined && underline !== false && underline !== 'none') {
+    styles.push('text-decoration:underline');
+  }
+  if (format?.color !== undefined && format.color !== null) {
+    styles.push(`color:${resolveColor(format.color, theme, '#000000')}`);
+  }
+  return `<span style="${styles.join(';')}">${escapeXml(text)}</span>`;
+};
+
+const renderTextBody = (
+  shape: SlideShapeData,
+  bounds: { x: number; y: number; w: number; h: number },
+  theme: PresentationTheme | null,
+  phType: string | null,
+): string => {
+  let paragraphCount: number;
+  try {
+    paragraphCount = getShapeParagraphCount(shape);
+  } catch {
+    return '';
+  }
+  if (paragraphCount === 0) return '';
+
+  const defaultPt = placeholderDefaultPt(phType);
+  const anchor = getShapeTextAnchor(shape) ?? 'top';
+  const margins = getShapeTextMargins(shape);
+  const lIns = margins?.left ?? DEFAULT_INSET_X;
+  const tIns = margins?.top ?? DEFAULT_INSET_Y;
+  const rIns = margins?.right ?? DEFAULT_INSET_X;
+  const bIns = margins?.bottom ?? DEFAULT_INSET_Y;
+
+  const innerX = bounds.x + lIns;
+  const innerY = bounds.y + tIns;
+  const innerW = Math.max(0, bounds.w - lIns - rIns);
+  const innerH = Math.max(0, bounds.h - tIns - bIns);
+  if (innerW <= 0 || innerH <= 0) return '';
+
+  const paragraphs: string[] = [];
+  let hasAnyText = false;
+  for (let p = 0; p < paragraphCount; p++) {
+    let runCount: number;
+    try {
+      runCount = getShapeRunCount(shape, p);
+    } catch {
+      runCount = 0;
+    }
+    const align = getParagraphAlignment(shape, p) ?? 'left';
+    const level = getParagraphLevel(shape, p);
+    const bulletStyle = getParagraphBullet(shape, p);
+    const runs: string[] = [];
+    for (let r = 0; r < runCount; r++) {
+      let txt = '';
+      try {
+        txt = getShapeRunText(shape, p, r);
+      } catch {
+        continue;
+      }
+      const fmt = getShapeRunFormat(shape, p, r);
+      if (txt) hasAnyText = true;
+      runs.push(renderRun(txt, fmt, theme, defaultPt));
+    }
+    const pStyles: string[] = [
+      `margin:0`,
+      `padding:0`,
+      `text-align:${ALIGNMENT_TO_CSS[align] ?? 'left'}`,
+      // Leading indent for nested bullet levels.
+      level > 0 ? `padding-left:${level * 24 * EMU_PER_PT}px` : '',
+    ].filter(Boolean);
+    let prefix = '';
+    const explicitChar =
+      bulletStyle !== null &&
+      typeof bulletStyle === 'object' &&
+      'char' in bulletStyle
+        ? bulletStyle.char
+        : null;
+    const showBullet =
+      bulletStyle === 'bullet' || explicitChar !== null || (bulletStyle !== 'none' && level > 0);
+    if (showBullet) {
+      const char = explicitChar ?? bulletChar(level);
+      prefix = `<span style="margin-right:${0.4 * defaultPt * EMU_PER_PT}px">${escapeXml(char)}</span>`;
+    }
+    paragraphs.push(
+      `<p style="${pStyles.join(';')}">${prefix}${runs.join('') || '&#8203;'}</p>`,
+    );
+  }
+  if (!hasAnyText) return '';
+
+  const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
+  // Use an inset div for the body, full-bleed foreignObject so the SVG
+  // transform / clipping behaves cleanly. Word-break:break-word keeps
+  // long URLs / words from overflowing the shape.
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};word-break:break-word">${paragraphs.join('')}</div>`;
+  return `<foreignObject x="${innerX}" y="${innerY}" width="${innerW}" height="${innerH}">${body}</foreignObject>`;
+};
+
+// ---------------------------------------------------------------------------
+// Per-shape geometry rendering.
+
+const E = (n: number): string => Math.round(n).toString();
+
+const renderShape = (
+  shape: SlideShapeData,
+  theme: PresentationTheme | null,
+): string => {
   const bounds = getShapeBounds(shape);
   if (!bounds) return '';
-  const { x, y, w, h } = bounds;
+  const x = bounds.x as number;
+  const y = bounds.y as number;
+  const w = bounds.w as number;
+  const h = bounds.h as number;
   if (w <= 0 || h <= 0) return '';
 
   const kind = getShapeKind(shape);
@@ -254,10 +455,11 @@ const renderShape = (shape: SlideShapeData): string => {
   const stroke = getShapeStroke(shape);
   const rotation = getShapeRotation(shape);
   const flip = getShapeFlip(shape) ?? { horizontal: false, vertical: false };
+  const phType = getShapePlaceholderType(shape);
   const cx = x + w / 2;
   const cy = y + h / 2;
 
-  // Build the transform string. Rotation around the shape's center,
+  // Build the transform string. Rotation around the shape's centre,
   // then flips around the same point if set.
   const transforms: string[] = [];
   if (rotation !== 0) transforms.push(`rotate(${rotation} ${E(cx)} ${E(cy)})`);
@@ -265,10 +467,9 @@ const renderShape = (shape: SlideShapeData): string => {
   if (flip.vertical) transforms.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
 
-  const text = getShapeText(shape);
-  const fontPx = Math.max(80_000, Math.min(180_000, h * 0.12));
-  const textColor = '#1f2937';
-  const textNode = text ? renderTextNode(text, cx, cy, fontPx, textColor) : '';
+  const textOverlay = kind === 'shape' || kind === 'graphicFrame'
+    ? renderTextBody(shape, { x, y, w, h }, theme, phType)
+    : '';
 
   if (kind === 'picture') {
     const bytes = getShapeImageBytes(shape);
@@ -278,70 +479,86 @@ const renderShape = (shape: SlideShapeData): string => {
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
       return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" preserveAspectRatio="none"/></g>`;
     }
-    // Image bytes missing → render a placeholder.
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9525)}" stroke-dasharray="${E(50000)},${E(30000)}"/>${renderTextNode('Image', cx, cy, fontPx, '#6B7280')}</g>`;
+    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
   }
 
   if (kind === 'connector') {
-    const p = paint(fill, stroke);
-    const sw = p.strokeWidth || 19_050; // 2pt fallback
-    // Connectors are drawn as a single line. Flips flip the diagonal.
-    let x1 = x as number;
-    let y1 = y as number;
-    let x2 = (x as number) + (w as number);
-    let y2 = (y as number) + (h as number);
+    const p = paint(fill, stroke, theme, false);
+    const sw = p.strokeWidth || 19_050;
+    let x1 = x;
+    let y1 = y;
+    let x2 = x + w;
+    let y2 = y + h;
     if (flip.horizontal) {
-      x1 = (x as number) + (w as number);
-      x2 = x as number;
+      x1 = x + w;
+      x2 = x;
     }
     if (flip.vertical) {
-      y1 = (y as number) + (h as number);
-      y2 = y as number;
+      y1 = y + h;
+      y2 = y;
     }
-    return `<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${p.stroke}" stroke-width="${E(sw)}" stroke-linecap="round"${transform}/>`;
+    const strokeColor =
+      p.stroke === 'none' ? resolveColor('scheme:tx1', theme, '#1F2937') : p.stroke;
+    return `<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${transform}/>`;
   }
 
-  if (kind === 'graphicFrame' || kind === 'group') {
-    const label = kind === 'graphicFrame' ? 'Chart / Table' : 'Group';
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9525)}" stroke-dasharray="${E(50000)},${E(30000)}"/>${renderTextNode(text || label, cx, cy, fontPx, '#6B7280')}</g>`;
+  if (kind === 'group') {
+    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="none" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
+  }
+
+  const p = paint(fill, stroke, theme, phType !== null);
+
+  if (kind === 'graphicFrame') {
+    // Chart / table / SmartArt frame. Draw a faint placeholder behind
+    // any text the frame might carry.
+    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill === 'none' ? '#F9FAFB' : p.fill}" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${textOverlay}</g>`;
   }
 
   // kind === 'shape'
   const preset = getShapePreset(shape) ?? 'rect';
-  const p = paint(fill, stroke);
 
+  let geomSvg: string;
   if (preset === 'rect') {
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>${textNode}</g>`;
-  }
-  if (preset === 'roundRect') {
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+  } else if (preset === 'roundRect') {
     const r = E(Math.min(w, h) * 0.18);
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>${textNode}</g>`;
-  }
-  if (preset === 'ellipse' || preset === 'oval') {
-    return `<g${transform}><ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>${textNode}</g>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+  } else if (preset === 'ellipse' || preset === 'oval') {
+    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+  } else {
+    const pointsFn = PRESET_POINTS[preset];
+    if (pointsFn) {
+      const points = pointsFn()
+        .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
+        .join(' ');
+      geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    } else {
+      // Unrecognised preset — fall back to a labelled rectangle.
+      geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    }
   }
 
-  const pointsFn = PRESET_POINTS[preset];
-  if (pointsFn) {
-    const points = pointsFn()
-      .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
-      .join(' ');
-    return `<g${transform}><polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>${textNode}</g>`;
-  }
-
-  // Unrecognised preset → fall back to a labelled rectangle.
-  return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>${textNode || renderTextNode(preset, cx, cy, fontPx, textColor)}</g>`;
+  return `<g${transform}>${geomSvg}${textOverlay}</g>`;
 };
+
+// ---------------------------------------------------------------------------
+// Slide composition.
 
 export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string => {
   const size = getSlideSize(pres) ?? DEFAULT_SIZE;
-  const W = size.width;
-  const H = size.height;
-  const bg = getSlideBackground(slide);
-  const bgColor =
-    bg.kind === 'solid' ? safeColor(bg.color) ?? '#FFFFFF' : '#FFFFFF';
+  const W = size.width as number;
+  const H = size.height as number;
+  const theme = getPresentationTheme(pres);
 
-  const shapesSvg = getSlideShapes(slide).map(renderShape).join('');
+  const bg = getSlideBackground(slide);
+  let bgColor = '#FFFFFF';
+  if (bg.kind === 'solid') {
+    bgColor = resolveColor(bg.color, theme, '#FFFFFF');
+  } else if (theme && bg.kind === 'inherit') {
+    bgColor = normalizeHex(theme.light1);
+  }
+
+  const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, theme)).join('');
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`,

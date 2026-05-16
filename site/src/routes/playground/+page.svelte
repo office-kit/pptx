@@ -11,7 +11,6 @@
     getSlideShapes,
     getSlideTitle,
     getSlides,
-    getSlideText,
     getSlideTextLength,
     listPackageParts,
     loadPresentation,
@@ -23,7 +22,6 @@
     index: number;
     title: string;
     textLength: number;
-    text: string;
     shapeKinds: string[];
     svg: string;
   };
@@ -56,7 +54,6 @@
         index: i + 1,
         title: getSlideTitle(slide) ?? '',
         textLength: getSlideTextLength(slide),
-        text: getSlideText(slide).slice(0, 240),
         shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
         svg: renderSlideSvg(pres, slide),
       }));
@@ -200,9 +197,6 @@
                 <code>{k}</code>
               {/each}
             </p>
-          {/if}
-          {#if s.text}
-            <pre class="s-text">{s.text}</pre>
           {/if}
         </li>
       {/each}
@@ -473,20 +467,6 @@
   .s-kinds code {
     font-size: 11px;
     padding: 0.1em 0.45em;
-  }
-
-  .s-text {
-    margin: 0.5rem 0 0;
-    font-family: var(--mono);
-    font-size: 12px;
-    color: var(--fg-soft);
-    background: var(--code-bg);
-    border: 1px solid var(--rule);
-    border-radius: var(--radius-sm);
-    padding: 0.6rem 0.8rem;
-    overflow: auto;
-    max-height: 8rem;
-    white-space: pre-wrap;
   }
 
   .parts {
