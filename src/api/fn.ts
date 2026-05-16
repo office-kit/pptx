@@ -3380,6 +3380,75 @@ export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
 };
 
 // ---------------------------------------------------------------------------
+// Detailed gradient-fill reader. Companion to `getShapeFill`, which
+// only reports the discriminated `kind`. Returns the full stop list +
+// angle when the shape carries a `<a:gradFill>` of its own, or
+// `null` for solid / pattern / image / none / inherited fills.
+//
+// Useful for renderers (preview generators, PDF exporters) that need
+// to reproduce the gradient instead of substituting a placeholder.
+
+const NAME_A_GRAD_FILL = qname('a', 'gradFill', NS.dml);
+const NAME_A_GS_LST = qname('a', 'gsLst', NS.dml);
+const NAME_A_GS = qname('a', 'gs', NS.dml);
+const NAME_A_LIN = qname('a', 'lin', NS.dml);
+
+const readColorFromContainer = (parent: XmlElement): string | null => {
+  for (const c of parent.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'srgbClr') {
+      const val = getAttrValue(c, qname('', 'val', ''));
+      if (val !== null) return `#${val.toUpperCase()}`;
+    }
+    if (c.name.localName === 'schemeClr') {
+      const val = getAttrValue(c, qname('', 'val', ''));
+      if (val !== null) return `scheme:${val}`;
+    }
+  }
+  return null;
+};
+
+/**
+ * Returns the full gradient definition (`stops` + `angleDeg`) when the
+ * shape's `<p:spPr>` carries an `<a:gradFill>`. Returns `null` for any
+ * other fill kind, including `inherit` — the function does not walk the
+ * layout / master cascade.
+ */
+export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
+  if (!gradFill) return null;
+  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
+  if (!gsLst) return null;
+  const stops: Array<{ offset: number; color: string }> = [];
+  for (const c of gsLst.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs') {
+      continue;
+    }
+    const posRaw = getAttrValue(c, qname('', 'pos', ''));
+    if (posRaw === null) continue;
+    const pos = Number.parseInt(posRaw, 10);
+    if (!Number.isFinite(pos)) continue;
+    const color = readColorFromContainer(c);
+    if (color === null) continue;
+    stops.push({ offset: pos / 100_000, color });
+  }
+  if (stops.length === 0) return null;
+  // ECMA-376 stores `ang` in 60000ths of a degree.
+  let angleDeg = 0;
+  const lin = firstChildElement(gradFill, NAME_A_LIN);
+  if (lin) {
+    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
+    if (angRaw !== null) {
+      const ang = Number.parseInt(angRaw, 10);
+      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
+    }
+  }
+  return { stops, angleDeg };
+};
+
+// ---------------------------------------------------------------------------
 // @internal — used by mutation functions to write SlideData state back
 // into the package and rebuild the typed view. Free functions, no class
 // dependency.

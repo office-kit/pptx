@@ -28,6 +28,7 @@ import {
   getShapeBoundsResolved,
   getShapeFill,
   getShapeFlip,
+  getShapeGradientFill,
   getShapeChartKind,
   getShapeChartSpec,
   getShapeImageBytes,
@@ -60,6 +61,7 @@ import {
   type PresentationData,
   type PresentationTheme,
   type ChartSpec,
+  type GradientFillOptions,
   type ShapeBounds,
   type ShapeFill,
   type ShapeStroke,
@@ -256,19 +258,70 @@ const resolveColor = (
 // ---------------------------------------------------------------------------
 // Fill / stroke paint with theme resolution.
 
+// Module-scoped id counter for SVG `<defs>` references (gradients,
+// patterns). Each renderSlideSvg call mints fresh ids; collisions
+// across slides don't matter because each slide's SVG is a separate
+// document. Plain monotonic counter is fine.
+let nextDefId = 0;
+const mintId = (): string => `pkdef-${(nextDefId++).toString(36)}`;
+
+// `<linearGradient>` definition + `fill="url(#…)"` reference, projected
+// from pptx-kit's `{ stops, angleDeg }` shape onto SVG's
+// objectBoundingBox unit cube. ECMA-376 measures `angleDeg` clockwise
+// from 3 o'clock, which matches the trig below (0° = +x, 90° = +y).
+const gradientDef = (
+  grad: GradientFillOptions,
+  theme: PresentationTheme | null,
+): { defs: string; fillAttr: string } => {
+  const id = mintId();
+  const angleRad = ((grad.angleDeg ?? 0) * Math.PI) / 180;
+  const dx = Math.cos(angleRad) / 2;
+  const dy = Math.sin(angleRad) / 2;
+  const x1 = 0.5 - dx;
+  const y1 = 0.5 - dy;
+  const x2 = 0.5 + dx;
+  const y2 = 0.5 + dy;
+  const stops = grad.stops
+    .map((s) => `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`)
+    .join('');
+  const defs = `<defs><linearGradient id="${id}" gradientUnits="objectBoundingBox" x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
+  return { defs, fillAttr: `url(#${id})` };
+};
+
+interface PaintResult {
+  fill: string;
+  stroke: string;
+  strokeWidth: number;
+  /** Extra SVG `<defs>` the caller should emit before the shape. */
+  defs: string;
+}
+
 const paint = (
+  shape: SlideShapeData | null,
   fill: ShapeFill,
   stroke: ShapeStroke,
   theme: PresentationTheme | null,
   isPlaceholder: boolean,
-): { fill: string; stroke: string; strokeWidth: number } => {
+): PaintResult => {
   let fillColor: string;
+  let defs = '';
   if (fill.kind === 'solid') {
     fillColor = resolveColor(fill.color, theme, '#E5E7EB');
   } else if (fill.kind === 'none') {
     fillColor = 'none';
   } else if (fill.kind === 'gradient') {
-    fillColor = '#FDBA74';
+    // Best-effort: paint a real `<linearGradient>` when the
+    // `<a:gradFill>` is on the shape itself. Inherited gradients (no
+    // explicit gradFill on the shape) fall back to the orange tint
+    // since we don't yet walk the layout/master cascade for fills.
+    const grad = shape ? getShapeGradientFill(shape) : null;
+    if (grad) {
+      const built = gradientDef(grad, theme);
+      defs = built.defs;
+      fillColor = built.fillAttr;
+    } else {
+      fillColor = '#FDBA74';
+    }
   } else if (fill.kind === 'pattern') {
     fillColor = '#BFDBFE';
   } else if (fill.kind === 'image') {
@@ -286,7 +339,7 @@ const paint = (
     strokeColor = resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
   }
-  return { fill: fillColor, stroke: strokeColor, strokeWidth };
+  return { fill: fillColor, stroke: strokeColor, strokeWidth, defs };
 };
 
 // ---------------------------------------------------------------------------
@@ -1035,7 +1088,7 @@ const renderShape = (
   }
 
   if (kind === 'connector') {
-    const p = paint(fill, stroke, theme, false);
+    const p = paint(shape, fill, stroke, theme, false);
     const sw = p.strokeWidth || 19_050;
     let x1 = x;
     let y1 = y;
@@ -1058,7 +1111,7 @@ const renderShape = (
     return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="none" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
   }
 
-  const p = paint(fill, stroke, theme, phType !== null);
+  const p = paint(shape, fill, stroke, theme, phType !== null);
 
   if (kind === 'graphicFrame') {
     // Charts and tables get real renders. SmartArt and the
@@ -1113,7 +1166,7 @@ const renderShape = (
     }
   }
 
-  return `<g${transform}>${geomSvg}${textOverlay}</g>`;
+  return `${p.defs}<g${transform}>${geomSvg}${textOverlay}</g>`;
 };
 
 // ---------------------------------------------------------------------------

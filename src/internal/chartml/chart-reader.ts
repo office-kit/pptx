@@ -54,10 +54,19 @@ interface PlottedKindMap {
 const KIND_MAP: ReadonlyArray<PlottedKindMap> = [
   // `barChart` is overloaded; `<c:barDir val="bar"/>` vs `"col"` decides.
   { localName: 'barChart', kind: 'column' },
+  // The 3D variants share the same `<c:ser>` schema as their flat
+  // counterparts; we degrade to the flat kind so renderers don't have
+  // to special-case them. PowerPoint's own embedded data view does the
+  // same flattening when "Edit data" is opened.
+  { localName: 'bar3DChart', kind: 'column' },
   { localName: 'lineChart', kind: 'line' },
+  { localName: 'line3DChart', kind: 'line' },
   { localName: 'pieChart', kind: 'pie' },
+  { localName: 'pie3DChart', kind: 'pie' },
+  { localName: 'ofPieChart', kind: 'pie' },
   { localName: 'doughnutChart', kind: 'doughnut' },
   { localName: 'areaChart', kind: 'area' },
+  { localName: 'area3DChart', kind: 'area' },
 ];
 
 const findFirst = (parent: XmlElement, names: ReadonlyArray<string>): XmlElement | null => {
@@ -196,8 +205,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (found) {
       plotted = found;
       kind = candidate.kind;
-      // Resolve bar vs column on a `barChart`.
-      if (candidate.localName === 'barChart') {
+      // Resolve bar vs column on a `barChart` / `bar3DChart`.
+      if (candidate.localName === 'barChart' || candidate.localName === 'bar3DChart') {
         const barDir = firstChildElement(found, qname('c', 'barDir', NS_C));
         const v = barDir !== null ? getAttrValue(barDir, ATTR_VAL) : null;
         kind = v === 'bar' ? 'bar' : 'column';

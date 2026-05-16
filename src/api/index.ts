@@ -181,6 +181,7 @@ export {
   getShapeDescription,
   getShapeEffect,
   getShapeFill,
+  getShapeGradientFill,
   getShapeFillColor,
   getShapeFlip,
   getShapeHyperlink,
