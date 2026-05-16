@@ -92,6 +92,7 @@ import {
   readCommentAuthorList,
   readCommentList,
   readPresentationPart,
+  readGroupChildren,
   readShapeTreeFromCsldRoot,
   readSlideLayoutPart,
   readSlidePart,
@@ -3033,6 +3034,79 @@ export const getShapeFlip = (
   shape: SlideShapeData,
 ): { horizontal: boolean; vertical: boolean } | null =>
   readFlip(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+/**
+ * Enumerates the shapes nested inside a `<p:grpSp>` group, one level
+ * deep (nested groups come through as `kind: 'group'` themselves —
+ * call this again on each one to recurse).
+ *
+ * Returns an empty array for non-group shapes. Each child carries its
+ * own bounds in the group's *internal* coordinate system; pair with
+ * `getGroupTransform` to project them onto the slide.
+ */
+export const getGroupChildren = (
+  shape: SlideShapeData,
+): ReadonlyArray<SlideShapeData> => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'group') return [];
+  const children = readGroupChildren(shape[SHAPE_ELEMENT]);
+  return children.map((child) => ({
+    [SHAPE_SLIDE]: shape[SHAPE_SLIDE],
+    [SHAPE_ELEMENT]: child.element,
+    [SHAPE_SNAPSHOT]: child,
+  }));
+};
+
+/**
+ * Returns the group's slide-relative bounds (`outer`) and the internal
+ * coordinate system the children's `<a:xfrm>` values live in
+ * (`inner`). Renderers project a child point `(cx, cy)` onto the slide
+ * with:
+ *
+ *   slideX = outer.x + (cx - inner.x) * (outer.w / inner.w)
+ *   slideY = outer.y + (cy - inner.y) * (outer.h / inner.h)
+ *
+ * Returns `null` for non-group shapes or for groups whose
+ * `<p:grpSpPr>` omits an `<a:xfrm>`.
+ */
+export const getGroupTransform = (
+  shape: SlideShapeData,
+): {
+  readonly outer: ShapeBounds;
+  readonly inner: ShapeBounds;
+} | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'group') return null;
+  const grpSpPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'grpSpPr', NS.pml));
+  if (!grpSpPr) return null;
+  const xfrm = firstChildElement(grpSpPr, qname('a', 'xfrm', NS.dml));
+  if (!xfrm) return null;
+  const off = firstChildElement(xfrm, qname('a', 'off', NS.dml));
+  const ext = firstChildElement(xfrm, qname('a', 'ext', NS.dml));
+  const chOff = firstChildElement(xfrm, qname('a', 'chOff', NS.dml));
+  const chExt = firstChildElement(xfrm, qname('a', 'chExt', NS.dml));
+  if (!off || !ext) return null;
+  const parseAttr = (el: XmlElement, name: string): number | null => {
+    const raw = getAttrValue(el, qname('', name, ''));
+    if (raw === null) return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  const ox = parseAttr(off, 'x');
+  const oy = parseAttr(off, 'y');
+  const ow = parseAttr(ext, 'cx');
+  const oh = parseAttr(ext, 'cy');
+  if (ox === null || oy === null || ow === null || oh === null) return null;
+  // Per ECMA-376, `<a:chOff>/<a:chExt>` default to the same values as
+  // `<a:off>/<a:ext>` when omitted (i.e. no internal-to-outer
+  // transform).
+  const ix = chOff ? parseAttr(chOff, 'x') ?? ox : ox;
+  const iy = chOff ? parseAttr(chOff, 'y') ?? oy : oy;
+  const iw = chExt ? parseAttr(chExt, 'cx') ?? ow : ow;
+  const ih = chExt ? parseAttr(chExt, 'cy') ?? oh : oh;
+  return {
+    outer: { x: ox as Emu, y: oy as Emu, w: ow as Emu, h: oh as Emu },
+    inner: { x: ix as Emu, y: iy as Emu, w: iw as Emu, h: ih as Emu },
+  };
+};
 
 /**
  * Combined bounds — position + size in one object. Returns `null` when

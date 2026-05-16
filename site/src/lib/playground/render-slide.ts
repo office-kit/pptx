@@ -46,6 +46,8 @@ import {
   getShapeStroke,
   getShapeTextAnchor,
   getShapeTextMargins,
+  getGroupChildren,
+  getGroupTransform,
   getSlideBackground,
   getSlideBackgroundImageBytes,
   getSlideShapes,
@@ -1109,7 +1111,34 @@ const renderShape = (
   }
 
   if (kind === 'group') {
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="none" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
+    // Recurse into the group's children. Their bounds live in the
+    // group's internal coordinate system; an SVG transform maps that
+    // onto the slide. Children are rendered the same way as
+    // top-level shapes — nested groups recurse naturally.
+    const xform = getGroupTransform(shape);
+    const children = getGroupChildren(shape);
+    if (children.length === 0) return '';
+    let groupTransform = '';
+    if (xform) {
+      const ox = xform.outer.x as number;
+      const oy = xform.outer.y as number;
+      const ow = xform.outer.w as number;
+      const oh = xform.outer.h as number;
+      const ix = xform.inner.x as number;
+      const iy = xform.inner.y as number;
+      const iw = (xform.inner.w as number) || 1;
+      const ih = (xform.inner.h as number) || 1;
+      const sx = (ow / iw).toFixed(6);
+      const sy = (oh / ih).toFixed(6);
+      // translate first, then scale, so the child's natural coords
+      // (px) project: ox/EMU_PER_PX + (cx - ix) * sx / EMU_PER_PX,
+      // which factors as translate(ox/EMU - ix*sx/EMU) scale(sx).
+      const tx = ((ox - ix * (ow / iw)) / EMU_PER_PX).toFixed(2);
+      const ty = ((oy - iy * (oh / ih)) / EMU_PER_PX).toFixed(2);
+      groupTransform = ` transform="translate(${tx} ${ty}) scale(${sx} ${sy})"`;
+    }
+    const childrenSvg = children.map((c) => renderShape(c, pres, theme)).join('');
+    return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
   const p = paint(shape, fill, stroke, theme, phType !== null);

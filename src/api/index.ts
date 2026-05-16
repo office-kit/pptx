@@ -160,6 +160,8 @@ export {
   getCommentsSortedByDate,
   getCoreProperties,
   getDistinctHyperlinkUrls,
+  getGroupChildren,
+  getGroupTransform,
   getHiddenSlides,
   getExtendedProperties,
   getParagraphAlignment,

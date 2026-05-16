@@ -155,6 +155,22 @@ const collectShapes = (spTree: XmlElement, out: SlideShape[], recurseIntoGroups:
 };
 
 /**
+ * Reads the immediate child shapes of a `<p:grpSp>` (group shape)
+ * without recursing further. Used by `getGroupChildren` on the public
+ * surface to expose group contents to renderers.
+ *
+ * Throws if `element` isn't a `<p:grpSp>`.
+ */
+export const readGroupChildren = (element: XmlElement): SlideShape[] => {
+  if (element.name.namespaceURI !== NS.pml || element.name.localName !== 'grpSp') {
+    throw new Error(`readGroupChildren: expected <p:grpSp>, got <${element.name.prefix}:${element.name.localName}>`);
+  }
+  const out: SlideShape[] = [];
+  collectShapes(element, out, false);
+  return out;
+};
+
+/**
  * Reads the shape tree from a slide / layout / master root element.
  * Exported so the sibling readers (`readSlideLayoutPart`,
  * `readSlideMasterPart`) can reuse it.
