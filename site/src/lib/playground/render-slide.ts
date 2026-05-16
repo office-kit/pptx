@@ -89,8 +89,14 @@ const EMU_PER_PX = 9525;
 // CSS px per typographic point.
 const PX_PER_PT = 96 / 72;
 
-const DEFAULT_BODY_PT = 18;
-const DEFAULT_TITLE_PT = 36;
+// Conservative defaults — pptx-kit doesn't walk the lstStyle / master
+// cascade to find the real default size, so we err on the small side
+// to avoid the rendered text overflowing tight placeholders. PowerPoint
+// real defaults are 44pt title / 28pt body; we'd clip many titles at
+// those sizes since the placeholder height comes from the master,
+// which expects autofit.
+const DEFAULT_BODY_PT = 14;
+const DEFAULT_TITLE_PT = 26;
 // Single quotes only — these strings are emitted into `style="..."`
 // attributes, so any embedded double quote would close the attribute
 // early and silently drop every property after it (notably `color:`,
@@ -458,6 +464,137 @@ const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
     [0, 1],
     [0.3, 0.5],
   ],
+  // Additional block arrows beyond the cardinal four.
+  bentArrow: () => [
+    [0, 0.45],
+    [0.55, 0.45],
+    [0.55, 0.25],
+    [0.55, 0.05],
+    [0.95, 0.05],
+    [0.95, 0.55],
+    [0.8, 0.55],
+    [0.8, 0.85],
+    [0, 0.85],
+  ],
+  // Right-pointing pentagon (often used for flowcharts).
+  homePlate: () => [
+    [0, 0],
+    [0.75, 0],
+    [1, 0.5],
+    [0.75, 1],
+    [0, 1],
+  ],
+  // Hearts / smileyFace / cloud handled via path renderers below.
+};
+
+// Path-based shape renderers — for shapes that can't be expressed as a
+// closed polygon (curves, multiple sub-paths, etc.). Returns an SVG
+// `d` attribute already scaled to the shape's bounding box.
+const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) => string> = {
+  // Wedge callouts: rect / round-rect / ellipse body covering ~85% of
+  // the bounding box plus a triangular tail pointing down-left.
+  // Default adj1/adj2 values aren't read from the XML; the tail
+  // position is approximate.
+  wedgeRectCallout: (x, y, w, h) => {
+    const bodyH = h * 0.78;
+    const tailTipX = x + w * 0.12;
+    const tailTipY = y + h;
+    const tailBaseLeft = x + w * 0.18;
+    const tailBaseRight = x + w * 0.32;
+    const bodyB = y + bodyH;
+    return `M${x},${y} L${x + w},${y} L${x + w},${bodyB} L${tailBaseRight},${bodyB} L${tailTipX},${tailTipY} L${tailBaseLeft},${bodyB} L${x},${bodyB} Z`;
+  },
+  wedgeRoundRectCallout: (x, y, w, h) => {
+    const r = Math.min(w, h) * 0.08;
+    const bodyH = h * 0.78;
+    const tailTipX = x + w * 0.12;
+    const tailTipY = y + h;
+    const tailBaseLeft = x + w * 0.18;
+    const tailBaseRight = x + w * 0.32;
+    const bodyB = y + bodyH;
+    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${bodyB - r} A${r},${r} 0 0 1 ${x + w - r},${bodyB} L${tailBaseRight},${bodyB} L${tailTipX},${tailTipY} L${tailBaseLeft},${bodyB} L${x + r},${bodyB} A${r},${r} 0 0 1 ${x},${bodyB - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
+  },
+  wedgeEllipseCallout: (x, y, w, h) => {
+    const bodyCy = y + h * 0.39;
+    const bodyRy = h * 0.39;
+    const cx = x + w / 2;
+    const bodyRx = w / 2;
+    // Ellipse perimeter via two arcs, then a triangle to the tail.
+    const tailTipX = x + w * 0.12;
+    const tailTipY = y + h;
+    const tailBaseAngle = 1.5; // radians from positive x — bottom-ish
+    const tailBase1X = cx + bodyRx * Math.cos(tailBaseAngle - 0.18);
+    const tailBase1Y = bodyCy + bodyRy * Math.sin(tailBaseAngle - 0.18);
+    const tailBase2X = cx + bodyRx * Math.cos(tailBaseAngle + 0.18);
+    const tailBase2Y = bodyCy + bodyRy * Math.sin(tailBaseAngle + 0.18);
+    return `M${tailBase1X},${tailBase1Y} A${bodyRx},${bodyRy} 0 1 0 ${tailBase2X},${tailBase2Y} L${tailTipX},${tailTipY} Z`;
+  },
+  // Cloud callout — body is 8 lobes around an ellipse, plus a small
+  // dot trail towards the tail point.
+  cloudCallout: (x, y, w, h) => {
+    const bodyH = h * 0.78;
+    const cx = x + w / 2;
+    const cy = y + bodyH / 2;
+    const rx = (w / 2) * 0.92;
+    const ry = (bodyH / 2) * 0.85;
+    const lobes = 10;
+    const path: string[] = [];
+    for (let i = 0; i < lobes; i++) {
+      const a = (i / lobes) * 2 * Math.PI - Math.PI / 2;
+      const lobeRx = rx * 0.32;
+      const lobeRy = ry * 0.32;
+      const px0 = cx + rx * Math.cos(a);
+      const py0 = cy + ry * Math.sin(a);
+      if (i === 0) path.push(`M${px0 - lobeRx},${py0}`);
+      path.push(`A${lobeRx},${lobeRy} 0 1 1 ${px0 + lobeRx},${py0}`);
+      const nextA = ((i + 1) / lobes) * 2 * Math.PI - Math.PI / 2;
+      const nextX = cx + rx * Math.cos(nextA) - lobeRx;
+      const nextY = cy + ry * Math.sin(nextA);
+      path.push(`L${nextX},${nextY}`);
+    }
+    path.push('Z');
+    // Two small trailing circles for the tail.
+    const tailX = x + w * 0.18;
+    const tailY = y + h * 0.95;
+    return `${path.join(' ')} M${tailX - 6},${tailY - 14} a4,3 0 1 0 1,0 Z M${tailX},${tailY} a6,4 0 1 0 1,0 Z`;
+  },
+  // Hearts / sun / lightning / smiley — common decorative shapes.
+  heart: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const top = y + h * 0.27;
+    return `M${cx},${y + h} C${x},${y + h * 0.55} ${x},${top} ${cx},${y + h * 0.4} C${x + w},${top} ${x + w},${y + h * 0.55} ${cx},${y + h} Z`;
+  },
+  sun: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const innerR = Math.min(w, h) * 0.25;
+    const outerR = Math.min(w, h) * 0.5;
+    const rays = 12;
+    const path: string[] = [];
+    for (let i = 0; i < rays * 2; i++) {
+      const r = i % 2 === 0 ? outerR : innerR;
+      const a = ((i / (rays * 2)) * 2 * Math.PI) - Math.PI / 2;
+      const px0 = cx + r * Math.cos(a);
+      const py0 = cy + r * Math.sin(a);
+      path.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
+    }
+    path.push('Z');
+    return path.join(' ');
+  },
+  smileyFace: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const r = Math.min(w, h) / 2 - 1;
+    const eyeR = r * 0.07;
+    const eyeOff = r * 0.32;
+    const mouthW = r * 0.5;
+    const mouthY = cy + r * 0.18;
+    // Face circle, two eye holes (subpath, even-odd-filled), smiling arc.
+    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - eyeOff + eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx - eyeOff - eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx - eyeOff + eyeR},${cy - eyeOff} Z M${cx + eyeOff + eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx + eyeOff - eyeR},${cy - eyeOff} A${eyeR},${eyeR} 0 1 1 ${cx + eyeOff + eyeR},${cy - eyeOff} Z M${cx - mouthW},${mouthY} Q${cx},${mouthY + r * 0.32} ${cx + mouthW},${mouthY}`;
+  },
+  lightningBolt: (x, y, w, h) => {
+    return `M${x + w * 0.5},${y} L${x + w * 0.15},${y + h * 0.55} L${x + w * 0.45},${y + h * 0.55} L${x + w * 0.3},${y + h} L${x + w * 0.85},${y + h * 0.4} L${x + w * 0.55},${y + h * 0.4} L${x + w * 0.7},${y} Z`;
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -495,7 +632,10 @@ const renderRun = (
   const styles: string[] = [];
   const sizePt = format?.size ?? defaultPt;
   styles.push(`font-size:${(sizePt * PX_PER_PT).toFixed(2)}px`);
-  styles.push(`line-height:1.2`);
+  // PowerPoint uses tight line-height (~1.0) by default for placeholders;
+  // the previous 1.2 left enough vertical slack to push the top/bottom of
+  // glyphs outside short placeholders.
+  styles.push(`line-height:1.05`);
   if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
@@ -596,7 +736,12 @@ const renderTextBody = (
   // Use an inset div for the body, full-bleed foreignObject so the SVG
   // transform / clipping behaves cleanly. Word-break:break-word keeps
   // long URLs / words from overflowing the shape.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
+  // overflow:visible — the placeholder's box is sized for PowerPoint's
+  // autofit text, which we don't model. With overflow:hidden, long
+  // titles or body bullets that should have shrunk to fit instead get
+  // their ascenders / descenders clipped. Letting them bleed outside
+  // the shape is uglier but never *loses* information.
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
   return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}">${body}</foreignObject>`;
 };
 
@@ -1074,7 +1219,7 @@ const renderTableCellText = (
   const body = lines
     .map((line) => `<div style="text-align:${ta}">${escapeXml(line)}</div>`)
     .join('');
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:center;align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:11px;line-height:1.3;word-break:break-word">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:center;align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:10px;line-height:1.15;word-break:break-word">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
@@ -1311,15 +1456,22 @@ const renderShape = (
   } else if (preset === 'ellipse' || preset === 'oval') {
     geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
   } else {
-    const pointsFn = PRESET_POINTS[preset];
-    if (pointsFn) {
-      const points = pointsFn()
-        .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
-        .join(' ');
-      geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    const pathFn = PRESET_PATHS[preset];
+    if (pathFn) {
+      // The path generators output CSS-px coords directly (post-E).
+      const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
+      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"/>`;
     } else {
-      // Unrecognised preset — fall back to a labelled rectangle.
-      geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+      const pointsFn = PRESET_POINTS[preset];
+      if (pointsFn) {
+        const points = pointsFn()
+          .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
+          .join(' ');
+        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+      } else {
+        // Unrecognised preset — fall back to a labelled rectangle.
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+      }
     }
   }
 
