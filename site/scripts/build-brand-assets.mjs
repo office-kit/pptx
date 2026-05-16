@@ -14,8 +14,6 @@ const STATIC_DIR = fileURLToPath(new URL('../static/', import.meta.url));
 
 const ORANGE = [232, 80, 28]; // pptx-kit --accent
 const ORANGE_HOT = [255, 106, 54]; // --accent-hot
-const WHITE = [255, 255, 255];
-const NEAR_BLACK = [13, 12, 10]; // --bg
 
 // ---------------------------------------------------------------------------
 // Drawing primitives — operate on a flat RGBA Uint8Array (one byte per

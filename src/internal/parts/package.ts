@@ -98,6 +98,11 @@ export class OpcPackage {
         contentTypes = parseContentTypes(decode(entry.data));
         continue;
       }
+      // Some producers (PowerPoint on Windows, third-party tools) include
+      // explicit directory entries in the ZIP central directory — zero-byte
+      // names ending with "/". They are not OPC parts; skip them so part-name
+      // validation does not reject them.
+      if (entry.name.endsWith('/')) continue;
       const name = fromZipPath(entry.name);
       parts.push({
         name,
