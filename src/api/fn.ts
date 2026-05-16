@@ -437,19 +437,6 @@ export const getSlideLayoutPartName = (layout: SlideLayoutData): string =>
   layout[LAYOUT_PART_NAME];
 
 /**
- * Returns every slide-layout's package part name in the deck, in
- * `getSlideLayouts` order. Sibling of `getSlideMasterPartNames`
- * for tooling that needs the layout URIs.
- */
-export const getSlideLayoutPartNames = (
-  pres: PresentationData,
-): ReadonlyArray<string> => {
-  const out: string[] = [];
-  for (const layout of getSlideLayouts(pres)) out.push(layout[LAYOUT_PART_NAME]);
-  return out;
-};
-
-/**
  * Returns the slide layout whose package part name equals
  * `partName`, or `null` when no such layout exists. Mirror of
  * `findSlideByPartName` for layouts.
@@ -1334,31 +1321,6 @@ export const getSlideOutline = (
       body: body !== null ? body[SHAPE_SNAPSHOT].text : null,
     });
   }
-  return out;
-};
-
-/**
- * Returns the user-visible name of every slide layout in the
- * package (in part-name order). Useful for "pick a layout" pickers
- * and layout audits.
- */
-export const getSlideLayoutNames = (pres: PresentationData): ReadonlyArray<string> => {
-  const out: string[] = [];
-  for (const layout of getSlideLayouts(pres)) out.push(getSlideLayoutName(layout));
-  return out;
-};
-
-/**
- * Returns the ECMA-376 `<p:sldLayout type>` token of every layout
- * in part-name order. Useful for locale-stable audit reports (the
- * type tokens — `'title'`, `'obj'`, `'blank'`, ... — are the same
- * across PowerPoint UI languages, whereas the names are localized).
- */
-export const getSlideLayoutTypes = (
-  pres: PresentationData,
-): ReadonlyArray<string | null> => {
-  const out: (string | null)[] = [];
-  for (const layout of getSlideLayouts(pres)) out.push(getSlideLayoutType(layout));
   return out;
 };
 
@@ -6321,22 +6283,6 @@ export const findCommentAuthorByName = (
     if (a.name === authorName) return a;
   }
   return null;
-};
-
-/**
- * Returns every distinct author who has at least one comment on the
- * slide. Deduplicated by author id; preserves first-seen order.
- * Useful for "who reviewed this slide?" annotations.
- */
-export const getSlideAuthors = (slide: SlideData): ReadonlyArray<CommentAuthor> => {
-  const seen = new Set<number>();
-  const out: CommentAuthor[] = [];
-  for (const c of getSlideComments(slide)) {
-    if (seen.has(c.author.id)) continue;
-    seen.add(c.author.id);
-    out.push(c.author);
-  }
-  return out;
 };
 
 /**
