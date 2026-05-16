@@ -1182,27 +1182,12 @@ const buildSlideData = (
  * invalid PPTX cannot honor the L1 contract.
  */
 /**
- * Number of shapes on the slide. Equivalent to
- * `getSlideShapes(slide).length`.
- */
-export const getShapeCount = (slide: SlideData): number => slide[SLIDE_SHAPES].length;
-
-/**
  * Returns the shape at the given 0-based `index` on the slide, or
  * `null` when `index` is out of range. Convenience over
  * `getSlideShapes(slide)[index] ?? null`.
  */
 export const getShapeAt = (slide: SlideData, index: number): SlideShapeData | null =>
   slide[SLIDE_SHAPES][index] ?? null;
-
-/**
- * Total shapes across every slide in the deck.
- */
-export const getTotalShapeCount = (pres: PresentationData): number => {
-  let n = 0;
-  for (const slide of getSlides(pres)) n += slide[SLIDE_SHAPES].length;
-  return n;
-};
 
 /**
  * Returns the slide count without forcing every slide part to be
@@ -6255,18 +6240,6 @@ export const getPresentationCommenters = (
   return out;
 };
 
-/**
- * Fast count of distinct comment authors across the deck. Cheaper
- * than `getPresentationCommenters(pres).length` when only the
- * number matters — no intermediate array.
- */
-export const getPresentationCommenterCount = (pres: PresentationData): number => {
-  const seen = new Set<number>();
-  for (const slide of getSlides(pres)) {
-    for (const c of getSlideComments(slide)) seen.add(c.author.id);
-  }
-  return seen.size;
-};
 
 /**
  * Looks up a `CommentAuthor` from `commentAuthors.xml` by display
