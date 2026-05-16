@@ -6504,17 +6504,6 @@ export const getCommentsSortedByDate = (
 };
 
 /**
- * Returns every comment's text on the slide in stored order.
- * Slide-scoped sibling of `findCommentsByText` for compact
- * "show the comments on this slide" UIs.
- */
-export const getSlideCommentTexts = (slide: SlideData): ReadonlyArray<string> => {
-  const out: string[] = [];
-  for (const c of getSlideComments(slide)) out.push(c[COMMENT_SNAPSHOT].text);
-  return out;
-};
-
-/**
  * Returns the distinct authors who commented on this slide, in
  * first-seen order. Dedupes by author id. Sibling of
  * `getPresentationCommenters` for a slide-scoped reviewer roster.
@@ -8413,17 +8402,6 @@ export const getSlideShapeIds = (slide: SlideData): ReadonlyArray<number> => {
 };
 
 /**
- * Returns each shape's visible text on the slide in document order.
- * Shapes without a text body yield empty strings — index alignment
- * with `getSlideShapes` is preserved.
- */
-export const getSlideShapeTexts = (slide: SlideData): ReadonlyArray<string> => {
-  const out: string[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) out.push(shape[SHAPE_SNAPSHOT].text);
-  return out;
-};
-
-/**
  * Returns each shape's bounds (`x`, `y`, `w`, `h` in EMU) on the
  * slide in document order. Shapes without an `<a:xfrm>` yield
  * `null`; index alignment with `getSlideShapes` is preserved.
@@ -8486,21 +8464,6 @@ export const findHyperlinkedShapes = (
   slide: SlideData,
 ): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((s) => getShapeHyperlink(s) !== null);
-
-/**
- * Returns every external URL on the slide in document order. Each
- * hyperlinked shape contributes its first URL once; duplicates are
- * preserved (use a `Set` to dedupe). Slide-level sibling of
- * `getDistinctHyperlinkUrls`.
- */
-export const getSlideHyperlinkUrls = (slide: SlideData): ReadonlyArray<string> => {
-  const out: string[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) {
-    const url = getShapeHyperlink(shape);
-    if (url !== null) out.push(url);
-  }
-  return out;
-};
 
 /**
  * Returns every unordered pair of shapes on the slide whose

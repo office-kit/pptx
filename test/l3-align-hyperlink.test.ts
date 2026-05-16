@@ -8,7 +8,7 @@ import {
   addSlideTextBox,
   findSlideLayout,
   getShapeHyperlink,
-  getSlideHyperlinkUrls,
+  getSlideShapes,
   getSlideXmlString,
   getSlides,
   inches,
@@ -84,7 +84,11 @@ describe('L3: hyperlinks', () => {
 
     // Both shapes report the same URL; the rels-allocation reuse is
     // implicit (no duplicate target).
-    const urls = getSlideHyperlinkUrls(getSlides(pres).at(-1)!);
+    const urls: string[] = [];
+    for (const sh of getSlideShapes(getSlides(pres).at(-1)!)) {
+      const u = getShapeHyperlink(sh);
+      if (u !== null) urls.push(u);
+    }
     expect(urls).toEqual(['https://example.com', 'https://example.com']);
   });
 

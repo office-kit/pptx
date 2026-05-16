@@ -3,17 +3,28 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import type { SlideData } from '../src/api/index.ts';
 import {
   addSlide,
   addSlideTextBox,
   clearSlideHyperlinks,
   findSlideLayout,
-  getSlideHyperlinkUrls,
+  getShapeHyperlink,
+  getSlideShapes,
   getSlides,
   inches,
   loadPresentation,
   setShapeHyperlink,
 } from '../src/api/index.ts';
+
+const slideUrls = (slide: SlideData): string[] => {
+  const out: string[] = [];
+  for (const s of getSlideShapes(slide)) {
+    const u = getShapeHyperlink(s);
+    if (u !== null) out.push(u);
+  }
+  return out;
+};
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -41,8 +52,8 @@ describe('fn API: clearSlideHyperlinks', () => {
     // by the second addSlide.
     const slides = getSlides(pres);
     expect(clearSlideHyperlinks(slides[0]!)).toBe(1);
-    expect(getSlideHyperlinkUrls(slides[0]!)).toEqual([]);
-    expect(getSlideHyperlinkUrls(slides[1]!)).toEqual([secondLinkUrl]);
+    expect(slideUrls(slides[0]!)).toEqual([]);
+    expect(slideUrls(slides[1]!)).toEqual([secondLinkUrl]);
   });
 
   it('returns 0 when slide has nothing to clear', async () => {
