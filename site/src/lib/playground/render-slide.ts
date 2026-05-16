@@ -175,7 +175,11 @@ const renderPicturePlaceholderLabel = (
 ): string => {
   const cx = x + w / 2;
   const cy = y + h / 2;
-  return `<text x="${E(cx)}" y="${E(cy)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${(12 * PX_PER_PT).toFixed(2)}" fill="#6B7280">${escapeXml(text)}</text>`;
+  // <title> shows on hover in every SVG viewer — useful when the
+  // shape is small enough that the inline <text> gets cropped.
+  const title = `<title>${escapeXml(text)}</title>`;
+  const label = `<text x="${E(cx)}" y="${E(cy)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-weight="600" font-size="${(13 * PX_PER_PT).toFixed(2)}" fill="#374151">${escapeXml(text)}</text>`;
+  return `${title}${label}`;
 };
 
 const escapeXml = (s: string): string =>
