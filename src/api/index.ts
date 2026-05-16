@@ -407,5 +407,9 @@ export type {
   TransitionOptions,
 } from '../internal/presentationml/index.ts';
 
-// Library version. Replaced at build time by the package version.
-export const VERSION = '0.0.0';
+// Library version. Replaced at build time by the package version
+// via the `__PPTX_KIT_VERSION__` define in tsup.config.ts. The literal
+// fallback is only reached when running source directly (vitest / tsx).
+declare const __PPTX_KIT_VERSION__: string;
+export const VERSION =
+  typeof __PPTX_KIT_VERSION__ === 'string' ? __PPTX_KIT_VERSION__ : '0.0.0-dev';
