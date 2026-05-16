@@ -622,16 +622,20 @@ const placeholderDefaultPt = (phType: string | null): number => {
 const bulletChar = (level: number): string =>
   level <= 0 ? '•' : level === 1 ? '◦' : '▪';
 
+// `effectivePt` is the post-autofit font size in points. Callers pass
+// `format.size` (the authored size, if any) scaled by the body's
+// autofit factor, or the placeholder default scaled the same way.
 const renderRun = (
   text: string,
   format: TextFormat | null,
   theme: PresentationTheme | null,
-  defaultPt: number,
+  effectivePt: number,
+  /* unused but kept for forward compatibility */ _wasDefault = false,
 ): string => {
   if (text === '') return '';
+  void _wasDefault;
   const styles: string[] = [];
-  const sizePt = format?.size ?? defaultPt;
-  styles.push(`font-size:${(sizePt * PX_PER_PT).toFixed(2)}px`);
+  styles.push(`font-size:${(effectivePt * PX_PER_PT).toFixed(2)}px`);
   // PowerPoint uses tight line-height (~1.0) by default for placeholders;
   // the previous 1.2 left enough vertical slack to push the top/bottom of
   // glyphs outside short placeholders.
@@ -648,6 +652,17 @@ const renderRun = (
   }
   return `<span style="${styles.join(';')}">${escapeXml(text)}</span>`;
 };
+
+// CSS line-height factor we render text at. Keep in sync with the
+// `line-height` declaration in renderRun.
+const LINE_HEIGHT = 1.05;
+
+// Rough mean glyph width as a fraction of font-size in a typical
+// sans-serif. 0.55 is what PowerPoint's auto-fit estimator uses for
+// Calibri at body sizes. Used to estimate when text wraps so the
+// renderer can shrink the font to keep wrapped placeholders from
+// overflowing.
+const AVG_GLYPH_W_RATIO = 0.55;
 
 const renderTextBody = (
   shape: SlideShapeData,
@@ -677,7 +692,17 @@ const renderTextBody = (
   const innerH = Math.max(0, bounds.h - tIns - bIns);
   if (innerW <= 0 || innerH <= 0) return '';
 
-  const paragraphs: string[] = [];
+  // First pass — collect every run's text + format so we can both
+  // (a) compute an autofit scale and (b) emit each run with the
+  // adjusted size.
+  type RunData = { text: string; fmt: TextFormat | null; sizePt: number };
+  interface ParaData {
+    readonly align: string;
+    readonly level: number;
+    readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
+    readonly runs: RunData[];
+  }
+  const paraData: ParaData[] = [];
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
     let runCount: number;
@@ -689,7 +714,7 @@ const renderTextBody = (
     const align = getParagraphAlignment(shape, p) ?? 'left';
     const level = getParagraphLevel(shape, p);
     const bulletStyle = getParagraphBullet(shape, p);
-    const runs: string[] = [];
+    const runs: RunData[] = [];
     for (let r = 0; r < runCount; r++) {
       let txt = '';
       try {
@@ -698,51 +723,83 @@ const renderTextBody = (
         continue;
       }
       const fmt = getShapeRunFormat(shape, p, r);
+      const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;
-      runs.push(renderRun(txt, fmt, theme, defaultPt));
+      runs.push({ text: txt, fmt, sizePt });
     }
-    const pStyles: string[] = [
-      `margin:0`,
-      `padding:0`,
-      `text-align:${ALIGNMENT_TO_CSS[align] ?? 'left'}`,
-      // Leading indent for nested bullet levels.
-      level > 0 ? `padding-left:${(level * 24 * PX_PER_PT).toFixed(2)}px` : '',
-    ].filter(Boolean);
-    let prefix = '';
-    const explicitChar =
-      bulletStyle !== null &&
-      typeof bulletStyle === 'object' &&
-      'char' in bulletStyle
-        ? bulletStyle.char
-        : null;
-    const showBullet =
-      bulletStyle === 'bullet' || explicitChar !== null || (bulletStyle !== 'none' && level > 0);
-    if (showBullet) {
-      const char = explicitChar ?? bulletChar(level);
-      prefix = `<span style="margin-right:${(0.4 * defaultPt * PX_PER_PT).toFixed(2)}px">${escapeXml(char)}</span>`;
-    }
-    paragraphs.push(
-      `<p style="${pStyles.join(';')}">${prefix}${runs.join('') || '&#8203;'}</p>`,
-    );
+    paraData.push({ align, level, bulletStyle, runs });
   }
   if (!hasAnyText) return '';
 
+  // Autofit estimator: for each paragraph, take the biggest run font
+  // size and estimate how many wrapped lines the paragraph needs.
+  // Sum the heights, compare to innerH, and scale down everything in
+  // lockstep when overflowing. PowerPoint's `<a:normAutofit>` does
+  // essentially this; we apply it unconditionally because pptx-kit
+  // doesn't surface the autofit metadata and most real placeholders
+  // are sized assuming autofit.
+  const innerWPx = innerW / EMU_PER_PX;
+  const innerHPx = innerH / EMU_PER_PX;
+  let totalH = 0;
+  for (const para of paraData) {
+    let maxSize = defaultPt;
+    let totalChars = 0;
+    for (const run of para.runs) {
+      if (run.sizePt > maxSize) maxSize = run.sizePt;
+      totalChars += run.text.length;
+    }
+    if (totalChars === 0) totalChars = 1;
+    const sizePx = maxSize * PX_PER_PT;
+    const charsPerLine = Math.max(1, Math.floor(innerWPx / Math.max(1, sizePx * AVG_GLYPH_W_RATIO)));
+    const lineCount = Math.max(1, Math.ceil(totalChars / charsPerLine));
+    totalH += sizePx * LINE_HEIGHT * lineCount;
+  }
+  // Apply scale only on overflow — never enlarge text the user authored
+  // smaller. 0.4 floor stops us from collapsing to unreadable text on
+  // pathologically tight placeholders.
+  const autoFitScale = totalH > innerHPx ? Math.max(0.4, innerHPx / totalH) : 1;
+
+  // Second pass — emit runs with scaled sizes.
+  const paragraphs: string[] = [];
+  for (const para of paraData) {
+    const runHtmls = para.runs.map((run) =>
+      renderRun(run.text, run.fmt, theme, run.sizePt * autoFitScale, run.fmt?.size === undefined),
+    );
+    const pStyles: string[] = [
+      'margin:0',
+      'padding:0',
+      `text-align:${ALIGNMENT_TO_CSS[para.align] ?? 'left'}`,
+      para.level > 0 ? `padding-left:${(para.level * 24 * PX_PER_PT * autoFitScale).toFixed(2)}px` : '',
+    ].filter(Boolean);
+    let prefix = '';
+    const explicitChar =
+      para.bulletStyle !== null &&
+      typeof para.bulletStyle === 'object' &&
+      'char' in para.bulletStyle
+        ? para.bulletStyle.char
+        : null;
+    const showBullet =
+      para.bulletStyle === 'bullet' ||
+      explicitChar !== null ||
+      (para.bulletStyle !== 'none' && para.level > 0);
+    if (showBullet) {
+      const char = explicitChar ?? bulletChar(para.level);
+      prefix = `<span style="margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px">${escapeXml(char)}</span>`;
+    }
+    paragraphs.push(
+      `<p style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
+    );
+  }
+
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
-  // The default text color matters: the site is dark-mode, so without
-  // an explicit color CSS inherits white-on-white and the text
-  // disappears. Resolve to the theme's `tx1` (usually near-black on a
-  // light slide) and let per-run colors override.
   const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
-  // Use an inset div for the body, full-bleed foreignObject so the SVG
-  // transform / clipping behaves cleanly. Word-break:break-word keeps
-  // long URLs / words from overflowing the shape.
-  // overflow:visible — the placeholder's box is sized for PowerPoint's
-  // autofit text, which we don't model. With overflow:hidden, long
-  // titles or body bullets that should have shrunk to fit instead get
-  // their ascenders / descenders clipped. Letting them bleed outside
-  // the shape is uglier but never *loses* information.
+  // foreignObject's `overflow="visible"` attribute (not CSS) is what
+  // actually keeps it from clipping content past its width/height.
+  // Without this, the surrounding SVG viewport silently crops any text
+  // that overshoots — exactly the title-tops-cut-off symptom users
+  // hit when the autofit scale wasn't enough.
   const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
-  return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}">${body}</foreignObject>`;
+  return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
 };
 
 // ---------------------------------------------------------------------------
