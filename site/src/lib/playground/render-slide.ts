@@ -789,6 +789,14 @@ const renderChart = (
       ? spec.categories.map((_, i) => colors[i % colors.length] ?? '#888')
       : spec.series.map((_, i) => colors[i % colors.length] ?? '#888');
 
+  // Count finite values across all series — when zero, draw a hint
+  // label so an empty chart isn't indistinguishable from a working
+  // one whose data we failed to read.
+  let finiteCount = 0;
+  for (const s of spec.series) {
+    for (const v of s.values) if (v !== null && Number.isFinite(v)) finiteCount++;
+  }
+
   let plot = '';
   switch (spec.kind) {
     case 'column':
@@ -813,11 +821,17 @@ const renderChart = (
       return null;
   }
 
+  const emptyHint =
+    finiteCount === 0
+      ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" fill="#9CA3AF">${escapeXml(`chart (${spec.kind}) — no data`)}</text>`
+      : '';
+
   return [
     `<g${transform}>`,
     `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="0.6"/>`,
     renderChartTitle(f, spec.title ?? ''),
     plot,
+    emptyHint,
     renderChartLegend(f, seriesNamesForLegend, seriesColorsForLegend),
     '</g>',
   ].join('');
