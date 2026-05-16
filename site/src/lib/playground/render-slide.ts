@@ -642,7 +642,14 @@ interface ChartFrame {
   readonly legendY: number;
 }
 
-const layoutChart = (xEmu: number, yEmu: number, wEmu: number, hEmu: number, hasTitle: boolean): ChartFrame => {
+const layoutChart = (
+  xEmu: number,
+  yEmu: number,
+  wEmu: number,
+  hEmu: number,
+  hasTitle: boolean,
+  hasAxes: boolean,
+): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
   const w = wEmu / EMU_PER_PX;
@@ -650,18 +657,119 @@ const layoutChart = (xEmu: number, yEmu: number, wEmu: number, hEmu: number, has
   const titleStrip = hasTitle ? 18 : 0;
   const legendStrip = 18;
   const padding = 8;
+  // Carve out axis gutters so numeric / category labels have room.
+  const yAxisGutter = hasAxes ? 40 : 0;
+  const xAxisGutter = hasAxes ? 18 : 0;
   return {
     x,
     y,
     w,
     h,
-    plotX: x + padding,
+    plotX: x + padding + yAxisGutter,
     plotY: y + titleStrip + padding,
-    plotW: Math.max(0, w - 2 * padding),
-    plotH: Math.max(0, h - titleStrip - legendStrip - 2 * padding),
+    plotW: Math.max(0, w - 2 * padding - yAxisGutter),
+    plotH: Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
     titleY: y + titleStrip - 2,
     legendY: y + h - legendStrip / 2,
   };
+};
+
+// ---------------------------------------------------------------------------
+// Axis labels + gridlines for bar / column / line / area charts.
+
+// Pick ~5 "nice" tick values between min and max. The step is rounded
+// to a 1 / 2 / 5 × 10ⁿ that gives 4-6 ticks total — same rule
+// Excel / PowerPoint use.
+const niceTicks = (min: number, max: number, target = 5): number[] => {
+  const range = max - min;
+  if (range <= 0) return [min];
+  const rawStep = range / target;
+  const exp = Math.floor(Math.log10(rawStep));
+  const base = Math.pow(10, exp);
+  const m = rawStep / base;
+  const stepMultiplier = m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10;
+  const step = stepMultiplier * base;
+  const start = Math.ceil(min / step) * step;
+  const ticks: number[] = [];
+  for (let v = start; v <= max + step / 2; v += step) ticks.push(v);
+  return ticks;
+};
+
+const formatTick = (v: number): string => {
+  if (v === 0) return '0';
+  const abs = Math.abs(v);
+  if (abs >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (abs >= 10_000) return `${(v / 1000).toFixed(0)}K`;
+  if (abs >= 1000) return `${(v / 1000).toFixed(1)}K`;
+  if (Number.isInteger(v)) return v.toString();
+  return v.toFixed(abs < 1 ? 2 : 1);
+};
+
+// Numeric tick labels + horizontal gridlines on the value axis (Y for
+// column/line/area, X for bar). Shared between every cartesian chart
+// kind so axis styling stays consistent.
+interface AxisSpec {
+  readonly orientation: 'vertical' | 'horizontal';
+  readonly min: number;
+  readonly max: number;
+}
+
+const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
+  const ticks = niceTicks(axis.min, axis.max);
+  const out: string[] = [];
+  const range = axis.max - axis.min || 1;
+  for (const t of ticks) {
+    if (axis.orientation === 'vertical') {
+      const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
+      // Gridline.
+      out.push(`<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+      // Numeric label, right-aligned to the plot's left edge.
+      out.push(`<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`);
+    } else {
+      const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
+      out.push(`<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+      out.push(`<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`);
+    }
+  }
+  return out.join('');
+};
+
+// Category labels along the non-value axis.
+const renderCategoryAxis = (
+  f: ChartFrame,
+  orientation: 'horizontal' | 'vertical',
+  cats: ReadonlyArray<string>,
+  pointCount: number,
+): string => {
+  const labels: string[] = [];
+  for (let i = 0; i < pointCount; i++) {
+    labels.push(cats[i] ?? (i + 1).toString());
+  }
+  const out: string[] = [];
+  if (orientation === 'horizontal') {
+    // Categories along x-axis (column / line / area charts).
+    const step = pointCount > 1 ? f.plotW / pointCount : 0;
+    for (let i = 0; i < pointCount; i++) {
+      // Center labels under each category slot.
+      const cx = f.plotX + (i + 0.5) * step;
+      const truncated = labels[i] !== undefined && labels[i]!.length > 14
+        ? `${labels[i]!.slice(0, 12)}…`
+        : labels[i] ?? '';
+      out.push(`<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`);
+    }
+  } else {
+    // Categories down the y-axis (bar chart).
+    const step = pointCount > 0 ? f.plotH / pointCount : 0;
+    for (let i = 0; i < pointCount; i++) {
+      const cy = f.plotY + (i + 0.5) * step;
+      const truncated = labels[i] !== undefined && labels[i]!.length > 14
+        ? `${labels[i]!.slice(0, 12)}…`
+        : labels[i] ?? '';
+      out.push(`<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`);
+    }
+  }
+  return out.join('');
 };
 
 const seriesMinMax = (spec: ChartSpec): { min: number; max: number } => {
@@ -852,7 +960,12 @@ const renderChart = (
   }
   if (!spec) return null;
   const colors = accentSequence(theme);
-  const f = layoutChart(x, y, w, h, !!spec.title);
+  const isCartesian =
+    spec.kind === 'column' ||
+    spec.kind === 'bar' ||
+    spec.kind === 'line' ||
+    spec.kind === 'area';
+  const f = layoutChart(x, y, w, h, !!spec.title, isCartesian);
   const seriesNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
       ? Array.from(spec.categories)
@@ -871,6 +984,19 @@ const renderChart = (
   }
 
   let plot = '';
+  let axes = '';
+  if (isCartesian) {
+    const { min, max } = seriesMinMax(spec);
+    const N = pointCount(spec);
+    const valueAxis: AxisSpec =
+      spec.kind === 'bar'
+        ? { orientation: 'horizontal', min, max }
+        : { orientation: 'vertical', min, max };
+    axes = renderValueAxis(f, valueAxis);
+    if (N > 0) {
+      axes += renderCategoryAxis(f, spec.kind === 'bar' ? 'vertical' : 'horizontal', spec.categories, N);
+    }
+  }
   switch (spec.kind) {
     case 'column':
     case 'bar':
@@ -903,6 +1029,7 @@ const renderChart = (
     `<g${transform}>`,
     `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="0.6"/>`,
     renderChartTitle(f, spec.title ?? ''),
+    axes,
     plot,
     emptyHint,
     renderChartLegend(f, seriesNamesForLegend, seriesColorsForLegend),
