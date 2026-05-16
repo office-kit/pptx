@@ -2748,6 +2748,31 @@ export const getShapeKind = (shape: SlideShapeData): ShapeKind =>
 export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHOT].id;
 
 /**
+ * Returns the preset-geometry token (`'rect'`, `'ellipse'`, `'star5'`,
+ * `'rightArrow'`, ...) for shapes whose body carries a
+ * `<a:prstGeom prst="…"/>`. Returns `null` for:
+ *
+ *   - non-`'shape'` kinds (pictures, connectors, group shapes, tables,
+ *     charts — they have their own geometry tags or no geometry),
+ *   - shapes using custom geometry (`<a:custGeom>`),
+ *   - shapes whose preset is missing (malformed but possible).
+ *
+ * Useful for renderers / inspectors that want to draw a faithful
+ * approximation of each shape without dropping to the raw XML.
+ */
+export const getShapePreset = (shape: SlideShapeData): string | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') return null;
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));
+  if (!prstGeom) return null;
+  for (const a of prstGeom.attrs) {
+    if (a.name.localName === 'prst') return a.value;
+  }
+  return null;
+};
+
+/**
  * Returns the highest `cNvPr@id` used by any shape on the slide,
  * or `0` when the slide has no shapes with non-negative ids.
  *

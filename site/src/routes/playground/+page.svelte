@@ -17,6 +17,7 @@
     loadPresentation,
     savePresentation,
   } from 'pptx-kit';
+  import { renderSlideSvg } from '$lib/playground/render-slide';
 
   type SlideSnapshot = {
     index: number;
@@ -24,6 +25,7 @@
     textLength: number;
     text: string;
     shapeKinds: string[];
+    svg: string;
   };
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
@@ -56,6 +58,7 @@
         textLength: getSlideTextLength(slide),
         text: getSlideText(slide).slice(0, 240),
         shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
+        svg: renderSlideSvg(pres, slide),
       }));
 
       parts = listPackageParts(pres)
@@ -112,9 +115,16 @@
   <h1>Inspect a <code>.pptx</code> in the browser.</h1>
   <p class="lede">
     Drop a file below. The page parses it with the real <code>pptx-kit</code> source from this
-    repo, walks every slide, and dumps the OPC parts list. No bytes leave your machine — the
+    repo, renders each slide's shapes as approximate SVG (preset geometry, fills, strokes,
+    rotation, embedded images), and dumps the OPC parts list. No bytes leave your machine — the
     whole pipeline runs in this tab. For loading via fetch / fs see
     <a href="{base}/docs/getting-started">Getting started</a>.
+  </p>
+  <p class="caveat">
+    <strong>Approximate.</strong> Shape geometry is reconstructed from the preset name; theme /
+    placeholder inheritance, gradient / pattern / picture fills, custom geometry, charts, tables
+    and SmartArt show as labelled fallbacks. PowerPoint or LibreOffice will render the file
+    correctly.
   </p>
 
   <div
@@ -180,6 +190,9 @@
             <span class="s-num">{String(s.index).padStart(2, '0')}</span>
             <span class="s-title">{s.title || '(untitled)'}</span>
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
+          </div>
+          <div class="s-canvas">
+            {@html s.svg}
           </div>
           {#if s.shapeKinds.length > 0}
             <p class="s-kinds">
@@ -258,7 +271,19 @@
     font-size: 1.05rem;
     line-height: 1.55;
     max-width: 64ch;
+    margin: 0 0 0.6rem;
+  }
+
+  .caveat {
+    color: var(--fg-muted);
+    font-size: 0.88rem;
+    max-width: 64ch;
     margin: 0 0 1.75rem;
+    line-height: 1.55;
+  }
+
+  .caveat strong {
+    color: var(--fg-soft);
   }
 
   .drop {
@@ -390,7 +415,7 @@
   }
 
   .slides li {
-    padding: 0.85rem 0;
+    padding: 1.1rem 0 1.6rem;
     border-bottom: 1px solid var(--rule);
   }
 
@@ -399,6 +424,7 @@
     align-items: baseline;
     gap: 0.8rem;
     flex-wrap: wrap;
+    margin-bottom: 0.55rem;
   }
 
   .s-num {
@@ -422,8 +448,23 @@
     color: var(--fg-muted);
   }
 
+  .s-canvas {
+    aspect-ratio: 16 / 9;
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    box-shadow: 0 4px 18px -10px rgba(0, 0, 0, 0.45);
+  }
+
+  .s-canvas :global(svg) {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
   .s-kinds {
-    margin: 0.4rem 0 0;
+    margin: 0.55rem 0 0;
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;

@@ -197,6 +197,7 @@ export {
   getShapeName,
   getShapeParagraphCount,
   getShapePlaceholderIdx,
+  getShapePreset,
   getMaxShapeId,
   getMaxShapeIdInPresentation,
   getMediaParts,
