@@ -58,6 +58,8 @@
     "format:check": "oxfmt --check",
     "test": "vitest run",
     "test:watch": "vitest",
+    "samples": "GENERATE_SAMPLES=1 vitest run test/samples-generate.test.ts",
+    "bench": "PERF=1 vitest run test/perf-bench.test.ts",
     "changeset": "changeset",
     "release": "changeset publish",
     "prepublishOnly": "pnpm run build"
