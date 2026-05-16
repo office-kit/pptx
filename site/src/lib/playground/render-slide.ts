@@ -445,7 +445,7 @@ const renderTextBody = (
   // transform / clipping behaves cleanly. Word-break:break-word keeps
   // long URLs / words from overflowing the shape.
   const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
-  return `<foreignObject x="${innerX}" y="${innerY}" width="${innerW}" height="${innerH}">${body}</foreignObject>`;
+  return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}">${body}</foreignObject>`;
 };
 
 // ---------------------------------------------------------------------------
