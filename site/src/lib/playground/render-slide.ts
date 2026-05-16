@@ -47,6 +47,7 @@ import {
   getShapeTextAnchor,
   getShapeTextMargins,
   getSlideBackground,
+  getSlideBackgroundImageBytes,
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
@@ -1186,12 +1187,49 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
     bgColor = normalizeHex(theme.light1);
   }
 
+  // Slide background image (`<p:bgPr><a:blipFill>`). Paint it above the
+  // solid bg-color rect so the bytes show through; shapes still draw
+  // on top of the image.
+  let bgImage = '';
+  if (bg.kind === 'image') {
+    const bytes = getSlideBackgroundImageBytes(slide);
+    if (bytes) {
+      const fmt = detectImageFormatLocal(bytes);
+      const mime = fmt ? imageMime[fmt] ?? 'image/png' : 'image/png';
+      const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
+      bgImage = `<image x="0" y="0" width="${E(W)}" height="${E(H)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="xMidYMid slice"/>`;
+    }
+  }
+
   const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, pres, theme)).join('');
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
     `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>`,
+    bgImage,
     shapesSvg,
     '</svg>',
   ].join('');
+};
+
+// Minimal magic-byte sniffer covering the formats we already know how
+// to MIME-type. Used for slide background images, which pptx-kit
+// returns as raw bytes without exposing the format.
+const detectImageFormatLocal = (bytes: Uint8Array): string | null => {
+  if (bytes.length < 4) return null;
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) return 'png';
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg';
+  if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'gif';
+  if (bytes[0] === 0x42 && bytes[1] === 0x4d) return 'bmp';
+  if (
+    bytes.length >= 12 &&
+    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+  ) return 'webp';
+  return null;
 };

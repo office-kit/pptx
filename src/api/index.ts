@@ -240,6 +240,7 @@ export {
   getShapeZIndex,
   getSlideAt,
   getSlideBackground,
+  getSlideBackgroundImageBytes,
   getSlideBody,
   getSlideCharts,
   getSlideCommentAuthors,

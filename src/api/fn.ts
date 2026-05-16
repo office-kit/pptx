@@ -5428,6 +5428,41 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
   return { kind: 'inherit' };
 };
 
+/**
+ * Returns the embedded image bytes when the slide carries a
+ * `<p:bgPr><a:blipFill>` background, or `null` for any other background
+ * kind (solid / gradient / pattern / inherit) or when the `r:embed`
+ * relationship points at an external `r:link` target.
+ *
+ * Companion to `getSlideBackground`, which only reports the
+ * discriminated `kind`. Renderers that want to actually paint the
+ * background image (preview generators, snapshot tools) call this.
+ */
+export const getSlideBackgroundImageBytes = (slide: SlideData): Uint8Array | null => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const blipFill = firstChildElement(bgPr, qname('a', 'blipFill', NS.dml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  if (rEmbed === null) return null;
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const rel = rels.items.find((r) => r.id === rEmbed);
+  if (!rel || rel.targetMode === 'External') return null;
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+  const part = pkg.getPart(mediaName);
+  return part?.data ?? null;
+};
+
 /** Sets a solid fill on the slide's background. */
 export const setSlideBackground = (slide: SlideData, color: string): void => {
   setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
