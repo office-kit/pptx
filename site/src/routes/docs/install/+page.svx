@@ -1,0 +1,57 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+</script>
+
+# Install
+
+`pptx-kit` ships as ESM-only. Pick the entry that matches your runtime.
+
+## Package install
+
+```sh
+pnpm add pptx-kit
+# or
+npm install pptx-kit
+# or
+bun add pptx-kit
+```
+
+Requires **Node `>= 20`** for the built-in `Web Streams`, `Blob`, and `fetch` globals. Modern browsers (current and current-1 of Chromium, Firefox, Safari) work with the default entry — no Node built-ins are pulled in.
+
+## Subpath entries
+
+| Import | Use case |
+|--------|----------|
+| `pptx-kit` | Full library: load / save, slides, shapes, charts, tables, comments, themes. Runs in Node **and** the browser. |
+| `pptx-kit/node` | Adds `loadPresentationFile` / `savePresentationToFile` on top of the full lib. Node-only. |
+
+Bundle budgets, unminified:
+
+- Minimal `loadPresentation → savePresentation`: **~61 KB**
+- Full fn-API (every export imported): **~122 KB**
+
+All exports are side-effect-free (`"sideEffects": false`), so unused chart / table / animation code drops out under any modern bundler. A CI test guards the bundle ceiling.
+
+## TypeScript
+
+Types are bundled. `tsconfig.json` should have `"moduleResolution": "bundler"` (or `"node16"` / `"nodenext"`) so the `pptx-kit/node` subpath resolves.
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true
+  }
+}
+```
+
+## What's not in the box (yet)
+
+- **New theme / master / layout authoring from scratch** — at 1.0 you can author slides on top of any layout in your template, but constructing a fresh master and theme is post-1.0.
+- **SmartArt authoring** — preserved verbatim on round-trip but not synthesizable.
+- **Complex animation timing-tree authoring** — entrance / exit / emphasis presets (`fadeIn`, `fadeOut`, `appear`, `disappear`) are exposed; deeper timing trees are deferred.
+- **Document encryption (read + write)** — encrypted `.pptx` files are detected and rejected with a clear error.
+
+Next: <a href="{base}/docs/getting-started">Getting started →</a>

@@ -1,0 +1,56 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+  import CodeBlock from '$lib/components/CodeBlock.svelte';
+  import type { PageProps } from './$types';
+  const { data }: PageProps = $props();
+  const ex = data.examples;
+</script>
+
+# Getting started
+
+This page walks the canonical pptx-kit workflows: **fill a template**, **build a deck from scratch**, **edit images in place**. Every snippet below is a real `.ts` file in this repo — `svelte-check` compiles them against the live `pptx-kit` types on every build, so when this page renders, it's already proven that the code typechecks.
+
+## Token-based template fill
+
+The most common pptx-kit use case: take a designer-authored template, swap `{{tokens}}` with your data, save. Formatting on the surrounding runs is preserved.
+
+<CodeBlock html={ex.templateFill.html} title={ex.templateFill.path} />
+
+`loadPresentation` accepts a `Uint8Array`, `ArrayBuffer`, or `Blob` — anything you can `fetch` or `readFile`. `replaceTokensInPresentation` walks every text run in every slide (and the speaker notes) replacing exact-match `{{name}}` tokens.
+
+## Build a deck from a blank template
+
+For authoring from scratch you still need at least one master + layout — the simplest path is to ship a small `blank.pptx` alongside your app. Then add slides on its layouts and fill them in with the typed `addSlide*` helpers:
+
+<CodeBlock html={ex.buildDeck.html} title={ex.buildDeck.path} />
+
+`inches(n)`, `cm(n)`, `pt(n)`, and `emu(n)` all return a branded `Emu` number — internally pptx-kit only sees EMUs, so unit confusion is caught at the type level.
+
+## Replace an image, preserve geometry
+
+A common L2 (template-edit) workflow: a designer drops a placeholder image into the template, your code swaps in the real one without disturbing crop, position, or scaling.
+
+<CodeBlock html={ex.imageReplace.html} title={ex.imageReplace.path} />
+
+`setShapeImage` auto-detects the new image's format (PNG / JPEG / GIF / SVG / BMP / TIFF) from magic bytes — pass `options.format` to override.
+
+## Direct fs helpers (Node)
+
+`pptx-kit/node` exposes `loadPresentationFile` / `savePresentationToFile` so you can skip the `readFile` / `writeFile` glue:
+
+<CodeBlock html={ex.nodeFs.html} title={ex.nodeFs.path} />
+
+## Browser via fetch
+
+The default entry is browser-safe (no `node:fs`). Load straight from a `fetch` Response:
+
+<CodeBlock html={ex.browserFetch.html} title={ex.browserFetch.path} />
+
+This works in any environment with `fetch`: modern browsers, Bun, Deno, Cloudflare Workers, edge runtimes.
+
+## What's next
+
+- <strong><a href="{base}/docs/recipes">Recipes</a></strong> — copy-pasteable code for the most common tasks (charts, tables, comments, animations, transitions, validation).
+- <strong><a href="{base}/docs/cheatsheet">Cheatsheet</a></strong> — one-page lookup: "I want to do X" → exact functions to call.
+- <strong><a href="{base}/api">API reference</a></strong> — every export, organized by section.
+- **GitHub:** [`baseballyama/pptx-kit`](https://github.com/baseballyama/pptx-kit)

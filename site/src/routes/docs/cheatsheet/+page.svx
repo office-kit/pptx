@@ -1,0 +1,326 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+</script>
+
+# Cheatsheet
+
+The shortest path from "I want to do X" to working code. Each row names the
+exact function(s) you import. The snippets below the index expand the most
+common patterns. For prose context see <a href="{base}/docs/recipes">Recipes</a>;
+for every export see <a href="{base}/api">API reference</a>.
+
+> Everything lives under the single `pptx-kit` entry (or `pptx-kit/node` for
+> the Node fs helpers). The library is fn-only — no classes — so once you
+> know the function name you know how to import it.
+
+## Index
+
+### Load / save
+
+| Task | Functions |
+|------|-----------|
+| Load a `.pptx` (any env) → `PresentationData` | `loadPresentation` |
+| Save a `PresentationData` → `Uint8Array` | `savePresentation` |
+| Node convenience: read from / write to disk | `loadPresentationFile` + `savePresentationToFile` (from `pptx-kit/node`) |
+| Create an empty package (advanced) | `createPresentation` |
+
+### Slides
+
+| Task | Functions |
+|------|-----------|
+| Enumerate slides | `getSlides` (or `getSlideAt(pres, i)`) |
+| Add a slide on a layout | `findSlideLayout` + `addSlide` |
+| Quick blank / title / content slide | `addBlankSlide` / `addTitleSlide` / `addContentSlide` |
+| Duplicate, move, swap, reverse | `duplicateSlide` + `moveSlide` + `swapSlides` + `reverseSlides` |
+| Remove or sort | `removeSlide` + `sortSlides` |
+| Title / hidden flag / layout | `setSlideTitle` + `setSlideHidden` + `setSlideLayout` |
+| Solid background color | `setSlideBackground` (or `setSlideBackgroundImage`) |
+| Speaker notes | `setSlideNotes` + `getSlideNotes` |
+| Transition | `setSlideTransition` |
+
+### Placeholders & text
+
+| Task | Functions |
+|------|-----------|
+| Find a placeholder by type | `findSlidePlaceholder(slide, 'title')` |
+| Bulk-fill placeholders | `setSlidePlaceholders(slide, { title, body, ... })` |
+| Token replace across deck or slide | `replaceTokensInPresentation` / `replaceTokensInSlide` |
+| Free text replace | `replaceTextInPresentation` / `replaceTextInSlide` |
+| Set / get a shape's text | `setShapeText` + `getShapeText` |
+| Per-run formatting (bold, size, color) | `setShapeRunFormat` |
+| Per-paragraph alignment / level / bullet | `setParagraphAlignment` + `setParagraphLevel` + `setParagraphBullet` |
+| Bullets across the whole shape | `setShapeBullets` |
+
+### Shapes
+
+| Task | Functions |
+|------|-----------|
+| Add a free-form text box | `addSlideTextBox` |
+| Add a preset shape (180+ presets) | `addSlideShape` |
+| Add a line / connector / arrow | `addSlideLine` + `setShapeStrokeArrow` |
+| Add a picture | `addSlideImage` |
+| Solid fill / gradient / pattern / image fill | `setShapeFill` + `setShapeGradientFill` + `setShapePatternFill` + `setShapeImageFill` |
+| Stroke color / width / dash | `setShapeStroke` + `setShapeStrokeDash` |
+| Shadow / glow | `setShapeShadow` + `setShapeGlow` |
+| Move / resize / rotate / flip | `setShapePosition` + `setShapeSize` + `setShapeRotation` + `setShapeFlip` |
+| Z-order | `bringShapeToFront` + `sendShapeToBack` + `bringShapeForward` + `sendShapeBackward` |
+| Hyperlink / click action | `setShapeHyperlink` + `setShapeClickAction` |
+| Animation (entrance / exit) | `setShapeAnimation({ effect: 'fadeIn', durationMs: 700 })` |
+| Remove a shape | `removeShape` |
+
+### Tables
+
+| Task | Functions |
+|------|-----------|
+| Add a table | `addSlideTable` |
+| Get / set a cell's text | `getTableCellText` + `setTableCellText` |
+| Cell fill / alignment / text format | `setTableCellFill` + `setTableCellAlignment` + `setTableCellTextFormat` |
+| Insert / remove a row or column | `insertTableRow` + `removeTableRow` + `insertTableColumn` + `removeTableColumn` |
+| Resize a row or column | `setTableRowHeight` + `setTableColumnWidth` |
+
+### Charts
+
+| Task | Functions |
+|------|-----------|
+| Add a chart with embedded data | `addSlideChart({ spec: { kind, categories, series } })` |
+| Update an existing chart's data | `getShapeChartSpec` + `setChartSpec` |
+| Enumerate every chart | `getAllCharts` |
+
+### Images
+
+| Task | Functions |
+|------|-----------|
+| Replace an image's bytes | `setShapeImage` |
+| Crop / opacity / brightness / contrast | `setShapeImageCrop` + `setShapeImageOpacity` + `setShapeImageBrightness` + `setShapeImageContrast` |
+
+### Document metadata
+
+| Task | Functions |
+|------|-----------|
+| Title / Author / Subject / Keywords | `setCoreProperties` |
+| App / Company / Manager | `setExtendedProperties` |
+| Thumbnail image | `setThumbnail` |
+| Bump revision on save | `incrementRevision` + `touchModified` |
+
+### Comments
+
+| Task | Functions |
+|------|-----------|
+| Add / remove a comment | `addSlideComment` + `removeSlideComment` |
+| List comments | `getSlideComments` (or `getAllComments`) |
+
+### Diagnostics
+
+| Task | Functions |
+|------|-----------|
+| Validate the package | `validatePresentation(pres)` |
+| Inspect parts list | `listPackageParts` + `readPackagePart` |
+| Strip unused media | `compactPackage` |
+
+## Snippets
+
+Each snippet below corresponds to one row above. Imports are explicit so
+you can copy-paste a single block into your file.
+
+### Load + save round-trip
+
+```ts
+import { loadPresentation, savePresentation } from 'pptx-kit';
+
+const pres = await loadPresentation(bytes);
+// ...mutate pres...
+const out = await savePresentation(pres);
+```
+
+### Token-based template fill
+
+```ts
+import { loadPresentation, replaceTokensInPresentation, savePresentation } from 'pptx-kit';
+
+const pres = await loadPresentation(templateBytes);
+replaceTokensInPresentation(pres, { name: 'Alice', date: '2026-12-01' });
+const out = await savePresentation(pres);
+```
+
+### Add a title slide
+
+```ts
+import {
+  addSlide,
+  findSlideLayout,
+  findSlidePlaceholder,
+  loadPresentation,
+  savePresentation,
+  setShapeText,
+} from 'pptx-kit';
+
+const pres = await loadPresentation(blankBytes);
+const layout = findSlideLayout(pres, 'Title Slide');
+if (layout) {
+  const slide = addSlide(pres, { layout });
+  const t = findSlidePlaceholder(slide, 'ctrTitle') ?? findSlidePlaceholder(slide, 'title');
+  if (t) setShapeText(t, 'Hello');
+}
+const out = await savePresentation(pres);
+```
+
+### Add a free-form text box with formatting
+
+```ts
+import {
+  addSlideTextBox,
+  inches,
+  setShapeRunFormat,
+} from 'pptx-kit';
+
+const box = addSlideTextBox(slide, {
+  x: inches(1),
+  y: inches(1),
+  w: inches(5),
+  h: inches(1),
+  text: 'Hello, pptx-kit',
+});
+setShapeRunFormat(box, 0, 0, { bold: true, size: 28, color: '#C00000', font: 'Calibri' });
+```
+
+### Add a preset shape with a fill + shadow
+
+```ts
+import {
+  addSlideShape,
+  inches,
+  pt,
+  setShapeFill,
+  setShapeShadow,
+} from 'pptx-kit';
+
+const star = addSlideShape(slide, {
+  preset: 'star5',
+  x: inches(1),
+  y: inches(2),
+  w: inches(2),
+  h: inches(2),
+  text: '★',
+});
+setShapeFill(star, '#FFD966');
+setShapeShadow(star, {
+  blurEmu: pt(6),
+  offsetEmu: pt(3),
+  angleDeg: 45,
+  color: '#000000',
+  opacity: 0.4,
+});
+```
+
+### Add a column chart
+
+```ts
+import { addSlideChart, inches } from 'pptx-kit';
+
+addSlideChart(slide, {
+  x: inches(1),
+  y: inches(1.5),
+  w: inches(8),
+  h: inches(4.5),
+  spec: {
+    kind: 'column',
+    categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+    series: [{ name: 'Revenue', values: [120, 180, 240, 300] }],
+    title: 'FY26',
+  },
+});
+```
+
+### Add a table with header + banded rows
+
+```ts
+import { addSlideTable, inches } from 'pptx-kit';
+
+addSlideTable(slide, {
+  x: inches(0.7),
+  y: inches(1.5),
+  w: inches(9),
+  h: inches(3),
+  rows: [
+    ['Quarter', 'Revenue', 'Margin'],
+    ['Q1', '$1.2M', '33%'],
+    ['Q2', '$1.8M', '50%'],
+  ],
+  firstRow: true,
+  bandRow: true,
+});
+```
+
+### Insert an image at a fixed size
+
+```ts
+import { addSlideImage, inches } from 'pptx-kit';
+
+addSlideImage(slide, pngBytes, {
+  x: inches(1),
+  y: inches(1),
+  w: inches(3),
+  h: inches(2),
+});
+```
+
+### Replace an image's bytes in place
+
+```ts
+import { getShapeKind, getShapeName, getSlideShapes, getSlides, setShapeImage } from 'pptx-kit';
+
+for (const slide of getSlides(pres)) {
+  for (const shape of getSlideShapes(slide)) {
+    if (getShapeKind(shape) === 'picture' && getShapeName(shape) === 'Logo') {
+      setShapeImage(shape, newLogoBytes);
+    }
+  }
+}
+```
+
+### Add a hyperlink on text
+
+```ts
+import { setShapeHyperlink, setShapeTextFormat } from 'pptx-kit';
+
+setShapeHyperlink(linkShape, 'https://example.com');
+setShapeTextFormat(linkShape, { color: '#0563C1', underline: true });
+```
+
+### Set a transition + animation
+
+```ts
+import { setShapeAnimation, setSlideTransition } from 'pptx-kit';
+
+setSlideTransition(slide, { effect: 'fade', speed: 'med' });
+setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 700 });
+```
+
+### Validate before saving
+
+```ts
+import { validatePresentation } from 'pptx-kit';
+
+const issues = validatePresentation(pres);
+for (const i of issues) console.error(i.severity, i.message);
+```
+
+### Speaker notes
+
+```ts
+import { setSlideNotes } from 'pptx-kit';
+
+setSlideNotes(slide, 'Open the comments pane to see review.');
+```
+
+### Comments
+
+```ts
+import { addSlideComment, cm } from 'pptx-kit';
+
+addSlideComment(slide, {
+  author: { name: 'Reviewer', initials: 'R' },
+  text: 'Tighten the headline.',
+  position: { x: cm(2), y: cm(2) },
+});
+```

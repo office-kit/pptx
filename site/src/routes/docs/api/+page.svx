@@ -1,0 +1,122 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+</script>
+
+# API overview
+
+The full TypeScript API is bundled with the npm package — your editor will autocomplete every export. This page is the **map**: where to look for each kind of thing.
+
+> The full, section-organized reference lives at <a href="{base}/api"><code>/api</code></a> — every export rendered with its signature, parameters, and source link. This page is the conceptual map you reach for first.
+
+## One entry, fn-only
+
+Unlike xlsx-kit which splits the public surface across many subpaths, **pptx-kit ships a single entry** (`pptx-kit`) plus a Node convenience subpath (`pptx-kit/node`). Every export is a free function — no classes — so tree-shaking is straightforward.
+
+```ts
+// Load, save, create — the only mandatory imports.
+import { loadPresentation, savePresentation, createPresentation } from 'pptx-kit';
+
+// Slides + layouts.
+import { addSlide, findSlideLayout, getSlides, duplicateSlide } from 'pptx-kit';
+
+// Template fill.
+import { replaceTokensInPresentation } from 'pptx-kit';
+
+// Shapes (180+ presets, lines, tables, charts, images).
+import {
+  addSlideShape,
+  addSlideLine,
+  addSlideTable,
+  addSlideChart,
+  addSlideImage,
+  addSlideTextBox,
+} from 'pptx-kit';
+
+// Per-shape mutations (fills, strokes, effects, text formatting).
+import {
+  setShapeFill,
+  setShapeStroke,
+  setShapeShadow,
+  setShapeRunFormat,
+  setShapeAnimation,
+} from 'pptx-kit';
+
+// Units: inches / cm / mm / pt / emu — all return branded Emu numbers.
+import { inches, cm, pt, emu } from 'pptx-kit';
+
+// Node fs glue.
+import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+```
+
+Bundle budgets enforced by CI:
+
+- **Minimal `load → save`**: ~61 KB unminified
+- **Full fn-API**: ~122 KB unminified
+
+All exports are side-effect-free (`"sideEffects": false`). Bundlers drop every function you do not import.
+
+## The model
+
+The library exposes three opaque, branded handle types — `PresentationData`, `SlideData`, `SlideShapeData` — and a fourth, `SlideLayoutData`, for the layout templates the deck ships with.
+
+You never construct these directly; they come back from `loadPresentation` / `createPresentation` / `addSlide` / `addSlideShape` / etc. Every mutator takes one of them as its first argument:
+
+```ts
+const pres: PresentationData = await loadPresentation(bytes);
+const slide: SlideData = addSlide(pres, { layout });
+const shape: SlideShapeData = addSlideShape(slide, { preset: 'rect', ... });
+setShapeFill(shape, '#C00000');
+```
+
+This is what lets the API be tree-shakable — there is no method dispatch, so the bundler can see exactly which functions you reach for and drop the rest.
+
+## Units
+
+Everything OOXML measures in EMUs (1 inch = 914 400 EMU, 1 cm = 360 000 EMU, 1 pt = 12 700 EMU). pptx-kit brands `Emu` as a nominal type and forces callers to be explicit:
+
+```ts
+import { inches, cm, pt, emu, type Emu } from 'pptx-kit';
+
+addSlideShape(slide, {
+  preset: 'rect',
+  x: inches(1),   // ✅ Emu
+  y: cm(3),       // ✅ Emu
+  w: emu(914400), // ✅ Emu — escape hatch
+  h: 100,         // ❌ type error: number is not assignable to Emu
+});
+```
+
+`TextFormat.size` is in **points** (a plain `number`), not EMU — only positions and sizes are EMU-branded.
+
+## Discriminated unions
+
+Where the OOXML spec gives a choice, pptx-kit exposes a discriminated union:
+
+```ts
+// Fill: solid | gradient | pattern | image | none
+type ShapeFill =
+  | { kind: 'solid'; color: string }
+  | { kind: 'gradient'; stops: GradientStop[]; angleDeg: number }
+  | { kind: 'pattern'; preset: PatternPreset; foreground: string; background: string }
+  | { kind: 'image'; partName: string }
+  | { kind: 'none' };
+
+// Click action: url | slide | nextSlide | prevSlide | firstSlide | lastSlide
+type ShapeClickAction =
+  | { kind: 'url'; href: string }
+  | { kind: 'slide'; target: SlideData }
+  | { kind: 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' };
+```
+
+`getShapeFill(shape)` returns this union; you narrow on `kind` rather than threading `null`-checks through every accessor.
+
+## Errors
+
+- **Malformed package** — `loadPresentation` throws a descriptive `Error` naming the missing or malformed OPC part.
+- **Encrypted .pptx** — detected by CFB Compound Document magic and rejected up-front; decrypt with [`officecrypto-tool`](https://github.com/zurmokeeper/officecrypto-tool) first.
+- **Unknown image format** — `addSlideImage` / `setShapeImage` throw if the magic bytes don't match a supported format (PNG / JPEG / GIF / SVG / BMP / TIFF). Pass `options.format` to override detection.
+- **Off-spec IDs** — `validatePresentation(pres)` returns the list of invariant violations as `ValidationIssue[]` (severity + message). Run it before saving in CI.
+
+## Stability
+
+1.0 freezes the public surface under SemVer. Any function listed at <a href="{base}/api">/api</a> is contract; the `_internalPackageOf` escape hatch is intentionally underscore-prefixed and may change at any minor release.
