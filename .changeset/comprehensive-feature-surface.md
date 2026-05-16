@@ -110,21 +110,21 @@ via Layer-1 tests.
 - Bulk inventories: `getAllNotes`, `getAllComments`, `getAllCharts`,
   `getAllTables`, `getAllImages`, `getPresentationText`,
   `getSlideOutline`.
-- Shape introspection: `getShapeCount`, `getTotalShapeCount`,
-  `getShapeAt`, `getShapeIndex`, `getShapeSlide`,
-  `getShapeXmlString`, `getShapeChartKind`, `getShapeChartSpec`,
-  `getShapeImageFillBytes`, `getShapeImageFormat`,
-  `getShapeImagePartName`, `getShapeAltTitle` /
-  `setShapeAltTitle`, `getShapeDescription` / `setShapeDescription`.
+- Shape introspection: `getShapeAt`, `getShapeIndex`,
+  `getShapeSlide`, `getShapeXmlString`, `getShapeChartKind`,
+  `getShapeChartSpec`, `getShapeImageFillBytes`,
+  `getShapeImageFormat`, `getShapeImagePartName`,
+  `getShapeAltTitle` / `setShapeAltTitle`,
+  `getShapeDescription` / `setShapeDescription`.
 - Shape predicates: `isChartShape`, `isTableShape`,
   `isShapeHidden` / `setShapeHidden`, `isShapePlaceholder`,
   `hasShapeImage`, `hasShapeText`.
 - Shape search: `findShapeByText`, `findShapesByText`,
-  `findShapesWithImages`, `findChartByKind`,
+  `findShapesByKind`, `findChartByKind`,
   `findChartsBySeriesName`, `findCommentsByAuthor`,
   `findSlidePlaceholders`, `findSlidePlaceholderByIdx`.
 - Mutation: `setShapeRunHyperlink`, `getShapeRunHyperlink`,
-  `setShapeBody`, `getSlideBody`, `appendShapeText`,
+  `getSlideBody`, `appendShapeText`,
   `appendSlideNotes`, `removeSlideNotes`,
   `swapSlides`, `mergePresentations`, `slidesUsingMediaPart`,
   `setTableColumnWidth`, `setTableRowHeight`, `getTableColumnWidths`,
