@@ -72,7 +72,11 @@ const PX_PER_PT = 96 / 72;
 
 const DEFAULT_BODY_PT = 18;
 const DEFAULT_TITLE_PT = 36;
-const DEFAULT_FONT = 'Calibri, "Helvetica Neue", Arial, sans-serif';
+// Single quotes only — these strings are emitted into `style="..."`
+// attributes, so any embedded double quote would close the attribute
+// early and silently drop every property after it (notably `color:`,
+// which then inherits the site's dark-mode white = invisible text).
+const DEFAULT_FONT = "Calibri, 'Helvetica Neue', Arial, sans-serif";
 
 // Default body inset (PowerPoint default), per ECMA-376: 91440 EMU
 // horizontal × 45720 EMU vertical.
