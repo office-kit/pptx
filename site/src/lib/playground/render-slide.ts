@@ -29,6 +29,7 @@ import {
   getShapeFill,
   getShapeFlip,
   getShapeImageBytes,
+  getShapeImageFillBytes,
   getShapeImageFormat,
   getShapeKind,
   getShapeParagraphCount,
@@ -510,6 +511,21 @@ const renderShape = (
       return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></g>`;
     }
     return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
+  }
+
+  // Shapes with an image fill (`<p:sp>` + `<a:blipFill>` instead of a
+  // solid / gradient / pattern). PowerPoint's "Insert Picture from
+  // File" and several third-party tools emit pictures this way rather
+  // than as top-level `<p:pic>`. Render the bytes inside the shape's
+  // bounds — close enough for a preview.
+  if (kind === 'shape' && fill.kind === 'image') {
+    const fillBytes = getShapeImageFillBytes(shape);
+    const fillFormat = getShapeImageFormat(shape);
+    if (fillBytes && fillFormat) {
+      const mime = imageMime[fillFormat] ?? 'application/octet-stream';
+      const dataUrl = `data:${mime};base64,${u8ToBase64(fillBytes)}`;
+      return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/>${textOverlay}</g>`;
+    }
   }
 
   if (kind === 'connector') {
