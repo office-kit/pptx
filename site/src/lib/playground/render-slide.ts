@@ -48,7 +48,13 @@ import {
   getSlideBackground,
   getSlideShapes,
   getSlideSize,
+  getTableCellAlignment,
+  getTableCellFill,
+  getTableCellText,
+  getTableCells,
+  getTableColumnWidths,
   getTableDimensions,
+  getTableRowHeights,
   isChartShape,
   isTableShape,
   type PresentationData,
@@ -848,6 +854,116 @@ const renderChart = (
   ].join('');
 };
 
+// ---------------------------------------------------------------------------
+// Table rendering. Real table layout (cell borders, banded rows, header
+// row, merged cells, per-run text formatting) needs a much bigger pass;
+// this version draws the grid, fills, and centred cell text — enough to
+// recognise the table at a glance.
+
+const ALIGNMENT_TEXT_ANCHOR: Record<string, string> = {
+  left: 'start',
+  center: 'middle',
+  right: 'end',
+  justify: 'start',
+};
+
+const renderTableCellText = (
+  text: string,
+  cx: number,
+  cy: number,
+  cw: number,
+  ch: number,
+  alignment: string | null,
+  color: string,
+): string => {
+  if (!text.trim()) return '';
+  // Use foreignObject so cell text wraps and aligns the same way
+  // proper PowerPoint cells do.
+  const ta = alignment && ALIGNMENT_TEXT_ANCHOR[alignment] !== undefined ? alignment : 'left';
+  const pad = 4; // px inset for cell text
+  const innerX = cx + pad;
+  const innerY = cy + pad;
+  const innerW = Math.max(0, cw - 2 * pad);
+  const innerH = Math.max(0, ch - 2 * pad);
+  if (innerW <= 0 || innerH <= 0) return '';
+  const justify = ta === 'center' ? 'center' : ta === 'right' ? 'flex-end' : 'flex-start';
+  const lines = text.split('\n').slice(0, 8);
+  const body = lines
+    .map((line) => `<div style="text-align:${ta}">${escapeXml(line)}</div>`)
+    .join('');
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:center;align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:11px;line-height:1.3;word-break:break-word">${body}</div></foreignObject>`;
+};
+
+const renderTable = (
+  shape: SlideShapeData,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  transform: string,
+  theme: PresentationTheme | null,
+): string | null => {
+  let dims: { rows: number; cols: number };
+  let widths: ReadonlyArray<number>;
+  let heights: ReadonlyArray<number>;
+  let cells: ReadonlyArray<ReadonlyArray<unknown>>;
+  try {
+    dims = getTableDimensions(shape);
+    widths = getTableColumnWidths(shape);
+    heights = getTableRowHeights(shape);
+    cells = getTableCells(shape);
+  } catch {
+    return null;
+  }
+  if (dims.rows === 0 || dims.cols === 0) return null;
+
+  const xPx = x / EMU_PER_PX;
+  const yPx = y / EMU_PER_PX;
+  const widthsPx = widths.map((w0) => w0 / EMU_PER_PX);
+  const heightsPx = heights.map((h0) => h0 / EMU_PER_PX);
+  // If the declared widths / heights don't fill the table bounds (or
+  // overflow them), scale them so the rendered grid matches the shape's
+  // outer rect. Without scaling, narrow tables would render at the
+  // declared cell widths but readers expect the bounding box.
+  const wSum = widthsPx.reduce((a, b) => a + b, 0);
+  const hSum = heightsPx.reduce((a, b) => a + b, 0);
+  const wScale = wSum > 0 ? (w / EMU_PER_PX) / wSum : 1;
+  const hScale = hSum > 0 ? (h / EMU_PER_PX) / hSum : 1;
+  const colXs: number[] = [xPx];
+  for (let c = 0; c < widthsPx.length; c++) {
+    colXs.push((colXs[c] ?? xPx) + (widthsPx[c] ?? 0) * wScale);
+  }
+  const rowYs: number[] = [yPx];
+  for (let r = 0; r < heightsPx.length; r++) {
+    rowYs.push((rowYs[r] ?? yPx) + (heightsPx[r] ?? 0) * hScale);
+  }
+
+  const textColor = resolveColor('scheme:tx1', theme, '#000000');
+  const out: string[] = [];
+  out.push(`<g${transform}>`);
+  // Whole-table backdrop so cells with no explicit fill still
+  // contrast against whatever's behind.
+  out.push(`<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`);
+  for (let r = 0; r < dims.rows; r++) {
+    for (let c = 0; c < dims.cols; c++) {
+      const cell = cells[r]?.[c];
+      if (!cell) continue;
+      const cx = colXs[c] ?? xPx;
+      const cy = rowYs[r] ?? yPx;
+      const cw = (colXs[c + 1] ?? cx) - cx;
+      const ch = (rowYs[r + 1] ?? cy) - cy;
+      const fill = getTableCellFill(cell as Parameters<typeof getTableCellFill>[0]);
+      const fillColor = fill ? resolveColor(fill, theme, '#FFFFFF') : 'none';
+      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${fillColor}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+      const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
+      const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
+      out.push(renderTableCellText(text, cx, cy, cw, ch, align, textColor));
+    }
+  }
+  out.push('</g>');
+  return out.join('');
+};
+
 const renderShape = (
   shape: SlideShapeData,
   pres: PresentationData,
@@ -945,22 +1061,23 @@ const renderShape = (
   const p = paint(fill, stroke, theme, phType !== null);
 
   if (kind === 'graphicFrame') {
-    // Chart frames: render a simplified chart (bars / line / pie /
-    // etc.) from the chart spec when we can read it. Tables and
-    // SmartArt still render as labelled placeholders — drawing them
-    // needs a real layout engine.
+    // Charts and tables get real renders. SmartArt and the
+    // graphicFrame variants pptx-kit doesn't model fall through to a
+    // labelled placeholder.
     if (isChartShape(shape)) {
       const chartSvg = renderChart(shape, x, y, w, h, transform, theme);
       if (chartSvg) return chartSvg;
     }
+    if (isTableShape(shape)) {
+      const tableSvg = renderTable(shape, x, y, w, h, transform, theme);
+      if (tableSvg) return tableSvg;
+    }
     let label = 'graphicFrame';
     try {
       if (isChartShape(shape)) {
-        // We reached this branch *because* renderChart returned null — the
-        // chart part exists (`isChartShape` is true) but `readChartSpec`
-        // couldn't model it. pptx-kit currently models only the 6 kinds in
-        // its `ChartKind` union; 3D bars, scatter, bubble, stock, radar,
-        // surface, of-pie etc. all land here.
+        // `isChartShape` was true but renderChart returned null —
+        // pptx-kit couldn't model this chart kind (3D bar, scatter,
+        // bubble, stock, radar, surface, of-pie all land here).
         label = 'chart (unsupported kind)';
       } else if (isTableShape(shape)) {
         const t = getTableDimensions(shape);
