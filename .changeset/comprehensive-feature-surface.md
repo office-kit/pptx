@@ -130,4 +130,4 @@ via Layer-1 tests.
   `setTableColumnWidth`, `setTableRowHeight`, `getTableColumnWidths`,
   `getTableRowHeights`, `getTableCellAlignment`, `getTableCellFill`.
 - Diagnostics: `getSlideXmlString`, `getSlidePartName`,
-  `getSlideLayoutPartName`, `getImageParts`, `getSlidesByLayout`.
+  `getSlideLayoutPartName`, `getSlidesByLayout`.

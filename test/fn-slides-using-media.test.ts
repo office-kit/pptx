@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideImage,
-  getImageParts,
+  getMediaParts,
   getShapeImagePartName,
   getSlideIndex,
   getSlideShapes,
@@ -61,9 +61,11 @@ describe('fn API: slidesUsingMediaPart', () => {
     });
     // The two pictures don't share a media part — addSlideImage
     // allocates a fresh one each call — but every emitted image
-    // appears in getImageParts, so we can at least confirm both
+    // appears in getMediaParts, so we can at least confirm both
     // are reachable via slidesUsingMediaPart.
-    const allImages = getImageParts(pres);
+    const allImages = getMediaParts(pres).filter((p) =>
+      p.contentType.startsWith('image/'),
+    );
     expect(allImages.length).toBeGreaterThanOrEqual(2);
     for (const img of allImages) {
       const using = slidesUsingMediaPart(pres, img.name);

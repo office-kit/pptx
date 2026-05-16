@@ -163,7 +163,6 @@ export {
   getCoreProperties,
   getDistinctHyperlinkUrls,
   getHiddenSlides,
-  getImageParts,
   getExtendedProperties,
   getParagraphAlignment,
   getParagraphBullet,

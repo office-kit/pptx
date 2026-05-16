@@ -7892,15 +7892,6 @@ export const getMediaParts = (pres: PresentationData): ReadonlyArray<MediaPart> 
 };
 
 /**
- * Returns every image part in the package. Convenience over
- * `getMediaParts(pres).filter(p => p.contentType.startsWith('image/'))`
- * — drops audio / video / icon parts and gives the caller a clean
- * "every embedded image" list.
- */
-export const getImageParts = (pres: PresentationData): ReadonlyArray<MediaPart> =>
-  getMediaParts(pres).filter((p) => p.contentType.startsWith('image/'));
-
-/**
  * Returns every media part NOT referenced by any rels in the
  * package — the set `compactPackage` would remove. Non-destructive;
  * the caller decides whether to delete.
