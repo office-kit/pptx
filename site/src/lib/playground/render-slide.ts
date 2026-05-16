@@ -58,8 +58,17 @@ import {
 // default since 2013. See ECMA-376 §19.3.1.39 `SlideSizeType`.
 const DEFAULT_SIZE = { width: 12_192_000, height: 6_858_000 };
 
-// EMU per point — used to convert font sizes (which are in points).
-const EMU_PER_PT = 12_700;
+// The renderer projects EMU coordinates onto a CSS-pixel-at-96-DPI grid
+// before emitting them. 1 CSS px = 9525 EMU at 96 DPI, so this lets us
+// use natural-looking numbers in the SVG (viewBox ≈ 1280×720 for a
+// 16:9 slide) and matches what HTML inside `<foreignObject>` expects.
+// Real browsers refuse to render text when CSS font-size grows into
+// the hundreds of thousands of pixels (which is what happens if you
+// keep EMU as the SVG user unit).
+const EMU_PER_PX = 9525;
+
+// CSS px per typographic point.
+const PX_PER_PT = 96 / 72;
 
 const DEFAULT_BODY_PT = 18;
 const DEFAULT_TITLE_PT = 36;
@@ -333,7 +342,7 @@ const renderRun = (
   if (text === '') return '';
   const styles: string[] = [];
   const sizePt = format?.size ?? defaultPt;
-  styles.push(`font-size:${sizePt * EMU_PER_PT}px`);
+  styles.push(`font-size:${(sizePt * PX_PER_PT).toFixed(2)}px`);
   styles.push(`line-height:1.2`);
   if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
   if (format?.bold) styles.push('font-weight:700');
@@ -405,7 +414,7 @@ const renderTextBody = (
       `padding:0`,
       `text-align:${ALIGNMENT_TO_CSS[align] ?? 'left'}`,
       // Leading indent for nested bullet levels.
-      level > 0 ? `padding-left:${level * 24 * EMU_PER_PT}px` : '',
+      level > 0 ? `padding-left:${(level * 24 * PX_PER_PT).toFixed(2)}px` : '',
     ].filter(Boolean);
     let prefix = '';
     const explicitChar =
@@ -418,7 +427,7 @@ const renderTextBody = (
       bulletStyle === 'bullet' || explicitChar !== null || (bulletStyle !== 'none' && level > 0);
     if (showBullet) {
       const char = explicitChar ?? bulletChar(level);
-      prefix = `<span style="margin-right:${0.4 * defaultPt * EMU_PER_PT}px">${escapeXml(char)}</span>`;
+      prefix = `<span style="margin-right:${(0.4 * defaultPt * PX_PER_PT).toFixed(2)}px">${escapeXml(char)}</span>`;
     }
     paragraphs.push(
       `<p style="${pStyles.join(';')}">${prefix}${runs.join('') || '&#8203;'}</p>`,
@@ -442,7 +451,10 @@ const renderTextBody = (
 // ---------------------------------------------------------------------------
 // Per-shape geometry rendering.
 
-const E = (n: number): string => Math.round(n).toString();
+// EMU → CSS px coordinate. We project the whole slide onto a 96-DPI grid
+// so the SVG numbers are friendly to the browser's HTML/CSS layer
+// (which kicks in inside `<foreignObject>`).
+const E = (n: number): string => (n / EMU_PER_PX).toFixed(2);
 
 const renderShape = (
   shape: SlideShapeData,
@@ -572,8 +584,8 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, pres, theme)).join('');
 
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`,
-    `<rect width="${W}" height="${H}" fill="${bgColor}"/>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
+    `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>`,
     shapesSvg,
     '</svg>',
   ].join('');
