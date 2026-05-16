@@ -28,6 +28,7 @@ import {
   getShapeBoundsResolved,
   getShapeFill,
   getShapeFlip,
+  getShapeChartKind,
   getShapeImageBytes,
   getShapeImageFillBytes,
   getShapeImagePartName,
@@ -46,6 +47,9 @@ import {
   getSlideBackground,
   getSlideShapes,
   getSlideSize,
+  getTableDimensions,
+  isChartShape,
+  isTableShape,
   type PresentationData,
   type PresentationTheme,
   type ShapeBounds,
@@ -637,9 +641,22 @@ const renderShape = (
   const p = paint(fill, stroke, theme, phType !== null);
 
   if (kind === 'graphicFrame') {
-    // Chart / table / SmartArt frame. Draw a faint placeholder behind
-    // any text the frame might carry.
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill === 'none' ? '#F9FAFB' : p.fill}" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${textOverlay}</g>`;
+    // Chart / table / SmartArt frame. Drawing the actual content
+    // (rendered bars / cells / nodes) would mean writing a chart and
+    // table renderer; label the frame so users know what's there.
+    let label = 'graphicFrame';
+    try {
+      if (isChartShape(shape)) {
+        const chartKind = getShapeChartKind(shape);
+        label = chartKind ? `chart (${chartKind})` : 'chart';
+      } else if (isTableShape(shape)) {
+        const t = getTableDimensions(shape);
+        label = `table (${t.rows}×${t.cols})`;
+      }
+    } catch {
+      // Fall through with the generic label.
+    }
+    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill === 'none' ? '#F9FAFB' : p.fill}" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
   }
 
   // kind === 'shape'
