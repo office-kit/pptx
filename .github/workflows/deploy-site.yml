@@ -6,7 +6,9 @@ on:
     paths:
       - 'site/**'
       - 'src/**'
+      - 'package.json'
       - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
       - '.github/workflows/deploy-site.yml'
   workflow_dispatch:
 
