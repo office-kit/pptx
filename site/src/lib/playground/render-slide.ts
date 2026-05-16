@@ -30,6 +30,7 @@ import {
   getShapeFlip,
   getShapeImageBytes,
   getShapeImageFillBytes,
+  getShapeImagePartName,
   getShapeImageFormat,
   getShapeKind,
   getShapeParagraphCount,
@@ -101,6 +102,80 @@ const imageMime: Record<string, string> = {
   tiff: 'image/tiff',
   webp: 'image/webp',
   svg: 'image/svg+xml',
+};
+
+// Fallback for when pptx-kit's `getShapeImageFormat` returns `null` —
+// usually that means the magic bytes don't match a recognised format
+// (EMF / WMF / HEIC / etc.), but the file extension on the media part
+// is often enough to get the right MIME for the browser to try.
+const EXT_TO_MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  bmp: 'image/bmp',
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  avif: 'image/avif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+};
+
+const mimeFromPartName = (name: string | null): string | null => {
+  if (!name) return null;
+  const dot = name.lastIndexOf('.');
+  if (dot < 0) return null;
+  const ext = name.slice(dot + 1).toLowerCase();
+  return EXT_TO_MIME[ext] ?? null;
+};
+
+// Render the picture if pptx-kit handed us bytes; fall back to a
+// labelled placeholder describing why nothing is drawn. EMF / WMF
+// pictures still won't display (no browser can decode them) but the
+// label tells the user what's there.
+const renderPicture = (
+  shape: SlideShapeData,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  transform: string,
+  textOverlay: string,
+  bytes: Uint8Array | null,
+  format: string | null,
+): string => {
+  let mime: string | null = null;
+  if (bytes && format) {
+    mime = imageMime[format] ?? null;
+  }
+  if (bytes && !mime) {
+    // Format detection failed (likely EMF/WMF/HEIC). Try the part
+    // name's extension — most browsers can still render HEIC / AVIF
+    // and friends if labelled correctly.
+    mime = mimeFromPartName(getShapeImagePartName(shape));
+  }
+  if (bytes && mime) {
+    const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
+    return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/>${textOverlay}</g>`;
+  }
+  const label = !bytes
+    ? 'picture (no bytes)'
+    : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
+  return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+};
+
+const renderPicturePlaceholderLabel = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  text: string,
+): string => {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  return `<text x="${E(cx)}" y="${E(cy)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${(12 * PX_PER_PT).toFixed(2)}" fill="#6B7280">${escapeXml(text)}</text>`;
 };
 
 const escapeXml = (s: string): string =>
@@ -500,32 +575,35 @@ const renderShape = (
     : '';
 
   if (kind === 'picture') {
-    const bytes = getShapeImageBytes(shape);
-    const format = getShapeImageFormat(shape);
-    if (bytes && format) {
-      const mime = imageMime[format] ?? 'application/octet-stream';
-      const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-      // Emit both `href` (SVG 2) and `xlink:href` (SVG 1.1) so the
-      // <image> renders across the modern-browser matrix. Safari and
-      // some embedded SVG viewers still fall back to xlink:href.
-      return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></g>`;
-    }
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
+    return renderPicture(
+      shape,
+      x,
+      y,
+      w,
+      h,
+      transform,
+      textOverlay,
+      getShapeImageBytes(shape),
+      getShapeImageFormat(shape),
+    );
   }
 
   // Shapes with an image fill (`<p:sp>` + `<a:blipFill>` instead of a
   // solid / gradient / pattern). PowerPoint's "Insert Picture from
   // File" and several third-party tools emit pictures this way rather
-  // than as top-level `<p:pic>`. Render the bytes inside the shape's
-  // bounds — close enough for a preview.
+  // than as top-level `<p:pic>`.
   if (kind === 'shape' && fill.kind === 'image') {
-    const fillBytes = getShapeImageFillBytes(shape);
-    const fillFormat = getShapeImageFormat(shape);
-    if (fillBytes && fillFormat) {
-      const mime = imageMime[fillFormat] ?? 'application/octet-stream';
-      const dataUrl = `data:${mime};base64,${u8ToBase64(fillBytes)}`;
-      return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/>${textOverlay}</g>`;
-    }
+    return renderPicture(
+      shape,
+      x,
+      y,
+      w,
+      h,
+      transform,
+      textOverlay,
+      getShapeImageFillBytes(shape),
+      getShapeImageFormat(shape),
+    );
   }
 
   if (kind === 'connector') {
