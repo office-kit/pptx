@@ -29,6 +29,7 @@ import {
   getShapeFill,
   getShapeFlip,
   getShapeChartKind,
+  getShapeChartSpec,
   getShapeImageBytes,
   getShapeImageFillBytes,
   getShapeImagePartName,
@@ -52,6 +53,7 @@ import {
   isTableShape,
   type PresentationData,
   type PresentationTheme,
+  type ChartSpec,
   type ShapeBounds,
   type ShapeFill,
   type ShapeStroke,
@@ -544,6 +546,283 @@ const renderTextBody = (
 // (which kicks in inside `<foreignObject>`).
 const E = (n: number): string => (n / EMU_PER_PX).toFixed(2);
 
+// ---------------------------------------------------------------------------
+// Chart rendering. We don't ship a real chart engine — the goal is just
+// enough visual fidelity that a column / line / pie chart in the deck
+// looks like a chart in the preview. Axes, gridlines, data-label
+// styling, secondary axes, and chart styles are intentionally skipped.
+
+// CSS px helpers that operate directly in CSS-px space (the chart math
+// uses plain numbers without EMU conversion).
+const px = (n: number): string => n.toFixed(2);
+
+const accentSequence = (theme: PresentationTheme | null): string[] => {
+  const fallbacks = ['#5B9BD5', '#ED7D31', '#A5A5A5', '#FFC000', '#4472C4', '#70AD47'];
+  if (!theme) return fallbacks;
+  const hexes = [theme.accent1, theme.accent2, theme.accent3, theme.accent4, theme.accent5, theme.accent6]
+    .map((c) => normalizeHex(c))
+    .filter((c): c is string => /^#[0-9A-Fa-f]{6}$/.test(c));
+  return hexes.length > 0 ? hexes : fallbacks;
+};
+
+// Project EMU bounds → CSS-px chart frame. Title and legend get fixed
+// vertical strips; the plot area takes whatever's left.
+interface ChartFrame {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  readonly plotX: number;
+  readonly plotY: number;
+  readonly plotW: number;
+  readonly plotH: number;
+  readonly titleY: number;
+  readonly legendY: number;
+}
+
+const layoutChart = (xEmu: number, yEmu: number, wEmu: number, hEmu: number, hasTitle: boolean): ChartFrame => {
+  const x = xEmu / EMU_PER_PX;
+  const y = yEmu / EMU_PER_PX;
+  const w = wEmu / EMU_PER_PX;
+  const h = hEmu / EMU_PER_PX;
+  const titleStrip = hasTitle ? 18 : 0;
+  const legendStrip = 18;
+  const padding = 8;
+  return {
+    x,
+    y,
+    w,
+    h,
+    plotX: x + padding,
+    plotY: y + titleStrip + padding,
+    plotW: Math.max(0, w - 2 * padding),
+    plotH: Math.max(0, h - titleStrip - legendStrip - 2 * padding),
+    titleY: y + titleStrip - 2,
+    legendY: y + h - legendStrip / 2,
+  };
+};
+
+const seriesMinMax = (spec: ChartSpec): { min: number; max: number } => {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const s of spec.series) {
+    for (const v of s.values) {
+      if (v !== null && Number.isFinite(v)) {
+        if (v < min) min = v;
+        if (v > max) max = v;
+      }
+    }
+  }
+  if (!Number.isFinite(min)) min = 0;
+  if (!Number.isFinite(max)) max = 1;
+  if (max === min) max = min + 1;
+  if (min > 0) min = 0; // include the zero line, like PowerPoint does
+  return { min, max };
+};
+
+const renderChartTitle = (f: ChartFrame, title: string): string => {
+  if (!title) return '';
+  return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="13" fill="#1F2937" font-weight="600">${escapeXml(title)}</text>`;
+};
+
+const renderChartLegend = (f: ChartFrame, names: ReadonlyArray<string>, colors: ReadonlyArray<string>): string => {
+  if (names.length === 0) return '';
+  const itemPx = Math.min(140, f.w / names.length);
+  const totalW = itemPx * names.length;
+  const startX = f.x + (f.w - totalW) / 2;
+  const out: string[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const cx = startX + i * itemPx;
+    const swatchX = cx + 4;
+    const swatchY = f.legendY - 4;
+    const labelX = swatchX + 14;
+    out.push(`<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`);
+    out.push(`<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`);
+  }
+  return out.join('');
+};
+
+const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
+  const cats = spec.categories;
+  if (cats.length === 0) return '';
+  const { min, max } = seriesMinMax(spec);
+  const range = max - min;
+  const groupW = f.plotW / cats.length;
+  const barW = (groupW * 0.8) / spec.series.length;
+  const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
+  const out: string[] = [];
+  for (let c = 0; c < cats.length; c++) {
+    for (let s = 0; s < spec.series.length; s++) {
+      const v = spec.series[s]?.values[c] ?? 0;
+      const x0 = f.plotX + c * groupW + groupW * 0.1 + s * barW;
+      const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
+      const y0 = Math.min(top, baseY);
+      const h = Math.abs(top - baseY);
+      out.push(`<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`);
+    }
+  }
+  // Zero baseline for visual reference.
+  out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+  return out.join('');
+};
+
+const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
+  const cats = spec.categories;
+  if (cats.length === 0) return '';
+  const { min, max } = seriesMinMax(spec);
+  const range = max - min;
+  const groupH = f.plotH / cats.length;
+  const barH = (groupH * 0.8) / spec.series.length;
+  const baseX = f.plotX + ((0 - min) / range) * f.plotW;
+  const out: string[] = [];
+  for (let c = 0; c < cats.length; c++) {
+    for (let s = 0; s < spec.series.length; s++) {
+      const v = spec.series[s]?.values[c] ?? 0;
+      const y0 = f.plotY + c * groupH + groupH * 0.1 + s * barH;
+      const tip = f.plotX + ((v - min) / range) * f.plotW;
+      const x0 = Math.min(tip, baseX);
+      const w = Math.abs(tip - baseX);
+      out.push(`<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`);
+    }
+  }
+  out.push(`<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+  return out.join('');
+};
+
+const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, fill: boolean): string => {
+  const cats = spec.categories;
+  if (cats.length === 0) return '';
+  const { min, max } = seriesMinMax(spec);
+  const range = max - min;
+  const step = cats.length > 1 ? f.plotW / (cats.length - 1) : 0;
+  const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
+  const out: string[] = [];
+  out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+  for (let s = 0; s < spec.series.length; s++) {
+    const series = spec.series[s];
+    if (!series) continue;
+    const color = colors[s % colors.length];
+    const pts: Array<[number, number]> = [];
+    for (let c = 0; c < cats.length; c++) {
+      const v = series.values[c] ?? 0;
+      const xp = f.plotX + c * step;
+      const yp = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
+      pts.push([xp, yp]);
+    }
+    const dPath = pts.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
+    if (fill) {
+      const areaPath = `${dPath} L${px(f.plotX + (cats.length - 1) * step)},${px(baseY)} L${px(f.plotX)},${px(baseY)} Z`;
+      out.push(`<path d="${areaPath}" fill="${color}" fill-opacity="0.25" stroke="none"/>`);
+    }
+    out.push(`<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+    // Data point markers.
+    for (const [xp, yp] of pts) {
+      out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
+    }
+  }
+  return out.join('');
+};
+
+const renderPieChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, doughnut: boolean): string => {
+  const series = spec.series[0];
+  if (!series) return '';
+  const values = series.values.map((v) => Math.max(0, v ?? 0));
+  const total = values.reduce((a, b) => a + b, 0);
+  if (total === 0) return '';
+  const radius = Math.min(f.plotW, f.plotH) / 2 - 2;
+  const cx = f.plotX + f.plotW / 2;
+  const cy = f.plotY + f.plotH / 2;
+  const innerR = doughnut ? radius * 0.55 : 0;
+  let acc = -Math.PI / 2; // start at 12 o'clock
+  const out: string[] = [];
+  for (let i = 0; i < values.length; i++) {
+    const v = values[i] ?? 0;
+    const angle = (v / total) * 2 * Math.PI;
+    const start = acc;
+    const end = acc + angle;
+    acc = end;
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const ox1 = cx + radius * Math.cos(start);
+    const oy1 = cy + radius * Math.sin(start);
+    const ox2 = cx + radius * Math.cos(end);
+    const oy2 = cy + radius * Math.sin(end);
+    const color = colors[i % colors.length];
+    if (doughnut) {
+      const ix1 = cx + innerR * Math.cos(start);
+      const iy1 = cy + innerR * Math.sin(start);
+      const ix2 = cx + innerR * Math.cos(end);
+      const iy2 = cy + innerR * Math.sin(end);
+      const d = `M${px(ox1)},${px(oy1)} A${px(radius)},${px(radius)} 0 ${largeArc} 1 ${px(ox2)},${px(oy2)} L${px(ix2)},${px(iy2)} A${px(innerR)},${px(innerR)} 0 ${largeArc} 0 ${px(ix1)},${px(iy1)} Z`;
+      out.push(`<path d="${d}" fill="${color}" stroke="#FFFFFF" stroke-width="0.6"/>`);
+    } else {
+      const d = `M${px(cx)},${px(cy)} L${px(ox1)},${px(oy1)} A${px(radius)},${px(radius)} 0 ${largeArc} 1 ${px(ox2)},${px(oy2)} Z`;
+      out.push(`<path d="${d}" fill="${color}" stroke="#FFFFFF" stroke-width="0.6"/>`);
+    }
+  }
+  return out.join('');
+};
+
+const renderChart = (
+  shape: SlideShapeData,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  transform: string,
+  theme: PresentationTheme | null,
+): string | null => {
+  let spec: ChartSpec | null = null;
+  try {
+    spec = getShapeChartSpec(shape);
+  } catch {
+    return null;
+  }
+  if (!spec) return null;
+  const colors = accentSequence(theme);
+  const f = layoutChart(x, y, w, h, !!spec.title);
+  const seriesNamesForLegend: string[] =
+    spec.kind === 'pie' || spec.kind === 'doughnut'
+      ? Array.from(spec.categories)
+      : spec.series.map((s) => s.name);
+  const seriesColorsForLegend: string[] =
+    spec.kind === 'pie' || spec.kind === 'doughnut'
+      ? spec.categories.map((_, i) => colors[i % colors.length] ?? '#888')
+      : spec.series.map((_, i) => colors[i % colors.length] ?? '#888');
+
+  let plot = '';
+  switch (spec.kind) {
+    case 'column':
+    case 'bar':
+      // pptx-kit reports both as `bar` / `column` via separate `kind`;
+      // legacy `barDir` distinction. We branch on `kind`.
+      plot = spec.kind === 'column' ? renderColumnChart(f, spec, colors) : renderBarChart(f, spec, colors);
+      break;
+    case 'line':
+      plot = renderLineChart(f, spec, colors, false);
+      break;
+    case 'area':
+      plot = renderLineChart(f, spec, colors, true);
+      break;
+    case 'pie':
+      plot = renderPieChart(f, spec, colors, false);
+      break;
+    case 'doughnut':
+      plot = renderPieChart(f, spec, colors, true);
+      break;
+    default:
+      return null;
+  }
+
+  return [
+    `<g${transform}>`,
+    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="0.6"/>`,
+    renderChartTitle(f, spec.title ?? ''),
+    plot,
+    renderChartLegend(f, seriesNamesForLegend, seriesColorsForLegend),
+    '</g>',
+  ].join('');
+};
+
 const renderShape = (
   shape: SlideShapeData,
   pres: PresentationData,
@@ -641,9 +920,14 @@ const renderShape = (
   const p = paint(fill, stroke, theme, phType !== null);
 
   if (kind === 'graphicFrame') {
-    // Chart / table / SmartArt frame. Drawing the actual content
-    // (rendered bars / cells / nodes) would mean writing a chart and
-    // table renderer; label the frame so users know what's there.
+    // Chart frames: render a simplified chart (bars / line / pie /
+    // etc.) from the chart spec when we can read it. Tables and
+    // SmartArt still render as labelled placeholders — drawing them
+    // needs a real layout engine.
+    if (isChartShape(shape)) {
+      const chartSvg = renderChart(shape, x, y, w, h, transform, theme);
+      if (chartSvg) return chartSvg;
+    }
     let label = 'graphicFrame';
     try {
       if (isChartShape(shape)) {
