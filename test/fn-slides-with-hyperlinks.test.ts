@@ -1,4 +1,4 @@
-// findSlidesWithHyperlinks — slides that link out.
+// getSlidesWithHyperlinks — slides that link out.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +7,7 @@ import {
   addSlide,
   addSlideTextBox,
   findSlideLayout,
-  findSlidesWithHyperlinks,
+  getSlidesWithHyperlinks,
   getSlideIndex,
   inches,
   loadPresentation,
@@ -17,7 +17,7 @@ import {
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-describe('fn API: findSlidesWithHyperlinks', () => {
+describe('fn API: getSlidesWithHyperlinks', () => {
   it('returns only slides with at least one hyperlink', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     const blank = findSlideLayout(pres, 'Blank')!;
@@ -38,7 +38,7 @@ describe('fn API: findSlidesWithHyperlinks', () => {
       });
     }
     const plainIdx = 1;
-    const out = findSlidesWithHyperlinks(pres);
+    const out = getSlidesWithHyperlinks(pres);
     const indices = out.map((s) => getSlideIndex(pres, s));
     expect(indices).toContain(linkedIdx);
     expect(indices).not.toContain(plainIdx);
@@ -46,6 +46,6 @@ describe('fn API: findSlidesWithHyperlinks', () => {
 
   it('returns empty when no slide has hyperlinks', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
-    expect(findSlidesWithHyperlinks(pres)).toEqual([]);
+    expect(getSlidesWithHyperlinks(pres)).toEqual([]);
   });
 });

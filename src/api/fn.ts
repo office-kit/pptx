@@ -5441,7 +5441,7 @@ export const getSlidesWithCharts = (pres: PresentationData): ReadonlyArray<Slide
  * deck-wide layout audits — surfacing slides that may have stacked
  * or accidentally-colliding content for human review.
  */
-export const findSlidesWithOverlap = (pres: PresentationData): ReadonlyArray<SlideData> => {
+export const getSlidesWithOverlap = (pres: PresentationData): ReadonlyArray<SlideData> => {
   const out: SlideData[] = [];
   for (const slide of getSlides(pres)) {
     if (findOverlappingShapePairs(slide).length > 0) out.push(slide);
@@ -5640,7 +5640,7 @@ export const getDistinctHyperlinkUrls = (
  * hyperlink. Built on `findHyperlinkedShapes`. Useful for navigation
  * UIs that want to surface only the slides containing outbound URLs.
  */
-export const findSlidesWithHyperlinks = (
+export const getSlidesWithHyperlinks = (
   pres: PresentationData,
 ): ReadonlyArray<SlideData> => {
   const out: SlideData[] = [];

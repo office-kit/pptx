@@ -1,4 +1,4 @@
-// findSlidesWithOverlap — deck-wide audit for colliding shapes.
+// getSlidesWithOverlap — deck-wide audit for colliding shapes.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +7,7 @@ import {
   addSlide,
   addSlideShape,
   findSlideLayout,
-  findSlidesWithOverlap,
+  getSlidesWithOverlap,
   getSlideIndex,
   inches,
   loadPresentation,
@@ -16,7 +16,7 @@ import {
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-describe('fn API: findSlidesWithOverlap', () => {
+describe('fn API: getSlidesWithOverlap', () => {
   it('returns only slides with colliding shapes', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     const blank = findSlideLayout(pres, 'Blank')!;
@@ -43,7 +43,7 @@ describe('fn API: findSlidesWithOverlap', () => {
     }
     const cleanIdx = 1; // second added by us
 
-    const flagged = findSlidesWithOverlap(pres);
+    const flagged = getSlidesWithOverlap(pres);
     const indices = flagged.map((s) => getSlideIndex(pres, s));
     expect(indices).toContain(overlapIdx);
     expect(indices).not.toContain(cleanIdx);
@@ -56,6 +56,6 @@ describe('fn API: findSlidesWithOverlap', () => {
     addSlideShape(slide, {
       preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
     });
-    expect(findSlidesWithOverlap(pres)).toEqual([]);
+    expect(getSlidesWithOverlap(pres)).toEqual([]);
   });
 });
