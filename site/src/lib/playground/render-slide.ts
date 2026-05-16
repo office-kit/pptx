@@ -504,7 +504,10 @@ const renderShape = (
     if (bytes && format) {
       const mime = imageMime[format] ?? 'application/octet-stream';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-      return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" preserveAspectRatio="none"/></g>`;
+      // Emit both `href` (SVG 2) and `xlink:href` (SVG 1.1) so the
+      // <image> renders across the modern-browser matrix. Safari and
+      // some embedded SVG viewers still fall back to xlink:href.
+      return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></g>`;
     }
     return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>`;
   }
@@ -588,7 +591,7 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, pres, theme)).join('');
 
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
+    `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
     `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>`,
     shapesSvg,
     '</svg>',
