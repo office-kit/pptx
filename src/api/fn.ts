@@ -92,6 +92,7 @@ import {
   readCommentAuthorList,
   readCommentList,
   readPresentationPart,
+  readShapeTreeFromCsldRoot,
   readSlideLayoutPart,
   readSlidePart,
   slideText,
@@ -463,6 +464,13 @@ export interface SlideLayoutPlaceholder {
   readonly idx: number | null;
   /** `<p:cNvPr name="...">` — what PowerPoint shows in the selection pane. */
   readonly name: string;
+  /**
+   * Layout-defined position + size in EMU. A slide placeholder with no
+   * `<a:xfrm>` of its own inherits these. `null` when the layout
+   * placeholder also lacks an explicit transform (rare — usually the
+   * master defines it then).
+   */
+  readonly bounds: ShapeBounds | null;
 }
 
 /**
@@ -483,10 +491,17 @@ export const getSlideLayoutPlaceholders = (
     // and connectors can technically have `<p:ph>` per the schema but
     // PowerPoint never authors that. Filter for safety either way.
     if (shape.placeholderType === null && shape.placeholderIdx === null) continue;
+    const pos = readPosition(shape.element, shape.kind);
+    const size = readSize(shape.element, shape.kind);
+    const bounds: ShapeBounds | null =
+      pos === null || size === null
+        ? null
+        : { x: pos.x as Emu, y: pos.y as Emu, w: size.w as Emu, h: size.h as Emu };
     out.push({
       type: shape.placeholderType,
       idx: shape.placeholderIdx,
       name: shape.name,
+      bounds,
     });
   }
   return out;
@@ -3041,6 +3056,78 @@ export const getShapeBounds = (shape: SlideShapeData): ShapeBounds | null => {
     w: size.w as Emu,
     h: size.h as Emu,
   };
+};
+
+/**
+ * Same as `getShapeBounds` but walks the placeholder inheritance chain
+ * when the shape has no `<a:xfrm>` of its own:
+ *
+ *   1. The shape's own bounds.
+ *   2. The matching placeholder on the slide's layout (by `<p:ph idx>`,
+ *      falling back to `<p:ph type>`).
+ *   3. The matching placeholder on the layout's slide master.
+ *
+ * This is what renderers want when they need to draw a placeholder
+ * that the deck author left unsized — real templates only override
+ * geometry per placeholder when it differs from the master.
+ *
+ * Returns `null` when none of the three levels carries explicit bounds.
+ */
+export const getShapeBoundsResolved = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): ShapeBounds | null => {
+  const direct = getShapeBounds(shape);
+  if (direct) return direct;
+
+  const slide = shape[SHAPE_SLIDE];
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+
+  const findInShapes = (
+    shapes: ReadonlyArray<{
+      placeholderIdx: number | null;
+      placeholderType: string | null;
+      element: XmlElement;
+      kind: ShapeKind;
+    }>,
+  ): ShapeBounds | null => {
+    let match =
+      phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    if (!match && phType !== null) {
+      match = shapes.find((s) => s.placeholderType === phType);
+    }
+    if (!match) return null;
+    const pos = readPosition(match.element, match.kind);
+    const size = readSize(match.element, match.kind);
+    if (pos === null || size === null) return null;
+    return {
+      x: pos.x as Emu,
+      y: pos.y as Emu,
+      w: size.w as Emu,
+      h: size.h as Emu,
+    };
+  };
+
+  const layoutHit = findInShapes(layout[LAYOUT_PART].shapes);
+  if (layoutHit) return layoutHit;
+
+  // Walk one level up: layout → slideMaster rel.
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return null;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return null;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return null;
+
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+  return findInShapes(masterShapes);
 };
 
 /**

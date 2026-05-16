@@ -25,7 +25,7 @@ import {
   getParagraphBullet,
   getParagraphLevel,
   getPresentationTheme,
-  getShapeBounds,
+  getShapeBoundsResolved,
   getShapeFill,
   getShapeFlip,
   getShapeImageBytes,
@@ -46,6 +46,7 @@ import {
   getSlideSize,
   type PresentationData,
   type PresentationTheme,
+  type ShapeBounds,
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
@@ -440,9 +441,14 @@ const E = (n: number): string => Math.round(n).toString();
 
 const renderShape = (
   shape: SlideShapeData,
+  pres: PresentationData,
   theme: PresentationTheme | null,
 ): string => {
-  const bounds = getShapeBounds(shape);
+  // Use the inheriting resolver: shape → layout → master. Slide
+  // placeholders routinely defer geometry to the master, so the literal
+  // `getShapeBounds` returns null for them and the preview would hide
+  // every title / body / footer slot.
+  const bounds = getShapeBoundsResolved(pres, shape);
   if (!bounds) return '';
   const x = bounds.x as number;
   const y = bounds.y as number;
@@ -558,7 +564,7 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
     bgColor = normalizeHex(theme.light1);
   }
 
-  const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, theme)).join('');
+  const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, pres, theme)).join('');
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">`,

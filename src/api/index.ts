@@ -170,6 +170,7 @@ export {
   getShapeAnimation,
   getShapeAt,
   getShapeBounds,
+  getShapeBoundsResolved,
   getShapeCenter,
   getShapeChartCategories,
   getShapeChartKind,
