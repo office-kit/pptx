@@ -3,11 +3,10 @@
 Generate and edit `.pptx` (PowerPoint / Office Open XML Presentation) files
 from TypeScript — in **Node.js or the browser**, from a single ESM bundle.
 
-> **Status: pre-1.0, feature-complete for L1–L4 targets.** Every v1.0
-> capability in the table below works end-to-end against real PPTX
-> fixtures, with every emitted XML part validated against the
-> ECMA-376 schemas via `xmllint` in CI. Public API is still subject to
-> change — pin exact versions until 1.0.
+> **Status: 1.0 — public API stabilized.** Every capability in the table
+> below works end-to-end against real PPTX fixtures, with every emitted XML
+> part validated against the ECMA-376 schemas via `xmllint` in CI. Future
+> 1.x releases are SemVer-compatible.
 
 ## Why
 
@@ -39,7 +38,9 @@ levels 1-3 in full and level 4 in part:
 | ----- | ------------------------------------------------------------------- | ------------------------------- |
 | L1    | Read an existing PPTX, save it back without corruption              | ✅                              |
 | L2    | Template edit — text replacement, image swap, add slide from layout | ✅                              |
-| L3    | Authoring — shapes, text, tables, themes, masters, layouts          | ✅                              |
+| L3    | Authoring — shapes, text, tables, fills, effects, transforms        | ✅                              |
+| L3    | Authoring on top of existing themes / masters / layouts             | ✅                              |
+| L3    | Constructing new themes / masters / layouts from scratch            | ❌ post-1.0                     |
 | L3    | Charts (all common types) with embedded data                        | ✅                              |
 | L4    | Notes, comments, transitions                                        | ✅                              |
 | L4    | Simple animations (entrance / exit / emphasis presets)              | ✅                              |
