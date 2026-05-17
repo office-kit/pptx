@@ -275,6 +275,44 @@ const readSeriesColor = (ser: XmlElement): string | undefined => {
   return v !== null ? `#${v.toUpperCase()}` : undefined;
 };
 
+// Per-series marker symbol + size from <c:ser><c:marker>.
+const readSeriesMarker = (
+  ser: XmlElement,
+): { markerSymbol?: ChartSeries['markerSymbol']; markerSizePt?: number } => {
+  const m = firstChildElement(ser, qname('c', 'marker', NS_C));
+  if (!m) return {};
+  const out: { markerSymbol?: ChartSeries['markerSymbol']; markerSizePt?: number } = {};
+  const symEl = firstChildElement(m, qname('c', 'symbol', NS_C));
+  if (symEl) {
+    const v = getAttrValue(symEl, ATTR_VAL);
+    if (
+      v === 'none' ||
+      v === 'auto' ||
+      v === 'circle' ||
+      v === 'square' ||
+      v === 'diamond' ||
+      v === 'triangle' ||
+      v === 'star' ||
+      v === 'x' ||
+      v === 'plus' ||
+      v === 'dash' ||
+      v === 'dot' ||
+      v === 'picture'
+    ) {
+      out.markerSymbol = v;
+    }
+  }
+  const sizeEl = firstChildElement(m, qname('c', 'size', NS_C));
+  if (sizeEl) {
+    const v = getAttrValue(sizeEl, ATTR_VAL);
+    if (v !== null) {
+      const n = Number.parseInt(v, 10);
+      if (Number.isFinite(n) && n > 0) out.markerSizePt = n;
+    }
+  }
+  return out;
+};
+
 // Per-series line stroke width + dash from <c:ser><c:spPr><a:ln>.
 const readSeriesLineProps = (ser: XmlElement): { lineWidthEmu?: number; lineDash?: string } => {
   const spPr = firstChildElement(ser, NAME_SP_PR_C);
@@ -372,6 +410,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const values = valEl !== null ? readNumRef(valEl) : null;
     const color = readSeriesColor(ser);
     const { lineWidthEmu, lineDash } = readSeriesLineProps(ser);
+    const { markerSymbol, markerSizePt } = readSeriesMarker(ser);
     // <c:dPt> data-point overrides — sparse map idx → color.
     const pointColors = readDataPointColors(ser);
     // <c:smooth val="1"/> — line / area / scatter only.
@@ -402,6 +441,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       ...(color !== undefined ? { color } : {}),
       ...(lineWidthEmu !== undefined ? { lineWidthEmu } : {}),
       ...(lineDash !== undefined ? { lineDash } : {}),
+      ...(markerSymbol !== undefined ? { markerSymbol } : {}),
+      ...(markerSizePt !== undefined ? { markerSizePt } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
       ...(trendline !== undefined ? { trendline } : {}),
