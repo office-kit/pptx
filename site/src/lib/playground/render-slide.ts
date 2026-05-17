@@ -35,6 +35,7 @@ import {
   getShapeChartKind,
   getShapeChartSpec,
   getShapeHyperlink,
+  getShapeTextColumns,
   getShapeTextDirection,
   getShapeImageBrightness,
   getShapeImageBytes,
@@ -1872,7 +1873,16 @@ const renderTextBody = (
   } else if (vert === 'wordArtVertRtl') {
     writingMode = 'writing-mode:vertical-rl;text-orientation:upright;direction:rtl';
   }
-  const vertStyles = writingMode ? `;${writingMode}${extraTransform}` : '';
+  // B4 — multi-column text bodies. `<a:bodyPr numCol="N" spcCol="EMU"/>`
+  // splits the text body into N equal columns separated by `spcCol`.
+  // CSS `column-count` / `column-gap` map directly.
+  const cols = getShapeTextColumns(shape);
+  let colStyles = '';
+  if (cols && cols.count >= 2) {
+    const gapPx = cols.gapEmu !== undefined ? (cols.gapEmu / EMU_PER_PX).toFixed(2) : '12';
+    colStyles = `;column-count:${cols.count};column-gap:${gapPx}px`;
+  }
+  const vertStyles = (writingMode ? `;${writingMode}${extraTransform}` : '') + colStyles;
   // foreignObject's `overflow="visible"` attribute (not CSS) is what
   // actually keeps it from clipping content past its width/height.
   // Without this, the surrounding SVG viewport silently crops any text

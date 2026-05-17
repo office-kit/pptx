@@ -4522,6 +4522,32 @@ export const getShapeTextAnchor = (shape: SlideShapeData): TextAnchor | null => 
  * its built-in default for the missing side).
  */
 /**
+ * Reads the multi-column layout on a text body — `<a:bodyPr
+ * numCol="N" spcCol="EMU"/>`. Returns `null` when columns aren't
+ * configured (the default single column). `gapEmu` is the
+ * inter-column gap in EMU; omitted when `<a:bodyPr>` has no
+ * `spcCol` attribute.
+ */
+export const getShapeTextColumns = (
+  shape: SlideShapeData,
+): { count: number; gapEmu?: number } | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  const numColRaw = getAttrValue(bodyPr, qname('', 'numCol', ''));
+  if (numColRaw === null) return null;
+  const count = Number.parseInt(numColRaw, 10);
+  if (!Number.isFinite(count) || count < 2) return null;
+  const gapRaw = getAttrValue(bodyPr, qname('', 'spcCol', ''));
+  if (gapRaw !== null) {
+    const g = Number.parseInt(gapRaw, 10);
+    if (Number.isFinite(g)) return { count, gapEmu: g };
+  }
+  return { count };
+};
+
+/**
  * Reads the shape's text-direction token from `<a:bodyPr vert="…"/>`.
  * Per ECMA-376 §17.18.93 `ST_TextVerticalType`:
  *
