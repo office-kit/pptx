@@ -72,6 +72,13 @@ export interface ChartSeries {
    */
   readonly pointColors?: ReadonlyArray<string | null>;
   /**
+   * Optional per-data-point pie/doughnut slice explosion percentages
+   * (`<c:dPt><c:explosion val="N"/>`). Sparse — only the indices that
+   * author an explosion appear. The value is the radial offset as a
+   * percentage of the slice radius (`25` ≈ a quarter-radius pull-out).
+   */
+  readonly pointExplosions?: ReadonlyArray<number | null>;
+  /**
    * Line-smoothing toggle (`<c:smooth val="1"/>`) — only meaningful for
    * line / scatter / area series. When `true`, the renderer interpolates
    * a smooth curve through the data points instead of straight segments.

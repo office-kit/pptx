@@ -169,11 +169,20 @@ const readSeriesName = (ser: XmlElement): string => {
   return strs?.[0] ?? '';
 };
 
-// Walks `<c:ser><c:dPt>` overrides and returns a sparse array indexed
-// by point index. Returns `undefined` when no dPt overrides exist.
-const readDataPointColors = (ser: XmlElement): ReadonlyArray<string | null> | undefined => {
-  const out: Array<string | null> = [];
-  let any = false;
+// Walks `<c:ser><c:dPt>` overrides and returns sparse per-point arrays
+// for color (`<c:spPr><a:solidFill><a:srgbClr>`) and explosion
+// (`<c:explosion val="N"/>`). Returns `undefined` for each side when no
+// dPt authors the corresponding attribute.
+const readDataPointOverrides = (
+  ser: XmlElement,
+): {
+  readonly colors: ReadonlyArray<string | null> | undefined;
+  readonly explosions: ReadonlyArray<number | null> | undefined;
+} => {
+  const colors: Array<string | null> = [];
+  const explosions: Array<number | null> = [];
+  let anyColor = false;
+  let anyExplosion = false;
   for (const c of ser.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS_C || c.name.localName !== 'dPt')
       continue;
@@ -184,17 +193,35 @@ const readDataPointColors = (ser: XmlElement): ReadonlyArray<string | null> | un
     const idx = Number.parseInt(idxRaw, 10);
     if (!Number.isFinite(idx) || idx < 0) continue;
     const spPr = firstChildElement(c, NAME_SP_PR_C);
-    if (!spPr) continue;
-    const solidFill = firstChildElement(spPr, NAME_SOLID_FILL);
-    if (!solidFill) continue;
-    const srgb = firstChildElement(solidFill, NAME_SRGB_CLR);
-    if (!srgb) continue;
-    const val = getAttrValue(srgb, ATTR_VAL);
-    if (val === null) continue;
-    out[idx] = `#${val.toUpperCase()}`;
-    any = true;
+    if (spPr) {
+      const solidFill = firstChildElement(spPr, NAME_SOLID_FILL);
+      if (solidFill) {
+        const srgb = firstChildElement(solidFill, NAME_SRGB_CLR);
+        if (srgb) {
+          const val = getAttrValue(srgb, ATTR_VAL);
+          if (val !== null) {
+            colors[idx] = `#${val.toUpperCase()}`;
+            anyColor = true;
+          }
+        }
+      }
+    }
+    const explEl = firstChildElement(c, qname('c', 'explosion', NS_C));
+    if (explEl) {
+      const v = getAttrValue(explEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n) && n > 0) {
+          explosions[idx] = n;
+          anyExplosion = true;
+        }
+      }
+    }
   }
-  return any ? out : undefined;
+  return {
+    colors: anyColor ? colors : undefined,
+    explosions: anyExplosion ? explosions : undefined,
+  };
 };
 
 // `<c:trendline>` is a sibling of `<c:val>` inside `<c:ser>`. Read the
@@ -414,8 +441,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const invertEl = firstChildElement(ser, qname('c', 'invertIfNegative', NS_C));
     const invertIfNegative =
       invertEl !== null && getAttrValue(invertEl, ATTR_VAL) !== '0' ? true : undefined;
-    // <c:dPt> data-point overrides — sparse map idx → color.
-    const pointColors = readDataPointColors(ser);
+    // <c:dPt> data-point overrides — sparse maps idx → color / explosion.
+    const { colors: pointColors, explosions: pointExplosions } = readDataPointOverrides(ser);
     // <c:smooth val="1"/> — line / area / scatter only.
     const smoothEl = firstChildElement(ser, qname('c', 'smooth', NS_C));
     const smooth = smoothEl !== null && getAttrValue(smoothEl, ATTR_VAL) !== '0';
@@ -455,6 +482,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       ...(markerSizePt !== undefined ? { markerSizePt } : {}),
       ...(invertIfNegative !== undefined ? { invertIfNegative } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
+      ...(pointExplosions !== undefined ? { pointExplosions } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
       ...(trendline !== undefined ? { trendline } : {}),
       ...(serDataLabels !== undefined ? { dataLabels: serDataLabels } : {}),

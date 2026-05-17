@@ -3417,30 +3417,39 @@ const renderPieChart = (
     const end = acc + angle;
     acc = end;
     const largeArc = angle > Math.PI ? 1 : 0;
-    const ox1 = cx + radius * Math.cos(start);
-    const oy1 = cy + radius * Math.sin(start);
-    const ox2 = cx + radius * Math.cos(end);
-    const oy2 = cy + radius * Math.sin(end);
+    // <c:dPt><c:explosion val="N"/> shoves the slice outward along the
+    // mid-angle by N% of the radius (PowerPoint clamps to a sane max
+    // around 400, but in practice authors stay 0–60).
+    const explPct = series.pointExplosions?.[i] ?? 0;
+    const explOffset = (explPct / 100) * radius;
+    const midAngle = (start + end) / 2;
+    const sx = cx + Math.cos(midAngle) * explOffset;
+    const sy = cy + Math.sin(midAngle) * explOffset;
+    const ox1 = sx + radius * Math.cos(start);
+    const oy1 = sy + radius * Math.sin(start);
+    const ox2 = sx + radius * Math.cos(end);
+    const oy2 = sy + radius * Math.sin(end);
     // Per-slice color: <c:dPt> override wins, then series.color, then
     // accent palette fallback.
     const dptColor = series.pointColors?.[i];
     const color = dptColor ?? series.color ?? colors[i % colors.length];
     if (doughnut) {
-      const ix1 = cx + innerR * Math.cos(start);
-      const iy1 = cy + innerR * Math.sin(start);
-      const ix2 = cx + innerR * Math.cos(end);
-      const iy2 = cy + innerR * Math.sin(end);
+      const ix1 = sx + innerR * Math.cos(start);
+      const iy1 = sy + innerR * Math.sin(start);
+      const ix2 = sx + innerR * Math.cos(end);
+      const iy2 = sy + innerR * Math.sin(end);
       const d = `M${px(ox1)},${px(oy1)} A${px(radius)},${px(radius)} 0 ${largeArc} 1 ${px(ox2)},${px(oy2)} L${px(ix2)},${px(iy2)} A${px(innerR)},${px(innerR)} 0 ${largeArc} 0 ${px(ix1)},${px(iy1)} Z`;
       out.push(`<path d="${d}" fill="${color}" stroke="#FFFFFF" stroke-width="0.6"/>`);
     } else {
-      const d = `M${px(cx)},${px(cy)} L${px(ox1)},${px(oy1)} A${px(radius)},${px(radius)} 0 ${largeArc} 1 ${px(ox2)},${px(oy2)} Z`;
+      const d = `M${px(sx)},${px(sy)} L${px(ox1)},${px(oy1)} A${px(radius)},${px(radius)} 0 ${largeArc} 1 ${px(ox2)},${px(oy2)} Z`;
       out.push(`<path d="${d}" fill="${color}" stroke="#FFFFFF" stroke-width="0.6"/>`);
     }
     // Pie / doughnut data labels — value or percent at the slice midpoint.
+    // Track the explosion offset so labels move with their slice.
     const labelMid = (start + end) / 2;
     const labelR = doughnut ? (radius + innerR) / 2 : radius * 0.6;
-    const labelX = cx + labelR * Math.cos(labelMid);
-    const labelY = cy + labelR * Math.sin(labelMid);
+    const labelX = sx + labelR * Math.cos(labelMid);
+    const labelY = sy + labelR * Math.sin(labelMid);
     const labels: string[] = [];
     if (spec.dataLabels?.showValue) labels.push(formatDataLabelValue(spec, 0, v));
     if (spec.dataLabels?.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
