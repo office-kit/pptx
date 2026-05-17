@@ -3405,14 +3405,32 @@ const renderLineChart = (
     // per-series → chart-level cascade as bar / pie.
     const showLineLabel = series.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
     if (showLineLabel) {
+      // dLblPos for line / area: ctr (on marker) / t / b / l / r.
+      // Default = t (above marker), matching PowerPoint's stock layout.
+      const lblPos = series.dataLabels?.position ?? spec.dataLabels?.position;
+      const computeAttrs = (xp: number, yp: number): { x: number; y: number; anchor: string } => {
+        switch (lblPos) {
+          case 'ctr':
+            return { x: xp, y: yp + 3, anchor: 'middle' };
+          case 'b':
+            return { x: xp, y: yp + 13, anchor: 'middle' };
+          case 'l':
+            return { x: xp - 6, y: yp + 3, anchor: 'end' };
+          case 'r':
+            return { x: xp + 6, y: yp + 3, anchor: 'start' };
+          default:
+            return { x: xp, y: yp - 5, anchor: 'middle' };
+        }
+      };
       for (let c = 0; c < N; c++) {
         const p = ptsRaw[c];
         if (p === null) continue;
         const v = series.values[c];
         if (v === null || v === undefined || !Number.isFinite(v)) continue;
         const [xp, yp] = p;
+        const { x: lx, y: ly, anchor } = computeAttrs(xp, yp);
         out.push(
-          `<text x="${px(xp)}" y="${px(yp - 5)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v as number)}</text>`,
+          `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v as number)}</text>`,
         );
       }
     }
@@ -3526,9 +3544,25 @@ const renderPieChart = (
       out.push(`<path d="${d}" fill="${color}" stroke="#FFFFFF" stroke-width="0.6"/>`);
     }
     // Pie / doughnut data labels — value or percent at the slice midpoint.
-    // Track the explosion offset so labels move with their slice.
+    // Track the explosion offset so labels move with their slice. dLblPos
+    // chooses the radial position:
+    //   - ctr (default for pie): radius * 0.6 (or annulus mid for doughnut)
+    //   - inEnd: just inside the slice's outer edge
+    //   - outEnd: outside the slice (with a darker fill so it shows on
+    //     the chart-area background)
     const labelMid = (start + end) / 2;
-    const labelR = doughnut ? (radius + innerR) / 2 : radius * 0.6;
+    const pos = spec.series[0]?.dataLabels?.position ?? spec.dataLabels?.position;
+    let labelR: number;
+    let labelFill = '#FFFFFF';
+    if (pos === 'inEnd') {
+      labelR = radius - 12;
+    } else if (pos === 'outEnd') {
+      labelR = radius + 12;
+      labelFill = '#374151';
+    } else {
+      // ctr / bestFit / undefined — slice midline.
+      labelR = doughnut ? (radius + innerR) / 2 : radius * 0.6;
+    }
     const labelX = sx + labelR * Math.cos(labelMid);
     const labelY = sy + labelR * Math.sin(labelMid);
     const labels: string[] = [];
@@ -3540,7 +3574,7 @@ const renderPieChart = (
     }
     if (labels.length > 0) {
       out.push(
-        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#FFFFFF" font-weight="600">${escapeXml(labels.join(' '))}</text>`,
+        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="${labelFill}" font-weight="600">${escapeXml(labels.join(' '))}</text>`,
       );
     }
   }
