@@ -192,7 +192,13 @@ export interface ChartSpec {
    * it). `undefined` overall means the chart didn't author a legend
    * element — renderers should fall back to their own default.
    */
-  readonly legend?: { position: 'r' | 't' | 'b' | 'l' | 'tr' | null };
+  readonly legend?: {
+    position: 'r' | 't' | 'b' | 'l' | 'tr' | null;
+    /** When `true`, legend overlays the plot area instead of taking a strip. */
+    readonly overlay?: boolean;
+  };
+  /** When `true`, the chart title overlays the plot area instead of taking a strip. */
+  readonly titleOverlay?: boolean;
   /**
    * `<c:dispBlanksAs val="…"/>` — how line / area renderers should
    * treat `null` values in series:

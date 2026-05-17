@@ -2352,15 +2352,19 @@ const layoutChart = (
   hEmu: number,
   hasTitle: boolean,
   hasAxes: boolean,
+  titleOverlay = false,
+  legendOverlay = false,
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
   const w = wEmu / EMU_PER_PX;
   const h = hEmu / EMU_PER_PX;
-  const titleStrip = hasTitle ? 18 : 0;
-  const legendStrip = 18;
+  // When the title or legend is set to overlay, it sits on top of the
+  // plot area instead of taking its own strip — common when the deck
+  // author has aligned the plot tightly with surrounding content.
+  const titleStrip = hasTitle && !titleOverlay ? 18 : 0;
+  const legendStrip = legendOverlay ? 0 : 18;
   const padding = 8;
-  // Carve out axis gutters so numeric / category labels have room.
   const yAxisGutter = hasAxes ? 40 : 0;
   const xAxisGutter = hasAxes ? 18 : 0;
   return {
@@ -2372,8 +2376,8 @@ const layoutChart = (
     plotY: y + titleStrip + padding,
     plotW: Math.max(0, w - 2 * padding - yAxisGutter),
     plotH: Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
-    titleY: y + titleStrip - 2,
-    legendY: y + h - legendStrip / 2,
+    titleY: y + (titleOverlay ? 14 : titleStrip - 2),
+    legendY: y + h - (legendOverlay ? 18 : legendStrip / 2),
   };
 };
 
@@ -3337,7 +3341,16 @@ const renderChart = (
   const colors = accentSequence(theme);
   const isCartesian =
     spec.kind === 'column' || spec.kind === 'bar' || spec.kind === 'line' || spec.kind === 'area';
-  const f = layoutChart(x, y, w, h, !!spec.title, isCartesian);
+  const f = layoutChart(
+    x,
+    y,
+    w,
+    h,
+    !!spec.title,
+    isCartesian,
+    spec.titleOverlay ?? false,
+    spec.legend?.overlay ?? false,
+  );
   const seriesNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
       ? Array.from(spec.categories)

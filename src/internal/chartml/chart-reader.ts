@@ -610,10 +610,22 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   if (legendEl) {
     const posEl = firstChildElement(legendEl, qname('c', 'legendPos', NS_C));
     const tok = posEl ? getAttrValue(posEl, ATTR_VAL) : null;
+    const ovEl = firstChildElement(legendEl, qname('c', 'overlay', NS_C));
+    const overlay = ovEl ? getAttrValue(ovEl, ATTR_VAL) !== '0' : false;
     if (tok === 'r' || tok === 't' || tok === 'b' || tok === 'l' || tok === 'tr') {
-      legend = { position: tok };
+      legend = { position: tok, ...(overlay ? { overlay } : {}) };
     } else {
-      legend = { position: 'r' };
+      legend = { position: 'r', ...(overlay ? { overlay } : {}) };
+    }
+  }
+
+  // <c:title><c:overlay val="1"/>
+  let titleOverlay: boolean | undefined;
+  const titleEl = firstChildElement(chart, NAME_TITLE);
+  if (titleEl) {
+    const ovEl = firstChildElement(titleEl, qname('c', 'overlay', NS_C));
+    if (ovEl) {
+      titleOverlay = getAttrValue(ovEl, ATTR_VAL) !== '0';
     }
   }
 
@@ -654,6 +666,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),
+    ...(titleOverlay !== undefined ? { titleOverlay } : {}),
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
