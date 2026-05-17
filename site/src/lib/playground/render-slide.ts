@@ -2654,7 +2654,10 @@ const renderPieChart = (
     const oy1 = cy + radius * Math.sin(start);
     const ox2 = cx + radius * Math.cos(end);
     const oy2 = cy + radius * Math.sin(end);
-    const color = colors[i % colors.length];
+    // Per-slice color: <c:dPt> override wins, then series.color, then
+    // accent palette fallback.
+    const dptColor = series.pointColors?.[i];
+    const color = dptColor ?? series.color ?? colors[i % colors.length];
     if (doughnut) {
       const ix1 = cx + innerR * Math.cos(start);
       const iy1 = cy + innerR * Math.sin(start);
@@ -2713,8 +2716,14 @@ const renderChart = (
       : spec.series.map((s) => s.name);
   const seriesColorsForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
-      ? spec.categories.map((_, i) => colors[i % colors.length] ?? '#888')
-      : spec.series.map((_, i) => colors[i % colors.length] ?? '#888');
+      ? spec.categories.map(
+          (_, i) =>
+            spec.series[0]?.pointColors?.[i] ??
+            spec.series[0]?.color ??
+            colors[i % colors.length] ??
+            '#888',
+        )
+      : spec.series.map((s, i) => s.color ?? colors[i % colors.length] ?? '#888');
 
   // Count finite values across all series — when zero, draw a hint
   // label so an empty chart isn't indistinguishable from a working

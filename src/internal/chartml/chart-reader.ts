@@ -167,6 +167,34 @@ const readSeriesName = (ser: XmlElement): string => {
   return strs?.[0] ?? '';
 };
 
+// Walks `<c:ser><c:dPt>` overrides and returns a sparse array indexed
+// by point index. Returns `undefined` when no dPt overrides exist.
+const readDataPointColors = (ser: XmlElement): ReadonlyArray<string | null> | undefined => {
+  const out: Array<string | null> = [];
+  let any = false;
+  for (const c of ser.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS_C || c.name.localName !== 'dPt')
+      continue;
+    const idxEl = firstChildElement(c, qname('c', 'idx', NS_C));
+    if (!idxEl) continue;
+    const idxRaw = getAttrValue(idxEl, ATTR_VAL);
+    if (idxRaw === null) continue;
+    const idx = Number.parseInt(idxRaw, 10);
+    if (!Number.isFinite(idx) || idx < 0) continue;
+    const spPr = firstChildElement(c, NAME_SP_PR_C);
+    if (!spPr) continue;
+    const solidFill = firstChildElement(spPr, NAME_SOLID_FILL);
+    if (!solidFill) continue;
+    const srgb = firstChildElement(solidFill, NAME_SRGB_CLR);
+    if (!srgb) continue;
+    const val = getAttrValue(srgb, ATTR_VAL);
+    if (val === null) continue;
+    out[idx] = `#${val.toUpperCase()}`;
+    any = true;
+  }
+  return any ? out : undefined;
+};
+
 const readSeriesColor = (ser: XmlElement): string | undefined => {
   const spPr = firstChildElement(ser, NAME_SP_PR_C);
   if (!spPr) return undefined;
@@ -254,10 +282,13 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     const values = valEl !== null ? readNumRef(valEl) : null;
     const color = readSeriesColor(ser);
+    // <c:dPt> data-point overrides — sparse map idx → color.
+    const pointColors = readDataPointColors(ser);
     series.push({
       name,
       values: values ?? [],
       ...(color !== undefined ? { color } : {}),
+      ...(pointColors !== undefined ? { pointColors } : {}),
     });
   }
 

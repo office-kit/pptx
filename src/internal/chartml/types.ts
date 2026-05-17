@@ -21,6 +21,14 @@ export interface ChartSeries {
   readonly values: ReadonlyArray<number | null>;
   /** Optional `#RRGGBB` fill override. Defaults to the theme's accent palette. */
   readonly color?: string;
+  /**
+   * Optional per-data-point color overrides, indexed by point index
+   * (`<c:dPt><c:idx val="N"/><c:spPr><a:solidFill>…`). Sparse — only
+   * the indices that author an override appear. Pie / doughnut decks
+   * almost always emit one of these per slice to break out of the
+   * single-series-color default.
+   */
+  readonly pointColors?: ReadonlyArray<string | null>;
 }
 
 /**
