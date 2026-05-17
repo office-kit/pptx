@@ -457,6 +457,22 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // <c:legend> sits on the chart element (not the plotArea). Read the
+  // position; PowerPoint defaults to 'r' (right) when the element is
+  // present but has no legendPos. Absent legend element means renderers
+  // fall back to whatever they show by default.
+  let legend: ChartSpec['legend'];
+  const legendEl = firstChildElement(chart, qname('c', 'legend', NS_C));
+  if (legendEl) {
+    const posEl = firstChildElement(legendEl, qname('c', 'legendPos', NS_C));
+    const tok = posEl ? getAttrValue(posEl, ATTR_VAL) : null;
+    if (tok === 'r' || tok === 't' || tok === 'b' || tok === 'l' || tok === 'tr') {
+      legend = { position: tok };
+    } else {
+      legend = { position: 'r' };
+    }
+  }
+
   return {
     kind,
     categories,
@@ -467,5 +483,6 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(grouping !== undefined ? { grouping } : {}),
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
+    ...(legend !== undefined ? { legend } : {}),
   };
 };
