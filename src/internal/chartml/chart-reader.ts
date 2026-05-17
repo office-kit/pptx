@@ -851,8 +851,23 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const v = getAttrValue(srgb, ATTR_VAL);
     return v !== null ? `#${v.toUpperCase()}` : undefined;
   };
+  // Stroke color from `<c:spPr><a:ln><a:solidFill><a:srgbClr/>`.
+  const readSpPrStrokeColor = (parent: XmlElement): string | undefined => {
+    const spPr = firstChildElement(parent, NAME_SP_PR_C);
+    if (!spPr) return undefined;
+    const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
+    if (!ln) return undefined;
+    const solid = firstChildElement(ln, NAME_SOLID_FILL);
+    if (!solid) return undefined;
+    const srgb = firstChildElement(solid, NAME_SRGB_CLR);
+    if (!srgb) return undefined;
+    const v = getAttrValue(srgb, ATTR_VAL);
+    return v !== null ? `#${v.toUpperCase()}` : undefined;
+  };
   const plotAreaFill = readSpPrFill(plotArea);
+  const plotAreaStrokeColor = readSpPrStrokeColor(plotArea);
   const chartAreaFill = readSpPrFill(root);
+  const chartAreaStrokeColor = readSpPrStrokeColor(root);
 
   // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
   // null gaps in line / area series render: 'gap' (default), 'zero', or
@@ -937,7 +952,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(titleOverlay !== undefined ? { titleOverlay } : {}),
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
     ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
+    ...(plotAreaStrokeColor !== undefined ? { plotAreaStrokeColor } : {}),
     ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),
+    ...(chartAreaStrokeColor !== undefined ? { chartAreaStrokeColor } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(categoryAxisTitleStyle !== undefined ? { categoryAxisTitleStyle } : {}),
     ...(categoryAxisLabelStyle !== undefined ? { categoryAxisLabelStyle } : {}),
