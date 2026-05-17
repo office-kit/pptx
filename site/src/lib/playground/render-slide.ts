@@ -64,7 +64,9 @@ import {
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
+  getTableCellBorders,
   getTableCellFill,
+  getTableCellSpan,
   getTableCellText,
   getTableCells,
   getTableColumnWidths,
@@ -2297,6 +2299,7 @@ const renderTableCellText = (
 
 const renderTable = (
   shape: SlideShapeData,
+  pres: PresentationData,
   x: number,
   y: number,
   w: number,
@@ -2345,22 +2348,61 @@ const renderTable = (
   // Whole-table backdrop so cells with no explicit fill still
   // contrast against whatever's behind.
   out.push(`<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`);
+  const borderEdges: string[] = [];
   for (let r = 0; r < dims.rows; r++) {
     for (let c = 0; c < dims.cols; c++) {
       const cell = cells[r]?.[c];
       if (!cell) continue;
+      const typedCell = cell as Parameters<typeof getTableCellSpan>[0];
+      const span = getTableCellSpan(typedCell);
+      // Skip cells absorbed by a horizontal or vertical merge — their
+      // visual area is painted by the cell that owns the span.
+      if (span.hMerge || span.vMerge) continue;
       const cx = colXs[c] ?? xPx;
       const cy = rowYs[r] ?? yPx;
-      const cw = (colXs[c + 1] ?? cx) - cx;
-      const ch = (rowYs[r + 1] ?? cy) - cy;
+      const endCol = Math.min(dims.cols, c + span.gridSpan);
+      const endRow = Math.min(dims.rows, r + span.rowSpan);
+      const cw = (colXs[endCol] ?? cx) - cx;
+      const ch = (rowYs[endRow] ?? cy) - cy;
       const fill = getTableCellFill(cell as Parameters<typeof getTableCellFill>[0]);
       const fillColor = fill ? resolveColor(fill, theme, '#FFFFFF') : 'none';
-      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${fillColor}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${fillColor}"/>`);
+      // Per-side borders override the default thin gray grid. Draw them
+      // separately after the fills so they sit on top.
+      const borders = getTableCellBorders(pres, typedCell);
+      const edge = (
+        side: keyof Pick<typeof borders, 'left' | 'right' | 'top' | 'bottom'>,
+        x1: number, y1: number, x2: number, y2: number,
+      ): void => {
+        const b = borders[side];
+        if (!b) return;
+        const sw = b.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : 0.5;
+        const col = b.color ?? '#9CA3AF';
+        borderEdges.push(`<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"/>`);
+      };
+      edge('left', cx, cy, cx, cy + ch);
+      edge('right', cx + cw, cy, cx + cw, cy + ch);
+      edge('top', cx, cy, cx + cw, cy);
+      edge('bottom', cx, cy + ch, cx + cw, cy + ch);
+      if (borders.tlToBr) {
+        borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`);
+      }
+      if (borders.blToTr) {
+        borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`);
+      }
+      // Default thin grid for sides that didn't define a border.
+      const defaultColor = '#9CA3AF';
+      if (!borders.left) borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
+      if (!borders.right) borderEdges.push(`<line x1="${px(cx + cw)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
+      if (!borders.top) borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
+      if (!borders.bottom) borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
+
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
       out.push(renderTableCellText(text, cx, cy, cw, ch, align, textColor));
     }
   }
+  out.push(borderEdges.join(''));
   out.push('</g>');
   return out.join('');
 };
@@ -2499,7 +2541,7 @@ const renderShape = (
       if (chartSvg) return chartSvg;
     }
     if (isTableShape(shape)) {
-      const tableSvg = renderTable(shape, x, y, w, h, transform, theme);
+      const tableSvg = renderTable(shape, pres, x, y, w, h, transform, theme);
       if (tableSvg) return tableSvg;
     }
     let label = 'graphicFrame';

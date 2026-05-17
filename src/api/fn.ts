@@ -8531,6 +8531,104 @@ export const setTableCellText = (cell: TableCellData, text: string): void => {
   commitTableCell(cell);
 };
 
+/**
+ * Reads the cell's merge / span attributes:
+ *
+ *   - `gridSpan` — number of columns this cell spans (≥1, default 1).
+ *   - `rowSpan` — number of rows this cell spans (≥1, default 1).
+ *   - `hMerge` — `true` when this cell is the right half of a horizontal
+ *     span (it's painted by an earlier cell with `gridSpan > 1`).
+ *   - `vMerge` — `true` when this cell is the bottom half of a vertical
+ *     span (it's painted by an earlier cell with `rowSpan > 1`).
+ *
+ * Renderers should skip painting cells where `hMerge` or `vMerge` is
+ * true; those cells exist only so the row/column grid stays consistent.
+ */
+export const getTableCellSpan = (
+  cell: TableCellData,
+): { gridSpan: number; rowSpan: number; hMerge: boolean; vMerge: boolean } => {
+  const el = cell[CELL_ELEMENT];
+  const gs = getAttrValue(el, qname('', 'gridSpan', ''));
+  const rs = getAttrValue(el, qname('', 'rowSpan', ''));
+  const hm = getAttrValue(el, qname('', 'hMerge', ''));
+  const vm = getAttrValue(el, qname('', 'vMerge', ''));
+  const parseSpan = (v: string | null): number => {
+    if (v === null) return 1;
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) && n > 0 ? n : 1;
+  };
+  return {
+    gridSpan: parseSpan(gs),
+    rowSpan: parseSpan(rs),
+    hMerge: hm === '1' || hm === 'true',
+    vMerge: vm === '1' || vm === 'true',
+  };
+};
+
+/**
+ * One side of a cell's border, as read from `<a:tcPr><a:ln{L|R|T|B}>`.
+ * `widthEmu` is the line width in EMU; `color` is `#RRGGBB` or `null`
+ * when the border is inherited / un-styled.
+ */
+export interface TableCellBorder {
+  readonly color: string | null;
+  readonly widthEmu: number | null;
+  readonly dash: string | null;
+}
+
+export interface TableCellBorders {
+  readonly left: TableCellBorder | null;
+  readonly right: TableCellBorder | null;
+  readonly top: TableCellBorder | null;
+  readonly bottom: TableCellBorder | null;
+  readonly tlToBr: TableCellBorder | null;
+  readonly blToTr: TableCellBorder | null;
+}
+
+/**
+ * Reads the per-side borders on a cell. Returns `null` for sides with
+ * no explicit `<a:ln{Side}>` element (those inherit from the table
+ * style / theme). All four cardinal sides plus the two diagonals
+ * (TL→BR, BL→TR) are surfaced because real templates use them all.
+ */
+export const getTableCellBorders = (
+  pres: PresentationData,
+  cell: TableCellData,
+): TableCellBorders => {
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  const theme = getPresentationTheme(pres);
+  const empty: TableCellBorders = {
+    left: null, right: null, top: null, bottom: null, tlToBr: null, blToTr: null,
+  };
+  if (!tcPr) return empty;
+  const readLn = (local: string): TableCellBorder | null => {
+    const ln = firstChildElement(tcPr, qname('a', local, NS.dml));
+    if (!ln) return null;
+    const w = getAttrValue(ln, qname('', 'w', ''));
+    const widthEmu = w !== null ? Number.parseInt(w, 10) : null;
+    let color: string | null = null;
+    const solid = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
+    if (solid) {
+      for (const c of solid.children) {
+        if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+        color = resolveDrawingColor(c, theme);
+        break;
+      }
+    }
+    const prstDash = firstChildElement(ln, qname('a', 'prstDash', NS.dml));
+    const dash = prstDash ? getAttrValue(prstDash, qname('', 'val', '')) : null;
+    return { color, widthEmu, dash };
+  };
+  return {
+    left: readLn('lnL'),
+    right: readLn('lnR'),
+    top: readLn('lnT'),
+    bottom: readLn('lnB'),
+    tlToBr: readLn('lnTlToBr'),
+    blToTr: readLn('lnBlToTr'),
+  };
+};
+
 /** Reads the cell's plain text (paragraphs joined with `\n`). */
 export const getTableCellText = (cell: TableCellData): string => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
