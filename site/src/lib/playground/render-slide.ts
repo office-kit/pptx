@@ -1721,6 +1721,101 @@ const placeholderDefaultPt = (phType: string | null): number => {
 
 const bulletChar = (level: number): string => (level <= 0 ? '•' : level === 1 ? '◦' : '▪');
 
+// Maps a `BulletStyle` value to the underlying `ST_TextAutoNumberScheme`
+// token (or `null` when the paragraph isn't auto-numbered). `'number'`
+// is the shorthand for arabicPeriod that setShapeBullets uses.
+const bulletAutoNumType = (style: ReturnType<typeof getParagraphBullet>): string | null => {
+  if (style === 'number') return 'arabicPeriod';
+  if (style !== null && typeof style === 'object' && 'autoNum' in style) {
+    return style.autoNum ?? null;
+  }
+  return null;
+};
+
+const toRoman = (n: number): string => {
+  if (n <= 0) return String(n);
+  const map: ReadonlyArray<[number, string]> = [
+    [1000, 'M'],
+    [900, 'CM'],
+    [500, 'D'],
+    [400, 'CD'],
+    [100, 'C'],
+    [90, 'XC'],
+    [50, 'L'],
+    [40, 'XL'],
+    [10, 'X'],
+    [9, 'IX'],
+    [5, 'V'],
+    [4, 'IV'],
+    [1, 'I'],
+  ];
+  let out = '';
+  let r = n;
+  for (const [v, s] of map) {
+    while (r >= v) {
+      out += s;
+      r -= v;
+    }
+  }
+  return out;
+};
+
+const toAlpha = (n: number): string => {
+  // 1 -> A, 26 -> Z, 27 -> AA, etc.
+  if (n <= 0) return String(n);
+  let r = n;
+  let out = '';
+  while (r > 0) {
+    r -= 1;
+    out = String.fromCharCode(65 + (r % 26)) + out;
+    r = Math.floor(r / 26);
+  }
+  return out;
+};
+
+// Format an auto-number per ECMA-376 §17.18.96 `ST_TextAutoNumberScheme`.
+// Only the most common variants are implemented; unknown tokens fall back
+// to arabicPeriod-style formatting.
+const formatAutoNum = (token: string, n: number): string => {
+  const arabic = String(n);
+  switch (token) {
+    case 'arabicPlain':
+      return arabic;
+    case 'arabicPeriod':
+      return `${arabic}.`;
+    case 'arabicParenR':
+      return `${arabic})`;
+    case 'arabicParenBoth':
+      return `(${arabic})`;
+    case 'romanUcPeriod':
+      return `${toRoman(n)}.`;
+    case 'romanLcPeriod':
+      return `${toRoman(n).toLowerCase()}.`;
+    case 'romanUcParenR':
+      return `${toRoman(n)})`;
+    case 'romanLcParenR':
+      return `${toRoman(n).toLowerCase()})`;
+    case 'romanUcParenBoth':
+      return `(${toRoman(n)})`;
+    case 'romanLcParenBoth':
+      return `(${toRoman(n).toLowerCase()})`;
+    case 'alphaUcPeriod':
+      return `${toAlpha(n)}.`;
+    case 'alphaLcPeriod':
+      return `${toAlpha(n).toLowerCase()}.`;
+    case 'alphaUcParenR':
+      return `${toAlpha(n)})`;
+    case 'alphaLcParenR':
+      return `${toAlpha(n).toLowerCase()})`;
+    case 'alphaUcParenBoth':
+      return `(${toAlpha(n)})`;
+    case 'alphaLcParenBoth':
+      return `(${toAlpha(n).toLowerCase()})`;
+    default:
+      return `${arabic}.`;
+  }
+};
+
 // `effectivePt` is the post-autofit font size in points. Callers pass
 // `format.size` (the authored size, if any) scaled by the body's
 // autofit factor, or the placeholder default scaled the same way.
@@ -1997,9 +2092,38 @@ const renderTextBody = (
   const effectiveLineHeight = LINE_HEIGHT * lineHeightScale;
   void effectiveLineHeight; // currently unused — kept for forward compat
 
+  // Numbering pre-pass — assign an autonum index per paragraph for
+  // consecutive numbered paragraphs at the same level. Resets on a
+  // non-numbered paragraph or a level change.
+  const numberLabels: Array<string | null> = new Array(paraData.length).fill(null);
+  {
+    let counter = 0;
+    let activeLevel = -1;
+    let activeType: string | null = null;
+    for (let i = 0; i < paraData.length; i++) {
+      const para = paraData[i]!;
+      const num = bulletAutoNumType(para.bulletStyle);
+      if (num === null) {
+        counter = 0;
+        activeLevel = -1;
+        activeType = null;
+        continue;
+      }
+      if (para.level !== activeLevel || num !== activeType) {
+        counter = 1;
+        activeLevel = para.level;
+        activeType = num;
+      } else {
+        counter += 1;
+      }
+      numberLabels[i] = formatAutoNum(num, counter);
+    }
+  }
+
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
-  for (const para of paraData) {
+  for (let pi = 0; pi < paraData.length; pi++) {
+    const para = paraData[pi]!;
     const runHtmls = para.runs.map((run) =>
       renderRun(run.text, run.fmt, theme, run.sizePt * autoFitScale, run.fmt?.size === undefined),
     );
@@ -2053,12 +2177,14 @@ const renderTextBody = (
       'char' in para.bulletStyle
         ? para.bulletStyle.char
         : null;
+    const numberLabel = numberLabels[pi];
     const showBullet =
       para.bulletStyle === 'bullet' ||
       explicitChar !== null ||
+      numberLabel !== null ||
       (para.bulletStyle !== 'none' && para.level > 0);
     if (showBullet) {
-      const char = explicitChar ?? bulletChar(para.level);
+      const char = numberLabel ?? explicitChar ?? bulletChar(para.level);
       // Bullet style overrides: color, size %, fixed pt size, font face.
       const bulletStyles: string[] = [
         `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
