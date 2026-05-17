@@ -5698,6 +5698,18 @@ const lstStyleLevelDefRPr = (lstStyle: XmlElement | null, level: number): XmlEle
   return firstChildElement(lvlPPr, NAME_A_DEF_RPR);
 };
 
+// Companion to `lstStyleLevelDefRPr` but returns the `<a:lvlNpPr>` (or
+// `<a:defPPr>` for level 0) element itself — i.e. the paragraph-property
+// container, not the run-default child. Used by the pPr cascade.
+const lstStyleLevelPPr = (lstStyle: XmlElement | null, level: number): XmlElement | null => {
+  if (!lstStyle) return null;
+  const localName = `lvl${Math.max(0, Math.min(8, level)) + 1}pPr`;
+  const lvlPPr = firstChildElement(lstStyle, qname('a', localName, NS.dml));
+  if (lvlPPr) return lvlPPr;
+  if (level !== 0) return null;
+  return firstChildElement(lstStyle, qname('a', 'defPPr', NS.dml));
+};
+
 const findShapeLstStyleElement = (shape: SlideShapeData): XmlElement | null => {
   const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_P_TX_BODY_PML);
   if (!txBody) return null;
@@ -5893,6 +5905,231 @@ export const getShapeRunFormatEffective = (
   }
 
   return result as TextFormat;
+};
+
+// -- Effective pPr cascade --------------------------------------------------
+//
+// Mirror of the rPr cascade for paragraph-level properties: alignment,
+// indents, line spacing, paragraph spacing, rtl. Walks the same layers:
+//
+//   1. The paragraph's own `<a:pPr>`
+//   2. The text body's `<a:lstStyle><a:lvl{N+1}pPr>` (paragraph defaults)
+//   3. The matching layout placeholder's lstStyle
+//   4. The matching master placeholder's lstStyle, then
+//      `<p:txStyles>/{title|body|other}Style/<a:lvl{N+1}pPr>`
+//
+// Each property merges independently — innermost layer that supplies a
+// value wins for that one property.
+
+/** Effective paragraph properties returned by `getParagraphPropertiesEffective`. */
+export interface ParagraphProperties {
+  /** Horizontal alignment per `ParagraphAlignment`. */
+  align: ParagraphAlignment | null;
+  /** Outline level (0..8). 0 = top-level paragraph. */
+  level: number;
+  /** Left indent in EMU. */
+  marL: number | null;
+  /** Right indent in EMU. */
+  marR: number | null;
+  /** First-line indent in EMU; negative for hanging indents. */
+  indent: number | null;
+  /** Line spacing — either a percent multiplier or a fixed point value. */
+  lineSpacing:
+    | { readonly kind: 'pct'; readonly value: number }
+    | { readonly kind: 'pts'; readonly value: number }
+    | null;
+  /** Space before the paragraph in points. */
+  spcBefPts: number | null;
+  /** Space after the paragraph in points. */
+  spcAftPts: number | null;
+  /** Right-to-left paragraph (`<a:pPr rtl="1"/>`). */
+  rtl: boolean | null;
+}
+
+const ALIGN_TOKEN_MAP: Record<string, ParagraphProperties['align']> = {
+  l: 'left',
+  ctr: 'center',
+  r: 'right',
+  just: 'justify',
+  justLow: 'justify',
+  dist: 'distribute',
+  thaiDist: 'distribute',
+};
+
+const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
+  const out: Partial<ParagraphProperties> = {};
+  const algn = getAttrValue(pPr, qname('', 'algn', ''));
+  if (algn !== null && ALIGN_TOKEN_MAP[algn] !== undefined) out.align = ALIGN_TOKEN_MAP[algn];
+  const marL = getAttrValue(pPr, qname('', 'marL', ''));
+  if (marL !== null) {
+    const n = Number.parseInt(marL, 10);
+    if (Number.isFinite(n)) out.marL = n;
+  }
+  const marR = getAttrValue(pPr, qname('', 'marR', ''));
+  if (marR !== null) {
+    const n = Number.parseInt(marR, 10);
+    if (Number.isFinite(n)) out.marR = n;
+  }
+  const indent = getAttrValue(pPr, qname('', 'indent', ''));
+  if (indent !== null) {
+    const n = Number.parseInt(indent, 10);
+    if (Number.isFinite(n)) out.indent = n;
+  }
+  const rtl = getAttrValue(pPr, qname('', 'rtl', ''));
+  if (rtl !== null) out.rtl = rtl === '1' || rtl === 'true';
+  const lnSpc = firstChildElement(pPr, qname('a', 'lnSpc', NS.dml));
+  if (lnSpc) {
+    const pct = firstChildElement(lnSpc, qname('a', 'spcPct', NS.dml));
+    if (pct) {
+      const v = getAttrValue(pct, qname('', 'val', ''));
+      if (v !== null) {
+        let n = Number.parseFloat(v);
+        if (Number.isFinite(n)) {
+          if (Math.abs(n) > 1) n = n / 100000;
+          out.lineSpacing = { kind: 'pct', value: n };
+        }
+      }
+    } else {
+      const pts = firstChildElement(lnSpc, qname('a', 'spcPts', NS.dml));
+      if (pts) {
+        const v = getAttrValue(pts, qname('', 'val', ''));
+        if (v !== null) {
+          const n = Number.parseInt(v, 10);
+          if (Number.isFinite(n)) out.lineSpacing = { kind: 'pts', value: n / 100 };
+        }
+      }
+    }
+  }
+  const readSpcSide = (local: 'spcBef' | 'spcAft'): number | null => {
+    const side = firstChildElement(pPr, qname('a', local, NS.dml));
+    if (!side) return null;
+    const pts = firstChildElement(side, qname('a', 'spcPts', NS.dml));
+    if (!pts) return null;
+    const v = getAttrValue(pts, qname('', 'val', ''));
+    if (v === null) return null;
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n / 100 : null;
+  };
+  const before = readSpcSide('spcBef');
+  if (before !== null) out.spcBefPts = before;
+  const after = readSpcSide('spcAft');
+  if (after !== null) out.spcAftPts = after;
+  return out;
+};
+
+const mergePPrLayer = (
+  base: Partial<ParagraphProperties>,
+  layer: Partial<ParagraphProperties>,
+): void => {
+  if (base.align === undefined && layer.align !== undefined) base.align = layer.align;
+  if (base.marL === undefined && layer.marL !== undefined) base.marL = layer.marL;
+  if (base.marR === undefined && layer.marR !== undefined) base.marR = layer.marR;
+  if (base.indent === undefined && layer.indent !== undefined) base.indent = layer.indent;
+  if (base.rtl === undefined && layer.rtl !== undefined) base.rtl = layer.rtl;
+  if (base.lineSpacing === undefined && layer.lineSpacing !== undefined) {
+    base.lineSpacing = layer.lineSpacing;
+  }
+  if (base.spcBefPts === undefined && layer.spcBefPts !== undefined) {
+    base.spcBefPts = layer.spcBefPts;
+  }
+  if (base.spcAftPts === undefined && layer.spcAftPts !== undefined) {
+    base.spcAftPts = layer.spcAftPts;
+  }
+};
+
+/**
+ * Resolves a paragraph's effective properties by walking the same
+ * inheritance chain `getShapeRunFormatEffective` uses, but for the
+ * paragraph-level surface:
+ *
+ *   - alignment, indent (left / right / first-line), line spacing,
+ *     paragraph spacing (before / after), rtl.
+ *
+ * Each property is resolved independently; the innermost layer that
+ * sets it wins. Fields the cascade can't resolve come through as `null`
+ * so renderers know to fall back to their own defaults.
+ *
+ * Companion to `getParagraphAlignment` / `getParagraphLineSpacing` /
+ * `getParagraphIndent` / `getParagraphSpacing`, which only surface the
+ * literal `<a:pPr>` and skip the layout / master cascade.
+ */
+export const getParagraphPropertiesEffective = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): ParagraphProperties => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+
+  let level = 0;
+  if (pPr) {
+    const lvlAttr = getAttrValue(pPr, ATTR_LVL);
+    if (lvlAttr !== null) {
+      const parsed = Number.parseInt(lvlAttr, 10);
+      if (Number.isFinite(parsed)) level = parsed;
+    }
+  }
+
+  const result: Partial<ParagraphProperties> = {};
+
+  // 1. Paragraph's own pPr.
+  if (pPr) mergePPrLayer(result, parsePPrLikeElement(pPr));
+
+  // 2. Text-body lstStyle at the paragraph's level.
+  const shapeLstStyle = findShapeLstStyleElement(shape);
+  const shapeLvlPPr = lstStyleLevelPPr(shapeLstStyle, level);
+  if (shapeLvlPPr) mergePPrLayer(result, parsePPrLikeElement(shapeLvlPPr));
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+  const slide = shape[SHAPE_SLIDE];
+  const layout = getSlideLayout(slide);
+
+  if (layout) {
+    // 3. Layout placeholder lstStyle.
+    const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
+    if (layoutPh) {
+      const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
+      const layoutLvlPPr = lstStyleLevelPPr(layoutLst, level);
+      if (layoutLvlPPr) mergePPrLayer(result, parsePPrLikeElement(layoutLvlPPr));
+    }
+
+    // 4. Master placeholder lstStyle + master txStyles.
+    const pkg = pres[INTERNAL_PACKAGE];
+    const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+    const layoutRels = pkg.getRels(layoutPartName);
+    if (layoutRels) {
+      const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+      if (masterRel) {
+        const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+        if (masterPart) {
+          const masterRoot = parseXml(decode(masterPart.data)).root;
+          const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+          const masterPh = findPlaceholderShapeIn(masterShapes, phIdx, phType);
+          if (masterPh) {
+            const masterLst = extractPlaceholderLstStyle(masterPh.element);
+            const masterLvlPPr = lstStyleLevelPPr(masterLst, level);
+            if (masterLvlPPr) mergePPrLayer(result, parsePPrLikeElement(masterLvlPPr));
+          }
+          const txStyle = masterTxStyleFor(masterRoot, phType);
+          const txLvlPPr = lstStyleLevelPPr(txStyle, level);
+          if (txLvlPPr) mergePPrLayer(result, parsePPrLikeElement(txLvlPPr));
+        }
+      }
+    }
+  }
+
+  return {
+    align: result.align ?? null,
+    level,
+    marL: result.marL ?? null,
+    marR: result.marR ?? null,
+    indent: result.indent ?? null,
+    lineSpacing: result.lineSpacing ?? null,
+    spcBefPts: result.spcBefPts ?? null,
+    spcAftPts: result.spcAftPts ?? null,
+    rtl: result.rtl ?? null,
+  };
 };
 
 /**

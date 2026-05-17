@@ -23,6 +23,22 @@ export interface ChartSeries {
   readonly color?: string;
 }
 
+/**
+ * Per-series data-label toggles read from `<c:dLbls>` (ECMA-376
+ * §21.2.2.55). All four toggles default to `false` — renderers paint
+ * labels only when the corresponding flag is `true`.
+ */
+export interface ChartDataLabels {
+  /** Numeric value of each data point. */
+  readonly showValue: boolean;
+  /** Category label of each data point. */
+  readonly showCategory: boolean;
+  /** Series name on each data point. */
+  readonly showSeriesName: boolean;
+  /** Percentage of total (for pie / doughnut). */
+  readonly showPercent: boolean;
+}
+
 /** Full chart specification. */
 export interface ChartSpec {
   readonly kind: ChartKind;
@@ -31,4 +47,6 @@ export interface ChartSpec {
   readonly series: ReadonlyArray<ChartSeries>;
   /** Optional chart title rendered above the plot area. */
   readonly title?: string;
+  /** Optional chart-level data-label toggles. */
+  readonly dataLabels?: ChartDataLabels;
 }

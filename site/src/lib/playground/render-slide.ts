@@ -27,6 +27,7 @@ import {
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
+  getParagraphPropertiesEffective,
   getParagraphSpacing,
   getPresentationTheme,
   getShapeBoundsResolved,
@@ -1841,8 +1842,28 @@ const renderTextBody = (
   const paraData: ParaData[] = [];
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
-    const align = getParagraphAlignment(shape, p) ?? 'left';
-    const level = getParagraphLevel(shape, p);
+    // Resolve paragraph properties through the layout/master cascade so
+    // placeholders inherit their default alignment / line-spacing / indent
+    // without each slide having to repeat them. Fall back to the literal
+    // readers if the cascade throws (very defensive — should never happen).
+    let effective: ReturnType<typeof getParagraphPropertiesEffective>;
+    try {
+      effective = getParagraphPropertiesEffective(pres, shape, p);
+    } catch {
+      effective = {
+        align: getParagraphAlignment(shape, p),
+        level: getParagraphLevel(shape, p),
+        marL: null,
+        marR: null,
+        indent: null,
+        lineSpacing: null,
+        spcBefPts: null,
+        spcAftPts: null,
+        rtl: null,
+      };
+    }
+    const align = effective.align ?? 'left';
+    const level = effective.level;
     const bulletStyle = getParagraphBullet(shape, p);
     let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
       color: null,
@@ -1853,24 +1874,26 @@ const renderTextBody = (
     try {
       bulletDetail = getParagraphBulletStyle(pres, shape, p);
     } catch {}
-    let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
-    let spcBefPts: number | null = null;
-    let spcAftPts: number | null = null;
-    let indent: ReturnType<typeof getParagraphIndent> = {
-      leftEmu: null,
-      rightEmu: null,
-      firstLineEmu: null,
+    const lineSpacing: ReturnType<typeof getParagraphLineSpacing> = effective.lineSpacing;
+    let spcBefPts: number | null = effective.spcBefPts;
+    let spcAftPts: number | null = effective.spcAftPts;
+    const indent: ReturnType<typeof getParagraphIndent> = {
+      leftEmu: effective.marL,
+      rightEmu: effective.marR,
+      firstLineEmu: effective.indent,
     };
-    try {
-      lineSpacing = getParagraphLineSpacing(shape, p);
-    } catch {}
+    // Literal pPr values override the cascade so any per-slide override
+    // wins on this paragraph.
     try {
       const spacing = getParagraphSpacing(shape, p);
-      spcBefPts = spacing.beforePts;
-      spcAftPts = spacing.afterPts;
+      if (spacing.beforePts !== null) spcBefPts = spacing.beforePts;
+      if (spacing.afterPts !== null) spcAftPts = spacing.afterPts;
     } catch {}
     try {
-      indent = getParagraphIndent(shape, p);
+      const lit = getParagraphIndent(shape, p);
+      if (lit.leftEmu !== null) indent.leftEmu = lit.leftEmu;
+      if (lit.rightEmu !== null) indent.rightEmu = lit.rightEmu;
+      if (lit.firstLineEmu !== null) indent.firstLineEmu = lit.firstLineEmu;
     } catch {}
     const runs: RunData[] = [];
     // Walk the paragraph's inline elements — runs, field placeholders,
@@ -2363,6 +2386,7 @@ const renderColumnChart = (
   const groupW = f.plotW / N;
   const barW = (groupW * 0.8) / spec.series.length;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
+  const showLabel = spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
     for (let s = 0; s < spec.series.length; s++) {
@@ -2374,6 +2398,14 @@ const renderColumnChart = (
       out.push(
         `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
       );
+      if (showLabel) {
+        // Label centered above the bar (below if the bar is below the
+        // baseline for negative values).
+        const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
+        out.push(
+          `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
+        );
+      }
     }
   }
   // Zero baseline for visual reference.
@@ -2381,6 +2413,16 @@ const renderColumnChart = (
     `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
   );
   return out.join('');
+};
+
+// Trim long decimals; large numbers keep their integer form.
+const formatChartValue = (v: number): string => {
+  if (!Number.isFinite(v)) return '';
+  if (Number.isInteger(v)) return String(v);
+  const abs = Math.abs(v);
+  if (abs >= 1000) return Math.round(v).toString();
+  if (abs >= 10) return v.toFixed(1);
+  return v.toFixed(2).replace(/\.?0+$/, '');
 };
 
 const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
@@ -2492,6 +2534,23 @@ const renderPieChart = (
     } else {
       const d = `M${px(cx)},${px(cy)} L${px(ox1)},${px(oy1)} A${px(radius)},${px(radius)} 0 ${largeArc} 1 ${px(ox2)},${px(oy2)} Z`;
       out.push(`<path d="${d}" fill="${color}" stroke="#FFFFFF" stroke-width="0.6"/>`);
+    }
+    // Pie / doughnut data labels — value or percent at the slice midpoint.
+    const labelMid = (start + end) / 2;
+    const labelR = doughnut ? (radius + innerR) / 2 : radius * 0.6;
+    const labelX = cx + labelR * Math.cos(labelMid);
+    const labelY = cy + labelR * Math.sin(labelMid);
+    const labels: string[] = [];
+    if (spec.dataLabels?.showValue) labels.push(formatChartValue(v));
+    if (spec.dataLabels?.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
+    if (spec.dataLabels?.showCategory) {
+      const catLabel = spec.categories[i];
+      if (catLabel) labels.push(catLabel);
+    }
+    if (labels.length > 0) {
+      out.push(
+        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#FFFFFF" font-weight="600">${escapeXml(labels.join(' '))}</text>`,
+      );
     }
   }
   return out.join('');
