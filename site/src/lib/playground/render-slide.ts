@@ -2408,6 +2408,43 @@ const formatTick = (v: number): string => {
   return v.toFixed(abs < 1 ? 2 : 1);
 };
 
+// Project a subset of Excel-style number-format codes onto a label.
+// Covers the most common cases real templates emit:
+//   - '0%'  / '0.0%'  / '#%' : percent (multiplied by 100)
+//   - '#,##0' / '#,##0.0'    : thousand separator
+//   - '$#,##0' / '¥#,##0'    : currency prefix
+//   - 'm/d/yyyy', 'yyyy-mm-dd': skipped (we don't get Date inputs)
+// Unrecognised formats fall through to formatTick.
+const formatAxisLabel = (v: number, formatCode: string | undefined): string => {
+  if (!formatCode) return formatTick(v);
+  if (formatCode.includes('%')) {
+    // Strip surrounding chars except the % position; compute decimals
+    // from the format's fractional spec.
+    const decMatch = /0\.(0+)%/.exec(formatCode);
+    const dec = decMatch ? decMatch[1]!.length : 0;
+    return `${(v * 100).toFixed(dec)}%`;
+  }
+  if (formatCode.startsWith('$') || formatCode.startsWith('¥') || /^[£€]/.test(formatCode)) {
+    const prefix = formatCode[0]!;
+    const body = formatCode.slice(1);
+    return prefix + formatWithGrouping(v, body);
+  }
+  if (formatCode.includes('#,##')) {
+    return formatWithGrouping(v, formatCode);
+  }
+  return formatTick(v);
+};
+
+const formatWithGrouping = (v: number, fmt: string): string => {
+  const decMatch = /\.(0+)/.exec(fmt);
+  const dec = decMatch ? decMatch[1]!.length : 0;
+  const fixed = Math.abs(v).toFixed(dec);
+  const [intPart, fracPart] = fixed.split('.');
+  const grouped = intPart!.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const sign = v < 0 ? '-' : '';
+  return sign + grouped + (fracPart ? `.${fracPart}` : '');
+};
+
 // Numeric tick labels + horizontal gridlines on the value axis (Y for
 // column/line/area, X for bar). Shared between every cartesian chart
 // kind so axis styling stays consistent.
@@ -2416,6 +2453,8 @@ interface AxisSpec {
   readonly min: number;
   readonly max: number;
   readonly majorUnit?: number;
+  /** Excel-style number-format code from <c:numFmt formatCode=…>. */
+  readonly numberFormat?: string;
 }
 
 const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
@@ -2440,7 +2479,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       );
       // Numeric label, right-aligned to the plot's left edge.
       out.push(
-        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`,
+        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -2448,7 +2487,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
         `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
       );
       out.push(
-        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`,
+        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     }
   }
@@ -3168,10 +3207,15 @@ const renderChart = (
     const { min, max } = seriesMinMax(spec);
     const N = pointCount(spec);
     const majorUnit = spec.valueAxis?.majorUnit;
+    const numberFormat = spec.valueAxis?.numberFormat;
+    const axisExtras = {
+      ...(majorUnit !== undefined ? { majorUnit } : {}),
+      ...(numberFormat !== undefined ? { numberFormat } : {}),
+    };
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
-        ? { orientation: 'horizontal', min, max, ...(majorUnit !== undefined ? { majorUnit } : {}) }
-        : { orientation: 'vertical', min, max, ...(majorUnit !== undefined ? { majorUnit } : {}) };
+        ? { orientation: 'horizontal', min, max, ...axisExtras }
+        : { orientation: 'vertical', min, max, ...axisExtras };
     axes = renderValueAxis(f, valueAxis);
     if (N > 0) {
       axes += renderCategoryAxis(

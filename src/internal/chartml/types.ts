@@ -83,6 +83,12 @@ export interface ChartAxisScaling {
   readonly majorUnit?: number;
   /** Minor tick spacing (`<c:minorUnit val="N"/>`). */
   readonly minorUnit?: number;
+  /**
+   * Number-format code from `<c:numFmt formatCode="…"/>`. Common
+   * values: `"0%"`, `"0.0%"`, `"#,##0"`, `"$#,##0"`, `"yyyy-mm-dd"`.
+   * Renderers project a subset of Excel-style formats to label text.
+   */
+  readonly numberFormat?: string;
 }
 
 /**

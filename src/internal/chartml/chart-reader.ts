@@ -417,17 +417,30 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     majorUnit = readNumOn(valAx, 'majorUnit');
     minorUnit = readNumOn(valAx, 'minorUnit');
+    // <c:numFmt formatCode="…" sourceLinked="0|1"/> sits directly under
+    // <c:valAx>. We surface the formatCode for renderers; sourceLinked
+    // (whether to inherit Excel cell format) isn't useful at our layer.
+    let numberFormat: string | undefined;
+    const nfEl = firstChildElement(valAx, qname('c', 'numFmt', NS_C));
+    if (nfEl) {
+      const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
+      if (fc !== null && fc.length > 0 && fc !== 'General') {
+        numberFormat = fc;
+      }
+    }
     if (
       min !== undefined ||
       max !== undefined ||
       majorUnit !== undefined ||
-      minorUnit !== undefined
+      minorUnit !== undefined ||
+      numberFormat !== undefined
     ) {
       valueAxis = {
         ...(min !== undefined ? { min } : {}),
         ...(max !== undefined ? { max } : {}),
         ...(majorUnit !== undefined ? { majorUnit } : {}),
         ...(minorUnit !== undefined ? { minorUnit } : {}),
+        ...(numberFormat !== undefined ? { numberFormat } : {}),
       };
     }
   }
