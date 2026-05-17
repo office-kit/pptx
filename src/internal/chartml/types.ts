@@ -390,6 +390,13 @@ export interface ChartSpec {
   /** When `true`, the chart title overlays the plot area instead of taking a strip. */
   readonly titleOverlay?: boolean;
   /**
+   * `<c:barChart><c:varyColors val="1"/>` etc. — when `true` and the
+   * chart has a single series, each data point gets a distinct color
+   * from the palette. Pie / doughnut already vary colors implicitly;
+   * this flag is most useful for single-series bar / column.
+   */
+  readonly varyColors?: boolean;
+  /**
    * `<c:dispBlanksAs val="…"/>` — how line / area renderers should
    * treat `null` values in series:
    *

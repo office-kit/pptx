@@ -2974,7 +2974,12 @@ const renderColumnChart = (
         const h = Math.abs(top - baseY);
         // invertIfNegative paints the negative bars in the inverted shade
         // of the series color (typically a darker / muted variant).
-        const baseColor = spec.series[s]?.color ?? colors[s % colors.length]!;
+        // varyColors (single-series): each data point gets a distinct
+        // accent color, mirroring PowerPoint's "Vary colors by point".
+        const baseColor =
+          spec.varyColors && spec.series.length === 1
+            ? colors[c % colors.length]!
+            : (spec.series[s]?.color ?? colors[s % colors.length]!);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
@@ -3299,7 +3304,10 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
-        const baseColor = spec.series[s]?.color ?? colors[s % colors.length]!;
+        const baseColor =
+          spec.varyColors && spec.series.length === 1
+            ? colors[c % colors.length]!
+            : (spec.series[s]?.color ?? colors[s % colors.length]!);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
