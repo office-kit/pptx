@@ -595,6 +595,292 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
   lightningBolt: (x, y, w, h) => {
     return `M${x + w * 0.5},${y} L${x + w * 0.15},${y + h * 0.55} L${x + w * 0.45},${y + h * 0.55} L${x + w * 0.3},${y + h} L${x + w * 0.85},${y + h * 0.4} L${x + w * 0.55},${y + h * 0.4} L${x + w * 0.7},${y} Z`;
   },
+
+  // -- Flowchart shapes ---------------------------------------------------
+  // Lightweight approximations of the ~28 ECMA-376 flowchart presets.
+  // They're laid out so the shape's bounding box matches the slide's,
+  // and the geometry is what most viewers expect at a glance.
+  flowChartProcess: (x, y, w, h) =>
+    `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`,
+  flowChartAlternateProcess: (x, y, w, h) => {
+    const r = Math.min(w, h) * 0.18;
+    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
+  },
+  flowChartDecision: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    return `M${cx},${y} L${x + w},${cy} L${cx},${y + h} L${x},${cy} Z`;
+  },
+  flowChartTerminator: (x, y, w, h) => {
+    const r = h / 2;
+    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x + r},${y} Z`;
+  },
+  flowChartConnector: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const r = Math.min(w, h) / 2;
+    return `M${cx + r},${cy} A${r},${r} 0 1 1 ${cx - r},${cy} A${r},${r} 0 1 1 ${cx + r},${cy} Z`;
+  },
+  flowChartDocument: (x, y, w, h) => {
+    // Bottom is a wave (cubic) instead of a flat line.
+    const wave = h * 0.18;
+    return `M${x},${y} L${x + w},${y} L${x + w},${y + h - wave} C${x + w * 0.75},${y + h + wave * 0.5} ${x + w * 0.25},${y + h - wave * 2} ${x},${y + h - wave * 0.5} Z`;
+  },
+  flowChartMultidocument: (x, y, w, h) => {
+    // Two stacked documents (back document offset by 6%).
+    const inset = w * 0.06;
+    const back = `M${x + inset},${y + inset * 0.6} L${x + w},${y + inset * 0.6} L${x + w},${y + h - inset * 0.6} L${x + w - inset},${y + h - inset * 0.6} L${x + w - inset},${y + inset * 0.6}`;
+    const front = `M${x},${y + inset * 1.2} L${x + w - inset},${y + inset * 1.2} L${x + w - inset},${y + h * 0.85} C${x + (w - inset) * 0.75},${y + h + 6} ${x + (w - inset) * 0.25},${y + h * 0.75} ${x},${y + h * 0.95} Z`;
+    return `${back} Z ${front}`;
+  },
+  flowChartPredefinedProcess: (x, y, w, h) => {
+    // Process box with two vertical bars carved on each side.
+    const inset = w * 0.1;
+    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + inset},${y} L${x + inset},${y + h} M${x + w - inset},${y} L${x + w - inset},${y + h}`;
+  },
+  flowChartInternalStorage: (x, y, w, h) => {
+    const inset = Math.min(w, h) * 0.1;
+    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + inset},${y} L${x + inset},${y + h} M${x},${y + inset} L${x + w},${y + inset}`;
+  },
+  flowChartManualInput: (x, y, w, h) => {
+    return `M${x},${y + h * 0.35} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`;
+  },
+  flowChartManualOperation: (x, y, w, h) => {
+    return `M${x},${y} L${x + w},${y} L${x + w * 0.8},${y + h} L${x + w * 0.2},${y + h} Z`;
+  },
+  flowChartInputOutput: (x, y, w, h) => {
+    const skew = w * 0.18;
+    return `M${x + skew},${y} L${x + w},${y} L${x + w - skew},${y + h} L${x},${y + h} Z`;
+  },
+  flowChartPunchedTape: (x, y, w, h) => {
+    const wave = h * 0.12;
+    return `M${x},${y + wave} C${x + w * 0.25},${y - wave} ${x + w * 0.75},${y + wave * 2} ${x + w},${y + wave} L${x + w},${y + h - wave} C${x + w * 0.75},${y + h + wave} ${x + w * 0.25},${y + h - wave * 2} ${x},${y + h - wave} Z`;
+  },
+  flowChartCard: (x, y, w, h) => {
+    const cut = h * 0.3;
+    return `M${x + cut},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} L${x},${y + cut} Z`;
+  },
+  flowChartPunchedCard: (x, y, w, h) => {
+    const cut = h * 0.2;
+    return `M${x + cut},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} L${x},${y + cut} Z`;
+  },
+  flowChartOnlineStorage: (x, y, w, h) => {
+    // Tape-like: ellipse-capped rectangle, left side open.
+    const cap = w * 0.12;
+    return `M${x + cap},${y} L${x + w},${y} L${x + w},${y + h} L${x + cap},${y + h} A${cap},${h / 2} 0 0 1 ${x + cap},${y} Z`;
+  },
+  flowChartMagneticDisk: (x, y, w, h) => {
+    // Cylinder: rectangle with ellipses top and bottom.
+    const er = h * 0.12;
+    return `M${x},${y + er} A${w / 2},${er} 0 0 1 ${x + w},${y + er} L${x + w},${y + h - er} A${w / 2},${er} 0 0 1 ${x},${y + h - er} Z M${x},${y + er} A${w / 2},${er} 0 0 0 ${x + w},${y + er}`;
+  },
+  flowChartMagneticDrum: (x, y, w, h) => {
+    // Horizontal cylinder.
+    const er = w * 0.12;
+    return `M${x + er},${y} L${x + w - er},${y} A${er},${h / 2} 0 0 1 ${x + w - er},${y + h} L${x + er},${y + h} A${er},${h / 2} 0 0 1 ${x + er},${y} Z M${x + w - er},${y} A${er},${h / 2} 0 0 0 ${x + w - er},${y + h}`;
+  },
+  flowChartMagneticTape: (x, y, w, h) => {
+    // Circle with a small "tail" notch at the bottom-right.
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const r = Math.min(w, h) / 2;
+    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r * 0.7},${cy + r * 0.7} L${x + w},${y + h} L${cx + r},${cy} Z`;
+  },
+  flowChartSummingJunction: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const r = Math.min(w, h) / 2;
+    // Circle with an X inside (drawn as two crossing lines via subpaths).
+    const off = (r * Math.SQRT1_2);
+    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - off},${cy - off} L${cx + off},${cy + off} M${cx - off},${cy + off} L${cx + off},${cy - off}`;
+  },
+  flowChartOr: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const r = Math.min(w, h) / 2;
+    return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - r},${cy} L${cx + r},${cy} M${cx},${cy - r} L${cx},${cy + r}`;
+  },
+  flowChartCollate: (x, y, w, h) => {
+    // Hourglass.
+    return `M${x},${y} L${x + w},${y} L${x},${y + h} L${x + w},${y + h} Z`;
+  },
+  flowChartSort: (x, y, w, h) => {
+    // Diamond with a horizontal line.
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    return `M${cx},${y} L${x + w},${cy} L${cx},${y + h} L${x},${cy} Z M${x},${cy} L${x + w},${cy}`;
+  },
+  flowChartExtract: (x, y, w, h) => {
+    return `M${x + w / 2},${y} L${x + w},${y + h} L${x},${y + h} Z`;
+  },
+  flowChartMerge: (x, y, w, h) => {
+    return `M${x},${y} L${x + w},${y} L${x + w / 2},${y + h} Z`;
+  },
+  flowChartOfflineStorage: (x, y, w, h) => {
+    // Triangle with a horizontal bar at the bottom (storage symbol).
+    return `M${x + w / 2},${y} L${x + w},${y + h} L${x},${y + h} Z M${x + w * 0.25},${y + h * 0.75} L${x + w * 0.75},${y + h * 0.75}`;
+  },
+  flowChartDelay: (x, y, w, h) => {
+    // Rectangle with the right side capped by a semicircle.
+    const r = h / 2;
+    return `M${x},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x},${y + h} Z`;
+  },
+  flowChartDisplay: (x, y, w, h) => {
+    // Trapezoid-ish display: pointed-left, rounded-right.
+    const r = h / 2;
+    return `M${x + r * 0.5},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r * 0.5},${y + h} L${x},${y + h / 2} Z`;
+  },
+  flowChartPreparation: (x, y, w, h) => {
+    // Elongated hexagon.
+    const cut = w * 0.18;
+    return `M${x + cut},${y} L${x + w - cut},${y} L${x + w},${y + h / 2} L${x + w - cut},${y + h} L${x + cut},${y + h} L${x},${y + h / 2} Z`;
+  },
+
+  // -- Block arrows -------------------------------------------------------
+  notchedRightArrow: (x, y, w, h) => {
+    return `M${x},${y + h * 0.3} L${x + w * 0.65},${y + h * 0.3} L${x + w * 0.65},${y} L${x + w},${y + h / 2} L${x + w * 0.65},${y + h} L${x + w * 0.65},${y + h * 0.7} L${x},${y + h * 0.7} L${x + w * 0.15},${y + h / 2} Z`;
+  },
+  stripedRightArrow: (x, y, w, h) => {
+    // Right arrow with two parallel "stripes" cut at the left (rendered as
+    // separate strokes via subpaths).
+    const stripe = w * 0.04;
+    return `M${x},${y + h * 0.3} L${x + stripe},${y + h * 0.3} L${x + stripe},${y + h * 0.7} L${x},${y + h * 0.7} Z M${x + stripe * 2.5},${y + h * 0.3} L${x + stripe * 3.5},${y + h * 0.3} L${x + stripe * 3.5},${y + h * 0.7} L${x + stripe * 2.5},${y + h * 0.7} Z M${x + stripe * 5},${y + h * 0.3} L${x + w * 0.65},${y + h * 0.3} L${x + w * 0.65},${y} L${x + w},${y + h / 2} L${x + w * 0.65},${y + h} L${x + w * 0.65},${y + h * 0.7} L${x + stripe * 5},${y + h * 0.7} Z`;
+  },
+  curvedRightArrow: (x, y, w, h) => {
+    // Quarter-arc with a triangular tip on the right.
+    return `M${x},${y + h * 0.6} Q${x + w * 0.5},${y} ${x + w * 0.85},${y + h * 0.25} L${x + w},${y + h * 0.45} L${x + w * 0.85},${y + h * 0.55} L${x + w * 0.7},${y + h * 0.35} Q${x + w * 0.45},${y + h * 0.18} ${x + w * 0.15},${y + h * 0.75} Z`;
+  },
+  uturnArrow: (x, y, w, h) => {
+    // Half-arc + tip pointing down on the right side.
+    return `M${x},${y + h} L${x},${y + h / 2} A${w * 0.4},${h * 0.4} 0 0 1 ${x + w * 0.8},${y + h / 2} L${x + w * 0.8},${y + h * 0.25} L${x + w},${y + h * 0.45} L${x + w * 0.8},${y + h * 0.65} L${x + w * 0.8},${y + h / 2} A${w * 0.2},${h * 0.25} 0 0 0 ${x + w * 0.2},${y + h / 2} L${x + w * 0.2},${y + h} Z`;
+  },
+
+  // -- Brackets / braces --------------------------------------------------
+  // Drawn as strokes (open paths); fill is none for these by convention.
+  leftBracket: (x, y, w, h) => {
+    return `M${x + w},${y} L${x},${y} L${x},${y + h} L${x + w},${y + h}`;
+  },
+  rightBracket: (x, y, w, h) => {
+    return `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h}`;
+  },
+  bracketPair: (x, y, w, h) => {
+    return `M${x + w * 0.1},${y} L${x},${y} L${x},${y + h} L${x + w * 0.1},${y + h} M${x + w * 0.9},${y} L${x + w},${y} L${x + w},${y + h} L${x + w * 0.9},${y + h}`;
+  },
+  leftBrace: (x, y, w, h) => {
+    const mid = y + h / 2;
+    return `M${x + w},${y} Q${x},${y} ${x},${mid - 8} Q${x},${mid} ${x - 4},${mid} Q${x},${mid} ${x},${mid + 8} Q${x},${y + h} ${x + w},${y + h}`;
+  },
+  rightBrace: (x, y, w, h) => {
+    const mid = y + h / 2;
+    return `M${x},${y} Q${x + w},${y} ${x + w},${mid - 8} Q${x + w},${mid} ${x + w + 4},${mid} Q${x + w},${mid} ${x + w},${mid + 8} Q${x + w},${y + h} ${x},${y + h}`;
+  },
+  bracePair: (x, y, w, h) => {
+    const mid = y + h / 2;
+    return `M${x + w * 0.12},${y} Q${x},${y} ${x},${mid - 8} Q${x},${mid} ${x - 4},${mid} Q${x},${mid} ${x},${mid + 8} Q${x},${y + h} ${x + w * 0.12},${y + h} M${x + w * 0.88},${y} Q${x + w},${y} ${x + w},${mid - 8} Q${x + w},${mid} ${x + w + 4},${mid} Q${x + w},${mid} ${x + w},${mid + 8} Q${x + w},${y + h} ${x + w * 0.88},${y + h}`;
+  },
+
+  // -- Snip / round corner rects -----------------------------------------
+  snip1Rect: (x, y, w, h) => {
+    const c = Math.min(w, h) * 0.18;
+    return `M${x},${y} L${x + w - c},${y} L${x + w},${y + c} L${x + w},${y + h} L${x},${y + h} Z`;
+  },
+  snip2SameRect: (x, y, w, h) => {
+    const c = Math.min(w, h) * 0.18;
+    return `M${x + c},${y} L${x + w - c},${y} L${x + w},${y + c} L${x + w},${y + h} L${x},${y + h} L${x},${y + c} Z`;
+  },
+  snip2DiagRect: (x, y, w, h) => {
+    const c = Math.min(w, h) * 0.18;
+    return `M${x},${y} L${x + w - c},${y} L${x + w},${y + c} L${x + w},${y + h} L${x + c},${y + h} L${x},${y + h - c} Z`;
+  },
+  snipRoundRect: (x, y, w, h) => {
+    const c = Math.min(w, h) * 0.18;
+    return `M${x + c},${y} A${c},${c} 0 0 0 ${x},${y + c} L${x},${y + h} L${x + w},${y + h} L${x + w},${y + c} L${x + w - c},${y} Z`;
+  },
+  round1Rect: (x, y, w, h) => {
+    const r = Math.min(w, h) * 0.18;
+    return `M${x},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x},${y + h} Z`;
+  },
+  round2SameRect: (x, y, w, h) => {
+    const r = Math.min(w, h) * 0.18;
+    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x},${y + h} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
+  },
+  round2DiagRect: (x, y, w, h) => {
+    const r = Math.min(w, h) * 0.18;
+    return `M${x},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} Z`;
+  },
+
+  // -- Banners & ribbons --------------------------------------------------
+  ribbon: (x, y, w, h) => {
+    // Centre ribbon with two notched tails at the bottom corners.
+    const notch = w * 0.06;
+    const bodyTop = y + h * 0.2;
+    const bodyBot = y + h * 0.8;
+    return `M${x},${bodyTop} L${x + notch * 2},${y} L${x + w - notch * 2},${y} L${x + w},${bodyTop} L${x + w * 0.85},${bodyTop + (bodyBot - bodyTop) / 2} L${x + w},${bodyBot} L${x + w - notch * 2},${y + h} L${x + w - notch * 4},${bodyBot} L${x + notch * 4},${bodyBot} L${x + notch * 2},${y + h} L${x},${bodyBot} L${x + w * 0.15},${bodyTop + (bodyBot - bodyTop) / 2} Z`;
+  },
+  ribbon2: (x, y, w, h) => {
+    // Like ribbon but the band is at the bottom.
+    const notch = w * 0.06;
+    const bodyTop = y + h * 0.2;
+    const bodyBot = y + h * 0.8;
+    return `M${x},${bodyBot} L${x + notch * 2},${y + h} L${x + w - notch * 2},${y + h} L${x + w},${bodyBot} L${x + w * 0.85},${bodyTop + (bodyBot - bodyTop) / 2} L${x + w},${bodyTop} L${x + w - notch * 2},${y} L${x + w - notch * 4},${bodyTop} L${x + notch * 4},${bodyTop} L${x + notch * 2},${y} L${x},${bodyTop} L${x + w * 0.15},${bodyTop + (bodyBot - bodyTop) / 2} Z`;
+  },
+  verticalScroll: (x, y, w, h) => {
+    const r = w * 0.08;
+    return `M${x + r},${y + r} A${r},${r} 0 0 1 ${x + r * 2},${y} L${x + w},${y} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r * 2},${y + h} L${x},${y + h} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y + r} Z`;
+  },
+  horizontalScroll: (x, y, w, h) => {
+    const r = h * 0.08;
+    return `M${x + r},${y + r} A${r},${r} 0 0 1 ${x},${y + r * 2} L${x},${y + h} L${x + w - r},${y + h} A${r},${r} 0 0 1 ${x + w},${y + h - r * 2} L${x + w},${y} L${x + r},${y} A${r},${r} 0 0 1 ${x + r},${y + r} Z`;
+  },
+  wave: (x, y, w, h) => {
+    return `M${x},${y + h * 0.5} C${x + w * 0.25},${y - h * 0.1} ${x + w * 0.5},${y + h * 0.85} ${x + w * 0.75},${y + h * 0.3} C${x + w * 0.85},${y + h * 0.05} ${x + w * 0.95},${y + h * 0.4} ${x + w},${y + h * 0.5} L${x + w},${y + h} C${x + w * 0.75},${y + h * 0.4} ${x + w * 0.5},${y + h * 1.1} ${x + w * 0.25},${y + h * 0.55} C${x + w * 0.15},${y + h * 0.3} ${x + w * 0.05},${y + h * 0.6} ${x},${y + h * 0.55} Z`;
+  },
+  doubleWave: (x, y, w, h) => {
+    return `M${x},${y + h * 0.4} C${x + w * 0.15},${y - h * 0.05} ${x + w * 0.35},${y + h * 0.65} ${x + w * 0.5},${y + h * 0.3} C${x + w * 0.65},${y - h * 0.05} ${x + w * 0.85},${y + h * 0.65} ${x + w},${y + h * 0.4} L${x + w},${y + h} C${x + w * 0.85},${y + h * 0.4} ${x + w * 0.65},${y + h * 1.05} ${x + w * 0.5},${y + h * 0.7} C${x + w * 0.35},${y + h * 1.05} ${x + w * 0.15},${y + h * 0.4} ${x},${y + h} Z`;
+  },
+
+  // -- Math operators -----------------------------------------------------
+  mathPlus: (x, y, w, h) => {
+    const t = Math.min(w, h) * 0.2;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    return `M${cx - t / 2},${y} L${cx + t / 2},${y} L${cx + t / 2},${cy - t / 2} L${x + w},${cy - t / 2} L${x + w},${cy + t / 2} L${cx + t / 2},${cy + t / 2} L${cx + t / 2},${y + h} L${cx - t / 2},${y + h} L${cx - t / 2},${cy + t / 2} L${x},${cy + t / 2} L${x},${cy - t / 2} L${cx - t / 2},${cy - t / 2} Z`;
+  },
+  mathMinus: (x, y, w, h) => {
+    const t = h * 0.3;
+    const cy = y + h / 2;
+    return `M${x},${cy - t / 2} L${x + w},${cy - t / 2} L${x + w},${cy + t / 2} L${x},${cy + t / 2} Z`;
+  },
+  mathMultiply: (x, y, w, h) => {
+    const t = Math.min(w, h) * 0.16;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    // Two crossed rects (diagonals).
+    return `M${x},${y + t} L${x + t},${y} L${cx},${cy - t} L${x + w - t},${y} L${x + w},${y + t} L${cx + t},${cy} L${x + w},${y + h - t} L${x + w - t},${y + h} L${cx},${cy + t} L${x + t},${y + h} L${x},${y + h - t} L${cx - t},${cy} Z`;
+  },
+  mathDivide: (x, y, w, h) => {
+    const dot = Math.min(w, h) * 0.1;
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    return `M${x},${cy - dot * 0.4} L${x + w},${cy - dot * 0.4} L${x + w},${cy + dot * 0.4} L${x},${cy + dot * 0.4} Z M${cx - dot},${y + h * 0.18} A${dot},${dot} 0 1 0 ${cx + dot},${y + h * 0.18} A${dot},${dot} 0 1 0 ${cx - dot},${y + h * 0.18} Z M${cx - dot},${y + h * 0.82} A${dot},${dot} 0 1 0 ${cx + dot},${y + h * 0.82} A${dot},${dot} 0 1 0 ${cx - dot},${y + h * 0.82} Z`;
+  },
+  mathEqual: (x, y, w, h) => {
+    const t = h * 0.2;
+    return `M${x},${y + h * 0.3 - t / 2} L${x + w},${y + h * 0.3 - t / 2} L${x + w},${y + h * 0.3 + t / 2} L${x},${y + h * 0.3 + t / 2} Z M${x},${y + h * 0.7 - t / 2} L${x + w},${y + h * 0.7 - t / 2} L${x + w},${y + h * 0.7 + t / 2} L${x},${y + h * 0.7 + t / 2} Z`;
+  },
+  mathNotEqual: (x, y, w, h) => {
+    const t = h * 0.15;
+    const cy = y + h / 2;
+    // Equal sign + diagonal bar (use path subpaths).
+    return `M${x},${cy - h * 0.18 - t / 2} L${x + w},${cy - h * 0.18 - t / 2} L${x + w},${cy - h * 0.18 + t / 2} L${x},${cy - h * 0.18 + t / 2} Z M${x},${cy + h * 0.18 - t / 2} L${x + w},${cy + h * 0.18 - t / 2} L${x + w},${cy + h * 0.18 + t / 2} L${x},${cy + h * 0.18 + t / 2} Z M${x + w * 0.7},${y} L${x + w * 0.85},${y} L${x + w * 0.3},${y + h} L${x + w * 0.15},${y + h} Z`;
+  },
+
+  // -- Action button glyphs (the chrome is a roundRect; we just add the
+  // glyph). Real action buttons are nested shapes; we approximate.
+  actionButtonBlank: (x, y, w, h) => {
+    const r = Math.min(w, h) * 0.06;
+    return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
+  },
 };
 
 // ---------------------------------------------------------------------------
