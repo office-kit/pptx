@@ -47,6 +47,7 @@ import {
   getShapeClickAction,
   getShapeHyperlink,
   getShapeHyperlinkTooltip,
+  getShapeName,
   getShapeTextColumns,
   getShapeTextBodyRotationDeg,
   getShapeTextDirection,
@@ -4508,7 +4509,18 @@ const renderShape = (
   // separately.
   const url = getShapeHyperlink(shape);
   const tooltip = getShapeHyperlinkTooltip(shape);
-  const inner = `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  // Expose the shape's authored name as a data attribute so DevTools /
+  // Selenium / a11y inspections can identify a shape without having to
+  // parse SVG geometry. Cheap to emit, zero visual impact.
+  const shapeName = (() => {
+    try {
+      return getShapeName(shape);
+    } catch {
+      return null;
+    }
+  })();
+  const nameAttr = shapeName ? ` data-pptx-shape-name="${escapeXml(shapeName)}"` : '';
+  const inner = `${p.defs}${fxDefs}<g${transform}${nameAttr}>${geomSvg}${textOverlay}</g>`;
   const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
   if (url) {
     return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
