@@ -335,6 +335,54 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisLabelRotationDeg).toBe(-30);
   });
 
+  it('round-trips series-level lineWidth / lineDash / marker / smooth / invertIfNegative', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'line',
+        categories: ['A', 'B'],
+        series: [
+          {
+            name: 'Trend',
+            values: [10, 20],
+            lineWidthEmu: 28575, // 2.25pt
+            lineDash: 'dash',
+            markerSymbol: 'diamond',
+            markerSizePt: 7,
+            smooth: true,
+          },
+        ],
+      },
+    });
+    const slide2 = getSlides(pres)[1]!;
+    addSlideChart(slide2, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [-1, 2], invertIfNegative: true }],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const s1 = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!.series[0]!;
+    expect(s1.lineWidthEmu).toBe(28575);
+    expect(s1.lineDash).toBe('dash');
+    expect(s1.markerSymbol).toBe('diamond');
+    expect(s1.markerSizePt).toBe(7);
+    expect(s1.smooth).toBe(true);
+    const s2 = getSlideCharts(getSlides(reloaded)[1]!)[0]!.spec!.series[0]!;
+    expect(s2.invertIfNegative).toBe(true);
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

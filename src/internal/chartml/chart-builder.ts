@@ -112,6 +112,53 @@ const DEFAULT_ACCENT_COLORS = [
   '70AD47', // accent6
 ];
 
+// Builds <c:spPr> for a series — solidFill + optional <a:ln> (line
+// width + dash). The reader extracts color from solidFill and width
+// /dash from the ln; this writer keeps them in lock-step.
+const seriesSpPr = (
+  color: string,
+  lineWidthEmu: number | undefined,
+  lineDash: string | undefined,
+): XmlElement => {
+  const lnChildren: XmlElement[] = [
+    elem(a('solidFill'), {
+      children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), color)] })],
+    }),
+  ];
+  if (lineDash !== undefined) {
+    lnChildren.push(elem(a('prstDash'), { attrs: [attr(qname('', 'val', ''), lineDash)] }));
+  }
+  const ln =
+    lineWidthEmu !== undefined
+      ? elem(a('ln'), {
+          attrs: [attr(qname('', 'w', ''), String(lineWidthEmu))],
+          children: lnChildren,
+        })
+      : elem(a('ln'), { children: lnChildren });
+  return elem(c('spPr'), {
+    children: [
+      elem(a('solidFill'), {
+        children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), color)] })],
+      }),
+      ln,
+    ],
+  });
+};
+
+// `<c:marker>` for a series. PowerPoint accepts symbol + size; the
+// inner <c:spPr> can carry per-marker fill/stroke but we leave that to
+// the existing series color.
+const markerElement = (
+  symbol: string | undefined,
+  sizePt: number | undefined,
+): XmlElement | null => {
+  if (symbol === undefined && sizePt === undefined) return null;
+  const children: XmlElement[] = [];
+  if (symbol !== undefined) children.push(valNode(c('symbol'), symbol));
+  if (sizePt !== undefined) children.push(valNode(c('size'), Math.round(sizePt)));
+  return elem(c('marker'), { children });
+};
+
 const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlElement => {
   const series = spec.series[seriesIdx];
   if (!series) throw new Error('seriesElement: out of range');
@@ -131,16 +178,30 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
     paddedValues.push(i < series.values.length ? (series.values[i] ?? null) : null);
   }
 
-  return elem(c('ser'), {
-    children: [
-      valNode(c('idx'), seriesIdx),
-      valNode(c('order'), seriesIdx),
-      elem(c('tx'), { children: [strRef(headerCellFormula, [series.name])] }),
-      solidFillSpPr(color),
-      elem(c('cat'), { children: [strRef(catRange, spec.categories)] }),
-      elem(c('val'), { children: [numRef(valRange, paddedValues)] }),
-    ],
-  });
+  const children: XmlElement[] = [
+    valNode(c('idx'), seriesIdx),
+    valNode(c('order'), seriesIdx),
+    elem(c('tx'), { children: [strRef(headerCellFormula, [series.name])] }),
+  ];
+  // spPr — emit the richer version (with ln) only when authored fields
+  // would otherwise be lost; otherwise keep the legacy solid-fill-only
+  // shape for tight round-trip compatibility with the existing fixtures.
+  if (series.lineWidthEmu !== undefined || series.lineDash !== undefined) {
+    children.push(seriesSpPr(color, series.lineWidthEmu, series.lineDash));
+  } else {
+    children.push(solidFillSpPr(color));
+  }
+  if (series.invertIfNegative === true) {
+    children.push(valNode(c('invertIfNegative'), '1'));
+  }
+  const mk = markerElement(series.markerSymbol, series.markerSizePt);
+  if (mk !== null) children.push(mk);
+  children.push(elem(c('cat'), { children: [strRef(catRange, spec.categories)] }));
+  children.push(elem(c('val'), { children: [numRef(valRange, paddedValues)] }));
+  if (series.smooth === true) {
+    children.push(valNode(c('smooth'), '1'));
+  }
+  return elem(c('ser'), { children });
 };
 
 // Axis ids — arbitrary distinct positive 32-bit integers PowerPoint just
