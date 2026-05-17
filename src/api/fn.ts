@@ -11176,6 +11176,50 @@ export const findSlidesByLayoutType = (
  * `getShapeImageBytes` can't render them — readers / preview tools
  * should fall back to this URL or a placeholder.
  */
+/**
+ * Reads the picture's duotone color transform from `<a:blip><a:duotone>`.
+ * PowerPoint emits two `<a:srgbClr>` (or scheme color) children for a
+ * two-color duotone effect — typical "Picture Tools › Recolor".
+ * Returns `null` when no duotone is set.
+ */
+export const getShapeImageDuotone = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): { firstColor: string | null; secondColor: string | null } | null => {
+  let blip: XmlElement | null = null;
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+    if (blipFill) blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  } else {
+    const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+    if (spPr) {
+      const bf = firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+      if (bf) blip = firstChildElement(bf, qname('a', 'blip', NS.dml));
+    }
+  }
+  if (!blip) return null;
+  const duotone = firstChildElement(blip, qname('a', 'duotone', NS.dml));
+  if (!duotone) return null;
+  const theme = getPresentationTheme(pres);
+  const colors: Array<string | null> = [];
+  for (const c of duotone.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (
+      c.name.localName === 'srgbClr' ||
+      c.name.localName === 'schemeClr' ||
+      c.name.localName === 'sysClr' ||
+      c.name.localName === 'prstClr'
+    ) {
+      colors.push(resolveDrawingColor(c, theme));
+      if (colors.length === 2) break;
+    }
+  }
+  return {
+    firstColor: colors[0] ?? null,
+    secondColor: colors[1] ?? null,
+  };
+};
+
 export const getShapeImageLinkUrl = (shape: SlideShapeData): string | null => {
   const slide = shape[SHAPE_SLIDE];
   const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
