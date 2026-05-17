@@ -45,6 +45,8 @@ import {
   getShapeChartKind,
   getShapeChartSpec,
   getShapeClickAction,
+  getShapeAltTitle,
+  getShapeDescription,
   getShapeHyperlink,
   getShapeHyperlinkTooltip,
   getShapeName,
@@ -4511,7 +4513,9 @@ const renderShape = (
   const tooltip = getShapeHyperlinkTooltip(shape);
   // Expose the shape's authored name as a data attribute so DevTools /
   // Selenium / a11y inspections can identify a shape without having to
-  // parse SVG geometry. Cheap to emit, zero visual impact.
+  // parse SVG geometry. The PowerPoint alt-title / alt-description feed
+  // `aria-label` so screen readers announce decks the same way
+  // PowerPoint's Accessibility Inspector reports them.
   const shapeName = (() => {
     try {
       return getShapeName(shape);
@@ -4519,8 +4523,24 @@ const renderShape = (
       return null;
     }
   })();
+  const altTitle = (() => {
+    try {
+      return getShapeAltTitle(shape);
+    } catch {
+      return null;
+    }
+  })();
+  const altDesc = (() => {
+    try {
+      return getShapeDescription(shape);
+    } catch {
+      return null;
+    }
+  })();
+  const a11yLabel = altTitle ?? altDesc ?? null;
   const nameAttr = shapeName ? ` data-pptx-shape-name="${escapeXml(shapeName)}"` : '';
-  const inner = `${p.defs}${fxDefs}<g${transform}${nameAttr}>${geomSvg}${textOverlay}</g>`;
+  const ariaAttr = a11yLabel ? ` role="img" aria-label="${escapeXml(a11yLabel)}"` : '';
+  const inner = `${p.defs}${fxDefs}<g${transform}${nameAttr}${ariaAttr}>${geomSvg}${textOverlay}</g>`;
   const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
   if (url) {
     return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
