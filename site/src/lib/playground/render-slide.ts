@@ -42,6 +42,7 @@ import {
   getShapeRotation,
   getShapeRunCount,
   getShapeRunFormat,
+  getShapeRunFormatEffective,
   getShapeRunText,
   getShapeStroke,
   getShapeTextAnchor,
@@ -249,13 +250,16 @@ const resolveColor = (
   fallback = '#1F2937',
 ): string => {
   if (!c) return fallback;
-  if (c.startsWith('scheme:')) {
-    const token = c.slice('scheme:'.length);
+  // Accept either `scheme:tx1` (the form fills + strokes use) or a bare
+  // ECMA-376 token (`tx1`, `accent1`, ...) from the run-format cascade.
+  let token: string | null = null;
+  if (c.startsWith('scheme:')) token = c.slice('scheme:'.length);
+  else if (SCHEME_TO_THEME[c]) token = c;
+  if (token !== null) {
     if (theme) {
       const key = SCHEME_TO_THEME[token];
       if (key) return normalizeHex(theme[key]);
     }
-    // Sensible per-token fallbacks when the theme is missing.
     if (token === 'tx1' || token === 'dk1') return '#000000';
     if (token === 'bg1' || token === 'lt1') return '#FFFFFF';
     if (token === 'tx2' || token === 'dk2') return '#1F2937';
@@ -1386,6 +1390,7 @@ const LINE_HEIGHT = 1.05;
 const AVG_GLYPH_W_RATIO = 0.55;
 
 const renderTextBody = (
+  pres: PresentationData,
   shape: SlideShapeData,
   bounds: { x: number; y: number; w: number; h: number },
   theme: PresentationTheme | null,
@@ -1443,7 +1448,17 @@ const renderTextBody = (
       } catch {
         continue;
       }
-      const fmt = getShapeRunFormat(shape, p, r);
+      // Resolve through the inheritance cascade (run → endParaRPr →
+      // defRPr → lstStyle → layout placeholder → master placeholder
+      // → master txStyles → theme). The literal-only getter would
+      // miss every placeholder format the deck author didn't repeat
+      // on the slide itself.
+      let fmt: TextFormat | null;
+      try {
+        fmt = getShapeRunFormatEffective(pres, shape, p, r);
+      } catch {
+        fmt = getShapeRunFormat(shape, p, r);
+      }
       const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;
       runs.push({ text: txt, fmt, sizePt });
@@ -2130,7 +2145,7 @@ const renderShape = (
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
 
   const textOverlay = kind === 'shape' || kind === 'graphicFrame'
-    ? renderTextBody(shape, { x, y, w, h }, theme, phType)
+    ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType)
     : '';
 
   if (kind === 'picture') {

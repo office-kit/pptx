@@ -4723,11 +4723,60 @@ export const setShapeRunText = (
   commitAndRefresh(shape);
 };
 
+// Reads any element shaped like `CT_TextCharacterProperties` (the schema
+// shared by `<a:rPr>`, `<a:defRPr>`, and `<a:endParaRPr>`) into a partial
+// TextFormat. Used by both the literal-only `getShapeRunFormat` and the
+// inheritance-aware `getShapeRunFormatEffective`.
+const parseRPrLikeElement = (rPr: XmlElement): Partial<TextFormat> => {
+  const out: Partial<TextFormat> = {};
+  const sz = getAttrValue(rPr, qname('', 'sz', ''));
+  if (sz !== null) {
+    const n = Number.parseInt(sz, 10);
+    if (Number.isFinite(n)) out.size = n / 100;
+  }
+  const b = getAttrValue(rPr, qname('', 'b', ''));
+  if (b !== null) out.bold = b !== '0';
+  const i = getAttrValue(rPr, qname('', 'i', ''));
+  if (i !== null) out.italic = i !== '0';
+  const u = getAttrValue(rPr, qname('', 'u', ''));
+  if (u !== null) {
+    if (u === 'none') out.underline = false;
+    else if (u === 'sng') out.underline = true;
+    else out.underline = u;
+  }
+  const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
+  if (solidFill !== null) {
+    const srgb = firstChildElement(solidFill, qname('a', 'srgbClr', NS.dml));
+    if (srgb !== null) {
+      const v = getAttrValue(srgb, qname('', 'val', ''));
+      if (v !== null) out.color = `#${v.toUpperCase()}`;
+    } else {
+      // Theme color — preserve the token (`tx1`, `accent1`, ...). The renderer
+      // resolves it against the deck's color scheme; callers that want a
+      // concrete hex can map it via `getPresentationTheme`.
+      const scheme = firstChildElement(solidFill, qname('a', 'schemeClr', NS.dml));
+      if (scheme !== null) {
+        const v = getAttrValue(scheme, qname('', 'val', ''));
+        if (v !== null) out.color = v;
+      }
+    }
+  }
+  const latin = firstChildElement(rPr, qname('a', 'latin', NS.dml));
+  if (latin !== null) {
+    const t = getAttrValue(latin, qname('', 'typeface', ''));
+    if (t !== null) out.font = t;
+  }
+  return out;
+};
+
 /**
  * Reads back the format of a single run. Returns `null` when the run
  * has no `<a:rPr>` (it inherits its format from the paragraph /
  * layout / master). Boolean attributes that are explicitly `"0"`
  * decode to `false`.
+ *
+ * Use `getShapeRunFormatEffective` if you want the resolved format
+ * after walking the placeholder / lstStyle / master inheritance chain.
  */
 export const getShapeRunFormat = (
   shape: SlideShapeData,
@@ -4737,38 +4786,254 @@ export const getShapeRunFormat = (
   const run = requireRun(shape, paragraphIndex, runIndex);
   const rPr = firstChildElement(run, NAME_A_RPR);
   if (rPr === null) return null;
-  const out: TextFormat = {};
-  const sz = getAttrValue(rPr, qname('', 'sz', ''));
-  if (sz !== null) {
-    const n = Number.parseInt(sz, 10);
-    if (Number.isFinite(n)) (out as { size?: number }).size = n / 100;
+  return parseRPrLikeElement(rPr) as TextFormat;
+};
+
+// -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
+//
+// A run's effective character properties are resolved by walking the
+// inheritance chain — each level fills in fields that no earlier level
+// supplied. First-wins per property:
+//
+//   1. The run's own `<a:rPr>`
+//   2. The paragraph's `<a:endParaRPr>` (last run only)
+//   3. The paragraph's `<a:pPr><a:defRPr>` (paragraph-level run defaults)
+//   4. The text body's `<a:lstStyle><a:lvl{N+1}pPr><a:defRPr>` (N = paragraph level)
+//   5. The same path on the matching placeholder in the slide's layout
+//   6. The same path on the matching placeholder on the slide master,
+//      then the master's `<p:txStyles>` (`titleStyle` / `bodyStyle` / `otherStyle`)
+//   7. The theme's `<a:fontScheme>` — font typeface fallback only
+//
+// Placeholder matching: by `<p:ph/@idx>` first, then by `<p:ph/@type>`.
+
+const NAME_A_DEF_RPR = qname('a', 'defRPr', NS.dml);
+const NAME_A_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
+const NAME_A_LST_STYLE = qname('a', 'lstStyle', NS.dml);
+const NAME_P_TX_BODY_PML = qname('p', 'txBody', NS.pml);
+const NAME_P_TX_STYLES = qname('p', 'txStyles', NS.pml);
+const NAME_P_TITLE_STYLE = qname('p', 'titleStyle', NS.pml);
+const NAME_P_BODY_STYLE = qname('p', 'bodyStyle', NS.pml);
+const NAME_P_OTHER_STYLE = qname('p', 'otherStyle', NS.pml);
+
+const mergeRPrLayer = (
+  base: Partial<TextFormat>,
+  layer: Partial<TextFormat>,
+): void => {
+  if (base.font === undefined && layer.font !== undefined) base.font = layer.font;
+  if (base.size === undefined && layer.size !== undefined) base.size = layer.size;
+  if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
+  if (base.bold === undefined && layer.bold !== undefined) base.bold = layer.bold;
+  if (base.italic === undefined && layer.italic !== undefined) base.italic = layer.italic;
+  if (base.underline === undefined && layer.underline !== undefined) {
+    base.underline = layer.underline;
   }
-  const b = getAttrValue(rPr, qname('', 'b', ''));
-  if (b !== null) (out as { bold?: boolean }).bold = b !== '0';
-  const i = getAttrValue(rPr, qname('', 'i', ''));
-  if (i !== null) (out as { italic?: boolean }).italic = i !== '0';
-  const u = getAttrValue(rPr, qname('', 'u', ''));
-  if (u !== null) {
-    if (u === 'none') (out as { underline?: false }).underline = false;
-    else if (u === 'sng') (out as { underline?: true }).underline = true;
-    else (out as { underline?: string }).underline = u;
+};
+
+// `<a:lstStyle>` carries one `<a:lvl{N}pPr>` per outline level (1..9, plus
+// `<a:defPPr>` for the level-0 default). Returns the inner `<a:defRPr>` for
+// the requested zero-based level, or `null` if the level isn't authored.
+const lstStyleLevelDefRPr = (
+  lstStyle: XmlElement | null,
+  level: number,
+): XmlElement | null => {
+  if (!lstStyle) return null;
+  const localName = `lvl${Math.max(0, Math.min(8, level)) + 1}pPr`;
+  const lvlPPr = firstChildElement(lstStyle, qname('a', localName, NS.dml));
+  if (!lvlPPr) {
+    // Fall back to `<a:defPPr>` only for level 0 — that's what the schema
+    // declares as the "no explicit level" slot.
+    if (level !== 0) return null;
+    const defPPr = firstChildElement(lstStyle, qname('a', 'defPPr', NS.dml));
+    if (!defPPr) return null;
+    return firstChildElement(defPPr, NAME_A_DEF_RPR);
   }
-  // Color: <a:solidFill><a:srgbClr val="..."/></a:solidFill>
-  const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
-  if (solidFill !== null) {
-    const srgb = firstChildElement(solidFill, qname('a', 'srgbClr', NS.dml));
-    if (srgb !== null) {
-      const v = getAttrValue(srgb, qname('', 'val', ''));
-      if (v !== null) (out as { color?: string }).color = `#${v.toUpperCase()}`;
+  return firstChildElement(lvlPPr, NAME_A_DEF_RPR);
+};
+
+const findShapeLstStyleElement = (shape: SlideShapeData): XmlElement | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_P_TX_BODY_PML);
+  if (!txBody) return null;
+  return firstChildElement(txBody, NAME_A_LST_STYLE);
+};
+
+const findPlaceholderShapeIn = (
+  shapes: ReadonlyArray<{
+    placeholderIdx: number | null;
+    placeholderType: string | null;
+    element: XmlElement;
+  }>,
+  phIdx: number | null,
+  phType: string | null,
+): { element: XmlElement } | undefined => {
+  let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+  if (!match && phType !== null) {
+    match = shapes.find((s) => s.placeholderType === phType);
+  }
+  return match;
+};
+
+const extractPlaceholderLstStyle = (placeholderEl: XmlElement): XmlElement | null => {
+  const txBody = firstChildElement(placeholderEl, NAME_P_TX_BODY_PML);
+  if (!txBody) return null;
+  return firstChildElement(txBody, NAME_A_LST_STYLE);
+};
+
+const masterTxStyleFor = (
+  masterRoot: XmlElement,
+  phType: string | null,
+): XmlElement | null => {
+  const txStyles = firstChildElement(masterRoot, NAME_P_TX_STYLES);
+  if (!txStyles) return null;
+  if (phType === 'title' || phType === 'ctrTitle') {
+    return firstChildElement(txStyles, NAME_P_TITLE_STYLE);
+  }
+  // Body / null-typed (= body default) / subTitle all inherit from bodyStyle.
+  if (phType === 'body' || phType === 'subTitle' || phType === null) {
+    return firstChildElement(txStyles, NAME_P_BODY_STYLE);
+  }
+  // Footer / date / sldNum / etc. inherit from otherStyle.
+  return firstChildElement(txStyles, NAME_P_OTHER_STYLE);
+};
+
+/**
+ * Resolves a run's effective character properties by walking the
+ * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr → endParaRPr →
+ * pPr defRPr → text-body lstStyle → layout placeholder lstStyle →
+ * master placeholder lstStyle + master txStyles → theme fontScheme.
+ *
+ * Each property (font, size, color, bold, italic, underline) is
+ * resolved independently: the innermost layer that supplies a value
+ * wins for that one property.
+ *
+ * Returns a non-null `TextFormat`; fields the cascade couldn't
+ * resolve are simply absent (the renderer falls back to placeholder
+ * defaults).
+ *
+ * Use `getShapeRunFormat` if you only want the literal `<a:rPr>` on
+ * the run without inheritance.
+ */
+export const getShapeRunFormatEffective = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): TextFormat => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  const result: Partial<TextFormat> = {};
+
+  // Paragraph level (0..8). `<a:pPr lvl="..">`; absent = 0.
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  let level = 0;
+  if (pPr) {
+    const lvlAttr = getAttrValue(pPr, ATTR_LVL);
+    if (lvlAttr !== null) {
+      const parsed = Number.parseInt(lvlAttr, 10);
+      if (Number.isFinite(parsed)) level = parsed;
     }
   }
-  // Font face: <a:latin typeface="..."/>
-  const latin = firstChildElement(rPr, qname('a', 'latin', NS.dml));
-  if (latin !== null) {
-    const t = getAttrValue(latin, qname('', 'typeface', ''));
-    if (t !== null) (out as { font?: string }).font = t;
+
+  // 1. Run's own rPr.
+  const runRPr = firstChildElement(run, NAME_A_RPR);
+  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr));
+
+  // 2. endParaRPr — applies to the last run in the paragraph per the spec.
+  const runs = runsOf(paragraph);
+  if (runs.length > 0 && runs[runs.length - 1] === run) {
+    const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
+    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr));
   }
-  return out;
+
+  // 3. Paragraph-level defaults (pPr/defRPr).
+  if (pPr) {
+    const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
+    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr));
+  }
+
+  // 4. Text-body lstStyle at the paragraph's level.
+  const shapeLstStyle = findShapeLstStyleElement(shape);
+  const shapeLvlDef = lstStyleLevelDefRPr(shapeLstStyle, level);
+  if (shapeLvlDef) mergeRPrLayer(result, parseRPrLikeElement(shapeLvlDef));
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+
+  const slide = shape[SHAPE_SLIDE];
+  const layout = getSlideLayout(slide);
+
+  if (layout) {
+    // 5. Matching placeholder on the layout — both its inline rPr-bearing
+    //    paragraph children (if the layout authored prompt text) and its
+    //    own lstStyle.
+    const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
+    if (layoutPh) {
+      const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
+      const layoutLvlDef = lstStyleLevelDefRPr(layoutLst, level);
+      if (layoutLvlDef) mergeRPrLayer(result, parseRPrLikeElement(layoutLvlDef));
+    }
+
+    // 6. Walk one rel up to the slide master.
+    const pkg = pres[INTERNAL_PACKAGE];
+    const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+    const layoutRels = pkg.getRels(layoutPartName);
+    if (layoutRels) {
+      const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+      if (masterRel) {
+        const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+        if (masterPart) {
+          const masterRoot = parseXml(decode(masterPart.data)).root;
+          const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+          const masterPh = findPlaceholderShapeIn(masterShapes, phIdx, phType);
+          if (masterPh) {
+            const masterLst = extractPlaceholderLstStyle(masterPh.element);
+            const masterLvlDef = lstStyleLevelDefRPr(masterLst, level);
+            if (masterLvlDef) mergeRPrLayer(result, parseRPrLikeElement(masterLvlDef));
+          }
+          // Master text-style defaults (title / body / other).
+          const txStyle = masterTxStyleFor(masterRoot, phType);
+          const txLvlDef = lstStyleLevelDefRPr(txStyle, level);
+          if (txLvlDef) mergeRPrLayer(result, parseRPrLikeElement(txLvlDef));
+        }
+      }
+    }
+  }
+
+  // 7. Theme fontScheme — typeface resolution.
+  //
+  // The master often writes its `<a:latin typeface="+mj-lt"/>` /
+  // `+mn-lt` placeholder tokens instead of a concrete face. Those
+  // tokens must be resolved against the theme to produce a real
+  // typeface; otherwise renderers see literal `+mj-lt` and fall
+  // back to a generic font.
+  //
+  // When no layer in the cascade supplied a font at all, pick the
+  // major font for title-class placeholders and the minor font for
+  // everything else, matching PowerPoint's defaults.
+  const fonts = getPresentationFonts(pres);
+  if (fonts) {
+    const resolveThemeToken = (token: string): string | undefined => {
+      switch (token) {
+        case '+mj-lt': return fonts.majorLatin ?? undefined;
+        case '+mn-lt': return fonts.minorLatin ?? undefined;
+        case '+mj-ea': return fonts.majorEastAsian ?? undefined;
+        case '+mn-ea': return fonts.minorEastAsian ?? undefined;
+        case '+mj-cs': return fonts.majorComplexScript ?? undefined;
+        case '+mn-cs': return fonts.minorComplexScript ?? undefined;
+        default: return undefined;
+      }
+    };
+    if (typeof result.font === 'string' && result.font.startsWith('+')) {
+      const resolved = resolveThemeToken(result.font);
+      if (resolved) result.font = resolved;
+    }
+    if (result.font === undefined) {
+      const useMajor = phType === 'title' || phType === 'ctrTitle';
+      const fallback = useMajor ? fonts.majorLatin : fonts.minorLatin;
+      if (fallback) result.font = fallback;
+    }
+  }
+
+  return result as TextFormat;
 };
 
 /**

@@ -223,6 +223,7 @@ export {
   getShapeRotation,
   getShapeRunCount,
   getShapeRunFormat,
+  getShapeRunFormatEffective,
   getShapeRunHyperlink,
   getShapeRunText,
   getShapeSize,
