@@ -83,6 +83,8 @@ import {
   getGroupTransform,
   getSlideBackground,
   getSlideBackgroundGradientFill,
+  getSlideLayoutBackgroundGradientFill,
+  getSlideMasterBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideBackgroundPatternFill,
   getSlideLayout,
@@ -4214,7 +4216,15 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   } else if (bg.kind === 'gradient') {
     // B11 — gradient slide backgrounds. Use the same projector as
     // shape fills so radial / rect / shape paths all behave.
-    const grad = getSlideBackgroundGradientFill(slide);
+    // Walk slide → layout → master for the actual gradient definition.
+    let grad = getSlideBackgroundGradientFill(slide);
+    if (!grad) {
+      const layout = getSlideLayout(slide);
+      if (layout) {
+        grad = getSlideLayoutBackgroundGradientFill(layout);
+        if (!grad) grad = getSlideMasterBackgroundGradientFill(pres, layout);
+      }
+    }
     if (grad) {
       const built = gradientDef(grad, theme);
       bgGradientDefs = built.defs;
