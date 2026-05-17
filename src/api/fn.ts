@@ -8010,6 +8010,81 @@ export const getSlideBackgroundImageBytes = (slide: SlideData): Uint8Array | nul
   return part?.data ?? null;
 };
 
+/**
+ * Reads the slide layout's background image bytes when its `<p:bg>` is
+ * a `<p:bgPr><a:blipFill>`. Same shape as `getSlideBackgroundImageBytes`
+ * for slides. Returns `null` when the layout has no image background.
+ */
+export const getSlideLayoutBackgroundImageBytes = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): Uint8Array | null => {
+  const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const blipFill = firstChildElement(bgPr, qname('a', 'blipFill', NS.dml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  if (rEmbed === null) return null;
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const rels = pkg.getRels(layoutPartName);
+  if (!rels) return null;
+  const rel = rels.items.find((r) => r.id === rEmbed);
+  if (!rel || rel.targetMode === 'External') return null;
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(layoutPartName, rel.target);
+  const part = pkg.getPart(mediaName);
+  return part?.data ?? null;
+};
+
+/**
+ * Reads the slide master's background image bytes (via the layout's
+ * master rel). Companion to `getSlideLayoutBackgroundImageBytes`.
+ */
+export const getSlideMasterBackgroundImageBytes = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): Uint8Array | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return null;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return null;
+  const masterPartName = resolveTarget(layoutPartName, masterRel.target);
+  const masterPart = pkg.getPart(masterPartName);
+  if (!masterPart) return null;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const cSld = firstChildElement(masterRoot, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const blipFill = firstChildElement(bgPr, qname('a', 'blipFill', NS.dml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  if (rEmbed === null) return null;
+  const masterRels = pkg.getRels(masterPartName);
+  if (!masterRels) return null;
+  const rel = masterRels.items.find((r) => r.id === rEmbed);
+  if (!rel || rel.targetMode === 'External') return null;
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(masterPartName, rel.target);
+  const part = pkg.getPart(mediaName);
+  return part?.data ?? null;
+};
+
 /** Sets a solid fill on the slide's background. */
 export const setSlideBackground = (slide: SlideData, color: string): void => {
   setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
