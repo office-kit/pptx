@@ -685,6 +685,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     let max: number | undefined;
     let majorUnit: number | undefined;
     let minorUnit: number | undefined;
+    let logBase: number | undefined;
     const scaling = firstChildElement(valAx, qname('c', 'scaling', NS_C));
     const readNumOn = (parent: XmlElement, local: string): number | undefined => {
       const el = firstChildElement(parent, qname('c', local, NS_C));
@@ -697,6 +698,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (scaling) {
       min = readNumOn(scaling, 'min');
       max = readNumOn(scaling, 'max');
+      // <c:logBase val="N"/> — PowerPoint requires N in [2, 1000].
+      const lb = readNumOn(scaling, 'logBase');
+      if (lb !== undefined && lb >= 2 && lb <= 1000) logBase = lb;
     }
     majorUnit = readNumOn(valAx, 'majorUnit');
     minorUnit = readNumOn(valAx, 'minorUnit');
@@ -716,7 +720,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       max !== undefined ||
       majorUnit !== undefined ||
       minorUnit !== undefined ||
-      numberFormat !== undefined
+      numberFormat !== undefined ||
+      logBase !== undefined
     ) {
       valueAxis = {
         ...(min !== undefined ? { min } : {}),
@@ -724,6 +729,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         ...(majorUnit !== undefined ? { majorUnit } : {}),
         ...(minorUnit !== undefined ? { minorUnit } : {}),
         ...(numberFormat !== undefined ? { numberFormat } : {}),
+        ...(logBase !== undefined ? { logBase } : {}),
       };
     }
   }

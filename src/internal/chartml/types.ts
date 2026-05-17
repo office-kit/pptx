@@ -198,6 +198,13 @@ export interface ChartAxisScaling {
    * Renderers project a subset of Excel-style formats to label text.
    */
   readonly numberFormat?: string;
+  /**
+   * Logarithmic base for the axis from `<c:scaling><c:logBase val="N"/>`.
+   * Typical values are `2`, `10`, `Math.E`. When set, the renderer
+   * projects values through `Math.log(v) / Math.log(logBase)` before
+   * mapping to plot coordinates. Linear when omitted.
+   */
+  readonly logBase?: number;
 }
 
 /**
