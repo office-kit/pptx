@@ -8,6 +8,8 @@
   import {
     getCoreProperties,
     getPresentationSummary,
+    getSlideCharts,
+    getSlideMediaPartNames,
     type ValidationIssue,
     validatePresentation,
     getShapeKind,
@@ -42,6 +44,8 @@
     hidden: boolean;
     commentCount: number;
     layoutType: string | null;
+    chartCount: number;
+    mediaCount: number;
   };
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
@@ -99,6 +103,8 @@
           hidden: isSlideHidden(slide),
           commentCount: getSlideComments(slide).length,
           layoutType,
+          chartCount: getSlideCharts(slide).length,
+          mediaCount: getSlideMediaPartNames(pres, slide).length,
         };
       });
 
@@ -279,6 +285,8 @@
             {#if s.hasTransition}<span class="s-badge" title="slide carries <p:transition>">trans</span>{/if}
             {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
             {#if s.commentCount > 0}<span class="s-badge" title="slide has authored review comments">{s.commentCount} cmt</span>{/if}
+            {#if s.chartCount > 0}<span class="s-badge" title="number of <p:graphicFrame> chart shapes on the slide">{s.chartCount} chart</span>{/if}
+            {#if s.mediaCount > 0}<span class="s-badge" title="number of media parts (images / audio / video) the slide references">{s.mediaCount} media</span>{/if}
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
           </div>
           <div class="s-canvas">
