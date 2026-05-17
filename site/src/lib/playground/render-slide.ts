@@ -2992,6 +2992,22 @@ const renderLineChart = (
         out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
       }
     }
+    // Trendline overlay per series (only meaningful on the clustered
+    // layout — stacked already shows the cumulative shape).
+    if (!isStacked && series.trendline) {
+      const finiteXs: number[] = [];
+      const finiteYs: number[] = [];
+      for (const [xp, yp] of pts) {
+        if (Number.isFinite(yp)) {
+          finiteXs.push(xp);
+          finiteYs.push(yp);
+        }
+      }
+      if (finiteXs.length >= 2) {
+        const tlColor = series.trendline.color ?? color;
+        out.push(trendlinePath(finiteXs, finiteYs, series.trendline, tlColor));
+      }
+    }
   }
   return out.join('');
 };
