@@ -768,6 +768,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // means hidden" (matches ECMA-376 §21.2.2.122).
   let valueAxisMajorGridlines: boolean | undefined;
   let valueAxisMinorGridlines: boolean | undefined;
+  let valueAxisMajorGridlineColor: string | undefined;
   if (valAx) {
     const t = readTitle(valAx);
     if (t !== undefined) valueAxisTitle = t;
@@ -777,7 +778,25 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (valTxPr) valueAxisLabelStyle = readLabelStyle(valTxPr);
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
-    valueAxisMajorGridlines = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C)) !== null;
+    const majorGl = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C));
+    valueAxisMajorGridlines = majorGl !== null;
+    if (majorGl) {
+      // <c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="…"/>
+      const spPr = firstChildElement(majorGl, NAME_SP_PR_C);
+      if (spPr) {
+        const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
+        if (ln) {
+          const solid = firstChildElement(ln, NAME_SOLID_FILL);
+          if (solid) {
+            const srgb = firstChildElement(solid, NAME_SRGB_CLR);
+            if (srgb) {
+              const v = getAttrValue(srgb, ATTR_VAL);
+              if (v !== null) valueAxisMajorGridlineColor = `#${v.toUpperCase()}`;
+            }
+          }
+        }
+      }
+    }
     valueAxisMinorGridlines = firstChildElement(valAx, qname('c', 'minorGridlines', NS_C)) !== null;
   }
 
@@ -888,6 +907,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
+    ...(valueAxisMajorGridlineColor !== undefined ? { valueAxisMajorGridlineColor } : {}),
     ...(valueAxisMinorGridlines !== undefined ? { valueAxisMinorGridlines } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),

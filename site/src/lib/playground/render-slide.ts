@@ -2576,6 +2576,8 @@ interface AxisSpec {
   readonly majorGridlines?: boolean;
   /** Optional authored tick-label font / color from `<c:valAx><c:txPr>`. */
   readonly labelStyle?: ChartTextStyle;
+  /** Optional authored major-gridline color from `<c:majorGridlines><c:spPr><a:ln>`. */
+  readonly majorGridlineColor?: string;
 }
 
 // Builds the `font-family / font-size / fill / weight` SVG attribute
@@ -2603,12 +2605,13 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
   const showGrid = axis.majorGridlines ?? true;
+  const gridStroke = axis.majorGridlineColor ?? '#E5E7EB';
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
       if (showGrid) {
         out.push(
-          `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+          `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="${gridStroke}" stroke-width="0.5"/>`,
         );
       }
       // Numeric label, right-aligned to the plot's left edge.
@@ -2619,7 +2622,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
       if (showGrid) {
         out.push(
-          `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+          `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="${gridStroke}" stroke-width="0.5"/>`,
         );
       }
       out.push(
@@ -3573,6 +3576,9 @@ const renderChart = (
         ? { majorGridlines: spec.valueAxisMajorGridlines }
         : {}),
       ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
+      ...(spec.valueAxisMajorGridlineColor !== undefined
+        ? { majorGridlineColor: spec.valueAxisMajorGridlineColor }
+        : {}),
     };
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
