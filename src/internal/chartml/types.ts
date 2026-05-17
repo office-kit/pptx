@@ -165,6 +165,23 @@ export interface ChartAxisScaling {
  */
 export type ChartGrouping = 'clustered' | 'stacked' | 'percentStacked' | 'standard';
 
+/**
+ * Authored text style for a chart label (title / axis title / etc.).
+ * Read from the label's first `<a:rPr>` (and `<a:defRPr>` as fallback).
+ * All fields are optional — absent fields mean "fall back to the
+ * renderer's default for this label position."
+ */
+export interface ChartTextStyle {
+  /** Font size in points. From `<a:rPr sz="N"/>` where N is in 100ths of a pt. */
+  readonly sizePt?: number;
+  /** Bold flag from `<a:rPr b="1"/>`. */
+  readonly bold?: boolean;
+  /** Italic flag from `<a:rPr i="1"/>`. */
+  readonly italic?: boolean;
+  /** Fill color as `#RRGGBB` from `<a:rPr><a:solidFill><a:srgbClr/></a:solidFill>`. */
+  readonly color?: string;
+}
+
 /** Full chart specification. */
 export interface ChartSpec {
   readonly kind: ChartKind;
@@ -173,6 +190,8 @@ export interface ChartSpec {
   readonly series: ReadonlyArray<ChartSeries>;
   /** Optional chart title rendered above the plot area. */
   readonly title?: string;
+  /** Optional font / color overrides for the chart title. */
+  readonly titleStyle?: ChartTextStyle;
   /** Optional chart-level data-label toggles. */
   readonly dataLabels?: ChartDataLabels;
   /** Optional value-axis scaling override (min / max). */
