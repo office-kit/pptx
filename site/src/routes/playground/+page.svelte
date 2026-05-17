@@ -44,6 +44,7 @@
     hasAnimations: boolean;
     hidden: boolean;
     commentCount: number;
+    commentTexts: string;
     layoutType: string | null;
     chartCount: number;
     mediaCount: number;
@@ -105,6 +106,10 @@
           hasAnimations: slideHasAnimations(slide),
           hidden: isSlideHidden(slide),
           commentCount: getSlideComments(slide).length,
+          commentTexts: getSlideComments(slide)
+            .map((c) => c.text)
+            .filter((t) => t.length > 0)
+            .join('\n'),
           layoutType,
           chartCount: getSlideCharts(slide).length,
           mediaCount: getSlideMediaPartNames(pres, slide).length,
@@ -287,7 +292,7 @@
             {#if s.hidden}<span class="s-badge s-badge-hidden" title='show="0" — hidden from slideshow'>hidden</span>{/if}
             {#if s.hasTransition}<span class="s-badge" title="slide carries <p:transition>">trans</span>{/if}
             {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
-            {#if s.commentCount > 0}<span class="s-badge" title="slide has authored review comments">{s.commentCount} cmt</span>{/if}
+            {#if s.commentCount > 0}<span class="s-badge" title={s.commentTexts || 'slide has authored review comments'}>{s.commentCount} cmt</span>{/if}
             {#if s.chartCount > 0}<span class="s-badge" title="number of <p:graphicFrame> chart shapes on the slide">{s.chartCount} chart</span>{/if}
             {#if s.mediaCount > 0}<span class="s-badge" title="number of media parts (images / audio / video) the slide references">{s.mediaCount} media</span>{/if}
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
