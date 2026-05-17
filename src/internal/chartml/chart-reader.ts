@@ -982,6 +982,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     };
   }
 
+  // <c:barChart><c:varyColors val="1"/> etc. — single-series charts use
+  // it to color each data point uniquely.
+  let varyColors: boolean | undefined;
+  const vcEl = firstChildElement(plotted, qname('c', 'varyColors', NS_C));
+  if (vcEl) {
+    const v = getAttrValue(vcEl, ATTR_VAL);
+    varyColors = v === null || v === '1' || v === 'true';
+  }
+
   // <c:title><c:overlay val="1"/>
   let titleOverlay: boolean | undefined;
   const titleEl = firstChildElement(chart, NAME_TITLE);
@@ -1031,6 +1040,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),
     ...(titleOverlay !== undefined ? { titleOverlay } : {}),
+    ...(varyColors !== undefined ? { varyColors } : {}),
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
     ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
     ...(plotAreaStrokeColor !== undefined ? { plotAreaStrokeColor } : {}),
