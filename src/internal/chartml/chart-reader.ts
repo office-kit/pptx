@@ -997,12 +997,34 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const overlay = ovEl ? getAttrValue(ovEl, ATTR_VAL) !== '0' : false;
     const txPr = firstChildElement(legendEl, qname('c', 'txPr', NS_C));
     const textStyle = txPr ? readLabelStyle(txPr) : undefined;
+    // <c:legendEntry><c:idx val="N"/><c:delete val="1"/> — series indices
+    // the author wants suppressed from the legend (trendlines often hide).
+    const hiddenIndices: number[] = [];
+    for (const c of legendEl.children) {
+      if (
+        c.kind !== 'element' ||
+        c.name.namespaceURI !== NS_C ||
+        c.name.localName !== 'legendEntry'
+      )
+        continue;
+      const idxEl = firstChildElement(c, qname('c', 'idx', NS_C));
+      const delEl = firstChildElement(c, qname('c', 'delete', NS_C));
+      if (!idxEl || !delEl) continue;
+      const delV = getAttrValue(delEl, ATTR_VAL);
+      const isDeleted = delV === null || delV === '1' || delV === 'true';
+      if (!isDeleted) continue;
+      const idxV = getAttrValue(idxEl, ATTR_VAL);
+      if (idxV === null) continue;
+      const n = Number.parseInt(idxV, 10);
+      if (Number.isFinite(n) && n >= 0) hiddenIndices.push(n);
+    }
     const position: 'r' | 't' | 'b' | 'l' | 'tr' =
       tok === 'r' || tok === 't' || tok === 'b' || tok === 'l' || tok === 'tr' ? tok : 'r';
     legend = {
       position,
       ...(overlay ? { overlay } : {}),
       ...(textStyle !== undefined ? { textStyle } : {}),
+      ...(hiddenIndices.length > 0 ? { hiddenIndices } : {}),
     };
   }
 
