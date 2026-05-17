@@ -3319,6 +3319,22 @@ const renderLineChart = (
         }
       }
     }
+    // Per-point value labels for line / area charts. Sits above the
+    // marker so the line / fill stays unobscured. Honors the same
+    // per-series → chart-level cascade as bar / pie.
+    const showLineLabel = series.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
+    if (showLineLabel) {
+      for (let c = 0; c < N; c++) {
+        const p = ptsRaw[c];
+        if (p === null) continue;
+        const v = series.values[c];
+        if (v === null || v === undefined || !Number.isFinite(v)) continue;
+        const [xp, yp] = p;
+        out.push(
+          `<text x="${px(xp)}" y="${px(yp - 5)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v as number)}</text>`,
+        );
+      }
+    }
     // Trendline overlay per series (only meaningful on the clustered
     // layout — stacked already shows the cumulative shape).
     if (!isStacked && series.trendline) {
