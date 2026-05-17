@@ -381,19 +381,30 @@ const readTitle = (chart: XmlElement): string | undefined => {
   if (!title) return undefined;
   const tx = firstChildElement(title, NAME_TX);
   if (!tx) return undefined;
+  // `<c:tx>` may carry either `<c:rich>` (literal) or `<c:strRef>` (cell
+  // reference, with its `<c:strCache>` holding the resolved string).
+  // Authors who type the title directly emit rich; chart wizards that
+  // wire the title to a cell emit strRef. Accept both.
   const rich = firstChildElement(tx, NAME_RICH);
-  if (!rich) return undefined;
-  let acc = '';
-  for (const p of allChildElements(rich, NAME_P_DML)) {
-    for (const r of allChildElements(p, NAME_R_DML)) {
-      const tEl = firstChildElement(r, NAME_T);
-      if (!tEl) continue;
-      for (const child of tEl.children) {
-        if (child.kind === 'text' || child.kind === 'cdata') acc += child.data;
+  if (rich) {
+    let acc = '';
+    for (const p of allChildElements(rich, NAME_P_DML)) {
+      for (const r of allChildElements(p, NAME_R_DML)) {
+        const tEl = firstChildElement(r, NAME_T);
+        if (!tEl) continue;
+        for (const child of tEl.children) {
+          if (child.kind === 'text' || child.kind === 'cdata') acc += child.data;
+        }
       }
     }
+    if (acc.length > 0) return acc;
   }
-  return acc.length > 0 ? acc : undefined;
+  const cells = readStringRef(tx);
+  if (cells && cells.length > 0) {
+    const text = cells.filter((s) => s.length > 0).join(' ');
+    if (text.length > 0) return text;
+  }
+  return undefined;
 };
 
 const NAME_A_RPR = qname('a', 'rPr', NS_A);
