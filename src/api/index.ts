@@ -464,6 +464,7 @@ export {
   setThumbnail,
   pointInShape,
   shapesOverlap,
+  slideHasAnimations,
   slidesUsingMediaPart,
   sortSlides,
   swapSlides,

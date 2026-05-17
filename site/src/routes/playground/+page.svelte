@@ -11,11 +11,13 @@
     getSlideNotes,
     getSlideShapes,
     getSlideTitle,
+    getSlideTransition,
     getSlides,
     getSlideTextLength,
     listPackageParts,
     loadPresentation,
     savePresentation,
+    slideHasAnimations,
   } from 'pptx-kit';
   import { renderSlideSvg } from '$lib/playground/render-slide';
 
@@ -26,6 +28,8 @@
     shapeKinds: string[];
     svg: string;
     notes: string | null;
+    hasTransition: boolean;
+    hasAnimations: boolean;
   };
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
@@ -59,6 +63,8 @@
         shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
         svg: renderSlideSvg(pres, slide),
         notes: getSlideNotes(slide),
+        hasTransition: getSlideTransition(slide) !== null,
+        hasAnimations: slideHasAnimations(slide),
       }));
 
       parts = listPackageParts(pres)
@@ -189,6 +195,8 @@
           <div class="s-head">
             <span class="s-num">{String(s.index).padStart(2, '0')}</span>
             <span class="s-title">{s.title || '(untitled)'}</span>
+            {#if s.hasTransition}<span class="s-badge" title="slide carries <p:transition>">trans</span>{/if}
+            {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
           </div>
           <div class="s-canvas">
@@ -476,6 +484,17 @@
   .s-kinds code {
     font-size: 11px;
     padding: 0.1em 0.45em;
+  }
+
+  .s-badge {
+    display: inline-block;
+    padding: 0.05em 0.45em;
+    font-size: 10px;
+    font-family: var(--mono, monospace);
+    color: var(--muted, #4b5563);
+    background: var(--panel, #f1f5f9);
+    border-radius: 3px;
+    margin-left: 0.25em;
   }
 
   .s-notes {
