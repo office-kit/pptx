@@ -29,6 +29,7 @@ import {
   getParagraphLineSpacing,
   getParagraphPropertiesEffective,
   getParagraphSpacing,
+  getPresentationFonts,
   getPresentationTheme,
   getShapeBoundsResolved,
   getShapeEffects,
@@ -1998,6 +1999,18 @@ const renderTextBody = (
   if (paragraphCount === 0) return '';
 
   const defaultPt = placeholderDefaultPt(phType);
+  // Theme font stack — `<a:fontScheme><a:majorFont>` is the title face,
+  // `<a:minorFont>` is the body face. Use the major face for title /
+  // ctrTitle placeholders, minor for everything else. Falls through to
+  // DEFAULT_FONT so missing themes still render with our generic stack.
+  const themeFonts = getPresentationFonts(pres);
+  const isTitlePlaceholder = phType === 'title' || phType === 'ctrTitle';
+  const themeFace = isTitlePlaceholder
+    ? (themeFonts?.majorLatin ?? null)
+    : (themeFonts?.minorLatin ?? null);
+  const effectiveDefaultFont = themeFace
+    ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}`
+    : DEFAULT_FONT;
   // Effective body-property cascade — anchor, wrap, vert, margins all
   // inherit from the layout / master placeholder when the slide doesn't
   // override them.
@@ -2377,7 +2390,7 @@ const renderTextBody = (
   // Without this, the surrounding SVG viewport silently crops any text
   // that overshoots — exactly the title-tops-cut-off symptom users
   // hit when the autofit scale wasn't enough.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word${vertStyles}">${paragraphs.join('')}</div>`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};word-break:break-word${vertStyles}">${paragraphs.join('')}</div>`;
   return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
 };
 
