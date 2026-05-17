@@ -166,6 +166,37 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.dispBlanksAs).toBe('span');
   });
 
+  it('round-trips valueAxis scaling (min / max / majorUnit / minorUnit / numberFormat)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [10, 50] }],
+        valueAxis: {
+          min: 0,
+          max: 100,
+          majorUnit: 20,
+          minorUnit: 5,
+          numberFormat: '0.00%',
+        },
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.valueAxis?.min).toBe(0);
+    expect(spec.valueAxis?.max).toBe(100);
+    expect(spec.valueAxis?.majorUnit).toBe(20);
+    expect(spec.valueAxis?.minorUnit).toBe(5);
+    expect(spec.valueAxis?.numberFormat).toBe('0.00%');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
