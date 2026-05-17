@@ -86,6 +86,7 @@ import {
   getSlideLayout,
   getSlideLayoutBackground,
   getSlideLayoutBackgroundShapes,
+  getSlideMasterBackground,
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
@@ -4111,11 +4112,20 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   const theme = getPresentationTheme(pres);
 
   let bg = getSlideBackground(slide);
-  // B10 (partial) — when the slide reports inherit, walk to the layout so
-  // a deck that paints its brand color / image on the layout shows up.
+  // B10 — when the slide reports inherit, walk to the layout; when the
+  // layout also inherits, walk one more step to the master. Real brand
+  // templates put the actual background fill on the master only.
   if (bg.kind === 'inherit') {
     const layout = getSlideLayout(slide);
-    if (layout) bg = getSlideLayoutBackground(layout);
+    if (layout) {
+      const layoutBg = getSlideLayoutBackground(layout);
+      if (layoutBg.kind !== 'inherit') {
+        bg = layoutBg;
+      } else {
+        const masterBg = getSlideMasterBackground(pres, layout);
+        if (masterBg.kind !== 'inherit') bg = masterBg;
+      }
+    }
   }
   let bgColor = '#FFFFFF';
   let bgGradient = '';

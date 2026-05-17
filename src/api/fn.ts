@@ -7570,6 +7570,81 @@ export const getSlideLayoutBackgroundShapes = (
  * the slide's own background reports `'inherit'`. Walking one further
  * level to the master is left to callers (the same shape applies).
  */
+/**
+ * Reads the slide master's background. Same discriminated union as
+ * `getSlideBackground` / `getSlideLayoutBackground`. Walks one rel up
+ * from the layout to find the master, then reads `<p:bg>` (either
+ * `<p:bgPr>` explicit fill or `<p:bgRef>` theme reference).
+ *
+ * Slides that report `'inherit'` on both their own background and the
+ * layout's commonly inherit the brand fill from the master — this
+ * closes the third level of the cascade.
+ */
+export const getSlideMasterBackground = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): SlideBackground => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return { kind: 'inherit' };
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return { kind: 'inherit' };
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return { kind: 'inherit' };
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const cSld = firstChildElement(masterRoot, NAME_CSLD);
+  if (!cSld) return { kind: 'inherit' };
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return { kind: 'inherit' };
+  // bgRef on the master typically points at the theme's first
+  // bgFillStyleLst entry; surface its inner color as a solid fill so
+  // renderers paint the brand color.
+  const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
+  if (bgRef) {
+    for (const inner of bgRef.children) {
+      if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+      if (inner.name.localName === 'srgbClr') {
+        const val = getAttrValue(inner, qname('', 'val', ''));
+        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+      }
+      if (inner.name.localName === 'schemeClr') {
+        const val = getAttrValue(inner, qname('', 'val', ''));
+        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+      }
+    }
+    return { kind: 'inherit' };
+  }
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return { kind: 'inherit' };
+  for (const c of bgPr.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    switch (c.name.localName) {
+      case 'solidFill': {
+        for (const inner of c.children) {
+          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+          if (inner.name.localName === 'srgbClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+          }
+          if (inner.name.localName === 'schemeClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+          }
+        }
+        return { kind: 'solid', color: '' };
+      }
+      case 'gradFill':
+        return { kind: 'gradient' };
+      case 'pattFill':
+        return { kind: 'pattern' };
+      case 'blipFill':
+        return { kind: 'image' };
+    }
+  }
+  return { kind: 'inherit' };
+};
+
 export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground => {
   const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
   if (!cSld) return { kind: 'inherit' };
