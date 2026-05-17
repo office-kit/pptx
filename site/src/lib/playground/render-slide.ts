@@ -2638,7 +2638,56 @@ const renderShape = (
       p.stroke === 'none' ? resolveColor('scheme:tx1', theme, '#1F2937') : p.stroke;
     const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
     const ma = p.markerAttrs ?? '';
-    return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${sa}${ma}${transform}/>`;
+    // B8 — bent / curved connector routing. Per ECMA-376 §20.1.9.18,
+    // bentConnector{2,3,4,5} are L-shaped, step, and double-step paths;
+    // curvedConnector{2,3,4,5} are quadratic / cubic Bézier curves. We
+    // route them between the bounding box's diagonal endpoints in
+    // CSS-px so the cadence matches PowerPoint within visual tolerance.
+    const preset = getShapePreset(shape) ?? 'line';
+    if (preset === 'straightConnector1' || preset === 'line') {
+      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${sa}${ma}${transform}/>`;
+    }
+    // For bent / curved, we work in CSS px to keep the path math readable.
+    const px1 = x1 / EMU_PER_PX;
+    const py1 = y1 / EMU_PER_PX;
+    const px2 = x2 / EMU_PER_PX;
+    const py2 = y2 / EMU_PER_PX;
+    let d = `M${px1.toFixed(2)} ${py1.toFixed(2)}`;
+    if (preset === 'bentConnector2') {
+      // Single L: horizontal then vertical.
+      d += ` L${px2.toFixed(2)} ${py1.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'bentConnector3') {
+      // Z-bend: horizontal halfway, vertical, horizontal to endpoint.
+      const midX = (px1 + px2) / 2;
+      d += ` L${midX.toFixed(2)} ${py1.toFixed(2)} L${midX.toFixed(2)} ${py2.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'bentConnector4') {
+      // Two-step: H halfway, V halfway, H, V to endpoint.
+      const mx = (px1 + px2) / 2;
+      const my = (py1 + py2) / 2;
+      d += ` L${mx.toFixed(2)} ${py1.toFixed(2)} L${mx.toFixed(2)} ${my.toFixed(2)} L${px2.toFixed(2)} ${my.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'bentConnector5') {
+      // Three-step: same pattern, one more segment.
+      const q1x = px1 + (px2 - px1) / 3;
+      const q2x = px1 + (2 * (px2 - px1)) / 3;
+      const my = (py1 + py2) / 2;
+      d += ` L${q1x.toFixed(2)} ${py1.toFixed(2)} L${q1x.toFixed(2)} ${my.toFixed(2)} L${q2x.toFixed(2)} ${my.toFixed(2)} L${q2x.toFixed(2)} ${py2.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'curvedConnector2') {
+      // Single quadratic curve through the corner.
+      d += ` Q${px2.toFixed(2)} ${py1.toFixed(2)} ${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (
+      preset === 'curvedConnector3' ||
+      preset === 'curvedConnector4' ||
+      preset === 'curvedConnector5'
+    ) {
+      // S-curve: cubic Bézier with control points at one-third / two-thirds.
+      const c1x = px1 + (px2 - px1) / 3;
+      const c2x = px1 + (2 * (px2 - px1)) / 3;
+      d += ` C${c1x.toFixed(2)} ${py1.toFixed(2)} ${c2x.toFixed(2)} ${py2.toFixed(2)} ${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else {
+      // Unknown connector preset — fall back to a straight line.
+      d += ` L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    }
+    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round" stroke-linejoin="round"${sa}${ma}${transform}/>`;
   }
 
   if (kind === 'group') {
