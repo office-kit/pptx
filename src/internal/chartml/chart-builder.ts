@@ -159,6 +159,37 @@ const markerElement = (
   return elem(c('marker'), { children });
 };
 
+// Build the array of `<c:dPt>` overrides for a series — combines the
+// sparse pointColors and pointExplosions maps. Each authored index
+// emits a `<c:dPt>` with `<c:idx>` + `<c:bubble3D val="0"/>` (required
+// by PowerPoint) + optional explosion + optional spPr/solidFill color.
+const dPtElements = (
+  colors: ReadonlyArray<string | null> | undefined,
+  explosions: ReadonlyArray<number | null> | undefined,
+): XmlElement[] => {
+  const out: XmlElement[] = [];
+  const colorLen = colors?.length ?? 0;
+  const explLen = explosions?.length ?? 0;
+  const max = Math.max(colorLen, explLen);
+  for (let i = 0; i < max; i++) {
+    const color = colors?.[i] ?? null;
+    const expl = explosions?.[i] ?? null;
+    if (color === null && (expl === null || !Number.isFinite(expl))) continue;
+    const children: XmlElement[] = [
+      valNode(c('idx'), i),
+      // PowerPoint expects bubble3D=0 on every dPt outside bubble charts.
+      valNode(c('bubble3D'), '0'),
+    ];
+    if (expl !== null) children.push(valNode(c('explosion'), Math.round(expl)));
+    if (color !== null) {
+      const hex = color.replace(/^#/, '').toUpperCase();
+      children.push(solidFillSpPr(hex));
+    }
+    out.push(elem(c('dPt'), { children }));
+  }
+  return out;
+};
+
 // `<c:trendline>` for a series. Carries trendlineType + optional
 // period (movingAvg) / order (poly) / forward / backward / spPr color.
 const trendlineElement = (
@@ -225,6 +256,10 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   }
   const mk = markerElement(series.markerSymbol, series.markerSizePt);
   if (mk !== null) children.push(mk);
+  // <c:dPt> overrides go after invertIfNegative / marker per schema.
+  for (const dPt of dPtElements(series.pointColors, series.pointExplosions)) {
+    children.push(dPt);
+  }
   const serDLbls = buildDLblsFromLabels(series.dataLabels);
   if (serDLbls !== null) children.push(serDLbls);
   if (series.trendline) children.push(trendlineElement(series.trendline));
