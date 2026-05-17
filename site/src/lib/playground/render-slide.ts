@@ -24,6 +24,8 @@ import {
   getParagraphAlignment,
   getParagraphBullet,
   getParagraphLevel,
+  getParagraphLineSpacing,
+  getParagraphSpacing,
   getPresentationTheme,
   getShapeBoundsResolved,
   getShapeEffects,
@@ -1745,6 +1747,9 @@ const renderTextBody = (
     readonly level: number;
     readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
     readonly runs: RunData[];
+    readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
+    readonly spcBefPts: number | null;
+    readonly spcAftPts: number | null;
   }
   const paraData: ParaData[] = [];
   let hasAnyText = false;
@@ -1752,6 +1757,15 @@ const renderTextBody = (
     const align = getParagraphAlignment(shape, p) ?? 'left';
     const level = getParagraphLevel(shape, p);
     const bulletStyle = getParagraphBullet(shape, p);
+    let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
+    let spcBefPts: number | null = null;
+    let spcAftPts: number | null = null;
+    try { lineSpacing = getParagraphLineSpacing(shape, p); } catch {}
+    try {
+      const spacing = getParagraphSpacing(shape, p);
+      spcBefPts = spacing.beforePts;
+      spcAftPts = spacing.afterPts;
+    } catch {}
     const runs: RunData[] = [];
     // Walk the paragraph's inline elements — runs, field placeholders,
     // and explicit line breaks — in document order. The strict
@@ -1786,7 +1800,7 @@ const renderTextBody = (
       if (txt) hasAnyText = true;
       runs.push({ text: txt, fmt, sizePt });
     }
-    paraData.push({ align, level, bulletStyle, runs });
+    paraData.push({ align, level, bulletStyle, runs, lineSpacing, spcBefPts, spcAftPts });
   }
   if (!hasAnyText) return '';
 
@@ -1849,10 +1863,26 @@ const renderTextBody = (
     const runHtmls = para.runs.map((run) =>
       renderRun(run.text, run.fmt, theme, run.sizePt * autoFitScale, run.fmt?.size === undefined),
     );
+    // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
+    // sets a fixed point value. CSS line-height accepts both forms;
+    // we project pts to px at the run's authored size.
+    let lineHeightCss = '';
+    if (para.lineSpacing?.kind === 'pct') {
+      lineHeightCss = `line-height:${para.lineSpacing.value.toFixed(3)}`;
+    } else if (para.lineSpacing?.kind === 'pts') {
+      lineHeightCss = `line-height:${(para.lineSpacing.value * PX_PER_PT * autoFitScale).toFixed(2)}px`;
+    }
+    // <a:spcBef> / <a:spcAft> map to CSS margin-top / margin-bottom.
+    const marginTopCss = para.spcBefPts !== null && para.spcBefPts > 0
+      ? `margin-top:${(para.spcBefPts * PX_PER_PT * autoFitScale).toFixed(2)}px` : '';
+    const marginBottomCss = para.spcAftPts !== null && para.spcAftPts > 0
+      ? `margin-bottom:${(para.spcAftPts * PX_PER_PT * autoFitScale).toFixed(2)}px` : '';
     const pStyles: string[] = [
-      'margin:0',
+      marginTopCss || (marginBottomCss ? '' : 'margin:0'),
+      marginBottomCss,
       'padding:0',
       `text-align:${ALIGNMENT_TO_CSS[para.align] ?? 'left'}`,
+      lineHeightCss,
       para.level > 0 ? `padding-left:${(para.level * 24 * PX_PER_PT * autoFitScale).toFixed(2)}px` : '',
     ].filter(Boolean);
     let prefix = '';

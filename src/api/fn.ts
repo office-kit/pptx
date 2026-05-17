@@ -5112,6 +5112,50 @@ export const getParagraphSpacing = (
 };
 
 /**
+ * Reads the paragraph's `<a:lnSpc>` line spacing. PowerPoint stores
+ * line spacing two ways:
+ *
+ *   - Multiple of the natural line height — `<a:spcPct val="150000"/>`
+ *     (= 1.5×). Returns `{ kind: 'pct', value }` with value as the unit
+ *     fraction (1.5).
+ *   - Fixed points — `<a:spcPts val="2400"/>` (= 24pt). Returns
+ *     `{ kind: 'pts', value }` with value in points.
+ *
+ * Returns `null` when no `<a:lnSpc>` is present (the paragraph
+ * inherits line spacing from the layout / master).
+ */
+export const getParagraphLineSpacing = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): { readonly kind: 'pct'; readonly value: number } | { readonly kind: 'pts'; readonly value: number } | null => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (!pPr) return null;
+  const lnSpc = firstChildElement(pPr, qname('a', 'lnSpc', NS.dml));
+  if (!lnSpc) return null;
+  const pct = firstChildElement(lnSpc, qname('a', 'spcPct', NS.dml));
+  if (pct) {
+    const v = getAttrValue(pct, qname('', 'val', ''));
+    if (v !== null) {
+      let n = Number.parseFloat(v);
+      if (Number.isFinite(n)) {
+        if (Math.abs(n) > 1) n = n / 100000;
+        return { kind: 'pct', value: n };
+      }
+    }
+  }
+  const pts = firstChildElement(lnSpc, qname('a', 'spcPts', NS.dml));
+  if (pts) {
+    const v = getAttrValue(pts, qname('', 'val', ''));
+    if (v !== null) {
+      const n = Number.parseInt(v, 10);
+      if (Number.isFinite(n)) return { kind: 'pts', value: n / 100 };
+    }
+  }
+  return null;
+};
+
+/**
  * Reads back the bullet style on a single paragraph, or `null` when
  * no `<a:buChar>` / `<a:buAutoNum>` / `<a:buNone>` is present (the
  * paragraph inherits its bullet from the layout / master).
