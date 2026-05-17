@@ -45,6 +45,7 @@ import {
   getShapeHyperlink,
   getShapeTextColumns,
   getShapeTextDirection,
+  getShapeImageBiLevelThreshold,
   getShapeImageBrightness,
   getShapeImageLinkUrl,
   getShapeImageBytes,
@@ -101,6 +102,7 @@ import {
   getTableDimensions,
   getTableRowHeights,
   isChartShape,
+  isShapeImageGrayscale,
   isTableShape,
   type PresentationData,
   type PresentationTheme,
@@ -255,11 +257,45 @@ const renderPicture = (
     const brightness = getShapeImageBrightness(shape) ?? 0;
     const contrast = getShapeImageContrast(shape) ?? 1;
     const opacity = getShapeImageOpacity(shape) ?? 1;
+    const grayscale = isShapeImageGrayscale(shape);
+    const biLevel = getShapeImageBiLevelThreshold(shape);
     let filterAttr = '';
-    if (brightness !== 0 || contrast !== 1) {
-      // SVG filter: brightness + linear contrast via feComponentTransfer.
+    if (brightness !== 0 || contrast !== 1 || grayscale || biLevel !== null) {
+      // SVG filter pipeline: contrast/brightness (linear), then optional
+      // grayscale (luminance matrix), then optional biLevel two-tone
+      // (discrete table that snaps each channel to 0 or 1 at thresh).
       const fid = mintId();
-      clipDef += `<defs><filter id="${fid}"><feComponentTransfer><feFuncR type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncG type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncB type="linear" slope="${contrast}" intercept="${brightness}"/></feComponentTransfer></filter></defs>`;
+      const prims: string[] = [];
+      if (brightness !== 0 || contrast !== 1) {
+        prims.push(
+          `<feComponentTransfer><feFuncR type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncG type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncB type="linear" slope="${contrast}" intercept="${brightness}"/></feComponentTransfer>`,
+        );
+      }
+      if (grayscale) {
+        // Luminance-preserving desaturation matrix.
+        prims.push(
+          `<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>`,
+        );
+      }
+      if (biLevel !== null) {
+        const t = biLevel / 100;
+        // discrete tables snap channels to 0 below `t` and to 1 at/above.
+        const table = `0 1`;
+        // Use a step function: tableValues with 2 entries split at thresh.
+        // feFuncR/G/B with type=discrete + 2-entry table snaps at the midpoint;
+        // for an arbitrary threshold we shift via tableValues with more samples.
+        const steps = 32;
+        const vals: string[] = [];
+        for (let i = 0; i < steps; i++) {
+          vals.push(i / (steps - 1) >= t ? '1' : '0');
+        }
+        void table;
+        const tableStr = vals.join(' ');
+        prims.push(
+          `<feComponentTransfer><feFuncR type="discrete" tableValues="${tableStr}"/><feFuncG type="discrete" tableValues="${tableStr}"/><feFuncB type="discrete" tableValues="${tableStr}"/></feComponentTransfer>`,
+        );
+      }
+      clipDef += `<defs><filter id="${fid}">${prims.join('')}</filter></defs>`;
       filterAttr = ` filter="url(#${fid})"`;
     }
     const opacityAttr = opacity !== 1 ? ` opacity="${opacity.toFixed(3)}"` : '';
