@@ -8774,6 +8774,55 @@ export const getTableCells = (
 };
 
 /**
+ * Reads the boolean style flags off `<a:tblPr>` — which header /
+ * footer rows + columns are banded or emphasised. Mirrors the
+ * `firstRow` / `bandRow` flags exposed by `addSlideTable`.
+ *
+ * Per ECMA-376 §17.18.95 / §21.1.3.15:
+ *
+ *   - `firstRow` — header row is styled differently.
+ *   - `lastRow` — total row is styled differently.
+ *   - `firstCol` — first column is styled differently.
+ *   - `lastCol` — last column is styled differently.
+ *   - `bandRow` — alternating row shading.
+ *   - `bandCol` — alternating column shading.
+ *
+ * Renderers use these to switch on the corresponding table style
+ * variant. Returns all-`false` for tables that don't author `<a:tblPr>`.
+ */
+export const getTableStyleFlags = (
+  table: SlideShapeData,
+): {
+  firstRow: boolean;
+  lastRow: boolean;
+  firstCol: boolean;
+  lastCol: boolean;
+  bandRow: boolean;
+  bandCol: boolean;
+} => {
+  const empty = {
+    firstRow: false, lastRow: false, firstCol: false, lastCol: false,
+    bandRow: false, bandCol: false,
+  };
+  const tbl = findTblElement(table);
+  if (!tbl) return empty;
+  const tblPr = firstChildElement(tbl, qname('a', 'tblPr', NS.dml));
+  if (!tblPr) return empty;
+  const readBool = (attr: string): boolean => {
+    const v = getAttrValue(tblPr, qname('', attr, ''));
+    return v === '1' || v === 'true';
+  };
+  return {
+    firstRow: readBool('firstRow'),
+    lastRow: readBool('lastRow'),
+    firstCol: readBool('firstCol'),
+    lastCol: readBool('lastCol'),
+    bandRow: readBool('bandRow'),
+    bandCol: readBool('bandCol'),
+  };
+};
+
+/**
  * Returns the table's row + column counts. Throws when the shape
  * isn't a table graphic frame.
  */

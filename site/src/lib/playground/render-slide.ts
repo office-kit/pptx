@@ -87,6 +87,7 @@ import {
   getTableCellSpan,
   getTableCellText,
   getTableCells,
+  getTableStyleFlags,
   getTableColumnWidths,
   getTableDimensions,
   getTableRowHeights,
@@ -307,6 +308,18 @@ const SCHEME_TO_THEME: Record<string, keyof Omit<PresentationTheme, 'name'>> = {
   accent6: 'accent6',
   hlink: 'hyperlink',
   folHlink: 'followedHyperlink',
+};
+
+// Linearly mix two #RRGGBB colors. `t` = weight of `a` in [0,1].
+const mixHex = (aHex: string, bHex: string, t: number): string => {
+  const aa = aHex.startsWith('#') ? aHex.slice(1) : aHex;
+  const bb = bHex.startsWith('#') ? bHex.slice(1) : bHex;
+  const part = (h: string, off: number): number => Number.parseInt(h.slice(off, off + 2), 16);
+  const r = Math.round(part(aa, 0) * t + part(bb, 0) * (1 - t));
+  const g = Math.round(part(aa, 2) * t + part(bb, 2) * (1 - t));
+  const b = Math.round(part(aa, 4) * t + part(bb, 4) * (1 - t));
+  const h = (n: number): string => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0').toUpperCase();
+  return `#${h(r)}${h(g)}${h(b)}`;
 };
 
 const normalizeHex = (s: string): string => {
@@ -2508,6 +2521,13 @@ const renderTable = (
     rowYs.push((rowYs[r] ?? yPx) + (heightsPx[r] ?? 0) * hScale);
   }
 
+  // A10 table style — header / footer / first-col / last-col / banded
+  // rows / banded columns. Project the boolean flags onto per-cell tints
+  // that approximate the theme-driven look in PowerPoint.
+  const flags = getTableStyleFlags(shape);
+  const accent = theme ? normalizeHex(theme.accent1) : '#4472C4';
+  const headerFill = accent;
+  const bandFill = mixHex(accent, '#FFFFFF', 0.92);
   const textColor = resolveColor('scheme:tx1', theme, '#000000');
   const out: string[] = [];
   out.push(`<g${transform}>`);
@@ -2531,8 +2551,26 @@ const renderTable = (
       const cw = (colXs[endCol] ?? cx) - cx;
       const ch = (rowYs[endRow] ?? cy) - cy;
       const fill = getTableCellFill(cell as Parameters<typeof getTableCellFill>[0]);
-      const fillColor = fill ? resolveColor(fill, theme, '#FFFFFF') : 'none';
-      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${fillColor}"/>`);
+      let resolvedFill: string;
+      if (fill) {
+        resolvedFill = resolveColor(fill, theme, '#FFFFFF');
+      } else if (flags.firstRow && r === 0) {
+        resolvedFill = headerFill;
+      } else if (flags.lastRow && r === dims.rows - 1) {
+        resolvedFill = headerFill;
+      } else if (flags.firstCol && c === 0) {
+        resolvedFill = bandFill;
+      } else if (flags.lastCol && c === dims.cols - 1) {
+        resolvedFill = bandFill;
+      } else if (flags.bandRow && r % 2 === (flags.firstRow ? 0 : 1)) {
+        resolvedFill = bandFill;
+      } else if (flags.bandCol && c % 2 === (flags.firstCol ? 0 : 1)) {
+        resolvedFill = bandFill;
+      } else {
+        resolvedFill = 'none';
+      }
+      const cellTextColor = (resolvedFill === headerFill) ? '#FFFFFF' : textColor;
+      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`);
       // Per-side borders override the default thin gray grid. Draw them
       // separately after the fills so they sit on top.
       const borders = getTableCellBorders(pres, typedCell);
@@ -2565,7 +2603,7 @@ const renderTable = (
 
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
-      out.push(renderTableCellText(text, cx, cy, cw, ch, align, textColor));
+      out.push(renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor));
     }
   }
   out.push(borderEdges.join(''));
