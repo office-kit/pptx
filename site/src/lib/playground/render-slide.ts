@@ -3389,8 +3389,8 @@ const renderChart = (
       spec.kind === 'bar'
         ? { orientation: 'horizontal', min, max, ...axisExtras }
         : { orientation: 'vertical', min, max, ...axisExtras };
-    axes = renderValueAxis(f, valueAxis);
-    if (N > 0) {
+    if (!spec.valueAxisHidden) axes = renderValueAxis(f, valueAxis);
+    if (N > 0 && !spec.categoryAxisHidden) {
       axes += renderCategoryAxis(
         f,
         spec.kind === 'bar' ? 'vertical' : 'horizontal',

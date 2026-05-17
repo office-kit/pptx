@@ -160,6 +160,10 @@ export interface ChartSpec {
   /** Optional axis title text (`<c:catAx><c:title>` / `<c:valAx><c:title>`). */
   readonly categoryAxisTitle?: string;
   readonly valueAxisTitle?: string;
+  /** When `true`, value axis is hidden (`<c:valAx><c:delete val="1"/>`). */
+  readonly valueAxisHidden?: boolean;
+  /** When `true`, category axis is hidden (`<c:catAx><c:delete val="1"/>`). */
+  readonly categoryAxisHidden?: boolean;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
