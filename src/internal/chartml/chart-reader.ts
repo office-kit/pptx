@@ -642,6 +642,20 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     valueAxisMinorGridlines = firstChildElement(valAx, qname('c', 'minorGridlines', NS_C)) !== null;
   }
 
+  // Plot area + chart area fills (`<c:spPr><a:solidFill><a:srgbClr/>`).
+  const readSpPrFill = (parent: XmlElement): string | undefined => {
+    const spPr = firstChildElement(parent, NAME_SP_PR_C);
+    if (!spPr) return undefined;
+    const solid = firstChildElement(spPr, NAME_SOLID_FILL);
+    if (!solid) return undefined;
+    const srgb = firstChildElement(solid, NAME_SRGB_CLR);
+    if (!srgb) return undefined;
+    const v = getAttrValue(srgb, ATTR_VAL);
+    return v !== null ? `#${v.toUpperCase()}` : undefined;
+  };
+  const plotAreaFill = readSpPrFill(plotArea);
+  const chartAreaFill = readSpPrFill(root);
+
   // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
   // null gaps in line / area series render: 'gap' (default), 'zero', or
   // 'span'.
@@ -719,6 +733,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(legend !== undefined ? { legend } : {}),
     ...(titleOverlay !== undefined ? { titleOverlay } : {}),
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
+    ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
+    ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),

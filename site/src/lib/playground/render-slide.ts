@@ -3470,7 +3470,13 @@ const renderChart = (
     : '';
   return [
     `<g${transform}>`,
-    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="0.6"/>`,
+    // Chart-area backdrop honors <c:chartSpace><c:spPr><a:solidFill>;
+    // plot-area gets its own tinted rect when <c:plotArea><c:spPr>
+    // authored one.
+    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="#E5E7EB" stroke-width="0.6"/>`,
+    spec.plotAreaFill
+      ? `<rect x="${px(f.plotX)}" y="${px(f.plotY)}" width="${px(f.plotW)}" height="${px(f.plotH)}" fill="${spec.plotAreaFill}"/>`
+      : '',
     renderChartTitle(f, spec.title ?? ''),
     axes,
     valueAxisTitleSvg,
