@@ -224,6 +224,13 @@ export interface ChartSpec {
   readonly categoryAxisHidden?: boolean;
   /** When the value-axis emits `<c:majorGridlines/>` — its gridlines are visible. */
   readonly valueAxisMajorGridlines?: boolean;
+  /**
+   * Authored color on the value-axis major gridlines — `<c:valAx>
+   * <c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="…"/>`.
+   * Returned as `#RRGGBB`. `undefined` falls back to the renderer's
+   * default (a light gray).
+   */
+  readonly valueAxisMajorGridlineColor?: string;
   /** When the value-axis emits `<c:minorGridlines/>` — minor gridlines are visible. */
   readonly valueAxisMinorGridlines?: boolean;
   /**
