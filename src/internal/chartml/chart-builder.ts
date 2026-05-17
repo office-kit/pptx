@@ -373,8 +373,25 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   chartChildren.push(
     valNode(c('autoTitleDeleted'), spec.title !== undefined ? '0' : '1'),
     plotArea,
+  );
+  // <c:legend> after plotArea but before plotVisOnly / dispBlanksAs.
+  // Skip entirely when `position` is explicitly null (author wants no
+  // legend at all).
+  if (spec.legend !== undefined && spec.legend.position !== null) {
+    const legendChildren: XmlElement[] = [valNode(c('legendPos'), spec.legend.position)];
+    for (const idx of spec.legend.hiddenIndices ?? []) {
+      legendChildren.push(
+        elem(c('legendEntry'), {
+          children: [valNode(c('idx'), idx), valNode(c('delete'), '1')],
+        }),
+      );
+    }
+    legendChildren.push(valNode(c('overlay'), spec.legend.overlay ? '1' : '0'));
+    chartChildren.push(elem(c('legend'), { children: legendChildren }));
+  }
+  chartChildren.push(
     valNode(c('plotVisOnly'), '1'),
-    valNode(c('dispBlanksAs'), 'gap'),
+    valNode(c('dispBlanksAs'), spec.dispBlanksAs ?? 'gap'),
   );
   const chart = elem(c('chart'), { children: chartChildren });
 

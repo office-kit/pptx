@@ -137,6 +137,35 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.dataLabels?.separator).toBe(', ');
   });
 
+  it('round-trips legend position + hiddenIndices + overlay + dispBlanksAs', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [
+          { name: 'X', values: [1, 2] },
+          { name: 'Y', values: [3, 4] },
+          { name: 'Z', values: [5, 6] },
+        ],
+        legend: { position: 't', overlay: true, hiddenIndices: [1] },
+        dispBlanksAs: 'span',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.legend?.position).toBe('t');
+    expect(spec.legend?.overlay).toBe(true);
+    expect(spec.legend?.hiddenIndices).toEqual([1]);
+    expect(spec.dispBlanksAs).toBe('span');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
