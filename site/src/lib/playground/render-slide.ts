@@ -2685,7 +2685,10 @@ const renderColumnChart = (
   const clusterUnitsC = isStacked ? 1 : 1 + (Sc - 1) * (1 - overlapPctC);
   const barW = groupW / Math.max(0.5, clusterUnitsC + gapPctC);
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
-  const showLabel = spec.dataLabels?.showValue ?? false;
+  // Per-series <c:dLbls> overrides the chart-level toggles for that
+  // one series.
+  const showLabelFor = (s: number): boolean =>
+    spec.series[s]?.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
     if (isStacked) {
@@ -2715,7 +2718,7 @@ const renderColumnChart = (
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
         );
-        if (showLabel && Math.abs(v) > 0) {
+        if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
           const labelText = isPercent ? `${Math.round(v * 100)}%` : formatChartValue(v);
           out.push(
@@ -2740,7 +2743,7 @@ const renderColumnChart = (
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
         );
-        if (showLabel) {
+        if (showLabelFor(s)) {
           const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
           out.push(
             `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
@@ -2930,7 +2933,9 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
   const clusterUnitsB = isStacked ? 1 : 1 + (Sb - 1) * (1 - overlapPctB);
   const barH = groupH / Math.max(0.5, clusterUnitsB + gapPctB);
   const baseX = f.plotX + ((0 - min) / range) * f.plotW;
-  const showLabel = spec.dataLabels?.showValue ?? false;
+  // Per-series <c:dLbls> overrides chart-level toggles for that series.
+  const showLabelForBar = (s: number): boolean =>
+    spec.series[s]?.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
     if (isStacked) {
@@ -2953,7 +2958,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
         );
-        if (showLabel && Math.abs(v) > 0) {
+        if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
           const labelText = isPercent ? `${Math.round(v * 100)}%` : formatChartValue(v);
           out.push(
@@ -2976,7 +2981,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
         );
-        if (showLabel) {
+        if (showLabelForBar(s)) {
           const labelX = v >= 0 ? x0 + w + 2 : x0 - 2;
           const anchor = v >= 0 ? 'start' : 'end';
           out.push(

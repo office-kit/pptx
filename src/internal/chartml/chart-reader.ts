@@ -357,6 +357,24 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const smoothEl = firstChildElement(ser, qname('c', 'smooth', NS_C));
     const smooth = smoothEl !== null && getAttrValue(smoothEl, ATTR_VAL) !== '0';
     const trendline = readTrendline(ser);
+    // Per-series <c:dLbls> overrides the chart-level toggles for this
+    // one series.
+    const serDLblsEl = firstChildElement(ser, qname('c', 'dLbls', NS_C));
+    let serDataLabels: ChartDataLabels | undefined;
+    if (serDLblsEl) {
+      const readToggle = (local: string): boolean => {
+        const el = firstChildElement(serDLblsEl, qname('c', local, NS_C));
+        if (!el) return false;
+        const v = getAttrValue(el, ATTR_VAL);
+        return v === null || v === '1' || v === 'true';
+      };
+      serDataLabels = {
+        showValue: readToggle('showVal'),
+        showCategory: readToggle('showCatName'),
+        showSeriesName: readToggle('showSerName'),
+        showPercent: readToggle('showPercent'),
+      };
+    }
     series.push({
       name,
       values: values ?? [],
@@ -364,6 +382,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       ...(pointColors !== undefined ? { pointColors } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
       ...(trendline !== undefined ? { trendline } : {}),
+      ...(serDataLabels !== undefined ? { dataLabels: serDataLabels } : {}),
     });
   }
 
