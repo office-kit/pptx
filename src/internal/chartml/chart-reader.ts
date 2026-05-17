@@ -712,8 +712,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // readTitle's projection.
   let categoryAxisTitle: string | undefined;
   let categoryAxisTitleStyle: ChartTextStyle | undefined;
+  let categoryAxisLabelStyle: ChartTextStyle | undefined;
   let valueAxisTitle: string | undefined;
   let valueAxisTitleStyle: ChartTextStyle | undefined;
+  let valueAxisLabelStyle: ChartTextStyle | undefined;
   let categoryAxisHidden: boolean | undefined;
   let valueAxisHidden: boolean | undefined;
   let categoryAxisTickLabelSkip: number | undefined;
@@ -741,6 +743,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (t !== undefined) categoryAxisTitle = t;
     const catTitleEl = firstChildElement(catAx, NAME_TITLE);
     if (catTitleEl) categoryAxisTitleStyle = readTitleStyleOf(catTitleEl);
+    const catTxPr = firstChildElement(catAx, qname('c', 'txPr', NS_C));
+    if (catTxPr) categoryAxisLabelStyle = readLabelStyle(catTxPr);
     categoryAxisHidden = isHidden(catAx);
     categoryAxisOrientation = readAxisOrientation(catAx);
     const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
@@ -769,6 +773,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (t !== undefined) valueAxisTitle = t;
     const valTitleEl = firstChildElement(valAx, NAME_TITLE);
     if (valTitleEl) valueAxisTitleStyle = readTitleStyleOf(valTitleEl);
+    const valTxPr = firstChildElement(valAx, qname('c', 'txPr', NS_C));
+    if (valTxPr) valueAxisLabelStyle = readLabelStyle(valTxPr);
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorGridlines = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C)) !== null;
@@ -875,8 +881,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(categoryAxisTitleStyle !== undefined ? { categoryAxisTitleStyle } : {}),
+    ...(categoryAxisLabelStyle !== undefined ? { categoryAxisLabelStyle } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(valueAxisTitleStyle !== undefined ? { valueAxisTitleStyle } : {}),
+    ...(valueAxisLabelStyle !== undefined ? { valueAxisLabelStyle } : {}),
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
