@@ -9,6 +9,8 @@
     getCoreProperties,
     getShapeKind,
     getSlideComments,
+    getSlideLayout,
+    getSlideLayoutType,
     getSlideNotes,
     getSlideShapes,
     getSlideTitle,
@@ -34,6 +36,7 @@
     hasAnimations: boolean;
     hidden: boolean;
     commentCount: number;
+    layoutType: string | null;
   };
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
@@ -60,18 +63,23 @@
 
       const list = getSlides(pres);
       slideCount = list.length;
-      slides = list.map((slide, i) => ({
-        index: i + 1,
-        title: getSlideTitle(slide) ?? '',
-        textLength: getSlideTextLength(slide),
-        shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
-        svg: renderSlideSvg(pres, slide),
-        notes: getSlideNotes(slide),
-        hasTransition: getSlideTransition(slide) !== null,
-        hasAnimations: slideHasAnimations(slide),
-        hidden: isSlideHidden(slide),
-        commentCount: getSlideComments(slide).length,
-      }));
+      slides = list.map((slide, i) => {
+        const layout = getSlideLayout(slide);
+        const layoutType = layout ? getSlideLayoutType(layout) : null;
+        return {
+          index: i + 1,
+          title: getSlideTitle(slide) ?? '',
+          textLength: getSlideTextLength(slide),
+          shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
+          svg: renderSlideSvg(pres, slide),
+          notes: getSlideNotes(slide),
+          hasTransition: getSlideTransition(slide) !== null,
+          hasAnimations: slideHasAnimations(slide),
+          hidden: isSlideHidden(slide),
+          commentCount: getSlideComments(slide).length,
+          layoutType,
+        };
+      });
 
       parts = listPackageParts(pres)
         .slice()
@@ -201,6 +209,7 @@
           <div class="s-head">
             <span class="s-num">{String(s.index).padStart(2, '0')}</span>
             <span class="s-title">{s.title || '(untitled)'}</span>
+            {#if s.layoutType}<span class="s-badge" title="slide layout type from <p:sldLayout type=…>">{s.layoutType}</span>{/if}
             {#if s.hidden}<span class="s-badge s-badge-hidden" title='show="0" — hidden from slideshow'>hidden</span>{/if}
             {#if s.hasTransition}<span class="s-badge" title="slide carries <p:transition>">trans</span>{/if}
             {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
