@@ -34,8 +34,12 @@ import {
   getShapePatternFill,
   getShapeChartKind,
   getShapeChartSpec,
+  getShapeImageBrightness,
   getShapeImageBytes,
+  getShapeImageContrast,
+  getShapeImageCrop,
   getShapeImageFillBytes,
+  getShapeImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
   getShapeKind,
@@ -194,7 +198,44 @@ const renderPicture = (
   }
   if (bytes && mime) {
     const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-    return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/>${textOverlay}</g>`;
+    // Apply <a:srcRect> crop, brightness (lumOff), contrast (lumMod),
+    // and opacity (alphaModFix) so PowerPoint's "Picture Format >
+    // Corrections" matches what the playground paints.
+    const crop = getShapeImageCrop(shape);
+    let imgX = x, imgY = y, imgW = w, imgH = h;
+    let clipDef = '';
+    let clipAttr = '';
+    const cropL = crop?.left ?? 0;
+    const cropT = crop?.top ?? 0;
+    const cropR = crop?.right ?? 0;
+    const cropB = crop?.bottom ?? 0;
+    if (cropL > 0 || cropT > 0 || cropR > 0 || cropB > 0) {
+      // ECMA-376 <a:srcRect> sides are fractions of the source image;
+      // PowerPoint crops by adjusting the visible region. We project
+      // the same effect by scaling the <image> larger and clipping it
+      // to the shape's bounds.
+      const scaleX = 1 / Math.max(0.001, 1 - cropL - cropR);
+      const scaleY = 1 / Math.max(0.001, 1 - cropT - cropB);
+      imgW = w * scaleX;
+      imgH = h * scaleY;
+      imgX = x - imgW * cropL;
+      imgY = y - imgH * cropT;
+      const clipId = mintId();
+      clipDef = `<defs><clipPath id="${clipId}"><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}"/></clipPath></defs>`;
+      clipAttr = ` clip-path="url(#${clipId})"`;
+    }
+    const brightness = getShapeImageBrightness(shape) ?? 0;
+    const contrast = getShapeImageContrast(shape) ?? 1;
+    const opacity = getShapeImageOpacity(shape) ?? 1;
+    let filterAttr = '';
+    if (brightness !== 0 || contrast !== 1) {
+      // SVG filter: brightness + linear contrast via feComponentTransfer.
+      const fid = mintId();
+      clipDef += `<defs><filter id="${fid}"><feComponentTransfer><feFuncR type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncG type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncB type="linear" slope="${contrast}" intercept="${brightness}"/></feComponentTransfer></filter></defs>`;
+      filterAttr = ` filter="url(#${fid})"`;
+    }
+    const opacityAttr = opacity !== 1 ? ` opacity="${opacity.toFixed(3)}"` : '';
+    return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g><g${transform}>${textOverlay}</g>`;
   }
   const label = !bytes
     ? 'picture (no bytes)'
