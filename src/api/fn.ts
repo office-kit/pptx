@@ -6505,6 +6505,58 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
 };
 
 /**
+ * Returns the gradient stops + path when the slide carries a
+ * `<p:bgPr><a:gradFill>` background. Returns `null` for any other
+ * background kind. Shape identical to `getShapeGradientFill` so renderers
+ * can use the same projection logic for slide backgrounds.
+ */
+export const getSlideBackgroundGradientFill = (
+  slide: SlideData,
+): GradientFillOptions | null => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
+  if (!gradFill) return null;
+  // Reuse the same algorithm `getShapeGradientFill` does. The gradFill
+  // element shape is identical between shape and slide backgrounds.
+  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
+  if (!gsLst) return null;
+  const stops: Array<{ offset: number; color: string }> = [];
+  for (const c of gsLst.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs') continue;
+    const posRaw = getAttrValue(c, qname('', 'pos', ''));
+    if (posRaw === null) continue;
+    const pos = Number.parseInt(posRaw, 10);
+    if (!Number.isFinite(pos)) continue;
+    const color = readColorFromContainer(c);
+    if (color === null) continue;
+    stops.push({ offset: pos / 100_000, color });
+  }
+  if (stops.length === 0) return null;
+  let angleDeg = 0;
+  const lin = firstChildElement(gradFill, NAME_A_LIN);
+  if (lin) {
+    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
+    if (angRaw !== null) {
+      const ang = Number.parseInt(angRaw, 10);
+      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
+    }
+  }
+  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
+  if (pathEl) {
+    const p = getAttrValue(pathEl, qname('', 'path', ''));
+    const pathVal: 'circle' | 'rect' | 'shape' | null =
+      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
+    if (pathVal) return { stops, angleDeg, path: pathVal };
+  }
+  return { stops, angleDeg };
+};
+
+/**
  * Returns the embedded image bytes when the slide carries a
  * `<p:bgPr><a:blipFill>` background, or `null` for any other background
  * kind (solid / gradient / pattern / inherit) or when the `r:embed`

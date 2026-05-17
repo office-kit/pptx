@@ -256,6 +256,7 @@ export {
   getShapeZIndex,
   getSlideAt,
   getSlideBackground,
+  getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideBody,
   getSlideCharts,

@@ -67,6 +67,7 @@ import {
   getGroupChildren,
   getGroupTransform,
   getSlideBackground,
+  getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideShapes,
   getSlideSize,
@@ -2836,8 +2837,19 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
 
   const bg = getSlideBackground(slide);
   let bgColor = '#FFFFFF';
+  let bgGradient = '';
+  let bgGradientDefs = '';
   if (bg.kind === 'solid') {
     bgColor = resolveColor(bg.color, theme, '#FFFFFF');
+  } else if (bg.kind === 'gradient') {
+    // B11 — gradient slide backgrounds. Use the same projector as
+    // shape fills so radial / rect / shape paths all behave.
+    const grad = getSlideBackgroundGradientFill(slide);
+    if (grad) {
+      const built = gradientDef(grad, theme);
+      bgGradientDefs = built.defs;
+      bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
+    }
   } else if (theme && bg.kind === 'inherit') {
     bgColor = normalizeHex(theme.light1);
   }
@@ -2860,7 +2872,9 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
+    bgGradientDefs,
     `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>`,
+    bgGradient,
     bgImage,
     shapesSvg,
     '</svg>',
