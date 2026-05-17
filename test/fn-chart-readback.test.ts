@@ -278,6 +278,33 @@ describe('fn API: getSlideCharts', () => {
     expect(spec2.holeSizePct).toBe(70);
   });
 
+  it('round-trips plot-area / chart-area fill and stroke colors', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        plotAreaFill: '#F0F0F0',
+        plotAreaStrokeColor: '#102030',
+        chartAreaFill: '#FAFAFA',
+        chartAreaStrokeColor: '#888888',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.plotAreaFill).toBe('#F0F0F0');
+    expect(spec.plotAreaStrokeColor).toBe('#102030');
+    expect(spec.chartAreaFill).toBe('#FAFAFA');
+    expect(spec.chartAreaStrokeColor).toBe('#888888');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

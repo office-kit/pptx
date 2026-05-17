@@ -69,6 +69,39 @@ const solidFillSpPr = (color: string): XmlElement => {
   return elem(c('spPr'), { children: [solidFill] });
 };
 
+// Generic <c:spPr> with optional fill color + line color. Used for the
+// chart-area / plot-area background, where authors set one or both.
+const spPrChildren = (fill: string | undefined, stroke: string | undefined): XmlElement => {
+  const out: XmlElement[] = [];
+  if (fill !== undefined) {
+    out.push(
+      elem(a('solidFill'), {
+        children: [
+          elem(a('srgbClr'), {
+            attrs: [attr(qname('', 'val', ''), fill.replace(/^#/, '').toUpperCase())],
+          }),
+        ],
+      }),
+    );
+  }
+  if (stroke !== undefined) {
+    out.push(
+      elem(a('ln'), {
+        children: [
+          elem(a('solidFill'), {
+            children: [
+              elem(a('srgbClr'), {
+                attrs: [attr(qname('', 'val', ''), stroke.replace(/^#/, '').toUpperCase())],
+              }),
+            ],
+          }),
+        ],
+      }),
+    );
+  }
+  return elem(c('spPr'), { children: out });
+};
+
 // Default theme accent palette (matches Office 2013+ default theme).
 const DEFAULT_ACCENT_COLORS = [
   '4472C4', // accent1
@@ -428,6 +461,10 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   if (!axisless) {
     plotAreaChildren.push(catAxis(spec), valAxis(spec));
   }
+  // <c:plotArea><c:spPr><a:solidFill> + optional <a:ln><a:solidFill>.
+  if (spec.plotAreaFill !== undefined || spec.plotAreaStrokeColor !== undefined) {
+    plotAreaChildren.push(spPrChildren(spec.plotAreaFill, spec.plotAreaStrokeColor));
+  }
   const plotArea = elem(c('plotArea'), { children: plotAreaChildren });
 
   const chartChildren: XmlElement[] = [];
@@ -479,13 +516,19 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
     children: [valNode(c('autoUpdate'), '0')],
   });
 
+  // <c:chartSpace><c:spPr> sits at the root and styles the entire card.
+  const rootChildren: XmlElement[] = [chart];
+  if (spec.chartAreaFill !== undefined || spec.chartAreaStrokeColor !== undefined) {
+    rootChildren.push(spPrChildren(spec.chartAreaFill, spec.chartAreaStrokeColor));
+  }
+  rootChildren.push(externalData);
   const root = elem(c('chartSpace'), {
     prefixDecls: new Map([
       ['c', NS_C],
       ['a', NS_A],
       ['r', NS_R],
     ]),
-    children: [chart, externalData],
+    children: rootChildren,
   });
 
   return {
