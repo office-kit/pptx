@@ -473,6 +473,30 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // Pie-specific extras: starting angle + doughnut hole size.
+  let firstSliceAngleDeg: number | undefined;
+  let holeSizePct: number | undefined;
+  if (kind === 'pie' || kind === 'doughnut') {
+    const fsAng = firstChildElement(plotted, qname('c', 'firstSliceAng', NS_C));
+    if (fsAng) {
+      const v = getAttrValue(fsAng, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n)) firstSliceAngleDeg = ((n % 360) + 360) % 360;
+      }
+    }
+    if (kind === 'doughnut') {
+      const hs = firstChildElement(plotted, qname('c', 'holeSize', NS_C));
+      if (hs) {
+        const v = getAttrValue(hs, ATTR_VAL);
+        if (v !== null) {
+          const n = Number.parseInt(v, 10);
+          if (Number.isFinite(n)) holeSizePct = Math.max(10, Math.min(90, n));
+        }
+      }
+    }
+  }
+
   return {
     kind,
     categories,
@@ -484,5 +508,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),
+    ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
+    ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };
 };
