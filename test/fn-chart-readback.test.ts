@@ -229,6 +229,55 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.categoryAxisTickLabelPos).toBe('low');
   });
 
+  it('round-trips chart extras (varyColors / gapWidth / overlap / firstSliceAng / holeSize / dropLines / hiLowLines / titleOverlay / majorGridlines)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        title: 'T',
+        titleOverlay: true,
+        varyColors: true,
+        gapWidthPct: 75,
+        overlapPct: -10,
+        valueAxisMajorGridlines: true,
+        valueAxisMajorGridlineColor: '#AABBCC',
+      },
+    });
+    const slide2 = getSlides(pres)[1]!;
+    addSlideChart(slide2, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'doughnut',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [40, 60] }],
+        firstSliceAngleDeg: 45,
+        holeSizePct: 70,
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec1 = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec1.titleOverlay).toBe(true);
+    expect(spec1.varyColors).toBe(true);
+    expect(spec1.gapWidthPct).toBe(75);
+    expect(spec1.overlapPct).toBe(-10);
+    expect(spec1.valueAxisMajorGridlines).toBe(true);
+    expect(spec1.valueAxisMajorGridlineColor).toBe('#AABBCC');
+    const spec2 = getSlideCharts(getSlides(reloaded)[1]!)[0]!.spec!;
+    expect(spec2.firstSliceAngleDeg).toBe(45);
+    expect(spec2.holeSizePct).toBe(70);
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
