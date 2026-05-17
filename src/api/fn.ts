@@ -5286,6 +5286,57 @@ export const getShapeRunHyperlink = (
   return null;
 };
 
+/**
+ * Same as `getShapeClickAction` but reads the per-run
+ * `<a:rPr><a:hlinkClick action=… r:id=…/>`. Recognises:
+ *
+ *   - `{ kind: 'url', url }` — external hyperlink rel
+ *   - `{ kind: 'slide', slide }` — slide-jump action + slide rel
+ *   - `{ kind: 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' }`
+ *
+ * Returns `null` for runs without an action or unknown action tokens.
+ */
+export const getShapeRunClickAction = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): ShapeClickAction | null => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  const rPr = firstChildElement(run, qname('a', 'rPr', NS.dml));
+  if (!rPr) return null;
+  const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
+  if (!hlink) return null;
+  const action = getAttrValue(hlink, qname('', 'action', ''));
+  const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
+
+  if (action === 'ppaction://hlinkshowjump?jump=nextslide') return { kind: 'nextSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=previousslide') return { kind: 'prevSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=firstslide') return { kind: 'firstSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
+
+  if (rId === null || rId === '') return null;
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const rel = rels.items.find((r) => r.id === rId);
+  if (!rel) return null;
+  if (action === 'ppaction://hlinksldjump' && rel.type === REL_TYPES.slide) {
+    const targetPartName = rel.target.startsWith('/')
+      ? partName(rel.target)
+      : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+    const pres: PresentationData = { [INTERNAL_PACKAGE]: pkg, _slidesCache: null };
+    for (const candidate of getSlides(pres)) {
+      if (candidate[SLIDE_PART_NAME] === targetPartName) return { kind: 'slide', slide: candidate };
+    }
+    return null;
+  }
+  if (rel.type === REL_TYPES.hyperlink && rel.targetMode === 'External') {
+    return { kind: 'url', url: rel.target };
+  }
+  return null;
+};
+
 const NAME_A_PPR = qname('a', 'pPr', NS.dml);
 const ATTR_LVL = qname('', 'lvl', '');
 const ATTR_ALGN_FN = qname('', 'algn', '');

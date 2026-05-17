@@ -247,6 +247,7 @@ export {
   getShapePlaceholderType,
   getShapePosition,
   getShapeRotation,
+  getShapeRunClickAction,
   getShapeRunCount,
   getShapeRunFormat,
   getShapeRunFormatEffective,
