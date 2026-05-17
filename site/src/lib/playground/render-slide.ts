@@ -48,7 +48,12 @@ import {
   getShapeRunFormatEffective,
   getShapeRunText,
   getShapeStroke,
+  getShapeStrokeArrow,
+  getShapeStrokeCap,
   getShapeStrokeColorResolved,
+  getShapeStrokeCompound,
+  getShapeStrokeDash,
+  getShapeStrokeJoin,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextMargins,
@@ -408,7 +413,65 @@ interface PaintResult {
   strokeWidth: number;
   /** Extra SVG `<defs>` the caller should emit before the shape. */
   defs: string;
+  /** Pre-built stroke style attributes (dasharray, linecap, linejoin, etc.). */
+  strokeAttrs: string;
+  /** Pre-built marker-start / marker-end attributes for arrowheads. */
+  markerAttrs: string;
 }
+
+// ECMA-376 `<a:prstDash val="…"/>` → SVG `stroke-dasharray` (in stroke widths).
+// PowerPoint scales the pattern by the line width; the multipliers below were
+// reverse-engineered from real PPTX exports so the visual cadence matches.
+const DASH_PATTERNS: Record<string, string> = {
+  solid: '',
+  dot: '1 3',
+  dash: '4 3',
+  lgDash: '8 3',
+  dashDot: '4 3 1 3',
+  lgDashDot: '8 3 1 3',
+  lgDashDotDot: '8 3 1 3 1 3',
+  sysDash: '3 1',
+  sysDot: '1 1',
+  sysDashDot: '3 1 1 1',
+  sysDashDotDot: '3 1 1 1 1 1',
+};
+
+const arrowSize = (size: 'sm' | 'med' | 'lg' | undefined): number =>
+  size === 'sm' ? 3 : size === 'lg' ? 7 : 5;
+
+const buildArrowMarker = (
+  type: string,
+  width: 'sm' | 'med' | 'lg' | undefined,
+  length: 'sm' | 'med' | 'lg' | undefined,
+  color: string,
+  orient: 'auto' | 'auto-start-reverse',
+): { id: string; def: string } => {
+  const id = mintId();
+  const w = arrowSize(width);
+  const h = arrowSize(length);
+  // refX = w so the tip lands on the line's endpoint; refY centers vertically.
+  let body: string;
+  switch (type) {
+    case 'triangle':
+    case 'arrow':
+      body = `<path d="M0 0L${w} ${h / 2}L0 ${h}z" fill="${color}"/>`;
+      break;
+    case 'stealth':
+      body = `<path d="M0 0L${w} ${h / 2}L0 ${h}L${w * 0.4} ${h / 2}z" fill="${color}"/>`;
+      break;
+    case 'diamond':
+      body = `<path d="M0 ${h / 2}L${w / 2} 0L${w} ${h / 2}L${w / 2} ${h}z" fill="${color}"/>`;
+      break;
+    case 'oval':
+      body = `<ellipse cx="${w / 2}" cy="${h / 2}" rx="${w / 2}" ry="${h / 2}" fill="${color}"/>`;
+      break;
+    case 'none':
+    default:
+      body = '';
+  }
+  const def = `<defs><marker id="${id}" viewBox="0 0 ${w} ${h}" refX="${w}" refY="${h / 2}" markerWidth="${w}" markerHeight="${h}" orient="${orient}">${body}</marker></defs>`;
+  return { id, def };
+};
 
 const paint = (
   shape: SlideShapeData | null,
@@ -464,13 +527,63 @@ const paint = (
 
   let strokeColor = 'none';
   let strokeWidth = 0;
+  const strokeAttrParts: string[] = [];
+  let markerAttrs = '';
   if (stroke.kind === 'solid') {
     let resolved: string | null = null;
     if (shape && pres) resolved = getShapeStrokeColorResolved(pres, shape);
     strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
+    if (shape) {
+      const dash = getShapeStrokeDash(shape);
+      if (dash && dash !== 'solid') {
+        const pattern = DASH_PATTERNS[dash];
+        if (pattern) {
+          // Scale by stroke width in CSS pixels so the cadence matches PowerPoint.
+          const swPx = strokeWidth / EMU_PER_PX;
+          const arr = pattern
+            .split(' ')
+            .map((n) => (Number.parseFloat(n) * swPx).toFixed(2))
+            .join(' ');
+          strokeAttrParts.push(`stroke-dasharray="${arr}"`);
+        }
+      }
+      const cap = getShapeStrokeCap(shape);
+      if (cap === 'rnd') strokeAttrParts.push('stroke-linecap="round"');
+      else if (cap === 'sq') strokeAttrParts.push('stroke-linecap="square"');
+      else if (cap === 'flat') strokeAttrParts.push('stroke-linecap="butt"');
+      const join = getShapeStrokeJoin(shape);
+      if (join === 'round') strokeAttrParts.push('stroke-linejoin="round"');
+      else if (join === 'bevel') strokeAttrParts.push('stroke-linejoin="bevel"');
+      else if (join === 'miter') strokeAttrParts.push('stroke-linejoin="miter"');
+      const cmpd = getShapeStrokeCompound(shape);
+      if (cmpd === 'dbl') {
+        // Approximate a double line by widening + a transparent stripe down
+        // the middle. SVG has no native compound-line primitive.
+        strokeWidth = Math.max(strokeWidth, 19_050);
+      }
+      const head = getShapeStrokeArrow(shape, 'head');
+      const tail = getShapeStrokeArrow(shape, 'tail');
+      if (head && head.type !== 'none') {
+        const m = buildArrowMarker(head.type, head.width, head.length, strokeColor, 'auto-start-reverse');
+        defs += m.def;
+        markerAttrs += ` marker-start="url(#${m.id})"`;
+      }
+      if (tail && tail.type !== 'none') {
+        const m = buildArrowMarker(tail.type, tail.width, tail.length, strokeColor, 'auto');
+        defs += m.def;
+        markerAttrs += ` marker-end="url(#${m.id})"`;
+      }
+    }
   }
-  return { fill: fillColor, stroke: strokeColor, strokeWidth, defs };
+  return {
+    fill: fillColor,
+    stroke: strokeColor,
+    strokeWidth,
+    defs,
+    strokeAttrs: strokeAttrParts.join(' '),
+    markerAttrs,
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -2339,7 +2452,9 @@ const renderShape = (
     }
     const strokeColor =
       p.stroke === 'none' ? resolveColor('scheme:tx1', theme, '#1F2937') : p.stroke;
-    return `<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${transform}/>`;
+    const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
+    const ma = p.markerAttrs ?? '';
+    return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${sa}${ma}${transform}/>`;
   }
 
   if (kind === 'group') {
@@ -2408,32 +2523,34 @@ const renderShape = (
   const preset = getShapePreset(shape) ?? 'rect';
 
   let geomSvg: string;
+  const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
+  const ma = p.markerAttrs ?? '';
   if (preset === 'rect') {
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'roundRect') {
     const r = E(Math.min(w, h) * 0.18);
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'ellipse' || preset === 'oval') {
-    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else {
     const pathFn = PRESET_PATHS[preset];
     if (pathFn) {
       // The path generators output CSS-px coords directly (post-E).
       const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
-      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"/>`;
+      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
     } else {
       const pointsFn = PRESET_POINTS[preset];
       if (pointsFn) {
         const points = pointsFn()
           .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
           .join(' ');
-        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
       } else {
         // Unrecognised preset — fall back to a rectangle, but tag it
         // with the preset name so users (and future-us) can see which
         // shape needs a renderer. The `<title>` shows on hover; the
         // `data-pptx-preset` attribute is for DevTools inspection.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
       }
     }
   }

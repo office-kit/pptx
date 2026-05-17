@@ -3388,6 +3388,61 @@ export const getShapeStrokeColorResolved = (
   return null;
 };
 
+/**
+ * Reads the stroke's line cap style — `'rnd'` (round), `'sq'` (square),
+ * `'flat'`, or `null` when the attribute isn't set. Per ECMA-376
+ * §20.1.2.3.10 (`ST_LineCap`).
+ */
+export const getShapeStrokeCap = (
+  shape: SlideShapeData,
+): 'rnd' | 'sq' | 'flat' | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return null;
+  const v = getAttrValue(ln, qname('', 'cap', ''));
+  if (v === 'rnd' || v === 'sq' || v === 'flat') return v;
+  return null;
+};
+
+/**
+ * Reads the stroke's line join style — `'round'` / `'bevel'` / `'miter'`,
+ * or `null` when no explicit join element is present. Maps from the
+ * three child-element variants `<a:round/>`, `<a:bevel/>`, `<a:miter/>`.
+ */
+export const getShapeStrokeJoin = (
+  shape: SlideShapeData,
+): 'round' | 'bevel' | 'miter' | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return null;
+  for (const c of ln.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'round') return 'round';
+    if (c.name.localName === 'bevel') return 'bevel';
+    if (c.name.localName === 'miter') return 'miter';
+  }
+  return null;
+};
+
+/**
+ * Reads the stroke's compound-line style (`<a:ln cmpd="…">`) — single,
+ * double, triple, or thick/thin / thin/thick parallel lines. ECMA-376
+ * §20.1.2.3.11 (`ST_CompoundLine`).
+ */
+export const getShapeStrokeCompound = (
+  shape: SlideShapeData,
+): 'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri' | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return null;
+  const v = getAttrValue(ln, qname('', 'cmpd', ''));
+  if (v === 'sng' || v === 'dbl' || v === 'thickThin' || v === 'thinThick' || v === 'tri') return v;
+  return null;
+};
+
 export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return { kind: 'inherit' };
