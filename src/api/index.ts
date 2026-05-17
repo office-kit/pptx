@@ -202,6 +202,7 @@ export {
   getShapeEffects,
   getShapeEffectsEffective,
   getShapeFill,
+  getShapeFillEffective,
   getShapeGradientFill,
   getShapeFillColor,
   getShapeFillColorResolved,
