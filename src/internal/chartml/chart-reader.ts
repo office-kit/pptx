@@ -581,14 +581,24 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // readTitle's projection.
   let categoryAxisTitle: string | undefined;
   let valueAxisTitle: string | undefined;
+  let categoryAxisHidden: boolean | undefined;
+  let valueAxisHidden: boolean | undefined;
   const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
+  const isHidden = (axis: XmlElement): boolean | undefined => {
+    const d = firstChildElement(axis, qname('c', 'delete', NS_C));
+    if (!d) return undefined;
+    const v = getAttrValue(d, ATTR_VAL);
+    return v === null || v === '1' || v === 'true';
+  };
   if (catAx) {
     const t = readTitle(catAx);
     if (t !== undefined) categoryAxisTitle = t;
+    categoryAxisHidden = isHidden(catAx);
   }
   if (valAx) {
     const t = readTitle(valAx);
     if (t !== undefined) valueAxisTitle = t;
+    valueAxisHidden = isHidden(valAx);
   }
 
   // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
@@ -670,6 +680,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
+    ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
+    ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };
