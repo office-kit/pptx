@@ -881,6 +881,83 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const r = Math.min(w, h) * 0.06;
     return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
   },
+
+  // -- Explosion / starburst callouts (the "jagged" speech marks). ------
+  // `irregularSeal1` and `irregularSeal2` are PowerPoint's two
+  // explosion-style callouts. The geometry is a deterministic pseudo-
+  // random pattern of long + short rays; we mimic that without trying
+  // to match the spec point-for-point.
+  irregularSeal1: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const rx = w / 2;
+    const ry = h / 2;
+    // 16 rays — outer radii drawn from a fixed offset table so the
+    // shape comes out spiky-but-balanced like PowerPoint's.
+    const offsets = [
+      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
+      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
+    ];
+    const points: string[] = [];
+    for (let i = 0; i < offsets.length; i++) {
+      const a = (i / offsets.length) * 2 * Math.PI - Math.PI / 2;
+      const offset = offsets[i] ?? 1;
+      const r = offset;
+      const px0 = cx + rx * r * Math.cos(a);
+      const py0 = cy + ry * r * Math.sin(a);
+      points.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
+    }
+    points.push('Z');
+    return points.join(' ');
+  },
+  irregularSeal2: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const rx = w / 2;
+    const ry = h / 2;
+    // 24 alternating rays for a denser, more "scribble"-like burst.
+    const offsets = [
+      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
+      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
+      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
+    ];
+    const points: string[] = [];
+    for (let i = 0; i < offsets.length; i++) {
+      const a = (i / offsets.length) * 2 * Math.PI - Math.PI / 2;
+      const offset = offsets[i] ?? 1;
+      const r = offset;
+      const px0 = cx + rx * r * Math.cos(a);
+      const py0 = cy + ry * r * Math.sin(a);
+      points.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
+    }
+    points.push('Z');
+    return points.join(' ');
+  },
+  // `cloudCallout` lives above; "cloud" without callout is just the
+  // body without the tail dots.
+  cloud: (x, y, w, h) => {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const rx = (w / 2) * 0.92;
+    const ry = (h / 2) * 0.85;
+    const lobes = 10;
+    const path: string[] = [];
+    for (let i = 0; i < lobes; i++) {
+      const a = (i / lobes) * 2 * Math.PI - Math.PI / 2;
+      const lobeRx = rx * 0.32;
+      const lobeRy = ry * 0.32;
+      const px0 = cx + rx * Math.cos(a);
+      const py0 = cy + ry * Math.sin(a);
+      if (i === 0) path.push(`M${px0 - lobeRx},${py0}`);
+      path.push(`A${lobeRx},${lobeRy} 0 1 1 ${px0 + lobeRx},${py0}`);
+      const nextA = ((i + 1) / lobes) * 2 * Math.PI - Math.PI / 2;
+      const nextX = cx + rx * Math.cos(nextA) - lobeRx;
+      const nextY = cy + ry * Math.sin(nextA);
+      path.push(`L${nextX},${nextY}`);
+    }
+    path.push('Z');
+    return path.join(' ');
+  },
 };
 
 // ---------------------------------------------------------------------------
@@ -1812,8 +1889,11 @@ const renderShape = (
           .join(' ');
         geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
       } else {
-        // Unrecognised preset — fall back to a labelled rectangle.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+        // Unrecognised preset — fall back to a rectangle, but tag it
+        // with the preset name so users (and future-us) can see which
+        // shape needs a renderer. The `<title>` shows on hover; the
+        // `data-pptx-preset` attribute is for DevTools inspection.
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
       }
     }
   }
