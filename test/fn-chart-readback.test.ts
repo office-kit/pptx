@@ -419,6 +419,44 @@ describe('fn API: getSlideCharts', () => {
     expect(tl.color).toBe('#993366');
   });
 
+  it('round-trips per-series dataLabels (toggles + numFmt + position)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [
+          {
+            name: 'X',
+            values: [1, 2],
+            dataLabels: {
+              showValue: true,
+              showCategory: true,
+              showSeriesName: false,
+              showPercent: false,
+              numberFormat: '$#,##0',
+              position: 'inEnd',
+            },
+          },
+          { name: 'Y', values: [3, 4] }, // chart-level only, no per-series
+        ],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.series[0]!.dataLabels?.showValue).toBe(true);
+    expect(spec.series[0]!.dataLabels?.showCategory).toBe(true);
+    expect(spec.series[0]!.dataLabels?.numberFormat).toBe('$#,##0');
+    expect(spec.series[0]!.dataLabels?.position).toBe('inEnd');
+    expect(spec.series[1]!.dataLabels).toBeUndefined();
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

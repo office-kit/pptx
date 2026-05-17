@@ -225,6 +225,8 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   }
   const mk = markerElement(series.markerSymbol, series.markerSizePt);
   if (mk !== null) children.push(mk);
+  const serDLbls = buildDLblsFromLabels(series.dataLabels);
+  if (serDLbls !== null) children.push(serDLbls);
   if (series.trendline) children.push(trendlineElement(series.trendline));
   children.push(elem(c('cat'), { children: [strRef(catRange, spec.categories)] }));
   children.push(elem(c('val'), { children: [numRef(valRange, paddedValues)] }));
@@ -368,8 +370,7 @@ const valAxis = (spec: ChartSpec): XmlElement => {
 // showSerName / showPercent toggles plus optional numFmt, position,
 // separator). Returns `null` when no dataLabels were authored so
 // callers know to skip the element entirely.
-const dLblsElement = (spec: ChartSpec): XmlElement | null => {
-  const dl = spec.dataLabels;
+const buildDLblsFromLabels = (dl: ChartSpec['dataLabels'] | undefined): XmlElement | null => {
   if (!dl) return null;
   const children: XmlElement[] = [];
   if (dl.numberFormat !== undefined) {
@@ -396,6 +397,8 @@ const dLblsElement = (spec: ChartSpec): XmlElement | null => {
   }
   return elem(c('dLbls'), { children });
 };
+
+const dLblsElement = (spec: ChartSpec): XmlElement | null => buildDLblsFromLabels(spec.dataLabels);
 
 const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar'): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
