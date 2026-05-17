@@ -4553,6 +4553,130 @@ export const getShapeTextMargins = (
   };
 };
 
+/**
+ * Resolves the effective `<a:bodyPr>` properties — anchor, wrap, vertical
+ * direction, and inset margins — by walking the layout / master cascade
+ * the same way `getShapeRunFormatEffective` walks rPr. Returns the
+ * innermost value that the cascade supplies, or `null` for properties
+ * neither the shape nor any inherited placeholder authors.
+ *
+ * Companion to `getShapeTextAnchor` / `getShapeTextWrap` /
+ * `getShapeTextDirection` / `getShapeTextMargins`, which only report the
+ * literal value on the shape itself.
+ */
+export const getShapeBodyPrEffective = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): {
+  anchor: TextAnchor | null;
+  wrap: TextWrap | null;
+  vert: ReturnType<typeof getShapeTextDirection>;
+  margins: { left: number | null; top: number | null; right: number | null; bottom: number | null };
+} => {
+  const result = {
+    anchor: null as TextAnchor | null,
+    wrap: null as TextWrap | null,
+    vert: null as ReturnType<typeof getShapeTextDirection>,
+    margins: {
+      left: null as number | null,
+      top: null as number | null,
+      right: null as number | null,
+      bottom: null as number | null,
+    },
+  };
+  const parseBodyPr = (bodyPr: XmlElement): void => {
+    if (result.anchor === null) {
+      const a = getAttrValue(bodyPr, qname('', 'anchor', ''));
+      if (a === 't') result.anchor = 'top';
+      else if (a === 'ctr') result.anchor = 'center';
+      else if (a === 'b') result.anchor = 'bottom';
+    }
+    if (result.wrap === null) {
+      const w = getAttrValue(bodyPr, qname('', 'wrap', ''));
+      if (w === 'square') result.wrap = 'square';
+      else if (w === 'none') result.wrap = 'none';
+    }
+    if (result.vert === null) {
+      const v = getAttrValue(bodyPr, qname('', 'vert', ''));
+      if (
+        v === 'vert' ||
+        v === 'vert270' ||
+        v === 'wordArtVert' ||
+        v === 'eaVert' ||
+        v === 'mongolianVert' ||
+        v === 'wordArtVertRtl'
+      )
+        result.vert = v;
+    }
+    for (const side of ['l', 't', 'r', 'b'] as const) {
+      const target =
+        side === 'l' ? 'left' : side === 't' ? 'top' : side === 'r' ? 'right' : 'bottom';
+      if (result.margins[target] !== null) continue;
+      const v = getAttrValue(bodyPr, qname('', `${side}Ins`, ''));
+      if (v === null) continue;
+      const n = Number.parseInt(v, 10);
+      if (Number.isFinite(n)) result.margins[target] = n;
+    }
+  };
+
+  // 1. The shape's own bodyPr.
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (txBody) {
+    const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+    if (bodyPr) parseBodyPr(bodyPr);
+  }
+
+  // 2-3. Walk layout placeholder and master placeholder bodyPr.
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+  const slide = shape[SHAPE_SLIDE];
+  const layout = getSlideLayout(slide);
+  if (!layout) return result;
+
+  const findPh = (
+    shapes: ReadonlyArray<{
+      placeholderIdx: number | null;
+      placeholderType: string | null;
+      element: XmlElement;
+    }>,
+  ): XmlElement | null => {
+    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    if (!match && phType !== null) {
+      match = shapes.find((s) => s.placeholderType === phType);
+    }
+    return match?.element ?? null;
+  };
+
+  const layoutPhEl = findPh(layout[LAYOUT_PART].shapes);
+  if (layoutPhEl) {
+    const layoutTxBody = firstChildElement(layoutPhEl, NAME_TX_BODY_FN);
+    if (layoutTxBody) {
+      const bodyPr = firstChildElement(layoutTxBody, NAME_A_BODY_PR);
+      if (bodyPr) parseBodyPr(bodyPr);
+    }
+  }
+
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return result;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return result;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return result;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+  const masterPhEl = findPh(masterShapes);
+  if (masterPhEl) {
+    const masterTxBody = firstChildElement(masterPhEl, NAME_TX_BODY_FN);
+    if (masterTxBody) {
+      const bodyPr = firstChildElement(masterTxBody, NAME_A_BODY_PR);
+      if (bodyPr) parseBodyPr(bodyPr);
+    }
+  }
+  return result;
+};
+
 export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
   const txBody = requireTxBody(shape);
   let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);

@@ -187,6 +187,7 @@ export {
   getShapeAnimation,
   getShapeAt,
   getShapeBounds,
+  getShapeBodyPrEffective,
   getShapeBoundsResolved,
   getShapeCenter,
   getShapeChartCategories,

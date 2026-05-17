@@ -37,6 +37,7 @@ import {
   getShapeFlip,
   getShapeGradientFill,
   getShapePatternFill,
+  getShapeBodyPrEffective,
   getShapeChartKind,
   getShapeChartSpec,
   getShapeHyperlink,
@@ -1906,12 +1907,26 @@ const renderTextBody = (
   if (paragraphCount === 0) return '';
 
   const defaultPt = placeholderDefaultPt(phType);
-  const anchor = getShapeTextAnchor(shape) ?? 'top';
-  const margins = getShapeTextMargins(shape);
-  const lIns = margins?.left ?? DEFAULT_INSET_X;
-  const tIns = margins?.top ?? DEFAULT_INSET_Y;
-  const rIns = margins?.right ?? DEFAULT_INSET_X;
-  const bIns = margins?.bottom ?? DEFAULT_INSET_Y;
+  // Effective body-property cascade — anchor, wrap, vert, margins all
+  // inherit from the layout / master placeholder when the slide doesn't
+  // override them.
+  let effectiveBody: ReturnType<typeof getShapeBodyPrEffective>;
+  try {
+    effectiveBody = getShapeBodyPrEffective(pres, shape);
+  } catch {
+    effectiveBody = {
+      anchor: getShapeTextAnchor(shape),
+      wrap: null,
+      vert: getShapeTextDirection(shape),
+      margins: getShapeTextMargins(shape) ?? { left: null, top: null, right: null, bottom: null },
+    };
+  }
+  const anchor = effectiveBody.anchor ?? 'top';
+  const margins = effectiveBody.margins;
+  const lIns = margins.left ?? DEFAULT_INSET_X;
+  const tIns = margins.top ?? DEFAULT_INSET_Y;
+  const rIns = margins.right ?? DEFAULT_INSET_X;
+  const bIns = margins.bottom ?? DEFAULT_INSET_Y;
 
   const innerX = bounds.x + lIns;
   const innerY = bounds.y + tIns;
@@ -2216,7 +2231,7 @@ const renderTextBody = (
   // primitive for the common cases (East-Asian, Mongolian, vert);
   // wordArtVert / wordArtVertRtl stack characters without rotation
   // which writing-mode also covers via "vertical-lr".
-  const vert = getShapeTextDirection(shape);
+  const vert = effectiveBody.vert ?? getShapeTextDirection(shape);
   let writingMode = '';
   let extraTransform = '';
   if (vert === 'vert' || vert === 'eaVert') {
