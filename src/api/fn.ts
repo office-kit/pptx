@@ -2624,6 +2624,20 @@ export const findShapesByKind = (
   slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].kind === kind);
 
 /**
+ * Returns every shape on the slide whose `<a:prstGeom prst="…"/>`
+ * token matches `preset`. Useful for diagram introspection: find all
+ * `'leftArrow'` shapes for a workflow swap, replace every `'cloud'`
+ * with `'rect'`, etc.
+ *
+ * Shapes without a preset (custGeom / pictures / charts / tables /
+ * connectors / groups) are filtered out.
+ */
+export const findShapesByPreset = (
+  slide: SlideData,
+  preset: string,
+): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => getShapePreset(s) === preset);
+
+/**
  * Returns the slide that owns `shape`. Useful when callers receive a
  * shape from an unfiltered walk (`getAllShapes`, `findShapeInPresentation`,
  * search results) and need to know which slide it's on.

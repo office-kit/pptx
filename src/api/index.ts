@@ -138,6 +138,7 @@ export {
   findShapeInPresentation,
   findShapesByKind,
   findShapesByName,
+  findShapesByPreset,
   findShapesAtPoint,
   findShapesByText,
   findShapesOutsideCanvas,
