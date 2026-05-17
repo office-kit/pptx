@@ -8,6 +8,8 @@
   import {
     getCoreProperties,
     getPresentationSummary,
+    type ValidationIssue,
+    validatePresentation,
     getShapeKind,
     getSlideComments,
     getSlideLayout,
@@ -50,6 +52,7 @@
   let coreTitle = $state<string>('');
   let coreCreator = $state<string>('');
   let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
+  let issues = $state<ReadonlyArray<ValidationIssue>>([]);
   let slides = $state<SlideSnapshot[]>([]);
   let parts = $state<PackagePart[]>([]);
   let lastBytes = $state<Uint8Array | null>(null);
@@ -63,6 +66,7 @@
       coreTitle = core?.title ?? '';
       coreCreator = core?.creator ?? '';
       summary = getPresentationSummary(pres);
+      issues = validatePresentation(pres);
 
       const list = getSlides(pres);
       slideCount = list.length;
@@ -230,6 +234,19 @@
         </div>
       {/if}
     </div>
+
+    {#if issues.length > 0}
+      <h2>Validation</h2>
+      <ul class="issues">
+        {#each issues as iss (iss.message)}
+          <li class={`issue issue-${iss.severity}`}>
+            <span class="issue-sev">{iss.severity}</span>
+            <span class="issue-msg">{iss.message}</span>
+            {#if iss.partName}<code class="issue-part">{iss.partName}</code>{/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
 
     <h2>Slides</h2>
     <ol class="slides">
@@ -546,6 +563,51 @@
   .s-badge-hidden {
     color: #92400e;
     background: #fef3c7;
+  }
+
+  .issues {
+    list-style: none;
+    margin: 0.5rem 0 1.5rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.88rem;
+  }
+
+  .issue {
+    display: flex;
+    gap: 0.5rem;
+    padding: 0.35rem 0.55rem;
+    border-radius: 4px;
+    background: var(--panel, #f8fafc);
+  }
+
+  .issue-error {
+    color: #b91c1c;
+    background: #fee2e2;
+  }
+
+  .issue-warning {
+    color: #92400e;
+    background: #fef3c7;
+  }
+
+  .issue-sev {
+    font-family: var(--mono, monospace);
+    font-size: 11px;
+    text-transform: uppercase;
+    align-self: center;
+  }
+
+  .issue-msg {
+    flex: 1;
+  }
+
+  .issue-part {
+    font-family: var(--mono, monospace);
+    font-size: 11px;
+    opacity: 0.7;
   }
 
   .s-notes {
