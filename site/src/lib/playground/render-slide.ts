@@ -3079,8 +3079,22 @@ const renderLineChart = (
         .join(' ');
       out.push(`<path d="${dPath} ${back} Z" fill="${color}" fill-opacity="0.55" stroke="none"/>`);
     }
+    // Authored line width / dash on the series (<c:ser><c:spPr><a:ln>).
+    const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
+    const dashAttr = series.lineDash
+      ? (() => {
+          const sw = lineWPx;
+          const pat = DASH_PATTERNS[series.lineDash!];
+          if (!pat) return '';
+          const arr = pat
+            .split(' ')
+            .map((n) => (Number.parseFloat(n) * sw).toFixed(2))
+            .join(' ');
+          return ` stroke-dasharray="${arr}"`;
+        })()
+      : '';
     out.push(
-      `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
+      `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
     );
     if (!isStacked) {
       // Data point markers — only meaningful on the clustered layout.
