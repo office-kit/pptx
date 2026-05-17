@@ -7571,6 +7571,86 @@ export const getSlideLayoutBackgroundShapes = (
  * level to the master is left to callers (the same shape applies).
  */
 /**
+ * Reads the slide layout's pattern background when its `<p:bg>` is a
+ * `<p:bgPr><a:pattFill>`. Same shape as `getSlideBackgroundPatternFill`
+ * for slides.
+ */
+export const getSlideLayoutBackgroundPatternFill = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): { preset: string; foreground: string; background: string } | null => {
+  const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const pattFill = firstChildElement(bgPr, qname('a', 'pattFill', NS.dml));
+  if (!pattFill) return null;
+  const preset = getAttrValue(pattFill, qname('', 'prst', '')) ?? 'pct50';
+  const theme = getPresentationTheme(pres);
+  const colorFrom = (parentName: string, fallback: string): string => {
+    const parent = firstChildElement(pattFill, qname('a', parentName, NS.dml));
+    if (!parent) return fallback;
+    for (const c of parent.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      const hex = resolveDrawingColor(c, theme);
+      if (hex) return hex;
+    }
+    return fallback;
+  };
+  return {
+    preset,
+    foreground: colorFrom('fgClr', '#000000'),
+    background: colorFrom('bgClr', '#FFFFFF'),
+  };
+};
+
+/**
+ * Reads the slide master's pattern background. Companion to
+ * `getSlideLayoutBackgroundPatternFill`.
+ */
+export const getSlideMasterBackgroundPatternFill = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): { preset: string; foreground: string; background: string } | null => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return null;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return null;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return null;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const cSld = firstChildElement(masterRoot, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const pattFill = firstChildElement(bgPr, qname('a', 'pattFill', NS.dml));
+  if (!pattFill) return null;
+  const preset = getAttrValue(pattFill, qname('', 'prst', '')) ?? 'pct50';
+  const theme = getPresentationTheme(pres);
+  const colorFrom = (parentName: string, fallback: string): string => {
+    const parent = firstChildElement(pattFill, qname('a', parentName, NS.dml));
+    if (!parent) return fallback;
+    for (const c of parent.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      const hex = resolveDrawingColor(c, theme);
+      if (hex) return hex;
+    }
+    return fallback;
+  };
+  return {
+    preset,
+    foreground: colorFrom('fgClr', '#000000'),
+    background: colorFrom('bgClr', '#FFFFFF'),
+  };
+};
+
+/**
  * Reads the slide layout's gradient background when its `<p:bg>` is a
  * `<p:bgPr><a:gradFill>`. Same shape as `getSlideBackgroundGradientFill`
  * for slides.
