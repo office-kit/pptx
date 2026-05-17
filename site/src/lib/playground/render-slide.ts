@@ -2853,15 +2853,21 @@ const renderCategoryAxis = (
   } else {
     // Categories down the y-axis (bar chart).
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
+    const truncLen = labelRotationDeg && Math.abs(labelRotationDeg) >= 30 ? 28 : 14;
     for (let i = 0; i < pointCount; i++) {
       if (skip > 1 && i % skip !== 0) continue;
       const cy = f.plotY + (i + 0.5) * step;
+      const lx = f.plotX - 4;
       const truncated =
-        labels[i] !== undefined && labels[i]!.length > 14
-          ? `${labels[i]!.slice(0, 12)}…`
+        labels[i] !== undefined && labels[i]!.length > truncLen
+          ? `${labels[i]!.slice(0, truncLen - 2)}…`
           : (labels[i] ?? '');
+      const transform =
+        labelRotationDeg && labelRotationDeg !== 0
+          ? ` transform="rotate(${labelRotationDeg} ${px(lx)} ${px(cy)})"`
+          : '';
       out.push(
-        `<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}>${escapeXml(truncated)}</text>`,
+        `<text x="${px(lx)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}>${escapeXml(truncated)}</text>`,
       );
     }
   }
