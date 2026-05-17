@@ -102,6 +102,17 @@ export interface ChartSeries {
 export interface ChartTrendline {
   /** Regression type — linear / exp / log / poly / power / movingAvg. */
   readonly type: 'linear' | 'exp' | 'log' | 'poly' | 'power' | 'movingAvg';
+  /**
+   * Forward extension (`<c:forward val="N"/>`) — the trendline runs N
+   * data-point periods past the last point. Used to project future
+   * values from the regression line.
+   */
+  readonly forward?: number;
+  /**
+   * Backward extension (`<c:backward val="N"/>`) — the trendline runs N
+   * data-point periods before the first point.
+   */
+  readonly backward?: number;
   /** Optional moving-average period (only meaningful for type='movingAvg'). */
   readonly period?: number;
   /** Polynomial order (only meaningful for type='poly'). */
