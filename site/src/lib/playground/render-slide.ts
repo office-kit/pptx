@@ -2755,8 +2755,15 @@ const renderColumnChart = (
         const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
         const y0 = Math.min(top, baseY);
         const h = Math.abs(top - baseY);
+        // invertIfNegative paints the negative bars in the inverted shade
+        // of the series color (typically a darker / muted variant).
+        const baseColor = spec.series[s]?.color ?? colors[s % colors.length]!;
+        const fillColor =
+          v < 0 && spec.series[s]?.invertIfNegative
+            ? mixHex(baseColor, '#000000', 0.55)
+            : baseColor;
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"/>`,
         );
         if (showLabelFor(s)) {
           const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
@@ -3037,8 +3044,13 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
+        const baseColor = spec.series[s]?.color ?? colors[s % colors.length]!;
+        const fillColor =
+          v < 0 && spec.series[s]?.invertIfNegative
+            ? mixHex(baseColor, '#000000', 0.55)
+            : baseColor;
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"/>`,
         );
         if (showLabelForBar(s)) {
           const labelX = v >= 0 ? x0 + w + 2 : x0 - 2;

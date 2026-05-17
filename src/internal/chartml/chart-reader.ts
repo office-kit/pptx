@@ -411,6 +411,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const color = readSeriesColor(ser);
     const { lineWidthEmu, lineDash } = readSeriesLineProps(ser);
     const { markerSymbol, markerSizePt } = readSeriesMarker(ser);
+    const invertEl = firstChildElement(ser, qname('c', 'invertIfNegative', NS_C));
+    const invertIfNegative =
+      invertEl !== null && getAttrValue(invertEl, ATTR_VAL) !== '0' ? true : undefined;
     // <c:dPt> data-point overrides — sparse map idx → color.
     const pointColors = readDataPointColors(ser);
     // <c:smooth val="1"/> — line / area / scatter only.
@@ -443,6 +446,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       ...(lineDash !== undefined ? { lineDash } : {}),
       ...(markerSymbol !== undefined ? { markerSymbol } : {}),
       ...(markerSizePt !== undefined ? { markerSizePt } : {}),
+      ...(invertIfNegative !== undefined ? { invertIfNegative } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
       ...(trendline !== undefined ? { trendline } : {}),
