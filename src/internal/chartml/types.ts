@@ -88,4 +88,15 @@ export interface ChartSpec {
   readonly valueAxis?: ChartAxisScaling;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
+  /**
+   * Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units
+   * (0..500, percent of bar width). Default 150 (= 1.5×) in PowerPoint.
+   */
+  readonly gapWidthPct?: number;
+  /**
+   * Overlap of adjacent bars within a category in `<c:overlap val="N"/>`
+   * percent (-100..100). Negative pulls bars apart, positive overlaps.
+   * Defaults to 0 (clustered) / 100 (stacked).
+   */
+  readonly overlapPct?: number;
 }
