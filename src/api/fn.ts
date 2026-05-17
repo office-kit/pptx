@@ -5555,6 +5555,26 @@ export const getParagraphBullet = (
 };
 
 /**
+ * Returns `true` when the paragraph uses an image as its bullet
+ * (`<a:pPr><a:buBlip r:embed="…"/>`). Renderers without image
+ * support should fall back to a generic bullet glyph.
+ *
+ * The underlying rId / image bytes aren't surfaced here — resolving
+ * that would need the rels of the layout / master the paragraph
+ * inherits from, which can be cumbersome. Knowing that the bullet
+ * *is* an image is usually enough for the UI to pick a fallback.
+ */
+export const isParagraphBulletPicture = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): boolean => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (!pPr) return false;
+  return firstChildElement(pPr, qname('a', 'buBlip', NS.dml)) !== null;
+};
+
+/**
  * Reads the bullet's per-paragraph color, size, and font overrides —
  * `<a:buClr>` (theme-resolved hex), `<a:buSzPct>` / `<a:buSzPts>`
  * (size relative to run or fixed pt), and `<a:buFont typeface="…"/>`.
