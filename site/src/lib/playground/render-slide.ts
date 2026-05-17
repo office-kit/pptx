@@ -2962,8 +2962,10 @@ const renderChartLegend = (
     return out.join('');
   }
   // Right / Top-Right / Left — vertical stack along the chosen edge.
+  // 'r' / 'l' center the stack vertically; 'tr' pins it to the top.
   const lineH = 14;
-  const yStart = f.y + 12;
+  const totalH = names.length * lineH;
+  const yStart = position === 'tr' ? f.y + 12 : Math.max(f.y + 12, f.y + (f.h - totalH) / 2);
   const xCol =
     position === 'l' ? f.x + 6 : position === 'tr' ? f.x + f.w - 100 : /* 'r' */ f.x + f.w - 100;
   for (let i = 0; i < names.length; i++) {
