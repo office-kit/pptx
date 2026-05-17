@@ -2401,12 +2401,16 @@ const renderTextBody = (
     colStyles = `;column-count:${cols.count};column-gap:${gapPx}px`;
   }
   const vertStyles = (writingMode ? `;${writingMode}${extraTransform}` : '') + colStyles;
+  // `<a:bodyPr wrap="none"/>` forces a single line (no word-wrap).
+  // Default (`'square'` or absent) wraps on word boundaries via
+  // `word-break:break-word`.
+  const wrapStyle = effectiveBody.wrap === 'none' ? 'white-space:nowrap' : 'word-break:break-word';
   // foreignObject's `overflow="visible"` attribute (not CSS) is what
   // actually keeps it from clipping content past its width/height.
   // Without this, the surrounding SVG viewport silently crops any text
   // that overshoots — exactly the title-tops-cut-off symptom users
   // hit when the autofit scale wasn't enough.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};word-break:break-word${vertStyles}">${paragraphs.join('')}</div>`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${wrapStyle}${vertStyles}">${paragraphs.join('')}</div>`;
   const foreign = `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
   // <a:bodyPr rot="N"/> rotates the text body around its own center
   // (PowerPoint pivots on the shape's text-anchor midpoint). Wrap the
