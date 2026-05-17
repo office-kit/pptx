@@ -8,12 +8,14 @@
   import {
     getCoreProperties,
     getShapeKind,
+    getSlideComments,
     getSlideNotes,
     getSlideShapes,
     getSlideTitle,
     getSlideTransition,
     getSlides,
     getSlideTextLength,
+    isSlideHidden,
     listPackageParts,
     loadPresentation,
     savePresentation,
@@ -30,6 +32,8 @@
     notes: string | null;
     hasTransition: boolean;
     hasAnimations: boolean;
+    hidden: boolean;
+    commentCount: number;
   };
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
@@ -65,6 +69,8 @@
         notes: getSlideNotes(slide),
         hasTransition: getSlideTransition(slide) !== null,
         hasAnimations: slideHasAnimations(slide),
+        hidden: isSlideHidden(slide),
+        commentCount: getSlideComments(slide).length,
       }));
 
       parts = listPackageParts(pres)
@@ -195,8 +201,10 @@
           <div class="s-head">
             <span class="s-num">{String(s.index).padStart(2, '0')}</span>
             <span class="s-title">{s.title || '(untitled)'}</span>
+            {#if s.hidden}<span class="s-badge s-badge-hidden" title='show="0" — hidden from slideshow'>hidden</span>{/if}
             {#if s.hasTransition}<span class="s-badge" title="slide carries <p:transition>">trans</span>{/if}
             {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
+            {#if s.commentCount > 0}<span class="s-badge" title="slide has authored review comments">{s.commentCount} cmt</span>{/if}
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
           </div>
           <div class="s-canvas">
@@ -495,6 +503,11 @@
     background: var(--panel, #f1f5f9);
     border-radius: 3px;
     margin-left: 0.25em;
+  }
+
+  .s-badge-hidden {
+    color: #92400e;
+    background: #fef3c7;
   }
 
   .s-notes {
