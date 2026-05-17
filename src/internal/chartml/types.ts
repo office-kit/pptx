@@ -163,6 +163,17 @@ export interface ChartSpec {
   readonly dataLabels?: ChartDataLabels;
   /** Optional value-axis scaling override (min / max). */
   readonly valueAxis?: ChartAxisScaling;
+  /**
+   * Plot-area background fill — `<c:plotArea><c:spPr><a:solidFill>
+   * <a:srgbClr val="…"/>`. `null` for no fill / unsupported fill kind.
+   */
+  readonly plotAreaFill?: string;
+  /**
+   * Chart-area background fill — `<c:chartSpace><c:spPr><a:solidFill>
+   * <a:srgbClr val="…"/>`. Renderers can use this as the outer card
+   * color instead of the hard-coded white.
+   */
+  readonly chartAreaFill?: string;
   /** Optional axis title text (`<c:catAx><c:title>` / `<c:valAx><c:title>`). */
   readonly categoryAxisTitle?: string;
   readonly valueAxisTitle?: string;
