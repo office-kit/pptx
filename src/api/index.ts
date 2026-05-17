@@ -248,6 +248,7 @@ export {
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextAutoFit,
+  getShapeTextDirection,
   getShapeTextMargins,
   getShapeTextWrap,
   getShapeXmlString,

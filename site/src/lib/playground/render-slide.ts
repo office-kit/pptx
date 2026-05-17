@@ -34,6 +34,8 @@ import {
   getShapePatternFill,
   getShapeChartKind,
   getShapeChartSpec,
+  getShapeHyperlink,
+  getShapeTextDirection,
   getShapeImageBrightness,
   getShapeImageBytes,
   getShapeImageContrast,
@@ -1852,12 +1854,31 @@ const renderTextBody = (
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
   const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
+  // B3 — vertical text. <a:bodyPr vert="…"/> controls glyph orientation
+  // and line direction. The CSS writing-mode property is the right
+  // primitive for the common cases (East-Asian, Mongolian, vert);
+  // wordArtVert / wordArtVertRtl stack characters without rotation
+  // which writing-mode also covers via "vertical-lr".
+  const vert = getShapeTextDirection(shape);
+  let writingMode = '';
+  let extraTransform = '';
+  if (vert === 'vert' || vert === 'eaVert') {
+    writingMode = 'writing-mode:vertical-rl';
+  } else if (vert === 'vert270' || vert === 'mongolianVert') {
+    writingMode = 'writing-mode:vertical-lr';
+    if (vert === 'vert270') extraTransform = ';transform:rotate(180deg)';
+  } else if (vert === 'wordArtVert') {
+    writingMode = 'writing-mode:vertical-rl;text-orientation:upright';
+  } else if (vert === 'wordArtVertRtl') {
+    writingMode = 'writing-mode:vertical-rl;text-orientation:upright;direction:rtl';
+  }
+  const vertStyles = writingMode ? `;${writingMode}${extraTransform}` : '';
   // foreignObject's `overflow="visible"` attribute (not CSS) is what
   // actually keeps it from clipping content past its width/height.
   // Without this, the surrounding SVG viewport silently crops any text
   // that overshoots — exactly the title-tops-cut-off symptom users
   // hit when the autofit scale wasn't enough.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word${vertStyles}">${paragraphs.join('')}</div>`;
   return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
 };
 
@@ -2548,7 +2569,24 @@ const renderShape = (
     const xform = getGroupTransform(shape);
     const children = getGroupChildren(shape);
     if (children.length === 0) return '';
-    let groupTransform = '';
+    const tParts: string[] = [];
+    // B7 — group-level rotation / flip. The group's <a:xfrm rot=…
+    // flipH=… flipV=…> applies to the whole subtree, around the group's
+    // outer-rect center. Compose those transforms first, then the
+    // translate+scale that maps internal coords onto slide coords.
+    if (xform && rotation !== 0) {
+      const cxG = (xform.outer.x as number + (xform.outer.w as number) / 2) / EMU_PER_PX;
+      const cyG = (xform.outer.y as number + (xform.outer.h as number) / 2) / EMU_PER_PX;
+      tParts.push(`rotate(${rotation} ${cxG.toFixed(2)} ${cyG.toFixed(2)})`);
+    }
+    if (xform && flip.horizontal) {
+      const cxG = (xform.outer.x as number + (xform.outer.w as number) / 2) / EMU_PER_PX;
+      tParts.push(`translate(${(2 * cxG).toFixed(2)} 0) scale(-1 1)`);
+    }
+    if (xform && flip.vertical) {
+      const cyG = (xform.outer.y as number + (xform.outer.h as number) / 2) / EMU_PER_PX;
+      tParts.push(`translate(0 ${(2 * cyG).toFixed(2)}) scale(1 -1)`);
+    }
     if (xform) {
       const ox = xform.outer.x as number;
       const oy = xform.outer.y as number;
@@ -2565,8 +2603,9 @@ const renderShape = (
       // which factors as translate(ox/EMU - ix*sx/EMU) scale(sx).
       const tx = ((ox - ix * (ow / iw)) / EMU_PER_PX).toFixed(2);
       const ty = ((oy - iy * (oh / ih)) / EMU_PER_PX).toFixed(2);
-      groupTransform = ` transform="translate(${tx} ${ty}) scale(${sx} ${sy})"`;
+      tParts.push(`translate(${tx} ${ty})`, `scale(${sx} ${sy})`);
     }
+    const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
     const childrenSvg = children.map((c) => renderShape(c, pres, theme)).join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
@@ -2648,7 +2687,14 @@ const renderShape = (
   // and react badly to feGaussianBlur (DOM gets rasterized).
   geomSvg = `<g${filterAttr}>${geomSvg}</g>`;
 
-  return `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  // B6 — Shape-level hyperlinks. Wrap the rendered shape in an SVG
+  // <a href> so the playground preview is clickable, matching the
+  // PowerPoint slideshow's behavior. Per-run hyperlinks live on the
+  // text body and are handled by renderRun separately.
+  const url = getShapeHyperlink(shape);
+  const inner = `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  if (url) return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+  return inner;
 };
 
 // ---------------------------------------------------------------------------

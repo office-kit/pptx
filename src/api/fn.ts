@@ -4521,6 +4521,36 @@ export const getShapeTextAnchor = (shape: SlideShapeData): TextAnchor | null => 
  * that are absent in the XML default to `null` (PowerPoint applies
  * its built-in default for the missing side).
  */
+/**
+ * Reads the shape's text-direction token from `<a:bodyPr vert="…"/>`.
+ * Per ECMA-376 §17.18.93 `ST_TextVerticalType`:
+ *
+ *   - `horz` — default left-to-right, top-to-bottom (returns `null`).
+ *   - `vert` — 90° rotation, lines run top-to-bottom, columns right-to-left.
+ *   - `vert270` — 270° rotation, lines top-to-bottom, columns left-to-right.
+ *   - `wordArtVert` — characters not rotated, stacked vertically.
+ *   - `eaVert` — East-Asian vertical: characters upright, columns right-to-left.
+ *   - `mongolianVert` — Mongolian: rotated 90°, columns left-to-right.
+ *   - `wordArtVertRtl` — RTL word-art stacked vertically.
+ *
+ * Returns `null` when the attribute is absent or set to the default
+ * `horz`.
+ */
+export const getShapeTextDirection = (
+  shape: SlideShapeData,
+): 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  const v = getAttrValue(bodyPr, qname('', 'vert', ''));
+  if (
+    v === 'vert' || v === 'vert270' || v === 'wordArtVert' ||
+    v === 'eaVert' || v === 'mongolianVert' || v === 'wordArtVertRtl'
+  ) return v;
+  return null;
+};
+
 export const getShapeTextMargins = (
   shape: SlideShapeData,
 ): {
