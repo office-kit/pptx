@@ -41,6 +41,12 @@ export interface ChartSeries {
    * painted on top of the series in the renderer.
    */
   readonly trendline?: ChartTrendline;
+  /**
+   * Per-series data-label toggle overrides. Same shape as the chart-level
+   * `ChartSpec.dataLabels`; overrides win when present. Read from
+   * `<c:ser><c:dLbls>`.
+   */
+  readonly dataLabels?: ChartDataLabels;
 }
 
 /** A single trendline overlay for a series. */
