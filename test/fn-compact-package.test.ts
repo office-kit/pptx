@@ -33,7 +33,11 @@ describe('fn API: compactPackage', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
     });
     // Save → reload → orphan the media by clearing slide rels.
     const reloaded = await loadPresentation(await savePresentation(pres));
@@ -60,7 +64,11 @@ describe('fn API: compactPackage', () => {
   it('does not touch media that is still referenced', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideImage(getSlides(pres)[0]!, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
     });
     const reloaded = await loadPresentation(await savePresentation(pres));
     const before = getMediaParts(reloaded).length;
@@ -72,7 +80,11 @@ describe('fn API: compactPackage', () => {
   it('cleans up after a removeShape() that took the last image with it', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const pic = addSlideImage(getSlides(pres)[0]!, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
     });
     removeShape(pic);
     // The media is still in the package but no shape uses it now.

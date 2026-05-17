@@ -23,18 +23,30 @@ describe('fn API: getDistinctHyperlinkUrls', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const a = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'A',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'A',
       });
       setShapeHyperlink(a, 'https://example.com/first');
     }
     {
       const slide = addSlide(pres, { layout: blank });
       const b = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'B',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'B',
       });
       setShapeHyperlink(b, 'https://example.com/second');
       const c = addSlideTextBox(slide, {
-        x: inches(0), y: inches(1), w: inches(2), h: inches(1), text: 'C',
+        x: inches(0),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+        text: 'C',
       });
       setShapeHyperlink(c, 'https://example.com/first'); // duplicate
     }

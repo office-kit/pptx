@@ -16,11 +16,14 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: getShapeXmlString', () => {
-  it('returns the shape\'s XML body', async () => {
+  it("returns the shape's XML body", async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
       text: 'unique-shape-xml-marker',
     });
     const xml = getShapeXmlString(tb);
@@ -32,7 +35,10 @@ describe('fn API: getShapeXmlString', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
       text: 'before',
     });
     const before = getShapeXmlString(tb);

@@ -31,12 +31,19 @@ describe('fn API: hasShapeImage', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(hasShapeImage(pic)).toBe(true);
 
     const filled = addSlideShape(slide, {
-      preset: 'rect', x: inches(2), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(2),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeImageFill(filled, PNG);
     expect(hasShapeImage(filled)).toBe(true);
@@ -46,13 +53,20 @@ describe('fn API: hasShapeImage', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const rect = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(2), w: inches(2), h: inches(1), text: 'plain',
+      x: inches(0),
+      y: inches(2),
+      w: inches(2),
+      h: inches(1),
+      text: 'plain',
     });
     expect(hasShapeImage(rect)).toBe(false);
     expect(hasShapeImage(tb)).toBe(false);
   });
-
 });

@@ -32,7 +32,10 @@ describe('fn API: getPackageSize', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const before = getPackageSize(pres);
     addSlideImage(getSlides(pres)[0]!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getPackageSize(pres)).toBeGreaterThan(before);
   });

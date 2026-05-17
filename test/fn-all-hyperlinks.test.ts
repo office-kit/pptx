@@ -23,24 +23,29 @@ describe('fn API: getAllHyperlinks', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const a = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'A',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'A',
       });
       setShapeHyperlink(a, 'https://example.com/a');
     }
     {
       const slide = addSlide(pres, { layout: blank });
       const b = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'B',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'B',
       });
       setShapeHyperlink(b, 'https://example.com/b');
     }
     const out = getAllHyperlinks(pres);
     expect(out.length).toBe(2);
     const urls = out.map((e) => e.url).sort();
-    expect(urls).toEqual([
-      'https://example.com/a',
-      'https://example.com/b',
-    ]);
+    expect(urls).toEqual(['https://example.com/a', 'https://example.com/b']);
     // slideIndex values are non-negative
     for (const e of out) expect(e.slideIndex).toBeGreaterThanOrEqual(0);
   });

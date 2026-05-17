@@ -20,15 +20,24 @@ describe('fn API: findChartsBySeriesName', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideChart(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'bar', categories: ['Q1'], series: [{ name: 'Revenue', values: [1] }] },
     });
     addSlideChart(slide, {
-      x: inches(4), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(4),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'line', categories: ['Q1'], series: [{ name: 'Costs', values: [1] }] },
     });
     addSlideChart(slide, {
-      x: inches(0), y: inches(3), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(3),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'pie', categories: ['A'], series: [{ name: 'Revenue', values: [1] }] },
     });
 

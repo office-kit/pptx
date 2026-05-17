@@ -30,10 +30,7 @@ import { readZip } from '../src/internal/opc/zip.ts';
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
-const partBytes = async (
-  bytes: Uint8Array,
-  partPath: string,
-): Promise<Uint8Array | null> => {
+const partBytes = async (bytes: Uint8Array, partPath: string): Promise<Uint8Array | null> => {
   const pres = await loadPresentation(bytes);
   return readPackagePart(pres, partPath);
 };

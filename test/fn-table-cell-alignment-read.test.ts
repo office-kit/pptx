@@ -22,7 +22,10 @@ describe('fn API: getTableCellAlignment', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const table = addSlideTable(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       rows: [['a', 'b']],
     });
     const cell = getTableCell(table, 0, 0)!;
@@ -33,7 +36,10 @@ describe('fn API: getTableCellAlignment', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const table = addSlideTable(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       rows: [['a', 'b', 'c', 'd']],
     });
 

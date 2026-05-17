@@ -64,8 +64,8 @@ describe('fn API: shape text mutation', () => {
     setShapeTextFormat(shape, { bold: true, color: '#FF0000' });
 
     const reloaded = await loadPresentation(await savePresentation(pres));
-    const reloadedShape = getSlideShapes(getSlides(reloaded)[0]!).find(
-      (s) => getShapeText(s).includes('Line'),
+    const reloadedShape = getSlideShapes(getSlides(reloaded)[0]!).find((s) =>
+      getShapeText(s).includes('Line'),
     );
     expect(reloadedShape && getShapeText(reloadedShape)).toContain('Line one');
     expect(reloadedShape && getShapeText(reloadedShape)).toContain('Line two');

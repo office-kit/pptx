@@ -31,8 +31,7 @@ export const examples = {
   buildDeck: {
     title: 'Build a deck from a blank template',
     path: 'site/src/lib/examples/build-deck.ts',
-    description:
-      'Add slides on a layout, drop in a text box, an image, and a chart, then save.',
+    description: 'Add slides on a layout, drop in a text box, an image, and a chart, then save.',
     source: buildDeck,
   },
   imageReplace: {
@@ -52,8 +51,7 @@ export const examples = {
   browserFetch: {
     title: 'Fetch in the browser',
     path: 'site/src/lib/examples/browser-fetch.ts',
-    description:
-      'Pipe a fetch Response straight through arrayBuffer() into loadPresentation.',
+    description: 'Pipe a fetch Response straight through arrayBuffer() into loadPresentation.',
     source: browserFetch,
   },
 } as const satisfies Record<string, Example>;

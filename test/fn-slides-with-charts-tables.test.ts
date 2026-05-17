@@ -21,7 +21,10 @@ describe('fn API: getSlidesWithCharts / getSlidesWithTables', () => {
   it('lists each slide that has a chart', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideChart(getSlides(pres)[0]!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'bar', categories: ['Q1'], series: [{ name: 'r', values: [1] }] },
     });
     const hits = getSlidesWithCharts(pres);
@@ -32,7 +35,10 @@ describe('fn API: getSlidesWithCharts / getSlidesWithTables', () => {
   it('lists each slide that has a table', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideTable(getSlides(pres)[1]!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       rows: [['a', 'b']],
     });
     const hits = getSlidesWithTables(pres);

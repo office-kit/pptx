@@ -23,11 +23,7 @@ const TEXT_ENCODER = new TextEncoder();
 const encode = (s: string): Uint8Array => TEXT_ENCODER.encode(s);
 
 const xmlEscape = (s: string): string =>
-  s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const colLetter = (col: number): string => {
   // 0-based to A, B, …, Z, AA, AB, … (Excel-style).
@@ -150,12 +146,7 @@ export const buildEmbeddedXlsx = (
  * formulas. Example: `cellRange('Sheet1', 1, 0, 4)` →
  * `"Sheet1!$A$2:$A$5"` (column A, rows 2–5 inclusive, 0-indexed input).
  */
-export const cellRange = (
-  sheet: string,
-  startRow: number,
-  col: number,
-  count: number,
-): string => {
+export const cellRange = (sheet: string, startRow: number, col: number, count: number): string => {
   const colA = colLetter(col);
   return `${sheet}!$${colA}$${startRow + 1}:$${colA}$${startRow + count}`;
 };

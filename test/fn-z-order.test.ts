@@ -31,9 +31,30 @@ describe('fn API: z-order', () => {
   it('bringShapeToFront moves a shape to the end of spTree', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
-    const a = addSlideShape(slide, { preset: 'rect',    x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'A' });
-    const b = addSlideShape(slide, { preset: 'ellipse', x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'B' });
-    const c = addSlideShape(slide, { preset: 'triangle', x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'C' });
+    const a = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'A',
+    });
+    const b = addSlideShape(slide, {
+      preset: 'ellipse',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'B',
+    });
+    const c = addSlideShape(slide, {
+      preset: 'triangle',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'C',
+    });
     expect(orderedNames(slide).slice(-3)).toEqual(['A', 'B', 'C']);
 
     bringShapeToFront(a);
@@ -43,30 +64,74 @@ describe('fn API: z-order', () => {
     expect(orderedNames(slide).slice(-3)).toEqual(['B', 'C', 'A']);
 
     // Reference unused locals.
-    void b; void c;
+    void b;
+    void c;
   });
 
   it('sendShapeToBack moves a shape behind every other shape', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
-    const a = addSlideShape(slide, { preset: 'rect',    x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'A' });
-    const b = addSlideShape(slide, { preset: 'ellipse', x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'B' });
-    const c = addSlideShape(slide, { preset: 'triangle', x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'C' });
+    const a = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'A',
+    });
+    const b = addSlideShape(slide, {
+      preset: 'ellipse',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'B',
+    });
+    const c = addSlideShape(slide, {
+      preset: 'triangle',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'C',
+    });
 
     sendShapeToBack(c);
     // C is now the first shape child of spTree.
     expect(orderedNames(slide)[0]).toBe('C');
 
     // Reference unused locals.
-    void a; void b;
+    void a;
+    void b;
   });
 
   it('bringShapeForward / sendShapeBackward swap with the adjacent shape', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
-    const a = addSlideShape(slide, { preset: 'rect',    x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'A' });
-    const b = addSlideShape(slide, { preset: 'ellipse', x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'B' });
-    const c = addSlideShape(slide, { preset: 'triangle', x: inches(0), y: inches(0), w: inches(1), h: inches(1), name: 'C' });
+    const a = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'A',
+    });
+    const b = addSlideShape(slide, {
+      preset: 'ellipse',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'B',
+    });
+    const c = addSlideShape(slide, {
+      preset: 'triangle',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      name: 'C',
+    });
 
     // Initial: ..., A, B, C
     bringShapeForward(a);

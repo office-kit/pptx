@@ -28,7 +28,11 @@ describe('fn API: extended stroke readers', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     setShapeStrokeDash(shape, 'lgDashDot');
     expect(getShapeStrokeDash(shape)).toBe('lgDashDot');
@@ -38,7 +42,11 @@ describe('fn API: extended stroke readers', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     expect(getShapeStrokeCap(shape)).toBeNull();
     expect(getShapeStrokeJoin(shape)).toBeNull();

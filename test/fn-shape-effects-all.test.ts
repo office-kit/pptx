@@ -24,7 +24,11 @@ describe('fn API: getShapeEffects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     expect(getShapeEffects(pres, shape)).toEqual([]);
   });
@@ -33,7 +37,11 @@ describe('fn API: getShapeEffects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     setShapeShadow(shape, { color: '#000000', angleDeg: 45, opacity: 0.5 });
     const effects = getShapeEffects(pres, shape);
@@ -51,7 +59,11 @@ describe('fn API: getShapeEffects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     setShapeGlow(shape, { color: '#FF0000', radiusEmu: 63500 });
     const effects = getShapeEffects(pres, shape);

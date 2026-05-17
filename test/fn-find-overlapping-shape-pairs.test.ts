@@ -23,14 +23,26 @@ describe('fn API: findOverlappingShapePairs', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     const a = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(3),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(3),
     });
     const b = addSlideShape(slide, {
-      preset: 'rect', x: inches(1), y: inches(1), w: inches(3), h: inches(3),
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(3),
+      h: inches(3),
     });
     // Disjoint
     addSlideShape(slide, {
-      preset: 'rect', x: inches(10), y: inches(10), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(10),
+      y: inches(10),
+      w: inches(1),
+      h: inches(1),
     });
 
     const pairs = findOverlappingShapePairs(slide);
@@ -46,10 +58,18 @@ describe('fn API: findOverlappingShapePairs', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(3), y: inches(3), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(3),
+      y: inches(3),
+      w: inches(1),
+      h: inches(1),
     });
     expect(findOverlappingShapePairs(slide)).toEqual([]);
   });

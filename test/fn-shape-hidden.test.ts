@@ -21,7 +21,11 @@ describe('fn API: isShapeHidden / setShapeHidden', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const s = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(isShapeHidden(s)).toBe(false);
   });
@@ -30,7 +34,11 @@ describe('fn API: isShapeHidden / setShapeHidden', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const s = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeHidden(s, true);
     expect(isShapeHidden(s)).toBe(true);
@@ -46,7 +54,11 @@ describe('fn API: isShapeHidden / setShapeHidden', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const s = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeHidden(s, true);
     expect(isShapeHidden(s)).toBe(true);

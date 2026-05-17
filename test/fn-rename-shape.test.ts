@@ -21,7 +21,11 @@ describe('fn API: renameShape', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
       name: 'OldName',
     });
     expect(getShapeName(shape)).toBe('OldName');
@@ -35,7 +39,11 @@ describe('fn API: renameShape', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     renameShape(shape, '');
     expect(getShapeName(shape)).toBe('');

@@ -21,10 +21,14 @@ describe('fn API: findCommentsBefore', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideComment(slide, {
-      author: { name: 'A' }, text: 'old', date: new Date('2024-01-01T00:00:00Z'),
+      author: { name: 'A' },
+      text: 'old',
+      date: new Date('2024-01-01T00:00:00Z'),
     });
     addSlideComment(slide, {
-      author: { name: 'A' }, text: 'new', date: new Date('2026-05-15T12:00:00Z'),
+      author: { name: 'A' },
+      text: 'new',
+      date: new Date('2026-05-15T12:00:00Z'),
     });
     const hits = findCommentsBefore(pres, '2025-01-01T00:00:00Z');
     expect(hits.length).toBe(1);
@@ -36,7 +40,9 @@ describe('fn API: findCommentsBefore', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideComment(slide, {
-      author: { name: 'A' }, text: 'future', date: new Date('2030-01-01T00:00:00Z'),
+      author: { name: 'A' },
+      text: 'future',
+      date: new Date('2030-01-01T00:00:00Z'),
     });
     expect(findCommentsBefore(pres, new Date('2025-01-01T00:00:00Z'))).toEqual([]);
   });

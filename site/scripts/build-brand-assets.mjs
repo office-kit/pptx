@@ -165,8 +165,8 @@ function encodePng(canvas) {
   const dv = new DataView(ihdr.buffer);
   dv.setUint32(0, size);
   dv.setUint32(4, size);
-  ihdr[8] = 8;  // bit depth
-  ihdr[9] = 6;  // color type: RGBA
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // color type: RGBA
   ihdr[10] = 0;
   ihdr[11] = 0;
   ihdr[12] = 0;
@@ -197,16 +197,7 @@ function buildIcon(size, opts = {}) {
   const canvas = makeCanvas(size);
   const radius = Math.round(size * 0.22);
   const inset = Math.max(1, Math.round(size * 0.04));
-  fillRoundedRect(
-    canvas,
-    inset,
-    inset,
-    size - inset,
-    size - inset,
-    radius,
-    ORANGE_HOT,
-    ORANGE,
-  );
+  fillRoundedRect(canvas, inset, inset, size - inset, size - inset, radius, ORANGE_HOT, ORANGE);
   if (opts.withMark !== false) cutPShape(canvas);
   return encodePng(canvas);
 }

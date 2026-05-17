@@ -25,8 +25,14 @@ describe('fn API: getTableCellSpan / getTableCellBorders', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tbl = addSlideTable(slide, {
-      rows: [['a', 'b'], ['c', 'd']],
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      rows: [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
     });
     const cell = getTableCell(tbl, 0, 0);
     const span = getTableCellSpan(cell);
@@ -41,7 +47,10 @@ describe('fn API: getTableCellSpan / getTableCellBorders', () => {
     const slide = getSlides(pres)[0]!;
     const tbl = addSlideTable(slide, {
       rows: [['a']],
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
     });
     const cell = getTableCell(tbl, 0, 0);
     const borders = getTableCellBorders(pres, cell);

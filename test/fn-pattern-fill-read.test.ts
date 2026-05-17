@@ -22,7 +22,11 @@ describe('fn API: getShapePatternFill', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     expect(getShapePatternFill(pres, shape)).toBeNull();
   });
@@ -31,7 +35,11 @@ describe('fn API: getShapePatternFill', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     setShapePatternFill(shape, {
       preset: 'dkUpDiag',
@@ -49,7 +57,11 @@ describe('fn API: getShapePatternFill', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
     });
     setShapePatternFill(shape, {
       preset: 'pct25',

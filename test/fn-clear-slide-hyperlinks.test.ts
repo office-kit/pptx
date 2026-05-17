@@ -36,7 +36,11 @@ describe('fn API: clearSlideHyperlinks', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const a = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'a',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'a',
       });
       setShapeHyperlink(a, 'https://example.com/a');
     }
@@ -44,7 +48,11 @@ describe('fn API: clearSlideHyperlinks', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const b = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'b',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'b',
       });
       setShapeHyperlink(b, secondLinkUrl);
     }
@@ -61,7 +69,11 @@ describe('fn API: clearSlideHyperlinks', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'plain',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'plain',
     });
     expect(clearSlideHyperlinks(slide)).toBe(0);
   });

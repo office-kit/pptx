@@ -21,7 +21,11 @@ describe('fn API: getShapeSlide', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[1]!;
     const s = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'hi',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'hi',
     });
     expect(getShapeSlide(s)).toBe(slide);
     expect(getSlideIndex(pres, getShapeSlide(s))).toBe(getSlideIndex(pres, slide));
@@ -31,7 +35,10 @@ describe('fn API: getShapeSlide', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[1]!;
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
       text: 'unique-marker',
       name: 'MarkerShape',
     });

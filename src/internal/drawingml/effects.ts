@@ -62,11 +62,7 @@ const effectInsertionIndex = (host: XmlElement): number => {
 const removeEffectLst = (host: XmlElement): void => {
   host.children = host.children.filter(
     (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'effectLst'
-      ),
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'effectLst'),
   );
 };
 
@@ -90,7 +86,7 @@ export const setShadow = (host: XmlElement, options: ShadowOptions = {}): void =
   const blur = options.blurEmu ?? 50800;
   const dist = options.offsetEmu ?? 38100;
   const angleDeg = options.angleDeg ?? 45;
-  const dir = String(Math.round(((angleDeg % 360 + 360) % 360) * 60000));
+  const dir = String(Math.round((((angleDeg % 360) + 360) % 360) * 60000));
 
   const outerShdw = elem(NAME_OUTER_SHDW, {
     attrs: [

@@ -22,7 +22,10 @@ describe('fn API: appendShapeText', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: '',
     });
     appendShapeText(tb, 'first');
@@ -33,7 +36,10 @@ describe('fn API: appendShapeText', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'opening',
     });
     appendShapeText(tb, 'reminder');
@@ -47,7 +53,10 @@ describe('fn API: appendShapeText', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: '',
     });
     setShapeText(tb, 'A');
@@ -60,16 +69,19 @@ describe('fn API: appendShapeText', () => {
   it('throws on non-text shapes', async () => {
     const { addSlideImage } = await import('../src/api/index.ts');
     const PNG = new Uint8Array([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f, 0x15, 0xc4,
-      0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00, 0x01, 0x00, 0x00,
-      0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, 0x44, 0xae,
-      0x42, 0x60, 0x82,
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44,
+      0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1f,
+      0x15, 0xc4, 0x89, 0x00, 0x00, 0x00, 0x0d, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9c, 0x63, 0x00,
+      0x01, 0x00, 0x00, 0x05, 0x00, 0x01, 0x0d, 0x0a, 0x2d, 0xb4, 0x00, 0x00, 0x00, 0x00, 0x49,
+      0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82,
     ]);
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(() => appendShapeText(pic, 'x')).toThrow();
   });

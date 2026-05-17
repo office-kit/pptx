@@ -157,8 +157,7 @@ const encode = (s: string): Uint8Array => TEXT_ENCODER.encode(s);
 
 const SLIDE_LAYOUT_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
-const SLIDE_CONTENT_TYPE =
-  'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
+const SLIDE_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.presentationml.slide+xml';
 const PRES_PART_NAME = partName('/ppt/presentation.xml');
 
 const NAME_PRESENTATION = qname('p', 'presentation', NS.pml);
@@ -365,9 +364,7 @@ export const setSlideSections = (
       for (const s of presModel.slides) {
         const rel = presRels.items.find((r) => r.id === s.rId);
         if (!rel) continue;
-        const slideName = rel.target.startsWith('/')
-          ? rel.target
-          : `/ppt/${rel.target}`;
+        const slideName = rel.target.startsWith('/') ? rel.target : `/ppt/${rel.target}`;
         idByPartName.set(slideName, String(s.id));
       }
     }
@@ -409,9 +406,7 @@ export const setSlideSections = (
     for (const slide of section.slides) {
       const sldId = sldIdFor(slide);
       if (sldId !== null) {
-        sldIds.push(
-          elem(NAME_P14_SLD_ID, { attrs: [attr(ATTR_SLD_ID_REF, sldId)] }),
-        );
+        sldIds.push(elem(NAME_P14_SLD_ID, { attrs: [attr(ATTR_SLD_ID_REF, sldId)] }));
       }
     }
     return elem(NAME_P14_SECTION, {
@@ -427,16 +422,14 @@ export const setSlideSections = (
 // Slide layouts.
 
 /** PowerPoint's user-visible layout name. */
-export const getSlideLayoutName = (layout: SlideLayoutData): string =>
-  layout[LAYOUT_PART].name;
+export const getSlideLayoutName = (layout: SlideLayoutData): string => layout[LAYOUT_PART].name;
 
 /**
  * Returns the package part name (e.g. `/ppt/slideLayouts/slideLayout3.xml`)
  * of `layout`. Useful for surfacing layouts in validator output and
  * other path-keyed UIs.
  */
-export const getSlideLayoutPartName = (layout: SlideLayoutData): string =>
-  layout[LAYOUT_PART_NAME];
+export const getSlideLayoutPartName = (layout: SlideLayoutData): string => layout[LAYOUT_PART_NAME];
 
 /**
  * Returns the slide layout whose package part name equals
@@ -532,8 +525,7 @@ export interface PresentationTheme {
   readonly followedHyperlink: string;
 }
 
-const THEME_CONTENT_TYPE =
-  'application/vnd.openxmlformats-officedocument.theme+xml';
+const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml';
 
 const NAME_THEME_ELEMENTS = qname('a', 'themeElements', NS.dml);
 const NAME_CLR_SCHEME = qname('a', 'clrScheme', NS.dml);
@@ -691,7 +683,10 @@ export interface CoreProperties {
  */
 export const incrementRevision = (pres: PresentationData): number => {
   const props = getCoreProperties(pres);
-  const current = props?.revision === null || props?.revision === undefined ? 0 : Number.parseInt(props.revision, 10);
+  const current =
+    props?.revision === null || props?.revision === undefined
+      ? 0
+      : Number.parseInt(props.revision, 10);
   const next = (Number.isFinite(current) ? current : 0) + 1;
   setCoreProperties(pres, { revision: String(next) });
   return next;
@@ -757,8 +752,7 @@ export const getCoreProperties = (pres: PresentationData): CoreProperties | null
   };
 };
 
-const CORE_PROPS_CONTENT_TYPE =
-  'application/vnd.openxmlformats-package.core-properties+xml';
+const CORE_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.core-properties+xml';
 
 const CORE_PROP_FIELDS: ReadonlyArray<{
   key: keyof CoreProperties;
@@ -835,9 +829,7 @@ export const setCoreProperties = (
     if (existing) {
       existing.children = [textNode(value)];
     } else {
-      root.children.push(
-        elem(name, { children: [textNode(value)] }),
-      );
+      root.children.push(elem(name, { children: [textNode(value)] }));
     }
   }
 
@@ -868,8 +860,7 @@ export const setCoreProperties = (
 // ---------------------------------------------------------------------------
 // Extended properties (`/docProps/app.xml`).
 
-const NS_EXT_PROPS =
-  'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties';
+const NS_EXT_PROPS = 'http://schemas.openxmlformats.org/officeDocument/2006/extended-properties';
 const EXT_PROPS_PART_NAME = partName('/docProps/app.xml');
 
 /**
@@ -944,9 +935,7 @@ export const setExtendedProperties = (
   const pkg = pres[INTERNAL_PACKAGE];
   const part = pkg.getPart(EXT_PROPS_PART_NAME);
   if (!part) {
-    throw new Error(
-      'setExtendedProperties: /docProps/app.xml not present; cannot bootstrap',
-    );
+    throw new Error('setExtendedProperties: /docProps/app.xml not present; cannot bootstrap');
   }
   const doc = parseXml(decode(part.data));
   for (const field of EXT_PROP_FIELDS) {
@@ -1023,9 +1012,7 @@ export const setThumbnail = (
 ): void => {
   const format = options.format ?? detectImageFormat(bytes);
   if (format === null) {
-    throw new Error(
-      'setThumbnail: could not detect image format. Pass options.format explicitly.',
-    );
+    throw new Error('setThumbnail: could not detect image format. Pass options.format explicitly.');
   }
   const pkg = pres[INTERNAL_PACKAGE];
   const contentType = contentTypeForFormat(format);
@@ -1089,10 +1076,7 @@ export const removeThumbnail = (pres: PresentationData): void => {
  * Finds the first slide layout whose user-visible name matches `name`,
  * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
  */
-export const findSlideLayout = (
-  pres: PresentationData,
-  name: string,
-): SlideLayoutData | null => {
+export const findSlideLayout = (pres: PresentationData, name: string): SlideLayoutData | null => {
   for (const layout of getSlideLayouts(pres)) {
     if (layout[LAYOUT_PART].name === name) return layout;
   }
@@ -1141,9 +1125,8 @@ export const findSlideLayoutByType = (
  * Layout type token, when present (`title`, `obj`, `twoObj`, ...).
  * `null` when omitted — the spec default for that case is `cust`.
  */
-export const getSlideLayoutType = (
-  layout: SlideLayoutData,
-): SlideLayoutType | string | null => layout[LAYOUT_PART].layoutType;
+export const getSlideLayoutType = (layout: SlideLayoutData): SlideLayoutType | string | null =>
+  layout[LAYOUT_PART].layoutType;
 
 /**
  * Enumerates every slide layout in the package.
@@ -1165,11 +1148,7 @@ export const getSlideLayouts = (pres: PresentationData): ReadonlyArray<SlideLayo
 // ---------------------------------------------------------------------------
 // SlideData factory + cached enumeration.
 
-const buildSlideData = (
-  pkg: OpcPackage,
-  partNameValue: PartName,
-  bytes: Uint8Array,
-): SlideData => {
+const buildSlideData = (pkg: OpcPackage, partNameValue: PartName, bytes: Uint8Array): SlideData => {
   const doc = parseXml(decode(bytes));
   const part = readSlidePart(doc.root);
   const shapes: SlideShapeData[] = [];
@@ -1308,9 +1287,7 @@ export interface SlideOutlineEntry {
  * `findSlidePlaceholder(slide, 'body')`. Non-placeholder text on
  * the slide isn't surfaced; use `getSlideText(slide)` for that.
  */
-export const getSlideOutline = (
-  pres: PresentationData,
-): ReadonlyArray<SlideOutlineEntry> => {
+export const getSlideOutline = (pres: PresentationData): ReadonlyArray<SlideOutlineEntry> => {
   const out: SlideOutlineEntry[] = [];
   const slides = getSlides(pres);
   for (let i = 0; i < slides.length; i++) {
@@ -1332,10 +1309,7 @@ export const getSlideOutline = (
  * still contribute their body (and vice versa); slides without
  * both are skipped.
  */
-export const getOutlineText = (
-  pres: PresentationData,
-  separator: string = '\n\n',
-): string => {
+export const getOutlineText = (pres: PresentationData, separator: string = '\n\n'): string => {
   const parts: string[] = [];
   for (const entry of getSlideOutline(pres)) {
     const segments: string[] = [];
@@ -1352,10 +1326,7 @@ export const getOutlineText = (
  * Useful for search-indexing a whole deck without iterating slides
  * yourself.
  */
-export const getPresentationText = (
-  pres: PresentationData,
-  separator: string = '\f',
-): string => {
+export const getPresentationText = (pres: PresentationData, separator: string = '\f'): string => {
   const parts: string[] = [];
   for (const slide of getSlides(pres)) parts.push(slideText(slide[SLIDE_PART]));
   return parts.join(separator);
@@ -1446,10 +1417,7 @@ export const getSlidesByLayout = (
  * substring / regex — this one is a strict equality match against
  * the title placeholder only.
  */
-export const findSlideByTitle = (
-  pres: PresentationData,
-  title: string,
-): SlideData | null => {
+export const findSlideByTitle = (pres: PresentationData, title: string): SlideData | null => {
   for (const slide of getSlides(pres)) {
     if (getSlideTitle(slide) === title) return slide;
   }
@@ -1463,10 +1431,7 @@ export const findSlideByTitle = (
  * `listPackageParts`, or any other low-level path-keyed API and
  * need the matching `SlideData` handle.
  */
-export const findSlideByPartName = (
-  pres: PresentationData,
-  partName: string,
-): SlideData | null => {
+export const findSlideByPartName = (pres: PresentationData, partName: string): SlideData | null => {
   for (const slide of getSlides(pres)) {
     if (slide[SLIDE_PART_NAME] === partName) return slide;
   }
@@ -1490,8 +1455,7 @@ export const getSlidePartName = (slide: SlideData): string => slide[SLIDE_PART_N
  * Do NOT parse this back yourself — round-trip safely through
  * `loadPresentation` / `savePresentation`.
  */
-export const getSlideXmlString = (slide: SlideData): string =>
-  serializeXml(slide[SLIDE_DOCUMENT]);
+export const getSlideXmlString = (slide: SlideData): string => serializeXml(slide[SLIDE_DOCUMENT]);
 
 /**
  * Returns the first slide whose concatenated visible text contains
@@ -1736,11 +1700,7 @@ export const replaceTextInPresentation = (
  * Replaces every occurrence of `from` in the slide's text with `to`.
  * Returns the number of `<a:t>` elements mutated on this slide.
  */
-export const replaceTextInSlide = (
-  slide: SlideData,
-  from: string | RegExp,
-  to: string,
-): number => {
+export const replaceTextInSlide = (slide: SlideData, from: string | RegExp, to: string): number => {
   const n = replaceTextInTree(slide[SLIDE_DOCUMENT].root, from, to);
   if (n > 0) {
     commitSlideData(slide);
@@ -1868,18 +1828,13 @@ export const addContentSlide = (
  * PowerPoint "Section Header" layout); otherwise falls back to a
  * `title`-typed layout or the first available layout.
  */
-export const addSectionHeaderSlide = (
-  pres: PresentationData,
-  title: string,
-): SlideData => {
+export const addSectionHeaderSlide = (pres: PresentationData, title: string): SlideData => {
   const layout =
     findSlideLayoutByType(pres, 'secHead') ??
     findSlideLayoutByType(pres, 'title') ??
     getSlideLayouts(pres)[0];
   if (!layout) {
-    throw new Error(
-      'addSectionHeaderSlide: package has no slide layouts to inherit from',
-    );
+    throw new Error('addSectionHeaderSlide: package has no slide layouts to inherit from');
   }
   const slide = addSlide(pres, { layout });
   setSlideTitle(slide, title);
@@ -1895,9 +1850,7 @@ export const addSectionHeaderSlide = (
  */
 export const addTitleSlide = (pres: PresentationData, title: string): SlideData => {
   const titleLayout =
-    findSlideLayoutByType(pres, 'title') ??
-    findSlideLayoutByType(pres, 'obj') ??
-    null;
+    findSlideLayoutByType(pres, 'title') ?? findSlideLayoutByType(pres, 'obj') ?? null;
   const layout =
     titleLayout ??
     getSlideLayouts(pres).find((l) => getSlideLayoutType(l) !== 'blank') ??
@@ -2046,8 +1999,7 @@ export const sortSlides = (
   for (const slide of slides) {
     const rel = presRels.items.find(
       (r) =>
-        r.type === REL_TYPES.slide &&
-        r.target === `slides/${basename(slide[SLIDE_PART_NAME])}`,
+        r.type === REL_TYPES.slide && r.target === `slides/${basename(slide[SLIDE_PART_NAME])}`,
     );
     if (rel) slideByRId.set(rel.id, slide);
   }
@@ -2096,11 +2048,7 @@ export const reverseSlides = (pres: PresentationData): void => {
  * No-op when the indices are equal. Throws on out-of-range indices.
  * Implemented on top of `moveSlide` for predictable rels behavior.
  */
-export const swapSlides = (
-  pres: PresentationData,
-  indexA: number,
-  indexB: number,
-): void => {
+export const swapSlides = (pres: PresentationData, indexA: number, indexB: number): void => {
   if (indexA === indexB) return;
   const slides = getSlides(pres);
   const a = slides[indexA];
@@ -2391,9 +2339,7 @@ export const mergePresentations = (
   const sourceSlides = getSlides(sourcePres);
   const out: SlideData[] = [];
   const resolveLayout =
-    typeof targetLayout === 'function'
-      ? targetLayout
-      : (): SlideLayoutData => targetLayout;
+    typeof targetLayout === 'function' ? targetLayout : (): SlideLayoutData => targetLayout;
   for (let i = 0; i < sourceSlides.length; i++) {
     const src = sourceSlides[i]!;
     const layout = resolveLayout(src, i);
@@ -2473,10 +2419,7 @@ export const getSlideLayout = (slide: SlideData): SlideLayoutData | null => {
  * if no match). Shapes whose `<p:ph>` omits an explicit type default to
  * `'body'` per ECMA-376 §19.7.10.
  */
-export const findSlidePlaceholder = (
-  slide: SlideData,
-  type: string,
-): SlideShapeData | null => {
+export const findSlidePlaceholder = (slide: SlideData, type: string): SlideShapeData | null => {
   for (const shape of slide[SLIDE_SHAPES]) {
     const snap = shape[SHAPE_SNAPSHOT];
     if (snap.placeholderType === type) return shape;
@@ -2493,9 +2436,7 @@ export const findSlidePlaceholder = (
  * before a slide is published, and for validation hooks that warn
  * about empty slots.
  */
-export const findEmptyPlaceholders = (
-  slide: SlideData,
-): ReadonlyArray<SlideShapeData> => {
+export const findEmptyPlaceholders = (slide: SlideData): ReadonlyArray<SlideShapeData> => {
   const out: SlideShapeData[] = [];
   for (const shape of slide[SLIDE_SHAPES]) {
     if (!isShapePlaceholder(shape)) continue;
@@ -2511,9 +2452,7 @@ export const findEmptyPlaceholders = (
  * together" patterns where the caller needs a single rectangle
  * across the group.
  */
-export const getShapesBounds = (
-  shapes: ReadonlyArray<SlideShapeData>,
-): ShapeBounds | null => {
+export const getShapesBounds = (shapes: ReadonlyArray<SlideShapeData>): ShapeBounds | null => {
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -2550,11 +2489,7 @@ export const translateShapes = (
   for (const shape of shapes) {
     const bounds = getShapeBounds(shape);
     if (bounds === null) continue;
-    setShapePosition(
-      shape,
-      (bounds.x + dxEmu) as Emu,
-      (bounds.y + dyEmu) as Emu,
-    );
+    setShapePosition(shape, (bounds.x + dxEmu) as Emu, (bounds.y + dyEmu) as Emu);
   }
 };
 
@@ -2581,10 +2516,7 @@ export const getSlidesWithEmptyPlaceholders = (
  * `idx`, so this is what you reach for when type-only lookup is
  * ambiguous.
  */
-export const findSlidePlaceholderByIdx = (
-  slide: SlideData,
-  idx: number,
-): SlideShapeData | null => {
+export const findSlidePlaceholderByIdx = (slide: SlideData, idx: number): SlideShapeData | null => {
   for (const shape of slide[SLIDE_SHAPES]) {
     if (shape[SHAPE_SNAPSHOT].placeholderIdx === idx) return shape;
   }
@@ -2642,10 +2574,7 @@ export const findShapeById = (slide: SlideData, id: number): SlideShapeData | nu
 };
 
 /** Every shape on the slide whose `cNvPr@name` equals `name`. */
-export const findShapesByName = (
-  slide: SlideData,
-  name: string,
-): ReadonlyArray<SlideShapeData> =>
+export const findShapesByName = (slide: SlideData, name: string): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].name === name);
 
 /**
@@ -2707,7 +2636,13 @@ export const getShapeSlide = (shape: SlideShapeData): SlideData => shape[SHAPE_S
  * reports, and before/after dumps during transformations.
  */
 export const getShapeXmlString = (shape: SlideShapeData): string =>
-  serializeXml({ kind: 'document', decl: null, root: shape[SHAPE_ELEMENT], prolog: [], epilog: [] });
+  serializeXml({
+    kind: 'document',
+    decl: null,
+    root: shape[SHAPE_ELEMENT],
+    prolog: [],
+    epilog: [],
+  });
 
 /**
  * Returns the 0-based document-order index of `shape` on its slide,
@@ -2743,10 +2678,7 @@ export const findShapeInPresentation = (
  * `findSlidePlaceholder` + a setText path when PowerPoint has
  * fragmented the run sequence.
  */
-export const replaceTokensInSlide = (
-  slide: SlideData,
-  tokens: Record<string, string>,
-): number => {
+export const replaceTokensInSlide = (slide: SlideData, tokens: Record<string, string>): number => {
   const n = replaceTokensInTree(slide[SLIDE_DOCUMENT].root, tokens);
   if (n > 0) {
     commitSlideData(slide);
@@ -2758,8 +2690,7 @@ export const replaceTokensInSlide = (
 // ---------------------------------------------------------------------------
 // SlideShape-level reads.
 
-export const getShapeKind = (shape: SlideShapeData): ShapeKind =>
-  shape[SHAPE_SNAPSHOT].kind;
+export const getShapeKind = (shape: SlideShapeData): ShapeKind => shape[SHAPE_SNAPSHOT].kind;
 
 export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHOT].id;
 
@@ -2777,7 +2708,8 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
  * approximation of each shape without dropping to the raw XML.
  */
 export const getShapePreset = (shape: SlideShapeData): string | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape' && shape[SHAPE_SNAPSHOT].kind !== 'connector') return null;
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape' && shape[SHAPE_SNAPSHOT].kind !== 'connector')
+    return null;
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));
@@ -2800,9 +2732,7 @@ export const getShapePreset = (shape: SlideShapeData): string | null => {
  * Returns an empty record when no adjust values are authored (the
  * shape paints at its preset defaults).
  */
-export const getShapeAdjustValues = (
-  shape: SlideShapeData,
-): Record<string, number> => {
+export const getShapeAdjustValues = (shape: SlideShapeData): Record<string, number> => {
   const out: Record<string, number> = {};
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return out;
@@ -2811,7 +2741,8 @@ export const getShapeAdjustValues = (
   const avLst = firstChildElement(prstGeom, qname('a', 'avLst', NS.dml));
   if (!avLst) return out;
   for (const gd of avLst.children) {
-    if (gd.kind !== 'element' || gd.name.namespaceURI !== NS.dml || gd.name.localName !== 'gd') continue;
+    if (gd.kind !== 'element' || gd.name.namespaceURI !== NS.dml || gd.name.localName !== 'gd')
+      continue;
     const name = getAttrValue(gd, qname('', 'name', ''));
     const fmla = getAttrValue(gd, qname('', 'fmla', ''));
     if (!name || !fmla) continue;
@@ -2888,9 +2819,7 @@ export const getSlideMasterCount = (pres: PresentationData): number => {
  * Returns an empty array when `presentation.xml` or its `.rels`
  * are missing.
  */
-export const getSlideMasterPartNames = (
-  pres: PresentationData,
-): ReadonlyArray<string> => {
+export const getSlideMasterPartNames = (pres: PresentationData): ReadonlyArray<string> => {
   const pkg = pres[INTERNAL_PACKAGE];
   const presPart = pkg.getPart(PRES_PART_NAME);
   if (presPart === null) return [];
@@ -2910,8 +2839,7 @@ export const getSlideMasterPartNames = (
   return out;
 };
 
-export const getShapeName = (shape: SlideShapeData): string =>
-  shape[SHAPE_SNAPSHOT].name;
+export const getShapeName = (shape: SlideShapeData): string => shape[SHAPE_SNAPSHOT].name;
 
 /**
  * Renames the shape's `cNvPr@name`. The display name is what
@@ -2936,15 +2864,10 @@ export const getShapeDescription = (shape: SlideShapeData): string | null => {
  * and decorative graphics should carry a descr that conveys the
  * visual meaning to screen readers.
  */
-export const setShapeDescription = (
-  shape: SlideShapeData,
-  description: string | null,
-): void => {
+export const setShapeDescription = (shape: SlideShapeData, description: string | null): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
-    throw new Error(
-      `setShapeDescription: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`,
-    );
+    throw new Error(`setShapeDescription: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`);
   }
   cNvPr.attrs = cNvPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'descr'),
@@ -2971,15 +2894,10 @@ export const getShapeAltTitle = (shape: SlideShapeData): string | null => {
  * `null` to clear. Distinct from `renameShape`, which writes the
  * `name` attribute used in the selection pane.
  */
-export const setShapeAltTitle = (
-  shape: SlideShapeData,
-  title: string | null,
-): void => {
+export const setShapeAltTitle = (shape: SlideShapeData, title: string | null): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
-    throw new Error(
-      `setShapeAltTitle: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`,
-    );
+    throw new Error(`setShapeAltTitle: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`);
   }
   cNvPr.attrs = cNvPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'title'),
@@ -3010,9 +2928,7 @@ export const isShapeHidden = (shape: SlideShapeData): boolean => {
 export const setShapeHidden = (shape: SlideShapeData, hidden: boolean): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
-    throw new Error(
-      `setShapeHidden: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`,
-    );
+    throw new Error(`setShapeHidden: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr`);
   }
   cNvPr.attrs = cNvPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'hidden'),
@@ -3024,9 +2940,7 @@ export const setShapeHidden = (shape: SlideShapeData, hidden: boolean): void => 
 export const renameShape = (shape: SlideShapeData, newName: string): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
-    throw new Error(
-      `renameShape: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr to rename`,
-    );
+    throw new Error(`renameShape: ${shape[SHAPE_SNAPSHOT].kind} shape has no cNvPr to rename`);
   }
   cNvPr.attrs = cNvPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'name'),
@@ -3053,8 +2967,7 @@ export const isShapePlaceholder = (shape: SlideShapeData): boolean => {
   return snap.placeholderType !== null || snap.placeholderIdx !== null;
 };
 
-export const getShapeText = (shape: SlideShapeData): string =>
-  shape[SHAPE_SNAPSHOT].text;
+export const getShapeText = (shape: SlideShapeData): string => shape[SHAPE_SNAPSHOT].text;
 
 export const getShapePosition = (shape: SlideShapeData): Position | null =>
   readPosition(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
@@ -3079,9 +2992,7 @@ export const getShapeFlip = (
  * own bounds in the group's *internal* coordinate system; pair with
  * `getGroupTransform` to project them onto the slide.
  */
-export const getGroupChildren = (
-  shape: SlideShapeData,
-): ReadonlyArray<SlideShapeData> => {
+export const getGroupChildren = (shape: SlideShapeData): ReadonlyArray<SlideShapeData> => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'group') return [];
   const children = readGroupChildren(shape[SHAPE_ELEMENT]);
   return children.map((child) => ({
@@ -3133,10 +3044,10 @@ export const getGroupTransform = (
   // Per ECMA-376, `<a:chOff>/<a:chExt>` default to the same values as
   // `<a:off>/<a:ext>` when omitted (i.e. no internal-to-outer
   // transform).
-  const ix = chOff ? parseAttr(chOff, 'x') ?? ox : ox;
-  const iy = chOff ? parseAttr(chOff, 'y') ?? oy : oy;
-  const iw = chExt ? parseAttr(chExt, 'cx') ?? ow : ow;
-  const ih = chExt ? parseAttr(chExt, 'cy') ?? oh : oh;
+  const ix = chOff ? (parseAttr(chOff, 'x') ?? ox) : ox;
+  const iy = chOff ? (parseAttr(chOff, 'y') ?? oy) : oy;
+  const iw = chExt ? (parseAttr(chExt, 'cx') ?? ow) : ow;
+  const ih = chExt ? (parseAttr(chExt, 'cy') ?? oh) : oh;
   return {
     outer: { x: ox as Emu, y: oy as Emu, w: ow as Emu, h: oh as Emu },
     inner: { x: ix as Emu, y: iy as Emu, w: iw as Emu, h: ih as Emu },
@@ -3204,8 +3115,7 @@ export const getShapeBoundsResolved = (
       kind: ShapeKind;
     }>,
   ): ShapeBounds | null => {
-    let match =
-      phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
     if (!match && phType !== null) {
       match = shapes.find((s) => s.placeholderType === phType);
     }
@@ -3263,16 +3173,10 @@ export const getShapeCenter = (
  *
  * Useful for hit-testing in custom interaction handlers.
  */
-export const pointInShape = (
-  shape: SlideShapeData,
-  x: number,
-  y: number,
-): boolean => {
+export const pointInShape = (shape: SlideShapeData, x: number, y: number): boolean => {
   const bounds = getShapeBounds(shape);
   if (bounds === null) return false;
-  return (
-    x >= bounds.x && x < bounds.x + bounds.w && y >= bounds.y && y < bounds.y + bounds.h
-  );
+  return x >= bounds.x && x < bounds.x + bounds.w && y >= bounds.y && y < bounds.y + bounds.h;
 };
 
 /**
@@ -3285,8 +3189,7 @@ export const findShapesAtPoint = (
   slide: SlideData,
   x: number,
   y: number,
-): ReadonlyArray<SlideShapeData> =>
-  slide[SLIDE_SHAPES].filter((s) => pointInShape(s, x, y));
+): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => pointInShape(s, x, y));
 
 /**
  * Moves the shape so its center sits at the slide canvas center.
@@ -3323,12 +3226,7 @@ export const shapesOverlap = (a: SlideShapeData, b: SlideShapeData): boolean => 
   const ba = getShapeBounds(a);
   const bb = getShapeBounds(b);
   if (ba === null || bb === null) return false;
-  return (
-    ba.x < bb.x + bb.w &&
-    ba.x + ba.w > bb.x &&
-    ba.y < bb.y + bb.h &&
-    ba.y + ba.h > bb.y
-  );
+  return ba.x < bb.x + bb.w && ba.x + ba.w > bb.x && ba.y < bb.y + bb.h && ba.y + ba.h > bb.y;
 };
 
 /**
@@ -3428,9 +3326,7 @@ export const getShapeStrokeColorResolved = (
  * `'flat'`, or `null` when the attribute isn't set. Per ECMA-376
  * §20.1.2.3.10 (`ST_LineCap`).
  */
-export const getShapeStrokeCap = (
-  shape: SlideShapeData,
-): 'rnd' | 'sq' | 'flat' | null => {
+export const getShapeStrokeCap = (shape: SlideShapeData): 'rnd' | 'sq' | 'flat' | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
@@ -3445,9 +3341,7 @@ export const getShapeStrokeCap = (
  * or `null` when no explicit join element is present. Maps from the
  * three child-element variants `<a:round/>`, `<a:bevel/>`, `<a:miter/>`.
  */
-export const getShapeStrokeJoin = (
-  shape: SlideShapeData,
-): 'round' | 'bevel' | 'miter' | null => {
+export const getShapeStrokeJoin = (shape: SlideShapeData): 'round' | 'bevel' | 'miter' | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
@@ -3827,10 +3721,7 @@ export const setShapeFill = (shape: SlideShapeData, color: string): void => {
  *     angleDeg: 90,
  *   });
  */
-export const setShapeGradientFill = (
-  shape: SlideShapeData,
-  options: GradientFillOptions,
-): void => {
+export const setShapeGradientFill = (shape: SlideShapeData, options: GradientFillOptions): void => {
   setGradientFill(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
@@ -3842,10 +3733,7 @@ export const setShapeGradientFill = (
  * the pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens
  * (`accent1`, `bg1`, ...).
  */
-export const setShapePatternFill = (
-  shape: SlideShapeData,
-  options: PatternFillOptions,
-): void => {
+export const setShapePatternFill = (shape: SlideShapeData, options: PatternFillOptions): void => {
   setPatternFill(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
@@ -3941,10 +3829,21 @@ export const setShapeImageFill = (
 
   // Replace the shape's fill choice with <a:blipFill>.
   const spPr = requireSpPr(shape);
-  const FILL_CHOICES = new Set(['noFill', 'solidFill', 'gradFill', 'blipFill', 'pattFill', 'grpFill']);
+  const FILL_CHOICES = new Set([
+    'noFill',
+    'solidFill',
+    'gradFill',
+    'blipFill',
+    'pattFill',
+    'grpFill',
+  ]);
   spPr.children = spPr.children.filter(
     (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && FILL_CHOICES.has(c.name.localName)),
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        FILL_CHOICES.has(c.name.localName)
+      ),
   );
   const blipName = qname('a', 'blip', NS.dml);
   const stretchName = qname('a', 'stretch', NS.dml);
@@ -4036,7 +3935,11 @@ export const getShapeStrokeArrow = (
   if (!type) return null;
   const width = getAttrValue(arr, qname('', 'w', ''));
   const length = getAttrValue(arr, qname('', 'len', ''));
-  const result: { type: ArrowOptions['type']; width?: 'sm' | 'med' | 'lg'; length?: 'sm' | 'med' | 'lg' } = {
+  const result: {
+    type: ArrowOptions['type'];
+    width?: 'sm' | 'med' | 'lg';
+    length?: 'sm' | 'med' | 'lg';
+  } = {
     type: type as ArrowOptions['type'],
   };
   if (width === 'sm' || width === 'med' || width === 'lg') result.width = width;
@@ -4221,9 +4124,14 @@ export const getShapeEffects = (
     let inner: XmlElement | null = null;
     for (const c of host.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-      if (c.name.localName === 'srgbClr' || c.name.localName === 'schemeClr' ||
-          c.name.localName === 'sysClr' || c.name.localName === 'prstClr') {
-        inner = c; break;
+      if (
+        c.name.localName === 'srgbClr' ||
+        c.name.localName === 'schemeClr' ||
+        c.name.localName === 'sysClr' ||
+        c.name.localName === 'prstClr'
+      ) {
+        inner = c;
+        break;
       }
     }
     if (!inner) return { color: '' };
@@ -4359,7 +4267,6 @@ export const setShapeText = (
   commitAndRefresh(shape);
 };
 
-
 /**
  * Appends `value` to the shape's existing text on a new line. The
  * shape's existing run / paragraph formatting is preserved by
@@ -4467,7 +4374,11 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
   const bodyPr = requireBodyPr(shape);
   bodyPr.children = bodyPr.children.filter(
     (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && AUTO_FIT_LOCALS.has(c.name.localName)),
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        AUTO_FIT_LOCALS.has(c.name.localName)
+      ),
   );
   const local = mode === 'none' ? 'noAutofit' : mode === 'normal' ? 'normAutofit' : 'spAutoFit';
   bodyPr.children.push(elem(qname('a', local, NS.dml)));
@@ -4606,9 +4517,14 @@ export const getShapeTextDirection = (
   if (!bodyPr) return null;
   const v = getAttrValue(bodyPr, qname('', 'vert', ''));
   if (
-    v === 'vert' || v === 'vert270' || v === 'wordArtVert' ||
-    v === 'eaVert' || v === 'mongolianVert' || v === 'wordArtVertRtl'
-  ) return v;
+    v === 'vert' ||
+    v === 'vert270' ||
+    v === 'wordArtVert' ||
+    v === 'eaVert' ||
+    v === 'mongolianVert' ||
+    v === 'wordArtVertRtl'
+  )
+    return v;
   return null;
 };
 
@@ -4698,10 +4614,7 @@ export const setShapeBullets = (shape: SlideShapeData, style: BulletStyle): void
 };
 
 /** Sets the horizontal alignment of every paragraph in the shape's text. */
-export const setShapeAlignment = (
-  shape: SlideShapeData,
-  align: ParagraphAlignment,
-): void => {
+export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignment): void => {
   applyAlignmentToAllParagraphs(requireTxBody(shape), align);
   commitAndRefresh(shape);
 };
@@ -5063,10 +4976,7 @@ export const getParagraphAlignment = (
  * absent — PowerPoint's default. Returns `null` for non-existent
  * paragraphs.
  */
-export const getParagraphLevel = (
-  shape: SlideShapeData,
-  paragraphIndex: number,
-): number => {
+export const getParagraphLevel = (shape: SlideShapeData, paragraphIndex: number): number => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (pPr === null) return 0;
@@ -5191,7 +5101,10 @@ export const getParagraphIndent = (
 export const getParagraphLineSpacing = (
   shape: SlideShapeData,
   paragraphIndex: number,
-): { readonly kind: 'pct'; readonly value: number } | { readonly kind: 'pts'; readonly value: number } | null => {
+):
+  | { readonly kind: 'pct'; readonly value: number }
+  | { readonly kind: 'pts'; readonly value: number }
+  | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (!pPr) return null;
@@ -5372,12 +5285,20 @@ type ColorTransformOp =
   | { readonly kind: 'gray' | 'inv' | 'comp' };
 
 const COLOR_TRANSFORM_LOCALS: ReadonlySet<string> = new Set([
-  'lumMod', 'lumOff',
-  'shade', 'tint',
-  'satMod', 'satOff',
-  'hueMod', 'hueOff',
-  'alpha', 'alphaMod', 'alphaOff',
-  'gray', 'inv', 'comp',
+  'lumMod',
+  'lumOff',
+  'shade',
+  'tint',
+  'satMod',
+  'satOff',
+  'hueMod',
+  'hueOff',
+  'alpha',
+  'alphaMod',
+  'alphaOff',
+  'gray',
+  'inv',
+  'comp',
 ]);
 
 const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] => {
@@ -5447,16 +5368,15 @@ const hslToRgb = (h: number, s: number, l: number): [number, number, number] => 
   return [hueToRgb(p, q, h + 1 / 3), hueToRgb(p, q, h), hueToRgb(p, q, h - 1 / 3)];
 };
 
-const applyColorTransforms = (
-  hex: string,
-  transforms: readonly ColorTransformOp[],
-): string => {
+const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp[]): string => {
   if (transforms.length === 0) return hex;
   let [r, g, b] = hexToRgb01(hex);
   for (const t of transforms) {
     switch (t.kind) {
       case 'inv':
-        r = 1 - r; g = 1 - g; b = 1 - b;
+        r = 1 - r;
+        g = 1 - g;
+        b = 1 - b;
         break;
       case 'gray': {
         const y = 0.3 * r + 0.59 * g + 0.11 * b;
@@ -5470,7 +5390,9 @@ const applyColorTransforms = (
       }
       case 'shade':
         // Mix toward black: out = base * val
-        r *= t.val; g *= t.val; b *= t.val;
+        r *= t.val;
+        g *= t.val;
+        b *= t.val;
         break;
       case 'tint':
         // Mix toward white: out = base * val + (1 - val)
@@ -5507,19 +5429,25 @@ const applyColorTransforms = (
 };
 
 const SCHEME_TOKEN_TO_THEME_KEY: Record<string, keyof Omit<PresentationTheme, 'name'>> = {
-  tx1: 'dark1', dk1: 'dark1',
-  bg1: 'light1', lt1: 'light1',
-  tx2: 'dark2', dk2: 'dark2',
-  bg2: 'light2', lt2: 'light2',
-  accent1: 'accent1', accent2: 'accent2', accent3: 'accent3',
-  accent4: 'accent4', accent5: 'accent5', accent6: 'accent6',
-  hlink: 'hyperlink', folHlink: 'followedHyperlink',
+  tx1: 'dark1',
+  dk1: 'dark1',
+  bg1: 'light1',
+  lt1: 'light1',
+  tx2: 'dark2',
+  dk2: 'dark2',
+  bg2: 'light2',
+  lt2: 'light2',
+  accent1: 'accent1',
+  accent2: 'accent2',
+  accent3: 'accent3',
+  accent4: 'accent4',
+  accent5: 'accent5',
+  accent6: 'accent6',
+  hlink: 'hyperlink',
+  folHlink: 'followedHyperlink',
 };
 
-const resolveSchemeToken = (
-  token: string,
-  theme: PresentationTheme | null,
-): string | null => {
+const resolveSchemeToken = (token: string, theme: PresentationTheme | null): string | null => {
   if (!theme) return null;
   const key = SCHEME_TOKEN_TO_THEME_KEY[token];
   if (!key) return null;
@@ -5734,10 +5662,7 @@ const NAME_P_TITLE_STYLE = qname('p', 'titleStyle', NS.pml);
 const NAME_P_BODY_STYLE = qname('p', 'bodyStyle', NS.pml);
 const NAME_P_OTHER_STYLE = qname('p', 'otherStyle', NS.pml);
 
-const mergeRPrLayer = (
-  base: Partial<TextFormat>,
-  layer: Partial<TextFormat>,
-): void => {
+const mergeRPrLayer = (base: Partial<TextFormat>, layer: Partial<TextFormat>): void => {
   if (base.font === undefined && layer.font !== undefined) base.font = layer.font;
   if (base.size === undefined && layer.size !== undefined) base.size = layer.size;
   if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
@@ -5759,10 +5684,7 @@ const mergeRPrLayer = (
 // `<a:lstStyle>` carries one `<a:lvl{N}pPr>` per outline level (1..9, plus
 // `<a:defPPr>` for the level-0 default). Returns the inner `<a:defRPr>` for
 // the requested zero-based level, or `null` if the level isn't authored.
-const lstStyleLevelDefRPr = (
-  lstStyle: XmlElement | null,
-  level: number,
-): XmlElement | null => {
+const lstStyleLevelDefRPr = (lstStyle: XmlElement | null, level: number): XmlElement | null => {
   if (!lstStyle) return null;
   const localName = `lvl${Math.max(0, Math.min(8, level)) + 1}pPr`;
   const lvlPPr = firstChildElement(lstStyle, qname('a', localName, NS.dml));
@@ -5805,10 +5727,7 @@ const extractPlaceholderLstStyle = (placeholderEl: XmlElement): XmlElement | nul
   return firstChildElement(txBody, NAME_A_LST_STYLE);
 };
 
-const masterTxStyleFor = (
-  masterRoot: XmlElement,
-  phType: string | null,
-): XmlElement | null => {
+const masterTxStyleFor = (masterRoot: XmlElement, phType: string | null): XmlElement | null => {
   const txStyles = firstChildElement(masterRoot, NAME_P_TX_STYLES);
   if (!txStyles) return null;
   if (phType === 'title' || phType === 'ctrTitle') {
@@ -5947,13 +5866,20 @@ export const getShapeRunFormatEffective = (
   if (fonts) {
     const resolveThemeToken = (token: string): string | undefined => {
       switch (token) {
-        case '+mj-lt': return fonts.majorLatin ?? undefined;
-        case '+mn-lt': return fonts.minorLatin ?? undefined;
-        case '+mj-ea': return fonts.majorEastAsian ?? undefined;
-        case '+mn-ea': return fonts.minorEastAsian ?? undefined;
-        case '+mj-cs': return fonts.majorComplexScript ?? undefined;
-        case '+mn-cs': return fonts.minorComplexScript ?? undefined;
-        default: return undefined;
+        case '+mj-lt':
+          return fonts.majorLatin ?? undefined;
+        case '+mn-lt':
+          return fonts.minorLatin ?? undefined;
+        case '+mj-ea':
+          return fonts.majorEastAsian ?? undefined;
+        case '+mn-ea':
+          return fonts.minorEastAsian ?? undefined;
+        case '+mj-cs':
+          return fonts.majorComplexScript ?? undefined;
+        case '+mn-cs':
+          return fonts.minorComplexScript ?? undefined;
+        default:
+          return undefined;
       }
     };
     if (typeof result.font === 'string' && result.font.startsWith('+')) {
@@ -6001,9 +5927,11 @@ export const getShapeHyperlink = (shape: SlideShapeData): string | null => {
   const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
   if (!txBody) return null;
   for (const p of txBody.children) {
-    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') continue;
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
+      continue;
     for (const r of p.children) {
-      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') continue;
+      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r')
+        continue;
       const rPr = firstChildElement(r, qname('a', 'rPr', NS.dml));
       if (!rPr) continue;
       const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
@@ -6072,10 +6000,7 @@ export const setShapeHyperlink = (shape: SlideShapeData, url: string | null): vo
  *
  * Returns the new `SlideShapeData` on `targetSlide`.
  */
-export const copyShape = (
-  targetSlide: SlideData,
-  sourceShape: SlideShapeData,
-): SlideShapeData => {
+export const copyShape = (targetSlide: SlideData, sourceShape: SlideShapeData): SlideShapeData => {
   const sourceSlide = sourceShape[SHAPE_SLIDE];
   if (sourceSlide[INTERNAL_PACKAGE] !== targetSlide[INTERNAL_PACKAGE]) {
     throw new Error(
@@ -6160,13 +6085,13 @@ const rewriteCNvPrId = (root: XmlElement, newId: number): void => {
   walk(root);
 };
 
-const rewriteRIdReferences = (
-  root: XmlElement,
-  map: (oldRId: string) => string,
-): void => {
+const rewriteRIdReferences = (root: XmlElement, map: (oldRId: string) => string): void => {
   const walk = (el: XmlElement): void => {
     el.attrs = el.attrs.map((a) => {
-      if (a.name.namespaceURI === NS.officeDocRels && (a.name.localName === 'id' || a.name.localName === 'embed' || a.name.localName === 'link')) {
+      if (
+        a.name.namespaceURI === NS.officeDocRels &&
+        (a.name.localName === 'id' || a.name.localName === 'embed' || a.name.localName === 'link')
+      ) {
         return { name: a.name, value: map(a.value) };
       }
       return a;
@@ -6192,7 +6117,10 @@ const rewriteRIdReferences = (
 
 const SHAPE_CHILD_LOCALS = new Set(['sp', 'pic', 'cxnSp', 'graphicFrame', 'grpSp']);
 
-const isShapeChild = (node: { kind: string; name?: { namespaceURI: string; localName: string } }): boolean =>
+const isShapeChild = (node: {
+  kind: string;
+  name?: { namespaceURI: string; localName: string };
+}): boolean =>
   node.kind === 'element' &&
   node.name?.namespaceURI === NS.pml &&
   SHAPE_CHILD_LOCALS.has(node.name.localName);
@@ -6345,7 +6273,11 @@ export const clearSlideShapes = (slide: SlideData): void => {
   const spTree = requireSpTree(slide);
   spTree.children = spTree.children.filter(
     (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.pml && SHAPE_CHILD_LOCALS.has(c.name.localName)),
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.pml &&
+        SHAPE_CHILD_LOCALS.has(c.name.localName)
+      ),
   );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
@@ -6528,7 +6460,9 @@ export const addSlideImage = (
   const pkg = slide[INTERNAL_PACKAGE];
   const format = opts.format ?? detectImageFormat(bytes);
   if (format === null) {
-    throw new Error('addSlideImage: could not detect image format. Pass options.format explicitly.');
+    throw new Error(
+      'addSlideImage: could not detect image format. Pass options.format explicitly.',
+    );
   }
   const contentType = contentTypeForFormat(format);
   const extension = extensionForFormat(format);
@@ -6544,9 +6478,7 @@ export const addSlideImage = (
   }
   const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
 
-  const hasDefault = pkg.contentTypes.defaults.some(
-    (d) => d.extension.toLowerCase() === extension,
-  );
+  const hasDefault = pkg.contentTypes.defaults.some((d) => d.extension.toLowerCase() === extension);
   if (!hasDefault) {
     pkg.contentTypes.defaults.push({ extension, contentType });
   }
@@ -6611,16 +6543,10 @@ const insertAfterClrMapOvr = (slide: SlideData, t: XmlElement): void => {
 export const getSlideTransition = (slide: SlideData): TransitionOptions | null => {
   const transition = slide[SLIDE_DOCUMENT].root.children.find(
     (c): c is XmlElement =>
-      c.kind === 'element' &&
-      c.name.namespaceURI === NS.pml &&
-      c.name.localName === 'transition',
+      c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'transition',
   );
   if (!transition) return null;
-  const speed = getAttrValue(transition, qname('', 'spd', '')) as
-    | 'slow'
-    | 'med'
-    | 'fast'
-    | null;
+  const speed = getAttrValue(transition, qname('', 'spd', '')) as 'slow' | 'med' | 'fast' | null;
   const advClick = getAttrValue(transition, qname('', 'advClick', ''));
   const advTm = getAttrValue(transition, qname('', 'advTm', ''));
   // First child element identifies the effect (`p:fade`, `p:wipe`, ...).
@@ -6665,10 +6591,7 @@ export const clearSlideTransition = (slide: SlideData): void => {
   refreshSlideData(slide);
 };
 
-const setSlideBackgroundXml = (
-  slide: SlideData,
-  configure: (bgPr: XmlElement) => void,
-): void => {
+const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) => void): void => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) throw new Error('slide has no <p:cSld>');
   const bgName = qname('p', 'bg', NS.pml);
@@ -6746,9 +6669,7 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
  * the slide's own background reports `'inherit'`. Walking one further
  * level to the master is left to callers (the same shape applies).
  */
-export const getSlideLayoutBackground = (
-  layout: SlideLayoutData,
-): SlideBackground => {
+export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground => {
   const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
   if (!cSld) return { kind: 'inherit' };
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
@@ -6789,9 +6710,7 @@ export const getSlideLayoutBackground = (
  * background kind. Shape identical to `getShapeGradientFill` so renderers
  * can use the same projection logic for slide backgrounds.
  */
-export const getSlideBackgroundGradientFill = (
-  slide: SlideData,
-): GradientFillOptions | null => {
+export const getSlideBackgroundGradientFill = (slide: SlideData): GradientFillOptions | null => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) return null;
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
@@ -6806,7 +6725,8 @@ export const getSlideBackgroundGradientFill = (
   if (!gsLst) return null;
   const stops: Array<{ offset: number; color: string }> = [];
   for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs') continue;
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
+      continue;
     const posRaw = getAttrValue(c, qname('', 'pos', ''));
     if (posRaw === null) continue;
     const pos = Number.parseInt(posRaw, 10);
@@ -6976,8 +6896,7 @@ export const clearSlideBackground = (slide: SlideData): void => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) return;
   cSld.children = cSld.children.filter(
-    (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'bg'),
+    (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'bg'),
   );
   commitSlideData(slide);
   refreshSlideData(slide);
@@ -7181,9 +7100,7 @@ export interface PresentationImageEntry {
  * shapes with `<a:blipFill>`), paired with its 0-based slide
  * index. Built on `hasShapeImage`.
  */
-export const getAllImages = (
-  pres: PresentationData,
-): ReadonlyArray<PresentationImageEntry> => {
+export const getAllImages = (pres: PresentationData): ReadonlyArray<PresentationImageEntry> => {
   const out: PresentationImageEntry[] = [];
   const slides = getSlides(pres);
   for (let i = 0; i < slides.length; i++) {
@@ -7207,9 +7124,7 @@ export interface PresentationTableEntry {
  * Returns every table across every slide in the deck, paired with
  * the 0-based index of its slide. Built on `isTableShape`.
  */
-export const getAllTables = (
-  pres: PresentationData,
-): ReadonlyArray<PresentationTableEntry> => {
+export const getAllTables = (pres: PresentationData): ReadonlyArray<PresentationTableEntry> => {
   const out: PresentationTableEntry[] = [];
   const slides = getSlides(pres);
   for (let i = 0; i < slides.length; i++) {
@@ -7225,9 +7140,7 @@ export const getAllTables = (
  * the 0-based index of its slide. Useful for chart-inventory UIs
  * and bulk chart-update pipelines.
  */
-export const getAllCharts = (
-  pres: PresentationData,
-): ReadonlyArray<PresentationChartEntry> => {
+export const getAllCharts = (pres: PresentationData): ReadonlyArray<PresentationChartEntry> => {
   const out: PresentationChartEntry[] = [];
   const slides = getSlides(pres);
   for (let i = 0; i < slides.length; i++) {
@@ -7277,9 +7190,7 @@ export const getAllHyperlinks = (
  * these URLs all live?" audits where checking each URL once is
  * enough.
  */
-export const getDistinctHyperlinkUrls = (
-  pres: PresentationData,
-): ReadonlyArray<string> => {
+export const getDistinctHyperlinkUrls = (pres: PresentationData): ReadonlyArray<string> => {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const slide of getSlides(pres)) {
@@ -7299,9 +7210,7 @@ export const getDistinctHyperlinkUrls = (
  * hyperlink. Built on `findHyperlinkedShapes`. Useful for navigation
  * UIs that want to surface only the slides containing outbound URLs.
  */
-export const getSlidesWithHyperlinks = (
-  pres: PresentationData,
-): ReadonlyArray<SlideData> => {
+export const getSlidesWithHyperlinks = (pres: PresentationData): ReadonlyArray<SlideData> => {
   const out: SlideData[] = [];
   for (const slide of getSlides(pres)) {
     if (slide[SLIDE_SHAPES].some((s) => getShapeHyperlink(s) !== null)) {
@@ -7347,11 +7256,7 @@ export const findSlidesByHyperlink = (
  * `findSlidesByHyperlink` to locate slides and rewrite each shape
  * yourself.
  */
-export const replaceHyperlink = (
-  pres: PresentationData,
-  from: string,
-  to: string,
-): number => {
+export const replaceHyperlink = (pres: PresentationData, from: string, to: string): number => {
   let n = 0;
   for (const slide of getSlides(pres)) {
     for (const shape of slide[SLIDE_SHAPES]) {
@@ -7413,9 +7318,7 @@ export interface PresentationCommentEntry {
  * with the 0-based index of its slide. Useful for review-summary
  * UIs that show all annotations in one chronological list.
  */
-export const getAllComments = (
-  pres: PresentationData,
-): ReadonlyArray<PresentationCommentEntry> => {
+export const getAllComments = (pres: PresentationData): ReadonlyArray<PresentationCommentEntry> => {
   const out: PresentationCommentEntry[] = [];
   const slides = getSlides(pres);
   for (let i = 0; i < slides.length; i++) {
@@ -7430,9 +7333,7 @@ export const getAllComments = (
  * Returns every slide's speaker notes alongside its 0-based index.
  * Skips slides whose notes are empty / unset.
  */
-export const getAllNotes = (
-  pres: PresentationData,
-): ReadonlyArray<PresentationNotesEntry> => {
+export const getAllNotes = (pres: PresentationData): ReadonlyArray<PresentationNotesEntry> => {
   const out: PresentationNotesEntry[] = [];
   const slides = getSlides(pres);
   for (let i = 0; i < slides.length; i++) {
@@ -7800,10 +7701,7 @@ const loadCommentsForSlide = (slide: SlideData): SlideComment[] => {
   return list.comments.slice();
 };
 
-const writeCommentsForSlide = (
-  slide: SlideData,
-  comments: ReadonlyArray<SlideComment>,
-): void => {
+const writeCommentsForSlide = (slide: SlideData, comments: ReadonlyArray<SlideComment>): void => {
   const pkg = slide[INTERNAL_PACKAGE];
   const commentsName = commentsPartNameForSlide(slide);
 
@@ -7847,7 +7745,11 @@ const writeCommentsForSlide = (
   }
 };
 
-const asCommentData = (slide: SlideData, snap: SlideComment, author: CommentAuthor): SlideCommentData => ({
+const asCommentData = (
+  slide: SlideData,
+  snap: SlideComment,
+  author: CommentAuthor,
+): SlideCommentData => ({
   [COMMENT_SLIDE]: slide,
   [COMMENT_SNAPSHOT]: snap,
   author,
@@ -7884,9 +7786,7 @@ export const findSlidesWithCommentsByAuthor = (
  * surfaces every author registered in `commentAuthors.xml` even
  * when no comments reference them.
  */
-export const getPresentationCommenters = (
-  pres: PresentationData,
-): ReadonlyArray<CommentAuthor> => {
+export const getPresentationCommenters = (pres: PresentationData): ReadonlyArray<CommentAuthor> => {
   const seen = new Set<number>();
   const out: CommentAuthor[] = [];
   for (const slide of getSlides(pres)) {
@@ -7898,7 +7798,6 @@ export const getPresentationCommenters = (
   }
   return out;
 };
-
 
 /**
  * Looks up a `CommentAuthor` from `commentAuthors.xml` by display
@@ -8041,9 +7940,7 @@ export const getCommentsSortedByDate = (
  * first-seen order. Dedupes by author id. Sibling of
  * `getPresentationCommenters` for a slide-scoped reviewer roster.
  */
-export const getSlideCommentAuthors = (
-  slide: SlideData,
-): ReadonlyArray<CommentAuthor> => {
+export const getSlideCommentAuthors = (slide: SlideData): ReadonlyArray<CommentAuthor> => {
   const seen = new Set<number>();
   const out: CommentAuthor[] = [];
   for (const c of getSlideComments(slide)) {
@@ -8194,8 +8091,7 @@ export const clearSlideComments = (slide: SlideData): number => {
 // Accessors over CommentAuthor / SlideCommentData for tree-shake convenience.
 
 export const getCommentAuthor = (comment: SlideCommentData): CommentAuthor => comment.author;
-export const getCommentText = (comment: SlideCommentData): string =>
-  comment[COMMENT_SNAPSHOT].text;
+export const getCommentText = (comment: SlideCommentData): string => comment[COMMENT_SNAPSHOT].text;
 export const getCommentDate = (comment: SlideCommentData): string | null =>
   comment[COMMENT_SNAPSHOT].dt;
 export const getCommentPosition = (comment: SlideCommentData): CommentPosition | null =>
@@ -8207,8 +8103,7 @@ export const getCommentPosition = (comment: SlideCommentData): CommentPosition |
  * with `findCommentsByAuthor` and the caller needs to know which
  * slide each hit came from.
  */
-export const getCommentSlide = (comment: SlideCommentData): SlideData =>
-  comment[COMMENT_SLIDE];
+export const getCommentSlide = (comment: SlideCommentData): SlideData => comment[COMMENT_SLIDE];
 
 // ---------------------------------------------------------------------------
 
@@ -8224,11 +8119,15 @@ export const setShapeImage = (
   options: { format?: ImageFormat } = {},
 ): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(`setShapeImage only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`);
+    throw new Error(
+      `setShapeImage only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
   }
   const format = options.format ?? detectImageFormat(bytes);
   if (format === null) {
-    throw new Error('setShapeImage: could not detect image format. Pass options.format explicitly.');
+    throw new Error(
+      'setShapeImage: could not detect image format. Pass options.format explicitly.',
+    );
   }
   const rEmbed = getPictureEmbedRId(shape[SHAPE_ELEMENT]);
   if (rEmbed === null) {
@@ -8323,7 +8222,11 @@ const findCNvPr = (shape: SlideShapeData): XmlElement | null => {
 const removeExistingHlinkClick = (cNvPr: XmlElement): void => {
   cNvPr.children = cNvPr.children.filter(
     (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'hlinkClick'),
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === 'hlinkClick'
+      ),
   );
 };
 
@@ -8516,8 +8419,7 @@ export const setShapeClickAction = (
 // that takes a typed `ChartSpec`. The internal layer handles the chart
 // XML, the embedded xlsx ZIP, and all the relationship wiring.
 
-const CHART_CONTENT_TYPE =
-  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const CHART_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
 const EMBEDDED_XLSX_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -8719,8 +8621,7 @@ const findTblElement = (shape: SlideShapeData): XmlElement | null => {
  * i.e. a table. Sharper than `getShapeKind(shape) === 'graphicFrame'`,
  * which also matches charts and SmartArt frames.
  */
-export const isTableShape = (shape: SlideShapeData): boolean =>
-  findTblElement(shape) !== null;
+export const isTableShape = (shape: SlideShapeData): boolean => findTblElement(shape) !== null;
 
 /**
  * `true` when the shape is a `<p:graphicFrame>` wrapping a chart
@@ -8801,8 +8702,12 @@ export const getTableStyleFlags = (
   bandCol: boolean;
 } => {
   const empty = {
-    firstRow: false, lastRow: false, firstCol: false, lastCol: false,
-    bandRow: false, bandCol: false,
+    firstRow: false,
+    lastRow: false,
+    firstCol: false,
+    lastCol: false,
+    bandRow: false,
+    bandCol: false,
   };
   const tbl = findTblElement(table);
   if (!tbl) return empty;
@@ -8842,9 +8747,7 @@ export const getTableDimensions = (
  * unparseable widths default to 0. Throws when the shape isn't a
  * table graphic frame.
  */
-export const getTableColumnWidths = (
-  table: SlideShapeData,
-): ReadonlyArray<Emu> => {
+export const getTableColumnWidths = (table: SlideShapeData): ReadonlyArray<Emu> => {
   const tbl = findTblElement(table);
   if (!tbl) throw new Error('getTableColumnWidths: shape is not a table graphic frame');
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
@@ -8881,9 +8784,7 @@ export const getTableSize = (
  * `<a:tr h="...">`. Missing or unparseable heights default to 0.
  * Throws when the shape isn't a table graphic frame.
  */
-export const getTableRowHeights = (
-  table: SlideShapeData,
-): ReadonlyArray<Emu> => {
+export const getTableRowHeights = (table: SlideShapeData): ReadonlyArray<Emu> => {
   const tbl = findTblElement(table);
   if (!tbl) throw new Error('getTableRowHeights: shape is not a table graphic frame');
   const out: Emu[] = [];
@@ -8902,11 +8803,7 @@ export const getTableRowHeights = (
  * the sum consistent with the table's `<a:xfrm>` extent if PowerPoint
  * is to render the table without clipping.
  */
-export const setTableColumnWidth = (
-  table: SlideShapeData,
-  col: number,
-  width: Emu,
-): void => {
+export const setTableColumnWidth = (table: SlideShapeData, col: number, width: Emu): void => {
   const tbl = requireTbl(table);
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
   if (!grid) throw new Error('table has no <a:tblGrid>');
@@ -8926,11 +8823,7 @@ export const setTableColumnWidth = (
  * non-table shapes. As with `setTableColumnWidth`, the table's
  * `<a:xfrm>` extent is left to the caller.
  */
-export const setTableRowHeight = (
-  table: SlideShapeData,
-  row: number,
-  height: Emu,
-): void => {
+export const setTableRowHeight = (table: SlideShapeData, row: number, height: Emu): void => {
   const tbl = requireTbl(table);
   const rows = tableRows(tbl);
   const target = rows[row];
@@ -8947,11 +8840,7 @@ export const setTableRowHeight = (
  * Returns the cell at `(row, col)`. Throws on out-of-range coordinates
  * or non-table shapes.
  */
-export const getTableCell = (
-  table: SlideShapeData,
-  row: number,
-  col: number,
-): TableCellData => {
+export const getTableCell = (table: SlideShapeData, row: number, col: number): TableCellData => {
   const cells = getTableCells(table);
   const r = cells[row];
   if (!r) throw new RangeError(`table row ${row} out of range (have ${cells.length})`);
@@ -8976,8 +8865,7 @@ const ensureCellTxBody = (cell: TableCellData): XmlElement => {
     txBody.children.push(elem(qname('a', 'lstStyle', NS.dml)));
     // Insert before <a:tcPr> per the schema.
     const tcPrIdx = tc.children.findIndex(
-      (c) =>
-        c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tcPr',
+      (c) => c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tcPr',
     );
     if (tcPrIdx >= 0) tc.children.splice(tcPrIdx, 0, txBody);
     else tc.children.push(txBody);
@@ -9070,7 +8958,12 @@ export const getTableCellBorders = (
   const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
   const theme = getPresentationTheme(pres);
   const empty: TableCellBorders = {
-    left: null, right: null, top: null, bottom: null, tlToBr: null, blToTr: null,
+    left: null,
+    right: null,
+    top: null,
+    bottom: null,
+    tlToBr: null,
+    blToTr: null,
   };
   if (!tcPr) return empty;
   const readLn = (local: string): TableCellBorder | null => {
@@ -9107,10 +9000,12 @@ export const getTableCellText = (cell: TableCellData): string => {
   if (!txBody) return '';
   const lines: string[] = [];
   for (const p of txBody.children) {
-    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') continue;
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
+      continue;
     let line = '';
     for (const r of p.children) {
-      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') continue;
+      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r')
+        continue;
       const tEl = firstChildElement(r, qname('a', 't', NS.dml));
       if (!tEl) continue;
       for (const child of tEl.children) {
@@ -9168,10 +9063,7 @@ export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat):
 };
 
 /** Sets horizontal alignment on every paragraph in the cell. */
-export const setTableCellAlignment = (
-  cell: TableCellData,
-  align: ParagraphAlignment,
-): void => {
+export const setTableCellAlignment = (cell: TableCellData, align: ParagraphAlignment): void => {
   const txBody = ensureCellTxBody(cell);
   applyAlignmentToAllParagraphs(txBody, align);
   commitTableCell(cell);
@@ -9193,7 +9085,8 @@ export const getTableCellAlignment = (cell: TableCellData): ParagraphAlignment |
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
   if (!txBody) return null;
   for (const p of txBody.children) {
-    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') continue;
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
+      continue;
     const pPr = firstChildElement(p, qname('a', 'pPr', NS.dml));
     if (!pPr) return null;
     const v = getAttrValue(pPr, qname('', 'algn', ''));
@@ -9252,7 +9145,8 @@ export const insertTableRow = (
   const row = buildTableRow(padded, rowDefaultHeight(tbl));
 
   const rows = tableRows(tbl);
-  const insertAt = atIndex !== undefined ? Math.max(0, Math.min(atIndex, rows.length)) : rows.length;
+  const insertAt =
+    atIndex !== undefined ? Math.max(0, Math.min(atIndex, rows.length)) : rows.length;
   if (insertAt === rows.length) {
     tbl.children.push(row);
   } else {
@@ -9292,7 +9186,8 @@ export const insertTableColumn = (
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
   if (!grid) throw new Error('table is missing <a:tblGrid>');
   const cols = allChildElements(grid, NAME_A_GRID_COL);
-  const insertAt = atIndex !== undefined ? Math.max(0, Math.min(atIndex, cols.length)) : cols.length;
+  const insertAt =
+    atIndex !== undefined ? Math.max(0, Math.min(atIndex, cols.length)) : cols.length;
 
   // Default width: average of existing widths.
   let defaultWidth = widthEmu;
@@ -9488,9 +9383,7 @@ export const getShapeChartKind = (shape: SlideShapeData): ChartKind | null => {
  * if the shape isn't a chart wrapper or its kind isn't modeled.
  * Convenience over `getShapeChartSpec(shape)?.categories ?? null`.
  */
-export const getShapeChartCategories = (
-  shape: SlideShapeData,
-): ReadonlyArray<string> | null => {
+export const getShapeChartCategories = (shape: SlideShapeData): ReadonlyArray<string> | null => {
   const spec = getShapeChartSpec(shape);
   return spec === null ? null : spec.categories;
 };
@@ -9499,9 +9392,7 @@ export const getShapeChartCategories = (
  * Returns the chart's series-name list (in spec order). `null`
  * when the shape isn't a chart wrapper or the kind isn't modeled.
  */
-export const getShapeChartSeriesNames = (
-  shape: SlideShapeData,
-): ReadonlyArray<string> | null => {
+export const getShapeChartSeriesNames = (shape: SlideShapeData): ReadonlyArray<string> | null => {
   const spec = getShapeChartSpec(shape);
   return spec === null ? null : spec.series.map((s) => s.name);
 };
@@ -9559,10 +9450,7 @@ export const findChartsBySeriesName = (
  * chart on the slide has that kind, or when every chart on the slide
  * uses a kind this version doesn't yet model.
  */
-export const findChartByKind = (
-  slide: SlideData,
-  kind: ChartKind,
-): SlideChartData | null => {
+export const findChartByKind = (slide: SlideData, kind: ChartKind): SlideChartData | null => {
   for (const chart of getSlideCharts(slide)) {
     if (chart.spec !== null && chart.spec.kind === kind) return chart;
   }
@@ -9629,8 +9517,7 @@ export const validatePresentation = (pres: PresentationData): ReadonlyArray<Vali
  *
  * @internal — used by `pptx-kit/node` to mount fs-backed helpers.
  */
-export const _internalPackageOf = (pres: PresentationData): OpcPackage =>
-  pres[INTERNAL_PACKAGE];
+export const _internalPackageOf = (pres: PresentationData): OpcPackage => pres[INTERNAL_PACKAGE];
 
 /** One entry in the package's parts list. */
 export interface PackagePartInfo {
@@ -9730,8 +9617,7 @@ export const getOrphanMediaPartNames = (pres: PresentationData): ReadonlyArray<s
     } else {
       continue;
     }
-    const sourceRels =
-      sourceName === '/' ? pkg.rootRels() : pkg.getRels(sourceName as never);
+    const sourceRels = sourceName === '/' ? pkg.rootRels() : pkg.getRels(sourceName as never);
     if (!sourceRels) continue;
     for (const rel of sourceRels.items) {
       if (rel.targetMode === 'External') continue;
@@ -9807,7 +9693,8 @@ export const slidesUsingMediaPart = (
     const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
     if (!rels) continue;
     const hit = rels.items.some(
-      (r) => r.targetMode !== 'External' && resolve(slide[SLIDE_PART_NAME], r.target) === mediaPartName,
+      (r) =>
+        r.targetMode !== 'External' && resolve(slide[SLIDE_PART_NAME], r.target) === mediaPartName,
     );
     if (hit) out.push(slide);
   }
@@ -9915,8 +9802,7 @@ export interface PresentationSummary {
   readonly themeName: string | null;
 }
 
-const CHART_CONTENT_TYPE_FN =
-  'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
+const CHART_CONTENT_TYPE_FN = 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml';
 const COMMENTS_CONTENT_TYPE_FN =
   'application/vnd.openxmlformats-officedocument.presentationml.comments+xml';
 
@@ -9944,9 +9830,7 @@ export const getPresentationSummary = (pres: PresentationData): PresentationSumm
       !hasAnimations &&
       slide[SLIDE_DOCUMENT].root.children.some(
         (c) =>
-          c.kind === 'element' &&
-          c.name.namespaceURI === NS.pml &&
-          c.name.localName === 'timing',
+          c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
       )
     ) {
       hasAnimations = true;
@@ -10043,9 +9927,7 @@ export const hasShapeImage = (shape: SlideShapeData): boolean => {
  * Returns every shape on the slide that is mirrored — horizontally
  * (`flipH`), vertically (`flipV`), or both.
  */
-export const findFlippedShapes = (
-  slide: SlideData,
-): ReadonlyArray<SlideShapeData> =>
+export const findFlippedShapes = (slide: SlideData): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((s) => {
     const flip = getShapeFlip(s);
     return flip !== null && (flip.horizontal || flip.vertical);
@@ -10321,10 +10203,7 @@ export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
  * `lumOff` to keep the surface honest. Read it back via
  * `getShapeImageBrightness`.
  */
-export const setShapeImageBrightness = (
-  shape: SlideShapeData,
-  value: number | null,
-): void => {
+export const setShapeImageBrightness = (shape: SlideShapeData, value: number | null): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
     throw new Error(
       `setShapeImageBrightness only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
@@ -10363,10 +10242,7 @@ export const setShapeImageBrightness = (
  * Throws on non-picture shapes and on values outside `[0, 2]`. The
  * primitive maps directly to `ST_PositiveFixedPercentage` × 100000.
  */
-export const setShapeImageContrast = (
-  shape: SlideShapeData,
-  value: number | null,
-): void => {
+export const setShapeImageContrast = (shape: SlideShapeData, value: number | null): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
     throw new Error(
       `setShapeImageContrast only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
@@ -10429,10 +10305,7 @@ export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
   return Number.isFinite(n) ? n / 100000 : null;
 };
 
-export const setShapeImageOpacity = (
-  shape: SlideShapeData,
-  opacity: number | null,
-): void => {
+export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
     throw new Error(
       `setShapeImageOpacity only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
@@ -10445,7 +10318,11 @@ export const setShapeImageOpacity = (
 
   blip.children = blip.children.filter(
     (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'alphaModFix'),
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === 'alphaModFix'
+      ),
   );
 
   if (opacity !== null) {
@@ -10535,8 +10412,7 @@ export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null)
   // <a:srcRect> sits between <a:blip> and <a:stretch> per the schema.
   const srcRect = elem(NAME_SRC_RECT_FN, { attrs });
   const blipIdx = blipFill.children.findIndex(
-    (c) =>
-      c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'blip',
+    (c) => c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'blip',
   );
   if (blipIdx === -1) {
     // No <a:blip>? Just prepend the srcRect.
@@ -10590,10 +10466,7 @@ const insertTimingAtEnd = (slide: SlideData, timing: XmlElement): void => {
  * `durationMs` defaults to 500ms (fades only — `appear`/`disappear`
  * are instantaneous).
  */
-export const setShapeAnimation = (
-  shape: SlideShapeData,
-  opts: AnimationOptions,
-): void => {
+export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions): void => {
   const slide = shape[SHAPE_SLIDE];
   removeExistingTiming(slide);
   const spid = shape[SHAPE_SNAPSHOT].id;
@@ -10742,7 +10615,7 @@ export const setSlidePlaceholders = (
   for (const [type, text] of Object.entries(byType)) {
     const shape =
       type === 'title'
-        ? findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle')
+        ? (findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle'))
         : findSlidePlaceholder(slide, type);
     if (shape !== null) setShapeText(shape, text);
   }

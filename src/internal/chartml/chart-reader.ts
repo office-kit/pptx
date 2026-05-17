@@ -92,9 +92,7 @@ const findFirst = (parent: XmlElement, names: ReadonlyArray<string>): XmlElement
   return null;
 };
 
-const readPtArray = (
-  cache: XmlElement,
-): string[] => {
+const readPtArray = (cache: XmlElement): string[] => {
   const out: string[] = [];
   for (const pt of allChildElements(cache, NAME_PT)) {
     const idxRaw = getAttrValue(pt, ATTR_IDX);

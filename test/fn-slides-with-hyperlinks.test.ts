@@ -25,7 +25,11 @@ describe('fn API: getSlidesWithHyperlinks', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const t = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'L',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'L',
       });
       setShapeHyperlink(t, 'https://example.com/a');
     }
@@ -34,7 +38,11 @@ describe('fn API: getSlidesWithHyperlinks', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'P',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'P',
       });
     }
     const plainIdx = 1;

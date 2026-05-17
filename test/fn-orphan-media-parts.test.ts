@@ -30,7 +30,10 @@ describe('fn API: getOrphanMediaPartNames', () => {
   it('returns an empty list when every media part is referenced', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideImage(getSlides(pres)[0]!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getOrphanMediaPartNames(pres)).toEqual([]);
   });
@@ -40,7 +43,10 @@ describe('fn API: getOrphanMediaPartNames', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const partName = getShapeImagePartName(pic)!;
     expect(partName).not.toBeNull();

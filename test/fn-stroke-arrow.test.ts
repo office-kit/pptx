@@ -27,7 +27,7 @@ describe('fn API: setShapeStrokeArrow', () => {
     const slide = getSlides(pres)[0]!;
     const line = addSlideLine(slide, {
       from: { x: inches(0), y: inches(0) },
-      to:   { x: inches(3), y: inches(2) },
+      to: { x: inches(3), y: inches(2) },
       color: '#000000',
       widthEmu: 12700,
     });
@@ -44,7 +44,7 @@ describe('fn API: setShapeStrokeArrow', () => {
     const slide = getSlides(pres)[0]!;
     const line = addSlideLine(slide, {
       from: { x: inches(0), y: inches(0) },
-      to:   { x: inches(3), y: inches(2) },
+      to: { x: inches(3), y: inches(2) },
     });
     setShapeStrokeArrow(line, 'tail', { type: 'triangle' });
     setShapeStrokeArrow(line, 'tail', { type: 'arrow' });
@@ -58,7 +58,7 @@ describe('fn API: setShapeStrokeArrow', () => {
     const slide = getSlides(pres)[0]!;
     const line = addSlideLine(slide, {
       from: { x: inches(0), y: inches(0) },
-      to:   { x: inches(3), y: inches(2) },
+      to: { x: inches(3), y: inches(2) },
     });
     setShapeStrokeArrow(line, 'head', { type: 'diamond' });
     setShapeStrokeArrow(line, 'tail', { type: 'oval' });

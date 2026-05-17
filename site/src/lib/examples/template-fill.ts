@@ -5,11 +5,7 @@
 // rename breaks this import, the docs build fails before deploy.
 
 import { readFile, writeFile } from 'node:fs/promises';
-import {
-  loadPresentation,
-  replaceTokensInPresentation,
-  savePresentation,
-} from 'pptx-kit';
+import { loadPresentation, replaceTokensInPresentation, savePresentation } from 'pptx-kit';
 
 const pres = await loadPresentation(await readFile('template.pptx'));
 replaceTokensInPresentation(pres, {

@@ -29,7 +29,11 @@ describe('fn API: getShapeIndex', () => {
     const slide = getSlides(pres)[0]!;
     const before = getSlideShapes(slide).length;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'tail',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'tail',
     });
     expect(getShapeIndex(tb)).toBe(before);
   });

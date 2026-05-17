@@ -25,15 +25,24 @@ describe('fn API: getAllTables', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first, second] = getSlides(pres);
     addSlideTable(first!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       rows: [['a', 'b']],
     });
     addSlideTable(second!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       rows: [['c', 'd']],
     });
     addSlideTable(second!, {
-      x: inches(4), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(4),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       rows: [['e', 'f']],
     });
 

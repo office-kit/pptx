@@ -21,7 +21,10 @@ describe('fn API: getShapeRunFormat', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'plain',
     });
     // setShapeText creates runs with rPr already (with `lang` attribute),
@@ -36,7 +39,10 @@ describe('fn API: getShapeRunFormat', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'styled',
     });
     setShapeRunFormat(tb, 0, 0, { bold: true, italic: true, color: '#FF0000', size: 18 });
@@ -52,7 +58,10 @@ describe('fn API: getShapeRunFormat', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'u',
     });
     setShapeText(tb, 'u');

@@ -22,7 +22,10 @@ describe('fn API: getShapeParagraphElements', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'hi',
     });
     const els = getShapeParagraphElements(tb, 0);
@@ -35,7 +38,10 @@ describe('fn API: getShapeParagraphElements', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'hi',
     });
     expect(() => getShapeParagraphElements(tb, 99)).toThrow();

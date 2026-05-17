@@ -24,11 +24,19 @@ describe('fn API: findFlippedShapes', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     const flipped = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeFlip(flipped, { horizontal: true });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(2), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(2),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const out = findFlippedShapes(slide);
     expect(out.length).toBe(1);
@@ -41,7 +49,11 @@ describe('fn API: findFlippedShapes', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(findFlippedShapes(slide)).toEqual([]);
   });

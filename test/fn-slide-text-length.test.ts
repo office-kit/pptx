@@ -22,10 +22,18 @@ describe('fn API: getSlideTextLength', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'hello',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'hello',
     });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(1), w: inches(2), h: inches(1), text: 'world',
+      x: inches(0),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'world',
     });
     expect(getSlideTextLength(slide)).toBe(Array.from(getSlideText(slide)).length);
   });
@@ -36,7 +44,11 @@ describe('fn API: getSlideTextLength', () => {
     const slide = addSlide(pres, { layout: blank });
     addSlideTextBox(slide, {
       // Two emoji — would be 4 in .length, but 2 as code points.
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: '🎉🚀',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: '🎉🚀',
     });
     expect(getSlideTextLength(slide)).toBe(2);
   });

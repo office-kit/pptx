@@ -29,7 +29,10 @@ describe('fn API: getShapeRunFormatEffective', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'styled',
     });
     setShapeRunFormat(tb, 0, 0, { bold: true, color: '#FF0000', size: 18 });
@@ -43,7 +46,10 @@ describe('fn API: getShapeRunFormatEffective', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'plain',
     });
     // Literal-only getter only sees the synthesized `<a:rPr lang=…/>`

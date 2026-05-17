@@ -22,7 +22,11 @@ describe('fn API: getShapeStroke', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     expect(getShapeStroke(shape).kind).toBe('inherit');
   });
@@ -31,7 +35,11 @@ describe('fn API: getShapeStroke', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeStroke(shape, { color: '#ABCDEF', widthEmu: 12700 });
     const s = getShapeStroke(shape);
@@ -42,7 +50,11 @@ describe('fn API: getShapeStroke', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeNoStroke(shape);
     expect(getShapeStroke(shape).kind).toBe('none');
@@ -52,7 +64,11 @@ describe('fn API: getShapeStroke', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeStroke(shape, { color: '#000000' });
     clearShapeStroke(shape);

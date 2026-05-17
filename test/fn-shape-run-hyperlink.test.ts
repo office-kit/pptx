@@ -22,7 +22,10 @@ describe('fn API: getShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(1),
       text: 'click me',
     });
     setShapeHyperlink(tb, 'https://example.com/');
@@ -33,7 +36,10 @@ describe('fn API: getShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(1),
       text: 'plain',
     });
     expect(getShapeRunHyperlink(tb, 0, 0)).toBeNull();
@@ -43,7 +49,10 @@ describe('fn API: getShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(1),
       text: 'toggle',
     });
     setShapeHyperlink(tb, 'https://example.com/');

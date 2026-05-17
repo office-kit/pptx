@@ -24,7 +24,11 @@ describe('fn API: stroke dash / arrow read-back', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     expect(getShapeStrokeDash(shape)).toBeNull();
     setShapeStroke(shape, { color: '#000000' });
@@ -37,7 +41,7 @@ describe('fn API: stroke dash / arrow read-back', () => {
     const slide = getSlides(pres)[0]!;
     const line = addSlideLine(slide, {
       from: { x: inches(0), y: inches(0) },
-      to:   { x: inches(2), y: inches(2) },
+      to: { x: inches(2), y: inches(2) },
     });
     expect(getShapeStrokeArrow(line, 'head')).toBeNull();
     expect(getShapeStrokeArrow(line, 'tail')).toBeNull();
@@ -48,7 +52,7 @@ describe('fn API: stroke dash / arrow read-back', () => {
     const slide = getSlides(pres)[0]!;
     const line = addSlideLine(slide, {
       from: { x: inches(0), y: inches(0) },
-      to:   { x: inches(2), y: inches(2) },
+      to: { x: inches(2), y: inches(2) },
     });
     setShapeStrokeArrow(line, 'tail', { type: 'triangle', width: 'med', length: 'lg' });
     const got = getShapeStrokeArrow(line, 'tail');

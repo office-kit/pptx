@@ -26,7 +26,11 @@ describe('fn API: alt-text accessors', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const s = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getShapeDescription(s)).toBeNull();
     setShapeDescription(s, 'A red rectangle marking the focus area.');
@@ -43,7 +47,11 @@ describe('fn API: alt-text accessors', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const s = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'hi',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'hi',
     });
     setShapeAltTitle(s, 'Greeting');
     expect(getShapeAltTitle(s)).toBe('Greeting');
@@ -53,7 +61,11 @@ describe('fn API: alt-text accessors', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const s = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeDescription(s, 'set');
     setShapeDescription(s, null);

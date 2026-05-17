@@ -186,13 +186,9 @@ const commentAuthorElement = (a: CommentAuthor): XmlElement => {
   return elem(NAME_CM_AUTHOR, { attrs });
 };
 
-export const buildCommentAuthorListDoc = (
-  authors: ReadonlyArray<CommentAuthor>,
-): XmlDocument => {
+export const buildCommentAuthorListDoc = (authors: ReadonlyArray<CommentAuthor>): XmlDocument => {
   const root = elem(NAME_CM_AUTHOR_LST, {
-    prefixDecls: new Map([
-      ['p', NS.pml],
-    ]),
+    prefixDecls: new Map([['p', NS.pml]]),
     children: authors.map(commentAuthorElement),
   });
   return {
@@ -219,13 +215,9 @@ const commentElement = (c: SlideComment): XmlElement => {
   return elem(NAME_CM, { attrs, children });
 };
 
-export const buildCommentListDoc = (
-  comments: ReadonlyArray<SlideComment>,
-): XmlDocument => {
+export const buildCommentListDoc = (comments: ReadonlyArray<SlideComment>): XmlDocument => {
   const root = elem(NAME_CM_LST, {
-    prefixDecls: new Map([
-      ['p', NS.pml],
-    ]),
+    prefixDecls: new Map([['p', NS.pml]]),
     children: comments.map(commentElement),
   });
   return {

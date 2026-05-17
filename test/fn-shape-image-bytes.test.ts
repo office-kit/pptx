@@ -30,7 +30,11 @@ describe('fn API: getShapeImageBytes', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
     });
     const bytes = getShapeImageBytes(pic);
     expect(bytes).not.toBeNull();
@@ -41,7 +45,11 @@ describe('fn API: getShapeImageBytes', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const sh = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getShapeKind(sh)).toBe('shape');
     expect(getShapeImageBytes(sh)).toBeNull();

@@ -19,10 +19,18 @@ describe('fn API: shapesOverlap', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const a = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     const b = addSlideShape(slide, {
-      preset: 'rect', x: inches(1), y: inches(1), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
     });
     expect(shapesOverlap(a, b)).toBe(true);
   });
@@ -31,10 +39,18 @@ describe('fn API: shapesOverlap', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const a = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const b = addSlideShape(slide, {
-      preset: 'rect', x: inches(5), y: inches(5), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(5),
+      y: inches(5),
+      w: inches(1),
+      h: inches(1),
     });
     expect(shapesOverlap(a, b)).toBe(false);
   });
@@ -43,12 +59,20 @@ describe('fn API: shapesOverlap', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const a = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     // b sits exactly to the right of a, sharing one edge — not an
     // overlap with the strict-inequality definition.
     const b = addSlideShape(slide, {
-      preset: 'rect', x: inches(1), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(1),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(shapesOverlap(a, b)).toBe(false);
   });

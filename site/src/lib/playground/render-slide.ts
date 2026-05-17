@@ -217,7 +217,10 @@ const renderPicture = (
     // and opacity (alphaModFix) so PowerPoint's "Picture Format >
     // Corrections" matches what the playground paints.
     const crop = getShapeImageCrop(shape);
-    let imgX = x, imgY = y, imgW = w, imgH = h;
+    let imgX = x,
+      imgY = y,
+      imgW = w,
+      imgH = h;
     let clipDef = '';
     let clipAttr = '';
     const cropL = crop?.left ?? 0;
@@ -318,7 +321,8 @@ const mixHex = (aHex: string, bHex: string, t: number): string => {
   const r = Math.round(part(aa, 0) * t + part(bb, 0) * (1 - t));
   const g = Math.round(part(aa, 2) * t + part(bb, 2) * (1 - t));
   const b = Math.round(part(aa, 4) * t + part(bb, 4) * (1 - t));
-  const h = (n: number): string => Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0').toUpperCase();
+  const h = (n: number): string =>
+    Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0').toUpperCase();
   return `#${h(r)}${h(g)}${h(b)}`;
 };
 
@@ -374,7 +378,10 @@ const gradientDef = (
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
   const stops = grad.stops
-    .map((s) => `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`)
+    .map(
+      (s) =>
+        `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+    )
     .join('');
   if (grad.path === 'circle' || grad.path === 'rect' || grad.path === 'shape') {
     // SVG only ships a true radial gradient; ECMA-376's `rect` and
@@ -389,8 +396,9 @@ const gradientDef = (
     const reversed = grad.stops
       .slice()
       .reverse()
-      .map((s) =>
-        `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+      .map(
+        (s) =>
+          `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
       )
       .join('');
     const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${reversed}</radialGradient></defs>`;
@@ -413,9 +421,11 @@ const gradientDef = (
 // space. The `pct*` family modulates the dot density to approximate
 // the requested coverage percentage. Unknown presets fall through to
 // pct50 (50% coverage).
-const patternDef = (
-  pat: { preset: string; foreground: string; background: string },
-): { defs: string; fillAttr: string } => {
+const patternDef = (pat: {
+  preset: string;
+  foreground: string;
+  background: string;
+}): { defs: string; fillAttr: string } => {
   const id = mintId();
   const fg = pat.foreground;
   const bg = pat.background;
@@ -424,16 +434,32 @@ const patternDef = (
   const W = 8;
   const H = 8;
   const stripe = (orientation: 'h' | 'v' | 'd' | 'a', width = 1): string => {
-    if (orientation === 'h') return `<path d="M0 ${H / 2}H${W}" stroke="${fg}" stroke-width="${width}"/>`;
-    if (orientation === 'v') return `<path d="M${W / 2} 0V${H}" stroke="${fg}" stroke-width="${width}"/>`;
-    if (orientation === 'd') return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'h')
+      return `<path d="M0 ${H / 2}H${W}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'v')
+      return `<path d="M${W / 2} 0V${H}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'd')
+      return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
     return `<path d="M${W} 0L0 ${H}" stroke="${fg}" stroke-width="${width}"/>`;
   };
   const dots = (density: number): string => {
     // density 0..1; emit between 1 and 4 dots per 8x8 tile by density.
     const count = Math.max(1, Math.round(density * 4));
     const out: string[] = [];
-    const grid = count <= 1 ? [[4, 4]] : count === 2 ? [[2, 2], [6, 6]] : [[2, 2], [6, 2], [2, 6], [6, 6]];
+    const grid =
+      count <= 1
+        ? [[4, 4]]
+        : count === 2
+          ? [
+              [2, 2],
+              [6, 6],
+            ]
+          : [
+              [2, 2],
+              [6, 2],
+              [2, 6],
+              [6, 6],
+            ];
     for (const [x, y] of grid.slice(0, count)) {
       out.push(`<circle cx="${x}" cy="${y}" r="0.7" fill="${fg}"/>`);
     }
@@ -464,7 +490,13 @@ const patternDef = (
     body = stripe('h', 0.8) + stripe('v', 0.8);
   } else if (preset === 'dkHorzCross' || preset === 'lgGrid' || preset === 'plaid') {
     body = stripe('h', 2) + stripe('v', 2);
-  } else if (preset === 'diagCross' || preset === 'trellis' || preset === 'shingle' || preset === 'dashUpDiag' || preset === 'dashDnDiag') {
+  } else if (
+    preset === 'diagCross' ||
+    preset === 'trellis' ||
+    preset === 'shingle' ||
+    preset === 'dashUpDiag' ||
+    preset === 'dashDnDiag'
+  ) {
     body = stripe('d', 0.8) + stripe('a', 0.8);
   } else if (preset === 'dkUpDiagStripe' || preset === 'dkDnDiagStripe') {
     body = stripe(preset === 'dkUpDiagStripe' ? 'd' : 'a', 2);
@@ -641,7 +673,13 @@ const paint = (
       const head = getShapeStrokeArrow(shape, 'head');
       const tail = getShapeStrokeArrow(shape, 'tail');
       if (head && head.type !== 'none') {
-        const m = buildArrowMarker(head.type, head.width, head.length, strokeColor, 'auto-start-reverse');
+        const m = buildArrowMarker(
+          head.type,
+          head.width,
+          head.length,
+          strokeColor,
+          'auto-start-reverse',
+        );
         defs += m.def;
         markerAttrs += ` marker-start="url(#${m.id})"`;
       }
@@ -686,11 +724,34 @@ const star = (points: number, innerRatio = 0.42): Array<[number, number]> => {
 };
 
 const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
-  triangle: () => [[0.5, 0], [1, 1], [0, 1]],
-  rtTriangle: () => [[0, 0], [1, 1], [0, 1]],
-  diamond: () => [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]],
-  parallelogram: () => [[0.25, 0], [1, 0], [0.75, 1], [0, 1]],
-  trapezoid: () => [[0.25, 0], [0.75, 0], [1, 1], [0, 1]],
+  triangle: () => [
+    [0.5, 0],
+    [1, 1],
+    [0, 1],
+  ],
+  rtTriangle: () => [
+    [0, 0],
+    [1, 1],
+    [0, 1],
+  ],
+  diamond: () => [
+    [0.5, 0],
+    [1, 0.5],
+    [0.5, 1],
+    [0, 0.5],
+  ],
+  parallelogram: () => [
+    [0.25, 0],
+    [1, 0],
+    [0.75, 1],
+    [0, 1],
+  ],
+  trapezoid: () => [
+    [0.25, 0],
+    [0.75, 0],
+    [1, 1],
+    [0, 1],
+  ],
   pentagon: () => polygon(5),
   hexagon: () => polygon(6),
   heptagon: () => polygon(7),
@@ -884,7 +945,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const path: string[] = [];
     for (let i = 0; i < rays * 2; i++) {
       const r = i % 2 === 0 ? outerR : innerR;
-      const a = ((i / (rays * 2)) * 2 * Math.PI) - Math.PI / 2;
+      const a = (i / (rays * 2)) * 2 * Math.PI - Math.PI / 2;
       const px0 = cx + r * Math.cos(a);
       const py0 = cy + r * Math.sin(a);
       path.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
@@ -911,8 +972,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
   // Lightweight approximations of the ~28 ECMA-376 flowchart presets.
   // They're laid out so the shape's bounding box matches the slide's,
   // and the geometry is what most viewers expect at a glance.
-  flowChartProcess: (x, y, w, h) =>
-    `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`,
+  flowChartProcess: (x, y, w, h) => `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`,
   flowChartAlternateProcess: (x, y, w, h) => {
     const r = Math.min(w, h) * 0.18;
     return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
@@ -1002,7 +1062,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const cy = y + h / 2;
     const r = Math.min(w, h) / 2;
     // Circle with an X inside (drawn as two crossing lines via subpaths).
-    const off = (r * Math.SQRT1_2);
+    const off = r * Math.SQRT1_2;
     return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - off},${cy - off} L${cx + off},${cy + off} M${cx - off},${cy + off} L${cx + off},${cy - off}`;
   },
   flowChartOr: (x, y, w, h) => {
@@ -1206,8 +1266,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     // 16 rays — outer radii drawn from a fixed offset table so the
     // shape comes out spiky-but-balanced like PowerPoint's.
     const offsets = [
-      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
-      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
+      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55, 1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
     ];
     const points: string[] = [];
     for (let i = 0; i < offsets.length; i++) {
@@ -1228,9 +1287,8 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const ry = h / 2;
     // 24 alternating rays for a denser, more "scribble"-like burst.
     const offsets = [
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
+      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45, 1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45, 1.0,
+      0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
     ];
     const points: string[] = [];
     for (let i = 0; i < offsets.length; i++) {
@@ -1569,11 +1627,17 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const s = Math.min(w, h) * 0.3;
     // Filmstrip — outer rect + sprocket holes.
     const out: string[] = [PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''];
-    out.push(`M${cx - s},${cy - s * 0.6} L${cx + s},${cy - s * 0.6} L${cx + s},${cy + s * 0.6} L${cx - s},${cy + s * 0.6} Z`);
+    out.push(
+      `M${cx - s},${cy - s * 0.6} L${cx + s},${cy - s * 0.6} L${cx + s},${cy + s * 0.6} L${cx - s},${cy + s * 0.6} Z`,
+    );
     for (let i = 0; i < 4; i++) {
-      const px0 = cx - s + (i + 0.5) * (s * 2 / 4);
-      out.push(`M${px0 - s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.3} L${px0 - s * 0.08},${cy - s * 0.3} Z`);
-      out.push(`M${px0 - s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.45} L${px0 - s * 0.08},${cy + s * 0.45} Z`);
+      const px0 = cx - s + (i + 0.5) * ((s * 2) / 4);
+      out.push(
+        `M${px0 - s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.3} L${px0 - s * 0.08},${cy - s * 0.3} Z`,
+      );
+      out.push(
+        `M${px0 - s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.45} L${px0 - s * 0.08},${cy + s * 0.45} Z`,
+      );
     }
     return out.join(' ');
   },
@@ -1612,15 +1676,19 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
   // the endpoints are).
   straightConnector1: (x, y, w, h) => `M${x},${y} L${x + w},${y + h}`,
   bentConnector2: (x, y, w, h) => `M${x},${y} L${x + w},${y} L${x + w},${y + h}`,
-  bentConnector3: (x, y, w, h) => `M${x},${y} L${x + w / 2},${y} L${x + w / 2},${y + h} L${x + w},${y + h}`,
+  bentConnector3: (x, y, w, h) =>
+    `M${x},${y} L${x + w / 2},${y} L${x + w / 2},${y + h} L${x + w},${y + h}`,
   bentConnector4: (x, y, w, h) =>
     `M${x},${y} L${x + w * 0.33},${y} L${x + w * 0.33},${y + h * 0.5} L${x + w * 0.66},${y + h * 0.5} L${x + w * 0.66},${y + h} L${x + w},${y + h}`,
   bentConnector5: (x, y, w, h) =>
     `M${x},${y} L${x + w * 0.25},${y} L${x + w * 0.25},${y + h * 0.5} L${x + w * 0.75},${y + h * 0.5} L${x + w * 0.75},${y + h} L${x + w},${y + h}`,
   curvedConnector2: (x, y, w, h) => `M${x},${y} Q${x + w},${y} ${x + w},${y + h}`,
-  curvedConnector3: (x, y, w, h) => `M${x},${y} C${x + w * 0.5},${y} ${x + w * 0.5},${y + h} ${x + w},${y + h}`,
-  curvedConnector4: (x, y, w, h) => `M${x},${y} C${x + w * 0.33},${y} ${x + w * 0.33},${y + h * 0.5} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.66},${y + h * 0.5} ${x + w * 0.66},${y + h} ${x + w},${y + h}`,
-  curvedConnector5: (x, y, w, h) => `M${x},${y} C${x + w * 0.25},${y} ${x + w * 0.25},${y + h * 0.25} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.75},${y + h * 0.75} ${x + w * 0.75},${y + h} ${x + w},${y + h}`,
+  curvedConnector3: (x, y, w, h) =>
+    `M${x},${y} C${x + w * 0.5},${y} ${x + w * 0.5},${y + h} ${x + w},${y + h}`,
+  curvedConnector4: (x, y, w, h) =>
+    `M${x},${y} C${x + w * 0.33},${y} ${x + w * 0.33},${y + h * 0.5} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.66},${y + h * 0.5} ${x + w * 0.66},${y + h} ${x + w},${y + h}`,
+  curvedConnector5: (x, y, w, h) =>
+    `M${x},${y} C${x + w * 0.25},${y} ${x + w * 0.25},${y + h * 0.25} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.75},${y + h * 0.75} ${x + w * 0.75},${y + h} ${x + w},${y + h}`,
 };
 
 // ---------------------------------------------------------------------------
@@ -1650,8 +1718,7 @@ const placeholderDefaultPt = (phType: string | null): number => {
   return DEFAULT_BODY_PT; // 18pt
 };
 
-const bulletChar = (level: number): string =>
-  level <= 0 ? '•' : level === 1 ? '◦' : '▪';
+const bulletChar = (level: number): string => (level <= 0 ? '•' : level === 1 ? '◦' : '▪');
 
 // `effectivePt` is the post-autofit font size in points. Callers pass
 // `format.size` (the authored size, if any) scaled by the body's
@@ -1778,20 +1845,33 @@ const renderTextBody = (
     const level = getParagraphLevel(shape, p);
     const bulletStyle = getParagraphBullet(shape, p);
     let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
-      color: null, sizePct: null, sizePts: null, font: null,
+      color: null,
+      sizePct: null,
+      sizePts: null,
+      font: null,
     };
-    try { bulletDetail = getParagraphBulletStyle(pres, shape, p); } catch {}
+    try {
+      bulletDetail = getParagraphBulletStyle(pres, shape, p);
+    } catch {}
     let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
     let spcBefPts: number | null = null;
     let spcAftPts: number | null = null;
-    let indent: ReturnType<typeof getParagraphIndent> = { leftEmu: null, rightEmu: null, firstLineEmu: null };
-    try { lineSpacing = getParagraphLineSpacing(shape, p); } catch {}
+    let indent: ReturnType<typeof getParagraphIndent> = {
+      leftEmu: null,
+      rightEmu: null,
+      firstLineEmu: null,
+    };
+    try {
+      lineSpacing = getParagraphLineSpacing(shape, p);
+    } catch {}
     try {
       const spacing = getParagraphSpacing(shape, p);
       spcBefPts = spacing.beforePts;
       spcAftPts = spacing.afterPts;
     } catch {}
-    try { indent = getParagraphIndent(shape, p); } catch {}
+    try {
+      indent = getParagraphIndent(shape, p);
+    } catch {}
     const runs: RunData[] = [];
     // Walk the paragraph's inline elements — runs, field placeholders,
     // and explicit line breaks — in document order. The strict
@@ -1826,7 +1906,17 @@ const renderTextBody = (
       if (txt) hasAnyText = true;
       runs.push({ text: txt, fmt, sizePt });
     }
-    paraData.push({ align, level, bulletStyle, bulletDetail, runs, lineSpacing, spcBefPts, spcAftPts, indent });
+    paraData.push({
+      align,
+      level,
+      bulletStyle,
+      bulletDetail,
+      runs,
+      lineSpacing,
+      spcBefPts,
+      spcAftPts,
+      indent,
+    });
   }
   if (!hasAnyText) return '';
 
@@ -1862,7 +1952,8 @@ const renderTextBody = (
             (c >= 0x30a0 && c <= 0x30ff) ||
             (c >= 0x4e00 && c <= 0x9fff) ||
             (c >= 0xac00 && c <= 0xd7af)
-          ) cjkChars++;
+          )
+            cjkChars++;
         }
       }
       if (totalChars === 0) totalChars = 1;
@@ -1899,22 +1990,29 @@ const renderTextBody = (
       lineHeightCss = `line-height:${(para.lineSpacing.value * PX_PER_PT * autoFitScale).toFixed(2)}px`;
     }
     // <a:spcBef> / <a:spcAft> map to CSS margin-top / margin-bottom.
-    const marginTopCss = para.spcBefPts !== null && para.spcBefPts > 0
-      ? `margin-top:${(para.spcBefPts * PX_PER_PT * autoFitScale).toFixed(2)}px` : '';
-    const marginBottomCss = para.spcAftPts !== null && para.spcAftPts > 0
-      ? `margin-bottom:${(para.spcAftPts * PX_PER_PT * autoFitScale).toFixed(2)}px` : '';
+    const marginTopCss =
+      para.spcBefPts !== null && para.spcBefPts > 0
+        ? `margin-top:${(para.spcBefPts * PX_PER_PT * autoFitScale).toFixed(2)}px`
+        : '';
+    const marginBottomCss =
+      para.spcAftPts !== null && para.spcAftPts > 0
+        ? `margin-bottom:${(para.spcAftPts * PX_PER_PT * autoFitScale).toFixed(2)}px`
+        : '';
     // <a:pPr marL marR indent> → CSS padding-left / padding-right /
     // text-indent. Authored indents override the level-based default
     // so paragraphs with explicit marL don't get doubled.
-    const leftPx = para.indent.leftEmu !== null
-      ? (para.indent.leftEmu / EMU_PER_PX) * autoFitScale
-      : para.level > 0 ? para.level * 24 * PX_PER_PT * autoFitScale : 0;
-    const rightPx = para.indent.rightEmu !== null
-      ? (para.indent.rightEmu / EMU_PER_PX) * autoFitScale
-      : 0;
-    const firstLinePx = para.indent.firstLineEmu !== null
-      ? (para.indent.firstLineEmu / EMU_PER_PX) * autoFitScale
-      : 0;
+    const leftPx =
+      para.indent.leftEmu !== null
+        ? (para.indent.leftEmu / EMU_PER_PX) * autoFitScale
+        : para.level > 0
+          ? para.level * 24 * PX_PER_PT * autoFitScale
+          : 0;
+    const rightPx =
+      para.indent.rightEmu !== null ? (para.indent.rightEmu / EMU_PER_PX) * autoFitScale : 0;
+    const firstLinePx =
+      para.indent.firstLineEmu !== null
+        ? (para.indent.firstLineEmu / EMU_PER_PX) * autoFitScale
+        : 0;
     const pStyles: string[] = [
       marginTopCss || (marginBottomCss ? '' : 'margin:0'),
       marginBottomCss,
@@ -1948,7 +2046,9 @@ const renderTextBody = (
       if (para.bulletDetail.sizePct !== null) {
         bulletStyles.push(`font-size:${(para.bulletDetail.sizePct * 100).toFixed(1)}%`);
       } else if (para.bulletDetail.sizePts !== null) {
-        bulletStyles.push(`font-size:${(para.bulletDetail.sizePts * PX_PER_PT * autoFitScale).toFixed(2)}px`);
+        bulletStyles.push(
+          `font-size:${(para.bulletDetail.sizePts * PX_PER_PT * autoFitScale).toFixed(2)}px`,
+        );
       }
       if (para.bulletDetail.font) {
         bulletStyles.push(`font-family:${escapeXml(para.bulletDetail.font)}, ${DEFAULT_FONT}`);
@@ -2020,7 +2120,14 @@ const px = (n: number): string => n.toFixed(2);
 const accentSequence = (theme: PresentationTheme | null): string[] => {
   const fallbacks = ['#5B9BD5', '#ED7D31', '#A5A5A5', '#FFC000', '#4472C4', '#70AD47'];
   if (!theme) return fallbacks;
-  const hexes = [theme.accent1, theme.accent2, theme.accent3, theme.accent4, theme.accent5, theme.accent6]
+  const hexes = [
+    theme.accent1,
+    theme.accent2,
+    theme.accent3,
+    theme.accent4,
+    theme.accent5,
+    theme.accent6,
+  ]
     .map((c) => normalizeHex(c))
     .filter((c): c is string => /^#[0-9A-Fa-f]{6}$/.test(c));
   return hexes.length > 0 ? hexes : fallbacks;
@@ -2122,13 +2229,21 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
       // Gridline.
-      out.push(`<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+      );
       // Numeric label, right-aligned to the plot's left edge.
-      out.push(`<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`);
+      out.push(
+        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`,
+      );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
-      out.push(`<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
-      out.push(`<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`);
+      out.push(
+        `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+      );
+      out.push(
+        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`,
+      );
     }
   }
   return out.join('');
@@ -2152,20 +2267,26 @@ const renderCategoryAxis = (
     for (let i = 0; i < pointCount; i++) {
       // Center labels under each category slot.
       const cx = f.plotX + (i + 0.5) * step;
-      const truncated = labels[i] !== undefined && labels[i]!.length > 14
-        ? `${labels[i]!.slice(0, 12)}…`
-        : labels[i] ?? '';
-      out.push(`<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`);
+      const truncated =
+        labels[i] !== undefined && labels[i]!.length > 14
+          ? `${labels[i]!.slice(0, 12)}…`
+          : (labels[i] ?? '');
+      out.push(
+        `<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`,
+      );
     }
   } else {
     // Categories down the y-axis (bar chart).
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
     for (let i = 0; i < pointCount; i++) {
       const cy = f.plotY + (i + 0.5) * step;
-      const truncated = labels[i] !== undefined && labels[i]!.length > 14
-        ? `${labels[i]!.slice(0, 12)}…`
-        : labels[i] ?? '';
-      out.push(`<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`);
+      const truncated =
+        labels[i] !== undefined && labels[i]!.length > 14
+          ? `${labels[i]!.slice(0, 12)}…`
+          : (labels[i] ?? '');
+      out.push(
+        `<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`,
+      );
     }
   }
   return out.join('');
@@ -2194,7 +2315,11 @@ const renderChartTitle = (f: ChartFrame, title: string): string => {
   return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="13" fill="#1F2937" font-weight="600">${escapeXml(title)}</text>`;
 };
 
-const renderChartLegend = (f: ChartFrame, names: ReadonlyArray<string>, colors: ReadonlyArray<string>): string => {
+const renderChartLegend = (
+  f: ChartFrame,
+  names: ReadonlyArray<string>,
+  colors: ReadonlyArray<string>,
+): string => {
   if (names.length === 0) return '';
   const itemPx = Math.min(140, f.w / names.length);
   const totalW = itemPx * names.length;
@@ -2205,8 +2330,12 @@ const renderChartLegend = (f: ChartFrame, names: ReadonlyArray<string>, colors: 
     const swatchX = cx + 4;
     const swatchY = f.legendY - 4;
     const labelX = swatchX + 14;
-    out.push(`<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`);
-    out.push(`<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`);
+    out.push(
+      `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+    );
+    out.push(
+      `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+    );
   }
   return out.join('');
 };
@@ -2222,7 +2351,11 @@ const pointCount = (spec: ChartSpec): number => {
   return n;
 };
 
-const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
+const renderColumnChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
@@ -2238,11 +2371,15 @@ const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray
       const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
       const y0 = Math.min(top, baseY);
       const h = Math.abs(top - baseY);
-      out.push(`<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`);
+      out.push(
+        `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
+      );
     }
   }
   // Zero baseline for visual reference.
-  out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+  out.push(
+    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+  );
   return out.join('');
 };
 
@@ -2262,14 +2399,23 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
       const tip = f.plotX + ((v - min) / range) * f.plotW;
       const x0 = Math.min(tip, baseX);
       const w = Math.abs(tip - baseX);
-      out.push(`<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`);
+      out.push(
+        `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+      );
     }
   }
-  out.push(`<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+  out.push(
+    `<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+  );
   return out.join('');
 };
 
-const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, fill: boolean): string => {
+const renderLineChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+  fill: boolean,
+): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
@@ -2277,7 +2423,9 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
   const step = N > 1 ? f.plotW / (N - 1) : 0;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
-  out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+  out.push(
+    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+  );
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
     if (!series) continue;
@@ -2294,7 +2442,9 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
       const areaPath = `${dPath} L${px(f.plotX + (N - 1) * step)},${px(baseY)} L${px(f.plotX)},${px(baseY)} Z`;
       out.push(`<path d="${areaPath}" fill="${color}" fill-opacity="0.25" stroke="none"/>`);
     }
-    out.push(`<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+    out.push(
+      `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
+    );
     // Data point markers.
     for (const [xp, yp] of pts) {
       out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
@@ -2303,7 +2453,12 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
   return out.join('');
 };
 
-const renderPieChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, doughnut: boolean): string => {
+const renderPieChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+  doughnut: boolean,
+): string => {
   const series = spec.series[0];
   if (!series) return '';
   const values = series.values.map((v) => Math.max(0, v ?? 0));
@@ -2360,10 +2515,7 @@ const renderChart = (
   if (!spec) return null;
   const colors = accentSequence(theme);
   const isCartesian =
-    spec.kind === 'column' ||
-    spec.kind === 'bar' ||
-    spec.kind === 'line' ||
-    spec.kind === 'area';
+    spec.kind === 'column' || spec.kind === 'bar' || spec.kind === 'line' || spec.kind === 'area';
   const f = layoutChart(x, y, w, h, !!spec.title, isCartesian);
   const seriesNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
@@ -2393,7 +2545,12 @@ const renderChart = (
         : { orientation: 'vertical', min, max };
     axes = renderValueAxis(f, valueAxis);
     if (N > 0) {
-      axes += renderCategoryAxis(f, spec.kind === 'bar' ? 'vertical' : 'horizontal', spec.categories, N);
+      axes += renderCategoryAxis(
+        f,
+        spec.kind === 'bar' ? 'vertical' : 'horizontal',
+        spec.categories,
+        N,
+      );
     }
   }
   switch (spec.kind) {
@@ -2401,7 +2558,10 @@ const renderChart = (
     case 'bar':
       // pptx-kit reports both as `bar` / `column` via separate `kind`;
       // legacy `barDir` distinction. We branch on `kind`.
-      plot = spec.kind === 'column' ? renderColumnChart(f, spec, colors) : renderBarChart(f, spec, colors);
+      plot =
+        spec.kind === 'column'
+          ? renderColumnChart(f, spec, colors)
+          : renderBarChart(f, spec, colors);
       break;
     case 'line':
       plot = renderLineChart(f, spec, colors, false);
@@ -2510,8 +2670,8 @@ const renderTable = (
   // declared cell widths but readers expect the bounding box.
   const wSum = widthsPx.reduce((a, b) => a + b, 0);
   const hSum = heightsPx.reduce((a, b) => a + b, 0);
-  const wScale = wSum > 0 ? (w / EMU_PER_PX) / wSum : 1;
-  const hScale = hSum > 0 ? (h / EMU_PER_PX) / hSum : 1;
+  const wScale = wSum > 0 ? w / EMU_PER_PX / wSum : 1;
+  const hScale = hSum > 0 ? h / EMU_PER_PX / hSum : 1;
   const colXs: number[] = [xPx];
   for (let c = 0; c < widthsPx.length; c++) {
     colXs.push((colXs[c] ?? xPx) + (widthsPx[c] ?? 0) * wScale);
@@ -2533,7 +2693,9 @@ const renderTable = (
   out.push(`<g${transform}>`);
   // Whole-table backdrop so cells with no explicit fill still
   // contrast against whatever's behind.
-  out.push(`<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`);
+  out.push(
+    `<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`,
+  );
   const borderEdges: string[] = [];
   for (let r = 0; r < dims.rows; r++) {
     for (let c = 0; c < dims.cols; c++) {
@@ -2569,37 +2731,60 @@ const renderTable = (
       } else {
         resolvedFill = 'none';
       }
-      const cellTextColor = (resolvedFill === headerFill) ? '#FFFFFF' : textColor;
-      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`);
+      const cellTextColor = resolvedFill === headerFill ? '#FFFFFF' : textColor;
+      out.push(
+        `<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
+      );
       // Per-side borders override the default thin gray grid. Draw them
       // separately after the fills so they sit on top.
       const borders = getTableCellBorders(pres, typedCell);
       const edge = (
         side: keyof Pick<typeof borders, 'left' | 'right' | 'top' | 'bottom'>,
-        x1: number, y1: number, x2: number, y2: number,
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
       ): void => {
         const b = borders[side];
         if (!b) return;
         const sw = b.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : 0.5;
         const col = b.color ?? '#9CA3AF';
-        borderEdges.push(`<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"/>`);
+        borderEdges.push(
+          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"/>`,
+        );
       };
       edge('left', cx, cy, cx, cy + ch);
       edge('right', cx + cw, cy, cx + cw, cy + ch);
       edge('top', cx, cy, cx + cw, cy);
       edge('bottom', cx, cy + ch, cx + cw, cy + ch);
       if (borders.tlToBr) {
-        borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`);
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`,
+        );
       }
       if (borders.blToTr) {
-        borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`);
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`,
+        );
       }
       // Default thin grid for sides that didn't define a border.
       const defaultColor = '#9CA3AF';
-      if (!borders.left) borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
-      if (!borders.right) borderEdges.push(`<line x1="${px(cx + cw)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
-      if (!borders.top) borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
-      if (!borders.bottom) borderEdges.push(`<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`);
+      if (!borders.left)
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+      if (!borders.right)
+        borderEdges.push(
+          `<line x1="${px(cx + cw)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+      if (!borders.top)
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+      if (!borders.bottom)
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
 
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
@@ -2645,9 +2830,10 @@ const renderShape = (
   if (flip.vertical) transforms.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
 
-  const textOverlay = kind === 'shape' || kind === 'graphicFrame'
-    ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType)
-    : '';
+  const textOverlay =
+    kind === 'shape' || kind === 'graphicFrame'
+      ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType)
+      : '';
 
   if (kind === 'picture') {
     return renderPicture(
@@ -2766,16 +2952,16 @@ const renderShape = (
     // outer-rect center. Compose those transforms first, then the
     // translate+scale that maps internal coords onto slide coords.
     if (xform && rotation !== 0) {
-      const cxG = (xform.outer.x as number + (xform.outer.w as number) / 2) / EMU_PER_PX;
-      const cyG = (xform.outer.y as number + (xform.outer.h as number) / 2) / EMU_PER_PX;
+      const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
+      const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
       tParts.push(`rotate(${rotation} ${cxG.toFixed(2)} ${cyG.toFixed(2)})`);
     }
     if (xform && flip.horizontal) {
-      const cxG = (xform.outer.x as number + (xform.outer.w as number) / 2) / EMU_PER_PX;
+      const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
       tParts.push(`translate(${(2 * cxG).toFixed(2)} 0) scale(-1 1)`);
     }
     if (xform && flip.vertical) {
-      const cyG = (xform.outer.y as number + (xform.outer.h as number) / 2) / EMU_PER_PX;
+      const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
       tParts.push(`translate(0 ${(2 * cyG).toFixed(2)}) scale(1 -1)`);
     }
     if (xform) {
@@ -2890,7 +3076,8 @@ const renderShape = (
   // text body and are handled by renderRun separately.
   const url = getShapeHyperlink(shape);
   const inner = `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
-  if (url) return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+  if (url)
+    return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
   return inner;
 };
 
@@ -2926,7 +3113,7 @@ const buildEffectsFilter = (
       const rad = (e.angleDeg * Math.PI) / 180;
       const dx = (e.distEmu * Math.cos(rad)) / EMU_PER_PX;
       const dy = (e.distEmu * Math.sin(rad)) / EMU_PER_PX;
-      const blurPx = (e.blurEmu / EMU_PER_PX) / 2;
+      const blurPx = e.blurEmu / EMU_PER_PX / 2;
       const opacity = e.opacity ?? 1;
       const color = e.color || '#000000';
       // feDropShadow handles the whole shadow primitive in one go.
@@ -2942,7 +3129,7 @@ const buildEffectsFilter = (
       const rad = (e.angleDeg * Math.PI) / 180;
       const dx = (e.distEmu * Math.cos(rad)) / EMU_PER_PX;
       const dy = (e.distEmu * Math.sin(rad)) / EMU_PER_PX;
-      const blurPx = (e.blurEmu / EMU_PER_PX) / 2;
+      const blurPx = e.blurEmu / EMU_PER_PX / 2;
       const color = e.color || '#000000';
       const opacity = e.opacity ?? 1;
       const i = primitives.length;
@@ -2955,7 +3142,7 @@ const buildEffectsFilter = (
       );
       layers.push(`innerOut${i}`);
     } else if (e.kind === 'glow') {
-      const blurPx = (e.radiusEmu / EMU_PER_PX) / 2;
+      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
       const color = e.color || '#FFFFFF';
       const opacity = e.opacity ?? 1;
       const i = primitives.length;
@@ -2967,7 +3154,7 @@ const buildEffectsFilter = (
       );
       layers.push(`glowOut${i}`);
     } else if (e.kind === 'softEdge') {
-      const blurPx = (e.radiusEmu / EMU_PER_PX) / 2;
+      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
       // Soft-edge feathers the shape's mask. Replace the source by a
       // blurred version of itself.
       const i = primitives.length;
@@ -2979,7 +3166,7 @@ const buildEffectsFilter = (
       layers.length = 0;
       layers.push(`softOut${i}`);
     } else if (e.kind === 'blur') {
-      const blurPx = (e.radiusEmu / EMU_PER_PX) / 2;
+      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
       const i = primitives.length;
       primitives.push(
         `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx.toFixed(2)}" result="blurOut${i}"/>`,
@@ -3061,13 +3248,15 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
     const bytes = getSlideBackgroundImageBytes(slide);
     if (bytes) {
       const fmt = detectImageFormatLocal(bytes);
-      const mime = fmt ? imageMime[fmt] ?? 'image/png' : 'image/png';
+      const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
       bgImage = `<image x="0" y="0" width="${E(W)}" height="${E(H)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="xMidYMid slice"/>`;
     }
   }
 
-  const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, pres, theme)).join('');
+  const shapesSvg = getSlideShapes(slide)
+    .map((s) => renderShape(s, pres, theme))
+    .join('');
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
@@ -3085,19 +3274,22 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
 // returns as raw bytes without exposing the format.
 const detectImageFormatLocal = (bytes: Uint8Array): string | null => {
   if (bytes.length < 4) return null;
-  if (
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47
-  ) return 'png';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
+    return 'png';
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg';
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'gif';
   if (bytes[0] === 0x42 && bytes[1] === 0x4d) return 'bmp';
   if (
     bytes.length >= 12 &&
-    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
-  ) return 'webp';
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  )
+    return 'webp';
   return null;
 };

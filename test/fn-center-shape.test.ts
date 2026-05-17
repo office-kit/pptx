@@ -22,7 +22,10 @@ describe('fn API: centerShapeOnSlide', () => {
     const slide = getSlides(pres)[0]!;
     const rect = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     const size = getSlideSize(pres)!;
     centerShapeOnSlide(rect);

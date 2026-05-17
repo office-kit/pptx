@@ -54,7 +54,9 @@ describe('L3: setShapePosition / setShapeSize', () => {
     setShapeSize(picture, inches(1), inches(1));
 
     const reloaded = await loadPresentation(await savePresentation(pres));
-    const repic = getSlideShapes(getSlides(reloaded)[0]!).find((s) => getShapeKind(s) === 'picture');
+    const repic = getSlideShapes(getSlides(reloaded)[0]!).find(
+      (s) => getShapeKind(s) === 'picture',
+    );
     expect(repic && getShapePosition(repic)).toEqual({ x: inches(4), y: inches(2) });
     expect(repic && getShapeSize(repic)).toEqual({ w: inches(1), h: inches(1) });
   });
@@ -108,11 +110,19 @@ describe('L3: end-to-end deck build from blank', () => {
     if (!blank) throw new Error('expected Blank layout');
     const slide2 = addSlide(pres, { layout: blank });
     const heading = addSlideTextBox(slide2, {
-      x: inches(1), y: inches(1), w: inches(8), h: inches(0.7), text: 'Body section heading',
+      x: inches(1),
+      y: inches(1),
+      w: inches(8),
+      h: inches(0.7),
+      text: 'Body section heading',
     });
     setShapeSize(heading, inches(8), inches(0.8));
     const body = addSlideTextBox(slide2, {
-      x: inches(1), y: inches(2), w: inches(8), h: inches(3), text: 'Line 1\nLine 2\nLine 3',
+      x: inches(1),
+      y: inches(2),
+      w: inches(8),
+      h: inches(3),
+      text: 'Line 1\nLine 2\nLine 3',
     });
     setShapeText(body, 'Replaced body text');
     addSlideImage(slide2, PNG_1X1, { x: inches(1), y: inches(5), w: inches(2), h: inches(2) });

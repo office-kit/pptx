@@ -45,8 +45,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       {
         slug: 'open-and-iterate',
         title: 'Open a presentation and walk every slide',
-        teaser:
-          'Load an existing .pptx, iterate slides, and read title + text content.',
+        teaser: 'Load an existing .pptx, iterate slides, and read title + text content.',
         path: 'site/src/lib/examples/recipes/open-and-iterate.ts',
         source: openAndIterate,
         notes: [
@@ -76,22 +75,15 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       {
         slug: 'build-from-scratch',
         title: 'Build a deck on a blank template',
-        teaser:
-          'Start from a tiny blank.pptx, add slides on its layouts, and save.',
+        teaser: 'Start from a tiny blank.pptx, add slides on its layouts, and save.',
         path: 'site/src/lib/examples/recipes/build-from-scratch.ts',
         source: buildFromScratch,
-        relatedApi: [
-          'addSlide',
-          'findSlideLayout',
-          'findSlidePlaceholder',
-          'setShapeText',
-        ],
+        relatedApi: ['addSlide', 'findSlideLayout', 'findSlidePlaceholder', 'setShapeText'],
       },
       {
         slug: 'node-fs',
         title: 'Direct fs helpers (Node)',
-        teaser:
-          'loadPresentationFile / savePresentationToFile skip the manual fs glue.',
+        teaser: 'loadPresentationFile / savePresentationToFile skip the manual fs glue.',
         path: 'site/src/lib/examples/node-fs.ts',
         source: nodeFs,
         relatedApi: ['loadPresentationFile', 'savePresentationToFile'],
@@ -117,8 +109,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       {
         slug: 'preset-shapes',
         title: 'Preset shapes (180+ presets)',
-        teaser:
-          'addSlideShape ships every ECMA-376 preset geometry — pass the token as `preset`.',
+        teaser: 'addSlideShape ships every ECMA-376 preset geometry — pass the token as `preset`.',
         path: 'site/src/lib/examples/recipes/preset-shapes.ts',
         source: presetShapes,
         notes: [
@@ -129,8 +120,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       {
         slug: 'fills-and-effects',
         title: 'Fills, shadows, glows',
-        teaser:
-          'Solid / gradient / pattern fills plus the two effect helpers.',
+        teaser: 'Solid / gradient / pattern fills plus the two effect helpers.',
         path: 'site/src/lib/examples/recipes/fills-and-effects.ts',
         source: fillsAndEffects,
         relatedApi: [
@@ -149,8 +139,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       {
         slug: 'add-table',
         title: 'Add a table',
-        teaser:
-          'A 2D array of cell strings, plus firstRow / bandRow flags for header styling.',
+        teaser: 'A 2D array of cell strings, plus firstRow / bandRow flags for header styling.',
         path: 'site/src/lib/examples/recipes/add-table.ts',
         source: addTable,
         notes: [
@@ -202,18 +191,12 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
           'Notes live on the slide; comments are separate parts with author metadata and an EMU position.',
         path: 'site/src/lib/examples/recipes/notes-and-comments.ts',
         source: notesAndComments,
-        relatedApi: [
-          'setSlideNotes',
-          'getSlideNotes',
-          'addSlideComment',
-          'getSlideComments',
-        ],
+        relatedApi: ['setSlideNotes', 'getSlideNotes', 'addSlideComment', 'getSlideComments'],
       },
       {
         slug: 'transitions-animations',
         title: 'Slide transitions + shape animations',
-        teaser:
-          'Per-slide transition effect plus entrance / exit animations on individual shapes.',
+        teaser: 'Per-slide transition effect plus entrance / exit animations on individual shapes.',
         path: 'site/src/lib/examples/recipes/transitions-animations.ts',
         source: transitionsAnimations,
         notes: [
@@ -224,8 +207,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       {
         slug: 'hyperlinks',
         title: 'Hyperlinks + click-to-slide',
-        teaser:
-          'External URL on a text run, and a click action that jumps to another slide.',
+        teaser: 'External URL on a text run, and a click action that jumps to another slide.',
         path: 'site/src/lib/examples/recipes/hyperlinks.ts',
         source: hyperlinks,
         relatedApi: ['setShapeHyperlink', 'setShapeClickAction'],

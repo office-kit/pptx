@@ -33,7 +33,10 @@ describe('fn API: getSlidesWithImages', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first, second] = getSlides(pres);
     addSlideImage(second!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const hits = getSlidesWithImages(pres);
     expect(hits.length).toBe(1);

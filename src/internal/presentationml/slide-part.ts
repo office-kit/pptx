@@ -163,7 +163,9 @@ const collectShapes = (spTree: XmlElement, out: SlideShape[], recurseIntoGroups:
  */
 export const readGroupChildren = (element: XmlElement): SlideShape[] => {
   if (element.name.namespaceURI !== NS.pml || element.name.localName !== 'grpSp') {
-    throw new Error(`readGroupChildren: expected <p:grpSp>, got <${element.name.prefix}:${element.name.localName}>`);
+    throw new Error(
+      `readGroupChildren: expected <p:grpSp>, got <${element.name.prefix}:${element.name.localName}>`,
+    );
   }
   const out: SlideShape[] = [];
   collectShapes(element, out, false);

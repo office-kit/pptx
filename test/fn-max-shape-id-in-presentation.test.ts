@@ -26,10 +26,18 @@ describe('fn API: getMaxShapeIdInPresentation', () => {
     {
       const slides = getSlides(pres);
       addSlideShape(slides[0]!, {
-        preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+        preset: 'rect',
+        x: inches(0),
+        y: inches(0),
+        w: inches(1),
+        h: inches(1),
       });
       addSlideShape(slides[1]!, {
-        preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+        preset: 'rect',
+        x: inches(0),
+        y: inches(0),
+        w: inches(1),
+        h: inches(1),
       });
     }
     const slides = getSlides(pres);

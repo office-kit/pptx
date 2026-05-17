@@ -27,10 +27,16 @@ describe('fn API: getSlideMediaPartNames', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideImage(slide, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     addSlideImage(slide, PNG, {
-      x: inches(2), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(2),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const names = getSlideMediaPartNames(slide);
     expect(names.length).toBeGreaterThanOrEqual(2);

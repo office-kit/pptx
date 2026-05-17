@@ -15,13 +15,7 @@
 // the actual `<p:set>` / `<p:anim>` is fixed; we just swap presetID,
 // presetClass, and the target spid.
 
-import {
-  NS,
-  type XmlElement,
-  attr,
-  elem,
-  qname,
-} from '../xml/index.ts';
+import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 
 const NAME_TIMING = qname('p', 'timing', NS.pml);
 const NAME_TN_LST = qname('p', 'tnLst', NS.pml);
@@ -95,9 +89,7 @@ export interface AnimationOptions {
 
 const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
   const tgt = elem(NAME_TGT_EL, {
-    children: [
-      elem(NAME_SP_TGT, { attrs: [attr(ATTR_SPID, String(spid))] }),
-    ],
+    children: [elem(NAME_SP_TGT, { attrs: [attr(ATTR_SPID, String(spid))] })],
   });
   const attrName = elem(NAME_ATTR_NAME_LST, {
     children: [elem(NAME_ATTR_NAME_FN, { children: [{ kind: 'text', data: 'style.visibility' }] })],
@@ -112,9 +104,7 @@ const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
   });
   const cBhvr = elem(NAME_C_BHVR, { children: [cTn, tgt, attrName] });
   const to = elem(NAME_TO, {
-    children: [
-      elem(NAME_STR_VAL, { attrs: [attr(ATTR_VAL, visible ? 'visible' : 'hidden')] }),
-    ],
+    children: [elem(NAME_STR_VAL, { attrs: [attr(ATTR_VAL, visible ? 'visible' : 'hidden')] })],
   });
   return elem(NAME_SET, { children: [cBhvr, to] });
 };
@@ -165,10 +155,7 @@ const buildOpacityAnim = (spid: number, durationMs: number, fadeIn: boolean): Xm
  * Builds the complete `<p:timing>` element for a single click-effect on
  * the given shape id. Returns null for unsupported effect kinds.
  */
-export const buildSingleEffectTiming = (
-  spid: number,
-  opts: AnimationOptions,
-): XmlElement => {
+export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): XmlElement => {
   const preset = PRESETS[opts.effect];
   const duration = opts.durationMs ?? 500;
 

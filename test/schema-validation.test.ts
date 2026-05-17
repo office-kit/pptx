@@ -7,7 +7,12 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { _internalPackageOf, inches, loadPresentation, savePresentation } from '../src/api/index.ts';
+import {
+  _internalPackageOf,
+  inches,
+  loadPresentation,
+  savePresentation,
+} from '../src/api/index.ts';
 import { partName } from '../src/internal/opc/index.ts';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 
@@ -65,19 +70,24 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('a slide built via addTextBox + addImage validates against pml.xsd', async () => {
-    const { addSlide, addSlideImage, addSlideTextBox, findSlideLayout } = await import(
-      '../src/api/index.ts'
-    );
+    const { addSlide, addSlideImage, addSlideTextBox, findSlideLayout } =
+      await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     const layout = findSlideLayout(pres, 'Blank');
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     addSlideTextBox(slide, {
-      x: inches(1), y: inches(1), w: inches(4), h: inches(1),
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
       text: 'Schema-valid text box',
     });
     addSlideImage(slide, PNG_1X1, {
-      x: inches(1), y: inches(3), w: inches(2), h: inches(2),
+      x: inches(1),
+      y: inches(3),
+      w: inches(2),
+      h: inches(2),
     });
 
     const pkg = _internalPackageOf(pres);
@@ -125,13 +135,8 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('an image-filled shape validates', async () => {
-    const {
-      addSlideShape,
-      setShapeImageFill,
-      getSlides,
-      loadPresentation,
-      savePresentation,
-    } = await import('../src/api/index.ts');
+    const { addSlideShape, setShapeImageFill, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0];
     if (!slide) throw new Error('expected slide');
@@ -176,8 +181,14 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('a shape with outerShdw / glow validates', async () => {
-    const { addSlideShape, getSlides, loadPresentation, savePresentation, setShapeShadow, setShapeGlow } =
-      await import('../src/api/index.ts');
+    const {
+      addSlideShape,
+      getSlides,
+      loadPresentation,
+      savePresentation,
+      setShapeShadow,
+      setShapeGlow,
+    } = await import('../src/api/index.ts');
     for (const variant of ['shadow', 'glow'] as const) {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0];
@@ -247,9 +258,8 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('doughnut and area charts validate', async () => {
-    const { addSlideChart, getSlides, loadPresentation, savePresentation } = await import(
-      '../src/api/index.ts'
-    );
+    const { addSlideChart, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
     for (const kind of ['doughnut', 'area'] as const) {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0];
@@ -281,9 +291,8 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('a column chart generated via addSlideChart validates', async () => {
-    const { addSlideChart, getSlides, loadPresentation, savePresentation } = await import(
-      '../src/api/index.ts'
-    );
+    const { addSlideChart, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0];
     if (!slide) throw new Error('expected slide');
@@ -308,9 +317,8 @@ describe('Layer 1: schema validation', () => {
   });
 
   skipIfNoXmllint('comments + commentAuthors parts validate against pml.xsd', async () => {
-    const { addSlideComment, getSlides, loadPresentation, savePresentation } = await import(
-      '../src/api/index.ts'
-    );
+    const { addSlideComment, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0];
     if (!slide) throw new Error('expected slide');
@@ -351,7 +359,10 @@ describe('Layer 1: schema validation', () => {
       if (ctr) setShapeText(ctr, 'Schema-valid demo');
       const s2 = addSlide(pres, { layout: blank });
       addSlideTextBox(s2, {
-        x: inches(1), y: inches(1), w: inches(8), h: inches(1),
+        x: inches(1),
+        y: inches(1),
+        w: inches(8),
+        h: inches(1),
         text: 'Free-form box',
       });
       addSlideImage(s2, PNG_1X1, { x: inches(1), y: inches(3), w: inches(2), h: inches(2) });

@@ -33,7 +33,7 @@ describe('fn API: getSlideCharts', () => {
         categories: ['Q1', 'Q2', 'Q3', 'Q4'],
         series: [
           { name: 'Revenue', values: [10, 20, 15, 30] },
-          { name: 'Cost',    values: [5, 7, 9, 11] },
+          { name: 'Cost', values: [5, 7, 9, 11] },
         ],
         title: 'Quarterly',
       },
@@ -57,7 +57,10 @@ describe('fn API: getSlideCharts', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideChart(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(3),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(3),
       spec: {
         kind: 'bar',
         categories: ['A', 'B'],
@@ -74,7 +77,10 @@ describe('fn API: getSlideCharts', () => {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0]!;
       addSlideChart(slide, {
-        x: inches(0), y: inches(0), w: inches(4), h: inches(3),
+        x: inches(0),
+        y: inches(0),
+        w: inches(4),
+        h: inches(3),
         spec: {
           kind,
           categories: ['X', 'Y', 'Z'],
@@ -90,13 +96,14 @@ describe('fn API: getSlideCharts', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideChart(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(3),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(3),
       spec: {
         kind: 'column',
         categories: ['A', 'B'],
-        series: [
-          { name: 'X', values: [1, 2], color: '#112233' },
-        ],
+        series: [{ name: 'X', values: [1, 2], color: '#112233' }],
       },
     });
     const reloaded = await loadPresentation(await savePresentation(pres));
@@ -115,7 +122,10 @@ describe('fn API: getSlideCharts', () => {
     // on in-memory state created by addSlideChart.
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideChart(getSlides(pres)[0]!, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(3),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(3),
       spec: {
         kind: 'line',
         categories: ['Jan', 'Feb', 'Mar'],

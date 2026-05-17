@@ -30,18 +30,11 @@ function svxToMarkdown(source: string): string {
   //    with the actual example source as a fenced ts block. The .svx files
   //    use ex = data.examples (see docs/+layout.server.ts) so the only
   //    information we need from the tag is the example key.
-  body = body.replace(
-    /<CodeBlock\s+html=\{ex\.(\w+)\.html\}[^/]*\/>/g,
-    (_, key: string) => {
-      const ex = examples[key as ExampleKey];
-      if (!ex) return `\`\`\`text\n[unknown example: ${key}]\n\`\`\``;
-      return [
-        `\`\`\`ts title="${ex.path}"`,
-        ex.source.trimEnd(),
-        '```',
-      ].join('\n');
-    },
-  );
+  body = body.replace(/<CodeBlock\s+html=\{ex\.(\w+)\.html\}[^/]*\/>/g, (_, key: string) => {
+    const ex = examples[key as ExampleKey];
+    if (!ex) return `\`\`\`text\n[unknown example: ${key}]\n\`\`\``;
+    return [`\`\`\`ts title="${ex.path}"`, ex.source.trimEnd(), '```'].join('\n');
+  });
 
   return body.trim() + '\n';
 }
@@ -62,9 +55,7 @@ Working code for the things people actually want to do with pptx-kit — fill a 
 `;
   const sections = recipeGroups.map((g) => {
     const recipes = g.recipes.map((r) => {
-      const notes = r.notes?.length
-        ? '\n' + r.notes.map((n) => `- ${n}`).join('\n')
-        : '';
+      const notes = r.notes?.length ? '\n' + r.notes.map((n) => `- ${n}`).join('\n') : '';
       const related = r.relatedApi?.length
         ? `\n\n*Related API: ${r.relatedApi.map((n) => `\`${n}\``).join(', ')}*`
         : '';

@@ -23,13 +23,20 @@ const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 const makeBoxedDeck = async (
   fixtureName: string,
-): Promise<{ pres: Awaited<ReturnType<typeof loadPresentation>>; box: ReturnType<typeof addSlideTextBox> }> => {
+): Promise<{
+  pres: Awaited<ReturnType<typeof loadPresentation>>;
+  box: ReturnType<typeof addSlideTextBox>;
+}> => {
   const pres = await loadPresentation(await readFile(fixture(fixtureName)));
   const layout = findSlideLayout(pres, 'Blank');
   if (!layout) throw new Error('expected Blank layout');
   const slide = addSlide(pres, { layout });
   const box = addSlideTextBox(slide, {
-    x: inches(1), y: inches(1), w: inches(6), h: inches(3), text: 'seed',
+    x: inches(1),
+    y: inches(1),
+    w: inches(6),
+    h: inches(3),
+    text: 'seed',
   });
   return { pres, box };
 };

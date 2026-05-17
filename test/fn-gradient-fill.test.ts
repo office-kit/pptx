@@ -76,9 +76,9 @@ describe('fn API: setShapeGradientFill', () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = getSlideShapes(slide)[0]!;
-    expect(() =>
-      setShapeGradientFill(shape, { stops: [{ offset: 0, color: '#FFFFFF' }] }),
-    ).toThrow(/two stops/);
+    expect(() => setShapeGradientFill(shape, { stops: [{ offset: 0, color: '#FFFFFF' }] })).toThrow(
+      /two stops/,
+    );
   });
 
   it('rejects offsets outside [0, 1]', async () => {

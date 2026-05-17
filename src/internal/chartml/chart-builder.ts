@@ -39,10 +39,7 @@ const ptNode = (idx: number, value: string): XmlElement =>
 
 const strRef = (formula: string, points: ReadonlyArray<string>): XmlElement => {
   const strCache = elem(c('strCache'), {
-    children: [
-      valNode(c('ptCount'), points.length),
-      ...points.map((p, i) => ptNode(i, p)),
-    ],
+    children: [valNode(c('ptCount'), points.length), ...points.map((p, i) => ptNode(i, p))],
   });
   return elem(c('strRef'), {
     children: [elem(c('f'), { children: [text(formula)] }), strCache],
@@ -82,11 +79,7 @@ const DEFAULT_ACCENT_COLORS = [
   '70AD47', // accent6
 ];
 
-const seriesElement = (
-  spec: ChartSpec,
-  seriesIdx: number,
-  sheet: string,
-): XmlElement => {
+const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlElement => {
   const series = spec.series[seriesIdx];
   if (!series) throw new Error('seriesElement: out of range');
 
@@ -238,10 +231,7 @@ const titleElement = (title: string): XmlElement => {
     ],
   });
   return elem(c('title'), {
-    children: [
-      elem(c('tx'), { children: [rich] }),
-      valNode(c('overlay'), '0'),
-    ],
+    children: [elem(c('tx'), { children: [rich] }), valNode(c('overlay'), '0')],
   });
 };
 

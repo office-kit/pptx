@@ -37,12 +37,19 @@ describe('fn API: getPresentationSummary', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slides = getSlides(pres);
     addSlideChart(slides[0]!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'column', categories: ['A'], series: [{ name: 'S', values: [1] }] },
     });
     addSlideComment(slides[0]!, { author: { name: 'X' }, text: 'hi' });
     const sp = addSlideShape(slides[1]!, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeAnimation(sp, { effect: 'fadeIn' });
     setSlideHidden(slides[0]!, true);

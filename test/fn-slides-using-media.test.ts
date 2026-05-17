@@ -32,7 +32,10 @@ describe('fn API: slidesUsingMediaPart', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first, second] = getSlides(pres);
     addSlideImage(first!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
 
     // Discover the part name through the picture shape.
@@ -54,18 +57,22 @@ describe('fn API: slidesUsingMediaPart', () => {
   it('lists every slide that shares the same media part', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideImage(getSlides(pres)[0]!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     addSlideImage(getSlides(pres)[1]!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     // The two pictures don't share a media part — addSlideImage
     // allocates a fresh one each call — but every emitted image
     // appears in getMediaParts, so we can at least confirm both
     // are reachable via slidesUsingMediaPart.
-    const allImages = getMediaParts(pres).filter((p) =>
-      p.contentType.startsWith('image/'),
-    );
+    const allImages = getMediaParts(pres).filter((p) => p.contentType.startsWith('image/'));
     expect(allImages.length).toBeGreaterThanOrEqual(2);
     for (const img of allImages) {
       const using = slidesUsingMediaPart(pres, img.name);

@@ -30,7 +30,10 @@ describe('fn API: getSlideXmlString', () => {
     const slide = getSlides(pres)[0]!;
     const before = getSlideXmlString(slide);
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
       text: 'unique-xml-snapshot-marker',
     });
     const after = getSlideXmlString(slide);

@@ -24,7 +24,10 @@ describe('fn API: extended run-format properties', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       text: 'extended',
     });
     setShapeRunFormat(tb, 0, 0, {
@@ -49,7 +52,10 @@ describe('fn API: extended run-format properties', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 's',
     });
     setShapeRunFormat(tb, 0, 0, { strike: true });

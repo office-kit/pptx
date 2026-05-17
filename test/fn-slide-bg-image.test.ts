@@ -35,9 +35,9 @@ describe('fn API: setSlideBackgroundImage', () => {
 
     const bytes = await savePresentation(pres);
     const reloaded = await loadPresentation(bytes);
-    expect(
-      getMediaParts(reloaded).some((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name)),
-    ).toBe(true);
+    expect(getMediaParts(reloaded).some((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name))).toBe(
+      true,
+    );
   });
 
   it('clearSlideBackground removes the picture background', async () => {
