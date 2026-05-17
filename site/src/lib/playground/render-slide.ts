@@ -3603,12 +3603,20 @@ const renderChart = (
       : '';
 
   // Axis titles — value title is rotated -90° to read along the y-axis
-  // tick stack; category title sits below the x-axis.
+  // tick stack; category title sits below the x-axis. Authored
+  // <a:rPr sz/b/i> + solidFill override the 11pt semibold default.
+  const axisTitleAttrs = (style: ChartTextStyle | undefined): string => {
+    const sz = style?.sizePt ?? 11;
+    const fill = style?.color ?? '#374151';
+    const weight = style?.bold === false ? '400' : '600';
+    const italicAttr = style?.italic ? ' font-style="italic"' : '';
+    return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}" font-weight="${weight}"${italicAttr}`;
+  };
   const valueAxisTitleSvg = spec.valueAxisTitle
-    ? `<text x="${px(f.plotX - 26)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#374151" font-weight="600" transform="rotate(-90 ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})">${escapeXml(spec.valueAxisTitle)}</text>`
+    ? `<text x="${px(f.plotX - 26)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" ${axisTitleAttrs(spec.valueAxisTitleStyle)} transform="rotate(-90 ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})">${escapeXml(spec.valueAxisTitle)}</text>`
     : '';
   const categoryAxisTitleSvg = spec.categoryAxisTitle
-    ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH + 16)}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#374151" font-weight="600">${escapeXml(spec.categoryAxisTitle)}</text>`
+    ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH + 16)}" text-anchor="middle" ${axisTitleAttrs(spec.categoryAxisTitleStyle)}>${escapeXml(spec.categoryAxisTitle)}</text>`
     : '';
   return [
     `<g${transform}>`,

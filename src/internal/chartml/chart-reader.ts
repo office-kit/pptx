@@ -447,14 +447,21 @@ const readLabelStyle = (richHost: XmlElement): ChartTextStyle | undefined => {
   return undefined;
 };
 
-const readTitleStyle = (chart: XmlElement): ChartTextStyle | undefined => {
-  const title = firstChildElement(chart, NAME_TITLE);
-  if (!title) return undefined;
-  const tx = firstChildElement(title, NAME_TX);
+// Extracts the authored text style from a `<c:title>` element. Used for
+// both the chart-level title and axis titles, which share the
+// `<c:tx><c:rich>` shape.
+const readTitleStyleOf = (titleEl: XmlElement): ChartTextStyle | undefined => {
+  const tx = firstChildElement(titleEl, NAME_TX);
   if (!tx) return undefined;
   const rich = firstChildElement(tx, NAME_RICH);
   if (!rich) return undefined;
   return readLabelStyle(rich);
+};
+
+const readTitleStyle = (chart: XmlElement): ChartTextStyle | undefined => {
+  const title = firstChildElement(chart, NAME_TITLE);
+  if (!title) return undefined;
+  return readTitleStyleOf(title);
 };
 
 /**
@@ -704,7 +711,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // use the same rich-text container as the chart title, so reuse
   // readTitle's projection.
   let categoryAxisTitle: string | undefined;
+  let categoryAxisTitleStyle: ChartTextStyle | undefined;
   let valueAxisTitle: string | undefined;
+  let valueAxisTitleStyle: ChartTextStyle | undefined;
   let categoryAxisHidden: boolean | undefined;
   let valueAxisHidden: boolean | undefined;
   let categoryAxisTickLabelSkip: number | undefined;
@@ -730,6 +739,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   if (catAx) {
     const t = readTitle(catAx);
     if (t !== undefined) categoryAxisTitle = t;
+    const catTitleEl = firstChildElement(catAx, NAME_TITLE);
+    if (catTitleEl) categoryAxisTitleStyle = readTitleStyleOf(catTitleEl);
     categoryAxisHidden = isHidden(catAx);
     categoryAxisOrientation = readAxisOrientation(catAx);
     const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
@@ -756,6 +767,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   if (valAx) {
     const t = readTitle(valAx);
     if (t !== undefined) valueAxisTitle = t;
+    const valTitleEl = firstChildElement(valAx, NAME_TITLE);
+    if (valTitleEl) valueAxisTitleStyle = readTitleStyleOf(valTitleEl);
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorGridlines = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C)) !== null;
@@ -857,7 +870,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
     ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
+    ...(categoryAxisTitleStyle !== undefined ? { categoryAxisTitleStyle } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
+    ...(valueAxisTitleStyle !== undefined ? { valueAxisTitleStyle } : {}),
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
