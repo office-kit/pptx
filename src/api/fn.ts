@@ -7575,6 +7575,22 @@ export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackgrou
   if (!cSld) return { kind: 'inherit' };
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
   if (!bg) return { kind: 'inherit' };
+  // <p:bgRef> = theme-reference fill (same shape as getSlideBackground).
+  const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
+  if (bgRef) {
+    for (const inner of bgRef.children) {
+      if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+      if (inner.name.localName === 'srgbClr') {
+        const val = getAttrValue(inner, qname('', 'val', ''));
+        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+      }
+      if (inner.name.localName === 'schemeClr') {
+        const val = getAttrValue(inner, qname('', 'val', ''));
+        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+      }
+    }
+    return { kind: 'inherit' };
+  }
   const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
   if (!bgPr) return { kind: 'inherit' };
   for (const c of bgPr.children) {
