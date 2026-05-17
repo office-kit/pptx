@@ -148,6 +148,29 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
 const CAT_AX_ID = 111111111;
 const VAL_AX_ID = 222222222;
 
+// Build a `<c:txPr>` block carrying axis tick-label font / color and an
+// optional `<a:bodyPr rot="N"/>` rotation. Returns null when neither
+// labelStyle nor rotation are set.
+const axisTxPrElement = (
+  style: ChartTextStyle | undefined,
+  rotationDeg: number | undefined,
+): XmlElement | null => {
+  if (style === undefined && rotationDeg === undefined) return null;
+  const bodyAttrs: ReturnType<typeof attr>[] = [];
+  if (rotationDeg !== undefined) {
+    bodyAttrs.push(attr(qname('', 'rot', ''), String(Math.round(rotationDeg * 60000))));
+  }
+  bodyAttrs.push(attr(qname('', 'vert', ''), 'horz'));
+  const bodyPr = elem(a('bodyPr'), { attrs: bodyAttrs });
+  const { attrs: defAttrs, children: defChildren } = rPrAttrsFromStyle(style);
+  const defRPr = elem(a('defRPr'), { attrs: defAttrs, children: defChildren });
+  const pPr = elem(a('pPr'), { children: [defRPr] });
+  // An empty <a:p> with just pPr is the canonical "defaults only" shape.
+  return elem(c('txPr'), {
+    children: [bodyPr, elem(a('lstStyle')), elem(a('p'), { children: [pPr] })],
+  });
+};
+
 const catAxis = (spec: ChartSpec): XmlElement => {
   const children: XmlElement[] = [
     valNode(c('axId'), CAT_AX_ID),
@@ -164,6 +187,8 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   if (spec.categoryAxisTickLabelPos !== undefined) {
     children.push(valNode(c('tickLblPos'), spec.categoryAxisTickLabelPos));
   }
+  const catTxPr = axisTxPrElement(spec.categoryAxisLabelStyle, spec.categoryAxisLabelRotationDeg);
+  if (catTxPr) children.push(catTxPr);
   children.push(valNode(c('crossAx'), VAL_AX_ID));
   if (spec.categoryAxisTickLabelSkip !== undefined) {
     children.push(valNode(c('tickLblSkip'), spec.categoryAxisTickLabelSkip));
@@ -229,6 +254,8 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   if (spec.valueAxisMajorTickMark !== undefined) {
     children.push(valNode(c('majorTickMark'), spec.valueAxisMajorTickMark));
   }
+  const valTxPr = axisTxPrElement(spec.valueAxisLabelStyle, spec.valueAxisLabelRotationDeg);
+  if (valTxPr) children.push(valTxPr);
   children.push(valNode(c('crossAx'), CAT_AX_ID));
   if (spec.valueAxis?.majorUnit !== undefined) {
     children.push(valNode(c('majorUnit'), spec.valueAxis.majorUnit));
