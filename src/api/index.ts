@@ -304,6 +304,7 @@ export {
   getSlideLayouts,
   getSlideLayoutType,
   getSlideMasterBackground,
+  getSlideMasterBackgroundGradientFill,
   getSlideMasterCount,
   getSlideMasterPartName,
   getSlideMasterPartNames,
