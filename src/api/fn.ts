@@ -5034,6 +5034,57 @@ const parseRPrLikeElement = (
     else if (u === 'sng') out.underline = true;
     else out.underline = u;
   }
+  const strike = getAttrValue(rPr, qname('', 'strike', ''));
+  if (strike !== null) {
+    if (strike === 'noStrike') out.strike = false;
+    else if (strike === 'sngStrike') out.strike = true;
+    else out.strike = strike;
+  }
+  const spc = getAttrValue(rPr, qname('', 'spc', ''));
+  if (spc !== null) {
+    const n = Number.parseInt(spc, 10);
+    if (Number.isFinite(n)) out.spc = n;
+  }
+  const kern = getAttrValue(rPr, qname('', 'kern', ''));
+  if (kern !== null) {
+    const n = Number.parseInt(kern, 10);
+    if (Number.isFinite(n)) out.kern = n;
+  }
+  const baselineAttr = getAttrValue(rPr, qname('', 'baseline', ''));
+  if (baselineAttr !== null) {
+    // ST_Percentage: 100000 = 100%; tolerate bare floats.
+    let n = Number.parseFloat(baselineAttr);
+    if (Number.isFinite(n)) {
+      if (Math.abs(n) > 1) n = n / 100000;
+      out.baseline = n;
+    }
+  }
+  const cap = getAttrValue(rPr, qname('', 'cap', ''));
+  if (cap === 'none' || cap === 'small' || cap === 'all') {
+    out.cap = cap;
+  }
+  // <a:highlight><a:srgbClr val="…"/></a:highlight>
+  const highlight = firstChildElement(rPr, qname('a', 'highlight', NS.dml));
+  if (highlight !== null) {
+    let hlChild: XmlElement | null = null;
+    for (const c of highlight.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      hlChild = c;
+      break;
+    }
+    if (hlChild) {
+      if (ctx) {
+        const hex = resolveDrawingColor(hlChild, ctx.theme);
+        if (hex !== null) out.highlight = hex;
+      } else if (hlChild.name.localName === 'srgbClr') {
+        const v = getAttrValue(hlChild, qname('', 'val', ''));
+        if (v !== null) out.highlight = `#${v.toUpperCase()}`;
+      } else if (hlChild.name.localName === 'schemeClr') {
+        const v = getAttrValue(hlChild, qname('', 'val', ''));
+        if (v !== null) out.highlight = v;
+      }
+    }
+  }
   const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
   if (solidFill !== null) {
     // Find the inner color element (srgbClr / schemeClr / sysClr / prstClr).
@@ -5132,6 +5183,14 @@ const mergeRPrLayer = (
   if (base.italic === undefined && layer.italic !== undefined) base.italic = layer.italic;
   if (base.underline === undefined && layer.underline !== undefined) {
     base.underline = layer.underline;
+  }
+  if (base.strike === undefined && layer.strike !== undefined) base.strike = layer.strike;
+  if (base.spc === undefined && layer.spc !== undefined) base.spc = layer.spc;
+  if (base.kern === undefined && layer.kern !== undefined) base.kern = layer.kern;
+  if (base.baseline === undefined && layer.baseline !== undefined) base.baseline = layer.baseline;
+  if (base.cap === undefined && layer.cap !== undefined) base.cap = layer.cap;
+  if (base.highlight === undefined && layer.highlight !== undefined) {
+    base.highlight = layer.highlight;
   }
 };
 

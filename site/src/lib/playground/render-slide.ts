@@ -1381,11 +1381,36 @@ const renderRun = (
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
   const underline = format?.underline;
-  if (underline !== undefined && underline !== false && underline !== 'none') {
+  const strike = format?.strike;
+  const hasUnderline = underline !== undefined && underline !== false && underline !== 'none';
+  const hasStrike = strike !== undefined && strike !== false && strike !== 'noStrike';
+  if (hasUnderline && hasStrike) {
+    styles.push('text-decoration:underline line-through');
+  } else if (hasUnderline) {
     styles.push('text-decoration:underline');
+  } else if (hasStrike) {
+    styles.push('text-decoration:line-through');
   }
   if (format?.color !== undefined && format.color !== null) {
     styles.push(`color:${resolveColor(format.color, theme, '#000000')}`);
+  }
+  // S3 — additional rPr attributes that change how the glyphs lay out.
+  if (format?.spc !== undefined && format.spc !== 0) {
+    // ECMA-376 `spc` is in 1/100 pt; convert to CSS px at the run's size.
+    const trackingPx = (format.spc / 100) * PX_PER_PT;
+    styles.push(`letter-spacing:${trackingPx.toFixed(3)}px`);
+  }
+  if (format?.baseline !== undefined && format.baseline !== 0) {
+    // Positive = superscript, negative = subscript. Scale the glyph a
+    // little smaller as PowerPoint does (~64% for super/subscript).
+    const direction = format.baseline > 0 ? 'super' : 'sub';
+    styles.push(`vertical-align:${direction}`);
+    styles.push('font-size:0.65em');
+  }
+  if (format?.cap === 'all') styles.push('text-transform:uppercase');
+  else if (format?.cap === 'small') styles.push('font-variant:small-caps');
+  if (format?.highlight !== undefined && format.highlight !== null) {
+    styles.push(`background-color:${resolveColor(format.highlight, theme, '#FFFF00')}`);
   }
   return `<span style="${styles.join(';')}">${escapeXml(text)}</span>`;
 };
