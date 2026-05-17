@@ -89,9 +89,11 @@ import {
   getSlideBackgroundPatternFill,
   getSlideLayout,
   getSlideLayoutBackground,
+  getSlideLayoutBackgroundImageBytes,
   getSlideLayoutBackgroundPatternFill,
   getSlideLayoutBackgroundShapes,
   getSlideMasterBackground,
+  getSlideMasterBackgroundImageBytes,
   getSlideMasterBackgroundPatternFill,
   getSlideShapes,
   getSlideSize,
@@ -4255,7 +4257,14 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   // on top of the image.
   let bgImage = '';
   if (bg.kind === 'image') {
-    const bytes = getSlideBackgroundImageBytes(slide);
+    let bytes = getSlideBackgroundImageBytes(slide);
+    if (!bytes && pres) {
+      const layout = getSlideLayout(slide);
+      if (layout) {
+        bytes = getSlideLayoutBackgroundImageBytes(pres, layout);
+        if (!bytes) bytes = getSlideMasterBackgroundImageBytes(pres, layout);
+      }
+    }
     if (bytes) {
       const fmt = detectImageFormatLocal(bytes);
       const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
