@@ -119,13 +119,22 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   const children: XmlElement[] = [
     valNode(c('axId'), CAT_AX_ID),
     elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
-    valNode(c('delete'), '0'),
+    valNode(c('delete'), spec.categoryAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'b'),
   ];
+  if (spec.categoryAxisTitle !== undefined) {
+    children.push(titleElement(spec.categoryAxisTitle, spec.categoryAxisTitleStyle));
+  }
   if (spec.categoryAxisMajorTickMark !== undefined) {
     children.push(valNode(c('majorTickMark'), spec.categoryAxisMajorTickMark));
   }
+  if (spec.categoryAxisTickLabelPos !== undefined) {
+    children.push(valNode(c('tickLblPos'), spec.categoryAxisTickLabelPos));
+  }
   children.push(valNode(c('crossAx'), VAL_AX_ID));
+  if (spec.categoryAxisTickLabelSkip !== undefined) {
+    children.push(valNode(c('tickLblSkip'), spec.categoryAxisTickLabelSkip));
+  }
   return elem(c('catAx'), { children });
 };
 
@@ -145,9 +154,12 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   const children: XmlElement[] = [
     valNode(c('axId'), VAL_AX_ID),
     elem(c('scaling'), { children: scalingChildren }),
-    valNode(c('delete'), '0'),
+    valNode(c('delete'), spec.valueAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'l'),
   ];
+  if (spec.valueAxisTitle !== undefined) {
+    children.push(titleElement(spec.valueAxisTitle, spec.valueAxisTitleStyle));
+  }
   if (spec.valueAxis?.numberFormat !== undefined) {
     children.push(
       elem(c('numFmt'), {
