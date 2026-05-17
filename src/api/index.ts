@@ -173,6 +173,7 @@ export {
   getParagraphLevel,
   getParagraphLineSpacing,
   getParagraphSpacing,
+  getShapeAdjustValues,
   getShapeAltTitle,
   getShapeAnimation,
   getShapeAt,

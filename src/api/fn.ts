@@ -2777,7 +2777,7 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
  * approximation of each shape without dropping to the raw XML.
  */
 export const getShapePreset = (shape: SlideShapeData): string | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') return null;
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape' && shape[SHAPE_SNAPSHOT].kind !== 'connector') return null;
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));
@@ -2786,6 +2786,41 @@ export const getShapePreset = (shape: SlideShapeData): string | null => {
     if (a.name.localName === 'prst') return a.value;
   }
   return null;
+};
+
+/**
+ * Reads the preset's adjust-handle values (`<a:prstGeom><a:avLst>
+ * <a:gd name="adj" fmla="val 30000"/></a:avLst>`) as a map from guide
+ * name → numeric value. Per ECMA-376 §20.1.9.4, guides are stored
+ * with a formula prefix — `val 12345` is a literal number, and the
+ * other prefixes (`pin`, `+-`, etc.) compute from other guides. We
+ * only surface the `val` form because other formulas reference the
+ * preset's built-in guides and don't make sense without them.
+ *
+ * Returns an empty record when no adjust values are authored (the
+ * shape paints at its preset defaults).
+ */
+export const getShapeAdjustValues = (
+  shape: SlideShapeData,
+): Record<string, number> => {
+  const out: Record<string, number> = {};
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return out;
+  const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));
+  if (!prstGeom) return out;
+  const avLst = firstChildElement(prstGeom, qname('a', 'avLst', NS.dml));
+  if (!avLst) return out;
+  for (const gd of avLst.children) {
+    if (gd.kind !== 'element' || gd.name.namespaceURI !== NS.dml || gd.name.localName !== 'gd') continue;
+    const name = getAttrValue(gd, qname('', 'name', ''));
+    const fmla = getAttrValue(gd, qname('', 'fmla', ''));
+    if (!name || !fmla) continue;
+    const match = /^val\s+(-?\d+(?:\.\d+)?)$/.exec(fmla);
+    if (!match) continue;
+    const n = Number.parseFloat(match[1]!);
+    if (Number.isFinite(n)) out[name] = n;
+  }
+  return out;
 };
 
 /**

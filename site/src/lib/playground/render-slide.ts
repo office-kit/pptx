@@ -49,6 +49,7 @@ import {
   getShapeImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
+  getShapeAdjustValues,
   getShapeKind,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -2779,7 +2780,13 @@ const renderShape = (
   if (preset === 'rect') {
     geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'roundRect') {
-    const r = E(Math.min(w, h) * 0.18);
+    // A6 — adjust-handle aware corner radius. <a:gd name="adj"
+    // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
+    // min(w,h)/2 × 100. Defaults to ~16.6% when no adj is authored.
+    const adjusts = getShapeAdjustValues(shape);
+    const adjVal = adjusts.adj ?? 16667;
+    const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
+    const r = E(Math.min(w, h) * ratio);
     geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'ellipse' || preset === 'oval') {
     geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
