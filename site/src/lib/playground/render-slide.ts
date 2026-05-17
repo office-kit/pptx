@@ -64,6 +64,7 @@ import {
   getShapeKind,
   getShapeParagraphCount,
   getShapeParagraphElements,
+  getShapeRunClickAction,
   getShapeRunHyperlink,
   getShapePlaceholderType,
   getShapePreset,
@@ -2151,6 +2152,18 @@ const renderTextBody = (
         }
         try {
           href = getShapeRunHyperlink(shape, p, rIdx) ?? undefined;
+          // Per-run slide-jump actions (`<a:hlinkClick action=
+          // "ppaction://hlinksldjump"/>`) resolve to an in-page anchor.
+          // Fall back to them only when no external URL was authored.
+          if (!href) {
+            const act = getShapeRunClickAction(shape, p, rIdx);
+            if (act?.kind === 'slide') {
+              const idx = getSlideIndex(pres, act.slide);
+              if (idx >= 0) href = `#slide-${idx + 1}`;
+            } else if (act?.kind === 'url') {
+              href = act.url;
+            }
+          }
         } catch {
           href = undefined;
         }
@@ -2281,9 +2294,10 @@ const renderTextBody = (
         run.sizePt * autoFitScale,
         run.fmt?.size === undefined,
       );
-      return run.href
-        ? `<a href="${escapeXml(run.href)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:inherit">${span}</a>`
-        : span;
+      if (!run.href) return span;
+      const isInPage = run.href.startsWith('#');
+      const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
+      return `<a href="${escapeXml(run.href)}"${targetAttrs} style="color:inherit;text-decoration:inherit">${span}</a>`;
     });
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
