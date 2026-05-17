@@ -569,7 +569,19 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const name = readSeriesName(ser);
     const cat = firstChildElement(ser, NAME_CAT);
     if (cat !== null && categoriesFromFirst === null) {
+      // `<c:cat>` is usually `<c:strRef>` (text categories), but date /
+      // numeric categories serialize as `<c:numRef>`. Fall back to the
+      // numeric channel formatted as a string so date / number cats
+      // still appear on the axis instead of disappearing entirely.
       categoriesFromFirst = readStringRef(cat) ?? null;
+      if (categoriesFromFirst === null) {
+        const nums = readNumRef(cat);
+        if (nums !== null) {
+          categoriesFromFirst = nums.map((n) =>
+            n === null || !Number.isFinite(n) ? '' : String(n),
+          );
+        }
+      }
     }
     let valEl = firstChildElement(ser, NAME_VAL);
     // Scatter / bubble charts carry numeric data on <c:yVal> rather
