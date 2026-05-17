@@ -281,6 +281,7 @@ export {
   getSlideBackgroundPatternFill,
   getSlideBody,
   getSlideCharts,
+  getSlideColorMapOverride,
   getSlideCommentAuthors,
   getSlideComments,
   getSlideCount,

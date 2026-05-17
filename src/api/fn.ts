@@ -7237,6 +7237,36 @@ export type SlideBackground =
   | { readonly kind: 'image' }
   | { readonly kind: 'inherit' };
 
+/**
+ * Reads the slide's color-map override (`<p:clrMapOvr><p:overrideClrMapping/>`).
+ * The mapping remaps the eight stable ECMA-376 color tokens (`bg1`,
+ * `tx1`, `bg2`, `tx2`, `accent1`–`accent6`, `hlink`, `folHlink`) to
+ * different theme positions. Returns `null` when the slide uses the
+ * master's color map unchanged (the overwhelming common case).
+ */
+export const getSlideColorMapOverride = (slide: SlideData): Record<string, string> | null => {
+  const root = slide[SLIDE_DOCUMENT].root;
+  let ovr: XmlElement | null = null;
+  for (const c of root.children) {
+    if (c.kind !== 'element') continue;
+    if (c.name.namespaceURI === NS.pml && c.name.localName === 'clrMapOvr') {
+      ovr = c;
+      break;
+    }
+  }
+  if (!ovr) return null;
+  const mapping = firstChildElement(ovr, qname('a', 'overrideClrMapping', NS.dml));
+  if (!mapping) return null;
+  // overrideClrMapping carries 12 attributes — bg1..folHlink — each
+  // pointing to the index the token is remapped to in the theme.
+  const out: Record<string, string> = {};
+  for (const a of mapping.attrs) {
+    if (a.name.namespaceURI !== '') continue;
+    out[a.name.localName] = a.value;
+  }
+  return Object.keys(out).length > 0 ? out : null;
+};
+
 export const getSlideBackground = (slide: SlideData): SlideBackground => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) return { kind: 'inherit' };
