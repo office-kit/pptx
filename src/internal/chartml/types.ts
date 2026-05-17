@@ -177,6 +177,15 @@ export interface ChartSpec {
    *   - `nextTo` (default) is the standard position next to the axis
    */
   readonly categoryAxisTickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
+  /**
+   * Category-axis order — `'minMax'` (the data's natural order) or
+   * `'maxMin'` (reversed). For bar charts PowerPoint typically emits
+   * `maxMin` so the first category sits at the top instead of the
+   * bottom; honour the authored value when present.
+   */
+  readonly categoryAxisOrientation?: 'minMax' | 'maxMin';
+  /** Same for the value axis. */
+  readonly valueAxisOrientation?: 'minMax' | 'maxMin';
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**

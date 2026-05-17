@@ -592,10 +592,22 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const v = getAttrValue(d, ATTR_VAL);
     return v === null || v === '1' || v === 'true';
   };
+  let categoryAxisOrientation: 'minMax' | 'maxMin' | undefined;
+  let valueAxisOrientation: 'minMax' | 'maxMin' | undefined;
+  const readAxisOrientation = (axis: XmlElement): 'minMax' | 'maxMin' | undefined => {
+    const scaling = firstChildElement(axis, qname('c', 'scaling', NS_C));
+    if (!scaling) return undefined;
+    const orientationEl = firstChildElement(scaling, qname('c', 'orientation', NS_C));
+    if (!orientationEl) return undefined;
+    const v = getAttrValue(orientationEl, ATTR_VAL);
+    if (v === 'minMax' || v === 'maxMin') return v;
+    return undefined;
+  };
   if (catAx) {
     const t = readTitle(catAx);
     if (t !== undefined) categoryAxisTitle = t;
     categoryAxisHidden = isHidden(catAx);
+    categoryAxisOrientation = readAxisOrientation(catAx);
     const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
     if (skipEl) {
       const v = getAttrValue(skipEl, ATTR_VAL);
@@ -616,6 +628,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const t = readTitle(valAx);
     if (t !== undefined) valueAxisTitle = t;
     valueAxisHidden = isHidden(valAx);
+    valueAxisOrientation = readAxisOrientation(valAx);
   }
 
   // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
@@ -701,6 +714,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),
+    ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
+    ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };
