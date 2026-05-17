@@ -230,11 +230,22 @@ export interface ChartSpec {
    */
   readonly plotAreaFill?: string;
   /**
+   * Plot-area outline color from `<c:plotArea><c:spPr><a:ln>
+   * <a:solidFill><a:srgbClr/>`. `undefined` means no outline.
+   */
+  readonly plotAreaStrokeColor?: string;
+  /**
    * Chart-area background fill — `<c:chartSpace><c:spPr><a:solidFill>
    * <a:srgbClr val="…"/>`. Renderers can use this as the outer card
    * color instead of the hard-coded white.
    */
   readonly chartAreaFill?: string;
+  /**
+   * Chart-area outline color from `<c:chartSpace><c:spPr><a:ln>
+   * <a:solidFill><a:srgbClr/>`. Overrides the renderer's default
+   * `#E5E7EB` card border.
+   */
+  readonly chartAreaStrokeColor?: string;
   /** Optional axis title text (`<c:catAx><c:title>` / `<c:valAx><c:title>`). */
   readonly categoryAxisTitle?: string;
   /** Authored font / color on the category-axis title (same `<a:rPr>` shape as `titleStyle`). */
