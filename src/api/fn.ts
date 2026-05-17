@@ -6623,6 +6623,42 @@ export const getSlideBackgroundGradientFill = (
 };
 
 /**
+ * Returns the pattern preset + theme-resolved colors when the slide
+ * carries a `<p:bgPr><a:pattFill>` background. Returns `null` for any
+ * other background kind. Shape mirrors `getShapePatternFill`.
+ */
+export const getSlideBackgroundPatternFill = (
+  pres: PresentationData,
+  slide: SlideData,
+): { preset: string; foreground: string; background: string } | null => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) return null;
+  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  if (!bg) return null;
+  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  if (!bgPr) return null;
+  const pattFill = firstChildElement(bgPr, qname('a', 'pattFill', NS.dml));
+  if (!pattFill) return null;
+  const preset = getAttrValue(pattFill, qname('', 'prst', '')) ?? 'pct50';
+  const theme = getPresentationTheme(pres);
+  const colorFrom = (parentName: string, fallback: string): string => {
+    const parent = firstChildElement(pattFill, qname('a', parentName, NS.dml));
+    if (!parent) return fallback;
+    for (const c of parent.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      const hex = resolveDrawingColor(c, theme);
+      if (hex) return hex;
+    }
+    return fallback;
+  };
+  return {
+    preset,
+    foreground: colorFrom('fgClr', '#000000'),
+    background: colorFrom('bgClr', '#FFFFFF'),
+  };
+};
+
+/**
  * Returns the embedded image bytes when the slide carries a
  * `<p:bgPr><a:blipFill>` background, or `null` for any other background
  * kind (solid / gradient / pattern / inherit) or when the `r:embed`

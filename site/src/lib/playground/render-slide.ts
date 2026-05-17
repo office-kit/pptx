@@ -71,6 +71,7 @@ import {
   getSlideBackground,
   getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
+  getSlideBackgroundPatternFill,
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
@@ -2868,6 +2869,13 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
     if (grad) {
       const built = gradientDef(grad, theme);
       bgGradientDefs = built.defs;
+      bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
+    }
+  } else if (bg.kind === 'pattern') {
+    const pat = getSlideBackgroundPatternFill(pres, slide);
+    if (pat) {
+      const built = patternDef(pat);
+      bgGradientDefs += built.defs;
       bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
     }
   } else if (theme && bg.kind === 'inherit') {

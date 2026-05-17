@@ -260,6 +260,7 @@ export {
   getSlideBackground,
   getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
+  getSlideBackgroundPatternFill,
   getSlideBody,
   getSlideCharts,
   getSlideCommentAuthors,
