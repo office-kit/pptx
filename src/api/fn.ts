@@ -3761,6 +3761,42 @@ export const setShapePatternFill = (
 };
 
 /**
+ * Reads back the pattern fill on a shape: returns the preset token
+ * plus the foreground / background colors resolved against the theme.
+ * Returns `null` when the shape has no `<a:pattFill>`.
+ *
+ * The preset string is the literal `ST_PresetPatternVal` token from
+ * §20.1.10.49 — e.g. `'pct50'`, `'dkUpDiag'`, `'cross'`, `'wave'`.
+ * Renderers can map it onto an SVG `<pattern>` definition.
+ */
+export const getShapePatternFill = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): { preset: string; foreground: string; background: string } | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const pattFill = firstChildElement(spPr, qname('a', 'pattFill', NS.dml));
+  if (!pattFill) return null;
+  const preset = getAttrValue(pattFill, qname('', 'prst', '')) ?? 'pct50';
+  const theme = getPresentationTheme(pres);
+  const colorFrom = (parentName: string, fallback: string): string => {
+    const parent = firstChildElement(pattFill, qname('a', parentName, NS.dml));
+    if (!parent) return fallback;
+    for (const c of parent.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      const hex = resolveDrawingColor(c, theme);
+      if (hex) return hex;
+    }
+    return fallback;
+  };
+  return {
+    preset,
+    foreground: colorFrom('fgClr', '#000000'),
+    background: colorFrom('bgClr', '#FFFFFF'),
+  };
+};
+
+/**
  * Sets a picture fill on the shape, embedding `bytes` as a new media
  * part and replacing any prior fill choice on the shape's `<p:spPr>`.
  *

@@ -31,6 +31,7 @@ import {
   getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
+  getShapePatternFill,
   getShapeChartKind,
   getShapeChartSpec,
   getShapeImageBytes,
@@ -325,6 +326,82 @@ const gradientDef = (
   return { defs, fillAttr: `url(#${id})` };
 };
 
+// SVG `<pattern>` definitions for the ECMA-376 ST_PresetPatternVal
+// presets (§20.1.10.49). All tiles are 8×8 px and use the foreground
+// color for the pattern strokes / dots, background for the negative
+// space. The `pct*` family modulates the dot density to approximate
+// the requested coverage percentage. Unknown presets fall through to
+// pct50 (50% coverage).
+const patternDef = (
+  pat: { preset: string; foreground: string; background: string },
+): { defs: string; fillAttr: string } => {
+  const id = mintId();
+  const fg = pat.foreground;
+  const bg = pat.background;
+  const preset = pat.preset;
+  let body = '';
+  const W = 8;
+  const H = 8;
+  const stripe = (orientation: 'h' | 'v' | 'd' | 'a', width = 1): string => {
+    if (orientation === 'h') return `<path d="M0 ${H / 2}H${W}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'v') return `<path d="M${W / 2} 0V${H}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'd') return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
+    return `<path d="M${W} 0L0 ${H}" stroke="${fg}" stroke-width="${width}"/>`;
+  };
+  const dots = (density: number): string => {
+    // density 0..1; emit between 1 and 4 dots per 8x8 tile by density.
+    const count = Math.max(1, Math.round(density * 4));
+    const out: string[] = [];
+    const grid = count <= 1 ? [[4, 4]] : count === 2 ? [[2, 2], [6, 6]] : [[2, 2], [6, 2], [2, 6], [6, 6]];
+    for (const [x, y] of grid.slice(0, count)) {
+      out.push(`<circle cx="${x}" cy="${y}" r="0.7" fill="${fg}"/>`);
+    }
+    return out.join('');
+  };
+  // pct{N} — N% coverage. Map percent → dot density.
+  const pctMatch = /^pct(\d+)$/.exec(preset);
+  if (pctMatch) {
+    const pct = Math.min(100, Math.max(5, Number.parseInt(pctMatch[1]!, 10)));
+    body = dots(pct / 100);
+  } else if (preset === 'horzBrick' || preset === 'ltHorizontal' || preset === 'narHorz') {
+    body = stripe('h', 0.8);
+  } else if (preset === 'dkHorizontal') {
+    body = stripe('h', 2);
+  } else if (preset === 'ltVertical' || preset === 'narVert') {
+    body = stripe('v', 0.8);
+  } else if (preset === 'dkVertical') {
+    body = stripe('v', 2);
+  } else if (preset === 'ltUpDiag' || preset === 'wdUpDiag') {
+    body = stripe('d', 0.8);
+  } else if (preset === 'dkUpDiag') {
+    body = stripe('d', 2);
+  } else if (preset === 'ltDnDiag' || preset === 'wdDnDiag') {
+    body = stripe('a', 0.8);
+  } else if (preset === 'dkDnDiag') {
+    body = stripe('a', 2);
+  } else if (preset === 'ltHorzCross' || preset === 'smGrid' || preset === 'cross') {
+    body = stripe('h', 0.8) + stripe('v', 0.8);
+  } else if (preset === 'dkHorzCross' || preset === 'lgGrid' || preset === 'plaid') {
+    body = stripe('h', 2) + stripe('v', 2);
+  } else if (preset === 'diagCross' || preset === 'trellis' || preset === 'shingle' || preset === 'dashUpDiag' || preset === 'dashDnDiag') {
+    body = stripe('d', 0.8) + stripe('a', 0.8);
+  } else if (preset === 'dkUpDiagStripe' || preset === 'dkDnDiagStripe') {
+    body = stripe(preset === 'dkUpDiagStripe' ? 'd' : 'a', 2);
+  } else if (preset === 'wave' || preset === 'zigZag') {
+    body = `<path d="M0 4Q2 2 4 4T8 4" stroke="${fg}" stroke-width="0.8" fill="none"/>`;
+  } else if (preset === 'weave' || preset === 'divot') {
+    body = `<path d="M0 0L4 4 0 8M4 0L8 4 4 8" stroke="${fg}" stroke-width="0.8" fill="none"/>`;
+  } else if (preset === 'sphere') {
+    body = `<circle cx="4" cy="4" r="3" fill="${fg}" fill-opacity="0.7"/>`;
+  } else if (preset === 'solidDmnd' || preset === 'openDmnd') {
+    body = `<path d="M4 1L7 4 4 7 1 4Z" fill="${preset === 'solidDmnd' ? fg : 'none'}" stroke="${fg}" stroke-width="0.6"/>`;
+  } else {
+    body = dots(0.5);
+  }
+  const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${bg}"/>${body}</pattern></defs>`;
+  return { defs, fillAttr: `url(#${id})` };
+};
+
 interface PaintResult {
   fill: string;
   stroke: string;
@@ -368,7 +445,14 @@ const paint = (
       fillColor = '#FDBA74';
     }
   } else if (fill.kind === 'pattern') {
-    fillColor = '#BFDBFE';
+    const pat = shape && pres ? getShapePatternFill(pres, shape) : null;
+    if (pat) {
+      const built = patternDef(pat);
+      defs = built.defs;
+      fillColor = built.fillAttr;
+    } else {
+      fillColor = '#BFDBFE';
+    }
   } else if (fill.kind === 'image') {
     fillColor = '#DDD6FE';
   } else {

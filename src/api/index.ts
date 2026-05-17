@@ -202,6 +202,7 @@ export {
   getShapeIndex,
   getShapeKind,
   getShapeName,
+  getShapePatternFill,
   getShapeParagraphCount,
   getShapePlaceholderIdx,
   getShapePreset,
