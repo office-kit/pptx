@@ -305,6 +305,36 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.chartAreaStrokeColor).toBe('#888888');
   });
 
+  it('round-trips axis tick-label style + rotation via <c:txPr>', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        categoryAxisLabelStyle: { sizePt: 9, bold: true, color: '#112233' },
+        categoryAxisLabelRotationDeg: 45,
+        valueAxisLabelStyle: { sizePt: 10, italic: true },
+        valueAxisLabelRotationDeg: -30,
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.categoryAxisLabelStyle?.sizePt).toBe(9);
+    expect(spec.categoryAxisLabelStyle?.bold).toBe(true);
+    expect(spec.categoryAxisLabelStyle?.color).toBe('#112233');
+    expect(spec.categoryAxisLabelRotationDeg).toBe(45);
+    expect(spec.valueAxisLabelStyle?.sizePt).toBe(10);
+    expect(spec.valueAxisLabelStyle?.italic).toBe(true);
+    expect(spec.valueAxisLabelRotationDeg).toBe(-30);
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
