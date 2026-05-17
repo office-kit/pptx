@@ -13,8 +13,10 @@
     getShapeKind,
     getSlideComments,
     getSlideLayout,
+    getSlideIndex,
     getSlideLayoutType,
     getSlideNotes,
+    getSlideSections,
     getSlideShapes,
     getSlideTitle,
     getSlideTransition,
@@ -54,6 +56,7 @@
   let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
   let issues = $state<ReadonlyArray<ValidationIssue>>([]);
   let slides = $state<SlideSnapshot[]>([]);
+  let sectionStartByIndex = $state<Record<number, string>>({});
   let parts = $state<PackagePart[]>([]);
   let lastBytes = $state<Uint8Array | null>(null);
 
@@ -67,6 +70,17 @@
       coreCreator = core?.creator ?? '';
       summary = getPresentationSummary(pres);
       issues = validatePresentation(pres);
+      // Map section name → 1-based slide index of its first slide. We
+      // surface them so the playground can render a divider above
+      // each section's first slide.
+      const sectionMap: Record<number, string> = {};
+      for (const sec of getSlideSections(pres)) {
+        const first = sec.slides[0];
+        if (!first) continue;
+        const idx0 = getSlideIndex(pres, first);
+        if (idx0 >= 0) sectionMap[idx0 + 1] = sec.name;
+      }
+      sectionStartByIndex = sectionMap;
 
       const list = getSlides(pres);
       slideCount = list.length;
@@ -251,6 +265,11 @@
     <h2>Slides</h2>
     <ol class="slides">
       {#each slides as s (s.index)}
+        {#if sectionStartByIndex[s.index] !== undefined}
+          <li class="section-divider" aria-label="section">
+            <span class="section-name">{sectionStartByIndex[s.index]}</span>
+          </li>
+        {/if}
         <li id={`slide-${s.index}`}>
           <div class="s-head">
             <span class="s-num">{String(s.index).padStart(2, '0')}</span>
@@ -547,6 +566,21 @@
   .s-kinds code {
     font-size: 11px;
     padding: 0.1em 0.45em;
+  }
+
+  .section-divider {
+    list-style: none;
+    margin: 1.5rem 0 0.5rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--border, #cbd5e1);
+    font-family: var(--mono, monospace);
+    font-size: 0.85rem;
+    color: var(--muted, #4b5563);
+  }
+
+  .section-divider .section-name {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .s-badge {
