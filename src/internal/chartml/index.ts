@@ -8,6 +8,7 @@ export type {
   ChartKind,
   ChartSeries,
   ChartSpec,
+  ChartTrendline,
 } from './types.ts';
 export { buildChartSpaceDoc } from './chart-builder.ts';
 export { readChartSpec } from './chart-reader.ts';
