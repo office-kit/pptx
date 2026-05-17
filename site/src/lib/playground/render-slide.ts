@@ -2417,22 +2417,35 @@ const formatTick = (v: number): string => {
 // Unrecognised formats fall through to formatTick.
 const formatAxisLabel = (v: number, formatCode: string | undefined): string => {
   if (!formatCode) return formatTick(v);
-  if (formatCode.includes('%')) {
-    // Strip surrounding chars except the % position; compute decimals
-    // from the format's fractional spec.
-    const decMatch = /0\.(0+)%/.exec(formatCode);
+  // Strip Excel "literal" quoted text. `"\$"#,##0` and `"$"#,##0`
+  // are both common encodings of "dollar prefix then formatted number".
+  let prefix = '';
+  let suffix = '';
+  let body = formatCode;
+  // Leading quoted literal (e.g. "$" or "\$").
+  const leadMatch = /^"((?:\\.|[^"\\])*)"/.exec(body);
+  if (leadMatch) {
+    prefix = leadMatch[1]!.replace(/\\(.)/g, '$1');
+    body = body.slice(leadMatch[0].length);
+  } else if (body.startsWith('$') || body.startsWith('¥') || /^[£€]/.test(body)) {
+    prefix = body[0]!;
+    body = body.slice(1);
+  }
+  // Trailing quoted literal (rarely a unit suffix like "kg").
+  const tailMatch = /"((?:\\.|[^"\\])*)"$/.exec(body);
+  if (tailMatch) {
+    suffix = tailMatch[1]!.replace(/\\(.)/g, '$1');
+    body = body.slice(0, body.length - tailMatch[0].length);
+  }
+  if (body.includes('%')) {
+    const decMatch = /0\.(0+)%/.exec(body);
     const dec = decMatch ? decMatch[1]!.length : 0;
-    return `${(v * 100).toFixed(dec)}%`;
+    return prefix + `${(v * 100).toFixed(dec)}%` + suffix;
   }
-  if (formatCode.startsWith('$') || formatCode.startsWith('¥') || /^[£€]/.test(formatCode)) {
-    const prefix = formatCode[0]!;
-    const body = formatCode.slice(1);
-    return prefix + formatWithGrouping(v, body);
+  if (body.includes('#,##') || /\.(0+)/.test(body) || /^0+$/.test(body)) {
+    return prefix + formatWithGrouping(v, body) + suffix;
   }
-  if (formatCode.includes('#,##')) {
-    return formatWithGrouping(v, formatCode);
-  }
-  return formatTick(v);
+  return prefix + formatTick(v) + suffix;
 };
 
 const formatWithGrouping = (v: number, fmt: string): string => {
