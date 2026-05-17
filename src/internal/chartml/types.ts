@@ -127,6 +127,17 @@ export interface ChartSpec {
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
+   * Drop lines (`<c:dropLines>`) — vertical guide lines from each data
+   * point down to the value axis. Common on line / area charts.
+   */
+  readonly dropLines?: boolean;
+  /**
+   * High-low lines (`<c:hiLowLines>`) — vertical lines spanning the
+   * highest and lowest series value at each category. Used by stock
+   * charts and side-by-side line charts.
+   */
+  readonly hiLowLines?: boolean;
+  /**
    * Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units
    * (0..500, percent of bar width). Default 150 (= 1.5×) in PowerPoint.
    */

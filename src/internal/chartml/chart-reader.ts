@@ -479,6 +479,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // <c:dropLines> and <c:hiLowLines> on the plotted-kind element.
+  // Both flags are pure booleans for our purposes — the line color /
+  // style they author would require the full ln cascade and isn't
+  // worth modeling at this layer.
+  const dropLinesEl = firstChildElement(plotted, qname('c', 'dropLines', NS_C));
+  const hiLowLinesEl = firstChildElement(plotted, qname('c', 'hiLowLines', NS_C));
+  const dropLines = dropLinesEl !== null ? true : undefined;
+  const hiLowLines = hiLowLinesEl !== null ? true : undefined;
+
   // <c:gapWidth> and <c:overlap> live on the plotted-kind element and
   // tune the bar / column spacing. PowerPoint defaults: gapWidth=150
   // (1.5× bar width gap), overlap=0 (clustered) or 100 (stacked).
@@ -566,6 +575,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(dataLabels !== undefined ? { dataLabels } : {}),
     ...(valueAxis !== undefined ? { valueAxis } : {}),
     ...(grouping !== undefined ? { grouping } : {}),
+    ...(dropLines !== undefined ? { dropLines } : {}),
+    ...(hiLowLines !== undefined ? { hiLowLines } : {}),
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),

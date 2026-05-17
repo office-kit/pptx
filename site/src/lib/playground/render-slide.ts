@@ -3105,6 +3105,40 @@ const renderLineChart = (
       }
     }
   }
+  // Drop lines + hi-low lines. Drop lines go from each data point of
+  // the first series down to the value-axis baseline. Hi-low lines
+  // span the highest and lowest series values at each category.
+  if (!isStacked && (spec.dropLines || spec.hiLowLines) && spec.series.length > 0) {
+    for (let c = 0; c < N; c++) {
+      const xp = f.plotX + c * step;
+      if (spec.dropLines) {
+        const firstVal = spec.series[0]?.values[c];
+        if (firstVal !== null && firstVal !== undefined && Number.isFinite(firstVal)) {
+          const yp = f.plotY + f.plotH - ((firstVal - min) / range) * f.plotH;
+          out.push(
+            `<line x1="${px(xp)}" y1="${px(yp)}" x2="${px(xp)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5" stroke-dasharray="2 2"/>`,
+          );
+        }
+      }
+      if (spec.hiLowLines) {
+        let hiV = -Infinity;
+        let loV = Infinity;
+        for (const s of spec.series) {
+          const v = s.values[c];
+          if (v === null || v === undefined || !Number.isFinite(v)) continue;
+          if (v > hiV) hiV = v;
+          if (v < loV) loV = v;
+        }
+        if (hiV > loV) {
+          const yHi = f.plotY + f.plotH - ((hiV - min) / range) * f.plotH;
+          const yLo = f.plotY + f.plotH - ((loV - min) / range) * f.plotH;
+          out.push(
+            `<line x1="${px(xp)}" y1="${px(yHi)}" x2="${px(xp)}" y2="${px(yLo)}" stroke="#4B5563" stroke-width="1"/>`,
+          );
+        }
+      }
+    }
+  }
   return out.join('');
 };
 
