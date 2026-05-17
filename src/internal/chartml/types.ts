@@ -164,6 +164,19 @@ export interface ChartSpec {
   readonly valueAxisHidden?: boolean;
   /** When `true`, category axis is hidden (`<c:catAx><c:delete val="1"/>`). */
   readonly categoryAxisHidden?: boolean;
+  /**
+   * Category-axis tick label skip step (`<c:catAx><c:tickLblSkip val="N"/>`):
+   * render every Nth category label. Commonly 2 / 5 / 10 on dense
+   * time-series charts to keep labels from overlapping.
+   */
+  readonly categoryAxisTickLabelSkip?: number;
+  /**
+   * Category-axis tick label position (`<c:catAx><c:tickLblPos val="…"/>`):
+   *   - `none` hides labels but keeps the axis line
+   *   - `low` / `high` puts them at the start / end (rare)
+   *   - `nextTo` (default) is the standard position next to the axis
+   */
+  readonly categoryAxisTickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
