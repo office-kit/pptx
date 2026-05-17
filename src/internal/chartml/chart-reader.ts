@@ -393,28 +393,42 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   }
 
   // <c:valAx> lives on the plotArea (not on the plotted-kind element).
-  // Pull its <c:scaling><c:min/>/<c:max/> as the authored axis range.
+  // Pull its <c:scaling><c:min/>/<c:max/> as the authored axis range,
+  // plus optional <c:majorUnit> / <c:minorUnit> tick spacing.
   let valueAxis: ChartAxisScaling | undefined;
   const valAx = findFirst(plotArea, ['valAx']);
   if (valAx) {
+    let min: number | undefined;
+    let max: number | undefined;
+    let majorUnit: number | undefined;
+    let minorUnit: number | undefined;
     const scaling = firstChildElement(valAx, qname('c', 'scaling', NS_C));
+    const readNumOn = (parent: XmlElement, local: string): number | undefined => {
+      const el = firstChildElement(parent, qname('c', local, NS_C));
+      if (!el) return undefined;
+      const v = getAttrValue(el, ATTR_VAL);
+      if (v === null) return undefined;
+      const n = Number.parseFloat(v);
+      return Number.isFinite(n) ? n : undefined;
+    };
     if (scaling) {
-      const readNum = (local: string): number | undefined => {
-        const el = firstChildElement(scaling, qname('c', local, NS_C));
-        if (!el) return undefined;
-        const v = getAttrValue(el, ATTR_VAL);
-        if (v === null) return undefined;
-        const n = Number.parseFloat(v);
-        return Number.isFinite(n) ? n : undefined;
+      min = readNumOn(scaling, 'min');
+      max = readNumOn(scaling, 'max');
+    }
+    majorUnit = readNumOn(valAx, 'majorUnit');
+    minorUnit = readNumOn(valAx, 'minorUnit');
+    if (
+      min !== undefined ||
+      max !== undefined ||
+      majorUnit !== undefined ||
+      minorUnit !== undefined
+    ) {
+      valueAxis = {
+        ...(min !== undefined ? { min } : {}),
+        ...(max !== undefined ? { max } : {}),
+        ...(majorUnit !== undefined ? { majorUnit } : {}),
+        ...(minorUnit !== undefined ? { minorUnit } : {}),
       };
-      const min = readNum('min');
-      const max = readNum('max');
-      if (min !== undefined || max !== undefined) {
-        valueAxis = {
-          ...(min !== undefined ? { min } : {}),
-          ...(max !== undefined ? { max } : {}),
-        };
-      }
     }
   }
 

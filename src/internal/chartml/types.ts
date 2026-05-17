@@ -72,12 +72,17 @@ export interface ChartDataLabels {
 }
 
 /**
- * Authored value-axis scaling (`<c:valAx><c:scaling><c:min/>/<c:max/></c:scaling>`).
- * When omitted, renderers compute the range from the series values.
+ * Authored value-axis scaling (`<c:valAx><c:scaling><c:min/>/<c:max/></c:scaling>`)
+ * plus tick-spacing hints. When omitted, renderers compute the range
+ * and tick spacing from the series values.
  */
 export interface ChartAxisScaling {
   readonly min?: number;
   readonly max?: number;
+  /** Major tick spacing (`<c:majorUnit val="N"/>`). */
+  readonly majorUnit?: number;
+  /** Minor tick spacing (`<c:minorUnit val="N"/>`). */
+  readonly minorUnit?: number;
 }
 
 /**
