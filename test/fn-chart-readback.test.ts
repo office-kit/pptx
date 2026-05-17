@@ -105,6 +105,38 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.categoryAxisMajorTickMark).toBe('none');
   });
 
+  it('round-trips chart-level dataLabels (toggles + numFmt + dLblPos + separator)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        dataLabels: {
+          showValue: true,
+          showCategory: false,
+          showSeriesName: false,
+          showPercent: false,
+          numberFormat: '0.00',
+          position: 'ctr',
+          separator: ', ',
+        },
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.dataLabels?.showValue).toBe(true);
+    expect(spec.dataLabels?.numberFormat).toBe('0.00');
+    expect(spec.dataLabels?.position).toBe('ctr');
+    expect(spec.dataLabels?.separator).toBe(', ');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
