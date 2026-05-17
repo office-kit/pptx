@@ -7,6 +7,7 @@
   // does — type errors here break the build.
   import {
     getCoreProperties,
+    getPresentationSummary,
     getShapeKind,
     getSlideComments,
     getSlideLayout,
@@ -48,6 +49,7 @@
   let slideCount = $state<number>(0);
   let coreTitle = $state<string>('');
   let coreCreator = $state<string>('');
+  let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
   let slides = $state<SlideSnapshot[]>([]);
   let parts = $state<PackagePart[]>([]);
   let lastBytes = $state<Uint8Array | null>(null);
@@ -60,6 +62,7 @@
       const core = getCoreProperties(pres);
       coreTitle = core?.title ?? '';
       coreCreator = core?.creator ?? '';
+      summary = getPresentationSummary(pres);
 
       const list = getSlides(pres);
       slideCount = list.length;
@@ -200,6 +203,32 @@
         <span class="label">core / creator</span>
         <span class="value">{coreCreator || '—'}</span>
       </div>
+      {#if summary}
+        <div class="cell">
+          <span class="label">theme</span>
+          <span class="value">{summary.themeName ?? '—'}</span>
+        </div>
+        <div class="cell">
+          <span class="label">layouts · sections</span>
+          <span class="value">{summary.layoutCount} · {summary.sectionCount}</span>
+        </div>
+        <div class="cell">
+          <span class="label">shapes (total)</span>
+          <span class="value">{summary.totalShapes}</span>
+        </div>
+        <div class="cell">
+          <span class="label">deck flags</span>
+          <span class="value">
+            {summary.hiddenSlideCount > 0 ? `${summary.hiddenSlideCount} hidden · ` : ''}{summary.hasCharts
+              ? 'charts · '
+              : ''}{summary.hasComments ? 'comments · ' : ''}{summary.hasAnimations
+              ? 'animations'
+              : ''}{!summary.hasCharts && !summary.hasComments && !summary.hasAnimations && summary.hiddenSlideCount === 0
+              ? '—'
+              : ''}
+          </span>
+        </div>
+      {/if}
     </div>
 
     <h2>Slides</h2>
