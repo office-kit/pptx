@@ -2518,6 +2518,7 @@ const renderCategoryAxis = (
   orientation: 'horizontal' | 'vertical',
   cats: ReadonlyArray<string>,
   pointCount: number,
+  skip = 1,
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -2528,6 +2529,7 @@ const renderCategoryAxis = (
     // Categories along x-axis (column / line / area charts).
     const step = pointCount > 1 ? f.plotW / pointCount : 0;
     for (let i = 0; i < pointCount; i++) {
+      if (skip > 1 && i % skip !== 0) continue;
       // Center labels under each category slot.
       const cx = f.plotX + (i + 0.5) * step;
       const truncated =
@@ -2542,6 +2544,7 @@ const renderCategoryAxis = (
     // Categories down the y-axis (bar chart).
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
     for (let i = 0; i < pointCount; i++) {
+      if (skip > 1 && i % skip !== 0) continue;
       const cy = f.plotY + (i + 0.5) * step;
       const truncated =
         labels[i] !== undefined && labels[i]!.length > 14
@@ -3390,12 +3393,17 @@ const renderChart = (
         ? { orientation: 'horizontal', min, max, ...axisExtras }
         : { orientation: 'vertical', min, max, ...axisExtras };
     if (!spec.valueAxisHidden) axes = renderValueAxis(f, valueAxis);
-    if (N > 0 && !spec.categoryAxisHidden) {
+    // tickLblPos='none' hides the labels but keeps the gridline (we
+    // already conditionally skip below). Use the explicit skip step
+    // when authored.
+    const labelsHidden = spec.categoryAxisHidden || spec.categoryAxisTickLabelPos === 'none';
+    if (N > 0 && !labelsHidden) {
       axes += renderCategoryAxis(
         f,
         spec.kind === 'bar' ? 'vertical' : 'horizontal',
         spec.categories,
         N,
+        spec.categoryAxisTickLabelSkip ?? 1,
       );
     }
   }

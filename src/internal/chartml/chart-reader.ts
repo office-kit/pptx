@@ -583,6 +583,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let valueAxisTitle: string | undefined;
   let categoryAxisHidden: boolean | undefined;
   let valueAxisHidden: boolean | undefined;
+  let categoryAxisTickLabelSkip: number | undefined;
+  let categoryAxisTickLabelPos: ChartSpec['categoryAxisTickLabelPos'];
   const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
   const isHidden = (axis: XmlElement): boolean | undefined => {
     const d = firstChildElement(axis, qname('c', 'delete', NS_C));
@@ -594,6 +596,21 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const t = readTitle(catAx);
     if (t !== undefined) categoryAxisTitle = t;
     categoryAxisHidden = isHidden(catAx);
+    const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
+    if (skipEl) {
+      const v = getAttrValue(skipEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n) && n > 1) categoryAxisTickLabelSkip = n;
+      }
+    }
+    const posEl = firstChildElement(catAx, qname('c', 'tickLblPos', NS_C));
+    if (posEl) {
+      const v = getAttrValue(posEl, ATTR_VAL);
+      if (v === 'none' || v === 'low' || v === 'high' || v === 'nextTo') {
+        categoryAxisTickLabelPos = v;
+      }
+    }
   }
   if (valAx) {
     const t = readTitle(valAx);
@@ -682,6 +699,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
+    ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
+    ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };
