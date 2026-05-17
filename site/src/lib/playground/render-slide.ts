@@ -2330,6 +2330,11 @@ const seriesMinMax = (spec: ChartSpec): { min: number; max: number } => {
   if (!Number.isFinite(max)) max = 1;
   if (max === min) max = min + 1;
   if (min > 0) min = 0; // include the zero line, like PowerPoint does
+  // Authored <c:valAx><c:scaling> overrides the computed range so the
+  // chart matches what the deck author saw in PowerPoint.
+  if (spec.valueAxis?.min !== undefined) min = spec.valueAxis.min;
+  if (spec.valueAxis?.max !== undefined) max = spec.valueAxis.max;
+  if (max === min) max = min + 1;
   return { min, max };
 };
 
