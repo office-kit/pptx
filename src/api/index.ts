@@ -27,6 +27,7 @@ export type { ImageFormat } from '../internal/opc/index.ts';
 export type {
   ChartAxisScaling,
   ChartDataLabels,
+  ChartGrouping,
   ChartKind,
   ChartSeries,
   ChartSpec,

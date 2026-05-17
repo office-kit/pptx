@@ -2512,30 +2512,89 @@ const renderColumnChart = (
 ): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
-  const { min, max } = seriesMinMax(spec);
-  const range = max - min;
+  const grouping = spec.grouping ?? 'clustered';
+  const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
+  const isPercent = grouping === 'percentStacked';
+  // Stacked charts use the column's sum (per category) as the value
+  // axis upper bound. Percent-stacked normalizes to [0, 1].
+  let { min, max } = seriesMinMax(spec);
+  if (isStacked) {
+    let sumMin = Infinity;
+    let sumMax = -Infinity;
+    for (let c = 0; c < N; c++) {
+      let pos = 0;
+      let neg = 0;
+      for (const s of spec.series) {
+        const v = s.values[c] ?? 0;
+        if (v >= 0) pos += v;
+        else neg += v;
+      }
+      if (neg < sumMin) sumMin = neg;
+      if (pos > sumMax) sumMax = pos;
+    }
+    min = isPercent ? 0 : Math.min(0, sumMin);
+    max = isPercent ? 1 : Math.max(1, sumMax);
+  }
+  const range = max - min || 1;
   const groupW = f.plotW / N;
-  const barW = (groupW * 0.8) / spec.series.length;
+  const barW = isStacked ? groupW * 0.7 : (groupW * 0.8) / spec.series.length;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const showLabel = spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
-    for (let s = 0; s < spec.series.length; s++) {
-      const v = spec.series[s]?.values[c] ?? 0;
-      const x0 = f.plotX + c * groupW + groupW * 0.1 + s * barW;
-      const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
-      const y0 = Math.min(top, baseY);
-      const h = Math.abs(top - baseY);
-      out.push(
-        `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
-      );
-      if (showLabel) {
-        // Label centered above the bar (below if the bar is below the
-        // baseline for negative values).
-        const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
+    if (isStacked) {
+      // Compute the percent-stacked total per category so each value
+      // contributes its share of 100%.
+      let total = 0;
+      if (isPercent) {
+        for (const s of spec.series) total += Math.max(0, s.values[c] ?? 0);
+      }
+      let posAcc = 0;
+      let negAcc = 0;
+      for (let s = 0; s < spec.series.length; s++) {
+        let v = spec.series[s]?.values[c] ?? 0;
+        if (isPercent) {
+          if (total === 0) continue;
+          v = Math.max(0, v) / total;
+        }
+        const base = v >= 0 ? posAcc : negAcc;
+        const stackedTop = base + v;
+        const stackedBase = base;
+        const x0 = f.plotX + c * groupW + (groupW - barW) / 2;
+        const y0 =
+          f.plotY + f.plotH - ((Math.max(stackedTop, stackedBase) - min) / range) * f.plotH;
+        const y1 =
+          f.plotY + f.plotH - ((Math.min(stackedTop, stackedBase) - min) / range) * f.plotH;
+        const h = Math.abs(y1 - y0);
         out.push(
-          `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
         );
+        if (showLabel && Math.abs(v) > 0) {
+          const labelY = (y0 + y1) / 2 + 3;
+          const labelText = isPercent ? `${Math.round(v * 100)}%` : formatChartValue(v);
+          out.push(
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#FFFFFF" font-weight="600">${labelText}</text>`,
+          );
+        }
+        if (v >= 0) posAcc = stackedTop;
+        else negAcc = stackedTop;
+      }
+    } else {
+      for (let s = 0; s < spec.series.length; s++) {
+        const v = spec.series[s]?.values[c] ?? 0;
+        const x0 = f.plotX + c * groupW + groupW * 0.1 + s * barW;
+        const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
+        const y0 = Math.min(top, baseY);
+        const h = Math.abs(top - baseY);
+        out.push(
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
+        );
+        if (showLabel) {
+          const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
+          out.push(
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
+          );
+        }
       }
     }
   }

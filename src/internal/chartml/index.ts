@@ -4,6 +4,7 @@
 export type {
   ChartAxisScaling,
   ChartDataLabels,
+  ChartGrouping,
   ChartKind,
   ChartSeries,
   ChartSpec,

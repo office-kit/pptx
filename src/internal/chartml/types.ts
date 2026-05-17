@@ -56,6 +56,18 @@ export interface ChartAxisScaling {
   readonly max?: number;
 }
 
+/**
+ * Bar / column grouping per ECMA-376 §21.2.2.76 (`ST_BarGrouping`):
+ *
+ *   - `clustered` — bars within a category sit side-by-side (the default).
+ *   - `stacked` — series values sit on top of each other; the y-axis spans
+ *     0..max(sum of each category).
+ *   - `percentStacked` — series values normalize to 100% per category.
+ *   - `standard` — only meaningful for the 3D variants; renderers treat
+ *     it as `clustered`.
+ */
+export type ChartGrouping = 'clustered' | 'stacked' | 'percentStacked' | 'standard';
+
 /** Full chart specification. */
 export interface ChartSpec {
   readonly kind: ChartKind;
@@ -68,4 +80,6 @@ export interface ChartSpec {
   readonly dataLabels?: ChartDataLabels;
   /** Optional value-axis scaling override (min / max). */
   readonly valueAxis?: ChartAxisScaling;
+  /** Bar / column / area grouping mode. Absent for line / pie. */
+  readonly grouping?: ChartGrouping;
 }
