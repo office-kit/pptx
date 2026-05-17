@@ -3055,8 +3055,12 @@ const renderPieChart = (
   const radius = Math.min(f.plotW, f.plotH) / 2 - 2;
   const cx = f.plotX + f.plotW / 2;
   const cy = f.plotY + f.plotH / 2;
-  const innerR = doughnut ? radius * 0.55 : 0;
-  let acc = -Math.PI / 2; // start at 12 o'clock
+  const innerR = doughnut ? radius * ((spec.holeSizePct ?? 55) / 100) : 0;
+  // <c:firstSliceAng> rotates the start position clockwise from 12
+  // o'clock. SVG angles run counterclockwise from the +x axis, so we
+  // start at -π/2 (12 o'clock) and add the user-authored degrees.
+  const startDeg = spec.firstSliceAngleDeg ?? 0;
+  let acc = -Math.PI / 2 + (startDeg * Math.PI) / 180;
   const out: string[] = [];
   for (let i = 0; i < values.length; i++) {
     const v = values[i] ?? 0;

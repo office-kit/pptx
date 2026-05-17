@@ -126,4 +126,15 @@ export interface ChartSpec {
    * element — renderers should fall back to their own default.
    */
   readonly legend?: { position: 'r' | 't' | 'b' | 'l' | 'tr' | null };
+  /**
+   * Pie / doughnut: angle (in degrees, 0–360) at which the first slice
+   * starts, measured clockwise from 12 o'clock. Mirrors
+   * `<c:firstSliceAng val="…"/>`. Default 0 = start at the top.
+   */
+  readonly firstSliceAngleDeg?: number;
+  /**
+   * Doughnut hole size as a percent of the outer radius (10..90).
+   * Mirrors `<c:holeSize val="…"/>`. Default 50.
+   */
+  readonly holeSizePct?: number;
 }
