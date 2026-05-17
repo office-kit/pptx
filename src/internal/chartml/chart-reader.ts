@@ -285,11 +285,25 @@ const readTrendline = (ser: XmlElement): ChartTrendline | undefined => {
       }
     }
   }
+  // <c:forward val="N"/> / <c:backward val="N"/> extend the trendline
+  // N periods past the last / before the first data point.
+  const readExtension = (local: string): number | undefined => {
+    const el = firstChildElement(tl, qname('c', local, NS_C));
+    if (!el) return undefined;
+    const raw = getAttrValue(el, ATTR_VAL);
+    if (raw === null) return undefined;
+    const n = Number.parseFloat(raw);
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const forward = readExtension('forward');
+  const backward = readExtension('backward');
   return {
     type,
     ...(period !== undefined ? { period } : {}),
     ...(order !== undefined ? { order } : {}),
     ...(color !== undefined ? { color } : {}),
+    ...(forward !== undefined ? { forward } : {}),
+    ...(backward !== undefined ? { backward } : {}),
   };
 };
 

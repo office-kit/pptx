@@ -3036,10 +3036,16 @@ const renderColumnChart = (
 const trendlinePath = (
   xs: ReadonlyArray<number>,
   ys: ReadonlyArray<number>,
-  tl: { type: string; period?: number; order?: number },
+  tl: { type: string; period?: number; order?: number; forward?: number; backward?: number },
   color: string,
 ): string => {
   const n = xs.length;
+  // `<c:forward>` / `<c:backward>` extend the line N data-period steps
+  // outside the data range. Step is the average spacing between
+  // adjacent x values; we project the fit line N * step further along.
+  const stepX = n >= 2 ? (xs[n - 1]! - xs[0]!) / (n - 1) : 0;
+  const extendBefore = (tl.backward ?? 0) * stepX;
+  const extendAfter = (tl.forward ?? 0) * stepX;
   let pts: Array<[number, number]> = [];
   switch (tl.type) {
     case 'movingAvg': {
@@ -3083,14 +3089,14 @@ const trendlinePath = (
         pts = xs.map((x, i) => [x, a * Math.exp(b * i)]);
       }
       // Falls through to linear if y values include non-positive.
-      if (pts.length === 0) pts = linearFit(xs, ys);
+      if (pts.length === 0) pts = linearFit(xs, ys, extendBefore, extendAfter);
       break;
     }
     case 'power':
     case 'poly':
     case 'linear':
     default:
-      pts = linearFit(xs, ys);
+      pts = linearFit(xs, ys, extendBefore, extendAfter);
   }
   if (pts.length < 2) return '';
   const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x)},${px(y)}`).join(' ');
@@ -3100,6 +3106,8 @@ const trendlinePath = (
 const linearFit = (
   xs: ReadonlyArray<number>,
   ys: ReadonlyArray<number>,
+  extendBefore = 0,
+  extendAfter = 0,
 ): Array<[number, number]> => {
   const n = xs.length;
   const meanX = xs.reduce((a, b) => a + b, 0) / n;
@@ -3112,9 +3120,11 @@ const linearFit = (
   }
   const slope = den === 0 ? 0 : num / den;
   const intercept = meanY - slope * meanX;
+  const xStart = xs[0]! - extendBefore;
+  const xEnd = xs[n - 1]! + extendAfter;
   return [
-    [xs[0]!, intercept + slope * xs[0]!],
-    [xs[n - 1]!, intercept + slope * xs[n - 1]!],
+    [xStart, intercept + slope * xStart],
+    [xEnd, intercept + slope * xEnd],
   ];
 };
 
