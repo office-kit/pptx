@@ -3503,7 +3503,6 @@ export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
 
 const NAME_A_GRAD_FILL = qname('a', 'gradFill', NS.dml);
 const NAME_A_GS_LST = qname('a', 'gsLst', NS.dml);
-const NAME_A_GS = qname('a', 'gs', NS.dml);
 const NAME_A_LIN = qname('a', 'lin', NS.dml);
 
 const readColorFromContainer = (parent: XmlElement): string | null => {
