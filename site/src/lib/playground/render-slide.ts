@@ -89,8 +89,10 @@ import {
   getSlideBackgroundPatternFill,
   getSlideLayout,
   getSlideLayoutBackground,
+  getSlideLayoutBackgroundPatternFill,
   getSlideLayoutBackgroundShapes,
   getSlideMasterBackground,
+  getSlideMasterBackgroundPatternFill,
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
@@ -4231,7 +4233,14 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
       bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
     }
   } else if (bg.kind === 'pattern') {
-    const pat = getSlideBackgroundPatternFill(pres, slide);
+    let pat = getSlideBackgroundPatternFill(pres, slide);
+    if (!pat) {
+      const layout = getSlideLayout(slide);
+      if (layout) {
+        pat = getSlideLayoutBackgroundPatternFill(pres, layout);
+        if (!pat) pat = getSlideMasterBackgroundPatternFill(pres, layout);
+      }
+    }
     if (pat) {
       const built = patternDef(pat);
       bgGradientDefs += built.defs;
