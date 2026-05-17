@@ -7024,6 +7024,108 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
 };
 
 /**
+ * A simplified, render-ready view of one of the layout's non-placeholder
+ * shapes. Resolves the bounds, preset, fill, and stroke without going
+ * through the slide-bound `SlideShapeData` symbols. Returned by
+ * `getSlideLayoutBackgroundShapes` for renderers that want to paint the
+ * layout's brand-template decoration (corner bars, divider lines, logos
+ * as solid rects, etc.) behind the slide's own shapes.
+ */
+export interface SlideLayoutBackgroundShape {
+  readonly kind: 'shape' | 'connector' | 'picture' | 'group' | 'graphicFrame';
+  /** Bounds in EMU, or `null` when the shape inherits from its master. */
+  readonly bounds: ShapeBounds | null;
+  /** Preset geometry token for shapes (`'rect'`, `'roundRect'`, `'ellipse'`, …). */
+  readonly preset: string | null;
+  /** Fill color resolved to `#RRGGBB` (transforms + theme applied), or `null`. */
+  readonly fillHex: string | null;
+  /** Stroke color resolved to `#RRGGBB`, or `null`. */
+  readonly strokeHex: string | null;
+  /** Stroke width in EMU, or `null` when no explicit width is set. */
+  readonly strokeWidthEmu: number | null;
+  /** Rotation in degrees. */
+  readonly rotation: number;
+  /** Flip state. */
+  readonly flip: { horizontal: boolean; vertical: boolean };
+}
+
+/**
+ * Returns the non-placeholder shapes on a layout as a render-ready
+ * view. Useful for previewing brand-template decoration (corner bars,
+ * background rectangles, divider lines) that would otherwise be hidden
+ * because they aren't reachable through `getSlideLayoutPlaceholders`.
+ *
+ * Placeholders are excluded — they're better rendered through the
+ * slide's own placeholder bounds (which already cascade through the
+ * layout). Picture and group shapes are omitted; their bytes / nested
+ * children would need the layout's relationship table to resolve.
+ */
+export const getSlideLayoutBackgroundShapes = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): ReadonlyArray<SlideLayoutBackgroundShape> => {
+  const theme = getPresentationTheme(pres);
+  const out: SlideLayoutBackgroundShape[] = [];
+  for (const shape of layout[LAYOUT_PART].shapes) {
+    if (shape.placeholderType !== null || shape.placeholderIdx !== null) continue;
+    if (shape.kind !== 'shape' && shape.kind !== 'connector') continue;
+    const el = shape.element;
+    const pos = readPosition(el, shape.kind);
+    const size = readSize(el, shape.kind);
+    const bounds: ShapeBounds | null =
+      pos !== null && size !== null
+        ? { x: pos.x as Emu, y: pos.y as Emu, w: size.w as Emu, h: size.h as Emu }
+        : null;
+    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
+    let preset: string | null = null;
+    let fillHex: string | null = null;
+    let strokeHex: string | null = null;
+    let strokeWidthEmu: number | null = null;
+    if (spPr) {
+      const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));
+      if (prstGeom) preset = getAttrValue(prstGeom, qname('', 'prst', ''));
+      const solid = firstChildElement(spPr, qname('a', 'solidFill', NS.dml));
+      if (solid) {
+        for (const c of solid.children) {
+          if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+          fillHex = resolveDrawingColor(c, theme);
+          break;
+        }
+      }
+      const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+      if (ln) {
+        const w = getAttrValue(ln, qname('', 'w', ''));
+        if (w !== null) {
+          const n = Number.parseInt(w, 10);
+          if (Number.isFinite(n)) strokeWidthEmu = n;
+        }
+        const lnSolid = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
+        if (lnSolid) {
+          for (const c of lnSolid.children) {
+            if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+            strokeHex = resolveDrawingColor(c, theme);
+            break;
+          }
+        }
+      }
+    }
+    const rotation = readRotation(el, shape.kind);
+    const flip = readFlip(el, shape.kind) ?? { horizontal: false, vertical: false };
+    out.push({
+      kind: shape.kind,
+      bounds,
+      preset,
+      fillHex,
+      strokeHex,
+      strokeWidthEmu,
+      rotation,
+      flip,
+    });
+  }
+  return out;
+};
+
+/**
  * Reads the slide layout's background. Same discriminated union as
  * `getSlideBackground` for slides — renderers fall back to this when
  * the slide's own background reports `'inherit'`. Walking one further
