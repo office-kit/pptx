@@ -2415,10 +2415,20 @@ interface AxisSpec {
   readonly orientation: 'vertical' | 'horizontal';
   readonly min: number;
   readonly max: number;
+  readonly majorUnit?: number;
 }
 
 const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
-  const ticks = niceTicks(axis.min, axis.max);
+  // Honour the authored majorUnit when present; otherwise let niceTicks
+  // pick. Renders one tick at each multiple of majorUnit within the range.
+  const ticks: number[] = axis.majorUnit
+    ? (() => {
+        const out: number[] = [];
+        const start = Math.ceil(axis.min / axis.majorUnit) * axis.majorUnit;
+        for (let t = start; t <= axis.max + 1e-9; t += axis.majorUnit) out.push(t);
+        return out.length > 0 ? out : niceTicks(axis.min, axis.max);
+      })()
+    : niceTicks(axis.min, axis.max);
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
   for (const t of ticks) {
@@ -3157,10 +3167,11 @@ const renderChart = (
   if (isCartesian) {
     const { min, max } = seriesMinMax(spec);
     const N = pointCount(spec);
+    const majorUnit = spec.valueAxis?.majorUnit;
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
-        ? { orientation: 'horizontal', min, max }
-        : { orientation: 'vertical', min, max };
+        ? { orientation: 'horizontal', min, max, ...(majorUnit !== undefined ? { majorUnit } : {}) }
+        : { orientation: 'vertical', min, max, ...(majorUnit !== undefined ? { majorUnit } : {}) };
     axes = renderValueAxis(f, valueAxis);
     if (N > 0) {
       axes += renderCategoryAxis(
