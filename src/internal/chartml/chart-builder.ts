@@ -130,9 +130,17 @@ const catAxis = (spec: ChartSpec): XmlElement => {
 };
 
 const valAxis = (spec: ChartSpec): XmlElement => {
-  const scalingChildren: XmlElement[] = [valNode(c('orientation'), 'minMax')];
+  // <c:scaling> ordering matters: logBase, orientation, min, max.
+  const scalingChildren: XmlElement[] = [];
   if (spec.valueAxis?.logBase !== undefined) {
     scalingChildren.push(valNode(c('logBase'), spec.valueAxis.logBase));
+  }
+  scalingChildren.push(valNode(c('orientation'), 'minMax'));
+  if (spec.valueAxis?.min !== undefined) {
+    scalingChildren.push(valNode(c('min'), spec.valueAxis.min));
+  }
+  if (spec.valueAxis?.max !== undefined) {
+    scalingChildren.push(valNode(c('max'), spec.valueAxis.max));
   }
   const children: XmlElement[] = [
     valNode(c('axId'), VAL_AX_ID),
@@ -140,10 +148,26 @@ const valAxis = (spec: ChartSpec): XmlElement => {
     valNode(c('delete'), '0'),
     valNode(c('axPos'), 'l'),
   ];
+  if (spec.valueAxis?.numberFormat !== undefined) {
+    children.push(
+      elem(c('numFmt'), {
+        attrs: [
+          attr(qname('', 'formatCode', ''), spec.valueAxis.numberFormat),
+          attr(qname('', 'sourceLinked', ''), '0'),
+        ],
+      }),
+    );
+  }
   if (spec.valueAxisMajorTickMark !== undefined) {
     children.push(valNode(c('majorTickMark'), spec.valueAxisMajorTickMark));
   }
   children.push(valNode(c('crossAx'), CAT_AX_ID));
+  if (spec.valueAxis?.majorUnit !== undefined) {
+    children.push(valNode(c('majorUnit'), spec.valueAxis.majorUnit));
+  }
+  if (spec.valueAxis?.minorUnit !== undefined) {
+    children.push(valNode(c('minorUnit'), spec.valueAxis.minorUnit));
+  }
   if (spec.valueAxis?.displayUnits !== undefined) {
     children.push(
       elem(c('dispUnits'), {
