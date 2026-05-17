@@ -8,6 +8,7 @@
   import {
     getCoreProperties,
     getShapeKind,
+    getSlideNotes,
     getSlideShapes,
     getSlideTitle,
     getSlides,
@@ -24,6 +25,7 @@
     textLength: number;
     shapeKinds: string[];
     svg: string;
+    notes: string | null;
   };
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
@@ -56,6 +58,7 @@
         textLength: getSlideTextLength(slide),
         shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
         svg: renderSlideSvg(pres, slide),
+        notes: getSlideNotes(slide),
       }));
 
       parts = listPackageParts(pres)
@@ -197,6 +200,12 @@
                 <code>{k}</code>
               {/each}
             </p>
+          {/if}
+          {#if s.notes}
+            <details class="s-notes">
+              <summary>speaker notes ({s.notes.length} chars)</summary>
+              <pre>{s.notes}</pre>
+            </details>
           {/if}
         </li>
       {/each}
@@ -467,6 +476,28 @@
   .s-kinds code {
     font-size: 11px;
     padding: 0.1em 0.45em;
+  }
+
+  .s-notes {
+    margin: 0.55rem 0 0;
+    font-size: 0.85rem;
+    color: var(--muted, #4b5563);
+  }
+
+  .s-notes summary {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .s-notes pre {
+    margin: 0.4rem 0 0;
+    padding: 0.5rem 0.7rem;
+    background: var(--panel, #f8fafc);
+    border-radius: 4px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    font-size: inherit;
   }
 
   .parts {
