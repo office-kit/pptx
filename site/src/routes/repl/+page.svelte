@@ -3,6 +3,10 @@
   import { onMount } from 'svelte';
   import * as kit from 'pptx-kit';
   import { renderSlideSvg } from '$lib/playground/render-slide';
+  import { EditorState } from '@codemirror/state';
+  import { EditorView, basicSetup } from 'codemirror';
+  import { javascript } from '@codemirror/lang-javascript';
+  import { oneDark } from '@codemirror/theme-one-dark';
 
   // Default snippet — touches the most-used corners of the API so a
   // brand-new visitor sees a non-trivial deck immediately.
@@ -71,15 +75,65 @@ setShapeFill(star, '#FFD966');
   let busy = $state<boolean>(false);
   let blankBytes: Uint8Array | null = null;
 
-  onMount(async () => {
-    try {
-      const res = await fetch(`${base}/blank.pptx`);
-      blankBytes = new Uint8Array(await res.arrayBuffer());
-      await run();
-    } catch (err) {
-      error = `Failed to load blank template: ${err instanceof Error ? err.message : String(err)}`;
+  // CodeMirror instance — created on mount, replaces the
+  // <textarea> from the previous version. We mirror its document
+  // into the `code` state on every change so the existing $effect
+  // / debounce / runner logic stays untouched.
+  let editorContainer: HTMLDivElement | undefined = $state();
+  let view: EditorView | null = null;
+
+  // onMount must return its cleanup synchronously, but loading the
+  // blank template + first compile are async — kick those off in a
+  // detached IIFE and return the editor cleanup synchronously.
+  onMount(() => {
+    if (editorContainer) {
+      view = new EditorView({
+        state: EditorState.create({
+          doc: code,
+          extensions: [
+            basicSetup,
+            javascript({ typescript: true }),
+            oneDark,
+            EditorView.theme({
+              '&': { height: '100%', fontSize: '13px' },
+              '.cm-scroller': { fontFamily: "var(--mono)", overflow: 'auto' },
+            }),
+            EditorView.updateListener.of((update) => {
+              if (update.docChanged) {
+                code = update.state.doc.toString();
+              }
+            }),
+          ],
+        }),
+        parent: editorContainer,
+      });
     }
+    void (async () => {
+      try {
+        const res = await fetch(`${base}/blank.pptx`);
+        blankBytes = new Uint8Array(await res.arrayBuffer());
+        await run();
+      } catch (err) {
+        error = `Failed to load blank template: ${err instanceof Error ? err.message : String(err)}`;
+      }
+    })();
+    return () => {
+      view?.destroy();
+      view = null;
+    };
   });
+
+  // External setters (Reset button) push a fresh document into
+  // CodeMirror via a transaction. Without this the in-state `code`
+  // would update but the visible editor would be stale.
+  function setEditorText(next: string) {
+    code = next;
+    if (view) {
+      view.dispatch({
+        changes: { from: 0, to: view.state.doc.length, insert: next },
+      });
+    }
+  }
 
   let runTimer: ReturnType<typeof setTimeout> | null = null;
   $effect(() => {
@@ -152,7 +206,7 @@ setShapeFill(star, '#FFD966');
   }
 
   function resetCode() {
-    code = DEFAULT_CODE;
+    setEditorText(DEFAULT_CODE);
   }
 </script>
 
@@ -181,13 +235,7 @@ setShapeFill(star, '#FFD966');
           <button type="button" onclick={copyCode}>Copy</button>
         </div>
       </div>
-      <textarea
-        class="editor"
-        bind:value={code}
-        spellcheck="false"
-        autocapitalize="off"
-        autocomplete="off"
-      ></textarea>
+      <div class="editor" bind:this={editorContainer}></div>
       {#if error}
         <pre class="error">{error}</pre>
       {/if}
@@ -352,16 +400,23 @@ setShapeFill(star, '#FFD966');
     flex: 1;
     min-height: 50vh;
     width: 100%;
-    border: none;
+    overflow: hidden;
+    background: #282c34; /* matches CodeMirror one-dark base */
+  }
+
+  /* CodeMirror lives inside .editor; let it claim full height and
+   * stretch the gutter to the panel's background colour. */
+  .editor :global(.cm-editor) {
+    height: 100%;
+  }
+
+  .editor :global(.cm-editor.cm-focused) {
     outline: none;
-    resize: vertical;
-    padding: 0.85rem 1rem;
-    background: var(--code-bg);
-    color: var(--fg);
-    font-family: var(--mono);
-    font-size: 13px;
-    line-height: 1.55;
-    tab-size: 2;
+  }
+
+  .editor :global(.cm-gutters) {
+    background: #21252b;
+    border-right-color: rgba(255, 255, 255, 0.06);
   }
 
   .error {
