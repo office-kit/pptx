@@ -17,6 +17,7 @@
     getSlideComments,
     getSlideLayout,
     getSlideIndex,
+    getSlideLayoutName,
     getSlideLayoutType,
     getSlideNotes,
     getSlideSections,
@@ -46,6 +47,7 @@
     commentCount: number;
     commentTexts: string;
     layoutType: string | null;
+    layoutName: string | null;
     chartCount: number;
     mediaCount: number;
   };
@@ -95,6 +97,7 @@
       slides = list.map((slide, i) => {
         const layout = getSlideLayout(slide);
         const layoutType = layout ? getSlideLayoutType(layout) : null;
+        const layoutName = layout ? getSlideLayoutName(layout) : null;
         return {
           index: i + 1,
           title: getSlideTitle(slide) ?? '',
@@ -111,6 +114,7 @@
             .filter((t) => t.length > 0)
             .join('\n'),
           layoutType,
+          layoutName,
           chartCount: getSlideCharts(slide).length,
           mediaCount: getSlideMediaPartNames(pres, slide).length,
         };
@@ -288,7 +292,7 @@
           <div class="s-head">
             <a class="s-num" href={`#slide-${s.index}`} title="copy link to this slide">{String(s.index).padStart(2, '0')}</a>
             <span class="s-title">{s.title || '(untitled)'}</span>
-            {#if s.layoutType}<span class="s-badge" title="slide layout type from <p:sldLayout type=…>">{s.layoutType}</span>{/if}
+            {#if s.layoutType}<span class="s-badge" title={s.layoutName ? `layout: ${s.layoutName} (type: ${s.layoutType})` : `slide layout type: ${s.layoutType}`}>{s.layoutType}</span>{/if}
             {#if s.hidden}<span class="s-badge s-badge-hidden" title='show="0" — hidden from slideshow'>hidden</span>{/if}
             {#if s.hasTransition}<span class="s-badge" title="slide carries <p:transition>">trans</span>{/if}
             {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
