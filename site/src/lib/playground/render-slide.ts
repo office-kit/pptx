@@ -45,6 +45,7 @@ import {
   getShapeRunText,
   getShapeStroke,
   getShapeTextAnchor,
+  getShapeTextAutoFitParams,
   getShapeTextMargins,
   getGroupChildren,
   getGroupTransform,
@@ -89,14 +90,14 @@ const EMU_PER_PX = 9525;
 // CSS px per typographic point.
 const PX_PER_PT = 96 / 72;
 
-// Conservative defaults — pptx-kit doesn't walk the lstStyle / master
-// cascade to find the real default size, so we err on the small side
-// to avoid the rendered text overflowing tight placeholders. PowerPoint
-// real defaults are 44pt title / 28pt body; we'd clip many titles at
-// those sizes since the placeholder height comes from the master,
-// which expects autofit.
-const DEFAULT_BODY_PT = 14;
-const DEFAULT_TITLE_PT = 26;
+// PowerPoint's stock master defaults — we now honour
+// `<a:normAutofit fontScale=…>` when it's set on the shape's text
+// body, so the title can claim its full 44pt size without
+// auto-shrinking blindly. A heuristic autofit still kicks in only
+// when neither an explicit normAutofit nor a small enough authored
+// size keeps the text inside the placeholder.
+const DEFAULT_BODY_PT = 18;
+const DEFAULT_TITLE_PT = 44;
 // Single quotes only — these strings are emitted into `style="..."`
 // attributes, so any embedded double quote would close the attribute
 // early and silently drop every property after it (notably `color:`,
@@ -1328,10 +1329,15 @@ const ANCHOR_TO_CSS: Record<string, string> = {
   bottom: 'flex-end',
 };
 
+// PowerPoint's stock master defaults per placeholder type. Used when
+// the run has no `<a:rPr sz=…>` of its own — pptx-kit doesn't walk
+// the lstStyle cascade to find the resolved size, so we mirror the
+// well-known master defaults here.
 const placeholderDefaultPt = (phType: string | null): number => {
-  if (phType === 'title' || phType === 'ctrTitle') return DEFAULT_TITLE_PT;
-  if (phType === 'subTitle') return 24;
-  return DEFAULT_BODY_PT;
+  if (phType === 'title' || phType === 'ctrTitle') return DEFAULT_TITLE_PT; // 44pt
+  if (phType === 'subTitle') return 32;
+  if (phType === 'ftr' || phType === 'dt' || phType === 'sldNum') return 12;
+  return DEFAULT_BODY_PT; // 18pt
 };
 
 const bulletChar = (level: number): string =>
@@ -1446,33 +1452,58 @@ const renderTextBody = (
   }
   if (!hasAnyText) return '';
 
-  // Autofit estimator: for each paragraph, take the biggest run font
-  // size and estimate how many wrapped lines the paragraph needs.
-  // Sum the heights, compare to innerH, and scale down everything in
-  // lockstep when overflowing. PowerPoint's `<a:normAutofit>` does
-  // essentially this; we apply it unconditionally because pptx-kit
-  // doesn't surface the autofit metadata and most real placeholders
-  // are sized assuming autofit.
-  const innerWPx = innerW / EMU_PER_PX;
-  const innerHPx = innerH / EMU_PER_PX;
-  let totalH = 0;
-  for (const para of paraData) {
-    let maxSize = defaultPt;
-    let totalChars = 0;
-    for (const run of para.runs) {
-      if (run.sizePt > maxSize) maxSize = run.sizePt;
-      totalChars += run.text.length;
+  // Prefer the *authored* autofit factor when PowerPoint already
+  // computed one (`<a:normAutofit fontScale=…/>`). That's the same
+  // multiplier PowerPoint applies on-screen, so honouring it is what
+  // brings the rendered size into 1:1 agreement with the deck.
+  const authoredAutofit = getShapeTextAutoFitParams(shape);
+  let autoFitScale = authoredAutofit?.fontScale ?? 1;
+  let lineHeightScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
+
+  // Only fall back to the heuristic estimator when no authored
+  // autofit ran. CJK glyphs are ~1em wide vs the ~0.55em Latin
+  // average, so detect a leading CJK character per paragraph and
+  // widen the per-line estimate accordingly — keeps Japanese titles
+  // from over-shrinking on placeholders that already fit.
+  if (!authoredAutofit) {
+    const innerWPx = innerW / EMU_PER_PX;
+    const innerHPx = innerH / EMU_PER_PX;
+    let totalH = 0;
+    for (const para of paraData) {
+      let maxSize = defaultPt;
+      let totalChars = 0;
+      let cjkChars = 0;
+      for (const run of para.runs) {
+        if (run.sizePt > maxSize) maxSize = run.sizePt;
+        totalChars += run.text.length;
+        for (let i = 0; i < run.text.length; i++) {
+          const c = run.text.charCodeAt(i);
+          // CJK Unified Ideographs, Hiragana, Katakana, Hangul.
+          if (
+            (c >= 0x3040 && c <= 0x309f) ||
+            (c >= 0x30a0 && c <= 0x30ff) ||
+            (c >= 0x4e00 && c <= 0x9fff) ||
+            (c >= 0xac00 && c <= 0xd7af)
+          ) cjkChars++;
+        }
+      }
+      if (totalChars === 0) totalChars = 1;
+      const cjkRatio = cjkChars / totalChars;
+      // Weighted average: CJK glyphs ≈ 1.0em wide, Latin ≈ 0.55em.
+      const glyphRatio = cjkRatio * 1.0 + (1 - cjkRatio) * AVG_GLYPH_W_RATIO;
+      const sizePx = maxSize * PX_PER_PT;
+      const charsPerLine = Math.max(1, Math.floor(innerWPx / Math.max(1, sizePx * glyphRatio)));
+      const lineCount = Math.max(1, Math.ceil(totalChars / charsPerLine));
+      totalH += sizePx * LINE_HEIGHT * lineCount;
     }
-    if (totalChars === 0) totalChars = 1;
-    const sizePx = maxSize * PX_PER_PT;
-    const charsPerLine = Math.max(1, Math.floor(innerWPx / Math.max(1, sizePx * AVG_GLYPH_W_RATIO)));
-    const lineCount = Math.max(1, Math.ceil(totalChars / charsPerLine));
-    totalH += sizePx * LINE_HEIGHT * lineCount;
+    if (totalH > innerHPx) {
+      autoFitScale = Math.max(0.4, innerHPx / totalH);
+    }
   }
-  // Apply scale only on overflow — never enlarge text the user authored
-  // smaller. 0.4 floor stops us from collapsing to unreadable text on
-  // pathologically tight placeholders.
-  const autoFitScale = totalH > innerHPx ? Math.max(0.4, innerHPx / totalH) : 1;
+  // Apply line-height reduction by tightening per-line spacing. We
+  // pass it through to renderRun via a closed-over factor.
+  const effectiveLineHeight = LINE_HEIGHT * lineHeightScale;
+  void effectiveLineHeight; // currently unused — kept for forward compat
 
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];

@@ -235,6 +235,7 @@ export {
   getShapeStrokeWidth,
   getShapeText,
   getShapeTextAnchor,
+  getShapeTextAutoFitParams,
   getShapeTextAutoFit,
   getShapeTextMargins,
   getShapeTextWrap,

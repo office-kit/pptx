@@ -4133,6 +4133,45 @@ export const getShapeTextAutoFit = (shape: SlideShapeData): TextAutoFit | null =
 };
 
 /**
+ * Reads the scale parameters PowerPoint stores on `<a:normAutofit>`
+ * once it has shrunk a text body to fit. Returns `null` if the body
+ * doesn't carry `<a:normAutofit>` or the attributes are absent. Both
+ * fields are unitless ratios in `[0, 1]`:
+ *
+ *   - `fontScale`     — multiply every run's font size by this. Default `1`.
+ *   - `lnSpcReduction` — subtract from the line-height ratio. Default `0`.
+ *
+ * Companion to `getShapeTextAutoFit`. Renderers that want to match
+ * PowerPoint's actual on-screen text size apply these factors to the
+ * authored font sizes; without them, every long title overflows.
+ */
+export const getShapeTextAutoFitParams = (
+  shape: SlideShapeData,
+): { fontScale: number; lnSpcReduction: number } | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  for (const c of bodyPr.children) {
+    if (
+      c.kind === 'element' &&
+      c.name.namespaceURI === NS.dml &&
+      c.name.localName === 'normAutofit'
+    ) {
+      const fsRaw = getAttrValue(c, qname('', 'fontScale', ''));
+      const lsRaw = getAttrValue(c, qname('', 'lnSpcReduction', ''));
+      const fs = fsRaw === null ? 100_000 : Number.parseInt(fsRaw, 10);
+      const ls = lsRaw === null ? 0 : Number.parseInt(lsRaw, 10);
+      return {
+        fontScale: Number.isFinite(fs) ? fs / 100_000 : 1,
+        lnSpcReduction: Number.isFinite(ls) ? ls / 100_000 : 0,
+      };
+    }
+  }
+  return null;
+};
+
+/**
  * Reads back the vertical text anchor on the shape's `<a:bodyPr>`.
  * Maps the ECMA-376 tokens back to the public union:
  *
