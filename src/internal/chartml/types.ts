@@ -29,6 +29,12 @@ export interface ChartSeries {
    * single-series-color default.
    */
   readonly pointColors?: ReadonlyArray<string | null>;
+  /**
+   * Line-smoothing toggle (`<c:smooth val="1"/>`) — only meaningful for
+   * line / scatter / area series. When `true`, the renderer interpolates
+   * a smooth curve through the data points instead of straight segments.
+   */
+  readonly smooth?: boolean;
 }
 
 /**

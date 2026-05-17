@@ -2620,6 +2620,31 @@ const renderColumnChart = (
   return out.join('');
 };
 
+// Emit an SVG path through `pts` with cubic Bézier control points
+// derived from each pair's neighbours (Catmull-Rom-to-Bezier). The
+// `tension` is fixed at 0.5 — close to what PowerPoint's smooth-line
+// preset produces visually.
+const smoothPath = (pts: ReadonlyArray<[number, number]>): string => {
+  if (pts.length < 2) return '';
+  const tension = 0.5;
+  const parts: string[] = [];
+  const [x0, y0] = pts[0]!;
+  parts.push(`M${px(x0)},${px(y0)}`);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [,] = pts[i]!;
+    const p0 = pts[i - 1] ?? pts[i]!;
+    const p1 = pts[i]!;
+    const p2 = pts[i + 1]!;
+    const p3 = pts[i + 2] ?? p2;
+    const cp1x = p1[0] + ((p2[0] - p0[0]) * tension) / 3;
+    const cp1y = p1[1] + ((p2[1] - p0[1]) * tension) / 3;
+    const cp2x = p2[0] - ((p3[0] - p1[0]) * tension) / 3;
+    const cp2y = p2[1] - ((p3[1] - p1[1]) * tension) / 3;
+    parts.push(`C${px(cp1x)},${px(cp1y)} ${px(cp2x)},${px(cp2y)} ${px(p2[0])},${px(p2[1])}`);
+  }
+  return parts.join(' ');
+};
+
 // Trim long decimals; large numbers keep their integer form.
 const formatChartValue = (v: number): string => {
   if (!Number.isFinite(v)) return '';
@@ -2781,7 +2806,14 @@ const renderLineChart = (
       basePts.push([xp, yBase]);
       if (isStacked) accumulated[c] = top;
     }
-    const dPath = pts.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
+    // <c:smooth val="1"/> — interpolate a Catmull-Rom-style curve through
+    // the points by emitting cubic Bézier segments with control points
+    // derived from the immediate neighbours. Matches PowerPoint's
+    // "smooth line" visual within reasonable tolerance.
+    const dPath =
+      series.smooth && pts.length > 2
+        ? smoothPath(pts)
+        : pts.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
     if (fill) {
       // Walk back along the baseline (or the previous series's top for
       // stacked) to close the area.

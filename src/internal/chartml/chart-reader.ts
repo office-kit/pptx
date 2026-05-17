@@ -285,11 +285,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const color = readSeriesColor(ser);
     // <c:dPt> data-point overrides — sparse map idx → color.
     const pointColors = readDataPointColors(ser);
+    // <c:smooth val="1"/> — line / area / scatter only.
+    const smoothEl = firstChildElement(ser, qname('c', 'smooth', NS_C));
+    const smooth = smoothEl !== null && getAttrValue(smoothEl, ATTR_VAL) !== '0';
     series.push({
       name,
       values: values ?? [],
       ...(color !== undefined ? { color } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
+      ...(smoothEl !== null ? { smooth } : {}),
     });
   }
 
