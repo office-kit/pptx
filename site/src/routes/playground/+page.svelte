@@ -281,7 +281,7 @@
         {/if}
         <li id={`slide-${s.index}`}>
           <div class="s-head">
-            <span class="s-num">{String(s.index).padStart(2, '0')}</span>
+            <a class="s-num" href={`#slide-${s.index}`} title="copy link to this slide">{String(s.index).padStart(2, '0')}</a>
             <span class="s-title">{s.title || '(untitled)'}</span>
             {#if s.layoutType}<span class="s-badge" title="slide layout type from <p:sldLayout type=…>">{s.layoutType}</span>{/if}
             {#if s.hidden}<span class="s-badge s-badge-hidden" title='show="0" — hidden from slideshow'>hidden</span>{/if}
@@ -536,6 +536,11 @@
     font-size: 11.5px;
     color: var(--accent);
     font-weight: 500;
+    text-decoration: none;
+  }
+
+  .s-num:hover {
+    text-decoration: underline;
   }
 
   .s-title {
