@@ -205,6 +205,28 @@ export interface ChartAxisScaling {
    * mapping to plot coordinates. Linear when omitted.
    */
   readonly logBase?: number;
+  /**
+   * Authored display-units scale from `<c:dispUnits><c:builtInUnit val="…"/>`.
+   * Token values map to divisors:
+   *
+   *   - `'hundreds'` (100), `'thousands'` (1e3), `'tenThousands'` (1e4),
+   *     `'hundredThousands'` (1e5), `'millions'` (1e6),
+   *     `'tenMillions'` (1e7), `'hundredMillions'` (1e8),
+   *     `'billions'` (1e9), `'trillions'` (1e12)
+   *
+   * Renderers divide axis labels by the divisor and may append a unit
+   * suffix ("K", "M", "B") for readability.
+   */
+  readonly displayUnits?:
+    | 'hundreds'
+    | 'thousands'
+    | 'tenThousands'
+    | 'hundredThousands'
+    | 'millions'
+    | 'tenMillions'
+    | 'hundredMillions'
+    | 'billions'
+    | 'trillions';
 }
 
 /**

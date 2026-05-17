@@ -2612,7 +2612,30 @@ interface AxisSpec {
   readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Authored tick-label rotation, in degrees. */
   readonly labelRotationDeg?: number;
+  /** Authored `<c:dispUnits>` value-axis scale token. */
+  readonly displayUnits?:
+    | 'hundreds'
+    | 'thousands'
+    | 'tenThousands'
+    | 'hundredThousands'
+    | 'millions'
+    | 'tenMillions'
+    | 'hundredMillions'
+    | 'billions'
+    | 'trillions';
 }
+
+const DISPLAY_UNIT_DIVISOR: Record<NonNullable<AxisSpec['displayUnits']>, number> = {
+  hundreds: 1e2,
+  thousands: 1e3,
+  tenThousands: 1e4,
+  hundredThousands: 1e5,
+  millions: 1e6,
+  tenMillions: 1e7,
+  hundredMillions: 1e8,
+  billions: 1e9,
+  trillions: 1e12,
+};
 
 // Builds the `font-family / font-size / fill / weight` SVG attribute
 // string for axis tick labels. Defaults match PowerPoint's stock 10pt
@@ -2671,7 +2694,12 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rot = axis.labelRotationDeg ?? 0;
       const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
-        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
+        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(
+          formatAxisLabel(
+            axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
+            axis.numberFormat,
+          ),
+        )}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -2693,7 +2721,12 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rotH = axis.labelRotationDeg ?? 0;
       const transformH = rotH ? ` transform="rotate(${rotH} ${px(xp)} ${px(horizLabelY)})"` : '';
       out.push(
-        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
+        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(
+          formatAxisLabel(
+            axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
+            axis.numberFormat,
+          ),
+        )}</text>`,
       );
     }
   }
@@ -3760,6 +3793,9 @@ const renderChart = (
         : {}),
       ...(spec.valueAxisLabelRotationDeg !== undefined
         ? { labelRotationDeg: spec.valueAxisLabelRotationDeg }
+        : {}),
+      ...(spec.valueAxis?.displayUnits !== undefined
+        ? { displayUnits: spec.valueAxis.displayUnits }
         : {}),
     };
     const valueAxis: AxisSpec =
