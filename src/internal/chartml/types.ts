@@ -58,6 +58,12 @@ export interface ChartSeries {
    */
   readonly markerSizePt?: number;
   /**
+   * Invert the series color for negative values (bar / column charts).
+   * Mirrors `<c:ser><c:invertIfNegative val="1"/>`. Renderers typically
+   * paint the negative bars in the inverted shade of the series color.
+   */
+  readonly invertIfNegative?: boolean;
+  /**
    * Optional per-data-point color overrides, indexed by point index
    * (`<c:dPt><c:idx val="N"/><c:spPr><a:solidFill>…`). Sparse — only
    * the indices that author an override appear. Pie / doughnut decks
