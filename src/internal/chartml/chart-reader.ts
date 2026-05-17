@@ -457,6 +457,21 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // Axis titles — <c:catAx><c:title> and <c:valAx><c:title>. Both
+  // use the same rich-text container as the chart title, so reuse
+  // readTitle's projection.
+  let categoryAxisTitle: string | undefined;
+  let valueAxisTitle: string | undefined;
+  const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
+  if (catAx) {
+    const t = readTitle(catAx);
+    if (t !== undefined) categoryAxisTitle = t;
+  }
+  if (valAx) {
+    const t = readTitle(valAx);
+    if (t !== undefined) valueAxisTitle = t;
+  }
+
   // <c:legend> sits on the chart element (not the plotArea). Read the
   // position; PowerPoint defaults to 'r' (right) when the element is
   // present but has no legendPos. Absent legend element means renderers
@@ -508,6 +523,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),
+    ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
+    ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };
