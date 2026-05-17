@@ -173,6 +173,7 @@ export {
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
+  getParagraphPropertiesEffective,
   getParagraphSpacing,
   getShapeAdjustValues,
   getShapeAltTitle,
@@ -434,7 +435,7 @@ export {
 } from './fn.ts';
 
 export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';
-export type { ShapeParagraphElement } from './fn.ts';
+export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
 export type {
   PresetShape,
   TransitionEffect,

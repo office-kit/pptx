@@ -27,6 +27,7 @@ import {
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
+  getParagraphPropertiesEffective,
   getParagraphSpacing,
   getPresentationTheme,
   getShapeBoundsResolved,
@@ -1841,8 +1842,28 @@ const renderTextBody = (
   const paraData: ParaData[] = [];
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
-    const align = getParagraphAlignment(shape, p) ?? 'left';
-    const level = getParagraphLevel(shape, p);
+    // Resolve paragraph properties through the layout/master cascade so
+    // placeholders inherit their default alignment / line-spacing / indent
+    // without each slide having to repeat them. Fall back to the literal
+    // readers if the cascade throws (very defensive — should never happen).
+    let effective: ReturnType<typeof getParagraphPropertiesEffective>;
+    try {
+      effective = getParagraphPropertiesEffective(pres, shape, p);
+    } catch {
+      effective = {
+        align: getParagraphAlignment(shape, p),
+        level: getParagraphLevel(shape, p),
+        marL: null,
+        marR: null,
+        indent: null,
+        lineSpacing: null,
+        spcBefPts: null,
+        spcAftPts: null,
+        rtl: null,
+      };
+    }
+    const align = effective.align ?? 'left';
+    const level = effective.level;
     const bulletStyle = getParagraphBullet(shape, p);
     let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
       color: null,
@@ -1853,24 +1874,26 @@ const renderTextBody = (
     try {
       bulletDetail = getParagraphBulletStyle(pres, shape, p);
     } catch {}
-    let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
-    let spcBefPts: number | null = null;
-    let spcAftPts: number | null = null;
-    let indent: ReturnType<typeof getParagraphIndent> = {
-      leftEmu: null,
-      rightEmu: null,
-      firstLineEmu: null,
+    const lineSpacing: ReturnType<typeof getParagraphLineSpacing> = effective.lineSpacing;
+    let spcBefPts: number | null = effective.spcBefPts;
+    let spcAftPts: number | null = effective.spcAftPts;
+    const indent: ReturnType<typeof getParagraphIndent> = {
+      leftEmu: effective.marL,
+      rightEmu: effective.marR,
+      firstLineEmu: effective.indent,
     };
-    try {
-      lineSpacing = getParagraphLineSpacing(shape, p);
-    } catch {}
+    // Literal pPr values override the cascade so any per-slide override
+    // wins on this paragraph.
     try {
       const spacing = getParagraphSpacing(shape, p);
-      spcBefPts = spacing.beforePts;
-      spcAftPts = spacing.afterPts;
+      if (spacing.beforePts !== null) spcBefPts = spacing.beforePts;
+      if (spacing.afterPts !== null) spcAftPts = spacing.afterPts;
     } catch {}
     try {
-      indent = getParagraphIndent(shape, p);
+      const lit = getParagraphIndent(shape, p);
+      if (lit.leftEmu !== null) indent.leftEmu = lit.leftEmu;
+      if (lit.rightEmu !== null) indent.rightEmu = lit.rightEmu;
+      if (lit.firstLineEmu !== null) indent.firstLineEmu = lit.firstLineEmu;
     } catch {}
     const runs: RunData[] = [];
     // Walk the paragraph's inline elements — runs, field placeholders,
