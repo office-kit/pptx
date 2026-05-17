@@ -182,7 +182,7 @@
     <h2>Slides</h2>
     <ol class="slides">
       {#each slides as s (s.index)}
-        <li>
+        <li id={`slide-${s.index}`}>
           <div class="s-head">
             <span class="s-num">{String(s.index).padStart(2, '0')}</span>
             <span class="s-title">{s.title || '(untitled)'}</span>

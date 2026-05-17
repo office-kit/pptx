@@ -44,6 +44,7 @@ import {
   getShapeBodyPrEffective,
   getShapeChartKind,
   getShapeChartSpec,
+  getShapeClickAction,
   getShapeHyperlink,
   getShapeTextColumns,
   getShapeTextBodyRotationDeg,
@@ -90,6 +91,7 @@ import {
   getSlideMasterBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideBackgroundPatternFill,
+  getSlideIndex,
   getSlideLayout,
   getSlideLayoutBackground,
   getSlideLayoutBackgroundImageBytes,
@@ -4410,14 +4412,33 @@ const renderShape = (
   // and react badly to feGaussianBlur (DOM gets rasterized).
   geomSvg = `<g${filterAttr}>${geomSvg}</g>`;
 
-  // B6 — Shape-level hyperlinks. Wrap the rendered shape in an SVG
-  // <a href> so the playground preview is clickable, matching the
-  // PowerPoint slideshow's behavior. Per-run hyperlinks live on the
-  // text body and are handled by renderRun separately.
+  // B6 — Shape-level hyperlinks + slide-jump click actions. Wrap the
+  // rendered shape in an SVG <a href> so the playground preview is
+  // clickable, matching the PowerPoint slideshow's behavior. Per-run
+  // hyperlinks live on the text body and are handled by renderRun
+  // separately.
   const url = getShapeHyperlink(shape);
   const inner = `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
-  if (url)
+  if (url) {
     return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+  }
+  // Slide-jump click actions resolve to a hash anchor — the playground
+  // gives each <li> an id="slide-N" so the browser jumps in-page.
+  const action = getShapeClickAction(shape);
+  if (action) {
+    let href: string | null = null;
+    if (action.kind === 'slide') {
+      const idx = getSlideIndex(pres, action.slide);
+      if (idx >= 0) href = `#slide-${idx + 1}`;
+    } else if (action.kind === 'url') {
+      href = action.url;
+    }
+    if (href !== null) {
+      const isInPage = href.startsWith('#');
+      const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
+      return `<a href="${escapeXml(href)}"${targetAttrs}>${inner}</a>`;
+    }
+  }
   return inner;
 };
 
