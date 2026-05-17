@@ -51,6 +51,7 @@ import {
   getShapeImageBytes,
   getShapeImageContrast,
   getShapeImageCrop,
+  getShapeImageDuotone,
   getShapeImageFillBytes,
   getShapeImageOpacity,
   getShapeImagePartName,
@@ -204,6 +205,7 @@ const mimeFromPartName = (name: string | null): string | null => {
 // label tells the user what's there.
 const renderPicture = (
   shape: SlideShapeData,
+  pres: PresentationData,
   x: number,
   y: number,
   w: number,
@@ -259,8 +261,15 @@ const renderPicture = (
     const opacity = getShapeImageOpacity(shape) ?? 1;
     const grayscale = isShapeImageGrayscale(shape);
     const biLevel = getShapeImageBiLevelThreshold(shape);
+    const duotone = getShapeImageDuotone(pres, shape);
     let filterAttr = '';
-    if (brightness !== 0 || contrast !== 1 || grayscale || biLevel !== null) {
+    if (
+      brightness !== 0 ||
+      contrast !== 1 ||
+      grayscale ||
+      biLevel !== null ||
+      (duotone && (duotone.firstColor || duotone.secondColor))
+    ) {
       // SVG filter pipeline: contrast/brightness (linear), then optional
       // grayscale (luminance matrix), then optional biLevel two-tone
       // (discrete table that snaps each channel to 0 or 1 at thresh).
@@ -275,6 +284,28 @@ const renderPicture = (
         // Luminance-preserving desaturation matrix.
         prims.push(
           `<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>`,
+        );
+      }
+      if (duotone && duotone.firstColor && duotone.secondColor) {
+        // Duotone: gray → lerp(firstColor, secondColor, gray). We emit
+        // a feColorMatrix that desaturates first (Rec. 709 luminance),
+        // then a feComponentTransfer with tableValues sampling the
+        // gradient between the two colors.
+        const [r1, g1, b1] = hexChannels(duotone.firstColor);
+        const [r2, g2, b2] = hexChannels(duotone.secondColor);
+        const steps = 16;
+        const tR: string[] = [];
+        const tG: string[] = [];
+        const tB: string[] = [];
+        for (let i = 0; i < steps; i++) {
+          const t = i / (steps - 1);
+          tR.push(((r1 + (r2 - r1) * t) / 255).toFixed(4));
+          tG.push(((g1 + (g2 - g1) * t) / 255).toFixed(4));
+          tB.push(((b1 + (b2 - b1) * t) / 255).toFixed(4));
+        }
+        prims.push(
+          `<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>`,
+          `<feComponentTransfer><feFuncR type="table" tableValues="${tR.join(' ')}"/><feFuncG type="table" tableValues="${tG.join(' ')}"/><feFuncB type="table" tableValues="${tB.join(' ')}"/></feComponentTransfer>`,
         );
       }
       if (biLevel !== null) {
@@ -357,6 +388,16 @@ const SCHEME_TO_THEME: Record<string, keyof Omit<PresentationTheme, 'name'>> = {
   accent6: 'accent6',
   hlink: 'hyperlink',
   folHlink: 'followedHyperlink',
+};
+
+// Parse `#RRGGBB` (or bare `RRGGBB`) into 0-255 channels.
+const hexChannels = (hex: string): [number, number, number] => {
+  const h = hex.startsWith('#') ? hex.slice(1) : hex;
+  return [
+    Number.parseInt(h.slice(0, 2), 16) || 0,
+    Number.parseInt(h.slice(2, 4), 16) || 0,
+    Number.parseInt(h.slice(4, 6), 16) || 0,
+  ];
 };
 
 // Linearly mix two #RRGGBB colors. `t` = weight of `a` in [0,1].
@@ -3777,6 +3818,7 @@ const renderShape = (
   if (kind === 'picture') {
     return renderPicture(
       shape,
+      pres,
       x,
       y,
       w,
@@ -3795,6 +3837,7 @@ const renderShape = (
   if (kind === 'shape' && fill.kind === 'image') {
     return renderPicture(
       shape,
+      pres,
       x,
       y,
       w,
