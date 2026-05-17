@@ -502,6 +502,18 @@ const readDataLabelPosition = (dLbls: XmlElement): ChartDataLabelPosition | unde
   }
 };
 
+// `<c:dLbls><c:separator>…</c:separator>` — leaf text content; common
+// values are `" "`, `", "`, `"\n"`, `"; "`.
+const readDataLabelSeparator = (dLbls: XmlElement): string | undefined => {
+  const el = firstChildElement(dLbls, qname('c', 'separator', NS_C));
+  if (!el) return undefined;
+  let acc = '';
+  for (const c of el.children) {
+    if (c.kind === 'text' || c.kind === 'cdata') acc += c.data;
+  }
+  return acc.length > 0 ? acc : undefined;
+};
+
 /**
  * Parses a `<c:chartSpace>` element into a typed `ChartSpec`. Throws if
  * the root or any required child is missing. Returns `null` only when
@@ -587,6 +599,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
       }
       const position = readDataLabelPosition(serDLblsEl);
+      const separator = readDataLabelSeparator(serDLblsEl);
       serDataLabels = {
         showValue: readToggle('showVal'),
         showCategory: readToggle('showCatName'),
@@ -594,6 +607,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         showPercent: readToggle('showPercent'),
         ...(numberFormat !== undefined ? { numberFormat } : {}),
         ...(position !== undefined ? { position } : {}),
+        ...(separator !== undefined ? { separator } : {}),
       };
     }
     series.push({
@@ -638,6 +652,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
     }
     const position = readDataLabelPosition(dLbls);
+    const separator = readDataLabelSeparator(dLbls);
     dataLabels = {
       showValue: readToggle('showVal'),
       showCategory: readToggle('showCatName'),
@@ -645,6 +660,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       showPercent: readToggle('showPercent'),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
       ...(position !== undefined ? { position } : {}),
+      ...(separator !== undefined ? { separator } : {}),
     };
   }
 
