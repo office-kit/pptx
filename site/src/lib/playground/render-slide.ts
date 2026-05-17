@@ -2633,22 +2633,82 @@ const formatChartValue = (v: number): string => {
 const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
-  const { min, max } = seriesMinMax(spec);
-  const range = max - min;
+  const grouping = spec.grouping ?? 'clustered';
+  const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
+  const isPercent = grouping === 'percentStacked';
+  let { min, max } = seriesMinMax(spec);
+  if (isStacked) {
+    let sumMin = Infinity;
+    let sumMax = -Infinity;
+    for (let c = 0; c < N; c++) {
+      let pos = 0;
+      let neg = 0;
+      for (const s of spec.series) {
+        const v = s.values[c] ?? 0;
+        if (v >= 0) pos += v;
+        else neg += v;
+      }
+      if (neg < sumMin) sumMin = neg;
+      if (pos > sumMax) sumMax = pos;
+    }
+    min = isPercent ? 0 : Math.min(0, sumMin);
+    max = isPercent ? 1 : Math.max(1, sumMax);
+  }
+  const range = max - min || 1;
   const groupH = f.plotH / N;
-  const barH = (groupH * 0.8) / spec.series.length;
+  const barH = isStacked ? groupH * 0.7 : (groupH * 0.8) / spec.series.length;
   const baseX = f.plotX + ((0 - min) / range) * f.plotW;
+  const showLabel = spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
-    for (let s = 0; s < spec.series.length; s++) {
-      const v = spec.series[s]?.values[c] ?? 0;
-      const y0 = f.plotY + c * groupH + groupH * 0.1 + s * barH;
-      const tip = f.plotX + ((v - min) / range) * f.plotW;
-      const x0 = Math.min(tip, baseX);
-      const w = Math.abs(tip - baseX);
-      out.push(
-        `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
-      );
+    if (isStacked) {
+      let total = 0;
+      if (isPercent) for (const s of spec.series) total += Math.max(0, s.values[c] ?? 0);
+      let posAcc = 0;
+      let negAcc = 0;
+      for (let s = 0; s < spec.series.length; s++) {
+        let v = spec.series[s]?.values[c] ?? 0;
+        if (isPercent) {
+          if (total === 0) continue;
+          v = Math.max(0, v) / total;
+        }
+        const base = v >= 0 ? posAcc : negAcc;
+        const stackedTop = base + v;
+        const y0 = f.plotY + c * groupH + (groupH - barH) / 2;
+        const x0 = f.plotX + ((Math.min(base, stackedTop) - min) / range) * f.plotW;
+        const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
+        const w = Math.abs(x1 - x0);
+        out.push(
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+        );
+        if (showLabel && Math.abs(v) > 0) {
+          const labelX = (x0 + x1) / 2;
+          const labelText = isPercent ? `${Math.round(v * 100)}%` : formatChartValue(v);
+          out.push(
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#FFFFFF" font-weight="600">${labelText}</text>`,
+          );
+        }
+        if (v >= 0) posAcc = stackedTop;
+        else negAcc = stackedTop;
+      }
+    } else {
+      for (let s = 0; s < spec.series.length; s++) {
+        const v = spec.series[s]?.values[c] ?? 0;
+        const y0 = f.plotY + c * groupH + groupH * 0.1 + s * barH;
+        const tip = f.plotX + ((v - min) / range) * f.plotW;
+        const x0 = Math.min(tip, baseX);
+        const w = Math.abs(tip - baseX);
+        out.push(
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+        );
+        if (showLabel) {
+          const labelX = v >= 0 ? x0 + w + 2 : x0 - 2;
+          const anchor = v >= 0 ? 'start' : 'end';
+          out.push(
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
+          );
+        }
+      }
     }
   }
   out.push(
@@ -2665,36 +2725,81 @@ const renderLineChart = (
 ): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
-  const { min, max } = seriesMinMax(spec);
-  const range = max - min;
+  // Area charts honour `<c:grouping>` stacked / percentStacked the same
+  // way column charts do. Line charts can be stacked too in PowerPoint;
+  // we treat them identically.
+  const grouping = spec.grouping ?? 'clustered';
+  const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
+  const isPercent = grouping === 'percentStacked';
+  let { min, max } = seriesMinMax(spec);
+  if (isStacked) {
+    let sumMin = Infinity;
+    let sumMax = -Infinity;
+    for (let c = 0; c < N; c++) {
+      let pos = 0;
+      let neg = 0;
+      for (const s of spec.series) {
+        const v = s.values[c] ?? 0;
+        if (v >= 0) pos += v;
+        else neg += v;
+      }
+      if (neg < sumMin) sumMin = neg;
+      if (pos > sumMax) sumMax = pos;
+    }
+    min = isPercent ? 0 : Math.min(0, sumMin);
+    max = isPercent ? 1 : Math.max(1, sumMax);
+  }
+  const range = max - min || 1;
   const step = N > 1 ? f.plotW / (N - 1) : 0;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
   out.push(
     `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
   );
+  // Track cumulative values per category for stacked rendering. Each
+  // series's projected y is the cumulative sum's y.
+  const accumulated: number[] = new Array(N).fill(0);
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
     if (!series) continue;
-    const color = colors[s % colors.length];
+    const color = series.color ?? colors[s % colors.length];
     const pts: Array<[number, number]> = [];
+    const basePts: Array<[number, number]> = [];
     for (let c = 0; c < N; c++) {
-      const v = series.values[c] ?? 0;
       const xp = f.plotX + c * step;
-      const yp = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
+      let v = series.values[c] ?? 0;
+      let baseAt = accumulated[c] ?? 0;
+      if (isPercent) {
+        let total = 0;
+        for (const s2 of spec.series) total += Math.max(0, s2.values[c] ?? 0);
+        v = total === 0 ? 0 : Math.max(0, v) / total;
+      }
+      const top = isStacked ? baseAt + v : v;
+      const yp = f.plotY + f.plotH - ((top - min) / range) * f.plotH;
+      const yBase = isStacked ? f.plotY + f.plotH - ((baseAt - min) / range) * f.plotH : baseY;
       pts.push([xp, yp]);
+      basePts.push([xp, yBase]);
+      if (isStacked) accumulated[c] = top;
     }
     const dPath = pts.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
     if (fill) {
-      const areaPath = `${dPath} L${px(f.plotX + (N - 1) * step)},${px(baseY)} L${px(f.plotX)},${px(baseY)} Z`;
-      out.push(`<path d="${areaPath}" fill="${color}" fill-opacity="0.25" stroke="none"/>`);
+      // Walk back along the baseline (or the previous series's top for
+      // stacked) to close the area.
+      const back = basePts
+        .slice()
+        .reverse()
+        .map(([xp, yp]) => `L${px(xp)},${px(yp)}`)
+        .join(' ');
+      out.push(`<path d="${dPath} ${back} Z" fill="${color}" fill-opacity="0.55" stroke="none"/>`);
     }
     out.push(
       `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
     );
-    // Data point markers.
-    for (const [xp, yp] of pts) {
-      out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
+    if (!isStacked) {
+      // Data point markers — only meaningful on the clustered layout.
+      for (const [xp, yp] of pts) {
+        out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
+      }
     }
   }
   return out.join('');
