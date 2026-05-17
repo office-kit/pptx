@@ -157,6 +157,29 @@ const valAxis = (spec: ChartSpec): XmlElement => {
     valNode(c('delete'), spec.valueAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'l'),
   ];
+  // <c:majorGridlines> with optional spPr/ln/solidFill/srgbClr.
+  if (spec.valueAxisMajorGridlines) {
+    const glChildren: XmlElement[] = [];
+    if (spec.valueAxisMajorGridlineColor !== undefined) {
+      const hex = spec.valueAxisMajorGridlineColor.startsWith('#')
+        ? spec.valueAxisMajorGridlineColor.slice(1)
+        : spec.valueAxisMajorGridlineColor;
+      const ln = elem(a('ln'), {
+        children: [
+          elem(a('solidFill'), {
+            children: [
+              elem(a('srgbClr'), {
+                attrs: [attr(qname('', 'val', ''), hex.toUpperCase())],
+              }),
+            ],
+          }),
+        ],
+      });
+      glChildren.push(elem(c('spPr'), { children: [ln] }));
+    }
+    children.push(elem(c('majorGridlines'), { children: glChildren }));
+  }
+  if (spec.valueAxisMinorGridlines) children.push(elem(c('minorGridlines')));
   if (spec.valueAxisTitle !== undefined) {
     children.push(titleElement(spec.valueAxisTitle, spec.valueAxisTitleStyle));
   }
@@ -226,33 +249,37 @@ const dLblsElement = (spec: ChartSpec): XmlElement | null => {
 const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar'): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
   const dl = dLblsElement(spec);
-  return elem(c(direction === 'col' ? 'barChart' : 'barChart'), {
-    children: [
-      valNode(c('barDir'), direction),
-      valNode(c('grouping'), 'clustered'),
-      valNode(c('varyColors'), '0'),
-      ...ser,
-      ...(dl ? [dl] : []),
-      valNode(c('axId'), CAT_AX_ID),
-      valNode(c('axId'), VAL_AX_ID),
-    ],
-  });
+  const grouping = spec.grouping ?? 'clustered';
+  const children: XmlElement[] = [
+    valNode(c('barDir'), direction),
+    valNode(c('grouping'), grouping),
+    valNode(c('varyColors'), spec.varyColors ? '1' : '0'),
+    ...ser,
+    ...(dl ? [dl] : []),
+  ];
+  if (spec.gapWidthPct !== undefined) children.push(valNode(c('gapWidth'), spec.gapWidthPct));
+  if (spec.overlapPct !== undefined) children.push(valNode(c('overlap'), spec.overlapPct));
+  children.push(valNode(c('axId'), CAT_AX_ID), valNode(c('axId'), VAL_AX_ID));
+  return elem(c(direction === 'col' ? 'barChart' : 'barChart'), { children });
 };
 
 const buildLineChart = (spec: ChartSpec, sheet: string): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
   const dl = dLblsElement(spec);
-  return elem(c('lineChart'), {
-    children: [
-      valNode(c('grouping'), 'standard'),
-      valNode(c('varyColors'), '0'),
-      ...ser,
-      ...(dl ? [dl] : []),
-      valNode(c('marker'), '1'),
-      valNode(c('axId'), CAT_AX_ID),
-      valNode(c('axId'), VAL_AX_ID),
-    ],
-  });
+  const children: XmlElement[] = [
+    valNode(c('grouping'), spec.grouping ?? 'standard'),
+    valNode(c('varyColors'), spec.varyColors ? '1' : '0'),
+    ...ser,
+    ...(dl ? [dl] : []),
+  ];
+  if (spec.dropLines) children.push(elem(c('dropLines')));
+  if (spec.hiLowLines) children.push(elem(c('hiLowLines')));
+  children.push(
+    valNode(c('marker'), '1'),
+    valNode(c('axId'), CAT_AX_ID),
+    valNode(c('axId'), VAL_AX_ID),
+  );
+  return elem(c('lineChart'), { children });
 };
 
 const buildPieChart = (spec: ChartSpec, sheet: string): XmlElement => {
@@ -261,9 +288,11 @@ const buildPieChart = (spec: ChartSpec, sheet: string): XmlElement => {
   }
   const ser = seriesElement(spec, 0, sheet);
   const dl = dLblsElement(spec);
-  return elem(c('pieChart'), {
-    children: [valNode(c('varyColors'), '1'), ser, ...(dl ? [dl] : [])],
-  });
+  const children: XmlElement[] = [valNode(c('varyColors'), '1'), ser, ...(dl ? [dl] : [])];
+  if (spec.firstSliceAngleDeg !== undefined) {
+    children.push(valNode(c('firstSliceAng'), Math.round(spec.firstSliceAngleDeg)));
+  }
+  return elem(c('pieChart'), { children });
 };
 
 const buildDoughnutChart = (spec: ChartSpec, sheet: string): XmlElement => {
@@ -272,15 +301,12 @@ const buildDoughnutChart = (spec: ChartSpec, sheet: string): XmlElement => {
   }
   const ser = seriesElement(spec, 0, sheet);
   const dl = dLblsElement(spec);
-  return elem(c('doughnutChart'), {
-    children: [
-      valNode(c('varyColors'), '1'),
-      ser,
-      ...(dl ? [dl] : []),
-      // 50% hole — PowerPoint's default.
-      valNode(c('holeSize'), '50'),
-    ],
-  });
+  const children: XmlElement[] = [valNode(c('varyColors'), '1'), ser, ...(dl ? [dl] : [])];
+  if (spec.firstSliceAngleDeg !== undefined) {
+    children.push(valNode(c('firstSliceAng'), Math.round(spec.firstSliceAngleDeg)));
+  }
+  children.push(valNode(c('holeSize'), spec.holeSizePct ?? 50));
+  return elem(c('doughnutChart'), { children });
 };
 
 const buildAreaChart = (spec: ChartSpec, sheet: string): XmlElement => {
@@ -288,8 +314,8 @@ const buildAreaChart = (spec: ChartSpec, sheet: string): XmlElement => {
   const dl = dLblsElement(spec);
   return elem(c('areaChart'), {
     children: [
-      valNode(c('grouping'), 'standard'),
-      valNode(c('varyColors'), '0'),
+      valNode(c('grouping'), spec.grouping ?? 'standard'),
+      valNode(c('varyColors'), spec.varyColors ? '1' : '0'),
       ...ser,
       ...(dl ? [dl] : []),
       valNode(c('axId'), CAT_AX_ID),
@@ -405,7 +431,24 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   const plotArea = elem(c('plotArea'), { children: plotAreaChildren });
 
   const chartChildren: XmlElement[] = [];
-  if (spec.title !== undefined) chartChildren.push(titleElement(spec.title, spec.titleStyle));
+  if (spec.title !== undefined) {
+    const titleEl = titleElement(spec.title, spec.titleStyle);
+    // <c:title> can also carry <c:overlay val="1"/> — append it after
+    // the <c:tx> child but before the synthesized overlay node from
+    // titleElement so we don't end up with two overlay elements.
+    if (spec.titleOverlay !== undefined) {
+      const filtered = titleEl.children.filter(
+        (c2) =>
+          !(
+            c2.kind === 'element' &&
+            c2.name.namespaceURI === NS_C &&
+            c2.name.localName === 'overlay'
+          ),
+      );
+      titleEl.children = [...filtered, valNode(c('overlay'), spec.titleOverlay ? '1' : '0')];
+    }
+    chartChildren.push(titleEl);
+  }
   chartChildren.push(
     valNode(c('autoTitleDeleted'), spec.title !== undefined ? '0' : '1'),
     plotArea,
