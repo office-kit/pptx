@@ -3819,6 +3819,18 @@ const renderTable = (
       // Per-side borders override the default thin gray grid. Draw them
       // separately after the fills so they sit on top.
       const borders = getTableCellBorders(pres, typedCell);
+      // Project the OOXML `<a:prstDash>` token onto an SVG stroke-dasharray.
+      // Scaled by the border's width so the dash visually matches PowerPoint.
+      const dashAttr = (dash: string | null | undefined, widthPx: number): string => {
+        if (!dash || dash === 'solid') return '';
+        const pat = DASH_PATTERNS[dash];
+        if (!pat) return '';
+        const arr = pat
+          .split(' ')
+          .map((n) => (Number.parseFloat(n) * widthPx).toFixed(2))
+          .join(' ');
+        return ` stroke-dasharray="${arr}"`;
+      };
       const edge = (
         side: keyof Pick<typeof borders, 'left' | 'right' | 'top' | 'bottom'>,
         x1: number,
@@ -3831,7 +3843,7 @@ const renderTable = (
         const sw = b.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : 0.5;
         const col = b.color ?? '#9CA3AF';
         borderEdges.push(
-          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"/>`,
+          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"${dashAttr(b.dash, sw)}/>`,
         );
       };
       edge('left', cx, cy, cx, cy + ch);
@@ -3839,13 +3851,19 @@ const renderTable = (
       edge('top', cx, cy, cx + cw, cy);
       edge('bottom', cx, cy + ch, cx + cw, cy + ch);
       if (borders.tlToBr) {
+        const sw = borders.tlToBr.widthEmu
+          ? Math.max(0.4, borders.tlToBr.widthEmu / EMU_PER_PX)
+          : 0.5;
         borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`,
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="${px(sw)}"${dashAttr(borders.tlToBr.dash, sw)}/>`,
         );
       }
       if (borders.blToTr) {
+        const sw = borders.blToTr.widthEmu
+          ? Math.max(0.4, borders.blToTr.widthEmu / EMU_PER_PX)
+          : 0.5;
         borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`,
+          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="${px(sw)}"${dashAttr(borders.blToTr.dash, sw)}/>`,
         );
       }
       // Default thin grid for sides that didn't define a border.
