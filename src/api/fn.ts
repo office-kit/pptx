@@ -5249,6 +5249,68 @@ export const getParagraphBullet = (
 };
 
 /**
+ * Reads the bullet's per-paragraph color, size, and font overrides —
+ * `<a:buClr>` (theme-resolved hex), `<a:buSzPct>` / `<a:buSzPts>`
+ * (size relative to run or fixed pt), and `<a:buFont typeface="…"/>`.
+ *
+ * Returns `{ color: null, sizePct: null, sizePts: null, font: null }`
+ * when the paragraph doesn't override any of them (the bullet inherits
+ * from the run / layout).
+ */
+export const getParagraphBulletStyle = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): {
+  color: string | null;
+  sizePct: number | null;
+  sizePts: number | null;
+  font: string | null;
+} => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (!pPr) return { color: null, sizePct: null, sizePts: null, font: null };
+  const theme = getPresentationTheme(pres);
+  let color: string | null = null;
+  let sizePct: number | null = null;
+  let sizePts: number | null = null;
+  let font: string | null = null;
+  const buClr = firstChildElement(pPr, qname('a', 'buClr', NS.dml));
+  if (buClr) {
+    for (const c of buClr.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      color = resolveDrawingColor(c, theme);
+      break;
+    }
+  }
+  const buSzPct = firstChildElement(pPr, qname('a', 'buSzPct', NS.dml));
+  if (buSzPct) {
+    const v = getAttrValue(buSzPct, qname('', 'val', ''));
+    if (v !== null) {
+      let n = Number.parseFloat(v);
+      if (Number.isFinite(n)) {
+        if (Math.abs(n) > 1) n = n / 100000;
+        sizePct = n;
+      }
+    }
+  }
+  const buSzPts = firstChildElement(pPr, qname('a', 'buSzPts', NS.dml));
+  if (buSzPts) {
+    const v = getAttrValue(buSzPts, qname('', 'val', ''));
+    if (v !== null) {
+      const n = Number.parseInt(v, 10);
+      if (Number.isFinite(n)) sizePts = n / 100;
+    }
+  }
+  const buFont = firstChildElement(pPr, qname('a', 'buFont', NS.dml));
+  if (buFont) {
+    const t = getAttrValue(buFont, qname('', 'typeface', ''));
+    if (t !== null) font = t;
+  }
+  return { color, sizePct, sizePts, font };
+};
+
+/**
  * Sets the bullet style on a single paragraph. Same `BulletStyle` shape
  * as `setShapeBullets` — pass `'bullet'` / `'number'` / `'none'` or an
  * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.

@@ -23,6 +23,7 @@
 import {
   getParagraphAlignment,
   getParagraphBullet,
+  getParagraphBulletStyle,
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
@@ -1748,6 +1749,7 @@ const renderTextBody = (
     readonly align: string;
     readonly level: number;
     readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
+    readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
     readonly runs: RunData[];
     readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
     readonly spcBefPts: number | null;
@@ -1760,6 +1762,10 @@ const renderTextBody = (
     const align = getParagraphAlignment(shape, p) ?? 'left';
     const level = getParagraphLevel(shape, p);
     const bulletStyle = getParagraphBullet(shape, p);
+    let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
+      color: null, sizePct: null, sizePts: null, font: null,
+    };
+    try { bulletDetail = getParagraphBulletStyle(pres, shape, p); } catch {}
     let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
     let spcBefPts: number | null = null;
     let spcAftPts: number | null = null;
@@ -1805,7 +1811,7 @@ const renderTextBody = (
       if (txt) hasAnyText = true;
       runs.push({ text: txt, fmt, sizePt });
     }
-    paraData.push({ align, level, bulletStyle, runs, lineSpacing, spcBefPts, spcAftPts, indent });
+    paraData.push({ align, level, bulletStyle, bulletDetail, runs, lineSpacing, spcBefPts, spcAftPts, indent });
   }
   if (!hasAnyText) return '';
 
@@ -1917,7 +1923,22 @@ const renderTextBody = (
       (para.bulletStyle !== 'none' && para.level > 0);
     if (showBullet) {
       const char = explicitChar ?? bulletChar(para.level);
-      prefix = `<span style="margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px">${escapeXml(char)}</span>`;
+      // Bullet style overrides: color, size %, fixed pt size, font face.
+      const bulletStyles: string[] = [
+        `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
+      ];
+      if (para.bulletDetail.color) {
+        bulletStyles.push(`color:${resolveColor(para.bulletDetail.color, theme, '#000000')}`);
+      }
+      if (para.bulletDetail.sizePct !== null) {
+        bulletStyles.push(`font-size:${(para.bulletDetail.sizePct * 100).toFixed(1)}%`);
+      } else if (para.bulletDetail.sizePts !== null) {
+        bulletStyles.push(`font-size:${(para.bulletDetail.sizePts * PX_PER_PT * autoFitScale).toFixed(2)}px`);
+      }
+      if (para.bulletDetail.font) {
+        bulletStyles.push(`font-family:${escapeXml(para.bulletDetail.font)}, ${DEFAULT_FONT}`);
+      }
+      prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     paragraphs.push(
       `<p style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,

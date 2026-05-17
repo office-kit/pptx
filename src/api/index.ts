@@ -169,6 +169,7 @@ export {
   getExtendedProperties,
   getParagraphAlignment,
   getParagraphBullet,
+  getParagraphBulletStyle,
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
