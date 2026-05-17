@@ -154,14 +154,49 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   return elem(c('valAx'), { children });
 };
 
+// Build `<c:dLbls>` from a ChartDataLabels (showVal / showCatName /
+// showSerName / showPercent toggles plus optional numFmt, position,
+// separator). Returns `null` when no dataLabels were authored so
+// callers know to skip the element entirely.
+const dLblsElement = (spec: ChartSpec): XmlElement | null => {
+  const dl = spec.dataLabels;
+  if (!dl) return null;
+  const children: XmlElement[] = [];
+  if (dl.numberFormat !== undefined) {
+    children.push(
+      elem(c('numFmt'), {
+        attrs: [
+          attr(qname('', 'formatCode', ''), dl.numberFormat),
+          attr(qname('', 'sourceLinked', ''), '0'),
+        ],
+      }),
+    );
+  }
+  if (dl.position !== undefined) children.push(valNode(c('dLblPos'), dl.position));
+  children.push(
+    valNode(c('showLegendKey'), '0'),
+    valNode(c('showVal'), dl.showValue ? '1' : '0'),
+    valNode(c('showCatName'), dl.showCategory ? '1' : '0'),
+    valNode(c('showSerName'), dl.showSeriesName ? '1' : '0'),
+    valNode(c('showPercent'), dl.showPercent ? '1' : '0'),
+    valNode(c('showBubbleSize'), '0'),
+  );
+  if (dl.separator !== undefined) {
+    children.push(elem(c('separator'), { children: [text(dl.separator)] }));
+  }
+  return elem(c('dLbls'), { children });
+};
+
 const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar'): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
+  const dl = dLblsElement(spec);
   return elem(c(direction === 'col' ? 'barChart' : 'barChart'), {
     children: [
       valNode(c('barDir'), direction),
       valNode(c('grouping'), 'clustered'),
       valNode(c('varyColors'), '0'),
       ...ser,
+      ...(dl ? [dl] : []),
       valNode(c('axId'), CAT_AX_ID),
       valNode(c('axId'), VAL_AX_ID),
     ],
@@ -170,11 +205,13 @@ const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar')
 
 const buildLineChart = (spec: ChartSpec, sheet: string): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
+  const dl = dLblsElement(spec);
   return elem(c('lineChart'), {
     children: [
       valNode(c('grouping'), 'standard'),
       valNode(c('varyColors'), '0'),
       ...ser,
+      ...(dl ? [dl] : []),
       valNode(c('marker'), '1'),
       valNode(c('axId'), CAT_AX_ID),
       valNode(c('axId'), VAL_AX_ID),
@@ -187,8 +224,9 @@ const buildPieChart = (spec: ChartSpec, sheet: string): XmlElement => {
     throw new Error('pie chart requires exactly one series');
   }
   const ser = seriesElement(spec, 0, sheet);
+  const dl = dLblsElement(spec);
   return elem(c('pieChart'), {
-    children: [valNode(c('varyColors'), '1'), ser],
+    children: [valNode(c('varyColors'), '1'), ser, ...(dl ? [dl] : [])],
   });
 };
 
@@ -197,10 +235,12 @@ const buildDoughnutChart = (spec: ChartSpec, sheet: string): XmlElement => {
     throw new Error('doughnut chart requires exactly one series');
   }
   const ser = seriesElement(spec, 0, sheet);
+  const dl = dLblsElement(spec);
   return elem(c('doughnutChart'), {
     children: [
       valNode(c('varyColors'), '1'),
       ser,
+      ...(dl ? [dl] : []),
       // 50% hole — PowerPoint's default.
       valNode(c('holeSize'), '50'),
     ],
@@ -209,11 +249,13 @@ const buildDoughnutChart = (spec: ChartSpec, sheet: string): XmlElement => {
 
 const buildAreaChart = (spec: ChartSpec, sheet: string): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
+  const dl = dLblsElement(spec);
   return elem(c('areaChart'), {
     children: [
       valNode(c('grouping'), 'standard'),
       valNode(c('varyColors'), '0'),
       ...ser,
+      ...(dl ? [dl] : []),
       valNode(c('axId'), CAT_AX_ID),
       valNode(c('axId'), VAL_AX_ID),
     ],
