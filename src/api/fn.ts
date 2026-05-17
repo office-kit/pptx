@@ -7412,6 +7412,26 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
   if (!cSld) return { kind: 'inherit' };
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
   if (!bg) return { kind: 'inherit' };
+  // <p:bg> can carry either a <p:bgPr> with explicit fill, or a
+  // <p:bgRef idx="…"> that picks one of the theme's bgFillStyleLst /
+  // fillStyleLst entries. The bgRef inner color element is the scheme
+  // mapping target — projecting that to a scheme token is the most
+  // useful shape for renderers.
+  const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
+  if (bgRef) {
+    for (const inner of bgRef.children) {
+      if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+      if (inner.name.localName === 'srgbClr') {
+        const val = getAttrValue(inner, qname('', 'val', ''));
+        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+      }
+      if (inner.name.localName === 'schemeClr') {
+        const val = getAttrValue(inner, qname('', 'val', ''));
+        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+      }
+    }
+    return { kind: 'inherit' };
+  }
   const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
   if (!bgPr) return { kind: 'inherit' };
   for (const c of bgPr.children) {
