@@ -170,6 +170,14 @@ export interface ChartDataLabels {
    * `<c:dLbls><c:dLblPos val="…"/>`.
    */
   readonly position?: ChartDataLabelPosition;
+  /**
+   * Separator between concatenated label parts when more than one of
+   * `showValue` / `showCategory` / `showSeriesName` / `showPercent` is
+   * set. Read from `<c:dLbls><c:separator>…</c:separator>` (a
+   * leaf-text-only element). Common values: `" "` (default), `", "`,
+   * `"\n"`, `"; "`.
+   */
+  readonly separator?: string;
 }
 
 /**

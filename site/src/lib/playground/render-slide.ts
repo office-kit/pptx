@@ -3667,7 +3667,7 @@ const renderPieChart = (
     }
     if (labels.length > 0) {
       out.push(
-        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="${labelFill}" font-weight="600">${escapeXml(labels.join(' '))}</text>`,
+        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="${labelFill}" font-weight="600">${escapeXml(labels.join(spec.series[0]?.dataLabels?.separator ?? spec.dataLabels?.separator ?? ' '))}</text>`,
       );
     }
   }
