@@ -117,6 +117,13 @@ export interface ChartDataLabels {
   readonly showSeriesName: boolean;
   /** Percentage of total (for pie / doughnut). */
   readonly showPercent: boolean;
+  /**
+   * Number-format code from `<c:dLbls><c:numFmt formatCode="…"/>`. When
+   * set, value labels are projected through this Excel-style format
+   * (same subset the value axis honors: `"0%"`, `"#,##0"`, `"$#,##0"`,
+   * `"0.00"`). Independent of `ChartAxisScaling.numberFormat`.
+   */
+  readonly numberFormat?: string;
 }
 
 /**

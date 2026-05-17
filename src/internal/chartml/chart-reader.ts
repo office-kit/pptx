@@ -431,11 +431,18 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         const v = getAttrValue(el, ATTR_VAL);
         return v === null || v === '1' || v === 'true';
       };
+      const nfEl = firstChildElement(serDLblsEl, qname('c', 'numFmt', NS_C));
+      let numberFormat: string | undefined;
+      if (nfEl) {
+        const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
+        if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
+      }
       serDataLabels = {
         showValue: readToggle('showVal'),
         showCategory: readToggle('showCatName'),
         showSeriesName: readToggle('showSerName'),
         showPercent: readToggle('showPercent'),
+        ...(numberFormat !== undefined ? { numberFormat } : {}),
       };
     }
     series.push({
@@ -471,11 +478,18 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       // Absent val attribute defaults to true per the schema's CT_Boolean.
       return v === null || v === '1' || v === 'true';
     };
+    const nfEl = firstChildElement(dLbls, qname('c', 'numFmt', NS_C));
+    let numberFormat: string | undefined;
+    if (nfEl) {
+      const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
+      if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
+    }
     dataLabels = {
       showValue: readToggle('showVal'),
       showCategory: readToggle('showCatName'),
       showSeriesName: readToggle('showSerName'),
       showPercent: readToggle('showPercent'),
+      ...(numberFormat !== undefined ? { numberFormat } : {}),
     };
   }
 
