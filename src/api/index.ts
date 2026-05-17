@@ -200,6 +200,7 @@ export {
   getShapeDescription,
   getShapeEffect,
   getShapeEffects,
+  getShapeEffectsEffective,
   getShapeFill,
   getShapeGradientFill,
   getShapeFillColor,

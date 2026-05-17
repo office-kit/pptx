@@ -32,6 +32,7 @@ import {
   getPresentationTheme,
   getShapeBoundsResolved,
   getShapeEffects,
+  getShapeEffectsEffective,
   getShapeFill,
   getShapeFillColorResolved,
   getShapeFlip,
@@ -3554,7 +3555,7 @@ const buildEffectsFilter = (
 ): EffectsResult | null => {
   let effects: readonly ReturnType<typeof getShapeEffects>[number][];
   try {
-    effects = getShapeEffects(pres, shape);
+    effects = getShapeEffectsEffective(pres, shape);
   } catch {
     return null;
   }
