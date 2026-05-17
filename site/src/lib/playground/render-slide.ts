@@ -46,6 +46,7 @@ import {
   getShapeChartSpec,
   getShapeClickAction,
   getShapeHyperlink,
+  getShapeHyperlinkTooltip,
   getShapeTextColumns,
   getShapeTextBodyRotationDeg,
   getShapeTextDirection,
@@ -66,6 +67,7 @@ import {
   getShapeParagraphElements,
   getShapeRunClickAction,
   getShapeRunHyperlink,
+  getShapeRunHyperlinkTooltip,
   getShapePlaceholderType,
   getShapePreset,
   getShapeRotation,
@@ -2048,7 +2050,13 @@ const renderTextBody = (
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
   // adjusted size.
-  type RunData = { text: string; fmt: TextFormat | null; sizePt: number; href?: string };
+  type RunData = {
+    text: string;
+    fmt: TextFormat | null;
+    sizePt: number;
+    href?: string;
+    hrefTip?: string;
+  };
   interface ParaData {
     readonly align: string;
     readonly level: number;
@@ -2141,6 +2149,7 @@ const renderTextBody = (
       const txt = el.text;
       let fmt: TextFormat | null = el.format;
       let href: string | undefined;
+      let hrefTip: string | undefined;
       if (el.kind === 'r') {
         // The cascade only makes sense for actual <a:r> runs; field
         // text is opaque cached content and shouldn't pretend to be a
@@ -2164,6 +2173,7 @@ const renderTextBody = (
               href = act.url;
             }
           }
+          if (href) hrefTip = getShapeRunHyperlinkTooltip(shape, p, rIdx) ?? undefined;
         } catch {
           href = undefined;
         }
@@ -2171,7 +2181,13 @@ const renderTextBody = (
       }
       const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;
-      runs.push({ text: txt, fmt, sizePt, ...(href !== undefined ? { href } : {}) });
+      runs.push({
+        text: txt,
+        fmt,
+        sizePt,
+        ...(href !== undefined ? { href } : {}),
+        ...(hrefTip !== undefined ? { hrefTip } : {}),
+      });
     }
     paraData.push({
       align,
@@ -2297,7 +2313,8 @@ const renderTextBody = (
       if (!run.href) return span;
       const isInPage = run.href.startsWith('#');
       const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
-      return `<a href="${escapeXml(run.href)}"${targetAttrs} style="color:inherit;text-decoration:inherit">${span}</a>`;
+      const titleAttr = run.hrefTip ? ` title="${escapeXml(run.hrefTip)}"` : '';
+      return `<a href="${escapeXml(run.href)}"${targetAttrs}${titleAttr} style="color:inherit;text-decoration:inherit">${span}</a>`;
     });
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
@@ -4490,9 +4507,11 @@ const renderShape = (
   // hyperlinks live on the text body and are handled by renderRun
   // separately.
   const url = getShapeHyperlink(shape);
+  const tooltip = getShapeHyperlinkTooltip(shape);
   const inner = `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
   if (url) {
-    return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+    return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
   }
   // Slide-jump click actions resolve to a hash anchor — the playground
   // gives each <li> an id="slide-N" so the browser jumps in-page.
@@ -4508,7 +4527,7 @@ const renderShape = (
     if (href !== null) {
       const isInPage = href.startsWith('#');
       const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
-      return `<a href="${escapeXml(href)}"${targetAttrs}>${inner}</a>`;
+      return `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;
     }
   }
   return inner;
