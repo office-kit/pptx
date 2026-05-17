@@ -9798,6 +9798,33 @@ export const getTableCellBorders = (
 };
 
 /**
+ * Reads the cell's text direction (`<a:tcPr vert="…"/>`) — same tokens
+ * as `getShapeTextDirection`. Returns `null` for the default
+ * horizontal direction.
+ *
+ * Vertical column headers in tables almost always emit `<a:tcPr
+ * vert="vert270"/>` or `"eaVert"` so the header label reads bottom-to-
+ * top alongside its column.
+ */
+export const getTableCellTextDirection = (
+  cell: TableCellData,
+): 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null => {
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  if (!tcPr) return null;
+  const v = getAttrValue(tcPr, qname('', 'vert', ''));
+  if (
+    v === 'vert' ||
+    v === 'vert270' ||
+    v === 'wordArtVert' ||
+    v === 'eaVert' ||
+    v === 'mongolianVert' ||
+    v === 'wordArtVertRtl'
+  )
+    return v;
+  return null;
+};
+
+/**
  * Reads the cell's vertical text anchor (`<a:tcPr anchor="t|ctr|b"/>`)
  * — `'top'`, `'center'`, `'bottom'`, or `null` for the default
  * (`ctr` / center per the schema).
