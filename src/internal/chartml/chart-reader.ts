@@ -698,6 +698,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     let majorUnit: number | undefined;
     let minorUnit: number | undefined;
     let logBase: number | undefined;
+    let displayUnits: ChartAxisScaling['displayUnits'];
     const scaling = firstChildElement(valAx, qname('c', 'scaling', NS_C));
     const readNumOn = (parent: XmlElement, local: string): number | undefined => {
       const el = firstChildElement(parent, qname('c', local, NS_C));
@@ -716,6 +717,27 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     majorUnit = readNumOn(valAx, 'majorUnit');
     minorUnit = readNumOn(valAx, 'minorUnit');
+    // <c:dispUnits><c:builtInUnit val="hundreds|thousands|…"/>
+    const dispUnits = firstChildElement(valAx, qname('c', 'dispUnits', NS_C));
+    if (dispUnits) {
+      const builtIn = firstChildElement(dispUnits, qname('c', 'builtInUnit', NS_C));
+      if (builtIn) {
+        const v = getAttrValue(builtIn, ATTR_VAL);
+        switch (v) {
+          case 'hundreds':
+          case 'thousands':
+          case 'tenThousands':
+          case 'hundredThousands':
+          case 'millions':
+          case 'tenMillions':
+          case 'hundredMillions':
+          case 'billions':
+          case 'trillions':
+            displayUnits = v;
+            break;
+        }
+      }
+    }
     // <c:numFmt formatCode="…" sourceLinked="0|1"/> sits directly under
     // <c:valAx>. We surface the formatCode for renderers; sourceLinked
     // (whether to inherit Excel cell format) isn't useful at our layer.
@@ -733,7 +755,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       majorUnit !== undefined ||
       minorUnit !== undefined ||
       numberFormat !== undefined ||
-      logBase !== undefined
+      logBase !== undefined ||
+      displayUnits !== undefined
     ) {
       valueAxis = {
         ...(min !== undefined ? { min } : {}),
@@ -742,6 +765,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         ...(minorUnit !== undefined ? { minorUnit } : {}),
         ...(numberFormat !== undefined ? { numberFormat } : {}),
         ...(logBase !== undefined ? { logBase } : {}),
+        ...(displayUnits !== undefined ? { displayUnits } : {}),
       };
     }
   }
