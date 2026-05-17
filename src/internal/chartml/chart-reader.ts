@@ -624,11 +624,18 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       }
     }
   }
+  // <c:majorGridlines> / <c:minorGridlines> presence governs visibility.
+  // Surface as explicit booleans so renderers can branch on "absent
+  // means hidden" (matches ECMA-376 §21.2.2.122).
+  let valueAxisMajorGridlines: boolean | undefined;
+  let valueAxisMinorGridlines: boolean | undefined;
   if (valAx) {
     const t = readTitle(valAx);
     if (t !== undefined) valueAxisTitle = t;
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
+    valueAxisMajorGridlines = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C)) !== null;
+    valueAxisMinorGridlines = firstChildElement(valAx, qname('c', 'minorGridlines', NS_C)) !== null;
   }
 
   // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
@@ -712,6 +719,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
+    ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
+    ...(valueAxisMinorGridlines !== undefined ? { valueAxisMinorGridlines } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),

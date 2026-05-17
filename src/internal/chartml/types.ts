@@ -164,6 +164,10 @@ export interface ChartSpec {
   readonly valueAxisHidden?: boolean;
   /** When `true`, category axis is hidden (`<c:catAx><c:delete val="1"/>`). */
   readonly categoryAxisHidden?: boolean;
+  /** When the value-axis emits `<c:majorGridlines/>` — its gridlines are visible. */
+  readonly valueAxisMajorGridlines?: boolean;
+  /** When the value-axis emits `<c:minorGridlines/>` — minor gridlines are visible. */
+  readonly valueAxisMinorGridlines?: boolean;
   /**
    * Category-axis tick label skip step (`<c:catAx><c:tickLblSkip val="N"/>`):
    * render every Nth category label. Commonly 2 / 5 / 10 on dense
