@@ -2581,7 +2581,15 @@ const renderColumnChart = (
   }
   const range = max - min || 1;
   const groupW = f.plotW / N;
-  const barW = isStacked ? groupW * 0.7 : (groupW * 0.8) / spec.series.length;
+  // gapWidth + overlap shape bar geometry per ECMA-376 §21.2.2.75:
+  //   barW = groupW / (clusterUnits + gapWidth/100)
+  //   clusterUnits = 1 + (S − 1) × (1 − overlap/100)  (clustered)
+  //   clusterUnits = 1                                  (stacked)
+  const gapPctC = (spec.gapWidthPct ?? 150) / 100;
+  const overlapPctC = (spec.overlapPct ?? (isStacked ? 100 : 0)) / 100;
+  const Sc = spec.series.length;
+  const clusterUnitsC = isStacked ? 1 : 1 + (Sc - 1) * (1 - overlapPctC);
+  const barW = groupW / Math.max(0.5, clusterUnitsC + gapPctC);
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const showLabel = spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
@@ -2624,9 +2632,14 @@ const renderColumnChart = (
         else negAcc = stackedTop;
       }
     } else {
+      // Clustered cluster width respects overlap. Center the cluster
+      // inside groupW so the inter-cluster gap stays even on both sides.
+      const clusterW = barW * clusterUnitsC;
+      const clusterStartX = f.plotX + c * groupW + (groupW - clusterW) / 2;
+      const stride = barW * (1 - overlapPctC);
       for (let s = 0; s < spec.series.length; s++) {
         const v = spec.series[s]?.values[c] ?? 0;
-        const x0 = f.plotX + c * groupW + groupW * 0.1 + s * barW;
+        const x0 = clusterStartX + s * stride;
         const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
         const y0 = Math.min(top, baseY);
         const h = Math.abs(top - baseY);
@@ -2710,7 +2723,11 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
   }
   const range = max - min || 1;
   const groupH = f.plotH / N;
-  const barH = isStacked ? groupH * 0.7 : (groupH * 0.8) / spec.series.length;
+  const gapPctB = (spec.gapWidthPct ?? 150) / 100;
+  const overlapPctB = (spec.overlapPct ?? (isStacked ? 100 : 0)) / 100;
+  const Sb = spec.series.length;
+  const clusterUnitsB = isStacked ? 1 : 1 + (Sb - 1) * (1 - overlapPctB);
+  const barH = groupH / Math.max(0.5, clusterUnitsB + gapPctB);
   const baseX = f.plotX + ((0 - min) / range) * f.plotW;
   const showLabel = spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
@@ -2746,9 +2763,12 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         else negAcc = stackedTop;
       }
     } else {
+      const clusterH = barH * clusterUnitsB;
+      const clusterStartY = f.plotY + c * groupH + (groupH - clusterH) / 2;
+      const strideB = barH * (1 - overlapPctB);
       for (let s = 0; s < spec.series.length; s++) {
         const v = spec.series[s]?.values[c] ?? 0;
-        const y0 = f.plotY + c * groupH + groupH * 0.1 + s * barH;
+        const y0 = clusterStartY + s * strideB;
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);

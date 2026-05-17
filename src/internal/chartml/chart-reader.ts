@@ -363,6 +363,30 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // <c:gapWidth> and <c:overlap> live on the plotted-kind element and
+  // tune the bar / column spacing. PowerPoint defaults: gapWidth=150
+  // (1.5× bar width gap), overlap=0 (clustered) or 100 (stacked).
+  let gapWidthPct: number | undefined;
+  let overlapPct: number | undefined;
+  if (kind === 'column' || kind === 'bar') {
+    const gwEl = firstChildElement(plotted, qname('c', 'gapWidth', NS_C));
+    if (gwEl) {
+      const v = getAttrValue(gwEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n)) gapWidthPct = n;
+      }
+    }
+    const ovEl = firstChildElement(plotted, qname('c', 'overlap', NS_C));
+    if (ovEl) {
+      const v = getAttrValue(ovEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n)) overlapPct = n;
+      }
+    }
+  }
+
   return {
     kind,
     categories,
@@ -371,5 +395,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(dataLabels !== undefined ? { dataLabels } : {}),
     ...(valueAxis !== undefined ? { valueAxis } : {}),
     ...(grouping !== undefined ? { grouping } : {}),
+    ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
+    ...(overlapPct !== undefined ? { overlapPct } : {}),
   };
 };
