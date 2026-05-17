@@ -2653,6 +2653,18 @@ const DISPLAY_UNIT_DIVISOR: Record<NonNullable<AxisSpec['displayUnits']>, number
   trillions: 1e12,
 };
 
+const DISPLAY_UNIT_LABEL: Record<NonNullable<AxisSpec['displayUnits']>, string> = {
+  hundreds: 'Hundreds',
+  thousands: 'Thousands',
+  tenThousands: 'Ten Thousands',
+  hundredThousands: 'Hundred Thousands',
+  millions: 'Millions',
+  tenMillions: 'Ten Millions',
+  hundredMillions: 'Hundred Millions',
+  billions: 'Billions',
+  trillions: 'Trillions',
+};
+
 // Builds the `font-family / font-size / fill / weight` SVG attribute
 // string for axis tick labels. Defaults match PowerPoint's stock 10pt
 // muted-gray look; authored `<c:txPr>` overrides take over.
@@ -2743,6 +2755,26 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
             axis.numberFormat,
           ),
         )}</text>`,
+      );
+    }
+  }
+  // <c:dispUnits><c:dispUnitsLbl> is the spec'd holder for the unit
+  // label; we always emit one when displayUnits is set so the chart
+  // self-describes the scale ("Millions" / "Thousands" / etc.).
+  if (axis.displayUnits) {
+    const lbl = DISPLAY_UNIT_LABEL[axis.displayUnits];
+    if (axis.orientation === 'vertical') {
+      // Stack above the top tick, rotated to read along the y-axis.
+      const lblX = f.plotX - 26;
+      const lblY = f.plotY + f.plotH / 2;
+      out.push(
+        `<text x="${px(lblX)}" y="${px(lblY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#6B7280" font-style="italic" transform="rotate(-90 ${px(lblX)} ${px(lblY)})">${escapeXml(lbl)}</text>`,
+      );
+    } else {
+      // Bar chart — value axis runs horizontally; label sits below
+      // the rightmost tick.
+      out.push(
+        `<text x="${px(f.plotX + f.plotW)}" y="${px(f.plotY + f.plotH + 22)}" text-anchor="end" font-family="sans-serif" font-size="9" fill="#6B7280" font-style="italic">${escapeXml(lbl)}</text>`,
       );
     }
   }
