@@ -197,6 +197,38 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxis?.numberFormat).toBe('0.00%');
   });
 
+  it('round-trips axis titles + hidden / tickLblSkip / tickLblPos', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        valueAxisTitle: 'Revenue',
+        valueAxisTitleStyle: { sizePt: 12, bold: true },
+        categoryAxisTitle: 'Quarter',
+        categoryAxisHidden: true,
+        categoryAxisTickLabelSkip: 2,
+        categoryAxisTickLabelPos: 'low',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.valueAxisTitle).toBe('Revenue');
+    expect(spec.valueAxisTitleStyle?.sizePt).toBe(12);
+    expect(spec.valueAxisTitleStyle?.bold).toBe(true);
+    expect(spec.categoryAxisTitle).toBe('Quarter');
+    expect(spec.categoryAxisHidden).toBe(true);
+    expect(spec.categoryAxisTickLabelSkip).toBe(2);
+    expect(spec.categoryAxisTickLabelPos).toBe('low');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
