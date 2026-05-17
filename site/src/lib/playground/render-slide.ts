@@ -3809,11 +3809,11 @@ const renderChart = (
     spec.titleOverlay ?? false,
     spec.legend?.overlay ?? false,
   );
-  const seriesNamesForLegend: string[] =
+  const allNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
       ? Array.from(spec.categories)
       : spec.series.map((s) => s.name);
-  const seriesColorsForLegend: string[] =
+  const allColorsForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
       ? spec.categories.map(
           (_, i) =>
@@ -3823,6 +3823,16 @@ const renderChart = (
             '#888',
         )
       : spec.series.map((s, i) => s.color ?? colors[i % colors.length] ?? '#888');
+  // `<c:legendEntry><c:delete val="1"/>` hides specific series indices
+  // from the legend — typically trendline series. Filter the parallel
+  // arrays in lock-step so colors / names / markers stay aligned.
+  const hiddenSet = new Set(spec.legend?.hiddenIndices ?? []);
+  const seriesNamesForLegend = allNamesForLegend.filter((_, i) => !hiddenSet.has(i));
+  const seriesColorsForLegend = allColorsForLegend.filter((_, i) => !hiddenSet.has(i));
+  const markerSymbolsForLegend =
+    spec.kind === 'line' || spec.kind === 'area'
+      ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
+      : undefined;
 
   // Count finite values across all series — when zero, draw a hint
   // label so an empty chart isn't indistinguishable from a working
@@ -3952,9 +3962,7 @@ const renderChart = (
           spec.legend?.textStyle,
           // Marker glyphs only carry visual meaning for line / area
           // charts; bar / column / pie use the swatch rect.
-          spec.kind === 'line' || spec.kind === 'area'
-            ? spec.series.map((s) => s.markerSymbol)
-            : undefined,
+          markerSymbolsForLegend,
         ),
     '</g>',
   ].join('');

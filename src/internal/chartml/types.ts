@@ -408,6 +408,14 @@ export interface ChartSpec {
      * shape as `titleStyle`.
      */
     readonly textStyle?: ChartTextStyle;
+    /**
+     * Series indices that the legend hides via `<c:legend><c:legendEntry>
+     * <c:idx val="N"/><c:delete val="1"/></c:legendEntry>`. Renderers
+     * filter them from the legend list while still plotting them.
+     * Common use: keep a trendline series in the data but drop its
+     * legend entry.
+     */
+    readonly hiddenIndices?: ReadonlyArray<number>;
   };
   /** When `true`, the chart title overlays the plot area instead of taking a strip. */
   readonly titleOverlay?: boolean;
