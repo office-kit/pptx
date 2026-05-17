@@ -100,6 +100,7 @@ import {
   getSlideSize,
   getTableCellAlignment,
   getTableCellAnchor,
+  getTableCellMargins,
   getTableCellBorders,
   getTableCellFill,
   getTableCellSpan,
@@ -3768,16 +3769,32 @@ const renderTableCellText = (
   alignment: string | null,
   color: string,
   vAnchor: 'top' | 'center' | 'bottom' = 'center',
+  margins: {
+    left: number | null;
+    right: number | null;
+    top: number | null;
+    bottom: number | null;
+  } = {
+    left: null,
+    right: null,
+    top: null,
+    bottom: null,
+  },
 ): string => {
   if (!text.trim()) return '';
   // Use foreignObject so cell text wraps and aligns the same way
-  // proper PowerPoint cells do.
+  // proper PowerPoint cells do. PowerPoint stores margins in EMU; fall
+  // back to ~4px (≈48,000 EMU) when the cell doesn't override.
   const ta = alignment && ALIGNMENT_TEXT_ANCHOR[alignment] !== undefined ? alignment : 'left';
-  const pad = 4; // px inset for cell text
-  const innerX = cx + pad;
-  const innerY = cy + pad;
-  const innerW = Math.max(0, cw - 2 * pad);
-  const innerH = Math.max(0, ch - 2 * pad);
+  const defaultPadPx = 4;
+  const padL = margins.left !== null ? margins.left / EMU_PER_PX : defaultPadPx;
+  const padR = margins.right !== null ? margins.right / EMU_PER_PX : defaultPadPx;
+  const padT = margins.top !== null ? margins.top / EMU_PER_PX : defaultPadPx;
+  const padB = margins.bottom !== null ? margins.bottom / EMU_PER_PX : defaultPadPx;
+  const innerX = cx + padL;
+  const innerY = cy + padT;
+  const innerW = Math.max(0, cw - padL - padR);
+  const innerH = Math.max(0, ch - padT - padB);
   if (innerW <= 0 || innerH <= 0) return '';
   const justify = ta === 'center' ? 'center' : ta === 'right' ? 'flex-end' : 'flex-start';
   const vJustify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
@@ -3959,7 +3976,10 @@ const renderTable = (
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
       const vAnchor = getTableCellAnchor(typedCell) ?? 'center';
-      out.push(renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, vAnchor));
+      const cellMargins = getTableCellMargins(typedCell);
+      out.push(
+        renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, vAnchor, cellMargins),
+      );
     }
   }
   out.push(borderEdges.join(''));
