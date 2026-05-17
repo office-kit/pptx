@@ -4108,17 +4108,13 @@ export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
  * helper. `getShapeEffects` is what renderers want because PowerPoint
  * composes multiple effects in a single filter (shadow + glow, etc.).
  */
-export const getShapeEffects = (
-  pres: PresentationData,
-  shape: SlideShapeData,
-): readonly ShapeEffectAny[] => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return [];
-  const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
-  if (!effectLst) return [];
-
-  const theme = getPresentationTheme(pres);
-
+// Parses an `<a:effectLst>` element into the typed effect union.
+// Pulled out of `getShapeEffects` so the cascade-aware variant can
+// reuse it.
+const parseEffectLst = (
+  effectLst: XmlElement,
+  theme: PresentationTheme | null,
+): ShapeEffectAny[] => {
   const readEffectColor = (host: XmlElement): { color: string; opacity?: number } => {
     let inner: XmlElement | null = null;
     for (const c of host.children) {
@@ -4134,9 +4130,6 @@ export const getShapeEffects = (
       }
     }
     if (!inner) return { color: '' };
-    // Pick out alpha before applying transforms — alpha is a transform too,
-    // but we need to surface it separately so the renderer can apply it
-    // as fill-opacity rather than baked into the rgba.
     let opacity: number | undefined;
     const alphaEl = firstChildElement(inner, qname('a', 'alpha', NS.dml));
     if (alphaEl) {
@@ -4183,7 +4176,6 @@ export const getShapeEffects = (
       const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
       const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
       const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
-      // Reflection alpha is an optional `endA` attribute, not a child.
       const endA = getAttrValue(child, qname('', 'endA', ''));
       let opacity: number | undefined;
       if (endA !== null) {
@@ -4209,6 +4201,83 @@ export const getShapeEffects = (
     }
   }
   return out;
+};
+
+export const getShapeEffects = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): readonly ShapeEffectAny[] => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return [];
+  const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
+  if (!effectLst) return [];
+  return parseEffectLst(effectLst, getPresentationTheme(pres));
+};
+
+/**
+ * Same as `getShapeEffects` but walks the layout → master placeholder
+ * cascade when the shape itself has no `<a:effectLst>`. Inherits
+ * "all or nothing" — once any layer supplies an effect list, that
+ * list is used; layers further down aren't merged in. This matches
+ * PowerPoint's behaviour (effect lists override rather than compose).
+ */
+export const getShapeEffectsEffective = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): readonly ShapeEffectAny[] => {
+  const own = getShapeEffects(pres, shape);
+  if (own.length > 0) return own;
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+  if (phIdx === null && phType === null) return own;
+
+  const theme = getPresentationTheme(pres);
+  const layout = getSlideLayout(shape[SHAPE_SLIDE]);
+  if (!layout) return own;
+
+  const findPh = (
+    shapes: ReadonlyArray<{
+      placeholderIdx: number | null;
+      placeholderType: string | null;
+      element: XmlElement;
+    }>,
+  ): XmlElement | null => {
+    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    if (!match && phType !== null) match = shapes.find((s) => s.placeholderType === phType);
+    return match?.element ?? null;
+  };
+
+  const readEffectsOn = (el: XmlElement): readonly ShapeEffectAny[] => {
+    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
+    if (!spPr) return [];
+    const eff = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
+    if (!eff) return [];
+    return parseEffectLst(eff, theme);
+  };
+
+  const layoutPh = findPh(layout[LAYOUT_PART].shapes);
+  if (layoutPh) {
+    const layoutEffects = readEffectsOn(layoutPh);
+    if (layoutEffects.length > 0) return layoutEffects;
+  }
+
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return own;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return own;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return own;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+  const masterPh = findPh(masterShapes);
+  if (masterPh) {
+    const masterEffects = readEffectsOn(masterPh);
+    if (masterEffects.length > 0) return masterEffects;
+  }
+  return own;
 };
 
 /**
