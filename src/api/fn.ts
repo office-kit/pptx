@@ -4770,6 +4770,72 @@ export const getShapeParagraphCount = (shape: SlideShapeData): number =>
   paragraphsOf(requireTxBody(shape)).length;
 
 /**
+ * One inline element in a paragraph as ordered: a literal text run
+ * (`<a:r>`), a field substitution (`<a:fld>` — slide number, date, etc.),
+ * or a line break (`<a:br>`). Renderers walk this list instead of the
+ * strict `<a:r>`-only `getShapeRunCount` / `getShapeRunText` pair when
+ * they need to reproduce the paragraph's full visible content.
+ *
+ * `text` is the cached value (`<a:t>` content for `r` and `fld`; `''`
+ * for `br`). `format` is the literal `<a:rPr>` on the element when
+ * present; use `getShapeRunFormatEffective` to walk inheritance.
+ *
+ * Field kinds (`fld.type`): typical ECMA-376 `ST_TextFieldType` tokens
+ * are `slidenum`, `datetime` (variants `1`..`13`), `presentationDate`,
+ * `headerfooter`, `footer`, etc. Unrecognised tokens come through
+ * unchanged so renderers can decide whether to substitute live values.
+ */
+export type ShapeParagraphElement =
+  | { readonly kind: 'r'; readonly text: string; readonly format: TextFormat | null }
+  | {
+      readonly kind: 'fld';
+      readonly text: string;
+      readonly format: TextFormat | null;
+      readonly type: string | null;
+    }
+  | { readonly kind: 'br'; readonly format: TextFormat | null };
+
+/**
+ * Returns the inline children of a paragraph in document order — runs,
+ * field placeholders, and line breaks. Used by renderers that need to
+ * reproduce the paragraph faithfully (the `<a:r>`-only run accessors
+ * silently drop fields and breaks).
+ */
+export const getShapeParagraphElements = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): ReadonlyArray<ShapeParagraphElement> => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const out: ShapeParagraphElement[] = [];
+  const readT = (parent: XmlElement): string => {
+    const tEl = firstChildElement(parent, NAME_A_T);
+    if (!tEl) return '';
+    let acc = '';
+    for (const c of tEl.children) {
+      if (c.kind === 'text' || c.kind === 'cdata') acc += c.data;
+    }
+    return acc;
+  };
+  const readFmt = (parent: XmlElement): TextFormat | null => {
+    const rPr = firstChildElement(parent, NAME_A_RPR);
+    if (!rPr) return null;
+    return parseRPrLikeElement(rPr) as TextFormat;
+  };
+  for (const child of paragraph.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    if (child.name.localName === 'r') {
+      out.push({ kind: 'r', text: readT(child), format: readFmt(child) });
+    } else if (child.name.localName === 'fld') {
+      const type = getAttrValue(child, qname('', 'type', ''));
+      out.push({ kind: 'fld', text: readT(child), format: readFmt(child), type });
+    } else if (child.name.localName === 'br') {
+      out.push({ kind: 'br', format: readFmt(child) });
+    }
+  }
+  return out;
+};
+
+/**
  * Number of text runs in the given paragraph. Throws on out-of-range
  * paragraph index or non-text shapes.
  */

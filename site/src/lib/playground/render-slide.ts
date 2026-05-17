@@ -47,6 +47,7 @@ import {
   getShapeImageFormat,
   getShapeKind,
   getShapeParagraphCount,
+  getShapeParagraphElements,
   getShapePlaceholderType,
   getShapePreset,
   getShapeRotation,
@@ -1677,7 +1678,14 @@ const renderRun = (
   if (format?.highlight !== undefined && format.highlight !== null) {
     styles.push(`background-color:${resolveColor(format.highlight, theme, '#FFFF00')}`);
   }
-  return `<span style="${styles.join(';')}">${escapeXml(text)}</span>`;
+  // Explicit `\n` in the run text comes from <a:br> line breaks; project
+  // each to an HTML <br/> so the foreignObject's CSS layout honours it.
+  // Everything else is escaped as XML text.
+  const html = text
+    .split('\n')
+    .map((part) => escapeXml(part))
+    .join('<br/>');
+  return `<span style="${styles.join(';')}">${html}</span>`;
 };
 
 // CSS line-height factor we render text at. Keep in sync with the
@@ -1733,33 +1741,38 @@ const renderTextBody = (
   const paraData: ParaData[] = [];
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
-    let runCount: number;
-    try {
-      runCount = getShapeRunCount(shape, p);
-    } catch {
-      runCount = 0;
-    }
     const align = getParagraphAlignment(shape, p) ?? 'left';
     const level = getParagraphLevel(shape, p);
     const bulletStyle = getParagraphBullet(shape, p);
     const runs: RunData[] = [];
-    for (let r = 0; r < runCount; r++) {
-      let txt = '';
-      try {
-        txt = getShapeRunText(shape, p, r);
-      } catch {
+    // Walk the paragraph's inline elements — runs, field placeholders,
+    // and explicit line breaks — in document order. The strict
+    // <a:r>-only `getShapeRunCount` would silently skip footer / date /
+    // slide-number fields, which is exactly what real templates emit.
+    let elements: ReadonlyArray<ReturnType<typeof getShapeParagraphElements>[number]> = [];
+    try {
+      elements = getShapeParagraphElements(shape, p);
+    } catch {
+      elements = [];
+    }
+    let rIdx = 0;
+    for (const el of elements) {
+      if (el.kind === 'br') {
+        runs.push({ text: '\n', fmt: null, sizePt: defaultPt });
         continue;
       }
-      // Resolve through the inheritance cascade (run → endParaRPr →
-      // defRPr → lstStyle → layout placeholder → master placeholder
-      // → master txStyles → theme). The literal-only getter would
-      // miss every placeholder format the deck author didn't repeat
-      // on the slide itself.
-      let fmt: TextFormat | null;
-      try {
-        fmt = getShapeRunFormatEffective(pres, shape, p, r);
-      } catch {
-        fmt = getShapeRunFormat(shape, p, r);
+      const txt = el.text;
+      let fmt: TextFormat | null = el.format;
+      if (el.kind === 'r') {
+        // The cascade only makes sense for actual <a:r> runs; field
+        // text is opaque cached content and shouldn't pretend to be a
+        // specific run index.
+        try {
+          fmt = getShapeRunFormatEffective(pres, shape, p, rIdx);
+        } catch {
+          fmt = getShapeRunFormat(shape, p, rIdx);
+        }
+        rIdx++;
       }
       const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;
