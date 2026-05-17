@@ -115,6 +115,29 @@ export interface ChartTrendline {
  * §21.2.2.55). All four toggles default to `false` — renderers paint
  * labels only when the corresponding flag is `true`.
  */
+/**
+ * `<c:dLblPos val="…"/>` — where the data label sits relative to its
+ * data point. Per ECMA-376 §21.2.2.51 the token universe varies by
+ * chart kind:
+ *
+ *   - bar / column: `'ctr' | 'inEnd' | 'outEnd' | 'inBase'`
+ *   - line / area:  `'ctr' | 't' | 'b' | 'l' | 'r'`
+ *   - pie / doughnut: `'ctr' | 'inEnd' | 'outEnd' | 'bestFit'`
+ *
+ * The union below covers every token; renderers ignore tokens that
+ * don't apply to the chart's kind.
+ */
+export type ChartDataLabelPosition =
+  | 'ctr'
+  | 'inEnd'
+  | 'outEnd'
+  | 'inBase'
+  | 't'
+  | 'b'
+  | 'l'
+  | 'r'
+  | 'bestFit';
+
 export interface ChartDataLabels {
   /** Numeric value of each data point. */
   readonly showValue: boolean;
@@ -131,6 +154,11 @@ export interface ChartDataLabels {
    * `"0.00"`). Independent of `ChartAxisScaling.numberFormat`.
    */
   readonly numberFormat?: string;
+  /**
+   * Position of the label relative to its data point — from
+   * `<c:dLbls><c:dLblPos val="…"/>`.
+   */
+  readonly position?: ChartDataLabelPosition;
 }
 
 /**

@@ -3,6 +3,7 @@
 
 export type {
   ChartAxisScaling,
+  ChartDataLabelPosition,
   ChartDataLabels,
   ChartGrouping,
   ChartKind,

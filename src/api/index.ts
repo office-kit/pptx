@@ -29,6 +29,7 @@ export type {
   ChartDataLabels,
   ChartGrouping,
   ChartKind,
+  ChartDataLabelPosition,
   ChartSeries,
   ChartSpec,
   ChartTextStyle,
