@@ -22,6 +22,18 @@ export interface ChartSeries {
   /** Optional `#RRGGBB` fill override. Defaults to the theme's accent palette. */
   readonly color?: string;
   /**
+   * Optional line stroke width in EMU (`<c:ser><c:spPr><a:ln w="…"/>`).
+   * Only meaningful for line / area / scatter series. Default falls
+   * back to the renderer's own pick.
+   */
+  readonly lineWidthEmu?: number;
+  /**
+   * Optional line dash style token (`<c:ser><c:spPr><a:ln><a:prstDash
+   * val="…"/>`), e.g. `'dash'`, `'dot'`, `'sysDash'`. Only
+   * meaningful for line / area / scatter series.
+   */
+  readonly lineDash?: string;
+  /**
    * Optional per-data-point color overrides, indexed by point index
    * (`<c:dPt><c:idx val="N"/><c:spPr><a:solidFill>…`). Sparse — only
    * the indices that author an override appear. Pie / doughnut decks

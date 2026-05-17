@@ -275,6 +275,26 @@ const readSeriesColor = (ser: XmlElement): string | undefined => {
   return v !== null ? `#${v.toUpperCase()}` : undefined;
 };
 
+// Per-series line stroke width + dash from <c:ser><c:spPr><a:ln>.
+const readSeriesLineProps = (ser: XmlElement): { lineWidthEmu?: number; lineDash?: string } => {
+  const spPr = firstChildElement(ser, NAME_SP_PR_C);
+  if (!spPr) return {};
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
+  if (!ln) return {};
+  const out: { lineWidthEmu?: number; lineDash?: string } = {};
+  const w = getAttrValue(ln, qname('', 'w', ''));
+  if (w !== null) {
+    const n = Number.parseInt(w, 10);
+    if (Number.isFinite(n) && n > 0) out.lineWidthEmu = n;
+  }
+  const prstDash = firstChildElement(ln, qname('a', 'prstDash', NS_A));
+  if (prstDash) {
+    const v = getAttrValue(prstDash, ATTR_VAL);
+    if (v !== null) out.lineDash = v;
+  }
+  return out;
+};
+
 const readTitle = (chart: XmlElement): string | undefined => {
   const title = firstChildElement(chart, NAME_TITLE);
   if (!title) return undefined;
@@ -351,6 +371,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     const values = valEl !== null ? readNumRef(valEl) : null;
     const color = readSeriesColor(ser);
+    const { lineWidthEmu, lineDash } = readSeriesLineProps(ser);
     // <c:dPt> data-point overrides — sparse map idx → color.
     const pointColors = readDataPointColors(ser);
     // <c:smooth val="1"/> — line / area / scatter only.
@@ -379,6 +400,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       name,
       values: values ?? [],
       ...(color !== undefined ? { color } : {}),
+      ...(lineWidthEmu !== undefined ? { lineWidthEmu } : {}),
+      ...(lineDash !== undefined ? { lineDash } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
       ...(trendline !== undefined ? { trendline } : {}),
