@@ -5287,6 +5287,40 @@ export const getShapeRunHyperlink = (
 };
 
 /**
+ * Reads the tooltip text on the shape's `<a:hlinkClick tooltip="…"/>`.
+ * Returns `null` when no hyperlink is set or the link doesn't author
+ * a tooltip. Tooltips show up in PowerPoint when the user hovers over
+ * a linked shape in slide-show mode.
+ */
+export const getShapeHyperlinkTooltip = (shape: SlideShapeData): string | null => {
+  const cNvPr = findCNvPr(shape);
+  if (!cNvPr) return null;
+  const hlink = firstChildElement(cNvPr, NAME_HLINK_CLICK_FN);
+  if (!hlink) return null;
+  const tt = getAttrValue(hlink, qname('', 'tooltip', ''));
+  return tt ?? null;
+};
+
+/**
+ * Reads the tooltip on a per-run `<a:rPr><a:hlinkClick tooltip="…"/>`.
+ * Same semantics as `getShapeHyperlinkTooltip` but scoped to a single
+ * run.
+ */
+export const getShapeRunHyperlinkTooltip = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  runIndex: number,
+): string | null => {
+  const run = requireRun(shape, paragraphIndex, runIndex);
+  const rPr = firstChildElement(run, qname('a', 'rPr', NS.dml));
+  if (!rPr) return null;
+  const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
+  if (!hlink) return null;
+  const tt = getAttrValue(hlink, qname('', 'tooltip', ''));
+  return tt ?? null;
+};
+
+/**
  * Same as `getShapeClickAction` but reads the per-run
  * `<a:rPr><a:hlinkClick action=… r:id=…/>`. Recognises:
  *
