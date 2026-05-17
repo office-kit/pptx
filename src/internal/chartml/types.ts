@@ -209,7 +209,11 @@ export interface ChartSpec {
   readonly chartAreaFill?: string;
   /** Optional axis title text (`<c:catAx><c:title>` / `<c:valAx><c:title>`). */
   readonly categoryAxisTitle?: string;
+  /** Authored font / color on the category-axis title (same `<a:rPr>` shape as `titleStyle`). */
+  readonly categoryAxisTitleStyle?: ChartTextStyle;
   readonly valueAxisTitle?: string;
+  /** Authored font / color on the value-axis title. */
+  readonly valueAxisTitleStyle?: ChartTextStyle;
   /** When `true`, value axis is hidden (`<c:valAx><c:delete val="1"/>`). */
   readonly valueAxisHidden?: boolean;
   /** When `true`, category axis is hidden (`<c:catAx><c:delete val="1"/>`). */
