@@ -3456,6 +3456,93 @@ export const getShapeFillColorResolved = (
   return null;
 };
 
+/**
+ * Same as `getShapeFill` but walks the layout → master placeholder
+ * cascade when the shape itself reports `'inherit'`. Returns the first
+ * non-inherit fill found, or `{ kind: 'inherit' }` when neither layer
+ * supplies one. Useful for renderers that want the actual fill the
+ * placeholder will paint with.
+ */
+export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeData): ShapeFill => {
+  const own = getShapeFill(shape);
+  if (own.kind !== 'inherit') return own;
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+  if (phIdx === null && phType === null) return own;
+
+  const layout = getSlideLayout(shape[SHAPE_SLIDE]);
+  if (!layout) return own;
+
+  const readFillFromSpPr = (el: XmlElement): ShapeFill | null => {
+    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
+    if (!spPr) return null;
+    for (const c of spPr.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      switch (c.name.localName) {
+        case 'noFill':
+          return { kind: 'none' };
+        case 'solidFill': {
+          for (const inner of c.children) {
+            if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+            if (inner.name.localName === 'srgbClr') {
+              const val = getAttrValue(inner, qname('', 'val', ''));
+              if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+            }
+            if (inner.name.localName === 'schemeClr') {
+              const val = getAttrValue(inner, qname('', 'val', ''));
+              if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+            }
+          }
+          return { kind: 'solid', color: '' };
+        }
+        case 'gradFill':
+          return { kind: 'gradient' };
+        case 'pattFill':
+          return { kind: 'pattern' };
+        case 'blipFill':
+          return { kind: 'image' };
+      }
+    }
+    return null;
+  };
+
+  const findPh = (
+    shapes: ReadonlyArray<{
+      placeholderIdx: number | null;
+      placeholderType: string | null;
+      element: XmlElement;
+    }>,
+  ): XmlElement | null => {
+    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    if (!match && phType !== null) match = shapes.find((s) => s.placeholderType === phType);
+    return match?.element ?? null;
+  };
+
+  const layoutPh = findPh(layout[LAYOUT_PART].shapes);
+  if (layoutPh) {
+    const f = readFillFromSpPr(layoutPh);
+    if (f) return f;
+  }
+
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return own;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return own;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return own;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+  const masterPh = findPh(masterShapes);
+  if (masterPh) {
+    const f = readFillFromSpPr(masterPh);
+    if (f) return f;
+  }
+  return own;
+};
+
 export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
   const spPrName = qname('p', 'spPr', NS.pml);
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], spPrName);

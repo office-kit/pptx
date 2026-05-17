@@ -34,6 +34,7 @@ import {
   getShapeEffects,
   getShapeEffectsEffective,
   getShapeFill,
+  getShapeFillEffective,
   getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
@@ -3274,7 +3275,7 @@ const renderShape = (
   if (w <= 0 || h <= 0) return '';
 
   const kind = getShapeKind(shape);
-  const fill = getShapeFill(shape);
+  const fill = getShapeFillEffective(pres, shape);
   const stroke = getShapeStroke(shape);
   const rotation = getShapeRotation(shape);
   const flip = getShapeFlip(shape) ?? { horizontal: false, vertical: false };
