@@ -2574,7 +2574,20 @@ interface AxisSpec {
   readonly numberFormat?: string;
   /** When `false`, gridlines aren't painted (only the tick labels). */
   readonly majorGridlines?: boolean;
+  /** Optional authored tick-label font / color from `<c:valAx><c:txPr>`. */
+  readonly labelStyle?: ChartTextStyle;
 }
+
+// Builds the `font-family / font-size / fill / weight` SVG attribute
+// string for axis tick labels. Defaults match PowerPoint's stock 10pt
+// muted-gray look; authored `<c:txPr>` overrides take over.
+const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
+  const sz = style?.sizePt ?? 10;
+  const fill = style?.color ?? '#6B7280';
+  const weight = style?.bold ? ' font-weight="600"' : '';
+  const italic = style?.italic ? ' font-style="italic"' : '';
+  return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
+};
 
 const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   // Honour the authored majorUnit when present; otherwise let niceTicks
@@ -2600,7 +2613,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       }
       // Numeric label, right-aligned to the plot's left edge.
       out.push(
-        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
+        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -2610,7 +2623,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
         );
       }
       out.push(
-        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
+        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     }
   }
@@ -2624,6 +2637,7 @@ const renderCategoryAxis = (
   cats: ReadonlyArray<string>,
   pointCount: number,
   skip = 1,
+  labelStyle?: ChartTextStyle,
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -2642,7 +2656,7 @@ const renderCategoryAxis = (
           ? `${labels[i]!.slice(0, 12)}…`
           : (labels[i] ?? '');
       out.push(
-        `<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`,
+        `<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}>${escapeXml(truncated)}</text>`,
       );
     }
   } else {
@@ -2656,7 +2670,7 @@ const renderCategoryAxis = (
           ? `${labels[i]!.slice(0, 12)}…`
           : (labels[i] ?? '');
       out.push(
-        `<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`,
+        `<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}>${escapeXml(truncated)}</text>`,
       );
     }
   }
@@ -3558,6 +3572,7 @@ const renderChart = (
       ...(spec.valueAxisMajorGridlines !== undefined
         ? { majorGridlines: spec.valueAxisMajorGridlines }
         : {}),
+      ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
     };
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
@@ -3575,6 +3590,7 @@ const renderChart = (
         spec.categories,
         N,
         spec.categoryAxisTickLabelSkip ?? 1,
+        spec.categoryAxisLabelStyle,
       );
     }
   }
