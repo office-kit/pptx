@@ -14,7 +14,7 @@ import {
   getAttrValue,
   qname,
 } from '../xml/index.ts';
-import type { ChartKind, ChartSeries, ChartSpec } from './types.ts';
+import type { ChartDataLabels, ChartKind, ChartSeries, ChartSpec } from './types.ts';
 
 const NS_C = NS.chart;
 const NS_A = NS.dml;
@@ -258,10 +258,33 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   const categories = categoriesFromFirst ?? [];
   const title = readTitle(chart);
 
+  // <c:dLbls> can sit either on the plotted-kind element (`barChart`,
+  // `lineChart`, …) for chart-level defaults or on each `<c:ser>` for
+  // per-series overrides. Surface the plotted-kind defaults; per-series
+  // toggles are deferred until renderers care.
+  const dLbls = firstChildElement(plotted, qname('c', 'dLbls', NS_C));
+  let dataLabels: ChartDataLabels | undefined;
+  if (dLbls) {
+    const readToggle = (local: string): boolean => {
+      const el = firstChildElement(dLbls, qname('c', local, NS_C));
+      if (!el) return false;
+      const v = getAttrValue(el, ATTR_VAL);
+      // Absent val attribute defaults to true per the schema's CT_Boolean.
+      return v === null || v === '1' || v === 'true';
+    };
+    dataLabels = {
+      showValue: readToggle('showVal'),
+      showCategory: readToggle('showCatName'),
+      showSeriesName: readToggle('showSerName'),
+      showPercent: readToggle('showPercent'),
+    };
+  }
+
   return {
     kind,
     categories,
     series,
     ...(title !== undefined ? { title } : {}),
+    ...(dataLabels !== undefined ? { dataLabels } : {}),
   };
 };
