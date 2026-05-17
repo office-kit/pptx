@@ -117,4 +117,13 @@ export interface ChartSpec {
    * Defaults to 0 (clustered) / 100 (stacked).
    */
   readonly overlapPct?: number;
+  /**
+   * Optional legend configuration. `position` mirrors
+   * `<c:legend><c:legendPos val="…"/>` — `'r'` (right) is the default,
+   * `'t'`, `'b'`, `'l'`, `'tr'` (top-right) the other tokens. `null`
+   * for `position` means no legend at all (the chart explicitly hides
+   * it). `undefined` overall means the chart didn't author a legend
+   * element — renderers should fall back to their own default.
+   */
+  readonly legend?: { position: 'r' | 't' | 'b' | 'l' | 'tr' | null };
 }

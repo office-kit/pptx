@@ -2520,22 +2520,51 @@ const renderChartLegend = (
   f: ChartFrame,
   names: ReadonlyArray<string>,
   colors: ReadonlyArray<string>,
+  position: 'r' | 't' | 'b' | 'l' | 'tr' = 'b',
 ): string => {
   if (names.length === 0) return '';
-  const itemPx = Math.min(140, f.w / names.length);
-  const totalW = itemPx * names.length;
-  const startX = f.x + (f.w - totalW) / 2;
   const out: string[] = [];
+  if (position === 'b') {
+    // Default: horizontal row centered at the bottom.
+    const itemPx = Math.min(140, f.w / names.length);
+    const totalW = itemPx * names.length;
+    const startX = f.x + (f.w - totalW) / 2;
+    for (let i = 0; i < names.length; i++) {
+      const cx = startX + i * itemPx;
+      const swatchX = cx + 4;
+      const swatchY = f.legendY - 4;
+      const labelX = swatchX + 14;
+      out.push(
+        `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+        `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+      );
+    }
+    return out.join('');
+  }
+  if (position === 't') {
+    const itemPx = Math.min(140, f.w / names.length);
+    const totalW = itemPx * names.length;
+    const startX = f.x + (f.w - totalW) / 2;
+    const yTop = f.y + 4;
+    for (let i = 0; i < names.length; i++) {
+      const cx = startX + i * itemPx;
+      out.push(
+        `<rect x="${px(cx + 4)}" y="${px(yTop)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+        `<text x="${px(cx + 18)}" y="${px(yTop + 8)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+      );
+    }
+    return out.join('');
+  }
+  // Right / Top-Right / Left — vertical stack along the chosen edge.
+  const lineH = 14;
+  const yStart = f.y + 12;
+  const xCol =
+    position === 'l' ? f.x + 6 : position === 'tr' ? f.x + f.w - 100 : /* 'r' */ f.x + f.w - 100;
   for (let i = 0; i < names.length; i++) {
-    const cx = startX + i * itemPx;
-    const swatchX = cx + 4;
-    const swatchY = f.legendY - 4;
-    const labelX = swatchX + 14;
+    const yp = yStart + i * lineH;
     out.push(
-      `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
-    );
-    out.push(
-      `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+      `<rect x="${px(xCol)}" y="${px(yp - 4)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+      `<text x="${px(xCol + 14)}" y="${px(yp + 4)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
     );
   }
   return out.join('');
@@ -3176,7 +3205,14 @@ const renderChart = (
     axes,
     plot,
     emptyHint,
-    renderChartLegend(f, seriesNamesForLegend, seriesColorsForLegend),
+    spec.legend?.position === null
+      ? ''
+      : renderChartLegend(
+          f,
+          seriesNamesForLegend,
+          seriesColorsForLegend,
+          spec.legend?.position ?? 'b',
+        ),
     '</g>',
   ].join('');
 };
