@@ -77,6 +77,8 @@ import {
   getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideBackgroundPatternFill,
+  getSlideLayout,
+  getSlideLayoutBackground,
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
@@ -2981,7 +2983,13 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   const H = size.height as number;
   const theme = getPresentationTheme(pres);
 
-  const bg = getSlideBackground(slide);
+  let bg = getSlideBackground(slide);
+  // B10 (partial) — when the slide reports inherit, walk to the layout so
+  // a deck that paints its brand color / image on the layout shows up.
+  if (bg.kind === 'inherit') {
+    const layout = getSlideLayout(slide);
+    if (layout) bg = getSlideLayoutBackground(layout);
+  }
   let bgColor = '#FFFFFF';
   let bgGradient = '';
   let bgGradientDefs = '';

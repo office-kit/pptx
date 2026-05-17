@@ -273,6 +273,7 @@ export {
   getSlideIndex,
   getSlideInfo,
   getSlideLayout,
+  getSlideLayoutBackground,
   getSlideLayoutCount,
   getSlideLayoutName,
   getSlideLayoutPartName,
