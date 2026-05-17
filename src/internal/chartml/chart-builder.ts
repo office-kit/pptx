@@ -8,7 +8,7 @@
 // can render the chart without ever opening the workbook.
 
 import { NS, type XmlDocument, type XmlElement, attr, elem, qname, text } from '../xml/index.ts';
-import type { ChartSpec } from './types.ts';
+import type { ChartSpec, ChartTextStyle } from './types.ts';
 
 // QNames (chart `c:` namespace) --------------------------------------------
 
@@ -203,14 +203,47 @@ const buildAreaChart = (spec: ChartSpec, sheet: string): XmlElement => {
   });
 };
 
-const titleElement = (title: string): XmlElement => {
+// Builds an <a:rPr ...><a:solidFill><a:srgbClr/></a:solidFill></a:rPr>
+// payload from a ChartTextStyle. Returns the rPr children to splice
+// into the parent run / def-run-properties node.
+const rPrAttrsFromStyle = (
+  style: ChartTextStyle | undefined,
+): {
+  attrs: ReturnType<typeof attr>[];
+  children: XmlElement[];
+} => {
+  const attrs: ReturnType<typeof attr>[] = [];
+  const children: XmlElement[] = [];
+  if (style?.sizePt !== undefined) {
+    attrs.push(attr(qname('', 'sz', ''), String(Math.round(style.sizePt * 100))));
+  }
+  if (style?.bold === true) attrs.push(attr(qname('', 'b', ''), '1'));
+  if (style?.bold === false) attrs.push(attr(qname('', 'b', ''), '0'));
+  if (style?.italic === true) attrs.push(attr(qname('', 'i', ''), '1'));
+  if (style?.italic === false) attrs.push(attr(qname('', 'i', ''), '0'));
+  if (style?.color !== undefined) {
+    const hex = style.color.startsWith('#') ? style.color.slice(1) : style.color;
+    children.push(
+      elem(a('solidFill'), {
+        children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), hex.toUpperCase())] })],
+      }),
+    );
+  }
+  return { attrs, children };
+};
+
+const titleElement = (title: string, style?: ChartTextStyle): XmlElement => {
+  // defRPr stays 1400 (14pt) as the legacy default; the run-level
+  // <a:rPr> carries authored overrides so renderers honor them.
   const rPr = elem(a('defRPr'), { attrs: [attr(qname('', 'sz', ''), '1400')] });
   const pPr = elem(a('pPr'), { children: [rPr] });
+  const { attrs: runAttrs, children: runChildren } = rPrAttrsFromStyle(style);
+  const runRPr = elem(a('rPr'), {
+    attrs: [attr(qname('', 'lang', ''), 'en-US'), ...runAttrs],
+    children: runChildren,
+  });
   const tRun = elem(a('r'), {
-    children: [
-      elem(a('rPr'), { attrs: [attr(qname('', 'lang', ''), 'en-US')] }),
-      elem(a('t'), { children: [text(title)] }),
-    ],
+    children: [runRPr, elem(a('t'), { children: [text(title)] })],
   });
   const para = elem(a('p'), { children: [pPr, tRun] });
   const rich = elem(c('rich'), {
@@ -277,7 +310,7 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   const plotArea = elem(c('plotArea'), { children: plotAreaChildren });
 
   const chartChildren: XmlElement[] = [];
-  if (spec.title !== undefined) chartChildren.push(titleElement(spec.title));
+  if (spec.title !== undefined) chartChildren.push(titleElement(spec.title, spec.titleStyle));
   chartChildren.push(
     valNode(c('autoTitleDeleted'), spec.title !== undefined ? '0' : '1'),
     plotArea,

@@ -53,6 +53,32 @@ describe('fn API: getSlideCharts', () => {
     expect(spec!.title).toBe('Quarterly');
   });
 
+  it('round-trips titleStyle through builder', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        title: 'Styled',
+        titleStyle: { sizePt: 18, bold: true, color: '#FF0000' },
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const charts = getSlideCharts(getSlides(reloaded)[0]!);
+    const spec = charts[0]!.spec!;
+    expect(spec.title).toBe('Styled');
+    expect(spec.titleStyle?.sizePt).toBe(18);
+    expect(spec.titleStyle?.bold).toBe(true);
+    expect(spec.titleStyle?.color).toBe('#FF0000');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
