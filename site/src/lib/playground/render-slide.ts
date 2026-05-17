@@ -67,6 +67,7 @@ import {
   getShapeRunFormatEffective,
   getShapeRunText,
   getShapeStroke,
+  getShapeStrokeEffective,
   getShapeStrokeArrow,
   getShapeStrokeCap,
   getShapeStrokeColorResolved,
@@ -3276,7 +3277,7 @@ const renderShape = (
 
   const kind = getShapeKind(shape);
   const fill = getShapeFillEffective(pres, shape);
-  const stroke = getShapeStroke(shape);
+  const stroke = getShapeStrokeEffective(pres, shape);
   const rotation = getShapeRotation(shape);
   const flip = getShapeFlip(shape) ?? { horizontal: false, vertical: false };
   const phType = getShapePlaceholderType(shape);

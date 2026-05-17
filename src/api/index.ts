@@ -254,6 +254,7 @@ export {
   getShapesBounds,
   getShapeSlide,
   getShapeStroke,
+  getShapeStrokeEffective,
   getShapeStrokeArrow,
   getShapeStrokeCap,
   getShapeStrokeColor,

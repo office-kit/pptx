@@ -3372,6 +3372,99 @@ export const getShapeStrokeCompound = (
   return null;
 };
 
+/**
+ * Same as `getShapeStroke` but walks the layout → master placeholder
+ * cascade when the shape itself reports `'inherit'`. First non-inherit
+ * stroke layer wins.
+ */
+export const getShapeStrokeEffective = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): ShapeStroke => {
+  const own = getShapeStroke(shape);
+  if (own.kind !== 'inherit') return own;
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+  if (phIdx === null && phType === null) return own;
+
+  const layout = getSlideLayout(shape[SHAPE_SLIDE]);
+  if (!layout) return own;
+
+  const readStrokeFromSpPr = (el: XmlElement): ShapeStroke | null => {
+    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
+    if (!spPr) return null;
+    const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+    if (!ln) return null;
+    const wRaw = getAttrValue(ln, qname('', 'w', ''));
+    const widthEmu = wRaw !== null ? Number.parseInt(wRaw, 10) : undefined;
+    for (const c of ln.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (c.name.localName === 'noFill') return { kind: 'none' };
+      if (c.name.localName === 'solidFill') {
+        for (const inner of c.children) {
+          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+          if (inner.name.localName === 'srgbClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) {
+              return {
+                kind: 'solid',
+                color: `#${val.toUpperCase()}`,
+                ...(widthEmu !== undefined ? { widthEmu } : {}),
+              };
+            }
+          }
+          if (inner.name.localName === 'schemeClr') {
+            const val = getAttrValue(inner, qname('', 'val', ''));
+            if (val !== null) {
+              return {
+                kind: 'solid',
+                color: `scheme:${val}`,
+                ...(widthEmu !== undefined ? { widthEmu } : {}),
+              };
+            }
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const findPh = (
+    shapes: ReadonlyArray<{
+      placeholderIdx: number | null;
+      placeholderType: string | null;
+      element: XmlElement;
+    }>,
+  ): XmlElement | null => {
+    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    if (!match && phType !== null) match = shapes.find((s) => s.placeholderType === phType);
+    return match?.element ?? null;
+  };
+
+  const layoutPh = findPh(layout[LAYOUT_PART].shapes);
+  if (layoutPh) {
+    const s = readStrokeFromSpPr(layoutPh);
+    if (s) return s;
+  }
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return own;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return own;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return own;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+  const masterPh = findPh(masterShapes);
+  if (masterPh) {
+    const s = readStrokeFromSpPr(masterPh);
+    if (s) return s;
+  }
+  return own;
+};
+
 export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return { kind: 'inherit' };
