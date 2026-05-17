@@ -291,6 +291,29 @@ const gradientDef = (
   theme: PresentationTheme | null,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
+  const stops = grad.stops
+    .map((s) => `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`)
+    .join('');
+  if (grad.path === 'circle' || grad.path === 'rect' || grad.path === 'shape') {
+    // SVG only ships a true radial gradient; ECMA-376's `rect` and
+    // `shape` paths are close enough that we project them onto a
+    // radial fill centered on the focus rectangle.
+    const focus = grad.focus ?? { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 };
+    const cx = (focus.left + focus.right) / 2;
+    const cy = (focus.top + focus.bottom) / 2;
+    // ECMA-376 stops paint outward from the focus center; SVG's radial
+    // gradient paints from cx/cy out to r. Reverse the stops so the
+    // first-stop color sits at the center, matching PowerPoint.
+    const reversed = grad.stops
+      .slice()
+      .reverse()
+      .map((s) =>
+        `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+      )
+      .join('');
+    const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${reversed}</radialGradient></defs>`;
+    return { defs, fillAttr: `url(#${id})` };
+  }
   const angleRad = ((grad.angleDeg ?? 0) * Math.PI) / 180;
   const dx = Math.cos(angleRad) / 2;
   const dy = Math.sin(angleRad) / 2;
@@ -298,9 +321,6 @@ const gradientDef = (
   const y1 = 0.5 - dy;
   const x2 = 0.5 + dx;
   const y2 = 0.5 + dy;
-  const stops = grad.stops
-    .map((s) => `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`)
-    .join('');
   const defs = `<defs><linearGradient id="${id}" gradientUnits="objectBoundingBox" x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
   return { defs, fillAttr: `url(#${id})` };
 };

@@ -101,9 +101,27 @@ export interface GradientFillOptions {
    * Gradient axis angle, in degrees. ECMA-376 measures clockwise from
    * the right (3 o'clock); `0` is a left-to-right gradient, `90` is
    * top-to-bottom, `180` right-to-left, `270` bottom-to-top. Defaults
-   * to `90` (top → bottom).
+   * to `90` (top → bottom). Only meaningful for linear gradients.
    */
   readonly angleDeg?: number;
+  /**
+   * Non-linear gradient path. `circle` paints concentric circles,
+   * `rect` paints nested rectangles, `shape` follows the shape's
+   * outline. Absent / `'linear'` → linear gradient using `angleDeg`.
+   * Mirrors ECMA-376 §20.1.8.33 `<a:path path="…"/>`.
+   */
+  readonly path?: 'linear' | 'circle' | 'rect' | 'shape';
+  /**
+   * Focus rectangle for non-linear gradients, in unit coordinates
+   * (0 = left/top, 1 = right/bottom). When omitted, defaults to a
+   * single point at the rectangle's center. Mirrors `<a:fillToRect>`.
+   */
+  readonly focus?: {
+    readonly left: number;
+    readonly top: number;
+    readonly right: number;
+    readonly bottom: number;
+  };
 }
 
 /** One of ECMA-376's `ST_PresetPatternVal` tokens (`pct50`, `dkUpDiag`, ...). */

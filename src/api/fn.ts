@@ -3564,7 +3564,10 @@ export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions
     stops.push({ offset: pos / 100_000, color });
   }
   if (stops.length === 0) return null;
-  // ECMA-376 stores `ang` in 60000ths of a degree.
+  // ECMA-376 §20.1.8.33: gradFill has either <a:lin> (linear) or <a:path>
+  // (radial / rectangular / shape-following) as a child to describe the
+  // direction. We surface both so renderers can faithfully reproduce
+  // non-linear gradients.
   let angleDeg = 0;
   const lin = firstChildElement(gradFill, NAME_A_LIN);
   if (lin) {
@@ -3572,6 +3575,32 @@ export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions
     if (angRaw !== null) {
       const ang = Number.parseInt(angRaw, 10);
       if (Number.isFinite(ang)) angleDeg = ang / 60_000;
+    }
+  }
+  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
+  if (pathEl) {
+    const p = getAttrValue(pathEl, qname('', 'path', ''));
+    const pathVal: 'circle' | 'rect' | 'shape' | null =
+      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
+    if (pathVal) {
+      let focus: GradientFillOptions['focus'];
+      const fillToRect = firstChildElement(pathEl, qname('a', 'fillToRect', NS.dml));
+      if (fillToRect) {
+        const pct = (name: string): number | undefined => {
+          const v = getAttrValue(fillToRect, qname('', name, ''));
+          if (v === null) return undefined;
+          let n = Number.parseFloat(v);
+          if (!Number.isFinite(n)) return undefined;
+          if (Math.abs(n) > 1) n = n / 100000;
+          return n;
+        };
+        const l = pct('l') ?? 0.5;
+        const t = pct('t') ?? 0.5;
+        const r = pct('r') ?? 0.5;
+        const b = pct('b') ?? 0.5;
+        focus = { left: l, top: t, right: r, bottom: b };
+      }
+      return { stops, angleDeg, path: pathVal, ...(focus ? { focus } : {}) };
     }
   }
   return { stops, angleDeg };
