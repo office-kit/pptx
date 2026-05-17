@@ -383,6 +383,42 @@ describe('fn API: getSlideCharts', () => {
     expect(s2.invertIfNegative).toBe(true);
   });
 
+  it('round-trips series-level trendline (type / forward / backward / period / color)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'line',
+        categories: ['A', 'B', 'C', 'D'],
+        series: [
+          {
+            name: 'Trend',
+            values: [1, 2, 3, 4],
+            trendline: {
+              type: 'movingAvg',
+              period: 2,
+              forward: 3,
+              backward: 1,
+              color: '#993366',
+            },
+          },
+        ],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const tl = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!.series[0]!.trendline!;
+    expect(tl.type).toBe('movingAvg');
+    expect(tl.period).toBe(2);
+    expect(tl.forward).toBe(3);
+    expect(tl.backward).toBe(1);
+    expect(tl.color).toBe('#993366');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
