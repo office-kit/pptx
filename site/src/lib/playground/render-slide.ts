@@ -2591,6 +2591,8 @@ interface AxisSpec {
   readonly labelStyle?: ChartTextStyle;
   /** Optional authored major-gridline color from `<c:majorGridlines><c:spPr><a:ln>`. */
   readonly majorGridlineColor?: string;
+  /** Major-tick mark mode from `<c:valAx><c:majorTickMark val="…"/>`. */
+  readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
 }
 
 // Builds the `font-family / font-size / fill / weight` SVG attribute
@@ -2619,12 +2621,28 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   const range = axis.max - axis.min || 1;
   const showGrid = axis.majorGridlines ?? true;
   const gridStroke = axis.majorGridlineColor ?? '#E5E7EB';
+  // Tick-mark mode: 'out' = stub outside the plot edge (default),
+  // 'in' = stub inside the plot, 'cross' = both, 'none' = no stub.
+  const tickMark = axis.majorTickMark ?? 'out';
+  const tickLen = 3;
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
       if (showGrid) {
         out.push(
           `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="${gridStroke}" stroke-width="0.5"/>`,
+        );
+      }
+      if (tickMark !== 'none') {
+        const tx1 = tickMark === 'in' ? f.plotX : f.plotX - tickLen;
+        const tx2 =
+          tickMark === 'out'
+            ? f.plotX
+            : tickMark === 'cross'
+              ? f.plotX + tickLen
+              : f.plotX + tickLen;
+        out.push(
+          `<line x1="${px(tx1)}" y1="${px(yp)}" x2="${px(tx2)}" y2="${px(yp)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
         );
       }
       // Numeric label, right-aligned to the plot's left edge.
@@ -2636,6 +2654,15 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       if (showGrid) {
         out.push(
           `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="${gridStroke}" stroke-width="0.5"/>`,
+        );
+      }
+      if (tickMark !== 'none') {
+        const baseY = f.plotY + f.plotH;
+        const ty1 = tickMark === 'in' ? baseY : baseY + tickLen;
+        const ty2 =
+          tickMark === 'out' ? baseY : tickMark === 'cross' ? baseY - tickLen : baseY - tickLen;
+        out.push(
+          `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
         );
       }
       out.push(
@@ -3682,6 +3709,9 @@ const renderChart = (
       ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
       ...(spec.valueAxisMajorGridlineColor !== undefined
         ? { majorGridlineColor: spec.valueAxisMajorGridlineColor }
+        : {}),
+      ...(spec.valueAxisMajorTickMark !== undefined
+        ? { majorTickMark: spec.valueAxisMajorTickMark }
         : {}),
     };
     const valueAxis: AxisSpec =

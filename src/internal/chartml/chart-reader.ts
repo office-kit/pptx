@@ -742,6 +742,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisTitleStyle: ChartTextStyle | undefined;
   let categoryAxisLabelStyle: ChartTextStyle | undefined;
   let categoryAxisLabelRotationDeg: number | undefined;
+  let valueAxisMajorTickMark: ChartSpec['valueAxisMajorTickMark'];
+  let categoryAxisMajorTickMark: ChartSpec['categoryAxisMajorTickMark'];
+  const readTickMark = (axis: XmlElement): 'in' | 'out' | 'cross' | 'none' | undefined => {
+    const el = firstChildElement(axis, qname('c', 'majorTickMark', NS_C));
+    if (!el) return undefined;
+    const v = getAttrValue(el, ATTR_VAL);
+    if (v === 'in' || v === 'out' || v === 'cross' || v === 'none') return v;
+    return undefined;
+  };
   let valueAxisTitle: string | undefined;
   let valueAxisTitleStyle: ChartTextStyle | undefined;
   let valueAxisLabelStyle: ChartTextStyle | undefined;
@@ -787,6 +796,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     categoryAxisHidden = isHidden(catAx);
     categoryAxisOrientation = readAxisOrientation(catAx);
+    categoryAxisMajorTickMark = readTickMark(catAx);
     const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
     if (skipEl) {
       const v = getAttrValue(skipEl, ATTR_VAL);
@@ -818,6 +828,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (valTxPr) valueAxisLabelStyle = readLabelStyle(valTxPr);
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
+    valueAxisMajorTickMark = readTickMark(valAx);
     const majorGl = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C));
     valueAxisMajorGridlines = majorGl !== null;
     if (majorGl) {
@@ -966,6 +977,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
     ...(valueAxisMajorGridlineColor !== undefined ? { valueAxisMajorGridlineColor } : {}),
+    ...(valueAxisMajorTickMark !== undefined ? { valueAxisMajorTickMark } : {}),
+    ...(categoryAxisMajorTickMark !== undefined ? { categoryAxisMajorTickMark } : {}),
     ...(valueAxisMinorGridlines !== undefined ? { valueAxisMinorGridlines } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),

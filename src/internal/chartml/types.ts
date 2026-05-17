@@ -271,6 +271,17 @@ export interface ChartSpec {
   /** When the value-axis emits `<c:majorGridlines/>` — its gridlines are visible. */
   readonly valueAxisMajorGridlines?: boolean;
   /**
+   * Major-tick mark mode on the value axis (`<c:valAx><c:majorTickMark val="…"/>`):
+   *
+   *   - `'out'` — outside the plot edge (default)
+   *   - `'in'` — inside the plot
+   *   - `'cross'` — across the axis line
+   *   - `'none'` — no tick marks
+   */
+  readonly valueAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`). */
+  readonly categoryAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /**
    * Authored color on the value-axis major gridlines — `<c:valAx>
    * <c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="…"/>`.
    * Returned as `#RRGGBB`. `undefined` falls back to the renderer's
