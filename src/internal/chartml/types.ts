@@ -34,6 +34,30 @@ export interface ChartSeries {
    */
   readonly lineDash?: string;
   /**
+   * Optional marker style for line / scatter series (`<c:ser><c:marker>`).
+   * `none` hides the markers; the others render the matching glyph at
+   * each data point. Defaults to `auto`, which renderers map to a small
+   * filled circle.
+   */
+  readonly markerSymbol?:
+    | 'none'
+    | 'auto'
+    | 'circle'
+    | 'square'
+    | 'diamond'
+    | 'triangle'
+    | 'star'
+    | 'x'
+    | 'plus'
+    | 'dash'
+    | 'dot'
+    | 'picture';
+  /**
+   * Marker size in points (`<c:marker><c:size val="N"/>`). PowerPoint
+   * default ~5. Only meaningful when `markerSymbol` isn't `none`.
+   */
+  readonly markerSizePt?: number;
+  /**
    * Optional per-data-point color overrides, indexed by point index
    * (`<c:dPt><c:idx val="N"/><c:spPr><a:solidFill>…`). Sparse — only
    * the indices that author an override appear. Pie / doughnut decks

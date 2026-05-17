@@ -102,6 +102,7 @@ import {
   isTableShape,
   type PresentationData,
   type PresentationTheme,
+  type ChartSeries,
   type ChartSpec,
   type GradientFillOptions,
   type ShapeBounds,
@@ -2891,6 +2892,50 @@ const smoothPath = (pts: ReadonlyArray<[number, number]>): string => {
   return parts.join(' ');
 };
 
+// Per-series data-point marker glyph. `symbol` mirrors ECMA-376's
+// ST_MarkerStyle (subset). `auto` resolves to a small filled circle.
+const seriesMarker = (
+  symbol: NonNullable<ChartSeries['markerSymbol']>,
+  cx: number,
+  cy: number,
+  r: number,
+  color: string,
+): string => {
+  switch (symbol) {
+    case 'square':
+      return `<rect x="${px(cx - r)}" y="${px(cy - r)}" width="${px(r * 2)}" height="${px(r * 2)}" fill="${color}"/>`;
+    case 'diamond':
+      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy)} ${px(cx)},${px(cy + r)} ${px(cx - r)},${px(cy)}" fill="${color}"/>`;
+    case 'triangle':
+      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy + r)} ${px(cx - r)},${px(cy + r)}" fill="${color}"/>`;
+    case 'star':
+      // 5-point star, rough; good enough at marker scale.
+      return `<polygon points="${(() => {
+        const pts: string[] = [];
+        for (let i = 0; i < 10; i++) {
+          const ang = -Math.PI / 2 + (i * Math.PI) / 5;
+          const rr = i % 2 === 0 ? r : r * 0.45;
+          pts.push(`${px(cx + rr * Math.cos(ang))},${px(cy + rr * Math.sin(ang))}`);
+        }
+        return pts.join(' ');
+      })()}" fill="${color}"/>`;
+    case 'x':
+      return `<g stroke="${color}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy - r)}" x2="${px(cx + r)}" y2="${px(cy + r)}"/><line x1="${px(cx - r)}" y1="${px(cy + r)}" x2="${px(cx + r)}" y2="${px(cy - r)}"/></g>`;
+    case 'plus':
+      return `<g stroke="${color}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}"/><line x1="${px(cx)}" y1="${px(cy - r)}" x2="${px(cx)}" y2="${px(cy + r)}"/></g>`;
+    case 'dash':
+      return `<line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}" stroke="${color}" stroke-width="${Math.max(1.5, r * 0.6).toFixed(2)}" stroke-linecap="round"/>`;
+    case 'dot':
+      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${(r * 0.6).toFixed(2)}" fill="${color}"/>`;
+    case 'picture':
+    case 'auto':
+    case 'circle':
+    case 'none':
+    default:
+      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${px(r)}" fill="${color}"/>`;
+  }
+};
+
 // Trim long decimals; large numbers keep their integer form.
 const formatChartValue = (v: number): string => {
   if (!Number.isFinite(v)) return '';
@@ -3098,8 +3143,16 @@ const renderLineChart = (
     );
     if (!isStacked) {
       // Data point markers — only meaningful on the clustered layout.
-      for (const [xp, yp] of pts) {
-        out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
+      // markerSymbol='none' hides the markers; everything else picks a
+      // shape and the marker size from the series (default ~5pt → ~2.2
+      // radius for compatibility with the previous render).
+      const symbol = series.markerSymbol ?? 'auto';
+      if (symbol !== 'none') {
+        const size = series.markerSizePt ?? 5;
+        const r = Math.max(1, size * 0.5);
+        for (const [xp, yp] of pts) {
+          out.push(seriesMarker(symbol, xp, yp, r, color));
+        }
       }
     }
     // Trendline overlay per series (only meaningful on the clustered
