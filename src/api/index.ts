@@ -297,6 +297,7 @@ export {
   getSlideLayouts,
   getSlideLayoutType,
   getSlideMasterCount,
+  getSlideMasterPartName,
   getSlideMasterPartNames,
   getSlideMediaPartNames,
   getSlideNotes,
