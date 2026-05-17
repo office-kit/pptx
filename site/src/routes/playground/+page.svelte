@@ -9,6 +9,7 @@
     getCoreProperties,
     getPresentationSummary,
     getSlideCharts,
+    getSlideMasterCount,
     getSlideMediaPartNames,
     type ValidationIssue,
     validatePresentation,
@@ -58,6 +59,7 @@
   let coreTitle = $state<string>('');
   let coreCreator = $state<string>('');
   let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
+  let masterCount = $state<number>(0);
   let issues = $state<ReadonlyArray<ValidationIssue>>([]);
   let slides = $state<SlideSnapshot[]>([]);
   let sectionStartByIndex = $state<Record<number, string>>({});
@@ -73,6 +75,7 @@
       coreTitle = core?.title ?? '';
       coreCreator = core?.creator ?? '';
       summary = getPresentationSummary(pres);
+      masterCount = getSlideMasterCount(pres);
       issues = validatePresentation(pres);
       // Map section name → 1-based slide index of its first slide. We
       // surface them so the playground can render a divider above
@@ -233,8 +236,8 @@
           <span class="value">{summary.themeName ?? '—'}</span>
         </div>
         <div class="cell">
-          <span class="label">layouts · sections</span>
-          <span class="value">{summary.layoutCount} · {summary.sectionCount}</span>
+          <span class="label">masters · layouts · sections</span>
+          <span class="value">{masterCount} · {summary.layoutCount} · {summary.sectionCount}</span>
         </div>
         <div class="cell">
           <span class="label">shapes (total)</span>
