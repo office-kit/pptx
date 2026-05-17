@@ -56,6 +56,7 @@ import {
   getShapeKind,
   getShapeParagraphCount,
   getShapeParagraphElements,
+  getShapeRunHyperlink,
   getShapePlaceholderType,
   getShapePreset,
   getShapeRotation,
@@ -1938,7 +1939,7 @@ const renderTextBody = (
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
   // adjusted size.
-  type RunData = { text: string; fmt: TextFormat | null; sizePt: number };
+  type RunData = { text: string; fmt: TextFormat | null; sizePt: number; href?: string };
   interface ParaData {
     readonly align: string;
     readonly level: number;
@@ -2025,6 +2026,7 @@ const renderTextBody = (
       }
       const txt = el.text;
       let fmt: TextFormat | null = el.format;
+      let href: string | undefined;
       if (el.kind === 'r') {
         // The cascade only makes sense for actual <a:r> runs; field
         // text is opaque cached content and shouldn't pretend to be a
@@ -2034,11 +2036,16 @@ const renderTextBody = (
         } catch {
           fmt = getShapeRunFormat(shape, p, rIdx);
         }
+        try {
+          href = getShapeRunHyperlink(shape, p, rIdx) ?? undefined;
+        } catch {
+          href = undefined;
+        }
         rIdx++;
       }
       const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;
-      runs.push({ text: txt, fmt, sizePt });
+      runs.push({ text: txt, fmt, sizePt, ...(href !== undefined ? { href } : {}) });
     }
     paraData.push({
       align,
@@ -2140,9 +2147,30 @@ const renderTextBody = (
   const paragraphs: string[] = [];
   for (let pi = 0; pi < paraData.length; pi++) {
     const para = paraData[pi]!;
-    const runHtmls = para.runs.map((run) =>
-      renderRun(run.text, run.fmt, theme, run.sizePt * autoFitScale, run.fmt?.size === undefined),
-    );
+    const runHtmls = para.runs.map((run) => {
+      // Per-run hyperlinks render the text in the theme's hyperlink
+      // color (with underline) and wrap the span in an <a href> so the
+      // preview is clickable.
+      let runFmt = run.fmt;
+      if (run.href) {
+        const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
+        runFmt = {
+          ...(runFmt ?? {}),
+          color: runFmt?.color ?? hlinkColor,
+          underline: runFmt?.underline ?? true,
+        };
+      }
+      const span = renderRun(
+        run.text,
+        runFmt,
+        theme,
+        run.sizePt * autoFitScale,
+        run.fmt?.size === undefined,
+      );
+      return run.href
+        ? `<a href="${escapeXml(run.href)}" target="_blank" rel="noopener noreferrer" style="color:inherit;text-decoration:inherit">${span}</a>`
+        : span;
+    });
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
     // we project pts to px at the run's authored size.
