@@ -293,6 +293,7 @@ export {
   getSlideInfo,
   getSlideLayout,
   getSlideLayoutBackground,
+  getSlideLayoutBackgroundGradientFill,
   getSlideLayoutBackgroundShapes,
   getSlideLayoutCount,
   getSlideLayoutName,
