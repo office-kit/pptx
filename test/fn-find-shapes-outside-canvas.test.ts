@@ -25,11 +25,19 @@ describe('fn API: findShapesOutsideCanvas', () => {
     const size = getSlideSize(pres)!;
     // In-canvas shape
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     // Way off the right edge
     addSlideShape(slide, {
-      preset: 'rect', x: size.width, y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: size.width,
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const offscreen = findShapesOutsideCanvas(slide, pres);
     expect(offscreen.length).toBe(1);
@@ -42,7 +50,11 @@ describe('fn API: findShapesOutsideCanvas', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(findShapesOutsideCanvas(slide, pres)).toEqual([]);
   });

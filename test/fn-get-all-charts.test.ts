@@ -24,15 +24,24 @@ describe('fn API: getAllCharts', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first, second] = getSlides(pres);
     addSlideChart(first!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'bar', categories: ['Q1'], series: [{ name: 'r', values: [1] }] },
     });
     addSlideChart(second!, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'line', categories: ['Q1'], series: [{ name: 'r', values: [2] }] },
     });
     addSlideChart(second!, {
-      x: inches(4), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(4),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       spec: { kind: 'pie', categories: ['A'], series: [{ name: 'r', values: [3] }] },
     });
 

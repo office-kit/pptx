@@ -67,6 +67,21 @@ const KIND_MAP: ReadonlyArray<PlottedKindMap> = [
   { localName: 'doughnutChart', kind: 'doughnut' },
   { localName: 'areaChart', kind: 'area' },
   { localName: 'area3DChart', kind: 'area' },
+  // Scatter / bubble carry xy / xyz tuples per series rather than
+  // numeric channels against shared categories. We degrade to line
+  // so the y-axis numbers + connecting strokes show up; the x-axis
+  // collapses to index positions. Better than the "unsupported kind"
+  // placeholder by a wide margin for the common single-series case.
+  { localName: 'scatterChart', kind: 'line' },
+  { localName: 'bubbleChart', kind: 'line' },
+  // Radar collapses to a vertical line chart — the legend + axis
+  // numbers are still readable.
+  { localName: 'radarChart', kind: 'line' },
+  // Stock charts: open / high / low / close as a four-line plot.
+  { localName: 'stockChart', kind: 'line' },
+  // Surface degrades to a column chart so the data table is visible.
+  { localName: 'surfaceChart', kind: 'column' },
+  { localName: 'surface3DChart', kind: 'column' },
 ];
 
 const findFirst = (parent: XmlElement, names: ReadonlyArray<string>): XmlElement | null => {
@@ -77,9 +92,7 @@ const findFirst = (parent: XmlElement, names: ReadonlyArray<string>): XmlElement
   return null;
 };
 
-const readPtArray = (
-  cache: XmlElement,
-): string[] => {
+const readPtArray = (cache: XmlElement): string[] => {
   const out: string[] = [];
   for (const pt of allChildElements(cache, NAME_PT)) {
     const idxRaw = getAttrValue(pt, ATTR_IDX);
@@ -225,7 +238,14 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (cat !== null && categoriesFromFirst === null) {
       categoriesFromFirst = readStringRef(cat) ?? null;
     }
-    const valEl = firstChildElement(ser, NAME_VAL);
+    let valEl = firstChildElement(ser, NAME_VAL);
+    // Scatter / bubble charts carry numeric data on <c:yVal> rather
+    // than <c:val>; surface those so the line-chart degradation has
+    // something to plot. Bubble's <c:bubbleSize> is ignored — we
+    // don't have a per-point sizing channel yet.
+    if (!valEl) {
+      valEl = firstChildElement(ser, qname('c', 'yVal', NS_C));
+    }
     const values = valEl !== null ? readNumRef(valEl) : null;
     const color = readSeriesColor(ser);
     series.push({

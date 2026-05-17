@@ -42,7 +42,9 @@ describe('L3: setSlideTransition', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     setSlideTransition(slide, {
-      effect: 'cut', advanceOnClick: false, advanceAfterMs: 3000,
+      effect: 'cut',
+      advanceOnClick: false,
+      advanceAfterMs: 3000,
     });
     const xml = getSlideXmlString(getSlides(pres)[0]!);
     expect(xml).toContain('advClick="0"');

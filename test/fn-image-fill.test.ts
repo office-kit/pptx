@@ -51,9 +51,7 @@ describe('fn API: setShapeImageFill', () => {
 
     // A new media part should exist for the embedded image.
     const reloaded = await loadPresentation(await savePresentation(pres));
-    const media = getMediaParts(reloaded).find((p) =>
-      /^\/ppt\/media\/image\d+\.png$/.test(p.name),
-    );
+    const media = getMediaParts(reloaded).find((p) => /^\/ppt\/media\/image\d+\.png$/.test(p.name));
     expect(media).not.toBeUndefined();
   });
 

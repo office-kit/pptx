@@ -3,11 +3,7 @@
 // this file, so `node:fs/promises` stays out of the browser tree.
 
 import { readFile, writeFile } from 'node:fs/promises';
-import {
-  type PresentationData,
-  loadPresentation,
-  savePresentation,
-} from './api/index.ts';
+import { type PresentationData, loadPresentation, savePresentation } from './api/index.ts';
 
 export * from './api/index.ts';
 

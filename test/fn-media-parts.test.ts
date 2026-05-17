@@ -28,7 +28,10 @@ describe('fn API: getMediaParts', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideImage(slide, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
       format: 'png',
     });
     const media = getMediaParts(pres);

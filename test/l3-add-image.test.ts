@@ -37,7 +37,10 @@ describe('L3: addSlideImage', () => {
     const slide = addSlide(pres, { layout });
 
     const picture = addSlideImage(slide, PNG_1X1, {
-      x: inches(1), y: inches(1), w: inches(2), h: inches(2),
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
     });
     expect(getShapeKind(picture)).toBe('picture');
     expect(getShapePosition(picture)).toEqual({ x: inches(1), y: inches(1) });
@@ -56,7 +59,10 @@ describe('L3: addSlideImage', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     addSlideImage(slide, PNG_1X1, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
 
     const reloaded = await loadPresentation(await savePresentation(pres));
@@ -73,9 +79,7 @@ describe('L3: addSlideImage', () => {
     addSlideImage(slide, PNG_1X1, { x: inches(0), y: inches(0), w: inches(1), h: inches(1) });
     addSlideImage(slide, PNG_1X1, { x: inches(2), y: inches(0), w: inches(1), h: inches(1) });
 
-    const mediaParts = getMediaParts(pres).filter((p) =>
-      p.name.startsWith('/ppt/media/image'),
-    );
+    const mediaParts = getMediaParts(pres).filter((p) => p.name.startsWith('/ppt/media/image'));
     expect(mediaParts.length).toBe(2);
   });
 
@@ -86,7 +90,10 @@ describe('L3: addSlideImage', () => {
     const slide = addSlide(pres, { layout });
     expect(() =>
       addSlideImage(slide, new Uint8Array([0, 0, 0]), {
-        x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+        x: inches(0),
+        y: inches(0),
+        w: inches(1),
+        h: inches(1),
       }),
     ).toThrow(/format/);
   });

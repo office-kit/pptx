@@ -7,7 +7,6 @@
 - f47b78b: **1.0.0** — first stable release. The public API is now frozen under SemVer.
 
   **What works at 1.0:**
-
   - **Read** any `.pptx` produced by PowerPoint, Keynote, Google Slides, or
     LibreOffice Impress, and save it back without corruption. Unknown
     extensions are preserved verbatim on round-trip.
@@ -27,7 +26,6 @@
     is < 75 KB unminified, full fn-API bundle is ~120 KB.
 
   **Deferred to post-1.0** (read pass-through preserved on round-trip):
-
   - Constructing new themes / masters / layouts from scratch.
   - SmartArt authoring.
   - Complex animation timing-tree authoring.
@@ -98,7 +96,6 @@
   plan. Highlights:
 
   **Round-trip + template editing (L1 / L2)**
-
   - `loadPresentation` / `savePresentation` (`Uint8Array` / `ArrayBuffer` / `Blob`).
   - Node convenience: `loadPresentationFile`, `savePresentationToFile`.
   - Token replace: `replaceTokensInPresentation`, `replaceTokensInSlide`.
@@ -112,7 +109,6 @@
     `setMediaPartBytes`, `compactPackage`.
 
   **Authoring (L3)**
-
   - Shapes: `addSlideTextBox`, `addSlideShape` (180+ presets),
     `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`.
   - Charts: `bar` / `column` / `line` / `pie` / `doughnut` / `area` with
@@ -123,7 +119,6 @@
   - Slide layout swap: `setSlideLayout`, `findSlideLayout`.
 
   **Text**
-
   - Per-shape: `setShapeText`, `setShapeBullets`, `setShapeAlignment`,
     `setShapeTextFormat`, `setShapeHyperlink`, `setShapeTextAnchor`,
     `setShapeTextMargins`, `setShapeTextWrap`, `setShapeTextAutoFit`.
@@ -134,13 +129,11 @@
     `getShapeRunText`.
 
   **Geometry**
-
   - Position / size / rotation / flip + combined `setShapeBounds` /
     `getShapeBounds`. Z-order: `bringShapeToFront`, `sendShapeToBack`,
     `bringShapeForward`, `sendShapeBackward`.
 
   **Fill / stroke / effects**
-
   - Fill kinds: solid, gradient, pattern, image, none + `getShapeFill`
     read-back.
   - Stroke: color + width + dash + arrowheads + `getShapeStroke` /
@@ -149,12 +142,10 @@
     `getShapeEffect` read-back.
 
   **Pictures**
-
   - Crop, opacity, brightness (`lumOff`), contrast (`lumMod`),
     image replacement, image-as-fill. Read-back pairs for every setter.
 
   **Slide-level (L4)**
-
   - Notes (`getSlideNotes` / `setSlideNotes`).
   - Transitions (every effect + read-back).
   - Animations (`fadeIn` / `fadeOut` / `appear` / `disappear`) +
@@ -168,14 +159,12 @@
   - Click actions: URL / slide jump / preset nav + read-back.
 
   **Theme + package**
-
   - `getPresentationTheme` — color scheme (`accent1`–`accent6`, `dark1`,
     `light1`, `hyperlink`, ...).
   - `getMediaParts`, `listPackageParts`, `readPackagePart` for audit /
     export workflows.
 
   **Tree-shake**
-
   - The minimal `load`+`save` import is ~60 KB; the full fn-API
     bundle ~123 KB. CI guard via `test/tree-shake.test.ts`.
 
@@ -184,7 +173,6 @@
   via Layer-1 tests.
 
   **Additional helpers** (all tree-shakeable free functions)
-
   - Properties: `getCoreProperties` / `setCoreProperties`,
     `getExtendedProperties` / `setExtendedProperties`, plus convenience
     `getPresentationCreated`, `getPresentationModified`,

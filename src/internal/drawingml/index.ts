@@ -16,7 +16,12 @@ export type { TextFormat } from './text-format.ts';
 export { applyFormatToAllRuns, applyRunFormat } from './text-format.ts';
 export type { ParsedColor } from './color.ts';
 export { buildColorElement, parseColor } from './color.ts';
-export type { GradientFillOptions, GradientStop, PatternFillOptions, PatternPreset } from './fill.ts';
+export type {
+  GradientFillOptions,
+  GradientStop,
+  PatternFillOptions,
+  PatternPreset,
+} from './fill.ts';
 export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
 export type { GlowOptions, ShadowOptions } from './effects.ts';
 export { clearEffects, setGlow, setShadow } from './effects.ts';

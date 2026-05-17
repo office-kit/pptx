@@ -22,7 +22,10 @@ describe('fn API: setShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(1),
       // Two-line text gives us two paragraphs / two distinct runs.
       text: 'first\nsecond',
     });
@@ -37,7 +40,10 @@ describe('fn API: setShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(1),
       text: 'click',
     });
     setShapeRunHyperlink(tb, 0, 0, 'https://example.com/');
@@ -55,7 +61,10 @@ describe('fn API: setShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(1),
       text: 'click',
     });
     setShapeRunHyperlink(tb, 0, 0, 'https://example.com/');
@@ -68,7 +77,10 @@ describe('fn API: setShapeRunHyperlink', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(1),
       text: 'a\nb',
     });
     // Sanity: ensure both runs exist.

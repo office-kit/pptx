@@ -52,7 +52,7 @@ describe('fn API: removeSlideNotes', () => {
     expect(getSlideNotes(slide)).toBeNull();
   });
 
-  it('removes only the targeted slide\'s notes', async () => {
+  it("removes only the targeted slide's notes", async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [a, b] = getSlides(pres);
     setSlideNotes(a!, 'A');

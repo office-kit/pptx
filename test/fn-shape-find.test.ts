@@ -90,8 +90,12 @@ describe('fn API: shape lookup helpers', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
-      text: 'hi', name: 'Spot',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      text: 'hi',
+      name: 'Spot',
     });
     const id = getShapeId(tb);
     expect(findShapeById(slide, id)).not.toBeNull();

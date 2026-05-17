@@ -75,7 +75,11 @@ describe('L3: addSlideTextBox', () => {
     const initialShapeCount = getSlideShapes(slide).length;
 
     const box = addSlideTextBox(slide, {
-      x: inches(1), y: inches(1), w: inches(4), h: inches(1), text: 'Hello from addTextBox',
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'Hello from addTextBox',
     });
 
     expect(getShapeText(box)).toBe('Hello from addTextBox');
@@ -96,8 +100,12 @@ describe('L3: addSlideTextBox', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     const box = addSlideTextBox(slide, {
-      x: inches(2), y: pt(50), w: inches(3), h: pt(40),
-      text: 'named', name: 'My Custom Box',
+      x: inches(2),
+      y: pt(50),
+      w: inches(3),
+      h: pt(40),
+      text: 'named',
+      name: 'My Custom Box',
     });
     expect(getShapeName(box)).toBe('My Custom Box');
   });

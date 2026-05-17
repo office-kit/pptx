@@ -35,10 +35,17 @@ describe('fn API: getAllImages', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first, second] = getSlides(pres);
     addSlideImage(first!, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const filled = addSlideShape(second!, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     setShapeImageFill(filled, PNG);
 

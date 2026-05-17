@@ -54,7 +54,10 @@ describe('fn API: importSlide', () => {
   it('copies image media along with the slide', async () => {
     const source = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideImage(getSlides(source)[0]!, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
       format: 'png',
     });
 

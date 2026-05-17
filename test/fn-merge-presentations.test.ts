@@ -52,7 +52,10 @@ describe('fn API: mergePresentations', () => {
     const { addSlide } = await import('../src/api/index.ts');
     const s = addSlide(source, { layout: sourceLayout });
     addSlideTextBox(s, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(1),
       text: 'merge-marker',
     });
 

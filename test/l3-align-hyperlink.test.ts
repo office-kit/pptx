@@ -30,7 +30,11 @@ const newBox = async (text = 'x') => {
   if (!layout) throw new Error('expected Blank layout');
   const slide = addSlide(pres, { layout });
   const box = addSlideTextBox(slide, {
-    x: inches(1), y: inches(1), w: inches(8), h: inches(2), text,
+    x: inches(1),
+    y: inches(1),
+    w: inches(8),
+    h: inches(2),
+    text,
   });
   return { pres, box };
 };
@@ -74,10 +78,18 @@ describe('L3: hyperlinks', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     const a = addSlideTextBox(slide, {
-      x: inches(1), y: inches(1), w: inches(4), h: inches(1), text: 'A',
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'A',
     });
     const b = addSlideTextBox(slide, {
-      x: inches(1), y: inches(3), w: inches(4), h: inches(1), text: 'B',
+      x: inches(1),
+      y: inches(3),
+      w: inches(4),
+      h: inches(1),
+      text: 'B',
     });
     setShapeHyperlink(a, 'https://example.com');
     setShapeHyperlink(b, 'https://example.com');

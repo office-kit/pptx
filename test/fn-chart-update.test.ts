@@ -59,7 +59,10 @@ describe('fn API: setChartSpec', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideChart(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(3),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(3),
       spec: {
         kind: 'column',
         categories: ['A'],

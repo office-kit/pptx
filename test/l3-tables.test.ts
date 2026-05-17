@@ -30,7 +30,10 @@ describe('L3: addSlideTable', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     const tbl = addSlideTable(slide, {
-      x: inches(1), y: inches(1), w: inches(8), h: inches(3),
+      x: inches(1),
+      y: inches(1),
+      w: inches(8),
+      h: inches(3),
       rows: [
         ['Name', 'Score', 'Notes'],
         ['Alice', '42', 'first'],
@@ -59,10 +62,16 @@ describe('L3: addSlideTable', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     addSlideTable(slide, {
-      x: inches(1), y: inches(1), w: inches(6), h: inches(2),
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(2),
       colWidths: [inches(1), inches(2), inches(3)],
       rowHeights: [inches(0.5), inches(1.5)],
-      rows: [['A', 'B', 'C'], ['1', '2', '3']],
+      rows: [
+        ['A', 'B', 'C'],
+        ['1', '2', '3'],
+      ],
     });
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
     expect(xml).toMatch(/<a:gridCol w="914400"\/>/);
@@ -77,7 +86,10 @@ describe('L3: addSlideTable', () => {
     const slide = addSlide(pres, { layout });
     expect(() =>
       addSlideTable(slide, {
-        x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+        x: inches(0),
+        y: inches(0),
+        w: inches(4),
+        h: inches(2),
         rows: [['a', 'b'], ['c']],
       }),
     ).toThrow(/row 1 has 1 cells; expected 2/);
@@ -90,12 +102,20 @@ describe('L3: addSlideTable', () => {
     const slide = addSlide(pres, { layout });
     expect(() =>
       addSlideTable(slide, {
-        x: inches(0), y: inches(0), w: inches(4), h: inches(2), rows: [],
+        x: inches(0),
+        y: inches(0),
+        w: inches(4),
+        h: inches(2),
+        rows: [],
       }),
     ).toThrow(/at least one row/);
     expect(() =>
       addSlideTable(slide, {
-        x: inches(0), y: inches(0), w: inches(4), h: inches(2), rows: [[]],
+        x: inches(0),
+        y: inches(0),
+        w: inches(4),
+        h: inches(2),
+        rows: [[]],
       }),
     ).toThrow(/at least one column/);
   });
@@ -106,8 +126,15 @@ describe('L3: addSlideTable', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     addSlideTable(slide, {
-      x: inches(1), y: inches(1), w: inches(8), h: inches(3),
-      rows: [['H1', 'H2'], ['r1c1', 'r1c2'], ['r2c1', 'r2c2']],
+      x: inches(1),
+      y: inches(1),
+      w: inches(8),
+      h: inches(3),
+      rows: [
+        ['H1', 'H2'],
+        ['r1c1', 'r1c2'],
+        ['r2c1', 'r2c2'],
+      ],
     });
     expectSchemaValid(getSlideXmlString(getSlides(pres).at(-1)!), 'pml');
   });
@@ -118,8 +145,15 @@ describe('L3: addSlideTable', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     addSlideTable(slide, {
-      x: inches(1), y: inches(1), w: inches(6), h: inches(2),
-      rows: [['k', 'v'], ['a', '1'], ['b', '2']],
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(2),
+      rows: [
+        ['k', 'v'],
+        ['a', '1'],
+        ['b', '2'],
+      ],
     });
     const reloaded = await loadPresentation(await savePresentation(pres));
     const xml = getSlideXmlString(getSlides(reloaded).at(-1)!);

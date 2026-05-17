@@ -159,7 +159,10 @@ setShapeText(findSlidePlaceholder(slide1, 'subTitle')!, 'an OOXML library for Ty
 const blank = findSlideLayout(pres, 'Blank')!;
 const slide2 = addSlide(pres, { layout: blank });
 addSlideTextBox(slide2, {
-  x: inches(1), y: inches(1), w: inches(8), h: inches(1),
+  x: inches(1),
+  y: inches(1),
+  w: inches(8),
+  h: inches(1),
   text: 'Free-form text box',
 });
 addSlideImage(slide2, imageBytes, { x: inches(1), y: inches(3), w: inches(3), h: inches(3) });
@@ -220,7 +223,7 @@ addSlideChart(slide!, {
     categories: ['Q1', 'Q2', 'Q3', 'Q4'],
     series: [
       { name: 'Revenue', values: [120, 180, 240, 300] },
-      { name: 'Cost',    values: [80,  90,  130, 160] },
+      { name: 'Cost', values: [80, 90, 130, 160] },
     ],
     title: 'FY26 plan',
   },
@@ -264,8 +267,8 @@ import { setShapeGradientFill } from 'pptx-kit';
 
 setShapeGradientFill(shape, {
   stops: [
-    { offset: 0,   color: '#FF0000' },
-    { offset: 1,   color: '#0000FF' },
+    { offset: 0, color: '#FF0000' },
+    { offset: 1, color: '#0000FF' },
   ],
   angleDeg: 90, // top → bottom
 });
@@ -286,40 +289,40 @@ for (const i of issues) console.error(i.severity, i.message);
 Each row lists the free-function entry points. Read/write pairs are
 shown together.
 
-| Capability               | API                                                                                                                                            |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| Load / save              | `loadPresentation(input)`, `savePresentation(pres)`, `loadPresentationFile(path)` (node), `savePresentationToFile(pres, path)` (node)          |
-| Create                   | `createPresentation()`                                                                                                                         |
-| Slide CRUD               | `getSlides`, `getSlideAt`, `getSlideIndex`, `addSlide`, `removeSlide`, `moveSlide`, `duplicateSlide`, `clearSlideShapes`                       |
-| Slide layout             | `getSlideLayouts`, `findSlideLayout`, `getSlideLayout(slide)`, `setSlideLayout(slide, layout)`, `getSlideLayoutName`, `getSlideLayoutType`     |
-| Slide metadata           | `getSlideTitle` / `setSlideTitle`, `getSlideSize` / `setSlideSize`, `isSlideHidden` / `setSlideHidden`, `getSlideText`                         |
-| Slide sections           | `getSlideSections`, `setSlideSections` (p14 sectionLst)                                                                                        |
-| Placeholders             | `findSlidePlaceholder(slide, 'title' \| 'body' \| ...)`                                                                                        |
-| Token / text replace     | `replaceTokensInPresentation`, `replaceTokensInSlide`, `replaceTextInPresentation`, `replaceTextInSlide`                                       |
-| Background               | `getSlideBackground` / `setSlideBackground` / `clearSlideBackground`                                                                           |
-| Notes                    | `getSlideNotes` / `setSlideNotes`                                                                                                              |
-| Transitions              | `getSlideTransition` / `setSlideTransition` / `clearSlideTransition`                                                                           |
-| Animations               | `getShapeAnimation` / `setShapeAnimation` (`fadeIn` / `fadeOut` / `appear` / `disappear`), `clearSlideAnimations`                              |
-| Comments                 | `addSlideComment`, `getSlideComments`, `removeSlideComment`, `getCommentAuthors`, `getCommentText` / `getCommentAuthor` / `getCommentPosition` |
-| Shape authoring          | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                          |
-| Shape lookup             | `findShapeByName`, `findShapesByName`, `findShapesByKind`, `findShapeInPresentation`, `getAllShapes`, `getSlideShapes`                         |
-| Shape text               | `setShapeText`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink` / `getShapeHyperlink`                        |
-| Per-paragraph            | `setParagraphAlignment` / `getParagraphAlignment`, `setParagraphLevel` / `getParagraphLevel`, `setParagraphBullet` / `getParagraphBullet`      |
-| Per-run text             | `setShapeRunText` / `getShapeRunText`, `setShapeRunFormat` / `getShapeRunFormat`, `getShapeParagraphCount`, `getShapeRunCount`                 |
-| Text frame               | `setShapeTextAnchor` / `getShapeTextAnchor`, `setShapeTextMargins` / `getShapeTextMargins`                                                     |
-| Fill                     | `setShapeFill` / `getShapeFill`, `setShapeGradientFill`, `setShapePatternFill`, `setShapeImageFill`, `setShapeNoFill`, `clearShapeFill`        |
-| Stroke                   | `setShapeStroke` / `getShapeStroke`, `setShapeStrokeDash` / `getShapeStrokeDash`, `setShapeStrokeArrow` / `getShapeStrokeArrow`, `…NoStroke`   |
-| Effects                  | `setShapeShadow` / `setShapeGlow` / `getShapeEffect`, `clearShapeEffects`                                                                      |
-| Geometry                 | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`, `setShapeBounds` / `getShapeBounds`                                    |
-| Pictures                 | `setShapeImage`, `setShapeImageCrop` / `getShapeImageCrop`, `setShapeImageOpacity` / `getShapeImageOpacity`, `setShapeImageBrightness`, `…Contrast` |
-| Z-order                  | `bringShapeToFront`, `sendShapeToBack`, `bringShapeForward`, `sendShapeBackward`                                                               |
-| Click actions            | `setShapeClickAction` / `getShapeClickAction` (`url` / `slide` / `nextSlide` / `prevSlide` / `firstSlide` / `lastSlide`)                       |
-| Shape removal            | `removeShape`                                                                                                                                  |
-| Tables                   | `getTableCell` / `getTableCells`, `setTableCellText` / `getTableCellText`, `setTableCellFill` / `clearTableCellFill`, `setTableCellAlignment`, `setTableCellTextFormat`, `insertTableRow` / `removeTableRow`, `insertTableColumn` / `removeTableColumn` |
-| Charts                   | `addSlideChart`, `getSlideCharts`, `setChartSpec` — kinds: `bar`, `column`, `line`, `pie`, `doughnut`, `area`                                  |
-| Theme                    | `getPresentationTheme` — color scheme (`accent1`..`accent6`, `dark1`, `light1`, `hyperlink`, ...)                                              |
-| Validation               | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                   |
-| Units                    | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                |
+| Capability           | API                                                                                                                                                                                                                                                     |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Load / save          | `loadPresentation(input)`, `savePresentation(pres)`, `loadPresentationFile(path)` (node), `savePresentationToFile(pres, path)` (node)                                                                                                                   |
+| Create               | `createPresentation()`                                                                                                                                                                                                                                  |
+| Slide CRUD           | `getSlides`, `getSlideAt`, `getSlideIndex`, `addSlide`, `removeSlide`, `moveSlide`, `duplicateSlide`, `clearSlideShapes`                                                                                                                                |
+| Slide layout         | `getSlideLayouts`, `findSlideLayout`, `getSlideLayout(slide)`, `setSlideLayout(slide, layout)`, `getSlideLayoutName`, `getSlideLayoutType`                                                                                                              |
+| Slide metadata       | `getSlideTitle` / `setSlideTitle`, `getSlideSize` / `setSlideSize`, `isSlideHidden` / `setSlideHidden`, `getSlideText`                                                                                                                                  |
+| Slide sections       | `getSlideSections`, `setSlideSections` (p14 sectionLst)                                                                                                                                                                                                 |
+| Placeholders         | `findSlidePlaceholder(slide, 'title' \| 'body' \| ...)`                                                                                                                                                                                                 |
+| Token / text replace | `replaceTokensInPresentation`, `replaceTokensInSlide`, `replaceTextInPresentation`, `replaceTextInSlide`                                                                                                                                                |
+| Background           | `getSlideBackground` / `setSlideBackground` / `clearSlideBackground`                                                                                                                                                                                    |
+| Notes                | `getSlideNotes` / `setSlideNotes`                                                                                                                                                                                                                       |
+| Transitions          | `getSlideTransition` / `setSlideTransition` / `clearSlideTransition`                                                                                                                                                                                    |
+| Animations           | `getShapeAnimation` / `setShapeAnimation` (`fadeIn` / `fadeOut` / `appear` / `disappear`), `clearSlideAnimations`                                                                                                                                       |
+| Comments             | `addSlideComment`, `getSlideComments`, `removeSlideComment`, `getCommentAuthors`, `getCommentText` / `getCommentAuthor` / `getCommentPosition`                                                                                                          |
+| Shape authoring      | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                                                                                                                                   |
+| Shape lookup         | `findShapeByName`, `findShapesByName`, `findShapesByKind`, `findShapeInPresentation`, `getAllShapes`, `getSlideShapes`                                                                                                                                  |
+| Shape text           | `setShapeText`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink` / `getShapeHyperlink`                                                                                                                                 |
+| Per-paragraph        | `setParagraphAlignment` / `getParagraphAlignment`, `setParagraphLevel` / `getParagraphLevel`, `setParagraphBullet` / `getParagraphBullet`                                                                                                               |
+| Per-run text         | `setShapeRunText` / `getShapeRunText`, `setShapeRunFormat` / `getShapeRunFormat`, `getShapeParagraphCount`, `getShapeRunCount`                                                                                                                          |
+| Text frame           | `setShapeTextAnchor` / `getShapeTextAnchor`, `setShapeTextMargins` / `getShapeTextMargins`                                                                                                                                                              |
+| Fill                 | `setShapeFill` / `getShapeFill`, `setShapeGradientFill`, `setShapePatternFill`, `setShapeImageFill`, `setShapeNoFill`, `clearShapeFill`                                                                                                                 |
+| Stroke               | `setShapeStroke` / `getShapeStroke`, `setShapeStrokeDash` / `getShapeStrokeDash`, `setShapeStrokeArrow` / `getShapeStrokeArrow`, `…NoStroke`                                                                                                            |
+| Effects              | `setShapeShadow` / `setShapeGlow` / `getShapeEffect`, `clearShapeEffects`                                                                                                                                                                               |
+| Geometry             | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`, `setShapeBounds` / `getShapeBounds`                                                                                                                                             |
+| Pictures             | `setShapeImage`, `setShapeImageCrop` / `getShapeImageCrop`, `setShapeImageOpacity` / `getShapeImageOpacity`, `setShapeImageBrightness`, `…Contrast`                                                                                                     |
+| Z-order              | `bringShapeToFront`, `sendShapeToBack`, `bringShapeForward`, `sendShapeBackward`                                                                                                                                                                        |
+| Click actions        | `setShapeClickAction` / `getShapeClickAction` (`url` / `slide` / `nextSlide` / `prevSlide` / `firstSlide` / `lastSlide`)                                                                                                                                |
+| Shape removal        | `removeShape`                                                                                                                                                                                                                                           |
+| Tables               | `getTableCell` / `getTableCells`, `setTableCellText` / `getTableCellText`, `setTableCellFill` / `clearTableCellFill`, `setTableCellAlignment`, `setTableCellTextFormat`, `insertTableRow` / `removeTableRow`, `insertTableColumn` / `removeTableColumn` |
+| Charts               | `addSlideChart`, `getSlideCharts`, `setChartSpec` — kinds: `bar`, `column`, `line`, `pie`, `doughnut`, `area`                                                                                                                                           |
+| Theme                | `getPresentationTheme` — color scheme (`accent1`..`accent6`, `dark1`, `light1`, `hyperlink`, ...)                                                                                                                                                       |
+| Validation           | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                                                                                                                            |
+| Units                | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                                                                                                                         |
 
 ## Compatibility
 

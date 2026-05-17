@@ -28,13 +28,25 @@ describe('fn API: setShapeTextAnchor', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const a = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(2), text: 'A',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+      text: 'A',
     });
     const b = addSlideTextBox(slide, {
-      x: inches(2), y: inches(0), w: inches(2), h: inches(2), text: 'B',
+      x: inches(2),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+      text: 'B',
     });
     const c = addSlideTextBox(slide, {
-      x: inches(4), y: inches(0), w: inches(2), h: inches(2), text: 'C',
+      x: inches(4),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+      text: 'C',
     });
     setShapeTextAnchor(a, 'top');
     setShapeTextAnchor(b, 'center');
@@ -49,7 +61,11 @@ describe('fn API: setShapeTextAnchor', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(2), text: 'A',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+      text: 'A',
     });
     setShapeTextAnchor(tb, 'top');
     setShapeTextAnchor(tb, 'bottom');

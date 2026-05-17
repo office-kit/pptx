@@ -23,40 +23,71 @@
 import {
   getParagraphAlignment,
   getParagraphBullet,
+  getParagraphBulletStyle,
+  getParagraphIndent,
   getParagraphLevel,
+  getParagraphLineSpacing,
+  getParagraphSpacing,
   getPresentationTheme,
   getShapeBoundsResolved,
+  getShapeEffects,
   getShapeFill,
+  getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
+  getShapePatternFill,
   getShapeChartKind,
   getShapeChartSpec,
+  getShapeHyperlink,
+  getShapeTextColumns,
+  getShapeTextDirection,
+  getShapeImageBrightness,
+  getShapeImageLinkUrl,
   getShapeImageBytes,
+  getShapeImageContrast,
+  getShapeImageCrop,
   getShapeImageFillBytes,
+  getShapeImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
+  getShapeAdjustValues,
   getShapeKind,
   getShapeParagraphCount,
+  getShapeParagraphElements,
   getShapePlaceholderType,
   getShapePreset,
   getShapeRotation,
   getShapeRunCount,
   getShapeRunFormat,
+  getShapeRunFormatEffective,
   getShapeRunText,
   getShapeStroke,
+  getShapeStrokeArrow,
+  getShapeStrokeCap,
+  getShapeStrokeColorResolved,
+  getShapeStrokeCompound,
+  getShapeStrokeDash,
+  getShapeStrokeJoin,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextMargins,
   getGroupChildren,
   getGroupTransform,
   getSlideBackground,
+  getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
+  getSlideBackgroundPatternFill,
+  getSlideLayout,
+  getSlideLayoutBackground,
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
+  getTableCellBorders,
   getTableCellFill,
+  getTableCellSpan,
   getTableCellText,
   getTableCells,
+  getTableStyleFlags,
   getTableColumnWidths,
   getTableDimensions,
   getTableRowHeights,
@@ -182,10 +213,56 @@ const renderPicture = (
   }
   if (bytes && mime) {
     const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-    return `<g${transform}><image x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/>${textOverlay}</g>`;
+    // Apply <a:srcRect> crop, brightness (lumOff), contrast (lumMod),
+    // and opacity (alphaModFix) so PowerPoint's "Picture Format >
+    // Corrections" matches what the playground paints.
+    const crop = getShapeImageCrop(shape);
+    let imgX = x,
+      imgY = y,
+      imgW = w,
+      imgH = h;
+    let clipDef = '';
+    let clipAttr = '';
+    const cropL = crop?.left ?? 0;
+    const cropT = crop?.top ?? 0;
+    const cropR = crop?.right ?? 0;
+    const cropB = crop?.bottom ?? 0;
+    if (cropL > 0 || cropT > 0 || cropR > 0 || cropB > 0) {
+      // ECMA-376 <a:srcRect> sides are fractions of the source image;
+      // PowerPoint crops by adjusting the visible region. We project
+      // the same effect by scaling the <image> larger and clipping it
+      // to the shape's bounds.
+      const scaleX = 1 / Math.max(0.001, 1 - cropL - cropR);
+      const scaleY = 1 / Math.max(0.001, 1 - cropT - cropB);
+      imgW = w * scaleX;
+      imgH = h * scaleY;
+      imgX = x - imgW * cropL;
+      imgY = y - imgH * cropT;
+      const clipId = mintId();
+      clipDef = `<defs><clipPath id="${clipId}"><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}"/></clipPath></defs>`;
+      clipAttr = ` clip-path="url(#${clipId})"`;
+    }
+    const brightness = getShapeImageBrightness(shape) ?? 0;
+    const contrast = getShapeImageContrast(shape) ?? 1;
+    const opacity = getShapeImageOpacity(shape) ?? 1;
+    let filterAttr = '';
+    if (brightness !== 0 || contrast !== 1) {
+      // SVG filter: brightness + linear contrast via feComponentTransfer.
+      const fid = mintId();
+      clipDef += `<defs><filter id="${fid}"><feComponentTransfer><feFuncR type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncG type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncB type="linear" slope="${contrast}" intercept="${brightness}"/></feComponentTransfer></filter></defs>`;
+      filterAttr = ` filter="url(#${fid})"`;
+    }
+    const opacityAttr = opacity !== 1 ? ` opacity="${opacity.toFixed(3)}"` : '';
+    return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g><g${transform}>${textOverlay}</g>`;
   }
+  // B14 — external r:link pictures don't ship bytes in the package.
+  // Surface the URL in the placeholder so users can see where the
+  // picture lives.
+  const linkUrl = getShapeImageLinkUrl(shape);
   const label = !bytes
-    ? 'picture (no bytes)'
+    ? linkUrl
+      ? `picture (link: ${linkUrl.length > 48 ? linkUrl.slice(0, 45) + '…' : linkUrl})`
+      : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
   return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
 };
@@ -236,6 +313,19 @@ const SCHEME_TO_THEME: Record<string, keyof Omit<PresentationTheme, 'name'>> = {
   folHlink: 'followedHyperlink',
 };
 
+// Linearly mix two #RRGGBB colors. `t` = weight of `a` in [0,1].
+const mixHex = (aHex: string, bHex: string, t: number): string => {
+  const aa = aHex.startsWith('#') ? aHex.slice(1) : aHex;
+  const bb = bHex.startsWith('#') ? bHex.slice(1) : bHex;
+  const part = (h: string, off: number): number => Number.parseInt(h.slice(off, off + 2), 16);
+  const r = Math.round(part(aa, 0) * t + part(bb, 0) * (1 - t));
+  const g = Math.round(part(aa, 2) * t + part(bb, 2) * (1 - t));
+  const b = Math.round(part(aa, 4) * t + part(bb, 4) * (1 - t));
+  const h = (n: number): string =>
+    Math.max(0, Math.min(255, n)).toString(16).padStart(2, '0').toUpperCase();
+  return `#${h(r)}${h(g)}${h(b)}`;
+};
+
 const normalizeHex = (s: string): string => {
   if (s.startsWith('#')) return s;
   if (/^[0-9A-Fa-f]{6}$/.test(s)) return `#${s}`;
@@ -249,13 +339,16 @@ const resolveColor = (
   fallback = '#1F2937',
 ): string => {
   if (!c) return fallback;
-  if (c.startsWith('scheme:')) {
-    const token = c.slice('scheme:'.length);
+  // Accept either `scheme:tx1` (the form fills + strokes use) or a bare
+  // ECMA-376 token (`tx1`, `accent1`, ...) from the run-format cascade.
+  let token: string | null = null;
+  if (c.startsWith('scheme:')) token = c.slice('scheme:'.length);
+  else if (SCHEME_TO_THEME[c]) token = c;
+  if (token !== null) {
     if (theme) {
       const key = SCHEME_TO_THEME[token];
       if (key) return normalizeHex(theme[key]);
     }
-    // Sensible per-token fallbacks when the theme is missing.
     if (token === 'tx1' || token === 'dk1') return '#000000';
     if (token === 'bg1' || token === 'lt1') return '#FFFFFF';
     if (token === 'tx2' || token === 'dk2') return '#1F2937';
@@ -284,6 +377,33 @@ const gradientDef = (
   theme: PresentationTheme | null,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
+  const stops = grad.stops
+    .map(
+      (s) =>
+        `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+    )
+    .join('');
+  if (grad.path === 'circle' || grad.path === 'rect' || grad.path === 'shape') {
+    // SVG only ships a true radial gradient; ECMA-376's `rect` and
+    // `shape` paths are close enough that we project them onto a
+    // radial fill centered on the focus rectangle.
+    const focus = grad.focus ?? { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 };
+    const cx = (focus.left + focus.right) / 2;
+    const cy = (focus.top + focus.bottom) / 2;
+    // ECMA-376 stops paint outward from the focus center; SVG's radial
+    // gradient paints from cx/cy out to r. Reverse the stops so the
+    // first-stop color sits at the center, matching PowerPoint.
+    const reversed = grad.stops
+      .slice()
+      .reverse()
+      .map(
+        (s) =>
+          `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+      )
+      .join('');
+    const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${reversed}</radialGradient></defs>`;
+    return { defs, fillAttr: `url(#${id})` };
+  }
   const angleRad = ((grad.angleDeg ?? 0) * Math.PI) / 180;
   const dx = Math.cos(angleRad) / 2;
   const dy = Math.sin(angleRad) / 2;
@@ -291,10 +411,107 @@ const gradientDef = (
   const y1 = 0.5 - dy;
   const x2 = 0.5 + dx;
   const y2 = 0.5 + dy;
-  const stops = grad.stops
-    .map((s) => `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`)
-    .join('');
   const defs = `<defs><linearGradient id="${id}" gradientUnits="objectBoundingBox" x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
+  return { defs, fillAttr: `url(#${id})` };
+};
+
+// SVG `<pattern>` definitions for the ECMA-376 ST_PresetPatternVal
+// presets (§20.1.10.49). All tiles are 8×8 px and use the foreground
+// color for the pattern strokes / dots, background for the negative
+// space. The `pct*` family modulates the dot density to approximate
+// the requested coverage percentage. Unknown presets fall through to
+// pct50 (50% coverage).
+const patternDef = (pat: {
+  preset: string;
+  foreground: string;
+  background: string;
+}): { defs: string; fillAttr: string } => {
+  const id = mintId();
+  const fg = pat.foreground;
+  const bg = pat.background;
+  const preset = pat.preset;
+  let body = '';
+  const W = 8;
+  const H = 8;
+  const stripe = (orientation: 'h' | 'v' | 'd' | 'a', width = 1): string => {
+    if (orientation === 'h')
+      return `<path d="M0 ${H / 2}H${W}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'v')
+      return `<path d="M${W / 2} 0V${H}" stroke="${fg}" stroke-width="${width}"/>`;
+    if (orientation === 'd')
+      return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
+    return `<path d="M${W} 0L0 ${H}" stroke="${fg}" stroke-width="${width}"/>`;
+  };
+  const dots = (density: number): string => {
+    // density 0..1; emit between 1 and 4 dots per 8x8 tile by density.
+    const count = Math.max(1, Math.round(density * 4));
+    const out: string[] = [];
+    const grid =
+      count <= 1
+        ? [[4, 4]]
+        : count === 2
+          ? [
+              [2, 2],
+              [6, 6],
+            ]
+          : [
+              [2, 2],
+              [6, 2],
+              [2, 6],
+              [6, 6],
+            ];
+    for (const [x, y] of grid.slice(0, count)) {
+      out.push(`<circle cx="${x}" cy="${y}" r="0.7" fill="${fg}"/>`);
+    }
+    return out.join('');
+  };
+  // pct{N} — N% coverage. Map percent → dot density.
+  const pctMatch = /^pct(\d+)$/.exec(preset);
+  if (pctMatch) {
+    const pct = Math.min(100, Math.max(5, Number.parseInt(pctMatch[1]!, 10)));
+    body = dots(pct / 100);
+  } else if (preset === 'horzBrick' || preset === 'ltHorizontal' || preset === 'narHorz') {
+    body = stripe('h', 0.8);
+  } else if (preset === 'dkHorizontal') {
+    body = stripe('h', 2);
+  } else if (preset === 'ltVertical' || preset === 'narVert') {
+    body = stripe('v', 0.8);
+  } else if (preset === 'dkVertical') {
+    body = stripe('v', 2);
+  } else if (preset === 'ltUpDiag' || preset === 'wdUpDiag') {
+    body = stripe('d', 0.8);
+  } else if (preset === 'dkUpDiag') {
+    body = stripe('d', 2);
+  } else if (preset === 'ltDnDiag' || preset === 'wdDnDiag') {
+    body = stripe('a', 0.8);
+  } else if (preset === 'dkDnDiag') {
+    body = stripe('a', 2);
+  } else if (preset === 'ltHorzCross' || preset === 'smGrid' || preset === 'cross') {
+    body = stripe('h', 0.8) + stripe('v', 0.8);
+  } else if (preset === 'dkHorzCross' || preset === 'lgGrid' || preset === 'plaid') {
+    body = stripe('h', 2) + stripe('v', 2);
+  } else if (
+    preset === 'diagCross' ||
+    preset === 'trellis' ||
+    preset === 'shingle' ||
+    preset === 'dashUpDiag' ||
+    preset === 'dashDnDiag'
+  ) {
+    body = stripe('d', 0.8) + stripe('a', 0.8);
+  } else if (preset === 'dkUpDiagStripe' || preset === 'dkDnDiagStripe') {
+    body = stripe(preset === 'dkUpDiagStripe' ? 'd' : 'a', 2);
+  } else if (preset === 'wave' || preset === 'zigZag') {
+    body = `<path d="M0 4Q2 2 4 4T8 4" stroke="${fg}" stroke-width="0.8" fill="none"/>`;
+  } else if (preset === 'weave' || preset === 'divot') {
+    body = `<path d="M0 0L4 4 0 8M4 0L8 4 4 8" stroke="${fg}" stroke-width="0.8" fill="none"/>`;
+  } else if (preset === 'sphere') {
+    body = `<circle cx="4" cy="4" r="3" fill="${fg}" fill-opacity="0.7"/>`;
+  } else if (preset === 'solidDmnd' || preset === 'openDmnd') {
+    body = `<path d="M4 1L7 4 4 7 1 4Z" fill="${preset === 'solidDmnd' ? fg : 'none'}" stroke="${fg}" stroke-width="0.6"/>`;
+  } else {
+    body = dots(0.5);
+  }
+  const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${bg}"/>${body}</pattern></defs>`;
   return { defs, fillAttr: `url(#${id})` };
 };
 
@@ -304,7 +521,65 @@ interface PaintResult {
   strokeWidth: number;
   /** Extra SVG `<defs>` the caller should emit before the shape. */
   defs: string;
+  /** Pre-built stroke style attributes (dasharray, linecap, linejoin, etc.). */
+  strokeAttrs: string;
+  /** Pre-built marker-start / marker-end attributes for arrowheads. */
+  markerAttrs: string;
 }
+
+// ECMA-376 `<a:prstDash val="…"/>` → SVG `stroke-dasharray` (in stroke widths).
+// PowerPoint scales the pattern by the line width; the multipliers below were
+// reverse-engineered from real PPTX exports so the visual cadence matches.
+const DASH_PATTERNS: Record<string, string> = {
+  solid: '',
+  dot: '1 3',
+  dash: '4 3',
+  lgDash: '8 3',
+  dashDot: '4 3 1 3',
+  lgDashDot: '8 3 1 3',
+  lgDashDotDot: '8 3 1 3 1 3',
+  sysDash: '3 1',
+  sysDot: '1 1',
+  sysDashDot: '3 1 1 1',
+  sysDashDotDot: '3 1 1 1 1 1',
+};
+
+const arrowSize = (size: 'sm' | 'med' | 'lg' | undefined): number =>
+  size === 'sm' ? 3 : size === 'lg' ? 7 : 5;
+
+const buildArrowMarker = (
+  type: string,
+  width: 'sm' | 'med' | 'lg' | undefined,
+  length: 'sm' | 'med' | 'lg' | undefined,
+  color: string,
+  orient: 'auto' | 'auto-start-reverse',
+): { id: string; def: string } => {
+  const id = mintId();
+  const w = arrowSize(width);
+  const h = arrowSize(length);
+  // refX = w so the tip lands on the line's endpoint; refY centers vertically.
+  let body: string;
+  switch (type) {
+    case 'triangle':
+    case 'arrow':
+      body = `<path d="M0 0L${w} ${h / 2}L0 ${h}z" fill="${color}"/>`;
+      break;
+    case 'stealth':
+      body = `<path d="M0 0L${w} ${h / 2}L0 ${h}L${w * 0.4} ${h / 2}z" fill="${color}"/>`;
+      break;
+    case 'diamond':
+      body = `<path d="M0 ${h / 2}L${w / 2} 0L${w} ${h / 2}L${w / 2} ${h}z" fill="${color}"/>`;
+      break;
+    case 'oval':
+      body = `<ellipse cx="${w / 2}" cy="${h / 2}" rx="${w / 2}" ry="${h / 2}" fill="${color}"/>`;
+      break;
+    case 'none':
+    default:
+      body = '';
+  }
+  const def = `<defs><marker id="${id}" viewBox="0 0 ${w} ${h}" refX="${w}" refY="${h / 2}" markerWidth="${w}" markerHeight="${h}" orient="${orient}">${body}</marker></defs>`;
+  return { id, def };
+};
 
 const paint = (
   shape: SlideShapeData | null,
@@ -312,11 +587,19 @@ const paint = (
   stroke: ShapeStroke,
   theme: PresentationTheme | null,
   isPlaceholder: boolean,
+  pres?: PresentationData,
 ): PaintResult => {
   let fillColor: string;
   let defs = '';
   if (fill.kind === 'solid') {
-    fillColor = resolveColor(fill.color, theme, '#E5E7EB');
+    // Prefer the transform-aware reader when we have a presentation
+    // handle — `<a:lumMod>` / `<a:shade>` / `<a:tint>` etc. on the
+    // shape's fill produce the actual painted color, while `fill.color`
+    // is only the base value. Falls through to the legacy path when
+    // the resolver can't produce a hex (theme missing, etc.).
+    let resolved: string | null = null;
+    if (shape && pres) resolved = getShapeFillColorResolved(pres, shape);
+    fillColor = resolved ?? resolveColor(fill.color, theme, '#E5E7EB');
   } else if (fill.kind === 'none') {
     fillColor = 'none';
   } else if (fill.kind === 'gradient') {
@@ -333,7 +616,14 @@ const paint = (
       fillColor = '#FDBA74';
     }
   } else if (fill.kind === 'pattern') {
-    fillColor = '#BFDBFE';
+    const pat = shape && pres ? getShapePatternFill(pres, shape) : null;
+    if (pat) {
+      const built = patternDef(pat);
+      defs = built.defs;
+      fillColor = built.fillAttr;
+    } else {
+      fillColor = '#BFDBFE';
+    }
   } else if (fill.kind === 'image') {
     fillColor = '#DDD6FE';
   } else {
@@ -345,11 +635,69 @@ const paint = (
 
   let strokeColor = 'none';
   let strokeWidth = 0;
+  const strokeAttrParts: string[] = [];
+  let markerAttrs = '';
   if (stroke.kind === 'solid') {
-    strokeColor = resolveColor(stroke.color, theme, '#9CA3AF');
+    let resolved: string | null = null;
+    if (shape && pres) resolved = getShapeStrokeColorResolved(pres, shape);
+    strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
+    if (shape) {
+      const dash = getShapeStrokeDash(shape);
+      if (dash && dash !== 'solid') {
+        const pattern = DASH_PATTERNS[dash];
+        if (pattern) {
+          // Scale by stroke width in CSS pixels so the cadence matches PowerPoint.
+          const swPx = strokeWidth / EMU_PER_PX;
+          const arr = pattern
+            .split(' ')
+            .map((n) => (Number.parseFloat(n) * swPx).toFixed(2))
+            .join(' ');
+          strokeAttrParts.push(`stroke-dasharray="${arr}"`);
+        }
+      }
+      const cap = getShapeStrokeCap(shape);
+      if (cap === 'rnd') strokeAttrParts.push('stroke-linecap="round"');
+      else if (cap === 'sq') strokeAttrParts.push('stroke-linecap="square"');
+      else if (cap === 'flat') strokeAttrParts.push('stroke-linecap="butt"');
+      const join = getShapeStrokeJoin(shape);
+      if (join === 'round') strokeAttrParts.push('stroke-linejoin="round"');
+      else if (join === 'bevel') strokeAttrParts.push('stroke-linejoin="bevel"');
+      else if (join === 'miter') strokeAttrParts.push('stroke-linejoin="miter"');
+      const cmpd = getShapeStrokeCompound(shape);
+      if (cmpd === 'dbl') {
+        // Approximate a double line by widening + a transparent stripe down
+        // the middle. SVG has no native compound-line primitive.
+        strokeWidth = Math.max(strokeWidth, 19_050);
+      }
+      const head = getShapeStrokeArrow(shape, 'head');
+      const tail = getShapeStrokeArrow(shape, 'tail');
+      if (head && head.type !== 'none') {
+        const m = buildArrowMarker(
+          head.type,
+          head.width,
+          head.length,
+          strokeColor,
+          'auto-start-reverse',
+        );
+        defs += m.def;
+        markerAttrs += ` marker-start="url(#${m.id})"`;
+      }
+      if (tail && tail.type !== 'none') {
+        const m = buildArrowMarker(tail.type, tail.width, tail.length, strokeColor, 'auto');
+        defs += m.def;
+        markerAttrs += ` marker-end="url(#${m.id})"`;
+      }
+    }
   }
-  return { fill: fillColor, stroke: strokeColor, strokeWidth, defs };
+  return {
+    fill: fillColor,
+    stroke: strokeColor,
+    strokeWidth,
+    defs,
+    strokeAttrs: strokeAttrParts.join(' '),
+    markerAttrs,
+  };
 };
 
 // ---------------------------------------------------------------------------
@@ -376,11 +724,34 @@ const star = (points: number, innerRatio = 0.42): Array<[number, number]> => {
 };
 
 const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
-  triangle: () => [[0.5, 0], [1, 1], [0, 1]],
-  rtTriangle: () => [[0, 0], [1, 1], [0, 1]],
-  diamond: () => [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]],
-  parallelogram: () => [[0.25, 0], [1, 0], [0.75, 1], [0, 1]],
-  trapezoid: () => [[0.25, 0], [0.75, 0], [1, 1], [0, 1]],
+  triangle: () => [
+    [0.5, 0],
+    [1, 1],
+    [0, 1],
+  ],
+  rtTriangle: () => [
+    [0, 0],
+    [1, 1],
+    [0, 1],
+  ],
+  diamond: () => [
+    [0.5, 0],
+    [1, 0.5],
+    [0.5, 1],
+    [0, 0.5],
+  ],
+  parallelogram: () => [
+    [0.25, 0],
+    [1, 0],
+    [0.75, 1],
+    [0, 1],
+  ],
+  trapezoid: () => [
+    [0.25, 0],
+    [0.75, 0],
+    [1, 1],
+    [0, 1],
+  ],
   pentagon: () => polygon(5),
   hexagon: () => polygon(6),
   heptagon: () => polygon(7),
@@ -574,7 +945,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const path: string[] = [];
     for (let i = 0; i < rays * 2; i++) {
       const r = i % 2 === 0 ? outerR : innerR;
-      const a = ((i / (rays * 2)) * 2 * Math.PI) - Math.PI / 2;
+      const a = (i / (rays * 2)) * 2 * Math.PI - Math.PI / 2;
       const px0 = cx + r * Math.cos(a);
       const py0 = cy + r * Math.sin(a);
       path.push(`${i === 0 ? 'M' : 'L'}${px0},${py0}`);
@@ -601,8 +972,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
   // Lightweight approximations of the ~28 ECMA-376 flowchart presets.
   // They're laid out so the shape's bounding box matches the slide's,
   // and the geometry is what most viewers expect at a glance.
-  flowChartProcess: (x, y, w, h) =>
-    `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`,
+  flowChartProcess: (x, y, w, h) => `M${x},${y} L${x + w},${y} L${x + w},${y + h} L${x},${y + h} Z`,
   flowChartAlternateProcess: (x, y, w, h) => {
     const r = Math.min(w, h) * 0.18;
     return `M${x + r},${y} L${x + w - r},${y} A${r},${r} 0 0 1 ${x + w},${y + r} L${x + w},${y + h - r} A${r},${r} 0 0 1 ${x + w - r},${y + h} L${x + r},${y + h} A${r},${r} 0 0 1 ${x},${y + h - r} L${x},${y + r} A${r},${r} 0 0 1 ${x + r},${y} Z`;
@@ -692,7 +1062,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const cy = y + h / 2;
     const r = Math.min(w, h) / 2;
     // Circle with an X inside (drawn as two crossing lines via subpaths).
-    const off = (r * Math.SQRT1_2);
+    const off = r * Math.SQRT1_2;
     return `M${cx + r},${cy} A${r},${r} 0 1 0 ${cx - r},${cy} A${r},${r} 0 1 0 ${cx + r},${cy} Z M${cx - off},${cy - off} L${cx + off},${cy + off} M${cx - off},${cy + off} L${cx + off},${cy - off}`;
   },
   flowChartOr: (x, y, w, h) => {
@@ -896,8 +1266,7 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     // 16 rays — outer radii drawn from a fixed offset table so the
     // shape comes out spiky-but-balanced like PowerPoint's.
     const offsets = [
-      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
-      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
+      1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55, 1.0, 0.45, 0.95, 0.5, 1.0, 0.4, 0.9, 0.55,
     ];
     const points: string[] = [];
     for (let i = 0; i < offsets.length; i++) {
@@ -918,9 +1287,8 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const ry = h / 2;
     // 24 alternating rays for a denser, more "scribble"-like burst.
     const offsets = [
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
-      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
+      1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45, 1.0, 0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45, 1.0,
+      0.4, 0.95, 0.5, 0.9, 0.35, 0.85, 0.45,
     ];
     const points: string[] = [];
     for (let i = 0; i < offsets.length; i++) {
@@ -1259,11 +1627,17 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     const s = Math.min(w, h) * 0.3;
     // Filmstrip — outer rect + sprocket holes.
     const out: string[] = [PRESET_PATHS.actionButtonBlank?.(x, y, w, h) ?? ''];
-    out.push(`M${cx - s},${cy - s * 0.6} L${cx + s},${cy - s * 0.6} L${cx + s},${cy + s * 0.6} L${cx - s},${cy + s * 0.6} Z`);
+    out.push(
+      `M${cx - s},${cy - s * 0.6} L${cx + s},${cy - s * 0.6} L${cx + s},${cy + s * 0.6} L${cx - s},${cy + s * 0.6} Z`,
+    );
     for (let i = 0; i < 4; i++) {
-      const px0 = cx - s + (i + 0.5) * (s * 2 / 4);
-      out.push(`M${px0 - s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.3} L${px0 - s * 0.08},${cy - s * 0.3} Z`);
-      out.push(`M${px0 - s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.45} L${px0 - s * 0.08},${cy + s * 0.45} Z`);
+      const px0 = cx - s + (i + 0.5) * ((s * 2) / 4);
+      out.push(
+        `M${px0 - s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.45} L${px0 + s * 0.08},${cy - s * 0.3} L${px0 - s * 0.08},${cy - s * 0.3} Z`,
+      );
+      out.push(
+        `M${px0 - s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.3} L${px0 + s * 0.08},${cy + s * 0.45} L${px0 - s * 0.08},${cy + s * 0.45} Z`,
+      );
     }
     return out.join(' ');
   },
@@ -1302,15 +1676,19 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
   // the endpoints are).
   straightConnector1: (x, y, w, h) => `M${x},${y} L${x + w},${y + h}`,
   bentConnector2: (x, y, w, h) => `M${x},${y} L${x + w},${y} L${x + w},${y + h}`,
-  bentConnector3: (x, y, w, h) => `M${x},${y} L${x + w / 2},${y} L${x + w / 2},${y + h} L${x + w},${y + h}`,
+  bentConnector3: (x, y, w, h) =>
+    `M${x},${y} L${x + w / 2},${y} L${x + w / 2},${y + h} L${x + w},${y + h}`,
   bentConnector4: (x, y, w, h) =>
     `M${x},${y} L${x + w * 0.33},${y} L${x + w * 0.33},${y + h * 0.5} L${x + w * 0.66},${y + h * 0.5} L${x + w * 0.66},${y + h} L${x + w},${y + h}`,
   bentConnector5: (x, y, w, h) =>
     `M${x},${y} L${x + w * 0.25},${y} L${x + w * 0.25},${y + h * 0.5} L${x + w * 0.75},${y + h * 0.5} L${x + w * 0.75},${y + h} L${x + w},${y + h}`,
   curvedConnector2: (x, y, w, h) => `M${x},${y} Q${x + w},${y} ${x + w},${y + h}`,
-  curvedConnector3: (x, y, w, h) => `M${x},${y} C${x + w * 0.5},${y} ${x + w * 0.5},${y + h} ${x + w},${y + h}`,
-  curvedConnector4: (x, y, w, h) => `M${x},${y} C${x + w * 0.33},${y} ${x + w * 0.33},${y + h * 0.5} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.66},${y + h * 0.5} ${x + w * 0.66},${y + h} ${x + w},${y + h}`,
-  curvedConnector5: (x, y, w, h) => `M${x},${y} C${x + w * 0.25},${y} ${x + w * 0.25},${y + h * 0.25} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.75},${y + h * 0.75} ${x + w * 0.75},${y + h} ${x + w},${y + h}`,
+  curvedConnector3: (x, y, w, h) =>
+    `M${x},${y} C${x + w * 0.5},${y} ${x + w * 0.5},${y + h} ${x + w},${y + h}`,
+  curvedConnector4: (x, y, w, h) =>
+    `M${x},${y} C${x + w * 0.33},${y} ${x + w * 0.33},${y + h * 0.5} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.66},${y + h * 0.5} ${x + w * 0.66},${y + h} ${x + w},${y + h}`,
+  curvedConnector5: (x, y, w, h) =>
+    `M${x},${y} C${x + w * 0.25},${y} ${x + w * 0.25},${y + h * 0.25} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.75},${y + h * 0.75} ${x + w * 0.75},${y + h} ${x + w},${y + h}`,
 };
 
 // ---------------------------------------------------------------------------
@@ -1340,8 +1718,7 @@ const placeholderDefaultPt = (phType: string | null): number => {
   return DEFAULT_BODY_PT; // 18pt
 };
 
-const bulletChar = (level: number): string =>
-  level <= 0 ? '•' : level === 1 ? '◦' : '▪';
+const bulletChar = (level: number): string => (level <= 0 ? '•' : level === 1 ? '◦' : '▪');
 
 // `effectivePt` is the post-autofit font size in points. Callers pass
 // `format.size` (the authored size, if any) scaled by the body's
@@ -1365,13 +1742,45 @@ const renderRun = (
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
   const underline = format?.underline;
-  if (underline !== undefined && underline !== false && underline !== 'none') {
+  const strike = format?.strike;
+  const hasUnderline = underline !== undefined && underline !== false && underline !== 'none';
+  const hasStrike = strike !== undefined && strike !== false && strike !== 'noStrike';
+  if (hasUnderline && hasStrike) {
+    styles.push('text-decoration:underline line-through');
+  } else if (hasUnderline) {
     styles.push('text-decoration:underline');
+  } else if (hasStrike) {
+    styles.push('text-decoration:line-through');
   }
   if (format?.color !== undefined && format.color !== null) {
     styles.push(`color:${resolveColor(format.color, theme, '#000000')}`);
   }
-  return `<span style="${styles.join(';')}">${escapeXml(text)}</span>`;
+  // S3 — additional rPr attributes that change how the glyphs lay out.
+  if (format?.spc !== undefined && format.spc !== 0) {
+    // ECMA-376 `spc` is in 1/100 pt; convert to CSS px at the run's size.
+    const trackingPx = (format.spc / 100) * PX_PER_PT;
+    styles.push(`letter-spacing:${trackingPx.toFixed(3)}px`);
+  }
+  if (format?.baseline !== undefined && format.baseline !== 0) {
+    // Positive = superscript, negative = subscript. Scale the glyph a
+    // little smaller as PowerPoint does (~64% for super/subscript).
+    const direction = format.baseline > 0 ? 'super' : 'sub';
+    styles.push(`vertical-align:${direction}`);
+    styles.push('font-size:0.65em');
+  }
+  if (format?.cap === 'all') styles.push('text-transform:uppercase');
+  else if (format?.cap === 'small') styles.push('font-variant:small-caps');
+  if (format?.highlight !== undefined && format.highlight !== null) {
+    styles.push(`background-color:${resolveColor(format.highlight, theme, '#FFFF00')}`);
+  }
+  // Explicit `\n` in the run text comes from <a:br> line breaks; project
+  // each to an HTML <br/> so the foreignObject's CSS layout honours it.
+  // Everything else is escaped as XML text.
+  const html = text
+    .split('\n')
+    .map((part) => escapeXml(part))
+    .join('<br/>');
+  return `<span style="${styles.join(';')}">${html}</span>`;
 };
 
 // CSS line-height factor we render text at. Keep in sync with the
@@ -1386,6 +1795,7 @@ const LINE_HEIGHT = 1.05;
 const AVG_GLYPH_W_RATIO = 0.55;
 
 const renderTextBody = (
+  pres: PresentationData,
   shape: SlideShapeData,
   bounds: { x: number; y: number; w: number; h: number },
   theme: PresentationTheme | null,
@@ -1421,34 +1831,92 @@ const renderTextBody = (
     readonly align: string;
     readonly level: number;
     readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
+    readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
     readonly runs: RunData[];
+    readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
+    readonly spcBefPts: number | null;
+    readonly spcAftPts: number | null;
+    readonly indent: ReturnType<typeof getParagraphIndent>;
   }
   const paraData: ParaData[] = [];
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
-    let runCount: number;
-    try {
-      runCount = getShapeRunCount(shape, p);
-    } catch {
-      runCount = 0;
-    }
     const align = getParagraphAlignment(shape, p) ?? 'left';
     const level = getParagraphLevel(shape, p);
     const bulletStyle = getParagraphBullet(shape, p);
+    let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
+      color: null,
+      sizePct: null,
+      sizePts: null,
+      font: null,
+    };
+    try {
+      bulletDetail = getParagraphBulletStyle(pres, shape, p);
+    } catch {}
+    let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
+    let spcBefPts: number | null = null;
+    let spcAftPts: number | null = null;
+    let indent: ReturnType<typeof getParagraphIndent> = {
+      leftEmu: null,
+      rightEmu: null,
+      firstLineEmu: null,
+    };
+    try {
+      lineSpacing = getParagraphLineSpacing(shape, p);
+    } catch {}
+    try {
+      const spacing = getParagraphSpacing(shape, p);
+      spcBefPts = spacing.beforePts;
+      spcAftPts = spacing.afterPts;
+    } catch {}
+    try {
+      indent = getParagraphIndent(shape, p);
+    } catch {}
     const runs: RunData[] = [];
-    for (let r = 0; r < runCount; r++) {
-      let txt = '';
-      try {
-        txt = getShapeRunText(shape, p, r);
-      } catch {
+    // Walk the paragraph's inline elements — runs, field placeholders,
+    // and explicit line breaks — in document order. The strict
+    // <a:r>-only `getShapeRunCount` would silently skip footer / date /
+    // slide-number fields, which is exactly what real templates emit.
+    let elements: ReadonlyArray<ReturnType<typeof getShapeParagraphElements>[number]> = [];
+    try {
+      elements = getShapeParagraphElements(shape, p);
+    } catch {
+      elements = [];
+    }
+    let rIdx = 0;
+    for (const el of elements) {
+      if (el.kind === 'br') {
+        runs.push({ text: '\n', fmt: null, sizePt: defaultPt });
         continue;
       }
-      const fmt = getShapeRunFormat(shape, p, r);
+      const txt = el.text;
+      let fmt: TextFormat | null = el.format;
+      if (el.kind === 'r') {
+        // The cascade only makes sense for actual <a:r> runs; field
+        // text is opaque cached content and shouldn't pretend to be a
+        // specific run index.
+        try {
+          fmt = getShapeRunFormatEffective(pres, shape, p, rIdx);
+        } catch {
+          fmt = getShapeRunFormat(shape, p, rIdx);
+        }
+        rIdx++;
+      }
       const sizePt = fmt?.size ?? defaultPt;
       if (txt) hasAnyText = true;
       runs.push({ text: txt, fmt, sizePt });
     }
-    paraData.push({ align, level, bulletStyle, runs });
+    paraData.push({
+      align,
+      level,
+      bulletStyle,
+      bulletDetail,
+      runs,
+      lineSpacing,
+      spcBefPts,
+      spcAftPts,
+      indent,
+    });
   }
   if (!hasAnyText) return '';
 
@@ -1484,7 +1952,8 @@ const renderTextBody = (
             (c >= 0x30a0 && c <= 0x30ff) ||
             (c >= 0x4e00 && c <= 0x9fff) ||
             (c >= 0xac00 && c <= 0xd7af)
-          ) cjkChars++;
+          )
+            cjkChars++;
         }
       }
       if (totalChars === 0) totalChars = 1;
@@ -1511,11 +1980,48 @@ const renderTextBody = (
     const runHtmls = para.runs.map((run) =>
       renderRun(run.text, run.fmt, theme, run.sizePt * autoFitScale, run.fmt?.size === undefined),
     );
+    // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
+    // sets a fixed point value. CSS line-height accepts both forms;
+    // we project pts to px at the run's authored size.
+    let lineHeightCss = '';
+    if (para.lineSpacing?.kind === 'pct') {
+      lineHeightCss = `line-height:${para.lineSpacing.value.toFixed(3)}`;
+    } else if (para.lineSpacing?.kind === 'pts') {
+      lineHeightCss = `line-height:${(para.lineSpacing.value * PX_PER_PT * autoFitScale).toFixed(2)}px`;
+    }
+    // <a:spcBef> / <a:spcAft> map to CSS margin-top / margin-bottom.
+    const marginTopCss =
+      para.spcBefPts !== null && para.spcBefPts > 0
+        ? `margin-top:${(para.spcBefPts * PX_PER_PT * autoFitScale).toFixed(2)}px`
+        : '';
+    const marginBottomCss =
+      para.spcAftPts !== null && para.spcAftPts > 0
+        ? `margin-bottom:${(para.spcAftPts * PX_PER_PT * autoFitScale).toFixed(2)}px`
+        : '';
+    // <a:pPr marL marR indent> → CSS padding-left / padding-right /
+    // text-indent. Authored indents override the level-based default
+    // so paragraphs with explicit marL don't get doubled.
+    const leftPx =
+      para.indent.leftEmu !== null
+        ? (para.indent.leftEmu / EMU_PER_PX) * autoFitScale
+        : para.level > 0
+          ? para.level * 24 * PX_PER_PT * autoFitScale
+          : 0;
+    const rightPx =
+      para.indent.rightEmu !== null ? (para.indent.rightEmu / EMU_PER_PX) * autoFitScale : 0;
+    const firstLinePx =
+      para.indent.firstLineEmu !== null
+        ? (para.indent.firstLineEmu / EMU_PER_PX) * autoFitScale
+        : 0;
     const pStyles: string[] = [
-      'margin:0',
+      marginTopCss || (marginBottomCss ? '' : 'margin:0'),
+      marginBottomCss,
       'padding:0',
       `text-align:${ALIGNMENT_TO_CSS[para.align] ?? 'left'}`,
-      para.level > 0 ? `padding-left:${(para.level * 24 * PX_PER_PT * autoFitScale).toFixed(2)}px` : '',
+      lineHeightCss,
+      leftPx > 0 ? `padding-left:${leftPx.toFixed(2)}px` : '',
+      rightPx > 0 ? `padding-right:${rightPx.toFixed(2)}px` : '',
+      firstLinePx !== 0 ? `text-indent:${firstLinePx.toFixed(2)}px` : '',
     ].filter(Boolean);
     let prefix = '';
     const explicitChar =
@@ -1530,7 +2036,24 @@ const renderTextBody = (
       (para.bulletStyle !== 'none' && para.level > 0);
     if (showBullet) {
       const char = explicitChar ?? bulletChar(para.level);
-      prefix = `<span style="margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px">${escapeXml(char)}</span>`;
+      // Bullet style overrides: color, size %, fixed pt size, font face.
+      const bulletStyles: string[] = [
+        `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
+      ];
+      if (para.bulletDetail.color) {
+        bulletStyles.push(`color:${resolveColor(para.bulletDetail.color, theme, '#000000')}`);
+      }
+      if (para.bulletDetail.sizePct !== null) {
+        bulletStyles.push(`font-size:${(para.bulletDetail.sizePct * 100).toFixed(1)}%`);
+      } else if (para.bulletDetail.sizePts !== null) {
+        bulletStyles.push(
+          `font-size:${(para.bulletDetail.sizePts * PX_PER_PT * autoFitScale).toFixed(2)}px`,
+        );
+      }
+      if (para.bulletDetail.font) {
+        bulletStyles.push(`font-family:${escapeXml(para.bulletDetail.font)}, ${DEFAULT_FONT}`);
+      }
+      prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     paragraphs.push(
       `<p style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
@@ -1539,12 +2062,40 @@ const renderTextBody = (
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
   const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
+  // B3 — vertical text. <a:bodyPr vert="…"/> controls glyph orientation
+  // and line direction. The CSS writing-mode property is the right
+  // primitive for the common cases (East-Asian, Mongolian, vert);
+  // wordArtVert / wordArtVertRtl stack characters without rotation
+  // which writing-mode also covers via "vertical-lr".
+  const vert = getShapeTextDirection(shape);
+  let writingMode = '';
+  let extraTransform = '';
+  if (vert === 'vert' || vert === 'eaVert') {
+    writingMode = 'writing-mode:vertical-rl';
+  } else if (vert === 'vert270' || vert === 'mongolianVert') {
+    writingMode = 'writing-mode:vertical-lr';
+    if (vert === 'vert270') extraTransform = ';transform:rotate(180deg)';
+  } else if (vert === 'wordArtVert') {
+    writingMode = 'writing-mode:vertical-rl;text-orientation:upright';
+  } else if (vert === 'wordArtVertRtl') {
+    writingMode = 'writing-mode:vertical-rl;text-orientation:upright;direction:rtl';
+  }
+  // B4 — multi-column text bodies. `<a:bodyPr numCol="N" spcCol="EMU"/>`
+  // splits the text body into N equal columns separated by `spcCol`.
+  // CSS `column-count` / `column-gap` map directly.
+  const cols = getShapeTextColumns(shape);
+  let colStyles = '';
+  if (cols && cols.count >= 2) {
+    const gapPx = cols.gapEmu !== undefined ? (cols.gapEmu / EMU_PER_PX).toFixed(2) : '12';
+    colStyles = `;column-count:${cols.count};column-gap:${gapPx}px`;
+  }
+  const vertStyles = (writingMode ? `;${writingMode}${extraTransform}` : '') + colStyles;
   // foreignObject's `overflow="visible"` attribute (not CSS) is what
   // actually keeps it from clipping content past its width/height.
   // Without this, the surrounding SVG viewport silently crops any text
   // that overshoots — exactly the title-tops-cut-off symptom users
   // hit when the autofit scale wasn't enough.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word">${paragraphs.join('')}</div>`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${DEFAULT_FONT};color:${defaultColor};word-break:break-word${vertStyles}">${paragraphs.join('')}</div>`;
   return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
 };
 
@@ -1569,7 +2120,14 @@ const px = (n: number): string => n.toFixed(2);
 const accentSequence = (theme: PresentationTheme | null): string[] => {
   const fallbacks = ['#5B9BD5', '#ED7D31', '#A5A5A5', '#FFC000', '#4472C4', '#70AD47'];
   if (!theme) return fallbacks;
-  const hexes = [theme.accent1, theme.accent2, theme.accent3, theme.accent4, theme.accent5, theme.accent6]
+  const hexes = [
+    theme.accent1,
+    theme.accent2,
+    theme.accent3,
+    theme.accent4,
+    theme.accent5,
+    theme.accent6,
+  ]
     .map((c) => normalizeHex(c))
     .filter((c): c is string => /^#[0-9A-Fa-f]{6}$/.test(c));
   return hexes.length > 0 ? hexes : fallbacks;
@@ -1671,13 +2229,21 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
       // Gridline.
-      out.push(`<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+      );
       // Numeric label, right-aligned to the plot's left edge.
-      out.push(`<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`);
+      out.push(
+        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`,
+      );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
-      out.push(`<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
-      out.push(`<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`);
+      out.push(
+        `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+      );
+      out.push(
+        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatTick(t))}</text>`,
+      );
     }
   }
   return out.join('');
@@ -1701,20 +2267,26 @@ const renderCategoryAxis = (
     for (let i = 0; i < pointCount; i++) {
       // Center labels under each category slot.
       const cx = f.plotX + (i + 0.5) * step;
-      const truncated = labels[i] !== undefined && labels[i]!.length > 14
-        ? `${labels[i]!.slice(0, 12)}…`
-        : labels[i] ?? '';
-      out.push(`<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`);
+      const truncated =
+        labels[i] !== undefined && labels[i]!.length > 14
+          ? `${labels[i]!.slice(0, 12)}…`
+          : (labels[i] ?? '');
+      out.push(
+        `<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`,
+      );
     }
   } else {
     // Categories down the y-axis (bar chart).
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
     for (let i = 0; i < pointCount; i++) {
       const cy = f.plotY + (i + 0.5) * step;
-      const truncated = labels[i] !== undefined && labels[i]!.length > 14
-        ? `${labels[i]!.slice(0, 12)}…`
-        : labels[i] ?? '';
-      out.push(`<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`);
+      const truncated =
+        labels[i] !== undefined && labels[i]!.length > 14
+          ? `${labels[i]!.slice(0, 12)}…`
+          : (labels[i] ?? '');
+      out.push(
+        `<text x="${px(f.plotX - 4)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(truncated)}</text>`,
+      );
     }
   }
   return out.join('');
@@ -1743,7 +2315,11 @@ const renderChartTitle = (f: ChartFrame, title: string): string => {
   return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="13" fill="#1F2937" font-weight="600">${escapeXml(title)}</text>`;
 };
 
-const renderChartLegend = (f: ChartFrame, names: ReadonlyArray<string>, colors: ReadonlyArray<string>): string => {
+const renderChartLegend = (
+  f: ChartFrame,
+  names: ReadonlyArray<string>,
+  colors: ReadonlyArray<string>,
+): string => {
   if (names.length === 0) return '';
   const itemPx = Math.min(140, f.w / names.length);
   const totalW = itemPx * names.length;
@@ -1754,8 +2330,12 @@ const renderChartLegend = (f: ChartFrame, names: ReadonlyArray<string>, colors: 
     const swatchX = cx + 4;
     const swatchY = f.legendY - 4;
     const labelX = swatchX + 14;
-    out.push(`<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`);
-    out.push(`<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`);
+    out.push(
+      `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+    );
+    out.push(
+      `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+    );
   }
   return out.join('');
 };
@@ -1771,7 +2351,11 @@ const pointCount = (spec: ChartSpec): number => {
   return n;
 };
 
-const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
+const renderColumnChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
@@ -1787,11 +2371,15 @@ const renderColumnChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray
       const top = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
       const y0 = Math.min(top, baseY);
       const h = Math.abs(top - baseY);
-      out.push(`<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`);
+      out.push(
+        `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
+      );
     }
   }
   // Zero baseline for visual reference.
-  out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+  out.push(
+    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+  );
   return out.join('');
 };
 
@@ -1811,14 +2399,23 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
       const tip = f.plotX + ((v - min) / range) * f.plotW;
       const x0 = Math.min(tip, baseX);
       const w = Math.abs(tip - baseX);
-      out.push(`<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`);
+      out.push(
+        `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+      );
     }
   }
-  out.push(`<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+  out.push(
+    `<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+  );
   return out.join('');
 };
 
-const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, fill: boolean): string => {
+const renderLineChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+  fill: boolean,
+): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   const { min, max } = seriesMinMax(spec);
@@ -1826,7 +2423,9 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
   const step = N > 1 ? f.plotW / (N - 1) : 0;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
-  out.push(`<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`);
+  out.push(
+    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+  );
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
     if (!series) continue;
@@ -1843,7 +2442,9 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
       const areaPath = `${dPath} L${px(f.plotX + (N - 1) * step)},${px(baseY)} L${px(f.plotX)},${px(baseY)} Z`;
       out.push(`<path d="${areaPath}" fill="${color}" fill-opacity="0.25" stroke="none"/>`);
     }
-    out.push(`<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`);
+    out.push(
+      `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>`,
+    );
     // Data point markers.
     for (const [xp, yp] of pts) {
       out.push(`<circle cx="${px(xp)}" cy="${px(yp)}" r="2.2" fill="${color}"/>`);
@@ -1852,7 +2453,12 @@ const renderLineChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<s
   return out.join('');
 };
 
-const renderPieChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>, doughnut: boolean): string => {
+const renderPieChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+  doughnut: boolean,
+): string => {
   const series = spec.series[0];
   if (!series) return '';
   const values = series.values.map((v) => Math.max(0, v ?? 0));
@@ -1909,10 +2515,7 @@ const renderChart = (
   if (!spec) return null;
   const colors = accentSequence(theme);
   const isCartesian =
-    spec.kind === 'column' ||
-    spec.kind === 'bar' ||
-    spec.kind === 'line' ||
-    spec.kind === 'area';
+    spec.kind === 'column' || spec.kind === 'bar' || spec.kind === 'line' || spec.kind === 'area';
   const f = layoutChart(x, y, w, h, !!spec.title, isCartesian);
   const seriesNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
@@ -1942,7 +2545,12 @@ const renderChart = (
         : { orientation: 'vertical', min, max };
     axes = renderValueAxis(f, valueAxis);
     if (N > 0) {
-      axes += renderCategoryAxis(f, spec.kind === 'bar' ? 'vertical' : 'horizontal', spec.categories, N);
+      axes += renderCategoryAxis(
+        f,
+        spec.kind === 'bar' ? 'vertical' : 'horizontal',
+        spec.categories,
+        N,
+      );
     }
   }
   switch (spec.kind) {
@@ -1950,7 +2558,10 @@ const renderChart = (
     case 'bar':
       // pptx-kit reports both as `bar` / `column` via separate `kind`;
       // legacy `barDir` distinction. We branch on `kind`.
-      plot = spec.kind === 'column' ? renderColumnChart(f, spec, colors) : renderBarChart(f, spec, colors);
+      plot =
+        spec.kind === 'column'
+          ? renderColumnChart(f, spec, colors)
+          : renderBarChart(f, spec, colors);
       break;
     case 'line':
       plot = renderLineChart(f, spec, colors, false);
@@ -2027,6 +2638,7 @@ const renderTableCellText = (
 
 const renderTable = (
   shape: SlideShapeData,
+  pres: PresentationData,
   x: number,
   y: number,
   w: number,
@@ -2058,8 +2670,8 @@ const renderTable = (
   // declared cell widths but readers expect the bounding box.
   const wSum = widthsPx.reduce((a, b) => a + b, 0);
   const hSum = heightsPx.reduce((a, b) => a + b, 0);
-  const wScale = wSum > 0 ? (w / EMU_PER_PX) / wSum : 1;
-  const hScale = hSum > 0 ? (h / EMU_PER_PX) / hSum : 1;
+  const wScale = wSum > 0 ? w / EMU_PER_PX / wSum : 1;
+  const hScale = hSum > 0 ? h / EMU_PER_PX / hSum : 1;
   const colXs: number[] = [xPx];
   for (let c = 0; c < widthsPx.length; c++) {
     colXs.push((colXs[c] ?? xPx) + (widthsPx[c] ?? 0) * wScale);
@@ -2069,28 +2681,117 @@ const renderTable = (
     rowYs.push((rowYs[r] ?? yPx) + (heightsPx[r] ?? 0) * hScale);
   }
 
+  // A10 table style — header / footer / first-col / last-col / banded
+  // rows / banded columns. Project the boolean flags onto per-cell tints
+  // that approximate the theme-driven look in PowerPoint.
+  const flags = getTableStyleFlags(shape);
+  const accent = theme ? normalizeHex(theme.accent1) : '#4472C4';
+  const headerFill = accent;
+  const bandFill = mixHex(accent, '#FFFFFF', 0.92);
   const textColor = resolveColor('scheme:tx1', theme, '#000000');
   const out: string[] = [];
   out.push(`<g${transform}>`);
   // Whole-table backdrop so cells with no explicit fill still
   // contrast against whatever's behind.
-  out.push(`<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`);
+  out.push(
+    `<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`,
+  );
+  const borderEdges: string[] = [];
   for (let r = 0; r < dims.rows; r++) {
     for (let c = 0; c < dims.cols; c++) {
       const cell = cells[r]?.[c];
       if (!cell) continue;
+      const typedCell = cell as Parameters<typeof getTableCellSpan>[0];
+      const span = getTableCellSpan(typedCell);
+      // Skip cells absorbed by a horizontal or vertical merge — their
+      // visual area is painted by the cell that owns the span.
+      if (span.hMerge || span.vMerge) continue;
       const cx = colXs[c] ?? xPx;
       const cy = rowYs[r] ?? yPx;
-      const cw = (colXs[c + 1] ?? cx) - cx;
-      const ch = (rowYs[r + 1] ?? cy) - cy;
+      const endCol = Math.min(dims.cols, c + span.gridSpan);
+      const endRow = Math.min(dims.rows, r + span.rowSpan);
+      const cw = (colXs[endCol] ?? cx) - cx;
+      const ch = (rowYs[endRow] ?? cy) - cy;
       const fill = getTableCellFill(cell as Parameters<typeof getTableCellFill>[0]);
-      const fillColor = fill ? resolveColor(fill, theme, '#FFFFFF') : 'none';
-      out.push(`<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${fillColor}" stroke="#9CA3AF" stroke-width="0.5"/>`);
+      let resolvedFill: string;
+      if (fill) {
+        resolvedFill = resolveColor(fill, theme, '#FFFFFF');
+      } else if (flags.firstRow && r === 0) {
+        resolvedFill = headerFill;
+      } else if (flags.lastRow && r === dims.rows - 1) {
+        resolvedFill = headerFill;
+      } else if (flags.firstCol && c === 0) {
+        resolvedFill = bandFill;
+      } else if (flags.lastCol && c === dims.cols - 1) {
+        resolvedFill = bandFill;
+      } else if (flags.bandRow && r % 2 === (flags.firstRow ? 0 : 1)) {
+        resolvedFill = bandFill;
+      } else if (flags.bandCol && c % 2 === (flags.firstCol ? 0 : 1)) {
+        resolvedFill = bandFill;
+      } else {
+        resolvedFill = 'none';
+      }
+      const cellTextColor = resolvedFill === headerFill ? '#FFFFFF' : textColor;
+      out.push(
+        `<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
+      );
+      // Per-side borders override the default thin gray grid. Draw them
+      // separately after the fills so they sit on top.
+      const borders = getTableCellBorders(pres, typedCell);
+      const edge = (
+        side: keyof Pick<typeof borders, 'left' | 'right' | 'top' | 'bottom'>,
+        x1: number,
+        y1: number,
+        x2: number,
+        y2: number,
+      ): void => {
+        const b = borders[side];
+        if (!b) return;
+        const sw = b.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : 0.5;
+        const col = b.color ?? '#9CA3AF';
+        borderEdges.push(
+          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"/>`,
+        );
+      };
+      edge('left', cx, cy, cx, cy + ch);
+      edge('right', cx + cw, cy, cx + cw, cy + ch);
+      edge('top', cx, cy, cx + cw, cy);
+      edge('bottom', cx, cy + ch, cx + cw, cy + ch);
+      if (borders.tlToBr) {
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`,
+        );
+      }
+      if (borders.blToTr) {
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="0.5"/>`,
+        );
+      }
+      // Default thin grid for sides that didn't define a border.
+      const defaultColor = '#9CA3AF';
+      if (!borders.left)
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+      if (!borders.right)
+        borderEdges.push(
+          `<line x1="${px(cx + cw)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+      if (!borders.top)
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+      if (!borders.bottom)
+        borderEdges.push(
+          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
+        );
+
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
-      out.push(renderTableCellText(text, cx, cy, cw, ch, align, textColor));
+      out.push(renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor));
     }
   }
+  out.push(borderEdges.join(''));
   out.push('</g>');
   return out.join('');
 };
@@ -2129,9 +2830,10 @@ const renderShape = (
   if (flip.vertical) transforms.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
 
-  const textOverlay = kind === 'shape' || kind === 'graphicFrame'
-    ? renderTextBody(shape, { x, y, w, h }, theme, phType)
-    : '';
+  const textOverlay =
+    kind === 'shape' || kind === 'graphicFrame'
+      ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType)
+      : '';
 
   if (kind === 'picture') {
     return renderPicture(
@@ -2166,7 +2868,7 @@ const renderShape = (
   }
 
   if (kind === 'connector') {
-    const p = paint(shape, fill, stroke, theme, false);
+    const p = paint(shape, fill, stroke, theme, false, pres);
     const sw = p.strokeWidth || 19_050;
     let x1 = x;
     let y1 = y;
@@ -2182,7 +2884,58 @@ const renderShape = (
     }
     const strokeColor =
       p.stroke === 'none' ? resolveColor('scheme:tx1', theme, '#1F2937') : p.stroke;
-    return `<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${transform}/>`;
+    const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
+    const ma = p.markerAttrs ?? '';
+    // B8 — bent / curved connector routing. Per ECMA-376 §20.1.9.18,
+    // bentConnector{2,3,4,5} are L-shaped, step, and double-step paths;
+    // curvedConnector{2,3,4,5} are quadratic / cubic Bézier curves. We
+    // route them between the bounding box's diagonal endpoints in
+    // CSS-px so the cadence matches PowerPoint within visual tolerance.
+    const preset = getShapePreset(shape) ?? 'line';
+    if (preset === 'straightConnector1' || preset === 'line') {
+      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${sa}${ma}${transform}/>`;
+    }
+    // For bent / curved, we work in CSS px to keep the path math readable.
+    const px1 = x1 / EMU_PER_PX;
+    const py1 = y1 / EMU_PER_PX;
+    const px2 = x2 / EMU_PER_PX;
+    const py2 = y2 / EMU_PER_PX;
+    let d = `M${px1.toFixed(2)} ${py1.toFixed(2)}`;
+    if (preset === 'bentConnector2') {
+      // Single L: horizontal then vertical.
+      d += ` L${px2.toFixed(2)} ${py1.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'bentConnector3') {
+      // Z-bend: horizontal halfway, vertical, horizontal to endpoint.
+      const midX = (px1 + px2) / 2;
+      d += ` L${midX.toFixed(2)} ${py1.toFixed(2)} L${midX.toFixed(2)} ${py2.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'bentConnector4') {
+      // Two-step: H halfway, V halfway, H, V to endpoint.
+      const mx = (px1 + px2) / 2;
+      const my = (py1 + py2) / 2;
+      d += ` L${mx.toFixed(2)} ${py1.toFixed(2)} L${mx.toFixed(2)} ${my.toFixed(2)} L${px2.toFixed(2)} ${my.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'bentConnector5') {
+      // Three-step: same pattern, one more segment.
+      const q1x = px1 + (px2 - px1) / 3;
+      const q2x = px1 + (2 * (px2 - px1)) / 3;
+      const my = (py1 + py2) / 2;
+      d += ` L${q1x.toFixed(2)} ${py1.toFixed(2)} L${q1x.toFixed(2)} ${my.toFixed(2)} L${q2x.toFixed(2)} ${my.toFixed(2)} L${q2x.toFixed(2)} ${py2.toFixed(2)} L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (preset === 'curvedConnector2') {
+      // Single quadratic curve through the corner.
+      d += ` Q${px2.toFixed(2)} ${py1.toFixed(2)} ${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else if (
+      preset === 'curvedConnector3' ||
+      preset === 'curvedConnector4' ||
+      preset === 'curvedConnector5'
+    ) {
+      // S-curve: cubic Bézier with control points at one-third / two-thirds.
+      const c1x = px1 + (px2 - px1) / 3;
+      const c2x = px1 + (2 * (px2 - px1)) / 3;
+      d += ` C${c1x.toFixed(2)} ${py1.toFixed(2)} ${c2x.toFixed(2)} ${py2.toFixed(2)} ${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    } else {
+      // Unknown connector preset — fall back to a straight line.
+      d += ` L${px2.toFixed(2)} ${py2.toFixed(2)}`;
+    }
+    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round" stroke-linejoin="round"${sa}${ma}${transform}/>`;
   }
 
   if (kind === 'group') {
@@ -2193,7 +2946,24 @@ const renderShape = (
     const xform = getGroupTransform(shape);
     const children = getGroupChildren(shape);
     if (children.length === 0) return '';
-    let groupTransform = '';
+    const tParts: string[] = [];
+    // B7 — group-level rotation / flip. The group's <a:xfrm rot=…
+    // flipH=… flipV=…> applies to the whole subtree, around the group's
+    // outer-rect center. Compose those transforms first, then the
+    // translate+scale that maps internal coords onto slide coords.
+    if (xform && rotation !== 0) {
+      const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
+      const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
+      tParts.push(`rotate(${rotation} ${cxG.toFixed(2)} ${cyG.toFixed(2)})`);
+    }
+    if (xform && flip.horizontal) {
+      const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
+      tParts.push(`translate(${(2 * cxG).toFixed(2)} 0) scale(-1 1)`);
+    }
+    if (xform && flip.vertical) {
+      const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
+      tParts.push(`translate(0 ${(2 * cyG).toFixed(2)}) scale(1 -1)`);
+    }
     if (xform) {
       const ox = xform.outer.x as number;
       const oy = xform.outer.y as number;
@@ -2210,13 +2980,14 @@ const renderShape = (
       // which factors as translate(ox/EMU - ix*sx/EMU) scale(sx).
       const tx = ((ox - ix * (ow / iw)) / EMU_PER_PX).toFixed(2);
       const ty = ((oy - iy * (oh / ih)) / EMU_PER_PX).toFixed(2);
-      groupTransform = ` transform="translate(${tx} ${ty}) scale(${sx} ${sy})"`;
+      tParts.push(`translate(${tx} ${ty})`, `scale(${sx} ${sy})`);
     }
+    const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
     const childrenSvg = children.map((c) => renderShape(c, pres, theme)).join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
-  const p = paint(shape, fill, stroke, theme, phType !== null);
+  const p = paint(shape, fill, stroke, theme, phType !== null, pres);
 
   if (kind === 'graphicFrame') {
     // Charts and tables get real renders. SmartArt and the
@@ -2227,7 +2998,7 @@ const renderShape = (
       if (chartSvg) return chartSvg;
     }
     if (isTableShape(shape)) {
-      const tableSvg = renderTable(shape, x, y, w, h, transform, theme);
+      const tableSvg = renderTable(shape, pres, x, y, w, h, transform, theme);
       if (tableSvg) return tableSvg;
     }
     let label = 'graphicFrame';
@@ -2251,37 +3022,181 @@ const renderShape = (
   const preset = getShapePreset(shape) ?? 'rect';
 
   let geomSvg: string;
+  const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
+  const ma = p.markerAttrs ?? '';
   if (preset === 'rect') {
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'roundRect') {
-    const r = E(Math.min(w, h) * 0.18);
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    // A6 — adjust-handle aware corner radius. <a:gd name="adj"
+    // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
+    // min(w,h)/2 × 100. Defaults to ~16.6% when no adj is authored.
+    const adjusts = getShapeAdjustValues(shape);
+    const adjVal = adjusts.adj ?? 16667;
+    const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
+    const r = E(Math.min(w, h) * ratio);
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'ellipse' || preset === 'oval') {
-    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else {
     const pathFn = PRESET_PATHS[preset];
     if (pathFn) {
       // The path generators output CSS-px coords directly (post-E).
       const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
-      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"/>`;
+      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
     } else {
       const pointsFn = PRESET_POINTS[preset];
       if (pointsFn) {
         const points = pointsFn()
           .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
           .join(' ');
-        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"/>`;
+        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
       } else {
         // Unrecognised preset — fall back to a rectangle, but tag it
         // with the preset name so users (and future-us) can see which
         // shape needs a renderer. The `<title>` shows on hover; the
         // `data-pptx-preset` attribute is for DevTools inspection.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
       }
     }
   }
 
-  return `${p.defs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  // Effects (`<a:effectLst>`): outerShdw / innerShdw / glow / softEdge
+  // / reflection / blur. Build a single SVG <filter> chain so multiple
+  // effects compose the way PowerPoint composes them.
+  const fx = buildEffectsFilter(pres, shape);
+  const filterAttr = fx ? ` filter="url(#${fx.id})"` : '';
+  const fxDefs = fx ? fx.defs : '';
+  // Apply the filter to the geometry only — text overlays use foreignObject
+  // and react badly to feGaussianBlur (DOM gets rasterized).
+  geomSvg = `<g${filterAttr}>${geomSvg}</g>`;
+
+  // B6 — Shape-level hyperlinks. Wrap the rendered shape in an SVG
+  // <a href> so the playground preview is clickable, matching the
+  // PowerPoint slideshow's behavior. Per-run hyperlinks live on the
+  // text body and are handled by renderRun separately.
+  const url = getShapeHyperlink(shape);
+  const inner = `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  if (url)
+    return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${inner}</a>`;
+  return inner;
+};
+
+// ---------------------------------------------------------------------------
+// Effects → SVG filter.
+
+interface EffectsResult {
+  readonly id: string;
+  readonly defs: string;
+}
+
+const buildEffectsFilter = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): EffectsResult | null => {
+  let effects: readonly ReturnType<typeof getShapeEffects>[number][];
+  try {
+    effects = getShapeEffects(pres, shape);
+  } catch {
+    return null;
+  }
+  if (effects.length === 0) return null;
+
+  const id = mintId();
+  const primitives: string[] = [];
+  // Chain primitives by passing each result as `in` to the next merge.
+  // The shape's original alpha + RGB live in SourceGraphic / SourceAlpha.
+  const layers: string[] = [];
+
+  for (const e of effects) {
+    if (e.kind === 'outerShdw') {
+      // dist + angle → dx, dy in EMU → px.
+      const rad = (e.angleDeg * Math.PI) / 180;
+      const dx = (e.distEmu * Math.cos(rad)) / EMU_PER_PX;
+      const dy = (e.distEmu * Math.sin(rad)) / EMU_PER_PX;
+      const blurPx = e.blurEmu / EMU_PER_PX / 2;
+      const opacity = e.opacity ?? 1;
+      const color = e.color || '#000000';
+      // feDropShadow handles the whole shadow primitive in one go.
+      const out = `shdwOut${primitives.length}`;
+      primitives.push(
+        `<feDropShadow dx="${dx.toFixed(2)}" dy="${dy.toFixed(2)}" stdDeviation="${blurPx.toFixed(2)}" flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="${out}"/>`,
+      );
+      layers.push(out);
+    } else if (e.kind === 'innerShdw') {
+      // SVG has no innerShadow primitive — synthesize via:
+      //   inset = (sourceAlpha offset, blurred) - sourceAlpha (inverted)
+      // and re-flood with the shadow color.
+      const rad = (e.angleDeg * Math.PI) / 180;
+      const dx = (e.distEmu * Math.cos(rad)) / EMU_PER_PX;
+      const dy = (e.distEmu * Math.sin(rad)) / EMU_PER_PX;
+      const blurPx = e.blurEmu / EMU_PER_PX / 2;
+      const color = e.color || '#000000';
+      const opacity = e.opacity ?? 1;
+      const i = primitives.length;
+      primitives.push(
+        `<feGaussianBlur in="SourceAlpha" stdDeviation="${blurPx.toFixed(2)}" result="innerBlur${i}"/>`,
+        `<feOffset in="innerBlur${i}" dx="${dx.toFixed(2)}" dy="${dy.toFixed(2)}" result="innerOff${i}"/>`,
+        `<feComposite in="innerOff${i}" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerMask${i}"/>`,
+        `<feFlood flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="innerCol${i}"/>`,
+        `<feComposite in="innerCol${i}" in2="innerMask${i}" operator="in" result="innerOut${i}"/>`,
+      );
+      layers.push(`innerOut${i}`);
+    } else if (e.kind === 'glow') {
+      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
+      const color = e.color || '#FFFFFF';
+      const opacity = e.opacity ?? 1;
+      const i = primitives.length;
+      primitives.push(
+        `<feMorphology in="SourceAlpha" operator="dilate" radius="${(blurPx / 4).toFixed(2)}" result="glowExp${i}"/>`,
+        `<feGaussianBlur in="glowExp${i}" stdDeviation="${blurPx.toFixed(2)}" result="glowBlur${i}"/>`,
+        `<feFlood flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="glowCol${i}"/>`,
+        `<feComposite in="glowCol${i}" in2="glowBlur${i}" operator="in" result="glowOut${i}"/>`,
+      );
+      layers.push(`glowOut${i}`);
+    } else if (e.kind === 'softEdge') {
+      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
+      // Soft-edge feathers the shape's mask. Replace the source by a
+      // blurred version of itself.
+      const i = primitives.length;
+      primitives.push(
+        `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx.toFixed(2)}" result="softOut${i}"/>`,
+      );
+      // softEdge replaces the source; we drop earlier layers and the
+      // unmodified source is no longer painted on top.
+      layers.length = 0;
+      layers.push(`softOut${i}`);
+    } else if (e.kind === 'blur') {
+      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
+      const i = primitives.length;
+      primitives.push(
+        `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx.toFixed(2)}" result="blurOut${i}"/>`,
+      );
+      layers.length = 0;
+      layers.push(`blurOut${i}`);
+    } else if (e.kind === 'reflection') {
+      // Reflection in SVG is a flipped, translated, faded copy. SVG
+      // <filter> can't easily emit one without re-rasterizing, so we
+      // skip it for now and let the shape paint as-is. (Listed in the
+      // spec but rarely used outside of corporate templates.)
+      void e;
+    }
+  }
+
+  // Compose: paint each effect layer plus the original SourceGraphic.
+  // Shadows want to sit behind the source; glow behind too; innerShdw
+  // and softEdge already replace bits of the source. Doing the merge
+  // in order produces reasonable layering for the common cases.
+  if (layers.length === 0) return null;
+
+  // Always paint the original source last so it sits on top of shadows /
+  // glows. softEdge/blur replaced the source so we don't double-paint.
+  const replacedSource = effects.some((e) => e.kind === 'softEdge' || e.kind === 'blur');
+  const mergeChildren = layers.map((l) => `<feMergeNode in="${l}"/>`).join('');
+  const sourceMerge = replacedSource ? '' : '<feMergeNode in="SourceGraphic"/>';
+  primitives.push(`<feMerge>${mergeChildren}${sourceMerge}</feMerge>`);
+
+  const defs = `<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%">${primitives.join('')}</filter></defs>`;
+  return { id, defs };
 };
 
 // ---------------------------------------------------------------------------
@@ -2293,10 +3208,34 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   const H = size.height as number;
   const theme = getPresentationTheme(pres);
 
-  const bg = getSlideBackground(slide);
+  let bg = getSlideBackground(slide);
+  // B10 (partial) — when the slide reports inherit, walk to the layout so
+  // a deck that paints its brand color / image on the layout shows up.
+  if (bg.kind === 'inherit') {
+    const layout = getSlideLayout(slide);
+    if (layout) bg = getSlideLayoutBackground(layout);
+  }
   let bgColor = '#FFFFFF';
+  let bgGradient = '';
+  let bgGradientDefs = '';
   if (bg.kind === 'solid') {
     bgColor = resolveColor(bg.color, theme, '#FFFFFF');
+  } else if (bg.kind === 'gradient') {
+    // B11 — gradient slide backgrounds. Use the same projector as
+    // shape fills so radial / rect / shape paths all behave.
+    const grad = getSlideBackgroundGradientFill(slide);
+    if (grad) {
+      const built = gradientDef(grad, theme);
+      bgGradientDefs = built.defs;
+      bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
+    }
+  } else if (bg.kind === 'pattern') {
+    const pat = getSlideBackgroundPatternFill(pres, slide);
+    if (pat) {
+      const built = patternDef(pat);
+      bgGradientDefs += built.defs;
+      bgGradient = `<rect width="${E(W)}" height="${E(H)}" fill="${built.fillAttr}"/>`;
+    }
   } else if (theme && bg.kind === 'inherit') {
     bgColor = normalizeHex(theme.light1);
   }
@@ -2309,17 +3248,21 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
     const bytes = getSlideBackgroundImageBytes(slide);
     if (bytes) {
       const fmt = detectImageFormatLocal(bytes);
-      const mime = fmt ? imageMime[fmt] ?? 'image/png' : 'image/png';
+      const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
       bgImage = `<image x="0" y="0" width="${E(W)}" height="${E(H)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="xMidYMid slice"/>`;
     }
   }
 
-  const shapesSvg = getSlideShapes(slide).map((s) => renderShape(s, pres, theme)).join('');
+  const shapesSvg = getSlideShapes(slide)
+    .map((s) => renderShape(s, pres, theme))
+    .join('');
 
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
+    bgGradientDefs,
     `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>`,
+    bgGradient,
     bgImage,
     shapesSvg,
     '</svg>',
@@ -2331,19 +3274,22 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
 // returns as raw bytes without exposing the format.
 const detectImageFormatLocal = (bytes: Uint8Array): string | null => {
   if (bytes.length < 4) return null;
-  if (
-    bytes[0] === 0x89 &&
-    bytes[1] === 0x50 &&
-    bytes[2] === 0x4e &&
-    bytes[3] === 0x47
-  ) return 'png';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
+    return 'png';
   if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'jpeg';
   if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) return 'gif';
   if (bytes[0] === 0x42 && bytes[1] === 0x4d) return 'bmp';
   if (
     bytes.length >= 12 &&
-    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
-  ) return 'webp';
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
+  )
+    return 'webp';
   return null;
 };

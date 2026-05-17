@@ -22,12 +22,7 @@
 //   - Chart / xlsx round-trip integrity.
 //   - PowerPoint-vs-spec quirks (handled by the planned quirks module).
 
-import {
-  type PartName,
-  type Relationship,
-  partName,
-  resolveTarget,
-} from '../opc/index.ts';
+import { type PartName, type Relationship, partName, resolveTarget } from '../opc/index.ts';
 import type { OpcPackage } from '../parts/index.ts';
 import { REL_TYPES } from '../presentationml/index.ts';
 import {
@@ -252,10 +247,7 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
 
   // Chart parts must resolve to their embedded xlsx workbooks.
   for (const part of pkg.parts) {
-    if (
-      part.contentType !==
-      'application/vnd.openxmlformats-officedocument.drawingml.chart+xml'
-    ) {
+    if (part.contentType !== 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml') {
       continue;
     }
     const chartRels = pkg.getRels(part.name);
@@ -282,4 +274,3 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
 
   return issues;
 };
-

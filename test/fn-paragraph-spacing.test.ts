@@ -20,7 +20,10 @@ describe('fn API: setParagraphSpacing', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A\nB',
     });
     expect(getParagraphSpacing(tb, 1)).toEqual({ beforePts: null, afterPts: null });
@@ -32,7 +35,10 @@ describe('fn API: setParagraphSpacing', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A',
     });
     setParagraphSpacing(tb, 0, { beforePts: 4, afterPts: 2 });
@@ -44,7 +50,10 @@ describe('fn API: setParagraphSpacing', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A',
     });
     expect(() => setParagraphSpacing(tb, 0, { beforePts: -1 })).toThrow(RangeError);

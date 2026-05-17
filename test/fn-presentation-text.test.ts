@@ -23,11 +23,19 @@ describe('fn API: getPresentationText', () => {
     const layout = findSlideLayout(pres, 'Blank')!;
     const a = addSlide(pres, { layout });
     addSlideTextBox(a, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'alpha',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'alpha',
     });
     const b = addSlide(pres, { layout });
     addSlideTextBox(b, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'beta',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'beta',
     });
 
     const all = getPresentationText(pres);
@@ -40,17 +48,27 @@ describe('fn API: getPresentationText', () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     const layout = findSlideLayout(pres, 'Blank')!;
     addSlideTextBox(addSlide(pres, { layout }), {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'x',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'x',
     });
     addSlideTextBox(addSlide(pres, { layout }), {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'y',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'y',
     });
     expect(getPresentationText(pres, '\n---\n')).toContain('---');
   });
 
   it('matches manual iteration over getSlideText', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    const expected = getSlides(pres).map((s) => getSlideText(s)).join('\f');
+    const expected = getSlides(pres)
+      .map((s) => getSlideText(s))
+      .join('\f');
     expect(getPresentationText(pres)).toBe(expected);
   });
 });

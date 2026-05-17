@@ -24,10 +24,18 @@ describe('fn API: getMaxShapeId', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(2), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(2),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const reread = getSlides(pres).at(-1)!;
     const max = Math.max(...getSlideShapes(reread).map((s) => getShapeId(s)));

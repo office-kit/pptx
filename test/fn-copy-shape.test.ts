@@ -34,7 +34,10 @@ describe('fn API: copyShape', () => {
     const [slideA, slideB] = getSlides(pres);
     const sp = addSlideShape(slideA!, {
       preset: 'rect',
-      x: inches(1), y: inches(1), w: inches(2), h: inches(1),
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
       text: 'COPY ME',
       name: 'Tagged',
     });
@@ -50,7 +53,11 @@ describe('fn API: copyShape', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [slideA, slideB] = getSlides(pres);
     const pic = addSlideImage(slideA!, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
     });
     const copied = copyShape(slideB!, pic);
     expect(getShapeKind(copied)).toBe('picture');

@@ -20,7 +20,10 @@ describe('fn API: getShapeCenter', () => {
     const slide = getSlides(pres)[0]!;
     const rect = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(1), y: inches(1), w: inches(2), h: inches(4),
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(4),
     });
     const center = getShapeCenter(rect)!;
     // x = 1in + 2in/2 = 2in = 1828800 EMU

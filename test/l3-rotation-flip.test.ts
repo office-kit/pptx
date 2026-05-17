@@ -29,7 +29,11 @@ const newBoxedDeck = async () => {
   if (!layout) throw new Error('expected layout');
   const slide = addSlide(pres, { layout });
   const box = addSlideTextBox(slide, {
-    x: inches(1), y: inches(1), w: inches(2), h: inches(2), text: 'x',
+    x: inches(1),
+    y: inches(1),
+    w: inches(2),
+    h: inches(2),
+    text: 'x',
   });
   return { pres, box };
 };

@@ -20,7 +20,10 @@ describe('fn API: getParagraphBullet', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'plain',
     });
     expect(getParagraphBullet(tb, 0)).toBeNull();
@@ -30,7 +33,10 @@ describe('fn API: getParagraphBullet', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A\nB\nC\nD\nE',
     });
     setParagraphBullet(tb, 0, 'bullet');

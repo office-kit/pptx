@@ -31,7 +31,10 @@ const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> 
 
 const addDemoTable = (slide: ReturnType<typeof getSlides>[number]) =>
   addSlideTable(slide, {
-    x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+    x: inches(0),
+    y: inches(0),
+    w: inches(4),
+    h: inches(2),
     rows: [
       ['A', 'B'],
       ['C', 'D'],
@@ -81,7 +84,7 @@ describe('fn API: table cell access', () => {
     expect(xml).toContain('00FF00');
   });
 
-  it('setTableCellAlignment writes algn on the cell\'s paragraphs', async () => {
+  it("setTableCellAlignment writes algn on the cell's paragraphs", async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const table = addDemoTable(slide);

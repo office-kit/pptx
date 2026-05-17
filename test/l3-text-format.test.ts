@@ -29,7 +29,11 @@ const newBox = async (text = 'Styled text') => {
   if (!layout) throw new Error('expected Blank layout');
   const slide = addSlide(pres, { layout });
   const box = addSlideTextBox(slide, {
-    x: inches(1), y: inches(1), w: inches(4), h: inches(1), text,
+    x: inches(1),
+    y: inches(1),
+    w: inches(4),
+    h: inches(1),
+    text,
   });
   return { pres, box };
 };
@@ -38,8 +42,12 @@ describe('L3: setShapeTextFormat', () => {
   it('sets size, bold, italic, underline, font, and color on all runs', async () => {
     const { pres, box } = await newBox('Styled text');
     setShapeTextFormat(box, {
-      font: 'Calibri', size: 24, color: '#3366CC',
-      bold: true, italic: true, underline: true,
+      font: 'Calibri',
+      size: 24,
+      color: '#3366CC',
+      bold: true,
+      italic: true,
+      underline: true,
     });
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
     expect(xml).toContain('sz="2400"');
@@ -77,8 +85,12 @@ describe('L3: setShapeTextFormat', () => {
   skipIfNoXmllint('formatted output validates against pml.xsd', async () => {
     const { pres, box } = await newBox('Validates with format');
     setShapeTextFormat(box, {
-      font: 'Helvetica', size: 18.5, color: '#222222',
-      bold: true, italic: false, underline: 'dbl',
+      font: 'Helvetica',
+      size: 18.5,
+      color: '#222222',
+      bold: true,
+      italic: false,
+      underline: 'dbl',
     });
     expectSchemaValid(getSlideXmlString(getSlides(pres).at(-1)!), 'pml');
   });

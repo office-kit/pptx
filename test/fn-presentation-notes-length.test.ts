@@ -25,9 +25,7 @@ describe('fn API: getPresentationNotesLength', () => {
     const slides = getSlides(pres);
     setSlideNotes(slides[0]!, 'alpha');
     setSlideNotes(slides[1]!, 'beta');
-    const expected = slides
-      .map((s) => getSlideNotesLength(s))
-      .reduce((a, b) => a + b, 0);
+    const expected = slides.map((s) => getSlideNotesLength(s)).reduce((a, b) => a + b, 0);
     expect(getPresentationNotesLength(pres)).toBe(expected);
   });
 

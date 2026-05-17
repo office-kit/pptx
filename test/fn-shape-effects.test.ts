@@ -28,7 +28,11 @@ describe('fn API: shape effects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeShadow(shape, { color: '#000000', angleDeg: 45, opacity: 0.5 });
     const xml = await slideXml(await savePresentation(pres), 0);
@@ -42,7 +46,11 @@ describe('fn API: shape effects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'ellipse', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'ellipse',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeGlow(shape, { color: '#FF0000', radiusEmu: 90000 });
     const xml = await slideXml(await savePresentation(pres), 0);
@@ -55,7 +63,11 @@ describe('fn API: shape effects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeShadow(shape);
     setShapeGlow(shape, { color: '#00FF00' });
@@ -68,7 +80,11 @@ describe('fn API: shape effects', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeShadow(shape);
     expect(await slideXml(await savePresentation(pres), 0)).toContain('<a:effectLst>');

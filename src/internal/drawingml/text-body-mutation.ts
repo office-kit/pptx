@@ -140,11 +140,7 @@ export const replaceTokensInTree = (root: XmlElement, tokens: Record<string, str
  * fit inside one `<a:t>`. Use this for the broader "find/replace
  * across the deck" use case where {{token}} syntax isn't a fit.
  */
-export const replaceTextInTree = (
-  root: XmlElement,
-  from: string | RegExp,
-  to: string,
-): number => {
+export const replaceTextInTree = (root: XmlElement, from: string | RegExp, to: string): number => {
   // Build a global RegExp so .replace() touches every occurrence per run.
   const pattern =
     typeof from === 'string'

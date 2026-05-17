@@ -20,10 +20,18 @@ describe('fn API: translateShapes', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const a = addSlideShape(slide, {
-      preset: 'rect', x: inches(1), y: inches(1), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(1),
+      h: inches(1),
     });
     const b = addSlideShape(slide, {
-      preset: 'rect', x: inches(3), y: inches(2), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(3),
+      y: inches(2),
+      w: inches(1),
+      h: inches(1),
     });
 
     const before = [getShapeBounds(a)!, getShapeBounds(b)!];

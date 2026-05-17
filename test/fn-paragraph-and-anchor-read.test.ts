@@ -26,7 +26,10 @@ describe('fn API: getParagraphAlignment / getParagraphLevel', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A\nB',
     });
     expect(getParagraphAlignment(tb, 0)).toBeNull();
@@ -44,7 +47,10 @@ describe('fn API: getShapeTextAnchor / getShapeTextMargins', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A',
     });
     expect(getShapeTextAnchor(tb)).toBeNull();
@@ -60,7 +66,10 @@ describe('fn API: getShapeTextAnchor / getShapeTextMargins', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(3), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
       text: 'A',
     });
     setShapeTextMargins(tb, { left: 1000, right: 2000 });

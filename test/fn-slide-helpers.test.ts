@@ -21,10 +21,18 @@ describe('fn API: clearSlideShapes', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     addSlideShape(slide, {
-      preset: 'ellipse', x: inches(0), y: inches(2), w: inches(1), h: inches(1),
+      preset: 'ellipse',
+      x: inches(0),
+      y: inches(2),
+      w: inches(1),
+      h: inches(1),
     });
     const before = getSlideShapes(slide).length;
     expect(before).toBeGreaterThan(0);

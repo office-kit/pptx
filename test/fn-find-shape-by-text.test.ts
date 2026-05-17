@@ -22,11 +22,17 @@ describe('fn API: findShapeByText / findShapesByText', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
       text: 'Quarterly Results',
     });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(1), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
       text: 'Annual Report',
     });
 
@@ -39,7 +45,10 @@ describe('fn API: findShapeByText / findShapesByText', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
       text: 'Revenue $1.2M',
     });
     const hit = findShapeByText(slide, /\$\d+(?:\.\d+)?M/);
@@ -56,13 +65,25 @@ describe('fn API: findShapeByText / findShapesByText', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'TODO: write',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'TODO: write',
     });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(1), w: inches(2), h: inches(1), text: 'TODO: edit',
+      x: inches(0),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'TODO: edit',
     });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(2), w: inches(2), h: inches(1), text: 'Done',
+      x: inches(0),
+      y: inches(2),
+      w: inches(2),
+      h: inches(1),
+      text: 'Done',
     });
     const matches = findShapesByText(slide, 'TODO');
     expect(matches.length).toBe(2);

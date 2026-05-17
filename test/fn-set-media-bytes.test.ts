@@ -35,7 +35,11 @@ describe('fn API: setMediaPartBytes', () => {
   it('replaces bytes for an existing media part', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     addSlideImage(getSlides(pres)[0]!, tinyPng(), {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1), format: 'png',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
     });
     const media = getMediaParts(pres);
     expect(media.length).toBeGreaterThan(0);

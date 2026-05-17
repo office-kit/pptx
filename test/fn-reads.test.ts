@@ -47,7 +47,9 @@ describe('fn API: slide reads', () => {
       expect(getShapeKind(title)).toBe('shape');
       expect(getShapePlaceholderType(title)).toBe('title');
       // Title placeholder typically has idx 0 (the spec default).
-      expect(typeof getShapePlaceholderIdx(title) === 'number' || getShapePlaceholderIdx(title) === null).toBe(true);
+      expect(
+        typeof getShapePlaceholderIdx(title) === 'number' || getShapePlaceholderIdx(title) === null,
+      ).toBe(true);
     }
   });
 
@@ -70,9 +72,7 @@ describe('fn API: slide reads', () => {
 
   it('replaceTokensInSlide mutates a single slide in place', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
-    const seedShape = getSlideShapes(getSlides(pres)[0]!).find(
-      (s) => getShapeText(s).length > 0,
-    );
+    const seedShape = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeText(s).length > 0);
     if (!seedShape) throw new Error('expected text shape');
     setShapeText(seedShape, 'Hello, {{name}}!');
 

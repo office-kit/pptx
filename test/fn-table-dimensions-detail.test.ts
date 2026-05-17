@@ -26,8 +26,14 @@ describe('fn API: getTableColumnWidths / getTableRowHeights', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const table = addSlideTable(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
-      rows: [['a', 'b'], ['c', 'd']],
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      rows: [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
       colWidths: [emu(914400), emu(914400 * 3)],
     });
     expect(getTableColumnWidths(table)).toEqual([914400, 914400 * 3]);
@@ -38,8 +44,14 @@ describe('fn API: getTableColumnWidths / getTableRowHeights', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const table = addSlideTable(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
-      rows: [['a', 'b'], ['c', 'd']],
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      rows: [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
       rowHeights: [emu(300000), emu(700000)],
     });
     expect(getTableRowHeights(table)).toEqual([300000, 700000]);
@@ -49,8 +61,14 @@ describe('fn API: getTableColumnWidths / getTableRowHeights', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const table = addSlideTable(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
-      rows: [['a', 'b'], ['c', 'd']],
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      rows: [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
       colWidths: [emu(914400), emu(914400)],
     });
     expect(getTableColumnWidths(table)).toHaveLength(2);

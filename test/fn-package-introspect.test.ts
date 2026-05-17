@@ -3,11 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import {
-  listPackageParts,
-  loadPresentation,
-  readPackagePart,
-} from '../src/api/index.ts';
+import { listPackageParts, loadPresentation, readPackagePart } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));

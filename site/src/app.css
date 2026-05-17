@@ -74,15 +74,14 @@ body::before {
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background-image:
-    linear-gradient(
-      90deg,
-      transparent 0,
-      transparent calc(100% / 12 - 1px),
-      var(--rule) calc(100% / 12 - 1px),
-      var(--rule) calc(100% / 12),
-      transparent calc(100% / 12)
-    );
+  background-image: linear-gradient(
+    90deg,
+    transparent 0,
+    transparent calc(100% / 12 - 1px),
+    var(--rule) calc(100% / 12 - 1px),
+    var(--rule) calc(100% / 12),
+    transparent calc(100% / 12)
+  );
   background-size: calc(100% / 6) 100%;
   mask-image: linear-gradient(180deg, black 0, black 70vh, transparent 100vh);
 }
@@ -113,7 +112,9 @@ h4 {
   line-height: 1.12;
   letter-spacing: -0.018em;
   margin: 2.4rem 0 1rem;
-  font-variation-settings: 'opsz' 96, 'SOFT' 25;
+  font-variation-settings:
+    'opsz' 96,
+    'SOFT' 25;
   color: var(--fg);
 }
 
@@ -122,7 +123,9 @@ h1 {
   margin-top: 0;
   letter-spacing: -0.025em;
   font-weight: 480;
-  font-variation-settings: 'opsz' 144, 'SOFT' 30;
+  font-variation-settings:
+    'opsz' 144,
+    'SOFT' 30;
 }
 
 h2 {
@@ -130,19 +133,25 @@ h2 {
   font-weight: 520;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
-  font-variation-settings: 'opsz' 64, 'SOFT' 25;
+  font-variation-settings:
+    'opsz' 64,
+    'SOFT' 25;
 }
 
 h3 {
   font-size: 1.18rem;
   font-weight: 560;
-  font-variation-settings: 'opsz' 32, 'SOFT' 20;
+  font-variation-settings:
+    'opsz' 32,
+    'SOFT' 20;
 }
 
 h4 {
   font-size: 1rem;
   font-weight: 600;
-  font-variation-settings: 'opsz' 24, 'SOFT' 15;
+  font-variation-settings:
+    'opsz' 24,
+    'SOFT' 15;
 }
 
 p,
@@ -163,7 +172,9 @@ strong {
 
 em {
   font-style: italic;
-  font-variation-settings: 'opsz' 144, 'SOFT' 60;
+  font-variation-settings:
+    'opsz' 144,
+    'SOFT' 60;
 }
 
 code {

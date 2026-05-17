@@ -31,7 +31,11 @@ describe('L3: setShapeFill', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     const box = addSlideTextBox(slide, {
-      x: inches(1), y: inches(1), w: inches(4), h: inches(1), text: 'Filled',
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'Filled',
     });
     setShapeFill(box, '#FFCC00');
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
@@ -45,7 +49,11 @@ describe('L3: setShapeFill', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     const box = addSlideTextBox(slide, {
-      x: inches(1), y: inches(1), w: inches(4), h: inches(1), text: 't',
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 't',
     });
     setShapeFill(box, '#FF0000');
     setShapeNoFill(box);
@@ -69,7 +77,11 @@ describe('L3: setShapeFill', () => {
     if (!layout) throw new Error('expected Blank layout');
     const slide = addSlide(pres, { layout });
     const box = addSlideTextBox(slide, {
-      x: inches(1), y: inches(1), w: inches(4), h: inches(1), text: 't',
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 't',
     });
     setShapeFill(box, 'accent2');
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);

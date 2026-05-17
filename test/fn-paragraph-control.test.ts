@@ -31,7 +31,10 @@ describe('fn API: per-paragraph control', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       text: 'first\nsecond\nthird',
     });
     setParagraphAlignment(tb, 1, 'center');
@@ -45,7 +48,10 @@ describe('fn API: per-paragraph control', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       text: 'item 1\nnested 1\nnested 2\nitem 2',
     });
     setParagraphLevel(tb, 1, 1);
@@ -65,7 +71,10 @@ describe('fn API: per-paragraph control', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       text: 'A\nB',
     });
     expect(() => setParagraphLevel(tb, 0, 9)).toThrow(RangeError);
@@ -77,7 +86,10 @@ describe('fn API: per-paragraph control', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       text: 'A\nB\nC',
     });
     setParagraphBullet(tb, 0, 'bullet');
@@ -97,7 +109,10 @@ describe('fn API: per-paragraph control', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
       text: 'placeholder',
     });
     setShapeText(tb, 'parent\nchild');

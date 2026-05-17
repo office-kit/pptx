@@ -23,7 +23,11 @@ describe('fn API: getPresentationTextLength', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'alpha',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'alpha',
     });
     addSlide(pres, { layout: blank });
     const expected = getSlides(pres)
@@ -37,7 +41,11 @@ describe('fn API: getPresentationTextLength', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: '🎉🚀',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: '🎉🚀',
     });
     expect(getPresentationTextLength(pres)).toBe(2);
   });

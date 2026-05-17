@@ -91,7 +91,11 @@ describe('fn API: comments', () => {
       'second',
       'third',
     ]);
-    expect(getCommentAuthors(reloaded).map((a) => a.name).sort()).toEqual(['Alice', 'Bob']);
+    expect(
+      getCommentAuthors(reloaded)
+        .map((a) => a.name)
+        .sort(),
+    ).toEqual(['Alice', 'Bob']);
   });
 
   it('records optional position when provided', async () => {
@@ -120,9 +124,7 @@ describe('fn API: comments', () => {
       text: 'a',
     });
     expect(getSlideComments(slide)).toHaveLength(1);
-    expect(await partExists(await savePresentation(pres), '/ppt/comments/comment1.xml')).toBe(
-      true,
-    );
+    expect(await partExists(await savePresentation(pres), '/ppt/comments/comment1.xml')).toBe(true);
 
     removeSlideComment(c);
     expect(getSlideComments(slide)).toHaveLength(0);

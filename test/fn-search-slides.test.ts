@@ -26,7 +26,11 @@ describe('fn API: searchSlides', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'TARGET visible',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'TARGET visible',
       });
     }
     const textIdx = 0;
@@ -55,7 +59,11 @@ describe('fn API: searchSlides', () => {
     addSlide(pres, { layout: blank });
     const slide = getSlides(pres).at(-1)!;
     addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'foo',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'foo',
     });
     setSlideNotes(slide, 'foo too');
     expect(searchSlides(pres, 'foo').length).toBe(1);

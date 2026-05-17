@@ -22,7 +22,10 @@ describe('fn API: pointInShape', () => {
     const slide = getSlides(pres)[0]!;
     const rect = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(1), y: inches(1), w: inches(2), h: inches(2),
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
     });
     // Center of the rect.
     expect(pointInShape(rect, 2 * EMU_PER_INCH, 2 * EMU_PER_INCH)).toBe(true);
@@ -33,7 +36,10 @@ describe('fn API: pointInShape', () => {
     const slide = getSlides(pres)[0]!;
     const rect = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(1), y: inches(1), w: inches(2), h: inches(2),
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
     });
     expect(pointInShape(rect, 0, 0)).toBe(false);
     expect(pointInShape(rect, 10 * EMU_PER_INCH, 10 * EMU_PER_INCH)).toBe(false);
@@ -44,7 +50,10 @@ describe('fn API: pointInShape', () => {
     const slide = getSlides(pres)[0]!;
     const rect = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(1), y: inches(1), w: inches(2), h: inches(2),
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
     });
     // Top-left edge: inclusive.
     expect(pointInShape(rect, EMU_PER_INCH, EMU_PER_INCH)).toBe(true);

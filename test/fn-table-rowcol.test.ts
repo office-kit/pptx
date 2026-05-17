@@ -21,7 +21,10 @@ const fixture = (name: string): string =>
 
 const addBaseTable = (slide: ReturnType<typeof getSlides>[number]) =>
   addSlideTable(slide, {
-    x: inches(0), y: inches(0), w: inches(4), h: inches(2),
+    x: inches(0),
+    y: inches(0),
+    w: inches(4),
+    h: inches(2),
     rows: [
       ['A', 'B'],
       ['C', 'D'],

@@ -35,7 +35,10 @@ describe('fn API: getShapeImageFillBytes', () => {
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeImageFill(shape, PNG);
 
@@ -50,7 +53,10 @@ describe('fn API: getShapeImageFillBytes', () => {
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
       preset: 'rect',
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getShapeImageFillBytes(shape)).toBeNull();
   });
@@ -60,7 +66,10 @@ describe('fn API: getShapeImageFillBytes', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, PNG, {
-      x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getShapeImageFillBytes(pic)).toBeNull();
     // Sanity: the picture-shape getter still works.

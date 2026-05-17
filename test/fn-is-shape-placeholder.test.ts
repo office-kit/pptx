@@ -34,7 +34,11 @@ describe('fn API: isShapePlaceholder', () => {
     const layout = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout });
     const rect = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(isShapePlaceholder(rect)).toBe(false);
   });
@@ -44,7 +48,11 @@ describe('fn API: isShapePlaceholder', () => {
     const layout = findSlideLayout(pres, 'Title and Content')!;
     const slide = addSlide(pres, { layout });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     const shapes = getSlideShapes(slide);
     const placeholders = shapes.filter((s) => isShapePlaceholder(s));

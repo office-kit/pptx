@@ -33,7 +33,12 @@ describe('L3: addSlideShape', () => {
     if (!layout) throw new Error('expected layout');
     const slide = addSlide(pres, { layout });
     const ellipse = addSlideShape(slide, {
-      preset: 'ellipse', x: inches(1), y: inches(1), w: inches(2), h: inches(2), text: '○',
+      preset: 'ellipse',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
+      text: '○',
     });
     expect(getShapeKind(ellipse)).toBe('shape');
     expect(getShapePosition(ellipse)).toEqual({ x: inches(1), y: inches(1) });
@@ -54,7 +59,10 @@ describe('L3: addSlideShape', () => {
       if (typeof p !== 'string') continue;
       addSlideShape(slide, {
         preset: p as never,
-        x: inches(i % 4), y: inches(Math.floor(i / 4)), w: inches(1), h: inches(1),
+        x: inches(i % 4),
+        y: inches(Math.floor(i / 4)),
+        w: inches(1),
+        h: inches(1),
       });
     }
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
@@ -68,7 +76,11 @@ describe('L3: addSlideShape', () => {
     const slide = addSlide(pres, { layout });
     const before = getSlideShapes(slide).length;
     addSlideShape(slide, {
-      preset: 'star5', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'star5',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getSlideShapes(getSlides(pres).at(-1)!).length).toBe(before + 1);
   });
@@ -79,7 +91,12 @@ describe('L3: addSlideShape', () => {
     if (!layout) throw new Error('expected layout');
     const slide = addSlide(pres, { layout });
     const star = addSlideShape(slide, {
-      preset: 'star5', x: inches(2), y: inches(2), w: inches(3), h: inches(3), text: '★',
+      preset: 'star5',
+      x: inches(2),
+      y: inches(2),
+      w: inches(3),
+      h: inches(3),
+      text: '★',
     });
     setShapeFill(star, 'accent2');
     setShapeStroke(star, { color: '#000000', widthEmu: 12700 });
@@ -100,7 +117,12 @@ describe('L3: addSlideShape', () => {
     if (!layout) throw new Error('expected layout');
     const slide = addSlide(pres, { layout });
     addSlideShape(slide, {
-      preset: 'rightArrow', x: inches(1), y: inches(1), w: inches(3), h: inches(1), text: 'next',
+      preset: 'rightArrow',
+      x: inches(1),
+      y: inches(1),
+      w: inches(3),
+      h: inches(1),
+      text: 'next',
     });
     expectSchemaValid(getSlideXmlString(getSlides(pres).at(-1)!), 'pml');
   });

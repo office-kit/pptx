@@ -24,10 +24,18 @@ describe('fn API: getSlidesWithOverlap', () => {
     {
       const overlap = addSlide(pres, { layout: blank });
       addSlideShape(overlap, {
-        preset: 'rect', x: inches(0), y: inches(0), w: inches(3), h: inches(3),
+        preset: 'rect',
+        x: inches(0),
+        y: inches(0),
+        w: inches(3),
+        h: inches(3),
       });
       addSlideShape(overlap, {
-        preset: 'rect', x: inches(1), y: inches(1), w: inches(3), h: inches(3),
+        preset: 'rect',
+        x: inches(1),
+        y: inches(1),
+        w: inches(3),
+        h: inches(3),
       });
     }
     const overlapIdx = 0; // first added by us
@@ -35,10 +43,18 @@ describe('fn API: getSlidesWithOverlap', () => {
     {
       const clean = addSlide(pres, { layout: blank });
       addSlideShape(clean, {
-        preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+        preset: 'rect',
+        x: inches(0),
+        y: inches(0),
+        w: inches(1),
+        h: inches(1),
       });
       addSlideShape(clean, {
-        preset: 'rect', x: inches(3), y: inches(3), w: inches(1), h: inches(1),
+        preset: 'rect',
+        x: inches(3),
+        y: inches(3),
+        w: inches(1),
+        h: inches(1),
       });
     }
     const cleanIdx = 1; // second added by us
@@ -54,7 +70,11 @@ describe('fn API: getSlidesWithOverlap', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
     expect(getSlidesWithOverlap(pres)).toEqual([]);
   });

@@ -26,7 +26,11 @@ describe('fn API: getSlideInfo', () => {
     setSlideTitle(slide, 'Quarterly');
     setSlideHidden(slide, true);
     addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
     });
 
     const info = getSlideInfo(pres, slide);

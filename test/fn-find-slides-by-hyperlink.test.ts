@@ -25,7 +25,11 @@ describe('fn API: findSlidesByHyperlink', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const t = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'docs',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'docs',
       });
       setShapeHyperlink(t, 'https://docs.example.com/api');
     }
@@ -34,7 +38,11 @@ describe('fn API: findSlidesByHyperlink', () => {
     {
       const slide = addSlide(pres, { layout: blank });
       const t = addSlideTextBox(slide, {
-        x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'blog',
+        x: inches(0),
+        y: inches(0),
+        w: inches(2),
+        h: inches(1),
+        text: 'blog',
       });
       setShapeHyperlink(t, 'https://blog.example.com/post');
     }
@@ -50,7 +58,11 @@ describe('fn API: findSlidesByHyperlink', () => {
     const blank = findSlideLayout(pres, 'Blank')!;
     const slide = addSlide(pres, { layout: blank });
     const t = addSlideTextBox(slide, {
-      x: inches(0), y: inches(0), w: inches(2), h: inches(1), text: 'docs',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(1),
+      text: 'docs',
     });
     setShapeHyperlink(t, 'https://example.com/api');
     expect(findSlidesByHyperlink(pres, /^https:\/\/example\.com/).length).toBe(1);

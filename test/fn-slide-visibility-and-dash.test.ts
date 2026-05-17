@@ -46,7 +46,11 @@ describe('fn API: setShapeStrokeDash', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'rect', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeStroke(shape, { color: '#000000', widthEmu: 12700 });
     setShapeStrokeDash(shape, 'dash');
@@ -58,7 +62,11 @@ describe('fn API: setShapeStrokeDash', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
-      preset: 'ellipse', x: inches(0), y: inches(0), w: inches(2), h: inches(2),
+      preset: 'ellipse',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
     });
     setShapeStroke(shape, { color: '#FF0000' });
     setShapeStrokeDash(shape, 'dot');
