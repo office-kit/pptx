@@ -9778,6 +9778,21 @@ export const getTableCellBorders = (
 };
 
 /**
+ * Reads the cell's vertical text anchor (`<a:tcPr anchor="t|ctr|b"/>`)
+ * — `'top'`, `'center'`, `'bottom'`, or `null` for the default
+ * (`ctr` / center per the schema).
+ */
+export const getTableCellAnchor = (cell: TableCellData): 'top' | 'center' | 'bottom' | null => {
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  if (!tcPr) return null;
+  const v = getAttrValue(tcPr, qname('', 'anchor', ''));
+  if (v === 't') return 'top';
+  if (v === 'ctr') return 'center';
+  if (v === 'b') return 'bottom';
+  return null;
+};
+
+/**
  * Reads the cell's inset margins (`<a:tcPr marL marR marT marB>`) in
  * EMU. Each side is `null` when the cell doesn't author it (renderers
  * should fall back to PowerPoint's defaults — 91440 EMU / 0.1 inch

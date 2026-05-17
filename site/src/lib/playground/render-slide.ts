@@ -89,6 +89,7 @@ import {
   getSlideShapes,
   getSlideSize,
   getTableCellAlignment,
+  getTableCellAnchor,
   getTableCellBorders,
   getTableCellFill,
   getTableCellSpan,
@@ -3488,6 +3489,7 @@ const renderTableCellText = (
   ch: number,
   alignment: string | null,
   color: string,
+  vAnchor: 'top' | 'center' | 'bottom' = 'center',
 ): string => {
   if (!text.trim()) return '';
   // Use foreignObject so cell text wraps and aligns the same way
@@ -3500,11 +3502,12 @@ const renderTableCellText = (
   const innerH = Math.max(0, ch - 2 * pad);
   if (innerW <= 0 || innerH <= 0) return '';
   const justify = ta === 'center' ? 'center' : ta === 'right' ? 'flex-end' : 'flex-start';
+  const vJustify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
   const lines = text.split('\n').slice(0, 8);
   const body = lines
     .map((line) => `<div style="text-align:${ta}">${escapeXml(line)}</div>`)
     .join('');
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:center;align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:10px;line-height:1.15;word-break:break-word">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${vJustify};align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:10px;line-height:1.15;word-break:break-word">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
@@ -3659,7 +3662,8 @@ const renderTable = (
 
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
-      out.push(renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor));
+      const vAnchor = getTableCellAnchor(typedCell) ?? 'center';
+      out.push(renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, vAnchor));
     }
   }
   out.push(borderEdges.join(''));
