@@ -264,6 +264,12 @@ export interface ChartSpec {
   readonly valueAxisTitleStyle?: ChartTextStyle;
   /** Authored font / color on the value-axis *tick labels* — `<c:valAx><c:txPr>`. */
   readonly valueAxisLabelStyle?: ChartTextStyle;
+  /**
+   * Authored rotation on the value-axis tick labels, in degrees. From
+   * `<c:valAx><c:txPr><a:bodyPr rot="N"/>` (N in 60000ths of a degree).
+   * Same sense as `categoryAxisLabelRotationDeg`.
+   */
+  readonly valueAxisLabelRotationDeg?: number;
   /** When `true`, value axis is hidden (`<c:valAx><c:delete val="1"/>`). */
   readonly valueAxisHidden?: boolean;
   /** When `true`, category axis is hidden (`<c:catAx><c:delete val="1"/>`). */

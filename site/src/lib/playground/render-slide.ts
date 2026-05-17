@@ -2593,6 +2593,8 @@ interface AxisSpec {
   readonly majorGridlineColor?: string;
   /** Major-tick mark mode from `<c:valAx><c:majorTickMark val="…"/>`. */
   readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Authored tick-label rotation, in degrees. */
+  readonly labelRotationDeg?: number;
 }
 
 // Builds the `font-family / font-size / fill / weight` SVG attribute
@@ -2646,8 +2648,13 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
         );
       }
       // Numeric label, right-aligned to the plot's left edge.
+      // Authored <c:txPr><a:bodyPr rot="N"/> rotates around the
+      // label anchor.
+      const labelX = f.plotX - 4;
+      const rot = axis.labelRotationDeg ?? 0;
+      const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
-        `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
+        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -2665,8 +2672,11 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
           `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
         );
       }
+      const horizLabelY = f.plotY + f.plotH + 12;
+      const rotH = axis.labelRotationDeg ?? 0;
+      const transformH = rotH ? ` transform="rotate(${rotH} ${px(xp)} ${px(horizLabelY)})"` : '';
       out.push(
-        `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
+        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     }
   }
@@ -3712,6 +3722,9 @@ const renderChart = (
         : {}),
       ...(spec.valueAxisMajorTickMark !== undefined
         ? { majorTickMark: spec.valueAxisMajorTickMark }
+        : {}),
+      ...(spec.valueAxisLabelRotationDeg !== undefined
+        ? { labelRotationDeg: spec.valueAxisLabelRotationDeg }
         : {}),
     };
     const valueAxis: AxisSpec =

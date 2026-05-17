@@ -742,6 +742,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisTitleStyle: ChartTextStyle | undefined;
   let categoryAxisLabelStyle: ChartTextStyle | undefined;
   let categoryAxisLabelRotationDeg: number | undefined;
+  let valueAxisLabelRotationDeg: number | undefined;
   let valueAxisMajorTickMark: ChartSpec['valueAxisMajorTickMark'];
   let categoryAxisMajorTickMark: ChartSpec['categoryAxisMajorTickMark'];
   const readTickMark = (axis: XmlElement): 'in' | 'out' | 'cross' | 'none' | undefined => {
@@ -825,7 +826,17 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const valTitleEl = firstChildElement(valAx, NAME_TITLE);
     if (valTitleEl) valueAxisTitleStyle = readTitleStyleOf(valTitleEl);
     const valTxPr = firstChildElement(valAx, qname('c', 'txPr', NS_C));
-    if (valTxPr) valueAxisLabelStyle = readLabelStyle(valTxPr);
+    if (valTxPr) {
+      valueAxisLabelStyle = readLabelStyle(valTxPr);
+      const bodyPr = firstChildElement(valTxPr, qname('a', 'bodyPr', NS_A));
+      if (bodyPr) {
+        const rotRaw = getAttrValue(bodyPr, qname('', 'rot', ''));
+        if (rotRaw !== null) {
+          const n = Number.parseInt(rotRaw, 10);
+          if (Number.isFinite(n)) valueAxisLabelRotationDeg = n / 60000;
+        }
+      }
+    }
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorTickMark = readTickMark(valAx);
@@ -978,6 +989,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
     ...(valueAxisMajorGridlineColor !== undefined ? { valueAxisMajorGridlineColor } : {}),
     ...(valueAxisMajorTickMark !== undefined ? { valueAxisMajorTickMark } : {}),
+    ...(valueAxisLabelRotationDeg !== undefined ? { valueAxisLabelRotationDeg } : {}),
     ...(categoryAxisMajorTickMark !== undefined ? { categoryAxisMajorTickMark } : {}),
     ...(valueAxisMinorGridlines !== undefined ? { valueAxisMinorGridlines } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
