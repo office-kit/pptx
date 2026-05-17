@@ -26,6 +26,7 @@ import {
   getParagraphLevel,
   getPresentationTheme,
   getShapeBoundsResolved,
+  getShapeEffects,
   getShapeFill,
   getShapeFillColorResolved,
   getShapeFlip,
@@ -2333,7 +2334,135 @@ const renderShape = (
     }
   }
 
-  return `${p.defs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+  // Effects (`<a:effectLst>`): outerShdw / innerShdw / glow / softEdge
+  // / reflection / blur. Build a single SVG <filter> chain so multiple
+  // effects compose the way PowerPoint composes them.
+  const fx = buildEffectsFilter(pres, shape);
+  const filterAttr = fx ? ` filter="url(#${fx.id})"` : '';
+  const fxDefs = fx ? fx.defs : '';
+  // Apply the filter to the geometry only — text overlays use foreignObject
+  // and react badly to feGaussianBlur (DOM gets rasterized).
+  geomSvg = `<g${filterAttr}>${geomSvg}</g>`;
+
+  return `${p.defs}${fxDefs}<g${transform}>${geomSvg}${textOverlay}</g>`;
+};
+
+// ---------------------------------------------------------------------------
+// Effects → SVG filter.
+
+interface EffectsResult {
+  readonly id: string;
+  readonly defs: string;
+}
+
+const buildEffectsFilter = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): EffectsResult | null => {
+  let effects: readonly ReturnType<typeof getShapeEffects>[number][];
+  try {
+    effects = getShapeEffects(pres, shape);
+  } catch {
+    return null;
+  }
+  if (effects.length === 0) return null;
+
+  const id = mintId();
+  const primitives: string[] = [];
+  // Chain primitives by passing each result as `in` to the next merge.
+  // The shape's original alpha + RGB live in SourceGraphic / SourceAlpha.
+  const layers: string[] = [];
+
+  for (const e of effects) {
+    if (e.kind === 'outerShdw') {
+      // dist + angle → dx, dy in EMU → px.
+      const rad = (e.angleDeg * Math.PI) / 180;
+      const dx = (e.distEmu * Math.cos(rad)) / EMU_PER_PX;
+      const dy = (e.distEmu * Math.sin(rad)) / EMU_PER_PX;
+      const blurPx = (e.blurEmu / EMU_PER_PX) / 2;
+      const opacity = e.opacity ?? 1;
+      const color = e.color || '#000000';
+      // feDropShadow handles the whole shadow primitive in one go.
+      const out = `shdwOut${primitives.length}`;
+      primitives.push(
+        `<feDropShadow dx="${dx.toFixed(2)}" dy="${dy.toFixed(2)}" stdDeviation="${blurPx.toFixed(2)}" flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="${out}"/>`,
+      );
+      layers.push(out);
+    } else if (e.kind === 'innerShdw') {
+      // SVG has no innerShadow primitive — synthesize via:
+      //   inset = (sourceAlpha offset, blurred) - sourceAlpha (inverted)
+      // and re-flood with the shadow color.
+      const rad = (e.angleDeg * Math.PI) / 180;
+      const dx = (e.distEmu * Math.cos(rad)) / EMU_PER_PX;
+      const dy = (e.distEmu * Math.sin(rad)) / EMU_PER_PX;
+      const blurPx = (e.blurEmu / EMU_PER_PX) / 2;
+      const color = e.color || '#000000';
+      const opacity = e.opacity ?? 1;
+      const i = primitives.length;
+      primitives.push(
+        `<feGaussianBlur in="SourceAlpha" stdDeviation="${blurPx.toFixed(2)}" result="innerBlur${i}"/>`,
+        `<feOffset in="innerBlur${i}" dx="${dx.toFixed(2)}" dy="${dy.toFixed(2)}" result="innerOff${i}"/>`,
+        `<feComposite in="innerOff${i}" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="innerMask${i}"/>`,
+        `<feFlood flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="innerCol${i}"/>`,
+        `<feComposite in="innerCol${i}" in2="innerMask${i}" operator="in" result="innerOut${i}"/>`,
+      );
+      layers.push(`innerOut${i}`);
+    } else if (e.kind === 'glow') {
+      const blurPx = (e.radiusEmu / EMU_PER_PX) / 2;
+      const color = e.color || '#FFFFFF';
+      const opacity = e.opacity ?? 1;
+      const i = primitives.length;
+      primitives.push(
+        `<feMorphology in="SourceAlpha" operator="dilate" radius="${(blurPx / 4).toFixed(2)}" result="glowExp${i}"/>`,
+        `<feGaussianBlur in="glowExp${i}" stdDeviation="${blurPx.toFixed(2)}" result="glowBlur${i}"/>`,
+        `<feFlood flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="glowCol${i}"/>`,
+        `<feComposite in="glowCol${i}" in2="glowBlur${i}" operator="in" result="glowOut${i}"/>`,
+      );
+      layers.push(`glowOut${i}`);
+    } else if (e.kind === 'softEdge') {
+      const blurPx = (e.radiusEmu / EMU_PER_PX) / 2;
+      // Soft-edge feathers the shape's mask. Replace the source by a
+      // blurred version of itself.
+      const i = primitives.length;
+      primitives.push(
+        `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx.toFixed(2)}" result="softOut${i}"/>`,
+      );
+      // softEdge replaces the source; we drop earlier layers and the
+      // unmodified source is no longer painted on top.
+      layers.length = 0;
+      layers.push(`softOut${i}`);
+    } else if (e.kind === 'blur') {
+      const blurPx = (e.radiusEmu / EMU_PER_PX) / 2;
+      const i = primitives.length;
+      primitives.push(
+        `<feGaussianBlur in="SourceGraphic" stdDeviation="${blurPx.toFixed(2)}" result="blurOut${i}"/>`,
+      );
+      layers.length = 0;
+      layers.push(`blurOut${i}`);
+    } else if (e.kind === 'reflection') {
+      // Reflection in SVG is a flipped, translated, faded copy. SVG
+      // <filter> can't easily emit one without re-rasterizing, so we
+      // skip it for now and let the shape paint as-is. (Listed in the
+      // spec but rarely used outside of corporate templates.)
+      void e;
+    }
+  }
+
+  // Compose: paint each effect layer plus the original SourceGraphic.
+  // Shadows want to sit behind the source; glow behind too; innerShdw
+  // and softEdge already replace bits of the source. Doing the merge
+  // in order produces reasonable layering for the common cases.
+  if (layers.length === 0) return null;
+
+  // Always paint the original source last so it sits on top of shadows /
+  // glows. softEdge/blur replaced the source so we don't double-paint.
+  const replacedSource = effects.some((e) => e.kind === 'softEdge' || e.kind === 'blur');
+  const mergeChildren = layers.map((l) => `<feMergeNode in="${l}"/>`).join('');
+  const sourceMerge = replacedSource ? '' : '<feMergeNode in="SourceGraphic"/>';
+  primitives.push(`<feMerge>${mergeChildren}${sourceMerge}</feMerge>`);
+
+  const defs = `<defs><filter id="${id}" x="-25%" y="-25%" width="150%" height="150%">${primitives.join('')}</filter></defs>`;
+  return { id, defs };
 };
 
 // ---------------------------------------------------------------------------

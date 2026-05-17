@@ -3953,6 +3953,49 @@ export type ShapeEffect =
       readonly radiusEmu: number;
     };
 
+/**
+ * Discriminated union covering every effect in
+ * `CT_EffectStyleItem` (ECMA-376 §20.1.8.x) — outer shadow, inner
+ * shadow, glow, reflection, soft-edge, blur. Returned in document
+ * order so renderers can chain filters with the same composition
+ * PowerPoint applies.
+ *
+ * Lengths are EMU; angles are degrees clockwise from 3 o'clock;
+ * opacity is a unit fraction (0..1) when the spec exposes one.
+ */
+export type ShapeEffectAny =
+  | {
+      readonly kind: 'outerShdw';
+      readonly color: string;
+      readonly opacity?: number;
+      readonly blurEmu: number;
+      readonly distEmu: number;
+      readonly angleDeg: number;
+    }
+  | {
+      readonly kind: 'innerShdw';
+      readonly color: string;
+      readonly opacity?: number;
+      readonly blurEmu: number;
+      readonly distEmu: number;
+      readonly angleDeg: number;
+    }
+  | {
+      readonly kind: 'glow';
+      readonly color: string;
+      readonly opacity?: number;
+      readonly radiusEmu: number;
+    }
+  | {
+      readonly kind: 'reflection';
+      readonly opacity?: number;
+      readonly blurEmu: number;
+      readonly distEmu: number;
+      readonly angleDeg: number;
+    }
+  | { readonly kind: 'softEdge'; readonly radiusEmu: number }
+  | { readonly kind: 'blur'; readonly radiusEmu: number };
+
 export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
@@ -3997,6 +4040,113 @@ export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
     return { kind: 'glow', color: c.color, radiusEmu: rad };
   }
   return null;
+};
+
+/**
+ * Returns every effect attached to the shape's `<a:effectLst>` in
+ * document order — outer shadow, inner shadow, glow, reflection,
+ * soft edge, blur. Empty array when no effects apply.
+ *
+ * Companion to `getShapeEffect`, which is the v1 "first effect only"
+ * helper. `getShapeEffects` is what renderers want because PowerPoint
+ * composes multiple effects in a single filter (shadow + glow, etc.).
+ */
+export const getShapeEffects = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): readonly ShapeEffectAny[] => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return [];
+  const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
+  if (!effectLst) return [];
+
+  const theme = getPresentationTheme(pres);
+
+  const readEffectColor = (host: XmlElement): { color: string; opacity?: number } => {
+    let inner: XmlElement | null = null;
+    for (const c of host.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (c.name.localName === 'srgbClr' || c.name.localName === 'schemeClr' ||
+          c.name.localName === 'sysClr' || c.name.localName === 'prstClr') {
+        inner = c; break;
+      }
+    }
+    if (!inner) return { color: '' };
+    // Pick out alpha before applying transforms — alpha is a transform too,
+    // but we need to surface it separately so the renderer can apply it
+    // as fill-opacity rather than baked into the rgba.
+    let opacity: number | undefined;
+    const alphaEl = firstChildElement(inner, qname('a', 'alpha', NS.dml));
+    if (alphaEl) {
+      const a = getAttrValue(alphaEl, qname('', 'val', ''));
+      if (a !== null) {
+        let n = Number.parseFloat(a);
+        if (Number.isFinite(n)) {
+          if (Math.abs(n) > 1) n = n / 100000;
+          opacity = n;
+        }
+      }
+    }
+    const hex = resolveDrawingColor(inner, theme);
+    return { color: hex ?? '', ...(opacity !== undefined ? { opacity } : {}) };
+  };
+
+  const out: ShapeEffectAny[] = [];
+  for (const child of effectLst.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    const local = child.name.localName;
+    if (local === 'outerShdw' || local === 'innerShdw') {
+      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
+      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
+      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
+      const c = readEffectColor(child);
+      out.push({
+        kind: local,
+        color: c.color,
+        blurEmu: blur,
+        distEmu: dist,
+        angleDeg: dir / 60000,
+        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+      });
+    } else if (local === 'glow') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      const c = readEffectColor(child);
+      out.push({
+        kind: 'glow',
+        color: c.color,
+        radiusEmu: rad,
+        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+      });
+    } else if (local === 'reflection') {
+      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
+      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
+      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
+      // Reflection alpha is an optional `endA` attribute, not a child.
+      const endA = getAttrValue(child, qname('', 'endA', ''));
+      let opacity: number | undefined;
+      if (endA !== null) {
+        let n = Number.parseFloat(endA);
+        if (Number.isFinite(n)) {
+          if (Math.abs(n) > 1) n = n / 100000;
+          opacity = n;
+        }
+      }
+      out.push({
+        kind: 'reflection',
+        blurEmu: blur,
+        distEmu: dist,
+        angleDeg: dir / 60000,
+        ...(opacity !== undefined ? { opacity } : {}),
+      });
+    } else if (local === 'softEdge') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      out.push({ kind: 'softEdge', radiusEmu: rad });
+    } else if (local === 'blur') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      out.push({ kind: 'blur', radiusEmu: rad });
+    }
+  }
+  return out;
 };
 
 /**
