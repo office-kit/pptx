@@ -810,11 +810,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const tok = posEl ? getAttrValue(posEl, ATTR_VAL) : null;
     const ovEl = firstChildElement(legendEl, qname('c', 'overlay', NS_C));
     const overlay = ovEl ? getAttrValue(ovEl, ATTR_VAL) !== '0' : false;
-    if (tok === 'r' || tok === 't' || tok === 'b' || tok === 'l' || tok === 'tr') {
-      legend = { position: tok, ...(overlay ? { overlay } : {}) };
-    } else {
-      legend = { position: 'r', ...(overlay ? { overlay } : {}) };
-    }
+    const txPr = firstChildElement(legendEl, qname('c', 'txPr', NS_C));
+    const textStyle = txPr ? readLabelStyle(txPr) : undefined;
+    const position: 'r' | 't' | 'b' | 'l' | 'tr' =
+      tok === 'r' || tok === 't' || tok === 'b' || tok === 'l' || tok === 'tr' ? tok : 'r';
+    legend = {
+      position,
+      ...(overlay ? { overlay } : {}),
+      ...(textStyle !== undefined ? { textStyle } : {}),
+    };
   }
 
   // <c:title><c:overlay val="1"/>

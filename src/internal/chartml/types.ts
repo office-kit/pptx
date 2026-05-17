@@ -280,6 +280,12 @@ export interface ChartSpec {
     position: 'r' | 't' | 'b' | 'l' | 'tr' | null;
     /** When `true`, legend overlays the plot area instead of taking a strip. */
     readonly overlay?: boolean;
+    /**
+     * Authored font / color on the legend's text. From `<c:legend><c:txPr>`'s
+     * first `<a:p><a:pPr><a:defRPr>` (or `<a:r><a:rPr>` as fallback). Same
+     * shape as `titleStyle`.
+     */
+    readonly textStyle?: ChartTextStyle;
   };
   /** When `true`, the chart title overlays the plot area instead of taking a strip. */
   readonly titleOverlay?: boolean;

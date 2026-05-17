@@ -2702,8 +2702,15 @@ const renderChartLegend = (
   names: ReadonlyArray<string>,
   colors: ReadonlyArray<string>,
   position: 'r' | 't' | 'b' | 'l' | 'tr' = 'b',
+  textStyle?: ChartTextStyle,
 ): string => {
   if (names.length === 0) return '';
+  // Authored <c:txPr> font / weight / color overrides the 11pt #374151 default.
+  const sz = textStyle?.sizePt ?? 11;
+  const fill = textStyle?.color ?? '#374151';
+  const weight = textStyle?.bold ? ' font-weight="600"' : '';
+  const italic = textStyle?.italic ? ' font-style="italic"' : '';
+  const textAttrs = `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
   const out: string[] = [];
   if (position === 'b') {
     // Default: horizontal row centered at the bottom.
@@ -2717,7 +2724,7 @@ const renderChartLegend = (
       const labelX = swatchX + 14;
       out.push(
         `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
-        `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+        `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
       );
     }
     return out.join('');
@@ -2731,7 +2738,7 @@ const renderChartLegend = (
       const cx = startX + i * itemPx;
       out.push(
         `<rect x="${px(cx + 4)}" y="${px(yTop)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
-        `<text x="${px(cx + 18)}" y="${px(yTop + 8)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+        `<text x="${px(cx + 18)}" y="${px(yTop + 8)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
       );
     }
     return out.join('');
@@ -2745,7 +2752,7 @@ const renderChartLegend = (
     const yp = yStart + i * lineH;
     out.push(
       `<rect x="${px(xCol)}" y="${px(yp - 4)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
-      `<text x="${px(xCol + 14)}" y="${px(yp + 4)}" dominant-baseline="middle" font-family="sans-serif" font-size="11" fill="#374151">${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+      `<text x="${px(xCol + 14)}" y="${px(yp + 4)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
     );
   }
   return out.join('');
@@ -3640,6 +3647,7 @@ const renderChart = (
           seriesNamesForLegend,
           seriesColorsForLegend,
           spec.legend?.position ?? 'b',
+          spec.legend?.textStyle,
         ),
     '</g>',
   ].join('');
