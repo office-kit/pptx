@@ -14,7 +14,13 @@ import {
   getAttrValue,
   qname,
 } from '../xml/index.ts';
-import type { ChartDataLabels, ChartKind, ChartSeries, ChartSpec } from './types.ts';
+import type {
+  ChartAxisScaling,
+  ChartDataLabels,
+  ChartKind,
+  ChartSeries,
+  ChartSpec,
+} from './types.ts';
 
 const NS_C = NS.chart;
 const NS_A = NS.dml;
@@ -280,11 +286,38 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     };
   }
 
+  // <c:valAx> lives on the plotArea (not on the plotted-kind element).
+  // Pull its <c:scaling><c:min/>/<c:max/> as the authored axis range.
+  let valueAxis: ChartAxisScaling | undefined;
+  const valAx = findFirst(plotArea, ['valAx']);
+  if (valAx) {
+    const scaling = firstChildElement(valAx, qname('c', 'scaling', NS_C));
+    if (scaling) {
+      const readNum = (local: string): number | undefined => {
+        const el = firstChildElement(scaling, qname('c', local, NS_C));
+        if (!el) return undefined;
+        const v = getAttrValue(el, ATTR_VAL);
+        if (v === null) return undefined;
+        const n = Number.parseFloat(v);
+        return Number.isFinite(n) ? n : undefined;
+      };
+      const min = readNum('min');
+      const max = readNum('max');
+      if (min !== undefined || max !== undefined) {
+        valueAxis = {
+          ...(min !== undefined ? { min } : {}),
+          ...(max !== undefined ? { max } : {}),
+        };
+      }
+    }
+  }
+
   return {
     kind,
     categories,
     series,
     ...(title !== undefined ? { title } : {}),
     ...(dataLabels !== undefined ? { dataLabels } : {}),
+    ...(valueAxis !== undefined ? { valueAxis } : {}),
   };
 };

@@ -25,6 +25,7 @@ export type { PresentationInput, SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
 export type {
+  ChartAxisScaling,
   ChartDataLabels,
   ChartKind,
   ChartSeries,

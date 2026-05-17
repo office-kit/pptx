@@ -39,6 +39,15 @@ export interface ChartDataLabels {
   readonly showPercent: boolean;
 }
 
+/**
+ * Authored value-axis scaling (`<c:valAx><c:scaling><c:min/>/<c:max/></c:scaling>`).
+ * When omitted, renderers compute the range from the series values.
+ */
+export interface ChartAxisScaling {
+  readonly min?: number;
+  readonly max?: number;
+}
+
 /** Full chart specification. */
 export interface ChartSpec {
   readonly kind: ChartKind;
@@ -49,4 +58,6 @@ export interface ChartSpec {
   readonly title?: string;
   /** Optional chart-level data-label toggles. */
   readonly dataLabels?: ChartDataLabels;
+  /** Optional value-axis scaling override (min / max). */
+  readonly valueAxis?: ChartAxisScaling;
 }
