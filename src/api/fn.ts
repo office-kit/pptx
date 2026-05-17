@@ -11177,6 +11177,56 @@ export const findSlidesByLayoutType = (
  * should fall back to this URL or a placeholder.
  */
 /**
+ * Returns `true` when the picture's `<a:blip>` carries `<a:grayscl/>`
+ * — PowerPoint's "Color > Grayscale" recolor preset. Renderers can
+ * project this onto a CSS `filter: grayscale(100%)` or an SVG
+ * `<feColorMatrix>` desaturation.
+ */
+export const isShapeImageGrayscale = (shape: SlideShapeData): boolean => {
+  let blip: XmlElement | null = null;
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+    if (blipFill) blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  } else {
+    const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+    if (spPr) {
+      const bf = firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+      if (bf) blip = firstChildElement(bf, qname('a', 'blip', NS.dml));
+    }
+  }
+  return blip !== null && firstChildElement(blip, qname('a', 'grayscl', NS.dml)) !== null;
+};
+
+/**
+ * Returns the threshold of the picture's `<a:blip><a:biLevel thresh="…"/>`
+ * effect — PowerPoint's "Color > Black and White" preset. Threshold is
+ * a percent (0..100); pixels brighter become white, darker become black.
+ * Returns `null` when no biLevel transform is set.
+ */
+export const getShapeImageBiLevelThreshold = (shape: SlideShapeData): number | null => {
+  let blip: XmlElement | null = null;
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+    if (blipFill) blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  } else {
+    const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+    if (spPr) {
+      const bf = firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+      if (bf) blip = firstChildElement(bf, qname('a', 'blip', NS.dml));
+    }
+  }
+  if (!blip) return null;
+  const biLevel = firstChildElement(blip, qname('a', 'biLevel', NS.dml));
+  if (!biLevel) return null;
+  const t = getAttrValue(biLevel, qname('', 'thresh', ''));
+  if (t === null) return null;
+  let n = Number.parseFloat(t);
+  if (!Number.isFinite(n)) return null;
+  if (Math.abs(n) > 1) n = n / 100000;
+  return n * 100;
+};
+
+/**
  * Reads the picture's duotone color transform from `<a:blip><a:duotone>`.
  * PowerPoint emits two `<a:srgbClr>` (or scheme color) children for a
  * two-color duotone effect — typical "Picture Tools › Recolor".
