@@ -21,6 +21,7 @@ import type {
   ChartKind,
   ChartSeries,
   ChartSpec,
+  ChartTextStyle,
   ChartTrendline,
 } from './types.ts';
 
@@ -380,6 +381,82 @@ const readTitle = (chart: XmlElement): string | undefined => {
   return acc.length > 0 ? acc : undefined;
 };
 
+const NAME_A_RPR = qname('a', 'rPr', NS_A);
+const NAME_A_DEF_RPR = qname('a', 'defRPr', NS_A);
+const NAME_A_PPR = qname('a', 'pPr', NS_A);
+const NAME_A_SRGB = qname('a', 'srgbClr', NS_A);
+
+// Reads `<a:rPr>` / `<a:defRPr>` attributes (size in 100ths of a pt,
+// bold / italic) plus the first solidFill color inside it. Returns an
+// undefined-only style when nothing is authored — callers should drop
+// the style entirely in that case.
+const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
+  let sizePt: number | undefined;
+  let bold: boolean | undefined;
+  let italic: boolean | undefined;
+  let color: string | undefined;
+  const szRaw = getAttrValue(rPr, qname('', 'sz', ''));
+  if (szRaw !== null) {
+    const n = Number.parseInt(szRaw, 10);
+    if (Number.isFinite(n) && n > 0) sizePt = n / 100;
+  }
+  const bRaw = getAttrValue(rPr, qname('', 'b', ''));
+  if (bRaw !== null) bold = bRaw === '1' || bRaw === 'true';
+  const iRaw = getAttrValue(rPr, qname('', 'i', ''));
+  if (iRaw !== null) italic = iRaw === '1' || iRaw === 'true';
+  const solidFill = firstChildElement(rPr, NAME_SOLID_FILL);
+  if (solidFill) {
+    const srgb = firstChildElement(solidFill, NAME_A_SRGB);
+    if (srgb) {
+      const v = getAttrValue(srgb, ATTR_VAL);
+      if (v !== null) color = `#${v.toUpperCase()}`;
+    }
+  }
+  if (sizePt === undefined && bold === undefined && italic === undefined && color === undefined) {
+    return undefined;
+  }
+  return {
+    ...(sizePt !== undefined ? { sizePt } : {}),
+    ...(bold !== undefined ? { bold } : {}),
+    ...(italic !== undefined ? { italic } : {}),
+    ...(color !== undefined ? { color } : {}),
+  };
+};
+
+// Reads the first authored `<a:rPr>` (or `<a:pPr><a:defRPr>`) inside a
+// chart label's `<c:rich>` block. Used for the chart title (and reusable
+// for axis labels later). Returns `undefined` when nothing is authored.
+const readLabelStyle = (richHost: XmlElement): ChartTextStyle | undefined => {
+  for (const p of allChildElements(richHost, NAME_P_DML)) {
+    for (const r of allChildElements(p, NAME_R_DML)) {
+      const rPr = firstChildElement(r, NAME_A_RPR);
+      if (rPr) {
+        const s = readRunStyle(rPr);
+        if (s) return s;
+      }
+    }
+    const pPr = firstChildElement(p, NAME_A_PPR);
+    if (pPr) {
+      const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
+      if (defRPr) {
+        const s = readRunStyle(defRPr);
+        if (s) return s;
+      }
+    }
+  }
+  return undefined;
+};
+
+const readTitleStyle = (chart: XmlElement): ChartTextStyle | undefined => {
+  const title = firstChildElement(chart, NAME_TITLE);
+  if (!title) return undefined;
+  const tx = firstChildElement(title, NAME_TX);
+  if (!tx) return undefined;
+  const rich = firstChildElement(tx, NAME_RICH);
+  if (!rich) return undefined;
+  return readLabelStyle(rich);
+};
+
 /**
  * Parses a `<c:chartSpace>` element into a typed `ChartSpec`. Throws if
  * the root or any required child is missing. Returns `null` only when
@@ -491,6 +568,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
 
   const categories = categoriesFromFirst ?? [];
   const title = readTitle(chart);
+  const titleStyle = readTitleStyle(chart);
 
   // <c:dLbls> can sit either on the plotted-kind element (`barChart`,
   // `lineChart`, …) for chart-level defaults or on each `<c:ser>` for
@@ -765,6 +843,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     categories,
     series,
     ...(title !== undefined ? { title } : {}),
+    ...(titleStyle !== undefined ? { titleStyle } : {}),
     ...(dataLabels !== undefined ? { dataLabels } : {}),
     ...(valueAxis !== undefined ? { valueAxis } : {}),
     ...(grouping !== undefined ? { grouping } : {}),

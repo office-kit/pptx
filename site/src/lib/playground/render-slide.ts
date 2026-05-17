@@ -116,6 +116,7 @@ import {
   type PresentationTheme,
   type ChartSeries,
   type ChartSpec,
+  type ChartTextStyle,
   type GradientFillOptions,
   type ShapeBounds,
   type ShapeFill,
@@ -2685,9 +2686,15 @@ const seriesMinMax = (spec: ChartSpec): { min: number; max: number } => {
   return { min, max };
 };
 
-const renderChartTitle = (f: ChartFrame, title: string): string => {
+const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle): string => {
   if (!title) return '';
-  return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="13" fill="#1F2937" font-weight="600">${escapeXml(title)}</text>`;
+  // Defaults match PowerPoint's stock title look (~14pt semibold dark
+  // gray); authored <a:rPr sz/b/i> + solidFill overrides take over.
+  const sz = style?.sizePt ?? 13;
+  const fill = style?.color ?? '#1F2937';
+  const weight = style?.bold === false ? '400' : '600';
+  const fontStyleAttr = style?.italic ? ' font-style="italic"' : '';
+  return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}" font-weight="${weight}"${fontStyleAttr}>${escapeXml(title)}</text>`;
 };
 
 const renderChartLegend = (
@@ -3612,7 +3619,7 @@ const renderChart = (
     spec.plotAreaFill
       ? `<rect x="${px(f.plotX)}" y="${px(f.plotY)}" width="${px(f.plotW)}" height="${px(f.plotH)}" fill="${spec.plotAreaFill}"/>`
       : '',
-    renderChartTitle(f, spec.title ?? ''),
+    renderChartTitle(f, spec.title ?? '', spec.titleStyle),
     axes,
     valueAxisTitleSvg,
     categoryAxisTitleSvg,
