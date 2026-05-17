@@ -336,6 +336,7 @@ export {
   getTableRowHeights,
   getTableSize,
   getTableStyleFlags,
+  getTableStyleId,
   getThumbnail,
   getVisibleSlides,
   hasShapeText,

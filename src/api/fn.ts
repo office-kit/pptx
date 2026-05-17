@@ -9416,6 +9416,27 @@ export const getTableCells = (
 };
 
 /**
+ * Reads the table-style GUID from `<a:tbl><a:tblPr><a:tableStyleId>`.
+ * PowerPoint uses GUIDs to reference built-in table styles
+ * (`{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}` = "Medium Style 2 -
+ * Accent 1", etc.) and theme-local styles. Returns `null` when the
+ * table doesn't reference one (uses the slide's default style).
+ */
+export const getTableStyleId = (table: SlideShapeData): string | null => {
+  const tbl = findTblElement(table);
+  if (!tbl) return null;
+  const tblPr = firstChildElement(tbl, qname('a', 'tblPr', NS.dml));
+  if (!tblPr) return null;
+  const idEl = firstChildElement(tblPr, qname('a', 'tableStyleId', NS.dml));
+  if (!idEl) return null;
+  let acc = '';
+  for (const c of idEl.children) {
+    if (c.kind === 'text' || c.kind === 'cdata') acc += c.data;
+  }
+  return acc.trim() || null;
+};
+
+/**
  * Reads the boolean style flags off `<a:tblPr>` — which header /
  * footer rows + columns are banded or emphasised. Mirrors the
  * `firstRow` / `bandRow` flags exposed by `addSlideTable`.
