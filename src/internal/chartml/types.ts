@@ -35,6 +35,24 @@ export interface ChartSeries {
    * a smooth curve through the data points instead of straight segments.
    */
   readonly smooth?: boolean;
+  /**
+   * Optional trendline overlay. ECMA-376 §21.2.2.211 allows several
+   * regression types; we surface the most common subset. The line is
+   * painted on top of the series in the renderer.
+   */
+  readonly trendline?: ChartTrendline;
+}
+
+/** A single trendline overlay for a series. */
+export interface ChartTrendline {
+  /** Regression type — linear / exp / log / poly / power / movingAvg. */
+  readonly type: 'linear' | 'exp' | 'log' | 'poly' | 'power' | 'movingAvg';
+  /** Optional moving-average period (only meaningful for type='movingAvg'). */
+  readonly period?: number;
+  /** Polynomial order (only meaningful for type='poly'). */
+  readonly order?: number;
+  /** Override stroke color; defaults to the series color. */
+  readonly color?: string;
 }
 
 /**

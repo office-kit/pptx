@@ -31,6 +31,7 @@ export type {
   ChartKind,
   ChartSeries,
   ChartSpec,
+  ChartTrendline,
 } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';

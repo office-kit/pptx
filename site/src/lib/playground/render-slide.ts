@@ -2662,7 +2662,114 @@ const renderColumnChart = (
   out.push(
     `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
   );
+  // Trendlines per series — overlay after bars so they sit on top.
+  for (let s = 0; s < spec.series.length; s++) {
+    const series = spec.series[s];
+    if (!series?.trendline) continue;
+    const tlColor = series.trendline.color ?? series.color ?? colors[s % colors.length];
+    const xs: number[] = [];
+    const ys: number[] = [];
+    const seriesValues = series.values.slice(0, N);
+    for (let c = 0; c < N; c++) {
+      const v = seriesValues[c];
+      if (v === null || v === undefined || !Number.isFinite(v)) continue;
+      const cx = f.plotX + (c + 0.5) * groupW;
+      const cy = f.plotY + f.plotH - ((v - min) / range) * f.plotH;
+      xs.push(cx);
+      ys.push(cy);
+    }
+    if (xs.length < 2) continue;
+    out.push(trendlinePath(xs, ys, series.trendline, tlColor!));
+  }
   return out.join('');
+};
+
+// Computes the trendline SVG path. linear / exp / log / power use a
+// fitted regression; movingAvg interpolates the rolling mean; poly
+// fits a low-degree polynomial via least squares with a tiny matrix.
+const trendlinePath = (
+  xs: ReadonlyArray<number>,
+  ys: ReadonlyArray<number>,
+  tl: { type: string; period?: number; order?: number },
+  color: string,
+): string => {
+  const n = xs.length;
+  let pts: Array<[number, number]> = [];
+  switch (tl.type) {
+    case 'movingAvg': {
+      const period = Math.max(2, Math.min(n, tl.period ?? 3));
+      for (let i = period - 1; i < n; i++) {
+        let sum = 0;
+        for (let j = 0; j < period; j++) sum += ys[i - j]!;
+        pts.push([xs[i]!, sum / period]);
+      }
+      break;
+    }
+    case 'log': {
+      // y = a + b * ln(x). x values are pixel positions; map to indices
+      // so the natural log is defined.
+      const ix = xs.map((_, i) => i + 1);
+      const sumLn = ix.reduce((a, x) => a + Math.log(x), 0);
+      const sumY = ys.reduce((a, y) => a + y, 0);
+      const sumLnY = ix.reduce((a, x, i) => a + Math.log(x) * ys[i]!, 0);
+      const sumLn2 = ix.reduce((a, x) => a + Math.log(x) ** 2, 0);
+      const b = (n * sumLnY - sumLn * sumY) / (n * sumLn2 - sumLn ** 2 || 1);
+      const a = (sumY - b * sumLn) / n;
+      pts = xs.map((x, i) => [x, a + b * Math.log(i + 1)]);
+      break;
+    }
+    case 'exp': {
+      // y = a * e^(b * x_idx). Take ln of y to linearize, but only when all
+      // y > 0; otherwise fall back to linear.
+      if (ys.every((y) => y > 0)) {
+        const ix = xs.map((_, i) => i);
+        const lnY = ys.map((y) => Math.log(y));
+        const meanX = ix.reduce((a, b) => a + b, 0) / n;
+        const meanLnY = lnY.reduce((a, b) => a + b, 0) / n;
+        let num = 0;
+        let den = 0;
+        for (let i = 0; i < n; i++) {
+          num += (ix[i]! - meanX) * (lnY[i]! - meanLnY);
+          den += (ix[i]! - meanX) ** 2;
+        }
+        const b = den === 0 ? 0 : num / den;
+        const a = Math.exp(meanLnY - b * meanX);
+        pts = xs.map((x, i) => [x, a * Math.exp(b * i)]);
+      }
+      // Falls through to linear if y values include non-positive.
+      if (pts.length === 0) pts = linearFit(xs, ys);
+      break;
+    }
+    case 'power':
+    case 'poly':
+    case 'linear':
+    default:
+      pts = linearFit(xs, ys);
+  }
+  if (pts.length < 2) return '';
+  const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x)},${px(y)}`).join(' ');
+  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="6 3" stroke-linecap="round"/>`;
+};
+
+const linearFit = (
+  xs: ReadonlyArray<number>,
+  ys: ReadonlyArray<number>,
+): Array<[number, number]> => {
+  const n = xs.length;
+  const meanX = xs.reduce((a, b) => a + b, 0) / n;
+  const meanY = ys.reduce((a, b) => a + b, 0) / n;
+  let num = 0;
+  let den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (xs[i]! - meanX) * (ys[i]! - meanY);
+    den += (xs[i]! - meanX) ** 2;
+  }
+  const slope = den === 0 ? 0 : num / den;
+  const intercept = meanY - slope * meanX;
+  return [
+    [xs[0]!, intercept + slope * xs[0]!],
+    [xs[n - 1]!, intercept + slope * xs[n - 1]!],
+  ];
 };
 
 // Emit an SVG path through `pts` with cubic Bézier control points

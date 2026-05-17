@@ -21,6 +21,7 @@ import type {
   ChartKind,
   ChartSeries,
   ChartSpec,
+  ChartTrendline,
 } from './types.ts';
 
 const NS_C = NS.chart;
@@ -196,6 +197,73 @@ const readDataPointColors = (ser: XmlElement): ReadonlyArray<string | null> | un
   return any ? out : undefined;
 };
 
+// `<c:trendline>` is a sibling of `<c:val>` inside `<c:ser>`. Read the
+// type token and (where relevant) the period / polynomial order. Color
+// comes from `<c:trendline><c:spPr><a:ln><a:solidFill>` when authored.
+const readTrendline = (ser: XmlElement): ChartTrendline | undefined => {
+  const tl = firstChildElement(ser, qname('c', 'trendline', NS_C));
+  if (!tl) return undefined;
+  const typeEl = firstChildElement(tl, qname('c', 'trendlineType', NS_C));
+  const tToken = typeEl ? getAttrValue(typeEl, ATTR_VAL) : null;
+  let type: ChartTrendline['type'];
+  switch (tToken) {
+    case 'exp':
+    case 'log':
+    case 'poly':
+    case 'power':
+    case 'movingAvg':
+    case 'linear':
+      type = tToken;
+      break;
+    default:
+      type = 'linear';
+  }
+  let period: number | undefined;
+  if (type === 'movingAvg') {
+    const pEl = firstChildElement(tl, qname('c', 'period', NS_C));
+    if (pEl) {
+      const v = getAttrValue(pEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n) && n > 0) period = n;
+      }
+    }
+  }
+  let order: number | undefined;
+  if (type === 'poly') {
+    const oEl = firstChildElement(tl, qname('c', 'order', NS_C));
+    if (oEl) {
+      const v = getAttrValue(oEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n) && n >= 2) order = n;
+      }
+    }
+  }
+  // Line color via <c:spPr><a:ln><a:solidFill><a:srgbClr>.
+  let color: string | undefined;
+  const spPr = firstChildElement(tl, NAME_SP_PR_C);
+  if (spPr) {
+    const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
+    if (ln) {
+      const solid = firstChildElement(ln, NAME_SOLID_FILL);
+      if (solid) {
+        const srgb = firstChildElement(solid, NAME_SRGB_CLR);
+        if (srgb) {
+          const v = getAttrValue(srgb, ATTR_VAL);
+          if (v !== null) color = `#${v.toUpperCase()}`;
+        }
+      }
+    }
+  }
+  return {
+    type,
+    ...(period !== undefined ? { period } : {}),
+    ...(order !== undefined ? { order } : {}),
+    ...(color !== undefined ? { color } : {}),
+  };
+};
+
 const readSeriesColor = (ser: XmlElement): string | undefined => {
   const spPr = firstChildElement(ser, NAME_SP_PR_C);
   if (!spPr) return undefined;
@@ -288,12 +356,14 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     // <c:smooth val="1"/> — line / area / scatter only.
     const smoothEl = firstChildElement(ser, qname('c', 'smooth', NS_C));
     const smooth = smoothEl !== null && getAttrValue(smoothEl, ATTR_VAL) !== '0';
+    const trendline = readTrendline(ser);
     series.push({
       name,
       values: values ?? [],
       ...(color !== undefined ? { color } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
+      ...(trendline !== undefined ? { trendline } : {}),
     });
   }
 
