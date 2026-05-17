@@ -115,27 +115,44 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
 const CAT_AX_ID = 111111111;
 const VAL_AX_ID = 222222222;
 
-const catAxis = (): XmlElement =>
-  elem(c('catAx'), {
-    children: [
-      valNode(c('axId'), CAT_AX_ID),
-      elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
-      valNode(c('delete'), '0'),
-      valNode(c('axPos'), 'b'),
-      valNode(c('crossAx'), VAL_AX_ID),
-    ],
-  });
+const catAxis = (spec: ChartSpec): XmlElement => {
+  const children: XmlElement[] = [
+    valNode(c('axId'), CAT_AX_ID),
+    elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
+    valNode(c('delete'), '0'),
+    valNode(c('axPos'), 'b'),
+  ];
+  if (spec.categoryAxisMajorTickMark !== undefined) {
+    children.push(valNode(c('majorTickMark'), spec.categoryAxisMajorTickMark));
+  }
+  children.push(valNode(c('crossAx'), VAL_AX_ID));
+  return elem(c('catAx'), { children });
+};
 
-const valAxis = (): XmlElement =>
-  elem(c('valAx'), {
-    children: [
-      valNode(c('axId'), VAL_AX_ID),
-      elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
-      valNode(c('delete'), '0'),
-      valNode(c('axPos'), 'l'),
-      valNode(c('crossAx'), CAT_AX_ID),
-    ],
-  });
+const valAxis = (spec: ChartSpec): XmlElement => {
+  const scalingChildren: XmlElement[] = [valNode(c('orientation'), 'minMax')];
+  if (spec.valueAxis?.logBase !== undefined) {
+    scalingChildren.push(valNode(c('logBase'), spec.valueAxis.logBase));
+  }
+  const children: XmlElement[] = [
+    valNode(c('axId'), VAL_AX_ID),
+    elem(c('scaling'), { children: scalingChildren }),
+    valNode(c('delete'), '0'),
+    valNode(c('axPos'), 'l'),
+  ];
+  if (spec.valueAxisMajorTickMark !== undefined) {
+    children.push(valNode(c('majorTickMark'), spec.valueAxisMajorTickMark));
+  }
+  children.push(valNode(c('crossAx'), CAT_AX_ID));
+  if (spec.valueAxis?.displayUnits !== undefined) {
+    children.push(
+      elem(c('dispUnits'), {
+        children: [valNode(c('builtInUnit'), spec.valueAxis.displayUnits)],
+      }),
+    );
+  }
+  return elem(c('valAx'), { children });
+};
 
 const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar'): XmlElement => {
   const ser = spec.series.map((_, i) => seriesElement(spec, i, sheet));
@@ -305,7 +322,7 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   const axisless = spec.kind === 'pie' || spec.kind === 'doughnut';
   const plotAreaChildren: XmlElement[] = [elem(c('layout')), plotted];
   if (!axisless) {
-    plotAreaChildren.push(catAxis(), valAxis());
+    plotAreaChildren.push(catAxis(spec), valAxis(spec));
   }
   const plotArea = elem(c('plotArea'), { children: plotAreaChildren });
 
