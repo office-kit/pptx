@@ -79,6 +79,32 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.titleStyle?.color).toBe('#FF0000');
   });
 
+  it('round-trips valueAxis extras (logBase / displayUnits / tickMark)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [100, 200] }],
+        valueAxis: { logBase: 10, displayUnits: 'thousands' },
+        valueAxisMajorTickMark: 'cross',
+        categoryAxisMajorTickMark: 'none',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.valueAxis?.logBase).toBe(10);
+    expect(spec.valueAxis?.displayUnits).toBe('thousands');
+    expect(spec.valueAxisMajorTickMark).toBe('cross');
+    expect(spec.categoryAxisMajorTickMark).toBe('none');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
