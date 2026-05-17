@@ -741,6 +741,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisTitle: string | undefined;
   let categoryAxisTitleStyle: ChartTextStyle | undefined;
   let categoryAxisLabelStyle: ChartTextStyle | undefined;
+  let categoryAxisLabelRotationDeg: number | undefined;
   let valueAxisTitle: string | undefined;
   let valueAxisTitleStyle: ChartTextStyle | undefined;
   let valueAxisLabelStyle: ChartTextStyle | undefined;
@@ -772,7 +773,18 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const catTitleEl = firstChildElement(catAx, NAME_TITLE);
     if (catTitleEl) categoryAxisTitleStyle = readTitleStyleOf(catTitleEl);
     const catTxPr = firstChildElement(catAx, qname('c', 'txPr', NS_C));
-    if (catTxPr) categoryAxisLabelStyle = readLabelStyle(catTxPr);
+    if (catTxPr) {
+      categoryAxisLabelStyle = readLabelStyle(catTxPr);
+      // <c:txPr><a:bodyPr rot="N"/> — N is in 60000ths of a degree.
+      const bodyPr = firstChildElement(catTxPr, qname('a', 'bodyPr', NS_A));
+      if (bodyPr) {
+        const rotRaw = getAttrValue(bodyPr, qname('', 'rot', ''));
+        if (rotRaw !== null) {
+          const n = Number.parseInt(rotRaw, 10);
+          if (Number.isFinite(n)) categoryAxisLabelRotationDeg = n / 60000;
+        }
+      }
+    }
     categoryAxisHidden = isHidden(catAx);
     categoryAxisOrientation = readAxisOrientation(catAx);
     const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
@@ -929,6 +941,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(categoryAxisTitleStyle !== undefined ? { categoryAxisTitleStyle } : {}),
     ...(categoryAxisLabelStyle !== undefined ? { categoryAxisLabelStyle } : {}),
+    ...(categoryAxisLabelRotationDeg !== undefined ? { categoryAxisLabelRotationDeg } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(valueAxisTitleStyle !== undefined ? { valueAxisTitleStyle } : {}),
     ...(valueAxisLabelStyle !== undefined ? { valueAxisLabelStyle } : {}),

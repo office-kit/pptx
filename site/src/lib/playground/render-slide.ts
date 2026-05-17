@@ -2642,6 +2642,7 @@ const renderCategoryAxis = (
   pointCount: number,
   skip = 1,
   labelStyle?: ChartTextStyle,
+  labelRotationDeg?: number,
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -2651,16 +2652,35 @@ const renderCategoryAxis = (
   if (orientation === 'horizontal') {
     // Categories along x-axis (column / line / area charts).
     const step = pointCount > 1 ? f.plotW / pointCount : 0;
+    // Rotated labels need a longer truncation budget — PowerPoint
+    // doesn't ellipsize rotated labels until they actually overflow.
+    const truncLen = labelRotationDeg && Math.abs(labelRotationDeg) >= 30 ? 28 : 14;
     for (let i = 0; i < pointCount; i++) {
       if (skip > 1 && i % skip !== 0) continue;
       // Center labels under each category slot.
       const cx = f.plotX + (i + 0.5) * step;
+      const cy = f.plotY + f.plotH + 12;
       const truncated =
-        labels[i] !== undefined && labels[i]!.length > 14
-          ? `${labels[i]!.slice(0, 12)}…`
+        labels[i] !== undefined && labels[i]!.length > truncLen
+          ? `${labels[i]!.slice(0, truncLen - 2)}…`
           : (labels[i] ?? '');
+      // Authored <a:bodyPr rot="N"/> rotates the tick label. Pivot
+      // around the label anchor so rotated labels stay attached to
+      // their column.
+      const transform =
+        labelRotationDeg && labelRotationDeg !== 0
+          ? ` transform="rotate(${labelRotationDeg} ${px(cx)} ${px(cy)})"`
+          : '';
+      // When rotated, right-align to the pivot so the label leans
+      // toward its data point rather than overflowing the next column.
+      const anchor =
+        labelRotationDeg && labelRotationDeg > 0
+          ? 'end'
+          : labelRotationDeg && labelRotationDeg < 0
+            ? 'start'
+            : 'middle';
       out.push(
-        `<text x="${px(cx)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}>${escapeXml(truncated)}</text>`,
+        `<text x="${px(cx)}" y="${px(cy)}" text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}>${escapeXml(truncated)}</text>`,
       );
     }
   } else {
@@ -3669,6 +3689,7 @@ const renderChart = (
         N,
         spec.categoryAxisTickLabelSkip ?? 1,
         spec.categoryAxisLabelStyle,
+        spec.categoryAxisLabelRotationDeg,
       );
     }
   }

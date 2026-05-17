@@ -241,6 +241,13 @@ export interface ChartSpec {
   readonly categoryAxisTitleStyle?: ChartTextStyle;
   /** Authored font / color on the category-axis *tick labels* — `<c:catAx><c:txPr>`. */
   readonly categoryAxisLabelStyle?: ChartTextStyle;
+  /**
+   * Authored rotation on the category-axis tick labels, in degrees. From
+   * `<c:catAx><c:txPr><a:bodyPr rot="N"/>` where N is in 60000ths of a
+   * degree. Positive values rotate clockwise (PowerPoint convention),
+   * matching the SVG `transform=rotate()` sense.
+   */
+  readonly categoryAxisLabelRotationDeg?: number;
   readonly valueAxisTitle?: string;
   /** Authored font / color on the value-axis title. */
   readonly valueAxisTitleStyle?: ChartTextStyle;
