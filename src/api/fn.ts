@@ -9735,6 +9735,32 @@ export const getTableCellBorders = (
   };
 };
 
+/**
+ * Reads the cell's inset margins (`<a:tcPr marL marR marT marB>`) in
+ * EMU. Each side is `null` when the cell doesn't author it (renderers
+ * should fall back to PowerPoint's defaults — 91440 EMU / 0.1 inch
+ * for the horizontal margins, 45720 EMU for the vertical).
+ */
+export const getTableCellMargins = (
+  cell: TableCellData,
+): { left: number | null; right: number | null; top: number | null; bottom: number | null } => {
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  const empty = { left: null, right: null, top: null, bottom: null };
+  if (!tcPr) return empty;
+  const read = (name: string): number | null => {
+    const v = getAttrValue(tcPr, qname('', name, ''));
+    if (v === null) return null;
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    left: read('marL'),
+    right: read('marR'),
+    top: read('marT'),
+    bottom: read('marB'),
+  };
+};
+
 /** Reads the cell's plain text (paragraphs joined with `\n`). */
 export const getTableCellText = (cell: TableCellData): string => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
