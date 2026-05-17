@@ -5,6 +5,7 @@
 
   const links: Array<{ path: string; label: string; external?: boolean }> = [
     { path: '/docs/getting-started', label: 'Docs' },
+    { path: '/repl', label: 'REPL' },
     { path: '/playground', label: 'Playground' },
     { path: '/api', label: 'API' },
     { path: 'https://github.com/baseballyama/pptx-kit', label: 'GitHub', external: true },
