@@ -17,6 +17,7 @@ import {
 import type {
   ChartAxisScaling,
   ChartDataLabels,
+  ChartGrouping,
   ChartKind,
   ChartSeries,
   ChartSpec,
@@ -343,6 +344,21 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // <c:grouping val="clustered|stacked|percentStacked|standard"/>
+  // sits as a direct child of the plotted-kind element. Pie and line
+  // kinds use different schemas (no grouping); restrict to the kinds
+  // that actually carry it.
+  let grouping: ChartGrouping | undefined;
+  if (kind === 'column' || kind === 'bar' || kind === 'area' || kind === 'line') {
+    const groupingEl = firstChildElement(plotted, qname('c', 'grouping', NS_C));
+    if (groupingEl) {
+      const g = getAttrValue(groupingEl, ATTR_VAL);
+      if (g === 'clustered' || g === 'stacked' || g === 'percentStacked' || g === 'standard') {
+        grouping = g;
+      }
+    }
+  }
+
   return {
     kind,
     categories,
@@ -350,5 +366,6 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(title !== undefined ? { title } : {}),
     ...(dataLabels !== undefined ? { dataLabels } : {}),
     ...(valueAxis !== undefined ? { valueAxis } : {}),
+    ...(grouping !== undefined ? { grouping } : {}),
   };
 };
