@@ -9854,6 +9854,41 @@ export const findSlidesByLayoutType = (
  * Useful for addressing the media part directly with
  * `setMediaPartBytes` or `readPackagePart`.
  */
+/**
+ * Returns the external URL of the picture when its `<a:blip>` carries an
+ * `r:link` (external) relationship rather than an `r:embed`. Returns
+ * `null` for embedded pictures, non-picture shapes, or when the
+ * relationship doesn't resolve.
+ *
+ * PowerPoint emits `r:link` when the user inserts via "Link to file"
+ * instead of "Insert Picture". The bytes live outside the package, so
+ * `getShapeImageBytes` can't render them — readers / preview tools
+ * should fall back to this URL or a placeholder.
+ */
+export const getShapeImageLinkUrl = (shape: SlideShapeData): string | null => {
+  const slide = shape[SHAPE_SLIDE];
+  const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  // Find the blip element on either picture or shape-with-image-fill.
+  let blip: XmlElement | null = null;
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+    if (blipFill) blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  } else {
+    const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+    if (spPr) {
+      const bf = firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+      if (bf) blip = firstChildElement(bf, qname('a', 'blip', NS.dml));
+    }
+  }
+  if (!blip) return null;
+  const rLink = getAttrValue(blip, qname('r', 'link', NS.officeDocRels));
+  if (!rLink) return null;
+  const rel = rels.items.find((r) => r.id === rLink);
+  if (!rel || rel.targetMode !== 'External') return null;
+  return rel.target;
+};
+
 export const getShapeImagePartName = (shape: SlideShapeData): string | null => {
   const slide = shape[SHAPE_SLIDE];
   const rels = slide[INTERNAL_PACKAGE].getRels(slide[SLIDE_PART_NAME]);

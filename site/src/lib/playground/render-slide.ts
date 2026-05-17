@@ -38,6 +38,7 @@ import {
   getShapeTextColumns,
   getShapeTextDirection,
   getShapeImageBrightness,
+  getShapeImageLinkUrl,
   getShapeImageBytes,
   getShapeImageContrast,
   getShapeImageCrop,
@@ -242,8 +243,14 @@ const renderPicture = (
     const opacityAttr = opacity !== 1 ? ` opacity="${opacity.toFixed(3)}"` : '';
     return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g><g${transform}>${textOverlay}</g>`;
   }
+  // B14 — external r:link pictures don't ship bytes in the package.
+  // Surface the URL in the placeholder so users can see where the
+  // picture lives.
+  const linkUrl = getShapeImageLinkUrl(shape);
   const label = !bytes
-    ? 'picture (no bytes)'
+    ? linkUrl
+      ? `picture (link: ${linkUrl.length > 48 ? linkUrl.slice(0, 45) + '…' : linkUrl})`
+      : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
   return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
 };

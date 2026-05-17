@@ -198,6 +198,7 @@ export {
   getShapeImageFillBytes,
   getShapeImageContrast,
   getShapeImageFormat,
+  getShapeImageLinkUrl,
   getShapeImagePartName,
   getShapeImageCrop,
   getShapeImageOpacity,
