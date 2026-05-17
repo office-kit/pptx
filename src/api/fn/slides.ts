@@ -565,6 +565,18 @@ export const isSlideHidden = (slide: SlideData): boolean => {
 };
 
 /**
+ * Returns `true` when the slide carries a `<p:timing>` block — i.e.,
+ * has at least one authored animation effect. Per-slide complement to
+ * `getPresentationSummary().hasAnimations`, which only reports a
+ * deck-wide flag.
+ */
+export const slideHasAnimations = (slide: SlideData): boolean => {
+  return slide[SLIDE_DOCUMENT].root.children.some(
+    (c) => c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
+  );
+};
+
+/**
  * Toggles the slide's visibility in the slideshow. Hiding adds
  * `show="0"`; showing removes the attribute (PowerPoint treats absence
  * as the default `show="1"`).
