@@ -2856,6 +2856,7 @@ const renderChartLegend = (
   colors: ReadonlyArray<string>,
   position: 'r' | 't' | 'b' | 'l' | 'tr' = 'b',
   textStyle?: ChartTextStyle,
+  markerSymbols?: ReadonlyArray<ChartSeries['markerSymbol']>,
 ): string => {
   if (names.length === 0) return '';
   // Authored <c:txPr> font / weight / color overrides the 11pt #374151 default.
@@ -2864,6 +2865,18 @@ const renderChartLegend = (
   const weight = textStyle?.bold ? ' font-weight="600"' : '';
   const italic = textStyle?.italic ? ' font-style="italic"' : '';
   const textAttrs = `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
+  // Legend swatch: when the series authors a marker symbol (line / area
+  // charts), draw the same glyph the data points use; otherwise fall
+  // back to the 9×9 color rect.
+  const swatch = (i: number, swatchX: number, swatchY: number): string => {
+    const color = colors[i % colors.length]!;
+    const sym = markerSymbols?.[i];
+    if (sym && sym !== 'none' && sym !== 'auto') {
+      const r = 4.5;
+      return seriesMarker(sym, swatchX + r, swatchY + r, r, color);
+    }
+    return `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${color}"/>`;
+  };
   const out: string[] = [];
   if (position === 'b') {
     // Default: horizontal row centered at the bottom.
@@ -2876,7 +2889,7 @@ const renderChartLegend = (
       const swatchY = f.legendY - 4;
       const labelX = swatchX + 14;
       out.push(
-        `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+        swatch(i, swatchX, swatchY),
         `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
       );
     }
@@ -2890,7 +2903,7 @@ const renderChartLegend = (
     for (let i = 0; i < names.length; i++) {
       const cx = startX + i * itemPx;
       out.push(
-        `<rect x="${px(cx + 4)}" y="${px(yTop)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+        swatch(i, cx + 4, yTop),
         `<text x="${px(cx + 18)}" y="${px(yTop + 8)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
       );
     }
@@ -2904,7 +2917,7 @@ const renderChartLegend = (
   for (let i = 0; i < names.length; i++) {
     const yp = yStart + i * lineH;
     out.push(
-      `<rect x="${px(xCol)}" y="${px(yp - 4)}" width="9" height="9" fill="${colors[i % colors.length]}"/>`,
+      swatch(i, xCol, yp - 4),
       `<text x="${px(xCol + 14)}" y="${px(yp + 4)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
     );
   }
@@ -3905,6 +3918,11 @@ const renderChart = (
           seriesColorsForLegend,
           spec.legend?.position ?? 'b',
           spec.legend?.textStyle,
+          // Marker glyphs only carry visual meaning for line / area
+          // charts; bar / column / pie use the swatch rect.
+          spec.kind === 'line' || spec.kind === 'area'
+            ? spec.series.map((s) => s.markerSymbol)
+            : undefined,
         ),
     '</g>',
   ].join('');
