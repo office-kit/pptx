@@ -3088,12 +3088,28 @@ const renderLineChart = (
     const series = spec.series[s];
     if (!series) continue;
     const color = series.color ?? colors[s % colors.length];
-    const pts: Array<[number, number]> = [];
-    const basePts: Array<[number, number]> = [];
+    // dispBlanksAs: 'gap' (default) leaves nulls out; 'zero' substitutes
+    // them with 0; 'span' connects the surrounding points across the gap.
+    const dba = spec.dispBlanksAs ?? 'gap';
+    type Pt = [number, number] | null;
+    const ptsRaw: Pt[] = [];
+    const basePtsRaw: Pt[] = [];
     for (let c = 0; c < N; c++) {
       const xp = f.plotX + c * step;
-      let v = series.values[c] ?? 0;
-      let baseAt = accumulated[c] ?? 0;
+      const rawV = series.values[c];
+      const isNullish = rawV === null || rawV === undefined || !Number.isFinite(rawV);
+      let v: number;
+      if (isNullish) {
+        if (dba === 'zero') v = 0;
+        else {
+          ptsRaw.push(null);
+          basePtsRaw.push(null);
+          continue;
+        }
+      } else {
+        v = rawV as number;
+      }
+      const baseAt = accumulated[c] ?? 0;
       if (isPercent) {
         let total = 0;
         for (const s2 of spec.series) total += Math.max(0, s2.values[c] ?? 0);
@@ -3102,10 +3118,22 @@ const renderLineChart = (
       const top = isStacked ? baseAt + v : v;
       const yp = f.plotY + f.plotH - ((top - min) / range) * f.plotH;
       const yBase = isStacked ? f.plotY + f.plotH - ((baseAt - min) / range) * f.plotH : baseY;
-      pts.push([xp, yp]);
-      basePts.push([xp, yBase]);
+      ptsRaw.push([xp, yp]);
+      basePtsRaw.push([xp, yBase]);
       if (isStacked) accumulated[c] = top;
     }
+    // For 'span', drop nulls entirely so the path connects across.
+    // For 'gap' (default), the path renders in segments split on nulls;
+    // we approximate by skipping null entries from the pts list since
+    // every consecutive non-null pair already produces a straight L.
+    const pts: Array<[number, number]> =
+      dba === 'span'
+        ? ptsRaw.filter((p): p is [number, number] => p !== null)
+        : ptsRaw.filter((p): p is [number, number] => p !== null);
+    const basePts: Array<[number, number]> =
+      dba === 'span'
+        ? basePtsRaw.filter((p): p is [number, number] => p !== null)
+        : basePtsRaw.filter((p): p is [number, number] => p !== null);
     // <c:smooth val="1"/> — interpolate a Catmull-Rom-style curve through
     // the points by emitting cubic Bézier segments with control points
     // derived from the immediate neighbours. Matches PowerPoint's
@@ -3113,7 +3141,20 @@ const renderLineChart = (
     const dPath =
       series.smooth && pts.length > 2
         ? smoothPath(pts)
-        : pts.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
+        : (() => {
+            // Walk ptsRaw to allow segment breaks for dispBlanksAs='gap'.
+            let path = '';
+            let starting = true;
+            for (const p of ptsRaw) {
+              if (p === null) {
+                if (dba === 'gap') starting = true;
+                continue;
+              }
+              path += `${starting ? 'M' : 'L'}${px(p[0])},${px(p[1])} `;
+              starting = false;
+            }
+            return path.trim();
+          })();
     if (fill) {
       // Walk back along the baseline (or the previous series's top for
       // stacked) to close the area.

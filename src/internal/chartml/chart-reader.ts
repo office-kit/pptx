@@ -591,6 +591,16 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (t !== undefined) valueAxisTitle = t;
   }
 
+  // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
+  // null gaps in line / area series render: 'gap' (default), 'zero', or
+  // 'span'.
+  let dispBlanksAs: ChartSpec['dispBlanksAs'];
+  const dbaEl = firstChildElement(chart, qname('c', 'dispBlanksAs', NS_C));
+  if (dbaEl) {
+    const v = getAttrValue(dbaEl, ATTR_VAL);
+    if (v === 'gap' || v === 'zero' || v === 'span') dispBlanksAs = v;
+  }
+
   // <c:legend> sits on the chart element (not the plotArea). Read the
   // position; PowerPoint defaults to 'r' (right) when the element is
   // present but has no legendPos. Absent legend element means renderers
@@ -644,6 +654,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),
+    ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),

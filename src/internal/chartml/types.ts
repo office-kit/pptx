@@ -194,6 +194,15 @@ export interface ChartSpec {
    */
   readonly legend?: { position: 'r' | 't' | 'b' | 'l' | 'tr' | null };
   /**
+   * `<c:dispBlanksAs val="…"/>` — how line / area renderers should
+   * treat `null` values in series:
+   *
+   *   - `'gap'`  — leave a gap (the default)
+   *   - `'zero'` — substitute zero
+   *   - `'span'` — connect the surrounding points across the gap
+   */
+  readonly dispBlanksAs?: 'gap' | 'zero' | 'span';
+  /**
    * Pie / doughnut: angle (in degrees, 0–360) at which the first slice
    * starts, measured clockwise from 12 o'clock. Mirrors
    * `<c:firstSliceAng val="…"/>`. Default 0 = start at the top.
