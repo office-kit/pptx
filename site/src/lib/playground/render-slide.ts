@@ -24,6 +24,7 @@ import {
   getParagraphAlignment,
   getParagraphBullet,
   getParagraphBulletStyle,
+  isParagraphBulletPicture,
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
@@ -2050,6 +2051,7 @@ const renderTextBody = (
     readonly level: number;
     readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
     readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
+    readonly bulletIsPicture: boolean;
     readonly runs: RunData[];
     readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
     readonly spcBefPts: number | null;
@@ -2090,6 +2092,10 @@ const renderTextBody = (
     };
     try {
       bulletDetail = getParagraphBulletStyle(pres, shape, p);
+    } catch {}
+    let bulletIsPicture = false;
+    try {
+      bulletIsPicture = isParagraphBulletPicture(shape, p);
     } catch {}
     const lineSpacing: ReturnType<typeof getParagraphLineSpacing> = effective.lineSpacing;
     let spcBefPts: number | null = effective.spcBefPts;
@@ -2157,6 +2163,7 @@ const renderTextBody = (
       level,
       bulletStyle,
       bulletDetail,
+      bulletIsPicture,
       runs,
       lineSpacing,
       spcBefPts,
@@ -2331,9 +2338,15 @@ const renderTextBody = (
       para.bulletStyle === 'bullet' ||
       explicitChar !== null ||
       numberLabel !== null ||
+      para.bulletIsPicture ||
       (para.bulletStyle !== 'none' && para.level > 0);
     if (showBullet) {
-      const char = numberLabel ?? explicitChar ?? bulletChar(para.level);
+      // Image bullets (`<a:pPr><a:buBlip>`) don't surface their bytes
+      // here — fall back to a filled square so users see a distinct
+      // glyph rather than the inherited round bullet.
+      const char = para.bulletIsPicture
+        ? '■'
+        : (numberLabel ?? explicitChar ?? bulletChar(para.level));
       // Bullet style overrides: color, size %, fixed pt size, font face.
       const bulletStyles: string[] = [
         `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
