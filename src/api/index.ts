@@ -324,6 +324,7 @@ export {
   getSlidesWithTables,
   getTableCell,
   getTableCellAlignment,
+  getTableCellAnchor,
   getTableCellBorders,
   getTableCellFill,
   getTableCellMargins,
