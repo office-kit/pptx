@@ -3359,6 +3359,35 @@ export const getShapeStrokeWidth = (shape: SlideShapeData): number | null => {
   return stroke.kind === 'solid' && stroke.widthEmu !== undefined ? stroke.widthEmu : null;
 };
 
+/**
+ * Returns the shape's stroke color resolved to a concrete `#RRGGBB`:
+ * scheme tokens are mapped through the deck's color scheme and
+ * `<a:lumMod>` / `<a:tint>` / `<a:shade>` / etc. transform children
+ * are applied. Returns `null` when the stroke isn't a solid color
+ * (inherits / `noFill`) or when the color can't be resolved.
+ *
+ * Companion to `getShapeStrokeColor`, which surfaces only the raw
+ * `#RRGGBB` / `scheme:<token>` string — fine for round-tripping but
+ * wrong for rendering, because PowerPoint paints the *transformed*
+ * color, not the base one.
+ */
+export const getShapeStrokeColorResolved = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): string | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
+  if (!ln) return null;
+  const solid = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
+  if (!solid) return null;
+  for (const inner of solid.children) {
+    if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+    return resolveDrawingColor(inner, getPresentationTheme(pres));
+  }
+  return null;
+};
+
 export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return { kind: 'inherit' };
@@ -3415,6 +3444,32 @@ export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
 export const getShapeFillColor = (shape: SlideShapeData): string | null => {
   const fill = getShapeFill(shape);
   return fill.kind === 'solid' ? fill.color : null;
+};
+
+/**
+ * Returns the shape's solid fill resolved to a concrete `#RRGGBB`:
+ * scheme tokens are mapped through the deck's color scheme and
+ * `<a:lumMod>` / `<a:tint>` / `<a:shade>` / etc. transform children
+ * are applied. Returns `null` when the fill isn't solid (gradient,
+ * pattern, image, none, inherit) or when the color can't be resolved.
+ *
+ * Companion to `getShapeFillColor`, which surfaces only the raw
+ * `#RRGGBB` / `scheme:<token>` string. Renderers and exporters that
+ * need the color PowerPoint actually paints should call this.
+ */
+export const getShapeFillColorResolved = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): string | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const solid = firstChildElement(spPr, qname('a', 'solidFill', NS.dml));
+  if (!solid) return null;
+  for (const inner of solid.children) {
+    if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+    return resolveDrawingColor(inner, getPresentationTheme(pres));
+  }
+  return null;
 };
 
 export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
@@ -4723,11 +4778,246 @@ export const setShapeRunText = (
   commitAndRefresh(shape);
 };
 
+// -- Color transforms (ECMA-376 §20.1.2.3.x) --------------------------------
+//
+// DrawingML color elements (`<a:srgbClr>`, `<a:schemeClr>`, `<a:sysClr>`,
+// `<a:prstClr>`) may carry one or more transform children — `lumMod`,
+// `lumOff`, `shade`, `tint`, `satMod`, `hueMod`, `alpha`, `gray`, `inv`,
+// `comp`, etc. — that adjust the base color before it's painted. Real
+// templates use them heavily for "tinted accent" backgrounds and "shaded
+// hover" states, so any visual-fidelity story has to apply them.
+//
+// Percentages in the spec use the `ST_Percentage` style — `100000`
+// represents 100% — though some third-party tools emit bare floats; we
+// accept both forms.
+
+type ColorTransformOp =
+  | {
+      readonly kind:
+        | 'lumMod'
+        | 'lumOff'
+        | 'shade'
+        | 'tint'
+        | 'satMod'
+        | 'satOff'
+        | 'hueMod'
+        | 'hueOff'
+        | 'alpha'
+        | 'alphaMod'
+        | 'alphaOff';
+      readonly val: number;
+    }
+  | { readonly kind: 'gray' | 'inv' | 'comp' };
+
+const COLOR_TRANSFORM_LOCALS: ReadonlySet<string> = new Set([
+  'lumMod', 'lumOff',
+  'shade', 'tint',
+  'satMod', 'satOff',
+  'hueMod', 'hueOff',
+  'alpha', 'alphaMod', 'alphaOff',
+  'gray', 'inv', 'comp',
+]);
+
+const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] => {
+  const out: ColorTransformOp[] = [];
+  for (const child of colorEl.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    const local = child.name.localName;
+    if (!COLOR_TRANSFORM_LOCALS.has(local)) continue;
+    if (local === 'gray' || local === 'inv' || local === 'comp') {
+      out.push({ kind: local });
+      continue;
+    }
+    const raw = getAttrValue(child, qname('', 'val', ''));
+    if (raw === null) continue;
+    let n = Number.parseFloat(raw);
+    if (!Number.isFinite(n)) continue;
+    // PowerPoint emits ST_Percentage (`100000` = 100%); tolerate the
+    // bare-float form some third-party tools emit.
+    if (Math.abs(n) > 1) n = n / 100000;
+    out.push({ kind: local as Exclude<ColorTransformOp['kind'], 'gray' | 'inv' | 'comp'>, val: n });
+  }
+  return out;
+};
+
+const hexToRgb01 = (hex: string): [number, number, number] => {
+  const h = hex.startsWith('#') ? hex.slice(1) : hex;
+  return [
+    Number.parseInt(h.slice(0, 2), 16) / 255,
+    Number.parseInt(h.slice(2, 4), 16) / 255,
+    Number.parseInt(h.slice(4, 6), 16) / 255,
+  ];
+};
+
+const rgb01ToHex = (r: number, g: number, b: number): string => {
+  const clamp = (v: number): number => Math.max(0, Math.min(255, Math.round(v * 255)));
+  const part = (n: number): string => n.toString(16).padStart(2, '0').toUpperCase();
+  return `#${part(clamp(r))}${part(clamp(g))}${part(clamp(b))}`;
+};
+
+const rgbToHsl = (r: number, g: number, b: number): [number, number, number] => {
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  let h: number;
+  if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return [h / 6, s, l];
+};
+
+const hueToRgb = (p: number, q: number, t: number): number => {
+  if (t < 0) t += 1;
+  if (t > 1) t -= 1;
+  if (t < 1 / 6) return p + (q - p) * 6 * t;
+  if (t < 1 / 2) return q;
+  if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+  return p;
+};
+
+const hslToRgb = (h: number, s: number, l: number): [number, number, number] => {
+  if (s === 0) return [l, l, l];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  return [hueToRgb(p, q, h + 1 / 3), hueToRgb(p, q, h), hueToRgb(p, q, h - 1 / 3)];
+};
+
+const applyColorTransforms = (
+  hex: string,
+  transforms: readonly ColorTransformOp[],
+): string => {
+  if (transforms.length === 0) return hex;
+  let [r, g, b] = hexToRgb01(hex);
+  for (const t of transforms) {
+    switch (t.kind) {
+      case 'inv':
+        r = 1 - r; g = 1 - g; b = 1 - b;
+        break;
+      case 'gray': {
+        const y = 0.3 * r + 0.59 * g + 0.11 * b;
+        r = g = b = y;
+        break;
+      }
+      case 'comp': {
+        const [h, s, l] = rgbToHsl(r, g, b);
+        [r, g, b] = hslToRgb((h + 0.5) % 1, s, l);
+        break;
+      }
+      case 'shade':
+        // Mix toward black: out = base * val
+        r *= t.val; g *= t.val; b *= t.val;
+        break;
+      case 'tint':
+        // Mix toward white: out = base * val + (1 - val)
+        r = r * t.val + (1 - t.val);
+        g = g * t.val + (1 - t.val);
+        b = b * t.val + (1 - t.val);
+        break;
+      case 'lumMod':
+      case 'lumOff': {
+        const [h, s, l] = rgbToHsl(r, g, b);
+        const newL = Math.max(0, Math.min(1, t.kind === 'lumMod' ? l * t.val : l + t.val));
+        [r, g, b] = hslToRgb(h, s, newL);
+        break;
+      }
+      case 'satMod':
+      case 'satOff': {
+        const [h, s, l] = rgbToHsl(r, g, b);
+        const newS = Math.max(0, Math.min(1, t.kind === 'satMod' ? s * t.val : s + t.val));
+        [r, g, b] = hslToRgb(h, newS, l);
+        break;
+      }
+      case 'hueMod':
+      case 'hueOff': {
+        const [h, s, l] = rgbToHsl(r, g, b);
+        const newH = (((t.kind === 'hueMod' ? h * t.val : h + t.val / 360) % 1) + 1) % 1;
+        [r, g, b] = hslToRgb(newH, s, l);
+        break;
+      }
+      // alpha / alphaMod / alphaOff intentionally don't touch RGB — they
+      // surface as `fill-opacity`, not as a tinted color.
+    }
+  }
+  return rgb01ToHex(r, g, b);
+};
+
+const SCHEME_TOKEN_TO_THEME_KEY: Record<string, keyof Omit<PresentationTheme, 'name'>> = {
+  tx1: 'dark1', dk1: 'dark1',
+  bg1: 'light1', lt1: 'light1',
+  tx2: 'dark2', dk2: 'dark2',
+  bg2: 'light2', lt2: 'light2',
+  accent1: 'accent1', accent2: 'accent2', accent3: 'accent3',
+  accent4: 'accent4', accent5: 'accent5', accent6: 'accent6',
+  hlink: 'hyperlink', folHlink: 'followedHyperlink',
+};
+
+const resolveSchemeToken = (
+  token: string,
+  theme: PresentationTheme | null,
+): string | null => {
+  if (!theme) return null;
+  const key = SCHEME_TOKEN_TO_THEME_KEY[token];
+  if (!key) return null;
+  const hex = theme[key];
+  if (typeof hex !== 'string') return null;
+  const normalized = hex.startsWith('#') ? hex : `#${hex}`;
+  return /^#[0-9A-Fa-f]{6}$/.test(normalized) ? normalized.toUpperCase() : null;
+};
+
+/**
+ * Resolves a DrawingML color element (`<a:srgbClr>` / `<a:schemeClr>` /
+ * `<a:sysClr>` / `<a:prstClr>`) with all its `<a:lumMod>` / `<a:tint>` /
+ * `<a:shade>` / `<a:satMod>` etc. transform children applied. Returns
+ * `null` when the color is a scheme token and no theme is supplied to
+ * resolve it.
+ *
+ * Exposed because both run-format and fill-format code paths need to
+ * apply the same transform pipeline; keeping a single implementation
+ * means future spec-coverage additions only have to land in one place.
+ */
+export const resolveDrawingColor = (
+  colorEl: XmlElement,
+  theme: PresentationTheme | null,
+): string | null => {
+  if (colorEl.name.namespaceURI !== NS.dml) return null;
+  const local = colorEl.name.localName;
+  let baseHex: string | null = null;
+  if (local === 'srgbClr') {
+    const v = getAttrValue(colorEl, qname('', 'val', ''));
+    if (v) baseHex = `#${v.toUpperCase()}`;
+  } else if (local === 'schemeClr') {
+    const v = getAttrValue(colorEl, qname('', 'val', ''));
+    if (v) baseHex = resolveSchemeToken(v, theme);
+  } else if (local === 'sysClr') {
+    const last = getAttrValue(colorEl, qname('', 'lastClr', ''));
+    if (last) baseHex = `#${last.toUpperCase()}`;
+  } else if (local === 'prstClr') {
+    // Preset colors aren't worth a full lookup table in this pass —
+    // black / white cover most cases anyone reaches for in PresentationML.
+    const v = getAttrValue(colorEl, qname('', 'val', ''));
+    if (v === 'black') baseHex = '#000000';
+    else if (v === 'white') baseHex = '#FFFFFF';
+  }
+  if (!baseHex) return null;
+  return applyColorTransforms(baseHex, parseColorTransforms(colorEl));
+};
+
 // Reads any element shaped like `CT_TextCharacterProperties` (the schema
 // shared by `<a:rPr>`, `<a:defRPr>`, and `<a:endParaRPr>`) into a partial
 // TextFormat. Used by both the literal-only `getShapeRunFormat` and the
 // inheritance-aware `getShapeRunFormatEffective`.
-const parseRPrLikeElement = (rPr: XmlElement): Partial<TextFormat> => {
+//
+// When `ctx.theme` is provided, scheme tokens are resolved to concrete
+// `#RRGGBB` and color transforms (`<a:lumMod>` etc.) are applied. Without
+// a theme, transforms are not applied and theme tokens are passed through
+// verbatim — this preserves the legacy `getShapeRunFormat` behavior.
+const parseRPrLikeElement = (
+  rPr: XmlElement,
+  ctx?: { readonly theme: PresentationTheme | null },
+): Partial<TextFormat> => {
   const out: Partial<TextFormat> = {};
   const sz = getAttrValue(rPr, qname('', 'sz', ''));
   if (sz !== null) {
@@ -4746,18 +5036,34 @@ const parseRPrLikeElement = (rPr: XmlElement): Partial<TextFormat> => {
   }
   const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
   if (solidFill !== null) {
-    const srgb = firstChildElement(solidFill, qname('a', 'srgbClr', NS.dml));
-    if (srgb !== null) {
-      const v = getAttrValue(srgb, qname('', 'val', ''));
-      if (v !== null) out.color = `#${v.toUpperCase()}`;
-    } else {
-      // Theme color — preserve the token (`tx1`, `accent1`, ...). The renderer
-      // resolves it against the deck's color scheme; callers that want a
-      // concrete hex can map it via `getPresentationTheme`.
-      const scheme = firstChildElement(solidFill, qname('a', 'schemeClr', NS.dml));
-      if (scheme !== null) {
-        const v = getAttrValue(scheme, qname('', 'val', ''));
-        if (v !== null) out.color = v;
+    // Find the inner color element (srgbClr / schemeClr / sysClr / prstClr).
+    // CT_SolidColorFillProperties holds exactly one EG_ColorChoice child.
+    let colorChild: XmlElement | null = null;
+    for (const c of solidFill.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      colorChild = c;
+      break;
+    }
+    if (colorChild) {
+      if (ctx) {
+        // Apply transforms + resolve scheme tokens to hex.
+        const hex = resolveDrawingColor(colorChild, ctx.theme);
+        if (hex !== null) out.color = hex;
+        else if (colorChild.name.localName === 'schemeClr') {
+          // Theme not provided / token not in scheme — surface the raw token.
+          const v = getAttrValue(colorChild, qname('', 'val', ''));
+          if (v !== null) out.color = v;
+        }
+      } else {
+        // Legacy `getShapeRunFormat` path: no transforms, scheme tokens
+        // emitted as bare strings to match prior public behavior.
+        if (colorChild.name.localName === 'srgbClr') {
+          const v = getAttrValue(colorChild, qname('', 'val', ''));
+          if (v !== null) out.color = `#${v.toUpperCase()}`;
+        } else if (colorChild.name.localName === 'schemeClr') {
+          const v = getAttrValue(colorChild, qname('', 'val', ''));
+          if (v !== null) out.color = v;
+        }
       }
     }
   }
@@ -4922,6 +5228,13 @@ export const getShapeRunFormatEffective = (
   const run = requireRun(shape, paragraphIndex, runIndex);
   const result: Partial<TextFormat> = {};
 
+  // Theme is consulted (a) at each layer to resolve scheme tokens and
+  // color transforms eagerly, so the cascade can pick the innermost layer
+  // that produces a concrete color, and (b) for typeface fallback at
+  // layer 7. Reading once up-front keeps the per-layer cost flat.
+  const theme = getPresentationTheme(pres);
+  const ctx = { theme } as const;
+
   // Paragraph level (0..8). `<a:pPr lvl="..">`; absent = 0.
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   let level = 0;
@@ -4935,25 +5248,25 @@ export const getShapeRunFormatEffective = (
 
   // 1. Run's own rPr.
   const runRPr = firstChildElement(run, NAME_A_RPR);
-  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr));
+  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
 
   // 2. endParaRPr — applies to the last run in the paragraph per the spec.
   const runs = runsOf(paragraph);
   if (runs.length > 0 && runs[runs.length - 1] === run) {
     const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
-    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr));
+    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
   }
 
   // 3. Paragraph-level defaults (pPr/defRPr).
   if (pPr) {
     const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
-    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr));
+    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx));
   }
 
   // 4. Text-body lstStyle at the paragraph's level.
   const shapeLstStyle = findShapeLstStyleElement(shape);
   const shapeLvlDef = lstStyleLevelDefRPr(shapeLstStyle, level);
-  if (shapeLvlDef) mergeRPrLayer(result, parseRPrLikeElement(shapeLvlDef));
+  if (shapeLvlDef) mergeRPrLayer(result, parseRPrLikeElement(shapeLvlDef, ctx));
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
@@ -4969,7 +5282,7 @@ export const getShapeRunFormatEffective = (
     if (layoutPh) {
       const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
       const layoutLvlDef = lstStyleLevelDefRPr(layoutLst, level);
-      if (layoutLvlDef) mergeRPrLayer(result, parseRPrLikeElement(layoutLvlDef));
+      if (layoutLvlDef) mergeRPrLayer(result, parseRPrLikeElement(layoutLvlDef, ctx));
     }
 
     // 6. Walk one rel up to the slide master.
@@ -4987,12 +5300,12 @@ export const getShapeRunFormatEffective = (
           if (masterPh) {
             const masterLst = extractPlaceholderLstStyle(masterPh.element);
             const masterLvlDef = lstStyleLevelDefRPr(masterLst, level);
-            if (masterLvlDef) mergeRPrLayer(result, parseRPrLikeElement(masterLvlDef));
+            if (masterLvlDef) mergeRPrLayer(result, parseRPrLikeElement(masterLvlDef, ctx));
           }
           // Master text-style defaults (title / body / other).
           const txStyle = masterTxStyleFor(masterRoot, phType);
           const txLvlDef = lstStyleLevelDefRPr(txStyle, level);
-          if (txLvlDef) mergeRPrLayer(result, parseRPrLikeElement(txLvlDef));
+          if (txLvlDef) mergeRPrLayer(result, parseRPrLikeElement(txLvlDef, ctx));
         }
       }
     }

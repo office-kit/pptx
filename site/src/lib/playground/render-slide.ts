@@ -27,6 +27,7 @@ import {
   getPresentationTheme,
   getShapeBoundsResolved,
   getShapeFill,
+  getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
   getShapeChartKind,
@@ -45,6 +46,7 @@ import {
   getShapeRunFormatEffective,
   getShapeRunText,
   getShapeStroke,
+  getShapeStrokeColorResolved,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextMargins,
@@ -316,11 +318,19 @@ const paint = (
   stroke: ShapeStroke,
   theme: PresentationTheme | null,
   isPlaceholder: boolean,
+  pres?: PresentationData,
 ): PaintResult => {
   let fillColor: string;
   let defs = '';
   if (fill.kind === 'solid') {
-    fillColor = resolveColor(fill.color, theme, '#E5E7EB');
+    // Prefer the transform-aware reader when we have a presentation
+    // handle — `<a:lumMod>` / `<a:shade>` / `<a:tint>` etc. on the
+    // shape's fill produce the actual painted color, while `fill.color`
+    // is only the base value. Falls through to the legacy path when
+    // the resolver can't produce a hex (theme missing, etc.).
+    let resolved: string | null = null;
+    if (shape && pres) resolved = getShapeFillColorResolved(pres, shape);
+    fillColor = resolved ?? resolveColor(fill.color, theme, '#E5E7EB');
   } else if (fill.kind === 'none') {
     fillColor = 'none';
   } else if (fill.kind === 'gradient') {
@@ -350,7 +360,9 @@ const paint = (
   let strokeColor = 'none';
   let strokeWidth = 0;
   if (stroke.kind === 'solid') {
-    strokeColor = resolveColor(stroke.color, theme, '#9CA3AF');
+    let resolved: string | null = null;
+    if (shape && pres) resolved = getShapeStrokeColorResolved(pres, shape);
+    strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
   }
   return { fill: fillColor, stroke: strokeColor, strokeWidth, defs };
@@ -2181,7 +2193,7 @@ const renderShape = (
   }
 
   if (kind === 'connector') {
-    const p = paint(shape, fill, stroke, theme, false);
+    const p = paint(shape, fill, stroke, theme, false, pres);
     const sw = p.strokeWidth || 19_050;
     let x1 = x;
     let y1 = y;
@@ -2231,7 +2243,7 @@ const renderShape = (
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
-  const p = paint(shape, fill, stroke, theme, phType !== null);
+  const p = paint(shape, fill, stroke, theme, phType !== null, pres);
 
   if (kind === 'graphicFrame') {
     // Charts and tables get real renders. SmartArt and the
