@@ -2474,6 +2474,8 @@ interface AxisSpec {
   readonly majorUnit?: number;
   /** Excel-style number-format code from <c:numFmt formatCode=…>. */
   readonly numberFormat?: string;
+  /** When `false`, gridlines aren't painted (only the tick labels). */
+  readonly majorGridlines?: boolean;
 }
 
 const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
@@ -2489,22 +2491,26 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     : niceTicks(axis.min, axis.max);
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
+  const showGrid = axis.majorGridlines ?? true;
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
-      // Gridline.
-      out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
-      );
+      if (showGrid) {
+        out.push(
+          `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+        );
+      }
       // Numeric label, right-aligned to the plot's left edge.
       out.push(
         `<text x="${px(f.plotX - 4)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
-      out.push(
-        `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
-      );
+      if (showGrid) {
+        out.push(
+          `<line x1="${px(xp)}" y1="${px(f.plotY)}" x2="${px(xp)}" y2="${px(f.plotY + f.plotH)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+        );
+      }
       out.push(
         `<text x="${px(xp)}" y="${px(f.plotY + f.plotH + 12)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="#6B7280">${escapeXml(formatAxisLabel(t, axis.numberFormat))}</text>`,
       );
@@ -3388,6 +3394,9 @@ const renderChart = (
     const axisExtras = {
       ...(majorUnit !== undefined ? { majorUnit } : {}),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
+      ...(spec.valueAxisMajorGridlines !== undefined
+        ? { majorGridlines: spec.valueAxisMajorGridlines }
+        : {}),
     };
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
