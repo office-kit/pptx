@@ -104,6 +104,9 @@ export interface ChartSpec {
   readonly dataLabels?: ChartDataLabels;
   /** Optional value-axis scaling override (min / max). */
   readonly valueAxis?: ChartAxisScaling;
+  /** Optional axis title text (`<c:catAx><c:title>` / `<c:valAx><c:title>`). */
+  readonly categoryAxisTitle?: string;
+  readonly valueAxisTitle?: string;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**

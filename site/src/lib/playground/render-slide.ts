@@ -3202,11 +3202,21 @@ const renderChart = (
       ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" fill="#9CA3AF">${escapeXml(`chart (${spec.kind}) — no data`)}</text>`
       : '';
 
+  // Axis titles — value title is rotated -90° to read along the y-axis
+  // tick stack; category title sits below the x-axis.
+  const valueAxisTitleSvg = spec.valueAxisTitle
+    ? `<text x="${px(f.plotX - 26)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#374151" font-weight="600" transform="rotate(-90 ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})">${escapeXml(spec.valueAxisTitle)}</text>`
+    : '';
+  const categoryAxisTitleSvg = spec.categoryAxisTitle
+    ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH + 16)}" text-anchor="middle" font-family="sans-serif" font-size="11" fill="#374151" font-weight="600">${escapeXml(spec.categoryAxisTitle)}</text>`
+    : '';
   return [
     `<g${transform}>`,
     `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="#FFFFFF" stroke="#E5E7EB" stroke-width="0.6"/>`,
     renderChartTitle(f, spec.title ?? ''),
     axes,
+    valueAxisTitleSvg,
+    categoryAxisTitleSvg,
     plot,
     emptyHint,
     spec.legend?.position === null
