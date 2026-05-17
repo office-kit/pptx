@@ -348,6 +348,7 @@ export {
   insertTableColumn,
   insertTableRow,
   isChartShape,
+  isParagraphBulletPicture,
   isShapeHidden,
   isShapePlaceholder,
   isSlideHidden,
