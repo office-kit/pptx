@@ -159,6 +159,35 @@ const markerElement = (
   return elem(c('marker'), { children });
 };
 
+// `<c:trendline>` for a series. Carries trendlineType + optional
+// period (movingAvg) / order (poly) / forward / backward / spPr color.
+const trendlineElement = (
+  tl: NonNullable<NonNullable<ChartSpec['series'][number]['trendline']>>,
+): XmlElement => {
+  const children: XmlElement[] = [];
+  if (tl.color !== undefined) {
+    const hex = tl.color.replace(/^#/, '').toUpperCase();
+    const ln = elem(a('ln'), {
+      children: [
+        elem(a('solidFill'), {
+          children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), hex)] })],
+        }),
+      ],
+    });
+    children.push(elem(c('spPr'), { children: [ln] }));
+  }
+  children.push(valNode(c('trendlineType'), tl.type));
+  if (tl.type === 'movingAvg' && tl.period !== undefined) {
+    children.push(valNode(c('period'), tl.period));
+  }
+  if (tl.type === 'poly' && tl.order !== undefined) {
+    children.push(valNode(c('order'), tl.order));
+  }
+  if (tl.forward !== undefined) children.push(valNode(c('forward'), tl.forward));
+  if (tl.backward !== undefined) children.push(valNode(c('backward'), tl.backward));
+  return elem(c('trendline'), { children });
+};
+
 const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlElement => {
   const series = spec.series[seriesIdx];
   if (!series) throw new Error('seriesElement: out of range');
@@ -196,6 +225,7 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   }
   const mk = markerElement(series.markerSymbol, series.markerSizePt);
   if (mk !== null) children.push(mk);
+  if (series.trendline) children.push(trendlineElement(series.trendline));
   children.push(elem(c('cat'), { children: [strRef(catRange, spec.categories)] }));
   children.push(elem(c('val'), { children: [numRef(valRange, paddedValues)] }));
   if (series.smooth === true) {
