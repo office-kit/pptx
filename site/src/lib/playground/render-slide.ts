@@ -45,6 +45,7 @@ import {
   getShapeChartSpec,
   getShapeHyperlink,
   getShapeTextColumns,
+  getShapeTextBodyRotationDeg,
   getShapeTextDirection,
   getShapeImageBiLevelThreshold,
   getShapeImageBrightness,
@@ -2393,7 +2394,18 @@ const renderTextBody = (
   // that overshoots — exactly the title-tops-cut-off symptom users
   // hit when the autofit scale wasn't enough.
   const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};word-break:break-word${vertStyles}">${paragraphs.join('')}</div>`;
-  return `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
+  const foreign = `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
+  // <a:bodyPr rot="N"/> rotates the text body around its own center
+  // (PowerPoint pivots on the shape's text-anchor midpoint). Wrap the
+  // foreignObject in a transform-aware <g> so the surrounding shape
+  // geometry stays put.
+  const bodyRotDeg = getShapeTextBodyRotationDeg(shape);
+  if (bodyRotDeg !== null && bodyRotDeg !== 0) {
+    const pivotX = innerX + innerW / 2;
+    const pivotY = innerY + innerH / 2;
+    return `<g transform="rotate(${bodyRotDeg} ${E(pivotX)} ${E(pivotY)})">${foreign}</g>`;
+  }
+  return foreign;
 };
 
 // ---------------------------------------------------------------------------

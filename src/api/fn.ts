@@ -4791,6 +4791,28 @@ export const getShapeTextColumns = (
  * Returns `null` when the attribute is absent or set to the default
  * `horz`.
  */
+/**
+ * Reads the shape's text-body rotation from `<a:bodyPr rot="N"/>`.
+ * `rot` is stored in 60000ths of a degree (OOXML angle units); the
+ * returned value is in degrees. Positive values rotate clockwise per
+ * PowerPoint's convention. Returns `null` when the attribute is
+ * absent.
+ *
+ * Distinct from the shape's own `<p:xfrm rot=…>` (the geometry
+ * rotation surfaced via the shape's `rotation`); `bodyPr rot` rotates
+ * the text body inside the shape without rotating the shape itself.
+ */
+export const getShapeTextBodyRotationDeg = (shape: SlideShapeData): number | null => {
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY_FN);
+  if (!txBody) return null;
+  const bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
+  if (!bodyPr) return null;
+  const v = getAttrValue(bodyPr, qname('', 'rot', ''));
+  if (v === null) return null;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n / 60000 : null;
+};
+
 export const getShapeTextDirection = (
   shape: SlideShapeData,
 ): 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null => {
