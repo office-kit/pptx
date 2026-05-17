@@ -16,6 +16,7 @@ import {
 } from '../xml/index.ts';
 import type {
   ChartAxisScaling,
+  ChartDataLabelPosition,
   ChartDataLabels,
   ChartGrouping,
   ChartKind,
@@ -464,6 +465,29 @@ const readTitleStyle = (chart: XmlElement): ChartTextStyle | undefined => {
   return readTitleStyleOf(title);
 };
 
+// `<c:dLbls><c:dLblPos val="…"/>` — the chart-kind-dependent enum that
+// names where labels sit relative to their data point. Returns
+// `undefined` for unknown tokens so callers fall back to their default.
+const readDataLabelPosition = (dLbls: XmlElement): ChartDataLabelPosition | undefined => {
+  const el = firstChildElement(dLbls, qname('c', 'dLblPos', NS_C));
+  if (!el) return undefined;
+  const v = getAttrValue(el, ATTR_VAL);
+  switch (v) {
+    case 'ctr':
+    case 'inEnd':
+    case 'outEnd':
+    case 'inBase':
+    case 't':
+    case 'b':
+    case 'l':
+    case 'r':
+    case 'bestFit':
+      return v;
+    default:
+      return undefined;
+  }
+};
+
 /**
  * Parses a `<c:chartSpace>` element into a typed `ChartSpec`. Throws if
  * the root or any required child is missing. Returns `null` only when
@@ -548,12 +572,14 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
         if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
       }
+      const position = readDataLabelPosition(serDLblsEl);
       serDataLabels = {
         showValue: readToggle('showVal'),
         showCategory: readToggle('showCatName'),
         showSeriesName: readToggle('showSerName'),
         showPercent: readToggle('showPercent'),
         ...(numberFormat !== undefined ? { numberFormat } : {}),
+        ...(position !== undefined ? { position } : {}),
       };
     }
     series.push({
@@ -597,12 +623,14 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
       if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
     }
+    const position = readDataLabelPosition(dLbls);
     dataLabels = {
       showValue: readToggle('showVal'),
       showCategory: readToggle('showCatName'),
       showSeriesName: readToggle('showSerName'),
       showPercent: readToggle('showPercent'),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
+      ...(position !== undefined ? { position } : {}),
     };
   }
 

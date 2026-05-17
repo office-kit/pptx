@@ -2896,9 +2896,26 @@ const renderColumnChart = (
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"/>`,
         );
         if (showLabelFor(s)) {
-          const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
+          // dLblPos: ctr (center) / inEnd (just inside the bar tip) /
+          // outEnd (outside the bar — default) / inBase (just inside the
+          // bar base).
+          const pos = spec.series[s]?.dataLabels?.position ?? spec.dataLabels?.position;
+          let labelY: number;
+          let fill = '#374151';
+          if (pos === 'ctr') {
+            labelY = y0 + h / 2 + 3;
+            fill = '#FFFFFF';
+          } else if (pos === 'inEnd') {
+            labelY = v >= 0 ? y0 + 9 : y0 + h - 3;
+            fill = '#FFFFFF';
+          } else if (pos === 'inBase') {
+            labelY = v >= 0 ? y0 + h - 3 : y0 + 9;
+            fill = '#FFFFFF';
+          } else {
+            labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
+          }
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v)}</text>`,
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="${fill}">${formatDataLabelValue(spec, s, v)}</text>`,
           );
         }
       }
@@ -3194,10 +3211,30 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"/>`,
         );
         if (showLabelForBar(s)) {
-          const labelX = v >= 0 ? x0 + w + 2 : x0 - 2;
-          const anchor = v >= 0 ? 'start' : 'end';
+          // dLblPos for horizontal bars uses the same enum as columns
+          // but maps to X positions.
+          const pos = spec.series[s]?.dataLabels?.position ?? spec.dataLabels?.position;
+          let labelX: number;
+          let anchor: string;
+          let fill = '#374151';
+          if (pos === 'ctr') {
+            labelX = x0 + w / 2;
+            anchor = 'middle';
+            fill = '#FFFFFF';
+          } else if (pos === 'inEnd') {
+            labelX = v >= 0 ? x0 + w - 4 : x0 + 4;
+            anchor = v >= 0 ? 'end' : 'start';
+            fill = '#FFFFFF';
+          } else if (pos === 'inBase') {
+            labelX = v >= 0 ? x0 + 4 : x0 + w - 4;
+            anchor = v >= 0 ? 'start' : 'end';
+            fill = '#FFFFFF';
+          } else {
+            labelX = v >= 0 ? x0 + w + 2 : x0 - 2;
+            anchor = v >= 0 ? 'start' : 'end';
+          }
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v)}</text>`,
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="${fill}">${formatDataLabelValue(spec, s, v)}</text>`,
           );
         }
       }
