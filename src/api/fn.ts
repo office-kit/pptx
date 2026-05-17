@@ -5112,6 +5112,35 @@ export const getParagraphSpacing = (
 };
 
 /**
+ * Reads the paragraph's left / right / first-line indents from
+ * `<a:pPr marL="…" marR="…" indent="…"/>`. Each is in EMU (matching
+ * PowerPoint's internal storage); positive means a positive indent,
+ * negative `indent` is a hanging indent (typical for bullets).
+ *
+ * Returns `null` for sides the paragraph doesn't set (those inherit
+ * from the layout / master).
+ */
+export const getParagraphIndent = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): { leftEmu: number | null; rightEmu: number | null; firstLineEmu: number | null } => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (!pPr) return { leftEmu: null, rightEmu: null, firstLineEmu: null };
+  const read = (name: string): number | null => {
+    const raw = getAttrValue(pPr, qname('', name, ''));
+    if (raw === null) return null;
+    const n = Number.parseInt(raw, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    leftEmu: read('marL'),
+    rightEmu: read('marR'),
+    firstLineEmu: read('indent'),
+  };
+};
+
+/**
  * Reads the paragraph's `<a:lnSpc>` line spacing. PowerPoint stores
  * line spacing two ways:
  *

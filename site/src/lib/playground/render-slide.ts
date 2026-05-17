@@ -23,6 +23,7 @@
 import {
   getParagraphAlignment,
   getParagraphBullet,
+  getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
   getParagraphSpacing,
@@ -1750,6 +1751,7 @@ const renderTextBody = (
     readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
     readonly spcBefPts: number | null;
     readonly spcAftPts: number | null;
+    readonly indent: ReturnType<typeof getParagraphIndent>;
   }
   const paraData: ParaData[] = [];
   let hasAnyText = false;
@@ -1760,12 +1762,14 @@ const renderTextBody = (
     let lineSpacing: ReturnType<typeof getParagraphLineSpacing> = null;
     let spcBefPts: number | null = null;
     let spcAftPts: number | null = null;
+    let indent: ReturnType<typeof getParagraphIndent> = { leftEmu: null, rightEmu: null, firstLineEmu: null };
     try { lineSpacing = getParagraphLineSpacing(shape, p); } catch {}
     try {
       const spacing = getParagraphSpacing(shape, p);
       spcBefPts = spacing.beforePts;
       spcAftPts = spacing.afterPts;
     } catch {}
+    try { indent = getParagraphIndent(shape, p); } catch {}
     const runs: RunData[] = [];
     // Walk the paragraph's inline elements — runs, field placeholders,
     // and explicit line breaks — in document order. The strict
@@ -1800,7 +1804,7 @@ const renderTextBody = (
       if (txt) hasAnyText = true;
       runs.push({ text: txt, fmt, sizePt });
     }
-    paraData.push({ align, level, bulletStyle, runs, lineSpacing, spcBefPts, spcAftPts });
+    paraData.push({ align, level, bulletStyle, runs, lineSpacing, spcBefPts, spcAftPts, indent });
   }
   if (!hasAnyText) return '';
 
@@ -1877,13 +1881,27 @@ const renderTextBody = (
       ? `margin-top:${(para.spcBefPts * PX_PER_PT * autoFitScale).toFixed(2)}px` : '';
     const marginBottomCss = para.spcAftPts !== null && para.spcAftPts > 0
       ? `margin-bottom:${(para.spcAftPts * PX_PER_PT * autoFitScale).toFixed(2)}px` : '';
+    // <a:pPr marL marR indent> → CSS padding-left / padding-right /
+    // text-indent. Authored indents override the level-based default
+    // so paragraphs with explicit marL don't get doubled.
+    const leftPx = para.indent.leftEmu !== null
+      ? (para.indent.leftEmu / EMU_PER_PX) * autoFitScale
+      : para.level > 0 ? para.level * 24 * PX_PER_PT * autoFitScale : 0;
+    const rightPx = para.indent.rightEmu !== null
+      ? (para.indent.rightEmu / EMU_PER_PX) * autoFitScale
+      : 0;
+    const firstLinePx = para.indent.firstLineEmu !== null
+      ? (para.indent.firstLineEmu / EMU_PER_PX) * autoFitScale
+      : 0;
     const pStyles: string[] = [
       marginTopCss || (marginBottomCss ? '' : 'margin:0'),
       marginBottomCss,
       'padding:0',
       `text-align:${ALIGNMENT_TO_CSS[para.align] ?? 'left'}`,
       lineHeightCss,
-      para.level > 0 ? `padding-left:${(para.level * 24 * PX_PER_PT * autoFitScale).toFixed(2)}px` : '',
+      leftPx > 0 ? `padding-left:${leftPx.toFixed(2)}px` : '',
+      rightPx > 0 ? `padding-right:${rightPx.toFixed(2)}px` : '',
+      firstLinePx !== 0 ? `text-indent:${firstLinePx.toFixed(2)}px` : '',
     ].filter(Boolean);
     let prefix = '';
     const explicitChar =
