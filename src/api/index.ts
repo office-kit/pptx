@@ -325,6 +325,7 @@ export {
   getTableCellAlignment,
   getTableCellBorders,
   getTableCellFill,
+  getTableCellMargins,
   getTableCellPosition,
   getTableCellSpan,
   getTableCellText,
