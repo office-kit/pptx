@@ -2819,7 +2819,9 @@ const renderColumnChart = (
         );
         if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
-          const labelText = isPercent ? `${Math.round(v * 100)}%` : formatChartValue(v);
+          const labelText = isPercent
+            ? `${Math.round(v * 100)}%`
+            : formatDataLabelValue(spec, s, v);
           out.push(
             `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#FFFFFF" font-weight="600">${labelText}</text>`,
           );
@@ -2852,7 +2854,7 @@ const renderColumnChart = (
         if (showLabelFor(s)) {
           const labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v)}</text>`,
           );
         }
       }
@@ -3051,6 +3053,15 @@ const formatChartValue = (v: number): string => {
   return v.toFixed(2).replace(/\.?0+$/, '');
 };
 
+// Resolves the data-label number format (`<c:dLbls><c:numFmt>`) with the
+// per-series override winning over the chart-level default, and projects
+// `v` through it. Falls back to `formatChartValue` when neither layer
+// authors a format.
+const formatDataLabelValue = (spec: ChartSpec, seriesIdx: number, v: number): string => {
+  const nf = spec.series[seriesIdx]?.dataLabels?.numberFormat ?? spec.dataLabels?.numberFormat;
+  return nf ? formatAxisLabel(v, nf) : formatChartValue(v);
+};
+
 const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
@@ -3110,7 +3121,9 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         );
         if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
-          const labelText = isPercent ? `${Math.round(v * 100)}%` : formatChartValue(v);
+          const labelText = isPercent
+            ? `${Math.round(v * 100)}%`
+            : formatDataLabelValue(spec, s, v);
           out.push(
             `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#FFFFFF" font-weight="600">${labelText}</text>`,
           );
@@ -3140,7 +3153,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
           const labelX = v >= 0 ? x0 + w + 2 : x0 - 2;
           const anchor = v >= 0 ? 'start' : 'end';
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="#374151">${formatChartValue(v)}</text>`,
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v)}</text>`,
           );
         }
       }
@@ -3413,7 +3426,7 @@ const renderPieChart = (
     const labelX = cx + labelR * Math.cos(labelMid);
     const labelY = cy + labelR * Math.sin(labelMid);
     const labels: string[] = [];
-    if (spec.dataLabels?.showValue) labels.push(formatChartValue(v));
+    if (spec.dataLabels?.showValue) labels.push(formatDataLabelValue(spec, 0, v));
     if (spec.dataLabels?.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
     if (spec.dataLabels?.showCategory) {
       const catLabel = spec.categories[i];
