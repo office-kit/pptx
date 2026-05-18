@@ -834,13 +834,20 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let valueAxisLabelRotationDeg: number | undefined;
   let valueAxisMajorTickMark: ChartSpec['valueAxisMajorTickMark'];
   let categoryAxisMajorTickMark: ChartSpec['categoryAxisMajorTickMark'];
-  const readTickMark = (axis: XmlElement): 'in' | 'out' | 'cross' | 'none' | undefined => {
-    const el = firstChildElement(axis, qname('c', 'majorTickMark', NS_C));
+  let valueAxisMinorTickMark: ChartSpec['valueAxisMinorTickMark'];
+  let categoryAxisMinorTickMark: ChartSpec['categoryAxisMinorTickMark'];
+  const readTickMarkLocal = (
+    axis: XmlElement,
+    local: 'majorTickMark' | 'minorTickMark',
+  ): 'in' | 'out' | 'cross' | 'none' | undefined => {
+    const el = firstChildElement(axis, qname('c', local, NS_C));
     if (!el) return undefined;
     const v = getAttrValue(el, ATTR_VAL);
     if (v === 'in' || v === 'out' || v === 'cross' || v === 'none') return v;
     return undefined;
   };
+  const readTickMark = (axis: XmlElement): 'in' | 'out' | 'cross' | 'none' | undefined =>
+    readTickMarkLocal(axis, 'majorTickMark');
   let valueAxisTitle: string | undefined;
   let valueAxisTitleStyle: ChartTextStyle | undefined;
   let valueAxisLabelStyle: ChartTextStyle | undefined;
@@ -892,6 +899,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     categoryAxisHidden = isHidden(catAx);
     categoryAxisOrientation = readAxisOrientation(catAx);
     categoryAxisMajorTickMark = readTickMark(catAx);
+    categoryAxisMinorTickMark = readTickMarkLocal(catAx, 'minorTickMark');
     const skipEl = firstChildElement(catAx, qname('c', 'tickLblSkip', NS_C));
     if (skipEl) {
       const v = getAttrValue(skipEl, ATTR_VAL);
@@ -955,6 +963,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorTickMark = readTickMark(valAx);
+    valueAxisMinorTickMark = readTickMarkLocal(valAx, 'minorTickMark');
     // <c:crosses val> and <c:crossesAt val> are mutually exclusive per
     // the schema; crossesAt wins when both are emitted (matches the
     // PowerPoint priority).
@@ -1158,8 +1167,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
     ...(valueAxisMajorGridlineColor !== undefined ? { valueAxisMajorGridlineColor } : {}),
     ...(valueAxisMajorTickMark !== undefined ? { valueAxisMajorTickMark } : {}),
+    ...(valueAxisMinorTickMark !== undefined ? { valueAxisMinorTickMark } : {}),
     ...(valueAxisLabelRotationDeg !== undefined ? { valueAxisLabelRotationDeg } : {}),
     ...(categoryAxisMajorTickMark !== undefined ? { categoryAxisMajorTickMark } : {}),
+    ...(categoryAxisMinorTickMark !== undefined ? { categoryAxisMinorTickMark } : {}),
     ...(valueAxisMinorGridlines !== undefined ? { valueAxisMinorGridlines } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
     ...(categoryAxisTickMarkSkip !== undefined ? { categoryAxisTickMarkSkip } : {}),

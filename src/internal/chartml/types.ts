@@ -342,6 +342,10 @@ export interface ChartSpec {
   readonly valueAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Major-tick mark mode on the category axis (`<c:catAx><c:majorTickMark>`). */
   readonly categoryAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`). */
+  readonly valueAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`). */
+  readonly categoryAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /**
    * Authored color on the value-axis major gridlines — `<c:valAx>
    * <c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="…"/>`.

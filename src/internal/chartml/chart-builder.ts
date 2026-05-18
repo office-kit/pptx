@@ -313,6 +313,9 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   if (spec.categoryAxisMajorTickMark !== undefined) {
     children.push(valNode(c('majorTickMark'), spec.categoryAxisMajorTickMark));
   }
+  if (spec.categoryAxisMinorTickMark !== undefined) {
+    children.push(valNode(c('minorTickMark'), spec.categoryAxisMinorTickMark));
+  }
   if (spec.categoryAxisTickLabelPos !== undefined) {
     children.push(valNode(c('tickLblPos'), spec.categoryAxisTickLabelPos));
   }
@@ -392,6 +395,9 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   }
   if (spec.valueAxisMajorTickMark !== undefined) {
     children.push(valNode(c('majorTickMark'), spec.valueAxisMajorTickMark));
+  }
+  if (spec.valueAxisMinorTickMark !== undefined) {
+    children.push(valNode(c('minorTickMark'), spec.valueAxisMinorTickMark));
   }
   const valTxPr = axisTxPrElement(spec.valueAxisLabelStyle, spec.valueAxisLabelRotationDeg);
   if (valTxPr) children.push(valTxPr);
