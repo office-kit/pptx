@@ -1125,6 +1125,14 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const v = getAttrValue(pvoEl, ATTR_VAL);
     if (v === '0' || v === 'false') plotVisibleCellsOnly = false;
   }
+  // <c:chartSpace><c:roundedCorners val="1"/> — surface only when
+  // explicitly true so the round-trip doesn't carry a redundant false.
+  let roundedCorners: boolean | undefined;
+  const rcEl = firstChildElement(root, qname('c', 'roundedCorners', NS_C));
+  if (rcEl) {
+    const v = getAttrValue(rcEl, ATTR_VAL);
+    if (v === '1' || v === 'true') roundedCorners = true;
+  }
 
   // <c:legend> sits on the chart element (not the plotArea). Read the
   // position; PowerPoint defaults to 'r' (right) when the element is
@@ -1231,6 +1239,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(varyColors !== undefined ? { varyColors } : {}),
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
     ...(plotVisibleCellsOnly === false ? { plotVisibleCellsOnly: false } : {}),
+    ...(roundedCorners === true ? { roundedCorners: true } : {}),
     ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
     ...(plotAreaStrokeColor !== undefined ? { plotAreaStrokeColor } : {}),
     ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),
