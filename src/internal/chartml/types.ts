@@ -450,6 +450,13 @@ export interface ChartSpec {
    */
   readonly categoryAxisNumberFormat?: string;
   /**
+   * Toggle multi-level (hierarchical) category labels —
+   * `<c:catAx><c:noMultiLvlLbl val="0|1"/>`. PowerPoint defaults to
+   * `0` (multi-level labels stack). Set to `true` to flatten
+   * hierarchical categories into a single row.
+   */
+  readonly categoryAxisNoMultiLevelLabel?: boolean;
+  /**
    * Category-axis order — `'minMax'` (the data's natural order) or
    * `'maxMin'` (reversed). For bar charts PowerPoint typically emits
    * `maxMin` so the first category sits at the top instead of the

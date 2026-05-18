@@ -901,6 +901,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisLabelOffset: number | undefined;
   let categoryAxisLabelAlign: ChartSpec['categoryAxisLabelAlign'];
   let categoryAxisNumberFormat: string | undefined;
+  let categoryAxisNoMultiLevelLabel: boolean | undefined;
   let categoryAxisLineColor: string | undefined;
   let valueAxisLineColor: string | undefined;
   let categoryAxisMajorGridlines: boolean | undefined;
@@ -1026,6 +1027,11 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (catNumFmtEl) {
       const fc = getAttrValue(catNumFmtEl, qname('', 'formatCode', ''));
       if (fc !== null && fc.length > 0 && fc !== 'General') categoryAxisNumberFormat = fc;
+    }
+    const noMultiLvlEl = firstChildElement(catAx, qname('c', 'noMultiLvlLbl', NS_C));
+    if (noMultiLvlEl) {
+      const v = getAttrValue(noMultiLvlEl, ATTR_VAL);
+      if (v === '1' || v === 'true') categoryAxisNoMultiLevelLabel = true;
     }
   }
   // <c:majorGridlines> / <c:minorGridlines> presence governs visibility.
@@ -1308,6 +1314,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisLabelOffset !== undefined ? { categoryAxisLabelOffset } : {}),
     ...(categoryAxisLabelAlign !== undefined ? { categoryAxisLabelAlign } : {}),
     ...(categoryAxisNumberFormat !== undefined ? { categoryAxisNumberFormat } : {}),
+    ...(categoryAxisNoMultiLevelLabel === true ? { categoryAxisNoMultiLevelLabel: true } : {}),
     ...(categoryAxisLineColor !== undefined ? { categoryAxisLineColor } : {}),
     ...(valueAxisLineColor !== undefined ? { valueAxisLineColor } : {}),
     ...(categoryAxisMajorGridlines === true ? { categoryAxisMajorGridlines: true } : {}),
