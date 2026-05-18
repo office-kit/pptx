@@ -3129,7 +3129,7 @@ const renderColumnChart = (
             labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
           }
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="${fill}">${formatDataLabelValue(spec, s, v)}</text>`,
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill)}>${formatDataLabelValue(spec, s, v)}</text>`,
           );
         }
       }
@@ -3347,6 +3347,25 @@ const formatDataLabelValue = (spec: ChartSpec, seriesIdx: number, v: number): st
   return nf ? formatAxisLabel(v, nf) : formatChartValue(v);
 };
 
+// Per-series <c:dLbls><c:txPr> wins over the chart-level default.
+// Falls back to the renderer's hardcoded size / caller-supplied fill /
+// weight so existing layouts don't shift when no textStyle is authored.
+const dataLabelTextAttrs = (
+  spec: ChartSpec,
+  seriesIdx: number,
+  fallbackFill: string,
+  fallbackSizePt = 9,
+  fallbackBold = false,
+): string => {
+  const style = spec.series[seriesIdx]?.dataLabels?.textStyle ?? spec.dataLabels?.textStyle;
+  const sz = style?.sizePt ?? fallbackSizePt;
+  const fill = style?.color ?? fallbackFill;
+  const isBold = style?.bold ?? fallbackBold;
+  const weight = isBold ? ' font-weight="600"' : '';
+  const italic = style?.italic ? ' font-style="italic"' : '';
+  return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
+};
+
 const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
@@ -3461,7 +3480,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
             anchor = v >= 0 ? 'start' : 'end';
           }
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="${fill}">${formatDataLabelValue(spec, s, v)}</text>`,
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill)}>${formatDataLabelValue(spec, s, v)}</text>`,
           );
         }
       }
@@ -3657,7 +3676,7 @@ const renderLineChart = (
         const [xp, yp] = p;
         const { x: lx, y: ly, anchor } = computeAttrs(xp, yp);
         out.push(
-          `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" font-family="sans-serif" font-size="9" fill="#374151">${formatDataLabelValue(spec, s, v as number)}</text>`,
+          `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151')}>${formatDataLabelValue(spec, s, v as number)}</text>`,
         );
       }
     }
@@ -3801,7 +3820,7 @@ const renderPieChart = (
     }
     if (labels.length > 0) {
       out.push(
-        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="10" fill="${labelFill}" font-weight="600">${escapeXml(labels.join(spec.series[0]?.dataLabels?.separator ?? spec.dataLabels?.separator ?? ' '))}</text>`,
+        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" ${dataLabelTextAttrs(spec, 0, labelFill, 10, true)}>${escapeXml(labels.join(spec.series[0]?.dataLabels?.separator ?? spec.dataLabels?.separator ?? ' '))}</text>`,
       );
     }
   }
