@@ -309,6 +309,7 @@
             {#if s.tableCount > 0}<span class="s-badge" title="number of <p:graphicFrame> table shapes on the slide">{s.tableCount} table</span>{/if}
             {#if s.hyperlinkCount > 0}<span class="s-badge" title="shapes whose text body carries an <a:hlinkClick>">{s.hyperlinkCount} link</span>{/if}
             {#if s.mediaCount > 0}<span class="s-badge" title="number of media parts (images / audio / video) the slide references">{s.mediaCount} media</span>{/if}
+            {#if s.notes && s.notes.length > 0}<span class="s-badge" title="speaker notes character count">{s.notes.length} notes</span>{/if}
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
           </div>
           <div class="s-canvas">
