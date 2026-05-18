@@ -585,6 +585,37 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisOrientation).toBe('maxMin');
   });
 
+  it('round-trips all 4 gridline colors', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'bar',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        categoryAxisMajorGridlines: true,
+        categoryAxisMinorGridlines: true,
+        valueAxisMajorGridlines: true,
+        valueAxisMinorGridlines: true,
+        categoryAxisMajorGridlineColor: '#111111',
+        categoryAxisMinorGridlineColor: '#222222',
+        valueAxisMajorGridlineColor: '#333333',
+        valueAxisMinorGridlineColor: '#444444',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.categoryAxisMajorGridlineColor).toBe('#111111');
+    expect(spec.categoryAxisMinorGridlineColor).toBe('#222222');
+    expect(spec.valueAxisMajorGridlineColor).toBe('#333333');
+    expect(spec.valueAxisMinorGridlineColor).toBe('#444444');
+  });
+
   it('round-trips category-axis gridlines (major + minor)', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

@@ -353,6 +353,12 @@ export interface ChartSpec {
    * default (a light gray).
    */
   readonly valueAxisMajorGridlineColor?: string;
+  /** Companion authored color on the value-axis minor gridlines. */
+  readonly valueAxisMinorGridlineColor?: string;
+  /** Authored color on the category-axis major gridlines (same shape as `valueAxisMajorGridlineColor`). */
+  readonly categoryAxisMajorGridlineColor?: string;
+  /** Authored color on the category-axis minor gridlines. */
+  readonly categoryAxisMinorGridlineColor?: string;
   /**
    * Authored color on the value-axis line itself — `<c:valAx><c:spPr>
    * <a:ln><a:solidFill><a:srgbClr val="…"/>`. Returned as `#RRGGBB`.

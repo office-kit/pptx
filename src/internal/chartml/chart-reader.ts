@@ -863,6 +863,22 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let valueAxisLineColor: string | undefined;
   let categoryAxisMajorGridlines: boolean | undefined;
   let categoryAxisMinorGridlines: boolean | undefined;
+  let categoryAxisMajorGridlineColor: string | undefined;
+  let categoryAxisMinorGridlineColor: string | undefined;
+  let valueAxisMinorGridlineColor: string | undefined;
+  // <c:majorGridlines|minorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val=…/>.
+  const readGridlineColor = (gl: XmlElement): string | undefined => {
+    const spPr = firstChildElement(gl, NAME_SP_PR_C);
+    if (!spPr) return undefined;
+    const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
+    if (!ln) return undefined;
+    const solid = firstChildElement(ln, NAME_SOLID_FILL);
+    if (!solid) return undefined;
+    const srgb = firstChildElement(solid, NAME_SRGB_CLR);
+    if (!srgb) return undefined;
+    const v = getAttrValue(srgb, ATTR_VAL);
+    return v !== null ? `#${v.toUpperCase()}` : undefined;
+  };
   // <c:catAx|valAx><c:spPr><a:ln><a:solidFill><a:srgbClr val=…/>.
   const readAxisLineColor = (axis: XmlElement): string | undefined => {
     const spPr = firstChildElement(axis, NAME_SP_PR_C);
@@ -916,10 +932,12 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     categoryAxisHidden = isHidden(catAx);
     categoryAxisLineColor = readAxisLineColor(catAx);
-    categoryAxisMajorGridlines =
-      firstChildElement(catAx, qname('c', 'majorGridlines', NS_C)) !== null;
-    categoryAxisMinorGridlines =
-      firstChildElement(catAx, qname('c', 'minorGridlines', NS_C)) !== null;
+    const catMajorGl = firstChildElement(catAx, qname('c', 'majorGridlines', NS_C));
+    categoryAxisMajorGridlines = catMajorGl !== null;
+    if (catMajorGl) categoryAxisMajorGridlineColor = readGridlineColor(catMajorGl);
+    const catMinorGl = firstChildElement(catAx, qname('c', 'minorGridlines', NS_C));
+    categoryAxisMinorGridlines = catMinorGl !== null;
+    if (catMinorGl) categoryAxisMinorGridlineColor = readGridlineColor(catMinorGl);
     categoryAxisOrientation = readAxisOrientation(catAx);
     categoryAxisMajorTickMark = readTickMark(catAx);
     categoryAxisMinorTickMark = readTickMarkLocal(catAx, 'minorTickMark');
@@ -1017,24 +1035,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     const majorGl = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C));
     valueAxisMajorGridlines = majorGl !== null;
-    if (majorGl) {
-      // <c:majorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val="…"/>
-      const spPr = firstChildElement(majorGl, NAME_SP_PR_C);
-      if (spPr) {
-        const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
-        if (ln) {
-          const solid = firstChildElement(ln, NAME_SOLID_FILL);
-          if (solid) {
-            const srgb = firstChildElement(solid, NAME_SRGB_CLR);
-            if (srgb) {
-              const v = getAttrValue(srgb, ATTR_VAL);
-              if (v !== null) valueAxisMajorGridlineColor = `#${v.toUpperCase()}`;
-            }
-          }
-        }
-      }
-    }
-    valueAxisMinorGridlines = firstChildElement(valAx, qname('c', 'minorGridlines', NS_C)) !== null;
+    if (majorGl) valueAxisMajorGridlineColor = readGridlineColor(majorGl);
+    const minorGl = firstChildElement(valAx, qname('c', 'minorGridlines', NS_C));
+    valueAxisMinorGridlines = minorGl !== null;
+    if (minorGl) valueAxisMinorGridlineColor = readGridlineColor(minorGl);
   }
 
   // Plot area + chart area fills (`<c:spPr><a:solidFill><a:srgbClr/>`).
@@ -1211,6 +1215,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisLineColor !== undefined ? { valueAxisLineColor } : {}),
     ...(categoryAxisMajorGridlines === true ? { categoryAxisMajorGridlines: true } : {}),
     ...(categoryAxisMinorGridlines === true ? { categoryAxisMinorGridlines: true } : {}),
+    ...(categoryAxisMajorGridlineColor !== undefined ? { categoryAxisMajorGridlineColor } : {}),
+    ...(categoryAxisMinorGridlineColor !== undefined ? { categoryAxisMinorGridlineColor } : {}),
+    ...(valueAxisMinorGridlineColor !== undefined ? { valueAxisMinorGridlineColor } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),

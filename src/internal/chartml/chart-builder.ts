@@ -69,6 +69,25 @@ const solidFillSpPr = (color: string): XmlElement => {
   return elem(c('spPr'), { children: [solidFill] });
 };
 
+// <c:majorGridlines|minorGridlines> with optional spPr/ln/solidFill/srgbClr
+// for the gridline color. Centralizes the per-gridline color emit so all
+// four axis-gridline slots share the same shape.
+const gridlinesElement = (
+  local: 'majorGridlines' | 'minorGridlines',
+  color: string | undefined,
+): XmlElement => {
+  if (color === undefined) return elem(c(local));
+  const hex = color.replace(/^#/, '').toUpperCase();
+  const ln = elem(a('ln'), {
+    children: [
+      elem(a('solidFill'), {
+        children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), hex)] })],
+      }),
+    ],
+  });
+  return elem(c(local), { children: [elem(c('spPr'), { children: [ln] })] });
+};
+
 // Generic <c:spPr> with optional fill color + line color. Used for the
 // chart-area / plot-area background, where authors set one or both.
 const spPrChildren = (fill: string | undefined, stroke: string | undefined): XmlElement => {
@@ -307,8 +326,12 @@ const catAxis = (spec: ChartSpec): XmlElement => {
     valNode(c('delete'), spec.categoryAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'b'),
   ];
-  if (spec.categoryAxisMajorGridlines) children.push(elem(c('majorGridlines')));
-  if (spec.categoryAxisMinorGridlines) children.push(elem(c('minorGridlines')));
+  if (spec.categoryAxisMajorGridlines) {
+    children.push(gridlinesElement('majorGridlines', spec.categoryAxisMajorGridlineColor));
+  }
+  if (spec.categoryAxisMinorGridlines) {
+    children.push(gridlinesElement('minorGridlines', spec.categoryAxisMinorGridlineColor));
+  }
   if (spec.categoryAxisTitle !== undefined) {
     children.push(titleElement(spec.categoryAxisTitle, spec.categoryAxisTitleStyle));
   }
@@ -372,29 +395,12 @@ const valAxis = (spec: ChartSpec): XmlElement => {
     valNode(c('delete'), spec.valueAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'l'),
   ];
-  // <c:majorGridlines> with optional spPr/ln/solidFill/srgbClr.
   if (spec.valueAxisMajorGridlines) {
-    const glChildren: XmlElement[] = [];
-    if (spec.valueAxisMajorGridlineColor !== undefined) {
-      const hex = spec.valueAxisMajorGridlineColor.startsWith('#')
-        ? spec.valueAxisMajorGridlineColor.slice(1)
-        : spec.valueAxisMajorGridlineColor;
-      const ln = elem(a('ln'), {
-        children: [
-          elem(a('solidFill'), {
-            children: [
-              elem(a('srgbClr'), {
-                attrs: [attr(qname('', 'val', ''), hex.toUpperCase())],
-              }),
-            ],
-          }),
-        ],
-      });
-      glChildren.push(elem(c('spPr'), { children: [ln] }));
-    }
-    children.push(elem(c('majorGridlines'), { children: glChildren }));
+    children.push(gridlinesElement('majorGridlines', spec.valueAxisMajorGridlineColor));
   }
-  if (spec.valueAxisMinorGridlines) children.push(elem(c('minorGridlines')));
+  if (spec.valueAxisMinorGridlines) {
+    children.push(gridlinesElement('minorGridlines', spec.valueAxisMinorGridlineColor));
+  }
   if (spec.valueAxisTitle !== undefined) {
     children.push(titleElement(spec.valueAxisTitle, spec.valueAxisTitleStyle));
   }
