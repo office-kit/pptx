@@ -861,6 +861,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisOrientation: 'minMax' | 'maxMin' | undefined;
   let valueAxisOrientation: 'minMax' | 'maxMin' | undefined;
   let valueAxisCrosses: ChartSpec['valueAxisCrosses'];
+  let valueAxisCrossBetween: ChartSpec['valueAxisCrossBetween'];
   const readAxisOrientation = (axis: XmlElement): 'minMax' | 'maxMin' | undefined => {
     const scaling = firstChildElement(axis, qname('c', 'scaling', NS_C));
     if (!scaling) return undefined;
@@ -970,6 +971,11 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         const v = getAttrValue(crossesEl, ATTR_VAL);
         if (v === 'autoZero' || v === 'min' || v === 'max') valueAxisCrosses = v;
       }
+    }
+    const crossBetweenEl = firstChildElement(valAx, qname('c', 'crossBetween', NS_C));
+    if (crossBetweenEl) {
+      const v = getAttrValue(crossBetweenEl, ATTR_VAL);
+      if (v === 'between' || v === 'midCat') valueAxisCrossBetween = v;
     }
     const majorGl = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C));
     valueAxisMajorGridlines = majorGl !== null;
@@ -1163,6 +1169,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),
+    ...(valueAxisCrossBetween !== undefined ? { valueAxisCrossBetween } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };

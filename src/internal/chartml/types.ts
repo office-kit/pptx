@@ -402,6 +402,15 @@ export interface ChartSpec {
    * range straddles zero, otherwise at the closer extreme).
    */
   readonly valueAxisCrosses?: 'autoZero' | 'min' | 'max' | { at: number };
+  /**
+   * Whether the value axis crosses the category axis *between* tick
+   * marks (the default for bar / column / area) or *at* each tick mark
+   * (the default for line / scatter). Maps to `<c:valAx>
+   * <c:crossBetween val="between|midCat"/>`. PowerPoint emits this when
+   * the chart kind makes the default value non-obvious — surface it
+   * here so the round-trip preserves the authored intent.
+   */
+  readonly valueAxisCrossBetween?: 'between' | 'midCat';
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
