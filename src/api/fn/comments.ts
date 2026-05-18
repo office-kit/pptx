@@ -160,17 +160,21 @@ export const getCommentAuthors = (pres: PresentationData): ReadonlyArray<Comment
 
 /**
  * Returns every slide that has at least one comment by the given
- * author name. Sibling of `findCommentsByAuthor` (which returns
- * the comments themselves). Case-sensitive equality.
+ * author name. Accepts a literal string (exact-equality) or a
+ * `RegExp` for pattern matches. Sibling of `findCommentsByAuthor`
+ * (which returns the comments themselves).
  */
 export const findSlidesWithCommentsByAuthor = (
   pres: PresentationData,
-  authorName: string,
+  authorName: string | RegExp,
 ): ReadonlyArray<SlideData> => {
+  const matches =
+    typeof authorName === 'string'
+      ? (n: string) => n === authorName
+      : (n: string) => authorName.test(n);
   const out: SlideData[] = [];
   for (const slide of getSlides(pres)) {
-    const hit = getSlideComments(slide).some((c) => c.author.name === authorName);
-    if (hit) out.push(slide);
+    if (getSlideComments(slide).some((c) => matches(c.author.name))) out.push(slide);
   }
   return out;
 };
@@ -248,21 +252,22 @@ export const findCommentAuthorByName = (
 
 /**
  * Returns every comment whose author name matches `authorName`
- * exactly, across every slide in the deck. Useful for reviewer-
- * specific filters ("show me all of Alice's notes").
- *
- * Case-sensitive equality. Use `findShapesByText` (with a slide
- * predicate of your choosing) for fuzzier text matching against
- * comment bodies.
+ * across every slide in the deck. Accepts a literal string (exact-
+ * equality) or a `RegExp` for pattern matches — useful for reviewer-
+ * specific filters ("show me all of Alice's notes" / `/^review-bot/`).
  */
 export const findCommentsByAuthor = (
   pres: PresentationData,
-  authorName: string,
+  authorName: string | RegExp,
 ): ReadonlyArray<SlideCommentData> => {
   const out: SlideCommentData[] = [];
   for (const slide of getSlides(pres)) {
     for (const c of getSlideComments(slide)) {
-      if (c.author.name === authorName) out.push(c);
+      const hit =
+        typeof authorName === 'string'
+          ? c.author.name === authorName
+          : authorName.test(c.author.name);
+      if (hit) out.push(c);
     }
   }
   return out;
