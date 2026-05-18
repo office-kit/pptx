@@ -297,6 +297,16 @@ const readTrendline = (ser: XmlElement): ChartTrendline | undefined => {
   };
   const forward = readExtension('forward');
   const backward = readExtension('backward');
+  // <c:dispEq val="1"/> and <c:dispRSqr val="1"/> show the regression
+  // equation / R² coefficient next to the line. Default false.
+  const readDispBool = (local: string): boolean | undefined => {
+    const el = firstChildElement(tl, qname('c', local, NS_C));
+    if (!el) return undefined;
+    const v = getAttrValue(el, ATTR_VAL);
+    return v === null || v === '1' || v === 'true' ? true : undefined;
+  };
+  const displayEquation = readDispBool('dispEq');
+  const displayRSquared = readDispBool('dispRSqr');
   return {
     type,
     ...(period !== undefined ? { period } : {}),
@@ -304,6 +314,8 @@ const readTrendline = (ser: XmlElement): ChartTrendline | undefined => {
     ...(color !== undefined ? { color } : {}),
     ...(forward !== undefined ? { forward } : {}),
     ...(backward !== undefined ? { backward } : {}),
+    ...(displayEquation === true ? { displayEquation: true } : {}),
+    ...(displayRSquared === true ? { displayRSquared: true } : {}),
   };
 };
 
