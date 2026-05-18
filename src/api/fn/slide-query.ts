@@ -250,6 +250,17 @@ export const getPresentationShapeCountsBySlide = (pres: PresentationData): Reado
   getSlides(pres).map((s) => s[SLIDE_SHAPES].length);
 
 /**
+ * Dense per-slide visible-text length array, 0-based by slide index.
+ * Counts code points (surrogate pairs as 1) per `getSlideTextLength`.
+ * Pair with `getPresentationShapeCountsBySlide` for slide-density
+ * audits — high text length on a slide with few shapes usually means
+ * one paragraph-heavy text box; low text on a many-shape slide
+ * usually means a busy diagram.
+ */
+export const getPresentationTextLengthsBySlide = (pres: PresentationData): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => Array.from(slideText(s[SLIDE_PART])).length);
+
+/**
  * Returns the 0-based index of `slide` within `pres`, or `-1` if the
  * slide doesn't belong to this presentation (e.g. after a removeSlide
  * call, or if it was constructed from a different package).

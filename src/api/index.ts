@@ -262,6 +262,7 @@ export {
   getPresentationShapeCountsBySlide,
   getPresentationText,
   getPresentationTextLength,
+  getPresentationTextLengthsBySlide,
   getPresentationTheme,
   getShapePlaceholderType,
   getShapePosition,
