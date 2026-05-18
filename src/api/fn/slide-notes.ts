@@ -605,6 +605,19 @@ export const getPresentationNotesLengthsBySlide = (pres: PresentationData): Read
   getSlides(pres).map((s) => getSlideNotesLength(s));
 
 /**
+ * Returns every slide whose `<p:spTree>` carries no shapes (per
+ * `getSlideShapes`). Useful as a "find the section dividers I forgot
+ * to fill in" pre-publish check.
+ */
+export const getEmptySlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    if (slide[SLIDE_SHAPES].length === 0) out.push(slide);
+  }
+  return out;
+};
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.
