@@ -466,6 +466,7 @@ export {
   setTableCellFill,
   setTableCellMargins,
   setTableCellText,
+  setTableCellTextDirection,
   setTableCellTextFormat,
   setTableColumnWidth,
   setTableRowHeight,
