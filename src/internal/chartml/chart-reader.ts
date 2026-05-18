@@ -859,6 +859,21 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisLabelOffset: number | undefined;
   let categoryAxisLabelAlign: ChartSpec['categoryAxisLabelAlign'];
   let categoryAxisNumberFormat: string | undefined;
+  let categoryAxisLineColor: string | undefined;
+  let valueAxisLineColor: string | undefined;
+  // <c:catAx|valAx><c:spPr><a:ln><a:solidFill><a:srgbClr val=…/>.
+  const readAxisLineColor = (axis: XmlElement): string | undefined => {
+    const spPr = firstChildElement(axis, NAME_SP_PR_C);
+    if (!spPr) return undefined;
+    const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
+    if (!ln) return undefined;
+    const solid = firstChildElement(ln, NAME_SOLID_FILL);
+    if (!solid) return undefined;
+    const srgb = firstChildElement(solid, NAME_SRGB_CLR);
+    if (!srgb) return undefined;
+    const v = getAttrValue(srgb, ATTR_VAL);
+    return v !== null ? `#${v.toUpperCase()}` : undefined;
+  };
   const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
   const isHidden = (axis: XmlElement): boolean | undefined => {
     const d = firstChildElement(axis, qname('c', 'delete', NS_C));
@@ -898,6 +913,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       }
     }
     categoryAxisHidden = isHidden(catAx);
+    categoryAxisLineColor = readAxisLineColor(catAx);
     categoryAxisOrientation = readAxisOrientation(catAx);
     categoryAxisMajorTickMark = readTickMark(catAx);
     categoryAxisMinorTickMark = readTickMarkLocal(catAx, 'minorTickMark');
@@ -967,6 +983,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       }
     }
     valueAxisHidden = isHidden(valAx);
+    valueAxisLineColor = readAxisLineColor(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorTickMark = readTickMark(valAx);
     valueAxisMinorTickMark = readTickMarkLocal(valAx, 'minorTickMark');
@@ -1184,6 +1201,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisLabelOffset !== undefined ? { categoryAxisLabelOffset } : {}),
     ...(categoryAxisLabelAlign !== undefined ? { categoryAxisLabelAlign } : {}),
     ...(categoryAxisNumberFormat !== undefined ? { categoryAxisNumberFormat } : {}),
+    ...(categoryAxisLineColor !== undefined ? { categoryAxisLineColor } : {}),
+    ...(valueAxisLineColor !== undefined ? { valueAxisLineColor } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),
