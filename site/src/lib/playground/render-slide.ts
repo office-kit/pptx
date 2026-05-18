@@ -2646,6 +2646,8 @@ interface AxisSpec {
   readonly majorGridlineColor?: string;
   /** Major-tick mark mode from `<c:valAx><c:majorTickMark val="…"/>`. */
   readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Authored axis-line stroke color from `<c:valAx><c:spPr><a:ln>`. */
+  readonly lineColor?: string;
   /** Authored tick-label rotation, in degrees. */
   readonly labelRotationDeg?: number;
   /** Authored `<c:dispUnits>` value-axis scale token. */
@@ -2798,6 +2800,21 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       );
     }
   }
+  // Authored <c:valAx><c:spPr><a:ln> — draw an explicit axis spine at
+  // the appropriate edge so the line color shows up in the preview.
+  // Only emit when authored (the renderer's default look has no spine,
+  // relying on chart-area + plotArea borders).
+  if (axis.lineColor !== undefined) {
+    if (axis.orientation === 'vertical') {
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axis.lineColor}" stroke-width="0.75"/>`,
+      );
+    } else {
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(f.plotY + f.plotH)}" x2="${px(f.plotX + f.plotW)}" y2="${px(f.plotY + f.plotH)}" stroke="${axis.lineColor}" stroke-width="0.75"/>`,
+      );
+    }
+  }
   return out.join('');
 };
 
@@ -2811,6 +2828,7 @@ const renderCategoryAxis = (
   labelStyle?: ChartTextStyle,
   labelRotationDeg?: number,
   labelAlign?: 'ctr' | 'l' | 'r',
+  lineColor?: string,
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -2878,6 +2896,20 @@ const renderCategoryAxis = (
           : '';
       out.push(
         `<text x="${px(lx)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}>${escapeXml(truncated)}</text>`,
+      );
+    }
+  }
+  // Authored <c:catAx><c:spPr><a:ln> — spine at the bottom edge for
+  // horizontal (column / line / area) and at the left edge for
+  // vertical (bar chart). Only emit when authored.
+  if (lineColor !== undefined) {
+    if (orientation === 'horizontal') {
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(f.plotY + f.plotH)}" x2="${px(f.plotX + f.plotW)}" y2="${px(f.plotY + f.plotH)}" stroke="${lineColor}" stroke-width="0.75"/>`,
+      );
+    } else {
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${lineColor}" stroke-width="0.75"/>`,
       );
     }
   }
@@ -3919,6 +3951,7 @@ const renderChart = (
       ...(spec.valueAxisMajorTickMark !== undefined
         ? { majorTickMark: spec.valueAxisMajorTickMark }
         : {}),
+      ...(spec.valueAxisLineColor !== undefined ? { lineColor: spec.valueAxisLineColor } : {}),
       ...(spec.valueAxisLabelRotationDeg !== undefined
         ? { labelRotationDeg: spec.valueAxisLabelRotationDeg }
         : {}),
@@ -3945,6 +3978,7 @@ const renderChart = (
         spec.categoryAxisLabelStyle,
         spec.categoryAxisLabelRotationDeg,
         spec.categoryAxisLabelAlign,
+        spec.categoryAxisLineColor,
       );
     }
   }
