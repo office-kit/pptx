@@ -9,9 +9,11 @@
     getCommentText,
     getCoreProperties,
     getPresentationSummary,
+    getShapeHyperlink,
     getSlideCharts,
     getSlideMasterCount,
     getSlideMediaPartNames,
+    getSlideTables,
     type ValidationIssue,
     validatePresentation,
     getShapeKind,
@@ -50,6 +52,8 @@
     layoutType: string | null;
     layoutName: string | null;
     chartCount: number;
+    tableCount: number;
+    hyperlinkCount: number;
     mediaCount: number;
   };
 
@@ -117,6 +121,9 @@
           layoutType,
           layoutName,
           chartCount: getSlideCharts(slide).length,
+          tableCount: getSlideTables(slide).length,
+          hyperlinkCount: getSlideShapes(slide).filter((sh) => getShapeHyperlink(sh) !== null)
+            .length,
           mediaCount: getSlideMediaPartNames(slide).length,
         };
       });
@@ -299,6 +306,8 @@
             {#if s.hasAnimations}<span class="s-badge" title="slide carries <p:timing>">anim</span>{/if}
             {#if s.commentCount > 0}<span class="s-badge" title={s.commentTexts || 'slide has authored review comments'}>{s.commentCount} cmt</span>{/if}
             {#if s.chartCount > 0}<span class="s-badge" title="number of <p:graphicFrame> chart shapes on the slide">{s.chartCount} chart</span>{/if}
+            {#if s.tableCount > 0}<span class="s-badge" title="number of <p:graphicFrame> table shapes on the slide">{s.tableCount} table</span>{/if}
+            {#if s.hyperlinkCount > 0}<span class="s-badge" title="shapes whose text body carries an <a:hlinkClick>">{s.hyperlinkCount} link</span>{/if}
             {#if s.mediaCount > 0}<span class="s-badge" title="number of media parts (images / audio / video) the slide references">{s.mediaCount} media</span>{/if}
             <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
           </div>
