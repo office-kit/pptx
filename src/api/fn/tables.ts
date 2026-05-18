@@ -33,6 +33,8 @@ import {
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
+  SLIDE_SHAPES,
+  type SlideData,
   type SlideShapeData,
   type TableCellData,
 } from '../_internal-symbols.ts';
@@ -71,6 +73,20 @@ const findTblElement = (shape: SlideShapeData): XmlElement | null => {
  * which also matches charts and SmartArt frames.
  */
 export const isTableShape = (shape: SlideShapeData): boolean => findTblElement(shape) !== null;
+
+/**
+ * Returns every table graphic-frame shape on the slide, in document
+ * order. Convenience over `getSlideShapes(slide).filter(isTableShape)`
+ * — pairs `getSlideCharts(slide)` for cases where the caller wants
+ * just the tables.
+ */
+export const getSlideTables = (slide: SlideData): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (isTableShape(shape)) out.push(shape);
+  }
+  return out;
+};
 
 /**
  * `true` when the shape is a `<p:graphicFrame>` wrapping a chart
