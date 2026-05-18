@@ -141,6 +141,7 @@ export {
   findShapeByText,
   findShapeInPresentation,
   findShapesByHyperlink,
+  findShapesWithAnimation,
   findShapesInRect,
   findSlidesWithChartKind,
   findSlidesWithChartTrendlines,
