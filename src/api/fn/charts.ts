@@ -32,6 +32,7 @@ import {
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
+  type PresentationData,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
@@ -41,6 +42,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { appendAndReturnNewShape, decode, encode, nextShapeId, setOpcDefault } from './_helpers.ts';
+import { getSlides } from './slide-query.ts';
 // ---------------------------------------------------------------------------
 // Charts.
 //
@@ -422,6 +424,37 @@ export const findChartByKind = (slide: SlideData, kind: ChartKind): SlideChartDa
     if (chart.spec !== null && chart.spec.kind === kind) return chart;
   }
   return null;
+};
+
+/**
+ * Histogram of chart kinds across the whole deck. Returns a frozen
+ * `Record<ChartKind, number>` with every kind present (zeros for any
+ * absent kind). Useful for deck-audit reports (e.g. "how many pie
+ * charts does this presentation have?") without iterating every slide
+ * by hand.
+ *
+ * Charts whose spec doesn't parse — typically a kind this version
+ * doesn't yet model — are skipped silently, mirroring
+ * `findChartByKind`'s null-spec handling.
+ */
+export const getPresentationChartKindCounts = (
+  pres: PresentationData,
+): Readonly<Record<ChartKind, number>> => {
+  const counts: Record<ChartKind, number> = {
+    bar: 0,
+    column: 0,
+    line: 0,
+    pie: 0,
+    doughnut: 0,
+    area: 0,
+  };
+  for (const slide of getSlides(pres)) {
+    for (const chart of getSlideCharts(slide)) {
+      if (chart.spec === null) continue;
+      counts[chart.spec.kind]++;
+    }
+  }
+  return counts;
 };
 
 export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> => {
