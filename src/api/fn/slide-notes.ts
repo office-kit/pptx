@@ -595,6 +595,16 @@ export const getPresentationNotesLength = (pres: PresentationData): number => {
 };
 
 /**
+ * Dense per-slide notes-length array. Code-point length per
+ * `getSlideNotesLength` (`0` when the slide has no notes part). Pair
+ * with `getPresentationTextLengthsBySlide` for handout / talk-track
+ * audits — slides with no on-screen text but heavy speaker notes are
+ * often the slow part of a presentation.
+ */
+export const getPresentationNotesLengthsBySlide = (pres: PresentationData): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => getSlideNotesLength(s));
+
+/**
  * Appends `text` to the slide's existing notes on its own line.
  * Equivalent to `setSlideNotes(slide, (getSlideNotes(slide) ?? '') + '\n' + text)`,
  * minus the leading newline when there were no notes yet.
