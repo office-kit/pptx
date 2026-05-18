@@ -4046,7 +4046,7 @@ const renderChart = (
     // Chart-area backdrop honors <c:chartSpace><c:spPr><a:solidFill> /
     // <a:ln>. plot-area gets its own tinted rect + border when
     // <c:plotArea><c:spPr> authors them.
-    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? '#E5E7EB'}" stroke-width="0.6"/>`,
+    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? '#E5E7EB'}" stroke-width="0.6"${spec.roundedCorners ? ' rx="6" ry="6"' : ''}/>`,
     spec.plotAreaFill || spec.plotAreaStrokeColor
       ? `<rect x="${px(f.plotX)}" y="${px(f.plotY)}" width="${px(f.plotW)}" height="${px(f.plotH)}" fill="${spec.plotAreaFill ?? 'none'}" stroke="${spec.plotAreaStrokeColor ?? 'none'}" stroke-width="0.6"/>`
       : '',
