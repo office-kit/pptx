@@ -331,6 +331,7 @@ export {
   getSlideLayoutType,
   getSlideLayoutUsageCounts,
   getUnusedSlideLayouts,
+  getUnusedSlideMasters,
   getSlideMasterBackground,
   getSlideMasterBackgroundGradientFill,
   getSlideMasterBackgroundImageBytes,
