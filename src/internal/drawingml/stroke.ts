@@ -152,3 +152,40 @@ export const setStrokeArrow = (
   if (options.length !== undefined) attrs.push(attr(ATTR_LEN, options.length));
   ln.children.push(elem(qname('a', localName, NS.dml), { attrs }));
 };
+
+/** ECMA-376 §20.1.10.30 `ST_LineCap`. */
+export type LineCap = 'rnd' | 'sq' | 'flat';
+
+/** Sets `<a:ln cap="…"/>`. Pass `null` to clear the attribute. */
+export const setStrokeCap = (spPr: XmlElement, cap: LineCap | null): void => {
+  const ln = ensureLn(spPr);
+  ln.attrs = ln.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === 'cap'));
+  if (cap !== null) ln.attrs.push(attr(qname('', 'cap', ''), cap));
+};
+
+/** Three child-element variants of `<a:ln>`: round / bevel / miter. */
+export type LineJoin = 'round' | 'bevel' | 'miter';
+const JOIN_LOCALS = new Set(['round', 'bevel', 'miter']);
+
+/** Replaces the join child of `<a:ln>`. Pass `null` to remove it. */
+export const setStrokeJoin = (spPr: XmlElement, join: LineJoin | null): void => {
+  const ln = ensureLn(spPr);
+  removeChildrenIn(ln, JOIN_LOCALS);
+  if (join !== null) {
+    // Join sits after `<a:prstDash>` and before `<a:headEnd>` per the
+    // CT_LineProperties schema. Append: the few siblings that follow
+    // (headEnd / tailEnd) tolerate trailing-only reordering in
+    // practice, and the renderers we care about read by name.
+    ln.children.push(elem(qname('a', join, NS.dml)));
+  }
+};
+
+/** ECMA-376 §20.1.10.31 `ST_CompoundLine`. */
+export type LineCompound = 'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri';
+
+/** Sets `<a:ln cmpd="…"/>`. Pass `null` to clear the attribute. */
+export const setStrokeCompound = (spPr: XmlElement, cmpd: LineCompound | null): void => {
+  const ln = ensureLn(spPr);
+  ln.attrs = ln.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === 'cmpd'));
+  if (cmpd !== null) ln.attrs.push(attr(qname('', 'cmpd', ''), cmpd));
+};
