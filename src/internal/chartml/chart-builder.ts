@@ -396,6 +396,16 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   const valTxPr = axisTxPrElement(spec.valueAxisLabelStyle, spec.valueAxisLabelRotationDeg);
   if (valTxPr) children.push(valTxPr);
   children.push(valNode(c('crossAx'), CAT_AX_ID));
+  // <c:crosses val>/`crossesAt val>` — mutually exclusive per the
+  // schema. Object form `{ at: N }` → crossesAt; string form → crosses.
+  const xross = spec.valueAxisCrosses;
+  if (xross !== undefined) {
+    if (typeof xross === 'string') {
+      children.push(valNode(c('crosses'), xross));
+    } else {
+      children.push(valNode(c('crossesAt'), String(xross.at)));
+    }
+  }
   if (spec.valueAxis?.majorUnit !== undefined) {
     children.push(valNode(c('majorUnit'), spec.valueAxis.majorUnit));
   }
