@@ -241,6 +241,17 @@ export const getSlideMasterUsageCounts = (
   return counts;
 };
 
+/**
+ * Master part names that no slide chains to (count of `0` in
+ * `getSlideMasterUsageCounts`). Pair to `getUnusedSlideLayouts`.
+ * Useful when trimming multi-master template decks of dead theme
+ * variants.
+ */
+export const getUnusedSlideMasters = (pres: PresentationData): ReadonlyArray<string> => {
+  const counts = getSlideMasterUsageCounts(pres);
+  return getSlideMasterPartNames(pres).filter((m) => (counts[m] ?? 0) === 0);
+};
+
 export const getShapeName = (shape: SlideShapeData): string => shape[SHAPE_SNAPSHOT].name;
 
 /**
