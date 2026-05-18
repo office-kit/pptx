@@ -30,6 +30,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh } from './_helpers.ts';
+import { getSlideLayoutPartName } from './layouts.ts';
 import { getPresentationTheme, getSlideLayoutName, getSlideLayoutType } from './package.ts';
 import {
   getShapeBounds,
@@ -186,6 +187,27 @@ export const findSlidesByLayoutName = (
   for (const slide of getSlides(pres)) {
     const layout = getSlideLayout(slide);
     if (layout !== null && getSlideLayoutName(layout) === layoutName) out.push(slide);
+  }
+  return out;
+};
+
+/**
+ * Every slide whose resolved layout part name equals `layoutPartName`
+ * (e.g. `'/ppt/slideLayouts/slideLayout3.xml'`). Stable across
+ * template-name collisions and locale renames — keyed on the actual
+ * package path. Pair to `findSlidesByLayoutName` /
+ * `findSlidesByLayoutType` for cases where the caller already has a
+ * layout part name in hand (typical when iterating over a layouts
+ * collection programmatically).
+ */
+export const findSlidesByLayoutPartName = (
+  pres: PresentationData,
+  layoutPartName: string,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    const layout = getSlideLayout(slide);
+    if (layout !== null && getSlideLayoutPartName(layout) === layoutPartName) out.push(slide);
   }
   return out;
 };
