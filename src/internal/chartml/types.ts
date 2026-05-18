@@ -119,6 +119,16 @@ export interface ChartTrendline {
   readonly order?: number;
   /** Override stroke color; defaults to the series color. */
   readonly color?: string;
+  /**
+   * Show the regression equation next to the trendline
+   * (`<c:dispEq val="1"/>`). Defaults to `false`.
+   */
+  readonly displayEquation?: boolean;
+  /**
+   * Show the R² coefficient next to the trendline
+   * (`<c:dispRSqr val="1"/>`). Defaults to `false`.
+   */
+  readonly displayRSquared?: boolean;
 }
 
 /**

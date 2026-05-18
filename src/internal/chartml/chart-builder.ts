@@ -235,6 +235,10 @@ const trendlineElement = (
   }
   if (tl.forward !== undefined) children.push(valNode(c('forward'), tl.forward));
   if (tl.backward !== undefined) children.push(valNode(c('backward'), tl.backward));
+  // CT_Trendline schema order: dispRSqr before dispEq, both after
+  // forward/backward and before trendlineLbl/extLst.
+  if (tl.displayRSquared) children.push(valNode(c('dispRSqr'), '1'));
+  if (tl.displayEquation) children.push(valNode(c('dispEq'), '1'));
   return elem(c('trendline'), { children });
 };
 
