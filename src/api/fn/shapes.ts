@@ -2490,6 +2490,30 @@ export const getShapeTextBodyRotationDeg = (shape: SlideShapeData): number | nul
 };
 
 /**
+ * Sets the shape's text-body rotation (`<a:bodyPr rot="N"/>`), measured
+ * in degrees. Positive rotates clockwise per PowerPoint's convention.
+ * Passing `null` clears the attribute so the shape inherits the default
+ * (`0`). Throws for non-text-bearing shape kinds.
+ *
+ * Companion to `setShapeRotation`, which rotates the *whole* shape
+ * via `<p:xfrm rot>`. `bodyPr rot` rotates only the text inside.
+ */
+export const setShapeTextBodyRotationDeg = (
+  shape: SlideShapeData,
+  rotationDeg: number | null,
+): void => {
+  const bodyPr = requireBodyPr(shape);
+  // Strip any prior rot attribute.
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'rot'),
+  );
+  if (rotationDeg !== null && rotationDeg !== 0) {
+    bodyPr.attrs.push(attr(qname('', 'rot', ''), String(Math.round(rotationDeg * 60000))));
+  }
+  commitAndRefresh(shape);
+};
+
+/**
  * Reads the shape's text-direction token from `<a:bodyPr vert="…"/>`.
  * Per ECMA-376 §17.18.93 `ST_TextVerticalType`:
  *

@@ -440,6 +440,7 @@ export {
   setShapeText,
   setShapeTextAnchor,
   setShapeTextAutoFit,
+  setShapeTextBodyRotationDeg,
   setShapeTextFormat,
   setShapeTextMargins,
   setShapeTextWrap,
