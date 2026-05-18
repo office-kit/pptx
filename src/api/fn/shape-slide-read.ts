@@ -418,11 +418,13 @@ export const getShapeIndex = (shape: SlideShapeData): number => {
 
 /**
  * Walks every slide and returns the first shape whose name matches.
+ * Accepts a literal string (exact equality) or a `RegExp` for
+ * pattern matches — same shape as `findShapeByName` but deck-scoped.
  * Useful for "find the logo placeholder anywhere in the deck."
  */
 export const findShapeInPresentation = (
   pres: PresentationData,
-  name: string,
+  name: string | RegExp,
 ): SlideShapeData | null => {
   for (const slide of getSlides(pres)) {
     const hit = findShapeByName(slide, name);
