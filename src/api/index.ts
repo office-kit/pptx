@@ -185,6 +185,7 @@ export {
   getCommentsSortedByDate,
   getCoreProperties,
   getDistinctHyperlinkUrls,
+  getEmptySlides,
   getGroupChildren,
   getGroupTransform,
   getHiddenSlides,
