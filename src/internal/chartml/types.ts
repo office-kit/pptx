@@ -499,6 +499,19 @@ export interface ChartSpec {
    * pptx-kit don't (yet) interpret it.
    */
   readonly chartStyle?: number;
+  /**
+   * Language code for the chart's number / date formatters
+   * (`<c:chartSpace><c:lang val="…"/>`). PowerPoint emits the user's
+   * Office UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for
+   * round-trip parity; renderers in pptx-kit don't act on it yet.
+   */
+  readonly language?: string;
+  /**
+   * `<c:chartSpace><c:date1904 val="…"/>` — the Excel date-system flag.
+   * `false` (the default) uses the 1900-epoch; `true` uses 1904.
+   * Surface for parity; renderers don't act on it yet.
+   */
+  readonly date1904?: boolean;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
