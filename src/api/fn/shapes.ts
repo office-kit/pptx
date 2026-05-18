@@ -2981,6 +2981,7 @@ export const setShapeRunHyperlink = (
   paragraphIndex: number,
   runIndex: number,
   url: string | null,
+  tooltip?: string,
 ): void => {
   const run = requireRun(shape, paragraphIndex, runIndex);
   let rPr = firstChildElement(run, qname('a', 'rPr', NS.dml));
@@ -3016,9 +3017,13 @@ export const setShapeRunHyperlink = (
       });
       pkg.setRels(slide[SLIDE_PART_NAME], rels);
     }
+    const hlinkAttrs = [attr(qname('r', 'id', NS.officeDocRels), rId)];
+    if (tooltip !== undefined) {
+      hlinkAttrs.push(attr(qname('', 'tooltip', ''), tooltip));
+    }
     rPr.children.push(
       elem(qname('a', 'hlinkClick', NS.dml), {
-        attrs: [attr(qname('r', 'id', NS.officeDocRels), rId)],
+        attrs: hlinkAttrs,
       }),
     );
   }
@@ -3056,8 +3061,33 @@ export const getShapeRunHyperlink = (
  * Returns `null` when no hyperlink is set or the link doesn't author
  * a tooltip. Tooltips show up in PowerPoint when the user hovers over
  * a linked shape in slide-show mode.
+ *
+ * Scans run-level `<a:rPr><a:hlinkClick>` first (where
+ * `setShapeHyperlink` writes) and falls back to the
+ * `<p:nvSpPr><p:cNvPr><a:hlinkClick>` shape-click hyperlink. Mirrors
+ * `getShapeHyperlink`'s read path so the writer / reader pair is
+ * consistent.
  */
 export const getShapeHyperlinkTooltip = (shape: SlideShapeData): string | null => {
+  if (shape[SHAPE_SNAPSHOT].kind === 'shape') {
+    const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+    if (txBody) {
+      for (const p of txBody.children) {
+        if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
+          continue;
+        for (const r of p.children) {
+          if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r')
+            continue;
+          const rPr = firstChildElement(r, qname('a', 'rPr', NS.dml));
+          if (!rPr) continue;
+          const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
+          if (!hlink) continue;
+          const tt = getAttrValue(hlink, qname('', 'tooltip', ''));
+          if (tt !== null) return tt;
+        }
+      }
+    }
+  }
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) return null;
   const hlink = firstChildElement(cNvPr, NAME_HLINK_CLICK_FN);
@@ -4469,7 +4499,11 @@ export const getShapeHyperlink = (shape: SlideShapeData): string | null => {
  * (or reuses) a `hyperlink` relationship on the slide's `.rels`. Pass
  * `null` to clear.
  */
-export const setShapeHyperlink = (shape: SlideShapeData, url: string | null): void => {
+export const setShapeHyperlink = (
+  shape: SlideShapeData,
+  url: string | null,
+  tooltip?: string,
+): void => {
   const slide = shape[SHAPE_SLIDE];
   const txBody = requireTxBody(shape);
   if (url === null) {
@@ -4493,7 +4527,7 @@ export const setShapeHyperlink = (shape: SlideShapeData, url: string | null): vo
         pkg.setRels(slide[SLIDE_PART_NAME], rels);
         return nextId;
       })();
-    applyHyperlinkToAllRuns(txBody, rId);
+    applyHyperlinkToAllRuns(txBody, rId, tooltip);
   }
   commitAndRefresh(shape);
 };

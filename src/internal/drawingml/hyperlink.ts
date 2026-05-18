@@ -11,11 +11,17 @@ const NAME_HLINK_CLICK = qname('a', 'hlinkClick', NS.dml);
 const ATTR_R_ID = qname('r', 'id', NS.officeDocRels);
 
 /**
- * Sets `<a:hlinkClick r:id="rIdN"/>` inside the `<a:rPr>` of every run in
- * `txBody`. Pass `null` to remove an existing hyperlink. Creates `<a:rPr>`
+ * Sets `<a:hlinkClick r:id="rIdN" [tooltip="…"]/>` inside the `<a:rPr>`
+ * of every run in `txBody`. Pass `null` for `rId` to remove an existing
+ * hyperlink. When `tooltip` is `undefined` no `tooltip=` attribute is
+ * written; when it's a string the attribute is set. Creates `<a:rPr>`
  * if absent on a run.
  */
-export const applyHyperlinkToAllRuns = (txBody: XmlElement, rId: string | null): void => {
+export const applyHyperlinkToAllRuns = (
+  txBody: XmlElement,
+  rId: string | null,
+  tooltip?: string,
+): void => {
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
       continue;
@@ -39,9 +45,13 @@ export const applyHyperlinkToAllRuns = (txBody: XmlElement, rId: string | null):
           ),
       );
       if (rId !== null) {
+        const attrs = [attr(ATTR_R_ID, rId)];
+        if (tooltip !== undefined) {
+          attrs.push(attr(qname('', 'tooltip', ''), tooltip));
+        }
         // Per the schema, hlinkClick is one of the last children of rPr —
         // it follows the fill/typeface children. Append.
-        rPr.children.push(elem(NAME_HLINK_CLICK, { attrs: [attr(ATTR_R_ID, rId)] }));
+        rPr.children.push(elem(NAME_HLINK_CLICK, { attrs }));
       }
     }
   }
