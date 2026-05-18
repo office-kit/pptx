@@ -17,6 +17,7 @@ import {
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
   SLIDE_DOCUMENT,
+  SLIDE_SHAPES,
   type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
@@ -145,6 +146,21 @@ export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null
 };
 
 /** Removes the slide's `<p:timing>` element entirely. */
+/**
+ * Returns every shape on the slide that has an authored animation
+ * effect (i.e. `getShapeAnimation(shape)` is not `null`). Pair to
+ * `slideHasAnimations`. Useful for audit reports — "which shapes on
+ * this slide actually animate?" before exporting to a video pipeline
+ * that doesn't honor PowerPoint's timing tree.
+ */
+export const findShapesWithAnimation = (slide: SlideData): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (getShapeAnimation(shape) !== null) out.push(shape);
+  }
+  return out;
+};
+
 export const clearSlideAnimations = (slide: SlideData): void => {
   removeExistingTiming(slide);
   commitSlideData(slide);
