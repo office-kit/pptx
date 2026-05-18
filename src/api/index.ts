@@ -330,6 +330,7 @@ export {
   getSlideLayouts,
   getSlideLayoutType,
   getSlideLayoutUsageCounts,
+  getSlideLayoutUsageCountsByType,
   getUnusedSlideLayouts,
   getUnusedSlideMasters,
   getSlideMasterBackground,
