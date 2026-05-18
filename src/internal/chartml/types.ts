@@ -389,6 +389,14 @@ export interface ChartSpec {
    */
   readonly categoryAxisLabelAlign?: 'ctr' | 'l' | 'r';
   /**
+   * Number-format code for the category-axis tick labels —
+   * `<c:catAx><c:numFmt formatCode="…"/>`. Most useful on date-style
+   * categories (`"mm/dd/yyyy"`, `"mmm"`, etc.) but accepts any Excel
+   * format string. Independent of `valueAxis.numberFormat` (which
+   * targets the value axis).
+   */
+  readonly categoryAxisNumberFormat?: string;
+  /**
    * Category-axis order — `'minMax'` (the data's natural order) or
    * `'maxMin'` (reversed). For bar charts PowerPoint typically emits
    * `maxMin` so the first category sits at the top instead of the

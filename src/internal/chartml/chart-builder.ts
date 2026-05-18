@@ -310,6 +310,16 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   if (spec.categoryAxisTitle !== undefined) {
     children.push(titleElement(spec.categoryAxisTitle, spec.categoryAxisTitleStyle));
   }
+  if (spec.categoryAxisNumberFormat !== undefined) {
+    children.push(
+      elem(c('numFmt'), {
+        attrs: [
+          attr(qname('', 'formatCode', ''), spec.categoryAxisNumberFormat),
+          attr(qname('', 'sourceLinked', ''), '0'),
+        ],
+      }),
+    );
+  }
   if (spec.categoryAxisMajorTickMark !== undefined) {
     children.push(valNode(c('majorTickMark'), spec.categoryAxisMajorTickMark));
   }
