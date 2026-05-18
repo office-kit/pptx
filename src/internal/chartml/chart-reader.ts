@@ -490,6 +490,23 @@ const readTitleStyle = (chart: XmlElement): ChartTextStyle | undefined => {
   return readTitleStyleOf(title);
 };
 
+// Reads `<c:title><c:tx><c:rich><a:bodyPr rot="N"/>` and converts from
+// the OOXML 60000ths-of-a-degree unit to plain degrees. Returns
+// `undefined` when the rotation is absent (the renderer's default
+// applies).
+const readTitleRotationDeg = (titleEl: XmlElement): number | undefined => {
+  const tx = firstChildElement(titleEl, NAME_TX);
+  if (!tx) return undefined;
+  const rich = firstChildElement(tx, NAME_RICH);
+  if (!rich) return undefined;
+  const bodyPr = firstChildElement(rich, qname('a', 'bodyPr', NS_A));
+  if (!bodyPr) return undefined;
+  const v = getAttrValue(bodyPr, qname('', 'rot', ''));
+  if (v === null) return undefined;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n / 60000 : undefined;
+};
+
 // `<c:dLbls><c:dLblPos val="…"/>` — the chart-kind-dependent enum that
 // names where labels sit relative to their data point. Returns
 // `undefined` for unknown tokens so callers fall back to their default.
@@ -829,6 +846,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // readTitle's projection.
   let categoryAxisTitle: string | undefined;
   let categoryAxisTitleStyle: ChartTextStyle | undefined;
+  let categoryAxisTitleRotationDeg: number | undefined;
   let categoryAxisLabelStyle: ChartTextStyle | undefined;
   let categoryAxisLabelRotationDeg: number | undefined;
   let valueAxisLabelRotationDeg: number | undefined;
@@ -850,6 +868,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     readTickMarkLocal(axis, 'majorTickMark');
   let valueAxisTitle: string | undefined;
   let valueAxisTitleStyle: ChartTextStyle | undefined;
+  let valueAxisTitleRotationDeg: number | undefined;
   let valueAxisLabelStyle: ChartTextStyle | undefined;
   let categoryAxisHidden: boolean | undefined;
   let valueAxisHidden: boolean | undefined;
@@ -916,7 +935,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const t = readTitle(catAx);
     if (t !== undefined) categoryAxisTitle = t;
     const catTitleEl = firstChildElement(catAx, NAME_TITLE);
-    if (catTitleEl) categoryAxisTitleStyle = readTitleStyleOf(catTitleEl);
+    if (catTitleEl) {
+      categoryAxisTitleStyle = readTitleStyleOf(catTitleEl);
+      categoryAxisTitleRotationDeg = readTitleRotationDeg(catTitleEl);
+    }
     const catTxPr = firstChildElement(catAx, qname('c', 'txPr', NS_C));
     if (catTxPr) {
       categoryAxisLabelStyle = readLabelStyle(catTxPr);
@@ -993,7 +1015,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const t = readTitle(valAx);
     if (t !== undefined) valueAxisTitle = t;
     const valTitleEl = firstChildElement(valAx, NAME_TITLE);
-    if (valTitleEl) valueAxisTitleStyle = readTitleStyleOf(valTitleEl);
+    if (valTitleEl) {
+      valueAxisTitleStyle = readTitleStyleOf(valTitleEl);
+      valueAxisTitleRotationDeg = readTitleRotationDeg(valTitleEl);
+    }
     const valTxPr = firstChildElement(valAx, qname('c', 'txPr', NS_C));
     if (valTxPr) {
       valueAxisLabelStyle = readLabelStyle(valTxPr);
@@ -1190,10 +1215,12 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(chartAreaStrokeColor !== undefined ? { chartAreaStrokeColor } : {}),
     ...(categoryAxisTitle !== undefined ? { categoryAxisTitle } : {}),
     ...(categoryAxisTitleStyle !== undefined ? { categoryAxisTitleStyle } : {}),
+    ...(categoryAxisTitleRotationDeg !== undefined ? { categoryAxisTitleRotationDeg } : {}),
     ...(categoryAxisLabelStyle !== undefined ? { categoryAxisLabelStyle } : {}),
     ...(categoryAxisLabelRotationDeg !== undefined ? { categoryAxisLabelRotationDeg } : {}),
     ...(valueAxisTitle !== undefined ? { valueAxisTitle } : {}),
     ...(valueAxisTitleStyle !== undefined ? { valueAxisTitleStyle } : {}),
+    ...(valueAxisTitleRotationDeg !== undefined ? { valueAxisTitleRotationDeg } : {}),
     ...(valueAxisLabelStyle !== undefined ? { valueAxisLabelStyle } : {}),
     ...(categoryAxisHidden !== undefined ? { categoryAxisHidden } : {}),
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),

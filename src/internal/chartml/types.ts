@@ -305,6 +305,13 @@ export interface ChartSpec {
   readonly categoryAxisTitle?: string;
   /** Authored font / color on the category-axis title (same `<a:rPr>` shape as `titleStyle`). */
   readonly categoryAxisTitleStyle?: ChartTextStyle;
+  /**
+   * Rotation of the category-axis title, in degrees clockwise. Maps
+   * to `<c:catAx><c:title><c:tx><c:rich><a:bodyPr rot="N"/>` (the OOXML
+   * value is in 60000ths of a degree, but the API surface uses plain
+   * degrees). Omit to inherit the default (`0`).
+   */
+  readonly categoryAxisTitleRotationDeg?: number;
   /** Authored font / color on the category-axis *tick labels* — `<c:catAx><c:txPr>`. */
   readonly categoryAxisLabelStyle?: ChartTextStyle;
   /**
@@ -317,6 +324,13 @@ export interface ChartSpec {
   readonly valueAxisTitle?: string;
   /** Authored font / color on the value-axis title. */
   readonly valueAxisTitleStyle?: ChartTextStyle;
+  /**
+   * Rotation of the value-axis title, in degrees clockwise. PowerPoint
+   * often emits `-90` (or `vert270`) so the title reads bottom-to-top
+   * alongside the axis. Maps to `<c:valAx><c:title><c:tx><c:rich>
+   * <a:bodyPr rot="N"/>` (60000ths of a degree on the wire).
+   */
+  readonly valueAxisTitleRotationDeg?: number;
   /** Authored font / color on the value-axis *tick labels* — `<c:valAx><c:txPr>`. */
   readonly valueAxisLabelStyle?: ChartTextStyle;
   /**
