@@ -41,6 +41,7 @@ import {
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 import { getPresentationTheme } from './package.ts';
 import { resolveDrawingColor } from './shapes.ts';
+import { getSlides } from './slide-query.ts';
 
 // ---------------------------------------------------------------------------
 // Table cell access.
@@ -87,6 +88,14 @@ export const getSlideTables = (slide: SlideData): ReadonlyArray<SlideShapeData> 
   }
   return out;
 };
+
+/**
+ * Dense per-slide table count array. Counts `isTableShape` matches per
+ * slide. Rounds out the density-array family alongside the chart,
+ * shape, text, and comment counters.
+ */
+export const getPresentationTableCountsBySlide = (pres: PresentationData): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => getSlideTables(s).length);
 
 /**
  * `true` when the shape is a `<p:graphicFrame>` wrapping a chart
