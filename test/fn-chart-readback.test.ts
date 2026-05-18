@@ -277,6 +277,7 @@ describe('fn API: getSlideCharts', () => {
         categoryAxisTitle: 'Quarter',
         categoryAxisHidden: true,
         categoryAxisTickLabelSkip: 2,
+        categoryAxisTickMarkSkip: 5,
         categoryAxisTickLabelPos: 'low',
       },
     });
@@ -289,6 +290,7 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.categoryAxisTitle).toBe('Quarter');
     expect(spec.categoryAxisHidden).toBe(true);
     expect(spec.categoryAxisTickLabelSkip).toBe(2);
+    expect(spec.categoryAxisTickMarkSkip).toBe(5);
     expect(spec.categoryAxisTickLabelPos).toBe('low');
   });
 

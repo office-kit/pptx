@@ -358,6 +358,13 @@ export interface ChartSpec {
    */
   readonly categoryAxisTickLabelSkip?: number;
   /**
+   * Category-axis tick *mark* skip (`<c:catAx><c:tickMarkSkip val="N"/>`):
+   * draw every Nth tick mark independently of the label-skip stride.
+   * Useful when you want fewer label collisions but the same dense
+   * tick lattice; defaults to 1 (every tick).
+   */
+  readonly categoryAxisTickMarkSkip?: number;
+  /**
    * Category-axis tick label position (`<c:catAx><c:tickLblPos val="…"/>`):
    *   - `none` hides labels but keeps the axis line
    *   - `low` / `high` puts them at the start / end (rare)
