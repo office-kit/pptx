@@ -2810,6 +2810,7 @@ const renderCategoryAxis = (
   skip = 1,
   labelStyle?: ChartTextStyle,
   labelRotationDeg?: number,
+  labelAlign?: 'ctr' | 'l' | 'r',
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -2840,12 +2841,21 @@ const renderCategoryAxis = (
           : '';
       // When rotated, right-align to the pivot so the label leans
       // toward its data point rather than overflowing the next column.
+      // Authored <c:lblAlgn val=…> overrides the rotation-derived
+      // default — useful for multi-line cat labels that the author
+      // wants flush-left under each column.
       const anchor =
-        labelRotationDeg && labelRotationDeg > 0
-          ? 'end'
-          : labelRotationDeg && labelRotationDeg < 0
-            ? 'start'
-            : 'middle';
+        labelAlign === 'l'
+          ? 'start'
+          : labelAlign === 'r'
+            ? 'end'
+            : labelAlign === 'ctr'
+              ? 'middle'
+              : labelRotationDeg && labelRotationDeg > 0
+                ? 'end'
+                : labelRotationDeg && labelRotationDeg < 0
+                  ? 'start'
+                  : 'middle';
       out.push(
         `<text x="${px(cx)}" y="${px(cy)}" text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}>${escapeXml(truncated)}</text>`,
       );
@@ -3934,6 +3944,7 @@ const renderChart = (
         spec.categoryAxisTickLabelSkip ?? 1,
         spec.categoryAxisLabelStyle,
         spec.categoryAxisLabelRotationDeg,
+        spec.categoryAxisLabelAlign,
       );
     }
   }
