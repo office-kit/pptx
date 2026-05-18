@@ -241,6 +241,15 @@ export const getPresentationTextLength = (pres: PresentationData): number => {
 };
 
 /**
+ * Dense per-slide shape count array, 0-based by slide index. Counts
+ * top-level + group-children shapes (whatever `getSlideShapes` flattens).
+ * Useful for charting shape density per slide and identifying outliers
+ * (the 200-shape "soup" slide everybody complains about) for cleanup.
+ */
+export const getPresentationShapeCountsBySlide = (pres: PresentationData): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => s[SLIDE_SHAPES].length);
+
+/**
  * Returns the 0-based index of `slide` within `pres`, or `-1` if the
  * slide doesn't belong to this presentation (e.g. after a removeSlide
  * call, or if it was constructed from a different package).
