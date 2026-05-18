@@ -861,6 +861,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisNumberFormat: string | undefined;
   let categoryAxisLineColor: string | undefined;
   let valueAxisLineColor: string | undefined;
+  let categoryAxisMajorGridlines: boolean | undefined;
+  let categoryAxisMinorGridlines: boolean | undefined;
   // <c:catAx|valAx><c:spPr><a:ln><a:solidFill><a:srgbClr val=…/>.
   const readAxisLineColor = (axis: XmlElement): string | undefined => {
     const spPr = firstChildElement(axis, NAME_SP_PR_C);
@@ -914,6 +916,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     categoryAxisHidden = isHidden(catAx);
     categoryAxisLineColor = readAxisLineColor(catAx);
+    categoryAxisMajorGridlines =
+      firstChildElement(catAx, qname('c', 'majorGridlines', NS_C)) !== null;
+    categoryAxisMinorGridlines =
+      firstChildElement(catAx, qname('c', 'minorGridlines', NS_C)) !== null;
     categoryAxisOrientation = readAxisOrientation(catAx);
     categoryAxisMajorTickMark = readTickMark(catAx);
     categoryAxisMinorTickMark = readTickMarkLocal(catAx, 'minorTickMark');
@@ -1203,6 +1209,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisNumberFormat !== undefined ? { categoryAxisNumberFormat } : {}),
     ...(categoryAxisLineColor !== undefined ? { categoryAxisLineColor } : {}),
     ...(valueAxisLineColor !== undefined ? { valueAxisLineColor } : {}),
+    ...(categoryAxisMajorGridlines === true ? { categoryAxisMajorGridlines: true } : {}),
+    ...(categoryAxisMinorGridlines === true ? { categoryAxisMinorGridlines: true } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),
