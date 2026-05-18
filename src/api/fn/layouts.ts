@@ -173,6 +173,20 @@ export const getSlideLayouts = (pres: PresentationData): ReadonlyArray<SlideLayo
 };
 
 /**
+ * Layouts in the package that no slide references. Useful when
+ * trimming a template deck — these layouts contribute parts and rels
+ * without ever rendering. Iteration order matches `getSlideLayouts`.
+ */
+export const getUnusedSlideLayouts = (pres: PresentationData): ReadonlyArray<SlideLayoutData> => {
+  const referenced = new Set<string>();
+  for (const slide of getSlides(pres)) {
+    const layout = getSlideLayout(slide);
+    if (layout !== null) referenced.add(getSlideLayoutName(layout));
+  }
+  return getSlideLayouts(pres).filter((l) => !referenced.has(getSlideLayoutName(l)));
+};
+
+/**
  * Returns a map of layout name → number of slides that reference it.
  * Every layout enumerated by `getSlideLayouts` appears as a key (zero
  * count for unreferenced layouts), so this surfaces unused layouts
