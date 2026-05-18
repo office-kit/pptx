@@ -490,6 +490,34 @@ export const getTableCellTextDirection = (
 };
 
 /**
+ * Sets the cell's text-direction via `<a:tcPr vert="…"/>`. Same six
+ * `ST_TextVerticalType` values as `setShapeTextDirection`. Passing
+ * `null` (or `'horz'`) clears the attribute so the cell uses the
+ * default horizontal direction. Creates `<a:tcPr>` if absent.
+ */
+export const setTableCellTextDirection = (
+  cell: TableCellData,
+  direction:
+    | 'horz'
+    | 'vert'
+    | 'vert270'
+    | 'wordArtVert'
+    | 'eaVert'
+    | 'mongolianVert'
+    | 'wordArtVertRtl'
+    | null,
+): void => {
+  const tcPr = ensureCellTcPr(cell);
+  tcPr.attrs = tcPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
+  );
+  if (direction !== null && direction !== 'horz') {
+    tcPr.attrs.push(attr(qname('', 'vert', ''), direction));
+  }
+  commitTableCell(cell);
+};
+
+/**
  * Reads the cell's vertical text anchor (`<a:tcPr anchor="t|ctr|b"/>`)
  * — `'top'`, `'center'`, `'bottom'`, or `null` for the default
  * (`ctr` / center per the schema).
