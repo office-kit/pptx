@@ -190,12 +190,16 @@ export const findShapesOutsideCanvas = (
  */
 export const findSlidesByLayoutName = (
   pres: PresentationData,
-  layoutName: string,
+  layoutName: string | RegExp,
 ): ReadonlyArray<SlideData> => {
+  const matches =
+    typeof layoutName === 'string'
+      ? (n: string) => n === layoutName
+      : (n: string) => layoutName.test(n);
   const out: SlideData[] = [];
   for (const slide of getSlides(pres)) {
     const layout = getSlideLayout(slide);
-    if (layout !== null && getSlideLayoutName(layout) === layoutName) out.push(slide);
+    if (layout !== null && matches(getSlideLayoutName(layout))) out.push(slide);
   }
   return out;
 };
