@@ -8,6 +8,7 @@
   import {
     getCommentText,
     getCoreProperties,
+    getPresentationChartKindCounts,
     getPresentationSummary,
     getShapeHyperlink,
     getSlideCharts,
@@ -67,6 +68,7 @@
   let coreTitle = $state<string>('');
   let coreCreator = $state<string>('');
   let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
+  let chartKindCounts = $state<ReturnType<typeof getPresentationChartKindCounts> | null>(null);
   let masterCount = $state<number>(0);
   let issues = $state<ReadonlyArray<ValidationIssue>>([]);
   let slides = $state<SlideSnapshot[]>([]);
@@ -83,6 +85,7 @@
       coreTitle = core?.title ?? '';
       coreCreator = core?.creator ?? '';
       summary = getPresentationSummary(pres);
+      chartKindCounts = getPresentationChartKindCounts(pres);
       masterCount = getSlideMasterCount(pres);
       issues = validatePresentation(pres);
       // Map section name → 1-based slide index of its first slide. We
@@ -272,6 +275,17 @@
               : ''}
           </span>
         </div>
+        {#if chartKindCounts && Object.values(chartKindCounts).some((n) => n > 0)}
+          <div class="cell">
+            <span class="label">chart kinds</span>
+            <span class="value">
+              {Object.entries(chartKindCounts)
+                .filter(([, n]) => n > 0)
+                .map(([k, n]) => `${n} ${k}`)
+                .join(' · ')}
+            </span>
+          </div>
+        {/if}
       {/if}
     </div>
 
