@@ -338,6 +338,7 @@ export {
   getSlideMasterCount,
   getSlideMasterPartName,
   getSlideMasterPartNames,
+  getSlideMasterUsageCounts,
   getSlideMediaPartNames,
   getSlideNotes,
   getSlideNotesLength,
