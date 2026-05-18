@@ -333,7 +333,13 @@ const catAxis = (spec: ChartSpec): XmlElement => {
     children.push(gridlinesElement('minorGridlines', spec.categoryAxisMinorGridlineColor));
   }
   if (spec.categoryAxisTitle !== undefined) {
-    children.push(titleElement(spec.categoryAxisTitle, spec.categoryAxisTitleStyle));
+    children.push(
+      titleElement(
+        spec.categoryAxisTitle,
+        spec.categoryAxisTitleStyle,
+        spec.categoryAxisTitleRotationDeg,
+      ),
+    );
   }
   if (spec.categoryAxisNumberFormat !== undefined) {
     children.push(
@@ -402,7 +408,9 @@ const valAxis = (spec: ChartSpec): XmlElement => {
     children.push(gridlinesElement('minorGridlines', spec.valueAxisMinorGridlineColor));
   }
   if (spec.valueAxisTitle !== undefined) {
-    children.push(titleElement(spec.valueAxisTitle, spec.valueAxisTitleStyle));
+    children.push(
+      titleElement(spec.valueAxisTitle, spec.valueAxisTitleStyle, spec.valueAxisTitleRotationDeg),
+    );
   }
   if (spec.valueAxis?.numberFormat !== undefined) {
     children.push(
@@ -602,7 +610,7 @@ const rPrAttrsFromStyle = (
   return { attrs, children };
 };
 
-const titleElement = (title: string, style?: ChartTextStyle): XmlElement => {
+const titleElement = (title: string, style?: ChartTextStyle, rotationDeg?: number): XmlElement => {
   // defRPr stays 1400 (14pt) as the legacy default; the run-level
   // <a:rPr> carries authored overrides so renderers honor them.
   const rPr = elem(a('defRPr'), { attrs: [attr(qname('', 'sz', ''), '1400')] });
@@ -616,11 +624,13 @@ const titleElement = (title: string, style?: ChartTextStyle): XmlElement => {
     children: [runRPr, elem(a('t'), { children: [text(title)] })],
   });
   const para = elem(a('p'), { children: [pPr, tRun] });
+  const rotStr =
+    rotationDeg !== undefined && rotationDeg !== 0 ? String(Math.round(rotationDeg * 60000)) : '0';
   const rich = elem(c('rich'), {
     children: [
       elem(a('bodyPr'), {
         attrs: [
-          attr(qname('', 'rot', ''), '0'),
+          attr(qname('', 'rot', ''), rotStr),
           attr(qname('', 'spcFirstLastPara', ''), '1'),
           attr(qname('', 'vertOverflow', ''), 'ellipsis'),
           attr(qname('', 'vert', ''), 'horz'),
