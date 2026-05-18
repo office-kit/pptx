@@ -484,6 +484,15 @@ export interface ChartSpec {
    * doesn't add a redundant `false`.
    */
   readonly roundedCorners?: boolean;
+  /**
+   * PowerPoint built-in chart-style preset
+   * (`<c:chartSpace><c:style val="N"/>`), 1–48. Encodes a curated combo
+   * of theme accent colors, gradients, effects, and font sizes that
+   * PowerPoint applies when the user picks a chart style from the
+   * "Chart Styles" gallery. Surface for round-trip parity; renderers in
+   * pptx-kit don't (yet) interpret it.
+   */
+  readonly chartStyle?: number;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**

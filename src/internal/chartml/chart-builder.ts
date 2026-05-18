@@ -752,9 +752,12 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   });
 
   // <c:chartSpace><c:spPr> sits at the root and styles the entire card.
-  // CT_ChartSpace schema order: roundedCorners comes BEFORE <c:chart>.
+  // CT_ChartSpace schema order: roundedCorners → style → chart.
   const rootChildren: XmlElement[] = [];
   if (spec.roundedCorners) rootChildren.push(valNode(c('roundedCorners'), '1'));
+  if (spec.chartStyle !== undefined) {
+    rootChildren.push(valNode(c('style'), Math.round(spec.chartStyle)));
+  }
   rootChildren.push(chart);
   if (spec.chartAreaFill !== undefined || spec.chartAreaStrokeColor !== undefined) {
     rootChildren.push(spPrChildren(spec.chartAreaFill, spec.chartAreaStrokeColor));
