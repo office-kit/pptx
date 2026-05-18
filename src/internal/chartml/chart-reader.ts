@@ -858,6 +858,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisTickLabelPos: ChartSpec['categoryAxisTickLabelPos'];
   let categoryAxisLabelOffset: number | undefined;
   let categoryAxisLabelAlign: ChartSpec['categoryAxisLabelAlign'];
+  let categoryAxisNumberFormat: string | undefined;
   const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
   const isHidden = (axis: XmlElement): boolean | undefined => {
     const d = firstChildElement(axis, qname('c', 'delete', NS_C));
@@ -935,6 +936,11 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (lblAlgnEl) {
       const v = getAttrValue(lblAlgnEl, ATTR_VAL);
       if (v === 'ctr' || v === 'l' || v === 'r') categoryAxisLabelAlign = v;
+    }
+    const catNumFmtEl = firstChildElement(catAx, qname('c', 'numFmt', NS_C));
+    if (catNumFmtEl) {
+      const fc = getAttrValue(catNumFmtEl, qname('', 'formatCode', ''));
+      if (fc !== null && fc.length > 0 && fc !== 'General') categoryAxisNumberFormat = fc;
     }
   }
   // <c:majorGridlines> / <c:minorGridlines> presence governs visibility.
@@ -1177,6 +1183,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),
     ...(categoryAxisLabelOffset !== undefined ? { categoryAxisLabelOffset } : {}),
     ...(categoryAxisLabelAlign !== undefined ? { categoryAxisLabelAlign } : {}),
+    ...(categoryAxisNumberFormat !== undefined ? { categoryAxisNumberFormat } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),
