@@ -100,6 +100,12 @@ export interface ChartSeries {
 
 /** A single trendline overlay for a series. */
 export interface ChartTrendline {
+  /**
+   * Optional custom label for the trendline (`<c:trendline><c:name>…`).
+   * Defaults to PowerPoint's auto-generated label
+   * (e.g. "Linear (X)" / "MA(5) (X)") when omitted.
+   */
+  readonly name?: string;
   /** Regression type — linear / exp / log / poly / power / movingAvg. */
   readonly type: 'linear' | 'exp' | 'log' | 'poly' | 'power' | 'movingAvg';
   /**
