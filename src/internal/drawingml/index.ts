@@ -25,13 +25,25 @@ export type {
 export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
 export type { GlowOptions, ShadowOptions } from './effects.ts';
 export { clearEffects, setGlow, setShadow } from './effects.ts';
-export type { ArrowOptions, LineDash, LineEndSize, LineEndType, StrokeOptions } from './stroke.ts';
+export type {
+  ArrowOptions,
+  LineCap,
+  LineCompound,
+  LineDash,
+  LineEndSize,
+  LineEndType,
+  LineJoin,
+  StrokeOptions,
+} from './stroke.ts';
 export {
   clearStroke,
   setNoStroke,
   setSolidStroke,
   setStrokeArrow,
+  setStrokeCap,
+  setStrokeCompound,
   setStrokeDash,
+  setStrokeJoin,
 } from './stroke.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';

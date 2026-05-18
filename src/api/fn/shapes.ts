@@ -42,7 +42,10 @@ import {
   setSolidFill,
   setSolidStroke,
   setStrokeArrow,
+  setStrokeCap,
+  setStrokeCompound,
   setStrokeDash,
+  setStrokeJoin,
   setTextBody,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
@@ -1889,6 +1892,57 @@ export const setShapeStrokeArrow = (
 /** Removes any outline override; the shape then inherits stroke from layout. */
 export const clearShapeStroke = (shape: SlideShapeData): void => {
   clearStrokeImpl(requireSpPr(shape));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the line-cap style on the shape's outline (`<a:ln cap="…">`).
+ *
+ *   - `'rnd'`  — rounded ends.
+ *   - `'sq'`   — square ends extending past the endpoint.
+ *   - `'flat'` — square ends flush at the endpoint (the OOXML default).
+ *
+ * Pass `null` to clear the attribute so the cap inherits the default.
+ * Creates `<a:ln>` if absent.
+ */
+export const setShapeStrokeCap = (
+  shape: SlideShapeData,
+  cap: 'rnd' | 'sq' | 'flat' | null,
+): void => {
+  setStrokeCap(requireSpPr(shape), cap);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the line-join style on the shape's outline. Picks one of the
+ * three child-element variants of `<a:ln>`:
+ *
+ *   - `'round'` → `<a:round/>`
+ *   - `'bevel'` → `<a:bevel/>`
+ *   - `'miter'` → `<a:miter/>`
+ *
+ * Pass `null` to clear any prior join child so the shape inherits the
+ * default. Creates `<a:ln>` if absent.
+ */
+export const setShapeStrokeJoin = (
+  shape: SlideShapeData,
+  join: 'round' | 'bevel' | 'miter' | null,
+): void => {
+  setStrokeJoin(requireSpPr(shape), join);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the compound-line style on the shape's outline
+ * (`<a:ln cmpd="…">`) — single, double, triple, or thick/thin variants.
+ * ECMA-376 §20.1.10.31 `ST_CompoundLine`. Pass `null` to clear the
+ * attribute. Creates `<a:ln>` if absent.
+ */
+export const setShapeStrokeCompound = (
+  shape: SlideShapeData,
+  cmpd: 'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri' | null,
+): void => {
+  setStrokeCompound(requireSpPr(shape), cmpd);
   commitAndRefresh(shape);
 };
 
