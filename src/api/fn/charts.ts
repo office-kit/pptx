@@ -414,6 +414,22 @@ export const findChartsBySeriesName = (
 };
 
 /**
+ * Returns every chart on the slide that carries at least one
+ * `<c:trendline>` on any of its series. Useful for deck-audit reports
+ * — trendlines are easy to add and easy to forget, and authors often
+ * want to inventory them before publishing. Skips charts whose kind
+ * isn't modeled.
+ */
+export const findChartsWithTrendlines = (slide: SlideData): ReadonlyArray<SlideChartData> => {
+  const out: SlideChartData[] = [];
+  for (const chart of getSlideCharts(slide)) {
+    if (chart.spec === null) continue;
+    if (chart.spec.series.some((s) => s.trendline !== undefined)) out.push(chart);
+  }
+  return out;
+};
+
+/**
  * Returns the first chart on the slide whose parsed `kind` matches
  * `kind` (e.g. `'bar'`, `'line'`, `'pie'`). Returns `null` when no
  * chart on the slide has that kind, or when every chart on the slide
