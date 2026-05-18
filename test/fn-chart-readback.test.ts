@@ -585,6 +585,46 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisOrientation).toBe('maxMin');
   });
 
+  it('round-trips valueAxisCrosses enum + numeric forms', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        valueAxisCrosses: 'max',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.valueAxisCrosses).toBe('max');
+
+    // Now the numeric form on a second chart.
+    const pres2 = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideChart(getSlides(pres2)[0]!, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [-5, 5] }],
+        valueAxisCrosses: { at: -3 },
+      },
+    });
+    const b2 = await savePresentation(pres2);
+    const r2 = await loadPresentation(b2);
+    const s2 = getSlideCharts(getSlides(r2)[0]!)[0]!.spec!;
+    expect(s2.valueAxisCrosses).toEqual({ at: -3 });
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

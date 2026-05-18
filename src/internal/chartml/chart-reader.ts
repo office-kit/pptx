@@ -860,6 +860,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   };
   let categoryAxisOrientation: 'minMax' | 'maxMin' | undefined;
   let valueAxisOrientation: 'minMax' | 'maxMin' | undefined;
+  let valueAxisCrosses: ChartSpec['valueAxisCrosses'];
   const readAxisOrientation = (axis: XmlElement): 'minMax' | 'maxMin' | undefined => {
     const scaling = firstChildElement(axis, qname('c', 'scaling', NS_C));
     if (!scaling) return undefined;
@@ -953,6 +954,23 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     valueAxisHidden = isHidden(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorTickMark = readTickMark(valAx);
+    // <c:crosses val> and <c:crossesAt val> are mutually exclusive per
+    // the schema; crossesAt wins when both are emitted (matches the
+    // PowerPoint priority).
+    const crossesAtEl = firstChildElement(valAx, qname('c', 'crossesAt', NS_C));
+    if (crossesAtEl) {
+      const v = getAttrValue(crossesAtEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseFloat(v);
+        if (Number.isFinite(n)) valueAxisCrosses = { at: n };
+      }
+    } else {
+      const crossesEl = firstChildElement(valAx, qname('c', 'crosses', NS_C));
+      if (crossesEl) {
+        const v = getAttrValue(crossesEl, ATTR_VAL);
+        if (v === 'autoZero' || v === 'min' || v === 'max') valueAxisCrosses = v;
+      }
+    }
     const majorGl = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C));
     valueAxisMajorGridlines = majorGl !== null;
     if (majorGl) {
@@ -1144,6 +1162,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisLabelAlign !== undefined ? { categoryAxisLabelAlign } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
+    ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
   };

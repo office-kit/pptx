@@ -393,6 +393,15 @@ export interface ChartSpec {
   readonly categoryAxisOrientation?: 'minMax' | 'maxMin';
   /** Same for the value axis. */
   readonly valueAxisOrientation?: 'minMax' | 'maxMin';
+  /**
+   * Where the category axis crosses the value axis. Either an enum
+   * keyword (`<c:valAx><c:crosses val="autoZero|min|max"/>`) or a
+   * specific numeric value (`<c:valAx><c:crossesAt val="N"/>`). The two
+   * forms are mutually exclusive — PowerPoint emits one or the other.
+   * Default is `autoZero` (the category axis sits at value 0 if the
+   * range straddles zero, otherwise at the closer extreme).
+   */
+  readonly valueAxisCrosses?: 'autoZero' | 'min' | 'max' | { at: number };
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
