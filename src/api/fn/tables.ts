@@ -22,6 +22,7 @@ import {
   firstChildElement,
   getAttrValue,
   qname,
+  text,
 } from '../../internal/xml/index.ts';
 import {
   CELL_COL,
@@ -141,6 +142,34 @@ export const getTableStyleId = (table: SlideShapeData): string | null => {
     if (c.kind === 'text' || c.kind === 'cdata') acc += c.data;
   }
   return acc.trim() || null;
+};
+
+/**
+ * Writes `<a:tbl><a:tblPr><a:tableStyleId>` to the given GUID. Pass
+ * `null` to remove the element so the table falls back to the slide's
+ * default style. The GUID must include its curly braces — e.g.
+ * `'{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}'` (PowerPoint's "Medium
+ * Style 2 - Accent 1"). Creates `<a:tblPr>` if absent. Throws when the
+ * shape isn't a table graphic frame.
+ */
+export const setTableStyleId = (table: SlideShapeData, styleId: string | null): void => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('setTableStyleId: shape is not a table graphic frame');
+  const tblPr = ensureTblPr(tbl);
+  // tableStyleId is the LAST child of <a:tblPr> per CT_TableProperties.
+  tblPr.children = tblPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === 'tableStyleId'
+      ),
+  );
+  if (styleId !== null) {
+    tblPr.children.push(elem(qname('a', 'tableStyleId', NS.dml), { children: [text(styleId)] }));
+  }
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
 };
 
 /**
