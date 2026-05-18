@@ -471,6 +471,7 @@ export {
   setTableCellTextFormat,
   setTableColumnWidth,
   setTableRowHeight,
+  setTableStyleFlags,
   setThumbnail,
   pointInShape,
   shapesOverlap,
