@@ -1155,6 +1155,20 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       if (Number.isFinite(n) && n >= 1 && n <= 48) chartStyle = n;
     }
   }
+  // <c:chartSpace><c:lang val="…"/> + <c:date1904 val="…"/> — Office
+  // metadata. Surface for round-trip parity.
+  let language: string | undefined;
+  const langEl = firstChildElement(root, qname('c', 'lang', NS_C));
+  if (langEl) {
+    const v = getAttrValue(langEl, ATTR_VAL);
+    if (v !== null && v.length > 0) language = v;
+  }
+  let date1904: boolean | undefined;
+  const dateEl = firstChildElement(root, qname('c', 'date1904', NS_C));
+  if (dateEl) {
+    const v = getAttrValue(dateEl, ATTR_VAL);
+    if (v === '1' || v === 'true') date1904 = true;
+  }
 
   // <c:legend> sits on the chart element (not the plotArea). Read the
   // position; PowerPoint defaults to 'r' (right) when the element is
@@ -1263,6 +1277,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(plotVisibleCellsOnly === false ? { plotVisibleCellsOnly: false } : {}),
     ...(roundedCorners === true ? { roundedCorners: true } : {}),
     ...(chartStyle !== undefined ? { chartStyle } : {}),
+    ...(language !== undefined ? { language } : {}),
+    ...(date1904 === true ? { date1904: true } : {}),
     ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
     ...(plotAreaStrokeColor !== undefined ? { plotAreaStrokeColor } : {}),
     ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),

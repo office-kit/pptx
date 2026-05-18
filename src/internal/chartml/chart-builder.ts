@@ -756,8 +756,11 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   });
 
   // <c:chartSpace><c:spPr> sits at the root and styles the entire card.
-  // CT_ChartSpace schema order: roundedCorners → style → chart.
+  // CT_ChartSpace schema order: date1904 → lang → roundedCorners →
+  // style → chart.
   const rootChildren: XmlElement[] = [];
+  if (spec.date1904) rootChildren.push(valNode(c('date1904'), '1'));
+  if (spec.language !== undefined) rootChildren.push(valNode(c('lang'), spec.language));
   if (spec.roundedCorners) rootChildren.push(valNode(c('roundedCorners'), '1'));
   if (spec.chartStyle !== undefined) {
     rootChildren.push(valNode(c('style'), Math.round(spec.chartStyle)));
