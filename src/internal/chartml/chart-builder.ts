@@ -737,7 +737,7 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
     chartChildren.push(elem(c('legend'), { children: legendChildren }));
   }
   chartChildren.push(
-    valNode(c('plotVisOnly'), '1'),
+    valNode(c('plotVisOnly'), spec.plotVisibleCellsOnly === false ? '0' : '1'),
     valNode(c('dispBlanksAs'), spec.dispBlanksAs ?? 'gap'),
   );
   const chart = elem(c('chart'), { children: chartChildren });

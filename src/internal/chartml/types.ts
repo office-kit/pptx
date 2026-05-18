@@ -460,6 +460,13 @@ export interface ChartSpec {
    * here so the round-trip preserves the authored intent.
    */
   readonly valueAxisCrossBetween?: 'between' | 'midCat';
+  /**
+   * When `false`, plot data from hidden cells in the embedded workbook
+   * — maps to `<c:plotVisOnly val="0"/>`. PowerPoint's default is
+   * `true` (only plot visible cells), so omitting this field emits
+   * `val="1"` to stay round-trip-safe with PowerPoint-authored files.
+   */
+  readonly plotVisibleCellsOnly?: boolean;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**

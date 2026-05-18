@@ -585,6 +585,47 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisOrientation).toBe('maxMin');
   });
 
+  it('round-trips plotVisibleCellsOnly=false', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        plotVisibleCellsOnly: false,
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.plotVisibleCellsOnly).toBe(false);
+  });
+
+  it('omits plotVisibleCellsOnly on read when the chart uses the default (true)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.plotVisibleCellsOnly).toBeUndefined();
+  });
+
   it('round-trips axis title rotation', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

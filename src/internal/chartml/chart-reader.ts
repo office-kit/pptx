@@ -1104,6 +1104,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const v = getAttrValue(dbaEl, ATTR_VAL);
     if (v === 'gap' || v === 'zero' || v === 'span') dispBlanksAs = v;
   }
+  // <c:plotVisOnly val="0|1"/> — PowerPoint default is 1. Surface as
+  // `plotVisibleCellsOnly: false` only when explicitly 0 so the round-trip
+  // doesn't add a redundant `false` for every default-shaped chart.
+  let plotVisibleCellsOnly: boolean | undefined;
+  const pvoEl = firstChildElement(chart, qname('c', 'plotVisOnly', NS_C));
+  if (pvoEl) {
+    const v = getAttrValue(pvoEl, ATTR_VAL);
+    if (v === '0' || v === 'false') plotVisibleCellsOnly = false;
+  }
 
   // <c:legend> sits on the chart element (not the plotArea). Read the
   // position; PowerPoint defaults to 'r' (right) when the element is
@@ -1209,6 +1218,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(titleOverlay !== undefined ? { titleOverlay } : {}),
     ...(varyColors !== undefined ? { varyColors } : {}),
     ...(dispBlanksAs !== undefined ? { dispBlanksAs } : {}),
+    ...(plotVisibleCellsOnly === false ? { plotVisibleCellsOnly: false } : {}),
     ...(plotAreaFill !== undefined ? { plotAreaFill } : {}),
     ...(plotAreaStrokeColor !== undefined ? { plotAreaStrokeColor } : {}),
     ...(chartAreaFill !== undefined ? { chartAreaFill } : {}),
