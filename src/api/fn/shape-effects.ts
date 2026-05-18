@@ -27,6 +27,8 @@ import {
   type PresentationData,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
+  SLIDE_SHAPES,
+  type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, decode, requireSpPr } from './_helpers.ts';
@@ -257,6 +259,26 @@ export const getShapeEffects = (
   const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
   if (!effectLst) return [];
   return parseEffectLst(effectLst, getPresentationTheme(pres));
+};
+
+/**
+ * Every shape on the slide whose `<a:effectLst>` carries an effect
+ * of the given `kind` (`'outerShdw'`, `'innerShdw'`, `'glow'`,
+ * `'reflection'`, `'softEdge'`, `'blur'`). Pure presence check — only
+ * looks at the shape's own effect list, not the layout / master
+ * cascade. Pair with `findShapesByEffect(pres, slide, 'softEdge')`
+ * style call sites for visual-effect audits.
+ */
+export const findShapesByEffect = (
+  pres: PresentationData,
+  slide: SlideData,
+  kind: ShapeEffectAny['kind'],
+): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (getShapeEffects(pres, shape).some((e) => e.kind === kind)) out.push(shape);
+  }
+  return out;
 };
 
 /**
