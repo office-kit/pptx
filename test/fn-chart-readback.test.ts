@@ -585,6 +585,29 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisOrientation).toBe('maxMin');
   });
 
+  it('round-trips category-axis gridlines (major + minor)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'bar',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        categoryAxisMajorGridlines: true,
+        categoryAxisMinorGridlines: true,
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.categoryAxisMajorGridlines).toBe(true);
+    expect(spec.categoryAxisMinorGridlines).toBe(true);
+  });
+
   it('round-trips axis line colors', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

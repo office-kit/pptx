@@ -307,6 +307,8 @@ const catAxis = (spec: ChartSpec): XmlElement => {
     valNode(c('delete'), spec.categoryAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'b'),
   ];
+  if (spec.categoryAxisMajorGridlines) children.push(elem(c('majorGridlines')));
+  if (spec.categoryAxisMinorGridlines) children.push(elem(c('minorGridlines')));
   if (spec.categoryAxisTitle !== undefined) {
     children.push(titleElement(spec.categoryAxisTitle, spec.categoryAxisTitleStyle));
   }

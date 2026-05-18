@@ -364,6 +364,15 @@ export interface ChartSpec {
   /** When the value-axis emits `<c:minorGridlines/>` — minor gridlines are visible. */
   readonly valueAxisMinorGridlines?: boolean;
   /**
+   * Whether the category axis emits `<c:majorGridlines/>`. Sounds odd
+   * for column charts (where category gridlines are vertical, between
+   * categories) but bar charts put the cat axis on the vertical edge
+   * and use these as horizontal guide lines per category band.
+   */
+  readonly categoryAxisMajorGridlines?: boolean;
+  /** Companion `<c:minorGridlines/>` on the category axis. */
+  readonly categoryAxisMinorGridlines?: boolean;
+  /**
    * Category-axis tick label skip step (`<c:catAx><c:tickLblSkip val="N"/>`):
    * render every Nth category label. Commonly 2 / 5 / 10 on dense
    * time-series charts to keep labels from overlapping.
