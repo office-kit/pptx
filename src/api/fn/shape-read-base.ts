@@ -219,6 +219,28 @@ export const getSlideMasterPartNames = (pres: PresentationData): ReadonlyArray<s
   return out;
 };
 
+/**
+ * Histogram of master part name → number of slides whose layout chains
+ * up to that master. Every master in the package appears as a key
+ * (count `0` for unreferenced masters), so the function surfaces
+ * unused masters directly — useful for trimming multi-master template
+ * decks. Pair with `getSlideLayoutUsageCounts` for the layout layer.
+ */
+export const getSlideMasterUsageCounts = (
+  pres: PresentationData,
+): Readonly<Record<string, number>> => {
+  const counts: Record<string, number> = {};
+  for (const masterName of getSlideMasterPartNames(pres)) {
+    counts[masterName] = 0;
+  }
+  for (const slide of getSlides(pres)) {
+    const name = getSlideMasterPartName(slide);
+    if (name === null) continue;
+    counts[name] = (counts[name] ?? 0) + 1;
+  }
+  return counts;
+};
+
 export const getShapeName = (shape: SlideShapeData): string => shape[SHAPE_SNAPSHOT].name;
 
 /**
