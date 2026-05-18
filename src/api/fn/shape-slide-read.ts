@@ -339,6 +339,20 @@ export const findShapesByHyperlink = (
 };
 
 /**
+ * Every shape on the slide that carries any hyperlink (regardless of
+ * target). Useful for "audit every clickable shape on this slide" —
+ * counterpart to `findShapesByHyperlink(slide, url)`, which requires a
+ * matching URL.
+ */
+export const findShapesWithHyperlinks = (slide: SlideData): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    if (getShapeHyperlink(shape) !== null) out.push(shape);
+  }
+  return out;
+};
+
+/**
  * Returns every shape on the slide whose `<a:prstGeom prst="…"/>`
  * token matches `preset`. Useful for diagram introspection: find all
  * `'leftArrow'` shapes for a workflow swap, replace every `'cloud'`
