@@ -267,9 +267,21 @@ export const findShapeById = (slide: SlideData, id: number): SlideShapeData | nu
   return null;
 };
 
-/** Every shape on the slide whose `cNvPr@name` equals `name`. */
-export const findShapesByName = (slide: SlideData, name: string): ReadonlyArray<SlideShapeData> =>
-  slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].name === name);
+/**
+ * Every shape on the slide whose `cNvPr@name` matches `name`. Accepts
+ * either a literal string (exact-equality, case-sensitive) or a
+ * `RegExp` for pattern matches — useful when template-cloned shapes
+ * share a prefix (`'TextPlaceholder1'`, `'TextPlaceholder2'`, …).
+ */
+export const findShapesByName = (
+  slide: SlideData,
+  name: string | RegExp,
+): ReadonlyArray<SlideShapeData> => {
+  if (typeof name === 'string') {
+    return slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].name === name);
+  }
+  return slide[SLIDE_SHAPES].filter((s) => name.test(s[SHAPE_SNAPSHOT].name));
+};
 
 /**
  * First shape on the slide whose visible text matches `needle`
