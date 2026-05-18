@@ -847,6 +847,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisHidden: boolean | undefined;
   let valueAxisHidden: boolean | undefined;
   let categoryAxisTickLabelSkip: number | undefined;
+  let categoryAxisTickMarkSkip: number | undefined;
   let categoryAxisTickLabelPos: ChartSpec['categoryAxisTickLabelPos'];
   const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
   const isHidden = (axis: XmlElement): boolean | undefined => {
@@ -893,6 +894,14 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       if (v !== null) {
         const n = Number.parseInt(v, 10);
         if (Number.isFinite(n) && n > 1) categoryAxisTickLabelSkip = n;
+      }
+    }
+    const markSkipEl = firstChildElement(catAx, qname('c', 'tickMarkSkip', NS_C));
+    if (markSkipEl) {
+      const v = getAttrValue(markSkipEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n) && n > 1) categoryAxisTickMarkSkip = n;
       }
     }
     const posEl = firstChildElement(catAx, qname('c', 'tickLblPos', NS_C));
@@ -1114,6 +1123,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisMajorTickMark !== undefined ? { categoryAxisMajorTickMark } : {}),
     ...(valueAxisMinorGridlines !== undefined ? { valueAxisMinorGridlines } : {}),
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
+    ...(categoryAxisTickMarkSkip !== undefined ? { categoryAxisTickMarkSkip } : {}),
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
