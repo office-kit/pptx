@@ -250,6 +250,7 @@ export {
   getPackageSize,
   getPresentationChartKindCounts,
   getPresentationCommentCountsByAuthor,
+  getPresentationCommentCountsBySlide,
   getPresentationCommenters,
   getPresentationCreated,
   getPresentationFonts,

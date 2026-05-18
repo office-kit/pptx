@@ -217,6 +217,19 @@ export const getPresentationCommentCountsByAuthor = (
 };
 
 /**
+ * Dense histogram of comment counts by 0-based slide index. Every
+ * slide in the deck appears as an element (count `0` when the slide
+ * has no comments), so the array shape is dense — handy for charting
+ * comment density per slide without re-indexing.
+ */
+export const getPresentationCommentCountsBySlide = (
+  pres: PresentationData,
+): ReadonlyArray<number> => {
+  const slides = getSlides(pres);
+  return slides.map((s) => getSlideComments(s).length);
+};
+
+/**
  * Looks up a `CommentAuthor` from `commentAuthors.xml` by display
  * name (case-sensitive equality). Returns `null` when no author has
  * that name. Sibling of `findCommentsByAuthor` — the latter returns
