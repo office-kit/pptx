@@ -279,6 +279,8 @@ describe('fn API: getSlideCharts', () => {
         categoryAxisTickLabelSkip: 2,
         categoryAxisTickMarkSkip: 5,
         categoryAxisTickLabelPos: 'low',
+        categoryAxisLabelOffset: 150,
+        categoryAxisLabelAlign: 'l',
       },
     });
     const bytes = await savePresentation(pres);
@@ -292,6 +294,8 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.categoryAxisTickLabelSkip).toBe(2);
     expect(spec.categoryAxisTickMarkSkip).toBe(5);
     expect(spec.categoryAxisTickLabelPos).toBe('low');
+    expect(spec.categoryAxisLabelOffset).toBe(150);
+    expect(spec.categoryAxisLabelAlign).toBe('l');
   });
 
   it('round-trips chart extras (varyColors / gapWidth / overlap / firstSliceAng / holeSize / dropLines / hiLowLines / titleOverlay / majorGridlines)', async () => {

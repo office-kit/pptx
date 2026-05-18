@@ -319,6 +319,13 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   const catTxPr = axisTxPrElement(spec.categoryAxisLabelStyle, spec.categoryAxisLabelRotationDeg);
   if (catTxPr) children.push(catTxPr);
   children.push(valNode(c('crossAx'), VAL_AX_ID));
+  // CT_CatAx schema order: lblAlgn / lblOffset precede the skip pair.
+  if (spec.categoryAxisLabelAlign !== undefined) {
+    children.push(valNode(c('lblAlgn'), spec.categoryAxisLabelAlign));
+  }
+  if (spec.categoryAxisLabelOffset !== undefined) {
+    children.push(valNode(c('lblOffset'), spec.categoryAxisLabelOffset));
+  }
   if (spec.categoryAxisTickLabelSkip !== undefined) {
     children.push(valNode(c('tickLblSkip'), spec.categoryAxisTickLabelSkip));
   }
