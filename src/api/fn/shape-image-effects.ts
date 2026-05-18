@@ -109,6 +109,15 @@ export const hasShapeImage = (shape: SlideShapeData): boolean => {
 };
 
 /**
+ * Dense per-slide image count array. Counts every shape that
+ * `hasShapeImage` matches on each slide. Rounds out the density-array
+ * family alongside the chart, table, shape, text, and comment
+ * counters.
+ */
+export const getPresentationImageCountsBySlide = (pres: PresentationData): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => s[SLIDE_SHAPES].filter((sh) => hasShapeImage(sh)).length);
+
+/**
  * Returns every shape on the slide that is mirrored — horizontally
  * (`flipH`), vertically (`flipV`), or both.
  */
