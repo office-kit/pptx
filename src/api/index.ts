@@ -332,6 +332,7 @@ export {
   getSlidePartName,
   getSlideSections,
   getSlideShapes,
+  getSlideTables,
   getSlideSize,
   getSlideText,
   getSlideTextLength,
