@@ -2548,6 +2548,34 @@ export const getShapeTextDirection = (
   return null;
 };
 
+/**
+ * Sets the shape's text-direction via `<a:bodyPr vert="…"/>`. See
+ * `getShapeTextDirection` for the meaning of each value. Passing `null`
+ * (or `'horz'`) clears the attribute so the shape uses the default
+ * horizontal direction. Throws for non-text-bearing shape kinds.
+ */
+export const setShapeTextDirection = (
+  shape: SlideShapeData,
+  direction:
+    | 'horz'
+    | 'vert'
+    | 'vert270'
+    | 'wordArtVert'
+    | 'eaVert'
+    | 'mongolianVert'
+    | 'wordArtVertRtl'
+    | null,
+): void => {
+  const bodyPr = requireBodyPr(shape);
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
+  );
+  if (direction !== null && direction !== 'horz') {
+    bodyPr.attrs.push(attr(qname('', 'vert', ''), direction));
+  }
+  commitAndRefresh(shape);
+};
+
 export const getShapeTextMargins = (
   shape: SlideShapeData,
 ): {
