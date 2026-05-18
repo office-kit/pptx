@@ -387,6 +387,7 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   if (spec.categoryAxisTickMarkSkip !== undefined) {
     children.push(valNode(c('tickMarkSkip'), spec.categoryAxisTickMarkSkip));
   }
+  if (spec.categoryAxisNoMultiLevelLabel) children.push(valNode(c('noMultiLvlLbl'), '1'));
   return elem(c('catAx'), { children });
 };
 
