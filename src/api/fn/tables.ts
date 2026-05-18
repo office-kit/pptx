@@ -196,6 +196,59 @@ export const getTableStyleFlags = (
   };
 };
 
+const ensureTblPr = (tbl: XmlElement): XmlElement => {
+  let tblPr = firstChildElement(tbl, qname('a', 'tblPr', NS.dml));
+  if (tblPr === null) {
+    tblPr = elem(qname('a', 'tblPr', NS.dml));
+    // <a:tblPr> is the FIRST child of <a:tbl> per the schema.
+    tbl.children.unshift(tblPr);
+  }
+  return tblPr;
+};
+
+const TABLE_STYLE_FLAG_KEYS = [
+  'firstRow',
+  'lastRow',
+  'firstCol',
+  'lastCol',
+  'bandRow',
+  'bandCol',
+] as const;
+
+/**
+ * Sets one or more boolean style flags on `<a:tblPr>`. Only the keys
+ * present in `flags` are touched — omitted keys are left at their
+ * current state. A flag set to `false` strips the attribute (rather
+ * than emitting `="0"`), matching how PowerPoint round-trips defaults.
+ *
+ * See `getTableStyleFlags` for the meaning of each flag.
+ */
+export const setTableStyleFlags = (
+  table: SlideShapeData,
+  flags: {
+    firstRow?: boolean;
+    lastRow?: boolean;
+    firstCol?: boolean;
+    lastCol?: boolean;
+    bandRow?: boolean;
+    bandCol?: boolean;
+  },
+): void => {
+  const tbl = findTblElement(table);
+  if (!tbl) throw new Error('setTableStyleFlags: shape is not a table graphic frame');
+  const tblPr = ensureTblPr(tbl);
+  for (const key of TABLE_STYLE_FLAG_KEYS) {
+    const v = flags[key];
+    if (v === undefined) continue;
+    tblPr.attrs = tblPr.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === key),
+    );
+    if (v) tblPr.attrs.push(attr(qname('', key, ''), '1'));
+  }
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
 /**
  * Returns the table's row + column counts. Throws when the shape
  * isn't a table graphic frame.
