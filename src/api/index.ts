@@ -472,6 +472,7 @@ export {
   setTableColumnWidth,
   setTableRowHeight,
   setTableStyleFlags,
+  setTableStyleId,
   setThumbnail,
   pointInShape,
   shapesOverlap,
