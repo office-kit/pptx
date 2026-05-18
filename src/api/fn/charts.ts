@@ -498,6 +498,16 @@ export const getPresentationChartKindCounts = (
   return counts;
 };
 
+/**
+ * Dense per-slide chart count array, 0-based by slide index. Counts
+ * every chart returned by `getSlideCharts` regardless of whether its
+ * `spec` parsed — useful for "which slides carry charts the renderer
+ * doesn't yet model?" audits. Pair with
+ * `getPresentationChartKindCounts` for kind-level totals.
+ */
+export const getPresentationChartCountsBySlide = (pres: PresentationData): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => getSlideCharts(s).length);
+
 export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> => {
   const pkg = slide[INTERNAL_PACKAGE];
   const out: SlideChartData[] = [];
