@@ -6,6 +6,7 @@
   // exercises the real surface the same way the rest of the docs site
   // does — type errors here break the build.
   import {
+    getCommentText,
     getCoreProperties,
     getPresentationSummary,
     getSlideCharts,
@@ -110,13 +111,13 @@
           hidden: isSlideHidden(slide),
           commentCount: getSlideComments(slide).length,
           commentTexts: getSlideComments(slide)
-            .map((c) => c.text)
+            .map((c) => getCommentText(c))
             .filter((t) => t.length > 0)
             .join('\n'),
           layoutType,
           layoutName,
           chartCount: getSlideCharts(slide).length,
-          mediaCount: getSlideMediaPartNames(pres, slide).length,
+          mediaCount: getSlideMediaPartNames(slide).length,
         };
       });
 
