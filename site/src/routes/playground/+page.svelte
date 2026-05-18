@@ -10,6 +10,7 @@
     getCoreProperties,
     getPresentationChartKindCounts,
     getPresentationSummary,
+    getSlideLayoutUsageCountsByType,
     getShapeHyperlink,
     getSlideCharts,
     getSlideMasterCount,
@@ -69,6 +70,7 @@
   let coreCreator = $state<string>('');
   let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
   let chartKindCounts = $state<ReturnType<typeof getPresentationChartKindCounts> | null>(null);
+  let layoutTypeCounts = $state<ReturnType<typeof getSlideLayoutUsageCountsByType> | null>(null);
   let masterCount = $state<number>(0);
   let issues = $state<ReadonlyArray<ValidationIssue>>([]);
   let slides = $state<SlideSnapshot[]>([]);
@@ -86,6 +88,7 @@
       coreCreator = core?.creator ?? '';
       summary = getPresentationSummary(pres);
       chartKindCounts = getPresentationChartKindCounts(pres);
+      layoutTypeCounts = getSlideLayoutUsageCountsByType(pres);
       masterCount = getSlideMasterCount(pres);
       issues = validatePresentation(pres);
       // Map section name → 1-based slide index of its first slide. We
@@ -281,6 +284,16 @@
             <span class="value">
               {Object.entries(chartKindCounts)
                 .filter(([, n]) => n > 0)
+                .map(([k, n]) => `${n} ${k}`)
+                .join(' · ')}
+            </span>
+          </div>
+        {/if}
+        {#if layoutTypeCounts && Object.keys(layoutTypeCounts).length > 0}
+          <div class="cell">
+            <span class="label">layout types in use</span>
+            <span class="value">
+              {Object.entries(layoutTypeCounts)
                 .map(([k, n]) => `${n} ${k}`)
                 .join(' · ')}
             </span>
