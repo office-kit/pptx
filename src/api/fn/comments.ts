@@ -235,17 +235,19 @@ export const getPresentationCommentCountsBySlide = (
 
 /**
  * Looks up a `CommentAuthor` from `commentAuthors.xml` by display
- * name (case-sensitive equality). Returns `null` when no author has
- * that name. Sibling of `findCommentsByAuthor` — the latter returns
- * the matching comments; this returns the author handle for
- * downstream metadata reads (id, initials, color).
+ * name. Accepts a literal string (exact equality) or a `RegExp` for
+ * pattern matches. Returns `null` when no author matches. Sibling of
+ * `findCommentsByAuthor` — the latter returns the matching comments;
+ * this returns the author handle for downstream metadata reads (id,
+ * initials, color).
  */
 export const findCommentAuthorByName = (
   pres: PresentationData,
-  authorName: string,
+  authorName: string | RegExp,
 ): CommentAuthor | null => {
   for (const a of getCommentAuthors(pres)) {
-    if (a.name === authorName) return a;
+    const hit = typeof authorName === 'string' ? a.name === authorName : authorName.test(a.name);
+    if (hit) return a;
   }
   return null;
 };

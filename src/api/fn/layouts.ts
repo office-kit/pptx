@@ -101,11 +101,18 @@ export const getSlideLayoutPlaceholders = (
 
 /**
  * Finds the first slide layout whose user-visible name matches `name`,
- * or `null` if none does. Convenience over `getSlideLayouts(...).find(...)`.
+ * or `null` if none does. Accepts a literal string (exact equality)
+ * or a `RegExp` for pattern matches — useful when template providers
+ * suffix versions onto names (`'Title and Content v2'`).
  */
-export const findSlideLayout = (pres: PresentationData, name: string): SlideLayoutData | null => {
+export const findSlideLayout = (
+  pres: PresentationData,
+  name: string | RegExp,
+): SlideLayoutData | null => {
   for (const layout of getSlideLayouts(pres)) {
-    if (layout[LAYOUT_PART].name === name) return layout;
+    const n = layout[LAYOUT_PART].name;
+    const hit = typeof name === 'string' ? n === name : name.test(n);
+    if (hit) return layout;
   }
   return null;
 };
