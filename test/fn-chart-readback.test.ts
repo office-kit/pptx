@@ -457,6 +457,35 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.series[1]!.dataLabels).toBeUndefined();
   });
 
+  it('round-trips per-series dPt overrides (pointColors + pointExplosions)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'pie',
+        categories: ['A', 'B', 'C'],
+        series: [
+          {
+            name: 'X',
+            values: [10, 20, 30],
+            pointColors: ['#FF0000', null, '#00FF00'],
+            pointExplosions: [null, 25, null],
+          },
+        ],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const ser = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!.series[0]!;
+    expect(ser.pointColors?.[0]).toBe('#FF0000');
+    expect(ser.pointColors?.[2]).toBe('#00FF00');
+    expect(ser.pointExplosions?.[1]).toBe(25);
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
