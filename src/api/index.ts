@@ -142,6 +142,7 @@ export {
   findShapesByHyperlink,
   findShapesInRect,
   findSlidesWithChartKind,
+  findSlidesWithChartTrendlines,
   findShapesByKind,
   findShapesByName,
   findShapesByPreset,
