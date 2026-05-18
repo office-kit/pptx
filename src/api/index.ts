@@ -259,6 +259,7 @@ export {
   getPresentationSummary,
   getPresentationNotesLength,
   getPresentationNotesText,
+  getPresentationShapeCountsBySlide,
   getPresentationText,
   getPresentationTextLength,
   getPresentationTheme,
