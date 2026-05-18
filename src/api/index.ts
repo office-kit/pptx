@@ -463,6 +463,7 @@ export {
   setSlideTransition,
   setTableCellAlignment,
   setTableCellAnchor,
+  setTableCellBorders,
   setTableCellFill,
   setTableCellMargins,
   setTableCellText,

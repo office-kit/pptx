@@ -4,6 +4,7 @@ import { resolveChartPartName } from './charts.ts';
 import {
   applyAlignmentToAllParagraphs,
   applyFormatToAllRuns,
+  buildColorElement,
   clearFill as clearFillImpl,
   setSolidFill,
   setTextBody,
@@ -460,6 +461,81 @@ export const getTableCellBorders = (
     tlToBr: readLn('lnTlToBr'),
     blToTr: readLn('lnBlToTr'),
   };
+};
+
+const BORDER_SIDE_LOCALS = {
+  left: 'lnL',
+  right: 'lnR',
+  top: 'lnT',
+  bottom: 'lnB',
+  tlToBr: 'lnTlToBr',
+  blToTr: 'lnBlToTr',
+} as const;
+
+const writeBorderLn = (
+  tcPr: XmlElement,
+  local: 'lnL' | 'lnR' | 'lnT' | 'lnB' | 'lnTlToBr' | 'lnBlToTr',
+  border: TableCellBorder | null,
+): void => {
+  // Strip any prior side first.
+  tcPr.children = tcPr.children.filter(
+    (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === local),
+  );
+  if (border === null) return;
+  const lnAttrs = [];
+  if (border.widthEmu !== null && border.widthEmu !== undefined) {
+    lnAttrs.push(attr(qname('', 'w', ''), String(Math.round(border.widthEmu))));
+  }
+  const children: XmlElement[] = [];
+  if (border.color !== null && border.color !== undefined) {
+    children.push(
+      elem(qname('a', 'solidFill', NS.dml), { children: [buildColorElement(border.color)] }),
+    );
+  }
+  if (border.dash !== null && border.dash !== undefined) {
+    children.push(
+      elem(qname('a', 'prstDash', NS.dml), { attrs: [attr(qname('', 'val', ''), border.dash)] }),
+    );
+  }
+  tcPr.children.push(elem(qname('a', local, NS.dml), { attrs: lnAttrs, children }));
+};
+
+/**
+ * Sets one or more side borders on a cell. Sides listed with `null` are
+ * removed from the `<a:tcPr>`; sides omitted from the partial are left
+ * untouched. Pass the whole `sides` arg as `null` to clear every side
+ * in one call. Creates `<a:tcPr>` if absent.
+ *
+ * The diagonal sides (`tlToBr` / `blToTr`) are independent of the
+ * cardinal four — a strikethrough cell can have only a diagonal.
+ */
+export const setTableCellBorders = (
+  cell: TableCellData,
+  sides: {
+    left?: TableCellBorder | null;
+    right?: TableCellBorder | null;
+    top?: TableCellBorder | null;
+    bottom?: TableCellBorder | null;
+    tlToBr?: TableCellBorder | null;
+    blToTr?: TableCellBorder | null;
+  } | null,
+): void => {
+  const tcPr = ensureCellTcPr(cell);
+  if (sides === null) {
+    for (const local of Object.values(BORDER_SIDE_LOCALS)) writeBorderLn(tcPr, local, null);
+  } else {
+    for (const [key, local] of Object.entries(BORDER_SIDE_LOCALS) as ReadonlyArray<
+      [
+        keyof typeof BORDER_SIDE_LOCALS,
+        (typeof BORDER_SIDE_LOCALS)[keyof typeof BORDER_SIDE_LOCALS],
+      ]
+    >) {
+      const v = sides[key];
+      if (v === undefined) continue;
+      writeBorderLn(tcPr, local, v);
+    }
+  }
+  commitTableCell(cell);
 };
 
 /**
