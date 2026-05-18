@@ -196,6 +196,27 @@ export const getPresentationCommenters = (pres: PresentationData): ReadonlyArray
 };
 
 /**
+ * Histogram of comment counts by author display name across the whole
+ * deck. Useful for "who reviewed this deck the most?" audits.
+ * Authors with the same display name (a real-world case for shared
+ * mailbox identities) get merged into the same bucket; pair with
+ * `getPresentationCommenters` when you need to keep authors with
+ * identical names separate by `id`.
+ */
+export const getPresentationCommentCountsByAuthor = (
+  pres: PresentationData,
+): Readonly<Record<string, number>> => {
+  const counts: Record<string, number> = {};
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideComments(slide)) {
+      const name = c.author.name;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+  }
+  return counts;
+};
+
+/**
  * Looks up a `CommentAuthor` from `commentAuthors.xml` by display
  * name (case-sensitive equality). Returns `null` when no author has
  * that name. Sibling of `findCommentsByAuthor` — the latter returns

@@ -249,6 +249,7 @@ export {
   getOutlineText,
   getPackageSize,
   getPresentationChartKindCounts,
+  getPresentationCommentCountsByAuthor,
   getPresentationCommenters,
   getPresentationCreated,
   getPresentationFonts,
