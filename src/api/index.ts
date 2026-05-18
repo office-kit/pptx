@@ -441,6 +441,7 @@ export {
   setShapeTextAnchor,
   setShapeTextAutoFit,
   setShapeTextBodyRotationDeg,
+  setShapeTextDirection,
   setShapeTextFormat,
   setShapeTextMargins,
   setShapeTextWrap,
