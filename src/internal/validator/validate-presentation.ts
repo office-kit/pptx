@@ -245,6 +245,61 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
     }
   }
 
+  // Per-slide: duplicate `<p:cNvPr id="N">` collisions inside
+  // `<p:spTree>`. PowerPoint requires every shape's non-visual ID to be
+  // unique within the slide; duplicates often appear when callers paste
+  // shapes from another slide without re-allocating IDs.
+  for (const slideName of slidePartNames) {
+    const slidePart = pkg.getPart(slideName);
+    if (!slidePart) continue;
+    let slideRoot: ReturnType<typeof parseXml>['root'];
+    try {
+      slideRoot = parseXml(decode(slidePart.data)).root;
+    } catch {
+      // Parse failure on the slide itself is surfaced by other checks
+      // upstream; skip here.
+      continue;
+    }
+    const cSld = firstChildElement(slideRoot, qname('p', 'cSld', NS.pml));
+    if (!cSld) continue;
+    const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+    if (!spTree) continue;
+    const seenShapeIds = new Map<string, number>();
+    const walk = (host: ReturnType<typeof parseXml>['root']): void => {
+      for (const child of host.children) {
+        if (child.kind !== 'element') continue;
+        if (child.name.namespaceURI === NS.pml && child.name.localName === 'grpSp') {
+          // Group shapes nest <p:sp> children; recurse so duplicates
+          // inside groups don't slip past the check.
+          walk(child);
+          continue;
+        }
+        const nvHost =
+          firstChildElement(child, qname('p', 'nvSpPr', NS.pml)) ??
+          firstChildElement(child, qname('p', 'nvPicPr', NS.pml)) ??
+          firstChildElement(child, qname('p', 'nvCxnSpPr', NS.pml)) ??
+          firstChildElement(child, qname('p', 'nvGrpSpPr', NS.pml)) ??
+          firstChildElement(child, qname('p', 'nvGraphicFramePr', NS.pml));
+        if (!nvHost) continue;
+        const cNvPr = firstChildElement(nvHost, qname('p', 'cNvPr', NS.pml));
+        if (!cNvPr) continue;
+        const id = getAttrValue(cNvPr, ATTR_ID);
+        if (id === null) continue;
+        seenShapeIds.set(id, (seenShapeIds.get(id) ?? 0) + 1);
+      }
+    };
+    walk(spTree);
+    for (const [id, count] of seenShapeIds) {
+      if (count > 1) {
+        issues.push({
+          severity: 'error',
+          message: `duplicate shape id="${id}" appears ${count}× in slide ${slideName}`,
+          partName: slideName,
+        });
+      }
+    }
+  }
+
   // Chart parts must resolve to their embedded xlsx workbooks.
   for (const part of pkg.parts) {
     if (part.contentType !== 'application/vnd.openxmlformats-officedocument.drawingml.chart+xml') {
