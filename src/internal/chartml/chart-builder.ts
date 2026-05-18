@@ -419,6 +419,12 @@ const buildDLblsFromLabels = (dl: ChartSpec['dataLabels'] | undefined): XmlEleme
       }),
     );
   }
+  if (dl.textStyle !== undefined) {
+    // CT_DLbls schema order places <c:txPr> before <c:dLblPos>; reusing
+    // `axisTxPrElement` keeps the formatting parity with axis / legend.
+    const txPr = axisTxPrElement(dl.textStyle, undefined);
+    if (txPr !== null) children.push(txPr);
+  }
   if (dl.position !== undefined) children.push(valNode(c('dLblPos'), dl.position));
   children.push(
     valNode(c('showLegendKey'), '0'),

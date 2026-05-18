@@ -178,6 +178,13 @@ export interface ChartDataLabels {
    * `"\n"`, `"; "`.
    */
   readonly separator?: string;
+  /**
+   * Default-run text style for the labels — projected from
+   * `<c:dLbls><c:txPr>…<a:defRPr/>…</c:txPr>`. Applies to whichever
+   * label parts are turned on by the `show*` toggles. Independent of
+   * the chart-title style and the axis-label style.
+   */
+  readonly textStyle?: ChartTextStyle;
 }
 
 /**
