@@ -329,6 +329,9 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   if (spec.categoryAxisTickLabelPos !== undefined) {
     children.push(valNode(c('tickLblPos'), spec.categoryAxisTickLabelPos));
   }
+  if (spec.categoryAxisLineColor !== undefined) {
+    children.push(spPrChildren(undefined, spec.categoryAxisLineColor));
+  }
   const catTxPr = axisTxPrElement(spec.categoryAxisLabelStyle, spec.categoryAxisLabelRotationDeg);
   if (catTxPr) children.push(catTxPr);
   children.push(valNode(c('crossAx'), VAL_AX_ID));
@@ -408,6 +411,9 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   }
   if (spec.valueAxisMinorTickMark !== undefined) {
     children.push(valNode(c('minorTickMark'), spec.valueAxisMinorTickMark));
+  }
+  if (spec.valueAxisLineColor !== undefined) {
+    children.push(spPrChildren(undefined, spec.valueAxisLineColor));
   }
   const valTxPr = axisTxPrElement(spec.valueAxisLabelStyle, spec.valueAxisLabelRotationDeg);
   if (valTxPr) children.push(valTxPr);

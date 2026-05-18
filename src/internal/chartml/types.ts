@@ -353,6 +353,14 @@ export interface ChartSpec {
    * default (a light gray).
    */
   readonly valueAxisMajorGridlineColor?: string;
+  /**
+   * Authored color on the value-axis line itself — `<c:valAx><c:spPr>
+   * <a:ln><a:solidFill><a:srgbClr val="…"/>`. Returned as `#RRGGBB`.
+   * `undefined` falls back to the renderer's default axis stroke.
+   */
+  readonly valueAxisLineColor?: string;
+  /** Authored color on the category-axis line (same shape as `valueAxisLineColor`). */
+  readonly categoryAxisLineColor?: string;
   /** When the value-axis emits `<c:minorGridlines/>` — minor gridlines are visible. */
   readonly valueAxisMinorGridlines?: boolean;
   /**

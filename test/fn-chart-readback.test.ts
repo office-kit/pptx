@@ -585,6 +585,29 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisOrientation).toBe('maxMin');
   });
 
+  it('round-trips axis line colors', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        categoryAxisLineColor: '#FF0000',
+        valueAxisLineColor: '#00AA00',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.categoryAxisLineColor).toBe('#FF0000');
+    expect(spec.valueAxisLineColor).toBe('#00AA00');
+  });
+
   it('round-trips categoryAxisNumberFormat', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
