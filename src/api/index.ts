@@ -259,6 +259,7 @@ export {
   getPresentationModified,
   getPresentationSummary,
   getPresentationNotesLength,
+  getPresentationNotesLengthsBySlide,
   getPresentationNotesText,
   getPresentationHyperlinkCountsBySlide,
   getPresentationImageCountsBySlide,
