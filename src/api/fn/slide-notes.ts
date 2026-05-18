@@ -167,6 +167,26 @@ export const findSlidesWithChartKind = (
 };
 
 /**
+ * Presentation-level version of `findChartsWithTrendlines`. Returns
+ * every slide carrying at least one chart with a trendline on any
+ * series. Useful for "audit every trendline in this deck" workflows
+ * before publishing.
+ */
+export const findSlidesWithChartTrendlines = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideCharts(slide)) {
+      if (c.spec === null) continue;
+      if (c.spec.series.some((s) => s.trendline !== undefined)) {
+        out.push(slide);
+        break;
+      }
+    }
+  }
+  return out;
+};
+
+/**
  * Returns every slide where at least two shapes have overlapping
  * bounding boxes. Built on `findOverlappingShapePairs`. Useful for
  * deck-wide layout audits — surfacing slides that may have stacked
