@@ -372,6 +372,19 @@ export interface ChartSpec {
    */
   readonly categoryAxisTickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
   /**
+   * Distance from the axis line to the labels, expressed as a percent of
+   * the chart text size — `<c:catAx><c:lblOffset val="N"/>` where N is
+   * 0..1000 (default 100). Larger values push category labels further
+   * from the axis. Per ECMA-376 §21.2.2.94.
+   */
+  readonly categoryAxisLabelOffset?: number;
+  /**
+   * Multi-line category-label alignment relative to the tick mark —
+   * `<c:catAx><c:lblAlgn val="ctr|l|r"/>`. PowerPoint defaults to
+   * `ctr` when omitted; the authored value wins.
+   */
+  readonly categoryAxisLabelAlign?: 'ctr' | 'l' | 'r';
+  /**
    * Category-axis order — `'minMax'` (the data's natural order) or
    * `'maxMin'` (reversed). For bar charts PowerPoint typically emits
    * `maxMin` so the first category sits at the top instead of the

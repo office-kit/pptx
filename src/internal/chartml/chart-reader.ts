@@ -849,6 +849,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisTickLabelSkip: number | undefined;
   let categoryAxisTickMarkSkip: number | undefined;
   let categoryAxisTickLabelPos: ChartSpec['categoryAxisTickLabelPos'];
+  let categoryAxisLabelOffset: number | undefined;
+  let categoryAxisLabelAlign: ChartSpec['categoryAxisLabelAlign'];
   const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
   const isHidden = (axis: XmlElement): boolean | undefined => {
     const d = firstChildElement(axis, qname('c', 'delete', NS_C));
@@ -910,6 +912,19 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       if (v === 'none' || v === 'low' || v === 'high' || v === 'nextTo') {
         categoryAxisTickLabelPos = v;
       }
+    }
+    const lblOffsetEl = firstChildElement(catAx, qname('c', 'lblOffset', NS_C));
+    if (lblOffsetEl) {
+      const v = getAttrValue(lblOffsetEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        if (Number.isFinite(n) && n !== 100) categoryAxisLabelOffset = n;
+      }
+    }
+    const lblAlgnEl = firstChildElement(catAx, qname('c', 'lblAlgn', NS_C));
+    if (lblAlgnEl) {
+      const v = getAttrValue(lblAlgnEl, ATTR_VAL);
+      if (v === 'ctr' || v === 'l' || v === 'r') categoryAxisLabelAlign = v;
     }
   }
   // <c:majorGridlines> / <c:minorGridlines> presence governs visibility.
@@ -1125,6 +1140,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisTickLabelSkip !== undefined ? { categoryAxisTickLabelSkip } : {}),
     ...(categoryAxisTickMarkSkip !== undefined ? { categoryAxisTickMarkSkip } : {}),
     ...(categoryAxisTickLabelPos !== undefined ? { categoryAxisTickLabelPos } : {}),
+    ...(categoryAxisLabelOffset !== undefined ? { categoryAxisLabelOffset } : {}),
+    ...(categoryAxisLabelAlign !== undefined ? { categoryAxisLabelAlign } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
