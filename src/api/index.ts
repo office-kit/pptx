@@ -312,6 +312,7 @@ export {
   getSlideLayoutPlaceholders,
   getSlideLayouts,
   getSlideLayoutType,
+  getSlideLayoutUsageCounts,
   getSlideMasterBackground,
   getSlideMasterBackgroundGradientFill,
   getSlideMasterBackgroundImageBytes,

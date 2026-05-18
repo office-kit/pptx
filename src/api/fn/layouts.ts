@@ -12,7 +12,9 @@ import {
   type SlideLayoutData,
 } from '../_internal-symbols.ts';
 import { SLIDE_LAYOUT_CONTENT_TYPE, decode } from './_helpers.ts';
+import { getSlideLayout } from './shape-slide-read.ts';
 import type { ShapeBounds } from './shapes.ts';
+import { getSlides } from './slide-query.ts';
 
 // ---------------------------------------------------------------------------
 // Slide layouts.
@@ -168,4 +170,27 @@ export const getSlideLayouts = (pres: PresentationData): ReadonlyArray<SlideLayo
     });
   }
   return out;
+};
+
+/**
+ * Returns a map of layout name → number of slides that reference it.
+ * Every layout enumerated by `getSlideLayouts` appears as a key (zero
+ * count for unreferenced layouts), so this surfaces unused layouts
+ * directly — e.g. for templates that ship with placeholder layouts the
+ * deck never picks up.
+ */
+export const getSlideLayoutUsageCounts = (
+  pres: PresentationData,
+): Readonly<Record<string, number>> => {
+  const counts: Record<string, number> = {};
+  for (const layout of getSlideLayouts(pres)) {
+    counts[getSlideLayoutName(layout)] = 0;
+  }
+  for (const slide of getSlides(pres)) {
+    const layout = getSlideLayout(slide);
+    if (layout === null) continue;
+    const name = getSlideLayoutName(layout);
+    counts[name] = (counts[name] ?? 0) + 1;
+  }
+  return counts;
 };
