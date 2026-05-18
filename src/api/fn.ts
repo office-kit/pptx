@@ -8,8 +8,46 @@
 // The implementation is split across `./fn/*.ts` by domain. This file
 // is the public barrel; do not add logic here.
 
-export * from './fn/package.ts';
-export * from './fn/slides.ts';
-export * from './fn/shapes.ts';
-export * from './fn/features.ts';
-export * from './fn/embedded.ts';
+// Package-level
+export * from './fn/package-io.ts';
+export * from './fn/sections.ts';
+export * from './fn/layouts.ts';
+export * from './fn/theme.ts';
+export * from './fn/properties.ts';
+export * from './fn/thumbnail.ts';
+
+// Slide-level
+export * from './fn/slide-query.ts';
+export * from './fn/slide-deck.ts';
+
+// Shape
+export * from './fn/shape-slide-read.ts';
+export * from './fn/shape-read-base.ts';
+export * from './fn/shape-read-paint.ts';
+export * from './fn/shape-gradient-read.ts';
+export * from './fn/shape-fill-stroke.ts';
+export * from './fn/shape-effects.ts';
+export * from './fn/shape-text.ts';
+export * from './fn/shape-runs.ts';
+export * from './fn/shape-color.ts';
+export * from './fn/shape-paragraph.ts';
+export * from './fn/shape-removal-zorder.ts';
+export * from './fn/shape-authoring.ts';
+export * from './fn/shape-image.ts';
+export * from './fn/shape-click-action.ts';
+export * from './fn/shape-image-effects.ts';
+export * from './fn/shape-animation.ts';
+
+// Slide features
+export * from './fn/slide-background.ts';
+export * from './fn/slide-transition.ts';
+export * from './fn/slide-notes.ts';
+export * from './fn/slide-size.ts';
+export * from './fn/slide-title.ts';
+
+// Tables / charts / comments / validation / package introspection
+export * from './fn/comments.ts';
+export * from './fn/charts.ts';
+export * from './fn/tables.ts';
+export * from './fn/validation.ts';
+export * from './fn/package-introspection.ts';
