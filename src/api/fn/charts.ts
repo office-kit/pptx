@@ -430,6 +430,31 @@ export const findChartsWithTrendlines = (slide: SlideData): ReadonlyArray<SlideC
 };
 
 /**
+ * Returns every chart on the slide whose `dataLabels` (chart-level)
+ * or any series-level `dataLabels` enable at least one of `showValue`,
+ * `showCategory`, `showSeriesName`, or `showPercent`. Useful for
+ * "which charts show numbers next to the data?" audits — purely
+ * presence-based; doesn't validate numberFormat or position. Charts
+ * whose kind isn't modeled are skipped.
+ */
+export const findChartsWithDataLabels = (slide: SlideData): ReadonlyArray<SlideChartData> => {
+  const out: SlideChartData[] = [];
+  const hasLabel = (dl: ChartSpec['dataLabels'] | undefined): boolean =>
+    dl !== undefined && (dl.showValue || dl.showCategory || dl.showSeriesName || dl.showPercent);
+  for (const chart of getSlideCharts(slide)) {
+    if (chart.spec === null) continue;
+    if (hasLabel(chart.spec.dataLabels)) {
+      out.push(chart);
+      continue;
+    }
+    if (chart.spec.series.some((s) => hasLabel(s.dataLabels))) {
+      out.push(chart);
+    }
+  }
+  return out;
+};
+
+/**
  * Returns the first chart on the slide whose parsed `kind` matches
  * `kind` (e.g. `'bar'`, `'line'`, `'pie'`). Returns `null` when no
  * chart on the slide has that kind, or when every chart on the slide
