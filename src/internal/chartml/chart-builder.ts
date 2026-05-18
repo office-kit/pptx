@@ -300,9 +300,10 @@ const axisTxPrElement = (
 };
 
 const catAxis = (spec: ChartSpec): XmlElement => {
+  const catOrientation = spec.categoryAxisOrientation ?? 'minMax';
   const children: XmlElement[] = [
     valNode(c('axId'), CAT_AX_ID),
-    elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
+    elem(c('scaling'), { children: [valNode(c('orientation'), catOrientation)] }),
     valNode(c('delete'), spec.categoryAxisHidden ? '1' : '0'),
     valNode(c('axPos'), 'b'),
   ];
@@ -330,7 +331,7 @@ const valAxis = (spec: ChartSpec): XmlElement => {
   if (spec.valueAxis?.logBase !== undefined) {
     scalingChildren.push(valNode(c('logBase'), spec.valueAxis.logBase));
   }
-  scalingChildren.push(valNode(c('orientation'), 'minMax'));
+  scalingChildren.push(valNode(c('orientation'), spec.valueAxisOrientation ?? 'minMax'));
   if (spec.valueAxis?.min !== undefined) {
     scalingChildren.push(valNode(c('min'), spec.valueAxis.min));
   }
@@ -659,6 +660,11 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
       );
     }
     legendChildren.push(valNode(c('overlay'), spec.legend.overlay ? '1' : '0'));
+    // <c:legend><c:txPr> carries authored legend font / color.
+    if (spec.legend.textStyle !== undefined) {
+      const txPr = axisTxPrElement(spec.legend.textStyle, undefined);
+      if (txPr !== null) legendChildren.push(txPr);
+    }
     chartChildren.push(elem(c('legend'), { children: legendChildren }));
   }
   chartChildren.push(
