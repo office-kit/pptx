@@ -38,6 +38,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitSlideData, decode, refreshSlideData } from './_helpers.ts';
+import { getShapeHyperlink } from './shape-paragraph.ts';
 import { getSlides } from './slide-query.ts';
 import { hasShapeText } from './embedded.ts';
 
@@ -315,6 +316,27 @@ export const findShapesByKind = (
   kind: ShapeKind,
 ): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((s) => s[SHAPE_SNAPSHOT].kind === kind);
+
+/**
+ * Every shape on the slide whose hyperlink target matches `url`
+ * (substring or `RegExp`). Pairs the existing presentation-level
+ * `findSlidesByHyperlink` for cases where the caller already has a
+ * specific slide and wants the linking shapes inside it.
+ */
+export const findShapesByHyperlink = (
+  slide: SlideData,
+  url: string | RegExp,
+): ReadonlyArray<SlideShapeData> => {
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const target = getShapeHyperlink(shape);
+    if (target === null) continue;
+    if (typeof url === 'string' ? target.includes(url) : url.test(target)) {
+      out.push(shape);
+    }
+  }
+  return out;
+};
 
 /**
  * Returns every shape on the slide whose `<a:prstGeom prst="…"/>`

@@ -138,6 +138,7 @@ export {
   findShapeByName,
   findShapeByText,
   findShapeInPresentation,
+  findShapesByHyperlink,
   findShapesByKind,
   findShapesByName,
   findShapesByPreset,
