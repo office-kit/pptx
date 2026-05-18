@@ -62,6 +62,30 @@ describe('fn API: validatePresentation', () => {
     expect(validatePresentation(after)).toEqual([]);
   });
 
+  it('flags duplicate <p:cNvPr id> within a slide', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
+    const slideName = partName('/ppt/slides/slide1.xml');
+    const slidePart = pkg.getPart(slideName);
+    if (!slidePart) throw new Error('expected slide1.xml');
+    // Manufacture two shapes sharing the same id by string-rewriting
+    // the slide. The fixture's first shape has some id="N"; pick any
+    // shape and inject a duplicate sibling.
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    const xml = decoder.decode(slidePart.data);
+    const dupSpRegex = /<p:sp\b[^>]*>([\s\S]*?<\/p:sp>)/;
+    const m = xml.match(dupSpRegex);
+    if (!m || !m[0]) throw new Error('expected at least one <p:sp> in the slide');
+    const rewritten = xml.replace('</p:spTree>', `${m[0]}</p:spTree>`);
+    pkg.removePart(slideName);
+    pkg.addPart(slideName, slidePart.contentType, encoder.encode(rewritten));
+    const broken = await loadPresentation(await savePresentation(reloaded));
+    const issues = validatePresentation(broken);
+    expect(issues.some((i) => /duplicate shape id="\d+"/.test(i.message))).toBe(true);
+  });
+
   it('flags a dangling image rel after media removal', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
