@@ -2522,6 +2522,40 @@ export const getShapeTextColumns = (
 };
 
 /**
+ * Sets the multi-column layout on the shape's text body — writes
+ * `<a:bodyPr numCol="N" [spcCol="EMU"]/>`. Pass `null` to clear both
+ * attributes so the text body falls back to PowerPoint's default
+ * single column. `count` must be `>= 2` (PowerPoint clamps higher
+ * values silently; OOXML allows up to 16). `gapEmu`, when omitted,
+ * removes any prior `spcCol`. Throws for non-text-bearing shape kinds.
+ */
+export const setShapeTextColumns = (
+  shape: SlideShapeData,
+  columns: { count: number; gapEmu?: number } | null,
+): void => {
+  const bodyPr = requireBodyPr(shape);
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) =>
+      !(
+        a.name.namespaceURI === '' &&
+        (a.name.localName === 'numCol' || a.name.localName === 'spcCol')
+      ),
+  );
+  if (columns !== null) {
+    if (columns.count < 2) {
+      throw new Error(
+        `setShapeTextColumns: count must be >= 2 (single column is the default — pass null instead). Got ${columns.count}.`,
+      );
+    }
+    bodyPr.attrs.push(attr(qname('', 'numCol', ''), String(columns.count)));
+    if (columns.gapEmu !== undefined) {
+      bodyPr.attrs.push(attr(qname('', 'spcCol', ''), String(Math.round(columns.gapEmu))));
+    }
+  }
+  commitAndRefresh(shape);
+};
+
+/**
  * Reads the shape's text-body rotation from `<a:bodyPr rot="N"/>`.
  * `rot` is stored in 60000ths of a degree (OOXML angle units); the
  * returned value is in degrees. Positive values rotate clockwise per
