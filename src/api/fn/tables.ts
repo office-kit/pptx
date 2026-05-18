@@ -505,6 +505,26 @@ export const getTableCellAnchor = (cell: TableCellData): 'top' | 'center' | 'bot
 };
 
 /**
+ * Sets the cell's vertical text anchor (`<a:tcPr anchor="t|ctr|b"/>`).
+ * Pass `null` to clear the attribute so the cell uses the table's
+ * default (`ctr`). Creates `<a:tcPr>` if absent.
+ */
+export const setTableCellAnchor = (
+  cell: TableCellData,
+  anchor: 'top' | 'center' | 'bottom' | null,
+): void => {
+  const tcPr = ensureCellTcPr(cell);
+  tcPr.attrs = tcPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchor'),
+  );
+  if (anchor !== null) {
+    const mapped = anchor === 'top' ? 't' : anchor === 'center' ? 'ctr' : 'b';
+    tcPr.attrs.push(attr(qname('', 'anchor', ''), mapped));
+  }
+  commitTableCell(cell);
+};
+
+/**
  * Reads the cell's inset margins (`<a:tcPr marL marR marT marB>`) in
  * EMU. Each side is `null` when the cell doesn't author it (renderers
  * should fall back to PowerPoint's defaults — 91440 EMU / 0.1 inch
@@ -528,6 +548,44 @@ export const getTableCellMargins = (
     top: read('marT'),
     bottom: read('marB'),
   };
+};
+
+/**
+ * Sets the cell's inset margins (`<a:tcPr marL marR marT marB>`) in
+ * EMU. Sides set to `null` are stripped from the XML so they fall back
+ * to PowerPoint's defaults. Creates `<a:tcPr>` if absent.
+ *
+ * Pass `null` for the whole `margins` arg to drop every authored side
+ * at once.
+ */
+export const setTableCellMargins = (
+  cell: TableCellData,
+  margins: {
+    left?: number | null;
+    right?: number | null;
+    top?: number | null;
+    bottom?: number | null;
+  } | null,
+): void => {
+  const tcPr = ensureCellTcPr(cell);
+  const MAR_ATTRS = new Set(['marL', 'marR', 'marT', 'marB']);
+  tcPr.attrs = tcPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && MAR_ATTRS.has(a.name.localName)),
+  );
+  if (margins !== null) {
+    const pairs: ReadonlyArray<['marL' | 'marR' | 'marT' | 'marB', number | null | undefined]> = [
+      ['marL', margins.left],
+      ['marR', margins.right],
+      ['marT', margins.top],
+      ['marB', margins.bottom],
+    ];
+    for (const [name, val] of pairs) {
+      if (val !== null && val !== undefined) {
+        tcPr.attrs.push(attr(qname('', name, ''), String(Math.round(val))));
+      }
+    }
+  }
+  commitTableCell(cell);
 };
 
 /** Reads the cell's plain text (paragraphs joined with `\n`). */
