@@ -486,6 +486,36 @@ describe('fn API: getSlideCharts', () => {
     expect(ser.pointExplosions?.[1]).toBe(25);
   });
 
+  it('round-trips legend.textStyle + axis orientation reversals', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        legend: {
+          position: 'b',
+          textStyle: { sizePt: 11, bold: true, color: '#102030' },
+        },
+        categoryAxisOrientation: 'maxMin',
+        valueAxisOrientation: 'maxMin',
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.legend?.textStyle?.sizePt).toBe(11);
+    expect(spec.legend?.textStyle?.bold).toBe(true);
+    expect(spec.legend?.textStyle?.color).toBe('#102030');
+    expect(spec.categoryAxisOrientation).toBe('maxMin');
+    expect(spec.valueAxisOrientation).toBe('maxMin');
+  });
+
   it('distinguishes bar from column on the same barChart wire format', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
