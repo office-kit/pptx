@@ -357,6 +357,18 @@ export const getAllHyperlinks = (
 };
 
 /**
+ * Dense per-slide hyperlink count array. Counts shapes whose
+ * `getShapeHyperlink` is non-null, mirroring `getAllHyperlinks` but
+ * cheaper when the caller only wants per-slide counts. Rounds out the
+ * deck-density family alongside the chart / table / image / shape /
+ * text / comment counters.
+ */
+export const getPresentationHyperlinkCountsBySlide = (
+  pres: PresentationData,
+): ReadonlyArray<number> =>
+  getSlides(pres).map((s) => s[SLIDE_SHAPES].filter((sh) => getShapeHyperlink(sh) !== null).length);
+
+/**
  * Returns every distinct external URL referenced by any shape in
  * the deck, in first-seen order. Sibling of `getAllHyperlinks`
  * (which keeps duplicates and slide indices). Useful for "are
