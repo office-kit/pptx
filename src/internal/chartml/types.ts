@@ -477,6 +477,13 @@ export interface ChartSpec {
    * `val="1"` to stay round-trip-safe with PowerPoint-authored files.
    */
   readonly plotVisibleCellsOnly?: boolean;
+  /**
+   * Renders the chart area with rounded corners
+   * (`<c:chartSpace><c:roundedCorners val="1"/>`). PowerPoint's default
+   * is `false`; surface only when explicitly `true` so the round-trip
+   * doesn't add a redundant `false`.
+   */
+  readonly roundedCorners?: boolean;
   /** Bar / column / area grouping mode. Absent for line / pie. */
   readonly grouping?: ChartGrouping;
   /**
