@@ -137,6 +137,69 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.dataLabels?.separator).toBe(', ');
   });
 
+  it('round-trips chart-level dataLabels.textStyle (sz / bold / color)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'X', values: [1, 2] }],
+        dataLabels: {
+          showValue: true,
+          showCategory: false,
+          showSeriesName: false,
+          showPercent: false,
+          textStyle: { sizePt: 14, bold: true, color: '#FF8800' },
+        },
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.dataLabels?.textStyle?.sizePt).toBe(14);
+    expect(spec.dataLabels?.textStyle?.bold).toBe(true);
+    expect(spec.dataLabels?.textStyle?.color).toBe('#FF8800');
+  });
+
+  it('round-trips per-series dataLabels.textStyle', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [
+          {
+            name: 'X',
+            values: [1, 2],
+            dataLabels: {
+              showValue: true,
+              showCategory: false,
+              showSeriesName: false,
+              showPercent: false,
+              textStyle: { sizePt: 9, italic: true, color: '#003366' },
+            },
+          },
+        ],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.series[0]!.dataLabels?.textStyle?.sizePt).toBe(9);
+    expect(spec.series[0]!.dataLabels?.textStyle?.italic).toBe(true);
+    expect(spec.series[0]!.dataLabels?.textStyle?.color).toBe('#003366');
+  });
+
   it('round-trips legend position + hiddenIndices + overlay + dispBlanksAs', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

@@ -623,6 +623,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       }
       const position = readDataLabelPosition(serDLblsEl);
       const separator = readDataLabelSeparator(serDLblsEl);
+      const txPrEl = firstChildElement(serDLblsEl, qname('c', 'txPr', NS_C));
+      const textStyle = txPrEl ? readLabelStyle(txPrEl) : undefined;
       serDataLabels = {
         showValue: readToggle('showVal'),
         showCategory: readToggle('showCatName'),
@@ -631,6 +633,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
         ...(numberFormat !== undefined ? { numberFormat } : {}),
         ...(position !== undefined ? { position } : {}),
         ...(separator !== undefined ? { separator } : {}),
+        ...(textStyle !== undefined ? { textStyle } : {}),
       };
     }
     series.push({
@@ -676,6 +679,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     const position = readDataLabelPosition(dLbls);
     const separator = readDataLabelSeparator(dLbls);
+    const txPrEl = firstChildElement(dLbls, qname('c', 'txPr', NS_C));
+    const textStyle = txPrEl ? readLabelStyle(txPrEl) : undefined;
     dataLabels = {
       showValue: readToggle('showVal'),
       showCategory: readToggle('showCatName'),
@@ -684,6 +689,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       ...(numberFormat !== undefined ? { numberFormat } : {}),
       ...(position !== undefined ? { position } : {}),
       ...(separator !== undefined ? { separator } : {}),
+      ...(textStyle !== undefined ? { textStyle } : {}),
     };
   }
 
