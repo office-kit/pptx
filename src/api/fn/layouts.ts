@@ -193,6 +193,29 @@ export const getUnusedSlideLayouts = (pres: PresentationData): ReadonlyArray<Sli
  * directly — e.g. for templates that ship with placeholder layouts the
  * deck never picks up.
  */
+/**
+ * Histogram of slide-layout type token (e.g. `title`, `obj`, `twoObj`,
+ * `blank`) → number of slides that use a layout of that type. Useful
+ * for "how many content slides vs. dividers vs. title slides?" audits
+ * — keyed on the OOXML enum, so stable across locales (unlike
+ * `getSlideLayoutUsageCounts`, which keys on the user-visible name).
+ * Layouts with no `type` token are skipped (the spec default is
+ * `cust`).
+ */
+export const getSlideLayoutUsageCountsByType = (
+  pres: PresentationData,
+): Readonly<Record<string, number>> => {
+  const counts: Record<string, number> = {};
+  for (const slide of getSlides(pres)) {
+    const layout = getSlideLayout(slide);
+    if (layout === null) continue;
+    const t = layout[LAYOUT_PART].layoutType;
+    if (t === null) continue;
+    counts[t] = (counts[t] ?? 0) + 1;
+  }
+  return counts;
+};
+
 export const getSlideLayoutUsageCounts = (
   pres: PresentationData,
 ): Readonly<Record<string, number>> => {
