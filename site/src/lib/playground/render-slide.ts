@@ -3989,11 +3989,23 @@ const renderChart = (
     const italicAttr = style?.italic ? ' font-style="italic"' : '';
     return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}" font-weight="${weight}"${italicAttr}`;
   };
+  // Authored <c:title><c:tx><c:rich><a:bodyPr rot> overrides the
+  // renderer's defaults (-90 for the value-axis title, 0 for the
+  // category-axis title). Pivot stays at the label anchor so the title
+  // hugs its axis.
+  const valueAxisTitleRot = spec.valueAxisTitleRotationDeg ?? -90;
   const valueAxisTitleSvg = spec.valueAxisTitle
-    ? `<text x="${px(f.plotX - 26)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" ${axisTitleAttrs(spec.valueAxisTitleStyle)} transform="rotate(-90 ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})">${escapeXml(spec.valueAxisTitle)}</text>`
+    ? `<text x="${px(f.plotX - 26)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" ${axisTitleAttrs(spec.valueAxisTitleStyle)} transform="rotate(${valueAxisTitleRot} ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})">${escapeXml(spec.valueAxisTitle)}</text>`
     : '';
+  const catTitleRot = spec.categoryAxisTitleRotationDeg ?? 0;
+  const catTitleCx = f.plotX + f.plotW / 2;
+  const catTitleCy = f.plotY + f.plotH + 16;
+  const catTitleTransform =
+    catTitleRot !== 0
+      ? ` transform="rotate(${catTitleRot} ${px(catTitleCx)} ${px(catTitleCy)})"`
+      : '';
   const categoryAxisTitleSvg = spec.categoryAxisTitle
-    ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH + 16)}" text-anchor="middle" ${axisTitleAttrs(spec.categoryAxisTitleStyle)}>${escapeXml(spec.categoryAxisTitle)}</text>`
+    ? `<text x="${px(catTitleCx)}" y="${px(catTitleCy)}" text-anchor="middle" ${axisTitleAttrs(spec.categoryAxisTitleStyle)}${catTitleTransform}>${escapeXml(spec.categoryAxisTitle)}</text>`
     : '';
   return [
     `<g${transform}>`,
