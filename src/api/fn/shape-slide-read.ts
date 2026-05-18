@@ -243,13 +243,20 @@ export const findSlidePlaceholders = (
 };
 
 /**
- * First shape on the slide whose `cNvPr@name` equals `name`, or `null`
- * if none. Use the multi-match variant when more than one shape can
- * share the same name (common with template-cloned shapes).
+ * First shape on the slide whose `cNvPr@name` matches `name`. Accepts
+ * either a literal string (exact-equality) or a `RegExp` for pattern
+ * matches — mirroring `findShapeByText`. Returns `null` when nothing
+ * matches.
  */
-export const findShapeByName = (slide: SlideData, name: string): SlideShapeData | null => {
+export const findShapeByName = (slide: SlideData, name: string | RegExp): SlideShapeData | null => {
+  if (typeof name === 'string') {
+    for (const shape of slide[SLIDE_SHAPES]) {
+      if (shape[SHAPE_SNAPSHOT].name === name) return shape;
+    }
+    return null;
+  }
   for (const shape of slide[SLIDE_SHAPES]) {
-    if (shape[SHAPE_SNAPSHOT].name === name) return shape;
+    if (name.test(shape[SHAPE_SNAPSHOT].name)) return shape;
   }
   return null;
 };
