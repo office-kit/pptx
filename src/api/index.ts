@@ -139,6 +139,7 @@ export {
   findShapeByText,
   findShapeInPresentation,
   findShapesByHyperlink,
+  findSlidesWithChartKind,
   findShapesByKind,
   findShapesByName,
   findShapesByPreset,

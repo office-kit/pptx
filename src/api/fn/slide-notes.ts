@@ -31,6 +31,7 @@ import {
   isChartShape,
   isTableShape,
 } from './embedded.ts';
+import type { ChartKind } from '../../internal/chartml/index.ts';
 
 // ---------------------------------------------------------------------------
 // Speaker notes.
@@ -139,6 +140,28 @@ export const getSlidesWithCharts = (pres: PresentationData): ReadonlyArray<Slide
   const out: SlideData[] = [];
   for (const slide of getSlides(pres)) {
     if (slide[SLIDE_SHAPES].some((s) => isChartShape(s))) out.push(slide);
+  }
+  return out;
+};
+
+/**
+ * Filters `getSlidesWithCharts` to slides carrying at least one chart
+ * of the given `kind` (`'bar'`, `'column'`, `'line'`, `'pie'`,
+ * `'doughnut'`, `'area'`). Reads each chart's spec via `getSlideCharts`
+ * so the predicate respects what the renderers actually see.
+ */
+export const findSlidesWithChartKind = (
+  pres: PresentationData,
+  kind: ChartKind,
+): ReadonlyArray<SlideData> => {
+  const out: SlideData[] = [];
+  for (const slide of getSlides(pres)) {
+    for (const c of getSlideCharts(slide)) {
+      if (c.spec?.kind === kind) {
+        out.push(slide);
+        break;
+      }
+    }
   }
   return out;
 };
