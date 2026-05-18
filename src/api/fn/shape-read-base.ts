@@ -572,6 +572,36 @@ export const findShapesAtPoint = (
 ): ReadonlyArray<SlideShapeData> => slide[SLIDE_SHAPES].filter((s) => pointInShape(s, x, y));
 
 /**
+ * Returns every shape on the slide whose bounds overlap the rectangle
+ * `(x, y, w, h)` (in EMU). "Overlap" means the rectangles intersect at
+ * all — touching edges count. Shapes with no resolvable bounds (e.g.
+ * placeholders that inherit position from the layout) are skipped.
+ *
+ * Useful for marquee-style region selection — e.g. "give me every
+ * shape that lives in the right half of the slide" — without
+ * iterating every shape and comparing bounds by hand.
+ */
+export const findShapesInRect = (
+  slide: SlideData,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): ReadonlyArray<SlideShapeData> => {
+  const rx2 = x + w;
+  const ry2 = y + h;
+  const out: SlideShapeData[] = [];
+  for (const shape of slide[SLIDE_SHAPES]) {
+    const b = getShapeBounds(shape);
+    if (b === null) continue;
+    const sx2 = b.x + b.w;
+    const sy2 = b.y + b.h;
+    if (b.x <= rx2 && sx2 >= x && b.y <= ry2 && sy2 >= y) out.push(shape);
+  }
+  return out;
+};
+
+/**
  * Moves the shape so its center sits at the slide canvas center.
  * Reads the presentation's slide size, then sets the shape's
  * position to `(slideWidth/2 - shapeWidth/2, slideHeight/2 - shapeHeight/2)`.
