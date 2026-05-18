@@ -406,6 +406,9 @@ const valAxis = (spec: ChartSpec): XmlElement => {
       children.push(valNode(c('crossesAt'), String(xross.at)));
     }
   }
+  if (spec.valueAxisCrossBetween !== undefined) {
+    children.push(valNode(c('crossBetween'), spec.valueAxisCrossBetween));
+  }
   if (spec.valueAxis?.majorUnit !== undefined) {
     children.push(valNode(c('majorUnit'), spec.valueAxis.majorUnit));
   }
