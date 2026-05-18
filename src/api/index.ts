@@ -140,6 +140,7 @@ export {
   findShapeByName,
   findShapeByText,
   findShapeInPresentation,
+  findShapesByEffect,
   findShapesByHyperlink,
   findShapesInRect,
   findShapesWithAnimation,
