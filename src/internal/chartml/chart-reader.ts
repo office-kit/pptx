@@ -232,6 +232,16 @@ const readDataPointOverrides = (
 const readTrendline = (ser: XmlElement): ChartTrendline | undefined => {
   const tl = firstChildElement(ser, qname('c', 'trendline', NS_C));
   if (!tl) return undefined;
+  // <c:trendline><c:name>…</c:name> — optional custom label.
+  let name: string | undefined;
+  const nameEl = firstChildElement(tl, qname('c', 'name', NS_C));
+  if (nameEl) {
+    let acc = '';
+    for (const child of nameEl.children) {
+      if (child.kind === 'text' || child.kind === 'cdata') acc += child.data;
+    }
+    if (acc.length > 0) name = acc;
+  }
   const typeEl = firstChildElement(tl, qname('c', 'trendlineType', NS_C));
   const tToken = typeEl ? getAttrValue(typeEl, ATTR_VAL) : null;
   let type: ChartTrendline['type'];
@@ -308,6 +318,7 @@ const readTrendline = (ser: XmlElement): ChartTrendline | undefined => {
   const displayEquation = readDispBool('dispEq');
   const displayRSquared = readDispBool('dispRSqr');
   return {
+    ...(name !== undefined ? { name } : {}),
     type,
     ...(period !== undefined ? { period } : {}),
     ...(order !== undefined ? { order } : {}),

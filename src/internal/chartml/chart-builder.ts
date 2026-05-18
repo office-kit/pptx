@@ -215,6 +215,10 @@ const trendlineElement = (
   tl: NonNullable<NonNullable<ChartSpec['series'][number]['trendline']>>,
 ): XmlElement => {
   const children: XmlElement[] = [];
+  // CT_Trendline schema order: <c:name> first, before <c:spPr>.
+  if (tl.name !== undefined) {
+    children.push(elem(c('name'), { children: [text(tl.name)] }));
+  }
   if (tl.color !== undefined) {
     const hex = tl.color.replace(/^#/, '').toUpperCase();
     const ln = elem(a('ln'), {

@@ -585,6 +585,36 @@ describe('fn API: getSlideCharts', () => {
     expect(spec.valueAxisOrientation).toBe('maxMin');
   });
 
+  it('round-trips trendline custom name', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'line',
+        categories: ['A', 'B', 'C'],
+        series: [
+          {
+            name: 'X',
+            values: [1, 2, 4],
+            trendline: {
+              type: 'movingAvg',
+              period: 2,
+              name: 'MA(2) — smoothed',
+            },
+          },
+        ],
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const reloaded = await loadPresentation(bytes);
+    const spec = getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!;
+    expect(spec.series[0]!.trendline!.name).toBe('MA(2) — smoothed');
+  });
+
   it('round-trips trendline displayEquation + displayRSquared', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
