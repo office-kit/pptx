@@ -3209,7 +3209,14 @@ const renderColumnChart = (
 const trendlinePath = (
   xs: ReadonlyArray<number>,
   ys: ReadonlyArray<number>,
-  tl: { type: string; period?: number; order?: number; forward?: number; backward?: number },
+  tl: {
+    type: string;
+    period?: number;
+    order?: number;
+    forward?: number;
+    backward?: number;
+    name?: string;
+  },
   color: string,
 ): string => {
   const n = xs.length;
@@ -3273,7 +3280,16 @@ const trendlinePath = (
   }
   if (pts.length < 2) return '';
   const d = pts.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x)},${px(y)}`).join(' ');
-  return `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="6 3" stroke-linecap="round"/>`;
+  const path = `<path d="${d}" fill="none" stroke="${color}" stroke-width="1.5" stroke-dasharray="6 3" stroke-linecap="round"/>`;
+  // Authored <c:trendline><c:name> shows as a small label at the
+  // trendline's right endpoint. Only emit when the name is set; the
+  // default look stays unchanged.
+  if (tl.name !== undefined && tl.name.length > 0) {
+    const [lx, ly] = pts[pts.length - 1]!;
+    const label = `<text x="${px(lx + 4)}" y="${px(ly)}" dominant-baseline="middle" font-family="sans-serif" font-size="9" fill="${color}">${escapeXml(tl.name)}</text>`;
+    return path + label;
+  }
+  return path;
 };
 
 const linearFit = (
