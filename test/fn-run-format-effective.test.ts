@@ -86,4 +86,27 @@ describe('fn API: getShapeRunFormatEffective', () => {
     expect(fmt.font).toBeDefined();
     expect(fmt.font!.startsWith('+')).toBe(false);
   });
+
+  it('does NOT inherit the master body size for a plain text box', async () => {
+    // A text box (no <p:ph>) is not a placeholder, so it must not read the
+    // master's bodyStyle. An unsized run resolves to no size — the consumer
+    // applies the ~18pt text-box default — not the master body size (which can
+    // be much larger). Regression guard: previously phType===null conflated
+    // "text box" with "body placeholder" and leaked the master body size.
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const tb = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'unsized',
+    });
+    expect(getShapeRunFormat(tb, 0, 0)?.size).toBeUndefined();
+    const fmt = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(fmt.size).toBeUndefined();
+    // Font still resolves via the theme fontScheme fallback (not placeholder
+    // inheritance), so this stays defined.
+    expect(fmt.font).toBe('Calibri');
+  });
 });
