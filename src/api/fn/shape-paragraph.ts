@@ -144,6 +144,24 @@ const extractPlaceholderLstStyle = (placeholderEl: XmlElement): XmlElement | nul
   return firstChildElement(txBody, NAME_A_LST_STYLE);
 };
 
+const NAME_P_NV_SP_PR = qname('p', 'nvSpPr', NS.pml);
+const NAME_P_NV_PR = qname('p', 'nvPr', NS.pml);
+const NAME_P_PH = qname('p', 'ph', NS.pml);
+
+// A shape participates in placeholder inheritance only when it actually carries
+// a `<p:ph>`. A plain text box (no `<p:ph>`) must NOT inherit the slide master's
+// titleStyle / bodyStyle / otherStyle — PowerPoint resolves it against the
+// presentation's default text style (≈18pt), not the master body style.
+// `getShapePlaceholderType()` returns null both for "placeholder with no type"
+// (which DOES default to body) and "not a placeholder at all" (which does not),
+// so we must check for the element directly to tell them apart.
+const shapeIsPlaceholder = (shape: SlideShapeData): boolean => {
+  const nvSpPr = firstChildElement(shape[SHAPE_ELEMENT], NAME_P_NV_SP_PR);
+  if (!nvSpPr) return false;
+  const nvPr = firstChildElement(nvSpPr, NAME_P_NV_PR);
+  return nvPr !== null && firstChildElement(nvPr, NAME_P_PH) !== null;
+};
+
 const masterTxStyleFor = (masterRoot: XmlElement, phType: string | null): XmlElement | null => {
   const txStyles = firstChildElement(masterRoot, NAME_P_TX_STYLES);
   if (!txStyles) return null;
@@ -229,11 +247,16 @@ export const getShapeRunFormatEffective = (
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
+  const isPlaceholder = shapeIsPlaceholder(shape);
 
   const slide = shape[SHAPE_SLIDE];
   const layout = getSlideLayout(slide);
 
-  if (layout) {
+  // Steps 5-6 are placeholder inheritance: skip them entirely for non-
+  // placeholder shapes (plain text boxes), which do not read the master's
+  // txStyles. Without this guard an unsized text-box run wrongly inherits the
+  // master body size (e.g. 32pt) instead of the ~18pt text-box default.
+  if (layout && isPlaceholder) {
     // 5. Matching placeholder on the layout — both its inline rPr-bearing
     //    paragraph children (if the layout authored prompt text) and its
     //    own lstStyle.
@@ -490,10 +513,13 @@ export const getParagraphPropertiesEffective = (
 
   const phIdx = getShapePlaceholderIdx(shape);
   const phType = getShapePlaceholderType(shape);
+  const isPlaceholder = shapeIsPlaceholder(shape);
   const slide = shape[SHAPE_SLIDE];
   const layout = getSlideLayout(slide);
 
-  if (layout) {
+  // Placeholder inheritance only: a plain text box does not read the master's
+  // txStyles for paragraph defaults (align / indent / spacing) either.
+  if (layout && isPlaceholder) {
     // 3. Layout placeholder lstStyle.
     const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
     if (layoutPh) {
