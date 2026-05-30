@@ -8,7 +8,8 @@
     "build": "vite build && pagefind --site build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
-    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "fidelity": "tsx fidelity/run.ts"
   },
   "dependencies": {
     "@codemirror/lang-javascript": "^6.2.5",
@@ -18,15 +19,18 @@
     "codemirror": "^6.0.2"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.60.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@types/node": "^22.19.18",
     "mdsvex": "^0.12.7",
     "pagefind": "^1.5.2",
+    "pptx-kit": "workspace:*",
     "shiki": "^4.0.2",
     "svelte": "^5.55.7",
     "svelte-check": "^4.4.8",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
     "vite": "^8.0.13"
   }
