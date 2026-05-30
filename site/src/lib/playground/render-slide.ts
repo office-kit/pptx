@@ -136,6 +136,27 @@ import {
   type SlideShapeData,
   type TextFormat,
 } from 'pptx-kit';
+import {
+  defaultMeasurer,
+  layoutTextSvg,
+  substituteFamily,
+  type BulletInput,
+  type ParaInput,
+  type PieceInput,
+  type RenderSlideOptions,
+  type TextBodyInput,
+  type TextLayoutMode,
+  type TextMeasurer,
+} from './text-layout.ts';
+
+export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from './text-layout.ts';
+
+// Threaded through the shape walk so the text path (foreignObject vs pure SVG)
+// and its measurer are chosen once at the top and never re-derived.
+interface LayoutCtx {
+  readonly mode: TextLayoutMode;
+  readonly measure: TextMeasurer;
+}
 
 // Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
 // default since 2013. See ECMA-376 §19.3.1.39 `SlideSizeType`.
@@ -1995,12 +2016,204 @@ const LINE_HEIGHT = 1.05;
 // overflowing.
 const AVG_GLYPH_W_RATIO = 0.55;
 
+type RunData = {
+  text: string;
+  fmt: TextFormat | null;
+  sizePt: number;
+  href?: string;
+  hrefTip?: string;
+};
+interface ParaData {
+  readonly align: string;
+  readonly level: number;
+  readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
+  readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
+  readonly bulletIsPicture: boolean;
+  readonly runs: RunData[];
+  readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
+  readonly spcBefPts: number | null;
+  readonly spcAftPts: number | null;
+  readonly indent: ReturnType<typeof getParagraphIndent>;
+}
+
+const hasUnderlineFmt = (fmt: TextFormat | null): boolean => {
+  const u = fmt?.underline;
+  return u !== undefined && u !== false && u !== 'none';
+};
+const hasStrikeFmt = (fmt: TextFormat | null): boolean => {
+  const s = fmt?.strike;
+  return s !== undefined && s !== false && s !== 'noStrike';
+};
+
+interface SvgTextArgs {
+  readonly pres: PresentationData;
+  readonly shape: SlideShapeData;
+  readonly theme: PresentationTheme | null;
+  readonly paraData: readonly ParaData[];
+  readonly numberLabels: ReadonlyArray<string | null>;
+  readonly autoFitScale: number;
+  readonly lineHeightScale: number;
+  readonly defaultPt: number;
+  readonly themeFace: string | null;
+  readonly defaultColor: string;
+  readonly anchor: 'top' | 'center' | 'bottom';
+  readonly wrap: boolean;
+  readonly innerX: number;
+  readonly innerY: number;
+  readonly innerW: number;
+  readonly innerH: number;
+  readonly measure: TextMeasurer;
+}
+
+const alignOf = (a: string): ParaInput['align'] =>
+  a === 'center' || a === 'right' || a === 'justify' ? a : 'left';
+
+// Build the px-native engine input from the resolved paraData and lay it out.
+const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
+  const scale = a.autoFitScale;
+  const paragraphs: ParaInput[] = a.paraData.map((para, pi): ParaInput => {
+    const pieces: PieceInput[] = [];
+    for (const run of para.runs) {
+      // <a:br> marker.
+      if (run.text === '\n' && run.fmt === null) {
+        pieces.push(breakPiece());
+        continue;
+      }
+      let fmt = run.fmt;
+      if (run.href) {
+        const hlinkColor = a.theme ? normalizeHex(a.theme.hyperlink) : '#0563C1';
+        fmt = { ...(fmt ?? {}), color: fmt?.color ?? hlinkColor, underline: fmt?.underline ?? true };
+      }
+      const family = substituteFamily(fmt?.font ?? a.themeFace);
+      const sizePx = run.sizePt * scale * PX_PER_PT;
+      const fillHex =
+        fmt?.color !== undefined && fmt.color !== null
+          ? resolveColor(fmt.color, a.theme, '#000000')
+          : a.defaultColor;
+      const superSub: 0 | 1 | -1 =
+        fmt?.baseline !== undefined && fmt.baseline !== 0 ? (fmt.baseline > 0 ? 1 : -1) : 0;
+      const letterSpacingPx =
+        fmt?.spc !== undefined && fmt.spc !== 0 ? (fmt.spc / 100) * PX_PER_PT : 0;
+      const caps = fmt?.cap === 'all' || fmt?.cap === 'small';
+      const base: Omit<PieceInput, 'text' | 'isBreak'> = {
+        family,
+        sizePx,
+        bold: fmt?.bold ?? false,
+        italic: fmt?.italic ?? false,
+        letterSpacingPx,
+        fillHex,
+        underline: hasUnderlineFmt(fmt),
+        strike: hasStrikeFmt(fmt),
+        superSub,
+        href: run.href ?? null,
+      };
+      // A run's text can carry embedded '\n' only via <a:br>, already split
+      // out above; still split defensively so any stray newline becomes a break.
+      const segs = run.text.split('\n');
+      segs.forEach((seg, i) => {
+        pieces.push({ ...base, text: caps ? seg.toUpperCase() : seg, isBreak: false });
+        if (i < segs.length - 1) pieces.push(breakPiece());
+      });
+    }
+
+    const marLpx =
+      para.indent.leftEmu !== null
+        ? (para.indent.leftEmu / EMU_PER_PX) * scale
+        : para.level > 0
+          ? para.level * 24 * PX_PER_PT * scale
+          : 0;
+    const marRpx = para.indent.rightEmu !== null ? (para.indent.rightEmu / EMU_PER_PX) * scale : 0;
+    const firstIndentPx =
+      para.indent.firstLineEmu !== null ? (para.indent.firstLineEmu / EMU_PER_PX) * scale : 0;
+    const spcBefPx =
+      para.spcBefPts !== null && para.spcBefPts > 0 ? para.spcBefPts * PX_PER_PT * scale : 0;
+    const spcAftPx =
+      para.spcAftPts !== null && para.spcAftPts > 0 ? para.spcAftPts * PX_PER_PT * scale : 0;
+    const lineSpacing: ParaInput['lineSpacing'] =
+      para.lineSpacing?.kind === 'pct'
+        ? { kind: 'pct', value: para.lineSpacing.value }
+        : para.lineSpacing?.kind === 'pts'
+          ? { kind: 'pts', px: para.lineSpacing.value * PX_PER_PT * scale }
+          : null;
+
+    return {
+      align: alignOf(para.align),
+      marLpx,
+      marRpx,
+      firstIndentPx,
+      spcBefPx,
+      spcAftPx,
+      lineSpacing,
+      lineAdvanceScale: a.lineHeightScale,
+      bullet: buildBullet(a, para, pi),
+      pieces,
+      fallbackSizePx: a.defaultPt * scale * PX_PER_PT,
+    };
+  });
+
+  const input: TextBodyInput = {
+    boxXpx: a.innerX / EMU_PER_PX,
+    boxYpx: a.innerY / EMU_PER_PX,
+    boxWpx: a.innerW / EMU_PER_PX,
+    boxHpx: a.innerH / EMU_PER_PX,
+    anchor: a.anchor,
+    wrap: a.wrap,
+    paragraphs,
+  };
+  return layoutTextSvg(input, a.measure);
+};
+
+const breakPiece = (): PieceInput => ({
+  text: '',
+  family: '',
+  sizePx: 0,
+  bold: false,
+  italic: false,
+  letterSpacingPx: 0,
+  fillHex: '#000000',
+  underline: false,
+  strike: false,
+  superSub: 0,
+  href: null,
+  isBreak: true,
+});
+
+const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | null => {
+  const explicitChar =
+    para.bulletStyle !== null && typeof para.bulletStyle === 'object' && 'char' in para.bulletStyle
+      ? para.bulletStyle.char
+      : null;
+  const numberLabel = a.numberLabels[pi] ?? null;
+  const showBullet =
+    para.bulletStyle === 'bullet' ||
+    explicitChar !== null ||
+    numberLabel !== null ||
+    para.bulletIsPicture ||
+    (para.bulletStyle !== 'none' && para.level > 0);
+  if (!showBullet) return null;
+  const char = para.bulletIsPicture
+    ? '■'
+    : (numberLabel ?? explicitChar ?? bulletChar(para.level));
+  const baseSizePx = a.defaultPt * PX_PER_PT * a.autoFitScale;
+  const sizePx =
+    para.bulletDetail.sizePct !== null
+      ? baseSizePx * para.bulletDetail.sizePct
+      : para.bulletDetail.sizePts !== null
+        ? para.bulletDetail.sizePts * PX_PER_PT * a.autoFitScale
+        : baseSizePx;
+  const fillHex = para.bulletDetail.color
+    ? resolveColor(para.bulletDetail.color, a.theme, '#000000')
+    : a.defaultColor;
+  return { text: char, family: substituteFamily(para.bulletDetail.font ?? a.themeFace), sizePx, fillHex };
+};
+
 const renderTextBody = (
   pres: PresentationData,
   shape: SlideShapeData,
   bounds: { x: number; y: number; w: number; h: number },
   theme: PresentationTheme | null,
   phType: string | null,
+  ctx: LayoutCtx,
 ): string => {
   let paragraphCount: number;
   try {
@@ -2052,26 +2265,8 @@ const renderTextBody = (
 
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
-  // adjusted size.
-  type RunData = {
-    text: string;
-    fmt: TextFormat | null;
-    sizePt: number;
-    href?: string;
-    hrefTip?: string;
-  };
-  interface ParaData {
-    readonly align: string;
-    readonly level: number;
-    readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
-    readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
-    readonly bulletIsPicture: boolean;
-    readonly runs: RunData[];
-    readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
-    readonly spcBefPts: number | null;
-    readonly spcAftPts: number | null;
-    readonly indent: ReturnType<typeof getParagraphIndent>;
-  }
+  // adjusted size. RunData / ParaData are module-scoped (above) so the
+  // pure-SVG path can consume the same resolved model.
   const paraData: ParaData[] = [];
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
@@ -2409,6 +2604,40 @@ const renderTextBody = (
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
   const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
+
+  // Pure-SVG text path (browser-free rasterization). Rebuild the px-native
+  // layout model from the already-resolved paraData and hand it to the engine.
+  // Vertical text / multi-column are not yet ported here (PR C) — they lay out
+  // horizontally single-column, which is wrong but visible (vs. blank).
+  if (ctx.mode === 'svg') {
+    const svgInner = buildAndLayoutSvgText({
+      pres,
+      shape,
+      theme,
+      paraData,
+      numberLabels,
+      autoFitScale,
+      lineHeightScale,
+      defaultPt,
+      themeFace,
+      defaultColor,
+      anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      wrap: effectiveBody.wrap !== 'none',
+      innerX,
+      innerY,
+      innerW,
+      innerH,
+      measure: ctx.measure,
+    });
+    const bodyRotDegSvg = getShapeTextBodyRotationDeg(shape);
+    if (bodyRotDegSvg !== null && bodyRotDegSvg !== 0) {
+      const pivotX = innerX + innerW / 2;
+      const pivotY = innerY + innerH / 2;
+      return `<g transform="rotate(${bodyRotDegSvg} ${E(pivotX)} ${E(pivotY)})">${svgInner}</g>`;
+    }
+    return svgInner;
+  }
+
   // B3 — vertical text. <a:bodyPr vert="…"/> controls glyph orientation
   // and line direction. The CSS writing-mode property is the right
   // primitive for the common cases (East-Asian, Mongolian, vert);
@@ -4109,6 +4338,7 @@ const renderTableCellText = (
   ch: number,
   alignment: string | null,
   color: string,
+  ctx: LayoutCtx,
   vAnchor: 'top' | 'center' | 'bottom' = 'center',
   margins: {
     left: number | null;
@@ -4123,9 +4353,7 @@ const renderTableCellText = (
   },
 ): string => {
   if (!text.trim()) return '';
-  // Use foreignObject so cell text wraps and aligns the same way
-  // proper PowerPoint cells do. PowerPoint stores margins in EMU; fall
-  // back to ~4px (≈48,000 EMU) when the cell doesn't override.
+  // PowerPoint stores margins in EMU; fall back to ~4px when unset.
   const ta = alignment && ALIGNMENT_TEXT_ANCHOR[alignment] !== undefined ? alignment : 'left';
   const defaultPadPx = 4;
   const padL = margins.left !== null ? margins.left / EMU_PER_PX : defaultPadPx;
@@ -4137,9 +4365,33 @@ const renderTableCellText = (
   const innerW = Math.max(0, cw - padL - padR);
   const innerH = Math.max(0, ch - padT - padB);
   if (innerW <= 0 || innerH <= 0) return '';
+  const lines = text.split('\n').slice(0, 8);
+
+  // Pure-SVG path: emit positioned <text> lines so a browser-free rasterizer
+  // shows cell text (foreignObject would blank out). Fixed 10px, matching the
+  // foreignObject path; full per-run styling is a later refinement.
+  if (ctx.mode === 'svg') {
+    const fontPx = 10;
+    const lineH = fontPx * 1.15;
+    const ascent = fontPx * 0.8;
+    const totalH = lines.length * lineH;
+    const topY =
+      vAnchor === 'top' ? innerY : vAnchor === 'bottom' ? innerY + (innerH - totalH) : innerY + (innerH - totalH) / 2;
+    const anchorX = ta === 'center' ? innerX + innerW / 2 : ta === 'right' ? innerX + innerW : innerX;
+    const textAnchor = ta === 'center' ? 'middle' : ta === 'right' ? 'end' : 'start';
+    const family = substituteFamily(null);
+    return lines
+      .map((line, i) => {
+        if (!line.trim()) return '';
+        const by = topY + i * lineH + ascent;
+        return `<text x="${px(anchorX)}" y="${px(by)}" text-anchor="${textAnchor}" font-family="${family}" font-size="${fontPx}" fill="${color}" xml:space="preserve">${escapeXml(line)}</text>`;
+      })
+      .join('');
+  }
+
+  // foreignObject path (browser preview): wraps and aligns like PowerPoint.
   const justify = ta === 'center' ? 'center' : ta === 'right' ? 'flex-end' : 'flex-start';
   const vJustify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
-  const lines = text.split('\n').slice(0, 8);
   const body = lines
     .map((line) => `<div style="text-align:${ta}">${escapeXml(line)}</div>`)
     .join('');
@@ -4155,6 +4407,7 @@ const renderTable = (
   h: number,
   transform: string,
   theme: PresentationTheme | null,
+  ctx: LayoutCtx,
 ): string | null => {
   let dims: { rows: number; cols: number };
   let widths: ReadonlyArray<number>;
@@ -4319,7 +4572,7 @@ const renderTable = (
       const vAnchor = getTableCellAnchor(typedCell) ?? 'center';
       const cellMargins = getTableCellMargins(typedCell);
       out.push(
-        renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, vAnchor, cellMargins),
+        renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, ctx, vAnchor, cellMargins),
       );
     }
   }
@@ -4332,6 +4585,7 @@ const renderShape = (
   shape: SlideShapeData,
   pres: PresentationData,
   theme: PresentationTheme | null,
+  ctx: LayoutCtx,
 ): string => {
   // Use the inheriting resolver: shape → layout → master. Slide
   // placeholders routinely defer geometry to the master, so the literal
@@ -4364,7 +4618,7 @@ const renderShape = (
 
   const textOverlay =
     kind === 'shape' || kind === 'graphicFrame'
-      ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType)
+      ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType, ctx)
       : '';
 
   if (kind === 'picture') {
@@ -4517,7 +4771,7 @@ const renderShape = (
       tParts.push(`translate(${tx} ${ty})`, `scale(${sx} ${sy})`);
     }
     const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
-    const childrenSvg = children.map((c) => renderShape(c, pres, theme)).join('');
+    const childrenSvg = children.map((c) => renderShape(c, pres, theme, ctx)).join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
@@ -4532,7 +4786,7 @@ const renderShape = (
       if (chartSvg) return chartSvg;
     }
     if (isTableShape(shape)) {
-      const tableSvg = renderTable(shape, pres, x, y, w, h, transform, theme);
+      const tableSvg = renderTable(shape, pres, x, y, w, h, transform, theme, ctx);
       if (tableSvg) return tableSvg;
     }
     let label = 'graphicFrame';
@@ -4786,11 +5040,19 @@ const buildEffectsFilter = (
 // ---------------------------------------------------------------------------
 // Slide composition.
 
-export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string => {
+export const renderSlideSvg = (
+  pres: PresentationData,
+  slide: SlideData,
+  opts: RenderSlideOptions = {},
+): string => {
   const size = getSlideSize(pres) ?? DEFAULT_SIZE;
   const W = size.width as number;
   const H = size.height as number;
   const theme = getPresentationTheme(pres);
+  const ctx: LayoutCtx = {
+    mode: opts.textLayout ?? 'foreignObject',
+    measure: opts.measureText ?? defaultMeasurer,
+  };
 
   let bg = getSlideBackground(slide);
   // B10 — when the slide reports inherit, walk to the layout; when the
@@ -4921,7 +5183,7 @@ export const renderSlideSvg = (pres: PresentationData, slide: SlideData): string
   }
 
   const shapesSvg = getSlideShapes(slide)
-    .map((s) => renderShape(s, pres, theme))
+    .map((s) => renderShape(s, pres, theme, ctx))
     .join('');
 
   return [

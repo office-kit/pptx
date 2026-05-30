@@ -1,16 +1,17 @@
 // Render every slide of a .pptx with pptx-kit's own previewer
 // (`renderSlideSvg`) and rasterize it to pixels with resvg — no browser.
 //
-// Caveat that this harness is designed to surface: the current previewer lays
-// text out in <foreignObject>, which resvg (like any browser-free SVG
-// rasterizer) cannot render. So text is absent from these rasters today. That
-// is intentional — the resulting SSIM gap quantifies exactly the "move text to
-// pure SVG" work the roadmap puts in Phase 1.
+// Text is laid out as pure SVG (textLayout: 'svg') using a fontkit measurer so
+// resvg can rasterize it. The measurer, resvg's `fontFiles`, and the
+// LibreOffice ground-truth host all use the SAME bundled substitute fonts, so
+// the engine's wrap/position math agrees with the painted pixels.
 
 import { Resvg } from '@resvg/resvg-js';
 import { getSlides, getSlideSize, type PresentationData } from 'pptx-kit';
 import { loadPresentationFile } from 'pptx-kit/node';
 import { renderSlideSvg } from '../src/lib/playground/render-slide.ts';
+import { buildFontkitMeasurer, FONT_FILES } from './measure.ts';
+import { SANS, SERIF, MONO } from '../src/lib/playground/text-layout.ts';
 import type { RgbaImage } from './image.ts';
 
 export interface RenderedSlide {
@@ -44,13 +45,21 @@ export const renderPresentation = async (
   const pixelWidth = opts.width;
   const pixelHeight = Math.round((opts.width * emuH) / emuW);
 
+  // Build the measurer once (loads + verifies every face), reuse per slide.
+  const measureText = buildFontkitMeasurer();
+
   const slides = getSlides(pres).map((slide): RenderedSlide => {
-    const svg = renderSlideSvg(pres, slide);
+    const svg = renderSlideSvg(pres, slide, { measureText, textLayout: 'svg' });
     const resvg = new Resvg(svg, {
       fitTo: { mode: 'width', value: pixelWidth },
-      // System-font loading is slow and non-deterministic; the foreignObject
-      // text path does not reach resvg anyway.
-      font: { loadSystemFonts: false },
+      font: {
+        loadSystemFonts: false, // deterministic; only our bundled fonts
+        fontFiles: FONT_FILES,
+        defaultFontFamily: SANS,
+        sansSerifFamily: SANS,
+        serifFamily: SERIF,
+        monospaceFamily: MONO,
+      },
     });
     const rendered = resvg.render();
     const image: RgbaImage = {
