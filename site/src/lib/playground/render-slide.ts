@@ -4657,6 +4657,10 @@ const renderShape = (
   if (flip.horizontal) transforms.push(`translate(${E(2 * cx)} 0) scale(-1 1)`);
   if (flip.vertical) transforms.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
+  // Text follows the shape's ROTATION but not its flips — PowerPoint mirrors a
+  // shape's geometry on flip while keeping its text upright and readable. So
+  // the text overlay gets a rotation-only transform.
+  const textTransform = rotation !== 0 ? ` transform="rotate(${rotation} ${E(cx)} ${E(cy)})"` : '';
 
   const textOverlay =
     kind === 'shape' || kind === 'graphicFrame'
@@ -4936,7 +4940,10 @@ const renderShape = (
   const a11yLabel = altTitle ?? altDesc ?? null;
   const nameAttr = shapeName ? ` data-pptx-shape-name="${escapeXml(shapeName)}"` : '';
   const ariaAttr = a11yLabel ? ` role="img" aria-label="${escapeXml(a11yLabel)}"` : '';
-  const inner = `${p.defs}${fxDefs}<g${transform}${nameAttr}${ariaAttr}>${geomSvg}${textOverlay}</g>`;
+  // Geometry carries rotation + flips; text carries rotation only so it stays
+  // upright when the shape is flipped (matching PowerPoint).
+  const placedText = textOverlay ? `<g${textTransform}>${textOverlay}</g>` : '';
+  const inner = `${p.defs}${fxDefs}<g${nameAttr}${ariaAttr}><g${transform}>${geomSvg}</g>${placedText}</g>`;
   const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
   if (url) {
     return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
