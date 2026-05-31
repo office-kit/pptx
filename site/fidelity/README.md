@@ -35,7 +35,7 @@ Flags: `--width <px>` (default 1280), `--engine libreoffice|powerpoint`,
 ## Prerequisites
 
 - **LibreOffice** (the CI / default ground truth): macOS `brew install --cask
-  libreoffice`; Debian/CI `apt-get install libreoffice`. Override the binary
+libreoffice`; Debian/CI `apt-get install libreoffice`. Override the binary
   with `PPTX_KIT_SOFFICE`.
 - **poppler / `pdftoppm`** (PDF → raster): macOS `brew install poppler`;
   Debian/CI `apt-get install poppler-utils`. Override with `PPTX_KIT_PDFTOPPM`.
