@@ -1,0 +1,17 @@
+{
+  "// note": "Local tsconfig so tooling (the root vitest, which imports text-layout.ts) resolves a clean config here instead of walking up to site/tsconfig.json — which extends the svelte-kit-generated ./.svelte-kit/tsconfig.json that only exists after `svelte-kit sync`. svelte-check uses site/tsconfig.json explicitly, so it is unaffected.",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["*.ts"]
+}
