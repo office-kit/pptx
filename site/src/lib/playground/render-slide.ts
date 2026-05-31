@@ -102,7 +102,8 @@ import {
   getSlideLayoutBackground,
   getSlideLayoutBackgroundImageBytes,
   getSlideLayoutBackgroundPatternFill,
-  getSlideLayoutBackgroundShapes,
+  getSlideLayoutShapes,
+  getSlideMasterShapes,
   getSlideMasterBackground,
   getSlideMasterBackgroundImageBytes,
   getSlideMasterBackgroundPatternFill,
@@ -5183,49 +5184,20 @@ export const renderSlideSvg = (
   // Layout-level non-placeholder shapes — corner bars, divider lines,
   // template logos as solid rects. Painted *before* slide shapes so
   // slide content stays on top.
+  // Template decoration: the non-placeholder shapes on the slide master and
+  // its layout (corner bars, divider lines, logos, watermark text). Render them
+  // through the full `renderShape` pipeline — master behind layout, both behind
+  // the slide's own content — so logos (pictures), text and real geometry all
+  // appear. Picture bytes resolve because the shapes are bound to their part.
   let layoutBgShapes = '';
   const layoutForBg = getSlideLayout(slide);
   if (layoutForBg) {
     try {
-      const lShapes = getSlideLayoutBackgroundShapes(pres, layoutForBg);
-      const parts: string[] = [];
-      for (const s of lShapes) {
-        if (!s.bounds) continue;
-        const sx = s.bounds.x as number;
-        const sy = s.bounds.y as number;
-        const sw = s.bounds.w as number;
-        const sh = s.bounds.h as number;
-        if (sw <= 0 || sh <= 0) continue;
-        const fill = s.fillHex ?? 'none';
-        const stroke = s.strokeHex ?? 'none';
-        const swPx = (s.strokeWidthEmu ?? 0) / EMU_PER_PX;
-        const cxS = sx + sw / 2;
-        const cyS = sy + sh / 2;
-        const tParts: string[] = [];
-        if (s.rotation !== 0) tParts.push(`rotate(${s.rotation} ${E(cxS)} ${E(cyS)})`);
-        if (s.flip.horizontal) tParts.push(`translate(${E(2 * cxS)} 0) scale(-1 1)`);
-        if (s.flip.vertical) tParts.push(`translate(0 ${E(2 * cyS)}) scale(1 -1)`);
-        const tx = tParts.length ? ` transform="${tParts.join(' ')}"` : '';
-        if (s.kind === 'connector') {
-          parts.push(
-            `<line x1="${E(sx)}" y1="${E(sy)}" x2="${E(sx + sw)}" y2="${E(sy + sh)}" stroke="${stroke === 'none' ? '#9CA3AF' : stroke}" stroke-width="${swPx > 0 ? swPx.toFixed(2) : '1'}"${tx}/>`,
-          );
-        } else if (s.preset === 'ellipse' || s.preset === 'oval') {
-          parts.push(
-            `<ellipse cx="${E(cxS)}" cy="${E(cyS)}" rx="${E(sw / 2)}" ry="${E(sh / 2)}" fill="${fill}" stroke="${stroke}" stroke-width="${swPx.toFixed(2)}"${tx}/>`,
-          );
-        } else if (s.preset === 'roundRect') {
-          const r = E(Math.min(sw, sh) * 0.18);
-          parts.push(
-            `<rect x="${E(sx)}" y="${E(sy)}" width="${E(sw)}" height="${E(sh)}" rx="${r}" ry="${r}" fill="${fill}" stroke="${stroke}" stroke-width="${swPx.toFixed(2)}"${tx}/>`,
-          );
-        } else {
-          parts.push(
-            `<rect x="${E(sx)}" y="${E(sy)}" width="${E(sw)}" height="${E(sh)}" fill="${fill}" stroke="${stroke}" stroke-width="${swPx.toFixed(2)}"${tx}/>`,
-          );
-        }
-      }
-      layoutBgShapes = parts.join('');
+      const masterShapes = getSlideMasterShapes(pres, layoutForBg);
+      const layoutShapes = getSlideLayoutShapes(pres, layoutForBg);
+      layoutBgShapes = [...masterShapes, ...layoutShapes]
+        .map((s) => renderShape(s, pres, theme, ctx))
+        .join('');
     } catch {
       layoutBgShapes = '';
     }

@@ -19,7 +19,9 @@ import {
   partName,
   resolveTarget,
 } from '../../internal/opc/index.ts';
-import { REL_TYPES } from '../../internal/presentationml/index.ts';
+import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
+import type { OpcPackage } from '../../internal/parts/index.ts';
+import type { PartName } from '../../internal/opc/index.ts';
 import {
   NS,
   type XmlElement,
@@ -35,10 +37,16 @@ import {
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
+  SHAPE_ELEMENT,
+  SHAPE_SLIDE,
+  SHAPE_SNAPSHOT,
   SLIDE_DOCUMENT,
+  SLIDE_PART,
   SLIDE_PART_NAME,
+  SLIDE_SHAPES,
   type SlideData,
   type SlideLayoutData,
+  type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
@@ -273,6 +281,75 @@ export const getSlideLayoutBackgroundShapes = (
     });
   }
   return out;
+};
+
+// Wraps a layout / master part as a read-only `SlideData` so its decorative
+// shapes can be read (and rendered) through the very same `getShape*` helpers
+// as slide shapes — crucially, picture relationships (logos) resolve against
+// THIS part's rels. The handle is for reading only; mutating helpers would
+// commit against a part this wrapper doesn't track.
+const partDecorationShapes = (
+  pkg: OpcPackage,
+  thePartName: PartName,
+  csldType: 'sldLayout' | 'sldMaster',
+): ReadonlyArray<SlideShapeData> => {
+  const part = pkg.getPart(thePartName);
+  if (part === null) return [];
+  const doc = parseXml(decode(part.data));
+  const { shapes } = readShapeTreeFromCsldRoot(doc.root, csldType);
+  const data: SlideData = {
+    [INTERNAL_PACKAGE]: pkg,
+    [SLIDE_PART_NAME]: thePartName,
+    [SLIDE_DOCUMENT]: doc,
+    [SLIDE_PART]: { shapes, root: doc.root },
+    [SLIDE_SHAPES]: [],
+  };
+  // Decoration only: placeholders are rendered through the slide's own
+  // placeholders (which already cascade through the layout/master).
+  data[SLIDE_SHAPES] = shapes
+    .filter((s) => s.placeholderType === null && s.placeholderIdx === null)
+    .map((snap) => ({
+      [SHAPE_SLIDE]: data,
+      [SHAPE_ELEMENT]: snap.element,
+      [SHAPE_SNAPSHOT]: snap,
+    }));
+  return data[SLIDE_SHAPES];
+};
+
+/**
+ * Non-placeholder decorative shapes on a slide layout — corner bars, divider
+ * lines, **logos**, watermark text — as full `SlideShapeData` bound to the
+ * layout part. Unlike `getSlideLayoutBackgroundShapes` (a flat summary that
+ * drops pictures and groups), these work with every `getShape*` reader, so a
+ * renderer can paint them with real geometry, fills, text and picture bytes.
+ *
+ * For reading / rendering only — the handles are bound to the layout part, not
+ * a slide, so the mutating `setShape*` helpers should not be used on them.
+ */
+export const getSlideLayoutShapes = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): ReadonlyArray<SlideShapeData> =>
+  partDecorationShapes(pres[INTERNAL_PACKAGE], layout[LAYOUT_PART_NAME], 'sldLayout');
+
+/**
+ * Non-placeholder decorative shapes on the layout's slide master — the
+ * template decoration shared by every layout (background logos, divider lines,
+ * etc.). Same render-ready `SlideShapeData` view as `getSlideLayoutShapes`.
+ */
+export const getSlideMasterShapes = (
+  pres: PresentationData,
+  layout: SlideLayoutData,
+): ReadonlyArray<SlideShapeData> => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutName = layout[LAYOUT_PART_NAME];
+  const rels = pkg.getRels(layoutName);
+  const masterRel = rels?.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return [];
+  const masterName = masterRel.target.startsWith('/')
+    ? partName(masterRel.target)
+    : resolveTarget(layoutName, masterRel.target);
+  return partDecorationShapes(pkg, masterName, 'sldMaster');
 };
 
 /**
