@@ -10,7 +10,11 @@ import {
   runsOf,
 } from './shape-runs.ts';
 import { parseRPrLikeElement } from './shape-color.ts';
-import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
+import {
+  getShapePlaceholderIdx,
+  getShapePlaceholderType,
+  matchPlaceholderShape,
+} from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
   type ParagraphAlignment,
@@ -130,13 +134,7 @@ const findPlaceholderShapeIn = (
   }>,
   phIdx: number | null,
   phType: string | null,
-): { element: XmlElement } | undefined => {
-  let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
-  if (!match && phType !== null) {
-    match = shapes.find((s) => s.placeholderType === phType);
-  }
-  return match;
-};
+): { element: XmlElement } | undefined => matchPlaceholderShape(shapes, phIdx, phType);
 
 const extractPlaceholderLstStyle = (placeholderEl: XmlElement): XmlElement | null => {
   const txBody = firstChildElement(placeholderEl, NAME_P_TX_BODY_PML);

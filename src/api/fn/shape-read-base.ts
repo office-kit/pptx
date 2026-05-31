@@ -492,6 +492,45 @@ export const getShapeBounds = (shape: SlideShapeData): ShapeBounds | null => {
 };
 
 /**
+ * OOXML placeholder-type equivalence for inheritance. A `ctrTitle` inherits
+ * from a `title` placeholder (and vice versa), and a `subTitle` from `body` —
+ * so a centered title on a title-slide layout still picks up the master title
+ * placeholder's bodyPr / lstStyle / geometry. Returns the acceptable
+ * layout/master placeholder types for `phType`, most specific first.
+ */
+export const placeholderTypeCandidates = (phType: string | null): string[] => {
+  if (phType === null) return [];
+  if (phType === 'ctrTitle') return ['ctrTitle', 'title'];
+  if (phType === 'title') return ['title', 'ctrTitle'];
+  if (phType === 'subTitle') return ['subTitle', 'body'];
+  return [phType];
+};
+
+/**
+ * Finds the layout/master placeholder shape that `(phIdx, phType)` inherits
+ * from: match by `<p:ph idx>` first, then by `<p:ph type>` using the
+ * equivalence above. Shared by the bounds / bodyPr / rPr / pPr resolvers so
+ * they agree on what a placeholder inherits.
+ */
+export const matchPlaceholderShape = <
+  T extends { placeholderIdx: number | null; placeholderType: string | null },
+>(
+  shapes: ReadonlyArray<T>,
+  phIdx: number | null,
+  phType: string | null,
+): T | undefined => {
+  if (phIdx !== null) {
+    const byIdx = shapes.find((s) => s.placeholderIdx === phIdx);
+    if (byIdx) return byIdx;
+  }
+  for (const t of placeholderTypeCandidates(phType)) {
+    const byType = shapes.find((s) => s.placeholderType === t);
+    if (byType) return byType;
+  }
+  return undefined;
+};
+
+/**
  * Same as `getShapeBounds` but walks the placeholder inheritance chain
  * when the shape has no `<a:xfrm>` of its own:
  *
@@ -528,10 +567,7 @@ export const getShapeBoundsResolved = (
       kind: ShapeKind;
     }>,
   ): ShapeBounds | null => {
-    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
-    if (!match && phType !== null) {
-      match = shapes.find((s) => s.placeholderType === phType);
-    }
+    const match = matchPlaceholderShape(shapes, phIdx, phType);
     if (!match) return null;
     const pos = readPosition(match.element, match.kind);
     const size = readSize(match.element, match.kind);

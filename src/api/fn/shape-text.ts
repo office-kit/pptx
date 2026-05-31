@@ -1,6 +1,10 @@
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
-import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
+import {
+  getShapePlaceholderIdx,
+  getShapePlaceholderType,
+  matchPlaceholderShape,
+} from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
   type BulletStyle,
@@ -546,13 +550,7 @@ export const getShapeBodyPrEffective = (
       placeholderType: string | null;
       element: XmlElement;
     }>,
-  ): XmlElement | null => {
-    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
-    if (!match && phType !== null) {
-      match = shapes.find((s) => s.placeholderType === phType);
-    }
-    return match?.element ?? null;
-  };
+  ): XmlElement | null => matchPlaceholderShape(shapes, phIdx, phType)?.element ?? null;
 
   const layoutPhEl = findPh(layout[LAYOUT_PART].shapes);
   if (layoutPhEl) {
