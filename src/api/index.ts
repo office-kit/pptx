@@ -396,6 +396,7 @@ export {
   isShapeHidden,
   isShapeImageGrayscale,
   isShapePlaceholder,
+  isShapeTextBox,
   isSlideHidden,
   isTableShape,
   listPackageParts,

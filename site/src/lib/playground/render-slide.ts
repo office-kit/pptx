@@ -122,6 +122,8 @@ import {
   getTableRowHeights,
   isChartShape,
   isShapeImageGrayscale,
+  isShapePlaceholder,
+  isShapeTextBox,
   isTableShape,
   type PresentationData,
   type PresentationTheme,
@@ -2263,7 +2265,15 @@ const renderTextBody = (
       margins: getShapeTextMargins(shape) ?? { left: null, top: null, right: null, bottom: null },
     };
   }
-  const anchor = effectiveBody.anchor ?? 'top';
+  // Default text alignment depends on the shape kind, matching PowerPoint /
+  // LibreOffice: autoshapes (preset geometry that is neither a placeholder nor
+  // a text box) center text horizontally and anchor it middle by default,
+  // whereas text boxes and placeholder bodies default to left / top. Authored
+  // algn / anchor still win.
+  const isAutoshape = !isShapePlaceholder(shape) && !isShapeTextBox(shape);
+  const defaultAlign = isAutoshape ? 'center' : 'left';
+  const defaultAnchor: 'top' | 'center' | 'bottom' = isAutoshape ? 'center' : 'top';
+  const anchor = effectiveBody.anchor ?? defaultAnchor;
   const margins = effectiveBody.margins;
   const lIns = margins.left ?? DEFAULT_INSET_X;
   const tIns = margins.top ?? DEFAULT_INSET_Y;
@@ -2303,7 +2313,7 @@ const renderTextBody = (
         rtl: null,
       };
     }
-    const align = effective.align ?? 'left';
+    const align = effective.align ?? defaultAlign;
     const level = effective.level;
     const bulletStyle = getParagraphBullet(shape, p);
     let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {

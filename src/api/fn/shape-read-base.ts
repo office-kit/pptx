@@ -380,6 +380,25 @@ export const isShapePlaceholder = (shape: SlideShapeData): boolean => {
   return snap.placeholderType !== null || snap.placeholderIdx !== null;
 };
 
+const NAME_P_NV_SP_PR = qname('p', 'nvSpPr', NS.pml);
+const NAME_P_C_NV_SP_PR = qname('p', 'cNvSpPr', NS.pml);
+const ATTR_TX_BOX = qname('', 'txBox', '');
+
+/**
+ * `true` when the shape is a **text box** (`<p:cNvSpPr txBox="1">`) rather than
+ * an autoshape. The distinction drives default text formatting: PowerPoint /
+ * LibreOffice left-align and top-anchor text-box text, but center-align and
+ * middle-anchor autoshape text when the deck author left those unset.
+ */
+export const isShapeTextBox = (shape: SlideShapeData): boolean => {
+  const nvSpPr = firstChildElement(shape[SHAPE_ELEMENT], NAME_P_NV_SP_PR);
+  if (!nvSpPr) return false;
+  const cNvSpPr = firstChildElement(nvSpPr, NAME_P_C_NV_SP_PR);
+  if (!cNvSpPr) return false;
+  const v = getAttrValue(cNvSpPr, ATTR_TX_BOX);
+  return v === '1' || v === 'true';
+};
+
 export const getShapeText = (shape: SlideShapeData): string => shape[SHAPE_SNAPSHOT].text;
 
 export const getShapePosition = (shape: SlideShapeData): Position | null =>
