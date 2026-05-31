@@ -105,6 +105,7 @@ const processFile = (
       slides.push({
         slide: i + 1,
         ssim: 1,
+        fgSsim: 1,
         meanAbsError: 0,
         diffPercent: 0,
         gt: null,
@@ -125,6 +126,7 @@ const processFile = (
     slides.push({
       slide: i + 1,
       ssim: result.ssim,
+      fgSsim: result.fgSsim,
       meanAbsError: result.meanAbsError,
       diffPercent: result.diffPercent,
       gt: gtRel,
@@ -134,7 +136,8 @@ const processFile = (
   }
 
   const meanSsim = args.oursOnly ? null : mean(slides.map((s) => s.ssim));
-  return { name, meanSsim, slides };
+  const meanFgSsim = args.oursOnly ? null : mean(slides.map((s) => s.fgSsim));
+  return { name, meanSsim, meanFgSsim, slides };
 };
 
 const main = async (): Promise<void> => {
@@ -160,9 +163,9 @@ const main = async (): Promise<void> => {
       const oursRender = await renderPresentation(pptx, { width: args.width });
       const report = processFile(pptx, args, oursRender);
       reports.push(report);
-      const m = report.meanSsim;
+      const m = report.meanFgSsim;
       console.log(
-        `${report.slides.length} slide(s)${m === null ? '' : `, mean SSIM ${m.toFixed(4)}`}`,
+        `${report.slides.length} slide(s)${m === null ? '' : `, fg-SSIM ${m.toFixed(4)}`}`,
       );
     } catch (err) {
       if (err instanceof GroundTruthUnavailableError) {
@@ -175,26 +178,41 @@ const main = async (): Promise<void> => {
     }
   }
 
-  const overall = mean(
-    reports.flatMap((r) => r.slides.map((s) => s.ssim)).filter(() => !args.oursOnly),
-  );
+  const allSlides = reports.flatMap((r) => r.slides);
+  const overall = args.oursOnly ? null : mean(allSlides.map((s) => s.ssim));
+  const overallFg = args.oursOnly ? null : mean(allSlides.map((s) => s.fgSsim));
   const note = `${reports.length} file(s), ${reports.reduce((n, r) => n + r.slides.length, 0)} slide(s)`;
   writeReport(
     args.outDir,
-    { engine: args.engine, width: args.width, overallSsim: overall, generatedNote: note },
+    {
+      engine: args.engine,
+      width: args.width,
+      overallSsim: overall,
+      overallFgSsim: overallFg,
+      generatedNote: note,
+    },
     reports,
   );
   writeFileSync(
     join(args.outDir, 'results.json'),
     JSON.stringify(
-      { engine: args.engine, width: args.width, overallSsim: overall, files: reports },
+      {
+        engine: args.engine,
+        width: args.width,
+        overallSsim: overall,
+        overallFgSsim: overallFg,
+        files: reports,
+      },
       null,
       2,
     ),
   );
 
   console.log('');
-  console.log(`overall mean SSIM: ${overall === null ? 'n/a (ours-only)' : overall.toFixed(4)}`);
+  console.log(
+    `overall mean fg-SSIM: ${overallFg === null ? 'n/a (ours-only)' : overallFg.toFixed(4)}` +
+      `${overall === null ? '' : ` · plain SSIM: ${overall.toFixed(4)}`}`,
+  );
   console.log(`report: ${join(args.outDir, 'index.html')}`);
 };
 

@@ -2082,7 +2082,11 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
       let fmt = run.fmt;
       if (run.href) {
         const hlinkColor = a.theme ? normalizeHex(a.theme.hyperlink) : '#0563C1';
-        fmt = { ...(fmt ?? {}), color: fmt?.color ?? hlinkColor, underline: fmt?.underline ?? true };
+        fmt = {
+          ...(fmt ?? {}),
+          color: fmt?.color ?? hlinkColor,
+          underline: fmt?.underline ?? true,
+        };
       }
       const family = substituteFamily(fmt?.font ?? a.themeFace);
       const sizePx = run.sizePt * scale * PX_PER_PT;
@@ -2191,9 +2195,7 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
     para.bulletIsPicture ||
     (para.bulletStyle !== 'none' && para.level > 0);
   if (!showBullet) return null;
-  const char = para.bulletIsPicture
-    ? '■'
-    : (numberLabel ?? explicitChar ?? bulletChar(para.level));
+  const char = para.bulletIsPicture ? '■' : (numberLabel ?? explicitChar ?? bulletChar(para.level));
   const baseSizePx = a.defaultPt * PX_PER_PT * a.autoFitScale;
   const sizePx =
     para.bulletDetail.sizePct !== null
@@ -2204,7 +2206,12 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
   const fillHex = para.bulletDetail.color
     ? resolveColor(para.bulletDetail.color, a.theme, '#000000')
     : a.defaultColor;
-  return { text: char, family: substituteFamily(para.bulletDetail.font ?? a.themeFace), sizePx, fillHex };
+  return {
+    text: char,
+    family: substituteFamily(para.bulletDetail.font ?? a.themeFace),
+    sizePx,
+    fillHex,
+  };
 };
 
 const renderTextBody = (
@@ -2610,14 +2617,21 @@ const renderTextBody = (
   // Vertical text / multi-column are not yet ported here (PR C) — they lay out
   // horizontally single-column, which is wrong but visible (vs. blank).
   if (ctx.mode === 'svg') {
+    // Fidelity path: apply ONLY the authored normAutofit scale. The heuristic
+    // shrink (the AVG_GLYPH_W_RATIO estimator) exists to keep the browser
+    // preview tidy, but PowerPoint / LibreOffice do not shrink unless the deck
+    // baked a fontScale — so honouring only the authored value matches ground
+    // truth (and avoids spuriously shrinking titles that actually fit).
+    const svgScale = authoredAutofit?.fontScale ?? 1;
+    const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgInner = buildAndLayoutSvgText({
       pres,
       shape,
       theme,
       paraData,
       numberLabels,
-      autoFitScale,
-      lineHeightScale,
+      autoFitScale: svgScale,
+      lineHeightScale: svgLineScale,
       defaultPt,
       themeFace,
       defaultColor,
@@ -4376,8 +4390,13 @@ const renderTableCellText = (
     const ascent = fontPx * 0.8;
     const totalH = lines.length * lineH;
     const topY =
-      vAnchor === 'top' ? innerY : vAnchor === 'bottom' ? innerY + (innerH - totalH) : innerY + (innerH - totalH) / 2;
-    const anchorX = ta === 'center' ? innerX + innerW / 2 : ta === 'right' ? innerX + innerW : innerX;
+      vAnchor === 'top'
+        ? innerY
+        : vAnchor === 'bottom'
+          ? innerY + (innerH - totalH)
+          : innerY + (innerH - totalH) / 2;
+    const anchorX =
+      ta === 'center' ? innerX + innerW / 2 : ta === 'right' ? innerX + innerW : innerX;
     const textAnchor = ta === 'center' ? 'middle' : ta === 'right' ? 'end' : 'start';
     const family = substituteFamily(null);
     return lines

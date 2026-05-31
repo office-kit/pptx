@@ -360,11 +360,12 @@ const topPad = (line: Line): number => {
 };
 
 const lineAdvance = (line: Line, para: ParaInput): number => {
-  // LibreOffice / PowerPoint single-line spacing tracks the font's ascent +
-  // descent and does NOT add the font's external lineGap, so a 100% line for
-  // Carlito is ~1.0em (ascent 0.75 + descent 0.25), not 1.22em. Including
-  // lineGap over-spaces multi-line blocks and drifts them downward.
-  const natural = line.ascent + line.descent;
+  // Natural single-line height = ascent + descent + lineGap. The measurer
+  // supplies the metric set the renderer (LibreOffice / GDI) actually uses:
+  // win metrics (ascent = usWinAscent, lineGap 0) unless the font sets
+  // USE_TYPO_METRICS, in which case typo metrics + typoLineGap. The baseline
+  // sits at lineTop + ascent.
+  const natural = line.ascent + line.descent + line.lineGap;
   let adv: number;
   if (para.lineSpacing?.kind === 'pct') adv = para.lineSpacing.value * natural;
   else if (para.lineSpacing?.kind === 'pts') adv = para.lineSpacing.px;

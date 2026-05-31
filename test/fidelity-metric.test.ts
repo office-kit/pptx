@@ -66,6 +66,33 @@ describe('compareImages', () => {
   it('throws on dimension mismatch', () => {
     expect(() => compareImages(solid(4, 4, 0, 0, 0), solid(8, 8, 0, 0, 0))).toThrow(/mismatch/);
   });
+
+  it('scores fgSsim ~1 for identical content', () => {
+    const img = checker(32, 32, 4);
+    expect(compareImages(img, img).fgSsim).toBeCloseTo(1, 4);
+  });
+
+  it('foreground weighting penalizes missing ink that plain SSIM forgives', () => {
+    // Ground truth has dark "ink" on a mostly-white field; ours renders blank
+    // white (the "text absent" case). Plain SSIM stays high because most of the
+    // frame matches (white); fg-SSIM collapses because the inked windows — the
+    // only ones that count — are all wrong.
+    const w = 64;
+    const truth = solid(w, w, 255, 255, 255);
+    // paint a dark band (ink) across the middle rows
+    for (let y = 24; y < 40; y++) {
+      for (let x = 0; x < w; x++) {
+        const p = (y * w + x) * 4;
+        truth.data[p] = 10;
+        truth.data[p + 1] = 10;
+        truth.data[p + 2] = 10;
+      }
+    }
+    const blank = solid(w, w, 255, 255, 255);
+    const r = compareImages(truth, blank);
+    expect(r.fgSsim).toBeLessThan(r.ssim); // fg metric is stricter on missing ink
+    expect(r.fgSsim).toBeLessThan(0.5);
+  });
 });
 
 describe('resizeRgba', () => {

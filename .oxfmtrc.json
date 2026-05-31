@@ -16,6 +16,7 @@
     "node_modules/**",
     ".changeset/**",
     "references/**",
-    "test/fixtures/**"
+    "test/fixtures/**",
+    "site/fidelity/fonts/**"
   ]
 }

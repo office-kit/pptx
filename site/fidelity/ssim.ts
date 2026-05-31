@@ -15,6 +15,14 @@ import { toGray } from './image.ts';
 export interface CompareResult {
   /** Mean SSIM in [-1, 1]; 1.0 === identical. */
   readonly ssim: number;
+  /**
+   * Foreground-weighted SSIM. Each window is weighted by how much "ink" the
+   * ground truth has there (darkness away from white), so blank slide areas —
+   * which dominate plain SSIM and reward a renderer for drawing *nothing* —
+   * barely count. This is the metric that actually tracks content fidelity:
+   * missing text scores low here, correctly rendered text scores high.
+   */
+  readonly fgSsim: number;
   /** Mean absolute luma error normalized to [0, 1]. */
   readonly meanAbsError: number;
   /** Fraction of pixels whose luma differs by more than `diffThreshold`. */
@@ -54,12 +62,19 @@ export const compareImages = (
 
   let ssimSum = 0;
   let windowCount = 0;
+  let fgWeightedSum = 0;
+  let fgWeight = 0;
   // Slide the window; clamp the final window flush against the right/bottom
   // edge so every pixel is covered even when (size - window) % stride !== 0.
   for (let wy = 0; wy <= height - window; wy += stepTo(wy, height, window, stride)) {
     for (let wx = 0; wx <= width - window; wx += stepTo(wx, width, window, stride)) {
-      ssimSum += windowSsim(ga, gb, width, wx, wy, window);
+      const w = windowSsim(ga, gb, width, wx, wy, window);
+      ssimSum += w.ssim;
       windowCount++;
+      // Ground-truth ink weight: 0 for a white window, →1 as it darkens.
+      const ink = Math.max(0, (255 - w.muA) / 255);
+      fgWeightedSum += w.ssim * ink;
+      fgWeight += ink;
       if (wx === width - window) break;
     }
     if (wy === height - window) break;
@@ -75,6 +90,7 @@ export const compareImages = (
 
   return {
     ssim: windowCount > 0 ? ssimSum / windowCount : 1,
+    fgSsim: fgWeight > 0 ? fgWeightedSum / fgWeight : 1,
     meanAbsError: ga.length > 0 ? absErr / (ga.length * 255) : 0,
     diffPercent: ga.length > 0 ? diffCount / ga.length : 0,
   };
@@ -95,7 +111,7 @@ const windowSsim = (
   wx: number,
   wy: number,
   window: number,
-): number => {
+): { ssim: number; muA: number } => {
   const n = window * window;
   let sumA = 0;
   let sumB = 0;
@@ -121,7 +137,7 @@ const windowSsim = (
   const covAB = sumAB / n - muA * muB;
   const num = (2 * muA * muB + C1) * (2 * covAB + C2);
   const den = (muA * muA + muB * muB + C1) * (varA + varB + C2);
-  return num / den;
+  return { ssim: num / den, muA };
 };
 
 // A human-readable diff: faded grayscale of the ground truth, with pixels

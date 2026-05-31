@@ -9,6 +9,7 @@ import { join } from 'node:path';
 export interface SlideReport {
   readonly slide: number;
   readonly ssim: number;
+  readonly fgSsim: number;
   readonly meanAbsError: number;
   readonly diffPercent: number;
   readonly gt: string | null;
@@ -19,6 +20,7 @@ export interface SlideReport {
 export interface FileReport {
   readonly name: string;
   readonly meanSsim: number | null;
+  readonly meanFgSsim: number | null;
   readonly slides: SlideReport[];
 }
 
@@ -26,6 +28,7 @@ export interface ReportMeta {
   readonly engine: string;
   readonly width: number;
   readonly overallSsim: number | null;
+  readonly overallFgSsim: number | null;
   readonly generatedNote: string;
 }
 
@@ -47,9 +50,9 @@ const slideRow = (s: SlideReport): string => {
     src ? `<img loading="lazy" src="${esc(src)}" />` : '<div class="missing">—</div>';
   return `<tr>
     <td class="n">${s.slide}</td>
-    <td class="metric" style="background:${ssimColor(s.ssim)}">
-      <strong>${s.ssim.toFixed(4)}</strong><br/>
-      <span class="sub">err ${pct(s.meanAbsError)} · diff ${pct(s.diffPercent)}</span>
+    <td class="metric" style="background:${ssimColor(s.fgSsim)}">
+      <strong>${s.fgSsim.toFixed(4)}</strong> <span class="sub">fg</span><br/>
+      <span class="sub">ssim ${s.ssim.toFixed(4)} · err ${pct(s.meanAbsError)} · diff ${pct(s.diffPercent)}</span>
     </td>
     <td>${cell(s.gt)}</td>
     <td>${cell(s.ours)}</td>
@@ -59,7 +62,7 @@ const slideRow = (s: SlideReport): string => {
 
 const fileSection = (f: FileReport): string => `
   <section>
-    <h2>${esc(f.name)} <span class="mean">mean SSIM ${ssimFmt(f.meanSsim)}</span></h2>
+    <h2>${esc(f.name)} <span class="mean">mean fg-SSIM ${ssimFmt(f.meanFgSsim)} · SSIM ${ssimFmt(f.meanSsim)}</span></h2>
     <table>
       <thead><tr><th>#</th><th>metrics</th><th>ground truth</th><th>pptx-kit</th><th>diff</th></tr></thead>
       <tbody>${f.slides.map(slideRow).join('')}</tbody>
@@ -93,7 +96,7 @@ export const writeReport = (outDir: string, meta: ReportMeta, files: FileReport[
   <header>
     <h1>pptx-kit preview fidelity</h1>
     <div class="meta">engine: ${esc(meta.engine)} · width: ${meta.width}px · ${esc(meta.generatedNote)}</div>
-    <div class="overall">overall mean SSIM: <strong>${ssimFmt(meta.overallSsim)}</strong></div>
+    <div class="overall">overall mean fg-SSIM: <strong>${ssimFmt(meta.overallFgSsim)}</strong> · plain SSIM: ${ssimFmt(meta.overallSsim)}</div>
   </header>
   ${files.map(fileSection).join('')}
 </body></html>`;
