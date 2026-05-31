@@ -754,10 +754,16 @@ const paint = (
   } else if (fill.kind === 'image') {
     fillColor = '#DDD6FE';
   } else {
-    // `inherit`: placeholders inherit from layout/master, which is usually
-    // transparent for text placeholders. Drawing them as a filled tile
-    // would obscure real shapes — leave them transparent.
-    fillColor = isPlaceholder ? 'none' : '#F3F4F6';
+    // `inherit`: the real fill lives in the layout/master cascade or the
+    // shape's style matrix (`<p:style><a:fillRef>`), which we don't resolve
+    // yet. Render transparent — that matches what PowerPoint / LibreOffice
+    // show for unstyled text boxes, content placeholders, and bare autoshapes
+    // (verified against ground truth), and never paints a spurious grey box
+    // over real content. (`isPlaceholder` no longer changes the fill: a
+    // no-type `<p:ph>` reads as phType null, so keying on it mislabelled
+    // content placeholders as non-placeholders anyway.)
+    void isPlaceholder;
+    fillColor = 'none';
   }
 
   let strokeColor = 'none';
@@ -4382,12 +4388,13 @@ const renderTableCellText = (
   const lines = text.split('\n').slice(0, 8);
 
   // Pure-SVG path: emit positioned <text> lines so a browser-free rasterizer
-  // shows cell text (foreignObject would blank out). Fixed 10px, matching the
-  // foreignObject path; full per-run styling is a later refinement.
+  // shows cell text (foreignObject would blank out). Uses the 18pt table-cell
+  // default (per-run sizing is a later refinement); full styling needs a cell
+  // run model pptx-kit doesn't expose yet.
   if (ctx.mode === 'svg') {
-    const fontPx = 10;
-    const lineH = fontPx * 1.15;
-    const ascent = fontPx * 0.8;
+    const fontPx = 18 * PX_PER_PT;
+    const lineH = fontPx * 1.2;
+    const ascent = fontPx * 0.85;
     const totalH = lines.length * lineH;
     const topY =
       vAnchor === 'top'
@@ -4414,7 +4421,8 @@ const renderTableCellText = (
   const body = lines
     .map((line) => `<div style="text-align:${ta}">${escapeXml(line)}</div>`)
     .join('');
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${vJustify};align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:10px;line-height:1.15;word-break:break-word">${body}</div></foreignObject>`;
+  const cellFontPx = (18 * PX_PER_PT).toFixed(1);
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${vJustify};align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:${cellFontPx}px;line-height:1.2;word-break:break-word">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
@@ -4588,7 +4596,9 @@ const renderTable = (
 
       const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
       const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
-      const vAnchor = getTableCellAnchor(typedCell) ?? 'center';
+      // ECMA-376 default cell anchor is top ('t'), which is what PowerPoint /
+      // LibreOffice render when `<a:tcPr anchor>` is absent.
+      const vAnchor = getTableCellAnchor(typedCell) ?? 'top';
       const cellMargins = getTableCellMargins(typedCell);
       out.push(
         renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, ctx, vAnchor, cellMargins),
