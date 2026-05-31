@@ -4636,9 +4636,12 @@ const renderShape = (
   const y = bounds.y as number;
   const w = bounds.w as number;
   const h = bounds.h as number;
-  if (w <= 0 || h <= 0) return '';
-
   const kind = getShapeKind(shape);
+  // Connectors (lines) are legitimately zero-height when horizontal or
+  // zero-width when vertical — only a true point (both zero) is degenerate.
+  // Every other shape with no area is invisible, so skip it.
+  if (kind === 'connector' ? w <= 0 && h <= 0 : w <= 0 || h <= 0) return '';
+
   const fill = getShapeFillEffective(pres, shape);
   const stroke = getShapeStrokeEffective(pres, shape);
   const rotation = getShapeRotation(shape);
