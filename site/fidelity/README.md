@@ -72,14 +72,27 @@ OS/2 `USE_TYPO_METRICS` bit, in which case the `sTypo*` metrics + `typoLineGap`
 apply. The measurer (`measure.ts`) mirrors this; using fontkit's hhea `.ascent`
 instead misplaces the baseline by ~12px at 44pt.
 
+**Center / bottom anchoring** carries one extra wrinkle: LibreOffice/PowerPoint
+sit a vertically-centered (or bottom-anchored) line slightly _lower_ than the
+win-metric line box predicts — measured against ground truth (an IoU offset
+search) as ≈0.036 of the line's (ascent+descent), independent of font size and
+isolated to non-top anchoring. `text-layout.ts` applies that as the documented
+`CENTER_ANCHOR_DROP` constant; top-anchored text needs no correction and gets
+none. (No clean font-metric formula reproduces it, so it is an empirically
+calibrated constant, validated to lift every affected slide with no regression.)
+
 ## Current state (LibreOffice 26.2, 21 samples, 1280px)
 
-Overall mean fg-SSIM ≈ **0.46** (plain SSIM ≈ 0.96). Text layout is horizontally
-near-exact and correctly sized; top-anchored text bodies align well (e.g.
-`03-text-formatting` ≈ 0.57), graphic-heavy slides score high (`09-images` ≈
-0.95). Known laggards, tracked for follow-up PRs: centered single lines carry a
-~4px vertical residual; bullets/measured-autofit, vertical/column text, and
-table-cell run styling are not yet ported to the pure-SVG path; a spurious faint
-placeholder fill and near-white preset shapes hurt `05`/`10`. Exact numbers move
-with the LibreOffice version, so no baseline file is committed yet; CI will
-establish its own once the gate lands.
+Overall mean fg-SSIM ≈ **0.66** (plain SSIM ≈ 0.97). Text is horizontally
+near-exact, correctly sized, and now vertically aligned for both top- and
+center/bottom-anchored blocks (e.g. `01-title-only` 0.26→0.65, `20` 0.28→0.72,
+`15`/`16` ~0.28→~0.75 after the center-anchor calibration). Graphic/image slides
+score high (`09-images` 0.98, `14-background` 0.97, `13-zorder` 0.95). Remaining
+laggards: `10-tables` (≈0.14 — we paint PowerPoint's built-in table-style
+header/banding fills, which LibreOffice renders plain: a documented
+LO-vs-PowerPoint divergence) and `05-preset-shapes` (≈0.38 — tiny centered
+labels). A residual ~1px horizontal text offset (resvg-vs-pdftoppm pixel grid)
+caps per-glyph overlap. Bullets/vertical/column text and per-run table-cell
+styling are partially or not yet ported. Exact numbers move with the LibreOffice
+version, so no baseline file is committed yet; CI will establish its own once
+the gate lands.

@@ -109,6 +109,12 @@ const FALLBACK_ASCENT = 0.9;
 const FALLBACK_DESCENT = 0.22;
 const FALLBACK_LINEGAP = 0.08;
 
+// Vertical-centering calibration — see the use site. Fraction of a line's
+// (ascent+descent) that center/bottom-anchored blocks sit LOWER than the
+// win-metric line box predicts, fitted to LibreOffice/PowerPoint ground truth
+// (top-anchored text needs no correction; only center/bottom do).
+const CENTER_ANCHOR_DROP = 0.036;
+
 // ---------------------------------------------------------------------------
 // Engine input model. render-slide.ts resolves the OOXML cascade and hands the
 // engine this already-normalized, px-native structure.
@@ -337,6 +343,16 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
   let offsetY = input.boxYpx;
   if (input.anchor === 'center') offsetY = input.boxYpx + (input.boxHpx - blockH) / 2;
   else if (input.anchor === 'bottom') offsetY = input.boxYpx + (input.boxHpx - blockH);
+  // Empirical calibration: with vertical centering / bottom anchoring,
+  // LibreOffice & PowerPoint sit the text slightly lower than the win-metric
+  // line box implies — verified against ground truth (an IoU offset search) as
+  // ≈0.036 of a line's (ascent+descent), isolated to non-top anchoring
+  // (top-anchored text aligns exactly, so it gets no shift). See
+  // site/fidelity/README.md.
+  if ((input.anchor === 'center' || input.anchor === 'bottom') && lines.length > 0) {
+    const ref = lines[0]!;
+    offsetY += CENTER_ANCHOR_DROP * (ref.ascent + ref.descent);
+  }
 
   const parts: string[] = [];
   for (const line of lines) {
