@@ -1,9 +1,8 @@
-// Node-only fontkit-backed TextMeasurer for the fidelity harness. NEVER
-// imported by render-slide.ts (which must stay browser-safe) — only by
-// render-ours.ts. It measures advance widths and vertical metrics from the
-// same vendored TTFs that resvg rasterizes with and that LibreOffice renders
-// ground truth with, so the engine's wrap/positioning math agrees with the
-// painted pixels.
+// Node-only fontkit-backed TextMeasurer. NEVER imported by render-slide.ts /
+// text-layout.ts (which must stay browser-safe) — only by the node entry. It
+// measures advance widths and vertical metrics from the same bundled TTFs that
+// resvg rasterizes with (and that LibreOffice renders ground truth with), so
+// the engine's wrap/positioning math agrees with the painted pixels.
 
 import * as fontkit from 'fontkit';
 import { existsSync, readFileSync } from 'node:fs';
@@ -16,9 +15,9 @@ import {
   TIMES,
   type FontSpec,
   type TextMeasurer,
-} from '../src/lib/playground/text-layout.ts';
+} from './text-layout.ts';
 
-export const FONT_DIR = fileURLToPath(new URL('./fonts/', import.meta.url));
+export const FONT_DIR = fileURLToPath(new URL('../fonts/', import.meta.url));
 
 // Internal family name (what the emitter writes + resvg matches) → file prefix.
 const FAMILY_TO_PREFIX: Record<string, string> = {

@@ -1,7 +1,7 @@
 // Unit coverage for the pure-SVG text layout engine. It is dependency-free
 // (no pptx-kit, no Node, no browser), so the wrap / position / emit logic and
 // the font substitution map are testable in isolation. See
-// site/src/lib/playground/text-layout.ts.
+// packages/preview/src/text-layout.ts.
 
 import { describe, expect, it } from 'vitest';
 import {
@@ -13,7 +13,7 @@ import {
   type PieceInput,
   type TextBodyInput,
   type TextMeasurer,
-} from '../site/src/lib/playground/text-layout.ts';
+} from '../packages/preview/src/text-layout.ts';
 
 describe('substituteFamily', () => {
   it('maps PowerPoint fonts to bundled internal family names', () => {

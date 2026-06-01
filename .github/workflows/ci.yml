@@ -53,6 +53,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # The @pptx-kit/preview companion package type-checks and builds against
+      # pptx-kit's emitted types, so these run after the root build. It's a
+      # separate workspace package with its own tsconfig / tsup config.
+      - name: Type check preview package
+        run: pnpm --filter @pptx-kit/preview typecheck
+
+      - name: Build preview package
+        run: pnpm --filter @pptx-kit/preview build
+
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
   # supports. Drop versions that are past their EOL date.
   test:

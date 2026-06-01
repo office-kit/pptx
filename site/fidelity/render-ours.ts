@@ -1,17 +1,10 @@
-// Render every slide of a .pptx with pptx-kit's own previewer
-// (`renderSlideSvg`) and rasterize it to pixels with resvg — no browser.
-//
-// Text is laid out as pure SVG (textLayout: 'svg') using a fontkit measurer so
-// resvg can rasterize it. The measurer, resvg's `fontFiles`, and the
-// LibreOffice ground-truth host all use the SAME bundled substitute fonts, so
-// the engine's wrap/position math agrees with the painted pixels.
+// Render every slide of a .pptx with pptx-kit's own previewer and rasterize it
+// to pixels — no browser. The whole SVG→resvg→RGBA pipeline now lives in
+// `@pptx-kit/preview/node`; the harness only feeds it a deck and a width.
 
-import { Resvg } from '@resvg/resvg-js';
 import { getSlides, getSlideSize, type PresentationData } from 'pptx-kit';
 import { loadPresentationFile } from 'pptx-kit/node';
-import { renderSlideSvg } from '../src/lib/playground/render-slide.ts';
-import { buildFontkitMeasurer, FONT_FILES } from './measure.ts';
-import { SANS, SERIF, MONO } from '../src/lib/playground/text-layout.ts';
+import { renderSlideToRgba } from '@pptx-kit/preview/node';
 import type { RgbaImage } from './image.ts';
 
 export interface RenderedSlide {
@@ -45,30 +38,9 @@ export const renderPresentation = async (
   const pixelWidth = opts.width;
   const pixelHeight = Math.round((opts.width * emuH) / emuW);
 
-  // Build the measurer once (loads + verifies every face), reuse per slide.
-  const measureText = buildFontkitMeasurer();
-
-  const slides = getSlides(pres).map((slide): RenderedSlide => {
-    const svg = renderSlideSvg(pres, slide, { measureText, textLayout: 'svg' });
-    const resvg = new Resvg(svg, {
-      fitTo: { mode: 'width', value: pixelWidth },
-      font: {
-        loadSystemFonts: false, // deterministic; only our bundled fonts
-        fontFiles: FONT_FILES,
-        defaultFontFamily: SANS,
-        sansSerifFamily: SANS,
-        serifFamily: SERIF,
-        monospaceFamily: MONO,
-      },
-    });
-    const rendered = resvg.render();
-    const image: RgbaImage = {
-      width: rendered.width,
-      height: rendered.height,
-      data: new Uint8Array(rendered.pixels),
-    };
-    return { image, png: new Uint8Array(rendered.asPng()) };
-  });
+  const slides = getSlides(pres).map(
+    (slide): RenderedSlide => renderSlideToRgba(pres, slide, { width: pixelWidth }),
+  );
 
   return { slides, pixelWidth, pixelHeight };
 };

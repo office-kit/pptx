@@ -37,6 +37,28 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@20.19.41)(lightningcss@1.32.0)
 
+  packages/preview:
+    dependencies:
+      '@resvg/resvg-js':
+        specifier: ^2.6.2
+        version: 2.6.2
+      fontkit:
+        specifier: ^2.0.4
+        version: 2.0.4
+    devDependencies:
+      '@types/fontkit':
+        specifier: ^2.0.9
+        version: 2.0.9
+      pptx-kit:
+        specifier: workspace:*
+        version: link:../..
+      tsup:
+        specifier: ^8.3.5
+        version: 8.5.1(postcss@8.5.14)(tsx@4.22.3)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
   site:
     dependencies:
       '@codemirror/lang-javascript':
@@ -55,9 +77,9 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
     devDependencies:
-      '@resvg/resvg-js':
-        specifier: ^2.6.2
-        version: 2.6.2
+      '@pptx-kit/preview':
+        specifier: workspace:*
+        version: link:../packages/preview
       '@sveltejs/adapter-static':
         specifier: ^3.0.10
         version: 3.0.10(@sveltejs/kit@2.60.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.55.7)(vite@8.0.13(@types/node@22.19.19)(esbuild@0.28.0)(tsx@4.22.3)))(svelte@5.55.7)(typescript@5.9.3)(vite@8.0.13(@types/node@22.19.19)(esbuild@0.28.0)(tsx@4.22.3)))
@@ -67,15 +89,9 @@ importers:
       '@sveltejs/vite-plugin-svelte':
         specifier: ^7.1.2
         version: 7.1.2(svelte@5.55.7)(vite@8.0.13(@types/node@22.19.19)(esbuild@0.28.0)(tsx@4.22.3))
-      '@types/fontkit':
-        specifier: ^2.0.9
-        version: 2.0.9
       '@types/node':
         specifier: ^22.19.18
         version: 22.19.19
-      fontkit:
-        specifier: ^2.0.4
-        version: 2.0.4
       mdsvex:
         specifier: ^0.12.7
         version: 0.12.7(svelte@5.55.7)

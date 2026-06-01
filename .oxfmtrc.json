@@ -17,6 +17,6 @@
     ".changeset/**",
     "references/**",
     "test/fixtures/**",
-    "site/fidelity/fonts/**"
+    "packages/preview/fonts/**"
   ]
 }
