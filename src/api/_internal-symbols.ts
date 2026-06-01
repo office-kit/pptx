@@ -2,6 +2,15 @@
 // returns (`PresentationData`, `SlideData`, `SlideShapeData`, etc.).
 // Defined in a dedicated module so importers never transitively pull
 // in heavy authoring code paths — readers stay light.
+//
+// These use `Symbol.for` (the process-global registry), NOT plain `Symbol`,
+// so the keys are identical across separately-bundled copies of this module.
+// The public entry (`pptx-kit` → dist/index.js) and the Node entry
+// (`pptx-kit/node` → dist/node.js) are distinct bundles, each with its own
+// copy of this file; companion packages (e.g. `@pptx-kit/preview`) hold a
+// third. With plain `Symbol` a handle built by one bundle is opaque to every
+// other — `getSlides(loadPresentationFile(...))` would read `undefined` and
+// crash. The `pptx-kit.` namespace keeps the registry keys collision-free.
 
 import type { PartName } from '../internal/opc/index.ts';
 import type { OpcPackage } from '../internal/parts/index.ts';
@@ -13,22 +22,22 @@ import type {
 } from '../internal/presentationml/index.ts';
 import type { XmlDocument, XmlElement } from '../internal/xml/index.ts';
 
-export const INTERNAL_PACKAGE = Symbol('pptx-kit.package');
-export const SLIDE_PART_NAME = Symbol('pptx-kit.slide.partName');
-export const SLIDE_DOCUMENT = Symbol('pptx-kit.slide.document');
-export const SLIDE_PART = Symbol('pptx-kit.slide.part');
-export const SLIDE_SHAPES = Symbol('pptx-kit.slide.shapes');
-export const SHAPE_SLIDE = Symbol('pptx-kit.shape.slide');
-export const SHAPE_ELEMENT = Symbol('pptx-kit.shape.element');
-export const SHAPE_SNAPSHOT = Symbol('pptx-kit.shape.snapshot');
-export const LAYOUT_PART_NAME = Symbol('pptx-kit.layout.partName');
-export const LAYOUT_PART = Symbol('pptx-kit.layout.part');
-export const COMMENT_SLIDE = Symbol('pptx-kit.comment.slide');
-export const COMMENT_SNAPSHOT = Symbol('pptx-kit.comment.snapshot');
-export const CELL_TABLE = Symbol('pptx-kit.cell.table');
-export const CELL_ELEMENT = Symbol('pptx-kit.cell.element');
-export const CELL_ROW = Symbol('pptx-kit.cell.row');
-export const CELL_COL = Symbol('pptx-kit.cell.col');
+export const INTERNAL_PACKAGE = Symbol.for('pptx-kit.package');
+export const SLIDE_PART_NAME = Symbol.for('pptx-kit.slide.partName');
+export const SLIDE_DOCUMENT = Symbol.for('pptx-kit.slide.document');
+export const SLIDE_PART = Symbol.for('pptx-kit.slide.part');
+export const SLIDE_SHAPES = Symbol.for('pptx-kit.slide.shapes');
+export const SHAPE_SLIDE = Symbol.for('pptx-kit.shape.slide');
+export const SHAPE_ELEMENT = Symbol.for('pptx-kit.shape.element');
+export const SHAPE_SNAPSHOT = Symbol.for('pptx-kit.shape.snapshot');
+export const LAYOUT_PART_NAME = Symbol.for('pptx-kit.layout.partName');
+export const LAYOUT_PART = Symbol.for('pptx-kit.layout.part');
+export const COMMENT_SLIDE = Symbol.for('pptx-kit.comment.slide');
+export const COMMENT_SNAPSHOT = Symbol.for('pptx-kit.comment.snapshot');
+export const CELL_TABLE = Symbol.for('pptx-kit.cell.table');
+export const CELL_ELEMENT = Symbol.for('pptx-kit.cell.element');
+export const CELL_ROW = Symbol.for('pptx-kit.cell.row');
+export const CELL_COL = Symbol.for('pptx-kit.cell.col');
 
 /**
  * Opaque handle to a loaded / created presentation. Constructed via
