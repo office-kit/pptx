@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import * as kit from 'pptx-kit';
-  import { renderSlideSvg } from '$lib/playground/render-slide';
+  import { renderSlideToSvg } from '@pptx-kit/preview';
   import { EditorState } from '@codemirror/state';
   import { EditorView, basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
@@ -172,7 +172,7 @@ setShapeFill(star, '#FFD966');
       slides = list.map((slide, i) => ({
         index: i + 1,
         title: kit.getSlideTitle(slide) ?? '',
-        svg: renderSlideSvg(pres, slide),
+        svg: renderSlideToSvg(pres, slide),
       }));
       bytes = await kit.savePresentation(pres);
     } catch (err) {

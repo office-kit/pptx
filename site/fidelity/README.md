@@ -1,20 +1,21 @@
 # Preview fidelity harness
 
-Measures how close pptx-kit's preview renderer (`renderSlideSvg`) is to a real
-presentation engine, **as a number per slide** — the measurement spine from
-the preview-fidelity roadmap. Without it, "make the preview perfect" is
-unfalsifiable eyeballing.
+Measures how close pptx-kit's preview renderer (the `@pptx-kit/preview`
+package) is to a real presentation engine, **as a number per slide** — the
+measurement spine from the preview-fidelity roadmap. Without it, "make the
+preview perfect" is unfalsifiable eyeballing.
 
 ```
-ground truth (LibreOffice / PowerPoint)        →  PDF  →  PPM  ┐
-                                                               ├─→  SSIM + diff  →  report
-renderSlideSvg(textLayout:'svg', measureText)  →  SVG  →  resvg  →  RGBA  ┘
+ground truth (LibreOffice / PowerPoint)           →  PDF  →  PPM  ┐
+                                                                  ├─→  SSIM + diff  →  report
+@pptx-kit/preview/node · renderSlideToRgba(width)  →  SVG → resvg → RGBA  ┘
 ```
 
-Text is laid out as pure SVG `<text>` (no `<foreignObject>`) using a fontkit
-measurer, so resvg can rasterize it without a browser. The measurer, resvg's
-`fontFiles`, and LibreOffice all use the same bundled substitute fonts
-(`fonts/`), so the engine's wrap/position math agrees with the painted pixels.
+`renderSlideToRgba` (from `@pptx-kit/preview/node`) lays text out as pure SVG
+`<text>` (no `<foreignObject>`) using a fontkit measurer, so resvg can
+rasterize it without a browser. The measurer, resvg's `fontFiles`, and
+LibreOffice all use the same bundled substitute fonts (in the package's
+`fonts/`), so the engine's wrap/position math agrees with the painted pixels.
 
 ## Run it
 
@@ -60,17 +61,17 @@ libreoffice`; Debian/CI `apt-get install libreoffice`. Override the binary
 - The diff image is the ground truth for _what_ is wrong; fg-SSIM tells you
   _which_ slides to look at.
 - The metric core (`image.ts`, `ssim.ts`, `ppm.ts`, `png.ts`) and the layout
-  engine (`../src/lib/playground/text-layout.ts`) are unit-tested in
-  `test/fidelity-metric.test.ts` / `test/text-layout.test.ts` and run in CI
-  without any external renderer.
+  engine (`@pptx-kit/preview`'s `packages/preview/src/text-layout.ts`) are
+  unit-tested in `test/fidelity-metric.test.ts` / `test/text-layout.test.ts`
+  and run in CI without any external renderer.
 
 ## Vertical metrics
 
 LibreOffice / GDI place the baseline at the font's `usWinAscent` and size the
 line box as `usWinAscent + usWinDescent` (no extra gap) unless the font sets the
 OS/2 `USE_TYPO_METRICS` bit, in which case the `sTypo*` metrics + `typoLineGap`
-apply. The measurer (`measure.ts`) mirrors this; using fontkit's hhea `.ascent`
-instead misplaces the baseline by ~12px at 44pt.
+apply. The measurer (`@pptx-kit/preview`'s `measure.ts`) mirrors this; using
+fontkit's hhea `.ascent` instead misplaces the baseline by ~12px at 44pt.
 
 **Center / bottom anchoring** carries one extra wrinkle: LibreOffice/PowerPoint
 sit a vertically-centered (or bottom-anchored) line slightly _lower_ than the

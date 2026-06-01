@@ -1,0 +1,18 @@
+{
+  "// note": "Standalone tsconfig for @pptx-kit/preview. The root vitest also imports text-layout.ts from here and resolves this config (a clean one) instead of walking up to site/tsconfig.json, which extends the svelte-kit-generated ./.svelte-kit/tsconfig.json that only exists after `svelte-kit sync`.",
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts", "tsup.config.ts"]
+}

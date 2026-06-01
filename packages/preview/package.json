@@ -1,0 +1,57 @@
+{
+  "name": "@pptx-kit/preview",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Experimental preview renderer for pptx-kit: render a slide to SVG (browser + Node) or rasterize it to a PNG/RGBA image in Node, with no browser binary.",
+  "keywords": [
+    "ooxml",
+    "png",
+    "powerpoint",
+    "pptx",
+    "preview",
+    "render",
+    "svg"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/baseballyama/pptx-kit.git",
+    "directory": "packages/preview"
+  },
+  "files": [
+    "dist",
+    "fonts",
+    "README.md"
+  ],
+  "type": "module",
+  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "import": "./dist/node.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@resvg/resvg-js": "^2.6.2",
+    "fontkit": "^2.0.4"
+  },
+  "devDependencies": {
+    "@types/fontkit": "^2.0.9",
+    "pptx-kit": "workspace:*",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.2"
+  },
+  "peerDependencies": {
+    "pptx-kit": "workspace:*"
+  },
+  "//private": "Experimental; consumed only inside this monorepo (docs site + fidelity harness) while the renderer matures. To publish: drop `private`, add a build step to release.yml, and write a changeset."
+}

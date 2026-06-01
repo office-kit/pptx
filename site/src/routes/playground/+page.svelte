@@ -37,7 +37,7 @@
     savePresentation,
     slideHasAnimations,
   } from 'pptx-kit';
-  import { renderSlideSvg } from '$lib/playground/render-slide';
+  import { renderSlideToSvg } from '@pptx-kit/preview';
 
   type SlideSnapshot = {
     index: number;
@@ -114,7 +114,7 @@
           title: getSlideTitle(slide) ?? '',
           textLength: getSlideTextLength(slide),
           shapeKinds: getSlideShapes(slide).map((sh) => getShapeKind(sh)),
-          svg: renderSlideSvg(pres, slide),
+          svg: renderSlideToSvg(pres, slide),
           notes: getSlideNotes(slide),
           hasTransition: getSlideTransition(slide) !== null,
           hasAnimations: slideHasAnimations(slide),

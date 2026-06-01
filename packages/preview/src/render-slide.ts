@@ -20,6 +20,7 @@
 // placeholder → master → theme), and custom geometry stay as labelled
 // placeholders — proper handling needs a real renderer.
 
+import type { getParagraphLineSpacing, getShapeEffects } from 'pptx-kit';
 import {
   getParagraphAlignment,
   getParagraphBullet,
@@ -27,22 +28,18 @@ import {
   isParagraphBulletPicture,
   getParagraphIndent,
   getParagraphLevel,
-  getParagraphLineSpacing,
   getParagraphPropertiesEffective,
   getParagraphSpacing,
   getPresentationFonts,
   getPresentationTheme,
   getShapeBoundsResolved,
-  getShapeEffects,
   getShapeEffectsEffective,
-  getShapeFill,
   getShapeFillEffective,
   getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
   getShapePatternFill,
   getShapeBodyPrEffective,
-  getShapeChartKind,
   getShapeChartSpec,
   getShapeClickAction,
   getShapeAltTitle,
@@ -74,11 +71,8 @@ import {
   getShapePlaceholderType,
   getShapePreset,
   getShapeRotation,
-  getShapeRunCount,
   getShapeRunFormat,
   getShapeRunFormatEffective,
-  getShapeRunText,
-  getShapeStroke,
   getShapeStrokeEffective,
   getShapeStrokeArrow,
   getShapeStrokeCap,
@@ -132,7 +126,6 @@ import {
   type ChartSpec,
   type ChartTextStyle,
   type GradientFillOptions,
-  type ShapeBounds,
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
@@ -2092,7 +2085,7 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
       if (run.href) {
         const hlinkColor = a.theme ? normalizeHex(a.theme.hyperlink) : '#0563C1';
         fmt = {
-          ...(fmt ?? {}),
+          ...fmt,
           color: fmt?.color ?? hlinkColor,
           underline: fmt?.underline ?? true,
         };
@@ -2483,7 +2476,7 @@ const renderTextBody = (
   // Numbering pre-pass — assign an autonum index per paragraph for
   // consecutive numbered paragraphs at the same level. Resets on a
   // non-numbered paragraph or a level change.
-  const numberLabels: Array<string | null> = new Array(paraData.length).fill(null);
+  const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
   {
     let counter = 0;
     let activeLevel = -1;
@@ -2520,7 +2513,7 @@ const renderTextBody = (
       if (run.href) {
         const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
         runFmt = {
-          ...(runFmt ?? {}),
+          ...runFmt,
           color: runFmt?.color ?? hlinkColor,
           underline: runFmt?.underline ?? true,
         };
@@ -3851,11 +3844,11 @@ const renderLineChart = (
   );
   // Track cumulative values per category for stacked rendering. Each
   // series's projected y is the cumulative sum's y.
-  const accumulated: number[] = new Array(N).fill(0);
+  const accumulated: number[] = Array.from({ length: N }, () => 0);
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
     if (!series) continue;
-    const color = series.color ?? colors[s % colors.length];
+    const color = series.color ?? colors[s % colors.length]!;
     // dispBlanksAs: 'gap' (default) leaves nulls out; 'zero' substitutes
     // them with 0; 'span' connects the surrounding points across the gap.
     const dba = spec.dispBlanksAs ?? 'gap';
@@ -3988,7 +3981,7 @@ const renderLineChart = (
       };
       for (let c = 0; c < N; c++) {
         const p = ptsRaw[c];
-        if (p === null) continue;
+        if (p == null) continue;
         const v = series.values[c];
         if (v === null || v === undefined || !Number.isFinite(v)) continue;
         const [xp, yp] = p;
@@ -4095,7 +4088,7 @@ const renderPieChart = (
     // Per-slice color: <c:dPt> override wins, then series.color, then
     // accent palette fallback.
     const dptColor = series.pointColors?.[i];
-    const color = dptColor ?? series.color ?? colors[i % colors.length];
+    const color = dptColor ?? series.color ?? colors[i % colors.length]!;
     if (doughnut) {
       const ix1 = sx + innerR * Math.cos(start);
       const iy1 = sy + innerR * Math.sin(start);

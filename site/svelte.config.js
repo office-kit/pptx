@@ -37,6 +37,9 @@ const config = {
       // pptx-kit ships a single public entry plus a Node convenience subpath.
       'pptx-kit': '../src/index.ts',
       'pptx-kit/node': '../src/node.ts',
+      // The preview renderer lives in a companion workspace package; alias to
+      // its source so the playground hot-reloads without a build step.
+      '@pptx-kit/preview': '../packages/preview/src/index.ts',
     },
   },
 };
