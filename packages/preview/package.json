@@ -1,7 +1,6 @@
 {
   "name": "@pptx-kit/preview",
   "version": "0.1.0",
-  "private": true,
   "description": "Experimental preview renderer for pptx-kit: render a slide to SVG (browser + Node) or rasterize it to a PNG/RGBA image in Node, with no browser binary.",
   "keywords": [
     "ooxml",
@@ -36,9 +35,14 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
   "scripts": {
     "build": "tsup",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "tsup"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
@@ -52,6 +56,5 @@
   },
   "peerDependencies": {
     "pptx-kit": "workspace:*"
-  },
-  "//private": "Experimental; consumed only inside this monorepo (docs site + fidelity harness) while the renderer matures. To publish: drop `private`, add a build step to release.yml, and write a changeset."
+  }
 }

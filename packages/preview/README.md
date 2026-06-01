@@ -4,11 +4,11 @@ Preview renderer for [`pptx-kit`](https://github.com/baseballyama/pptx-kit).
 Turns a `pptx-kit` slide model into an **SVG** (browser + Node) or rasterizes
 it to a **PNG / RGBA image in Node — with no headless browser**.
 
-> **Experimental (0.x), not yet published.** This package lives in the
-> `pptx-kit` monorepo and currently powers the docs-site playground and the
-> fidelity harness. The renderer is an _approximation_ of PowerPoint /
-> LibreOffice output and is still evolving; the API may change between minor
-> versions. See [fidelity](#fidelity) below.
+> **Experimental (0.x).** This package lives in the `pptx-kit` monorepo and
+> also powers the docs-site playground and the fidelity harness. The renderer
+> is an _approximation_ of PowerPoint / LibreOffice output and is still
+> evolving; the API may change between minor versions, and `0.x` semver applies
+> (a minor bump may break). See [fidelity](#fidelity) below.
 
 ## Why
 
