@@ -9,6 +9,7 @@
     getCommentText,
     getCoreProperties,
     getPresentationChartKindCounts,
+    getPresentationCommentCountsByAuthor,
     getPresentationSummary,
     getSlideLayoutUsageCountsByType,
     getShapeHyperlink,
@@ -71,6 +72,9 @@
   let summary = $state<ReturnType<typeof getPresentationSummary> | null>(null);
   let chartKindCounts = $state<ReturnType<typeof getPresentationChartKindCounts> | null>(null);
   let layoutTypeCounts = $state<ReturnType<typeof getSlideLayoutUsageCountsByType> | null>(null);
+  let commentAuthorCounts = $state<ReturnType<typeof getPresentationCommentCountsByAuthor> | null>(
+    null,
+  );
   let masterCount = $state<number>(0);
   let issues = $state<ReadonlyArray<ValidationIssue>>([]);
   let slides = $state<SlideSnapshot[]>([]);
@@ -89,6 +93,7 @@
       summary = getPresentationSummary(pres);
       chartKindCounts = getPresentationChartKindCounts(pres);
       layoutTypeCounts = getSlideLayoutUsageCountsByType(pres);
+      commentAuthorCounts = getPresentationCommentCountsByAuthor(pres);
       masterCount = getSlideMasterCount(pres);
       issues = validatePresentation(pres);
       // Map section name → 1-based slide index of its first slide. We
@@ -295,6 +300,17 @@
             <span class="value">
               {Object.entries(layoutTypeCounts)
                 .map(([k, n]) => `${n} ${k}`)
+                .join(' · ')}
+            </span>
+          </div>
+        {/if}
+        {#if commentAuthorCounts && Object.keys(commentAuthorCounts).length > 0}
+          <div class="cell">
+            <span class="label">comment authors</span>
+            <span class="value">
+              {Object.entries(commentAuthorCounts)
+                .sort(([, a], [, b]) => b - a)
+                .map(([k, n]) => `${k} (${n})`)
                 .join(' · ')}
             </span>
           </div>
