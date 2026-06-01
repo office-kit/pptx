@@ -47,8 +47,8 @@
   "devDependencies": {
     "@types/fontkit": "^2.0.9",
     "pptx-kit": "workspace:*",
-    "tsup": "^8.3.5",
-    "typescript": "^5.7.2"
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
   },
   "peerDependencies": {
     "pptx-kit": "workspace:*"
