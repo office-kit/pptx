@@ -23,6 +23,8 @@
     "18-hyperlinks.pptx": [0.5538],
     "19-token-fill.pptx": [0.7607],
     "20-core-properties.pptx": [0.64],
-    "21-showcase.pptx": [0.7256, 0.9478, 0.6774, 0.1578, 0.9937, 0.7746, 0.6079]
+    "21-showcase.pptx": [0.7256, 0.9478, 0.6774, 0.1578, 0.9937, 0.7746, 0.6079],
+    "22-vertical-text.pptx": [0.2656],
+    "23-columns.pptx": [0.429]
   }
 }
