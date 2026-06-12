@@ -1,6 +1,6 @@
 ---
 'pptx-kit': minor
-'@pptx-kit/preview': minor
+'pptx-kit-preview': minor
 ---
 
 feat: scatter, radar, and bubble charts are now modeled as their own

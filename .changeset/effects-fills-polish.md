@@ -1,6 +1,6 @@
 ---
 'pptx-kit': minor
-'@pptx-kit/preview': minor
+'pptx-kit-preview': minor
 ---
 
 feat: effects & fills polish. The reflection effect (`a:reflection`) now

@@ -7,7 +7,7 @@
 // so the keys are identical across separately-bundled copies of this module.
 // The public entry (`pptx-kit` → dist/index.js) and the Node entry
 // (`pptx-kit/node` → dist/node.js) are distinct bundles, each with its own
-// copy of this file; companion packages (e.g. `@pptx-kit/preview`) hold a
+// copy of this file; companion packages (e.g. `pptx-kit-preview`) hold a
 // third. With plain `Symbol` a handle built by one bundle is opaque to every
 // other — `getSlides(loadPresentationFile(...))` would read `undefined` and
 // crash. The `pptx-kit.` namespace keeps the registry keys collision-free.

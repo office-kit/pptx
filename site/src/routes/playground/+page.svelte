@@ -38,7 +38,7 @@
     savePresentation,
     slideHasAnimations,
   } from 'pptx-kit';
-  import { renderSlideToSvg } from '@pptx-kit/preview';
+  import { renderSlideToSvg } from 'pptx-kit-preview';
 
   type SlideSnapshot = {
     index: number;

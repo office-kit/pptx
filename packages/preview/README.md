@@ -1,4 +1,4 @@
-# @pptx-kit/preview
+# pptx-kit-preview
 
 Preview renderer for [`pptx-kit`](https://github.com/baseballyama/pptx-kit).
 Turns a `pptx-kit` slide model into an **SVG** (browser + Node) or rasterizes
@@ -21,10 +21,10 @@ lays text out as pure SVG `<text>` (no `<foreignObject>`) and paints it with
 
 ## Entry points
 
-| Import                   | Runtime        | Use                                                 |
-| ------------------------ | -------------- | --------------------------------------------------- |
-| `@pptx-kit/preview`      | browser + Node | `renderSlideToSvg` → an SVG string                  |
-| `@pptx-kit/preview/node` | Node only      | `renderSlideToImage` / `renderSlideToRgba` → pixels |
+| Import                  | Runtime        | Use                                                 |
+| ----------------------- | -------------- | --------------------------------------------------- |
+| `pptx-kit-preview`      | browser + Node | `renderSlideToSvg` → an SVG string                  |
+| `pptx-kit-preview/node` | Node only      | `renderSlideToImage` / `renderSlideToRgba` → pixels |
 
 The browser entry pulls in **no** Node built-ins (no `node:fs`, resvg, or
 fontkit), so it bundles cleanly for the web.
@@ -34,7 +34,7 @@ fontkit), so it bundles cleanly for the web.
 ### SVG (browser or Node)
 
 ```ts
-import { renderSlideToSvg } from '@pptx-kit/preview';
+import { renderSlideToSvg } from 'pptx-kit-preview';
 import { loadPresentation, getSlides } from 'pptx-kit';
 
 const pres = await loadPresentation(bytes);
@@ -45,7 +45,7 @@ const svg = renderSlideToSvg(pres, getSlides(pres)[0]);
 ### PNG / RGBA (Node, no browser)
 
 ```ts
-import { renderSlideToImage, renderSlideToRgba } from '@pptx-kit/preview/node';
+import { renderSlideToImage, renderSlideToRgba } from 'pptx-kit-preview/node';
 import { loadPresentationFile, getSlides } from 'pptx-kit/node';
 
 const pres = await loadPresentationFile('deck.pptx');

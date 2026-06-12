@@ -53,14 +53,14 @@ jobs:
       - name: Build
         run: pnpm build
 
-      # The @pptx-kit/preview companion package type-checks and builds against
+      # The pptx-kit-preview companion package type-checks and builds against
       # pptx-kit's emitted types, so these run after the root build. It's a
       # separate workspace package with its own tsconfig / tsup config.
       - name: Type check preview package
-        run: pnpm --filter @pptx-kit/preview typecheck
+        run: pnpm --filter pptx-kit-preview typecheck
 
       - name: Build preview package
-        run: pnpm --filter @pptx-kit/preview build
+        run: pnpm --filter pptx-kit-preview build
 
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
   # supports. Drop versions that are past their EOL date.
@@ -84,7 +84,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
 
-  # Measures how closely @pptx-kit/preview's SVG renderer matches LibreOffice's
+  # Measures how closely pptx-kit-preview's SVG renderer matches LibreOffice's
   # output for each generated sample slide, and gates on a committed baseline.
   fidelity:
     name: Preview fidelity
@@ -96,7 +96,7 @@ jobs:
       # ground truth = LibreOffice PDF export rasterized by pdftoppm.
       # --no-install-recommends skips LibreOffice's font packages, so install
       # the metric-compatible families explicitly — they're the same ones
-      # @pptx-kit/preview bundles (Carlito≈Calibri, Caladea≈Cambria,
+      # pptx-kit-preview bundles (Carlito≈Calibri, Caladea≈Cambria,
       # Liberation≈Arial/Times/Courier). Without them LibreOffice falls back
       # to whatever fontconfig scrapes up and every text slide's fg-SSIM
       # collapses to ~0.
@@ -118,7 +118,7 @@ jobs:
         run: pnpm build
 
       - name: Build preview package
-        run: pnpm --filter @pptx-kit/preview build
+        run: pnpm --filter pptx-kit-preview build
 
       - name: Generate sample PPTX files
         run: pnpm samples

@@ -1,5 +1,5 @@
 ---
-'@pptx-kit/preview': minor
+'pptx-kit-preview': minor
 ---
 
 feat(preview): vertical text (`vert`, `vert270`, `eaVert`, `mongolianVert`,

@@ -2,7 +2,7 @@
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
   import * as kit from 'pptx-kit';
-  import { renderSlideToSvg } from '@pptx-kit/preview';
+  import { renderSlideToSvg } from 'pptx-kit-preview';
   import { EditorState } from '@codemirror/state';
   import { EditorView, basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
