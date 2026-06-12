@@ -9,7 +9,9 @@ import {
   type ImageFormat,
   nextRelId,
   partName,
+  readImagePixelSize,
 } from '../../internal/opc/index.ts';
+import { type ImageFit, fitImageRect } from './shape-image.ts';
 import {
   REL_TYPES,
   type PresetShape,
@@ -153,11 +155,18 @@ export const addSlideTable = (
  * rel, and appends a `<p:pic>` element to the slide's `<p:spTree>`.
  *
  * Format is detected from magic bytes; pass `opts.format` to override.
+ *
+ * `opts.fit` controls how the image fills the `w × h` box. `'fill'` (the
+ * default) stretches to the exact box, ignoring aspect ratio. `'contain'`
+ * scales the image to fit inside the box preserving its aspect ratio and
+ * centers it — measured from the PNG / JPEG header. For other formats (or
+ * an unreadable header) `'contain'` falls back to `'fill'` rather than
+ * erroring, since the natural size is unknown.
  */
 export const addSlideImage = (
   slide: SlideData,
   bytes: Uint8Array,
-  opts: { x: Emu; y: Emu; w: Emu; h: Emu; format?: ImageFormat; name?: string },
+  opts: { x: Emu; y: Emu; w: Emu; h: Emu; format?: ImageFormat; name?: string; fit?: ImageFit },
 ): SlideShapeData => {
   const pkg = slide[INTERNAL_PACKAGE];
   const format = opts.format ?? detectImageFormat(bytes);
@@ -196,14 +205,19 @@ export const addSlideImage = (
   });
   pkg.setRels(slide[SLIDE_PART_NAME], rels);
 
+  const rect = fitImageRect(
+    { x: opts.x, y: opts.y, w: opts.w, h: opts.h },
+    opts.fit ?? 'fill',
+    readImagePixelSize(bytes),
+  );
   const pic = buildPicture({
     id: nextShapeId(slide),
     ...(opts.name !== undefined ? { name: opts.name } : {}),
     rEmbed: newRId,
-    x: opts.x,
-    y: opts.y,
-    w: opts.w,
-    h: opts.h,
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h,
   });
   return appendAndReturnNewShape(slide, pic);
 };

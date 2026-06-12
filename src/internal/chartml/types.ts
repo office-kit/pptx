@@ -301,6 +301,14 @@ export type ChartGrouping = 'clustered' | 'stacked' | 'percentStacked' | 'standa
  * renderer's default for this label position."
  */
 export interface ChartTextStyle {
+  /**
+   * Font face applied to both the latin and east-asian typeface slots —
+   * `<a:rPr><a:latin typeface="…"/><a:ea typeface="…"/>`. East-asian is
+   * set alongside latin so a Japanese / CJK family (e.g. `'Yu Gothic'`)
+   * renders the labels instead of the renderer's latin-only fallback.
+   * Mirrors the latin/ea pairing PowerPoint emits for CJK chart fonts.
+   */
+  readonly font?: string;
   /** Font size in points. From `<a:rPr sz="N"/>` where N is in 100ths of a pt. */
   readonly sizePt?: number;
   /** Bold flag from `<a:rPr b="1"/>`. */

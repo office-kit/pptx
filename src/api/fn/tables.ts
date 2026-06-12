@@ -503,6 +503,128 @@ export const getTableCellSpan = (
   };
 };
 
+const ATTR_GRID_SPAN = qname('', 'gridSpan', '');
+const ATTR_ROW_SPAN = qname('', 'rowSpan', '');
+const ATTR_H_MERGE = qname('', 'hMerge', '');
+const ATTR_V_MERGE = qname('', 'vMerge', '');
+
+const setSpanAttr = (tc: XmlElement, name: ReturnType<typeof qname>, value: string): void => {
+  tc.attrs = tc.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === name.localName),
+  );
+  tc.attrs.push(attr(name, value));
+};
+
+/** A cell already carries a merge marker / multi-cell span. */
+const cellIsMergedAlready = (tc: XmlElement): boolean => {
+  const gs = getAttrValue(tc, ATTR_GRID_SPAN);
+  const rs = getAttrValue(tc, ATTR_ROW_SPAN);
+  const hm = getAttrValue(tc, ATTR_H_MERGE);
+  const vm = getAttrValue(tc, ATTR_V_MERGE);
+  return (
+    (gs !== null && Number.parseInt(gs, 10) > 1) ||
+    (rs !== null && Number.parseInt(rs, 10) > 1) ||
+    hm === '1' ||
+    hm === 'true' ||
+    vm === '1' ||
+    vm === 'true'
+  );
+};
+
+/**
+ * Merges a rectangular block of table cells into a single visual cell.
+ *
+ * The block's top-left cell `(row, col)` becomes the anchor and carries
+ * `gridSpan` (= `colSpan`) / `rowSpan`; the cells it covers are marked
+ * `hMerge` / `vMerge` per ECMA-376 §21.1.3.18 (`CT_TableCell`) so the
+ * grid stays rectangular while PowerPoint paints only the anchor. This
+ * is the write counterpart to {@link getTableCellSpan}.
+ *
+ * Constraints, enforced loudly (these are authoring-boundary inputs):
+ *
+ *   - `rowSpan` / `colSpan` must be ≥ 1, and at least one must be > 1
+ *     (a 1×1 "merge" is a no-op the caller didn't mean).
+ *   - The block must lie fully inside the table grid.
+ *   - No cell in the block may already participate in another merge —
+ *     overlapping merges corrupt the grid and trip PowerPoint's repair
+ *     dialog. Split the existing merge first.
+ *
+ * The anchor cell's text is preserved; covered cells keep their own
+ * `<a:txBody>` in the XML (PowerPoint ignores it while the merge marker
+ * is set) so the operation stays losslessly reversible.
+ */
+export const mergeTableCells = (
+  table: SlideShapeData,
+  block: {
+    readonly row: number;
+    readonly col: number;
+    readonly rowSpan: number;
+    readonly colSpan: number;
+  },
+): void => {
+  const { row, col, rowSpan, colSpan } = block;
+  if (!Number.isInteger(rowSpan) || !Number.isInteger(colSpan) || rowSpan < 1 || colSpan < 1) {
+    throw new RangeError(
+      `mergeTableCells: rowSpan / colSpan must be integers ≥ 1 (got ${rowSpan} × ${colSpan})`,
+    );
+  }
+  if (rowSpan === 1 && colSpan === 1) {
+    throw new RangeError('mergeTableCells: a 1×1 block is not a merge');
+  }
+  if (!Number.isInteger(row) || !Number.isInteger(col) || row < 0 || col < 0) {
+    throw new RangeError(
+      `mergeTableCells: row / col must be non-negative integers (got ${row}, ${col})`,
+    );
+  }
+
+  const cells = getTableCells(table);
+  const lastRow = row + rowSpan - 1;
+  const lastCol = col + colSpan - 1;
+  if (lastRow >= cells.length) {
+    throw new RangeError(
+      `mergeTableCells: block rows ${row}..${lastRow} exceed table height ${cells.length}`,
+    );
+  }
+  for (let r = row; r <= lastRow; r++) {
+    const rowCellsArr = cells[r]!;
+    if (lastCol >= rowCellsArr.length) {
+      throw new RangeError(
+        `mergeTableCells: block cols ${col}..${lastCol} exceed row ${r} width ${rowCellsArr.length}`,
+      );
+    }
+  }
+
+  // Reject overlaps with any pre-existing merge before mutating anything,
+  // so a rejected call leaves the table untouched.
+  for (let r = row; r <= lastRow; r++) {
+    for (let c = col; c <= lastCol; c++) {
+      if (cellIsMergedAlready(cells[r]![c]![CELL_ELEMENT])) {
+        throw new Error(
+          `mergeTableCells: cell (${r}, ${c}) is already part of a merge; split it before re-merging`,
+        );
+      }
+    }
+  }
+
+  for (let r = row; r <= lastRow; r++) {
+    for (let c = col; c <= lastCol; c++) {
+      const tc = cells[r]![c]![CELL_ELEMENT];
+      if (r === row && c === col) {
+        if (colSpan > 1) setSpanAttr(tc, ATTR_GRID_SPAN, String(colSpan));
+        if (rowSpan > 1) setSpanAttr(tc, ATTR_ROW_SPAN, String(rowSpan));
+        continue;
+      }
+      // Covered cells: a column offset from the anchor sets hMerge; a row
+      // offset sets vMerge. The bottom-right block carries both.
+      if (c > col) setSpanAttr(tc, ATTR_H_MERGE, '1');
+      if (r > row) setSpanAttr(tc, ATTR_V_MERGE, '1');
+    }
+  }
+
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
 /**
  * One side of a cell's border, as read from `<a:tcPr><a:ln{L|R|T|B}>`.
  * `widthEmu` is the line width in EMU; `color` is `#RRGGBB` or `null`

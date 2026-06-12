@@ -432,12 +432,15 @@ const NAME_A_RPR = qname('a', 'rPr', NS_A);
 const NAME_A_DEF_RPR = qname('a', 'defRPr', NS_A);
 const NAME_A_PPR = qname('a', 'pPr', NS_A);
 const NAME_A_SRGB = qname('a', 'srgbClr', NS_A);
+const NAME_A_LATIN = qname('a', 'latin', NS_A);
+const ATTR_TYPEFACE = qname('', 'typeface', '');
 
 // Reads `<a:rPr>` / `<a:defRPr>` attributes (size in 100ths of a pt,
 // bold / italic) plus the first solidFill color inside it. Returns an
 // undefined-only style when nothing is authored — callers should drop
 // the style entirely in that case.
 const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
+  let font: string | undefined;
   let sizePt: number | undefined;
   let bold: boolean | undefined;
   let italic: boolean | undefined;
@@ -459,10 +462,25 @@ const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
       if (v !== null) color = `#${v.toUpperCase()}`;
     }
   }
-  if (sizePt === undefined && bold === undefined && italic === undefined && color === undefined) {
+  // The latin slot is the authoritative font face on the round-trip; the
+  // ea slot carries the same value (written by the builder) so reading
+  // latin alone recovers the authored `font`.
+  const latin = firstChildElement(rPr, NAME_A_LATIN);
+  if (latin) {
+    const tf = getAttrValue(latin, ATTR_TYPEFACE);
+    if (tf !== null && tf !== '') font = tf;
+  }
+  if (
+    font === undefined &&
+    sizePt === undefined &&
+    bold === undefined &&
+    italic === undefined &&
+    color === undefined
+  ) {
     return undefined;
   }
   return {
+    ...(font !== undefined ? { font } : {}),
     ...(sizePt !== undefined ? { sizePt } : {}),
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
