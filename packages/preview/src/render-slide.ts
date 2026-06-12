@@ -105,13 +105,12 @@ import {
   getSlideMasterBackgroundPatternFill,
   getSlideShapes,
   getSlideSize,
-  getTableCellAlignment,
   getTableCellAnchor,
   getTableCellMargins,
   getTableCellBorders,
   getTableCellFill,
+  getTableCellParagraphs,
   getTableCellSpan,
-  getTableCellText,
   getTableCells,
   getTableStyleFlags,
   getTableColumnWidths,
@@ -133,6 +132,7 @@ import {
   type ShapeStroke,
   type SlideData,
   type SlideShapeData,
+  type TableCellParagraph,
   type TextFormat,
 } from 'pptx-kit';
 import {
@@ -4385,43 +4385,72 @@ const renderChart = (
 };
 
 // ---------------------------------------------------------------------------
-// Table rendering. Real table layout (cell borders, banded rows, header
-// row, merged cells, per-run text formatting) needs a much bigger pass;
-// this version draws the grid, fills, and centred cell text — enough to
-// recognise the table at a glance.
+// Table rendering. Draws the grid, cell fills, banded rows, header row, merged
+// cells, and per-run cell text. Cell text reuses the same layout building
+// blocks as shape text (buildAndLayoutSvgText / renderRun), so it inherits
+// per-run size / bold / italic / color / font, paragraph alignment, line
+// wrapping, and the svg ↔ foreignObject split for free.
 
-const ALIGNMENT_TEXT_ANCHOR: Record<string, string> = {
-  left: 'start',
-  center: 'middle',
-  right: 'end',
-  justify: 'start',
+// Builds the per-paragraph layout model the shared text engine consumes from a
+// cell's structured paragraphs. Table cells have no bullets, levels, indents,
+// or paragraph spacing, so those fields are inert. A run's effective point
+// size resolves to its explicit `<a:rPr sz>` when present, else the table-cell
+// default: pptx-kit doesn't model `<a:tblStyle>` text props, so unstyled cells
+// fall to PowerPoint's authored default cell size (18 pt — what it writes for a
+// freshly inserted table) in the theme's minor font and the cell's text color.
+const cellParaData = (
+  paragraphs: ReadonlyArray<TableCellParagraph>,
+): { paraData: ParaData[]; hasText: boolean } => {
+  let hasText = false;
+  const paraData = paragraphs.map((para): ParaData => {
+    const runs: RunData[] = [];
+    for (const el of para.elements) {
+      if (el.kind === 'br') {
+        runs.push({ text: '\n', fmt: null, sizePt: DEFAULT_BODY_PT });
+        continue;
+      }
+      if (el.text.trim()) hasText = true;
+      runs.push({ text: el.text, fmt: el.format, sizePt: el.format?.size ?? DEFAULT_BODY_PT });
+    }
+    return {
+      align: para.align ?? 'left',
+      level: 0,
+      bulletStyle: null,
+      bulletDetail: { color: null, sizePct: null, sizePts: null, font: null },
+      bulletIsPicture: false,
+      runs,
+      lineSpacing: null,
+      spcBefPts: null,
+      spcAftPts: null,
+      indent: { leftEmu: null, rightEmu: null, firstLineEmu: null },
+    };
+  });
+  return { paraData, hasText };
 };
 
 const renderTableCellText = (
-  text: string,
+  paragraphs: ReadonlyArray<TableCellParagraph>,
   cx: number,
   cy: number,
   cw: number,
   ch: number,
-  alignment: string | null,
   color: string,
+  pres: PresentationData,
+  shape: SlideShapeData,
+  theme: PresentationTheme | null,
+  themeFace: string | null,
   ctx: LayoutCtx,
-  vAnchor: 'top' | 'center' | 'bottom' = 'center',
+  vAnchor: 'top' | 'center' | 'bottom',
   margins: {
     left: number | null;
     right: number | null;
     top: number | null;
     bottom: number | null;
-  } = {
-    left: null,
-    right: null,
-    top: null,
-    bottom: null,
   },
 ): string => {
-  if (!text.trim()) return '';
+  const { paraData, hasText } = cellParaData(paragraphs);
+  if (!hasText) return '';
   // PowerPoint stores margins in EMU; fall back to ~4px when unset.
-  const ta = alignment && ALIGNMENT_TEXT_ANCHOR[alignment] !== undefined ? alignment : 'left';
   const defaultPadPx = 4;
   const padL = margins.left !== null ? margins.left / EMU_PER_PX : defaultPadPx;
   const padR = margins.right !== null ? margins.right / EMU_PER_PX : defaultPadPx;
@@ -4432,44 +4461,51 @@ const renderTableCellText = (
   const innerW = Math.max(0, cw - padL - padR);
   const innerH = Math.max(0, ch - padT - padB);
   if (innerW <= 0 || innerH <= 0) return '';
-  const lines = text.split('\n').slice(0, 8);
 
-  // Pure-SVG path: emit positioned <text> lines so a browser-free rasterizer
-  // shows cell text (foreignObject would blank out). Uses the 18pt table-cell
-  // default (per-run sizing is a later refinement); full styling needs a cell
-  // run model pptx-kit doesn't expose yet.
+  // Pure-SVG path: hand the layout model to the same engine shape text uses so
+  // a browser-free rasterizer gets wrapped, per-run-styled lines. The engine
+  // works in EMU (it divides by EMU_PER_PX internally), so project the px box
+  // back to EMU.
   if (ctx.mode === 'svg') {
-    const fontPx = 18 * PX_PER_PT;
-    const lineH = fontPx * 1.2;
-    const ascent = fontPx * 0.85;
-    const totalH = lines.length * lineH;
-    const topY =
-      vAnchor === 'top'
-        ? innerY
-        : vAnchor === 'bottom'
-          ? innerY + (innerH - totalH)
-          : innerY + (innerH - totalH) / 2;
-    const anchorX =
-      ta === 'center' ? innerX + innerW / 2 : ta === 'right' ? innerX + innerW : innerX;
-    const textAnchor = ta === 'center' ? 'middle' : ta === 'right' ? 'end' : 'start';
-    const family = substituteFamily(null);
-    return lines
-      .map((line, i) => {
-        if (!line.trim()) return '';
-        const by = topY + i * lineH + ascent;
-        return `<text x="${px(anchorX)}" y="${px(by)}" text-anchor="${textAnchor}" font-family="${family}" font-size="${fontPx}" fill="${color}" xml:space="preserve">${escapeXml(line)}</text>`;
-      })
-      .join('');
+    return buildAndLayoutSvgText({
+      pres,
+      shape,
+      theme,
+      paraData,
+      numberLabels: paraData.map(() => null),
+      autoFitScale: 1,
+      lineHeightScale: 1,
+      defaultPt: DEFAULT_BODY_PT,
+      themeFace,
+      defaultColor: color,
+      anchor: vAnchor,
+      wrap: true,
+      innerX: innerX * EMU_PER_PX,
+      innerY: innerY * EMU_PER_PX,
+      innerW: innerW * EMU_PER_PX,
+      innerH: innerH * EMU_PER_PX,
+      measure: ctx.measure,
+      // Cell-level vertical text (<a:tcPr vert>) isn't modeled yet; cells lay
+      // out horizontally, single-column.
+      vert: 'none',
+      columns: null,
+    });
   }
 
-  // foreignObject path (browser preview): wraps and aligns like PowerPoint.
-  const justify = ta === 'center' ? 'center' : ta === 'right' ? 'flex-end' : 'flex-start';
-  const vJustify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
-  const body = lines
-    .map((line) => `<div style="text-align:${ta}">${escapeXml(line)}</div>`)
+  // foreignObject path (browser preview): one <p> per paragraph, each run
+  // rendered through renderRun so the browser lays the styled text out.
+  const justify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
+  const familyFont = themeFace ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
+  const body = paraData
+    .map((para) => {
+      const runHtml = para.runs
+        .map((run) => renderRun(run.text, run.fmt, theme, run.sizePt, run.fmt?.size === undefined))
+        .join('');
+      const textAlign = ALIGNMENT_TO_CSS[para.align] ?? 'left';
+      return `<p style="margin:0;padding:0;text-align:${textAlign};line-height:1.2">${runHtml || '&#8203;'}</p>`;
+    })
     .join('');
-  const cellFontPx = (18 * PX_PER_PT).toFixed(1);
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${vJustify};align-items:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${DEFAULT_FONT};color:${color};font-size:${cellFontPx}px;line-height:1.2;word-break:break-word">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
@@ -4526,6 +4562,9 @@ const renderTable = (
   const headerFill = accent;
   const bandFill = mixHex(accent, '#FFFFFF', 0.92);
   const textColor = resolveColor('scheme:tx1', theme, '#000000');
+  // Default table-cell face is the theme's body (minor) font, the same default
+  // PowerPoint applies when a cell run carries no explicit typeface.
+  const tableThemeFace = getPresentationFonts(pres)?.minorLatin ?? null;
   const out: string[] = [];
   out.push(`<g${transform}>`);
   // Whole-table backdrop so cells with no explicit fill still
@@ -4641,14 +4680,29 @@ const renderTable = (
           `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
         );
 
-      const text = getTableCellText(cell as Parameters<typeof getTableCellText>[0]);
-      const align = getTableCellAlignment(cell as Parameters<typeof getTableCellAlignment>[0]);
+      const cellParagraphs = getTableCellParagraphs(
+        cell as Parameters<typeof getTableCellParagraphs>[0],
+      );
       // ECMA-376 default cell anchor is top ('t'), which is what PowerPoint /
       // LibreOffice render when `<a:tcPr anchor>` is absent.
       const vAnchor = getTableCellAnchor(typedCell) ?? 'top';
       const cellMargins = getTableCellMargins(typedCell);
       out.push(
-        renderTableCellText(text, cx, cy, cw, ch, align, cellTextColor, ctx, vAnchor, cellMargins),
+        renderTableCellText(
+          cellParagraphs,
+          cx,
+          cy,
+          cw,
+          ch,
+          cellTextColor,
+          pres,
+          shape,
+          theme,
+          tableThemeFace,
+          ctx,
+          vAnchor,
+          cellMargins,
+        ),
       );
     }
   }

@@ -39,6 +39,8 @@ import {
   type TableCellData,
 } from '../_internal-symbols.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
+import { type ShapeParagraphElement, readParagraphElements } from './shape-runs.ts';
+import { ALIGN_TOKEN_MAP } from './shape-paragraph.ts';
 import { getPresentationTheme } from './package.ts';
 import { resolveDrawingColor } from './shapes.ts';
 import { getSlides } from './slide-query.ts';
@@ -820,6 +822,49 @@ export const getTableCellText = (cell: TableCellData): string => {
     lines.push(line);
   }
   return lines.join('\n');
+};
+
+/** One paragraph of a cell's text, with its alignment and inline elements. */
+export interface TableCellParagraph {
+  /**
+   * Horizontal alignment from `<a:pPr algn>`, or `null` when unset (the
+   * cell then inherits PowerPoint's left default).
+   */
+  readonly align: ParagraphAlignment | null;
+  /** Runs / fields / breaks in document order, with their literal `<a:rPr>` format. */
+  readonly elements: ReadonlyArray<ShapeParagraphElement>;
+}
+
+/**
+ * Reads a cell's text as structured paragraphs — each carrying its
+ * alignment and per-run format (`size`, `bold`, `italic`, `color`,
+ * `font`, …) — for renderers that need to reproduce styled cell text.
+ * `getTableCellText` is the flat-string counterpart when only the visible
+ * characters matter. Returns an empty array when the cell has no
+ * `<a:txBody>`.
+ *
+ * The cell's `<a:txBody>` uses the same DrawingML paragraph grammar as a
+ * shape's, so this shares `readParagraphElements` with
+ * `getShapeParagraphElements`. Table-style and theme-level defaults are not
+ * folded in here: explicit run properties win, and absent ones are left
+ * `undefined` for the caller to resolve.
+ */
+export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<TableCellParagraph> => {
+  const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+  if (!txBody) return [];
+  const out: TableCellParagraph[] = [];
+  for (const p of txBody.children) {
+    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
+      continue;
+    const pPr = firstChildElement(p, qname('a', 'pPr', NS.dml));
+    const algn = pPr ? getAttrValue(pPr, qname('', 'algn', '')) : null;
+    // Normalise the raw OOXML token (`ctr`, `l`, …) to the friendly form the
+    // rest of the API uses, mirroring the shape-text alignment cascade. A
+    // token outside the map is malformed input and reads as unset.
+    const align: ParagraphAlignment | null = algn !== null ? (ALIGN_TOKEN_MAP[algn] ?? null) : null;
+    out.push({ align, elements: readParagraphElements(p) });
+  }
+  return out;
 };
 
 /** Sets a solid background color on a cell (`<a:tcPr><a:solidFill>`). */

@@ -157,8 +157,20 @@ export type ShapeParagraphElement =
 export const getShapeParagraphElements = (
   shape: SlideShapeData,
   paragraphIndex: number,
+): ReadonlyArray<ShapeParagraphElement> =>
+  readParagraphElements(requireParagraph(shape, paragraphIndex));
+
+/**
+ * Walks a single `<a:p>` element and returns its inline children in
+ * document order. Shared by the shape-text reader above and the table-cell
+ * text reader: both use the identical DrawingML run/field/break grammar, so
+ * only the way the paragraph element is located differs.
+ *
+ * @internal
+ */
+export const readParagraphElements = (
+  paragraph: XmlElement,
 ): ReadonlyArray<ShapeParagraphElement> => {
-  const paragraph = requireParagraph(shape, paragraphIndex);
   const out: ShapeParagraphElement[] = [];
   const readT = (parent: XmlElement): string => {
     const tEl = firstChildElement(parent, NAME_A_T);
