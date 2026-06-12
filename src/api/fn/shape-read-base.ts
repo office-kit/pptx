@@ -3,8 +3,14 @@
 import { setShapePosition } from './shape-fill-stroke.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
+  type CustomGeometry,
+  type GeomCommand,
+  type GeomPath,
+  type GeomPoint,
+  type PathFillMode,
   type Position,
   type Size,
+  parseCustomGeometry,
   readFlip,
   readPosition,
   readRotation,
@@ -111,6 +117,42 @@ export const getShapeAdjustValues = (shape: SlideShapeData): Record<string, numb
     if (Number.isFinite(n)) out[name] = n;
   }
   return out;
+};
+
+export type { CustomGeometry, GeomCommand, GeomPath, GeomPoint, PathFillMode };
+
+/**
+ * Reads a shape's custom geometry (`<a:custGeom>`, ECMA-376 §20.1.9) as a
+ * fully-evaluated path list. Returns `null` when the shape has no
+ * `<a:custGeom>` in its own `<p:spPr>` (it uses a preset, inherits
+ * geometry, or isn't a drawable shape), and also `null` when the geometry
+ * is present but malformed — an unresolved guide reference, an unknown
+ * `fmla` operator, or a command missing its points — so callers can fall
+ * back rather than emit broken output.
+ *
+ * Guide formulas in `<a:avLst>` / `<a:gdLst>` are evaluated in document
+ * order against the implicit built-in guides (`w`, `h`, `ss`, `hc`, the
+ * `cdN` angle constants, …) derived from the shape extents. Per spec,
+ * division by zero yields `0`. The returned commands carry only numbers —
+ * no guide names survive.
+ *
+ * Pairs with `getShapePreset` (which returns `null` for custom-geometry
+ * shapes): a renderer calls `getShapePreset` first, and falls through to
+ * this when it gets `null`.
+ */
+export const getShapeCustomGeometry = (shape: SlideShapeData): CustomGeometry | null => {
+  const kind = shape[SHAPE_SNAPSHOT].kind;
+  if (kind !== 'shape' && kind !== 'connector') return null;
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const custGeom = firstChildElement(spPr, qname('a', 'custGeom', NS.dml));
+  if (!custGeom) return null;
+  // Built-in guides (`w`/`h`/`ss`/…) come from the shape's own extents.
+  // A custGeom shape that defers its size to a layout placeholder is
+  // degenerate, so fall back rather than guess.
+  const size = readSize(shape[SHAPE_ELEMENT], kind);
+  if (size === null) return null;
+  return parseCustomGeometry(custGeom, size.w, size.h);
 };
 
 /**
