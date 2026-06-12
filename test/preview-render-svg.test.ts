@@ -312,6 +312,133 @@ describe('renderSlideToSvg', () => {
     const opts = { textLayout: 'svg' as const };
     expect(renderSlideToSvg(pres, slide, opts)).toBe(renderSlideToSvg(pres, slide, opts));
   });
+
+  // scatter / radar / bubble have no public authoring API (read + render
+  // only — plan W4). To exercise their plotters we build a deck with a
+  // throwaway bar chart, then swap the chart part's XML via the internal
+  // OPC zip layer (the same hook the fallback test above uses).
+  const renderInjectedChart = async (chartXml: string): Promise<string> => {
+    const { pres, slide } = await blankSlide();
+    addSlideChart(slide, {
+      spec: { kind: 'bar', categories: ['A'], series: [{ name: 'S', values: [1] }] },
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(4),
+    });
+    const bytes = await savePresentation(pres);
+    const { entries } = readZip(bytes);
+    const enc = new TextEncoder();
+    const modified = entries.map((e) =>
+      e.name.includes('charts/chart') ? { name: e.name, data: enc.encode(chartXml) } : e,
+    );
+    const pres2 = await loadPresentation(writeZip(modified));
+    return renderSlideToSvg(pres2, getSlides(pres2)[0]!);
+  };
+
+  const chartSpaceXml = (chart: string): string =>
+    `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<c:chartSpace xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"
+              xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"
+              xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <c:chart>
+    <c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/><a:p><a:r><a:t>XY Demo</a:t></a:r></a:p></c:rich></c:tx></c:title>
+    ${chart}
+    <c:legend><c:legendPos val="b"/></c:legend>
+  </c:chart>
+</c:chartSpace>`;
+
+  const scatterPlotArea = (scatterStyle: string): string =>
+    chartSpaceXml(`
+    <c:plotArea>
+      <c:layout/>
+      <c:scatterChart>
+        <c:scatterStyle val="${scatterStyle}"/>
+        <c:ser>
+          <c:idx val="0"/><c:order val="0"/>
+          <c:tx><c:strLit><c:pt idx="0"><c:v>Alpha</c:v></c:pt></c:strLit></c:tx>
+          <c:xVal><c:numLit><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt><c:pt idx="2"><c:v>3</c:v></c:pt></c:numLit></c:xVal>
+          <c:yVal><c:numLit><c:pt idx="0"><c:v>10</c:v></c:pt><c:pt idx="1"><c:v>30</c:v></c:pt><c:pt idx="2"><c:v>20</c:v></c:pt></c:numLit></c:yVal>
+        </c:ser>
+        <c:axId val="1"/><c:axId val="2"/>
+      </c:scatterChart>
+      <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+      <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+    </c:plotArea>`);
+
+  it('scatter (marker style): point markers, no connecting line, no fallback, legend present', async () => {
+    const svg = await renderInjectedChart(scatterPlotArea('marker'));
+    expect(svg).not.toContain('data-pptx-fallback="chart"');
+    // One <circle> per data point (3); markers only means no plot <path>.
+    expect(countTags(svg, 'circle')).toBeGreaterThanOrEqual(3);
+    expect(countTags(svg, 'path')).toBe(0);
+    expect(svg).toContain('Alpha');
+  });
+
+  it('scatter (lineMarker style): adds a connecting <path> over the markers', async () => {
+    const markerOnly = await renderInjectedChart(scatterPlotArea('marker'));
+    const lineMarker = await renderInjectedChart(scatterPlotArea('lineMarker'));
+    expect(countTags(lineMarker, 'circle')).toBeGreaterThanOrEqual(3);
+    // The connecting polyline is the only <path> source on this slide.
+    expect(countTags(lineMarker, 'path')).toBeGreaterThan(countTags(markerOnly, 'path'));
+  });
+
+  it('radar (filled): closed series polygon filled at reduced opacity, no fallback', async () => {
+    const svg = await renderInjectedChart(
+      chartSpaceXml(`
+      <c:plotArea>
+        <c:layout/>
+        <c:radarChart>
+          <c:radarStyle val="filled"/>
+          <c:ser>
+            <c:idx val="0"/><c:order val="0"/>
+            <c:tx><c:strLit><c:pt idx="0"><c:v>Alpha</c:v></c:pt></c:strLit></c:tx>
+            <c:cat><c:strLit><c:pt idx="0"><c:v>A</c:v></c:pt><c:pt idx="1"><c:v>B</c:v></c:pt><c:pt idx="2"><c:v>C</c:v></c:pt></c:strLit></c:cat>
+            <c:val><c:numLit><c:pt idx="0"><c:v>3</c:v></c:pt><c:pt idx="1"><c:v>5</c:v></c:pt><c:pt idx="2"><c:v>2</c:v></c:pt></c:numLit></c:val>
+          </c:ser>
+          <c:axId val="1"/><c:axId val="2"/>
+        </c:radarChart>
+        <c:catAx><c:axId val="1"/><c:crossAx val="2"/></c:catAx>
+        <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+      </c:plotArea>`),
+    );
+    expect(svg).not.toContain('data-pptx-fallback="chart"');
+    // Rings + the closed series polygon are all <polygon>.
+    expect(countTags(svg, 'polygon')).toBeGreaterThan(0);
+    expect(svg).toContain('fill-opacity="0.3"');
+    expect(svg).toContain('Alpha');
+  });
+
+  it('bubble: per-point circles with different radii, no fallback', async () => {
+    const svg = await renderInjectedChart(
+      chartSpaceXml(`
+      <c:plotArea>
+        <c:layout/>
+        <c:bubbleChart>
+          <c:ser>
+            <c:idx val="0"/><c:order val="0"/>
+            <c:tx><c:strLit><c:pt idx="0"><c:v>Alpha</c:v></c:pt></c:strLit></c:tx>
+            <c:xVal><c:numLit><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt><c:pt idx="2"><c:v>3</c:v></c:pt></c:numLit></c:xVal>
+            <c:yVal><c:numLit><c:pt idx="0"><c:v>10</c:v></c:pt><c:pt idx="1"><c:v>20</c:v></c:pt><c:pt idx="2"><c:v>15</c:v></c:pt></c:numLit></c:yVal>
+            <c:bubbleSize><c:numLit><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>9</c:v></c:pt><c:pt idx="2"><c:v>4</c:v></c:pt></c:numLit></c:bubbleSize>
+          </c:ser>
+          <c:bubbleScale val="100"/>
+          <c:sizeRepresents val="area"/>
+          <c:axId val="1"/><c:axId val="2"/>
+        </c:bubbleChart>
+        <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+        <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+      </c:plotArea>`),
+    );
+    expect(svg).not.toContain('data-pptx-fallback="chart"');
+    const radii = attrsOf(svg, 'circle')
+      .map((a) => a['r'])
+      .filter((r): r is string => r !== undefined);
+    expect(radii.length).toBeGreaterThanOrEqual(3);
+    // Area-proportional sizing (sizes 1 / 9 / 4) must yield distinct radii.
+    expect(new Set(radii).size).toBeGreaterThan(1);
+    expect(svg).toContain('Alpha');
+  });
 });
 
 // ---------------------------------------------------------------------------

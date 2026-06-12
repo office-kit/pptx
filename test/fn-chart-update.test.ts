@@ -103,4 +103,46 @@ describe('fn API: setChartSpec', () => {
       ),
     ).toThrow(/not a chart/);
   });
+
+  // scatter / radar / bubble are read + render only (plan W4). The builder
+  // can't serialize their xy(z) tuple channels, so both write paths reject
+  // them with a clear error rather than silently emitting a wrong-kind
+  // chart. The previous behavior folded these into `line`, which would have
+  // round-tripped a scatter chart into a corrupt line chart.
+  it('addSlideChart rejects scatter / radar / bubble kinds', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    for (const kind of ['scatter', 'radar', 'bubble'] as const) {
+      expect(() =>
+        addSlideChart(slide, {
+          x: inches(0),
+          y: inches(0),
+          w: inches(4),
+          h: inches(3),
+          spec: { kind, categories: [], series: [{ name: 'S', values: [1], xValues: [1] }] },
+        }),
+      ).toThrow(/read-only/);
+    }
+  });
+
+  it('setChartSpec rejects switching an existing chart to scatter', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideChart(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(3),
+      spec: { kind: 'column', categories: ['A'], series: [{ name: 'S', values: [1] }] },
+    });
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const chart = getSlideCharts(getSlides(reloaded)[0]!)[0]!;
+    expect(() =>
+      setChartSpec(chart, {
+        kind: 'scatter',
+        categories: [],
+        series: [{ name: 'S', values: [1, 2], xValues: [1, 2] }],
+      }),
+    ).toThrow(/read-only/);
+  });
 });

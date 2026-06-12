@@ -370,6 +370,11 @@ export const getShapeChartSeriesNames = (shape: SlideShapeData): ReadonlyArray<s
  * Returns the values for the named series on a chart shape, or
  * `null` when the shape isn't a chart, the kind isn't modeled, or
  * no series matches `seriesName`.
+ *
+ * For `scatter` / `bubble` charts the returned array is the series'
+ * y-channel (`<c:yVal>`); the paired x-channel and bubble sizes are on
+ * the full spec via `getShapeChartSpec` (`series[].xValues` /
+ * `series[].bubbleSizes`).
  */
 export const getShapeChartSeriesValues = (
   shape: SlideShapeData,
@@ -488,6 +493,9 @@ export const getPresentationChartKindCounts = (
     pie: 0,
     doughnut: 0,
     area: 0,
+    scatter: 0,
+    radar: 0,
+    bubble: 0,
   };
   for (const slide of getSlides(pres)) {
     for (const chart of getSlideCharts(slide)) {

@@ -4181,6 +4181,286 @@ const renderPieChart = (
   return out.join('');
 };
 
+// ---------------------------------------------------------------------------
+// Scatter / radar / bubble plotters. Scatter and bubble plot xy(z) tuples
+// against two value axes (reusing `renderValueAxis`); radar is polar.
+
+// Padded [min, max] for a scatter / bubble value axis so extreme points
+// don't sit on the plot edge. Aligns the bounds to the niceTicks step.
+const scatterAxisBounds = (vals: ReadonlyArray<number>): { min: number; max: number } => {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const v of vals) {
+    if (Number.isFinite(v)) {
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+  }
+  if (!Number.isFinite(min)) return { min: 0, max: 1 };
+  if (min === max) return { min: min - 1, max: max + 1 };
+  const ticks = niceTicks(min, max);
+  const step = ticks.length >= 2 ? ticks[1]! - ticks[0]! : (max - min) / 4 || 1;
+  return { min: Math.floor(min / step) * step, max: Math.ceil(max / step) * step };
+};
+
+// Pairs a scatter / bubble series' x-channel (`xValues`, or the 1-based
+// index when absent) with its y-channel (`values`) and bubble size,
+// dropping points whose x or y is null / non-finite (PowerPoint skips
+// those too).
+const xyPoints = (series: ChartSeries): Array<{ x: number; y: number; size: number }> => {
+  const hasX = series.xValues !== undefined && series.xValues.length > 0;
+  const n = Math.max(series.xValues?.length ?? 0, series.values.length);
+  const out: Array<{ x: number; y: number; size: number }> = [];
+  for (let i = 0; i < n; i++) {
+    let x: number;
+    if (hasX) {
+      const xv = series.xValues![i];
+      if (xv === null || xv === undefined || !Number.isFinite(xv)) continue;
+      x = xv;
+    } else {
+      x = i + 1;
+    }
+    const y = series.values[i];
+    if (y === null || y === undefined || !Number.isFinite(y)) continue;
+    const sz = series.bubbleSizes?.[i];
+    out.push({ x, y, size: sz != null && Number.isFinite(sz) ? sz : 0 });
+  }
+  return out;
+};
+
+// Two value axes (x horizontal, y vertical) shared by scatter / bubble.
+// Honours the authored `<c:valAx><c:scaling>` min / max + numberFormat on
+// the y axis; the x axis is auto-scaled (our model carries only one
+// value-axis scaling block, which PowerPoint applies to the primary
+// (y) axis).
+const renderScatterAxes = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  xB: { min: number; max: number },
+  yB: { min: number; max: number },
+): string => {
+  const yAxis: AxisSpec = {
+    orientation: 'vertical',
+    min: yB.min,
+    max: yB.max,
+    ...(spec.valueAxis?.numberFormat !== undefined
+      ? { numberFormat: spec.valueAxis.numberFormat }
+      : {}),
+  };
+  const xAxis: AxisSpec = { orientation: 'horizontal', min: xB.min, max: xB.max };
+  return renderValueAxis(f, yAxis) + renderValueAxis(f, xAxis);
+};
+
+const renderScatterChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
+  const perSeries = spec.series.map((s) => xyPoints(s));
+  const allX: number[] = [];
+  const allY: number[] = [];
+  for (const pts of perSeries) {
+    for (const p of pts) {
+      allX.push(p.x);
+      allY.push(p.y);
+    }
+  }
+  if (allX.length === 0) return '';
+  const xB = scatterAxisBounds(allX);
+  const yB = scatterAxisBounds(allY);
+  if (spec.valueAxis?.min !== undefined) yB.min = spec.valueAxis.min;
+  if (spec.valueAxis?.max !== undefined) yB.max = spec.valueAxis.max;
+  const xRange = xB.max - xB.min || 1;
+  const yRange = yB.max - yB.min || 1;
+  const projX = (x: number): number => f.plotX + ((x - xB.min) / xRange) * f.plotW;
+  const projY = (y: number): number => f.plotY + f.plotH - ((y - yB.min) / yRange) * f.plotH;
+  const out: string[] = [renderScatterAxes(f, spec, xB, yB)];
+  // scatterStyle governs lines vs markers. Default (absent) = markers
+  // only, matching PowerPoint's stock "Scatter" subtype.
+  const style = spec.scatterStyle;
+  const showLine =
+    style === 'line' || style === 'lineMarker' || style === 'smooth' || style === 'smoothMarker';
+  const smooth = style === 'smooth' || style === 'smoothMarker';
+  const showMarker =
+    style === undefined || style === 'marker' || style === 'lineMarker' || style === 'smoothMarker';
+  for (let s = 0; s < spec.series.length; s++) {
+    const series = spec.series[s]!;
+    const pts = perSeries[s]!;
+    if (pts.length === 0) continue;
+    const color = series.color ?? colors[s % colors.length]!;
+    const proj: Array<[number, number]> = pts.map((p) => [projX(p.x), projY(p.y)]);
+    if (showLine && proj.length >= 2) {
+      const d =
+        smooth && proj.length > 2
+          ? smoothPath(proj)
+          : proj.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
+      const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
+      out.push(
+        `<path d="${d}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"/>`,
+      );
+    }
+    // markerSymbol='none' always hides; an explicit symbol always shows
+    // (even under the line-only styles).
+    const sym = series.markerSymbol;
+    const drawMarker = sym === 'none' ? false : showMarker || (sym !== undefined && sym !== 'auto');
+    if (drawMarker) {
+      const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
+      const glyph = sym && sym !== 'auto' && sym !== 'none' ? sym : 'circle';
+      for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
+    }
+  }
+  return out.join('');
+};
+
+const renderBubbleChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
+  const perSeries = spec.series.map((s) => xyPoints(s));
+  const allX: number[] = [];
+  const allY: number[] = [];
+  let maxSize = 0;
+  for (const pts of perSeries) {
+    for (const p of pts) {
+      allX.push(p.x);
+      allY.push(p.y);
+      if (p.size > maxSize) maxSize = p.size;
+    }
+  }
+  if (allX.length === 0) return '';
+  const xB = scatterAxisBounds(allX);
+  const yB = scatterAxisBounds(allY);
+  if (spec.valueAxis?.min !== undefined) yB.min = spec.valueAxis.min;
+  if (spec.valueAxis?.max !== undefined) yB.max = spec.valueAxis.max;
+  const xRange = xB.max - xB.min || 1;
+  const yRange = yB.max - yB.min || 1;
+  const projX = (x: number): number => f.plotX + ((x - xB.min) / xRange) * f.plotW;
+  const projY = (y: number): number => f.plotY + f.plotH - ((y - yB.min) / yRange) * f.plotH;
+  const out: string[] = [renderScatterAxes(f, spec, xB, yB)];
+  // The largest bubble's diameter is bubbleScale% (default 25%) of the
+  // plot's smaller dimension. Per-point radius scales with sqrt(size) for
+  // the default area mode (sizeRepresents='area'), linearly for 'width'.
+  const scaleFraction = spec.bubbleScale !== undefined ? spec.bubbleScale / 100 : 0.25;
+  const maxRadiusPx = Math.max(2, scaleFraction * Math.min(f.plotW, f.plotH) * 0.5);
+  const areaMode = (spec.bubbleSizeRepresents ?? 'area') === 'area';
+  const radiusFor = (size: number): number => {
+    if (maxSize <= 0 || size <= 0) return Math.max(1.5, maxRadiusPx * 0.15);
+    const frac = areaMode ? Math.sqrt(size / maxSize) : size / maxSize;
+    return Math.max(1.5, maxRadiusPx * frac);
+  };
+  for (let s = 0; s < spec.series.length; s++) {
+    const series = spec.series[s]!;
+    const pts = perSeries[s]!;
+    const color = series.color ?? colors[s % colors.length]!;
+    for (const p of pts) {
+      const cx = projX(p.x);
+      const cy = projY(p.y);
+      const r = radiusFor(p.size);
+      out.push(
+        `<circle cx="${px(cx)}" cy="${px(cy)}" r="${r.toFixed(2)}" fill="${color}" fill-opacity="0.55" stroke="${color}" stroke-width="0.75"/>`,
+      );
+    }
+  }
+  return out.join('');
+};
+
+const renderRadarChart = (
+  f: ChartFrame,
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
+  const N = pointCount(spec);
+  if (N === 0 || spec.series.length === 0) return '';
+  // Rings start at 0 (or the authored min) and span to the data max (or
+  // the authored max).
+  let max = -Infinity;
+  let min = 0;
+  for (const sr of spec.series) {
+    for (const v of sr.values) {
+      if (v !== null && Number.isFinite(v) && v > max) max = v;
+    }
+  }
+  if (!Number.isFinite(max)) max = 1;
+  if (spec.valueAxis?.min !== undefined) min = spec.valueAxis.min;
+  if (spec.valueAxis?.max !== undefined) max = spec.valueAxis.max;
+  if (max <= min) max = min + 1;
+  const range = max - min;
+  const cx = f.plotX + f.plotW / 2;
+  const cy = f.plotY + f.plotH / 2;
+  // Leave a margin around the rim for the category labels.
+  const R = Math.max(4, Math.min(f.plotW, f.plotH) / 2 - 14);
+  const angleAt = (i: number): number => -Math.PI / 2 + (i * 2 * Math.PI) / N;
+  const out: string[] = [];
+  // Value rings (polygon gridlines) at each nice tick + a tick label on
+  // the top spoke.
+  for (const t of niceTicks(min, max)) {
+    if (t < min || t > max + 1e-9) continue;
+    const rr = ((t - min) / range) * R;
+    if (rr <= 0) continue;
+    const ring: string[] = [];
+    for (let i = 0; i < N; i++) {
+      const a = angleAt(i);
+      ring.push(`${px(cx + rr * Math.cos(a))},${px(cy + rr * Math.sin(a))}`);
+    }
+    out.push(
+      `<polygon points="${ring.join(' ')}" fill="none" stroke="#E5E7EB" stroke-width="0.5"/>`,
+    );
+    out.push(
+      `<text x="${px(cx + 3)}" y="${px(cy - rr)}" dominant-baseline="middle" font-family="sans-serif" font-size="8" fill="#9CA3AF">${escapeXml(formatTick(t))}</text>`,
+    );
+  }
+  // Spokes + category labels.
+  for (let i = 0; i < N; i++) {
+    const a = angleAt(i);
+    out.push(
+      `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + R * Math.cos(a))}" y2="${px(cy + R * Math.sin(a))}" stroke="#D1D5DB" stroke-width="0.5"/>`,
+    );
+    const cat = spec.categories[i] ?? String(i + 1);
+    const lx = cx + (R + 8) * Math.cos(a);
+    const ly = cy + (R + 8) * Math.sin(a);
+    const cosA = Math.cos(a);
+    const anchor = Math.abs(cosA) < 0.3 ? 'middle' : cosA > 0 ? 'start' : 'end';
+    const label = cat.length > 12 ? `${cat.slice(0, 11)}…` : cat;
+    out.push(
+      `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(spec.categoryAxisLabelStyle)}>${escapeXml(label)}</text>`,
+    );
+  }
+  // Series polygons (closed). 'filled' fills the polygon at reduced
+  // opacity; 'marker' draws a point glyph at each vertex.
+  const filled = spec.radarStyle === 'filled';
+  const showMarker = spec.radarStyle === 'marker';
+  for (let s = 0; s < spec.series.length; s++) {
+    const series = spec.series[s]!;
+    const color = series.color ?? colors[s % colors.length]!;
+    const proj: Array<[number, number]> = [];
+    for (let i = 0; i < N; i++) {
+      const v = series.values[i];
+      if (v === null || v === undefined || !Number.isFinite(v)) continue;
+      const rr = ((v - min) / range) * R;
+      const a = angleAt(i);
+      proj.push([cx + rr * Math.cos(a), cy + rr * Math.sin(a)]);
+    }
+    if (proj.length < 2) continue;
+    const ptsStr = proj.map(([xp, yp]) => `${px(xp)},${px(yp)}`).join(' ');
+    const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.8;
+    out.push(
+      filled
+        ? `<polygon points="${ptsStr}" fill="${color}" fill-opacity="0.3" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`
+        : `<polygon points="${ptsStr}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`,
+    );
+    if (showMarker) {
+      const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
+      const glyph =
+        series.markerSymbol && series.markerSymbol !== 'auto' && series.markerSymbol !== 'none'
+          ? series.markerSymbol
+          : 'circle';
+      for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
+    }
+  }
+  return out.join('');
+};
+
 const renderChart = (
   shape: SlideShapeData,
   x: number,
@@ -4200,13 +4480,18 @@ const renderChart = (
   const colors = accentSequence(theme);
   const isCartesian =
     spec.kind === 'column' || spec.kind === 'bar' || spec.kind === 'line' || spec.kind === 'area';
+  // Scatter / bubble draw two value axes (handled inside their plotters)
+  // but still need the axis gutters; radar is polar and uses the full
+  // plot box. The shared category-axis block below stays gated on
+  // `isCartesian` so it doesn't run for the xy(z) kinds.
+  const hasAxes = isCartesian || spec.kind === 'scatter' || spec.kind === 'bubble';
   const f = layoutChart(
     x,
     y,
     w,
     h,
     !!spec.title,
-    isCartesian,
+    hasAxes,
     spec.titleOverlay ?? false,
     spec.legend?.overlay ?? false,
   );
@@ -4316,7 +4601,19 @@ const renderChart = (
     case 'doughnut':
       plot = renderPieChart(f, spec, colors, true);
       break;
+    case 'scatter':
+      plot = renderScatterChart(f, spec, colors);
+      break;
+    case 'radar':
+      plot = renderRadarChart(f, spec, colors);
+      break;
+    case 'bubble':
+      plot = renderBubbleChart(f, spec, colors);
+      break;
     default:
+      // stock / surface / 3D variants the reader still folds into a
+      // modeled kind never reach here; truly unmodeled kinds (resolved
+      // to `null` spec) are handled earlier. Anything left falls back.
       return null;
   }
 
@@ -5087,8 +5384,9 @@ const renderShape = (
     try {
       if (isChartShape(shape)) {
         // `isChartShape` was true but renderChart returned null —
-        // pptx-kit couldn't model this chart kind (3D bar, scatter,
-        // bubble, stock, radar, surface, of-pie all land here).
+        // pptx-kit couldn't model this chart kind. scatter / radar /
+        // bubble now render; what's left here is stock / surface / 3D /
+        // of-pie, which the reader still folds or drops.
         label = 'chart (unsupported kind)';
       } else if (isTableShape(shape)) {
         const t = getTableDimensions(shape);
