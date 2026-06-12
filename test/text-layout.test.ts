@@ -254,8 +254,9 @@ describe('layoutTextSvg multi-column', () => {
     );
     const xs = coords(svg).map((c) => c.x);
     // colW = (200 − 1·10) / 2 = 95; column 2 sits at 95 + 10 (gap) = 105.
-    expect(new Set(xs)).toEqual(new Set([0, 105]));
-    expect(xs.filter((x) => x === 105)).toHaveLength(2); // D, E overflowed
+    // GRID_NUDGE_X (−0.75) shifts every emitted x — see text-layout.ts.
+    expect(new Set(xs)).toEqual(new Set([-0.75, 104.25]));
+    expect(xs.filter((x) => x === 104.25)).toHaveLength(2); // D, E overflowed
   });
 
   it('keeps few lines entirely in the first column', () => {
@@ -267,7 +268,7 @@ describe('layoutTextSvg multi-column', () => {
       }),
       stubMeasurer,
     );
-    expect(new Set(coords(svg).map((c) => c.x))).toEqual(new Set([0]));
+    expect(new Set(coords(svg).map((c) => c.x))).toEqual(new Set([-0.75]));
   });
 });
 
@@ -290,8 +291,11 @@ describe('layoutTextSvg horizontal parity', () => {
       }),
       stubMeasurer,
     );
+    // Snapshot refreshed for the GRID_NUDGE_X horizontal calibration
+    // (every x shifts −0.75px); y values are untouched. See the fidelity
+    // calibration notes in site/fidelity/README.md.
     expect(svg).toMatchInlineSnapshot(
-      `"<text x="0" y="93.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa bb</tspan></text><text x="0" y="103.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc dd</tspan></text><text x="20" y="113.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee ff</tspan></text>"`,
+      `"<text x="-0.75" y="93.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa bb</tspan></text><text x="-0.75" y="103.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc dd</tspan></text><text x="19.25" y="113.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee ff</tspan></text>"`,
     );
   });
 });

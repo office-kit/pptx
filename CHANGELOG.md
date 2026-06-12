@@ -181,7 +181,6 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   read/write parity for `ChartSpec.valueAxis`. Round-trip test added.
 - 7bee159: feat: chart builder writes back axis titles, hidden flags, and
   category-axis tick-label config. `<c:valAx>` / `<c:catAx>` now emit:
-
   - `<c:title>` with style (from `valueAxisTitleStyle` /
     `categoryAxisTitleStyle`) when an axis title is authored
   - `<c:delete val="1"/>` when `valueAxisHidden` / `categoryAxisHidden`
@@ -205,7 +204,6 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   Round-trip test asserts both sparse arrays survive.
 - 8a9bab4: feat: chart builder writes back a wide slate of optional chart fields.
   The chart-builder now emits, when authored on `ChartSpec`:
-
   - `<c:varyColors>` (per chart kind), `<c:gapWidth>`, `<c:overlap>`
     on bar / column
   - `<c:grouping>` honors `ChartSpec.grouping` (`'clustered' | 'stacked'
@@ -229,7 +227,6 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
 - 034207d: feat: chart builder writes back `<c:legend>` and `<c:dispBlanksAs>`.
   The chart-root previously emitted only the default legend / blanks
   behavior; the builder now:
-
   - emits `<c:legend>` with `legendPos`, `overlay`, and one
     `<c:legendEntry><c:idx><c:delete val="1"/></c:legendEntry>` per
     hidden series index — or skips the element when
@@ -247,7 +244,6 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   all four fields plus the no-override case.
 - cf2d02b: feat: chart builder writes back series-level optional fields. Each
   `<c:ser>` now emits:
-
   - richer `<c:spPr>` with `<a:ln w="…"><a:prstDash/>` when
     `series.lineWidthEmu` or `lineDash` is authored
   - `<c:invertIfNegative val="1"/>` when set
@@ -325,7 +321,6 @@ cross|none"/>`. The playground value-axis renderer draws short stubs
   formats win over the chart-level default.
 - b77c0ed: feat(chart): `ChartSpec.dispBlanksAs` reads `<c:dispBlanksAs>`
   (`'gap' | 'zero' | 'span'`). Playground line / area renderer:
-
   - `gap` (default): breaks the path on null values
   - `zero`: substitutes 0 so the line dips to the baseline
   - `span`: connects the surrounding points across the gap
@@ -521,7 +516,6 @@ formatCode="…"/>`. Playground projects the most common Excel format
   Useful for renderers that need to know when a slide reinterprets the
   theme's color story.
 - 263bf52: feat: apply ECMA-376 §20.1.2.3.x color transforms when resolving colors.
-
   - New `resolveDrawingColor(colorEl, theme)` resolves any DrawingML color
     element (`<a:srgbClr>` / `<a:schemeClr>` / `<a:sysClr>` / `<a:prstClr>`)
     with all transform children (`<a:lumMod>`, `<a:lumOff>`, `<a:shade>`,
@@ -828,7 +822,6 @@ lumOff=60000` (PowerPoint's "Accent 1, Lighter 60%") resolves to the
   generic "no bytes" label.
 - 508627a: feat(site/playground): grayscale + biLevel image filters in the
   playground. The filter pipeline now composes:
-
   1. brightness + contrast (linear feComponentTransfer)
   2. grayscale (luminance-preserving feColorMatrix) when
      `<a:blip><a:grayscl/>` is set
@@ -1249,7 +1242,6 @@ marR marT marB>` inset margins in EMU. Each side is `null` when the
   Vertical column headers in tables commonly use `vert270` / `eaVert`
   so the header label reads bottom-to-top alongside its column.
 - 263bf52: feat: table span + border read-back.
-
   - `getTableCellSpan(cell)` returns `{ gridSpan, rowSpan, hMerge, vMerge }`
     so renderers know which cells own a merged region and which are
     absorbed into one.
@@ -1287,7 +1279,6 @@ layout)` — the non-placeholder decorative shapes (corner bars, divider lines,
   so newspaper-style multi-column placeholders flow correctly.
 - 263bf52: feat: extend `TextFormat` with the remaining commonly-authored
   `CT_TextCharacterProperties` (ECMA-376 §17.18.83) attributes:
-
   - `strike` — `true` / `false` / `'sngStrike'` / `'dblStrike'`
   - `spc` — character spacing in 1/100 pt
   - `kern` — kerning threshold in half-points
@@ -1306,7 +1297,6 @@ layout)` — the non-placeholder decorative shapes (corner bars, divider lines,
   that brand-themselves to Aptos / Inter / etc. now render with their
   authored fonts instead of always falling back to Calibri.
 - 263bf52: feat: Tier B fidelity batch.
-
   - `getShapeTextDirection(shape)` returns the `<a:bodyPr vert="…"/>`
     token (`vert`, `vert270`, `wordArtVert`, `eaVert`, `mongolianVert`,
     `wordArtVertRtl`). Playground projects each onto a CSS
@@ -1385,7 +1375,6 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
 - f47b78b: **1.0.0** — first stable release. The public API is now frozen under SemVer.
 
   **What works at 1.0:**
-
   - **Read** any `.pptx` produced by PowerPoint, Keynote, Google Slides, or
     LibreOffice Impress, and save it back without corruption. Unknown
     extensions are preserved verbatim on round-trip.
@@ -1405,7 +1394,6 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
     is < 75 KB unminified, full fn-API bundle is ~120 KB.
 
   **Deferred to post-1.0** (read pass-through preserved on round-trip):
-
   - Constructing new themes / masters / layouts from scratch.
   - SmartArt authoring.
   - Complex animation timing-tree authoring.
@@ -1476,7 +1464,6 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   plan. Highlights:
 
   **Round-trip + template editing (L1 / L2)**
-
   - `loadPresentation` / `savePresentation` (`Uint8Array` / `ArrayBuffer` / `Blob`).
   - Node convenience: `loadPresentationFile`, `savePresentationToFile`.
   - Token replace: `replaceTokensInPresentation`, `replaceTokensInSlide`.
@@ -1490,7 +1477,6 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
     `setMediaPartBytes`, `compactPackage`.
 
   **Authoring (L3)**
-
   - Shapes: `addSlideTextBox`, `addSlideShape` (180+ presets),
     `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`.
   - Charts: `bar` / `column` / `line` / `pie` / `doughnut` / `area` with
@@ -1501,7 +1487,6 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   - Slide layout swap: `setSlideLayout`, `findSlideLayout`.
 
   **Text**
-
   - Per-shape: `setShapeText`, `setShapeBullets`, `setShapeAlignment`,
     `setShapeTextFormat`, `setShapeHyperlink`, `setShapeTextAnchor`,
     `setShapeTextMargins`, `setShapeTextWrap`, `setShapeTextAutoFit`.
@@ -1512,13 +1497,11 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
     `getShapeRunText`.
 
   **Geometry**
-
   - Position / size / rotation / flip + combined `setShapeBounds` /
     `getShapeBounds`. Z-order: `bringShapeToFront`, `sendShapeToBack`,
     `bringShapeForward`, `sendShapeBackward`.
 
   **Fill / stroke / effects**
-
   - Fill kinds: solid, gradient, pattern, image, none + `getShapeFill`
     read-back.
   - Stroke: color + width + dash + arrowheads + `getShapeStroke` /
@@ -1527,12 +1510,10 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
     `getShapeEffect` read-back.
 
   **Pictures**
-
   - Crop, opacity, brightness (`lumOff`), contrast (`lumMod`),
     image replacement, image-as-fill. Read-back pairs for every setter.
 
   **Slide-level (L4)**
-
   - Notes (`getSlideNotes` / `setSlideNotes`).
   - Transitions (every effect + read-back).
   - Animations (`fadeIn` / `fadeOut` / `appear` / `disappear`) +
@@ -1546,14 +1527,12 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   - Click actions: URL / slide jump / preset nav + read-back.
 
   **Theme + package**
-
   - `getPresentationTheme` — color scheme (`accent1`–`accent6`, `dark1`,
     `light1`, `hyperlink`, ...).
   - `getMediaParts`, `listPackageParts`, `readPackagePart` for audit /
     export workflows.
 
   **Tree-shake**
-
   - The minimal `load`+`save` import is ~60 KB; the full fn-API
     bundle ~123 KB. CI guard via `test/tree-shake.test.ts`.
 
@@ -1562,7 +1541,6 @@ rot="N"/>`. `ChartSpec.valueAxisLabelRotationDeg` returns the rotation
   via Layer-1 tests.
 
   **Additional helpers** (all tree-shakeable free functions)
-
   - Properties: `getCoreProperties` / `setCoreProperties`,
     `getExtendedProperties` / `setExtendedProperties`, plus convenience
     `getPresentationCreated`, `getPresentationModified`,

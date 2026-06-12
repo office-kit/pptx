@@ -2359,11 +2359,14 @@ const renderTextBody = (
         spcBefPts: null,
         spcAftPts: null,
         rtl: null,
+        bullet: null,
       };
     }
     const align = effective.align ?? defaultAlign;
     const level = effective.level;
-    const bulletStyle = getParagraphBullet(shape, p);
+    // The literal slide-level bullet wins; otherwise the cascade supplies the
+    // inherited one (master bodyStyle authors "•" for body placeholders).
+    const bulletStyle = getParagraphBullet(shape, p) ?? effective.bullet;
     let bulletDetail: ReturnType<typeof getParagraphBulletStyle> = {
       color: null,
       sizePct: null,
@@ -2864,6 +2867,7 @@ const layoutChart = (
   hasAxes: boolean,
   titleOverlay = false,
   legendOverlay = false,
+  hasLegend = true,
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -2873,7 +2877,7 @@ const layoutChart = (
   // plot area instead of taking its own strip — common when the deck
   // author has aligned the plot tightly with surrounding content.
   const titleStrip = hasTitle && !titleOverlay ? 18 : 0;
-  const legendStrip = legendOverlay ? 0 : 18;
+  const legendStrip = hasLegend && !legendOverlay ? 18 : 0;
   const padding = 8;
   const yAxisGutter = hasAxes ? 40 : 0;
   const xAxisGutter = hasAxes ? 18 : 0;
@@ -2897,15 +2901,20 @@ const layoutChart = (
 // Pick ~5 "nice" tick values between min and max. The step is rounded
 // to a 1 / 2 / 5 × 10ⁿ that gives 4-6 ticks total — same rule
 // Excel / PowerPoint use.
-const niceTicks = (min: number, max: number, target = 5): number[] => {
-  const range = max - min;
-  if (range <= 0) return [min];
+const niceStep = (range: number, target = 5): number => {
+  if (range <= 0) return 1;
   const rawStep = range / target;
   const exp = Math.floor(Math.log10(rawStep));
   const base = Math.pow(10, exp);
   const m = rawStep / base;
   const stepMultiplier = m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10;
-  const step = stepMultiplier * base;
+  return stepMultiplier * base;
+};
+
+const niceTicks = (min: number, max: number, target = 5): number[] => {
+  const range = max - min;
+  if (range <= 0) return [min];
+  const step = niceStep(range, target);
   const start = Math.ceil(min / step) * step;
   const ticks: number[] = [];
   for (let v = start; v <= max + step / 2; v += step) ticks.push(v);
@@ -3261,7 +3270,7 @@ const renderCategoryAxis = (
   return out.join('');
 };
 
-const seriesMinMax = (spec: ChartSpec): { min: number; max: number } => {
+const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number } => {
   let min = Infinity;
   let max = -Infinity;
   for (const s of spec.series) {
@@ -3276,12 +3285,21 @@ const seriesMinMax = (spec: ChartSpec): { min: number; max: number } => {
   if (!Number.isFinite(max)) max = 1;
   if (max === min) max = min + 1;
   if (min > 0) min = 0; // include the zero line, like PowerPoint does
+  // Excel-style headroom: the auto axis maximum is the first major-unit
+  // multiple strictly above the data max (data 300 with step 50 → axis 350),
+  // so the tallest bar never touches the plot edge. Matches PowerPoint and
+  // LibreOffice auto-scaling; an authored max below overrides this.
+  const step = niceStep(max - min);
+  max = (Math.floor(max / step) + 1) * step;
   // Authored <c:valAx><c:scaling> overrides the computed range so the
   // chart matches what the deck author saw in PowerPoint.
   if (spec.valueAxis?.min !== undefined) min = spec.valueAxis.min;
   if (spec.valueAxis?.max !== undefined) max = spec.valueAxis.max;
   if (max === min) max = min + 1;
-  return { min, max };
+  // `step` rides along as the default major unit: recomputing it from the
+  // padded range would coarsen the ticks (data 0–300 → axis 0–350 must keep
+  // the 50-step ticks, not jump to 100).
+  return { min, max, step };
 };
 
 const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle): string => {
@@ -4534,6 +4552,10 @@ const renderChart = (
   // plot box. The shared category-axis block below stays gated on
   // `isCartesian` so it doesn't run for the xy(z) kinds.
   const hasAxes = isCartesian || spec.kind === 'scatter' || spec.kind === 'bubble';
+  // No `<c:legend>` in the chart XML means no legend — PowerPoint and
+  // LibreOffice both render none. An authored legend with `position: null`
+  // (`<c:delete/>`-style) is also hidden.
+  const hasLegend = spec.legend !== undefined && spec.legend.position !== null;
   const f = layoutChart(
     x,
     y,
@@ -4543,6 +4565,7 @@ const renderChart = (
     hasAxes,
     spec.titleOverlay ?? false,
     spec.legend?.overlay ?? false,
+    hasLegend,
   );
   const allNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
@@ -4580,9 +4603,9 @@ const renderChart = (
   let plot = '';
   let axes = '';
   if (isCartesian) {
-    const { min, max } = seriesMinMax(spec);
+    const { min, max, step } = seriesMinMax(spec);
     const N = pointCount(spec);
-    const majorUnit = spec.valueAxis?.majorUnit;
+    const majorUnit = spec.valueAxis?.majorUnit ?? step;
     const numberFormat = spec.valueAxis?.numberFormat;
     const axisExtras = {
       ...(majorUnit !== undefined ? { majorUnit } : {}),
@@ -4714,9 +4737,8 @@ const renderChart = (
     categoryAxisTitleSvg,
     plot,
     emptyHint,
-    spec.legend?.position === null
-      ? ''
-      : renderChartLegend(
+    hasLegend
+      ? renderChartLegend(
           f,
           seriesNamesForLegend,
           seriesColorsForLegend,
@@ -4725,7 +4747,8 @@ const renderChart = (
           // Marker glyphs only carry visual meaning for line / area
           // charts; bar / column / pie use the swatch rect.
           markerSymbolsForLegend,
-        ),
+        )
+      : '',
     '</g>',
   ].join('');
 };
