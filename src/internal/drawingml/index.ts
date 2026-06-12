@@ -45,6 +45,14 @@ export {
   setStrokeDash,
   setStrokeJoin,
 } from './stroke.ts';
+export type {
+  CustomGeometry,
+  GeomCommand,
+  GeomPath,
+  GeomPoint,
+  PathFillMode,
+} from './custom-geometry.ts';
+export { parseCustomGeometry } from './custom-geometry.ts';
 export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';

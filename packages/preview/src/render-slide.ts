@@ -62,6 +62,7 @@ import {
   getShapeImagePartName,
   getShapeImageFormat,
   getShapeAdjustValues,
+  getShapeCustomGeometry,
   getShapeKind,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -126,6 +127,7 @@ import {
   type ChartSeries,
   type ChartSpec,
   type ChartTextStyle,
+  type CustomGeometry,
   type GradientFillOptions,
   type ShapeFill,
   type ShapeStroke,
@@ -4655,6 +4657,163 @@ const renderTable = (
   return out.join('');
 };
 
+interface ArcCubic {
+  readonly c1x: number;
+  readonly c1y: number;
+  readonly c2x: number;
+  readonly c2y: number;
+  readonly ex: number;
+  readonly ey: number;
+}
+
+/**
+ * Converts an OOXML `<a:arcTo>` (center-parameterized: start at the pen
+ * point, angle `stAng`, sweep `swAng`, both in 60000ths of a degree, on a
+ * `wR`×`hR` axis-aligned ellipse) into cubic-Bézier segments in the path's
+ * own coordinate space.
+ *
+ * We approximate with cubics rather than emit an SVG `A` arc because the
+ * endpoint-parameterized `A` command can't represent a sweep ≥ 360° (full
+ * ellipses appear in custom geometry) and forces large-arc / sweep flag
+ * bookkeeping for the signed `swAng`; splitting into ≤ 90° cubic segments
+ * sidesteps both and stays accurate.
+ */
+const arcToCubicSegments = (
+  startX: number,
+  startY: number,
+  wR: number,
+  hR: number,
+  stAng: number,
+  swAng: number,
+): ArcCubic[] => {
+  const toRad = (a: number): number => (a / 60_000) * (Math.PI / 180);
+  const st = toRad(stAng);
+  const sw = toRad(swAng);
+  // Place the ellipse center so the current pen point lies on it at `st`.
+  const cx = startX - wR * Math.cos(st);
+  const cy = startY - hR * Math.sin(st);
+  const segCount = Math.max(1, Math.ceil(Math.abs(sw) / (Math.PI / 2)));
+  const delta = sw / segCount;
+  // Tangent-based control-handle length for a circular-arc cubic, applied
+  // per-axis so it works for the anisotropic (wR ≠ hR) ellipse.
+  const k = (4 / 3) * Math.tan(delta / 4);
+  const segs: ArcCubic[] = [];
+  let a0 = st;
+  for (let i = 0; i < segCount; i++) {
+    const a1 = a0 + delta;
+    const cos0 = Math.cos(a0);
+    const sin0 = Math.sin(a0);
+    const cos1 = Math.cos(a1);
+    const sin1 = Math.sin(a1);
+    const p1x = cx + wR * cos1;
+    const p1y = cy + hR * sin1;
+    segs.push({
+      c1x: cx + wR * cos0 - k * wR * sin0,
+      c1y: cy + hR * sin0 + k * hR * cos0,
+      c2x: p1x + k * wR * sin1,
+      c2y: p1y - k * hR * cos1,
+      ex: p1x,
+      ey: p1y,
+    });
+    a0 = a1;
+  }
+  return segs;
+};
+
+/**
+ * Renders an evaluated {@link CustomGeometry} as one `<path>` per
+ * `GeomPath`, scaling each path's coordinate space (its own `w`/`h`, or
+ * the shape extents when those are absent) onto the shape's slide box
+ * `(x, y, w, h)` in EMU. Returns `''` when nothing drawable remains, so
+ * the caller can fall back to the labelled rect.
+ *
+ * Per-path `fill="none"` paints stroke-only; `stroke="0"` paints
+ * fill-only — mirroring `ST_PathFillMode` / the path `stroke` flag.
+ */
+const customGeometryToSvg = (
+  geom: CustomGeometry,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  fill: string,
+  stroke: string,
+  strokeWidthEmu: number,
+  strokeExtra: string,
+  markerExtra: string,
+): string => {
+  const out: string[] = [];
+  for (const path of geom.paths) {
+    const cw = path.w ?? w;
+    const ch = path.h ?? h;
+    // A zero-extent coordinate space can't be scaled (would divide by 0).
+    if (cw === 0 || ch === 0) continue;
+    const sx = w / cw;
+    const sy = h / ch;
+    const fx = (gx: number): string => ((x + gx * sx) / EMU_PER_PX).toFixed(2);
+    const fy = (gy: number): string => ((y + gy * sy) / EMU_PER_PX).toFixed(2);
+    const pt = (gx: number, gy: number): string => `${fx(gx)},${fy(gy)}`;
+
+    let curX = 0;
+    let curY = 0;
+    let startX = 0;
+    let startY = 0;
+    const d: string[] = [];
+    for (const cmd of path.commands) {
+      switch (cmd.kind) {
+        case 'moveTo':
+          curX = cmd.pt.x;
+          curY = cmd.pt.y;
+          startX = curX;
+          startY = curY;
+          d.push(`M${pt(curX, curY)}`);
+          break;
+        case 'lnTo':
+          curX = cmd.pt.x;
+          curY = cmd.pt.y;
+          d.push(`L${pt(curX, curY)}`);
+          break;
+        case 'quadBezTo':
+          d.push(`Q${pt(cmd.pts[0].x, cmd.pts[0].y)} ${pt(cmd.pts[1].x, cmd.pts[1].y)}`);
+          curX = cmd.pts[1].x;
+          curY = cmd.pts[1].y;
+          break;
+        case 'cubicBezTo':
+          d.push(
+            `C${pt(cmd.pts[0].x, cmd.pts[0].y)} ${pt(cmd.pts[1].x, cmd.pts[1].y)} ${pt(cmd.pts[2].x, cmd.pts[2].y)}`,
+          );
+          curX = cmd.pts[2].x;
+          curY = cmd.pts[2].y;
+          break;
+        case 'arcTo': {
+          const segs = arcToCubicSegments(curX, curY, cmd.wR, cmd.hR, cmd.stAng, cmd.swAng);
+          for (const s of segs) {
+            d.push(`C${pt(s.c1x, s.c1y)} ${pt(s.c2x, s.c2y)} ${pt(s.ex, s.ey)}`);
+          }
+          const last = segs[segs.length - 1];
+          if (last) {
+            curX = last.ex;
+            curY = last.ey;
+          }
+          break;
+        }
+        case 'close':
+          d.push('Z');
+          curX = startX;
+          curY = startY;
+          break;
+      }
+    }
+    if (d.length === 0) continue;
+    const pathFill = path.fill === 'none' ? 'none' : fill;
+    const strokeAttrs = path.stroke
+      ? ` stroke="${stroke}" stroke-width="${E(strokeWidthEmu)}"${strokeExtra}${markerExtra}`
+      : ' stroke="none"';
+    out.push(`<path d="${d.join(' ')}" fill="${pathFill}"${strokeAttrs} fill-rule="evenodd"/>`);
+  }
+  return out.join('');
+};
+
 const renderShape = (
   shape: SlideShapeData,
   pres: PresentationData,
@@ -4890,19 +5049,29 @@ const renderShape = (
 
   // kind === 'shape'
   const rawPreset = getShapePreset(shape);
-  // No preset means either custom geometry (<a:custGeom>) or no geometry at
-  // all (placeholders inherit theirs from the layout, which is almost always
-  // a rect). Both paint as a rect, but only custGeom is a true fallback —
-  // an inherited-geometry placeholder rendered as a rect is correct, not
-  // approximated. The string probe stands in for a typed custGeom reader
-  // until the renderer interprets custom geometry paths (plan W2).
-  const isCustGeom = rawPreset === null && getShapeXmlString(shape).includes('custGeom');
   const preset = rawPreset ?? 'rect';
 
-  let geomSvg: string;
   const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
   const ma = p.markerAttrs ?? '';
-  if (preset === 'rect') {
+  // Custom geometry (<a:custGeom>) overrides the preset path entirely.
+  // getShapePreset returns null for it, so only the no-preset case probes.
+  const customGeom = rawPreset === null ? getShapeCustomGeometry(shape) : null;
+  let geomSvg =
+    customGeom !== null
+      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, p.stroke, p.strokeWidth, sa, ma)
+      : '';
+  // No preset and no rendered custom geometry means either a custGeom that
+  // failed to evaluate (a true fallback — marked) or no geometry at all
+  // (placeholders inherit theirs from the layout, which is almost always a
+  // rect — correct, not marked). The string probe distinguishes the two
+  // because getShapeCustomGeometry returns null for both malformed custGeom
+  // and absent custGeom.
+  const isCustGeom =
+    geomSvg === '' && rawPreset === null && getShapeXmlString(shape).includes('custGeom');
+
+  if (geomSvg !== '') {
+    // geomSvg already holds the rendered custom geometry.
+  } else if (preset === 'rect') {
     geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'roundRect') {
     // A6 — adjust-handle aware corner radius. <a:gd name="adj"
