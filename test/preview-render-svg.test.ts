@@ -17,6 +17,7 @@ import {
   addSlideTable,
   addSlideTextBox,
   findSlideLayout,
+  findSlidePlaceholder,
   getSlides,
   inches,
   loadPresentation,
@@ -445,3 +446,59 @@ describe('renderSlideToSvg', () => {
 // void reference keeps TypeScript from complaining about the unused import
 // while still exercising the export. The real usage is in the fallback test.
 void textContentOf;
+
+describe('chart chrome fidelity', () => {
+  it('renders no legend when the chart XML authors no <c:legend>', async () => {
+    const { pres, slide } = await blankSlide();
+    addSlideChart(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(5),
+      h: inches(3),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B'],
+        series: [{ name: 'S1', values: [1, 2] }],
+      },
+    });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    // addSlideChart writes no <c:legend>, so no legend text may appear.
+    expect(textContentOf(svg)).not.toContain('S1');
+  });
+
+  it('value axis gets Excel-style headroom above the data max', async () => {
+    const { pres, slide } = await blankSlide();
+    addSlideChart(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(5),
+      h: inches(3),
+      spec: {
+        kind: 'column',
+        categories: ['A', 'B', 'C', 'D'],
+        series: [{ name: 'S1', values: [120, 180, 240, 300] }],
+      },
+    });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    const text = textContentOf(svg);
+    // Data max 300 with a 50-step axis → top tick 350, ticks still every 50.
+    expect(text).toContain('350');
+    expect(text).toContain('50');
+  });
+});
+
+describe('master bullet inheritance', () => {
+  it('body placeholders inherit the master bodyStyle bullet', async () => {
+    const pres = await loadBlank();
+    const layout = findSlideLayout(pres, 'Title and Content');
+    if (!layout) throw new Error('Title and Content layout not found');
+    const slide = addSlide(pres, { layout });
+    const body = findSlidePlaceholder(slide, 'body');
+    if (!body) throw new Error('body placeholder not found');
+    setShapeText(body, 'Inherited bullet line');
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    // The python-pptx master's bodyStyle lvl1 authors buChar="•"; no
+    // slide-level bullet exists, so the glyph must come from the cascade.
+    expect(textContentOf(svg)).toContain('•');
+  });
+});

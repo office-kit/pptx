@@ -132,18 +132,31 @@ shape as `baseline.json`) so the CI job always uploads it as the
 Follow the same procedure — download the candidate, inspect the diffs, commit
 if the changes are expected.
 
-## Current state (LibreOffice 26.2, 21 samples, 1280px)
+## Current state (LibreOffice 24.2, 23 samples / 35 slides, 1280px)
 
-Overall mean fg-SSIM ≈ **0.66** (plain SSIM ≈ 0.97). Text is horizontally
-near-exact, correctly sized, and now vertically aligned for both top- and
-center/bottom-anchored blocks (e.g. `01-title-only` 0.26→0.65, `20` 0.28→0.72,
-`15`/`16` ~0.28→~0.75 after the center-anchor calibration). Graphic/image slides
-score high (`09-images` 0.98, `14-background` 0.97, `13-zorder` 0.95). Remaining
-laggards: `10-tables` (≈0.14 — we paint PowerPoint's built-in table-style
-header/banding fills, which LibreOffice renders plain: a documented
-LO-vs-PowerPoint divergence) and `05-preset-shapes` (≈0.38 — tiny centered
-labels). A residual ~1px horizontal text offset (resvg-vs-pdftoppm pixel grid)
-caps per-glyph overlap. Bullets/vertical/column text and per-run table-cell
-styling are partially or not yet ported. Exact numbers move with the LibreOffice
-version; see the Baseline gate section above for how to update `baseline.json`
-when they shift.
+Overall mean fg-SSIM ≈ **0.78** (plain SSIM ≈ 0.97); excluding the two
+documented table-divergence slides below, ≈ **0.81**. The big lift over the
+previous ≈0.66 came from an fg-SSIM-vs-shift offset search across the corpus:
+it showed the entire text layer painting exactly 1px right of LibreOffice's
+raster on every sample (now compensated by the `GRID_NUDGE_X` calibration in
+`text-layout.ts`), master-`bodyStyle` bullets not being inherited by body
+placeholders (now resolved through the paragraph cascade), chart legends being
+invented for charts that author no `<c:legend>`, and the value axis missing
+Excel-style headroom above the data max. Text-heavy slides now score
+0.87–0.95.
+
+Documented divergences (scored against their committed baseline, not fixed):
+
+- `10-tables` ≈0.15 and `21-showcase` slide 4 ≈0.18 — we paint PowerPoint's
+  built-in table-style header/banding fills for a `tableStyleId` whose
+  definition isn't in the package; LibreOffice ships no built-in styles and
+  renders plain. PowerPoint behavior wins per the project rules.
+- `22-vertical-text` ≈0.33 / `23-columns` ≈0.32 — the layouts are correct in
+  shape (rotation, stacking direction, sequential column fill) but LibreOffice
+  auto-grows these text boxes and re-wraps to the grown extent, which shifts
+  every line's break points.
+- `11-charts` slide 1 ≈0.55 — remaining chart-chrome differences (tick-mark
+  glyphs, marker shape, plot-area proportions).
+
+Exact numbers move with the LibreOffice version; see the Baseline gate section
+above for how to update `baseline.json` when they shift.

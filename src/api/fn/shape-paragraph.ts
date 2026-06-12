@@ -17,6 +17,7 @@ import {
 } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
+  type BulletStyle,
   type ParagraphAlignment,
   type TextFormat,
   applyHyperlinkToAllRuns,
@@ -373,6 +374,13 @@ export interface ParagraphProperties {
   spcAftPts: number | null;
   /** Right-to-left paragraph (`<a:pPr rtl="1"/>`). */
   rtl: boolean | null;
+  /**
+   * Bullet resolved through the cascade (`<a:buChar>` / `<a:buAutoNum>` /
+   * `<a:buNone>`). Master `bodyStyle` levels author the PowerPoint default
+   * "•", so body placeholders get their bullet from here even when no
+   * slide-level `<a:pPr>` carries one.
+   */
+  bullet: BulletStyle | null;
 }
 
 /**
@@ -450,6 +458,23 @@ const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
   if (before !== null) out.spcBefPts = before;
   const after = readSpcSide('spcAft');
   if (after !== null) out.spcAftPts = after;
+  // Bullet: buNone / buChar / buAutoNum are mutually exclusive children.
+  // Normalisation mirrors getParagraphBullet so both readers speak the same
+  // BulletStyle vocabulary.
+  for (const c of pPr.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (c.name.localName === 'buNone') {
+      out.bullet = 'none';
+    } else if (c.name.localName === 'buChar') {
+      const char = getAttrValue(c, qname('', 'char', ''));
+      if (char === '•') out.bullet = 'bullet';
+      else if (char !== null) out.bullet = { char };
+    } else if (c.name.localName === 'buAutoNum') {
+      const t = getAttrValue(c, qname('', 'type', ''));
+      if (t === 'arabicPeriod') out.bullet = 'number';
+      else if (t !== null) out.bullet = { autoNum: t };
+    }
+  }
   return out;
 };
 
@@ -471,6 +496,7 @@ const mergePPrLayer = (
   if (base.spcAftPts === undefined && layer.spcAftPts !== undefined) {
     base.spcAftPts = layer.spcAftPts;
   }
+  if (base.bullet === undefined && layer.bullet !== undefined) base.bullet = layer.bullet;
 };
 
 /**
@@ -568,6 +594,7 @@ export const getParagraphPropertiesEffective = (
     spcBefPts: result.spcBefPts ?? null,
     spcAftPts: result.spcAftPts ?? null,
     rtl: result.rtl ?? null,
+    bullet: result.bullet ?? null,
   };
 };
 

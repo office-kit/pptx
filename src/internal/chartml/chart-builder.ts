@@ -292,7 +292,15 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   if (series.trendline) children.push(trendlineElement(series.trendline));
   children.push(elem(c('cat'), { children: [strRef(catRange, spec.categories)] }));
   children.push(elem(c('val'), { children: [numRef(valRange, paddedValues)] }));
-  if (series.smooth === true) {
+  // Line series always get an explicit <c:smooth>: the schema default for an
+  // absent element is val="1", so LibreOffice draws an unauthored line as a
+  // smooth curve while PowerPoint draws it straight. PowerPoint itself always
+  // writes the element; doing the same keeps every renderer straight unless
+  // smoothing was asked for. (Only CT_LineSer carries smooth — emitting it on
+  // a bar/pie series would be schema-invalid.)
+  if (spec.kind === 'line') {
+    children.push(valNode(c('smooth'), series.smooth === true ? '1' : '0'));
+  } else if (series.smooth === true) {
     children.push(valNode(c('smooth'), '1'));
   }
   return elem(c('ser'), { children });

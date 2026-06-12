@@ -115,6 +115,13 @@ const FALLBACK_LINEGAP = 0.08;
 // (top-anchored text needs no correction; only center/bottom do).
 const CENTER_ANCHOR_DROP = 0.036;
 
+// The whole text layer paints ≈1px right of LibreOffice's pdftoppm raster at
+// 1280px — a constant disagreement about where the glyph origin lands on the
+// pixel grid between resvg and pdftoppm (every sample's fg-SSIM-vs-shift
+// optimum sits at dx=−1, independent of font or anchor). Nudging emitted x
+// coordinates compensates; sub-pixel so it is invisible at any zoom.
+const GRID_NUDGE_X = -0.75;
+
 // ---------------------------------------------------------------------------
 // Engine input model. render-slide.ts resolves the OOXML cascade and hands the
 // engine this already-normalized, px-native structure.
@@ -360,7 +367,13 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
           lineGap = para.fallbackSizePx * FALLBACK_LINEGAP;
         }
         const isFirst = li === 0;
-        const lineLeft = (isFirst ? firstLeft : wrapLeft) + bulletLead;
+        // Bulleted hanging indent (firstIndent < 0): PowerPoint puts the
+        // bullet at marL+indent and starts the text at marL itself, so the
+        // first line aligns with the wrapped lines. The bullet-width floor
+        // keeps a bullet wider than the hang from overlapping its text.
+        const lineLeft = bullet
+          ? Math.max(wrapLeft, firstLeft + bulletLead)
+          : (isFirst ? firstLeft : wrapLeft) + bulletLead;
         const line: Line = {
           tokens: toks,
           ascent,
@@ -503,11 +516,11 @@ const emitPlacements = (placements: Placement[]): string => {
         // Sit the square bullet on the text baseline (bottom edge at the
         // baseline), matching where the glyph's ink would land.
         parts.push(
-          `<image x="${fmt(line.bullet.x + dx)}" y="${fmt(baselineY - b.sizePx)}" width="${fmt(b.sizePx)}" height="${fmt(b.sizePx)}" href="${b.imageHref}" xlink:href="${b.imageHref}" preserveAspectRatio="xMidYMid meet"/>`,
+          `<image x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY - b.sizePx)}" width="${fmt(b.sizePx)}" height="${fmt(b.sizePx)}" href="${b.imageHref}" xlink:href="${b.imageHref}" preserveAspectRatio="xMidYMid meet"/>`,
         );
       } else {
         parts.push(
-          `<text x="${fmt(line.bullet.x + dx)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
+          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
         );
       }
     }
@@ -548,7 +561,7 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
     .map((g) => tspan(g))
     .join('');
   if (tspans === '') return '';
-  return `<text x="${fmt(line.anchorX + dx)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  return `<text x="${fmt(line.anchorX + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
 };
 
 interface Group {
