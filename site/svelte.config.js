@@ -38,8 +38,9 @@ const config = {
       'pptx-kit': '../src/index.ts',
       'pptx-kit/node': '../src/node.ts',
       // The preview renderer lives in a companion workspace package; alias to
-      // its source so the playground hot-reloads without a build step.
-      '@pptx-kit/preview': '../packages/preview/src/index.ts',
+      // its source so the playground hot-reloads without a build step — and
+      // so CI can build the site without first building the package's dist.
+      'pptx-kit-preview': '../packages/preview/src/index.ts',
     },
   },
 };
