@@ -53,6 +53,8 @@ import {
   setShapeStrokeArrow,
   setShapeStrokeDash,
   setShapeText,
+  setShapeTextColumns,
+  setShapeTextDirection,
   setShapeTextFormat,
   setSlideBackground,
   setSlideNotes,
@@ -804,5 +806,70 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
 
     const bytes = await savePresentation(pres);
     await writeSample('21-showcase.pptx', bytes);
+  });
+
+  it('22 — vertical text (vert + vert270)', async () => {
+    const pres = await loadBlank();
+    const slide = freshSlide(pres);
+    setSlideTitle(slide, 'Vertical text');
+
+    // vert: rotated 90° clockwise — reads top-to-bottom, columns right-to-left.
+    const vert = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1.5),
+      w: inches(2),
+      h: inches(4),
+      text: 'Vertical text rotated ninety degrees clockwise, wrapping across several columns.',
+    });
+    setShapeTextDirection(vert, 'vert');
+    setShapeRunFormat(vert, 0, 0, { size: 18 });
+
+    // vert270: rotated 270° — reads bottom-to-top, columns left-to-right.
+    const vert270 = addSlideTextBox(slide, {
+      x: inches(5),
+      y: inches(1.5),
+      w: inches(2),
+      h: inches(4),
+      text: 'Vertical text rotated two hundred seventy degrees, the opposite reading direction.',
+    });
+    setShapeTextDirection(vert270, 'vert270');
+    setShapeRunFormat(vert270, 0, 0, { size: 18 });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('22-vertical-text.pptx', bytes);
+  });
+
+  it('23 — multi-column text (2 and 3 columns)', async () => {
+    const pres = await loadBlank();
+    const slide = freshSlide(pres);
+    setSlideTitle(slide, 'Multi-column text');
+
+    const para =
+      'PowerPoint fills multi-column text bodies sequentially: the first column ' +
+      'is filled down to the box height, then the overflow continues in the next ' +
+      'column, and so on across the body. ';
+
+    const two = addSlideTextBox(slide, {
+      x: inches(0.7),
+      y: inches(1.5),
+      w: inches(8.5),
+      h: inches(1.8),
+      text: para.repeat(3),
+    });
+    setShapeTextColumns(two, { count: 2, gapEmu: 228600 }); // 0.25in gap
+    setShapeRunFormat(two, 0, 0, { size: 14 });
+
+    const three = addSlideTextBox(slide, {
+      x: inches(0.7),
+      y: inches(3.7),
+      w: inches(8.5),
+      h: inches(2.5),
+      text: para.repeat(5),
+    });
+    setShapeTextColumns(three, { count: 3, gapEmu: 182880 }); // 0.2in gap
+    setShapeRunFormat(three, 0, 0, { size: 14 });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('23-columns.pptx', bytes);
   });
 });

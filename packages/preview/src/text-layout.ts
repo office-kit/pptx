@@ -155,6 +155,18 @@ export interface ParaInput {
   readonly fallbackSizePx: number; // line height for an empty paragraph
 }
 
+/** Normalized text direction the engine understands. render-slide maps the
+ *  OOXML `vert` token (`vert`/`eaVert`/`vert270`/…) onto one of these — the
+ *  engine stays free of OOXML vocabulary. `cw90` rotates the horizontal layout
+ *  90° clockwise (reading top-to-bottom, columns right-to-left); `cw270` is the
+ *  opposite 270° rotation (columns left-to-right). */
+export type VerticalLayout = 'none' | 'cw90' | 'cw270';
+
+export interface ColumnLayout {
+  readonly count: number; // PowerPoint clamps to >= 2 before this point
+  readonly gapPx: number;
+}
+
 export interface TextBodyInput {
   readonly boxXpx: number;
   readonly boxYpx: number;
@@ -163,6 +175,10 @@ export interface TextBodyInput {
   readonly anchor: 'top' | 'center' | 'bottom';
   readonly wrap: boolean;
   readonly paragraphs: readonly ParaInput[];
+  /** Vertical text direction; omitted / 'none' is the default horizontal flow. */
+  readonly vert?: VerticalLayout;
+  /** Multi-column body (`numCol`/`spcCol`); null / omitted is single column. */
+  readonly columns?: ColumnLayout | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -187,6 +203,28 @@ interface Line {
   textAnchor: 'start' | 'middle' | 'end';
   bullet: { x: number; baselineDy: number; b: BulletInput } | null;
 }
+
+// The box (in local coords) that one horizontal layout pass fills. Horizontal
+// text uses the shape box directly; vertical text uses a swapped-extent frame
+// re-centred on the box (see layoutTextSvg).
+interface Frame {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+}
+
+// A laid-out line ready to emit: its baseline Y plus an X shift (non-zero only
+// for the second-and-later columns of a multi-column body).
+interface Placement {
+  readonly line: Line;
+  readonly baselineY: number;
+  readonly dx: number;
+}
+
+// Builds the line list for one column of a given content width. Closes over the
+// paragraph model and measurer caches inside layoutTextSvg.
+type LineBuilder = (contentLeft: number, contentRight: number) => { lines: Line[]; blockH: number };
 
 const specOf = (piece: PieceInput): FontSpec => ({
   family: piece.family,
@@ -247,123 +285,216 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
     return m;
   };
 
-  const contentLeft = input.boxXpx;
-  const contentRight = input.boxXpx + input.boxWpx;
-  const lines: Line[] = [];
-  let cursorY = 0;
+  // One horizontal layout pass, parameterized on the content box's left/right
+  // edges so the same wrap/measure code serves the shape box (horizontal), a
+  // single column of a multi-column body, and the swapped frame of vertical
+  // text. Closes over the measurer caches above.
+  const buildLines: LineBuilder = (contentLeft, contentRight) => {
+    const lines: Line[] = [];
+    let cursorY = 0;
 
-  for (const para of input.paragraphs) {
-    cursorY += para.spcBefPx;
-    const wrapLeft = contentLeft + para.marLpx;
-    const wrapRight = contentRight - para.marRpx;
-    const firstLeft = wrapLeft + para.firstIndentPx;
-    const hasText = para.pieces.some((p) => !p.isBreak && p.text !== '');
-    const bullet = para.bullet && hasText ? para.bullet : null;
-    const bulletLead = bullet ? mWidth(`${bullet.text} `, bulletSpec(bullet)) : 0;
+    for (const para of input.paragraphs) {
+      cursorY += para.spcBefPx;
+      const wrapLeft = contentLeft + para.marLpx;
+      const wrapRight = contentRight - para.marRpx;
+      const firstLeft = wrapLeft + para.firstIndentPx;
+      const hasText = para.pieces.some((p) => !p.isBreak && p.text !== '');
+      const bullet = para.bullet && hasText ? para.bullet : null;
+      const bulletLead = bullet ? mWidth(`${bullet.text} `, bulletSpec(bullet)) : 0;
 
-    // Tokenize: word / whitespace runs per piece, plus break markers. Pre-split
-    // any single token wider than a full line into per-character tokens.
-    const avail = Math.max(1, wrapRight - wrapLeft);
-    const tokens: Token[] = [];
-    for (const piece of para.pieces) {
-      if (piece.isBreak) {
-        tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
-        continue;
-      }
-      for (const seg of piece.text.match(/\s+|\S+/g) ?? []) {
-        const isSpace = /^\s+$/.test(seg);
-        const w = mWidth(seg, specOf(piece));
-        if (input.wrap && !isSpace && w > avail - bulletLead && [...seg].length > 1) {
-          for (const ch of seg) {
-            tokens.push({
-              text: ch,
-              piece,
-              isSpace: false,
-              isBreak: false,
-              width: mWidth(ch, specOf(piece)),
-            });
+      // Tokenize: word / whitespace runs per piece, plus break markers. Pre-split
+      // any single token wider than a full line into per-character tokens.
+      const avail = Math.max(1, wrapRight - wrapLeft);
+      const tokens: Token[] = [];
+      for (const piece of para.pieces) {
+        if (piece.isBreak) {
+          tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
+          continue;
+        }
+        for (const seg of piece.text.match(/\s+|\S+/g) ?? []) {
+          const isSpace = /^\s+$/.test(seg);
+          const w = mWidth(seg, specOf(piece));
+          if (input.wrap && !isSpace && w > avail - bulletLead && [...seg].length > 1) {
+            for (const ch of seg) {
+              tokens.push({
+                text: ch,
+                piece,
+                isSpace: false,
+                isBreak: false,
+                width: mWidth(ch, specOf(piece)),
+              });
+            }
+          } else {
+            tokens.push({ text: seg, piece, isSpace, isBreak: false, width: w });
           }
-        } else {
-          tokens.push({ text: seg, piece, isSpace, isBreak: false, width: w });
         }
       }
+
+      const wrapped = wrapTokens(tokens, input.wrap, wrapRight - firstLeft - bulletLead, avail);
+      const paraLines: Token[][] = wrapped.length > 0 ? wrapped : [[]];
+
+      for (let li = 0; li < paraLines.length; li++) {
+        const toks = paraLines[li]!;
+        let ascent = 0;
+        let descent = 0;
+        let lineGap = 0;
+        for (const t of toks) {
+          if (t.isSpace || t.isBreak) continue;
+          const m = mMetrics(t.piece);
+          if (m.a > ascent) ascent = m.a;
+          if (m.d > descent) descent = m.d;
+          if (m.g > lineGap) lineGap = m.g;
+        }
+        if (ascent === 0) {
+          ascent = para.fallbackSizePx * FALLBACK_ASCENT;
+          descent = para.fallbackSizePx * FALLBACK_DESCENT;
+          lineGap = para.fallbackSizePx * FALLBACK_LINEGAP;
+        }
+        const isFirst = li === 0;
+        const lineLeft = (isFirst ? firstLeft : wrapLeft) + bulletLead;
+        const line: Line = {
+          tokens: toks,
+          ascent,
+          descent,
+          lineGap,
+          topY: cursorY,
+          advance: 0,
+          anchorX: lineLeft,
+          textAnchor: 'start',
+          bullet: null,
+        };
+        if (para.align === 'center') {
+          line.textAnchor = 'middle';
+          line.anchorX = (lineLeft + wrapRight) / 2;
+        } else if (para.align === 'right') {
+          line.textAnchor = 'end';
+          line.anchorX = wrapRight;
+        }
+        if (isFirst && bullet) {
+          line.bullet = { x: firstLeft, baselineDy: 0, b: bullet };
+        }
+        line.advance = lineAdvance(line, para);
+        cursorY += line.advance;
+        lines.push(line);
+      }
+      cursorY += para.spcAftPx;
     }
+    return { lines, blockH: cursorY };
+  };
 
-    const wrapped = wrapTokens(tokens, input.wrap, wrapRight - firstLeft - bulletLead, avail);
-    const paraLines: Token[][] = wrapped.length > 0 ? wrapped : [[]];
+  const vert = input.vert ?? 'none';
+  const cx = input.boxXpx + input.boxWpx / 2;
+  const cy = input.boxYpx + input.boxHpx / 2;
+  // Vertical text lays out horizontally into a frame whose extents are swapped
+  // and re-centred on the box, so a single rotate(±90) about the box centre
+  // maps that horizontal layout exactly onto the shape. All wrap / anchor /
+  // align math then stays identical to horizontal — only the wrapping transform
+  // differs, which is what keeps the calibrated horizontal path byte-stable.
+  const frame: Frame =
+    vert === 'none'
+      ? { x: input.boxXpx, y: input.boxYpx, w: input.boxWpx, h: input.boxHpx }
+      : { x: cx - input.boxHpx / 2, y: cy - input.boxWpx / 2, w: input.boxHpx, h: input.boxWpx };
 
-    for (let li = 0; li < paraLines.length; li++) {
-      const toks = paraLines[li]!;
-      let ascent = 0;
-      let descent = 0;
-      let lineGap = 0;
-      for (const t of toks) {
-        if (t.isSpace || t.isBreak) continue;
-        const m = mMetrics(t.piece);
-        if (m.a > ascent) ascent = m.a;
-        if (m.d > descent) descent = m.d;
-        if (m.g > lineGap) lineGap = m.g;
-      }
-      if (ascent === 0) {
-        ascent = para.fallbackSizePx * FALLBACK_ASCENT;
-        descent = para.fallbackSizePx * FALLBACK_DESCENT;
-        lineGap = para.fallbackSizePx * FALLBACK_LINEGAP;
-      }
-      const isFirst = li === 0;
-      const lineLeft = (isFirst ? firstLeft : wrapLeft) + bulletLead;
-      const line: Line = {
-        tokens: toks,
-        ascent,
-        descent,
-        lineGap,
-        topY: cursorY,
-        advance: 0,
-        anchorX: lineLeft,
-        textAnchor: 'start',
-        bullet: null,
-      };
-      if (para.align === 'center') {
-        line.textAnchor = 'middle';
-        line.anchorX = (lineLeft + wrapRight) / 2;
-      } else if (para.align === 'right') {
-        line.textAnchor = 'end';
-        line.anchorX = wrapRight;
-      }
-      if (isFirst && bullet) {
-        line.bullet = { x: firstLeft, baselineDy: 0, b: bullet };
-      }
-      line.advance = lineAdvance(line, para);
-      cursorY += line.advance;
-      lines.push(line);
-    }
-    cursorY += para.spcAftPx;
+  // Columns apply to horizontal text only — a faithful rotated-column layout is
+  // disproportionate and PowerPoint itself barely supports vert + numCol, so we
+  // keep the rotation and drop numCol rather than emit a wrong combined layout.
+  const columns = vert === 'none' ? (input.columns ?? null) : null;
+
+  const placements =
+    columns && columns.count >= 2
+      ? placeColumns(frame, columns, input.anchor, buildLines)
+      : placeSingle(frame, input.anchor, buildLines);
+
+  const body = emitPlacements(placements);
+  if (vert === 'none') return body;
+  const deg = vert === 'cw90' ? 90 : 270;
+  return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
+};
+
+// Vertical block offset for an anchor. Center / bottom get the empirical drop
+// calibration (see site/fidelity/README.md): LibreOffice & PowerPoint sit
+// center/bottom-anchored text ≈0.036 of a line's (ascent+descent) lower than
+// the win-metric line box predicts; top-anchored text aligns exactly.
+const anchorOffsetY = (
+  frameY: number,
+  frameH: number,
+  blockH: number,
+  anchor: 'top' | 'center' | 'bottom',
+  firstLine: Line | undefined,
+): number => {
+  let offsetY = frameY;
+  if (anchor === 'center') offsetY = frameY + (frameH - blockH) / 2;
+  else if (anchor === 'bottom') offsetY = frameY + (frameH - blockH);
+  if ((anchor === 'center' || anchor === 'bottom') && firstLine) {
+    offsetY += CENTER_ANCHOR_DROP * (firstLine.ascent + firstLine.descent);
   }
+  return offsetY;
+};
 
-  const blockH = cursorY;
-  let offsetY = input.boxYpx;
-  if (input.anchor === 'center') offsetY = input.boxYpx + (input.boxHpx - blockH) / 2;
-  else if (input.anchor === 'bottom') offsetY = input.boxYpx + (input.boxHpx - blockH);
-  // Empirical calibration: with vertical centering / bottom anchoring,
-  // LibreOffice & PowerPoint sit the text slightly lower than the win-metric
-  // line box implies — verified against ground truth (an IoU offset search) as
-  // ≈0.036 of a line's (ascent+descent), isolated to non-top anchoring
-  // (top-anchored text aligns exactly, so it gets no shift). See
-  // site/fidelity/README.md.
-  if ((input.anchor === 'center' || input.anchor === 'bottom') && lines.length > 0) {
-    const ref = lines[0]!;
-    offsetY += CENTER_ANCHOR_DROP * (ref.ascent + ref.descent);
-  }
+const placeSingle = (
+  frame: Frame,
+  anchor: 'top' | 'center' | 'bottom',
+  buildLines: LineBuilder,
+): Placement[] => {
+  const { lines, blockH } = buildLines(frame.x, frame.x + frame.w);
+  const offsetY = anchorOffsetY(frame.y, frame.h, blockH, anchor, lines[0]);
+  return lines.map((line) => ({
+    line,
+    baselineY: offsetY + line.topY + topPad(line) + line.ascent,
+    dx: 0,
+  }));
+};
 
-  const parts: string[] = [];
+const placeColumns = (
+  frame: Frame,
+  columns: ColumnLayout,
+  anchor: 'top' | 'center' | 'bottom',
+  buildLines: LineBuilder,
+): Placement[] => {
+  const gap = columns.gapPx;
+  const colW = Math.max(1, (frame.w - (columns.count - 1) * gap) / columns.count);
+  const { lines } = buildLines(frame.x, frame.x + colW);
+  // Sequential fill, matching PowerPoint (not CSS column-fill:balance): fill
+  // column 1 down to the box height, then overflow into column 2, and so on. A
+  // column only breaks once it already holds a line, so a single over-tall line
+  // can't loop. With few lines everything stays in column 1.
+  let col = 0;
+  let colStartTopY = 0;
+  const colHasLine: boolean[] = [];
+  let tallest = 0;
+  const placed: { line: Line; localTopY: number; col: number }[] = [];
   for (const line of lines) {
-    const baselineY = offsetY + line.topY + topPad(line) + line.ascent;
+    const localBottom = line.topY - colStartTopY + line.advance;
+    if (col < columns.count - 1 && localBottom > frame.h && colHasLine[col]) {
+      col += 1;
+      colStartTopY = line.topY;
+    }
+    const localTopY = line.topY - colStartTopY;
+    placed.push({ line, localTopY, col });
+    colHasLine[col] = true;
+    if (localTopY + line.advance > tallest) tallest = localTopY + line.advance;
+  }
+  // Vertical anchor applies to the whole body via its tallest column block —
+  // with sequential fill the filled columns reach the box height, so this
+  // matches PowerPoint/LibreOffice anchoring the body as one unit.
+  const offsetY = anchorOffsetY(frame.y, frame.h, tallest, anchor, lines[0]);
+  return placed.map(({ line, localTopY, col: c }) => ({
+    line,
+    baselineY: offsetY + localTopY + topPad(line) + line.ascent,
+    dx: c * (colW + gap),
+  }));
+};
+
+const emitPlacements = (placements: Placement[]): string => {
+  const parts: string[] = [];
+  for (const { line, baselineY, dx } of placements) {
     if (line.bullet) {
       const b = line.bullet.b;
       parts.push(
-        `<text x="${fmt(line.bullet.x)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
+        `<text x="${fmt(line.bullet.x + dx)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
       );
     }
-    parts.push(emitLine(line, baselineY));
+    parts.push(emitLine(line, baselineY, dx));
   }
   return parts.join('');
 };
@@ -389,7 +520,7 @@ const lineAdvance = (line: Line, para: ParaInput): number => {
   return adv * para.lineAdvanceScale;
 };
 
-const emitLine = (line: Line, baselineY: number): string => {
+const emitLine = (line: Line, baselineY: number, dx: number): string => {
   const toks = [...line.tokens];
   while (toks.length > 0 && (toks[toks.length - 1]!.isSpace || toks[toks.length - 1]!.isBreak)) {
     toks.pop();
@@ -400,7 +531,7 @@ const emitLine = (line: Line, baselineY: number): string => {
     .map((g) => tspan(g))
     .join('');
   if (tspans === '') return '';
-  return `<text x="${fmt(line.anchorX)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  return `<text x="${fmt(line.anchorX + dx)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
 };
 
 interface Group {

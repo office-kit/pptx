@@ -182,3 +182,116 @@ describe('layoutTextSvg', () => {
     expect(yOf(bottom)).toBeGreaterThan(yOf(top));
   });
 });
+
+// X/Y of every emitted <text> in document order (bullets included).
+const coords = (svg: string): { x: number; y: number }[] =>
+  [...svg.matchAll(/<text x="(-?[\d.]+)" y="(-?[\d.]+)"/g)].map((m) => ({
+    x: Number(m[1]),
+    y: Number(m[2]),
+  }));
+
+const br = (): PieceInput => piece('', { isBreak: true });
+
+describe('layoutTextSvg vertical text', () => {
+  // Box 100×200 ⇒ centre (50,100); the rotation pivots there so the swapped
+  // 200×100 layout frame lands back on the shape after rotation.
+  const vbox = { boxXpx: 0, boxYpx: 0, boxWpx: 100, boxHpx: 200 } as const;
+
+  it('cw90 wraps output in a rotate(90) transform about the box centre', () => {
+    const svg = layoutTextSvg(body([para([piece('A')])], { ...vbox, vert: 'cw90' }), stubMeasurer);
+    expect(svg).toMatch(/^<g transform="rotate\(90 50 100\)">/);
+    expect(svg.endsWith('</g>')).toBe(true);
+  });
+
+  it('cw270 rotates the opposite way', () => {
+    const svg = layoutTextSvg(body([para([piece('A')])], { ...vbox, vert: 'cw270' }), stubMeasurer);
+    expect(svg).toMatch(/^<g transform="rotate\(270 50 100\)">/);
+  });
+
+  it('stacks successive lines along the local axis (increasing y before rotation)', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('A'), br(), piece('B')])], { ...vbox, vert: 'cw90' }),
+      stubMeasurer,
+    );
+    const ys = coords(svg).map((c) => c.y);
+    expect(ys).toHaveLength(2);
+    // Lines stack in local +y; the rotate transform turns that into the
+    // right-to-left column stacking that vert text shows visually.
+    expect(ys[1]!).toBeGreaterThan(ys[0]!);
+  });
+
+  it('ignores numCol for vertical text (rotation wins over columns)', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('A'), br(), piece('B')])], {
+        ...vbox,
+        vert: 'cw90',
+        columns: { count: 2, gapPx: 10 },
+      }),
+      stubMeasurer,
+    );
+    // A single x-offset ⇒ no column split was applied.
+    expect(new Set(coords(svg).map((c) => c.x)).size).toBe(1);
+  });
+});
+
+describe('layoutTextSvg multi-column', () => {
+  it('sequentially fills column 1, then spills overflow into column 2 at the gap offset', () => {
+    // 5 lines, each 10px tall (stub metrics); box height 30 fits 3 per column.
+    const fiveLines = para([
+      piece('A'),
+      br(),
+      piece('B'),
+      br(),
+      piece('C'),
+      br(),
+      piece('D'),
+      br(),
+      piece('E'),
+    ]);
+    const svg = layoutTextSvg(
+      body([fiveLines], { boxWpx: 200, boxHpx: 30, columns: { count: 2, gapPx: 10 } }),
+      stubMeasurer,
+    );
+    const xs = coords(svg).map((c) => c.x);
+    // colW = (200 − 1·10) / 2 = 95; column 2 sits at 95 + 10 (gap) = 105.
+    expect(new Set(xs)).toEqual(new Set([0, 105]));
+    expect(xs.filter((x) => x === 105)).toHaveLength(2); // D, E overflowed
+  });
+
+  it('keeps few lines entirely in the first column', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('A'), br(), piece('B')])], {
+        boxWpx: 200,
+        boxHpx: 100,
+        columns: { count: 2, gapPx: 10 },
+      }),
+      stubMeasurer,
+    );
+    expect(new Set(coords(svg).map((c) => c.x))).toEqual(new Set([0]));
+  });
+});
+
+describe('layoutTextSvg horizontal parity', () => {
+  it('omitting vert/columns is identical to passing none/null', () => {
+    const paras = [para([piece('hello world foo bar baz')])];
+    const plain = layoutTextSvg(body(paras, { boxWpx: 60 }), stubMeasurer);
+    const explicit = layoutTextSvg(
+      body(paras, { boxWpx: 60, vert: 'none', columns: null }),
+      stubMeasurer,
+    );
+    expect(plain).toBe(explicit);
+  });
+
+  it('emits the calibrated horizontal layout unchanged (snapshot guard)', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('aa bb cc dd')]), para([piece('ee ff')], { align: 'center' })], {
+        boxWpx: 40,
+        anchor: 'center',
+      }),
+      stubMeasurer,
+    );
+    expect(svg).toMatchInlineSnapshot(
+      `"<text x="0" y="93.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa bb</tspan></text><text x="0" y="103.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc dd</tspan></text><text x="20" y="113.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee ff</tspan></text>"`,
+    );
+  });
+});
