@@ -375,7 +375,14 @@ export interface ParagraphProperties {
   rtl: boolean | null;
 }
 
-const ALIGN_TOKEN_MAP: Record<string, ParagraphProperties['align']> = {
+/**
+ * Maps an OOXML `algn` token to the friendly `ParagraphAlignment` form the
+ * rest of the API speaks. Exported so the table-cell reader normalises the
+ * same way the shape-text cascade does.
+ *
+ * @internal
+ */
+export const ALIGN_TOKEN_MAP: Record<string, ParagraphProperties['align']> = {
   l: 'left',
   ctr: 'center',
   r: 'right',

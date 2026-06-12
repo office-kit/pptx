@@ -379,6 +379,7 @@ export {
   getTableCellBorders,
   getTableCellFill,
   getTableCellMargins,
+  getTableCellParagraphs,
   getTableCellPosition,
   getTableCellSpan,
   getTableCellText,
@@ -523,6 +524,7 @@ export {
 
 export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';
 export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
+export type { TableCellParagraph } from './fn.ts';
 export type {
   PresetShape,
   TransitionEffect,
