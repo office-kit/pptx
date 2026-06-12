@@ -139,6 +139,22 @@ export const loadBaseline = (path: string): BaselineData | null => {
   return JSON.parse(readFileSync(path, 'utf8')) as BaselineData;
 };
 
+// Hand-rolled serialization instead of JSON.stringify(data, null, 2): oxfmt
+// reformats committed JSON with per-file score arrays inline, and emitting
+// that shape directly lets a CI baseline candidate be committed unchanged.
 export const writeBaselineFile = (path: string, data: BaselineData): void => {
-  writeFileSync(path, JSON.stringify(data, null, 2) + '\n');
+  const fileLines = Object.entries(data.files)
+    .map(([name, scores]) => `    ${JSON.stringify(name)}: [${scores.join(', ')}]`)
+    .join(',\n');
+  const json = [
+    '{',
+    `  "engine": ${JSON.stringify(data.engine)},`,
+    `  "width": ${data.width},`,
+    `  "sofficeVersion": ${JSON.stringify(data.sofficeVersion)},`,
+    '  "files": {',
+    fileLines,
+    '  }',
+    '}',
+  ].join('\n');
+  writeFileSync(path, json + '\n');
 };
