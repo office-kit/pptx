@@ -1,0 +1,82 @@
+{
+  "engine": "libreoffice",
+  "width": 1280,
+  "sofficeVersion": "LibreOffice 24.2.7.2 420(Build:2)",
+  "files": {
+    "01-title-only.pptx": [
+      0.6908
+    ],
+    "02-layouts.pptx": [
+      0.8877,
+      0.685,
+      0.3222,
+      0.4035
+    ],
+    "03-text-formatting.pptx": [
+      0.7595
+    ],
+    "04-bullets-alignment.pptx": [
+      0.5245
+    ],
+    "05-preset-shapes.pptx": [
+      0.6104
+    ],
+    "06-lines-arrows.pptx": [
+      0.8481
+    ],
+    "07-fills.pptx": [
+      0.931
+    ],
+    "08-shadow-glow.pptx": [
+      0.7958
+    ],
+    "09-images.pptx": [
+      0.9821
+    ],
+    "10-tables.pptx": [
+      0.1411
+    ],
+    "11-charts.pptx": [
+      0.5106,
+      0.8798
+    ],
+    "12-geometry.pptx": [
+      0.5912
+    ],
+    "13-zorder.pptx": [
+      0.9938
+    ],
+    "14-background.pptx": [
+      0.9709
+    ],
+    "15-notes-comments.pptx": [
+      0.7747
+    ],
+    "16-transitions.pptx": [
+      0.7829,
+      0.7404,
+      0.7411
+    ],
+    "17-animations.pptx": [
+      0.991
+    ],
+    "18-hyperlinks.pptx": [
+      0.5538
+    ],
+    "19-token-fill.pptx": [
+      0.7607
+    ],
+    "20-core-properties.pptx": [
+      0.64
+    ],
+    "21-showcase.pptx": [
+      0.7256,
+      0.9478,
+      0.6774,
+      0.1578,
+      0.9937,
+      0.7746,
+      0.6079
+    ]
+  }
+}
