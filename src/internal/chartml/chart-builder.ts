@@ -624,6 +624,14 @@ const rPrAttrsFromStyle = (
       }),
     );
   }
+  // <a:latin> / <a:ea> follow the fill group in CT_TextCharacterProperties;
+  // ea carries the same face so CJK glyphs aren't dropped to the renderer's
+  // latin-only fallback (the latin slot is ignored for east-asian script).
+  if (style?.font !== undefined) {
+    const typeface = attr(qname('', 'typeface', ''), style.font);
+    children.push(elem(a('latin'), { attrs: [typeface] }));
+    children.push(elem(a('ea'), { attrs: [typeface] }));
+  }
   return { attrs, children };
 };
 
