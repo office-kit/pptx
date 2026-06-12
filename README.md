@@ -54,9 +54,12 @@ never silently strip parts it doesn't model. That's the L1 contract.
 
 When NOT to use this:
 
-- You want to **render** PPTX to pixels / PDF in the browser. Use a renderer
-  (e.g. `pptx2html`, server-side LibreOffice headless). `pptx-kit` writes
-  PPTX, it does not paint it.
+- You need a **pixel-perfect** PPTX rendering (print, archival). The
+  companion [`pptx-kit-preview`](packages/preview) package renders slides to
+  SVG in the browser and to PNG on the server — its closeness to LibreOffice
+  is measured per slide and gated in CI (`site/fidelity`) — but it is a
+  high-fidelity preview, not a spec-complete paint engine. For
+  pixel-authoritative output, use PowerPoint itself or LibreOffice headless.
 - You need a thin DSL for one-off "report" slides and do not care about
   schema validity. A simpler library will be lighter.
 - You want to convert PPTX to another format (Keynote, ODP). Out of scope

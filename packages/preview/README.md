@@ -68,12 +68,17 @@ glyphs and the result is deterministic (no system fonts).
 
 ## Fidelity
 
-This is an approximation, not a spec-complete PowerPoint renderer. Preset
-geometry, fills, strokes, rotation, images, charts, tables, and template
-(layout/master) decoration render; custom geometry, SmartArt, and effects are
-partial or fall back to labelled placeholders. Per-slide closeness to a
-LibreOffice baseline is tracked by the fidelity harness in the monorepo
-(`site/fidelity`).
+This is a high-fidelity preview, not a spec-complete PowerPoint renderer.
+Preset and custom geometry, solid/gradient/pattern/image fills (including the
+placeholder layout/master cascade), strokes, rotation, effects (shadow, glow,
+soft edge, reflection), images with adjustments, charts (column, bar, line,
+area, pie, doughnut, scatter, radar, bubble), tables with per-run cell text,
+vertical and multi-column text in both text-layout modes, picture bullets, and
+template (layout/master) decoration all render. SmartArt, animations, 3D, and
+EMF/WMF fall back to labelled placeholders carrying a machine-readable marker
+(below). Per-slide closeness to a LibreOffice baseline is measured and gated
+in CI by the fidelity harness in the monorepo (`site/fidelity`) — mean
+fg-SSIM ≈ 0.78 across the corpus, with the residual gaps documented there.
 
 ### Fallback markers
 
