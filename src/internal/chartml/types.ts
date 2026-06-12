@@ -1,13 +1,26 @@
 // Chart authoring types.
 //
-// Minimum-viable chart surface: one or more named series of numeric
-// values plotted against shared string categories. Sufficient for the
-// three most-requested chart types — bar, line, pie — and structured so
-// that scatter / area / radar can extend it later without breaking the
-// public shape.
+// One or more named series of numeric values plotted against shared
+// string categories (bar / column / line / pie / doughnut / area), plus
+// the xy(z)-tuple kinds (scatter / radar / bubble) the reader and preview
+// model. Authoring is supported for the category kinds only; the xy(z)
+// kinds are read + render only (see `chart-builder.ts`).
 
-/** Chart type tokens we support today. */
-export type ChartKind = 'bar' | 'column' | 'line' | 'pie' | 'doughnut' | 'area';
+/**
+ * Chart type tokens. `bar` / `column` / `line` / `pie` / `doughnut` /
+ * `area` are authorable; `scatter` / `radar` / `bubble` are read +
+ * render only — the builder rejects them (see `buildChartSpaceDoc`).
+ */
+export type ChartKind =
+  | 'bar'
+  | 'column'
+  | 'line'
+  | 'pie'
+  | 'doughnut'
+  | 'area'
+  | 'scatter'
+  | 'radar'
+  | 'bubble';
 
 /** One labelled series of numeric values. */
 export interface ChartSeries {
@@ -17,8 +30,25 @@ export interface ChartSeries {
    * Numeric values, one per category. `null` slots become empty cells in
    * the embedded workbook (PowerPoint draws them as a gap). Lengths
    * shorter than the category count are right-padded with `null`.
+   *
+   * For `scatter` / `bubble` kinds there are no categories: `values`
+   * holds the series' y-channel (`<c:yVal>`), paired positionally with
+   * `xValues`. For `radar` it behaves like `line` (values per category).
    */
   readonly values: ReadonlyArray<number | null>;
+  /**
+   * X-channel values for `scatter` / `bubble` series (`<c:xVal>`), paired
+   * positionally with `values`. Absent for every other kind, where
+   * `values` is plotted against the shared `categories`.
+   */
+  readonly xValues?: ReadonlyArray<number | null>;
+  /**
+   * Per-point bubble sizes for `bubble` series (`<c:bubbleSize>`), paired
+   * positionally with `xValues` / `values`. The renderer scales each
+   * bubble's area (or width, per `ChartSpec.bubbleSizeRepresents`) to
+   * this magnitude. Absent for non-bubble kinds.
+   */
+  readonly bubbleSizes?: ReadonlyArray<number | null>;
   /** Optional `#RRGGBB` fill override. Defaults to the theme's accent palette. */
   readonly color?: string;
   /**
@@ -599,4 +629,36 @@ export interface ChartSpec {
    * Mirrors `<c:holeSize val="…"/>`. Default 50.
    */
   readonly holeSizePct?: number;
+  /**
+   * Scatter sub-type from `<c:scatterChart><c:scatterStyle val="…"/>`
+   * (ECMA-376 ST_ScatterStyle). Governs whether the renderer connects
+   * points with straight / smoothed lines and whether it draws markers:
+   *
+   *   - `'marker'` (and the renderer's default when absent) — markers only
+   *   - `'line'` / `'smooth'` — connecting line only
+   *   - `'lineMarker'` / `'smoothMarker'` — line + markers
+   *   - `'none'` — neither
+   */
+  readonly scatterStyle?: 'none' | 'line' | 'lineMarker' | 'marker' | 'smooth' | 'smoothMarker';
+  /**
+   * Radar sub-type from `<c:radarChart><c:radarStyle val="…"/>`
+   * (ECMA-376 ST_RadarStyle): `'standard'` (polyline only), `'marker'`
+   * (polyline + point markers), or `'filled'` (the polygon is filled at
+   * reduced opacity).
+   */
+  readonly radarStyle?: 'standard' | 'marker' | 'filled';
+  /**
+   * Bubble-size scale percentage from `<c:bubbleChart><c:bubbleScale
+   * val="N"/>` (0..300, PowerPoint default 100). Scales every bubble's
+   * rendered radius proportionally.
+   */
+  readonly bubbleScale?: number;
+  /**
+   * Whether a bubble's `<c:bubbleSize>` maps to the bubble's area or its
+   * width — `<c:bubbleChart><c:sizeRepresents val="area|w"/>` (ECMA-376
+   * ST_SizeRepresents; the `'w'` token is surfaced as `'width'`).
+   * PowerPoint's default is `'area'`, so radius scales with `sqrt(size)`;
+   * `'width'` scales radius linearly with size.
+   */
+  readonly bubbleSizeRepresents?: 'area' | 'width';
 }

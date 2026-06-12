@@ -685,6 +685,17 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
     case 'area':
       plotted = buildAreaChart(spec, sheet);
       break;
+    case 'scatter':
+    case 'radar':
+    case 'bubble':
+      // Read + render only (plan W4): the builder can't serialize the
+      // xy(z) tuple channels these kinds need, so reject rather than
+      // silently emit a malformed or wrong-kind chart. `readChartSpec`
+      // surfaces these kinds, but `addSlideChart` / `setChartSpec` won't
+      // write them.
+      throw new Error(
+        `chart kind '${spec.kind}' is read-only; authoring scatter / radar / bubble charts is not yet supported`,
+      );
     default: {
       const exhaustive: never = spec.kind;
       throw new Error(`unsupported chart kind: ${String(exhaustive)}`);

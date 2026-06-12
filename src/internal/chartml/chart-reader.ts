@@ -77,16 +77,14 @@ const KIND_MAP: ReadonlyArray<PlottedKindMap> = [
   { localName: 'doughnutChart', kind: 'doughnut' },
   { localName: 'areaChart', kind: 'area' },
   { localName: 'area3DChart', kind: 'area' },
-  // Scatter / bubble carry xy / xyz tuples per series rather than
-  // numeric channels against shared categories. We degrade to line
-  // so the y-axis numbers + connecting strokes show up; the x-axis
-  // collapses to index positions. Better than the "unsupported kind"
-  // placeholder by a wide margin for the common single-series case.
-  { localName: 'scatterChart', kind: 'line' },
-  { localName: 'bubbleChart', kind: 'line' },
-  // Radar collapses to a vertical line chart — the legend + axis
-  // numbers are still readable.
-  { localName: 'radarChart', kind: 'line' },
+  // Scatter / bubble carry xy / xyz tuples per series (`<c:xVal>` /
+  // `<c:yVal>` / `<c:bubbleSize>`) rather than numeric channels against
+  // shared categories; radar uses cat+val like line. All three are
+  // modeled as their own kind (read + render only — the builder rejects
+  // them, see chart-builder.ts).
+  { localName: 'scatterChart', kind: 'scatter' },
+  { localName: 'bubbleChart', kind: 'bubble' },
+  { localName: 'radarChart', kind: 'radar' },
   // Stock charts: open / high / low / close as a four-line plot.
   { localName: 'stockChart', kind: 'line' },
   // Surface degrades to a column chart so the data table is visible.
@@ -624,14 +622,17 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       }
     }
     let valEl = firstChildElement(ser, NAME_VAL);
-    // Scatter / bubble charts carry numeric data on <c:yVal> rather
-    // than <c:val>; surface those so the line-chart degradation has
-    // something to plot. Bubble's <c:bubbleSize> is ignored — we
-    // don't have a per-point sizing channel yet.
+    // Scatter / bubble carry their y-channel on <c:yVal> rather than
+    // <c:val>; their x-channel is <c:xVal> and bubble's per-point size
+    // is <c:bubbleSize>. Radar / line use <c:val> against shared cats.
     if (!valEl) {
       valEl = firstChildElement(ser, qname('c', 'yVal', NS_C));
     }
     const values = valEl !== null ? readNumRef(valEl) : null;
+    const xValEl = firstChildElement(ser, qname('c', 'xVal', NS_C));
+    const xValues = xValEl !== null ? readNumRef(xValEl) : null;
+    const bubbleSizeEl = firstChildElement(ser, qname('c', 'bubbleSize', NS_C));
+    const bubbleSizes = bubbleSizeEl !== null ? readNumRef(bubbleSizeEl) : null;
     const color = readSeriesColor(ser);
     const { lineWidthEmu, lineDash } = readSeriesLineProps(ser);
     const { markerSymbol, markerSizePt } = readSeriesMarker(ser);
@@ -679,6 +680,8 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     series.push({
       name,
       values: values ?? [],
+      ...(xValues !== null ? { xValues } : {}),
+      ...(bubbleSizes !== null ? { bubbleSizes } : {}),
       ...(color !== undefined ? { color } : {}),
       ...(lineWidthEmu !== undefined ? { lineWidthEmu } : {}),
       ...(lineDash !== undefined ? { lineDash } : {}),
@@ -1263,6 +1266,52 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // Scatter / radar / bubble sub-type + bubble sizing, all read from the
+  // plotted-kind element.
+  let scatterStyle: ChartSpec['scatterStyle'];
+  let radarStyle: ChartSpec['radarStyle'];
+  let bubbleScale: number | undefined;
+  let bubbleSizeRepresents: ChartSpec['bubbleSizeRepresents'];
+  if (kind === 'scatter') {
+    const el = firstChildElement(plotted, qname('c', 'scatterStyle', NS_C));
+    if (el) {
+      const v = getAttrValue(el, ATTR_VAL);
+      if (
+        v === 'none' ||
+        v === 'line' ||
+        v === 'lineMarker' ||
+        v === 'marker' ||
+        v === 'smooth' ||
+        v === 'smoothMarker'
+      ) {
+        scatterStyle = v;
+      }
+    }
+  } else if (kind === 'radar') {
+    const el = firstChildElement(plotted, qname('c', 'radarStyle', NS_C));
+    if (el) {
+      const v = getAttrValue(el, ATTR_VAL);
+      if (v === 'standard' || v === 'marker' || v === 'filled') radarStyle = v;
+    }
+  } else if (kind === 'bubble') {
+    const bsEl = firstChildElement(plotted, qname('c', 'bubbleScale', NS_C));
+    if (bsEl) {
+      const v = getAttrValue(bsEl, ATTR_VAL);
+      if (v !== null) {
+        const n = Number.parseInt(v, 10);
+        // ST_BubbleScale spans 0..300; clamp out-of-range author values.
+        if (Number.isFinite(n) && n >= 0) bubbleScale = Math.min(300, n);
+      }
+    }
+    const srEl = firstChildElement(plotted, qname('c', 'sizeRepresents', NS_C));
+    if (srEl) {
+      const v = getAttrValue(srEl, ATTR_VAL);
+      // ST_SizeRepresents tokens are 'area' and 'w'; surface 'w' as 'width'.
+      if (v === 'area') bubbleSizeRepresents = 'area';
+      else if (v === 'w') bubbleSizeRepresents = 'width';
+    }
+  }
+
   return {
     kind,
     categories,
@@ -1328,5 +1377,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisCrossBetween !== undefined ? { valueAxisCrossBetween } : {}),
     ...(firstSliceAngleDeg !== undefined ? { firstSliceAngleDeg } : {}),
     ...(holeSizePct !== undefined ? { holeSizePct } : {}),
+    ...(scatterStyle !== undefined ? { scatterStyle } : {}),
+    ...(radarStyle !== undefined ? { radarStyle } : {}),
+    ...(bubbleScale !== undefined ? { bubbleScale } : {}),
+    ...(bubbleSizeRepresents !== undefined ? { bubbleSizeRepresents } : {}),
   };
 };

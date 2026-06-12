@@ -272,3 +272,148 @@ describe('chart reader: extras', () => {
     expect(spec.varyColors).toBe(true);
   });
 });
+
+describe('chart reader: scatter / radar / bubble', () => {
+  it('detects scatter, reads xy tuples + scatterStyle', () => {
+    const xml = wrap(`
+      <c:plotArea>
+        <c:layout/>
+        <c:scatterChart>
+          <c:scatterStyle val="lineMarker"/>
+          <c:ser>
+            <c:idx val="0"/>
+            <c:order val="0"/>
+            <c:tx><c:strLit><c:pt idx="0"><c:v>S1</c:v></c:pt></c:strLit></c:tx>
+            <c:xVal>
+              <c:numLit>
+                <c:pt idx="0"><c:v>1</c:v></c:pt>
+                <c:pt idx="1"><c:v>2</c:v></c:pt>
+                <c:pt idx="2"><c:v>3</c:v></c:pt>
+              </c:numLit>
+            </c:xVal>
+            <c:yVal>
+              <c:numLit>
+                <c:pt idx="0"><c:v>10</c:v></c:pt>
+                <c:pt idx="1"><c:v>20</c:v></c:pt>
+                <c:pt idx="2"><c:v>15</c:v></c:pt>
+              </c:numLit>
+            </c:yVal>
+          </c:ser>
+          <c:axId val="1"/>
+          <c:axId val="2"/>
+        </c:scatterChart>
+        <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+        <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+      </c:plotArea>
+    `);
+    const spec = readChartSpec(parseXml(xml).root)!;
+    expect(spec.kind).toBe('scatter');
+    expect(spec.scatterStyle).toBe('lineMarker');
+    // For scatter, `values` is the y-channel; `xValues` the paired x.
+    expect(spec.series[0]!.xValues).toEqual([1, 2, 3]);
+    expect(spec.series[0]!.values).toEqual([10, 20, 15]);
+  });
+
+  it('detects bubble, reads bubbleSize + bubbleScale + sizeRepresents', () => {
+    const xml = wrap(`
+      <c:plotArea>
+        <c:layout/>
+        <c:bubbleChart>
+          <c:ser>
+            <c:idx val="0"/>
+            <c:order val="0"/>
+            <c:tx><c:strLit><c:pt idx="0"><c:v>B1</c:v></c:pt></c:strLit></c:tx>
+            <c:xVal>
+              <c:numLit><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt></c:numLit>
+            </c:xVal>
+            <c:yVal>
+              <c:numLit><c:pt idx="0"><c:v>10</c:v></c:pt><c:pt idx="1"><c:v>20</c:v></c:pt></c:numLit>
+            </c:yVal>
+            <c:bubbleSize>
+              <c:numLit><c:pt idx="0"><c:v>4</c:v></c:pt><c:pt idx="1"><c:v>9</c:v></c:pt></c:numLit>
+            </c:bubbleSize>
+          </c:ser>
+          <c:bubbleScale val="80"/>
+          <c:sizeRepresents val="area"/>
+          <c:axId val="1"/>
+          <c:axId val="2"/>
+        </c:bubbleChart>
+        <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+        <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+      </c:plotArea>
+    `);
+    const spec = readChartSpec(parseXml(xml).root)!;
+    expect(spec.kind).toBe('bubble');
+    expect(spec.bubbleScale).toBe(80);
+    expect(spec.bubbleSizeRepresents).toBe('area');
+    expect(spec.series[0]!.xValues).toEqual([1, 2]);
+    expect(spec.series[0]!.values).toEqual([10, 20]);
+    expect(spec.series[0]!.bubbleSizes).toEqual([4, 9]);
+  });
+
+  it("maps sizeRepresents='w' to 'width'", () => {
+    const xml = wrap(`
+      <c:plotArea>
+        <c:layout/>
+        <c:bubbleChart>
+          <c:ser>
+            <c:idx val="0"/>
+            <c:order val="0"/>
+            <c:tx><c:strLit><c:pt idx="0"><c:v>B</c:v></c:pt></c:strLit></c:tx>
+            <c:yVal><c:numLit><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:yVal>
+            <c:bubbleSize><c:numLit><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:bubbleSize>
+          </c:ser>
+          <c:sizeRepresents val="w"/>
+          <c:axId val="1"/>
+          <c:axId val="2"/>
+        </c:bubbleChart>
+        <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+        <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+      </c:plotArea>
+    `);
+    const spec = readChartSpec(parseXml(xml).root)!;
+    expect(spec.bubbleSizeRepresents).toBe('width');
+  });
+
+  it('detects radar, reads cat/val + radarStyle', () => {
+    const xml = wrap(`
+      <c:plotArea>
+        <c:layout/>
+        <c:radarChart>
+          <c:radarStyle val="filled"/>
+          <c:ser>
+            <c:idx val="0"/>
+            <c:order val="0"/>
+            <c:tx><c:strLit><c:pt idx="0"><c:v>R1</c:v></c:pt></c:strLit></c:tx>
+            <c:cat>
+              <c:strLit>
+                <c:pt idx="0"><c:v>A</c:v></c:pt>
+                <c:pt idx="1"><c:v>B</c:v></c:pt>
+                <c:pt idx="2"><c:v>C</c:v></c:pt>
+              </c:strLit>
+            </c:cat>
+            <c:val>
+              <c:numLit>
+                <c:pt idx="0"><c:v>3</c:v></c:pt>
+                <c:pt idx="1"><c:v>5</c:v></c:pt>
+                <c:pt idx="2"><c:v>2</c:v></c:pt>
+              </c:numLit>
+            </c:val>
+          </c:ser>
+          <c:axId val="1"/>
+          <c:axId val="2"/>
+        </c:radarChart>
+        <c:catAx><c:axId val="1"/><c:crossAx val="2"/></c:catAx>
+        <c:valAx><c:axId val="2"/><c:crossAx val="1"/></c:valAx>
+      </c:plotArea>
+    `);
+    const spec = readChartSpec(parseXml(xml).root)!;
+    expect(spec.kind).toBe('radar');
+    expect(spec.radarStyle).toBe('filled');
+    expect(spec.categories).toEqual(['A', 'B', 'C']);
+    expect(spec.series[0]!.values).toEqual([3, 5, 2]);
+    // Radar carries no x-channel / bubble sizes.
+    expect(spec.series[0]!.xValues).toBeUndefined();
+    expect(spec.series[0]!.bubbleSizes).toBeUndefined();
+  });
+});
