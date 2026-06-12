@@ -27,5 +27,10 @@ export {
 export type { Relationship, Relationships, TargetMode } from './rels.ts';
 export { emptyRels, nextRelId, parseRels, serializeRels } from './rels.ts';
 
-export type { ImageFormat } from './image-format.ts';
-export { contentTypeForFormat, detectImageFormat, extensionForFormat } from './image-format.ts';
+export type { ImageFormat, ImagePixelSize } from './image-format.ts';
+export {
+  contentTypeForFormat,
+  detectImageFormat,
+  extensionForFormat,
+  readImagePixelSize,
+} from './image-format.ts';
