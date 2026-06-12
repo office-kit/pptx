@@ -9,6 +9,7 @@ import {
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
+import { parseSrgbHex } from '../../internal/drawingml/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
   type ChartKind,
@@ -121,6 +122,48 @@ const buildChartGraphicFrame = (opts: {
   return elem(NAME_GRAPHIC_FRAME, { children: [nvGraphicFramePr, xfrm, graphic] });
 };
 
+// The chart builder emits every authored color as `<a:srgbClr>`, so chart
+// colors must be sRGB hex (`#RRGGBB` or `RRGGBB`) — scheme tokens like
+// `accent1` are not valid here. Without this gate an invalid string was
+// written verbatim into `val="…"`, producing a chart PowerPoint silently
+// dropped (or repaired). Validate at the authoring boundary so callers get
+// a clear error instead of a broken deck. The `#` prefix is optional; the
+// builder normalizes it.
+const checkChartColor = (value: string | null | undefined, label: string): void => {
+  if (value === null || value === undefined) return;
+  if (parseSrgbHex(value) === null) {
+    throw new Error(
+      `${label}: invalid chart color ${JSON.stringify(value)} — expected an sRGB hex like "#4472C4" or "4472C4"`,
+    );
+  }
+};
+
+const validateChartSpecColors = (spec: ChartSpec): void => {
+  checkChartColor(spec.plotAreaFill, 'addSlideChart: plotAreaFill');
+  checkChartColor(spec.plotAreaStrokeColor, 'addSlideChart: plotAreaStrokeColor');
+  checkChartColor(spec.chartAreaFill, 'addSlideChart: chartAreaFill');
+  checkChartColor(spec.chartAreaStrokeColor, 'addSlideChart: chartAreaStrokeColor');
+  checkChartColor(spec.valueAxisMajorGridlineColor, 'addSlideChart: valueAxisMajorGridlineColor');
+  checkChartColor(spec.valueAxisMinorGridlineColor, 'addSlideChart: valueAxisMinorGridlineColor');
+  checkChartColor(
+    spec.categoryAxisMajorGridlineColor,
+    'addSlideChart: categoryAxisMajorGridlineColor',
+  );
+  checkChartColor(
+    spec.categoryAxisMinorGridlineColor,
+    'addSlideChart: categoryAxisMinorGridlineColor',
+  );
+  checkChartColor(spec.valueAxisLineColor, 'addSlideChart: valueAxisLineColor');
+  checkChartColor(spec.categoryAxisLineColor, 'addSlideChart: categoryAxisLineColor');
+  spec.series.forEach((series, i) => {
+    checkChartColor(series.color, `addSlideChart: series[${i}].color`);
+    checkChartColor(series.trendline?.color, `addSlideChart: series[${i}].trendline.color`);
+    series.pointColors?.forEach((c, j) => {
+      checkChartColor(c, `addSlideChart: series[${i}].pointColors[${j}]`);
+    });
+  });
+};
+
 /**
  * Adds a chart to the slide. Returns the new shape handle (kind
  * `graphicFrame`). Supported chart kinds today: `bar`, `column`,
@@ -153,6 +196,7 @@ export const addSlideChart = (
     name?: string;
   },
 ): SlideShapeData => {
+  validateChartSpecColors(opts.spec);
   const pkg = slide[INTERNAL_PACKAGE];
   const chartN = allocateChartIndex(pkg);
   const chartPartName = partName(`/ppt/charts/chart${chartN}.xml`);
@@ -280,6 +324,7 @@ export const resolveChartPartName = (
  * fresh data."
  */
 export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
+  validateChartSpecColors(spec);
   const slide = chart.shape[SHAPE_SLIDE];
   const pkg = slide[INTERNAL_PACKAGE];
   const resolved = resolveChartPartName(slide, chart.shape);

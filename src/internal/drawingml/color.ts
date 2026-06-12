@@ -45,6 +45,18 @@ export const parseColor = (value: string): ParsedColor | null => {
 };
 
 /**
+ * Parses an sRGB hex color (`#RRGGBB` or `RRGGBB`), returning the
+ * normalized uppercase 6-digit hex (no `#`). Returns `null` for anything
+ * that isn't a 6-digit hex — including scheme tokens, which sRGB-only
+ * contexts (e.g. chart series fills) must reject rather than silently
+ * emit as an invalid `<a:srgbClr val="accent1"/>`.
+ */
+export const parseSrgbHex = (value: string): string | null => {
+  const hex = value.startsWith('#') ? value.slice(1) : value;
+  return /^[0-9A-Fa-f]{6}$/.test(hex) ? hex.toUpperCase() : null;
+};
+
+/**
  * Returns the `<a:srgbClr>` or `<a:schemeClr>` element for `value`.
  * Throws on unrecognized colors.
  */
