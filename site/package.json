@@ -21,17 +21,17 @@
   "devDependencies": {
     "@pptx-kit/preview": "workspace:*",
     "@sveltejs/adapter-static": "^3.0.10",
-    "@sveltejs/kit": "^2.61.1",
+    "@sveltejs/kit": "^2.65.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
-    "@types/node": "^22.19.19",
+    "@types/node": "^22.19.21",
     "mdsvex": "^0.12.7",
     "pagefind": "^1.5.2",
     "pptx-kit": "workspace:*",
-    "shiki": "^4.1.0",
-    "svelte": "^5.56.0",
-    "svelte-check": "^4.4.8",
+    "shiki": "^4.2.0",
+    "svelte": "^5.56.3",
+    "svelte-check": "^4.6.0",
     "tsx": "^4.22.4",
     "typescript": "^5.9.3",
-    "vite": "^8.0.14"
+    "vite": "^8.0.16"
   }
 }
