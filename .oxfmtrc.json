@@ -11,6 +11,8 @@
   "arrowParens": "always",
   "bracketSpacing": true,
   "ignorePatterns": [
+    "CHANGELOG.md",
+    "packages/*/CHANGELOG.md",
     "dist/**",
     "coverage/**",
     "node_modules/**",
