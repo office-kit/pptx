@@ -75,6 +75,24 @@ partial or fall back to labelled placeholders. Per-slide closeness to a
 LibreOffice baseline is tracked by the fidelity harness in the monorepo
 (`site/fidelity`).
 
+### Fallback markers
+
+When a shape cannot be rendered (unsupported format, missing bytes, or
+unrecognised content type), the renderer emits a labelled placeholder rectangle.
+The placeholder's top-level `<g>` element carries a `data-pptx-fallback`
+attribute so automated tooling can detect partial renders without string-parsing
+the label text:
+
+| Value            | Trigger                                                     |
+| ---------------- | ----------------------------------------------------------- |
+| `"image"`        | Image bytes missing (external link) or format not decodable |
+| `"chart"`        | Chart kind not modelled by this renderer                    |
+| `"graphicFrame"` | Graphic frame with no recognised content (SmartArt, etc.)   |
+| `"custGeom"`     | Shape uses custom geometry (`<a:custGeom>`)                 |
+
+Example: `svg.querySelectorAll('[data-pptx-fallback]')` lists every shape that
+did not fully render.
+
 ## License
 
 MIT (code). Bundled fonts: OFL-1.1 / Apache-2.0 — see `fonts/LICENSES.md`.

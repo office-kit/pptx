@@ -82,6 +82,56 @@ isolated to non-top anchoring. `text-layout.ts` applies that as the documented
 none. (No clean font-metric formula reproduces it, so it is an empirically
 calibrated constant, validated to lift every affected slide with no regression.)
 
+## Baseline gate
+
+The fidelity gate commits a `baseline.json` snapshot of per-slide fg-SSIM
+scores so CI can detect regressions automatically.
+
+### How it works
+
+```bash
+# After a renderer change, record a fresh baseline:
+pnpm --filter pptx-kit-site fidelity -- --record
+
+# Gate CI (or a local branch) against the committed baseline:
+pnpm --filter pptx-kit-site fidelity -- --check
+```
+
+`--record` writes `site/fidelity/baseline.json` (sorted keys, trailing newline)
+and prints the path. `--check` compares the current run against that file and
+exits 1 if:
+
+- Any slide's fg-SSIM drops more than **0.02** below its baseline value.
+- A sample file or slide appears in the run but has no baseline entry.
+- A baseline entry has no corresponding sample in the run.
+
+The **0.02 tolerance** matches one full LibreOffice point-release of rendering
+jitter (~0.01 per release) with headroom, so version bumps on the runner don't
+produce phantom failures.
+
+`--check` also prints any slides that improved by more than 0.02 with a hint to
+re-record, so the baseline tracks genuine progress rather than just blocking
+regressions.
+
+`--check` and `--record` are mutually exclusive with `--ours-only`.
+
+### CI bootstrap and update procedure
+
+Every `--check` run writes a `site/fidelity/baseline.candidate.json` file (same
+shape as `baseline.json`) so the CI job always uploads it as the
+`fidelity-baseline-candidate` artifact regardless of pass/fail.
+
+**First time / after a renderer improvement:**
+
+1. Download the `fidelity-baseline-candidate` artifact from the CI run.
+2. Copy the file to `site/fidelity/baseline.json`.
+3. Commit and push. The gate will pass on the next run.
+
+**After a LibreOffice runner upgrade that shifts absolute scores:**
+
+Follow the same procedure — download the candidate, inspect the diffs, commit
+if the changes are expected.
+
 ## Current state (LibreOffice 26.2, 21 samples, 1280px)
 
 Overall mean fg-SSIM ≈ **0.66** (plain SSIM ≈ 0.97). Text is horizontally
@@ -95,5 +145,5 @@ LO-vs-PowerPoint divergence) and `05-preset-shapes` (≈0.38 — tiny centered
 labels). A residual ~1px horizontal text offset (resvg-vs-pdftoppm pixel grid)
 caps per-glyph overlap. Bullets/vertical/column text and per-run table-cell
 styling are partially or not yet ported. Exact numbers move with the LibreOffice
-version, so no baseline file is committed yet; CI will establish its own once
-the gate lands.
+version; see the Baseline gate section above for how to update `baseline.json`
+when they shift.

@@ -38,7 +38,7 @@ const sofficeCandidates = (): string[] =>
     '/usr/bin/libreoffice',
   ].filter((c): c is string => Boolean(c));
 
-const resolveSoffice = (): string => {
+export const resolveSoffice = (): string => {
   for (const c of sofficeCandidates()) {
     try {
       // `soffice --version` is the cheapest liveness probe.
