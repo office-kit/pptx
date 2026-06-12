@@ -1,10 +1,10 @@
 // Render every slide of a .pptx with pptx-kit's own previewer and rasterize it
 // to pixels — no browser. The whole SVG→resvg→RGBA pipeline now lives in
-// `@pptx-kit/preview/node`; the harness only feeds it a deck and a width.
+// `pptx-kit-preview/node`; the harness only feeds it a deck and a width.
 
 import { getSlides, getSlideSize, type PresentationData } from 'pptx-kit';
 import { loadPresentationFile } from 'pptx-kit/node';
-import { renderSlideToRgba } from '@pptx-kit/preview/node';
+import { renderSlideToRgba } from 'pptx-kit-preview/node';
 import type { RgbaImage } from './image.ts';
 
 export interface RenderedSlide {

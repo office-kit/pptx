@@ -2,7 +2,7 @@
 // registry (`Symbol.for`), not be minted with plain `Symbol`. The library
 // ships as two separate bundles — `pptx-kit` (dist/index.js) and
 // `pptx-kit/node` (dist/node.js) — and companion packages (e.g.
-// `@pptx-kit/preview`) bundle a third copy of the reader code. A handle built
+// `pptx-kit-preview`) bundle a third copy of the reader code. A handle built
 // by one bundle is only readable by another if they agree on these keys; plain
 // `Symbol` mints a fresh key per bundle, so e.g. `getSlides` (index bundle)
 // would read `undefined` off a presentation from `loadPresentationFile` (node

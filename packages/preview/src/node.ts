@@ -1,4 +1,4 @@
-// `@pptx-kit/preview/node` — Node entry: rasterize a slide to a PNG or raw
+// `pptx-kit-preview/node` — Node entry: rasterize a slide to a PNG or raw
 // RGBA image, with no browser binary.
 //
 // Pipeline: `renderSlideToSvg(..., { textLayout: 'svg', measureText })` lays

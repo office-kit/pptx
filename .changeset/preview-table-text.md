@@ -1,5 +1,5 @@
 ---
-'@pptx-kit/preview': patch
+'pptx-kit-preview': patch
 ---
 
 fix(preview): table cell text now renders with its real per-run formatting —

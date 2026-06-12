@@ -8,7 +8,7 @@ This document is the execution plan for pptx-kit's two product goals beyond
 1. **Template-to-deck** — produce a _new_ presentation from an existing
    template or an existing presentation, not just mutate one in place.
 2. **Preview** — render any supported presentation faithfully in **both the
-   browser and the server (Node)** via `@pptx-kit/preview`.
+   browser and the server (Node)** via `pptx-kit-preview`.
 
 Each workstream below has a concrete deliverable, a test obligation, and an
 acceptance criterion. The plan is ordered so that every step is independently
@@ -33,7 +33,7 @@ real template, builds a _new_ deck (keep masters/layouts/theme, drop the
 template's slides, add fresh ones), and asserts the output is schema-valid,
 opens round-trip clean, and renders.
 
-### Preview (`@pptx-kit/preview`)
+### Preview (`pptx-kit-preview`)
 
 Two entry points exist today:
 
@@ -75,7 +75,7 @@ The goal is met when **all** of the following hold:
 
 1. **Template-to-deck**: an E2E test (`test/e2e-template-to-deck.test.ts`)
    builds a new deck from a template fixture, and the output passes schema
-   validation, round-trips structurally, and renders via `@pptx-kit/preview`
+   validation, round-trips structurally, and renders via `pptx-kit-preview`
    without fallback markers for supported features.
 2. **Runtime parity**: for every supported feature, the SVG/server text path
    produces the same layout decisions as the browser path (same line breaks,

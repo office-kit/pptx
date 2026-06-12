@@ -1,8 +1,8 @@
-// `@pptx-kit/preview` — browser-safe entry.
+// `pptx-kit-preview` — browser-safe entry.
 //
 // Renders a pptx-kit slide model to an SVG string. This module pulls in NO
 // Node built-ins (no `node:fs`, no resvg, no fontkit), so it bundles for the
-// browser. For Node rasterization to PNG/RGBA, import `@pptx-kit/preview/node`.
+// browser. For Node rasterization to PNG/RGBA, import `pptx-kit-preview/node`.
 //
 // `renderSlideToSvg` is the canonical preview entry. By default it lays text
 // out with `<foreignObject>` (the browser measures + wraps), which is correct

@@ -1,6 +1,6 @@
 ---
 'pptx-kit': minor
-'@pptx-kit/preview': minor
+'pptx-kit-preview': minor
 ---
 
 feat: read custom geometry. New `getShapeCustomGeometry(shape)` returns a
