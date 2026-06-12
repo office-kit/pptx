@@ -1,6 +1,6 @@
 ---
 'pptx-kit': minor
-'@pptx-kit/preview': minor
+'pptx-kit-preview': minor
 ---
 
 feat: fidelity calibration sweep — measured against LibreOffice ground truth,
