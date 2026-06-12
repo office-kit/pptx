@@ -20,9 +20,19 @@ import {
   type GroundTruthEngine,
 } from './ground-truth.ts';
 import { writeReport, type FileReport, type SlideReport } from './report.ts';
+import {
+  compareWithBaseline,
+  getSofficeVersion,
+  loadBaseline,
+  reportsToRunFiles,
+  writeBaselineFile,
+  type BaselineData,
+} from './baseline.ts';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, '..', '..');
+const BASELINE_PATH = join(HERE, 'baseline.json');
+const CANDIDATE_PATH = join(HERE, 'baseline.candidate.json');
 
 interface Args {
   readonly width: number;
@@ -30,6 +40,8 @@ interface Args {
   readonly outDir: string;
   readonly samplesDir: string;
   readonly oursOnly: boolean;
+  readonly check: boolean;
+  readonly record: boolean;
   readonly files: string[];
 }
 
@@ -40,6 +52,8 @@ const parseArgs = (argv: string[]): Args => {
   let outDir = join(HERE, 'out');
   let samplesDir = join(REPO_ROOT, 'samples', 'out');
   let oursOnly = false;
+  let check = false;
+  let record = false;
   const files: string[] = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
@@ -48,9 +62,11 @@ const parseArgs = (argv: string[]): Args => {
     else if (a === '--out') outDir = resolve(argv[++i]!);
     else if (a === '--samples') samplesDir = resolve(argv[++i]!);
     else if (a === '--ours-only') oursOnly = true;
+    else if (a === '--check') check = true;
+    else if (a === '--record') record = true;
     else if (!a.startsWith('--')) files.push(resolve(a));
   }
-  return { width, engine, outDir, samplesDir, oursOnly, files };
+  return { width, engine, outDir, samplesDir, oursOnly, check, record, files };
 };
 
 const discoverSamples = (dir: string): string[] => {
@@ -142,6 +158,16 @@ const processFile = (
 
 const main = async (): Promise<void> => {
   const args = parseArgs(process.argv.slice(2));
+
+  if ((args.check || args.record) && args.oursOnly) {
+    console.error('--check and --record cannot be combined with --ours-only.');
+    process.exit(1);
+  }
+  if (args.check && args.record) {
+    console.error('--check and --record cannot be combined with each other.');
+    process.exit(1);
+  }
+
   const pptxFiles = args.files.length > 0 ? args.files : discoverSamples(args.samplesDir);
   if (pptxFiles.length === 0) {
     console.error(
@@ -214,6 +240,69 @@ const main = async (): Promise<void> => {
       `${overall === null ? '' : ` · plain SSIM: ${overall.toFixed(4)}`}`,
   );
   console.log(`report: ${join(args.outDir, 'index.html')}`);
+
+  if (args.check || args.record) {
+    const runFiles = reportsToRunFiles(reports);
+    const sofficeVersion = args.engine === 'libreoffice' ? getSofficeVersion() : 'n/a';
+    const candidateData: BaselineData = {
+      engine: args.engine,
+      width: args.width,
+      sofficeVersion,
+      files: runFiles,
+    };
+
+    if (args.record) {
+      writeBaselineFile(BASELINE_PATH, candidateData);
+      console.log(`\nBaseline recorded → ${BASELINE_PATH}`);
+      return;
+    }
+
+    // --check: always write the candidate so CI can upload it as an artifact
+    // regardless of pass/fail, then gate against the committed baseline.
+    writeBaselineFile(CANDIDATE_PATH, candidateData);
+    console.log(`\nBaseline candidate → ${CANDIDATE_PATH}`);
+
+    const baselineData = loadBaseline(BASELINE_PATH);
+    if (baselineData === null) {
+      console.error(`\nNo baseline found at ${BASELINE_PATH}.`);
+      console.error('Run with --record to create one locally, or in CI download the');
+      console.error(
+        'fidelity-baseline-candidate artifact and commit it as site/fidelity/baseline.json.',
+      );
+      process.exit(1);
+    }
+
+    const cmp = compareWithBaseline(baselineData, { files: runFiles });
+
+    if (cmp.improvements.length > 0) {
+      console.log('\nImprovements (fg-SSIM rose > 0.02 above baseline):');
+      for (const imp of cmp.improvements) {
+        console.log(
+          `  ${imp.file} slide ${imp.slide}: ${imp.baseline.toFixed(4)} → ${imp.actual.toFixed(4)} (+${imp.delta.toFixed(4)})`,
+        );
+      }
+      console.log('  Tip: re-record with --record so the baseline tracks progress.');
+    }
+
+    if (cmp.pass) {
+      console.log('\nFidelity gate PASSED.');
+    } else {
+      console.error('\nFidelity gate FAILED:');
+      console.error(
+        `  ${'FILE'.padEnd(38)} ${'SLIDE'.padEnd(6)} ${'REASON'.padEnd(22)} ${'ACTUAL'.padEnd(8)} ${'BASELINE'.padEnd(9)} DELTA`,
+      );
+      for (const f of cmp.failures) {
+        const slideStr = f.slide === 0 ? '—' : String(f.slide);
+        const actualStr = f.actual !== undefined ? f.actual.toFixed(4) : '—';
+        const baseStr = f.baseline !== undefined ? f.baseline.toFixed(4) : '—';
+        const deltaStr = f.delta !== undefined ? f.delta.toFixed(4) : '—';
+        console.error(
+          `  ${f.file.padEnd(38)} ${slideStr.padEnd(6)} ${f.reason.padEnd(22)} ${actualStr.padEnd(8)} ${baseStr.padEnd(9)} ${deltaStr}`,
+        );
+      }
+      process.exit(1);
+    }
+  }
 };
 
 main().catch((err: unknown) => {

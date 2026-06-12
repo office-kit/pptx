@@ -83,3 +83,63 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+
+  # Measures how closely @pptx-kit/preview's SVG renderer matches LibreOffice's
+  # output for each generated sample slide, and gates on a committed baseline.
+  fidelity:
+    name: Preview fidelity
+    needs: static
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ground truth = LibreOffice PDF export rasterized by pdftoppm.
+      # --no-install-recommends skips LibreOffice's font packages, so install
+      # the metric-compatible families explicitly — they're the same ones
+      # @pptx-kit/preview bundles (Carlito≈Calibri, Caladea≈Cambria,
+      # Liberation≈Arial/Times/Courier). Without them LibreOffice falls back
+      # to whatever fontconfig scrapes up and every text slide's fg-SSIM
+      # collapses to ~0.
+      - name: Install LibreOffice, poppler, and fonts
+        run: >
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends
+          libreoffice-impress poppler-utils
+          fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.22.3
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build pptx-kit
+        run: pnpm build
+
+      - name: Build preview package
+        run: pnpm --filter @pptx-kit/preview build
+
+      - name: Generate sample PPTX files
+        run: pnpm samples
+
+      - name: Run fidelity harness
+        run: pnpm --filter pptx-kit-site fidelity -- --check
+
+      - name: Upload fidelity report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fidelity-report
+          path: site/fidelity/out/
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Upload baseline candidate
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fidelity-baseline-candidate
+          path: site/fidelity/baseline.candidate.json
+          retention-days: 7
+          if-no-files-found: ignore

@@ -70,6 +70,7 @@ import {
   getShapeRunHyperlinkTooltip,
   getShapePlaceholderType,
   getShapePreset,
+  getShapeXmlString,
   getShapeRotation,
   getShapeRunFormat,
   getShapeRunFormatEffective,
@@ -377,7 +378,7 @@ const renderPicture = (
       ? `picture (link: ${linkUrl.length > 48 ? linkUrl.slice(0, 45) + '…' : linkUrl})`
       : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
-  return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+  return `<g data-pptx-fallback="image"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
 };
 
 const renderPicturePlaceholderLabel = (
@@ -4843,11 +4844,20 @@ const renderShape = (
     } catch {
       // Fall through with the generic label.
     }
-    return `<g${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill === 'none' ? '#F9FAFB' : p.fill}" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+    const gfFallbackKind = label.startsWith('chart') ? 'chart' : 'graphicFrame';
+    return `<g data-pptx-fallback="${gfFallbackKind}"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill === 'none' ? '#F9FAFB' : p.fill}" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
   }
 
   // kind === 'shape'
-  const preset = getShapePreset(shape) ?? 'rect';
+  const rawPreset = getShapePreset(shape);
+  // No preset means either custom geometry (<a:custGeom>) or no geometry at
+  // all (placeholders inherit theirs from the layout, which is almost always
+  // a rect). Both paint as a rect, but only custGeom is a true fallback —
+  // an inherited-geometry placeholder rendered as a rect is correct, not
+  // approximated. The string probe stands in for a typed custGeom reader
+  // until the renderer interprets custom geometry paths (plan W2).
+  const isCustGeom = rawPreset === null && getShapeXmlString(shape).includes('custGeom');
+  const preset = rawPreset ?? 'rect';
 
   let geomSvg: string;
   const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
@@ -4937,7 +4947,8 @@ const renderShape = (
   // Geometry carries rotation + flips; text carries rotation only so it stays
   // upright when the shape is flipped (matching PowerPoint).
   const placedText = textOverlay ? `<g${textTransform}>${textOverlay}</g>` : '';
-  const inner = `${p.defs}${fxDefs}<g${nameAttr}${ariaAttr}><g${transform}>${geomSvg}</g>${placedText}</g>`;
+  const custGeomAttr = isCustGeom ? ' data-pptx-fallback="custGeom"' : '';
+  const inner = `${p.defs}${fxDefs}<g${nameAttr}${ariaAttr}${custGeomAttr}><g${transform}>${geomSvg}</g>${placedText}</g>`;
   const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
   if (url) {
     return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
