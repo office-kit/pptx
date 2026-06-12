@@ -199,10 +199,10 @@
     <a href="{base}/docs/getting-started">Getting started</a>.
   </p>
   <p class="caveat">
-    <strong>Approximate.</strong> Shape geometry is reconstructed from the preset name; theme /
-    placeholder inheritance, gradient / pattern / picture fills, custom geometry, charts, tables
-    and SmartArt show as labelled fallbacks. PowerPoint or LibreOffice will render the file
-    correctly.
+    <strong>High-fidelity preview.</strong> Preset and custom geometry, theme / placeholder
+    inheritance, gradient / pattern / picture fills, effects, charts, and tables render;
+    SmartArt, animations, and 3D show as labelled fallbacks. PowerPoint or LibreOffice
+    remains the pixel-authoritative renderer.
   </p>
 
   <div
