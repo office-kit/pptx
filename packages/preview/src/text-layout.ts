@@ -139,6 +139,9 @@ export interface BulletInput {
   readonly family: string;
   readonly sizePx: number;
   readonly fillHex: string;
+  // Data URL for a picture bullet (`<a:buBlip>`); when set, the bullet
+  // renders as a square `<image>` of `sizePx` instead of `text`.
+  readonly imageHref?: string;
 }
 
 export interface ParaInput {
@@ -300,7 +303,13 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
       const firstLeft = wrapLeft + para.firstIndentPx;
       const hasText = para.pieces.some((p) => !p.isBreak && p.text !== '');
       const bullet = para.bullet && hasText ? para.bullet : null;
-      const bulletLead = bullet ? mWidth(`${bullet.text} `, bulletSpec(bullet)) : 0;
+      // Picture bullets reserve a square of `sizePx` plus a trailing space;
+      // glyph bullets reserve the measured "<glyph> " width.
+      const bulletLead = bullet
+        ? bullet.imageHref
+          ? bullet.sizePx + mWidth(' ', bulletSpec(bullet))
+          : mWidth(`${bullet.text} `, bulletSpec(bullet))
+        : 0;
 
       // Tokenize: word / whitespace runs per piece, plus break markers. Pre-split
       // any single token wider than a full line into per-character tokens.
@@ -490,9 +499,17 @@ const emitPlacements = (placements: Placement[]): string => {
   for (const { line, baselineY, dx } of placements) {
     if (line.bullet) {
       const b = line.bullet.b;
-      parts.push(
-        `<text x="${fmt(line.bullet.x + dx)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
-      );
+      if (b.imageHref) {
+        // Sit the square bullet on the text baseline (bottom edge at the
+        // baseline), matching where the glyph's ink would land.
+        parts.push(
+          `<image x="${fmt(line.bullet.x + dx)}" y="${fmt(baselineY - b.sizePx)}" width="${fmt(b.sizePx)}" height="${fmt(b.sizePx)}" href="${b.imageHref}" xlink:href="${b.imageHref}" preserveAspectRatio="xMidYMid meet"/>`,
+        );
+      } else {
+        parts.push(
+          `<text x="${fmt(line.bullet.x + dx)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
+        );
+      }
     }
     parts.push(emitLine(line, baselineY, dx));
   }
