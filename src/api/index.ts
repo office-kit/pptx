@@ -40,6 +40,7 @@ export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
+export type { ImageFit } from './fn.ts';
 export type {
   ArrowOptions,
   GlowOptions,
@@ -394,6 +395,7 @@ export {
   getTableSize,
   getTableStyleFlags,
   getTableStyleId,
+  mergeTableCells,
   getThumbnail,
   getVisibleSlides,
   hasShapeText,
