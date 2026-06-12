@@ -138,12 +138,14 @@ import {
   layoutTextSvg,
   substituteFamily,
   type BulletInput,
+  type ColumnLayout,
   type ParaInput,
   type PieceInput,
   type RenderSlideOptions,
   type TextBodyInput,
   type TextLayoutMode,
   type TextMeasurer,
+  type VerticalLayout,
 } from './text-layout.ts';
 
 export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from './text-layout.ts';
@@ -2066,10 +2068,33 @@ interface SvgTextArgs {
   readonly innerW: number;
   readonly innerH: number;
   readonly measure: TextMeasurer;
+  readonly vert: VerticalLayout;
+  readonly columns: ColumnLayout | null;
 }
 
 const alignOf = (a: string): ParaInput['align'] =>
   a === 'center' || a === 'right' || a === 'justify' ? a : 'left';
+
+// Map the OOXML `vert` token onto the engine's two supported rotations,
+// mirroring the foreignObject path's writing-mode grouping so server == browser:
+// the `vertical-rl` family (columns right-to-left) rotates 90° clockwise, the
+// `vertical-lr` family (columns left-to-right) rotates 270°. The wordArt variants
+// keep glyphs upright in the browser; the SVG path rotates them with the text
+// (closest a rotated <text> can get), which the W1 brief accepts as the mapping.
+const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): VerticalLayout => {
+  switch (vert) {
+    case 'vert':
+    case 'eaVert':
+    case 'wordArtVert':
+    case 'wordArtVertRtl':
+      return 'cw90';
+    case 'vert270':
+    case 'mongolianVert':
+      return 'cw270';
+    case null:
+      return 'none';
+  }
+};
 
 // Build the px-native engine input from the resolved paraData and lay it out.
 const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
@@ -2166,6 +2191,8 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
     anchor: a.anchor,
     wrap: a.wrap,
     paragraphs,
+    vert: a.vert,
+    columns: a.columns,
   };
   return layoutTextSvg(input, a.measure);
 };
@@ -2624,9 +2651,9 @@ const renderTextBody = (
   const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
 
   // Pure-SVG text path (browser-free rasterization). Rebuild the px-native
-  // layout model from the already-resolved paraData and hand it to the engine.
-  // Vertical text / multi-column are not yet ported here (PR C) — they lay out
-  // horizontally single-column, which is wrong but visible (vs. blank).
+  // layout model from the already-resolved paraData and hand it to the engine,
+  // matching the foreignObject path's vertical-text and multi-column handling so
+  // server-side rendering agrees with the browser (W1).
   if (ctx.mode === 'svg') {
     // Fidelity path: apply ONLY the authored normAutofit scale. The heuristic
     // shrink (the AVG_GLYPH_W_RATIO estimator) exists to keep the browser
@@ -2635,6 +2662,17 @@ const renderTextBody = (
     // truth (and avoids spuriously shrinking titles that actually fit).
     const svgScale = authoredAutofit?.fontScale ?? 1;
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
+    const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
+    // numCol only applies to horizontal text — see the engine's combination note.
+    const svgCols = getShapeTextColumns(shape);
+    const svgColumns: ColumnLayout | null =
+      svgVert === 'none' && svgCols && svgCols.count >= 2
+        ? {
+            count: svgCols.count,
+            // spcCol is in EMU; default to the foreignObject path's 12px gap.
+            gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 12,
+          }
+        : null;
     const svgInner = buildAndLayoutSvgText({
       pres,
       shape,
@@ -2653,6 +2691,8 @@ const renderTextBody = (
       innerW,
       innerH,
       measure: ctx.measure,
+      vert: svgVert,
+      columns: svgColumns,
     });
     const bodyRotDegSvg = getShapeTextBodyRotationDeg(shape);
     if (bodyRotDegSvg !== null && bodyRotDegSvg !== 0) {
