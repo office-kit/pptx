@@ -104,6 +104,15 @@ export const getSlideLayoutPlaceholders = (
  * or `null` if none does. Accepts a literal string (exact equality)
  * or a `RegExp` for pattern matches — useful when template providers
  * suffix versions onto names (`'Title and Content v2'`).
+ *
+ * String matching is **case-sensitive** and exact: `findSlideLayout(pres,
+ * 'Blank')` matches a layout named `"Blank"` but not `"blank"`. The
+ * user-visible name is also locale-dependent (a deck authored in a
+ * non-English PowerPoint localizes `"Blank"`), so prefer
+ * {@link findSlideLayoutByType} — which matches the locale-stable
+ * `<p:sldLayout type="…">` token (`'blank'`, `'title'`, `'obj'`, …) —
+ * when you need a robust lookup. Pass a `RegExp` with the `i` flag here
+ * for a case-insensitive name match.
  */
 export const findSlideLayout = (
   pres: PresentationData,

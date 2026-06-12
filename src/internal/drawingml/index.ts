@@ -15,7 +15,7 @@ export {
 export type { TextFormat } from './text-format.ts';
 export { applyFormatToAllRuns, applyRunFormat } from './text-format.ts';
 export type { ParsedColor } from './color.ts';
-export { buildColorElement, parseColor } from './color.ts';
+export { buildColorElement, parseColor, parseSrgbHex } from './color.ts';
 export type {
   GradientFillOptions,
   GradientStop,

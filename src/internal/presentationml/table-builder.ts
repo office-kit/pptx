@@ -110,27 +110,33 @@ const equalShares = (total: number, n: number): number[] => {
 
 export const buildTable = (opts: TableOptions): XmlElement => {
   const rows = opts.rows;
-  if (rows.length === 0) throw new Error('addTable: at least one row is required');
+  // Empty rows (or a row with no cells) would emit an `<a:tbl>` with no
+  // grid — XML PowerPoint rejects with a repair dialog. Fail loudly at the
+  // authoring boundary instead. Errors name the public `addSlideTable`
+  // entry point (this builder's sole caller) so the message is actionable.
+  if (rows.length === 0) throw new Error('addSlideTable: at least one row is required');
   const colCount = rows[0]?.length ?? 0;
-  if (colCount === 0) throw new Error('addTable: at least one column is required');
+  if (colCount === 0) throw new Error('addSlideTable: at least one column is required');
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i];
-    if (!r) throw new Error(`addTable: row ${i} is missing`);
+    if (!r) throw new Error(`addSlideTable: row ${i} is missing`);
     if (r.length !== colCount) {
       throw new Error(
-        `addTable: row ${i} has ${r.length} cells; expected ${colCount} to match row 0`,
+        `addSlideTable: row ${i} has ${r.length} cells; expected ${colCount} to match row 0`,
       );
     }
   }
 
   const colWidths = opts.colWidths ?? equalShares(opts.w, colCount);
   if (colWidths.length !== colCount) {
-    throw new Error(`addTable: colWidths has ${colWidths.length} entries; expected ${colCount}`);
+    throw new Error(
+      `addSlideTable: colWidths has ${colWidths.length} entries; expected ${colCount}`,
+    );
   }
   const rowHeights = opts.rowHeights ?? equalShares(opts.h, rows.length);
   if (rowHeights.length !== rows.length) {
     throw new Error(
-      `addTable: rowHeights has ${rowHeights.length} entries; expected ${rows.length}`,
+      `addSlideTable: rowHeights has ${rowHeights.length} entries; expected ${rows.length}`,
     );
   }
 
