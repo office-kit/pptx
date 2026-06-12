@@ -1,6 +1,6 @@
 {
   "name": "pptx-kit",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Generate and edit .pptx (OOXML PresentationML) files from TypeScript, in Node and the browser.",
   "keywords": [
     "drawingml",
