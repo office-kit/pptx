@@ -92,7 +92,14 @@ export type ShapeEffectAny =
     }
   | {
       readonly kind: 'reflection';
+      // `opacity` is the far-end alpha (`endA`); `startOpacity` the
+      // near-end alpha (`stA`). Both are unit fractions when authored.
       readonly opacity?: number;
+      readonly startOpacity?: number;
+      // Vertical scale (`sy`) as a signed unit fraction — PowerPoint
+      // encodes the mirror as a negative `sy` (e.g. -1 = full-height
+      // flip), so renderers must honor the sign, not just the magnitude.
+      readonly scaleY?: number;
       readonly blurEmu: number;
       readonly distEmu: number;
       readonly angleDeg: number;
@@ -223,21 +230,27 @@ const parseEffectLst = (
       const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
       const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
       const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
-      const endA = getAttrValue(child, qname('', 'endA', ''));
-      let opacity: number | undefined;
-      if (endA !== null) {
-        let n = Number.parseFloat(endA);
-        if (Number.isFinite(n)) {
-          if (Math.abs(n) > 1) n = n / 100000;
-          opacity = n;
-        }
-      }
+      // `stA`/`endA` are ST_PositiveFixedPercentage (0..100000); `sy` is
+      // ST_Percentage and may be negative to encode the mirror flip.
+      const pctFraction = (name: string): number | undefined => {
+        const raw = getAttrValue(child, qname('', name, ''));
+        if (raw === null) return undefined;
+        let n = Number.parseFloat(raw);
+        if (!Number.isFinite(n)) return undefined;
+        if (Math.abs(n) > 1) n = n / 100000;
+        return n;
+      };
+      const opacity = pctFraction('endA');
+      const startOpacity = pctFraction('stA');
+      const scaleY = pctFraction('sy');
       out.push({
         kind: 'reflection',
         blurEmu: blur,
         distEmu: dist,
         angleDeg: dir / 60000,
         ...(opacity !== undefined ? { opacity } : {}),
+        ...(startOpacity !== undefined ? { startOpacity } : {}),
+        ...(scaleY !== undefined ? { scaleY } : {}),
       });
     } else if (local === 'softEdge') {
       const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;

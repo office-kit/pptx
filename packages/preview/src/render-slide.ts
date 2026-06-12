@@ -25,6 +25,7 @@ import {
   getParagraphAlignment,
   getParagraphBullet,
   getParagraphBulletStyle,
+  getParagraphBulletImageBytes,
   isParagraphBulletPicture,
   getParagraphIndent,
   getParagraphLevel,
@@ -38,6 +39,7 @@ import {
   getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
+  getShapeGradientFillEffective,
   getShapePatternFill,
   getShapeBodyPrEffective,
   getShapeChartSpec,
@@ -211,6 +213,14 @@ const imageMime: Record<string, string> = {
   tiff: 'image/tiff',
   webp: 'image/webp',
   svg: 'image/svg+xml',
+};
+
+// Inlines raw image bytes as a `data:` URL, sniffing the format from the
+// magic bytes (defaulting to PNG when unknown).
+const bytesToDataUrl = (bytes: Uint8Array): string => {
+  const fmt = detectImageFormatLocal(bytes);
+  const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
+  return `data:${mime};base64,${u8ToBase64(bytes)}`;
 };
 
 // Fallback for when pptx-kit's `getShapeImageFormat` returns `null` —
@@ -731,17 +741,25 @@ const paint = (
   } else if (fill.kind === 'none') {
     fillColor = 'none';
   } else if (fill.kind === 'gradient') {
-    // Best-effort: paint a real `<linearGradient>` when the
-    // `<a:gradFill>` is on the shape itself. Inherited gradients (no
-    // explicit gradFill on the shape) fall back to the orange tint
-    // since we don't yet walk the layout/master cascade for fills.
-    const grad = shape ? getShapeGradientFill(shape) : null;
+    // Resolve the gradient through the shape → layout → master
+    // placeholder cascade so inherited gradFills paint a real
+    // `<linearGradient>` / `<radialGradient>`, not a placeholder color.
+    const grad = shape
+      ? pres
+        ? getShapeGradientFillEffective(pres, shape)
+        : getShapeGradientFill(shape)
+      : null;
     if (grad) {
       const built = gradientDef(grad, theme);
       defs = built.defs;
       fillColor = built.fillAttr;
     } else {
-      fillColor = '#FDBA74';
+      // The fill reads as a gradient but no `<a:gradFill>` is reachable
+      // (e.g. it's referenced through the theme style matrix, which the
+      // core doesn't model yet). Fall back to the resolved solid color
+      // when the shape carries one, else transparent — never a spurious
+      // tint that masks real content.
+      fillColor = (shape && pres ? getShapeFillColorResolved(pres, shape) : null) ?? 'none';
     }
   } else if (fill.kind === 'pattern') {
     const pat = shape && pres ? getShapePatternFill(pres, shape) : null;
@@ -2036,6 +2054,9 @@ interface ParaData {
   readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
   readonly bulletDetail: ReturnType<typeof getParagraphBulletStyle>;
   readonly bulletIsPicture: boolean;
+  // Data URL for a picture bullet (`<a:buBlip>`) whose bytes resolved,
+  // else null — null falls back to the "■" glyph.
+  readonly bulletImageHref: string | null;
   readonly runs: RunData[];
   readonly lineSpacing: ReturnType<typeof getParagraphLineSpacing>;
   readonly spcBefPts: number | null;
@@ -2227,6 +2248,8 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
     para.bulletIsPicture ||
     (para.bulletStyle !== 'none' && para.level > 0);
   if (!showBullet) return null;
+  // Picture bullet with resolved bytes → render the image; otherwise the
+  // "■" glyph stands in (bytes unavailable, e.g. inherited buBlip).
   const char = para.bulletIsPicture ? '■' : (numberLabel ?? explicitChar ?? bulletChar(para.level));
   const baseSizePx = a.defaultPt * PX_PER_PT * a.autoFitScale;
   const sizePx =
@@ -2243,6 +2266,7 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
     family: substituteFamily(para.bulletDetail.font ?? a.themeFace),
     sizePx,
     fillHex,
+    ...(para.bulletImageHref ? { imageHref: para.bulletImageHref } : {}),
   };
 };
 
@@ -2353,6 +2377,13 @@ const renderTextBody = (
     try {
       bulletIsPicture = isParagraphBulletPicture(shape, p);
     } catch {}
+    let bulletImageHref: string | null = null;
+    if (bulletIsPicture) {
+      try {
+        const bytes = getParagraphBulletImageBytes(shape, p);
+        if (bytes) bulletImageHref = bytesToDataUrl(bytes);
+      } catch {}
+    }
     const lineSpacing: ReturnType<typeof getParagraphLineSpacing> = effective.lineSpacing;
     let spcBefPts: number | null = effective.spcBefPts;
     let spcAftPts: number | null = effective.spcAftPts;
@@ -2440,6 +2471,7 @@ const renderTextBody = (
       bulletStyle,
       bulletDetail,
       bulletIsPicture,
+      bulletImageHref,
       runs,
       lineSpacing,
       spcBefPts,
@@ -2618,10 +2650,27 @@ const renderTextBody = (
       numberLabel !== null ||
       para.bulletIsPicture ||
       (para.bulletStyle !== 'none' && para.level > 0);
-    if (showBullet) {
-      // Image bullets (`<a:pPr><a:buBlip>`) don't surface their bytes
-      // here — fall back to a filled square so users see a distinct
-      // glyph rather than the inherited round bullet.
+    if (showBullet && para.bulletImageHref) {
+      // Picture bullet with resolved bytes — inline it as an <img> sized
+      // to the bullet's font box so it sits where the glyph would.
+      const baseBulletPx = defaultPt * PX_PER_PT * autoFitScale;
+      const bulletPx =
+        para.bulletDetail.sizePct !== null
+          ? baseBulletPx * para.bulletDetail.sizePct
+          : para.bulletDetail.sizePts !== null
+            ? para.bulletDetail.sizePts * PX_PER_PT * autoFitScale
+            : baseBulletPx;
+      const imgStyles = [
+        `width:${bulletPx.toFixed(2)}px`,
+        `height:${bulletPx.toFixed(2)}px`,
+        'display:inline-block',
+        'vertical-align:baseline',
+        `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
+      ];
+      prefix = `<img src="${para.bulletImageHref}" alt="" style="${imgStyles.join(';')}"/>`;
+    } else if (showBullet) {
+      // Picture bullet whose bytes are unavailable falls back to a filled
+      // square so users see a distinct glyph rather than the round bullet.
       const char = para.bulletIsPicture
         ? '■'
         : (numberLabel ?? explicitChar ?? bulletChar(para.level));
@@ -4715,6 +4764,9 @@ const cellParaData = (
       bulletStyle: null,
       bulletDetail: { color: null, sizePct: null, sizePts: null, font: null },
       bulletIsPicture: false,
+      // Table cells never carry picture bullets (no <a:pPr> bullet model
+      // in <a:tc> text bodies).
+      bulletImageHref: null,
       runs,
       lineSpacing: null,
       spcBefPts: null,
@@ -5464,10 +5516,21 @@ const renderShape = (
   // effects compose the way PowerPoint composes them.
   const fx = buildEffectsFilter(pres, shape);
   const filterAttr = fx ? ` filter="url(#${fx.id})"` : '';
-  const fxDefs = fx ? fx.defs : '';
+  let fxDefs = fx ? fx.defs : '';
+  // Reflection can't live in the `<filter>` chain (SVG has no flip-and-fade
+  // primitive), so it's a duplicated, vertically mirrored copy of the raw
+  // geometry masked by an opacity gradient — built from the un-filtered
+  // geometry markup before the filter wraps it.
+  const reflection = buildReflection(pres, shape, geomSvg, { x, y, w, h });
   // Apply the filter to the geometry only — text overlays use foreignObject
   // and react badly to feGaussianBlur (DOM gets rasterized).
   geomSvg = `<g${filterAttr}>${geomSvg}</g>`;
+  if (reflection) {
+    // Paint the reflection behind the shape; it sits below the bottom edge
+    // so they don't overlap, but keeping it first matches PowerPoint's z-order.
+    geomSvg = reflection.svg + geomSvg;
+    fxDefs += reflection.defs;
+  }
 
   // B6 — Shape-level hyperlinks + slide-jump click actions. Wrap the
   // rendered shape in an SVG <a href> so the playground preview is
@@ -5541,6 +5604,58 @@ interface EffectsResult {
   readonly id: string;
   readonly defs: string;
 }
+
+interface ReflectionResult {
+  readonly svg: string;
+  readonly defs: string;
+}
+
+// Builds the reflection: a vertically mirrored copy of the shape's raw
+// geometry placed below its bottom edge, faded by a vertical opacity mask.
+// PowerPoint encodes the mirror as a negative `sy`; `stA`/`endA` give the
+// alpha at the near (contact) and far edges, `dist` the gap below the shape.
+const buildReflection = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  geomRaw: string,
+  box: { x: number; y: number; w: number; h: number },
+): ReflectionResult | null => {
+  let effects: readonly ReturnType<typeof getShapeEffects>[number][];
+  try {
+    effects = getShapeEffectsEffective(pres, shape);
+  } catch {
+    return null;
+  }
+  const refl = effects.find((e) => e.kind === 'reflection');
+  if (!refl || refl.kind !== 'reflection') return null;
+
+  // Honor the authored vertical scale (signed: negative = the flip);
+  // default to a full-height mirror when the deck omits `sy`, since a
+  // reflection with no flip isn't a reflection.
+  const f = refl.scaleY ?? -1;
+  const startA = refl.startOpacity ?? 1;
+  const endA = refl.opacity ?? 0;
+  // Geometry coords are emitted in px (see `E`), so the transform math
+  // works in px too: contact edge at the shape's bottom, gap pushed down.
+  const contactPx = (box.y + box.h) / EMU_PER_PX;
+  const distPx = refl.distEmu / EMU_PER_PX;
+  // scale(1,f) about y=contactPx, then translate the whole thing down by dist.
+  const transform = `translate(0 ${(distPx + contactPx * (1 - f)).toFixed(2)}) scale(1 ${f})`;
+
+  const maskId = mintId();
+  const gradId = mintId();
+  // objectBoundingBox: y=0 is the contact edge (top of the mirrored copy),
+  // y=1 the far edge. White luminance × stop-opacity becomes the alpha.
+  const defs =
+    `<defs><linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#fff" stop-opacity="${startA.toFixed(3)}"/>` +
+    `<stop offset="1" stop-color="#fff" stop-opacity="${endA.toFixed(3)}"/>` +
+    `</linearGradient>` +
+    `<mask id="${maskId}" maskContentUnits="objectBoundingBox">` +
+    `<rect width="1" height="1" fill="url(#${gradId})"/></mask></defs>`;
+  const svg = `<g transform="${transform}" mask="url(#${maskId})" data-pptx-reflection="1">${geomRaw}</g>`;
+  return { svg, defs };
+};
 
 const buildEffectsFilter = (
   pres: PresentationData,
@@ -5626,13 +5741,9 @@ const buildEffectsFilter = (
       );
       layers.length = 0;
       layers.push(`blurOut${i}`);
-    } else if (e.kind === 'reflection') {
-      // Reflection in SVG is a flipped, translated, faded copy. SVG
-      // <filter> can't easily emit one without re-rasterizing, so we
-      // skip it for now and let the shape paint as-is. (Listed in the
-      // spec but rarely used outside of corporate templates.)
-      void e;
     }
+    // Reflection is handled outside the filter chain (see buildReflection):
+    // SVG `<filter>` has no flip-and-fade primitive.
   }
 
   // Compose: paint each effect layer plus the original SourceGraphic.

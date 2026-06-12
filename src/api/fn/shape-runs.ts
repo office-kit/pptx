@@ -714,6 +714,43 @@ export const isParagraphBulletPicture = (
 };
 
 /**
+ * Returns the embedded image bytes backing a paragraph's picture bullet
+ * (`<a:pPr><a:buBlip><a:blip r:embed="…"/>`), or `null` when the
+ * paragraph has no picture bullet or the relationship can't be resolved
+ * (external `r:link`, missing media part, etc.).
+ *
+ * The `r:embed` is resolved against the *slide's* relationships, matching
+ * `getShapeImageBytes` — a bullet whose blip lives only on an inherited
+ * layout/master paragraph isn't followed. The returned `Uint8Array` is a
+ * live view into the package media part; treat it as read-only.
+ */
+export const getParagraphBulletImageBytes = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): Uint8Array | null => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  if (!pPr) return null;
+  const buBlip = firstChildElement(pPr, qname('a', 'buBlip', NS.dml));
+  if (!buBlip) return null;
+  const blip = firstChildElement(buBlip, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  if (rEmbed === null) return null;
+  const slide = shape[SHAPE_SLIDE];
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (!rels) return null;
+  const rel = rels.items.find((r) => r.id === rEmbed);
+  if (!rel || rel.targetMode === 'External') return null;
+  const mediaName = rel.target.startsWith('/')
+    ? partName(rel.target)
+    : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
+  const part = pkg.getPart(mediaName);
+  return part?.data ?? null;
+};
+
+/**
  * Reads the bullet's per-paragraph color, size, and font overrides —
  * `<a:buClr>` (theme-resolved hex), `<a:buSzPct>` / `<a:buSzPts>`
  * (size relative to run or fixed pt), and `<a:buFont typeface="…"/>`.

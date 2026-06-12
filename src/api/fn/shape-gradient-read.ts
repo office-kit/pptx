@@ -1,14 +1,28 @@
 // Detailed gradient-fill reader.
 
+import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
+import { getSlideLayout } from './shape-slide-read.ts';
 import { type GradientFillOptions } from '../../internal/drawingml/index.ts';
+import { partName, resolveTarget } from '../../internal/opc/index.ts';
+import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
   firstChildElement,
   getAttrValue,
+  parseXml,
   qname,
 } from '../../internal/xml/index.ts';
-import { SHAPE_ELEMENT, type SlideShapeData } from '../_internal-symbols.ts';
+import {
+  INTERNAL_PACKAGE,
+  LAYOUT_PART,
+  LAYOUT_PART_NAME,
+  type PresentationData,
+  SHAPE_ELEMENT,
+  SHAPE_SLIDE,
+  type SlideShapeData,
+} from '../_internal-symbols.ts';
+import { decode } from './_helpers.ts';
 // ---------------------------------------------------------------------------
 // Detailed gradient-fill reader. Companion to `getShapeFill`, which
 // only reports the discriminated `kind`. Returns the full stop list +
@@ -37,17 +51,9 @@ export const readColorFromContainer = (parent: XmlElement): string | null => {
   return null;
 };
 
-/**
- * Returns the full gradient definition (`stops` + `angleDeg`) when the
- * shape's `<p:spPr>` carries an `<a:gradFill>`. Returns `null` for any
- * other fill kind, including `inherit` — the function does not walk the
- * layout / master cascade.
- */
-export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
+// Parses one `<a:gradFill>` element into the stop list + direction.
+// Shared by the shape-own reader and the placeholder-cascade reader.
+const parseGradFill = (gradFill: XmlElement): GradientFillOptions | null => {
   const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
   if (!gsLst) return null;
   const stops: Array<{ offset: number; color: string }> = [];
@@ -104,4 +110,88 @@ export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions
     }
   }
   return { stops, angleDeg };
+};
+
+/**
+ * Returns the full gradient definition (`stops` + `angleDeg`) when the
+ * shape's `<p:spPr>` carries an `<a:gradFill>`. Returns `null` for any
+ * other fill kind, including `inherit` — the function does not walk the
+ * layout / master cascade. Use `getShapeGradientFillEffective` for that.
+ */
+export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  if (!spPr) return null;
+  const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
+  if (!gradFill) return null;
+  return parseGradFill(gradFill);
+};
+
+/**
+ * Same as `getShapeGradientFill` but walks the layout → master
+ * placeholder cascade when the shape itself carries no `<a:gradFill>`.
+ * Returns the first gradient found, or `null` when neither the shape
+ * nor its inherited placeholder defines one.
+ *
+ * Resolves only gradients authored as a literal `<a:gradFill>` on the
+ * shape or its placeholder ancestors. Gradients referenced through the
+ * theme style matrix (`<p:style><a:fillRef>` → `<a:fillStyleLst>`) are
+ * not modelled by the core yet, so those still report `inherit` and
+ * fall through here.
+ */
+export const getShapeGradientFillEffective = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+): GradientFillOptions | null => {
+  const own = getShapeGradientFill(shape);
+  if (own) return own;
+
+  const phIdx = getShapePlaceholderIdx(shape);
+  const phType = getShapePlaceholderType(shape);
+  if (phIdx === null && phType === null) return null;
+
+  const layout = getSlideLayout(shape[SHAPE_SLIDE]);
+  if (!layout) return null;
+
+  const readGradFromSpPr = (el: XmlElement): GradientFillOptions | null => {
+    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
+    if (!spPr) return null;
+    const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
+    if (!gradFill) return null;
+    return parseGradFill(gradFill);
+  };
+
+  const findPh = (
+    shapes: ReadonlyArray<{
+      placeholderIdx: number | null;
+      placeholderType: string | null;
+      element: XmlElement;
+    }>,
+  ): XmlElement | null => {
+    let match = phIdx !== null ? shapes.find((s) => s.placeholderIdx === phIdx) : undefined;
+    if (!match && phType !== null) match = shapes.find((s) => s.placeholderType === phType);
+    return match?.element ?? null;
+  };
+
+  const layoutPh = findPh(layout[LAYOUT_PART].shapes);
+  if (layoutPh) {
+    const g = readGradFromSpPr(layoutPh);
+    if (g) return g;
+  }
+
+  const pkg = pres[INTERNAL_PACKAGE];
+  const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+  const layoutRels = pkg.getRels(layoutPartName);
+  if (!layoutRels) return null;
+  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  if (!masterRel) return null;
+  const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+  if (!masterPart) return null;
+  const masterRoot = parseXml(decode(masterPart.data)).root;
+  const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+  const masterPh = findPh(masterShapes);
+  if (masterPh) {
+    const g = readGradFromSpPr(masterPh);
+    if (g) return g;
+  }
+  return null;
 };
