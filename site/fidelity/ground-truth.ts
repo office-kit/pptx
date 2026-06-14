@@ -106,14 +106,17 @@ const pptxToPdfPowerPoint = (pptxPath: string, outDir: string): string => {
     throw new GroundTruthUnavailableError('PowerPoint ground truth is macOS-only.');
   }
   const pdf = join(outDir, basename(pptxPath).replace(/\.pptx$/i, '.pdf'));
+  // PowerPoint's `open`/`save in` expect a file reference, not a raw POSIX
+  // path string — passing the bare string silently fails to produce a PDF.
+  // `POSIX file (...)` coerces the argv string into the file object PP wants.
   const script = [
     'on run argv',
     '  set inPath to item 1 of argv',
     '  set outPath to item 2 of argv',
     '  tell application "Microsoft PowerPoint"',
-    '    open inPath',
+    '    open (POSIX file inPath)',
     '    set theDoc to active presentation',
-    '    save theDoc in outPath as save as PDF',
+    '    save theDoc in (POSIX file outPath) as save as PDF',
     '    close theDoc saving no',
     '  end tell',
     'end run',

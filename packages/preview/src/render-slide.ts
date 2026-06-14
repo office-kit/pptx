@@ -3068,6 +3068,14 @@ const DISPLAY_UNIT_LABEL: Record<NonNullable<AxisSpec['displayUnits']>, string> 
 // Builds the `font-family / font-size / fill / weight` SVG attribute
 // string for axis tick labels. Defaults match PowerPoint's stock 10pt
 // muted-gray look; authored `<c:txPr>` overrides take over.
+// PowerPoint draws axis spines and major tick marks for every non-deleted
+// axis. When the chart authors no `<c:spPr><a:ln>` and no `<c:style>` part
+// (which is what pptx-kit emits), PowerPoint falls back to a near-black
+// line, so that is the renderer's default spine / tick color.
+const DEFAULT_AXIS_COLOR = '#000000';
+// Major tick marks read at ~5px against the 1280px-wide reference raster.
+const AXIS_TICK_LEN = 5;
+
 const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
   const sz = style?.sizePt ?? 10;
   const fill = style?.color ?? '#6B7280';
@@ -3089,12 +3097,16 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     : niceTicks(axis.min, axis.max);
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
-  const showGrid = axis.majorGridlines ?? true;
-  const gridStroke = axis.majorGridlineColor ?? '#E5E7EB';
+  // Major gridlines render only when the axis authors `<c:majorGridlines>`.
+  // pptx-kit emits none, and PowerPoint draws none in that case, so the
+  // default is off (a default-on grid is a divergence from PowerPoint).
+  const showGrid = axis.majorGridlines ?? false;
+  const gridStroke = axis.majorGridlineColor ?? '#D9D9D9';
+  const axisColor = axis.lineColor ?? DEFAULT_AXIS_COLOR;
   // Tick-mark mode: 'out' = stub outside the plot edge (default),
   // 'in' = stub inside the plot, 'cross' = both, 'none' = no stub.
   const tickMark = axis.majorTickMark ?? 'out';
-  const tickLen = 3;
+  const tickLen = AXIS_TICK_LEN;
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
@@ -3112,7 +3124,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
               ? f.plotX + tickLen
               : f.plotX + tickLen;
         out.push(
-          `<line x1="${px(tx1)}" y1="${px(yp)}" x2="${px(tx2)}" y2="${px(yp)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+          `<line x1="${px(tx1)}" y1="${px(yp)}" x2="${px(tx2)}" y2="${px(yp)}" stroke="${axisColor}" stroke-width="1"/>`,
         );
       }
       // Numeric label, right-aligned to the plot's left edge.
@@ -3142,7 +3154,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
         const ty2 =
           tickMark === 'out' ? baseY : tickMark === 'cross' ? baseY - tickLen : baseY - tickLen;
         out.push(
-          `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+          `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="${axisColor}" stroke-width="1"/>`,
         );
       }
       const horizLabelY = f.plotY + f.plotH + 12;
@@ -3178,20 +3190,22 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       );
     }
   }
-  // Authored <c:valAx><c:spPr><a:ln> — draw an explicit axis spine at
-  // the appropriate edge so the line color shows up in the preview.
-  // Only emit when authored (the renderer's default look has no spine,
-  // relying on chart-area + plotArea borders).
-  if (axis.lineColor !== undefined) {
-    if (axis.orientation === 'vertical') {
-      out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axis.lineColor}" stroke-width="0.75"/>`,
-      );
-    } else {
-      out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY + f.plotH)}" x2="${px(f.plotX + f.plotW)}" y2="${px(f.plotY + f.plotH)}" stroke="${axis.lineColor}" stroke-width="0.75"/>`,
-      );
-    }
+  // The value-axis spine. PowerPoint always draws it for a non-deleted
+  // axis (a deleted axis never reaches this function), authored color or
+  // not — so the spine is unconditional, falling back to the default
+  // axis color when `<c:valAx><c:spPr><a:ln>` is absent.
+  if (axis.orientation === 'vertical') {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
+  } else {
+    // Horizontal value axis (bar chart) sits at the category baseline,
+    // which is value 0 when the range straddles it, else the bottom edge.
+    const zeroY = f.plotY + f.plotH - ((0 - axis.min) / range) * f.plotH;
+    const spineY = axis.min <= 0 && axis.max >= 0 ? zeroY : f.plotY + f.plotH;
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(spineY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(spineY)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
   }
   return out.join('');
 };
@@ -3277,17 +3291,34 @@ const renderCategoryAxis = (
       );
     }
   }
-  // Authored <c:catAx><c:spPr><a:ln> — spine at the bottom edge for
-  // horizontal (column / line / area) and at the left edge for
-  // vertical (bar chart). Only emit when authored.
-  if (lineColor !== undefined) {
-    if (orientation === 'horizontal') {
+  // The category-axis spine plus its major tick marks. PowerPoint draws
+  // both for every non-deleted axis (default tick mark = 'out'), with the
+  // ticks sitting at the category boundaries — N+1 of them. The spine sits
+  // at the bottom edge for horizontal (column / line / area) and the left
+  // edge for vertical (bar chart); both fall back to the default axis color
+  // when `<c:catAx><c:spPr><a:ln>` is absent.
+  const axisColor = lineColor ?? DEFAULT_AXIS_COLOR;
+  if (orientation === 'horizontal') {
+    const baseY = f.plotY + f.plotH;
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
+    const stepB = pointCount > 0 ? f.plotW / pointCount : 0;
+    for (let i = 0; i <= pointCount; i++) {
+      const bx = f.plotX + i * stepB;
       out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY + f.plotH)}" x2="${px(f.plotX + f.plotW)}" y2="${px(f.plotY + f.plotH)}" stroke="${lineColor}" stroke-width="0.75"/>`,
+        `<line x1="${px(bx)}" y1="${px(baseY)}" x2="${px(bx)}" y2="${px(baseY + AXIS_TICK_LEN)}" stroke="${axisColor}" stroke-width="1"/>`,
       );
-    } else {
+    }
+  } else {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
+    const stepB = pointCount > 0 ? f.plotH / pointCount : 0;
+    for (let i = 0; i <= pointCount; i++) {
+      const by = f.plotY + i * stepB;
       out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${lineColor}" stroke-width="0.75"/>`,
+        `<line x1="${px(f.plotX - AXIS_TICK_LEN)}" y1="${px(by)}" x2="${px(f.plotX)}" y2="${px(by)}" stroke="${axisColor}" stroke-width="1"/>`,
       );
     }
   }
@@ -4750,8 +4781,11 @@ const renderChart = (
     `<g${transform}>`,
     // Chart-area backdrop honors <c:chartSpace><c:spPr><a:solidFill> /
     // <a:ln>. plot-area gets its own tinted rect + border when
-    // <c:plotArea><c:spPr> authors them.
-    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? '#E5E7EB'}" stroke-width="0.6"${spec.roundedCorners ? ' rx="6" ry="6"' : ''}/>`,
+    // <c:plotArea><c:spPr> authors them. PowerPoint draws no chart-area
+    // border unless the chartSpace authors an <a:ln>, so the default is
+    // `none` — an invented light-gray frame is the most visible single
+    // divergence from PowerPoint's actual rendering.
+    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? 'none'}" stroke-width="0.6"${spec.roundedCorners ? ' rx="6" ry="6"' : ''}/>`,
     spec.plotAreaFill || spec.plotAreaStrokeColor
       ? `<rect x="${px(f.plotX)}" y="${px(f.plotY)}" width="${px(f.plotW)}" height="${px(f.plotH)}" fill="${spec.plotAreaFill ?? 'none'}" stroke="${spec.plotAreaStrokeColor ?? 'none'}" stroke-width="0.6"/>`
       : '',
