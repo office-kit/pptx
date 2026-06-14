@@ -46,6 +46,8 @@ const SLIDE_MASTER_CONTENT_TYPE =
 const SLIDE_LAYOUT_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml';
 const THEME_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.theme+xml';
+const TABLE_STYLES_CONTENT_TYPE =
+  'application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml';
 const CORE_PROPS_CONTENT_TYPE = 'application/vnd.openxmlformats-package.core-properties+xml';
 const EXTENDED_PROPS_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.extended-properties+xml';
@@ -92,6 +94,13 @@ const PRES_PROPS_XML = `${XML_DECL}<p:presentationPr xmlns:a="http://schemas.ope
 
 const VIEW_PROPS_XML = `${XML_DECL}<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>`;
 
+// Table styles. PowerPoint always ships this part, and a table's
+// `<a:tableStyleId>` resolves against the `def` GUID here. We ship the
+// "No Style, Table Grid" default that PptxGenJS and our template fixtures
+// also use, so `addSlideTable` output renders as a clean ruled grid rather
+// than an unstyled block. (See `table-builder.ts` DEFAULT_TABLE_STYLE_ID.)
+const TABLE_STYLES_XML = `${XML_DECL}<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`;
+
 const CORE_PROPS_XML = `${XML_DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title></dc:title><dc:creator>pptx-kit</dc:creator><cp:lastModifiedBy>pptx-kit</cp:lastModifiedBy></cp:coreProperties>`;
 
 const EXTENDED_PROPS_XML = `${XML_DECL}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>pptx-kit</Application></Properties>`;
@@ -101,7 +110,7 @@ const ROOT_RELS_XML = `${XML_DECL}<Relationships xmlns="${RT_PACKAGE}"><Relation
 
 // Presentation rels: master + theme + presProps + viewProps. The master's
 // rId1 must match the `<p:sldMasterId r:id="rId1">` in presentation.xml.
-const PRES_RELS_XML = `${XML_DECL}<Relationships xmlns="${RT_PACKAGE}"><Relationship Id="rId1" Type="${RT}/slideMaster" Target="slideMasters/slideMaster1.xml"/><Relationship Id="rId2" Type="${RT}/theme" Target="theme/theme1.xml"/><Relationship Id="rId3" Type="${RT}/presProps" Target="presProps.xml"/><Relationship Id="rId4" Type="${RT}/viewProps" Target="viewProps.xml"/></Relationships>`;
+const PRES_RELS_XML = `${XML_DECL}<Relationships xmlns="${RT_PACKAGE}"><Relationship Id="rId1" Type="${RT}/slideMaster" Target="slideMasters/slideMaster1.xml"/><Relationship Id="rId2" Type="${RT}/theme" Target="theme/theme1.xml"/><Relationship Id="rId3" Type="${RT}/presProps" Target="presProps.xml"/><Relationship Id="rId4" Type="${RT}/viewProps" Target="viewProps.xml"/><Relationship Id="rId5" Type="${RT}/tableStyles" Target="tableStyles.xml"/></Relationships>`;
 
 // Master rels: one slideLayout per shipped layout (matching the master's
 // `<p:sldLayoutIdLst>` rIds) + the theme.
@@ -139,6 +148,7 @@ export const buildBlankDeck = (aspect: BlankDeckAspect): OpcPackage => {
   add('/ppt/presProps.xml', PRES_PROPS_CONTENT_TYPE, PRES_PROPS_XML);
   add('/ppt/viewProps.xml', VIEW_PROPS_CONTENT_TYPE, VIEW_PROPS_XML);
   add('/ppt/theme/theme1.xml', THEME_CONTENT_TYPE, THEME_XML);
+  add('/ppt/tableStyles.xml', TABLE_STYLES_CONTENT_TYPE, TABLE_STYLES_XML);
   add('/ppt/slideMasters/slideMaster1.xml', SLIDE_MASTER_CONTENT_TYPE, SLIDE_MASTER_XML);
   add('/ppt/slideLayouts/slideLayout1.xml', SLIDE_LAYOUT_CONTENT_TYPE, LAYOUT_BLANK_XML);
   add('/ppt/slideLayouts/slideLayout2.xml', SLIDE_LAYOUT_CONTENT_TYPE, LAYOUT_TITLE_XML);

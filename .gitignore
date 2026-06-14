@@ -33,3 +33,6 @@ samples/out/
 site/fidelity/out*/
 # Candidate baseline produced by --check on every run; commit as baseline.json to update the gate.
 site/fidelity/baseline.candidate.json
+
+# corpus harness output
+test/corpus/out/
