@@ -370,8 +370,10 @@ describe('renderSlideToSvg', () => {
   it('scatter (marker style): point markers, no connecting line, no fallback, legend present', async () => {
     const svg = await renderInjectedChart(scatterPlotArea('marker'));
     expect(svg).not.toContain('data-pptx-fallback="chart"');
-    // One <circle> per data point (3); markers only means no plot <path>.
-    expect(countTags(svg, 'circle')).toBeGreaterThanOrEqual(3);
+    // One marker per data point (3). Series 0's automatic marker is a
+    // diamond (PowerPoint's auto-marker rotation, shared with line charts),
+    // which renders as a <polygon>; markers-only means no plot <path>.
+    expect(countTags(svg, 'polygon')).toBeGreaterThanOrEqual(3);
     expect(countTags(svg, 'path')).toBe(0);
     expect(svg).toContain('Alpha');
   });
@@ -379,7 +381,7 @@ describe('renderSlideToSvg', () => {
   it('scatter (lineMarker style): adds a connecting <path> over the markers', async () => {
     const markerOnly = await renderInjectedChart(scatterPlotArea('marker'));
     const lineMarker = await renderInjectedChart(scatterPlotArea('lineMarker'));
-    expect(countTags(lineMarker, 'circle')).toBeGreaterThanOrEqual(3);
+    expect(countTags(lineMarker, 'polygon')).toBeGreaterThanOrEqual(3);
     // The connecting polyline is the only <path> source on this slide.
     expect(countTags(lineMarker, 'path')).toBeGreaterThan(countTags(markerOnly, 'path'));
   });

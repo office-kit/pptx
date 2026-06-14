@@ -3271,12 +3271,13 @@ const renderCategoryAxis = (
       );
     }
   } else {
-    // Categories down the y-axis (bar chart).
+    // Categories down the y-axis (bar chart). PowerPoint's bar category axis
+    // runs bottom-to-top, so the first category's label sits at the bottom.
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
     const truncLen = labelRotationDeg && Math.abs(labelRotationDeg) >= 30 ? 28 : 14;
     for (let i = 0; i < pointCount; i++) {
       if (skip > 1 && i % skip !== 0) continue;
-      const cy = f.plotY + (i + 0.5) * step;
+      const cy = f.plotY + (pointCount - 1 - i + 0.5) * step;
       const lx = f.plotX - 4;
       const truncated =
         labels[i] !== undefined && labels[i]!.length > truncLen
@@ -3388,10 +3389,14 @@ const renderChartLegend = (
   // back to the 9×9 color rect.
   const swatch = (i: number, swatchX: number, swatchY: number): string => {
     const color = colors[i % colors.length]!;
+    // `markerSymbols` is supplied only for line / area charts. In that
+    // context an absent / `auto` symbol still plots a glyph (via the
+    // automatic rotation), so the legend must show the matching glyph
+    // rather than the bar/pie color rect.
     const sym = markerSymbols?.[i];
-    if (sym && sym !== 'none' && sym !== 'auto') {
+    if (markerSymbols !== undefined && sym !== 'none') {
       const r = 4.5;
-      return seriesMarker(sym, swatchX + r, swatchY + r, r, color);
+      return seriesMarker(autoMarkerSymbol(sym, i), swatchX + r, swatchY + r, r, color);
     }
     return `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${color}"/>`;
   };
@@ -3760,8 +3765,33 @@ const smoothPath = (pts: ReadonlyArray<[number, number]>): string => {
   return parts.join(' ');
 };
 
+// PowerPoint's automatic marker-symbol rotation for line / scatter series
+// whose `<c:marker>` authors no explicit `<c:symbol>` (or authors `auto`).
+// Confirmed against a PowerPoint export for series 0–3 (diamond, square,
+// triangle, x); the tail extends the rotation with the remaining glyphs.
+const AUTO_MARKER_SYMBOLS = [
+  'diamond',
+  'square',
+  'triangle',
+  'x',
+  'star',
+  'dot',
+  'plus',
+  'dash',
+] as const satisfies ReadonlyArray<NonNullable<ChartSeries['markerSymbol']>>;
+
+// Resolves a series' effective marker glyph: an explicit symbol wins;
+// `auto` / absent picks from the automatic rotation by series index.
+const autoMarkerSymbol = (
+  symbol: ChartSeries['markerSymbol'],
+  seriesIdx: number,
+): NonNullable<ChartSeries['markerSymbol']> =>
+  symbol !== undefined && symbol !== 'auto'
+    ? symbol
+    : AUTO_MARKER_SYMBOLS[seriesIdx % AUTO_MARKER_SYMBOLS.length]!;
+
 // Per-series data-point marker glyph. `symbol` mirrors ECMA-376's
-// ST_MarkerStyle (subset). `auto` resolves to a small filled circle.
+// ST_MarkerStyle (subset).
 const seriesMarker = (
   symbol: NonNullable<ChartSeries['markerSymbol']>,
   cx: number,
@@ -3892,7 +3922,9 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         }
         const base = v >= 0 ? posAcc : negAcc;
         const stackedTop = base + v;
-        const y0 = f.plotY + c * groupH + (groupH - barH) / 2;
+        // PowerPoint's bar-chart category axis runs bottom-to-top, so the
+        // first category sits at the bottom — map slot c from the bottom up.
+        const y0 = f.plotY + (N - 1 - c) * groupH + (groupH - barH) / 2;
         const x0 = f.plotX + ((Math.min(base, stackedTop) - min) / range) * f.plotW;
         const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
         const w = Math.abs(x1 - x0);
@@ -3913,11 +3945,14 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
       }
     } else {
       const clusterH = barH * clusterUnitsB;
-      const clusterStartY = f.plotY + c * groupH + (groupH - clusterH) / 2;
+      // First category at the bottom (PowerPoint's bottom-to-top cat axis).
+      const clusterStartY = f.plotY + (N - 1 - c) * groupH + (groupH - clusterH) / 2;
       const strideB = barH * (1 - overlapPctB);
       for (let s = 0; s < spec.series.length; s++) {
         const v = spec.series[s]?.values[c] ?? 0;
-        const y0 = clusterStartY + s * strideB;
+        // Series also stack bottom-up within the cluster — series 0 lowest,
+        // matching a column chart rotated into the bar orientation.
+        const y0 = clusterStartY + (Sb - 1 - s) * strideB;
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
@@ -4113,8 +4148,8 @@ const renderLineChart = (
       // markerSymbol='none' hides the markers; everything else picks a
       // shape and the marker size from the series (default ~5pt → ~2.2
       // radius for compatibility with the previous render).
-      const symbol = series.markerSymbol ?? 'auto';
-      if (symbol !== 'none') {
+      if (series.markerSymbol !== 'none') {
+        const symbol = autoMarkerSymbol(series.markerSymbol, s);
         const size = series.markerSizePt ?? 5;
         const r = Math.max(1, size * 0.5);
         for (const [xp, yp] of pts) {
@@ -4427,7 +4462,7 @@ const renderScatterChart = (
     const drawMarker = sym === 'none' ? false : showMarker || (sym !== undefined && sym !== 'auto');
     if (drawMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
-      const glyph = sym && sym !== 'auto' && sym !== 'none' ? sym : 'circle';
+      const glyph = autoMarkerSymbol(sym, s);
       for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
     }
   }
@@ -4573,10 +4608,7 @@ const renderRadarChart = (
     );
     if (showMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
-      const glyph =
-        series.markerSymbol && series.markerSymbol !== 'auto' && series.markerSymbol !== 'none'
-          ? series.markerSymbol
-          : 'circle';
+      const glyph = autoMarkerSymbol(series.markerSymbol, s);
       for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
     }
   }

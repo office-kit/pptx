@@ -114,6 +114,10 @@ const pptxToPdfPowerPoint = (pptxPath: string, outDir: string): string => {
     '  set inPath to item 1 of argv',
     '  set outPath to item 2 of argv',
     '  tell application "Microsoft PowerPoint"',
+    // `activate` foregrounds PowerPoint before the open/save. Without it,
+    // a backgrounded PowerPoint intermittently hangs the AppleScript
+    // (osascript ETIMEDOUT) instead of exporting.
+    '    activate',
     '    open (POSIX file inPath)',
     '    set theDoc to active presentation',
     '    save theDoc in (POSIX file outPath) as save as PDF',

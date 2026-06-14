@@ -270,10 +270,15 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
     valNode(c('order'), seriesIdx),
     elem(c('tx'), { children: [strRef(headerCellFormula, [series.name])] }),
   ];
-  // spPr — emit the richer version (with ln) only when authored fields
-  // would otherwise be lost; otherwise keep the legacy solid-fill-only
-  // shape for tight round-trip compatibility with the existing fixtures.
-  if (series.lineWidthEmu !== undefined || series.lineDash !== undefined) {
+  // spPr shape depends on what the series actually paints. A line series'
+  // visible element is its stroke, so the color MUST live on <a:ln>; a bare
+  // <a:solidFill> (correct for bar/area fills) leaves the line uncolored and
+  // PowerPoint falls back to its automatic series palette — the line then
+  // renders in the wrong color. seriesSpPr emits the color on both <a:ln>
+  // and <a:solidFill>, so it colors the line for PowerPoint while keeping the
+  // solidFill the reader round-trips. Bar / column / pie keep the legacy
+  // solid-fill-only shape for tight round-trip compatibility with fixtures.
+  if (spec.kind === 'line' || series.lineWidthEmu !== undefined || series.lineDash !== undefined) {
     children.push(seriesSpPr(color, series.lineWidthEmu, series.lineDash));
   } else {
     children.push(solidFillSpPr(color));
