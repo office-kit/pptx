@@ -56,6 +56,21 @@ describe.skipIf(!pptxGenJsAvailable())('PptxGenJS parity corpus', () => {
       // 1. Hard gate: pptx-kit's slide must be schema-valid.
       if (isSchemaValidationAvailable()) {
         expectSchemaValid(r.kitXml, 'pml');
+        // Chart part, when present, must validate against the chart XSD too.
+        if (r.kitChartXml) expectSchemaValid(r.kitChartXml, 'chart');
+      }
+
+      // 1b. Chart cases: raw chart XML can't match (PptxGenJS stamps its own
+      // chrome defaults — gridlines, data-label blocks, palette, multi-level
+      // categories — that PowerPoint treats as optional). What must match is
+      // the *semantic* content: chart type, categories, and every series'
+      // values. Read both back with pptx-kit and compare.
+      if (r.kitChartSemantics || r.pgjsChartSemantics) {
+        expect(r.kitChartSemantics, `${c.id}: pptx-kit emitted no readable chart`).not.toBeNull();
+        expect(r.pgjsChartSemantics, `${c.id}: PptxGenJS emitted no readable chart`).not.toBeNull();
+        expect(r.kitChartSemantics, `${c.id}: chart content diverges from PptxGenJS`).toEqual(
+          r.pgjsChartSemantics,
+        );
       }
 
       // 2. Ratchet: divergence from the reference may not grow.

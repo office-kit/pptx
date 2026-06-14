@@ -71,6 +71,23 @@ const DEFAULT_TC_MARGINS: Record<string, string> = {
   marB: '45720',
 };
 
+// `<a:hlinkClick>` attributes PptxGenJS writes out at their default value (or
+// empty); PowerPoint omits them. Folded when empty or equal to the default.
+const HLINK_DEFAULTS: Record<string, string> = {
+  endSnd: '0',
+  highlightClick: '0',
+  history: '1',
+};
+const HLINK_DEFAULT_ATTRS = new Set([
+  'endSnd',
+  'highlightClick',
+  'history',
+  'action',
+  'invalidUrl',
+  'tgtFrame',
+  'tooltip',
+]);
+
 // `<a:tblPr>` style flags. Inert without a style; folded with the style ref.
 const TBL_STYLE_FLAGS = new Set([
   'firstRow',
@@ -121,6 +138,12 @@ const canonicalAttrs = (el: XmlElement): string[] => {
     if (local === 'tcPr' && DEFAULT_TC_MARGINS[an] === a.value) continue;
     // Row height is an advisory minimum PowerPoint recomputes from content.
     if (local === 'tr' && an === 'h') continue;
+    // Hyperlink no-op defaults PptxGenJS spells out and PowerPoint omits.
+    if (local === 'hlinkClick' || local === 'hlinkHover') {
+      if (HLINK_DEFAULT_ATTRS.has(an) && (a.value === '' || a.value === HLINK_DEFAULTS[an])) {
+        continue;
+      }
+    }
     // Table-style flags only have an effect relative to a style; pptx-kit
     // names the package's default grid style explicitly (see below) and
     // PptxGenJS inherits it, so the flags fold away with the style reference.
@@ -160,6 +183,8 @@ const shouldDropChild = (parentLocal: string, child: XmlElement, lineFlag: boole
   if ((c === 'ea' || c === 'cs') && ['rPr', 'defRPr', 'endParaRPr'].includes(parentLocal))
     return true;
   if (c === 'prstDash' && rawAttr(child, 'val') === 'solid') return true; // default dash
+  // `<a:buSzPct val="100000"/>` is "bullet at 100% of text size" — the default.
+  if (c === 'buSzPct' && rawAttr(child, 'val') === '100000') return true;
   // Explicit black run color === the theme's default `tx1` resolution.
   if (
     ['rPr', 'defRPr', 'endParaRPr'].includes(parentLocal) &&
@@ -169,6 +194,10 @@ const shouldDropChild = (parentLocal: string, child: XmlElement, lineFlag: boole
     return true;
   }
   if (isInvisibleBorder(child)) return true; // w="0" noFill cell border
+  // PptxGenJS mirrors a run-level link onto the shape (`<p:cNvPr><a:hlinkClick>`);
+  // pptx-kit links the runs, which already makes the text clickable. The
+  // shape-level mirror is redundant for a text box, so fold it.
+  if (parentLocal === 'cNvPr' && (c === 'hlinkClick' || c === 'hlinkHover')) return true;
   // Explicit reference to the package's default grid style (see above).
   if (parentLocal === 'tblPr' && c === 'tableStyleId' && textOf(child) === DEFAULT_TABLE_STYLE_ID) {
     return true;

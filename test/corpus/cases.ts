@@ -9,6 +9,7 @@
 import type { PresentationData, SlideData } from '../../src/api/_internal-symbols.ts';
 import type { PgjsDeck, PgjsSlide } from './pptxgenjs-types.ts';
 import {
+  addSlideChart,
   addSlideImage,
   addSlideLine,
   addSlideShape,
@@ -19,10 +20,14 @@ import {
   pt,
   setParagraphAlignment,
   setShapeFill,
+  setShapeBullets,
   setShapeRunFormat,
+  setShapeRunHyperlink,
   setShapeStroke,
   setShapeStrokeArrow,
   setShapeStrokeDash,
+  setTableCellAlignment,
+  setTableCellFill,
   setTableCellTextFormat,
 } from '../../src/api/index.ts';
 import { buildPng } from '../lib/build-png.ts';
@@ -337,6 +342,272 @@ export const CASES: CorpusCase[] = [
     },
     kit: (_p, slide) => {
       addSlideImage(slide, PNG, { x: inches(0.5), y: inches(0.5), w: inches(6), h: inches(4.5) });
+    },
+  },
+  {
+    id: 'chart-column',
+    pgjs: (s) => {
+      s.addChart('bar', [{ name: 'Revenue', labels: ['Q1', 'Q2'], values: [120, 180] }], {
+        x: 1,
+        y: 1,
+        w: 6,
+        h: 4,
+      });
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'column',
+          categories: ['Q1', 'Q2'],
+          series: [{ name: 'Revenue', values: [120, 180] }],
+        },
+      });
+    },
+  },
+  {
+    id: 'chart-line',
+    pgjs: (s) => {
+      s.addChart(
+        'line',
+        [{ name: 'Visits', labels: ['Mon', 'Tue', 'Wed'], values: [10, 22, 18] }],
+        { x: 1, y: 1, w: 6, h: 4 },
+      );
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'line',
+          categories: ['Mon', 'Tue', 'Wed'],
+          series: [{ name: 'Visits', values: [10, 22, 18] }],
+        },
+      });
+    },
+  },
+  {
+    id: 'chart-pie',
+    pgjs: (s) => {
+      s.addChart(
+        'pie',
+        [{ name: 'Share', labels: ['Web', 'Mobile', 'Desktop'], values: [55, 30, 15] }],
+        { x: 1, y: 1, w: 6, h: 4 },
+      );
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'pie',
+          categories: ['Web', 'Mobile', 'Desktop'],
+          series: [{ name: 'Share', values: [55, 30, 15] }],
+        },
+      });
+    },
+  },
+  {
+    id: 'chart-multiseries',
+    pgjs: (s) => {
+      s.addChart(
+        'bar',
+        [
+          { name: 'A', labels: ['Q1', 'Q2', 'Q3'], values: [4, 8, 5] },
+          { name: 'B', labels: ['Q1', 'Q2', 'Q3'], values: [2, 5, 9] },
+        ],
+        { x: 1, y: 1, w: 6, h: 4 },
+      );
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'column',
+          categories: ['Q1', 'Q2', 'Q3'],
+          series: [
+            { name: 'A', values: [4, 8, 5] },
+            { name: 'B', values: [2, 5, 9] },
+          ],
+        },
+      });
+    },
+  },
+  {
+    id: 'text-hyperlink',
+    pgjs: (s) => {
+      s.addText('Open', {
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 1,
+        hyperlink: { url: 'https://example.com/' },
+      });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(1),
+        text: 'Open',
+      });
+      // PptxGenJS auto-underlines linked text and mirrors the link onto the
+      // shape (cNvPr); pptx-kit links the runs (which makes the text
+      // clickable). Author the underline to match; the shape-level mirror is
+      // folded by the comparator.
+      setShapeRunHyperlink(box, 0, 0, 'https://example.com/');
+      setShapeRunFormat(box, 0, 0, { underline: true });
+    },
+  },
+  {
+    id: 'text-strike',
+    pgjs: (s) => {
+      s.addText('Struck', { x: 1, y: 1, w: 4, h: 1, strike: true });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(1),
+        text: 'Struck',
+      });
+      setShapeRunFormat(box, 0, 0, { strike: true });
+    },
+  },
+  {
+    id: 'shape-diamond',
+    pgjs: (s) => {
+      s.addShape('diamond', { x: 2, y: 1, w: 3, h: 2, fill: { color: '8064A2' } });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'diamond',
+        x: inches(2),
+        y: inches(1),
+        w: inches(3),
+        h: inches(2),
+      });
+      setShapeFill(sh, '#8064A2');
+    },
+  },
+  {
+    id: 'table-cell-fill',
+    pgjs: (s) => {
+      s.addTable(
+        [
+          [{ text: 'A', options: { fill: { color: 'FFFF00' } } }, 'B'],
+          ['1', '2'],
+        ] as unknown as string[][],
+        { x: 1, y: 1, w: 4, colW: [2, 2] },
+      );
+    },
+    kit: (_p, slide) => {
+      const table = addSlideTable(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(1),
+        rows: [
+          ['A', 'B'],
+          ['1', '2'],
+        ],
+      });
+      setTableCellFill(getTableCell(table, 0, 0), '#FFFF00');
+      for (let r = 0; r < 2; r++) {
+        for (let col = 0; col < 2; col++) {
+          setTableCellTextFormat(getTableCell(table, r, col), { size: 12 });
+        }
+      }
+    },
+  },
+  {
+    id: 'text-bullets',
+    pgjs: (s) => {
+      s.addText('One\nTwo\nThree', { x: 1, y: 1, w: 5, h: 3, bullet: true });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(5),
+        h: inches(3),
+        text: 'One\nTwo\nThree',
+      });
+      setShapeBullets(box, 'bullet');
+    },
+  },
+  {
+    id: 'shape-star5',
+    pgjs: (s) => {
+      s.addShape('star5', { x: 2, y: 1, w: 3, h: 2, fill: { color: 'FFD966' } });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'star5',
+        x: inches(2),
+        y: inches(1),
+        w: inches(3),
+        h: inches(2),
+      });
+      setShapeFill(sh, '#FFD966');
+    },
+  },
+  {
+    id: 'shape-pentagon',
+    pgjs: (s) => {
+      s.addShape('pentagon', { x: 2, y: 1, w: 3, h: 2, fill: { color: '70AD47' } });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'pentagon',
+        x: inches(2),
+        y: inches(1),
+        w: inches(3),
+        h: inches(2),
+      });
+      setShapeFill(sh, '#70AD47');
+    },
+  },
+  {
+    id: 'table-cell-align',
+    pgjs: (s) => {
+      s.addTable(
+        [
+          [{ text: 'A', options: { align: 'center' } }, 'B'],
+          ['1', '2'],
+        ] as unknown as string[][],
+        { x: 1, y: 1, w: 4, colW: [2, 2] },
+      );
+    },
+    kit: (_p, slide) => {
+      const table = addSlideTable(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(1),
+        rows: [
+          ['A', 'B'],
+          ['1', '2'],
+        ],
+      });
+      setTableCellAlignment(getTableCell(table, 0, 0), 'ctr');
+      for (let r = 0; r < 2; r++) {
+        for (let col = 0; col < 2; col++) {
+          setTableCellTextFormat(getTableCell(table, r, col), { size: 12 });
+        }
+      }
     },
   },
   {

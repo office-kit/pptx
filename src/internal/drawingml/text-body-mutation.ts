@@ -277,6 +277,27 @@ export const applyAlignmentToAllParagraphs = (
  * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
  * before inserting the new one. Creates `<a:pPr>` if absent.
  */
+// PowerPoint's default hanging indent for a bulleted paragraph, by list level
+// (0-based). These mirror the master `bodyStyle` lvlNpPr defaults, so a bullet
+// authored on a *text box* — which inherits the `otherStyle` (marL=0), not the
+// body style — still gets the standard bullet/text gap instead of the glyph
+// jammed against the text. PptxGenJS and PowerPoint both write these explicitly.
+const BULLET_INDENT_BY_LEVEL: ReadonlyArray<{ marL: number; indent: number }> = [
+  { marL: 342900, indent: -342900 },
+  { marL: 742950, indent: -285750 },
+  { marL: 1143000, indent: -228600 },
+  { marL: 1600200, indent: -228600 },
+  { marL: 2057400, indent: -228600 },
+];
+const bulletIndentForLevel = (lvl: number): { marL: number; indent: number } =>
+  BULLET_INDENT_BY_LEVEL[Math.min(lvl, BULLET_INDENT_BY_LEVEL.length - 1)]!;
+
+const ATTR_MAR_L = qname('', 'marL', '');
+const ATTR_INDENT = qname('', 'indent', '');
+
+const hasAttr = (el: XmlElement, local: string): boolean =>
+  el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === local);
+
 export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle): void => {
   let pPr = firstChildElement(paragraph, NAME_PPR_FOR_BULLET);
   if (pPr === null) {
@@ -295,6 +316,21 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
           c.name.localName === 'buNone')
       ),
   );
+
+  // A visible bullet needs a hanging indent or the glyph overlaps the text.
+  // Only fill it in when the caller hasn't set their own marL / indent, and
+  // never for `none` (which removes the bullet). marL / indent are pPr
+  // ATTRIBUTES, so they must come before the bullet child element.
+  if (style !== 'none') {
+    const lvl = Number.parseInt(
+      pPr.attrs.find((a) => a.name.localName === 'lvl')?.value ?? '0',
+      10,
+    );
+    const { marL, indent } = bulletIndentForLevel(Number.isFinite(lvl) ? lvl : 0);
+    if (!hasAttr(pPr, 'marL')) pPr.attrs.push(attr(ATTR_MAR_L, String(marL)));
+    if (!hasAttr(pPr, 'indent')) pPr.attrs.push(attr(ATTR_INDENT, String(indent)));
+  }
+
   pPr.children.push(buildBulletElement(style));
 };
 
