@@ -560,8 +560,11 @@ const buildLineChart = (spec: ChartSpec, sheet: string): XmlElement => {
   ];
   if (spec.dropLines) children.push(elem(c('dropLines')));
   if (spec.hiLowLines) children.push(elem(c('hiLowLines')));
+  // <c:marker val> selects the line subtype: "1" → Line with Markers,
+  // "0" → plain Line. Default on, preserving the historical output;
+  // authors opt out of markers with `lineMarkers: false`.
   children.push(
-    valNode(c('marker'), '1'),
+    valNode(c('marker'), spec.lineMarkers === false ? '0' : '1'),
     valNode(c('axId'), CAT_AX_ID),
     valNode(c('axId'), VAL_AX_ID),
   );

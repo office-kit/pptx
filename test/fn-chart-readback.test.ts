@@ -1065,4 +1065,28 @@ describe('fn API: getSlideCharts', () => {
     const charts = getSlideCharts(getSlides(reloaded)[0]!);
     expect(charts[0]!.spec!.kind).toBe('line');
   });
+
+  it('round-trips the line-marker subtype flag', async () => {
+    const roundTrip = async (lineMarkers: boolean | undefined): Promise<boolean | undefined> => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      addSlideChart(getSlides(pres)[0]!, {
+        x: inches(0),
+        y: inches(0),
+        w: inches(4),
+        h: inches(3),
+        spec: {
+          kind: 'line',
+          categories: ['Jan', 'Feb'],
+          series: [{ name: 'A', values: [1, 2] }],
+          ...(lineMarkers !== undefined ? { lineMarkers } : {}),
+        },
+      });
+      const reloaded = await loadPresentation(await savePresentation(pres));
+      return getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!.lineMarkers;
+    };
+    // Explicit off survives; the default emits the "with markers" subtype.
+    expect(await roundTrip(false)).toBe(false);
+    expect(await roundTrip(true)).toBe(true);
+    expect(await roundTrip(undefined)).toBe(true);
+  });
 });
