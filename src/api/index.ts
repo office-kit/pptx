@@ -427,6 +427,7 @@ export {
   removeTableRow,
   renameShape,
   replaceHyperlink,
+  resolveDeckBodyTextColor,
   resolveDrawingColor,
   replaceTextInNotes,
   replaceTextInPresentation,

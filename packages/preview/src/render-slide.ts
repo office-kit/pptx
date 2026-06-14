@@ -34,6 +34,7 @@ import {
   getParagraphSpacing,
   getPresentationFonts,
   getPresentationTheme,
+  resolveDeckBodyTextColor,
   getShapeBoundsResolved,
   getShapeEffectsEffective,
   getShapeFillEffective,
@@ -518,6 +519,14 @@ const mintId = (): string => `pkdef-${(nextDefId++).toString(36)}`;
 // each (synchronous, single-slide) render and `resolveColor` reads it. Like
 // `nextDefId` above, every entry overwrites it, so it needs no reset.
 let activeColorMap: Readonly<Record<string, string>> | null = null;
+
+// Default body-text color for the slide currently rendering. PowerPoint takes
+// the fallback text color from the master's `bodyStyle` (e.g. `schemeClr bg1`),
+// not from the `tx1` token — and in an inverted color map `tx1` resolves to the
+// background slot, which would paint default text the same color as the surface
+// (white-on-white, an invisible slide). renderSlideSvg sets this from
+// `resolveDeckBodyTextColor`; overwritten on every entry, so no reset needed.
+let activeDeckTextColor = '#000000';
 
 // `<linearGradient>` definition + `fill="url(#…)"` reference, projected
 // from pptx-kit's `{ stops, angleDeg }` shape onto SVG's
@@ -2715,7 +2724,9 @@ const renderTextBody = (
   }
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
-  const defaultColor = resolveColor('scheme:tx1', theme, '#000000');
+  // Fallback color for runs with no authored color — the deck's body-text color
+  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
+  const defaultColor = activeDeckTextColor;
 
   // Pure-SVG text path (browser-free rasterization). Rebuild the px-native
   // layout model from the already-resolved paraData and hand it to the engine,
@@ -4946,7 +4957,9 @@ const renderTable = (
   const accent = theme ? normalizeHex(theme.accent1) : '#4472C4';
   const headerFill = accent;
   const bandFill = mixHex(accent, '#FFFFFF', 0.92);
-  const textColor = resolveColor('scheme:tx1', theme, '#000000');
+  // Fallback for cells with no authored color — the deck's body-text color
+  // (an inverted map would paint the `tx1` token white-on-white).
+  const textColor = activeDeckTextColor;
   // Default table-cell face is the theme's body (minor) font, the same default
   // PowerPoint applies when a cell run carries no explicit typeface.
   const tableThemeFace = getPresentationFonts(pres)?.minorLatin ?? null;
@@ -5812,6 +5825,7 @@ export const renderSlideSvg = (
   const H = size.height as number;
   const theme = getPresentationTheme(pres);
   activeColorMap = getEffectiveColorMap(slide);
+  activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
   const ctx: LayoutCtx = {
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
