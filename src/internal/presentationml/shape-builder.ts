@@ -165,11 +165,14 @@ export const buildShape = (opts: ShapeOptions): XmlElement => {
     children: [cNvPr, cNvSpPr, elem(NAME_NV_PR)],
   });
 
+  // EMU coordinates are integers (ST_Coordinate / xsd:long). Round on the way
+  // out so a fractional value from EMU arithmetic (e.g. an `as Emu` cast on a
+  // computed fit/translate) can't reach the XML and trip PowerPoint's repair.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(opts.x)), attr(ATTR_Y, String(opts.y))],
+    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(opts.w)), attr(ATTR_CY, String(opts.h))],
+    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
   });
   const xfrm = elem(NAME_A_XFRM, { children: [off, ext] });
   const prstGeom = elem(NAME_PRST_GEOM, {
