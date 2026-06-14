@@ -602,34 +602,28 @@ const patternDef = (pat: {
       return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
     return `<path d="M${W} 0L0 ${H}" stroke="${fg}" stroke-width="${width}"/>`;
   };
-  const dots = (density: number): string => {
-    // density 0..1; emit between 1 and 4 dots per 8x8 tile by density.
-    const count = Math.max(1, Math.round(density * 4));
+  // pct{N} presets are ordered-dither *screens*: ~N% of the tile is the
+  // foreground color, the rest background, blending to an N%-toned fill (a
+  // sparse dot grid reads far lighter than PowerPoint's pct50). A 4×4 Bayer
+  // matrix over 2×2-px cells reproduces the coverage and the dispersed look.
+  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const screen = (density: number): string => {
+    const threshold = density * 16;
     const out: string[] = [];
-    const grid =
-      count <= 1
-        ? [[4, 4]]
-        : count === 2
-          ? [
-              [2, 2],
-              [6, 6],
-            ]
-          : [
-              [2, 2],
-              [6, 2],
-              [2, 6],
-              [6, 6],
-            ];
-    for (const [x, y] of grid.slice(0, count)) {
-      out.push(`<circle cx="${x}" cy="${y}" r="0.7" fill="${fg}"/>`);
+    for (let i = 0; i < 16; i++) {
+      if (BAYER4[i]! < threshold) {
+        const cx = (i % 4) * 2;
+        const cy = Math.floor(i / 4) * 2;
+        out.push(`<rect x="${cx}" y="${cy}" width="2" height="2" fill="${fg}"/>`);
+      }
     }
     return out.join('');
   };
-  // pct{N} — N% coverage. Map percent → dot density.
+  // pct{N} — N% coverage.
   const pctMatch = /^pct(\d+)$/.exec(preset);
   if (pctMatch) {
-    const pct = Math.min(100, Math.max(5, Number.parseInt(pctMatch[1]!, 10)));
-    body = dots(pct / 100);
+    const pct = Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10)));
+    body = screen(pct / 100);
   } else if (preset === 'horzBrick' || preset === 'ltHorizontal' || preset === 'narHorz') {
     body = stripe('h', 0.8);
   } else if (preset === 'dkHorizontal') {
@@ -669,7 +663,7 @@ const patternDef = (pat: {
   } else if (preset === 'solidDmnd' || preset === 'openDmnd') {
     body = `<path d="M4 1L7 4 4 7 1 4Z" fill="${preset === 'solidDmnd' ? fg : 'none'}" stroke="${fg}" stroke-width="0.6"/>`;
   } else {
-    body = dots(0.5);
+    body = screen(0.5);
   }
   const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${bg}"/>${body}</pattern></defs>`;
   return { defs, fillAttr: `url(#${id})` };

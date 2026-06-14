@@ -106,6 +106,10 @@ describe('renderSlideToSvg', () => {
     const svg = renderSlideToSvg(pres, slide);
     expect(countTags(svg, 'pattern')).toBeGreaterThan(0);
     expect(svg).toContain('url(#');
+    // pct50 is a 50% ordered-dither screen: half of the 16 Bayer cells are
+    // foreground, so the tile carries ~8 small 2×2 cells (a sparse dot grid
+    // would carry 1–2 and read far too light).
+    expect((svg.match(/width="2" height="2"/g) ?? []).length).toBeGreaterThanOrEqual(6);
   });
 
   it('foreignObject mode wraps text body in <foreignObject>', async () => {
