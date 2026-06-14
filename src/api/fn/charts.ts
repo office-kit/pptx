@@ -102,11 +102,18 @@ const buildChartGraphicFrame = (opts: {
   const nvGraphicFramePr = elem(NAME_NV_GRAPHIC_FRAME_PR, {
     children: [cNvPr, elem(NAME_C_NV_GRAPHIC_FRAME_PR), elem(NAME_NV_PR)],
   });
+  // Round to whole EMU; fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
-    attrs: [attr(qname('', 'x', ''), String(opts.x)), attr(qname('', 'y', ''), String(opts.y))],
+    attrs: [
+      attr(qname('', 'x', ''), String(Math.round(opts.x))),
+      attr(qname('', 'y', ''), String(Math.round(opts.y))),
+    ],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(qname('', 'cx', ''), String(opts.w)), attr(qname('', 'cy', ''), String(opts.h))],
+    attrs: [
+      attr(qname('', 'cx', ''), String(Math.round(opts.w))),
+      attr(qname('', 'cy', ''), String(Math.round(opts.h))),
+    ],
   });
   const xfrm = elem(NAME_XFRM, { children: [off, ext] });
   const chartRef = elem(NAME_C_CHART, {

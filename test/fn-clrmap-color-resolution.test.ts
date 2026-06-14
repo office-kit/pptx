@@ -23,6 +23,7 @@ import {
   addSlide,
   addSlideChart,
   addSlideTable,
+  addSlideTextBox,
   createPresentation,
   findSlideLayout,
   getEffectiveColorMap,
@@ -31,6 +32,7 @@ import {
   getTableCell,
   inches,
   loadPresentation,
+  resolveDeckBodyTextColor,
   resolveDrawingColor,
   savePresentation,
   setTableCellTextFormat,
@@ -396,5 +398,46 @@ describe('fn API: inverted clrMap end-to-end', () => {
     const inv = await buildInvertedDeck();
     const invSlide = getSlides(inv)[0]!;
     expect(firstRectFill(renderSlideToSvg(inv, invSlide))).toBe('#000000');
+  });
+
+  it('preview uses the deck body-text color (not tx1) for default-colored text', async () => {
+    // Reproduce a real inverted template: invert the color map AND make the
+    // master bodyStyle use the bg1 token for text (the "visible text" token in
+    // such templates), which the inverted map sends to dk1 = black. The old
+    // preview hardcoded the default text color to `scheme:tx1`, which the
+    // inverted map sends to lt1 = white — painting body text white on the white
+    // background (an invisible slide).
+    const pres = createPresentation();
+    const pkg = _internalPackageOf(pres);
+    const masterPart = pkg.parts.find((p) => p.name.startsWith('/ppt/slideMasters/slideMaster'));
+    if (!masterPart) throw new Error('slide master not found');
+    let xml = decode(masterPart.data);
+    xml = xml.replace(
+      /(<p:clrMap\s+)bg1="lt1"\s+tx1="dk1"\s+bg2="lt2"\s+tx2="dk2"/,
+      '$1bg1="dk1" tx1="lt1" bg2="dk2" tx2="lt2"',
+    );
+    // Flip only the bodyStyle level-1 default run color (tx1 → bg1).
+    xml = xml.replace(
+      /(<p:bodyStyle>[\s\S]*?<a:defRPr[^>]*><a:solidFill><a:schemeClr val=")tx1("\/>)/,
+      '$1bg1$2',
+    );
+    masterPart.data = encode(xml);
+
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('expected Blank layout');
+    const slide = addSlide(pres, { layout });
+    addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(5),
+      h: inches(1),
+      text: 'Default colored text',
+    });
+
+    // Deck body color resolves to black via bg1 → dk1; the old code gave white.
+    expect(resolveDeckBodyTextColor(slide)).toBe('#000000');
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    expect(svg).toContain('color:#000000');
+    expect(svg).not.toContain('color:#FFFFFF');
   });
 });

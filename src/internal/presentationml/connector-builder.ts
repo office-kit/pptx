@@ -75,8 +75,13 @@ export const buildConnector = (opts: ConnectorOptions): XmlElement => {
   const xfrm = elem(NAME_A_XFRM, {
     attrs: xfrmAttrs,
     children: [
-      elem(NAME_OFF, { attrs: [attr(ATTR_X, String(x)), attr(ATTR_Y, String(y))] }),
-      elem(NAME_EXT, { attrs: [attr(ATTR_CX, String(cx)), attr(ATTR_CY, String(cy))] }),
+      // Round to whole EMU; fractional ST_Coordinate values corrupt the file.
+      elem(NAME_OFF, {
+        attrs: [attr(ATTR_X, String(Math.round(x))), attr(ATTR_Y, String(Math.round(y)))],
+      }),
+      elem(NAME_EXT, {
+        attrs: [attr(ATTR_CX, String(Math.round(cx))), attr(ATTR_CY, String(Math.round(cy)))],
+      }),
     ],
   });
   const prstGeom = elem(NAME_PRST_GEOM, {

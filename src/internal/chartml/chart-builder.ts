@@ -532,7 +532,14 @@ const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar')
     ...(dl ? [dl] : []),
   ];
   if (spec.gapWidthPct !== undefined) children.push(valNode(c('gapWidth'), spec.gapWidthPct));
-  if (spec.overlapPct !== undefined) children.push(valNode(c('overlap'), spec.overlapPct));
+  // Stacked / 100%-stacked bars must overlap fully (overlap=100), otherwise
+  // PowerPoint draws each series in its own sub-slot and the "stack" spreads
+  // sideways across the category. PowerPoint always writes overlap=100 for
+  // these groupings; default to it when the caller didn't set an explicit
+  // overlap. Clustered keeps PowerPoint's own default (no element emitted).
+  const overlapPct =
+    spec.overlapPct ?? (grouping === 'stacked' || grouping === 'percentStacked' ? 100 : undefined);
+  if (overlapPct !== undefined) children.push(valNode(c('overlap'), overlapPct));
   children.push(valNode(c('axId'), CAT_AX_ID), valNode(c('axId'), VAL_AX_ID));
   return elem(c(direction === 'col' ? 'barChart' : 'barChart'), { children });
 };

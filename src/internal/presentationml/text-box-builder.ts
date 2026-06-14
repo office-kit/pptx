@@ -77,11 +77,12 @@ export const buildTextBox = (opts: TextBoxOptions): XmlElement => {
   const nvPr = elem(NAME_NV_PR);
   const nvSpPr = elem(NAME_NV_SP_PR, { children: [cNvPr, cNvSpPr, nvPr] });
 
+  // Round to whole EMU; fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(opts.x)), attr(ATTR_Y, String(opts.y))],
+    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(opts.w)), attr(ATTR_CY, String(opts.h))],
+    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
   });
   const xfrm = elem(NAME_A_XFRM, { children: [off, ext] });
   const prstGeom = elem(NAME_PRST_GEOM, {

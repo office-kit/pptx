@@ -82,11 +82,13 @@ export const buildPicture = (opts: PictureOptions): XmlElement => {
   const stretch = elem(NAME_STRETCH, { children: [elem(NAME_FILL_RECT)] });
   const blipFill = elem(NAME_BLIP_FILL, { children: [blip, stretch] });
 
+  // Round to whole EMU — `fit: 'contain'` scaling produces fractional offsets
+  // (`as Emu` cast), and fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(opts.x)), attr(ATTR_Y, String(opts.y))],
+    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(opts.w)), attr(ATTR_CY, String(opts.h))],
+    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
   });
   const xfrm = elem(NAME_A_XFRM, { children: [off, ext] });
   const prstGeom = elem(NAME_PRST_GEOM, {
