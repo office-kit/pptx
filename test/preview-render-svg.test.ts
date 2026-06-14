@@ -109,7 +109,27 @@ describe('renderSlideToSvg', () => {
     // pct50 is a 50% ordered-dither screen: half of the 16 Bayer cells are
     // foreground, so the tile carries ~8 small 2×2 cells (a sparse dot grid
     // would carry 1–2 and read far too light).
-    expect((svg.match(/width="2" height="2"/g) ?? []).length).toBeGreaterThanOrEqual(6);
+    expect((svg.match(/width="2" height="2"/g) ?? []).length).toBe(8);
+  });
+
+  it('pattern fill density scales with the pct preset', async () => {
+    const cells = async (preset: string): Promise<number> => {
+      const { pres, slide } = await blankSlide();
+      const shape = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(2),
+      });
+      setShapePatternFill(shape, { preset, foreground: '#000000', background: '#FFFFFF' });
+      const svg = renderSlideToSvg(pres, slide);
+      return (svg.match(/width="2" height="2"/g) ?? []).length;
+    };
+    // 4/16 Bayer cells lit at 25%, 8 at 50%; pct0 lights none.
+    expect(await cells('pct25')).toBe(4);
+    expect(await cells('pct50')).toBe(8);
+    expect(await cells('pct0')).toBe(0);
   });
 
   it('foreignObject mode wraps text body in <foreignObject>', async () => {

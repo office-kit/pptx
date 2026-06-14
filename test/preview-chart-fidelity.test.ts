@@ -1,6 +1,6 @@
-// Structural regression tests for the chart-rendering fidelity fixes that
-// were validated against PowerPoint PDF exports (see the chart-gallery sample).
-// These assert on the emitted SVG so they run in CI without PowerPoint:
+// Structural regression tests for chart rendering. They assert on the emitted
+// SVG so they run in CI without a presentation engine, and pin the renderer to
+// PowerPoint's behavior for:
 //
 //   - no invented chart-area border (PowerPoint draws none unless authored)
 //   - value + category axis spines and major tick marks are drawn
@@ -130,6 +130,68 @@ describe('chart fidelity vs PowerPoint', () => {
     });
     // Axis must reach the stacked total (30) — not the largest single value (20).
     expect(Math.max(...numericLabels(svg))).toBeGreaterThanOrEqual(30);
+  });
+
+  it('extends a stacked value axis below zero for negative segments', async () => {
+    const svg = await renderChart({
+      kind: 'column',
+      grouping: 'stacked',
+      categories: ['A'],
+      series: [
+        { name: 'P1', values: [-10] },
+        { name: 'P2', values: [20] },
+      ],
+    });
+    // Re-scan including the sign so negative ticks aren't read as positive.
+    const labels = [...svg.matchAll(/<text[^>]*>(-?\d+)<\/text>/g)].map((m) => Number(m[1]));
+    expect(Math.min(...labels)).toBeLessThanOrEqual(-10);
+    expect(Math.max(...labels)).toBeGreaterThanOrEqual(20);
+  });
+
+  it('labels a percentStacked value axis 0%..100% (no Excel headroom)', async () => {
+    const svg = await renderChart({
+      kind: 'column',
+      grouping: 'percentStacked',
+      categories: ['A', 'B'],
+      series: [
+        { name: 'P1', values: [1, 3] },
+        { name: 'P2', values: [1, 1] },
+      ],
+    });
+    expect(svg).toContain('>100%<');
+    expect(svg).toContain('>0%<');
+    // No spurious 120% tick from auto-headroom, and no raw 0..1 decimals.
+    expect(svg).not.toContain('>120%<');
+    expect(svg).not.toMatch(/>0\.\d+</);
+  });
+
+  it('stacks each cluster bottom-up (series 0 lowest)', async () => {
+    const svg = await renderChart({
+      kind: 'bar',
+      categories: ['A'],
+      series: [
+        { name: 'S0', values: [10], color: '#FF0000' },
+        { name: 'S1', values: [10], color: '#00FF00' },
+      ],
+    });
+    const rectY = (color: string): number => {
+      const m = svg.match(new RegExp(`<rect[^>]*y="([\\d.]+)"[^>]*fill="${color}"`));
+      if (!m) throw new Error(`no rect for ${color}`);
+      return Number(m[1]);
+    };
+    // Series 0 (red) sits below series 1 (green) → larger y.
+    expect(rectY('#FF0000')).toBeGreaterThan(rectY('#00FF00'));
+  });
+
+  it('draws value-axis gridlines when authored', async () => {
+    const svg = await renderChart({
+      kind: 'column',
+      categories: ['A', 'B'],
+      series: [{ name: 'S', values: [1, 2] }],
+      valueAxisMajorGridlines: true,
+      valueAxisMajorGridlineColor: '#ABCDEF',
+    });
+    expect(svg).toContain('stroke="#ABCDEF"');
   });
 
   it('fills area charts opaquely and draws no markers', async () => {

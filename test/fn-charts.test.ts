@@ -178,4 +178,49 @@ describe('fn API: addSlideChart', () => {
     // Two `<c:ser>` blocks.
     expect(chartStr.match(/<c:ser>/g)?.length).toBe(2);
   });
+
+  it('emits a line series color on <a:ln> so PowerPoint paints the line', async () => {
+    // Regression: a line series wrote its color only as a bare <a:solidFill>,
+    // which does not color a line's stroke — PowerPoint ignored it and fell
+    // back to its automatic palette. The color must reach <a:ln>.
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideChart(getSlides(pres)[0]!, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'line',
+        categories: ['A', 'B', 'C'],
+        series: [{ name: 'S', values: [1, 2, 3], color: '#AABBCC' }],
+      },
+    });
+    const chartStr = new TextDecoder().decode(
+      (await partBytes(await savePresentation(pres), '/ppt/charts/chart1.xml'))!,
+    );
+    // The color appears inside an <a:ln> block, not only in a bare solidFill.
+    expect(chartStr).toMatch(/<a:ln[^>]*>(?:(?!<\/a:ln>).)*AABBCC/s);
+  });
+
+  it('a column series keeps the bare solid-fill shape (no <a:ln>)', async () => {
+    // The <a:ln> path is line-only; bars must round-trip the legacy shape.
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideChart(getSlides(pres)[0]!, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['A'],
+        series: [{ name: 'S', values: [1], color: '#AABBCC' }],
+      },
+    });
+    const chartStr = new TextDecoder().decode(
+      (await partBytes(await savePresentation(pres), '/ppt/charts/chart1.xml'))!,
+    );
+    const ser = chartStr.slice(chartStr.indexOf('<c:ser>'), chartStr.indexOf('</c:ser>'));
+    expect(ser).toContain('AABBCC');
+    expect(ser).not.toContain('<a:ln');
+  });
 });

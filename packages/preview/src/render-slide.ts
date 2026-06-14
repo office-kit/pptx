@@ -3007,6 +3007,8 @@ interface AxisSpec {
   readonly orientation: 'vertical' | 'horizontal';
   readonly min: number;
   readonly max: number;
+  /** percentStacked value axis: ticks are formatted as 0%..100%. */
+  readonly percent?: boolean;
   readonly majorUnit?: number;
   /** Excel-style number-format code from <c:numFmt formatCode=…>. */
   readonly numberFormat?: string;
@@ -3059,17 +3061,20 @@ const DISPLAY_UNIT_LABEL: Record<NonNullable<AxisSpec['displayUnits']>, string> 
   trillions: 'Trillions',
 };
 
-// Builds the `font-family / font-size / fill / weight` SVG attribute
-// string for axis tick labels. Defaults match PowerPoint's stock 10pt
-// muted-gray look; authored `<c:txPr>` overrides take over.
 // PowerPoint draws axis spines and major tick marks for every non-deleted
 // axis. When the chart authors no `<c:spPr><a:ln>` and no `<c:style>` part
 // (which is what pptx-kit emits), PowerPoint falls back to a near-black
 // line, so that is the renderer's default spine / tick color.
 const DEFAULT_AXIS_COLOR = '#000000';
+// Default major-gridline color when the axis authors none — a light gray,
+// matching PowerPoint's default value-axis gridline.
+const DEFAULT_GRID_COLOR = '#D9D9D9';
 // Major tick marks read at ~5px against the 1280px-wide reference raster.
 const AXIS_TICK_LEN = 5;
 
+// Builds the `font-family / font-size / fill / weight` SVG attribute string
+// for axis tick labels. Defaults match PowerPoint's stock 10pt muted-gray
+// look; authored `<c:txPr>` overrides take over.
 const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
   const sz = style?.sizePt ?? 10;
   const fill = style?.color ?? '#6B7280';
@@ -3091,11 +3096,20 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     : niceTicks(axis.min, axis.max);
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
+  // percentStacked ticks read as 0%..100%; otherwise honor displayUnits +
+  // the authored number format.
+  const fmtTick = (t: number): string =>
+    axis.percent
+      ? `${Math.round(t * 100)}%`
+      : formatAxisLabel(
+          axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
+          axis.numberFormat,
+        );
   // Major gridlines render only when the axis authors `<c:majorGridlines>`.
   // pptx-kit emits none, and PowerPoint draws none in that case, so the
   // default is off (a default-on grid is a divergence from PowerPoint).
   const showGrid = axis.majorGridlines ?? false;
-  const gridStroke = axis.majorGridlineColor ?? '#D9D9D9';
+  const gridStroke = axis.majorGridlineColor ?? DEFAULT_GRID_COLOR;
   const axisColor = axis.lineColor ?? DEFAULT_AXIS_COLOR;
   // Tick-mark mode: 'out' = stub outside the plot edge (default),
   // 'in' = stub inside the plot, 'cross' = both, 'none' = no stub.
@@ -3128,12 +3142,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rot = axis.labelRotationDeg ?? 0;
       const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
-        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(
-          formatAxisLabel(
-            axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
-            axis.numberFormat,
-          ),
-        )}</text>`,
+        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(fmtTick(t))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -3155,12 +3164,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rotH = axis.labelRotationDeg ?? 0;
       const transformH = rotH ? ` transform="rotate(${rotH} ${px(xp)} ${px(horizLabelY)})"` : '';
       out.push(
-        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(
-          formatAxisLabel(
-            axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
-            axis.numberFormat,
-          ),
-        )}</text>`,
+        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(fmtTick(t))}</text>`,
       );
     }
   }
@@ -3360,6 +3364,12 @@ const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number
   if (!Number.isFinite(max)) max = 1;
   if (max === min) max = min + 1;
   if (min > 0) min = 0; // include the zero line, like PowerPoint does
+  // percentStacked is always exactly 0..100% with 20% ticks — it gets no
+  // Excel-style headroom (which would push the axis to 120% and leave the
+  // full-height bar short of the plot top).
+  if (isPercent) {
+    return { min: 0, max: 1, step: 0.2 };
+  }
   // Excel-style headroom: the auto axis maximum is the first major-unit
   // multiple strictly above the data max (data 300 with step 50 → axis 350),
   // so the tallest bar never touches the plot edge. Matches PowerPoint and
@@ -4659,10 +4669,18 @@ const renderChart = (
   const hiddenSet = new Set(spec.legend?.hiddenIndices ?? []);
   const seriesNamesForLegend = allNamesForLegend.filter((_, i) => !hiddenSet.has(i));
   const seriesColorsForLegend = allColorsForLegend.filter((_, i) => !hiddenSet.has(i));
-  const markerSymbolsForLegend =
-    spec.kind === 'line' || spec.kind === 'area'
-      ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
-      : undefined;
+  // The legend shows marker glyphs only when the chart actually plots them:
+  // a line chart of the "with markers" subtype, or any series authoring an
+  // explicit symbol. A plain line, an area chart, or bar/pie get the color
+  // swatch instead (matching their plotted appearance).
+  const explicitMarker = (sym: ChartSeries['markerSymbol']): boolean =>
+    sym !== undefined && sym !== 'auto' && sym !== 'none';
+  const showsMarkers =
+    spec.kind === 'line' &&
+    (spec.lineMarkers === true || spec.series.some((s) => explicitMarker(s.markerSymbol)));
+  const markerSymbolsForLegend = showsMarkers
+    ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
+    : undefined;
 
   // Count finite values across all series — when zero, draw a hint
   // label so an empty chart isn't indistinguishable from a working
@@ -4700,10 +4718,11 @@ const renderChart = (
         ? { displayUnits: spec.valueAxis.displayUnits }
         : {}),
     };
+    const isPercentStacked = spec.grouping === 'percentStacked';
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
-        ? { orientation: 'horizontal', min, max, ...axisExtras }
-        : { orientation: 'vertical', min, max, ...axisExtras };
+        ? { orientation: 'horizontal', min, max, percent: isPercentStacked, ...axisExtras }
+        : { orientation: 'vertical', min, max, percent: isPercentStacked, ...axisExtras };
     if (!spec.valueAxisHidden) axes = renderValueAxis(f, valueAxis);
     // tickLblPos='none' hides the labels but keeps the gridline (we
     // already conditionally skip below). Use the explicit skip step
