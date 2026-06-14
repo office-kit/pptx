@@ -602,34 +602,28 @@ const patternDef = (pat: {
       return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
     return `<path d="M${W} 0L0 ${H}" stroke="${fg}" stroke-width="${width}"/>`;
   };
-  const dots = (density: number): string => {
-    // density 0..1; emit between 1 and 4 dots per 8x8 tile by density.
-    const count = Math.max(1, Math.round(density * 4));
+  // pct{N} presets are ordered-dither *screens*: ~N% of the tile is the
+  // foreground color, the rest background, blending to an N%-toned fill (a
+  // sparse dot grid reads far lighter than PowerPoint's pct50). A 4×4 Bayer
+  // matrix over 2×2-px cells reproduces the coverage and the dispersed look.
+  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  const screen = (density: number): string => {
+    const threshold = density * 16;
     const out: string[] = [];
-    const grid =
-      count <= 1
-        ? [[4, 4]]
-        : count === 2
-          ? [
-              [2, 2],
-              [6, 6],
-            ]
-          : [
-              [2, 2],
-              [6, 2],
-              [2, 6],
-              [6, 6],
-            ];
-    for (const [x, y] of grid.slice(0, count)) {
-      out.push(`<circle cx="${x}" cy="${y}" r="0.7" fill="${fg}"/>`);
+    for (let i = 0; i < 16; i++) {
+      if (BAYER4[i]! < threshold) {
+        const cx = (i % 4) * 2;
+        const cy = Math.floor(i / 4) * 2;
+        out.push(`<rect x="${cx}" y="${cy}" width="2" height="2" fill="${fg}"/>`);
+      }
     }
     return out.join('');
   };
-  // pct{N} — N% coverage. Map percent → dot density.
+  // pct{N} — N% coverage.
   const pctMatch = /^pct(\d+)$/.exec(preset);
   if (pctMatch) {
-    const pct = Math.min(100, Math.max(5, Number.parseInt(pctMatch[1]!, 10)));
-    body = dots(pct / 100);
+    const pct = Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10)));
+    body = screen(pct / 100);
   } else if (preset === 'horzBrick' || preset === 'ltHorizontal' || preset === 'narHorz') {
     body = stripe('h', 0.8);
   } else if (preset === 'dkHorizontal') {
@@ -669,7 +663,7 @@ const patternDef = (pat: {
   } else if (preset === 'solidDmnd' || preset === 'openDmnd') {
     body = `<path d="M4 1L7 4 4 7 1 4Z" fill="${preset === 'solidDmnd' ? fg : 'none'}" stroke="${fg}" stroke-width="0.6"/>`;
   } else {
-    body = dots(0.5);
+    body = screen(0.5);
   }
   const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${bg}"/>${body}</pattern></defs>`;
   return { defs, fillAttr: `url(#${id})` };
@@ -3013,6 +3007,8 @@ interface AxisSpec {
   readonly orientation: 'vertical' | 'horizontal';
   readonly min: number;
   readonly max: number;
+  /** percentStacked value axis: ticks are formatted as 0%..100%. */
+  readonly percent?: boolean;
   readonly majorUnit?: number;
   /** Excel-style number-format code from <c:numFmt formatCode=…>. */
   readonly numberFormat?: string;
@@ -3065,9 +3061,20 @@ const DISPLAY_UNIT_LABEL: Record<NonNullable<AxisSpec['displayUnits']>, string> 
   trillions: 'Trillions',
 };
 
-// Builds the `font-family / font-size / fill / weight` SVG attribute
-// string for axis tick labels. Defaults match PowerPoint's stock 10pt
-// muted-gray look; authored `<c:txPr>` overrides take over.
+// PowerPoint draws axis spines and major tick marks for every non-deleted
+// axis. When the chart authors no `<c:spPr><a:ln>` and no `<c:style>` part
+// (which is what pptx-kit emits), PowerPoint falls back to a near-black
+// line, so that is the renderer's default spine / tick color.
+const DEFAULT_AXIS_COLOR = '#000000';
+// Default major-gridline color when the axis authors none — a light gray,
+// matching PowerPoint's default value-axis gridline.
+const DEFAULT_GRID_COLOR = '#D9D9D9';
+// Major tick marks read at ~5px against the 1280px-wide reference raster.
+const AXIS_TICK_LEN = 5;
+
+// Builds the `font-family / font-size / fill / weight` SVG attribute string
+// for axis tick labels. Defaults match PowerPoint's stock 10pt muted-gray
+// look; authored `<c:txPr>` overrides take over.
 const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
   const sz = style?.sizePt ?? 10;
   const fill = style?.color ?? '#6B7280';
@@ -3089,12 +3096,25 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
     : niceTicks(axis.min, axis.max);
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
-  const showGrid = axis.majorGridlines ?? true;
-  const gridStroke = axis.majorGridlineColor ?? '#E5E7EB';
+  // percentStacked ticks read as 0%..100%; otherwise honor displayUnits +
+  // the authored number format.
+  const fmtTick = (t: number): string =>
+    axis.percent
+      ? `${Math.round(t * 100)}%`
+      : formatAxisLabel(
+          axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
+          axis.numberFormat,
+        );
+  // Major gridlines render only when the axis authors `<c:majorGridlines>`.
+  // pptx-kit emits none, and PowerPoint draws none in that case, so the
+  // default is off (a default-on grid is a divergence from PowerPoint).
+  const showGrid = axis.majorGridlines ?? false;
+  const gridStroke = axis.majorGridlineColor ?? DEFAULT_GRID_COLOR;
+  const axisColor = axis.lineColor ?? DEFAULT_AXIS_COLOR;
   // Tick-mark mode: 'out' = stub outside the plot edge (default),
   // 'in' = stub inside the plot, 'cross' = both, 'none' = no stub.
   const tickMark = axis.majorTickMark ?? 'out';
-  const tickLen = 3;
+  const tickLen = AXIS_TICK_LEN;
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
@@ -3112,7 +3132,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
               ? f.plotX + tickLen
               : f.plotX + tickLen;
         out.push(
-          `<line x1="${px(tx1)}" y1="${px(yp)}" x2="${px(tx2)}" y2="${px(yp)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+          `<line x1="${px(tx1)}" y1="${px(yp)}" x2="${px(tx2)}" y2="${px(yp)}" stroke="${axisColor}" stroke-width="1"/>`,
         );
       }
       // Numeric label, right-aligned to the plot's left edge.
@@ -3122,12 +3142,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rot = axis.labelRotationDeg ?? 0;
       const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
-        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(
-          formatAxisLabel(
-            axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
-            axis.numberFormat,
-          ),
-        )}</text>`,
+        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(fmtTick(t))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -3142,19 +3157,14 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
         const ty2 =
           tickMark === 'out' ? baseY : tickMark === 'cross' ? baseY - tickLen : baseY - tickLen;
         out.push(
-          `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+          `<line x1="${px(xp)}" y1="${px(ty1)}" x2="${px(xp)}" y2="${px(ty2)}" stroke="${axisColor}" stroke-width="1"/>`,
         );
       }
       const horizLabelY = f.plotY + f.plotH + 12;
       const rotH = axis.labelRotationDeg ?? 0;
       const transformH = rotH ? ` transform="rotate(${rotH} ${px(xp)} ${px(horizLabelY)})"` : '';
       out.push(
-        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(
-          formatAxisLabel(
-            axis.displayUnits ? t / DISPLAY_UNIT_DIVISOR[axis.displayUnits] : t,
-            axis.numberFormat,
-          ),
-        )}</text>`,
+        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(fmtTick(t))}</text>`,
       );
     }
   }
@@ -3178,20 +3188,22 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       );
     }
   }
-  // Authored <c:valAx><c:spPr><a:ln> — draw an explicit axis spine at
-  // the appropriate edge so the line color shows up in the preview.
-  // Only emit when authored (the renderer's default look has no spine,
-  // relying on chart-area + plotArea borders).
-  if (axis.lineColor !== undefined) {
-    if (axis.orientation === 'vertical') {
-      out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axis.lineColor}" stroke-width="0.75"/>`,
-      );
-    } else {
-      out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY + f.plotH)}" x2="${px(f.plotX + f.plotW)}" y2="${px(f.plotY + f.plotH)}" stroke="${axis.lineColor}" stroke-width="0.75"/>`,
-      );
-    }
+  // The value-axis spine. PowerPoint always draws it for a non-deleted
+  // axis (a deleted axis never reaches this function), authored color or
+  // not — so the spine is unconditional, falling back to the default
+  // axis color when `<c:valAx><c:spPr><a:ln>` is absent.
+  if (axis.orientation === 'vertical') {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
+  } else {
+    // Horizontal value axis (bar chart) sits at the category baseline,
+    // which is value 0 when the range straddles it, else the bottom edge.
+    const zeroY = f.plotY + f.plotH - ((0 - axis.min) / range) * f.plotH;
+    const spineY = axis.min <= 0 && axis.max >= 0 ? zeroY : f.plotY + f.plotH;
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(spineY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(spineY)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
   }
   return out.join('');
 };
@@ -3257,12 +3269,13 @@ const renderCategoryAxis = (
       );
     }
   } else {
-    // Categories down the y-axis (bar chart).
+    // Categories down the y-axis (bar chart). PowerPoint's bar category axis
+    // runs bottom-to-top, so the first category's label sits at the bottom.
     const step = pointCount > 0 ? f.plotH / pointCount : 0;
     const truncLen = labelRotationDeg && Math.abs(labelRotationDeg) >= 30 ? 28 : 14;
     for (let i = 0; i < pointCount; i++) {
       if (skip > 1 && i % skip !== 0) continue;
-      const cy = f.plotY + (i + 0.5) * step;
+      const cy = f.plotY + (pointCount - 1 - i + 0.5) * step;
       const lx = f.plotX - 4;
       const truncated =
         labels[i] !== undefined && labels[i]!.length > truncLen
@@ -3277,17 +3290,34 @@ const renderCategoryAxis = (
       );
     }
   }
-  // Authored <c:catAx><c:spPr><a:ln> — spine at the bottom edge for
-  // horizontal (column / line / area) and at the left edge for
-  // vertical (bar chart). Only emit when authored.
-  if (lineColor !== undefined) {
-    if (orientation === 'horizontal') {
+  // The category-axis spine plus its major tick marks. PowerPoint draws
+  // both for every non-deleted axis (default tick mark = 'out'), with the
+  // ticks sitting at the category boundaries — N+1 of them. The spine sits
+  // at the bottom edge for horizontal (column / line / area) and the left
+  // edge for vertical (bar chart); both fall back to the default axis color
+  // when `<c:catAx><c:spPr><a:ln>` is absent.
+  const axisColor = lineColor ?? DEFAULT_AXIS_COLOR;
+  if (orientation === 'horizontal') {
+    const baseY = f.plotY + f.plotH;
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
+    const stepB = pointCount > 0 ? f.plotW / pointCount : 0;
+    for (let i = 0; i <= pointCount; i++) {
+      const bx = f.plotX + i * stepB;
       out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY + f.plotH)}" x2="${px(f.plotX + f.plotW)}" y2="${px(f.plotY + f.plotH)}" stroke="${lineColor}" stroke-width="0.75"/>`,
+        `<line x1="${px(bx)}" y1="${px(baseY)}" x2="${px(bx)}" y2="${px(baseY + AXIS_TICK_LEN)}" stroke="${axisColor}" stroke-width="1"/>`,
       );
-    } else {
+    }
+  } else {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+    );
+    const stepB = pointCount > 0 ? f.plotH / pointCount : 0;
+    for (let i = 0; i <= pointCount; i++) {
+      const by = f.plotY + i * stepB;
       out.push(
-        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${lineColor}" stroke-width="0.75"/>`,
+        `<line x1="${px(f.plotX - AXIS_TICK_LEN)}" y1="${px(by)}" x2="${px(f.plotX)}" y2="${px(by)}" stroke="${axisColor}" stroke-width="1"/>`,
       );
     }
   }
@@ -3295,13 +3325,38 @@ const renderCategoryAxis = (
 };
 
 const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number } => {
+  // Stacked charts scale the value axis to the per-category stacked total,
+  // not the largest single value, or the bars overflow / the axis labels
+  // disagree with the bar heights. percentStacked always spans 0..100%.
+  const isStacked = spec.grouping === 'stacked' || spec.grouping === 'percentStacked';
+  const isPercent = spec.grouping === 'percentStacked';
   let min = Infinity;
   let max = -Infinity;
-  for (const s of spec.series) {
-    for (const v of s.values) {
-      if (v !== null && Number.isFinite(v)) {
-        if (v < min) min = v;
-        if (v > max) max = v;
+  if (isPercent) {
+    min = 0;
+    max = 1;
+  } else if (isStacked) {
+    const N = spec.series.reduce((n, s) => Math.max(n, s.values.length), 0);
+    for (let c = 0; c < N; c++) {
+      let pos = 0;
+      let neg = 0;
+      for (const s of spec.series) {
+        const v = s.values[c];
+        if (v !== null && v !== undefined && Number.isFinite(v)) {
+          if (v >= 0) pos += v;
+          else neg += v;
+        }
+      }
+      if (pos > max) max = pos;
+      if (neg < min) min = neg;
+    }
+  } else {
+    for (const s of spec.series) {
+      for (const v of s.values) {
+        if (v !== null && Number.isFinite(v)) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
       }
     }
   }
@@ -3309,6 +3364,12 @@ const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number
   if (!Number.isFinite(max)) max = 1;
   if (max === min) max = min + 1;
   if (min > 0) min = 0; // include the zero line, like PowerPoint does
+  // percentStacked is always exactly 0..100% with 20% ticks — it gets no
+  // Excel-style headroom (which would push the axis to 120% and leave the
+  // full-height bar short of the plot top).
+  if (isPercent) {
+    return { min: 0, max: 1, step: 0.2 };
+  }
   // Excel-style headroom: the auto axis maximum is the first major-unit
   // multiple strictly above the data max (data 300 with step 50 → axis 350),
   // so the tallest bar never touches the plot edge. Matches PowerPoint and
@@ -3357,10 +3418,14 @@ const renderChartLegend = (
   // back to the 9×9 color rect.
   const swatch = (i: number, swatchX: number, swatchY: number): string => {
     const color = colors[i % colors.length]!;
+    // `markerSymbols` is supplied only for line / area charts. In that
+    // context an absent / `auto` symbol still plots a glyph (via the
+    // automatic rotation), so the legend must show the matching glyph
+    // rather than the bar/pie color rect.
     const sym = markerSymbols?.[i];
-    if (sym && sym !== 'none' && sym !== 'auto') {
+    if (markerSymbols !== undefined && sym !== 'none') {
       const r = 4.5;
-      return seriesMarker(sym, swatchX + r, swatchY + r, r, color);
+      return seriesMarker(autoMarkerSymbol(sym, i), swatchX + r, swatchY + r, r, color);
     }
     return `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${color}"/>`;
   };
@@ -3434,26 +3499,10 @@ const renderColumnChart = (
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
-  // Stacked charts use the column's sum (per category) as the value
-  // axis upper bound. Percent-stacked normalizes to [0, 1].
-  let { min, max } = seriesMinMax(spec);
-  if (isStacked) {
-    let sumMin = Infinity;
-    let sumMax = -Infinity;
-    for (let c = 0; c < N; c++) {
-      let pos = 0;
-      let neg = 0;
-      for (const s of spec.series) {
-        const v = s.values[c] ?? 0;
-        if (v >= 0) pos += v;
-        else neg += v;
-      }
-      if (neg < sumMin) sumMin = neg;
-      if (pos > sumMax) sumMax = pos;
-    }
-    min = isPercent ? 0 : Math.min(0, sumMin);
-    max = isPercent ? 1 : Math.max(1, sumMax);
-  }
+  // seriesMinMax already scales stacked / percentStacked to the per-category
+  // total (with the same Excel-style headroom the axis uses), so the bars and
+  // the axis labels share one range.
+  const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
   const groupW = f.plotW / N;
   // gapWidth + overlap shape bar geometry per ECMA-376 §21.2.2.75:
@@ -3497,7 +3546,7 @@ const renderColumnChart = (
           f.plotY + f.plotH - ((Math.min(stackedTop, stackedBase) - min) / range) * f.plotH;
         const h = Math.abs(y1 - y0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
         );
         if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
@@ -3729,8 +3778,33 @@ const smoothPath = (pts: ReadonlyArray<[number, number]>): string => {
   return parts.join(' ');
 };
 
+// PowerPoint's automatic marker-symbol rotation for line / scatter series
+// whose `<c:marker>` authors no explicit `<c:symbol>` (or authors `auto`).
+// Confirmed against a PowerPoint export for series 0–3 (diamond, square,
+// triangle, x); the tail extends the rotation with the remaining glyphs.
+const AUTO_MARKER_SYMBOLS = [
+  'diamond',
+  'square',
+  'triangle',
+  'x',
+  'star',
+  'dot',
+  'plus',
+  'dash',
+] as const satisfies ReadonlyArray<NonNullable<ChartSeries['markerSymbol']>>;
+
+// Resolves a series' effective marker glyph: an explicit symbol wins;
+// `auto` / absent picks from the automatic rotation by series index.
+const autoMarkerSymbol = (
+  symbol: ChartSeries['markerSymbol'],
+  seriesIdx: number,
+): NonNullable<ChartSeries['markerSymbol']> =>
+  symbol !== undefined && symbol !== 'auto'
+    ? symbol
+    : AUTO_MARKER_SYMBOLS[seriesIdx % AUTO_MARKER_SYMBOLS.length]!;
+
 // Per-series data-point marker glyph. `symbol` mirrors ECMA-376's
-// ST_MarkerStyle (subset). `auto` resolves to a small filled circle.
+// ST_MarkerStyle (subset).
 const seriesMarker = (
   symbol: NonNullable<ChartSeries['markerSymbol']>,
   cx: number,
@@ -3817,24 +3891,9 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
-  let { min, max } = seriesMinMax(spec);
-  if (isStacked) {
-    let sumMin = Infinity;
-    let sumMax = -Infinity;
-    for (let c = 0; c < N; c++) {
-      let pos = 0;
-      let neg = 0;
-      for (const s of spec.series) {
-        const v = s.values[c] ?? 0;
-        if (v >= 0) pos += v;
-        else neg += v;
-      }
-      if (neg < sumMin) sumMin = neg;
-      if (pos > sumMax) sumMax = pos;
-    }
-    min = isPercent ? 0 : Math.min(0, sumMin);
-    max = isPercent ? 1 : Math.max(1, sumMax);
-  }
+  // seriesMinMax already scales stacked / percentStacked to the per-category
+  // total, so the bars and the axis labels share one range.
+  const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
   const groupH = f.plotH / N;
   const gapPctB = (spec.gapWidthPct ?? 150) / 100;
@@ -3861,12 +3920,14 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         }
         const base = v >= 0 ? posAcc : negAcc;
         const stackedTop = base + v;
-        const y0 = f.plotY + c * groupH + (groupH - barH) / 2;
+        // PowerPoint's bar-chart category axis runs bottom-to-top, so the
+        // first category sits at the bottom — map slot c from the bottom up.
+        const y0 = f.plotY + (N - 1 - c) * groupH + (groupH - barH) / 2;
         const x0 = f.plotX + ((Math.min(base, stackedTop) - min) / range) * f.plotW;
         const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
         const w = Math.abs(x1 - x0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
         );
         if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
@@ -3882,11 +3943,14 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
       }
     } else {
       const clusterH = barH * clusterUnitsB;
-      const clusterStartY = f.plotY + c * groupH + (groupH - clusterH) / 2;
+      // First category at the bottom (PowerPoint's bottom-to-top cat axis).
+      const clusterStartY = f.plotY + (N - 1 - c) * groupH + (groupH - clusterH) / 2;
       const strideB = barH * (1 - overlapPctB);
       for (let s = 0; s < spec.series.length; s++) {
         const v = spec.series[s]?.values[c] ?? 0;
-        const y0 = clusterStartY + s * strideB;
+        // Series also stack bottom-up within the cluster — series 0 lowest,
+        // matching a column chart rotated into the bar orientation.
+        const y0 = clusterStartY + (Sb - 1 - s) * strideB;
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
@@ -3951,24 +4015,9 @@ const renderLineChart = (
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
-  let { min, max } = seriesMinMax(spec);
-  if (isStacked) {
-    let sumMin = Infinity;
-    let sumMax = -Infinity;
-    for (let c = 0; c < N; c++) {
-      let pos = 0;
-      let neg = 0;
-      for (const s of spec.series) {
-        const v = s.values[c] ?? 0;
-        if (v >= 0) pos += v;
-        else neg += v;
-      }
-      if (neg < sumMin) sumMin = neg;
-      if (pos > sumMax) sumMax = pos;
-    }
-    min = isPercent ? 0 : Math.min(0, sumMin);
-    max = isPercent ? 1 : Math.max(1, sumMax);
-  }
+  // seriesMinMax already scales stacked / percentStacked to the per-category
+  // total, so the plotted points and the axis labels share one range.
+  const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
   const step = N > 1 ? f.plotW / (N - 1) : 0;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
@@ -4058,7 +4107,10 @@ const renderLineChart = (
         .reverse()
         .map(([xp, yp]) => `L${px(xp)},${px(yp)}`)
         .join(' ');
-      out.push(`<path d="${dPath} ${back} Z" fill="${color}" fill-opacity="0.55" stroke="none"/>`);
+      // Area fills are opaque in PowerPoint (the authored solidFill at full
+      // alpha); series paint back-to-front so a taller front series occludes
+      // the one behind, exactly as PowerPoint does.
+      out.push(`<path d="${dPath} ${back} Z" fill="${color}" stroke="none"/>`);
     }
     // Authored line width / dash on the series (<c:ser><c:spPr><a:ln>).
     const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
@@ -4078,12 +4130,21 @@ const renderLineChart = (
       `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
     );
     if (!isStacked) {
-      // Data point markers — only meaningful on the clustered layout.
-      // markerSymbol='none' hides the markers; everything else picks a
-      // shape and the marker size from the series (default ~5pt → ~2.2
-      // radius for compatibility with the previous render).
-      const symbol = series.markerSymbol ?? 'auto';
-      if (symbol !== 'none') {
+      // Markers show only on the "Line with Markers" subtype
+      // (<c:lineChart><c:marker val="1"/> → spec.lineMarkers) or when the
+      // series authors an explicit symbol. Area charts (`fill`) never show
+      // them by default, and `markerSymbol='none'` always hides. This keeps
+      // plain imported line charts marker-free, matching PowerPoint.
+      const explicitSymbol =
+        series.markerSymbol !== undefined &&
+        series.markerSymbol !== 'auto' &&
+        series.markerSymbol !== 'none';
+      if (
+        series.markerSymbol !== 'none' &&
+        !fill &&
+        (spec.lineMarkers === true || explicitSymbol)
+      ) {
+        const symbol = autoMarkerSymbol(series.markerSymbol, s);
         const size = series.markerSizePt ?? 5;
         const r = Math.max(1, size * 0.5);
         for (const [xp, yp] of pts) {
@@ -4396,7 +4457,7 @@ const renderScatterChart = (
     const drawMarker = sym === 'none' ? false : showMarker || (sym !== undefined && sym !== 'auto');
     if (drawMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
-      const glyph = sym && sym !== 'auto' && sym !== 'none' ? sym : 'circle';
+      const glyph = autoMarkerSymbol(sym, s);
       for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
     }
   }
@@ -4542,10 +4603,7 @@ const renderRadarChart = (
     );
     if (showMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
-      const glyph =
-        series.markerSymbol && series.markerSymbol !== 'auto' && series.markerSymbol !== 'none'
-          ? series.markerSymbol
-          : 'circle';
+      const glyph = autoMarkerSymbol(series.markerSymbol, s);
       for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
     }
   }
@@ -4611,10 +4669,18 @@ const renderChart = (
   const hiddenSet = new Set(spec.legend?.hiddenIndices ?? []);
   const seriesNamesForLegend = allNamesForLegend.filter((_, i) => !hiddenSet.has(i));
   const seriesColorsForLegend = allColorsForLegend.filter((_, i) => !hiddenSet.has(i));
-  const markerSymbolsForLegend =
-    spec.kind === 'line' || spec.kind === 'area'
-      ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
-      : undefined;
+  // The legend shows marker glyphs only when the chart actually plots them:
+  // a line chart of the "with markers" subtype, or any series authoring an
+  // explicit symbol. A plain line, an area chart, or bar/pie get the color
+  // swatch instead (matching their plotted appearance).
+  const explicitMarker = (sym: ChartSeries['markerSymbol']): boolean =>
+    sym !== undefined && sym !== 'auto' && sym !== 'none';
+  const showsMarkers =
+    spec.kind === 'line' &&
+    (spec.lineMarkers === true || spec.series.some((s) => explicitMarker(s.markerSymbol)));
+  const markerSymbolsForLegend = showsMarkers
+    ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
+    : undefined;
 
   // Count finite values across all series — when zero, draw a hint
   // label so an empty chart isn't indistinguishable from a working
@@ -4652,10 +4718,11 @@ const renderChart = (
         ? { displayUnits: spec.valueAxis.displayUnits }
         : {}),
     };
+    const isPercentStacked = spec.grouping === 'percentStacked';
     const valueAxis: AxisSpec =
       spec.kind === 'bar'
-        ? { orientation: 'horizontal', min, max, ...axisExtras }
-        : { orientation: 'vertical', min, max, ...axisExtras };
+        ? { orientation: 'horizontal', min, max, percent: isPercentStacked, ...axisExtras }
+        : { orientation: 'vertical', min, max, percent: isPercentStacked, ...axisExtras };
     if (!spec.valueAxisHidden) axes = renderValueAxis(f, valueAxis);
     // tickLblPos='none' hides the labels but keeps the gridline (we
     // already conditionally skip below). Use the explicit skip step
@@ -4750,8 +4817,11 @@ const renderChart = (
     `<g${transform}>`,
     // Chart-area backdrop honors <c:chartSpace><c:spPr><a:solidFill> /
     // <a:ln>. plot-area gets its own tinted rect + border when
-    // <c:plotArea><c:spPr> authors them.
-    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? '#E5E7EB'}" stroke-width="0.6"${spec.roundedCorners ? ' rx="6" ry="6"' : ''}/>`,
+    // <c:plotArea><c:spPr> authors them. PowerPoint draws no chart-area
+    // border unless the chartSpace authors an <a:ln>, so the default is
+    // `none` — an invented light-gray frame is the most visible single
+    // divergence from PowerPoint's actual rendering.
+    `<rect x="${px(f.x)}" y="${px(f.y)}" width="${px(f.w)}" height="${px(f.h)}" fill="${spec.chartAreaFill ?? '#FFFFFF'}" stroke="${spec.chartAreaStrokeColor ?? 'none'}" stroke-width="0.6"${spec.roundedCorners ? ' rx="6" ry="6"' : ''}/>`,
     spec.plotAreaFill || spec.plotAreaStrokeColor
       ? `<rect x="${px(f.plotX)}" y="${px(f.plotY)}" width="${px(f.plotW)}" height="${px(f.plotH)}" fill="${spec.plotAreaFill ?? 'none'}" stroke="${spec.plotAreaStrokeColor ?? 'none'}" stroke-width="0.6"/>`
       : '',

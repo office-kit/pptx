@@ -106,6 +106,30 @@ describe('renderSlideToSvg', () => {
     const svg = renderSlideToSvg(pres, slide);
     expect(countTags(svg, 'pattern')).toBeGreaterThan(0);
     expect(svg).toContain('url(#');
+    // pct50 is a 50% ordered-dither screen: half of the 16 Bayer cells are
+    // foreground, so the tile carries ~8 small 2×2 cells (a sparse dot grid
+    // would carry 1–2 and read far too light).
+    expect((svg.match(/width="2" height="2"/g) ?? []).length).toBe(8);
+  });
+
+  it('pattern fill density scales with the pct preset', async () => {
+    const cells = async (preset: string): Promise<number> => {
+      const { pres, slide } = await blankSlide();
+      const shape = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(2),
+      });
+      setShapePatternFill(shape, { preset, foreground: '#000000', background: '#FFFFFF' });
+      const svg = renderSlideToSvg(pres, slide);
+      return (svg.match(/width="2" height="2"/g) ?? []).length;
+    };
+    // 4/16 Bayer cells lit at 25%, 8 at 50%; pct0 lights none.
+    expect(await cells('pct25')).toBe(4);
+    expect(await cells('pct50')).toBe(8);
+    expect(await cells('pct0')).toBe(0);
   });
 
   it('foreignObject mode wraps text body in <foreignObject>', async () => {
@@ -370,8 +394,10 @@ describe('renderSlideToSvg', () => {
   it('scatter (marker style): point markers, no connecting line, no fallback, legend present', async () => {
     const svg = await renderInjectedChart(scatterPlotArea('marker'));
     expect(svg).not.toContain('data-pptx-fallback="chart"');
-    // One <circle> per data point (3); markers only means no plot <path>.
-    expect(countTags(svg, 'circle')).toBeGreaterThanOrEqual(3);
+    // One marker per data point (3). Series 0's automatic marker is a
+    // diamond (PowerPoint's auto-marker rotation, shared with line charts),
+    // which renders as a <polygon>; markers-only means no plot <path>.
+    expect(countTags(svg, 'polygon')).toBeGreaterThanOrEqual(3);
     expect(countTags(svg, 'path')).toBe(0);
     expect(svg).toContain('Alpha');
   });
@@ -379,7 +405,7 @@ describe('renderSlideToSvg', () => {
   it('scatter (lineMarker style): adds a connecting <path> over the markers', async () => {
     const markerOnly = await renderInjectedChart(scatterPlotArea('marker'));
     const lineMarker = await renderInjectedChart(scatterPlotArea('lineMarker'));
-    expect(countTags(lineMarker, 'circle')).toBeGreaterThanOrEqual(3);
+    expect(countTags(lineMarker, 'polygon')).toBeGreaterThanOrEqual(3);
     // The connecting polyline is the only <path> source on this slide.
     expect(countTags(lineMarker, 'path')).toBeGreaterThan(countTags(markerOnly, 'path'));
   });
