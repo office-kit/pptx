@@ -13,6 +13,15 @@ import { type XmlElement, NS, attr, elem, qname, text as textNode } from '../xml
 
 const TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table';
 
+// PowerPoint's "No Style, Table Grid" built-in. Every PowerPoint deck (and
+// PptxGenJS, and our own template fixtures) ships this GUID as the
+// `tableStyles.xml` default. Emitting it as the table's `<a:tableStyleId>`
+// is what makes a table resolve to a clean ruled grid instead of rendering
+// unstyled — without it, the `firstRow` / `bandRow` flags have no style to
+// resolve against and PowerPoint paints a borderless, broken-looking block.
+// The matching `tableStyles.xml` part is shipped by `buildBlankDeck`.
+const DEFAULT_TABLE_STYLE_ID = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}';
+
 const NAME_GRAPHIC_FRAME = qname('p', 'graphicFrame', NS.pml);
 const NAME_NV_GRAPHIC_FRAME_PR = qname('p', 'nvGraphicFramePr', NS.pml);
 const NAME_C_NV_PR = qname('p', 'cNvPr', NS.pml);
@@ -26,6 +35,7 @@ const NAME_GRAPHIC = qname('a', 'graphic', NS.dml);
 const NAME_GRAPHIC_DATA = qname('a', 'graphicData', NS.dml);
 const NAME_TBL = qname('a', 'tbl', NS.dml);
 const NAME_TBL_PR = qname('a', 'tblPr', NS.dml);
+const NAME_TABLE_STYLE_ID = qname('a', 'tableStyleId', NS.dml);
 const NAME_TBL_GRID = qname('a', 'tblGrid', NS.dml);
 const NAME_GRID_COL = qname('a', 'gridCol', NS.dml);
 const NAME_TR = qname('a', 'tr', NS.dml);
@@ -73,6 +83,12 @@ export interface TableOptions {
   firstRow?: boolean;
   /** Emit `bandRow="1"` so alternating rows get banded shading. Default true. */
   bandRow?: boolean;
+  /**
+   * Table-style GUID written to `<a:tblPr><a:tableStyleId>`. Defaults to
+   * PowerPoint's "No Style, Table Grid" so the table resolves to a clean
+   * ruled grid in every renderer that ships the built-in styles.
+   */
+  styleId?: string;
   /**
    * `#RRGGBB` baked onto every cell's run as an explicit `<a:solidFill>`.
    * Without it, cells fall back to the `tx1` token, which a deck with an
@@ -191,11 +207,18 @@ export const buildTable = (opts: TableOptions): XmlElement => {
   const xfrm = elem(NAME_P_XFRM, { children: [off, ext] });
 
   // Table payload.
+  // `tableStyleId` is the LAST child of `<a:tblPr>` per CT_TableProperties
+  // (§21.1.3.15): any fill/effect children precede it; we author none, so it
+  // is the sole child.
+  const tableStyleId = elem(NAME_TABLE_STYLE_ID, {
+    children: [textNode(opts.styleId ?? DEFAULT_TABLE_STYLE_ID)],
+  });
   const tblPr = elem(NAME_TBL_PR, {
     attrs: [
       attr(ATTR_FIRST_ROW, (opts.firstRow ?? true) ? '1' : '0'),
       attr(ATTR_BAND_ROW, (opts.bandRow ?? true) ? '1' : '0'),
     ],
+    children: [tableStyleId],
   });
   const tblGrid = elem(NAME_TBL_GRID, {
     children: colWidths.map((w) =>
