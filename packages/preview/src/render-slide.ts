@@ -30,6 +30,7 @@ import {
   getParagraphIndent,
   getParagraphLevel,
   getParagraphPropertiesEffective,
+  getEffectiveColorMap,
   getParagraphSpacing,
   getPresentationFonts,
   getPresentationTheme,
@@ -484,7 +485,10 @@ const resolveColor = (
   else if (SCHEME_TO_THEME[c]) token = c;
   if (token !== null) {
     if (theme) {
-      const key = SCHEME_TO_THEME[token];
+      // Remap the slide token through the effective color map first, then index
+      // the theme — so an inverted map (tx1→lt1) paints what PowerPoint paints.
+      const mapped = activeColorMap?.[token] ?? token;
+      const key = SCHEME_TO_THEME[mapped] ?? SCHEME_TO_THEME[token];
       if (key) return normalizeHex(theme[key]);
     }
     if (token === 'tx1' || token === 'dk1') return '#000000';
@@ -505,6 +509,15 @@ const resolveColor = (
 // document. Plain monotonic counter is fine.
 let nextDefId = 0;
 const mintId = (): string => `pkdef-${(nextDefId++).toString(36)}`;
+
+// Effective color map (`<p:clrMap>` overlaid by `<p:clrMapOvr>`) for the slide
+// currently rendering. PowerPoint remaps the slide tokens (`tx1`, `bg1`, …) to
+// theme slots through this map before the theme lookup; an inverted map
+// (`bg1="dk1" tx1="lt1"`) is common in Google-Slides / Canva exports and makes
+// `tx1` resolve to the light slot. `renderSlideSvg` sets this at the start of
+// each (synchronous, single-slide) render and `resolveColor` reads it. Like
+// `nextDefId` above, every entry overwrites it, so it needs no reset.
+let activeColorMap: Readonly<Record<string, string>> | null = null;
 
 // `<linearGradient>` definition + `fill="url(#…)"` reference, projected
 // from pptx-kit's `{ stops, angleDeg }` shape onto SVG's
@@ -5798,6 +5811,7 @@ export const renderSlideSvg = (
   const W = size.width as number;
   const H = size.height as number;
   const theme = getPresentationTheme(pres);
+  activeColorMap = getEffectiveColorMap(slide);
   const ctx: LayoutCtx = {
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,

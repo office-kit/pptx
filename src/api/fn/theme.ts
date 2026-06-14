@@ -8,6 +8,7 @@ import {
   parseXml,
   qname,
 } from '../../internal/xml/index.ts';
+import type { OpcPackage } from '../../internal/parts/index.ts';
 import { INTERNAL_PACKAGE, type PresentationData } from '../_internal-symbols.ts';
 import { decode } from './_helpers.ts';
 
@@ -67,8 +68,17 @@ const readSchemeSlot = (parent: XmlElement, local: string): string => {
  * first one found (alphabetical by part name). Per-master theme
  * lookup will land if a concrete user need shows up.
  */
-export const getPresentationTheme = (pres: PresentationData): PresentationTheme | null => {
-  const pkg = pres[INTERNAL_PACKAGE];
+export const getPresentationTheme = (pres: PresentationData): PresentationTheme | null =>
+  themeFromPackage(pres[INTERNAL_PACKAGE]);
+
+/**
+ * Package-level theme reader behind {@link getPresentationTheme}. Exposed so
+ * helpers holding only a package handle (e.g. color baking off a `SlideData`)
+ * can read the theme without a `PresentationData`.
+ *
+ * @internal
+ */
+export const themeFromPackage = (pkg: OpcPackage): PresentationTheme | null => {
   const themePart = pkg.parts
     .filter((p) => p.contentType === THEME_CONTENT_TYPE)
     .sort((a, b) => a.name.localeCompare(b.name))[0];

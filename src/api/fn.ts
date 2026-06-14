@@ -40,6 +40,7 @@ export * from './fn/shape-animation.ts';
 
 // Slide features
 export * from './fn/slide-background.ts';
+export * from './fn/color-map.ts';
 export * from './fn/slide-transition.ts';
 export * from './fn/slide-notes.ts';
 export * from './fn/slide-size.ts';
