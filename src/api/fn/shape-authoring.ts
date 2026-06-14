@@ -28,6 +28,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { appendAndReturnNewShape, nextShapeId } from './_helpers.ts';
+import { resolveDeckBodyTextColor } from './color-map.ts';
 // ---------------------------------------------------------------------------
 // Slide-level shape authoring.
 //
@@ -112,9 +113,15 @@ export const addSlideLine = (
 };
 
 /**
- * Adds a table to the slide. Cells render as plain text with default
- * theme-aware styling; `firstRow` / `bandRow` flags drive PowerPoint's
- * banded-header look unless options say otherwise.
+ * Adds a table to the slide. Cells render as plain text; `firstRow` /
+ * `bandRow` flags drive PowerPoint's banded-header look unless options say
+ * otherwise.
+ *
+ * Cell text color is baked from the deck's resolved body-text color so the
+ * table stays readable even on templates with an inverted color map
+ * (`bg1="dk1" tx1="lt1"`), where the default `tx1` text token would otherwise
+ * paint the text the same as the background. Override per cell afterwards with
+ * `setTableCellTextFormat`.
  */
 export const addSlideTable = (
   slide: SlideData,
@@ -131,6 +138,7 @@ export const addSlideTable = (
     name?: string;
   },
 ): SlideShapeData => {
+  const textColorHex = resolveDeckBodyTextColor(slide);
   const frame = buildTable({
     id: nextShapeId(slide),
     ...(opts.name !== undefined ? { name: opts.name } : {}),
@@ -143,6 +151,7 @@ export const addSlideTable = (
     ...(opts.rowHeights !== undefined ? { rowHeights: opts.rowHeights } : {}),
     ...(opts.firstRow !== undefined ? { firstRow: opts.firstRow } : {}),
     ...(opts.bandRow !== undefined ? { bandRow: opts.bandRow } : {}),
+    ...(textColorHex !== null ? { textColorHex } : {}),
   });
   return appendAndReturnNewShape(slide, frame);
 };

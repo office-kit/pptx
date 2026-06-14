@@ -205,9 +205,25 @@ const SCHEME_TOKEN_TO_THEME_KEY: Record<string, keyof Omit<PresentationTheme, 'n
   folHlink: 'followedHyperlink',
 };
 
-const resolveSchemeToken = (token: string, theme: PresentationTheme | null): string | null => {
+/**
+ * Resolves a scheme token (`tx1`, `bg1`, `accent1`, …) to its `#RRGGBB`.
+ *
+ * When `clrMap` is supplied, the slide token is first remapped through it
+ * (`<p:clrMap>` / `<a:overrideClrMapping>`) — `tx1` may point at `dk1` or
+ * `lt1` depending on the deck — and only then indexed into the theme. Without
+ * a map the token is indexed directly, preserving the historical behavior
+ * (correct for the standard map, the overwhelming common case).
+ *
+ * @internal
+ */
+export const resolveSchemeToken = (
+  token: string,
+  theme: PresentationTheme | null,
+  clrMap?: Readonly<Record<string, string>> | null,
+): string | null => {
   if (!theme) return null;
-  const key = SCHEME_TOKEN_TO_THEME_KEY[token];
+  const mapped = clrMap?.[token] ?? token;
+  const key = SCHEME_TOKEN_TO_THEME_KEY[mapped] ?? SCHEME_TOKEN_TO_THEME_KEY[token];
   if (!key) return null;
   const hex = theme[key];
   if (typeof hex !== 'string') return null;
@@ -229,6 +245,7 @@ const resolveSchemeToken = (token: string, theme: PresentationTheme | null): str
 export const resolveDrawingColor = (
   colorEl: XmlElement,
   theme: PresentationTheme | null,
+  clrMap?: Readonly<Record<string, string>> | null,
 ): string | null => {
   if (colorEl.name.namespaceURI !== NS.dml) return null;
   const local = colorEl.name.localName;
@@ -238,7 +255,7 @@ export const resolveDrawingColor = (
     if (v) baseHex = `#${v.toUpperCase()}`;
   } else if (local === 'schemeClr') {
     const v = getAttrValue(colorEl, qname('', 'val', ''));
-    if (v) baseHex = resolveSchemeToken(v, theme);
+    if (v) baseHex = resolveSchemeToken(v, theme, clrMap);
   } else if (local === 'sysClr') {
     const last = getAttrValue(colorEl, qname('', 'lastClr', ''));
     if (last) baseHex = `#${last.toUpperCase()}`;

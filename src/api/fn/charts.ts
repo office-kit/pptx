@@ -15,6 +15,7 @@ import {
   type ChartKind,
   type ChartSeries,
   type ChartSpec,
+  type ChartTextStyle,
   buildChartSpaceDoc,
   buildEmbeddedXlsx,
   readChartSpec,
@@ -43,6 +44,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { appendAndReturnNewShape, decode, encode, nextShapeId, setOpcDefault } from './_helpers.ts';
+import { resolveDeckBodyTextColor } from './color-map.ts';
 import { getSlides } from './slide-query.ts';
 // ---------------------------------------------------------------------------
 // Charts.
@@ -185,6 +187,29 @@ const validateChartSpecColors = (spec: ChartSpec): void => {
  *   - All series should have at most `categories.length` values; missing
  *     values are treated as blanks (gaps in the visualization).
  */
+// A chart inherits no master text style, so any label without an authored
+// color falls back to the `tx1` token — which a deck with an inverted color
+// map paints the same as the surface, hiding axis labels, the legend, and data
+// labels. Bake the deck's resolved body-text color onto every text style the
+// caller left unset (authored colors always win).
+const withChartDefaultTextColor = (spec: ChartSpec, color: string | null): ChartSpec => {
+  if (color === null) return spec;
+  const withColor = (style: ChartTextStyle | undefined): ChartTextStyle =>
+    style === undefined ? { color } : style.color === undefined ? { ...style, color } : style;
+  return {
+    ...spec,
+    categoryAxisLabelStyle: withColor(spec.categoryAxisLabelStyle),
+    valueAxisLabelStyle: withColor(spec.valueAxisLabelStyle),
+    ...(spec.title !== undefined ? { titleStyle: withColor(spec.titleStyle) } : {}),
+    ...(spec.legend !== undefined
+      ? { legend: { ...spec.legend, textStyle: withColor(spec.legend.textStyle) } }
+      : {}),
+    ...(spec.dataLabels !== undefined
+      ? { dataLabels: { ...spec.dataLabels, textStyle: withColor(spec.dataLabels.textStyle) } }
+      : {}),
+  };
+};
+
 export const addSlideChart = (
   slide: SlideData,
   opts: {
@@ -197,6 +222,7 @@ export const addSlideChart = (
   },
 ): SlideShapeData => {
   validateChartSpecColors(opts.spec);
+  const spec = withChartDefaultTextColor(opts.spec, resolveDeckBodyTextColor(slide));
   const pkg = slide[INTERNAL_PACKAGE];
   const chartN = allocateChartIndex(pkg);
   const chartPartName = partName(`/ppt/charts/chart${chartN}.xml`);
@@ -204,17 +230,17 @@ export const addSlideChart = (
 
   // Build the embedded xlsx bytes. Each row in the sheet corresponds to
   // one category; header row carries the series names.
-  const xlsxRows = opts.spec.categories.map((label, i) => ({
+  const xlsxRows = spec.categories.map((label, i) => ({
     label,
-    values: opts.spec.series.map((s) => s.values[i] ?? null),
+    values: spec.series.map((s) => s.values[i] ?? null),
   }));
   const xlsxBytes = buildEmbeddedXlsx(
-    opts.spec.series.map((s) => s.name),
+    spec.series.map((s) => s.name),
     xlsxRows,
   );
 
   // Build the chart XML and serialize.
-  const chartDoc = buildChartSpaceDoc(opts.spec);
+  const chartDoc = buildChartSpaceDoc(spec);
   const chartBytes = encode(serializeXml(chartDoc));
 
   // Add the chart part + its rel → embedded xlsx.

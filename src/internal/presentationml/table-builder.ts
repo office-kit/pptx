@@ -37,7 +37,10 @@ const NAME_LST_STYLE = qname('a', 'lstStyle', NS.dml);
 const NAME_P = qname('a', 'p', NS.dml);
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
+const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
+const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
+const ATTR_VAL = qname('', 'val', '');
 const ATTR_ID = qname('', 'id', '');
 const ATTR_NAME = qname('', 'name', '');
 const ATTR_NO_GRP = qname('', 'noGrp', '');
@@ -70,9 +73,28 @@ export interface TableOptions {
   firstRow?: boolean;
   /** Emit `bandRow="1"` so alternating rows get banded shading. Default true. */
   bandRow?: boolean;
+  /**
+   * `#RRGGBB` baked onto every cell's run as an explicit `<a:solidFill>`.
+   * Without it, cells fall back to the `tx1` token, which a deck with an
+   * inverted color map paints the same as the background (invisible text).
+   * The caller resolves the deck's body-text color and passes it here.
+   */
+  textColorHex?: string;
 }
 
-const buildTextCellBody = (value: string): XmlElement => {
+// `<a:rPr>` with the run's language and, when a color is baked in, an explicit
+// solid fill so the cell text doesn't fall through to the theme's `tx1` token.
+const buildCellRunProps = (textColorHex: string | undefined): XmlElement => {
+  const langAttr = attr(ATTR_LANG, 'en-US');
+  if (textColorHex === undefined) return elem(NAME_RPR, { attrs: [langAttr] });
+  const hex = textColorHex.startsWith('#') ? textColorHex.slice(1) : textColorHex;
+  const solidFill = elem(NAME_SOLID_FILL, {
+    children: [elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, hex.toUpperCase())] })],
+  });
+  return elem(NAME_RPR, { attrs: [langAttr], children: [solidFill] });
+};
+
+const buildTextCellBody = (value: string, textColorHex: string | undefined): XmlElement => {
   const needsPreserve =
     value.length > 0 && (value.startsWith(' ') || value.endsWith(' ') || /[\t\n]/.test(value));
   const t = elem(NAME_T, {
@@ -80,22 +102,26 @@ const buildTextCellBody = (value: string): XmlElement => {
     children: value.length > 0 ? [textNode(value)] : [],
   });
   const r = elem(NAME_R, {
-    children: [elem(NAME_RPR, { attrs: [attr(ATTR_LANG, 'en-US')] }), t],
+    children: [buildCellRunProps(textColorHex), t],
   });
   const p = elem(NAME_P, { children: [r] });
   return elem(NAME_TX_BODY, { children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), p] });
 };
 
 /** @internal — used by row-mutation paths in the public API. */
-export const buildTableCell = (value: string): XmlElement => {
-  return elem(NAME_TC, { children: [buildTextCellBody(value), elem(NAME_TC_PR)] });
+export const buildTableCell = (value: string, textColorHex?: string): XmlElement => {
+  return elem(NAME_TC, { children: [buildTextCellBody(value, textColorHex), elem(NAME_TC_PR)] });
 };
 
 /** @internal — used by row-mutation paths in the public API. */
-export const buildTableRow = (cells: ReadonlyArray<string>, h: number): XmlElement =>
+export const buildTableRow = (
+  cells: ReadonlyArray<string>,
+  h: number,
+  textColorHex?: string,
+): XmlElement =>
   elem(NAME_TR, {
     attrs: [attr(ATTR_H, String(Math.round(h)))],
-    children: cells.map(buildTableCell),
+    children: cells.map((value) => buildTableCell(value, textColorHex)),
   });
 
 const equalShares = (total: number, n: number): number[] => {
@@ -175,7 +201,7 @@ export const buildTable = (opts: TableOptions): XmlElement => {
       elem(NAME_GRID_COL, { attrs: [attr(ATTR_W, String(Math.round(w)))] }),
     ),
   });
-  const tableRows = rows.map((row, i) => buildTableRow(row, rowHeights[i] ?? 0));
+  const tableRows = rows.map((row, i) => buildTableRow(row, rowHeights[i] ?? 0, opts.textColorHex));
   const tbl = elem(NAME_TBL, { children: [tblPr, tblGrid, ...tableRows] });
 
   const graphicData = elem(NAME_GRAPHIC_DATA, {
