@@ -5,11 +5,18 @@
 
 export type PgjsOpts = Record<string, unknown>;
 
+export interface PgjsChartSeries {
+  name: string;
+  labels: string[];
+  values: number[];
+}
+
 export interface PgjsSlide {
   addText(text: string, opts: PgjsOpts): void;
   addShape(type: string, opts: PgjsOpts): void;
   addTable(rows: string[][], opts: PgjsOpts): void;
   addImage(opts: PgjsOpts): void;
+  addChart(type: string, data: PgjsChartSeries[], opts: PgjsOpts): void;
 }
 
 export interface PgjsDeck {

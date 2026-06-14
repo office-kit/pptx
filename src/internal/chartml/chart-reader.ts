@@ -42,6 +42,9 @@ const NAME_STR_CACHE = qname('c', 'strCache', NS_C);
 const NAME_NUM_CACHE = qname('c', 'numCache', NS_C);
 const NAME_STR_LIT = qname('c', 'strLit', NS_C);
 const NAME_NUM_LIT = qname('c', 'numLit', NS_C);
+const NAME_MULTI_LVL_STR_REF = qname('c', 'multiLvlStrRef', NS_C);
+const NAME_MULTI_LVL_STR_CACHE = qname('c', 'multiLvlStrCache', NS_C);
+const NAME_LVL = qname('c', 'lvl', NS_C);
 const NAME_PT = qname('c', 'pt', NS_C);
 const NAME_V = qname('c', 'v', NS_C);
 const NAME_TITLE = qname('c', 'title', NS_C);
@@ -132,6 +135,17 @@ const readStringChannel = (parent: XmlElement): string[] | null => {
   }
   const lit = firstChildElement(parent, NAME_STR_LIT);
   if (lit) return readPtArray(lit);
+  // `<c:multiLvlStrRef>` is what PowerPoint and PptxGenJS emit for categories
+  // (it supports grouped axis labels). A flat chart has a single `<c:lvl>`;
+  // read that level's points so single-level categories round-trip. (For a
+  // genuinely multi-level axis we surface the innermost level, which is the
+  // per-point label.)
+  const multi = firstChildElement(parent, NAME_MULTI_LVL_STR_REF);
+  if (multi) {
+    const cache = firstChildElement(multi, NAME_MULTI_LVL_STR_CACHE);
+    const lvl = cache ? firstChildElement(cache, NAME_LVL) : null;
+    if (lvl) return readPtArray(lvl);
+  }
   return null;
 };
 

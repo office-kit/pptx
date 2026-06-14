@@ -6,6 +6,14 @@ import {
   addSlide,
   createPresentation,
   findSlideLayout,
+  getShapeChartCategories,
+  getShapeChartKind,
+  getShapeChartSeriesNames,
+  getShapeChartSeriesValues,
+  getSlides,
+  getSlideShapes,
+  isChartShape,
+  loadPresentation,
   savePresentation,
 } from '../../src/api/index.ts';
 import { partName } from '../../src/internal/opc/index.ts';
@@ -41,12 +49,57 @@ const slideXmlOf = (bytes: Uint8Array): string => {
   return dec(part.data);
 };
 
+// The first chart part, if the deck has one. The part name is NOT hard-coded:
+// PptxGenJS keeps a process-global chart counter, so the second chart built in
+// the same test run lands at `chart2.xml`, the third at `chart3.xml`, etc.
+const CHART_PART = /^\/ppt\/charts\/chart\d+\.xml$/;
+const chartXmlOf = (bytes: Uint8Array): string | null => {
+  const pkg = OpcPackage.load(bytes);
+  const part = pkg.parts.find((p) => CHART_PART.test(p.name));
+  return part ? dec(part.data) : null;
+};
+
+/**
+ * The *semantic* content of a deck's first chart — type plus each series'
+ * name and values — read back with pptx-kit's own reader. Charts can't be
+ * compared as raw XML: PptxGenJS stamps dozens of opinionated chrome defaults
+ * (data-label blocks, gridlines, its own palette, `multiLvlStrRef` categories)
+ * that PowerPoint treats as optional and pptx-kit leaves to inheritance. What
+ * must match is the data and the chart type, which is what this extracts —
+ * from *either* library's output, since pptx-kit can read any PPTX.
+ */
+export interface ChartSemantics {
+  kind: string | null;
+  categories: ReadonlyArray<string> | null;
+  series: Array<{ name: string | null; values: ReadonlyArray<number | null> | null }>;
+}
+
+export const chartSemanticsOf = async (bytes: Uint8Array): Promise<ChartSemantics | null> => {
+  const pres = await loadPresentation(bytes);
+  for (const slide of getSlides(pres)) {
+    for (const shape of getSlideShapes(slide)) {
+      if (!isChartShape(shape)) continue;
+      const names = getShapeChartSeriesNames(shape) ?? [];
+      return {
+        kind: getShapeChartKind(shape),
+        categories: getShapeChartCategories(shape),
+        series: names.map((name) => ({ name, values: getShapeChartSeriesValues(shape, name) })),
+      };
+    }
+  }
+  return null;
+};
+
 export interface CaseResult {
   id: string;
   kitXml: string;
   pgjsXml: string;
   kitCanonical: string;
   pgjsCanonical: string;
+  /** Present only for chart cases: the chart part XML and read-back content. */
+  kitChartXml: string | null;
+  kitChartSemantics: ChartSemantics | null;
+  pgjsChartSemantics: ChartSemantics | null;
 }
 
 export const runCase = async (c: CorpusCase): Promise<CaseResult> => {
@@ -67,11 +120,18 @@ export const runCase = async (c: CorpusCase): Promise<CaseResult> => {
 
   const kitXml = slideXmlOf(kitBytes);
   const pgjsXml = slideXmlOf(pgjsBytes);
+  const kitChartXml = chartXmlOf(kitBytes);
+
   return {
     id: c.id,
     kitXml,
     pgjsXml,
     kitCanonical: canonicalSpTree(kitXml),
     pgjsCanonical: canonicalSpTree(pgjsXml),
+    kitChartXml,
+    // Resolve the chart via relationships (name-independent), so a PptxGenJS
+    // chart at chart2.xml/chart3.xml is still read.
+    kitChartSemantics: kitChartXml ? await chartSemanticsOf(kitBytes) : null,
+    pgjsChartSemantics: chartXmlOf(pgjsBytes) ? await chartSemanticsOf(pgjsBytes) : null,
   };
 };

@@ -14,11 +14,23 @@ case ──┬─ PptxGenJS .addText/.addShape/.addTable/... → slide1.xml ─�
        └─ pptx-kit addSlideTextBox/addSlideShape/...  → slide1.xml ─┘
 ```
 
+The corpus covers the slide-content surface both libraries share — text
+(plain, bold/italic/underline/strike, alignment, multi-paragraph, bullets,
+hyperlinks), shapes (rect, roundRect, ellipse, triangle, pentagon, star,
+diamond, shape-with-text), lines (plain, dashed, arrow), tables (cell fill,
+alignment), images, and charts (column, bar, line, pie, multi-series).
+
+(PptxGenJS demo areas with no comparable pptx-kit authoring path — animations,
+which PptxGenJS doesn't model, and `addMedia` video/audio — are out of scope;
+`defineSlideMaster` is a different comparison axis (master/layout parts) the
+corpus doesn't yet cover.)
+
 ## What it checks
 
 1. **Hard gate — schema validity.** Every slide pptx-kit emits is validated
-   against the ECMA-376 PresentationML XSD (`xmllint`). A real structural
-   defect fails the build. Skipped cleanly when `xmllint` is absent.
+   against the ECMA-376 PresentationML XSD (`xmllint`), and every chart part
+   against the chart XSD. A real structural defect fails the build. Skipped
+   cleanly when `xmllint` is absent.
 
 2. **Ratchet — divergence from the reference.** Both slides are reduced to a
    canonical drawing tree (`canonical.ts`) with _legitimately volatile_ detail
@@ -26,6 +38,14 @@ case ──┬─ PptxGenJS .addText/.addShape/.addTable/... → slide1.xml ─�
    `p14:modId`, whitespace — then diffed with an LCS. The count of divergent
    lines is compared to `parity-baseline.json`; it may only **shrink**. A
    change that pushes pptx-kit further from the reference fails.
+
+3. **Chart semantics.** A chart part can't be compared as raw XML — PptxGenJS
+   stamps dozens of opinionated chrome defaults (data-label blocks, gridlines,
+   tick marks, its own palette, `multiLvlStrRef` categories, an `Arial 12pt`
+   `txPr`) that PowerPoint treats as optional and pptx-kit leaves to
+   inheritance. What _must_ match is the data: read both charts back with
+   pptx-kit (it parses any PPTX) and assert equal chart type, categories, and
+   per-series values.
 
 ## Run it
 
@@ -62,12 +82,19 @@ change that makes pptx-kit's output diverge from the reference fails the build.
 
 Reaching zero combined two things:
 
-1. **A real pptx-kit fix.** `addSlideTable` emitted `firstRow` / `bandRow`
-   flags but no `<a:tableStyleId>`, and `createPresentation` shipped no
-   `tableStyles.xml`, so PowerPoint painted an unstyled, borderless block. The
-   table now references PowerPoint's "No Style, Table Grid" built-in and the
-   blank deck ships the matching `tableStyles.xml` — the same setup PptxGenJS
-   and PowerPoint itself use.
+1. **Real pptx-kit fixes the corpus surfaced** — each a defect that made
+   generated slides look broken:
+   - Tables emitted `firstRow` / `bandRow` flags but no `<a:tableStyleId>`, and
+     `createPresentation` shipped no `tableStyles.xml`, so PowerPoint painted an
+     unstyled, borderless block. Tables now reference the "No Style, Table Grid"
+     built-in and the blank deck ships `tableStyles.xml`.
+   - Bulleted text boxes got the bullet glyph but no hanging indent (the glyph
+     jammed against the text), because a text box inherits the master
+     `otherStyle` (marL=0), not the body style. `setShapeBullets` /
+     `setParagraphBullet` now write PowerPoint's per-level `marL` / `indent`.
+   - The chart reader returned empty categories for `<c:multiLvlStrRef>`, which
+     is what PowerPoint and PptxGenJS emit. It now reads them — so the chart
+     cases' semantic comparison (type + categories + values) holds.
 
 2. **Folding render-invisible differences in the comparator** (`canonical.ts`),
    each justified as either a PowerPoint default or pure metadata. The
@@ -82,6 +109,8 @@ Reaching zero combined two things:
    | default `<a:tcPr>` insets + `w="0"` noFill borders        | PowerPoint's built-in cell defaults; omitting them renders identically                                              |
    | `<a:tableStyleId>` + `firstRow`/`bandRow`                 | pptx-kit names the package's default grid style explicitly; PptxGenJS inherits the same GUID from `tableStyles.xml` |
    | `<a:endParaRPr>`, empty `<a:pPr>`, `<a:buNone>`           | empty-paragraph / bullet-reset no-ops                                                                               |
+   | `<a:buSzPct val="100000">`                                | bullet sized at 100% of the text — the default                                                                      |
+   | hyperlink `<a:hlinkClick>` default attrs + shape mirror   | `endSnd/history/...` defaults; PptxGenJS also mirrors the run link onto `cNvPr`, redundant for a text box           |
    | `<p:cxnSp>` vs `<p:sp prstGeom="line">`                   | both render an identical straight line                                                                              |
    | `@dirty`, `@smtClean`, `descr`, `p14:modId`, `<p:extLst>` | authoring hints / app-private extensions                                                                            |
 
