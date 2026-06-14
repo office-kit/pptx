@@ -3327,13 +3327,38 @@ const renderCategoryAxis = (
 };
 
 const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number } => {
+  // Stacked charts scale the value axis to the per-category stacked total,
+  // not the largest single value, or the bars overflow / the axis labels
+  // disagree with the bar heights. percentStacked always spans 0..100%.
+  const isStacked = spec.grouping === 'stacked' || spec.grouping === 'percentStacked';
+  const isPercent = spec.grouping === 'percentStacked';
   let min = Infinity;
   let max = -Infinity;
-  for (const s of spec.series) {
-    for (const v of s.values) {
-      if (v !== null && Number.isFinite(v)) {
-        if (v < min) min = v;
-        if (v > max) max = v;
+  if (isPercent) {
+    min = 0;
+    max = 1;
+  } else if (isStacked) {
+    const N = spec.series.reduce((n, s) => Math.max(n, s.values.length), 0);
+    for (let c = 0; c < N; c++) {
+      let pos = 0;
+      let neg = 0;
+      for (const s of spec.series) {
+        const v = s.values[c];
+        if (v !== null && v !== undefined && Number.isFinite(v)) {
+          if (v >= 0) pos += v;
+          else neg += v;
+        }
+      }
+      if (pos > max) max = pos;
+      if (neg < min) min = neg;
+    }
+  } else {
+    for (const s of spec.series) {
+      for (const v of s.values) {
+        if (v !== null && Number.isFinite(v)) {
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
       }
     }
   }
@@ -3470,26 +3495,10 @@ const renderColumnChart = (
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
-  // Stacked charts use the column's sum (per category) as the value
-  // axis upper bound. Percent-stacked normalizes to [0, 1].
-  let { min, max } = seriesMinMax(spec);
-  if (isStacked) {
-    let sumMin = Infinity;
-    let sumMax = -Infinity;
-    for (let c = 0; c < N; c++) {
-      let pos = 0;
-      let neg = 0;
-      for (const s of spec.series) {
-        const v = s.values[c] ?? 0;
-        if (v >= 0) pos += v;
-        else neg += v;
-      }
-      if (neg < sumMin) sumMin = neg;
-      if (pos > sumMax) sumMax = pos;
-    }
-    min = isPercent ? 0 : Math.min(0, sumMin);
-    max = isPercent ? 1 : Math.max(1, sumMax);
-  }
+  // seriesMinMax already scales stacked / percentStacked to the per-category
+  // total (with the same Excel-style headroom the axis uses), so the bars and
+  // the axis labels share one range.
+  const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
   const groupW = f.plotW / N;
   // gapWidth + overlap shape bar geometry per ECMA-376 §21.2.2.75:
@@ -3533,7 +3542,7 @@ const renderColumnChart = (
           f.plotY + f.plotH - ((Math.min(stackedTop, stackedBase) - min) / range) * f.plotH;
         const h = Math.abs(y1 - y0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
         );
         if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
@@ -3878,24 +3887,9 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
-  let { min, max } = seriesMinMax(spec);
-  if (isStacked) {
-    let sumMin = Infinity;
-    let sumMax = -Infinity;
-    for (let c = 0; c < N; c++) {
-      let pos = 0;
-      let neg = 0;
-      for (const s of spec.series) {
-        const v = s.values[c] ?? 0;
-        if (v >= 0) pos += v;
-        else neg += v;
-      }
-      if (neg < sumMin) sumMin = neg;
-      if (pos > sumMax) sumMax = pos;
-    }
-    min = isPercent ? 0 : Math.min(0, sumMin);
-    max = isPercent ? 1 : Math.max(1, sumMax);
-  }
+  // seriesMinMax already scales stacked / percentStacked to the per-category
+  // total, so the bars and the axis labels share one range.
+  const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
   const groupH = f.plotH / N;
   const gapPctB = (spec.gapWidthPct ?? 150) / 100;
@@ -3929,7 +3923,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
         const w = Math.abs(x1 - x0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
         );
         if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
@@ -4017,24 +4011,9 @@ const renderLineChart = (
   const grouping = spec.grouping ?? 'clustered';
   const isStacked = grouping === 'stacked' || grouping === 'percentStacked';
   const isPercent = grouping === 'percentStacked';
-  let { min, max } = seriesMinMax(spec);
-  if (isStacked) {
-    let sumMin = Infinity;
-    let sumMax = -Infinity;
-    for (let c = 0; c < N; c++) {
-      let pos = 0;
-      let neg = 0;
-      for (const s of spec.series) {
-        const v = s.values[c] ?? 0;
-        if (v >= 0) pos += v;
-        else neg += v;
-      }
-      if (neg < sumMin) sumMin = neg;
-      if (pos > sumMax) sumMax = pos;
-    }
-    min = isPercent ? 0 : Math.min(0, sumMin);
-    max = isPercent ? 1 : Math.max(1, sumMax);
-  }
+  // seriesMinMax already scales stacked / percentStacked to the per-category
+  // total, so the plotted points and the axis labels share one range.
+  const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
   const step = N > 1 ? f.plotW / (N - 1) : 0;
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
@@ -4124,7 +4103,10 @@ const renderLineChart = (
         .reverse()
         .map(([xp, yp]) => `L${px(xp)},${px(yp)}`)
         .join(' ');
-      out.push(`<path d="${dPath} ${back} Z" fill="${color}" fill-opacity="0.55" stroke="none"/>`);
+      // Area fills are opaque in PowerPoint (the authored solidFill at full
+      // alpha); series paint back-to-front so a taller front series occludes
+      // the one behind, exactly as PowerPoint does.
+      out.push(`<path d="${dPath} ${back} Z" fill="${color}" stroke="none"/>`);
     }
     // Authored line width / dash on the series (<c:ser><c:spPr><a:ln>).
     const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
@@ -4144,11 +4126,20 @@ const renderLineChart = (
       `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
     );
     if (!isStacked) {
-      // Data point markers — only meaningful on the clustered layout.
-      // markerSymbol='none' hides the markers; everything else picks a
-      // shape and the marker size from the series (default ~5pt → ~2.2
-      // radius for compatibility with the previous render).
-      if (series.markerSymbol !== 'none') {
+      // Markers show only on the "Line with Markers" subtype
+      // (<c:lineChart><c:marker val="1"/> → spec.lineMarkers) or when the
+      // series authors an explicit symbol. Area charts (`fill`) never show
+      // them by default, and `markerSymbol='none'` always hides. This keeps
+      // plain imported line charts marker-free, matching PowerPoint.
+      const explicitSymbol =
+        series.markerSymbol !== undefined &&
+        series.markerSymbol !== 'auto' &&
+        series.markerSymbol !== 'none';
+      if (
+        series.markerSymbol !== 'none' &&
+        !fill &&
+        (spec.lineMarkers === true || explicitSymbol)
+      ) {
         const symbol = autoMarkerSymbol(series.markerSymbol, s);
         const size = series.markerSizePt ?? 5;
         const r = Math.max(1, size * 0.5);

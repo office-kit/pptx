@@ -861,6 +861,21 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   const dropLines = dropLinesEl !== null ? true : undefined;
   const hiLowLines = hiLowLinesEl !== null ? true : undefined;
 
+  // <c:lineChart><c:marker val="1"/> toggles point markers for the whole
+  // line chart: present (the "Line with Markers" subtype) shows them, absent
+  // (the plain "Line" subtype) hides them. An empty <c:marker/> defaults to
+  // true per CT_Boolean. Only meaningful for line charts.
+  let lineMarkers: boolean | undefined;
+  if (kind === 'line') {
+    const markerEl = firstChildElement(plotted, qname('c', 'marker', NS_C));
+    if (markerEl === null) {
+      lineMarkers = false;
+    } else {
+      const v = getAttrValue(markerEl, ATTR_VAL);
+      lineMarkers = v === null ? true : v === '1' || v === 'true';
+    }
+  }
+
   // <c:gapWidth> and <c:overlap> live on the plotted-kind element and
   // tune the bar / column spacing. PowerPoint defaults: gapWidth=150
   // (1.5× bar width gap), overlap=0 (clustered) or 100 (stacked).
@@ -1341,6 +1356,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(grouping !== undefined ? { grouping } : {}),
     ...(dropLines !== undefined ? { dropLines } : {}),
     ...(hiLowLines !== undefined ? { hiLowLines } : {}),
+    ...(lineMarkers !== undefined ? { lineMarkers } : {}),
     ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
     ...(overlapPct !== undefined ? { overlapPct } : {}),
     ...(legend !== undefined ? { legend } : {}),

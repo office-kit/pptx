@@ -571,6 +571,13 @@ export interface ChartSpec {
    */
   readonly hiLowLines?: boolean;
   /**
+   * Whether a line chart draws point markers (`<c:lineChart><c:marker
+   * val="1"/>`). `true` is PowerPoint's "Line with Markers" subtype;
+   * absent / `false` is the plain "Line" subtype (no markers). Only
+   * meaningful for `kind: 'line'`.
+   */
+  readonly lineMarkers?: boolean;
+  /**
    * Gap between adjacent bar groups in `<c:gapWidth val="N"/>` units
    * (0..500, percent of bar width). Default 150 (= 1.5×) in PowerPoint.
    */
