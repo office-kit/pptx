@@ -1,5 +1,11 @@
 # pptx-kit-preview
 
+## 0.5.0
+
+### Minor Changes
+
+- 7200690: Drop Node.js 22 support. The minimum supported version is now Node 24.16. The published runtime bundles are unchanged; this only raises the `engines` floor and the CI/test matrix to Node 24.
+
 ## 0.4.0
 
 ### Minor Changes
