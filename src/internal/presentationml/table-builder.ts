@@ -50,7 +50,14 @@ const NAME_RPR = qname('a', 'rPr', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
 const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
+const NAME_PPR = qname('a', 'pPr', NS.dml);
+const NAME_BU_NONE = qname('a', 'buNone', NS.dml);
 const ATTR_VAL = qname('', 'val', '');
+const ATTR_MAR_L = qname('', 'marL', '');
+const ATTR_MAR_R = qname('', 'marR', '');
+const ATTR_MAR_T = qname('', 'marT', '');
+const ATTR_MAR_B = qname('', 'marB', '');
+const ATTR_INDENT = qname('', 'indent', '');
 const ATTR_ID = qname('', 'id', '');
 const ATTR_NAME = qname('', 'name', '');
 const ATTR_NO_GRP = qname('', 'noGrp', '');
@@ -120,13 +127,34 @@ const buildTextCellBody = (value: string, textColorHex: string | undefined): Xml
   const r = elem(NAME_R, {
     children: [buildCellRunProps(textColorHex), t],
   });
-  const p = elem(NAME_P, { children: [r] });
+  // `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` suppresses any inherited
+  // list bullet on the cell paragraph — what PowerPoint and PptxGenJS both
+  // emit. Renders the same as omitting it (table cells inherit no bullet), but
+  // makes the cell self-describing.
+  const pPr = elem(NAME_PPR, {
+    attrs: [attr(ATTR_MAR_L, '0'), attr(ATTR_INDENT, '0')],
+    children: [elem(NAME_BU_NONE)],
+  });
+  const p = elem(NAME_P, { children: [pPr, r] });
   return elem(NAME_TX_BODY, { children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), p] });
 };
 
+// PowerPoint's default cell insets (0.1in horizontal, 0.05in vertical).
+// Emitting them explicitly — as PowerPoint and PptxGenJS do — renders
+// identically to omitting them, but keeps the cell self-describing.
+const buildCellProps = (): XmlElement =>
+  elem(NAME_TC_PR, {
+    attrs: [
+      attr(ATTR_MAR_L, '91440'),
+      attr(ATTR_MAR_R, '91440'),
+      attr(ATTR_MAR_T, '45720'),
+      attr(ATTR_MAR_B, '45720'),
+    ],
+  });
+
 /** @internal — used by row-mutation paths in the public API. */
 export const buildTableCell = (value: string, textColorHex?: string): XmlElement => {
-  return elem(NAME_TC, { children: [buildTextCellBody(value, textColorHex), elem(NAME_TC_PR)] });
+  return elem(NAME_TC, { children: [buildTextCellBody(value, textColorHex), buildCellProps()] });
 };
 
 /** @internal — used by row-mutation paths in the public API. */

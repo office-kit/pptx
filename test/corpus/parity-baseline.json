@@ -1,5 +1,8 @@
 {
+  "chart-area": 0,
+  "chart-bar-horizontal": 0,
   "chart-column": 0,
+  "chart-doughnut": 0,
   "chart-line": 0,
   "chart-multiseries": 0,
   "chart-pie": 0,
