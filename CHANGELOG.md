@@ -1,5 +1,11 @@
 # pptx-kit
 
+## 0.7.0
+
+### Minor Changes
+
+- 3ba1e3d: Drop Node.js 20 support. The minimum supported version is now Node 22.18. The build toolchain moved to tsdown, whose current release requires Node 22.18+; the published runtime bundles are unchanged.
+
 ## 0.6.3
 
 ### Patch Changes
