@@ -61,16 +61,6 @@ const isWhitespaceText = (n: XmlNode): boolean => n.kind === 'text' && n.data.tr
 // carry no rendering meaning. Dropped on every element.
 const VOLATILE_ATTR_LOCALS = new Set(['dirty', 'smtClean', 'noProof']);
 
-// `<a:tcPr>` insets that equal PowerPoint's built-in defaults: a cell that
-// omits them renders identically, so emitting them (PptxGenJS) vs inheriting
-// them (pptx-kit) is the same picture.
-const DEFAULT_TC_MARGINS: Record<string, string> = {
-  marL: '91440',
-  marR: '91440',
-  marT: '45720',
-  marB: '45720',
-};
-
 // `<a:hlinkClick>` attributes PptxGenJS writes out at their default value (or
 // empty); PowerPoint omits them. Folded when empty or equal to the default.
 const HLINK_DEFAULTS: Record<string, string> = {
@@ -134,8 +124,6 @@ const canonicalAttrs = (el: XmlElement): string[] => {
       continue;
     // No-op bullet reset (`marL="0" indent="0"` alongside `<a:buNone/>`).
     if (local === 'pPr' && (an === 'marL' || an === 'indent') && a.value === '0') continue;
-    // Default cell insets — see DEFAULT_TC_MARGINS.
-    if (local === 'tcPr' && DEFAULT_TC_MARGINS[an] === a.value) continue;
     // Row height is an advisory minimum PowerPoint recomputes from content.
     if (local === 'tr' && an === 'h') continue;
     // Hyperlink no-op defaults PptxGenJS spells out and PowerPoint omits.
