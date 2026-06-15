@@ -55,7 +55,7 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "pptx-kit": ">=0.1.0"
+    "pptx-kit": ">=0.6.3"
   },
   "engines": {
     "node": ">=22.18.0"
