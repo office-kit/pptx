@@ -40,9 +40,9 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsup",
+    "build": "tsdown",
     "typecheck": "tsc --noEmit",
-    "prepublishOnly": "tsup"
+    "prepublishOnly": "tsdown"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
@@ -51,7 +51,7 @@
   "devDependencies": {
     "@types/fontkit": "^2.0.9",
     "pptx-kit": "workspace:*",
-    "tsup": "^8.5.1",
+    "tsdown": "^0.22.2",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {

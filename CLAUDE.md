@@ -28,7 +28,7 @@ slide masters / layouts, comments, notes).
   Web-standard `Uint8Array`, `TextEncoder/Decoder`, `CompressionStream` where
   available.
 - **Package manager**: pnpm.
-- **Build**: `tsup` → ESM + `.d.ts`.
+- **Build**: `tsdown` → ESM + `.d.ts`.
 - **Test**: `vitest` (unit + golden-file fixture comparisons against real
   PPTX bytes).
 - **Lint / format**: oxlint + oxfmt.

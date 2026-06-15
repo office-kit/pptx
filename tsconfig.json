@@ -1,7 +1,5 @@
 {
-  "// ignoreDeprecations": "tsup's dts build injects `baseUrl` into its synthesized tsconfig, which TS 6 deprecates (TS5101). Drop once tsup stops injecting it (required anyway before TS 7 removes baseUrl).",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -27,6 +25,6 @@
     "forceConsistentCasingInFileNames": true,
     "rootDir": "."
   },
-  "include": ["src/**/*.ts", "test/**/*.ts", "tsup.config.ts", "vitest.config.ts"],
+  "include": ["src/**/*.ts", "test/**/*.ts", "tsdown.config.ts", "vitest.config.ts"],
   "exclude": ["node_modules", "dist"]
 }

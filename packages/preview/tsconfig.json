@@ -1,8 +1,6 @@
 {
   "// note": "Standalone tsconfig for pptx-kit-preview. The root vitest also imports text-layout.ts from here and resolves this config (a clean one) instead of walking up to site/tsconfig.json, which extends the svelte-kit-generated ./.svelte-kit/tsconfig.json that only exists after `svelte-kit sync`.",
-  "// ignoreDeprecations": "tsup's dts build injects `baseUrl` into its synthesized tsconfig, which TS 6 deprecates (TS5101). Drop once tsup stops injecting it (required anyway before TS 7 removes baseUrl).",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
@@ -16,5 +14,5 @@
     "noEmit": true,
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "tsup.config.ts"]
+  "include": ["src/**/*.ts", "tsdown.config.ts"]
 }
