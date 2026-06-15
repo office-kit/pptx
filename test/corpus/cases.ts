@@ -7,6 +7,7 @@
 // presentation plus a blank slide already added to it; author onto `slide`.
 
 import type { PresentationData, SlideData } from '../../src/api/_internal-symbols.ts';
+import type { PresetShape } from '../../src/api/index.ts';
 import type { PgjsDeck, PgjsSlide } from './pptxgenjs-types.ts';
 import {
   addSlideChart,
@@ -47,6 +48,51 @@ export interface CorpusCase {
 
 const dataUri = (png: Uint8Array): string =>
   `data:image/png;base64,${Buffer.from(png).toString('base64')}`;
+
+// A filled preset shape — the same geometry token authored through both
+// libraries. Covers pptx-kit's `<a:prstGeom>` output for each preset against
+// PptxGenJS's. PptxGenJS takes the raw ST_ShapeType token, as does pptx-kit.
+const presetCase = (preset: string, color: string): CorpusCase => ({
+  id: `shape-${preset}`,
+  pgjs: (s) => {
+    s.addShape(preset, { x: 1, y: 1, w: 3, h: 2, fill: { color } });
+  },
+  kit: (_p, slide) => {
+    const sh = addSlideShape(slide, {
+      preset: preset as PresetShape,
+      x: inches(1),
+      y: inches(1),
+      w: inches(3),
+      h: inches(2),
+    });
+    setShapeFill(sh, `#${color}`);
+  },
+});
+
+// Geometry tokens both libraries author. One filled case each.
+const EXTRA_PRESETS: CorpusCase[] = [
+  'rtTriangle',
+  'parallelogram',
+  'trapezoid',
+  'heptagon',
+  'octagon',
+  'decagon',
+  'star4',
+  'star6',
+  'star8',
+  'star12',
+  'rightArrow',
+  'leftArrow',
+  'upArrow',
+  'downArrow',
+  'leftRightArrow',
+  'upDownArrow',
+  'cloud',
+  'heart',
+  'sun',
+  'moon',
+  'lightningBolt',
+].map((preset, i) => presetCase(preset, ['4472C4', 'C0504D', '9BBB59', '8064A2'][i % 4]!));
 
 export const CASES: CorpusCase[] = [
   {
@@ -697,4 +743,96 @@ export const CASES: CorpusCase[] = [
       addSlideImage(slide, PNG, { x: inches(1), y: inches(1), w: inches(2), h: inches(1.5) });
     },
   },
+  {
+    id: 'text-right',
+    pgjs: (s) => {
+      s.addText('Right', { x: 1, y: 1, w: 6, h: 1, align: 'right' });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(1),
+        text: 'Right',
+      });
+      setParagraphAlignment(box, 0, 'r');
+    },
+  },
+  {
+    id: 'text-justify',
+    pgjs: (s) => {
+      s.addText('Justified text', { x: 1, y: 1, w: 6, h: 1, align: 'justify' });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(1),
+        text: 'Justified text',
+      });
+      setParagraphAlignment(box, 0, 'just');
+    },
+  },
+  {
+    id: 'text-large',
+    pgjs: (s) => {
+      s.addText('Big', { x: 1, y: 1, w: 6, h: 2, fontSize: 54 });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(2),
+        text: 'Big',
+      });
+      setShapeRunFormat(box, 0, 0, { size: 54 });
+    },
+  },
+  {
+    id: 'table-3x3',
+    pgjs: (s) => {
+      s.addTable(
+        [
+          ['H1', 'H2', 'H3'],
+          ['a', 'b', 'c'],
+          ['d', 'e', 'f'],
+        ],
+        { x: 0.5, y: 0.5, w: 6, colW: [2, 2, 2] },
+      );
+    },
+    kit: (_p, slide) => {
+      const table = addSlideTable(slide, {
+        x: inches(0.5),
+        y: inches(0.5),
+        w: inches(6),
+        // PptxGenJS auto-sizes the frame to ~1in here; match it so the
+        // graphic-frame extent lines up (PowerPoint recomputes from row heights).
+        h: inches(1),
+        rows: [
+          ['H1', 'H2', 'H3'],
+          ['a', 'b', 'c'],
+          ['d', 'e', 'f'],
+        ],
+      });
+      for (let r = 0; r < 3; r++) {
+        for (let col = 0; col < 3; col++) {
+          setTableCellTextFormat(getTableCell(table, r, col), { size: 12 });
+        }
+      }
+    },
+  },
+  {
+    id: 'image-wide',
+    png: PNG,
+    pgjs: (s) => {
+      s.addImage({ data: dataUri(PNG), x: 0.5, y: 2, w: 9, h: 1.5 });
+    },
+    kit: (_p, slide) => {
+      addSlideImage(slide, PNG, { x: inches(0.5), y: inches(2), w: inches(9), h: inches(1.5) });
+    },
+  },
+  ...EXTRA_PRESETS,
 ];
