@@ -22,6 +22,9 @@ import {
   setParagraphAlignment,
   setShapeFill,
   setShapeBullets,
+  setShapeFlip,
+  setShapeRotation,
+  setShapeShadow,
   setShapeRunFormat,
   setShapeRunHyperlink,
   setShapeStroke,
@@ -832,6 +835,101 @@ export const CASES: CorpusCase[] = [
     },
     kit: (_p, slide) => {
       addSlideImage(slide, PNG, { x: inches(0.5), y: inches(2), w: inches(9), h: inches(1.5) });
+    },
+  },
+  {
+    id: 'shape-rotation',
+    pgjs: (s) => {
+      s.addShape('rect', { x: 2, y: 1.5, w: 3, h: 1.5, fill: { color: '2E75B6' }, rotate: 30 });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(2),
+        y: inches(1.5),
+        w: inches(3),
+        h: inches(1.5),
+      });
+      setShapeFill(sh, '#2E75B6');
+      setShapeRotation(sh, 30);
+    },
+  },
+  {
+    id: 'shape-flip-h',
+    pgjs: (s) => {
+      s.addShape('rightArrow', {
+        x: 2,
+        y: 1.5,
+        w: 3,
+        h: 1.5,
+        fill: { color: 'C00000' },
+        flipH: true,
+      });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'rightArrow',
+        x: inches(2),
+        y: inches(1.5),
+        w: inches(3),
+        h: inches(1.5),
+      });
+      setShapeFill(sh, '#C00000');
+      setShapeFlip(sh, { horizontal: true });
+    },
+  },
+  {
+    id: 'shape-flip-v',
+    pgjs: (s) => {
+      s.addShape('triangle', {
+        x: 2,
+        y: 1.5,
+        w: 3,
+        h: 1.5,
+        fill: { color: '548235' },
+        flipV: true,
+      });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'triangle',
+        x: inches(2),
+        y: inches(1.5),
+        w: inches(3),
+        h: inches(1.5),
+      });
+      setShapeFill(sh, '#548235');
+      setShapeFlip(sh, { vertical: true });
+    },
+  },
+  {
+    id: 'shape-shadow',
+    pgjs: (s) => {
+      s.addShape('rect', {
+        x: 2,
+        y: 1.5,
+        w: 3,
+        h: 1.5,
+        fill: { color: 'FFFFFF' },
+        shadow: { type: 'outer', color: '000000', blur: 4, offset: 3, angle: 45, opacity: 0.5 },
+      });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(2),
+        y: inches(1.5),
+        w: inches(3),
+        h: inches(1.5),
+      });
+      setShapeFill(sh, '#FFFFFF');
+      setShapeShadow(sh, {
+        color: '#000000',
+        blurEmu: pt(4),
+        offsetEmu: pt(3),
+        angleDeg: 45,
+        opacity: 0.5,
+      });
     },
   },
   ...EXTRA_PRESETS,

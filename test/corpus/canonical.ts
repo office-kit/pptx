@@ -126,6 +126,15 @@ const canonicalAttrs = (el: XmlElement): string[] => {
     if (local === 'pPr' && (an === 'marL' || an === 'indent') && a.value === '0') continue;
     // Row height is an advisory minimum PowerPoint recomputes from content.
     if (local === 'tr' && an === 'h') continue;
+    // Shadow no-op geometry: `sx="100000" sy="100000"` (100% scale), `kx="0"
+    // ky="0"` (no skew), and `algn` — which only shifts the shadow when it is
+    // scaled, so with 100% scale it is invisible. PptxGenJS writes these out;
+    // pptx-kit relies on the defaults. Same shadow either way.
+    if (local === 'outerShdw' || local === 'innerShdw' || local === 'prstShdw') {
+      if ((an === 'sx' || an === 'sy') && a.value === '100000') continue;
+      if ((an === 'kx' || an === 'ky') && a.value === '0') continue;
+      if (an === 'algn') continue;
+    }
     // Hyperlink no-op defaults PptxGenJS spells out and PowerPoint omits.
     if (local === 'hlinkClick' || local === 'hlinkHover') {
       if (HLINK_DEFAULT_ATTRS.has(an) && (a.value === '' || a.value === HLINK_DEFAULTS[an])) {
