@@ -444,6 +444,83 @@ export const CASES: CorpusCase[] = [
     },
   },
   {
+    id: 'chart-bar-horizontal',
+    pgjs: (s) => {
+      s.addChart('bar', [{ name: 'S', labels: ['A', 'B', 'C'], values: [3, 7, 5] }], {
+        x: 1,
+        y: 1,
+        w: 6,
+        h: 4,
+        barDir: 'bar',
+      });
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'bar',
+          categories: ['A', 'B', 'C'],
+          series: [{ name: 'S', values: [3, 7, 5] }],
+        },
+      });
+    },
+  },
+  {
+    id: 'chart-area',
+    pgjs: (s) => {
+      s.addChart('area', [{ name: 'S', labels: ['A', 'B', 'C'], values: [3, 7, 5] }], {
+        x: 1,
+        y: 1,
+        w: 6,
+        h: 4,
+      });
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'area',
+          categories: ['A', 'B', 'C'],
+          series: [{ name: 'S', values: [3, 7, 5] }],
+        },
+      });
+    },
+  },
+  {
+    id: 'chart-doughnut',
+    pgjs: (s) => {
+      s.addChart(
+        'doughnut',
+        [{ name: 'Share', labels: ['Web', 'Mobile', 'Desktop'], values: [55, 30, 15] }],
+        {
+          x: 1,
+          y: 1,
+          w: 6,
+          h: 4,
+        },
+      );
+    },
+    kit: (_p, slide) => {
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(4),
+        spec: {
+          kind: 'doughnut',
+          categories: ['Web', 'Mobile', 'Desktop'],
+          series: [{ name: 'Share', values: [55, 30, 15] }],
+        },
+      });
+    },
+  },
+  {
     id: 'text-hyperlink',
     pgjs: (s) => {
       s.addText('Open', {
