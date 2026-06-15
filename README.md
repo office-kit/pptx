@@ -3,10 +3,12 @@
 Generate and edit `.pptx` (PowerPoint / Office Open XML Presentation) files
 from TypeScript — in **Node.js or the browser**, from a single ESM bundle.
 
-> **Status: 1.0 — public API stabilized.** Every capability in the table
-> below works end-to-end against real PPTX fixtures, with every emitted XML
-> part validated against the ECMA-376 schemas via `xmllint` in CI. Future
-> 1.x releases are SemVer-compatible.
+> **Status: 0.x — pre-1.0, public API still evolving.** The capabilities in
+> the table below are exercised against real PPTX fixtures, and emitted XML is
+> checked against the ECMA-376 schemas with `xmllint` where it is available on
+> the machine running the tests. Until the 1.0 release the public API is not
+> frozen — breaking changes can land in a minor (`0.x`) release, so pin a
+> version or an exact range.
 
 ## Why
 
@@ -31,10 +33,11 @@ one trade-off:
 
 ## Scope
 
-The work is split into four levels of completeness. The v1.0 release targets
-levels 1-3 in full and level 4 in part:
+The work is split into four levels of completeness. The current `0.x` line
+covers levels 1-3 in full and level 4 in part; the table tracks where each
+capability stands today. Items marked "post-1.0" are not implemented yet:
 
-| Level | Capability                                                          | v1.0                            |
+| Level | Capability                                                          | 0.x                             |
 | ----- | ------------------------------------------------------------------- | ------------------------------- |
 | L1    | Read an existing PPTX, save it back without corruption              | ✅                              |
 | L2    | Template edit — text replacement, image swap, add slide from layout | ✅                              |
@@ -365,12 +368,12 @@ shown together.
 
 ## Compatibility
 
-- **Node**: >= 20.
+- **Node**: >= 24.16.
 - **Browsers**: current and current-1 of Chrome, Firefox, Safari, Edge.
 - **TypeScript**: >= 5.4 (for strict `satisfies` and `const` type parameters).
-- **Output**: PPTX files validated against ECMA-376 schemas, smoke-tested
-  against PowerPoint (current), Keynote (current), Google Slides, and
-  LibreOffice Impress.
+- **Output**: PPTX files checked against the ECMA-376 schemas with `xmllint`
+  where it is available, and smoke-tested against PowerPoint (current),
+  Keynote (current), Google Slides, and LibreOffice Impress.
 
 ## Development
 
