@@ -22,8 +22,11 @@ import {
 const NAME_BU_CHAR = qname('a', 'buChar', NS.dml);
 const NAME_BU_AUTO_NUM = qname('a', 'buAutoNum', NS.dml);
 const NAME_BU_NONE = qname('a', 'buNone', NS.dml);
+const NAME_BU_FONT = qname('a', 'buFont', NS.dml);
 const ATTR_CHAR = qname('', 'char', '');
 const ATTR_BU_TYPE = qname('', 'type', '');
+const ATTR_START_AT = qname('', 'startAt', '');
+const ATTR_TYPEFACE = qname('', 'typeface', '');
 
 const NAME_P = qname('a', 'p', NS.dml);
 const NAME_R = qname('a', 'r', NS.dml);
@@ -193,7 +196,11 @@ const buildBulletElement = (style: BulletStyle): XmlElement => {
     case 'char':
       return elem(NAME_BU_CHAR, { attrs: [attr(ATTR_CHAR, n.char)] });
     case 'autoNum':
-      return elem(NAME_BU_AUTO_NUM, { attrs: [attr(ATTR_BU_TYPE, n.type)] });
+      // `startAt="1"` is the default, but PowerPoint and PptxGenJS write it
+      // explicitly on an authored numbered list.
+      return elem(NAME_BU_AUTO_NUM, {
+        attrs: [attr(ATTR_START_AT, '1'), attr(ATTR_BU_TYPE, n.type)],
+      });
     case 'none':
       return elem(NAME_BU_NONE);
   }
@@ -305,7 +312,7 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
     // <a:pPr> must be the first child of <a:p>.
     paragraph.children.unshift(pPr);
   }
-  // Remove any existing bullet child.
+  // Remove any existing bullet child (and the number font we may have added).
   pPr.children = pPr.children.filter(
     (c) =>
       !(
@@ -313,7 +320,8 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
         c.name.namespaceURI === NS.dml &&
         (c.name.localName === 'buChar' ||
           c.name.localName === 'buAutoNum' ||
-          c.name.localName === 'buNone')
+          c.name.localName === 'buNone' ||
+          c.name.localName === 'buFont')
       ),
   );
 
@@ -331,6 +339,14 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
     if (!hasAttr(pPr, 'indent')) pPr.attrs.push(attr(ATTR_INDENT, String(indent)));
   }
 
+  // A numbered list needs a bullet font so the number glyph has a face —
+  // PowerPoint and PptxGenJS emit `<a:buFont typeface="+mj-lt"/>` (the theme's
+  // major font) ahead of `<a:buAutoNum>`. A character bullet carries its glyph
+  // directly and needs none. `<a:buFont>` precedes the bullet child per the
+  // CT_TextParagraphProperties element order.
+  if (normalizeBulletStyle(style).kind === 'autoNum') {
+    pPr.children.push(elem(NAME_BU_FONT, { attrs: [attr(ATTR_TYPEFACE, '+mj-lt')] }));
+  }
   pPr.children.push(buildBulletElement(style));
 };
 
