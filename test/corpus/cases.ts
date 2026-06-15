@@ -25,6 +25,7 @@ import {
   setShapeFlip,
   setShapeRotation,
   setShapeShadow,
+  setParagraphSpacing,
   setShapeRunFormat,
   setShapeRunHyperlink,
   setShapeStroke,
@@ -930,6 +931,62 @@ export const CASES: CorpusCase[] = [
         angleDeg: 45,
         opacity: 0.5,
       });
+    },
+  },
+  {
+    id: 'text-numbered',
+    pgjs: (s) => {
+      s.addText('One\nTwo\nThree', { x: 1, y: 1, w: 5, h: 3, bullet: { type: 'number' } });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(5),
+        h: inches(3),
+        text: 'One\nTwo\nThree',
+      });
+      setShapeBullets(box, 'number');
+    },
+  },
+  {
+    id: 'text-para-spacing',
+    pgjs: (s) => {
+      s.addText('Spaced', { x: 1, y: 1, w: 6, h: 2, paraSpaceBefore: 12, paraSpaceAfter: 6 });
+    },
+    kit: (_p, slide) => {
+      const box = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(2),
+        text: 'Spaced',
+      });
+      setParagraphSpacing(box, 0, { beforePts: 12, afterPts: 6 });
+    },
+  },
+  {
+    id: 'shape-thick-stroke',
+    pgjs: (s) => {
+      s.addShape('rect', {
+        x: 1,
+        y: 1,
+        w: 4,
+        h: 2,
+        fill: { color: 'BDD7EE' },
+        line: { color: '1F4E79', width: 6 },
+      });
+    },
+    kit: (_p, slide) => {
+      const sh = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(2),
+      });
+      setShapeFill(sh, '#BDD7EE');
+      setShapeStroke(sh, { color: '#1F4E79', widthEmu: pt(6) });
     },
   },
   ...EXTRA_PRESETS,
