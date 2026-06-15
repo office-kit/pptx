@@ -538,7 +538,7 @@ export type {
 } from '../internal/presentationml/index.ts';
 
 // Library version. Replaced at build time by the package version
-// via the `__PPTX_KIT_VERSION__` define in tsup.config.ts. The literal
+// via the `__PPTX_KIT_VERSION__` define in tsdown.config.ts. The literal
 // fallback is only reached when running source directly (vitest / tsx).
 declare const __PPTX_KIT_VERSION__: string;
 export const VERSION =

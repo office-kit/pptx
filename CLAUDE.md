@@ -23,12 +23,12 @@ slide masters / layouts, comments, notes).
 ## Tech stack
 
 - **Language**: TypeScript (strict mode), targeting ES2022.
-- **Runtimes**: Node.js >= 20 and modern browsers (Chrome / Firefox / Safari
+- **Runtimes**: Node.js >= 22.18 and modern browsers (Chrome / Firefox / Safari
   current-2). One ESM bundle, no Node-only built-ins on the hot path — use
   Web-standard `Uint8Array`, `TextEncoder/Decoder`, `CompressionStream` where
   available.
 - **Package manager**: pnpm.
-- **Build**: `tsup` → ESM + `.d.ts`.
+- **Build**: `tsdown` → ESM + `.d.ts`.
 - **Test**: `vitest` (unit + golden-file fixture comparisons against real
   PPTX bytes).
 - **Lint / format**: oxlint + oxfmt.
