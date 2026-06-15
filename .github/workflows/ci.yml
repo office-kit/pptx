@@ -30,13 +30,13 @@ jobs:
     name: Static checks
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # TEMPLATE: replace the toolchain setup below for non-Node stacks.
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22.22.3
+          node-version: 24.16.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -73,10 +73,10 @@ jobs:
       matrix:
         node-version: ['20', '22', '24']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ matrix.node-version }}
           cache: pnpm
@@ -91,7 +91,7 @@ jobs:
     needs: static
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       # ground truth = LibreOffice PDF export rasterized by pdftoppm.
       # --no-install-recommends skips LibreOffice's font packages, so install
@@ -106,10 +106,10 @@ jobs:
           libreoffice-impress poppler-utils
           fonts-crosextra-carlito fonts-crosextra-caladea fonts-liberation
 
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
         with:
-          node-version: 22.22.3
+          node-version: 24.16.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
@@ -128,7 +128,7 @@ jobs:
 
       - name: Upload fidelity report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fidelity-report
           path: site/fidelity/out/
@@ -137,7 +137,7 @@ jobs:
 
       - name: Upload baseline candidate
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fidelity-baseline-candidate
           path: site/fidelity/baseline.candidate.json

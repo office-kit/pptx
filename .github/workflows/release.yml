@@ -45,11 +45,11 @@ jobs:
     name: Release
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v6
 
       # Use Node 24 here. `changeset publish` shells out to `npm publish`, and
       # OIDC Trusted Publishers require npm CLI >= 11.5.1, which ships with
@@ -59,7 +59,7 @@ jobs:
       # Note: do NOT set `registry-url` here unless you want token auth — it
       # would have setup-node write `_authToken=${NODE_AUTH_TOKEN}` into .npmrc
       # and force token auth, blocking the OIDC code path.
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24.16.0
           cache: pnpm
