@@ -100,6 +100,16 @@ if (title) setShapeText(title, 'Hello');
 const out = await savePresentation(pres);
 ```
 
+## Driving pptx-kit from an AI agent
+
+[`skill/SKILL.md`](skill/SKILL.md) is a self-contained guide for an LLM agent
+authoring presentations with this library: the canonical call for each
+capability, the design rules that keep output from looking template-generated,
+the handful of API footguns worth memorizing, and a QA loop to run before
+declaring a deck done. Its [worked example](skill/examples/business-deck.md) is
+exercised by the test suite, so the code there is known to produce a
+schema-valid deck.
+
 CI enforces the tree-shake bound in `test/tree-shake.test.ts`.
 
 ## Usage
@@ -349,7 +359,7 @@ shown together.
 | Shape authoring      | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                                                                                                                                                                   |
 | Shape lookup         | `findShapeByName`, `findShapesByName`, `findShapesByKind`, `findShapeInPresentation`, `getAllShapes`, `getSlideShapes`                                                                                                                                                                  |
 | Shape text           | `setShapeText`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink` / `getShapeHyperlink`                                                                                                                                                                 |
-| Per-paragraph        | `setParagraphAlignment` / `getParagraphAlignment`, `setParagraphLevel` / `getParagraphLevel`, `setParagraphBullet` / `getParagraphBullet`                                                                                                                                               |
+| Per-paragraph        | `setParagraphAlignment` / `getParagraphAlignment`, `setParagraphLevel` / `getParagraphLevel`, `setParagraphBullet` / `getParagraphBullet`, `setParagraphSpacing` / `getParagraphSpacing`, `setParagraphLineSpacing` / `getParagraphLineSpacing`                                         |
 | Per-run text         | `setShapeRunText` / `getShapeRunText`, `setShapeRunFormat` / `getShapeRunFormat`, `getShapeParagraphCount`, `getShapeRunCount`                                                                                                                                                          |
 | Text frame           | `setShapeTextAnchor` / `getShapeTextAnchor`, `setShapeTextMargins` / `getShapeTextMargins`                                                                                                                                                                                              |
 | Fill                 | `setShapeFill` / `getShapeFill`, `setShapeGradientFill`, `setShapePatternFill`, `setShapeImageFill`, `setShapeNoFill`, `clearShapeFill`                                                                                                                                                 |
