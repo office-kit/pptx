@@ -116,8 +116,9 @@ describe('layoutTextSvg', () => {
     expect(countText(svg)).toBe(1);
     expect(svg).toContain('text-anchor="start"');
     expect(svg).toContain('>Hello</tspan>');
-    // baseline = boxY(0) + ascent(8) for a top-anchored first line.
-    expect(svg).toContain('y="8"');
+    // baseline = boxY(0) + ascent(8) + the first-line leading drop
+    // (0.036·(ascent+descent) = 0.036·10 = 0.36), applied for all anchors.
+    expect(svg).toContain('y="8.36"');
   });
 
   it('uses text-anchor=middle / end for centered / right alignment', () => {
@@ -291,11 +292,13 @@ describe('layoutTextSvg horizontal parity', () => {
       }),
       stubMeasurer,
     );
-    // Snapshot refreshed for the GRID_NUDGE_X horizontal calibration
-    // (every x shifts −0.75px); y values are untouched. See the fidelity
+    // Snapshot reflects: the GRID_NUDGE_X horizontal calibration (every x
+    // shifts −0.75px), the first-line leading drop (+0.36 on every baseline),
+    // and space-inclusive line breaking — "aa bb" (50px incl. space) no longer
+    // fits the 40px box, so each word wraps to its own line. See the fidelity
     // calibration notes in site/fidelity/README.md.
     expect(svg).toMatchInlineSnapshot(
-      `"<text x="-0.75" y="93.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa bb</tspan></text><text x="-0.75" y="103.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc dd</tspan></text><text x="19.25" y="113.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee ff</tspan></text>"`,
+      `"<text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text>"`,
     );
   });
 });

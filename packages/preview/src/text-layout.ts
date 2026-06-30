@@ -109,11 +109,13 @@ const FALLBACK_ASCENT = 0.9;
 const FALLBACK_DESCENT = 0.22;
 const FALLBACK_LINEGAP = 0.08;
 
-// Vertical-centering calibration — see the use site. Fraction of a line's
-// (ascent+descent) that center/bottom-anchored blocks sit LOWER than the
-// win-metric line box predicts, fitted to LibreOffice/PowerPoint ground truth
-// (top-anchored text needs no correction; only center/bottom do).
-const CENTER_ANCHOR_DROP = 0.036;
+// First-baseline leading calibration — see the use site. LibreOffice/PowerPoint
+// place the first baseline a fraction of a line's (ascent+descent) BELOW the
+// win-metric line box top (frameY + winAscent), independent of vertical anchor.
+// Fitted to ground truth as ≈0.036; verified against center/bottom anchoring
+// and against top-anchored titles (a top-anchored title sits ~0.036·(a+d) — for
+// a 40pt face ~3px — too high without it).
+const BASELINE_LEADING_DROP = 0.036;
 
 // The whole text layer paints ≈1px right of LibreOffice's pdftoppm raster at
 // 1280px — a constant disagreement about where the glyph origin lands on the
@@ -393,7 +395,22 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
           line.anchorX = wrapRight;
         }
         if (isFirst && bullet) {
-          line.bullet = { x: firstLeft, baselineDy: 0, b: bullet };
+          // The bullet hangs to the LEFT of the aligned text block and travels
+          // with it: on a centered / right-aligned paragraph PowerPoint keeps
+          // the bullet immediately left of the text, not pinned to the margin.
+          // Offset it from the rendered text's left edge by the same gap it has
+          // on a left-aligned line (lineLeft - firstLeft).
+          let bulletX = firstLeft;
+          if (para.align === 'center' || para.align === 'right') {
+            let end = toks.length;
+            while (end > 0 && (toks[end - 1]!.isSpace || toks[end - 1]!.isBreak)) end--;
+            let lineW = 0;
+            for (let ti = 0; ti < end; ti++) if (!toks[ti]!.isBreak) lineW += toks[ti]!.width;
+            const textLeft =
+              para.align === 'right' ? wrapRight - lineW : (lineLeft + wrapRight) / 2 - lineW / 2;
+            bulletX = textLeft - (lineLeft - firstLeft);
+          }
+          line.bullet = { x: bulletX, baselineDy: 0, b: bullet };
         }
         line.advance = lineAdvance(line, para);
         cursorY += line.advance;
@@ -433,10 +450,11 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
 };
 
-// Vertical block offset for an anchor. Center / bottom get the empirical drop
-// calibration (see site/fidelity/README.md): LibreOffice & PowerPoint sit
-// center/bottom-anchored text ≈0.036 of a line's (ascent+descent) lower than
-// the win-metric line box predicts; top-anchored text aligns exactly.
+// Vertical block offset for an anchor, plus the first-baseline leading drop
+// (see site/fidelity/README.md): LibreOffice & PowerPoint sit the first line
+// ≈0.036 of a line's (ascent+descent) lower than the win-metric line box
+// predicts — for ALL anchors, top included (top-anchored text is otherwise
+// biased that much too high).
 const anchorOffsetY = (
   frameY: number,
   frameH: number,
@@ -447,8 +465,8 @@ const anchorOffsetY = (
   let offsetY = frameY;
   if (anchor === 'center') offsetY = frameY + (frameH - blockH) / 2;
   else if (anchor === 'bottom') offsetY = frameY + (frameH - blockH);
-  if ((anchor === 'center' || anchor === 'bottom') && firstLine) {
-    offsetY += CENTER_ANCHOR_DROP * (firstLine.ascent + firstLine.descent);
+  if (firstLine) {
+    offsetY += BASELINE_LEADING_DROP * (firstLine.ascent + firstLine.descent);
   }
   return offsetY;
 };
@@ -655,9 +673,17 @@ const wrapTokens = (
       continue;
     }
     const limit = first ? firstAvail : avail;
-    const contentW = lineW - trailingSpaceW; // exclude trailing spaces from the fit test
+    // `contentW` (text minus trailing spaces) only gates the empty-line guard:
+    // a line of leading spaces must not force-break. The FIT TEST uses `lineW`
+    // (which already includes the pending inter-word space), because once the
+    // candidate word is appended that space becomes an internal space and
+    // counts toward the line width — only the final trailing space at a real
+    // break hangs (trimTrailing handles that). Measuring against `contentW`
+    // here would discount one space per line and fit ~one extra word vs
+    // LibreOffice's space-inclusive line measurement.
+    const contentW = lineW - trailingSpaceW;
     const hasContent = contentW > 0;
-    if (wrap && hasContent && contentW + tok.width > limit + 0.5) {
+    if (wrap && hasContent && lineW + tok.width > limit + 0.5) {
       close();
       cur.push(tok);
       lineW = tok.width;
