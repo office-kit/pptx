@@ -179,4 +179,3 @@ jobs:
 
       - name: Validate samples with OpenXmlValidator
         run: dotnet run --project tools/ooxml-validate -c Release -- samples/out
-
