@@ -2251,13 +2251,17 @@ const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         const segText = caps ? seg.toUpperCase() : seg;
         if (a.vert === 'upright') {
           // wordArtVert stacks one code point per line (spaces become blank
-          // rows). Reuse the calibrated horizontal engine with a break between
-          // every glyph rather than rotating the run.
-          const glyphs = Array.from(segText);
-          glyphs.forEach((g, j) => {
+          // rows). Reuse the calibrated horizontal engine with a break before
+          // every glyph rather than rotating the run. The break goes BEFORE each
+          // glyph (skipped only at the very start or right after an existing
+          // break) so adjacent runs stack too — a trailing per-glyph break would
+          // leave the last glyph of run N sharing a row with the first of run
+          // N+1, diverging from the browser's text-orientation:upright path.
+          for (const g of Array.from(segText)) {
+            const last = pieces[pieces.length - 1];
+            if (last !== undefined && !last.isBreak) pieces.push(breakPiece());
             pieces.push({ ...base, text: g, isBreak: false });
-            if (j < glyphs.length - 1) pieces.push(breakPiece());
-          });
+          }
         } else {
           pieces.push({ ...base, text: segText, isBreak: false });
         }
@@ -2480,6 +2484,24 @@ const renderTextBody = (
     innerH = rectH;
   }
   if (innerW <= 0 || innerH <= 0) return '';
+
+  // The rect the pure-SVG path lays text into for a given vertical layout.
+  // Horizontal and `upright` (wordArtVert) text use the shared inner rect; the
+  // true ±90° rotations (cw90/cw270) swap the box extents and rotate the insets
+  // with the glyphs — the reading/wrap dimension takes the L/R insets, the
+  // column-stack dimension the T/B insets. Shared by the normAutofit shrink
+  // search and the SVG render so the shrink is measured against the SAME box the
+  // text is rendered into (with PowerPoint's asymmetric default insets the two
+  // rects differ by ~9.6px/axis, which would otherwise mis-size the fit).
+  const svgTextRect = (v: VerticalLayout): { x: number; y: number; w: number; h: number } =>
+    v === 'none' || v === 'upright'
+      ? { x: innerX, y: innerY, w: innerW, h: innerH }
+      : {
+          x: bounds.x + tIns,
+          y: bounds.y + lIns,
+          w: Math.max(0, bounds.w - tIns - bIns),
+          h: Math.max(0, bounds.h - lIns - rIns),
+        };
 
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
@@ -2732,11 +2754,13 @@ const renderTextBody = (
             gapPx: fitCols.gapEmu !== undefined ? fitCols.gapEmu / EMU_PER_PX : 12,
           }
         : null;
-    // For cw90/cw270 the engine swaps the box extents, so the measured
-    // `requiredH` (stacking dimension) fills the box WIDTH, not its height —
-    // compare against innerW there, innerH otherwise (`upright` does not swap).
+    // Measure against the SAME rect the SVG path renders into (rotated text uses
+    // the inset-swapped box). For cw90/cw270 the engine swaps the box extents, so
+    // the measured `requiredH` (stacking dimension) fills the box WIDTH, not its
+    // height — compare against the rect's w there, its h otherwise.
+    const fitRect = svgTextRect(fitVert);
     const fitRotated = fitVert === 'cw90' || fitVert === 'cw270';
-    const fitBoxPx = (fitRotated ? innerW : innerH) / EMU_PER_PX;
+    const fitBoxPx = (fitRotated ? fitRect.w : fitRect.h) / EMU_PER_PX;
     const fitArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
       pres,
       shape,
@@ -2749,10 +2773,10 @@ const renderTextBody = (
       defaultColor: activeDeckTextColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
       wrap: effectiveBody.wrap !== 'none',
-      innerX,
-      innerY,
-      innerW,
-      innerH,
+      innerX: fitRect.x,
+      innerY: fitRect.y,
+      innerW: fitRect.w,
+      innerH: fitRect.h,
       measure: ctx.measure,
       vert: fitVert,
       columns: fitColumns,
@@ -2953,11 +2977,7 @@ const renderTextBody = (
     // which this path does not distinguish.)
     // `upright` (wordArtVert) does not rotate, so it uses the box-oriented inner
     // rect like horizontal text; only the true ±90° rotations swap extents.
-    const svgUnrotated = svgVert === 'none' || svgVert === 'upright';
-    const vInnerX = svgUnrotated ? innerX : bounds.x + tIns;
-    const vInnerY = svgUnrotated ? innerY : bounds.y + lIns;
-    const vInnerW = svgUnrotated ? innerW : Math.max(0, bounds.w - tIns - bIns);
-    const vInnerH = svgUnrotated ? innerH : Math.max(0, bounds.h - lIns - rIns);
+    const { x: vInnerX, y: vInnerY, w: vInnerW, h: vInnerH } = svgTextRect(svgVert);
     if (vInnerW <= 0 || vInnerH <= 0) return '';
     const svgArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
       pres,
