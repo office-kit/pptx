@@ -142,6 +142,7 @@ import {
 import {
   defaultMeasurer,
   layoutTextSvg,
+  measureTextBodyHeight,
   substituteFamily,
   type BulletInput,
   type ColumnLayout,
@@ -2183,8 +2184,8 @@ const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): Verti
   }
 };
 
-// Build the px-native engine input from the resolved paraData and lay it out.
-const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
+// Build the px-native engine input from the resolved paraData (at a.autoFitScale).
+const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
   const scale = a.autoFitScale;
   const paragraphs: ParaInput[] = a.paraData.map((para, pi): ParaInput => {
     const pieces: PieceInput[] = [];
@@ -2296,8 +2297,11 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
     vert: a.vert,
     columns: a.columns,
   };
-  return layoutTextSvg(input, a.measure);
+  return input;
 };
+
+const buildAndLayoutSvgText = (a: SvgTextArgs): string =>
+  layoutTextSvg(buildSvgTextInput(a), a.measure);
 
 const breakPiece = (): PieceInput => ({
   text: '',
@@ -2852,12 +2856,6 @@ const renderTextBody = (
   // matching the foreignObject path's vertical-text and multi-column handling so
   // server-side rendering agrees with the browser (W1).
   if (ctx.mode === 'svg') {
-    // Fidelity path: apply ONLY the authored normAutofit scale. The heuristic
-    // shrink (the AVG_GLYPH_W_RATIO estimator) exists to keep the browser
-    // preview tidy, but PowerPoint / LibreOffice do not shrink unless the deck
-    // baked a fontScale — so honouring only the authored value matches ground
-    // truth (and avoids spuriously shrinking titles that actually fit).
-    const svgScale = authoredAutofit?.fontScale ?? 1;
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     // numCol only applies to horizontal text — see the engine's combination note.
@@ -2889,13 +2887,12 @@ const renderTextBody = (
     const vInnerW = svgUnrotated ? innerW : Math.max(0, bounds.w - tIns - bIns);
     const vInnerH = svgUnrotated ? innerH : Math.max(0, bounds.h - lIns - rIns);
     if (vInnerW <= 0 || vInnerH <= 0) return '';
-    const svgInner = buildAndLayoutSvgText({
+    const svgArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
       pres,
       shape,
       theme,
       paraData,
       numberLabels,
-      autoFitScale: svgScale,
       lineHeightScale: svgLineScale,
       defaultPt,
       themeFace,
@@ -2909,7 +2906,29 @@ const renderTextBody = (
       measure: ctx.measure,
       vert: svgVert,
       columns: svgColumns,
-    });
+    };
+    // A bare `<a:normAutofit/>` (fontScale defaulting to 1) means "shrink text
+    // to fit the box" — PowerPoint and LibreOffice compute that shrink at
+    // display time, so the SVG path must too or the text overflows. An explicit
+    // baked fontScale (baseScale !== 1) is honoured unchanged; noAutofit /
+    // spAutoFit return null and never enter the loop.
+    const baseScale = authoredAutofit?.fontScale ?? 1;
+    let svgScale = baseScale;
+    if (authoredAutofit && baseScale === 1) {
+      const boxHpx = vInnerH / EMU_PER_PX;
+      const AUTOFIT_FLOOR = 0.25;
+      let s = 1;
+      while (s > AUTOFIT_FLOOR) {
+        const h = measureTextBodyHeight(
+          buildSvgTextInput({ ...svgArgsBase, autoFitScale: s }),
+          ctx.measure,
+        );
+        if (h <= boxHpx) break;
+        s -= 0.05;
+      }
+      svgScale = Math.max(AUTOFIT_FLOOR, s);
+    }
+    const svgInner = buildAndLayoutSvgText({ ...svgArgsBase, autoFitScale: svgScale });
     const bodyRotDegSvg = getShapeTextBodyRotationDeg(shape);
     if (bodyRotDegSvg !== null && bodyRotDegSvg !== 0) {
       const pivotX = vInnerX + vInnerW / 2;

@@ -266,7 +266,15 @@ const fmt = (n: number): string => {
 
 // ---------------------------------------------------------------------------
 
-export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
+interface LayoutCore {
+  readonly placements: Placement[];
+  readonly requiredH: number; // laid-out content height in px (top-anchored space)
+  readonly vert: VerticalLayout;
+  readonly cx: number;
+  readonly cy: number;
+}
+
+const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutCore => {
   const widthCache = new Map<string, number>();
   const metricCache = new Map<string, { a: number; d: number; g: number }>();
   const key = (text: string, s: FontSpec): string =>
@@ -443,16 +451,27 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
   // keep the rotation and drop numCol rather than emit a wrong combined layout.
   const columns = vert === 'none' ? (input.columns ?? null) : null;
 
-  const placements =
+  const { placements, requiredH } =
     columns && columns.count >= 2
       ? placeColumns(frame, columns, input.anchor, buildLines)
       : placeSingle(frame, input.anchor, buildLines);
 
+  return { placements, requiredH, vert, cx, cy };
+};
+
+export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
+  const { placements, vert, cx, cy } = layoutCore(input, measure);
   const body = emitPlacements(placements);
   if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
 };
+
+/** Content height (px) the body would occupy at the given input's font sizes —
+ *  for a single column the block height, for multi-column the tallest filled
+ *  column. The SVG normAutofit path uses this to pick a shrink scale. */
+export const measureTextBodyHeight = (input: TextBodyInput, measure: TextMeasurer): number =>
+  layoutCore(input, measure).requiredH;
 
 // Vertical block offset for an anchor, plus the first-baseline leading drop
 // (see site/fidelity/README.md): LibreOffice & PowerPoint sit the first line
@@ -479,14 +498,17 @@ const placeSingle = (
   frame: Frame,
   anchor: 'top' | 'center' | 'bottom',
   buildLines: LineBuilder,
-): Placement[] => {
+): { placements: Placement[]; requiredH: number } => {
   const { lines, blockH } = buildLines(frame.x, frame.x + frame.w);
   const offsetY = anchorOffsetY(frame.y, frame.h, blockH, anchor, lines[0]);
-  return lines.map((line) => ({
-    line,
-    baselineY: offsetY + line.topY + topPad(line) + line.ascent,
-    dx: 0,
-  }));
+  return {
+    placements: lines.map((line) => ({
+      line,
+      baselineY: offsetY + line.topY + topPad(line) + line.ascent,
+      dx: 0,
+    })),
+    requiredH: blockH,
+  };
 };
 
 const placeColumns = (
@@ -494,7 +516,7 @@ const placeColumns = (
   columns: ColumnLayout,
   anchor: 'top' | 'center' | 'bottom',
   buildLines: LineBuilder,
-): Placement[] => {
+): { placements: Placement[]; requiredH: number } => {
   const gap = columns.gapPx;
   const colW = Math.max(1, (frame.w - (columns.count - 1) * gap) / columns.count);
   const { lines } = buildLines(frame.x, frame.x + colW);
@@ -522,11 +544,14 @@ const placeColumns = (
   // with sequential fill the filled columns reach the box height, so this
   // matches PowerPoint/LibreOffice anchoring the body as one unit.
   const offsetY = anchorOffsetY(frame.y, frame.h, tallest, anchor, lines[0]);
-  return placed.map(({ line, localTopY, col: c }) => ({
-    line,
-    baselineY: offsetY + localTopY + topPad(line) + line.ascent,
-    dx: c * (colW + gap),
-  }));
+  return {
+    placements: placed.map(({ line, localTopY, col: c }) => ({
+      line,
+      baselineY: offsetY + localTopY + topPad(line) + line.ascent,
+      dx: c * (colW + gap),
+    })),
+    requiredH: tallest,
+  };
 };
 
 const emitPlacements = (placements: Placement[]): string => {
