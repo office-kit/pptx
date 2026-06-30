@@ -16,6 +16,7 @@ import {
   findSlideLayout,
   inches,
   loadPresentation,
+  setShapeTextAutoFit,
   setShapeTextColumns,
   setShapeTextDirection,
 } from '../src/api/index.ts';
@@ -120,6 +121,57 @@ describe('renderSlideToSvg — multi-column text (svg mode)', () => {
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
     expect(svg).toContain('column-count:2');
     expect(svg).toContain('column-gap:');
+  });
+});
+
+describe('renderSlideToSvg — normAutofit shrink parity (svg vs foreignObject)', () => {
+  // Largest font-size emitted, regardless of unit syntax: `font-size="N"`
+  // (svg <text>) or `font-size:Npx` (foreignObject inline style).
+  const maxFontPx = (svg: string): number => {
+    const sizes: number[] = [];
+    for (const m of svg.matchAll(/font-size(?:="|:)\s*([\d.]+)/g)) sizes.push(Number(m[1]));
+    return sizes.length ? Math.max(...sizes) : 0;
+  };
+
+  // A bare <a:normAutofit/> (no baked fontScale) must shrink overflowing text to
+  // fit its box — and BOTH render paths must shrink by the SAME factor, or the
+  // server (svg) and browser (foreignObject) previews disagree. Normalising the
+  // small-box font against a large-box baseline cancels the px-unit difference
+  // between the two paths, leaving only the autofit scale.
+  const shrinkRatio = async (mode: 'svg' | 'foreignObject'): Promise<number> => {
+    const big = await blankSlide();
+    const bigBox = addSlideTextBox(big.slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(8),
+      h: inches(5),
+      text: LONG,
+    });
+    setShapeTextAutoFit(bigBox, 'normal');
+    const bigFont = maxFontPx(renderSlideToSvg(big.pres, big.slide, { textLayout: mode }));
+
+    const small = await blankSlide();
+    const smallBox = addSlideTextBox(small.slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: LONG,
+    });
+    setShapeTextAutoFit(smallBox, 'normal');
+    const smallFont = maxFontPx(renderSlideToSvg(small.pres, small.slide, { textLayout: mode }));
+    return smallFont / bigFont;
+  };
+
+  it('both paths shrink a bare normAutofit body, by the same factor', async () => {
+    const svgRatio = await shrinkRatio('svg');
+    const foRatio = await shrinkRatio('foreignObject');
+    // The overflowing small box must visibly shrink in EACH path (this is what
+    // regressed: the foreignObject path used to leave bare normAutofit at 1.0).
+    expect(svgRatio).toBeLessThan(0.9);
+    expect(foRatio).toBeLessThan(0.9);
+    // …and shrink by the same scale, so server and browser previews agree.
+    expect(Math.abs(svgRatio - foRatio)).toBeLessThan(0.03);
   });
 });
 

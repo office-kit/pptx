@@ -2104,6 +2104,13 @@ const LINE_HEIGHT = 1.05;
 // overflowing.
 const AVG_GLYPH_W_RATIO = 0.55;
 
+// `<a:normAutofit/>` shrink-to-fit search bounds. PowerPoint reduces the font
+// in discrete steps until the body fits its box; we sweep from 1.0 down to the
+// floor in fixed decrements. The floor stops a pathologically small box from
+// collapsing text to an unreadable size (PowerPoint clamps similarly).
+const AUTOFIT_FLOOR = 0.25;
+const AUTOFIT_STEP = 0.05;
+
 type RunData = {
   text: string;
   fmt: TextFormat | null;
@@ -2168,6 +2175,13 @@ const alignOf = (a: string): ParaInput['align'] =>
 // (ST_TextVerticalType, §21.1.2.1.1) means "one letter on top of another" —
 // glyphs stay UPRIGHT and stack, not rotated — matching the browser path's
 // `text-orientation:upright` and PowerPoint/LibreOffice.
+//
+// KNOWN DIVERGENCE (overflow only): when an upright run is taller than its box,
+// the browser path wraps the overflow into a second column (CSS writing-mode),
+// while the SVG path stacks it as one column that clips at the box edge. Both
+// agree for text that fits; they differ only past the box, where the deck is
+// already out of spec. Faithful multi-column upright wrapping in the SVG engine
+// is disproportionate to that edge case, so we accept the clip.
 const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): VerticalLayout => {
   switch (vert) {
     case 'vert':
@@ -2699,6 +2713,64 @@ const renderTextBody = (
     }
   }
 
+  // A bare `<a:normAutofit/>` (no baked `fontScale`, so it defaults to 1) means
+  // "shrink text to fit the box" — PowerPoint computes that reduction at display
+  // time. Compute it ONCE here, before either render path runs, so the
+  // foreignObject (browser) and pure-SVG (server) paths shrink by the SAME
+  // factor: the server==browser parity this preview maintains. An explicit baked
+  // fontScale (autoFitScale !== 1) is honoured unchanged; noAutofit / spAutoFit
+  // yield no authoredAutofit and never shrink here. The shrink is measured with
+  // the SVG layout engine (our only real line-breaker); the foreignObject path
+  // then reuses the resulting scale rather than computing its own.
+  if (authoredAutofit && autoFitScale === 1) {
+    const fitVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
+    const fitCols = getShapeTextColumns(shape);
+    const fitColumns: ColumnLayout | null =
+      fitVert === 'none' && fitCols && fitCols.count >= 2
+        ? {
+            count: fitCols.count,
+            gapPx: fitCols.gapEmu !== undefined ? fitCols.gapEmu / EMU_PER_PX : 12,
+          }
+        : null;
+    // For cw90/cw270 the engine swaps the box extents, so the measured
+    // `requiredH` (stacking dimension) fills the box WIDTH, not its height —
+    // compare against innerW there, innerH otherwise (`upright` does not swap).
+    const fitRotated = fitVert === 'cw90' || fitVert === 'cw270';
+    const fitBoxPx = (fitRotated ? innerW : innerH) / EMU_PER_PX;
+    const fitArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
+      pres,
+      shape,
+      theme,
+      paraData,
+      numberLabels,
+      lineHeightScale,
+      defaultPt,
+      themeFace,
+      defaultColor: activeDeckTextColor,
+      anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      wrap: effectiveBody.wrap !== 'none',
+      innerX,
+      innerY,
+      innerW,
+      innerH,
+      measure: ctx.measure,
+      vert: fitVert,
+      columns: fitColumns,
+    };
+    let s = 1;
+    while (s > AUTOFIT_FLOOR) {
+      if (
+        measureTextBodyHeight(
+          buildSvgTextInput({ ...fitArgsBase, autoFitScale: s }),
+          ctx.measure,
+        ) <= fitBoxPx
+      )
+        break;
+      s -= AUTOFIT_STEP;
+    }
+    autoFitScale = Math.max(AUTOFIT_FLOOR, s);
+  }
+
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
   for (let pi = 0; pi < paraData.length; pi++) {
@@ -2907,27 +2979,12 @@ const renderTextBody = (
       vert: svgVert,
       columns: svgColumns,
     };
-    // A bare `<a:normAutofit/>` (fontScale defaulting to 1) means "shrink text
-    // to fit the box" — PowerPoint and LibreOffice compute that shrink at
-    // display time, so the SVG path must too or the text overflows. An explicit
-    // baked fontScale (baseScale !== 1) is honoured unchanged; noAutofit /
-    // spAutoFit return null and never enter the loop.
-    const baseScale = authoredAutofit?.fontScale ?? 1;
-    let svgScale = baseScale;
-    if (authoredAutofit && baseScale === 1) {
-      const boxHpx = vInnerH / EMU_PER_PX;
-      const AUTOFIT_FLOOR = 0.25;
-      let s = 1;
-      while (s > AUTOFIT_FLOOR) {
-        const h = measureTextBodyHeight(
-          buildSvgTextInput({ ...svgArgsBase, autoFitScale: s }),
-          ctx.measure,
-        );
-        if (h <= boxHpx) break;
-        s -= 0.05;
-      }
-      svgScale = Math.max(AUTOFIT_FLOOR, s);
-    }
+    // Autofit scale is decided once above (shared with the foreignObject path):
+    // for any authored autofit — a baked `fontScale` or the bare-normAutofit
+    // shrink — `autoFitScale` already holds the final factor. The `!authoredAutofit`
+    // CSS-overflow heuristic is foreignObject-only by design (LibreOffice does not
+    // shrink non-autofit text), so the SVG fidelity path stays at 1 there.
+    const svgScale = authoredAutofit ? autoFitScale : 1;
     const svgInner = buildAndLayoutSvgText({ ...svgArgsBase, autoFitScale: svgScale });
     const bodyRotDegSvg = getShapeTextBodyRotationDeg(shape);
     if (bodyRotDegSvg !== null && bodyRotDegSvg !== 0) {
