@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  _internalPackageOf,
   addSlide,
   addSlideImage,
   findSlideLayout,
@@ -18,6 +19,7 @@ import {
   loadPresentation,
   savePresentation,
 } from '../src/api/index.ts';
+import { partName } from '../src/internal/opc/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -70,6 +72,49 @@ describe('fn API: importSlide', () => {
     const media = getMediaParts(target);
     expect(media.length).toBeGreaterThan(0);
     expect(media.some((m) => m.contentType.includes('png'))).toBe(true);
+  });
+
+  it('gives the layout rel a unique id when the source layout rel is not rId1', async () => {
+    // Real templates often store the layout rel at rId3 with an image at rId1.
+    // The new slide's layout rel must not collide with a preserved image rel id —
+    // a hardcoded "rId1" would emit two relationships with the same Id.
+    const src0 = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideImage(getSlides(src0)[0]!, tinyPng(), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+      format: 'png',
+    });
+    const source = await loadPresentation(await savePresentation(src0));
+    const srcPkg = _internalPackageOf(source);
+    const srcSlide = partName('/ppt/slides/slide1.xml');
+    const srcRels = srcPkg.getRels(srcSlide)!;
+    // Move the image rel onto rId1 and the layout rel onto rId3, recreating the
+    // collision the old hardcoded-rId1 code produced.
+    srcPkg.setRels(srcSlide, {
+      items: srcRels.items.map((r) =>
+        r.target.includes('/media/')
+          ? { ...r, id: 'rId1' }
+          : r.target.includes('slideLayout')
+            ? { ...r, id: 'rId3' }
+            : r,
+      ),
+    });
+
+    const target = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = findSlideLayout(target, 'Title and Content')!;
+    importSlide(target, getSlides(source)[0]!, layout);
+
+    // Target started blank, so the only slide rels part is the imported slide.
+    const relsPart = _internalPackageOf(target).parts.find((p) =>
+      /\/ppt\/slides\/_rels\/slide\d+\.xml\.rels$/.test(p.name),
+    )!;
+    const ids = [...new TextDecoder().decode(relsPart.data).matchAll(/Id="([^"]+)"/g)].map(
+      (m) => m[1],
+    );
+    expect(ids.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('binds the imported slide to the supplied layout', async () => {

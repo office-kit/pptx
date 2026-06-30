@@ -15,6 +15,12 @@ import {
   applyFormatToAllRuns,
   setTextBody,
 } from '../../internal/drawingml/index.ts';
+import {
+  angle60000,
+  emuCoordinate32,
+  emuPositiveCoordinate32,
+  textColumnCount,
+} from '../../internal/bounds.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
@@ -299,8 +305,8 @@ export const getShapeTextColumns = (
  * Sets the multi-column layout on the shape's text body — writes
  * `<a:bodyPr numCol="N" [spcCol="EMU"]/>`. Pass `null` to clear both
  * attributes so the text body falls back to PowerPoint's default
- * single column. `count` must be `>= 2` (PowerPoint clamps higher
- * values silently; OOXML allows up to 16). `gapEmu`, when omitted,
+ * single column. `count` must be in `2..16` (ST_TextColumnCount caps at
+ * 16, and single column is the `null` default). `gapEmu`, when omitted,
  * removes any prior `spcCol`. Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextColumns = (
@@ -321,9 +327,12 @@ export const setShapeTextColumns = (
         `setShapeTextColumns: count must be >= 2 (single column is the default — pass null instead). Got ${columns.count}.`,
       );
     }
-    bodyPr.attrs.push(attr(qname('', 'numCol', ''), String(columns.count)));
+    // ST_TextColumnCount caps at 16; spcCol is ST_PositiveCoordinate32.
+    const numCol = textColumnCount(columns.count, 'setShapeTextColumns: count');
+    bodyPr.attrs.push(attr(qname('', 'numCol', ''), String(numCol)));
     if (columns.gapEmu !== undefined) {
-      bodyPr.attrs.push(attr(qname('', 'spcCol', ''), String(Math.round(columns.gapEmu))));
+      const spcCol = emuPositiveCoordinate32(columns.gapEmu, 'setShapeTextColumns: gapEmu');
+      bodyPr.attrs.push(attr(qname('', 'spcCol', ''), String(spcCol)));
     }
   }
   commitAndRefresh(shape);
@@ -370,7 +379,9 @@ export const setShapeTextBodyRotationDeg = (
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'rot'),
   );
   if (rotationDeg !== null && rotationDeg !== 0) {
-    bodyPr.attrs.push(attr(qname('', 'rot', ''), String(Math.round(rotationDeg * 60000))));
+    // `rot` is ST_Angle in 1/60000 degree (xsd:int); guard the *60000 overflow.
+    const rot = angle60000(rotationDeg * 60000, 'setShapeTextBodyRotationDeg: rotationDeg');
+    bodyPr.attrs.push(attr(qname('', 'rot', ''), String(rot)));
   }
   commitAndRefresh(shape);
 };
@@ -630,7 +641,9 @@ export const setShapeTextMargins = (
     (a) => !(a.name.namespaceURI === '' && localsToClear.has(a.name.localName)),
   );
   for (const w of writes) {
-    bodyPr.attrs.push(attr(qname('', w.name, ''), String(Math.round(w.value))));
+    // Insets are ST_Coordinate32 (xsd:int EMU).
+    const emu = emuCoordinate32(w.value, `setShapeTextMargins: ${w.name}`);
+    bodyPr.attrs.push(attr(qname('', w.name, ''), String(emu)));
   }
   commitAndRefresh(shape);
 };

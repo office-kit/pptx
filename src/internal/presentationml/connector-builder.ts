@@ -6,6 +6,7 @@
 // `(|x2-x1|, |y2-y1|)`. Direction (which end is "from" and which is
 // "to") is captured via `flipH` / `flipV` on the xfrm.
 
+import { emuCoordinate, emuExtent, lineWidthEmu } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from '../drawingml/color.ts';
 
@@ -22,6 +23,14 @@ const NAME_PRST_GEOM = qname('a', 'prstGeom', NS.dml);
 const NAME_AV_LST = qname('a', 'avLst', NS.dml);
 const NAME_LN = qname('a', 'ln', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
+const NAME_STYLE = qname('p', 'style', NS.pml);
+const NAME_LN_REF = qname('a', 'lnRef', NS.dml);
+const NAME_FILL_REF = qname('a', 'fillRef', NS.dml);
+const NAME_EFFECT_REF = qname('a', 'effectRef', NS.dml);
+const NAME_FONT_REF = qname('a', 'fontRef', NS.dml);
+const NAME_SCHEME_CLR = qname('a', 'schemeClr', NS.dml);
+const ATTR_IDX = qname('', 'idx', '');
+const ATTR_VAL = qname('', 'val', '');
 const ATTR_ID = qname('', 'id', '');
 const ATTR_NAME = qname('', 'name', '');
 const ATTR_X = qname('', 'x', '');
@@ -77,10 +86,16 @@ export const buildConnector = (opts: ConnectorOptions): XmlElement => {
     children: [
       // Round to whole EMU; fractional ST_Coordinate values corrupt the file.
       elem(NAME_OFF, {
-        attrs: [attr(ATTR_X, String(Math.round(x))), attr(ATTR_Y, String(Math.round(y)))],
+        attrs: [
+          attr(ATTR_X, String(emuCoordinate(x, 'addSlideLine: x'))),
+          attr(ATTR_Y, String(emuCoordinate(y, 'addSlideLine: y'))),
+        ],
       }),
       elem(NAME_EXT, {
-        attrs: [attr(ATTR_CX, String(Math.round(cx))), attr(ATTR_CY, String(Math.round(cy)))],
+        attrs: [
+          attr(ATTR_CX, String(emuExtent(cx, 'addSlideLine: width'))),
+          attr(ATTR_CY, String(emuExtent(cy, 'addSlideLine: height'))),
+        ],
       }),
     ],
   });
@@ -89,10 +104,14 @@ export const buildConnector = (opts: ConnectorOptions): XmlElement => {
     children: [elem(NAME_AV_LST)],
   });
 
+  const hasExplicitLine = opts.color !== undefined || opts.widthEmu !== undefined;
   const spPrChildren: XmlElement[] = [xfrm, prstGeom];
-  if (opts.color !== undefined || opts.widthEmu !== undefined) {
+  if (hasExplicitLine) {
     const ln = elem(NAME_LN, {
-      attrs: opts.widthEmu !== undefined ? [attr(ATTR_W, String(Math.round(opts.widthEmu)))] : [],
+      attrs:
+        opts.widthEmu !== undefined
+          ? [attr(ATTR_W, String(lineWidthEmu(opts.widthEmu, 'addSlideLine: widthEmu')))]
+          : [],
       children:
         opts.color !== undefined
           ? [elem(NAME_SOLID_FILL, { children: [buildColorElement(opts.color)] })]
@@ -102,5 +121,28 @@ export const buildConnector = (opts: ConnectorOptions): XmlElement => {
   }
   const spPr = elem(NAME_SP_PR, { children: spPrChildren });
 
-  return elem(NAME_CXN_SP, { children: [nvCxnSpPr, spPr] });
+  const children: XmlElement[] = [nvCxnSpPr, spPr];
+  // A connector is a stroke-only open path. With no explicit <a:ln> AND no
+  // <p:style>, PowerPoint has no outline to draw and the line is invisible.
+  // Emit PowerPoint's default connector style (lnRef idx="1" → the theme's
+  // first line style in accent1) so an unstyled line still renders.
+  if (!hasExplicitLine) {
+    const styleRef = (name: typeof NAME_LN_REF, idx: string, clr: string): XmlElement =>
+      elem(name, {
+        attrs: [attr(ATTR_IDX, idx)],
+        children: [elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, clr)] })],
+      });
+    children.push(
+      elem(NAME_STYLE, {
+        children: [
+          styleRef(NAME_LN_REF, '1', 'accent1'),
+          styleRef(NAME_FILL_REF, '0', 'accent1'),
+          styleRef(NAME_EFFECT_REF, '0', 'accent1'),
+          styleRef(NAME_FONT_REF, 'minor', 'tx1'),
+        ],
+      }),
+    );
+  }
+
+  return elem(NAME_CXN_SP, { children });
 };

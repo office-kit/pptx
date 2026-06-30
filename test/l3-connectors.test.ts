@@ -58,7 +58,7 @@ describe('L3: addSlideLine', () => {
     expect(xml).toContain('flipV="1"');
   });
 
-  it('omits the ln element when no color or width is given', async () => {
+  it('gives an unstyled connector a visible default line style', async () => {
     const { pres, slide } = await newSlide();
     addSlideLine(slide, {
       from: { x: inches(0), y: inches(0) },
@@ -67,7 +67,11 @@ describe('L3: addSlideLine', () => {
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
     expect(xml).toContain('<p:cxnSp>');
     expect(xml).toContain('prst="line"');
-    expect((xml.match(/<a:ln/g) ?? []).length).toBe(0);
+    // No explicit <a:ln> (inherits width), but a <p:style><a:lnRef idx="1"> so
+    // the line still renders — without it the connector would be invisible.
+    expect((xml.match(/<a:ln[ >]/g) ?? []).length).toBe(0);
+    expect(xml).toContain('<p:style>');
+    expect(xml).toContain('<a:lnRef idx="1">');
   });
 
   skipIfNoXmllint('connector validates against pml.xsd', async () => {

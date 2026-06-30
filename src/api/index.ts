@@ -470,6 +470,7 @@ export {
   setParagraphAlignment,
   setParagraphBullet,
   setParagraphLevel,
+  setParagraphLineSpacing,
   setParagraphSpacing,
   setShapePosition,
   setShapeRotation,

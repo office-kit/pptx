@@ -9,6 +9,7 @@
 // Column widths and row heights are in EMU. When the caller omits widths,
 // we divide the total width equally; same for heights.
 
+import { emuCoordinate, emuExtent, normalizeGuid } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname, text as textNode } from '../xml/index.ts';
 
 const TABLE_URI = 'http://schemas.openxmlformats.org/drawingml/2006/table';
@@ -71,7 +72,6 @@ const ATTR_H = qname('', 'h', '');
 const ATTR_FIRST_ROW = qname('', 'firstRow', '');
 const ATTR_BAND_ROW = qname('', 'bandRow', '');
 const ATTR_LANG = qname('', 'lang', '');
-const ATTR_XML_SPACE = qname('xml', 'space', NS.xml);
 
 export interface TableOptions {
   id: number;
@@ -117,26 +117,31 @@ const buildCellRunProps = (textColorHex: string | undefined): XmlElement => {
   return elem(NAME_RPR, { attrs: [langAttr], children: [solidFill] });
 };
 
-const buildTextCellBody = (value: string, textColorHex: string | undefined): XmlElement => {
-  const needsPreserve =
-    value.length > 0 && (value.startsWith(' ') || value.endsWith(' ') || /[\t\n]/.test(value));
-  const t = elem(NAME_T, {
-    attrs: needsPreserve ? [attr(ATTR_XML_SPACE, 'preserve')] : [],
-    children: value.length > 0 ? [textNode(value)] : [],
-  });
-  const r = elem(NAME_R, {
-    children: [buildCellRunProps(textColorHex), t],
-  });
-  // `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` suppresses any inherited
-  // list bullet on the cell paragraph — what PowerPoint and PptxGenJS both
-  // emit. Renders the same as omitting it (table cells inherit no bullet), but
-  // makes the cell self-describing.
+// `<a:pPr marL="0" indent="0"><a:buNone/></a:pPr>` suppresses any inherited
+// list bullet on the cell paragraph — what PowerPoint and PptxGenJS both emit.
+// Renders the same as omitting it (table cells inherit no bullet), but makes the
+// cell self-describing.
+const buildCellParagraph = (line: string, textColorHex: string | undefined): XmlElement => {
   const pPr = elem(NAME_PPR, {
     attrs: [attr(ATTR_MAR_L, '0'), attr(ATTR_INDENT, '0')],
     children: [elem(NAME_BU_NONE)],
   });
-  const p = elem(NAME_P, { children: [pPr, r] });
-  return elem(NAME_TX_BODY, { children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), p] });
+  // `<a:t>` is type xsd:string and cannot carry attributes — xml:space in
+  // particular is schema-invalid here. xsd:string preserves whitespace by
+  // default, so leading/trailing spaces and tabs survive without the hint.
+  const t = elem(NAME_T, { children: line.length > 0 ? [textNode(line)] : [] });
+  const r = elem(NAME_R, { children: [buildCellRunProps(textColorHex), t] });
+  return elem(NAME_P, { children: [pPr, r] });
+};
+
+const buildTextCellBody = (value: string, textColorHex: string | undefined): XmlElement => {
+  // A newline in `<a:t>` is not a line break — PowerPoint needs one paragraph
+  // per line. Split on '\n' so multi-line cell text renders as multiple rows.
+  const lines = value.length === 0 ? [''] : value.split('\n');
+  const paragraphs = lines.map((line) => buildCellParagraph(line, textColorHex));
+  return elem(NAME_TX_BODY, {
+    children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), ...paragraphs],
+  });
 };
 
 // PowerPoint's default cell insets (0.1in horizontal, 0.05in vertical).
@@ -164,7 +169,7 @@ export const buildTableRow = (
   textColorHex?: string,
 ): XmlElement =>
   elem(NAME_TR, {
-    attrs: [attr(ATTR_H, String(Math.round(h)))],
+    attrs: [attr(ATTR_H, String(emuExtent(h, 'addSlideTable: row height')))],
     children: cells.map((value) => buildTableCell(value, textColorHex)),
   });
 
@@ -227,10 +232,16 @@ export const buildTable = (opts: TableOptions): XmlElement => {
   // Geometry. Round to whole EMU (matches the grid-col / row-height rounding
   // below); fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
+    attrs: [
+      attr(ATTR_X, String(emuCoordinate(opts.x, 'addSlideTable: x'))),
+      attr(ATTR_Y, String(emuCoordinate(opts.y, 'addSlideTable: y'))),
+    ],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
+    attrs: [
+      attr(ATTR_CX, String(emuExtent(opts.w, 'addSlideTable: w'))),
+      attr(ATTR_CY, String(emuExtent(opts.h, 'addSlideTable: h'))),
+    ],
   });
   const xfrm = elem(NAME_P_XFRM, { children: [off, ext] });
 
@@ -239,7 +250,13 @@ export const buildTable = (opts: TableOptions): XmlElement => {
   // (§21.1.3.15): any fill/effect children precede it; we author none, so it
   // is the sole child.
   const tableStyleId = elem(NAME_TABLE_STYLE_ID, {
-    children: [textNode(opts.styleId ?? DEFAULT_TABLE_STYLE_ID)],
+    children: [
+      textNode(
+        opts.styleId === undefined
+          ? DEFAULT_TABLE_STYLE_ID
+          : normalizeGuid(opts.styleId, 'addSlideTable: styleId'),
+      ),
+    ],
   });
   const tblPr = elem(NAME_TBL_PR, {
     attrs: [
@@ -250,7 +267,9 @@ export const buildTable = (opts: TableOptions): XmlElement => {
   });
   const tblGrid = elem(NAME_TBL_GRID, {
     children: colWidths.map((w) =>
-      elem(NAME_GRID_COL, { attrs: [attr(ATTR_W, String(Math.round(w)))] }),
+      elem(NAME_GRID_COL, {
+        attrs: [attr(ATTR_W, String(emuExtent(w, 'addSlideTable: column width')))],
+      }),
     ),
   });
   const tableRows = rows.map((row, i) => buildTableRow(row, rowHeights[i] ?? 0, opts.textColorHex));

@@ -6,6 +6,7 @@
 // the caller in EMU. Text properties beyond a single run are deferred to
 // future iterations.
 
+import { emuCoordinate, emuExtent } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname, text as textNode } from '../xml/index.ts';
 
 const NAME_SP = qname('p', 'sp', NS.pml);
@@ -79,10 +80,16 @@ export const buildTextBox = (opts: TextBoxOptions): XmlElement => {
 
   // Round to whole EMU; fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
+    attrs: [
+      attr(ATTR_X, String(emuCoordinate(opts.x, 'addSlideTextBox: x'))),
+      attr(ATTR_Y, String(emuCoordinate(opts.y, 'addSlideTextBox: y'))),
+    ],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
+    attrs: [
+      attr(ATTR_CX, String(emuExtent(opts.w, 'addSlideTextBox: w'))),
+      attr(ATTR_CY, String(emuExtent(opts.h, 'addSlideTextBox: h'))),
+    ],
   });
   const xfrm = elem(NAME_A_XFRM, { children: [off, ext] });
   const prstGeom = elem(NAME_PRST_GEOM, {

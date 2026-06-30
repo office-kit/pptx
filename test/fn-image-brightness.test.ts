@@ -1,4 +1,4 @@
-// Picture brightness via <a:lumOff>.
+// Picture brightness via the shared <a:blip><a:lum bright="…"/>.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';

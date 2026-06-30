@@ -196,6 +196,10 @@ export type ChartDataLabelPosition =
   | 'bestFit';
 
 export interface ChartDataLabels {
+  // `ChartSpec` is bidirectional (authored into `addSlideChart`, read back from
+  // `getShapeChartSpec`), and the reader always emits all four toggles, so they
+  // are required: a sparse `{ showValue: true }` would widen what every reader
+  // gets. Set the ones you want on and the rest to `false`.
   /** Numeric value of each data point. */
   readonly showValue: boolean;
   /** Category label of each data point. */

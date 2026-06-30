@@ -63,7 +63,11 @@ export const listPackageParts = (pres: PresentationData): ReadonlyArray<PackageP
  * (e.g. parsing custom extension parts).
  */
 export const readPackagePart = (pres: PresentationData, name: string): Uint8Array | null => {
-  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name === name);
+  // OPC part names compare case-insensitively (ECMA-376 Part 2 §9.1.1), and
+  // OpcPackage.getPart already honors that — match it so a caller passing
+  // `/ppt/Media/Image1.PNG` resolves the same part the package stores.
+  const target = name.toLowerCase();
+  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name.toLowerCase() === target);
   return part?.data ?? null;
 };
 
@@ -138,13 +142,17 @@ export const getOrphanMediaPartNames = (pres: PresentationData): ReadonlyArray<s
     if (!sourceRels) continue;
     for (const rel of sourceRels.items) {
       if (rel.targetMode === 'External') continue;
-      referenced.add(resolve(sourceName, rel.target));
+      // Lowercase keys: OPC part names compare case-insensitively, so a rel
+      // target whose case differs from the media part name still counts as a
+      // reference (otherwise a referenced image is wrongly reported as orphan /
+      // deleted by compactPackage).
+      referenced.add(resolve(sourceName, rel.target).toLowerCase());
     }
   }
   const out: string[] = [];
   for (const part of pkg.parts) {
     if (!part.name.startsWith('/ppt/media/')) continue;
-    if (!referenced.has(part.name)) out.push(part.name);
+    if (!referenced.has(part.name.toLowerCase())) out.push(part.name);
   }
   return out;
 };
@@ -261,7 +269,11 @@ export const compactPackage = (
     if (!rels) continue;
     for (const rel of rels.items) {
       if (rel.targetMode === 'External') continue;
-      referenced.add(resolve(sourceName, rel.target));
+      // Lowercase keys: OPC part names compare case-insensitively, so a rel
+      // target whose case differs from the media part name still counts as a
+      // reference (otherwise a referenced image is wrongly reported as orphan /
+      // deleted by compactPackage).
+      referenced.add(resolve(sourceName, rel.target).toLowerCase());
     }
   }
 
@@ -269,7 +281,7 @@ export const compactPackage = (
   const orphans: string[] = [];
   for (const part of pkg.parts) {
     if (!part.name.startsWith('/ppt/media/')) continue;
-    if (!referenced.has(part.name)) orphans.push(part.name);
+    if (!referenced.has(part.name.toLowerCase())) orphans.push(part.name);
   }
   for (const name of orphans) {
     pkg.removePart(partName(name));
@@ -293,7 +305,10 @@ export const setMediaPartBytes = (
   partName: string,
   bytes: Uint8Array,
 ): boolean => {
-  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name === partName);
+  // Case-insensitive match, consistent with OPC part-name semantics and
+  // OpcPackage.getPart (see readPackagePart).
+  const target = partName.toLowerCase();
+  const part = pres[INTERNAL_PACKAGE].parts.find((p) => p.name.toLowerCase() === target);
   if (!part) return false;
   part.data = bytes;
   return true;

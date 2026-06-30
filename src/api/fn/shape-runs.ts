@@ -16,6 +16,7 @@ import {
   elem,
   firstChildElement,
   getAttrValue,
+  insertChildByRank,
   qname,
 } from '../../internal/xml/index.ts';
 import {
@@ -518,6 +519,30 @@ export const getParagraphLevel = (shape: SlideShapeData, paragraphIndex: number)
   return Number.isFinite(n) ? n : 0;
 };
 
+// CT_TextParagraphProperties (a:pPr) is an xsd:sequence: line spacing, then
+// before/after spacing, then the bullet-related groups, then tabLst/defRPr.
+// Setters strip their element then re-insert at the mandated slot.
+const PPR_CHILD_RANK: Record<string, number> = {
+  lnSpc: 0,
+  spcBef: 1,
+  spcAft: 2,
+  buClrTx: 3,
+  buClr: 3,
+  buSzTx: 4,
+  buSzPct: 4,
+  buSzPts: 4,
+  buFontTx: 5,
+  buFont: 5,
+  buNone: 6,
+  buAutoNum: 6,
+  buChar: 6,
+  tabLst: 7,
+  defRPr: 8,
+  extLst: 9,
+};
+const pPrChildRank = (el: XmlElement): number =>
+  el.name.namespaceURI === NS.dml ? (PPR_CHILD_RANK[el.name.localName] ?? 99) : 99;
+
 /**
  * Sets the spacing before and/or after a paragraph, in points (where
  * a "point" is 1/72 inch). PowerPoint stores these as hundredths of a
@@ -554,7 +579,10 @@ export const setParagraphSpacing = (
         }),
       ],
     });
-    pPr.children.push(spcEl);
+    // spcBef/spcAft must precede any bullet (buChar/buAutoNum/buFont/...) and
+    // tabLst/defRPr in CT_TextParagraphProperties; insert at the schema slot
+    // rather than pushing to the end of a paragraph that already has bullets.
+    insertChildByRank(pPr, spcEl, pPrChildRank);
   };
 
   writeSide('spcBef', opts.beforePts);
@@ -662,6 +690,51 @@ export const getParagraphLineSpacing = (
     }
   }
   return null;
+};
+
+/**
+ * Sets a paragraph's line spacing — the writer counterpart to
+ * `getParagraphLineSpacing`. Two modes (mirroring `<a:lnSpc>`):
+ *
+ *   - `{ kind: 'pct', value }` — a multiple of single spacing
+ *     (`1` = single, `1.5` = 150%, `2` = double) → `<a:spcPct>`.
+ *   - `{ kind: 'pts', value }` — a fixed leading in points → `<a:spcPts>`.
+ *
+ * Pass `null` to clear the override (the paragraph then inherits line
+ * spacing from the layout / master).
+ */
+export const setParagraphLineSpacing = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+  spacing:
+    | { readonly kind: 'pct'; readonly value: number }
+    | { readonly kind: 'pts'; readonly value: number }
+    | null,
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = ensurePPr(paragraph);
+  pPr.children = pPr.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'lnSpc'),
+  );
+  if (spacing !== null) {
+    if (!Number.isFinite(spacing.value) || spacing.value < 0) {
+      throw new RangeError(
+        `line spacing value must be a non-negative number, got ${spacing.value}`,
+      );
+    }
+    const inner =
+      spacing.kind === 'pct'
+        ? elem(qname('a', 'spcPct', NS.dml), {
+            attrs: [attr(qname('', 'val', ''), String(Math.round(spacing.value * 100000)))],
+          })
+        : elem(qname('a', 'spcPts', NS.dml), {
+            attrs: [attr(qname('', 'val', ''), String(Math.round(spacing.value * 100)))],
+          });
+    // <a:lnSpc> is the first child of CT_TextParagraphProperties.
+    insertChildByRank(pPr, elem(qname('a', 'lnSpc', NS.dml), { children: [inner] }), pPrChildRank);
+  }
+  commitAndRefresh(shape);
 };
 
 /**

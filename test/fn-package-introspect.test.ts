@@ -27,4 +27,13 @@ describe('fn API: listPackageParts / readPackagePart', () => {
     expect(bytes!.byteLength).toBeGreaterThan(0);
     expect(readPackagePart(pres, '/nope.xml')).toBeNull();
   });
+
+  it('readPackagePart resolves the name case-insensitively (OPC part-name semantics)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const exact = readPackagePart(pres, '/ppt/presentation.xml');
+    // A differently-cased name must resolve the same part (ECMA-376 Part 2 §9.1.1).
+    const mixed = readPackagePart(pres, '/ppt/Presentation.XML');
+    expect(mixed).not.toBeNull();
+    expect(mixed).toEqual(exact);
+  });
 });

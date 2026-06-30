@@ -501,122 +501,115 @@ export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
   };
 };
 
+// Brightness and contrast are two attributes of a SINGLE `<a:lum>` effect
+// (CT_LuminanceEffect: `bright` / `contrast`, both ST_FixedPercentage ×100000).
+// `<a:lumOff>` / `<a:lumMod>` are color-transform children — they are NOT in
+// the CT_Blip effect choice, so emitting them under `<a:blip>` is schema-invalid.
+// Both setters share the one element: writing one attribute preserves the
+// other, and removing the last attribute drops the `<a:lum>` element entirely.
+const NAME_LUM = qname('a', 'lum', NS.dml);
+
+const requirePictureBlip = (shape: SlideShapeData, fnName: string): XmlElement => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
+    throw new Error(
+      `${fnName} only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
+    );
+  }
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
+  return blip;
+};
+
+const setLumAttr = (blip: XmlElement, local: 'bright' | 'contrast', value: number | null): void => {
+  let lum = firstChildElement(blip, NAME_LUM);
+  if (lum) {
+    lum.attrs = lum.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === local),
+    );
+  }
+  if (value !== null && value !== 0) {
+    // `<a:lum>` is part of CT_Blip's unbounded effect choice, so its position
+    // among sibling effects (e.g. alphaModFix) is unconstrained — append.
+    if (!lum) {
+      lum = elem(NAME_LUM);
+      blip.children.push(lum);
+    }
+    lum.attrs.push(attr(qname('', local, ''), String(Math.round(value * 100000))));
+  }
+  if (lum && lum.attrs.length === 0) {
+    blip.children = blip.children.filter((c) => c !== lum);
+  }
+};
+
+const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number | null => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
+  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  if (!blipFill) return null;
+  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  if (!blip) return null;
+  const lum = firstChildElement(blip, NAME_LUM);
+  if (!lum) return null;
+  const v = getAttrValue(lum, qname('', local, ''));
+  if (v === null) return null;
+  const n = Number.parseInt(v, 10);
+  return Number.isFinite(n) ? n / 100000 : null;
+};
+
 /**
- * Adjusts the picture's brightness by writing `<a:lumOff val="…"/>`
- * inside `<a:blip>`. The value is a -1..1 fraction:
+ * Adjusts the picture's brightness via `<a:blip><a:lum bright="…"/>`. The value
+ * is a -1..1 fraction:
  *
  *   - `1`     → +100% brightness
- *   - `0` or `null` → no offset (any prior `<a:lumOff>` is removed)
+ *   - `0` or `null` → no brightness change (the `bright` attribute is removed)
  *   - `-1`    → -100% brightness
  *
- * Throws for non-picture shapes and on values outside [-1, 1].
- *
- * Note: PowerPoint's "Picture Format › Corrections" UI couples this
- * with `<a:lumMod>` for some presets; this primitive sets only
- * `lumOff` to keep the surface honest. Read it back via
- * `getShapeImageBrightness`.
+ * Brightness and contrast share the one `<a:lum>` element, so setting one keeps
+ * the other. Throws for non-picture shapes and on values outside [-1, 1].
  */
 export const setShapeImageBrightness = (shape: SlideShapeData, value: number | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageBrightness only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
+  const blip = requirePictureBlip(shape, 'setShapeImageBrightness');
+  if (value !== null && value !== 0 && (!Number.isFinite(value) || value < -1 || value > 1)) {
+    throw new RangeError(`brightness must be in [-1, 1], got ${value}`);
   }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
-  blip.children = blip.children.filter(
-    (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'lumOff'),
-  );
-  if (value !== null && value !== 0) {
-    if (!Number.isFinite(value) || value < -1 || value > 1) {
-      throw new RangeError(`brightness must be in [-1, 1], got ${value}`);
-    }
-    blip.children.push(
-      elem(qname('a', 'lumOff', NS.dml), {
-        attrs: [attr(qname('', 'val', ''), String(Math.round(value * 100000)))],
-      }),
-    );
-  }
+  setLumAttr(blip, 'bright', value);
   commitAndRefresh(shape);
 };
 
 /**
- * Adjusts the picture's contrast by writing `<a:lumMod val="…"/>` on
- * `<a:blip>`. The value is a 0..2 fraction:
+ * Adjusts the picture's contrast via `<a:blip><a:lum contrast="…"/>`. The value
+ * is a -1..1 fraction (ECMA-376 `ST_FixedPercentage`):
  *
- *   - `1` or `null` → no modulation (any prior `<a:lumMod>` is removed)
- *   - `0.5`         → 50% of original luminance variance (washed out)
- *   - `1.5`         → 150% (boosted contrast; PowerPoint clamps to
- *                       what the renderer supports)
+ *   - `0` or `null` → no contrast change (the `contrast` attribute is removed)
+ *   - `0.5`         → +50% contrast (boosted)
+ *   - `-0.5`        → -50% contrast (washed out)
  *
- * Throws on non-picture shapes and on values outside `[0, 2]`. The
- * primitive maps directly to `ST_PositiveFixedPercentage` × 100000.
+ * Brightness and contrast share the one `<a:lum>` element, so setting one keeps
+ * the other. Throws on non-picture shapes and on values outside [-1, 1].
  */
 export const setShapeImageContrast = (shape: SlideShapeData, value: number | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageContrast only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
+  const blip = requirePictureBlip(shape, 'setShapeImageContrast');
+  if (value !== null && value !== 0 && (!Number.isFinite(value) || value < -1 || value > 1)) {
+    throw new RangeError(`contrast must be in [-1, 1], got ${value}`);
   }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
-  blip.children = blip.children.filter(
-    (c) =>
-      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'lumMod'),
-  );
-  if (value !== null && value !== 1) {
-    if (!Number.isFinite(value) || value < 0 || value > 2) {
-      throw new RangeError(`contrast must be in [0, 2], got ${value}`);
-    }
-    blip.children.push(
-      elem(qname('a', 'lumMod', NS.dml), {
-        attrs: [attr(qname('', 'val', ''), String(Math.round(value * 100000)))],
-      }),
-    );
-  }
+  setLumAttr(blip, 'contrast', value);
   commitAndRefresh(shape);
 };
 
 /**
- * Reads the picture's contrast modulation (the `<a:lumMod>` fraction
- * in [0, 2]). Returns `null` when no `<a:lumMod>` is present.
+ * Reads the picture's contrast (the `<a:lum contrast>` fraction in [-1, 1]).
+ * Returns `null` when no contrast adjustment is present.
  */
-export const getShapeImageContrast = (shape: SlideShapeData): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) return null;
-  const lumMod = firstChildElement(blip, qname('a', 'lumMod', NS.dml));
-  if (!lumMod) return null;
-  const v = getAttrValue(lumMod, qname('', 'val', ''));
-  if (v === null) return null;
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) ? n / 100000 : null;
-};
+export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
+  getLumAttr(shape, 'contrast');
 
 /**
- * Reads the picture's brightness offset (the `<a:lumOff>` fraction
- * in [-1, 1]). Returns `null` when no `<a:lumOff>` is present.
+ * Reads the picture's brightness (the `<a:lum bright>` fraction in [-1, 1]).
+ * Returns `null` when no brightness adjustment is present.
  */
-export const getShapeImageBrightness = (shape: SlideShapeData): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) return null;
-  const lumOff = firstChildElement(blip, qname('a', 'lumOff', NS.dml));
-  if (!lumOff) return null;
-  const v = getAttrValue(lumOff, qname('', 'val', ''));
-  if (v === null) return null;
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) ? n / 100000 : null;
-};
+export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
+  getLumAttr(shape, 'bright');
 
 export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {

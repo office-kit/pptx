@@ -21,6 +21,7 @@ import {
   elem,
   firstChildElement,
   getAttrValue,
+  insertChildByRank,
   qname,
   text,
 } from '../../internal/xml/index.ts';
@@ -38,6 +39,7 @@ import {
   type SlideShapeData,
   type TableCellData,
 } from '../_internal-symbols.ts';
+import { emuCoordinate32, emuExtent, lineWidthEmu, normalizeGuid } from '../../internal/bounds.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 import { type ShapeParagraphElement, readParagraphElements } from './shape-runs.ts';
 import { ALIGN_TOKEN_MAP } from './shape-paragraph.ts';
@@ -193,7 +195,10 @@ export const setTableStyleId = (table: SlideShapeData, styleId: string | null): 
       ),
   );
   if (styleId !== null) {
-    tblPr.children.push(elem(qname('a', 'tableStyleId', NS.dml), { children: [text(styleId)] }));
+    // ST_Guid requires uppercase hex in braces; normalize so a lowercase GUID
+    // (e.g. from crypto.randomUUID) is accepted, and reject non-GUID strings.
+    const guid = normalizeGuid(styleId, 'setTableStyleId: styleId');
+    tblPr.children.push(elem(qname('a', 'tableStyleId', NS.dml), { children: [text(guid)] }));
   }
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
@@ -391,7 +396,7 @@ export const setTableColumnWidth = (table: SlideShapeData, col: number, width: E
   target.attrs = target.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'w'),
   );
-  target.attrs.push(attr(ATTR_W_TBL, String(Math.round(width))));
+  target.attrs.push(attr(ATTR_W_TBL, String(emuExtent(width, 'setTableColumnWidth: width'))));
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
@@ -409,7 +414,7 @@ export const setTableRowHeight = (table: SlideShapeData, row: number, height: Em
   target.attrs = target.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'h'),
   );
-  target.attrs.push(attr(ATTR_H_TBL, String(Math.round(height))));
+  target.attrs.push(attr(ATTR_H_TBL, String(emuExtent(height, 'setTableRowHeight: height'))));
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
@@ -631,6 +636,10 @@ export const mergeTableCells = (
  * when the border is inherited / un-styled.
  */
 export interface TableCellBorder {
+  // Read contract: `getTableCellBorders` always populates all three (each is the
+  // concrete value or `null` when un-styled). The setter takes a `Partial` of
+  // this (see `setTableCellBorders`), so authoring `{ color, widthEmu }` without
+  // `dash` is allowed without widening what reads return.
   readonly color: string | null;
   readonly widthEmu: number | null;
   readonly dash: string | null;
@@ -703,10 +712,34 @@ const BORDER_SIDE_LOCALS = {
   blToTr: 'lnBlToTr',
 } as const;
 
+// CT_TableCellProperties (a:tcPr) is an xsd:sequence: the six border lines
+// (lnL/lnR/lnT/lnB/lnTlToBr/lnBlToTr), then cell3D, then the fill choice, then
+// headers, then extLst. Border setters must drop their element at the mandated
+// slot, or styling a cell's fill before its borders emits invalid order.
+const TCPR_CHILD_RANK: Record<string, number> = {
+  lnL: 0,
+  lnR: 1,
+  lnT: 2,
+  lnB: 3,
+  lnTlToBr: 4,
+  lnBlToTr: 5,
+  cell3D: 6,
+  noFill: 7,
+  solidFill: 7,
+  gradFill: 7,
+  blipFill: 7,
+  pattFill: 7,
+  grpFill: 7,
+  headers: 8,
+  extLst: 9,
+};
+const tcPrChildRank = (el: XmlElement): number =>
+  el.name.namespaceURI === NS.dml ? (TCPR_CHILD_RANK[el.name.localName] ?? 99) : 99;
+
 const writeBorderLn = (
   tcPr: XmlElement,
   local: 'lnL' | 'lnR' | 'lnT' | 'lnB' | 'lnTlToBr' | 'lnBlToTr',
-  border: TableCellBorder | null,
+  border: Partial<TableCellBorder> | null,
 ): void => {
   // Strip any prior side first.
   tcPr.children = tcPr.children.filter(
@@ -715,7 +748,8 @@ const writeBorderLn = (
   if (border === null) return;
   const lnAttrs = [];
   if (border.widthEmu !== null && border.widthEmu !== undefined) {
-    lnAttrs.push(attr(qname('', 'w', ''), String(Math.round(border.widthEmu))));
+    const w = lineWidthEmu(border.widthEmu, 'setTableCellBorders: widthEmu');
+    lnAttrs.push(attr(qname('', 'w', ''), String(w)));
   }
   const children: XmlElement[] = [];
   if (border.color !== null && border.color !== undefined) {
@@ -728,7 +762,11 @@ const writeBorderLn = (
       elem(qname('a', 'prstDash', NS.dml), { attrs: [attr(qname('', 'val', ''), border.dash)] }),
     );
   }
-  tcPr.children.push(elem(qname('a', local, NS.dml), { attrs: lnAttrs, children }));
+  insertChildByRank(
+    tcPr,
+    elem(qname('a', local, NS.dml), { attrs: lnAttrs, children }),
+    tcPrChildRank,
+  );
 };
 
 /**
@@ -743,12 +781,12 @@ const writeBorderLn = (
 export const setTableCellBorders = (
   cell: TableCellData,
   sides: {
-    left?: TableCellBorder | null;
-    right?: TableCellBorder | null;
-    top?: TableCellBorder | null;
-    bottom?: TableCellBorder | null;
-    tlToBr?: TableCellBorder | null;
-    blToTr?: TableCellBorder | null;
+    left?: Partial<TableCellBorder> | null;
+    right?: Partial<TableCellBorder> | null;
+    top?: Partial<TableCellBorder> | null;
+    bottom?: Partial<TableCellBorder> | null;
+    tlToBr?: Partial<TableCellBorder> | null;
+    blToTr?: Partial<TableCellBorder> | null;
   } | null,
 ): void => {
   const tcPr = ensureCellTcPr(cell);
@@ -916,7 +954,8 @@ export const setTableCellMargins = (
     ];
     for (const [name, val] of pairs) {
       if (val !== null && val !== undefined) {
-        tcPr.attrs.push(attr(qname('', name, ''), String(Math.round(val))));
+        const emu = emuCoordinate32(val, `setTableCellMargins: ${name}`);
+        tcPr.attrs.push(attr(qname('', name, ''), String(emu)));
       }
     }
   }

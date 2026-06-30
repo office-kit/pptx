@@ -10,6 +10,7 @@
 // Like `text-box-builder`, multi-line text splits on `\n` into paragraphs
 // so each `<a:t>` holds a single line (strict schema friendly).
 
+import { emuCoordinate, emuExtent } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname, text as textNode } from '../xml/index.ts';
 
 const NAME_SP = qname('p', 'sp', NS.pml);
@@ -100,11 +101,15 @@ export type PresetShape =
   | 'donut'
   | 'noSmoking'
   | 'plus'
-  | 'minus'
-  | 'mult'
-  | 'div'
-  | 'equal'
-  | 'notEqual';
+  // ECMA-376 ST_ShapeType spells the math operators `math*`; the bare
+  // `minus`/`mult`/`div`/`equal`/`notEqual` are not in the enum and emitted a
+  // `prstGeom` PowerPoint silently dropped (the shape vanished on open).
+  | 'mathPlus'
+  | 'mathMinus'
+  | 'mathMultiply'
+  | 'mathDivide'
+  | 'mathEqual'
+  | 'mathNotEqual';
 
 export interface ShapeOptions {
   id: number;
@@ -121,11 +126,13 @@ export interface ShapeOptions {
    */
   text?: string;
   /**
-   * Vertical anchor of any text body. Defaults to `'ctr'` (center) so
-   * preset shapes render with centered text, which is what PowerPoint
-   * does when you "insert shape → type text".
+   * Vertical anchor of any text body (`ST_TextAnchoringType`: `t` top,
+   * `ctr` middle, `b` bottom). Defaults to `'ctr'` so preset shapes render
+   * with centered text, which is what PowerPoint does when you "insert shape
+   * → type text". For horizontal alignment, set the paragraph alignment via
+   * `setShapeAlignment` / `setParagraphAlignment` after creating the shape.
    */
-  textAnchor?: 'l' | 'ctr' | 'r' | 't' | 'b';
+  textAnchor?: 'ctr' | 't' | 'b';
 }
 
 const buildTextBody = (
@@ -169,10 +176,16 @@ export const buildShape = (opts: ShapeOptions): XmlElement => {
   // out so a fractional value from EMU arithmetic (e.g. an `as Emu` cast on a
   // computed fit/translate) can't reach the XML and trip PowerPoint's repair.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
+    attrs: [
+      attr(ATTR_X, String(emuCoordinate(opts.x, 'addSlideShape: x'))),
+      attr(ATTR_Y, String(emuCoordinate(opts.y, 'addSlideShape: y'))),
+    ],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
+    attrs: [
+      attr(ATTR_CX, String(emuExtent(opts.w, 'addSlideShape: w'))),
+      attr(ATTR_CY, String(emuExtent(opts.h, 'addSlideShape: h'))),
+    ],
   });
   const xfrm = elem(NAME_A_XFRM, { children: [off, ext] });
   const prstGeom = elem(NAME_PRST_GEOM, {

@@ -45,7 +45,7 @@ describe('addSlideChart: series color validation', () => {
   it('rejects a malformed hex (wrong length / non-hex digits)', () => {
     const pres = createPresentation();
     const slide = addBlankSlide(pres);
-    for (const bad of ['#FFF', '#GGGGGG', 'rgb(0,0,0)', '#12345']) {
+    for (const bad of ['#GGGGGG', 'rgb(0,0,0)', '#12345', '#FFFF']) {
       expect(() =>
         addSlideChart(slide, {
           x: inches(1),
@@ -91,6 +91,22 @@ describe('addSlideChart: series color validation', () => {
         w: inches(4),
         h: inches(3),
         spec: columnSpec('4472C4'),
+      }),
+    ).not.toThrow();
+  });
+
+  it('accepts the 3-digit hex shorthand', () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    // `#4cf` is the CSS-style shorthand LLM authors reach for; it must be
+    // accepted (and expanded to `44CCFF` internally), not rejected.
+    expect(() =>
+      addSlideChart(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(3),
+        spec: columnSpec('#4cf'),
       }),
     ).not.toThrow();
   });
