@@ -60,6 +60,7 @@
     "test:watch": "vitest",
     "samples": "GENERATE_SAMPLES=1 vitest run test/samples-generate.test.ts",
     "test:property": "vitest run test/property",
+    "validate:ooxml": "dotnet run --project tools/ooxml-validate -c Release -- samples/out",
     "bench": "PERF=1 vitest run test/perf-bench.test.ts",
     "changeset": "changeset",
     "release": "changeset publish",

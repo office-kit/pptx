@@ -143,3 +143,40 @@ jobs:
           path: site/fidelity/baseline.candidate.json
           retention-days: 7
           if-no-files-found: ignore
+
+  # Secondary OOXML oracle. xmllint + the ECMA-376 XSDs (run in the test job)
+  # only check structural schema conformance; they can't express the semantic
+  # OOXML rules PowerPoint enforces before it calls a file corrupt. This job
+  # runs Microsoft's own OpenXmlValidator over the generated decks as an
+  # independent check. It GATES — CLAUDE.md treats invalid output as a bug, so a
+  # real validation error must fail the build, not just warn.
+  ooxml-oracle:
+    name: OOXML validator (Open XML SDK)
+    needs: static
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.16.0
+          cache: pnpm
+
+      # SDK feature band is pinned in tools/ooxml-validate/global.json so the
+      # validator's rule set is reproducible.
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: tools/ooxml-validate/global.json
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build pptx-kit
+        run: pnpm build
+
+      - name: Generate sample PPTX files
+        run: pnpm samples
+
+      - name: Validate samples with OpenXmlValidator
+        run: dotnet run --project tools/ooxml-validate -c Release -- samples/out
+
