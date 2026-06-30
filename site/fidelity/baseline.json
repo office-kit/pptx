@@ -25,6 +25,18 @@
     "20-core-properties.pptx": [0.9472],
     "21-showcase.pptx": [0.8665, 0.949, 0.737, 0.8211, 0.9938, 0.9458, 0.791],
     "22-vertical-text.pptx": [0.7579],
-    "23-columns.pptx": [0.3234]
+    "23-columns.pptx": [0.3234],
+    "24-gradient-fills.pptx": [0.978],
+    "25-pattern-fills.pptx": [0.1287],
+    "26-stroke-styles.pptx": [0.8858, 0.9213],
+    "27-rotation-flip.pptx": [0.7957],
+    "28-multilevel-bullets.pptx": [0.6452, 0.6485],
+    "29-text-columns-autofit.pptx": [0.1789],
+    "30-pie-doughnut-chart.pptx": [0.7919, 0.7873],
+    "31-scatter-area-chart.pptx": [0.7916, 0.8517],
+    "32-merged-table.pptx": [0.7937],
+    "33-run-formatting.pptx": [0.7164],
+    "34-shadow-variants.pptx": [0.939],
+    "35-text-direction.pptx": [0.4711]
   }
 }
