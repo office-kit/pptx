@@ -629,13 +629,27 @@ const patternDef = (pat: {
   if (pctMatch) {
     const pct = Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10)));
     body = screen(pct / 100);
-  } else if (preset === 'horzBrick' || preset === 'ltHorizontal' || preset === 'narHorz') {
+  } else if (
+    preset === 'horz' ||
+    preset === 'ltHorz' ||
+    preset === 'narHorz' ||
+    preset === 'dashHorz' ||
+    preset === 'horzBrick'
+  ) {
+    // ST_PresetPatternVal horizontal family (§20.1.10.49) — horizontal lines.
+    // (The old branch keyed on GDI HatchStyle names like 'ltHorizontal', which
+    // no valid OOXML emits, so 'horz'/'ltHorz' fell through to the 50% checker.)
     body = stripe('h', 0.8);
-  } else if (preset === 'dkHorizontal') {
+  } else if (preset === 'dkHorz') {
     body = stripe('h', 2);
-  } else if (preset === 'ltVertical' || preset === 'narVert') {
+  } else if (
+    preset === 'vert' ||
+    preset === 'ltVert' ||
+    preset === 'narVert' ||
+    preset === 'dashVert'
+  ) {
     body = stripe('v', 0.8);
-  } else if (preset === 'dkVertical') {
+  } else if (preset === 'dkVert') {
     body = stripe('v', 2);
   } else if (preset === 'ltUpDiag' || preset === 'wdUpDiag') {
     body = stripe('d', 0.8);
@@ -645,7 +659,14 @@ const patternDef = (pat: {
     body = stripe('a', 0.8);
   } else if (preset === 'dkDnDiag') {
     body = stripe('a', 2);
-  } else if (preset === 'ltHorzCross' || preset === 'smGrid' || preset === 'cross') {
+  } else if (
+    preset === 'ltHorzCross' ||
+    preset === 'smGrid' ||
+    preset === 'cross' ||
+    preset === 'dotGrid'
+  ) {
+    // dotGrid is a dotted grid in the spec; LibreOffice renders it as a thin
+    // line grid, so a light cross-grid is the closest match to the ground truth.
     body = stripe('h', 0.8) + stripe('v', 0.8);
   } else if (preset === 'dkHorzCross' || preset === 'lgGrid' || preset === 'plaid') {
     body = stripe('h', 2) + stripe('v', 2);
@@ -2139,19 +2160,21 @@ interface SvgTextArgs {
 const alignOf = (a: string): ParaInput['align'] =>
   a === 'center' || a === 'right' || a === 'justify' ? a : 'left';
 
-// Map the OOXML `vert` token onto the engine's two supported rotations,
-// mirroring the foreignObject path's writing-mode grouping so server == browser:
-// the `vertical-rl` family (columns right-to-left) rotates 90° clockwise, the
-// `vertical-lr` family (columns left-to-right) rotates 270°. The wordArt variants
-// keep glyphs upright in the browser; the SVG path rotates them with the text
-// (closest a rotated <text> can get), which the W1 brief accepts as the mapping.
+// Map the OOXML `vert` token onto the engine's layout modes, mirroring the
+// foreignObject path's writing-mode grouping so server == browser: the
+// `vertical-rl` family (columns right-to-left) rotates 90° clockwise, the
+// `vertical-lr` family (columns left-to-right) rotates 270°. `wordArtVert`
+// (ST_TextVerticalType, §21.1.2.1.1) means "one letter on top of another" —
+// glyphs stay UPRIGHT and stack, not rotated — matching the browser path's
+// `text-orientation:upright` and PowerPoint/LibreOffice.
 const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): VerticalLayout => {
   switch (vert) {
     case 'vert':
     case 'eaVert':
+      return 'cw90';
     case 'wordArtVert':
     case 'wordArtVertRtl':
-      return 'cw90';
+      return 'upright';
     case 'vert270':
     case 'mongolianVert':
       return 'cw270';
@@ -2210,7 +2233,19 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
       // out above; still split defensively so any stray newline becomes a break.
       const segs = run.text.split('\n');
       segs.forEach((seg, i) => {
-        pieces.push({ ...base, text: caps ? seg.toUpperCase() : seg, isBreak: false });
+        const segText = caps ? seg.toUpperCase() : seg;
+        if (a.vert === 'upright') {
+          // wordArtVert stacks one code point per line (spaces become blank
+          // rows). Reuse the calibrated horizontal engine with a break between
+          // every glyph rather than rotating the run.
+          const glyphs = Array.from(segText);
+          glyphs.forEach((g, j) => {
+            pieces.push({ ...base, text: g, isBreak: false });
+            if (j < glyphs.length - 1) pieces.push(breakPiece());
+          });
+        } else {
+          pieces.push({ ...base, text: segText, isBreak: false });
+        }
         if (i < segs.length - 1) pieces.push(breakPiece());
       });
     }
@@ -2846,10 +2881,13 @@ const renderTextBody = (
     // differently BY DESIGN. (Symmetric insets keep the box center, so the
     // per-edge cw90/cw270 origin mapping only matters for asymmetric insets,
     // which this path does not distinguish.)
-    const vInnerX = svgVert === 'none' ? innerX : bounds.x + tIns;
-    const vInnerY = svgVert === 'none' ? innerY : bounds.y + lIns;
-    const vInnerW = svgVert === 'none' ? innerW : Math.max(0, bounds.w - tIns - bIns);
-    const vInnerH = svgVert === 'none' ? innerH : Math.max(0, bounds.h - lIns - rIns);
+    // `upright` (wordArtVert) does not rotate, so it uses the box-oriented inner
+    // rect like horizontal text; only the true ±90° rotations swap extents.
+    const svgUnrotated = svgVert === 'none' || svgVert === 'upright';
+    const vInnerX = svgUnrotated ? innerX : bounds.x + tIns;
+    const vInnerY = svgUnrotated ? innerY : bounds.y + lIns;
+    const vInnerW = svgUnrotated ? innerW : Math.max(0, bounds.w - tIns - bIns);
+    const vInnerH = svgUnrotated ? innerH : Math.max(0, bounds.h - lIns - rIns);
     if (vInnerW <= 0 || vInnerH <= 0) return '';
     const svgInner = buildAndLayoutSvgText({
       pres,

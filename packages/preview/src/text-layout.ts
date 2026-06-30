@@ -171,8 +171,10 @@ export interface ParaInput {
  *  OOXML `vert` token (`vert`/`eaVert`/`vert270`/…) onto one of these — the
  *  engine stays free of OOXML vocabulary. `cw90` rotates the horizontal layout
  *  90° clockwise (reading top-to-bottom, columns right-to-left); `cw270` is the
- *  opposite 270° rotation (columns left-to-right). */
-export type VerticalLayout = 'none' | 'cw90' | 'cw270';
+ *  opposite 270° rotation (columns left-to-right). `upright` is `wordArtVert` —
+ *  glyphs stay upright and stack one per line (render-slide pre-splits the runs
+ *  one code point per line), so it lays out like `none` with no rotation. */
+export type VerticalLayout = 'none' | 'cw90' | 'cw270' | 'upright';
 
 export interface ColumnLayout {
   readonly count: number; // PowerPoint clamps to >= 2 before this point
@@ -429,8 +431,10 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
   // maps that horizontal layout exactly onto the shape. All wrap / anchor /
   // align math then stays identical to horizontal — only the wrapping transform
   // differs, which is what keeps the calibrated horizontal path byte-stable.
+  // `upright` keeps the box as-is (no extent swap): the glyphs are already
+  // pre-split one per line by render-slide, so they stack within the real box.
   const frame: Frame =
-    vert === 'none'
+    vert === 'none' || vert === 'upright'
       ? { x: input.boxXpx, y: input.boxYpx, w: input.boxWpx, h: input.boxHpx }
       : { x: cx - input.boxHpx / 2, y: cy - input.boxWpx / 2, w: input.boxHpx, h: input.boxWpx };
 
@@ -445,7 +449,7 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
       : placeSingle(frame, input.anchor, buildLines);
 
   const body = emitPlacements(placements);
-  if (vert === 'none') return body;
+  if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
 };
