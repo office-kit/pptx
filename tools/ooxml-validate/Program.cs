@@ -53,23 +53,36 @@ foreach (var file in files)
         continue;
     }
 
-    using var doc = PresentationDocument.Open(file, false);
-    var errors = validator.Validate(doc).ToList();
-
-    if (errors.Count == 0)
+    try
     {
-        Console.WriteLine($"OK    {file}");
-        continue;
-    }
+        using var doc = PresentationDocument.Open(file, false);
+        var errors = validator.Validate(doc).ToList();
 
-    Console.WriteLine($"FAIL  {file}  ({errors.Count} error(s))");
-    foreach (var error in errors)
-    {
-        Console.WriteLine($"  [{error.Id}] {error.Description}");
-        Console.WriteLine($"      part:  {error.Part?.Uri}");
-        Console.WriteLine($"      xpath: {error.Path?.XPath}");
+        if (errors.Count == 0)
+        {
+            Console.WriteLine($"OK    {file}");
+            continue;
+        }
+
+        Console.WriteLine($"FAIL  {file}  ({errors.Count} error(s))");
+        foreach (var error in errors)
+        {
+            Console.WriteLine($"  [{error.Id}] {error.Description}");
+            Console.WriteLine($"      part:  {error.Part?.Uri}");
+            Console.WriteLine($"      xpath: {error.Path?.XPath}");
+        }
+        totalErrors += errors.Count;
     }
-    totalErrors += errors.Count;
+    catch (Exception ex)
+    {
+        // A part the SDK cannot even load (wrong root element, malformed XML)
+        // throws from Validate() instead of surfacing as a ValidationErrorInfo.
+        // Report it as a failure for this file and keep going, so one bad deck
+        // doesn't hide the validation status of every deck after it.
+        Console.WriteLine($"FAIL  {file}  (could not be loaded by the Open XML SDK)");
+        Console.WriteLine($"  [load-error] {ex.Message}");
+        totalErrors++;
+    }
 }
 
 Console.WriteLine();
