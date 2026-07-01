@@ -4437,15 +4437,17 @@ const renderLineChart = (
           })();
     perSeries.push({ s, series, color, ptsRaw, pts, basePts, dPath });
   }
+  // Area fills are opaque in PowerPoint (the authored solidFill at full
+  // alpha). Overlapping (non-stacked) areas paint back-to-front — series and
+  // stroke together, as PowerPoint treats each series as one atomic unit —
+  // so the FIRST authored series ends up on top and fully occludes a shorter
+  // series behind it, fill AND outline. Stacked areas are disjoint cumulative
+  // bands — they never overlap, so authored order is fine (and is what the
+  // accumulation math assumes); line charts (fill=false) have no occlusion
+  // concern either, so both keep authored order.
+  const paintOrder = fill && !isStacked ? perSeries.slice().reverse() : perSeries;
   if (fill) {
-    // Area fills are opaque in PowerPoint (the authored solidFill at full
-    // alpha). Overlapping (non-stacked) areas paint back-to-front so the
-    // FIRST authored series ends up on top and fully occludes a shorter
-    // series behind it, exactly as PowerPoint/LibreOffice render them.
-    // Stacked areas are disjoint cumulative bands — they never overlap, so
-    // authored order is fine (and is what the accumulation math assumes).
-    const fillOrder = isStacked ? perSeries : perSeries.slice().reverse();
-    for (const { color, basePts, dPath } of fillOrder) {
+    for (const { color, basePts, dPath } of paintOrder) {
       // Walk back along the baseline (or the previous series's top for
       // stacked) to close the area.
       const back = basePts
@@ -4456,7 +4458,7 @@ const renderLineChart = (
       out.push(`<path d="${dPath} ${back} Z" fill="${color}" stroke="none"/>`);
     }
   }
-  for (const { s, series, color, ptsRaw, pts, dPath } of perSeries) {
+  for (const { s, series, color, ptsRaw, pts, dPath } of paintOrder) {
     // Authored line width / dash on the series (<c:ser><c:spPr><a:ln>).
     const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
     const dashAttr = series.lineDash

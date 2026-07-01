@@ -16,7 +16,11 @@ decks:
   piling all remaining text into the final column forever.
 - **`u="wavy"`** (and `wavyDbl`/`wavyHeavy`) now renders as an actual wavy
   underline in the SVG/raster path (drawn as an explicit path — resvg has no
-  `text-decoration-style` support) and as real CSS in the browser path.
+  `text-decoration-style` support, and the path now scales correctly for a
+  superscript/subscript run) and as real CSS in the browser path (without
+  also waving a strikethrough on the same run — CSS's `text-decoration-style`
+  is a single value for the whole underline + line-through shorthand, and
+  PowerPoint always draws strikethrough solid regardless of underline style).
 - **Rotated + vertically-flipped shape text** no longer renders upside-down;
   PowerPoint adds a compensating 180° turn to the text specifically for
   `flip.vertical`, independent of `flip.horizontal`. (A shape nested inside a
@@ -30,9 +34,10 @@ decks:
 - **Pie/doughnut data labels** now join as `<category> — <value/percent>`
   (e.g. "Web — 48%"), matching PowerPoint/LibreOffice's order instead of the
   reverse.
-- **Overlapping (non-stacked) area charts** now paint series back-to-front so
-  the first-authored series stays on top, matching PowerPoint; the
-  category-axis title no longer collides with the tick-label row.
+- **Overlapping (non-stacked) area charts** now paint each series' fill AND
+  outline back-to-front as one unit, so the first-authored series stays fully
+  on top, matching PowerPoint; the category-axis title no longer collides
+  with the tick-label row.
 - **Table row/column banding** now uses a pale tint (not a near-solid accent
   color), alternates between two tints across every body row (previously every
   other row was left unshaded), and starts the alternation at the first body

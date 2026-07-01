@@ -247,6 +247,42 @@ describe('renderSlideToSvg', () => {
     expect(countTags(svg, 'rect')).toBeGreaterThanOrEqual(7);
   });
 
+  it('overlapping (non-stacked) area chart: first-authored series paints on top, fill AND stroke', async () => {
+    // PowerPoint/LibreOffice always keep the first-authored series in front
+    // for an overlapping area chart, so a taller front series fully occludes
+    // a shorter one behind it — both its fill AND its outline stroke, since
+    // each series paints as one atomic unit back-to-front.
+    const { pres, slide } = await blankSlide();
+    addSlideChart(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'area',
+        categories: ['A', 'B', 'C'],
+        series: [
+          { name: 'Organic', values: [10, 12, 11], color: '#2E75B6' },
+          { name: 'Paid', values: [4, 5, 4], color: '#C00000' },
+        ],
+      },
+    });
+    const svg = renderSlideToSvg(pres, slide);
+    const paintOrder = [
+      ...svg.matchAll(
+        /<path d="M[^"]*" fill="(#\w+)" stroke="none"\/>|<path d="M[^"]*" fill="none" stroke="(#\w+)"/g,
+      ),
+    ].map((m) => (m[1] ? `fill:${m[1]}` : `stroke:${m[2]}`));
+    // Later elements paint on top in SVG. Both the fill and the stroke of the
+    // first-authored series (#2E75B6) must be last (topmost) in each pair.
+    expect(paintOrder).toEqual([
+      'fill:#C00000',
+      'fill:#2E75B6',
+      'stroke:#C00000',
+      'stroke:#2E75B6',
+    ]);
+  });
+
   it('bar chart: renders plot geometry and carries no data-pptx-fallback', async () => {
     const { pres, slide } = await blankSlide();
     addSlideChart(slide, {
