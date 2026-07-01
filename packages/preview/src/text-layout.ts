@@ -136,7 +136,10 @@ export interface PieceInput {
   readonly italic: boolean;
   readonly letterSpacingPx: number;
   readonly fillHex: string;
-  readonly underline: boolean;
+  /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
+   *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
+   *  support, so the engine draws it as an explicit path (see `wavyPath`). */
+  readonly underline: 'none' | 'single' | 'wavy';
   readonly strike: boolean;
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   readonly href: string | null;
@@ -521,23 +524,36 @@ const placeColumns = (
   const colW = Math.max(1, (frame.w - (columns.count - 1) * gap) / columns.count);
   const { lines } = buildLines(frame.x, frame.x + colW);
   // Sequential fill, matching PowerPoint (not CSS column-fill:balance): fill
-  // column 1 down to the box height, then overflow into column 2, and so on. A
-  // column only breaks once it already holds a line, so a single over-tall line
-  // can't loop. With few lines everything stays in column 1.
+  // column 1 down to the box height, then column 2, and so on; once every
+  // column in a row is full (autofit "none" doesn't stop the text, it just
+  // stops growing the box), start a new row of columns directly below it,
+  // like a second copy of the box stacked underneath the first — exactly what
+  // `21-showcase`/`23-columns`'s ground truth shows. A column only breaks
+  // once it already holds a line, so a single over-tall line can't loop.
   let col = 0;
   let colStartTopY = 0;
-  const colHasLine: boolean[] = [];
+  let rowTopY = 0;
+  let curColHasLine = false;
   let tallest = 0;
   const placed: { line: Line; localTopY: number; col: number }[] = [];
   for (const line of lines) {
-    const localBottom = line.topY - colStartTopY + line.advance;
-    if (col < columns.count - 1 && localBottom > frame.h && colHasLine[col]) {
-      col += 1;
+    // Break on the line's actual ink (ascent+descent), not its full advance —
+    // the trailing half-leading below the last line doesn't visually overflow
+    // the box, and PowerPoint/LibreOffice let that last line's ink sit in it.
+    const localInkBottom = line.topY - colStartTopY + line.ascent + line.descent;
+    if (localInkBottom > frame.h && curColHasLine) {
+      if (col + 1 < columns.count) {
+        col += 1;
+      } else {
+        col = 0;
+        rowTopY += frame.h;
+      }
       colStartTopY = line.topY;
+      curColHasLine = false;
     }
-    const localTopY = line.topY - colStartTopY;
+    const localTopY = rowTopY + (line.topY - colStartTopY);
     placed.push({ line, localTopY, col });
-    colHasLine[col] = true;
+    curColHasLine = true;
     if (localTopY + line.advance > tallest) tallest = localTopY + line.advance;
   }
   // Vertical anchor applies to the whole body via its tallest column block —
@@ -604,16 +620,18 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   }
   const content = toks.filter((t) => !t.isBreak);
   if (content.length === 0) return '';
-  const tspans = groupTokens(content)
-    .map((g) => tspan(g))
-    .join('');
+  const groups = groupTokens(content);
+  const tspans = groups.map((g) => tspan(g)).join('');
   if (tspans === '') return '';
-  return `<text x="${fmt(line.anchorX + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  const x0 = line.anchorX + dx + GRID_NUDGE_X;
+  const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  return text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
 };
 
 interface Group {
   text: string;
   piece: PieceInput;
+  width: number;
 }
 
 const groupTokens = (toks: Token[]): Group[] => {
@@ -621,10 +639,60 @@ const groupTokens = (toks: Token[]): Group[] => {
   for (const t of toks) {
     if (t.isBreak) continue;
     const last = groups[groups.length - 1];
-    if (last && samePiece(last.piece, t.piece)) last.text += t.text;
-    else groups.push({ text: t.text, piece: t.piece });
+    if (last && samePiece(last.piece, t.piece)) {
+      last.text += t.text;
+      last.width += t.width;
+    } else {
+      groups.push({ text: t.text, piece: t.piece, width: t.width });
+    }
   }
   return groups;
+};
+
+// resvg has no `text-decoration-style: wavy` support (nor does core SVG
+// define one), so a wavy underline is drawn as an explicit path under its
+// run(s) instead of relying on `tspan`'s CSS decoration. `x0` is the same
+// anchor point the caller's `<text>` element uses; since SVG resolves
+// text-anchor by centering/right-aligning the whole flowed text around it,
+// each group's actual start is `x0` shifted by the anchor's fraction of the
+// total width, then offset by the widths of the groups before it.
+const emitWavyUnderlines = (
+  groups: readonly Group[],
+  textAnchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+): string => {
+  if (!groups.some((g) => g.piece.underline === 'wavy')) return '';
+  const totalWidth = groups.reduce((sum, g) => sum + g.width, 0);
+  const lineStartX =
+    textAnchor === 'middle' ? x0 - totalWidth / 2 : textAnchor === 'end' ? x0 - totalWidth : x0;
+  let cursor = lineStartX;
+  const parts: string[] = [];
+  for (const g of groups) {
+    if (g.piece.underline === 'wavy' && g.width > 0) {
+      parts.push(wavyPath(cursor, cursor + g.width, baselineY, g.piece));
+    }
+    cursor += g.width;
+  }
+  return parts.join('');
+};
+
+const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput): string => {
+  const size = piece.sizePx;
+  const amp = Math.max(0.6, size * 0.045);
+  const period = Math.max(2, size * 0.18);
+  const y = baselineY + size * 0.12;
+  let d = `M${fmt(x1)} ${fmt(y)}`;
+  let cx = x1;
+  let up = true;
+  while (cx < x2 - 0.01) {
+    const half = Math.min(period / 2, x2 - cx);
+    const midX = cx + half;
+    d += ` Q${fmt(cx + half / 2)} ${fmt(y + (up ? -amp : amp))} ${fmt(midX)} ${fmt(y)}`;
+    cx = midX;
+    up = !up;
+  }
+  return `<path d="${d}" stroke="${piece.fillHex}" stroke-width="${fmt(Math.max(0.6, size * 0.06))}" fill="none"/>`;
 };
 
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
@@ -650,7 +718,9 @@ const tspan = (g: Group): string => {
   if (p.bold) attrs.push('font-weight="700"');
   if (p.italic) attrs.push('font-style="italic"');
   const deco: string[] = [];
-  if (p.underline) deco.push('underline');
+  // 'wavy' is drawn as an explicit path by emitWavyUnderlines — resvg has no
+  // text-decoration-style support to lean on here.
+  if (p.underline === 'single') deco.push('underline');
   if (p.strike) deco.push('line-through');
   if (deco.length) attrs.push(`text-decoration="${deco.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);

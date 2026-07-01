@@ -74,7 +74,7 @@ const piece = (text: string, over: Partial<PieceInput> = {}): PieceInput => ({
   italic: false,
   letterSpacingPx: 0,
   fillHex: '#000000',
-  underline: false,
+  underline: 'none',
   strike: false,
   superSub: 0,
   href: null,
@@ -154,13 +154,25 @@ describe('layoutTextSvg', () => {
 
   it('emits run styling as tspan attributes', () => {
     const svg = layoutTextSvg(
-      body([para([piece('B', { bold: true, italic: true, underline: true, fillHex: '#FF0000' })])]),
+      body([
+        para([piece('B', { bold: true, italic: true, underline: 'single', fillHex: '#FF0000' })]),
+      ]),
       stubMeasurer,
     );
     expect(svg).toContain('font-weight="700"');
     expect(svg).toContain('font-style="italic"');
     expect(svg).toContain('text-decoration="underline"');
     expect(svg).toContain('fill="#FF0000"');
+  });
+
+  it('draws wavy underline as a path, not text-decoration (resvg has no text-decoration-style)', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('wavy', { underline: 'wavy', fillHex: '#0000FF' })])]),
+      stubMeasurer,
+    );
+    expect(svg).not.toContain('text-decoration');
+    expect(svg).toContain('<path');
+    expect(svg).toContain('stroke="#0000FF"');
   });
 
   it('renders a bullet glyph ahead of the first line', () => {

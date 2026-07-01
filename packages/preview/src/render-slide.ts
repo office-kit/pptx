@@ -582,11 +582,45 @@ const gradientDef = (
 };
 
 // SVG `<pattern>` definitions for the ECMA-376 ST_PresetPatternVal
-// presets (§20.1.10.49). All tiles are 8×8 px and use the foreground
-// color for the pattern strokes / dots, background for the negative
-// space. The `pct*` family modulates the dot density to approximate
-// the requested coverage percentage. Unknown presets fall through to
-// pct50 (50% coverage).
+// presets (§20.1.10.49), tuned against LibreOffice's own substitution for
+// these fills (not GDI's original hatch-brush metrics — LibreOffice draws
+// none of them as literal bitmaps). Two calibrated base pitches (SVG
+// user-space px at 96 DPI) cover the whole family: orthogonal
+// (horizontal/vertical) hatches read far finer than diagonal ones at the
+// same nominal weight, and "lg"-prefixed grids use a materially larger
+// cell than "sm"/plain ones. Unknown presets fall through to a 50%-style
+// diagonal crosshatch.
+const ORTHO_TILE = 4;
+const ORTHO_WIDE_TILE = 16;
+const DIAG_TILE = 16;
+const MOTIF_TILE = 8; // wave / weave / sphere / diamond motifs are sized to an 8-unit cell
+const PATTERN_TILE_SIZE: Record<string, number> = {
+  horz: ORTHO_TILE,
+  ltHorz: ORTHO_TILE,
+  narHorz: ORTHO_TILE,
+  dashHorz: ORTHO_TILE,
+  horzBrick: ORTHO_TILE,
+  dkHorz: ORTHO_TILE,
+  vert: ORTHO_TILE,
+  ltVert: ORTHO_TILE,
+  narVert: ORTHO_TILE,
+  dashVert: ORTHO_TILE,
+  dkVert: ORTHO_TILE,
+  ltHorzCross: ORTHO_TILE,
+  cross: ORTHO_TILE,
+  dotGrid: ORTHO_TILE,
+  smGrid: ORTHO_TILE,
+  dkHorzCross: ORTHO_WIDE_TILE,
+  lgGrid: ORTHO_WIDE_TILE,
+  plaid: ORTHO_WIDE_TILE,
+  wave: MOTIF_TILE,
+  zigZag: MOTIF_TILE,
+  weave: MOTIF_TILE,
+  divot: MOTIF_TILE,
+  sphere: MOTIF_TILE,
+  solidDmnd: MOTIF_TILE,
+  openDmnd: MOTIF_TILE,
+};
 const patternDef = (pat: {
   preset: string;
   foreground: string;
@@ -597,8 +631,18 @@ const patternDef = (pat: {
   const bg = pat.background;
   const preset = pat.preset;
   let body = '';
-  const W = 8;
-  const H = 8;
+  // pct{N} — LibreOffice substitutes a diagonal hatch for these (not a literal
+  // N%-coverage bitmap): a sparse single-direction hatch below ~30% density, a full
+  // crosshatch at and above it, with the pitch shrinking as density rises.
+  const pctMatch = /^pct(\d+)$/.exec(preset);
+  const pctDensity = pctMatch
+    ? Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10))) / 100
+    : null;
+  const W =
+    pctDensity !== null
+      ? Math.max(6, DIAG_TILE * 2 * Math.sqrt(0.05 / Math.max(pctDensity, 0.05)))
+      : (PATTERN_TILE_SIZE[preset] ?? DIAG_TILE);
+  const H = W;
   const stripe = (orientation: 'h' | 'v' | 'd' | 'a', width = 1): string => {
     if (orientation === 'h')
       return `<path d="M0 ${H / 2}H${W}" stroke="${fg}" stroke-width="${width}"/>`;
@@ -608,28 +652,8 @@ const patternDef = (pat: {
       return `<path d="M0 0L${W} ${H}" stroke="${fg}" stroke-width="${width}"/>`;
     return `<path d="M${W} 0L0 ${H}" stroke="${fg}" stroke-width="${width}"/>`;
   };
-  // pct{N} presets are ordered-dither *screens*: ~N% of the tile is the
-  // foreground color, the rest background, blending to an N%-toned fill (a
-  // sparse dot grid reads far lighter than PowerPoint's pct50). A 4×4 Bayer
-  // matrix over 2×2-px cells reproduces the coverage and the dispersed look.
-  const BAYER4 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-  const screen = (density: number): string => {
-    const threshold = density * 16;
-    const out: string[] = [];
-    for (let i = 0; i < 16; i++) {
-      if (BAYER4[i]! < threshold) {
-        const cx = (i % 4) * 2;
-        const cy = Math.floor(i / 4) * 2;
-        out.push(`<rect x="${cx}" y="${cy}" width="2" height="2" fill="${fg}"/>`);
-      }
-    }
-    return out.join('');
-  };
-  // pct{N} — N% coverage.
-  const pctMatch = /^pct(\d+)$/.exec(preset);
-  if (pctMatch) {
-    const pct = Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10)));
-    body = screen(pct / 100);
+  if (pctDensity !== null) {
+    body = pctDensity >= 0.3 ? stripe('d', 0.8) + stripe('a', 0.8) : stripe('d', 0.8);
   } else if (
     preset === 'horz' ||
     preset === 'ltHorz' ||
@@ -690,7 +714,8 @@ const patternDef = (pat: {
   } else if (preset === 'solidDmnd' || preset === 'openDmnd') {
     body = `<path d="M4 1L7 4 4 7 1 4Z" fill="${preset === 'solidDmnd' ? fg : 'none'}" stroke="${fg}" stroke-width="0.6"/>`;
   } else {
-    body = screen(0.5);
+    // Unrecognized preset — fall back to a pct50-style diagonal crosshatch.
+    body = stripe('d', 0.8) + stripe('a', 0.8);
   }
   const defs = `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${bg}"/>${body}</pattern></defs>`;
   return { defs, fillAttr: `url(#${id})` };
@@ -2055,10 +2080,16 @@ const renderRun = (
   const strike = format?.strike;
   const hasUnderline = underline !== undefined && underline !== false && underline !== 'none';
   const hasStrike = strike !== undefined && strike !== false && strike !== 'noStrike';
+  // Unlike the SVG path (no text-decoration-style support in resvg), real
+  // browsers render `text-decoration-style:wavy` fine, so the foreignObject
+  // path can use CSS directly instead of a hand-drawn path.
+  const isWavyUnderline = typeof underline === 'string' && underline.startsWith('wavy');
   if (hasUnderline && hasStrike) {
     styles.push('text-decoration:underline line-through');
+    if (isWavyUnderline) styles.push('text-decoration-style:wavy');
   } else if (hasUnderline) {
     styles.push('text-decoration:underline');
+    if (isWavyUnderline) styles.push('text-decoration-style:wavy');
   } else if (hasStrike) {
     styles.push('text-decoration:line-through');
   }
@@ -2134,9 +2165,16 @@ interface ParaData {
   readonly indent: ReturnType<typeof getParagraphIndent>;
 }
 
-const hasUnderlineFmt = (fmt: TextFormat | null): boolean => {
+// Collapses every ST_TextUnderlineType token onto the 3 styles the SVG text
+// engine actually distinguishes (see PieceInput.underline): the wavy family
+// (wavy/wavyDbl/wavyHeavy) needs a hand-drawn path since SVG has no
+// text-decoration-style, so it can't share a bucket with plain/dashed/dotted
+// styles, which all render fine as a single line.
+const underlineStyleOf = (fmt: TextFormat | null): 'none' | 'single' | 'wavy' => {
   const u = fmt?.underline;
-  return u !== undefined && u !== false && u !== 'none';
+  if (u === undefined || u === false || u === 'none') return 'none';
+  if (typeof u === 'string' && u.startsWith('wavy')) return 'wavy';
+  return 'single';
 };
 const hasStrikeFmt = (fmt: TextFormat | null): boolean => {
   const s = fmt?.strike;
@@ -2239,7 +2277,7 @@ const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         italic: fmt?.italic ?? false,
         letterSpacingPx,
         fillHex,
-        underline: hasUnderlineFmt(fmt),
+        underline: underlineStyleOf(fmt),
         strike: hasStrikeFmt(fmt),
         superSub,
         href: run.href ?? null,
@@ -2329,7 +2367,7 @@ const breakPiece = (): PieceInput => ({
   italic: false,
   letterSpacingPx: 0,
   fillHex: '#000000',
-  underline: false,
+  underline: 'none',
   strike: false,
   superSub: 0,
   href: null,
@@ -4292,6 +4330,16 @@ const renderLineChart = (
   // Track cumulative values per category for stacked rendering. Each
   // series's projected y is the cumulative sum's y.
   const accumulated: number[] = Array.from({ length: N }, () => 0);
+  interface SeriesGeometry {
+    readonly s: number;
+    readonly series: (typeof spec.series)[number];
+    readonly color: string;
+    readonly ptsRaw: ReadonlyArray<[number, number] | null>;
+    readonly pts: ReadonlyArray<[number, number]>;
+    readonly basePts: ReadonlyArray<[number, number]>;
+    readonly dPath: string;
+  }
+  const perSeries: SeriesGeometry[] = [];
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
     if (!series) continue;
@@ -4363,7 +4411,17 @@ const renderLineChart = (
             }
             return path.trim();
           })();
-    if (fill) {
+    perSeries.push({ s, series, color, ptsRaw, pts, basePts, dPath });
+  }
+  if (fill) {
+    // Area fills are opaque in PowerPoint (the authored solidFill at full
+    // alpha). Overlapping (non-stacked) areas paint back-to-front so the
+    // FIRST authored series ends up on top and fully occludes a shorter
+    // series behind it, exactly as PowerPoint/LibreOffice render them.
+    // Stacked areas are disjoint cumulative bands — they never overlap, so
+    // authored order is fine (and is what the accumulation math assumes).
+    const fillOrder = isStacked ? perSeries : perSeries.slice().reverse();
+    for (const { color, basePts, dPath } of fillOrder) {
       // Walk back along the baseline (or the previous series's top for
       // stacked) to close the area.
       const back = basePts
@@ -4371,11 +4429,10 @@ const renderLineChart = (
         .reverse()
         .map(([xp, yp]) => `L${px(xp)},${px(yp)}`)
         .join(' ');
-      // Area fills are opaque in PowerPoint (the authored solidFill at full
-      // alpha); series paint back-to-front so a taller front series occludes
-      // the one behind, exactly as PowerPoint does.
       out.push(`<path d="${dPath} ${back} Z" fill="${color}" stroke="none"/>`);
     }
+  }
+  for (const { s, series, color, ptsRaw, pts, dPath } of perSeries) {
     // Authored line width / dash on the series (<c:ser><c:spPr><a:ln>).
     const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
     const dashAttr = series.lineDash
@@ -4581,13 +4638,15 @@ const renderPieChart = (
     }
     const labelX = sx + labelR * Math.cos(labelMid);
     const labelY = sy + labelR * Math.sin(labelMid);
+    // PowerPoint/LibreOffice order a pie/doughnut label as category, then
+    // value, then percent (e.g. "Web — 48%"), not the reverse.
     const labels: string[] = [];
-    if (spec.dataLabels?.showValue) labels.push(formatDataLabelValue(spec, 0, v));
-    if (spec.dataLabels?.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
     if (spec.dataLabels?.showCategory) {
       const catLabel = spec.categories[i];
       if (catLabel) labels.push(catLabel);
     }
+    if (spec.dataLabels?.showValue) labels.push(formatDataLabelValue(spec, 0, v));
+    if (spec.dataLabels?.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
     if (labels.length > 0) {
       out.push(
         `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" ${dataLabelTextAttrs(spec, 0, labelFill, 10, true)}>${escapeXml(labels.join(spec.series[0]?.dataLabels?.separator ?? spec.dataLabels?.separator ?? ' '))}</text>`,
@@ -5070,7 +5129,11 @@ const renderChart = (
     : '';
   const catTitleRot = spec.categoryAxisTitleRotationDeg ?? 0;
   const catTitleCx = f.plotX + f.plotW / 2;
-  const catTitleCy = f.plotY + f.plotH + 16;
+  // The tick-label row's baseline sits at plotY + plotH + 12 (renderCategoryAxis);
+  // its own ascent/descent plus the title's ascent need clearance below that so
+  // the two text rows don't collide, hence +28 here rather than the tick row's
+  // near-identical +16.
+  const catTitleCy = f.plotY + f.plotH + 28;
   const catTitleTransform =
     catTitleRot !== 0
       ? ` transform="rotate(${catTitleRot} ${px(catTitleCx)} ${px(catTitleCy)})"`
@@ -5291,7 +5354,12 @@ const renderTable = (
   const flags = getTableStyleFlags(shape);
   const accent = theme ? normalizeHex(theme.accent1) : '#4472C4';
   const headerFill = accent;
-  const bandFill = mixHex(accent, '#FFFFFF', 0.92);
+  // Pale tints for banded rows/cols/first-col/last-col — `t` is the accent's
+  // weight, so a *light* tint needs a *low* t (mostly white). PowerPoint/
+  // LibreOffice's built-in styles alternate TWO tints across body rows (no
+  // row is left unshaded), not one tint vs. no fill.
+  const bandFill = mixHex(accent, '#FFFFFF', 0.12);
+  const bandFill2 = mixHex(accent, '#FFFFFF', 0.27);
   // Fallback for cells with no authored color — the deck's body-text color
   // (an inverted map would paint the `tx1` token white-on-white).
   const textColor = activeDeckTextColor;
@@ -5333,10 +5401,15 @@ const renderTable = (
         resolvedFill = bandFill;
       } else if (flags.lastCol && c === dims.cols - 1) {
         resolvedFill = bandFill;
-      } else if (flags.bandRow && r % 2 === (flags.firstRow ? 0 : 1)) {
-        resolvedFill = bandFill;
-      } else if (flags.bandCol && c % 2 === (flags.firstCol ? 0 : 1)) {
-        resolvedFill = bandFill;
+      } else if (flags.bandRow) {
+        // Alternation starts at the first body row (right after a header),
+        // not at the raw grid row index — otherwise a firstRow table shifts
+        // the whole band pattern by one row.
+        const bandIndex = r - (flags.firstRow ? 1 : 0);
+        resolvedFill = bandIndex % 2 === 0 ? bandFill : bandFill2;
+      } else if (flags.bandCol) {
+        const bandIndex = c - (flags.firstCol ? 1 : 0);
+        resolvedFill = bandIndex % 2 === 0 ? bandFill : bandFill2;
       } else {
         resolvedFill = 'none';
       }
@@ -5639,9 +5712,17 @@ const renderShape = (
   if (flip.vertical) transforms.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
   const transform = transforms.length > 0 ? ` transform="${transforms.join(' ')}"` : '';
   // Text follows the shape's ROTATION but not its flips — PowerPoint mirrors a
-  // shape's geometry on flip while keeping its text upright and readable. So
-  // the text overlay gets a rotation-only transform.
-  const textTransform = rotation !== 0 ? ` transform="rotate(${rotation} ${E(cx)} ${E(cy)})"` : '';
+  // shape's geometry on flip while keeping its text upright and readable.
+  // flip.vertical alone (or combined with flip.horizontal) still needs an
+  // extra half-turn to keep the label right-reading-up, though: flipping a
+  // shape top-to-bottom turns its (unflipped) text upside down, so PowerPoint
+  // adds 180° to the text's rotation specifically for a vertical flip.
+  // flip.horizontal never needs this — mirroring left-right keeps reading
+  // direction (and text-upright-ness) unchanged. Verified against real
+  // LibreOffice output across rotation × {none, flipH, flipV, both}.
+  const textRotation = (flip.vertical ? rotation + 180 : rotation) % 360;
+  const textTransform =
+    textRotation !== 0 ? ` transform="rotate(${textRotation} ${E(cx)} ${E(cy)})"` : '';
 
   const textOverlay =
     kind === 'shape' || kind === 'graphicFrame'

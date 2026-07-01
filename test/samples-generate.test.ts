@@ -32,6 +32,7 @@ import {
   findSlideLayoutByType,
   findSlidePlaceholder,
   getSlides,
+  getTableCell,
   groupShapes,
   inches,
   loadPresentation,
@@ -72,6 +73,7 @@ import {
   setSlideNotes,
   setSlideTitle,
   setSlideTransition,
+  setTableCellTextFormat,
   type Emu,
   type SlideData,
 } from '../src/api/index.ts';
@@ -2107,5 +2109,469 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
 
     const bytes = await savePresentation(pres);
     await writeSample('36-consulting-deck.pptx', bytes);
+  });
+
+  // ---------------------------------------------------------------------
+  // Practical, multi-feature decks. Where the 01–35 catalog isolates one
+  // feature per file, these combine many at once the way a real deck does —
+  // text-on-shape and shape-geometry bugs tend to hide in that combination,
+  // not in any single feature alone.
+
+  it('37 — quarterly business review (KPI cards, combo layout, banded table)', async () => {
+    const pres = await loadBlank();
+
+    // Slide 1: title + 4 KPI cards (autoshape text centering under real
+    // multi-run formatting) + a clustered column chart with data labels.
+    const s1 = freshSlide(pres);
+    setSlideTitle(s1, 'Q3 FY26 Business Review');
+    setSlideNotes(
+      s1,
+      'Walk through the KPI cards first, then the regional revenue chart. Flag the APAC dip before Q&A.',
+    );
+
+    const kpis: { label: string; value: string; color: string }[] = [
+      { label: 'Revenue', value: '$4.8M', color: '#2E75B6' },
+      { label: 'New logos', value: '126', color: '#548235' },
+      { label: 'Churn', value: '2.1%', color: '#C00000' },
+      { label: 'NPS', value: '61', color: '#7030A0' },
+    ];
+    const cardW = inches(2.1);
+    const cardGap = inches(0.25);
+    kpis.forEach((kpi, i) => {
+      const x = (inches(0.6) + i * (cardW + cardGap)) as ReturnType<typeof inches>;
+      const card = addSlideShape(s1, {
+        preset: 'roundRect',
+        x,
+        y: inches(1.5),
+        w: cardW,
+        h: inches(1.3),
+        text: `${kpi.value}\n${kpi.label}`,
+      });
+      setShapeFill(card, kpi.color);
+      setShapeRunFormat(card, 0, 0, { size: 26, bold: true, color: '#FFFFFF' });
+      setShapeRunFormat(card, 1, 0, { size: 12, color: '#FFFFFF' });
+      setShapeShadow(card, { blurEmu: pt(4), offsetEmu: pt(2), angleDeg: 45, opacity: 0.35 });
+    });
+
+    addSlideChart(s1, {
+      x: inches(0.6),
+      y: inches(3.1),
+      w: inches(9),
+      h: inches(3.6),
+      spec: {
+        kind: 'column',
+        categories: ['NA', 'EMEA', 'APAC', 'LATAM'],
+        series: [
+          { name: 'Q2', values: [1.9, 1.4, 1.1, 0.5], color: '#9DC3E6' },
+          { name: 'Q3', values: [2.1, 1.6, 0.9, 0.6], color: '#2E75B6' },
+        ],
+        title: 'Revenue by region ($M)',
+        legend: { position: 'b' },
+        dataLabels: {
+          showValue: true,
+          showCategory: false,
+          showSeriesName: false,
+          showPercent: false,
+        },
+      },
+    });
+
+    // Slide 2: two-column highlights + a banded regional detail table.
+    const s2 = freshSlide(pres);
+    setSlideTitle(s2, 'Regional highlights');
+    const highlights = addSlideTextBox(s2, {
+      x: inches(0.6),
+      y: inches(1.5),
+      w: inches(9),
+      h: inches(2.1),
+      text: [
+        'NA renewed its two largest accounts a full quarter early.',
+        'EMEA closed the Berlin expansion deal, adding 40 new logos.',
+        'APAC revenue dipped on FX headwinds, not demand — bookings are up 8% in local currency.',
+        'LATAM is on track for its first profitable quarter since launch.',
+      ].join('\n'),
+    });
+    setShapeBullets(highlights, 'bullet');
+    setShapeTextColumns(highlights, { count: 2, gapEmu: pt(18) });
+
+    const detail = addSlideTable(s2, {
+      x: inches(0.6),
+      y: inches(3.8),
+      w: inches(9),
+      h: inches(2.6),
+      rows: [
+        ['Region', 'Revenue', 'YoY', 'Renewal rate'],
+        ['NA', '$2.1M', '+10.5%', '96%'],
+        ['EMEA', '$1.6M', '+14.3%', '91%'],
+        ['APAC', '$0.9M', '-18.2%', '88%'],
+        ['LATAM', '$0.6M', '+20.0%', '84%'],
+      ],
+      firstRow: true,
+      bandRow: true,
+    });
+    setTableCellTextFormat(getTableCell(detail, 3, 2), { color: '#C00000', bold: true });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('37-quarterly-business-review.pptx', bytes);
+  });
+
+  it('38 — product roadmap timeline (rotated/flipped milestones + connectors)', async () => {
+    const pres = await loadBlank();
+    const slide = freshSlide(pres);
+    setSlideTitle(slide, '2026 Product Roadmap');
+
+    // The timeline spine, drawn first so the milestone shapes sit on top.
+    const spine = addSlideLine(slide, {
+      from: { x: inches(0.8), y: inches(2.3) },
+      to: { x: inches(9.2), y: inches(2.3) },
+    });
+    setShapeStroke(spine, { color: '#9CA3AF', widthEmu: pt(2) });
+    setShapeStrokeArrow(spine, 'tail', { type: 'triangle' });
+
+    // Four quarterly milestones as chevron markers, two mirrored left-right
+    // (flipH keeps text right-reading-up — unlike flipV, which PowerPoint
+    // renders upside-down by design; see 27-rotation-flip.pptx for that case)
+    // and two rotated, for a hand-arranged rather than perfectly gridded look.
+    const quarters: {
+      label: string;
+      rotation: number;
+      flip?: { horizontal?: boolean; vertical?: boolean };
+      color: string;
+    }[] = [
+      { label: 'Q1 — Foundation', rotation: 0, color: '#2E75B6' },
+      { label: 'Q2 — Collab', rotation: 0, flip: { horizontal: true }, color: '#548235' },
+      { label: 'Q3 — Scale', rotation: 15, color: '#7030A0' },
+      { label: 'Q4 — Polish', rotation: -15, flip: { horizontal: true }, color: '#C00000' },
+    ];
+    quarters.forEach((q, i) => {
+      const cxIn = 1.6 + i * 2.2;
+      const cx = inches(cxIn);
+      const marker = addSlideShape(slide, {
+        preset: 'chevron',
+        x: cx,
+        y: inches(1.8),
+        w: inches(1.6),
+        h: inches(1),
+        text: q.label,
+      });
+      setShapeFill(marker, q.color);
+      setShapeRotation(marker, q.rotation);
+      if (q.flip) setShapeFlip(marker, q.flip);
+      setShapeRunFormat(marker, 0, 0, { color: '#FFFFFF', bold: true, size: 12 });
+
+      // Phase detail: a short nested bullet list under each milestone.
+      const detail = addSlideTextBox(slide, {
+        x: inches(cxIn - 0.1),
+        y: inches(3.2),
+        w: inches(1.9),
+        h: inches(2.8),
+        text: ['Key deliverable', 'Workstream A', 'Workstream B'].join('\n'),
+      });
+      setShapeBullets(detail, 'bullet');
+      setParagraphLevel(detail, 0, 0);
+      setShapeRunFormat(detail, 0, 0, { bold: true, size: 12 });
+      setParagraphLevel(detail, 1, 1);
+      setParagraphBullet(detail, 1, { char: '◦' });
+      setShapeRunFormat(detail, 1, 0, { size: 11 });
+      setParagraphLevel(detail, 2, 1);
+      setParagraphBullet(detail, 2, { char: '◦' });
+      setShapeRunFormat(detail, 2, 0, { size: 11 });
+    });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('38-roadmap-timeline.pptx', bytes);
+  });
+
+  it('39 — process flow diagram (flowchart shapes, patterns, callout)', async () => {
+    const pres = await loadBlank();
+    const slide = freshSlide(pres);
+    setSlideTitle(slide, 'Incident response flow');
+
+    const start = addSlideShape(slide, {
+      preset: 'roundRect',
+      x: inches(0.6),
+      y: inches(1.6),
+      w: inches(1.8),
+      h: inches(0.8),
+      text: 'Alert fires',
+    });
+    setShapeFill(start, '#548235');
+    setShapeRunFormat(start, 0, 0, { color: '#FFFFFF', bold: true });
+
+    const decision = addSlideShape(slide, {
+      preset: 'diamond',
+      x: inches(3.1),
+      y: inches(1.3),
+      w: inches(2.2),
+      h: inches(1.4),
+      text: 'Is it a P1?',
+    });
+    setShapeFill(decision, '#FFD966');
+
+    // "Yes" branch: escalate immediately (mirrored box — flipH keeps the
+    // rendered geometry symmetric but must not affect the (unflipped) text).
+    const escalate = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(6.2),
+      y: inches(1.4),
+      w: inches(2.6),
+      h: inches(0.9),
+      text: 'Page on-call + open bridge',
+    });
+    setShapeFill(escalate, '#C00000');
+    setShapeFlip(escalate, { horizontal: true });
+    setShapeRunFormat(escalate, 0, 0, { color: '#FFFFFF', bold: true });
+
+    // "No" branch: queue for the next triage pass. Pattern-filled to signal
+    // "waiting", per the deck's legend callout below.
+    const queue = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(6.2),
+      y: inches(2.7),
+      w: inches(2.6),
+      h: inches(0.9),
+      text: 'Queue for triage',
+    });
+    setShapePatternFill(queue, {
+      preset: 'ltUpDiag',
+      foreground: '#6B7280',
+      background: '#FFFFFF',
+    });
+
+    const resolved = addSlideShape(slide, {
+      preset: 'roundRect',
+      x: inches(3.5),
+      y: inches(4.4),
+      w: inches(1.8),
+      h: inches(0.8),
+      text: 'Postmortem',
+    });
+    setShapeFill(resolved, '#2E75B6');
+    setShapeRunFormat(resolved, 0, 0, { color: '#FFFFFF', bold: true });
+
+    const connect = (
+      from: { x: ReturnType<typeof inches>; y: ReturnType<typeof inches> },
+      to: { x: ReturnType<typeof inches>; y: ReturnType<typeof inches> },
+    ) => {
+      const line = addSlideLine(slide, { from, to });
+      setShapeStroke(line, { color: '#374151', widthEmu: pt(1.5) });
+      setShapeStrokeArrow(line, 'tail', { type: 'triangle' });
+      return line;
+    };
+    connect({ x: inches(2.4), y: inches(2) }, { x: inches(3.1), y: inches(2) });
+    connect({ x: inches(5.0), y: inches(1.7) }, { x: inches(6.2), y: inches(1.85) });
+    connect({ x: inches(5.0), y: inches(2.3) }, { x: inches(6.2), y: inches(3.15) });
+    connect({ x: inches(7.5), y: inches(2.3) }, { x: inches(4.4), y: inches(4.4) });
+    connect({ x: inches(7.5), y: inches(3.6) }, { x: inches(4.4), y: inches(4.7) });
+
+    const legend = addSlideShape(slide, {
+      preset: 'wedgeRectCallout',
+      x: inches(0.6),
+      y: inches(5.4),
+      w: inches(3.4),
+      h: inches(1.5),
+      text: 'Hatched boxes are waiting on a human; solid boxes are automated.',
+    });
+    setShapeFill(legend, '#F3F4F6');
+    setShapeStroke(legend, { color: '#9CA3AF', widthEmu: pt(1) });
+    setShapeRunFormat(legend, 0, 0, { italic: true, size: 11, color: '#374151' });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('39-process-flow.pptx', bytes);
+  });
+
+  it('40 — financial report (stacked chart, doughnut + table, hyperlink, footnote)', async () => {
+    const pres = await loadBlank();
+
+    // Slide 1: stacked revenue-by-segment column chart.
+    const s1 = freshSlide(pres);
+    setSlideTitle(s1, 'FY26 revenue by segment');
+    addSlideChart(s1, {
+      x: inches(0.7),
+      y: inches(1.5),
+      w: inches(8.6),
+      h: inches(5),
+      spec: {
+        kind: 'column',
+        categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+        series: [
+          { name: 'Platform', values: [1.2, 1.3, 1.5, 1.7], color: '#2E75B6' },
+          { name: 'Services', values: [0.6, 0.65, 0.7, 0.8], color: '#9DC3E6' },
+          { name: 'Support', values: [0.3, 0.32, 0.35, 0.4], color: '#D9E2F3' },
+        ],
+        grouping: 'stacked',
+        title: 'Revenue by segment ($M)',
+        legend: { position: 'b' },
+        dataLabels: {
+          showValue: true,
+          showCategory: false,
+          showSeriesName: false,
+          showPercent: false,
+        },
+      },
+    });
+
+    // Slide 2: expense breakdown doughnut beside a footnoted, hyperlinked
+    // detail table — the combination a real finance appendix slide needs.
+    const s2 = freshSlide(pres);
+    setSlideTitle(s2, 'FY26 operating expense');
+    addSlideChart(s2, {
+      x: inches(0.5),
+      y: inches(1.5),
+      w: inches(4.3),
+      h: inches(4.3),
+      spec: {
+        kind: 'doughnut',
+        categories: ['R&D', 'S&M', 'G&A'],
+        series: [
+          { name: 'Opex', values: [52, 34, 14], pointColors: ['#2E75B6', '#ED7D31', '#A5A5A5'] },
+        ],
+        holeSizePct: 55,
+        legend: { position: 'b' },
+        dataLabels: {
+          showPercent: true,
+          showValue: false,
+          showCategory: false,
+          showSeriesName: false,
+        },
+      },
+    });
+    const table = addSlideTable(s2, {
+      x: inches(5.1),
+      y: inches(1.6),
+      w: inches(4.4),
+      h: inches(2.6),
+      rows: [
+        ['Line item', 'FY26', 'FY25'],
+        ['R&D', '$18.2M', '$15.9M'],
+        ['S&M', '$11.9M', '$10.4M'],
+        ['G&A', '$4.9M', '$4.6M'],
+      ],
+      firstRow: true,
+      bandRow: true,
+    });
+    void table;
+
+    const link = addSlideTextBox(s2, {
+      x: inches(5.1),
+      y: inches(4.4),
+      w: inches(4.4),
+      h: inches(0.5),
+      text: 'Full FY26 financial statements',
+    });
+    setShapeHyperlink(link, 'https://example.com/investor-relations/fy26');
+    setShapeTextFormat(link, { color: '#0563C1', underline: true });
+
+    const footnote = addSlideTextBox(s2, {
+      x: inches(5.1),
+      y: inches(5.0),
+      w: inches(4.4),
+      h: inches(0.8),
+      text: 'Preliminary — subject to audit¹',
+    });
+    setShapeRunFormat(footnote, 0, 0, {
+      size: 10,
+      italic: true,
+      color: '#6B7280',
+      underline: 'wavy',
+    });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('40-financial-report.pptx', bytes);
+  });
+
+  it('41 — marketing one-pager (gradient banner, image, pattern callout, 2-col body)', async () => {
+    const pres = await loadBlank();
+    const slide = freshSlide(pres);
+    setSlideTitle(slide, 'Introducing Aperture Sync');
+    setSlideBackground(slide, '#FBF9F6');
+
+    const photo = buildPng(300, 200, [90, 130, 170]);
+    addSlideImage(slide, photo, {
+      x: inches(6.3),
+      y: inches(1.6),
+      w: inches(3.2),
+      h: inches(2.1),
+    });
+
+    // A rotated ribbon banner across the photo's corner — rotated shape text
+    // that must stay upright and legible.
+    const ribbon = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(6.7),
+      y: inches(1.5),
+      w: inches(2.6),
+      h: inches(0.55),
+      text: 'NEW',
+    });
+    setShapeGradientFill(ribbon, {
+      stops: [
+        { offset: 0, color: '#FFD966' },
+        { offset: 1, color: '#C00000' },
+      ],
+      angleDeg: 0,
+    });
+    setShapeRotation(ribbon, -18);
+    setShapeRunFormat(ribbon, 0, 0, { bold: true, color: '#FFFFFF', size: 16 });
+
+    // Pattern-filled pull-quote callout.
+    const quote = addSlideShape(slide, {
+      preset: 'wedgeRectCallout',
+      x: inches(6.3),
+      y: inches(4.0),
+      w: inches(3.2),
+      h: inches(1.7),
+      text: '“Cut our review cycle from two weeks to two days.”',
+    });
+    setShapePatternFill(quote, { preset: 'lgGrid', foreground: '#D9C7A3', background: '#FFF8ED' });
+    setShapeRunFormat(quote, 0, 0, { italic: true, size: 13, color: '#5B4636' });
+    setParagraphAlignment(quote, 0, 'center');
+
+    // Two-column feature body.
+    const body = addSlideTextBox(slide, {
+      x: inches(0.6),
+      y: inches(1.6),
+      w: inches(5.4),
+      h: inches(3.4),
+      text: [
+        'Real-time sync across every workspace, with zero merge conflicts.',
+        'One-click rollback to any point in the last 90 days.',
+        'SOC 2 Type II and GDPR compliant out of the box.',
+        'Native integrations for the tools your team already uses.',
+      ].join('\n'),
+    });
+    setShapeBullets(body, 'bullet');
+    setShapeTextColumns(body, { count: 2, gapEmu: pt(16) });
+    setShapeTextFormat(body, { size: 14 });
+
+    // Three small icon-style shapes with captions under the body.
+    const icons: { preset: 'star5' | 'ellipse' | 'hexagon'; label: string; color: string }[] = [
+      { preset: 'star5', label: 'Fast', color: '#FFC000' },
+      { preset: 'ellipse', label: 'Secure', color: '#548235' },
+      { preset: 'hexagon', label: 'Open API', color: '#2E75B6' },
+    ];
+    icons.forEach((icon, i) => {
+      const xIn = 0.6 + i * 1.9;
+      const shape = addSlideShape(slide, {
+        preset: icon.preset,
+        x: inches(xIn),
+        y: inches(5.3),
+        w: inches(0.7),
+        h: inches(0.7),
+      });
+      setShapeFill(shape, icon.color);
+      const caption = addSlideTextBox(slide, {
+        x: inches(xIn - 0.15),
+        y: inches(6.05),
+        w: inches(1),
+        h: inches(0.4),
+        text: icon.label,
+      });
+      setParagraphAlignment(caption, 0, 'center');
+      setShapeRunFormat(caption, 0, 0, { size: 10, color: '#374151' });
+    });
+
+    const bytes = await savePresentation(pres);
+    await writeSample('41-marketing-one-pager.pptx', bytes);
   });
 });
