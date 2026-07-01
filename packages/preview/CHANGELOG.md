@@ -1,5 +1,45 @@
 # pptx-kit-preview
 
+## 0.6.0
+
+### Minor Changes
+
+- e9eae5c: Sharpen preview-renderer fidelity across the sample corpus. Block arrows now use
+  the correct OOXML shaft/head proportions (head length scales with `min(w, h)`),
+  text in non-rectangular autoshapes (triangle, diamond, pentagon, star, double
+  arrow) wraps inside the shape's inscribed text rectangle, vertical text honours
+  the rotated text-box insets, glow effects render as a saturated ring instead of
+  a pale haze, hyperlink runs take the theme `hlink` colour, bullets size to the
+  paragraph's first run and follow centred/right-aligned text, line breaking is
+  space-inclusive (matching LibreOffice/PowerPoint), the first text baseline gets
+  the same leading drop for every anchor, and category line charts plot at band
+  centres with title/axis text sized in pixels. Overall mean fg-SSIM rises from
+  ≈0.82 to ≈0.87.
+
+### Patch Changes
+
+- e9eae5c: Close three renderer correctness gaps surfaced by the expanded corpus:
+
+  - **Preset pattern fills** now render the real ECMA-376 `ST_PresetPatternVal`
+    tokens (`horz`/`vert`/`ltHorz`/`ltVert`/`dotGrid` etc.) instead of falling
+    through to a 50%-coverage checker — the old matcher keyed on GDI HatchStyle
+    names no valid OOXML emits.
+  - **`wordArtVert` / `wordArtVertRtl`** stack glyphs upright (one per line) per
+    `ST_TextVerticalType`, instead of rotating the run 90°, matching PowerPoint
+    and the browser (`text-orientation:upright`) path.
+  - **`<a:normAutofit/>` without a baked `fontScale`** now shrinks text to fit the
+    box, so overflowing bodies render at the reduced size PowerPoint/LibreOffice
+    compute at display time rather than spilling past the box. The shrink factor is
+    computed once and shared, so the server (SVG) and browser (`foreignObject`)
+    previews agree.
+
+- e9eae5c: Fix a crash when rendering a line or connector that sets an explicit line
+  cap or join (`setShapeStrokeCap` / `setShapeStrokeJoin`). The renderer
+  emitted both its default `stroke-linecap="round"` and the shape's explicit
+  cap on the same element, producing a duplicate SVG attribute that aborted
+  the render ("attribute 'stroke-linecap' is already defined"). The default
+  is now only applied when the shape does not specify its own.
+
 ## 0.5.0
 
 ### Minor Changes
