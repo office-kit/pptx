@@ -19,23 +19,27 @@ describe('fn API: resolveDrawingColor', () => {
   });
 
   it('darkens via shade', () => {
-    // shade=50000 (50%) of pure red → #800000
+    // shade=50000 (50%) of pure red. PowerPoint applies shade in LINEAR light,
+    // so R = srgb(linear(1)·0.5) = srgb(0.5) ≈ 0.735 → 0xBC, giving #BC0000
+    // (lighter than the naive sRGB #800000).
     const el = parseColorEl(
       `<a:srgbClr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" val="FF0000">
          <a:shade val="50000"/>
        </a:srgbClr>`,
     );
-    expect(resolveDrawingColor(el, null)).toBe('#800000');
+    expect(resolveDrawingColor(el, null)).toBe('#BC0000');
   });
 
   it('lightens via tint', () => {
-    // tint=50000 (50%) of pure red mixes 50% white → #FF8080
+    // tint=50000 (50%) of pure red, applied in LINEAR light: R = srgb(1·0.5+0.5)
+    // = srgb(1) = 0xFF; G/B = srgb(0·0.5+0.5) = srgb(0.5) ≈ 0xBC → #FFBCBC
+    // (lighter green/blue than the naive sRGB #FF8080).
     const el = parseColorEl(
       `<a:srgbClr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" val="FF0000">
          <a:tint val="50000"/>
        </a:srgbClr>`,
     );
-    expect(resolveDrawingColor(el, null)).toBe('#FF8080');
+    expect(resolveDrawingColor(el, null)).toBe('#FFBCBC');
   });
 
   it('combines lumMod + lumOff (PowerPoint "Lighter 60%" preset)', () => {

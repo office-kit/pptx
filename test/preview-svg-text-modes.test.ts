@@ -14,11 +14,15 @@ import {
   addSlide,
   addSlideTextBox,
   findSlideLayout,
+  getSlides,
   inches,
   loadPresentation,
+  savePresentation,
+  setShapeTextAutoFit,
   setShapeTextColumns,
   setShapeTextDirection,
 } from '../src/api/index.ts';
+import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import { attrsOf, countTags } from './lib/svg-query.ts';
 
@@ -120,6 +124,113 @@ describe('renderSlideToSvg — multi-column text (svg mode)', () => {
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
     expect(svg).toContain('column-count:2');
     expect(svg).toContain('column-gap:');
+  });
+});
+
+describe('renderSlideToSvg — wordArtVert multi-run stacking (svg)', () => {
+  // y of every body <text> (anchored). Upright glyphs each occupy their own
+  // stacked row, so distinct y values == number of stacked glyphs.
+  const textYs = (svg: string): number[] =>
+    attrsOf(svg, 'text')
+      .filter((a) => a['text-anchor'] !== undefined)
+      .map((a) => Number(a.y));
+
+  // A wordArtVert body splits across two runs only via the template path (the
+  // authoring API seeds a single run), so build one, save, and inject a run
+  // boundary mid-word through the OPC zip layer — the same hook the chart tests
+  // use. "AC"+"EG" must still stack as four separate rows: a per-glyph break
+  // that fired only WITHIN a run (not across the boundary) used to drop the last
+  // glyph of run 1 and the first of run 2 onto the same row.
+  it('stacks every code point on its own row across a run boundary', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout not found');
+    const slide = addSlide(pres, { layout });
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(1.2),
+      h: inches(5),
+      text: 'ACEG',
+    });
+    setShapeTextDirection(box, 'wordArtVert');
+
+    const { entries } = readZip(await savePresentation(pres));
+    const enc = new TextEncoder();
+    const dec = new TextDecoder();
+    let injected = false;
+    const modified = entries.map((e) => {
+      if (!e.name.includes('slides/slide')) return e;
+      const xml = dec.decode(e.data);
+      if (!xml.includes('<a:t>ACEG</a:t></a:r>')) return e;
+      // One run → two runs, with the split mid-word (…AC | EG…).
+      injected = true;
+      return {
+        name: e.name,
+        data: enc.encode(
+          xml.replace('<a:t>ACEG</a:t></a:r>', '<a:t>AC</a:t></a:r><a:r><a:t>EG</a:t></a:r>'),
+        ),
+      };
+    });
+    // Guard: if the run shape changed, the split must still apply — otherwise the
+    // test would silently fall back to a single run and stop covering the bug.
+    expect(injected).toBe(true);
+    const pres2 = await loadPresentation(writeZip(modified));
+    const svg = renderSlideToSvg(pres2, getSlides(pres2)[0]!, { textLayout: 'svg' });
+    // Four glyphs (A, C, E, G) → four distinct stacked rows. The pre-fix bug
+    // merged C and E onto one row, yielding only three.
+    expect(new Set(textYs(svg)).size).toBe(4);
+  });
+});
+
+describe('renderSlideToSvg — normAutofit shrink parity (svg vs foreignObject)', () => {
+  // Largest font-size emitted, regardless of unit syntax: `font-size="N"`
+  // (svg <text>) or `font-size:Npx` (foreignObject inline style).
+  const maxFontPx = (svg: string): number => {
+    const sizes: number[] = [];
+    for (const m of svg.matchAll(/font-size(?:="|:)\s*([\d.]+)/g)) sizes.push(Number(m[1]));
+    return sizes.length ? Math.max(...sizes) : 0;
+  };
+
+  // A bare <a:normAutofit/> (no baked fontScale) must shrink overflowing text to
+  // fit its box — and BOTH render paths must shrink by the SAME factor, or the
+  // server (svg) and browser (foreignObject) previews disagree. Normalising the
+  // small-box font against a large-box baseline cancels the px-unit difference
+  // between the two paths, leaving only the autofit scale.
+  const shrinkRatio = async (mode: 'svg' | 'foreignObject'): Promise<number> => {
+    const big = await blankSlide();
+    const bigBox = addSlideTextBox(big.slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(8),
+      h: inches(5),
+      text: LONG,
+    });
+    setShapeTextAutoFit(bigBox, 'normal');
+    const bigFont = maxFontPx(renderSlideToSvg(big.pres, big.slide, { textLayout: mode }));
+
+    const small = await blankSlide();
+    const smallBox = addSlideTextBox(small.slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: LONG,
+    });
+    setShapeTextAutoFit(smallBox, 'normal');
+    const smallFont = maxFontPx(renderSlideToSvg(small.pres, small.slide, { textLayout: mode }));
+    return smallFont / bigFont;
+  };
+
+  it('both paths shrink a bare normAutofit body, by the same factor', async () => {
+    const svgRatio = await shrinkRatio('svg');
+    const foRatio = await shrinkRatio('foreignObject');
+    // The overflowing small box must visibly shrink in EACH path (this is what
+    // regressed: the foreignObject path used to leave bare normAutofit at 1.0).
+    expect(svgRatio).toBeLessThan(0.9);
+    expect(foRatio).toBeLessThan(0.9);
+    // …and shrink by the same scale, so server and browser previews agree.
+    expect(Math.abs(svgRatio - foRatio)).toBeLessThan(0.03);
   });
 });
 

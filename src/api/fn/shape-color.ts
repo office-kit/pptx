@@ -126,6 +126,16 @@ const hslToRgb = (h: number, s: number, l: number): [number, number, number] => 
   return [hueToRgb(p, q, h + 1 / 3), hueToRgb(p, q, h), hueToRgb(p, q, h - 1 / 3)];
 };
 
+// PowerPoint applies <a:tint> / <a:shade> in LINEAR-LIGHT RGB, not in sRGB —
+// this contradicts the literal ECMA-376 "N% of input + (100-N)% white/black"
+// wording, but it is what PowerPoint computes and what LibreOffice renders
+// (a 75% tint of black is mid-gray ~#8B8B8B, not the sRGB-lerp #404040). The
+// next reader will expect the sRGB formula, hence this note.
+const srgbToLinear = (c: number): number =>
+  c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+const linearToSrgb = (c: number): number =>
+  c <= 0.0031308 ? c * 12.92 : 1.055 * c ** (1 / 2.4) - 0.055;
+
 const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp[]): string => {
   if (transforms.length === 0) return hex;
   let [r, g, b] = hexToRgb01(hex);
@@ -147,16 +157,16 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
         break;
       }
       case 'shade':
-        // Mix toward black: out = base * val
-        r *= t.val;
-        g *= t.val;
-        b *= t.val;
+        // Mix toward black in linear light: out = srgb(linear(base) * val)
+        r = linearToSrgb(srgbToLinear(r) * t.val);
+        g = linearToSrgb(srgbToLinear(g) * t.val);
+        b = linearToSrgb(srgbToLinear(b) * t.val);
         break;
       case 'tint':
-        // Mix toward white: out = base * val + (1 - val)
-        r = r * t.val + (1 - t.val);
-        g = g * t.val + (1 - t.val);
-        b = b * t.val + (1 - t.val);
+        // Mix toward white in linear light: out = srgb(linear(base)*val + (1-val))
+        r = linearToSrgb(srgbToLinear(r) * t.val + (1 - t.val));
+        g = linearToSrgb(srgbToLinear(g) * t.val + (1 - t.val));
+        b = linearToSrgb(srgbToLinear(b) * t.val + (1 - t.val));
         break;
       case 'lumMod':
       case 'lumOff': {

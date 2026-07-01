@@ -142,6 +142,7 @@ import {
 import {
   defaultMeasurer,
   layoutTextSvg,
+  measureTextBodyHeight,
   substituteFamily,
   type BulletInput,
   type ColumnLayout,
@@ -192,6 +193,11 @@ const DEFAULT_TITLE_PT = 44;
 // early and silently drop every property after it (notably `color:`,
 // which then inherits the site's dark-mode white = invisible text).
 const DEFAULT_FONT = "Calibri, 'Helvetica Neue', Arial, sans-serif";
+// Bullet font when no buFont is authored or inherited. The stock PowerPoint
+// template's master bodyStyle sets buFont="Arial", and its '•'/'◦' glyphs are
+// smaller and higher than the theme minor face (Calibri) — so Arial, not the
+// body text face, is the right default.
+const DEFAULT_BULLET_FONT = 'Arial';
 
 // Default body inset (PowerPoint default), per ECMA-376: 91440 EMU
 // horizontal × 45720 EMU vertical.
@@ -624,13 +630,27 @@ const patternDef = (pat: {
   if (pctMatch) {
     const pct = Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10)));
     body = screen(pct / 100);
-  } else if (preset === 'horzBrick' || preset === 'ltHorizontal' || preset === 'narHorz') {
+  } else if (
+    preset === 'horz' ||
+    preset === 'ltHorz' ||
+    preset === 'narHorz' ||
+    preset === 'dashHorz' ||
+    preset === 'horzBrick'
+  ) {
+    // ST_PresetPatternVal horizontal family (§20.1.10.49) — horizontal lines.
+    // (The old branch keyed on GDI HatchStyle names like 'ltHorizontal', which
+    // no valid OOXML emits, so 'horz'/'ltHorz' fell through to the 50% checker.)
     body = stripe('h', 0.8);
-  } else if (preset === 'dkHorizontal') {
+  } else if (preset === 'dkHorz') {
     body = stripe('h', 2);
-  } else if (preset === 'ltVertical' || preset === 'narVert') {
+  } else if (
+    preset === 'vert' ||
+    preset === 'ltVert' ||
+    preset === 'narVert' ||
+    preset === 'dashVert'
+  ) {
     body = stripe('v', 0.8);
-  } else if (preset === 'dkVertical') {
+  } else if (preset === 'dkVert') {
     body = stripe('v', 2);
   } else if (preset === 'ltUpDiag' || preset === 'wdUpDiag') {
     body = stripe('d', 0.8);
@@ -640,7 +660,14 @@ const patternDef = (pat: {
     body = stripe('a', 0.8);
   } else if (preset === 'dkDnDiag') {
     body = stripe('a', 2);
-  } else if (preset === 'ltHorzCross' || preset === 'smGrid' || preset === 'cross') {
+  } else if (
+    preset === 'ltHorzCross' ||
+    preset === 'smGrid' ||
+    preset === 'cross' ||
+    preset === 'dotGrid'
+  ) {
+    // dotGrid is a dotted grid in the spec; LibreOffice renders it as a thin
+    // line grid, so a light cross-grid is the closest match to the ground truth.
     body = stripe('h', 0.8) + stripe('v', 0.8);
   } else if (preset === 'dkHorzCross' || preset === 'lgGrid' || preset === 'plaid') {
     body = stripe('h', 2) + stripe('v', 2);
@@ -891,7 +918,12 @@ const star = (points: number, innerRatio = 0.42): Array<[number, number]> => {
   return out;
 };
 
-const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
+// Preset polygons in normalized [0,1] space. Most ignore the shape size, but
+// the block-arrow presets need it: in OOXML their arrowhead length is a
+// fraction of `min(w,h)` (not of the side it points along), so a fixed-fraction
+// polygon is wrong for any non-square arrow. `w`/`h` are the shape's px size;
+// only their ratio is used, so the unit cancels.
+const PRESET_POINTS: Record<string, (w: number, h: number) => Array<[number, number]>> = {
   triangle: () => [
     [0.5, 0],
     [1, 1],
@@ -936,42 +968,57 @@ const PRESET_POINTS: Record<string, () => Array<[number, number]>> = {
   star16: () => star(16),
   star24: () => star(24),
   star32: () => star(32),
-  rightArrow: () => [
-    [0, 0.3],
-    [0.65, 0.3],
-    [0.65, 0],
-    [1, 0.5],
-    [0.65, 1],
-    [0.65, 0.7],
-    [0, 0.7],
-  ],
-  leftArrow: () => [
-    [1, 0.3],
-    [0.35, 0.3],
-    [0.35, 0],
-    [0, 0.5],
-    [0.35, 1],
-    [0.35, 0.7],
-    [1, 0.7],
-  ],
-  upArrow: () => [
-    [0.3, 1],
-    [0.3, 0.35],
-    [0, 0.35],
-    [0.5, 0],
-    [1, 0.35],
-    [0.7, 0.35],
-    [0.7, 1],
-  ],
-  downArrow: () => [
-    [0.3, 0],
-    [0.3, 0.65],
-    [0, 0.65],
-    [0.5, 1],
-    [1, 0.65],
-    [0.7, 0.65],
-    [0.7, 0],
-  ],
+  // Block arrows: default adj1=adj2=50000 → shaft is 0.5·(cross dimension),
+  // arrowhead length is 0.5·min(w,h) along the pointing axis (ECMA-376
+  // rightArrow et al.). Shaft spans 0.25..0.75 of the cross dimension.
+  rightArrow: (w, h) => {
+    const bx = 1 - Math.min(1, (0.5 * Math.min(w, h)) / w);
+    return [
+      [0, 0.25],
+      [bx, 0.25],
+      [bx, 0],
+      [1, 0.5],
+      [bx, 1],
+      [bx, 0.75],
+      [0, 0.75],
+    ];
+  },
+  leftArrow: (w, h) => {
+    const bx = Math.min(1, (0.5 * Math.min(w, h)) / w);
+    return [
+      [1, 0.25],
+      [bx, 0.25],
+      [bx, 0],
+      [0, 0.5],
+      [bx, 1],
+      [bx, 0.75],
+      [1, 0.75],
+    ];
+  },
+  upArrow: (w, h) => {
+    const by = Math.min(1, (0.5 * Math.min(w, h)) / h);
+    return [
+      [0.25, 1],
+      [0.25, by],
+      [0, by],
+      [0.5, 0],
+      [1, by],
+      [0.75, by],
+      [0.75, 1],
+    ];
+  },
+  downArrow: (w, h) => {
+    const by = 1 - Math.min(1, (0.5 * Math.min(w, h)) / h);
+    return [
+      [0.25, 0],
+      [0.25, by],
+      [0, by],
+      [0.5, 1],
+      [1, by],
+      [0.75, by],
+      [0.75, 0],
+    ];
+  },
   leftRightArrow: () => [
     [0, 0.5],
     [0.18, 0.2],
@@ -2057,6 +2104,13 @@ const LINE_HEIGHT = 1.05;
 // overflowing.
 const AVG_GLYPH_W_RATIO = 0.55;
 
+// `<a:normAutofit/>` shrink-to-fit search bounds. PowerPoint reduces the font
+// in discrete steps until the body fits its box; we sweep from 1.0 down to the
+// floor in fixed decrements. The floor stops a pathologically small box from
+// collapsing text to an unreadable size (PowerPoint clamps similarly).
+const AUTOFIT_FLOOR = 0.25;
+const AUTOFIT_STEP = 0.05;
+
 type RunData = {
   text: string;
   fmt: TextFormat | null;
@@ -2114,19 +2168,28 @@ interface SvgTextArgs {
 const alignOf = (a: string): ParaInput['align'] =>
   a === 'center' || a === 'right' || a === 'justify' ? a : 'left';
 
-// Map the OOXML `vert` token onto the engine's two supported rotations,
-// mirroring the foreignObject path's writing-mode grouping so server == browser:
-// the `vertical-rl` family (columns right-to-left) rotates 90° clockwise, the
-// `vertical-lr` family (columns left-to-right) rotates 270°. The wordArt variants
-// keep glyphs upright in the browser; the SVG path rotates them with the text
-// (closest a rotated <text> can get), which the W1 brief accepts as the mapping.
+// Map the OOXML `vert` token onto the engine's layout modes, mirroring the
+// foreignObject path's writing-mode grouping so server == browser: the
+// `vertical-rl` family (columns right-to-left) rotates 90° clockwise, the
+// `vertical-lr` family (columns left-to-right) rotates 270°. `wordArtVert`
+// (ST_TextVerticalType, §21.1.2.1.1) means "one letter on top of another" —
+// glyphs stay UPRIGHT and stack, not rotated — matching the browser path's
+// `text-orientation:upright` and PowerPoint/LibreOffice.
+//
+// KNOWN DIVERGENCE (overflow only): when an upright run is taller than its box,
+// the browser path wraps the overflow into a second column (CSS writing-mode),
+// while the SVG path stacks it as one column that clips at the box edge. Both
+// agree for text that fits; they differ only past the box, where the deck is
+// already out of spec. Faithful multi-column upright wrapping in the SVG engine
+// is disproportionate to that edge case, so we accept the clip.
 const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): VerticalLayout => {
   switch (vert) {
     case 'vert':
     case 'eaVert':
+      return 'cw90';
     case 'wordArtVert':
     case 'wordArtVertRtl':
-      return 'cw90';
+      return 'upright';
     case 'vert270':
     case 'mongolianVert':
       return 'cw270';
@@ -2135,8 +2198,8 @@ const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): Verti
   }
 };
 
-// Build the px-native engine input from the resolved paraData and lay it out.
-const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
+// Build the px-native engine input from the resolved paraData (at a.autoFitScale).
+const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
   const scale = a.autoFitScale;
   const paragraphs: ParaInput[] = a.paraData.map((para, pi): ParaInput => {
     const pieces: PieceInput[] = [];
@@ -2151,7 +2214,10 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
         const hlinkColor = a.theme ? normalizeHex(a.theme.hyperlink) : '#0563C1';
         fmt = {
           ...fmt,
-          color: fmt?.color ?? hlinkColor,
+          // PowerPoint and LibreOffice override a hyperlink run's direct
+          // solidFill with the theme hlink color — the explicit run color
+          // does NOT win for a link run, so the theme color is unconditional.
+          color: hlinkColor,
           underline: fmt?.underline ?? true,
         };
       }
@@ -2182,7 +2248,23 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
       // out above; still split defensively so any stray newline becomes a break.
       const segs = run.text.split('\n');
       segs.forEach((seg, i) => {
-        pieces.push({ ...base, text: caps ? seg.toUpperCase() : seg, isBreak: false });
+        const segText = caps ? seg.toUpperCase() : seg;
+        if (a.vert === 'upright') {
+          // wordArtVert stacks one code point per line (spaces become blank
+          // rows). Reuse the calibrated horizontal engine with a break before
+          // every glyph rather than rotating the run. The break goes BEFORE each
+          // glyph (skipped only at the very start or right after an existing
+          // break) so adjacent runs stack too — a trailing per-glyph break would
+          // leave the last glyph of run N sharing a row with the first of run
+          // N+1, diverging from the browser's text-orientation:upright path.
+          for (const g of Array.from(segText)) {
+            const last = pieces[pieces.length - 1];
+            if (last !== undefined && !last.isBreak) pieces.push(breakPiece());
+            pieces.push({ ...base, text: g, isBreak: false });
+          }
+        } else {
+          pieces.push({ ...base, text: segText, isBreak: false });
+        }
         if (i < segs.length - 1) pieces.push(breakPiece());
       });
     }
@@ -2233,8 +2315,11 @@ const buildAndLayoutSvgText = (a: SvgTextArgs): string => {
     vert: a.vert,
     columns: a.columns,
   };
-  return layoutTextSvg(input, a.measure);
+  return input;
 };
+
+const buildAndLayoutSvgText = (a: SvgTextArgs): string =>
+  layoutTextSvg(buildSvgTextInput(a), a.measure);
 
 const breakPiece = (): PieceInput => ({
   text: '',
@@ -2267,7 +2352,12 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
   // Picture bullet with resolved bytes → render the image; otherwise the
   // "■" glyph stands in (bytes unavailable, e.g. inherited buBlip).
   const char = para.bulletIsPicture ? '■' : (numberLabel ?? explicitChar ?? bulletChar(para.level));
-  const baseSizePx = a.defaultPt * PX_PER_PT * a.autoFitScale;
+  // An un-sized bullet (no buSzPct/buSzPts in the cascade) is 100% of the
+  // paragraph's FIRST RUN size, not the placeholder default — a 32pt run gets a
+  // 32pt bullet even on an 18pt-default body. Fall back to defaultPt only for an
+  // empty paragraph (break-only) where there is no run size.
+  const firstRunPt = para.runs.find((r) => r.text !== '\n' && r.text !== '')?.sizePt ?? a.defaultPt;
+  const baseSizePx = firstRunPt * PX_PER_PT * a.autoFitScale;
   const sizePx =
     para.bulletDetail.sizePct !== null
       ? baseSizePx * para.bulletDetail.sizePct
@@ -2279,11 +2369,40 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
     : a.defaultColor;
   return {
     text: char,
-    family: substituteFamily(para.bulletDetail.font ?? a.themeFace),
+    family: substituteFamily(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
     sizePx,
     fillHex,
     ...(para.bulletImageHref ? { imageHref: para.bulletImageHref } : {}),
   };
+};
+
+// Preset geometry text rectangle (ECMA-376 `<a:rect>`), as fractions of w/h.
+// Non-rectangular autoshapes inscribe their text in a rect narrower than the
+// bounding box, so a label that fits the box still wraps inside the shape (a
+// triangle's text sits in its lower-middle, a diamond's in its center square,
+// etc.). Only shapes whose text rect is materially narrower than the box are
+// listed; everything else (rect / roundRect / ellipse / hexagon / octagon /
+// star8 / rightArrow …) keeps the full box. Values are fractions that track the
+// polygon PRESET_POINTS actually draws (so text stays inside the rendered ink).
+const presetTextRect = (
+  preset: string | null,
+): { l: number; t: number; r: number; b: number } | null => {
+  switch (preset) {
+    case 'triangle':
+      return { l: 0.25, t: 0.5, r: 0.75, b: 1.0 };
+    case 'diamond':
+      return { l: 0.25, t: 0.25, r: 0.75, b: 0.75 };
+    case 'pentagon':
+      return { l: 0.191, t: 0.236, r: 0.809, b: 1.0 };
+    case 'star5':
+      return { l: 0.309, t: 0.382, r: 0.691, b: 0.764 };
+    case 'leftRightArrow':
+      // Matches the fixed leftRightArrow polygon's central shaft (x 0.18..0.82,
+      // y 0.35..0.65), which is not size-aware like the cardinal arrows.
+      return { l: 0.18, t: 0.35, r: 0.82, b: 0.65 };
+    default:
+      return null;
+  }
 };
 
 const renderTextBody = (
@@ -2344,11 +2463,45 @@ const renderTextBody = (
   const rIns = margins.right ?? DEFAULT_INSET_X;
   const bIns = margins.bottom ?? DEFAULT_INSET_Y;
 
-  const innerX = bounds.x + lIns;
-  const innerY = bounds.y + tIns;
-  const innerW = Math.max(0, bounds.w - lIns - rIns);
-  const innerH = Math.max(0, bounds.h - tIns - bIns);
+  // Non-rectangular autoshapes inscribe text in a rect narrower than the box;
+  // insets apply inside it. This is a layout constraint independent of render
+  // path, so both the SVG and foreignObject paths use it. If the insets would
+  // collapse the (already narrow) preset rect, keep the rect without insets so
+  // a small shape still shows its overflowing label instead of vanishing.
+  const pRect = presetTextRect(getShapePreset(shape));
+  const rectX = pRect ? bounds.x + pRect.l * bounds.w : bounds.x;
+  const rectY = pRect ? bounds.y + pRect.t * bounds.h : bounds.y;
+  const rectW = pRect ? (pRect.r - pRect.l) * bounds.w : bounds.w;
+  const rectH = pRect ? (pRect.b - pRect.t) * bounds.h : bounds.h;
+  let innerX = rectX + lIns;
+  let innerY = rectY + tIns;
+  let innerW = rectW - lIns - rIns;
+  let innerH = rectH - tIns - bIns;
+  if (pRect && (innerW <= 0 || innerH <= 0)) {
+    innerX = rectX;
+    innerY = rectY;
+    innerW = rectW;
+    innerH = rectH;
+  }
   if (innerW <= 0 || innerH <= 0) return '';
+
+  // The rect the pure-SVG path lays text into for a given vertical layout.
+  // Horizontal and `upright` (wordArtVert) text use the shared inner rect; the
+  // true ±90° rotations (cw90/cw270) swap the box extents and rotate the insets
+  // with the glyphs — the reading/wrap dimension takes the L/R insets, the
+  // column-stack dimension the T/B insets. Shared by the normAutofit shrink
+  // search and the SVG render so the shrink is measured against the SAME box the
+  // text is rendered into (with PowerPoint's asymmetric default insets the two
+  // rects differ by ~9.6px/axis, which would otherwise mis-size the fit).
+  const svgTextRect = (v: VerticalLayout): { x: number; y: number; w: number; h: number } =>
+    v === 'none' || v === 'upright'
+      ? { x: innerX, y: innerY, w: innerW, h: innerH }
+      : {
+          x: bounds.x + tIns,
+          y: bounds.y + lIns,
+          w: Math.max(0, bounds.w - tIns - bIns),
+          h: Math.max(0, bounds.h - lIns - rIns),
+        };
 
   // First pass — collect every run's text + format so we can both
   // (a) compute an autofit scale and (b) emit each run with the
@@ -2582,6 +2735,66 @@ const renderTextBody = (
     }
   }
 
+  // A bare `<a:normAutofit/>` (no baked `fontScale`, so it defaults to 1) means
+  // "shrink text to fit the box" — PowerPoint computes that reduction at display
+  // time. Compute it ONCE here, before either render path runs, so the
+  // foreignObject (browser) and pure-SVG (server) paths shrink by the SAME
+  // factor: the server==browser parity this preview maintains. An explicit baked
+  // fontScale (autoFitScale !== 1) is honoured unchanged; noAutofit / spAutoFit
+  // yield no authoredAutofit and never shrink here. The shrink is measured with
+  // the SVG layout engine (our only real line-breaker); the foreignObject path
+  // then reuses the resulting scale rather than computing its own.
+  if (authoredAutofit && autoFitScale === 1) {
+    const fitVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
+    const fitCols = getShapeTextColumns(shape);
+    const fitColumns: ColumnLayout | null =
+      fitVert === 'none' && fitCols && fitCols.count >= 2
+        ? {
+            count: fitCols.count,
+            gapPx: fitCols.gapEmu !== undefined ? fitCols.gapEmu / EMU_PER_PX : 12,
+          }
+        : null;
+    // Measure against the SAME rect the SVG path renders into (rotated text uses
+    // the inset-swapped box). For cw90/cw270 the engine swaps the box extents, so
+    // the measured `requiredH` (stacking dimension) fills the box WIDTH, not its
+    // height — compare against the rect's w there, its h otherwise.
+    const fitRect = svgTextRect(fitVert);
+    const fitRotated = fitVert === 'cw90' || fitVert === 'cw270';
+    const fitBoxPx = (fitRotated ? fitRect.w : fitRect.h) / EMU_PER_PX;
+    const fitArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
+      pres,
+      shape,
+      theme,
+      paraData,
+      numberLabels,
+      lineHeightScale,
+      defaultPt,
+      themeFace,
+      defaultColor: activeDeckTextColor,
+      anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      wrap: effectiveBody.wrap !== 'none',
+      innerX: fitRect.x,
+      innerY: fitRect.y,
+      innerW: fitRect.w,
+      innerH: fitRect.h,
+      measure: ctx.measure,
+      vert: fitVert,
+      columns: fitColumns,
+    };
+    let s = 1;
+    while (s > AUTOFIT_FLOOR) {
+      if (
+        measureTextBodyHeight(
+          buildSvgTextInput({ ...fitArgsBase, autoFitScale: s }),
+          ctx.measure,
+        ) <= fitBoxPx
+      )
+        break;
+      s -= AUTOFIT_STEP;
+    }
+    autoFitScale = Math.max(AUTOFIT_FLOOR, s);
+  }
+
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
   for (let pi = 0; pi < paraData.length; pi++) {
@@ -2595,7 +2808,9 @@ const renderTextBody = (
         const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
         runFmt = {
           ...runFmt,
-          color: runFmt?.color ?? hlinkColor,
+          // Theme hlink color overrides a hyperlink run's direct fill (see
+          // the SVG path above) — match PowerPoint / LibreOffice.
+          color: hlinkColor,
           underline: runFmt?.underline ?? true,
         };
       }
@@ -2669,10 +2884,15 @@ const renderTextBody = (
       numberLabel !== null ||
       para.bulletIsPicture ||
       (para.bulletStyle !== 'none' && para.level > 0);
+    // An un-sized bullet is 100% of the paragraph's first-run size (not the
+    // placeholder default) — must match buildBullet on the SVG path so the
+    // browser preview and the rasterized SVG agree.
+    const firstRunBulletPt =
+      para.runs.find((r) => r.text !== '\n' && r.text !== '')?.sizePt ?? defaultPt;
+    const baseBulletPx = firstRunBulletPt * PX_PER_PT * autoFitScale;
     if (showBullet && para.bulletImageHref) {
       // Picture bullet with resolved bytes — inline it as an <img> sized
       // to the bullet's font box so it sits where the glyph would.
-      const baseBulletPx = defaultPt * PX_PER_PT * autoFitScale;
       const bulletPx =
         para.bulletDetail.sizePct !== null
           ? baseBulletPx * para.bulletDetail.sizePct
@@ -2706,10 +2926,15 @@ const renderTextBody = (
         bulletStyles.push(
           `font-size:${(para.bulletDetail.sizePts * PX_PER_PT * autoFitScale).toFixed(2)}px`,
         );
+      } else {
+        // No authored size → the first-run size, matching the SVG path.
+        bulletStyles.push(`font-size:${baseBulletPx.toFixed(2)}px`);
       }
-      if (para.bulletDetail.font) {
-        bulletStyles.push(`font-family:${escapeXml(para.bulletDetail.font)}, ${DEFAULT_FONT}`);
-      }
+      bulletStyles.push(
+        para.bulletDetail.font
+          ? `font-family:${escapeXml(para.bulletDetail.font)}, ${DEFAULT_FONT}`
+          : `font-family:${DEFAULT_BULLET_FONT}, ${DEFAULT_FONT}`,
+      );
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     paragraphs.push(
@@ -2727,12 +2952,6 @@ const renderTextBody = (
   // matching the foreignObject path's vertical-text and multi-column handling so
   // server-side rendering agrees with the browser (W1).
   if (ctx.mode === 'svg') {
-    // Fidelity path: apply ONLY the authored normAutofit scale. The heuristic
-    // shrink (the AVG_GLYPH_W_RATIO estimator) exists to keep the browser
-    // preview tidy, but PowerPoint / LibreOffice do not shrink unless the deck
-    // baked a fontScale — so honouring only the authored value matches ground
-    // truth (and avoids spuriously shrinking titles that actually fit).
-    const svgScale = authoredAutofit?.fontScale ?? 1;
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     // numCol only applies to horizontal text — see the engine's combination note.
@@ -2745,31 +2964,52 @@ const renderTextBody = (
             gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 12,
           }
         : null;
-    const svgInner = buildAndLayoutSvgText({
+    // Horizontal text uses the shared inner rect (already preset-rect- and
+    // inset-adjusted above). Vertical text is special to THIS path: it rotates a
+    // horizontal layout ±90°, so the engine swaps the box EXTENTS and the insets
+    // must rotate with the glyphs (the reading/wrap dimension takes the L/R
+    // insets, the column-stack dimension the T/B insets) — otherwise the rotated
+    // frame lands ~7px off diagonally from LibreOffice. The foreignObject path
+    // does NOT swap: it lays vertical text out with CSS `writing-mode`, which
+    // works in box orientation, so the two paths derive the vertical rect
+    // differently BY DESIGN. (Symmetric insets keep the box center, so the
+    // per-edge cw90/cw270 origin mapping only matters for asymmetric insets,
+    // which this path does not distinguish.)
+    // `upright` (wordArtVert) does not rotate, so it uses the box-oriented inner
+    // rect like horizontal text; only the true ±90° rotations swap extents.
+    const { x: vInnerX, y: vInnerY, w: vInnerW, h: vInnerH } = svgTextRect(svgVert);
+    if (vInnerW <= 0 || vInnerH <= 0) return '';
+    const svgArgsBase: Omit<SvgTextArgs, 'autoFitScale'> = {
       pres,
       shape,
       theme,
       paraData,
       numberLabels,
-      autoFitScale: svgScale,
       lineHeightScale: svgLineScale,
       defaultPt,
       themeFace,
       defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
       wrap: effectiveBody.wrap !== 'none',
-      innerX,
-      innerY,
-      innerW,
-      innerH,
+      innerX: vInnerX,
+      innerY: vInnerY,
+      innerW: vInnerW,
+      innerH: vInnerH,
       measure: ctx.measure,
       vert: svgVert,
       columns: svgColumns,
-    });
+    };
+    // Autofit scale is decided once above (shared with the foreignObject path):
+    // for any authored autofit — a baked `fontScale` or the bare-normAutofit
+    // shrink — `autoFitScale` already holds the final factor. The `!authoredAutofit`
+    // CSS-overflow heuristic is foreignObject-only by design (LibreOffice does not
+    // shrink non-autofit text), so the SVG fidelity path stays at 1 there.
+    const svgScale = authoredAutofit ? autoFitScale : 1;
+    const svgInner = buildAndLayoutSvgText({ ...svgArgsBase, autoFitScale: svgScale });
     const bodyRotDegSvg = getShapeTextBodyRotationDeg(shape);
     if (bodyRotDegSvg !== null && bodyRotDegSvg !== 0) {
-      const pivotX = innerX + innerW / 2;
-      const pivotY = innerY + innerH / 2;
+      const pivotX = vInnerX + vInnerW / 2;
+      const pivotY = vInnerY + vInnerH / 2;
       return `<g transform="rotate(${bodyRotDegSvg} ${E(pivotX)} ${E(pivotY)})">${svgInner}</g>`;
     }
     return svgInner;
@@ -2861,6 +3101,9 @@ const accentSequence = (theme: PresentationTheme | null): string[] => {
   return hexes.length > 0 ? hexes : fallbacks;
 };
 
+// PowerPoint's stock chart-title size when the deck authors no explicit size.
+const DEFAULT_CHART_TITLE_PT = 13;
+
 // Project EMU bounds → CSS-px chart frame. Title and legend get fixed
 // vertical strips; the plot area takes whatever's left.
 interface ChartFrame {
@@ -2886,6 +3129,7 @@ const layoutChart = (
   titleOverlay = false,
   legendOverlay = false,
   hasLegend = true,
+  titlePx = DEFAULT_CHART_TITLE_PT * PX_PER_PT,
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -2894,10 +3138,13 @@ const layoutChart = (
   // When the title or legend is set to overlay, it sits on top of the
   // plot area instead of taking its own strip — common when the deck
   // author has aligned the plot tightly with surrounding content.
-  const titleStrip = hasTitle && !titleOverlay ? 18 : 0;
+  // The title block tracks the title font size (≈2.4× its px height,
+  // matching LibreOffice's title box + gap) instead of a fixed strip, so a
+  // larger authored title reserves proportionally more room.
+  const titleStrip = hasTitle && !titleOverlay ? Math.round(titlePx * 2.4) : 0;
   const legendStrip = hasLegend && !legendOverlay ? 18 : 0;
   const padding = 8;
-  const yAxisGutter = hasAxes ? 40 : 0;
+  const yAxisGutter = hasAxes ? 32 : 0;
   const xAxisGutter = hasAxes ? 18 : 0;
   return {
     x,
@@ -2908,7 +3155,10 @@ const layoutChart = (
     plotY: y + titleStrip + padding,
     plotW: Math.max(0, w - 2 * padding - yAxisGutter),
     plotH: Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
-    titleY: y + (titleOverlay ? 14 : titleStrip - 2),
+    // The title sits near the TOP of its (now taller) strip, not its bottom —
+    // dominant-baseline:middle, so center it ~0.7 of the title px below the top
+    // edge to match where LibreOffice paints the title line.
+    titleY: y + (titleOverlay ? 14 : padding + titlePx * 0.7),
     legendY: y + h - (legendOverlay ? 18 : legendStrip / 2),
   };
 };
@@ -3072,6 +3322,12 @@ const DEFAULT_GRID_COLOR = '#D9D9D9';
 // Major tick marks read at ~5px against the 1280px-wide reference raster.
 const AXIS_TICK_LEN = 5;
 
+// Chart text carries `sizePt` in typographic points, but the SVG canvas is
+// 96px/in — emit the converted px size so labels don't render ~25% too small
+// vs LibreOffice (which sizes them in px). Every chart-text site routes its
+// font-size through here so they can't drift apart again.
+const chartFontPx = (sizePt: number): string => (sizePt * PX_PER_PT).toFixed(1);
+
 // Builds the `font-family / font-size / fill / weight` SVG attribute string
 // for axis tick labels. Defaults match PowerPoint's stock 10pt muted-gray
 // look; authored `<c:txPr>` overrides take over.
@@ -3080,7 +3336,7 @@ const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
   const fill = style?.color ?? '#6B7280';
   const weight = style?.bold ? ' font-weight="600"' : '';
   const italic = style?.italic ? ' font-style="italic"' : '';
-  return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
+  return `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}"${weight}${italic}`;
 };
 
 const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
@@ -3391,11 +3647,11 @@ const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle):
   if (!title) return '';
   // Defaults match PowerPoint's stock title look (~14pt semibold dark
   // gray); authored <a:rPr sz/b/i> + solidFill overrides take over.
-  const sz = style?.sizePt ?? 13;
+  const sz = style?.sizePt ?? DEFAULT_CHART_TITLE_PT;
   const fill = style?.color ?? '#1F2937';
   const weight = style?.bold === false ? '400' : '600';
   const fontStyleAttr = style?.italic ? ' font-style="italic"' : '';
-  return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}" font-weight="${weight}"${fontStyleAttr}>${escapeXml(title)}</text>`;
+  return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}" font-weight="${weight}"${fontStyleAttr}>${escapeXml(title)}</text>`;
 };
 
 const renderChartLegend = (
@@ -3412,7 +3668,7 @@ const renderChartLegend = (
   const fill = textStyle?.color ?? '#374151';
   const weight = textStyle?.bold ? ' font-weight="600"' : '';
   const italic = textStyle?.italic ? ' font-style="italic"' : '';
-  const textAttrs = `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
+  const textAttrs = `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}"${weight}${italic}`;
   // Legend swatch: when the series authors a marker symbol (line / area
   // charts), draw the same glyph the data points use; otherwise fall
   // back to the 9×9 color rect.
@@ -3882,7 +4138,7 @@ const dataLabelTextAttrs = (
   const isBold = style?.bold ?? fallbackBold;
   const weight = isBold ? ' font-weight="600"' : '';
   const italic = style?.italic ? ' font-style="italic"' : '';
-  return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}"${weight}${italic}`;
+  return `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}"${weight}${italic}`;
 };
 
 const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
@@ -4019,7 +4275,15 @@ const renderLineChart = (
   // total, so the plotted points and the axis labels share one range.
   const { min, max } = seriesMinMax(spec);
   const range = max - min || 1;
-  const step = N > 1 ? f.plotW / (N - 1) : 0;
+  // Category line charts (crossBetween="between") plot points at BAND CENTERS
+  // with a half-band margin on each side — matching the category-axis labels
+  // and PowerPoint/LibreOffice. Area charts (crossBetween="midCat") instead
+  // span edge-to-edge, first point on the value-axis spine and last on the
+  // right edge.
+  // A single category degenerates to band 0 for both modes, putting the lone
+  // point at plotX — matching where renderCategoryAxis places a single label.
+  const band = N > 1 ? (fill ? f.plotW / (N - 1) : f.plotW / N) : 0;
+  const xAt = (c: number): number => (fill ? f.plotX + c * band : f.plotX + (c + 0.5) * band);
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
   out.push(
@@ -4039,7 +4303,7 @@ const renderLineChart = (
     const ptsRaw: Pt[] = [];
     const basePtsRaw: Pt[] = [];
     for (let c = 0; c < N; c++) {
-      const xp = f.plotX + c * step;
+      const xp = xAt(c);
       const rawV = series.values[c];
       const isNullish = rawV === null || rawV === undefined || !Number.isFinite(rawV);
       let v: number;
@@ -4208,7 +4472,7 @@ const renderLineChart = (
   // span the highest and lowest series values at each category.
   if (!isStacked && (spec.dropLines || spec.hiLowLines) && spec.series.length > 0) {
     for (let c = 0; c < N; c++) {
-      const xp = f.plotX + c * step;
+      const xp = xAt(c);
       if (spec.dropLines) {
         const firstVal = spec.series[0]?.values[c];
         if (firstVal !== null && firstVal !== undefined && Number.isFinite(firstVal)) {
@@ -4648,6 +4912,7 @@ const renderChart = (
     spec.titleOverlay ?? false,
     spec.legend?.overlay ?? false,
     hasLegend,
+    (spec.titleStyle?.sizePt ?? DEFAULT_CHART_TITLE_PT) * PX_PER_PT,
   );
   const allNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
@@ -4793,7 +5058,7 @@ const renderChart = (
     const fill = style?.color ?? '#374151';
     const weight = style?.bold === false ? '400' : '600';
     const italicAttr = style?.italic ? ' font-style="italic"' : '';
-    return `font-family="sans-serif" font-size="${sz.toFixed(1)}" fill="${fill}" font-weight="${weight}"${italicAttr}`;
+    return `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}" font-weight="${weight}"${italicAttr}`;
   };
   // Authored <c:title><c:tx><c:rich><a:bodyPr rot> overrides the
   // renderer's defaults (-90 for the value-axis title, 0 for the
@@ -5436,6 +5701,11 @@ const renderShape = (
       p.stroke === 'none' ? resolveColor('scheme:tx1', theme, '#1F2937') : p.stroke;
     const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
     const ma = p.markerAttrs ?? '';
+    // Connectors default to a round cap/join, but an explicit cap/join from
+    // <a:ln cap="…"> / <a:round/> already sits in strokeAttrs — emitting the
+    // default alongside it would repeat the attribute and break SVG parsing.
+    const capDefault = sa.includes('stroke-linecap') ? '' : ' stroke-linecap="round"';
+    const joinDefault = sa.includes('stroke-linejoin') ? '' : ' stroke-linejoin="round"';
     // B8 — bent / curved connector routing. Per ECMA-376 §20.1.9.18,
     // bentConnector{2,3,4,5} are L-shaped, step, and double-step paths;
     // curvedConnector{2,3,4,5} are quadratic / cubic Bézier curves. We
@@ -5443,7 +5713,7 @@ const renderShape = (
     // CSS-px so the cadence matches PowerPoint within visual tolerance.
     const preset = getShapePreset(shape) ?? 'line';
     if (preset === 'straightConnector1' || preset === 'line') {
-      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round"${sa}${ma}${transform}/>`;
+      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${sa}${ma}${transform}/>`;
     }
     // For bent / curved, we work in CSS px to keep the path math readable.
     const px1 = x1 / EMU_PER_PX;
@@ -5485,7 +5755,7 @@ const renderShape = (
       // Unknown connector preset — fall back to a straight line.
       d += ` L${px2.toFixed(2)} ${py2.toFixed(2)}`;
     }
-    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}" stroke-linecap="round" stroke-linejoin="round"${sa}${ma}${transform}/>`;
+    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${joinDefault}${sa}${ma}${transform}/>`;
   }
 
   if (kind === 'group') {
@@ -5616,7 +5886,7 @@ const renderShape = (
     } else {
       const pointsFn = PRESET_POINTS[preset];
       if (pointsFn) {
-        const points = pointsFn()
+        const points = pointsFn(w / EMU_PER_PX, h / EMU_PER_PX)
           .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
           .join(' ');
         geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
@@ -5829,13 +6099,20 @@ const buildEffectsFilter = (
       );
       layers.push(`innerOut${i}`);
     } else if (e.kind === 'glow') {
-      const blurPx = e.radiusEmu / EMU_PER_PX / 2;
+      // PowerPoint / LibreOffice keep the glow color near-opaque for most of
+      // the `rad` reach and feather only at the outer edge. Compositing flood
+      // 'in' a single wide Gaussian caps peak alpha at ~0.5 and over-diffuses,
+      // so decouple the saturated band (a large dilation) from the feather (a
+      // small blur): dilate by half the full reach, then blur lightly.
+      const radiusPx = e.radiusEmu / EMU_PER_PX;
+      const dilatePx = radiusPx * 0.5;
+      const featherPx = radiusPx * 0.3;
       const color = e.color || '#FFFFFF';
       const opacity = e.opacity ?? 1;
       const i = primitives.length;
       primitives.push(
-        `<feMorphology in="SourceAlpha" operator="dilate" radius="${(blurPx / 4).toFixed(2)}" result="glowExp${i}"/>`,
-        `<feGaussianBlur in="glowExp${i}" stdDeviation="${blurPx.toFixed(2)}" result="glowBlur${i}"/>`,
+        `<feMorphology in="SourceAlpha" operator="dilate" radius="${dilatePx.toFixed(2)}" result="glowExp${i}"/>`,
+        `<feGaussianBlur in="glowExp${i}" stdDeviation="${featherPx.toFixed(2)}" result="glowBlur${i}"/>`,
         `<feFlood flood-color="${color}" flood-opacity="${opacity.toFixed(3)}" result="glowCol${i}"/>`,
         `<feComposite in="glowCol${i}" in2="glowBlur${i}" operator="in" result="glowOut${i}"/>`,
       );

@@ -109,11 +109,13 @@ const FALLBACK_ASCENT = 0.9;
 const FALLBACK_DESCENT = 0.22;
 const FALLBACK_LINEGAP = 0.08;
 
-// Vertical-centering calibration — see the use site. Fraction of a line's
-// (ascent+descent) that center/bottom-anchored blocks sit LOWER than the
-// win-metric line box predicts, fitted to LibreOffice/PowerPoint ground truth
-// (top-anchored text needs no correction; only center/bottom do).
-const CENTER_ANCHOR_DROP = 0.036;
+// First-baseline leading calibration — see the use site. LibreOffice/PowerPoint
+// place the first baseline a fraction of a line's (ascent+descent) BELOW the
+// win-metric line box top (frameY + winAscent), independent of vertical anchor.
+// Fitted to ground truth as ≈0.036; verified against center/bottom anchoring
+// and against top-anchored titles (a top-anchored title sits ~0.036·(a+d) — for
+// a 40pt face ~3px — too high without it).
+const BASELINE_LEADING_DROP = 0.036;
 
 // The whole text layer paints ≈1px right of LibreOffice's pdftoppm raster at
 // 1280px — a constant disagreement about where the glyph origin lands on the
@@ -169,8 +171,10 @@ export interface ParaInput {
  *  OOXML `vert` token (`vert`/`eaVert`/`vert270`/…) onto one of these — the
  *  engine stays free of OOXML vocabulary. `cw90` rotates the horizontal layout
  *  90° clockwise (reading top-to-bottom, columns right-to-left); `cw270` is the
- *  opposite 270° rotation (columns left-to-right). */
-export type VerticalLayout = 'none' | 'cw90' | 'cw270';
+ *  opposite 270° rotation (columns left-to-right). `upright` is `wordArtVert` —
+ *  glyphs stay upright and stack one per line (render-slide pre-splits the runs
+ *  one code point per line), so it lays out like `none` with no rotation. */
+export type VerticalLayout = 'none' | 'cw90' | 'cw270' | 'upright';
 
 export interface ColumnLayout {
   readonly count: number; // PowerPoint clamps to >= 2 before this point
@@ -262,7 +266,15 @@ const fmt = (n: number): string => {
 
 // ---------------------------------------------------------------------------
 
-export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
+interface LayoutCore {
+  readonly placements: Placement[];
+  readonly requiredH: number; // laid-out content height in px (top-anchored space)
+  readonly vert: VerticalLayout;
+  readonly cx: number;
+  readonly cy: number;
+}
+
+const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutCore => {
   const widthCache = new Map<string, number>();
   const metricCache = new Map<string, { a: number; d: number; g: number }>();
   const key = (text: string, s: FontSpec): string =>
@@ -393,7 +405,22 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
           line.anchorX = wrapRight;
         }
         if (isFirst && bullet) {
-          line.bullet = { x: firstLeft, baselineDy: 0, b: bullet };
+          // The bullet hangs to the LEFT of the aligned text block and travels
+          // with it: on a centered / right-aligned paragraph PowerPoint keeps
+          // the bullet immediately left of the text, not pinned to the margin.
+          // Offset it from the rendered text's left edge by the same gap it has
+          // on a left-aligned line (lineLeft - firstLeft).
+          let bulletX = firstLeft;
+          if (para.align === 'center' || para.align === 'right') {
+            let end = toks.length;
+            while (end > 0 && (toks[end - 1]!.isSpace || toks[end - 1]!.isBreak)) end--;
+            let lineW = 0;
+            for (let ti = 0; ti < end; ti++) if (!toks[ti]!.isBreak) lineW += toks[ti]!.width;
+            const textLeft =
+              para.align === 'right' ? wrapRight - lineW : (lineLeft + wrapRight) / 2 - lineW / 2;
+            bulletX = textLeft - (lineLeft - firstLeft);
+          }
+          line.bullet = { x: bulletX, baselineDy: 0, b: bullet };
         }
         line.advance = lineAdvance(line, para);
         cursorY += line.advance;
@@ -412,8 +439,10 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
   // maps that horizontal layout exactly onto the shape. All wrap / anchor /
   // align math then stays identical to horizontal — only the wrapping transform
   // differs, which is what keeps the calibrated horizontal path byte-stable.
+  // `upright` keeps the box as-is (no extent swap): the glyphs are already
+  // pre-split one per line by render-slide, so they stack within the real box.
   const frame: Frame =
-    vert === 'none'
+    vert === 'none' || vert === 'upright'
       ? { x: input.boxXpx, y: input.boxYpx, w: input.boxWpx, h: input.boxHpx }
       : { x: cx - input.boxHpx / 2, y: cy - input.boxWpx / 2, w: input.boxHpx, h: input.boxWpx };
 
@@ -422,21 +451,33 @@ export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): stri
   // keep the rotation and drop numCol rather than emit a wrong combined layout.
   const columns = vert === 'none' ? (input.columns ?? null) : null;
 
-  const placements =
+  const { placements, requiredH } =
     columns && columns.count >= 2
       ? placeColumns(frame, columns, input.anchor, buildLines)
       : placeSingle(frame, input.anchor, buildLines);
 
+  return { placements, requiredH, vert, cx, cy };
+};
+
+export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
+  const { placements, vert, cx, cy } = layoutCore(input, measure);
   const body = emitPlacements(placements);
-  if (vert === 'none') return body;
+  if (vert === 'none' || vert === 'upright') return body;
   const deg = vert === 'cw90' ? 90 : 270;
   return `<g transform="rotate(${deg} ${fmt(cx)} ${fmt(cy)})">${body}</g>`;
 };
 
-// Vertical block offset for an anchor. Center / bottom get the empirical drop
-// calibration (see site/fidelity/README.md): LibreOffice & PowerPoint sit
-// center/bottom-anchored text ≈0.036 of a line's (ascent+descent) lower than
-// the win-metric line box predicts; top-anchored text aligns exactly.
+/** Content height (px) the body would occupy at the given input's font sizes —
+ *  for a single column the block height, for multi-column the tallest filled
+ *  column. The SVG normAutofit path uses this to pick a shrink scale. */
+export const measureTextBodyHeight = (input: TextBodyInput, measure: TextMeasurer): number =>
+  layoutCore(input, measure).requiredH;
+
+// Vertical block offset for an anchor, plus the first-baseline leading drop
+// (see site/fidelity/README.md): LibreOffice & PowerPoint sit the first line
+// ≈0.036 of a line's (ascent+descent) lower than the win-metric line box
+// predicts — for ALL anchors, top included (top-anchored text is otherwise
+// biased that much too high).
 const anchorOffsetY = (
   frameY: number,
   frameH: number,
@@ -447,8 +488,8 @@ const anchorOffsetY = (
   let offsetY = frameY;
   if (anchor === 'center') offsetY = frameY + (frameH - blockH) / 2;
   else if (anchor === 'bottom') offsetY = frameY + (frameH - blockH);
-  if ((anchor === 'center' || anchor === 'bottom') && firstLine) {
-    offsetY += CENTER_ANCHOR_DROP * (firstLine.ascent + firstLine.descent);
+  if (firstLine) {
+    offsetY += BASELINE_LEADING_DROP * (firstLine.ascent + firstLine.descent);
   }
   return offsetY;
 };
@@ -457,14 +498,17 @@ const placeSingle = (
   frame: Frame,
   anchor: 'top' | 'center' | 'bottom',
   buildLines: LineBuilder,
-): Placement[] => {
+): { placements: Placement[]; requiredH: number } => {
   const { lines, blockH } = buildLines(frame.x, frame.x + frame.w);
   const offsetY = anchorOffsetY(frame.y, frame.h, blockH, anchor, lines[0]);
-  return lines.map((line) => ({
-    line,
-    baselineY: offsetY + line.topY + topPad(line) + line.ascent,
-    dx: 0,
-  }));
+  return {
+    placements: lines.map((line) => ({
+      line,
+      baselineY: offsetY + line.topY + topPad(line) + line.ascent,
+      dx: 0,
+    })),
+    requiredH: blockH,
+  };
 };
 
 const placeColumns = (
@@ -472,7 +516,7 @@ const placeColumns = (
   columns: ColumnLayout,
   anchor: 'top' | 'center' | 'bottom',
   buildLines: LineBuilder,
-): Placement[] => {
+): { placements: Placement[]; requiredH: number } => {
   const gap = columns.gapPx;
   const colW = Math.max(1, (frame.w - (columns.count - 1) * gap) / columns.count);
   const { lines } = buildLines(frame.x, frame.x + colW);
@@ -500,11 +544,14 @@ const placeColumns = (
   // with sequential fill the filled columns reach the box height, so this
   // matches PowerPoint/LibreOffice anchoring the body as one unit.
   const offsetY = anchorOffsetY(frame.y, frame.h, tallest, anchor, lines[0]);
-  return placed.map(({ line, localTopY, col: c }) => ({
-    line,
-    baselineY: offsetY + localTopY + topPad(line) + line.ascent,
-    dx: c * (colW + gap),
-  }));
+  return {
+    placements: placed.map(({ line, localTopY, col: c }) => ({
+      line,
+      baselineY: offsetY + localTopY + topPad(line) + line.ascent,
+      dx: c * (colW + gap),
+    })),
+    requiredH: tallest,
+  };
 };
 
 const emitPlacements = (placements: Placement[]): string => {
@@ -655,9 +702,17 @@ const wrapTokens = (
       continue;
     }
     const limit = first ? firstAvail : avail;
-    const contentW = lineW - trailingSpaceW; // exclude trailing spaces from the fit test
+    // `contentW` (text minus trailing spaces) only gates the empty-line guard:
+    // a line of leading spaces must not force-break. The FIT TEST uses `lineW`
+    // (which already includes the pending inter-word space), because once the
+    // candidate word is appended that space becomes an internal space and
+    // counts toward the line width — only the final trailing space at a real
+    // break hangs (trimTrailing handles that). Measuring against `contentW`
+    // here would discount one space per line and fit ~one extra word vs
+    // LibreOffice's space-inclusive line measurement.
+    const contentW = lineW - trailingSpaceW;
     const hasContent = contentW > 0;
-    if (wrap && hasContent && contentW + tok.width > limit + 0.5) {
+    if (wrap && hasContent && lineW + tok.width > limit + 0.5) {
       close();
       cur.push(tok);
       lineW = tok.width;
