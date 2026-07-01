@@ -232,7 +232,7 @@ export const setPresentationTheme = (
     const hex = parseSrgbHex(value);
     if (hex === null) {
       throw new Error(
-        `setPresentationTheme: "${field}" must be a #RRGGBB color, got ${JSON.stringify(value)}`,
+        `setPresentationTheme: "${field}" must be a #RRGGBB or #RGB color, got ${JSON.stringify(value)}`,
       );
     }
     const slotName = qname('a', local, NS.dml);

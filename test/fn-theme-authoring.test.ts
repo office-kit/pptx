@@ -60,7 +60,7 @@ describe('fn API: setPresentationTheme', () => {
     const pres = createPresentation();
     const before = getPresentationTheme(pres)!;
     expect(() => setPresentationTheme(pres, { accent1: 'not-a-color' })).toThrow(
-      /must be a #RRGGBB color/,
+      /must be a #RRGGBB or #RGB color/,
     );
     expect(getPresentationTheme(pres)).toEqual(before);
   });
