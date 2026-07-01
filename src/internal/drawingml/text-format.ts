@@ -82,6 +82,13 @@ const rprChildRank = (el: XmlElement): number =>
 export interface TextFormat {
   /** Latin font family (`Calibri`, `Arial`, ...). Sets `<a:latin>`. */
   font?: string;
+  /**
+   * East Asian font family (`游明朝`, `メイリオ`, ...). Sets `<a:ea>`.
+   * Renderers pick this typeface for CJK glyphs independently of `font`
+   * (which only governs Latin glyphs) — set both when a run mixes Latin
+   * and CJK text and needs a consistent look across the whole run.
+   */
+  fontEastAsian?: string;
   /** Font size in points; fractional values allowed (`12`, `12.5`). */
   size?: number;
   /**
@@ -168,6 +175,14 @@ const setLatin = (rPr: XmlElement, font: string | null): void => {
   insertChildByRank(rPr, elem(NAME_LATIN, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
 };
 
+const setEastAsian = (rPr: XmlElement, font: string | null): void => {
+  rPr.children = rPr.children.filter(
+    (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'ea'),
+  );
+  if (font === null) return;
+  insertChildByRank(rPr, elem(NAME_EA, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
+};
+
 const setHighlight = (rPr: XmlElement, value: string | null): void => {
   rPr.children = rPr.children.filter(
     (c) =>
@@ -226,10 +241,10 @@ export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   rPr.attrs = attrs;
 
   if (format.font !== undefined) setLatin(rPr, format.font);
+  if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
   if (format.color !== undefined) setSolidFill(rPr, format.color);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
 
-  void NAME_EA;
   void NAME_CS;
 };
 
