@@ -3177,9 +3177,11 @@ interface ChartFrame {
 }
 
 // Per-series projected geometry for a line/area chart, computed once and
-// shared between the fill pass (which reorders series for correct area
-// occlusion) and the stroke/marker/label/trendline pass (which stays in
-// authored order). See renderLineChart.
+// shared between the fill pass and the stroke/marker/label/trendline pass —
+// both iterate in the SAME order (authored order, except overlapping
+// non-stacked area charts, which both passes paint back-to-front so a
+// series' fill and outline stay together as one visual unit). See
+// renderLineChart's `paintOrder`.
 interface SeriesGeometry {
   readonly s: number;
   readonly series: ChartSeries;

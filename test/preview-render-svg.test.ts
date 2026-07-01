@@ -95,6 +95,15 @@ describe('renderSlideToSvg', () => {
     expect(svg).toContain('url(#');
   });
 
+  // Scoped to the <pattern> tile's own body, not the whole SVG — counting
+  // every <path> in the document would also catch unrelated shape geometry
+  // or defs, making the assertion pass or fail for the wrong reason.
+  const pathCountInPattern = (svg: string): number => {
+    const m = /<pattern[^>]*>([\s\S]*?)<\/pattern>/.exec(svg);
+    if (!m) throw new Error('no <pattern> element found');
+    return (m[1]!.match(/<path/g) ?? []).length;
+  };
+
   it('pattern fill emits a <pattern> def that the shape references', async () => {
     const { pres, slide } = await blankSlide();
     const shape = addSlideShape(slide, {
@@ -110,7 +119,7 @@ describe('renderSlideToSvg', () => {
     expect(svg).toContain('url(#');
     // pct50 is LibreOffice's substitution for this fill: a dense 45°/135°
     // crosshatch (two diagonal <path> line families), not a dot/checker screen.
-    expect((svg.match(/<path/g) ?? []).length).toBe(2);
+    expect(pathCountInPattern(svg)).toBe(2);
   });
 
   it('pattern fill density scales with the pct preset', async () => {
@@ -131,14 +140,13 @@ describe('renderSlideToSvg', () => {
       if (!m) throw new Error('no <pattern> tile found');
       return Number(m[1]);
     };
-    const pathCount = (svg: string): number => (svg.match(/<path/g) ?? []).length;
     const svg5 = await render('pct5');
     const svg50 = await render('pct50');
     // Below ~30% density: a single sparse diagonal hatch. At/above it: a full
     // crosshatch with a tighter pitch — both the direction count and the tile
     // (pitch) shrink as density rises.
-    expect(pathCount(svg5)).toBe(1);
-    expect(pathCount(svg50)).toBe(2);
+    expect(pathCountInPattern(svg5)).toBe(1);
+    expect(pathCountInPattern(svg50)).toBe(2);
     expect(tileSize(svg50)).toBeLessThan(tileSize(svg5));
   });
 
