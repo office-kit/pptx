@@ -17,29 +17,34 @@ test run.
 
 ## What each sample exercises
 
-| File                        | Covers                                                        |
-| --------------------------- | ------------------------------------------------------------- |
-| `01-title-only.pptx`        | Smallest possible deck — one slide with a title placeholder.  |
-| `02-layouts.pptx`           | Title, section header, and content layouts side by side.      |
-| `03-text-formatting.pptx`   | Font, size, color, bold / italic / underline run formatting.  |
-| `04-bullets-alignment.pptx` | Bulleted list with mixed marker styles and alignment.         |
-| `05-preset-shapes.pptx`     | 12 preset geometries: rect, ellipse, arrows, stars, polygons. |
-| `06-lines-arrows.pptx`      | Lines + arrowheads (triangle, oval), dashed strokes.          |
-| `07-fills.pptx`             | Solid, linear-gradient, and pattern fills.                    |
-| `08-shadow-glow.pptx`       | Drop shadow and outer-glow effects.                           |
-| `09-images.pptx`            | Three embedded PNGs in distinct colors.                       |
-| `10-tables.pptx`            | 5×4 table with header and banded rows.                        |
-| `11-charts.pptx`            | Column + line + pie charts in one deck.                       |
-| `12-geometry.pptx`          | Shape rotation, horizontal flip, vertical flip.               |
-| `13-zorder.pptx`            | Two overlapping shapes with explicit z-order reorder.         |
-| `14-background.pptx`        | Solid-color slide background.                                 |
-| `15-notes-comments.pptx`    | Speaker notes plus two review comments from two authors.      |
-| `16-transitions.pptx`       | Slide transitions: fade, push, wipe.                          |
-| `17-animations.pptx`        | Entrance / exit animations: `fadeIn`, `appear`, `fadeOut`.    |
-| `18-hyperlinks.pptx`        | External URL hyperlink on a text run.                         |
-| `19-token-fill.pptx`        | `{{token}}` template-fill via `replaceTokensInPresentation`.  |
-| `20-core-properties.pptx`   | Document metadata (Title / Author / Subject / Keywords).      |
-| `21-showcase.pptx`          | The everything deck — 7 slides combining all of the above.    |
+| File                        | Covers                                                                                                                                    |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `01-title-only.pptx`        | Smallest possible deck — one slide with a title placeholder.                                                                              |
+| `02-layouts.pptx`           | Title, section header, and content layouts side by side.                                                                                  |
+| `03-text-formatting.pptx`   | Font, size, color, bold / italic / underline run formatting.                                                                              |
+| `04-bullets-alignment.pptx` | Bulleted list with mixed marker styles and alignment.                                                                                     |
+| `05-preset-shapes.pptx`     | 12 preset geometries: rect, ellipse, arrows, stars, polygons.                                                                             |
+| `06-lines-arrows.pptx`      | Lines + arrowheads (triangle, oval), dashed strokes.                                                                                      |
+| `07-fills.pptx`             | Solid, linear-gradient, and pattern fills.                                                                                                |
+| `08-shadow-glow.pptx`       | Drop shadow and outer-glow effects.                                                                                                       |
+| `09-images.pptx`            | Three embedded PNGs in distinct colors.                                                                                                   |
+| `10-tables.pptx`            | 5×4 table with header and banded rows.                                                                                                    |
+| `11-charts.pptx`            | Column + line + pie charts in one deck.                                                                                                   |
+| `12-geometry.pptx`          | Shape rotation, horizontal flip, vertical flip.                                                                                           |
+| `13-zorder.pptx`            | Two overlapping shapes with explicit z-order reorder.                                                                                     |
+| `14-background.pptx`        | Solid-color slide background.                                                                                                             |
+| `15-notes-comments.pptx`    | Speaker notes plus two review comments from two authors.                                                                                  |
+| `16-transitions.pptx`       | Slide transitions: fade, push, wipe.                                                                                                      |
+| `17-animations.pptx`        | Entrance / exit animations: `fadeIn`, `appear`, `fadeOut`.                                                                                |
+| `18-hyperlinks.pptx`        | External URL hyperlink on a text run.                                                                                                     |
+| `19-token-fill.pptx`        | `{{token}}` template-fill via `replaceTokensInPresentation`.                                                                              |
+| `20-core-properties.pptx`   | Document metadata (Title / Author / Subject / Keywords).                                                                                  |
+| `21-showcase.pptx`          | The everything deck — 7 slides combining all of the above.                                                                                |
+| `36-consulting-deck.pptx`   | Branded 4-slide board deck: custom theme/fonts, grouped KPI cards and roadmap nodes, connector-linked process flow, banded table + chart. |
+
+Samples 22–35 exercise fidelity-harness-only edge cases (vertical text,
+autofit, pattern fills, ...) and aren't listed here individually — see
+`test/samples-generate.test.ts` for the full, current list.
 
 ## How to inspect
 

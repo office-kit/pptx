@@ -25,10 +25,14 @@ import {
   addSlideTextBox,
   bringShapeToFront,
   cm,
+  createPresentation,
   duplicateSlide,
+  emu,
   findSlideLayout,
+  findSlideLayoutByType,
   findSlidePlaceholder,
   getSlides,
+  groupShapes,
   inches,
   loadPresentation,
   mergeTableCells,
@@ -40,6 +44,9 @@ import {
   setParagraphAlignment,
   setParagraphBullet,
   setParagraphLevel,
+  setParagraphSpacing,
+  setPresentationFonts,
+  setPresentationTheme,
   setShapeAnimation,
   setShapeBullets,
   setShapeFill,
@@ -65,6 +72,8 @@ import {
   setSlideNotes,
   setSlideTitle,
   setSlideTransition,
+  type Emu,
+  type SlideData,
 } from '../src/api/index.ts';
 import { buildPng } from './lib/build-png.ts';
 
@@ -1650,5 +1659,453 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
 
     const bytes = await savePresentation(pres);
     await writeSample('35-text-direction.pptx', bytes);
+  });
+
+  it('36 — consulting-grade strategy deck (branded theme, KPI cards, roadmap, data appendix)', async () => {
+    // The most demanding deck the library can currently produce: a
+    // from-scratch, custom-branded 4-slide "board deck" combining every
+    // authoring capability — theme branding, grouped multi-shape
+    // components (KPI cards, roadmap nodes), a connector-linked process
+    // flow, a banded table, a chart, and dense per-run typography.
+    const NAVY = '#0B1F3A';
+    const TEAL = '#00A9E0'; // accent1
+    const GOLD = '#FDB913'; // accent2
+    const SLATE = '#6E7B8B'; // accent3
+    const INK = '#1A1A1A';
+    const MUTED = '#5B6673';
+    const PAGE_W = inches(13.333);
+    const MARGIN_X = inches(0.6);
+    const CONTENT_W = inches(12.13);
+
+    const pres = createPresentation();
+    setPresentationTheme(pres, {
+      name: 'Northstar Consulting',
+      dark1: NAVY,
+      accent1: TEAL,
+      accent2: GOLD,
+      accent3: SLATE,
+    });
+    setPresentationFonts(pres, { majorLatin: 'Arial', minorLatin: 'Calibri' });
+
+    const contentSlide = (): SlideData => {
+      const layout = findSlideLayoutByType(pres, 'blank') ?? findSlideLayout(pres, 'Blank');
+      if (!layout) throw new Error('sample 36: deck has no Blank layout');
+      return addSlide(pres, { layout });
+    };
+
+    // Shared chrome: a kicker label, an "action title" (the McKinsey-style
+    // headline that states the slide's takeaway, not just its topic), and
+    // a gold rule underneath.
+    const addHeader = (slide: SlideData, kicker: string, headline: string): void => {
+      const kickerBox = addSlideTextBox(slide, {
+        x: MARGIN_X,
+        y: inches(0.35),
+        w: CONTENT_W,
+        h: inches(0.3),
+        text: kicker,
+      });
+      setShapeRunFormat(kickerBox, 0, 0, {
+        font: 'Calibri',
+        size: 11,
+        bold: true,
+        color: 'accent2',
+        spc: 150,
+      });
+
+      const headlineBox = addSlideTextBox(slide, {
+        x: MARGIN_X,
+        y: inches(0.68),
+        w: CONTENT_W,
+        h: inches(1.05),
+        text: headline,
+      });
+      setShapeRunFormat(headlineBox, 0, 0, { font: 'Arial', size: 22, bold: true, color: 'dk1' });
+
+      addSlideLine(slide, {
+        from: { x: MARGIN_X, y: inches(1.78) },
+        to: { x: emu(MARGIN_X + CONTENT_W), y: inches(1.78) },
+        color: 'accent2',
+        widthEmu: pt(2),
+      });
+    };
+
+    const addFooter = (slide: SlideData, pageNumber: number, source: string): void => {
+      addSlideLine(slide, {
+        from: { x: MARGIN_X, y: inches(7.02) },
+        to: { x: emu(MARGIN_X + CONTENT_W), y: inches(7.02) },
+        color: '#D9DCE1',
+        widthEmu: pt(0.75),
+      });
+      const sourceBox = addSlideTextBox(slide, {
+        x: MARGIN_X,
+        y: inches(7.1),
+        w: inches(9.5),
+        h: inches(0.3),
+        text: source,
+      });
+      setShapeRunFormat(sourceBox, 0, 0, { font: 'Calibri', size: 8, italic: true, color: MUTED });
+      const pageBox = addSlideTextBox(slide, {
+        x: inches(12.4),
+        y: inches(7.1),
+        w: inches(0.5),
+        h: inches(0.3),
+        text: String(pageNumber),
+      });
+      setShapeRunFormat(pageBox, 0, 0, { font: 'Calibri', size: 9, color: MUTED });
+      setParagraphAlignment(pageBox, 0, 'r');
+    };
+
+    // A single "$340M — Incremental revenue" style dashboard tile: a
+    // rounded card, a thin accent tab on top, a big number, and a label —
+    // composed with groupShapes so the whole tile moves/resizes as one.
+    const addKpiCard = (
+      slide: SlideData,
+      x: Emu,
+      y: Emu,
+      w: Emu,
+      value: string,
+      label: string,
+      accent: string,
+    ) => {
+      const h = inches(1.5);
+      const card = addSlideShape(slide, { preset: 'roundRect', x, y, w, h });
+      setShapeFill(card, '#FFFFFF');
+      setShapeStroke(card, { color: '#E3E6EA', widthEmu: pt(0.75) });
+      setShapeShadow(card, {
+        blurEmu: pt(8),
+        offsetEmu: pt(2),
+        angleDeg: 90,
+        color: '#000000',
+        opacity: 0.12,
+      });
+
+      const tab = addSlideShape(slide, { x, y, w, h: inches(0.09), preset: 'rect' });
+      setShapeFill(tab, accent);
+
+      const valueBox = addSlideTextBox(slide, {
+        x: emu(x + inches(0.2)),
+        y: emu(y + inches(0.28)),
+        w: emu(w - inches(0.4)),
+        h: inches(0.55),
+        text: value,
+      });
+      setShapeRunFormat(valueBox, 0, 0, { font: 'Arial', size: 26, bold: true, color: 'dk1' });
+
+      const labelBox = addSlideTextBox(slide, {
+        x: emu(x + inches(0.2)),
+        y: emu(y + inches(0.92)),
+        w: emu(w - inches(0.4)),
+        h: inches(0.5),
+        text: label,
+      });
+      setShapeRunFormat(labelBox, 0, 0, { font: 'Calibri', size: 10.5, color: MUTED });
+
+      return groupShapes(slide, [card, tab, valueBox, labelBox], { name: `KPI: ${label}` });
+    };
+
+    // A roadmap "horizon" node: a numbered badge, a title bar, and an
+    // initiative list — grouped so a reader (or a future edit) can treat
+    // one phase of the plan as a single object.
+    const addHorizonNode = (
+      slide: SlideData,
+      x: Emu,
+      w: Emu,
+      index: number,
+      title: string,
+      initiatives: ReadonlyArray<string>,
+      accent: string,
+    ) => {
+      const y = inches(2.35);
+      const headerH = inches(0.85);
+      const header = addSlideShape(slide, { preset: 'roundRect', x, y, w, h: headerH });
+      setShapeFill(header, NAVY);
+
+      const badge = addSlideShape(slide, {
+        preset: 'ellipse',
+        x: emu(x + inches(0.18)),
+        y: emu(y + inches(0.16)),
+        w: inches(0.52),
+        h: inches(0.52),
+        text: String(index),
+      });
+      setShapeFill(badge, accent);
+      setShapeRunFormat(badge, 0, 0, { font: 'Arial', size: 16, bold: true, color: '#FFFFFF' });
+
+      const titleBox = addSlideTextBox(slide, {
+        x: emu(x + inches(0.82)),
+        y: emu(y + inches(0.14)),
+        w: emu(w - inches(1.0)),
+        h: inches(0.58),
+        text: title,
+      });
+      setShapeRunFormat(titleBox, 0, 0, { font: 'Arial', size: 13, bold: true, color: '#FFFFFF' });
+
+      const node = groupShapes(slide, [header, badge, titleBox], {
+        name: `Horizon ${index}: ${title}`,
+      });
+
+      const listBox = addSlideTextBox(slide, {
+        x,
+        y: emu(y + headerH + inches(0.18)),
+        w,
+        h: inches(1.7),
+        text: initiatives.join('\n'),
+      });
+      setShapeBullets(listBox, { char: '—' });
+      for (let i = 0; i < initiatives.length; i++) {
+        setShapeRunFormat(listBox, i, 0, { font: 'Calibri', size: 11, color: INK });
+        setParagraphSpacing(listBox, i, { afterPts: 6 });
+      }
+
+      return node;
+    };
+
+    // ── Slide 1: cover ──────────────────────────────────────────────────
+    const cover = contentSlide();
+    setSlideBackground(cover, NAVY);
+    const goldBar = addSlideShape(cover, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(7.3),
+      w: PAGE_W,
+      h: inches(0.2),
+    });
+    setShapeFill(goldBar, GOLD);
+
+    // Firm monogram: a circular badge + initials, grouped as one mark.
+    const mark = addSlideShape(cover, {
+      preset: 'ellipse',
+      x: inches(0.6),
+      y: inches(0.5),
+      w: inches(0.55),
+      h: inches(0.55),
+      text: 'PK',
+    });
+    setShapeFill(mark, GOLD);
+    setShapeRunFormat(mark, 0, 0, { font: 'Arial', size: 14, bold: true, color: 'dk1' });
+    const markLabel = addSlideTextBox(cover, {
+      x: inches(1.3),
+      y: inches(0.58),
+      w: inches(3),
+      h: inches(0.4),
+      text: 'NORTHSTAR STRATEGY',
+    });
+    setShapeRunFormat(markLabel, 0, 0, {
+      font: 'Calibri',
+      size: 11,
+      bold: true,
+      color: '#FFFFFF',
+      spc: 100,
+    });
+    groupShapes(cover, [mark, markLabel], { name: 'Firm mark' });
+
+    const kicker = addSlideTextBox(cover, {
+      x: inches(0.7),
+      y: inches(2.6),
+      w: inches(11.5),
+      h: inches(0.4),
+      text: 'STRICTLY CONFIDENTIAL — DRAFT FOR DISCUSSION',
+    });
+    setShapeRunFormat(kicker, 0, 0, {
+      font: 'Calibri',
+      size: 12,
+      bold: true,
+      color: GOLD,
+      spc: 150,
+    });
+
+    const coverTitle = addSlideTextBox(cover, {
+      x: inches(0.7),
+      y: inches(3.05),
+      w: inches(11.5),
+      h: inches(1.5),
+      text: 'Project Northstar: Market-Entry Strategy for Southeast Asia',
+    });
+    setShapeRunFormat(coverTitle, 0, 0, { font: 'Arial', size: 36, bold: true, color: '#FFFFFF' });
+
+    const coverSub = addSlideTextBox(cover, {
+      x: inches(0.7),
+      y: inches(4.5),
+      w: inches(11.5),
+      h: inches(0.5),
+      text: 'Board Steering Committee Review',
+    });
+    setShapeRunFormat(coverSub, 0, 0, { font: 'Calibri', size: 18, color: '#C9D3E0' });
+
+    const coverMeta = addSlideTextBox(cover, {
+      x: inches(0.7),
+      y: inches(6.5),
+      w: inches(11.5),
+      h: inches(0.4),
+      text: 'March 2026  |  Prepared by Strategy & Corporate Development',
+    });
+    setShapeRunFormat(coverMeta, 0, 0, { font: 'Calibri', size: 11, color: '#8FA0B8' });
+    setSlideNotes(
+      cover,
+      'Opening cover slide. Confirm attendee list and confidentiality reminder before presenting.',
+    );
+
+    // ── Slide 2: executive summary (KPI dashboard) ──────────────────────
+    const summary = contentSlide();
+    addHeader(
+      summary,
+      'EXECUTIVE SUMMARY',
+      'The Southeast Asian expansion can add $340M in incremental revenue by FY28 if we act within the next two quarters',
+    );
+
+    const kpis: Array<{ value: string; label: string; accent: string }> = [
+      { value: '$340M', label: 'Incremental revenue by FY28', accent: TEAL },
+      { value: '18%', label: 'Projected market share, Year 3', accent: GOLD },
+      { value: '6', label: 'Priority markets identified', accent: SLATE },
+      { value: '24 mo', label: 'Time to cash-flow breakeven', accent: TEAL },
+    ];
+    const cardW = inches(2.85);
+    const cardGap = inches(0.19);
+    kpis.forEach((k, i) => {
+      const x = emu(MARGIN_X + i * (cardW + cardGap));
+      addKpiCard(summary, x, inches(2.05), cardW, k.value, k.label, k.accent);
+    });
+
+    const takeawaysTitle = addSlideTextBox(summary, {
+      x: MARGIN_X,
+      y: inches(3.85),
+      w: CONTENT_W,
+      h: inches(0.35),
+      text: 'Key considerations for the steering committee',
+    });
+    setShapeRunFormat(takeawaysTitle, 0, 0, { font: 'Arial', size: 13, bold: true, color: 'dk1' });
+
+    const takeawayLines = [
+      'Regulatory approval timelines in Vietnam and Indonesia are the primary schedule risk — a parallel filing track is recommended.',
+      'Local manufacturing partnership reduces landed cost by an estimated 14% versus direct export, but requires a $22M upfront commitment.',
+      'Competitive response is likely within two quarters of a public launch announcement; first-mover advantage is time-limited.',
+    ];
+    const takeaways = addSlideTextBox(summary, {
+      x: MARGIN_X,
+      y: inches(4.25),
+      w: CONTENT_W,
+      h: inches(2.6),
+      text: takeawayLines.join('\n'),
+    });
+    setShapeBullets(takeaways, { char: '●' });
+    for (let i = 0; i < takeawayLines.length; i++) {
+      setShapeRunFormat(takeaways, i, 0, { font: 'Calibri', size: 13, color: INK });
+      setParagraphSpacing(takeaways, i, { afterPts: 10 });
+    }
+    addFooter(summary, 2, 'SOURCE: Internal analysis; IMF World Economic Outlook, April 2026.');
+
+    // ── Slide 3: strategic roadmap (connected process flow) ─────────────
+    const roadmap = contentSlide();
+    addHeader(
+      roadmap,
+      'STRATEGIC ROADMAP',
+      'A phased three-horizon plan sequences market entry to manage capital risk',
+    );
+
+    const nodeW = inches(3.7);
+    const nodeGap = inches(0.55);
+    const nodeXs = [0, 1, 2].map((i) => emu(MARGIN_X + i * (nodeW + nodeGap)));
+    addHorizonNode(
+      roadmap,
+      nodeXs[0]!,
+      nodeW,
+      1,
+      'Foundation (Q1–Q2 FY27)',
+      [
+        'Secure regulatory approval in Vietnam',
+        'Finalize manufacturing partnership terms',
+        'Build local commercial team',
+      ],
+      TEAL,
+    );
+    addHorizonNode(
+      roadmap,
+      nodeXs[1]!,
+      nodeW,
+      2,
+      'Launch (Q3 FY27–Q1 FY28)',
+      [
+        'Commercial launch in 2 lead markets',
+        'Scale distribution partnerships',
+        'Launch localized marketing campaign',
+      ],
+      GOLD,
+    );
+    addHorizonNode(
+      roadmap,
+      nodeXs[2]!,
+      nodeW,
+      3,
+      'Scale (FY28+)',
+      [
+        'Expand to remaining 4 priority markets',
+        'Evaluate local manufacturing footprint',
+        'Reassess pricing against competitive response',
+      ],
+      SLATE,
+    );
+
+    // Arrows linking each horizon to the next.
+    for (let i = 0; i < nodeXs.length - 1; i++) {
+      const from = { x: emu(nodeXs[i]! + nodeW), y: inches(2.775) };
+      const to = { x: nodeXs[i + 1]!, y: inches(2.775) };
+      const arrow = addSlideLine(roadmap, { from, to, color: NAVY, widthEmu: pt(2) });
+      setShapeStrokeArrow(arrow, 'tail', { type: 'triangle' });
+    }
+    addFooter(roadmap, 3, 'SOURCE: Strategy & Corporate Development analysis.');
+
+    // ── Slide 4: data appendix (table + chart) ───────────────────────────
+    const appendix = contentSlide();
+    addHeader(
+      appendix,
+      'APPENDIX A — FINANCIAL DETAIL',
+      'Revenue and margin projections vary meaningfully by market-entry scenario',
+    );
+
+    addSlideTable(appendix, {
+      x: MARGIN_X,
+      y: inches(2.05),
+      w: inches(5.9),
+      h: inches(3.2),
+      colWidths: [inches(2.6), inches(1.1), inches(1.1), inches(1.1)],
+      rows: [
+        ['Scenario', 'FY26', 'FY27', 'FY28'],
+        ['Organic only', '$40M', '$95M', '$150M'],
+        ['Partnership (recommended)', '$60M', '$210M', '$390M'],
+        ['Acquisition-led', '$120M', '$260M', '$430M'],
+      ],
+      firstRow: true,
+      bandRow: true,
+    });
+
+    addSlideChart(appendix, {
+      x: inches(6.7),
+      y: inches(2.05),
+      w: inches(5.43),
+      h: inches(3.2),
+      spec: {
+        kind: 'column',
+        categories: ['FY26', 'FY27', 'FY28'],
+        series: [
+          { name: 'Organic only', values: [40, 95, 150] },
+          { name: 'Partnership', values: [60, 210, 390] },
+          { name: 'Acquisition-led', values: [120, 260, 430] },
+        ],
+        title: 'Revenue by scenario ($M)',
+      },
+    });
+
+    const footnote = addSlideTextBox(appendix, {
+      x: MARGIN_X,
+      y: inches(5.45),
+      w: CONTENT_W,
+      h: inches(0.8),
+      text: 'Note: figures are unaudited management estimates in USD millions. The partnership scenario assumes regulatory approval is secured by Q2 FY27; a delay of two quarters reduces FY28 revenue by an estimated 15–20%.',
+    });
+    setShapeRunFormat(footnote, 0, 0, { font: 'Calibri', size: 10, italic: true, color: MUTED });
+    addFooter(appendix, 4, 'SOURCE: Finance business partnering team; scenario model v4.2.');
+
+    const bytes = await savePresentation(pres);
+    await writeSample('36-consulting-deck.pptx', bytes);
   });
 });

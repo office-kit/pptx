@@ -33,6 +33,7 @@ export * from './fn/shape-color.ts';
 export * from './fn/shape-paragraph.ts';
 export * from './fn/shape-removal-zorder.ts';
 export * from './fn/shape-authoring.ts';
+export * from './fn/shape-grouping.ts';
 export * from './fn/shape-image.ts';
 export * from './fn/shape-click-action.ts';
 export * from './fn/shape-image-effects.ts';
