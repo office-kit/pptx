@@ -114,32 +114,39 @@ setShapeGradientFill(bg, {
 Layer white/light-blue title text on top, generous vertical whitespace (the title
 block sits roughly at the vertical center, not crammed to the top).
 
-### Headlines: serif, and (usually) a rule underneath
+### Headlines: bold weight + size for hierarchy, and (usually) a rule underneath
 
-Both references use a **bold serif** typeface for headlines — visibly different
-letterforms from the sans-serif body/bullets/table text beneath. This
-serif/sans split is one of the highest-leverage, lowest-effort fidelity wins
-available, and it was previously unreachable: `setShapeRunFormat`'s `font` field
+Both references use a visibly different, heavier headline treatment than the
+sans-serif body/bullets/table text beneath. `setShapeRunFormat`'s `font` field
 only sets the _Latin_ typeface (`<a:latin>`); Japanese glyphs render through a
-separate East Asian typeface (`<a:ea>`) that has no per-run override in older
-pptx-kit versions. Use the current API's `fontEastAsian` field to set both:
+separate East Asian typeface (`<a:ea>`), settable per-run via the `fontEastAsian`
+field:
 
 ```ts
 setShapeRunFormat(headlineBox, 0, 0, {
-  font: 'Georgia', // Latin glyphs (ASCII digits, English loanwords)
-  fontEastAsian: '游明朝', // Yu Mincho — CJK glyphs, serif
+  font: 'Georgia', // Latin glyphs (ASCII digits, English loanwords) — serif is fine here
+  fontEastAsian: 'Meiryo UI', // CJK glyphs
   bold: true,
   size: 19,
   color: INK,
 });
-// Body/bullets/table text stays sans:
-setShapeRunFormat(bodyBox, i, 0, { font: 'Arial', fontEastAsian: 'メイリオ', size: 13 });
+// Body/bullets/table text stays a lighter weight, same typeface:
+setShapeRunFormat(bodyBox, i, 0, { font: 'Arial', fontEastAsian: 'Meiryo UI', size: 13 });
 ```
 
-Reserve the serif treatment for: headlines, the "Contents" TOC spine word, named
-framework/proper-noun keywords when they appear as section labels (e.g. an
-English loanword like "Resolve" used as a chapter name), and nothing else — real
-decks never use serif for body copy or data labels.
+**Don't use a serif CJK typeface (e.g. 游明朝/Yu Mincho) for headlines, even
+though the reference decks visually appear to use one.** A first pass tried
+exactly that — it matched the reference decks' look in a LibreOffice-rendered
+preview, but read as visibly wrong once the user opened the actual file outside
+the preview pipeline. Font substitution for CJK serif faces is inconsistent
+across PowerPoint/Keynote/OS installations in a way Latin serif faces aren't;
+`Meiryo UI` is the safe, universally-available choice. Carry the headline/body
+typographic hierarchy through **size and weight only** — a bigger, bolder
+`fontEastAsian: 'Meiryo UI'` headline next to a smaller, regular-weight
+`fontEastAsian: 'Meiryo UI'` body reads as distinctly "headline" without the
+CJK-serif risk. Latin-only display words (a "Contents" TOC spine word, an
+English loanword like "Resolve" used as a chapter name) can still use a Latin
+serif (`font: 'Georgia'`) safely, since that risk is CJK-specific.
 
 **Rule-under-headline — decision rule.** Reference A (terse internal deck) never
 draws a rule under the title. Reference B (richer external deck) draws a
@@ -379,6 +386,104 @@ this pairs with a right-margin/multi-column analysis block.
 - **Dense but not cluttered**: 3–5 bullets per slide, one action title, one
   exhibit (or one coherent multi-column composition). If you have two unrelated
   exhibits worth showing, that's two slides, not one crowded slide.
+
+## Content craft: what actually reads as AI-generated
+
+Everything above gets the visual language right. A visually correct deck can
+still read as AI-generated on close inspection — the tell moves from the
+layout to the _content_. This section is written from a real feedback loop:
+a generated ~100-slide deck was run through an AI-content detector across
+several rounds, and each round's fix sometimes introduced a _new_ tell of a
+different flavor. Treat "sounding human" as an ongoing discipline applied
+while drafting, not a find-and-replace pass done at the end.
+
+### Numeric self-consistency is the single strongest signal
+
+The #1 thing that got a deck flagged as AI-generated was a hard arithmetic
+contradiction: one slide stated a 2030 target as a "+340億円 increment," a
+different slide's scenario chart showed the same year's base case as an
+absolute "900億円." Neither reading reconciled with the deck's own bridge
+chart or P&L table. A systematic audit afterward found this wasn't an
+isolated typo — the same headline figure had **four** different values across
+different slides, a segment's contribution to profit had **three**, an NPV
+total didn't equal the sum of its own stated parts, and a stated current-state
+margin didn't match the P&L table's own baseline.
+
+This happens naturally when slide content is drafted slide-by-slide — each
+slide's numbers are locally plausible at the time they're written, and no one
+slide is "wrong" in isolation. The fix is structural, not editorial:
+
+1. **Before writing any slide content**, build one explicit numeric model
+   (a plain object/constants block in the generator script) covering every
+   quantity that will appear on more than one slide: the P&L path (revenue,
+   gross profit, SG&A, operating profit per year), the pillar/segment
+   contribution breakdown, scenario spreads, cash-flow figures.
+2. **Add a self-check** that runs when the script executes — e.g. assert
+   `grossProfit[i] - sga[i] === operatingProfit[i]` for every year, and
+   `baseline + sum(pillarContributions[i]) === operatingProfit[i]`. Throw if
+   it doesn't hold. This turns "did I introduce a contradiction" from a
+   manual audit into something the generator itself refuses to produce.
+3. **Derive every slide's numbers from that one model**, never re-typed
+   per-slide. Decide once whether a headline figure is an increment or an
+   absolute, and never let a different slide imply the other reading.
+4. When two slides describe "the same" figure from different angles (a
+   segment's standalone P&L vs. its consolidated contribution to a synergy
+   bridge; a survey-based scenario vs. a sensitivity-table increment), either
+   make them equal or add a one-line footnote naming _why_ they differ
+   (overhead allocation, scope difference). An unexplained gap reads as an
+   error even when the underlying reason is legitimate.
+
+### Source citations: vary the format, don't invent a fictional institute
+
+A first-pass fix for "sources are too vague" (bare `資料: 部署名` on every
+slide) overcorrected into "sources are suspiciously precise" — a uniform
+`部署名『Report Title』(Rev.X.X, 2026年M月D日確定版)` template repeated on
+40+ slides is itself an AI tell, just a different one. Two concrete fixes:
+
+- **Deliberately vary format and completeness.** Not every citation needs a
+  title + version number + date. Mix in plain department names, a bare
+  "業界レポートによる" with no further detail, an occasional named person
+  instead of a department, and the fully-dressed form — in whatever
+  proportion feels like it was assembled by different people at different
+  times, because in a real deck it was.
+- **For external market/industry data, cite real research firms and real
+  government bodies** (Euromonitor, GfK, Kantar, IMF World Economic Outlook,
+  a country's actual investment-promotion agency) rather than inventing a
+  plausible-sounding fictional institute (an early draft invented "ARERI —
+  アジア流通経済研究所," which read as exactly the kind of too-convenient
+  acronym an LLM fabricates). For a fictional company's _internal_ citations
+  (hearings, internal working papers), attributing to the company's own
+  already-established departments is fine and doesn't have this problem —
+  the risk is specifically inventing a _third-party_ organization that
+  sounds real but isn't.
+
+### Anonymized examples/case studies should not be structurally uniform
+
+If a deck includes 2–3 anonymized case studies, giving every one of them the
+same shape (tidy quote + clean lesson + fully-resolved success) reads as
+templated — real case libraries are uneven. Deliberately vary: give one case
+a direct quote and a resolved happy ending, give another just data with no
+quote, and consider making one case an **ongoing/unresolved** situation
+("current state: improving but still below target") rather than a clean win.
+The variation in depth and resolution is itself what makes each one read as
+independently researched rather than generated from one template.
+
+### Phrasing diversity is a moving target, not a one-time fix
+
+Repeating the same closing-clause formula across many slides (`〜が急務で
+ある`, `〜が鍵となる`, `〜を実現する`, `〜見込みである`, defaulting to `最も`
+as the only superlative device) reads as LLM-typical vocabulary. The trap:
+fixing this by mechanically swapping in a _different_ replacement phrase
+(`という計算になる`, `という結果が出ている`, `を起点とする`) just creates a
+new repeated tic once that replacement itself gets reused across a dozen
+slides. There is no phrase that's safe to reach for by default every time —
+the actual fix is sentence-level variety: sometimes state the number and stop
+without a closing hedge at all, sometimes lead with the comparison
+(`A社の1.6倍`) instead of a verb-based conclusion, sometimes invert
+subject/verb order. If you're generating enough content that you can search
+your own script afterward for any phrase appearing 4+ times, do that search —
+but don't pre-emptively adopt a "safe" replacement vocabulary, since that's
+exactly how the previous tic got created.
 
 ## Verification workflow — do not skip this
 
