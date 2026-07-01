@@ -155,6 +155,31 @@ describe('renderSlideToSvg', () => {
     expect(countTags(svg, 'foreignObject')).toBeGreaterThan(0);
   });
 
+  it('foreignObject mode: wavy underline + strikethrough keeps the strikethrough solid', async () => {
+    // CSS text-decoration-style applies to the WHOLE underline+line-through
+    // shorthand, so naively combining them would wave the strikethrough too —
+    // PowerPoint always draws it solid regardless of underline style.
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'both',
+    });
+    setShapeRunFormat(box, 0, 0, { strike: true, underline: 'wavy' });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    // The outer span (whatever other styling it carries) must NOT declare
+    // underline at all, and the solid line-through must not share a
+    // text-decoration-style:wavy declaration with it.
+    expect(svg).toContain('text-decoration:line-through');
+    expect(svg).not.toContain('text-decoration:underline line-through');
+    // A nested inner span carries just the wavy underline.
+    expect(svg).toContain(
+      '<span style="text-decoration:underline;text-decoration-style:wavy">both</span>',
+    );
+  });
+
   it('svg text mode emits <text> containing the run text and no <foreignObject>', async () => {
     const { pres, slide } = await blankSlide();
     addSlideTextBox(slide, {

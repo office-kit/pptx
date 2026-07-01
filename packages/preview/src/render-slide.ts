@@ -2092,9 +2092,17 @@ const renderRun = (
   // browsers render `text-decoration-style:wavy` fine, so the foreignObject
   // path can use CSS directly instead of a hand-drawn path.
   const isWavyUnderline = typeof underline === 'string' && underline.startsWith('wavy');
-  if (hasUnderline && hasStrike) {
+  // text-decoration-style is a single value for the whole underline+
+  // line-through shorthand, so a wavy underline combined with a strikethrough
+  // on the same run would wave the strikethrough too — PowerPoint always
+  // draws strikethrough solid regardless of the underline style. Nest a nowrap
+  // inner span carrying just the wavy underline so each element's decoration
+  // lines render independently.
+  const nestedWavyUnderline = hasUnderline && hasStrike && isWavyUnderline;
+  if (nestedWavyUnderline) {
+    styles.push('text-decoration:line-through');
+  } else if (hasUnderline && hasStrike) {
     styles.push('text-decoration:underline line-through');
-    if (isWavyUnderline) styles.push('text-decoration-style:wavy');
   } else if (hasUnderline) {
     styles.push('text-decoration:underline');
     if (isWavyUnderline) styles.push('text-decoration-style:wavy');
@@ -2129,7 +2137,10 @@ const renderRun = (
     .split('\n')
     .map((part) => escapeXml(part))
     .join('<br/>');
-  return `<span style="${styles.join(';')}">${html}</span>`;
+  const content = nestedWavyUnderline
+    ? `<span style="text-decoration:underline;text-decoration-style:wavy">${html}</span>`
+    : html;
+  return `<span style="${styles.join(';')}">${content}</span>`;
 };
 
 // CSS line-height factor we render text at. Keep in sync with the
