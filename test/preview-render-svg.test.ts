@@ -24,6 +24,7 @@ import {
   type PatternPreset,
   savePresentation,
   setShapeFill,
+  setShapeFlip,
   setShapeGradientFill,
   setShapeHyperlink,
   setShapePatternFill,
@@ -94,6 +95,15 @@ describe('renderSlideToSvg', () => {
     expect(svg).toContain('url(#');
   });
 
+  // Scoped to the <pattern> tile's own body, not the whole SVG — counting
+  // every <path> in the document would also catch unrelated shape geometry
+  // or defs, making the assertion pass or fail for the wrong reason.
+  const pathCountInPattern = (svg: string): number => {
+    const m = /<pattern[^>]*>([\s\S]*?)<\/pattern>/.exec(svg);
+    if (!m) throw new Error('no <pattern> element found');
+    return (m[1]!.match(/<path/g) ?? []).length;
+  };
+
   it('pattern fill emits a <pattern> def that the shape references', async () => {
     const { pres, slide } = await blankSlide();
     const shape = addSlideShape(slide, {
@@ -107,14 +117,13 @@ describe('renderSlideToSvg', () => {
     const svg = renderSlideToSvg(pres, slide);
     expect(countTags(svg, 'pattern')).toBeGreaterThan(0);
     expect(svg).toContain('url(#');
-    // pct50 is a 50% ordered-dither screen: half of the 16 Bayer cells are
-    // foreground, so the tile carries ~8 small 2×2 cells (a sparse dot grid
-    // would carry 1–2 and read far too light).
-    expect((svg.match(/width="2" height="2"/g) ?? []).length).toBe(8);
+    // pct50 is LibreOffice's substitution for this fill: a dense 45°/135°
+    // crosshatch (two diagonal <path> line families), not a dot/checker screen.
+    expect(pathCountInPattern(svg)).toBe(2);
   });
 
   it('pattern fill density scales with the pct preset', async () => {
-    const cells = async (preset: PatternPreset): Promise<number> => {
+    const render = async (preset: PatternPreset): Promise<string> => {
       const { pres, slide } = await blankSlide();
       const shape = addSlideShape(slide, {
         preset: 'rect',
@@ -124,14 +133,21 @@ describe('renderSlideToSvg', () => {
         h: inches(2),
       });
       setShapePatternFill(shape, { preset, foreground: '#000000', background: '#FFFFFF' });
-      const svg = renderSlideToSvg(pres, slide);
-      return (svg.match(/width="2" height="2"/g) ?? []).length;
+      return renderSlideToSvg(pres, slide);
     };
-    // 4/16 Bayer cells lit at 25%, 8 at 50%; the sparsest preset lights fewer
-    // than 25%. (pct0 is not a valid ST_PresetPatternVal, so it can't be tested.)
-    expect(await cells('pct25')).toBe(4);
-    expect(await cells('pct50')).toBe(8);
-    expect(await cells('pct5')).toBeLessThan(4);
+    const tileSize = (svg: string): number => {
+      const m = /<pattern[^>]*\bwidth="([\d.]+)"/.exec(svg);
+      if (!m) throw new Error('no <pattern> tile found');
+      return Number(m[1]);
+    };
+    const svg5 = await render('pct5');
+    const svg50 = await render('pct50');
+    // Below ~30% density: a single sparse diagonal hatch. At/above it: a full
+    // crosshatch with a tighter pitch — both the direction count and the tile
+    // (pitch) shrink as density rises.
+    expect(pathCountInPattern(svg5)).toBe(1);
+    expect(pathCountInPattern(svg50)).toBe(2);
+    expect(tileSize(svg50)).toBeLessThan(tileSize(svg5));
   });
 
   it('foreignObject mode wraps text body in <foreignObject>', async () => {
@@ -145,6 +161,31 @@ describe('renderSlideToSvg', () => {
     });
     const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
     expect(countTags(svg, 'foreignObject')).toBeGreaterThan(0);
+  });
+
+  it('foreignObject mode: wavy underline + strikethrough keeps the strikethrough solid', async () => {
+    // CSS text-decoration-style applies to the WHOLE underline+line-through
+    // shorthand, so naively combining them would wave the strikethrough too —
+    // PowerPoint always draws it solid regardless of underline style.
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'both',
+    });
+    setShapeRunFormat(box, 0, 0, { strike: true, underline: 'wavy' });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    // The outer span (whatever other styling it carries) must NOT declare
+    // underline at all, and the solid line-through must not share a
+    // text-decoration-style:wavy declaration with it.
+    expect(svg).toContain('text-decoration:line-through');
+    expect(svg).not.toContain('text-decoration:underline line-through');
+    // A nested inner span carries just the wavy underline.
+    expect(svg).toContain(
+      '<span style="text-decoration:underline;text-decoration-style:wavy">both</span>',
+    );
   });
 
   it('svg text mode emits <text> containing the run text and no <foreignObject>', async () => {
@@ -214,6 +255,42 @@ describe('renderSlideToSvg', () => {
     expect(countTags(svg, 'rect')).toBeGreaterThanOrEqual(7);
   });
 
+  it('overlapping (non-stacked) area chart: first-authored series paints on top, fill AND stroke', async () => {
+    // PowerPoint/LibreOffice always keep the first-authored series in front
+    // for an overlapping area chart, so a taller front series fully occludes
+    // a shorter one behind it — both its fill AND its outline stroke, since
+    // each series paints as one atomic unit back-to-front.
+    const { pres, slide } = await blankSlide();
+    addSlideChart(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'area',
+        categories: ['A', 'B', 'C'],
+        series: [
+          { name: 'Organic', values: [10, 12, 11], color: '#2E75B6' },
+          { name: 'Paid', values: [4, 5, 4], color: '#C00000' },
+        ],
+      },
+    });
+    const svg = renderSlideToSvg(pres, slide);
+    const paintOrder = [
+      ...svg.matchAll(
+        /<path d="M[^"]*" fill="(#\w+)" stroke="none"\/>|<path d="M[^"]*" fill="none" stroke="(#\w+)"/g,
+      ),
+    ].map((m) => (m[1] ? `fill:${m[1]}` : `stroke:${m[2]}`));
+    // Later elements paint on top in SVG. Both the fill and the stroke of the
+    // first-authored series (#2E75B6) must be last (topmost) in each pair.
+    expect(paintOrder).toEqual([
+      'fill:#C00000',
+      'fill:#2E75B6',
+      'stroke:#C00000',
+      'stroke:#2E75B6',
+    ]);
+  });
+
   it('bar chart: renders plot geometry and carries no data-pptx-fallback', async () => {
     const { pres, slide } = await blankSlide();
     addSlideChart(slide, {
@@ -233,6 +310,33 @@ describe('renderSlideToSvg', () => {
     // Placeholder shapes from the Blank layout have no prstGeom and get
     // data-pptx-fallback="custGeom"; assert that the chart itself did not fall back.
     expect(svg).not.toContain('data-pptx-fallback="chart"');
+  });
+
+  it('diagonal connector requiring both flips keeps its authored direction', async () => {
+    // from is below-and-right of to, so addSlideLine's connector builder sets
+    // both flip.horizontal and flip.vertical to encode the diagonal as
+    // x1/y1/x2/y2 swaps (see connector-builder.ts). renderShape's shared
+    // `transform` string separately carries a flip translate+scale for
+    // shapes/pictures — appending that same string to a connector would
+    // double-apply the flip and reverse the line back to the opposite
+    // diagonal, landing any arrowhead away from its target.
+    const { pres, slide } = await blankSlide();
+    addSlideLine(slide, {
+      from: { x: inches(7), y: inches(5) },
+      to: { x: inches(2), y: inches(1) },
+    });
+    const svg = renderSlideToSvg(pres, slide);
+    const m = /<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*\/>/.exec(svg);
+    if (!m) throw new Error('no <line> element found');
+    const [x1, y1, x2, y2] = m.slice(1).map(Number);
+    expect(x1).toBeCloseTo(7 * 96, 0); // 96 CSS px/inch at 96 DPI
+    expect(y1).toBeCloseTo(5 * 96, 0);
+    expect(x2).toBeCloseTo(2 * 96, 0);
+    expect(y2).toBeCloseTo(1 * 96, 0);
+    // No rotation is set, so the (rotation-only) connector transform must be
+    // absent — if it carried the flip too, the line would still assert x1/y1
+    // as the raw (pre-transform) numbers above but render reversed on screen.
+    expect(m[0]).not.toContain('transform=');
   });
 
   it('line connector with arrow head: emits a <marker> def', async () => {
@@ -260,6 +364,47 @@ describe('renderSlideToSvg', () => {
     setShapeRotation(shape, 30);
     const svg = renderSlideToSvg(pres, slide);
     expect(svg).toContain('rotate(');
+  });
+
+  // The text overlay is a separate <g transform="rotate(...)"> that
+  // immediately wraps the <foreignObject> (the default textLayout mode) —
+  // see render-slide.ts's textRotation calculation.
+  const textOverlayRotation = (svg: string): number => {
+    const m = /rotate\((-?[\d.]+) [\d.]+ [\d.]+\)"><foreignObject/.exec(svg);
+    if (!m) throw new Error('no text-overlay rotate() transform found');
+    return Number(m[1]);
+  };
+
+  it('rotation + flip.vertical: text rotates an extra 180° to stay upright', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Hi',
+    });
+    setShapeRotation(shape, 30);
+    setShapeFlip(shape, { vertical: true });
+    const svg = renderSlideToSvg(pres, slide);
+    expect(textOverlayRotation(svg)).toBe(210);
+  });
+
+  it('rotation + flip.horizontal (no vertical): text keeps the plain rotation', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Hi',
+    });
+    setShapeRotation(shape, 30);
+    setShapeFlip(shape, { horizontal: true });
+    const svg = renderSlideToSvg(pres, slide);
+    expect(textOverlayRotation(svg)).toBe(30);
   });
 
   it('setShapeHyperlink: shape is wrapped in an <a> with the href', async () => {

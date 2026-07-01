@@ -74,7 +74,7 @@ const piece = (text: string, over: Partial<PieceInput> = {}): PieceInput => ({
   italic: false,
   letterSpacingPx: 0,
   fillHex: '#000000',
-  underline: false,
+  underline: 'none',
   strike: false,
   superSub: 0,
   href: null,
@@ -154,13 +154,45 @@ describe('layoutTextSvg', () => {
 
   it('emits run styling as tspan attributes', () => {
     const svg = layoutTextSvg(
-      body([para([piece('B', { bold: true, italic: true, underline: true, fillHex: '#FF0000' })])]),
+      body([
+        para([piece('B', { bold: true, italic: true, underline: 'single', fillHex: '#FF0000' })]),
+      ]),
       stubMeasurer,
     );
     expect(svg).toContain('font-weight="700"');
     expect(svg).toContain('font-style="italic"');
     expect(svg).toContain('text-decoration="underline"');
     expect(svg).toContain('fill="#FF0000"');
+  });
+
+  it('draws wavy underline as a path, not text-decoration (resvg has no text-decoration-style)', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('wavy', { underline: 'wavy', fillHex: '#0000FF' })])]),
+      stubMeasurer,
+    );
+    expect(svg).not.toContain('text-decoration');
+    expect(svg).toContain('<path');
+    expect(svg).toContain('stroke="#0000FF"');
+  });
+
+  it('scales the wavy-underline path down for a superscript run, matching its shrunk glyph size', () => {
+    // tspan() renders a super/subscript run's glyphs at 0.65x sizePx — the
+    // wave must scale down the same way, or it reads oversized under the
+    // smaller glyphs it's supposed to underline.
+    const strokeWidthOf = (svg: string): number => {
+      const m = /<path d="[^"]*" stroke="[^"]*" stroke-width="([\d.]+)"/.exec(svg);
+      if (!m) throw new Error('no wavy-underline path found');
+      return Number(m[1]);
+    };
+    const normal = layoutTextSvg(
+      body([para([piece('wavy', { underline: 'wavy', sizePx: 20 })])]),
+      stubMeasurer,
+    );
+    const superscript = layoutTextSvg(
+      body([para([piece('wavy', { underline: 'wavy', sizePx: 20, superSub: 1 })])]),
+      stubMeasurer,
+    );
+    expect(strokeWidthOf(superscript)).toBeLessThan(strokeWidthOf(normal));
   });
 
   it('renders a bullet glyph ahead of the first line', () => {
@@ -258,6 +290,31 @@ describe('layoutTextSvg multi-column', () => {
     // GRID_NUDGE_X (−0.75) shifts every emitted x — see text-layout.ts.
     expect(new Set(xs)).toEqual(new Set([-0.75, 104.25]));
     expect(xs.filter((x) => x === 104.25)).toHaveLength(2); // D, E overflowed
+  });
+
+  it('wraps a new row of columns once every column in the current row is full', () => {
+    // 7 lines, 10px each; box height 30 fits 3 per column — filling BOTH
+    // columns of the first row, so the 7th line must start a fresh row
+    // rather than pile up past column 2's capacity.
+    const pieces: PieceInput[] = [];
+    for (const ch of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) {
+      if (pieces.length > 0) pieces.push(br());
+      pieces.push(piece(ch));
+    }
+    const svg = layoutTextSvg(
+      body([para(pieces)], { boxWpx: 200, boxHpx: 30, columns: { count: 2, gapPx: 10 } }),
+      stubMeasurer,
+    );
+    const cs = coords(svg);
+    expect(cs).toHaveLength(7);
+    // Row 1: A–C in column 1 (x=-0.75), D–F in column 2 (x=104.25) — same as
+    // the single-row case above, y unaffected by the second column.
+    expect(cs.slice(0, 3).map((c) => c.x)).toEqual([-0.75, -0.75, -0.75]);
+    expect(cs.slice(3, 6).map((c) => c.x)).toEqual([104.25, 104.25, 104.25]);
+    // Row 2: G wraps back to column 1, offset down by the box height (30) —
+    // NOT stacked into column 2 past its 3-line capacity.
+    expect(cs[6]!.x).toBe(-0.75);
+    expect(cs[6]!.y).toBe(cs[0]!.y + 30);
   });
 
   it('keeps few lines entirely in the first column', () => {
