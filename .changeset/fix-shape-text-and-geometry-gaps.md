@@ -19,7 +19,14 @@ decks:
   `text-decoration-style` support) and as real CSS in the browser path.
 - **Rotated + vertically-flipped shape text** no longer renders upside-down;
   PowerPoint adds a compensating 180° turn to the text specifically for
-  `flip.vertical`, independent of `flip.horizontal`.
+  `flip.vertical`, independent of `flip.horizontal`. (A shape nested inside a
+  vertically-flipped group is not yet covered by this — see the `KNOWN GAP`
+  comment on the group-rendering path in `render-slide.ts`.)
+- **Diagonal connectors that need both a horizontal and vertical flip** (e.g. a
+  line drawn from bottom-right to top-left) no longer render reversed — the
+  flip was applied twice, once via the endpoint swap and again via a leftover
+  transform, cancelling itself out and pointing any arrowhead away from its
+  target.
 - **Pie/doughnut data labels** now join as `<category> — <value/percent>`
   (e.g. "Web — 48%"), matching PowerPoint/LibreOffice's order instead of the
   reverse.

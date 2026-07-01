@@ -5791,6 +5791,14 @@ const renderShape = (
       y1 = y + h;
       y2 = y;
     }
+    // Connectors encode their flip as which endpoint is x1/y1 vs x2/y2
+    // (above), not as a transform — `transform` (built earlier) still
+    // carries the flip's translate+scale for shapes/pictures, which would
+    // double-apply the flip here and reverse the line back to unflipped.
+    // Rotation, unlike flip, isn't reflected in x1/y1/x2/y2, so it's the only
+    // part of `transform` a connector still needs.
+    const connectorTransform =
+      rotation !== 0 ? ` transform="rotate(${rotation} ${E(cx)} ${E(cy)})"` : '';
     const strokeColor =
       p.stroke === 'none' ? resolveColor('scheme:tx1', theme, '#1F2937') : p.stroke;
     const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
@@ -5807,7 +5815,7 @@ const renderShape = (
     // CSS-px so the cadence matches PowerPoint within visual tolerance.
     const preset = getShapePreset(shape) ?? 'line';
     if (preset === 'straightConnector1' || preset === 'line') {
-      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${sa}${ma}${transform}/>`;
+      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${sa}${ma}${connectorTransform}/>`;
     }
     // For bent / curved, we work in CSS px to keep the path math readable.
     const px1 = x1 / EMU_PER_PX;
@@ -5849,7 +5857,7 @@ const renderShape = (
       // Unknown connector preset — fall back to a straight line.
       d += ` L${px2.toFixed(2)} ${py2.toFixed(2)}`;
     }
-    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${joinDefault}${sa}${ma}${transform}/>`;
+    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${joinDefault}${sa}${ma}${connectorTransform}/>`;
   }
 
   if (kind === 'group') {

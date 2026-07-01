@@ -243,6 +243,33 @@ describe('renderSlideToSvg', () => {
     expect(svg).not.toContain('data-pptx-fallback="chart"');
   });
 
+  it('diagonal connector requiring both flips keeps its authored direction', async () => {
+    // from is below-and-right of to, so addSlideLine's connector builder sets
+    // both flip.horizontal and flip.vertical to encode the diagonal as
+    // x1/y1/x2/y2 swaps (see connector-builder.ts). renderShape's shared
+    // `transform` string separately carries a flip translate+scale for
+    // shapes/pictures — appending that same string to a connector would
+    // double-apply the flip and reverse the line back to the opposite
+    // diagonal, landing any arrowhead away from its target.
+    const { pres, slide } = await blankSlide();
+    addSlideLine(slide, {
+      from: { x: inches(7), y: inches(5) },
+      to: { x: inches(2), y: inches(1) },
+    });
+    const svg = renderSlideToSvg(pres, slide);
+    const m = /<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"[^>]*\/>/.exec(svg);
+    if (!m) throw new Error('no <line> element found');
+    const [x1, y1, x2, y2] = m.slice(1).map(Number);
+    expect(x1).toBeCloseTo(7 * 96, 0); // 96 CSS px/inch at 96 DPI
+    expect(y1).toBeCloseTo(5 * 96, 0);
+    expect(x2).toBeCloseTo(2 * 96, 0);
+    expect(y2).toBeCloseTo(1 * 96, 0);
+    // No rotation is set, so the (rotation-only) connector transform must be
+    // absent — if it carried the flip too, the line would still assert x1/y1
+    // as the raw (pre-transform) numbers above but render reversed on screen.
+    expect(m[0]).not.toContain('transform=');
+  });
+
   it('line connector with arrow head: emits a <marker> def', async () => {
     const { pres, slide } = await blankSlide();
     const line = addSlideLine(slide, {
