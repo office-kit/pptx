@@ -5,7 +5,7 @@ description: Use when generating a dense, professional consulting/government-sty
 
 # Consulting-grade deck design with pptx-kit
 
-A deck that is schema-valid and opens without repair is a *correct* deck. It is not
+A deck that is schema-valid and opens without repair is a _correct_ deck. It is not
 automatically a deck that reads as real consulting/government work. The gap between
 "technically fine PowerPoint" and "looks like it came out of a real engagement" is
 almost entirely in restraint: fewer decorative flourishes, fewer colors, more
@@ -54,9 +54,18 @@ Flat navy reads as a corporate template. A real cover uses a diagonal navy→blu
 gradient across the full slide. In pptx-kit:
 
 ```ts
-const bg = addSlideShape(slide, { preset: 'rect', x: inches(0), y: inches(0), w: PAGE_W, h: PAGE_H });
+const bg = addSlideShape(slide, {
+  preset: 'rect',
+  x: inches(0),
+  y: inches(0),
+  w: PAGE_W,
+  h: PAGE_H,
+});
 setShapeGradientFill(bg, {
-  stops: [{ offset: 0, color: NAVY_DARK }, { offset: 1, color: BLUE }],
+  stops: [
+    { offset: 0, color: NAVY_DARK },
+    { offset: 1, color: BLUE },
+  ],
   angleDeg: 15, // shallow diagonal — the bright stop concentrates toward the right
 });
 ```
@@ -69,7 +78,7 @@ block sits roughly at the vertical center, not crammed to the top).
 Don't do the "gold all-caps eyebrow + big headline + colored rule underneath"
 formula — it's a template signature, not a consulting one. Real slides put a bold,
 dark, ~19–20pt **action title** directly near the top with generous whitespace below
-and nothing separating it from the body. An "action title" states the *conclusion*
+and nothing separating it from the body. An "action title" states the _conclusion_
 ("東南アジア市場は今後5年間、国内の7倍のペースで成長する見込み"), not the topic
 ("市場成長トレンド") — this matters more than any color choice.
 
@@ -107,13 +116,13 @@ template" rather than "hand-built exhibit."
 ### 1. Pie/doughnut charts need explicit per-slice colors
 
 `varyColors: true` (or pptx-kit's default on pie/doughnut, which already sets it)
-only *requests* that the renderer assign distinct colors per slice. It does not
+only _requests_ that the renderer assign distinct colors per slice. It does not
 guarantee every viewer actually cycles through a palette — some render every slice
 in the same single color, which makes the chart useless. Always pass explicit
 `pointColors` cycling through your accent palette:
 
 ```ts
-series: [{ ...series[0], pointColors: categories.map((_, i) => PALETTE[i % PALETTE.length]) }]
+series: [{ ...series[0], pointColors: categories.map((_, i) => PALETTE[i % PALETTE.length]) }];
 ```
 
 ### 2. Every multi-series or pie/doughnut chart needs a visible legend
@@ -154,8 +163,8 @@ right-margin column, not a plot overlay.
 ## Composition and structure
 
 - **Group composite elements.** A KPI card (rounded rect + accent tab + big number
-  + label) or a roadmap node (header bar + numbered badge + title) should be one
-  `groupShapes` unit, not four independent shapes a future edit could misalign.
+  - label) or a roadmap node (header bar + numbered badge + title) should be one
+    `groupShapes` unit, not four independent shapes a future edit could misalign.
 - **A real deck's shape**: cover → confidentiality/handling notice → agenda →
   executive summary (headline finding, KPI dashboard, 3-pillar recommendation,
   financial-impact chart, roadmap preview) → numbered sections, each opening on a

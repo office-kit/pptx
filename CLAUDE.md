@@ -291,13 +291,13 @@ to the public.
 The `.claude/skills/` directory contains workflow-specific guides. Use them when the
 situation matches.
 
-| Skill                | When to use                                                            |
-| -------------------- | ---------------------------------------------------------------------- |
-| `pr-workflow`        | Creating a PR                                                          |
-| `full-code-review`   | Reviewing a branch from a maintainer's perspective before opening a PR |
-| `review-response`    | Responding to GitHub review comments                                   |
-| `run-check-and-test` | Running quality checks and tests before commit / PR                    |
-| `issue-triage`       | Classifying a GitHub issue and routing it to the right workflow        |
+| Skill                    | When to use                                                                  |
+| ------------------------ | ---------------------------------------------------------------------------- |
+| `pr-workflow`            | Creating a PR                                                                |
+| `full-code-review`       | Reviewing a branch from a maintainer's perspective before opening a PR       |
+| `review-response`        | Responding to GitHub review comments                                         |
+| `run-check-and-test`     | Running quality checks and tests before commit / PR                          |
+| `issue-triage`           | Classifying a GitHub issue and routing it to the right workflow              |
 | `consulting-deck-design` | Generating a McKinsey/consulting/government-caliber slide deck with pptx-kit |
 
 When you add a new skill, append it to this table.
