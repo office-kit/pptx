@@ -1,5 +1,31 @@
 # pptx-kit
 
+## 0.10.0
+
+### Minor Changes
+
+- 6060afc: `setShapeRunFormat` / `getShapeRunFormat` / `getShapeRunFormatEffective` now
+  support `fontEastAsian`, a per-run East Asian typeface override (`<a:ea>`),
+  alongside the existing `font` (`<a:latin>`). Previously a run's CJK glyphs
+  always fell back to whichever East Asian font the theme's major/minor font
+  scheme happened to carry, with no way to set a distinct typeface (e.g. a
+  serif headline vs. a sans-serif body) on an individual run. `fontEastAsian`
+  resolves theme `+mj-ea`/`+mn-ea` tokens and falls back to the theme's major/
+  minor East Asian font the same way `font` already does for Latin text.
+- fa5e53f: Added two authoring capabilities aimed at complex, dense slide layouts
+  (process diagrams, KPI cards, branded decks):
+
+  - `groupShapes` / `ungroupShapes` compose a selection of top-level shapes
+    into a single `<p:grpSp>` (and reverse it). The group's bounds are the
+    union of its members; moving or resizing the group afterwards rescales
+    every member on ungroup, so a "KPI card" or diagram node built from a
+    rectangle + label can be treated — and repositioned — as one unit.
+  - `setPresentationTheme` / `setPresentationFonts` patch a deck's color
+    scheme and font scheme in place, so a from-scratch deck can be branded
+    with a custom palette and typography without hand-authoring a template.
+    Only the slots passed in are overwritten; every other slot keeps its
+    existing value.
+
 ## 0.9.0
 
 ### Minor Changes
