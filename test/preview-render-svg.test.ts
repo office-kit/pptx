@@ -24,6 +24,7 @@ import {
   type PatternPreset,
   savePresentation,
   setShapeFill,
+  setShapeFlip,
   setShapeGradientFill,
   setShapeHyperlink,
   setShapePatternFill,
@@ -267,6 +268,47 @@ describe('renderSlideToSvg', () => {
     setShapeRotation(shape, 30);
     const svg = renderSlideToSvg(pres, slide);
     expect(svg).toContain('rotate(');
+  });
+
+  // The text overlay is a separate <g transform="rotate(...)"> that
+  // immediately wraps the <foreignObject> (the default textLayout mode) —
+  // see render-slide.ts's textRotation calculation.
+  const textOverlayRotation = (svg: string): number => {
+    const m = /rotate\((-?[\d.]+) [\d.]+ [\d.]+\)"><foreignObject/.exec(svg);
+    if (!m) throw new Error('no text-overlay rotate() transform found');
+    return Number(m[1]);
+  };
+
+  it('rotation + flip.vertical: text rotates an extra 180° to stay upright', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Hi',
+    });
+    setShapeRotation(shape, 30);
+    setShapeFlip(shape, { vertical: true });
+    const svg = renderSlideToSvg(pres, slide);
+    expect(textOverlayRotation(svg)).toBe(210);
+  });
+
+  it('rotation + flip.horizontal (no vertical): text keeps the plain rotation', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Hi',
+    });
+    setShapeRotation(shape, 30);
+    setShapeFlip(shape, { horizontal: true });
+    const svg = renderSlideToSvg(pres, slide);
+    expect(textOverlayRotation(svg)).toBe(30);
   });
 
   it('setShapeHyperlink: shape is wrapped in an <a> with the href', async () => {

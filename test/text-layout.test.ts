@@ -272,6 +272,31 @@ describe('layoutTextSvg multi-column', () => {
     expect(xs.filter((x) => x === 104.25)).toHaveLength(2); // D, E overflowed
   });
 
+  it('wraps a new row of columns once every column in the current row is full', () => {
+    // 7 lines, 10px each; box height 30 fits 3 per column — filling BOTH
+    // columns of the first row, so the 7th line must start a fresh row
+    // rather than pile up past column 2's capacity.
+    const pieces: PieceInput[] = [];
+    for (const ch of ['A', 'B', 'C', 'D', 'E', 'F', 'G']) {
+      if (pieces.length > 0) pieces.push(br());
+      pieces.push(piece(ch));
+    }
+    const svg = layoutTextSvg(
+      body([para(pieces)], { boxWpx: 200, boxHpx: 30, columns: { count: 2, gapPx: 10 } }),
+      stubMeasurer,
+    );
+    const cs = coords(svg);
+    expect(cs).toHaveLength(7);
+    // Row 1: A–C in column 1 (x=-0.75), D–F in column 2 (x=104.25) — same as
+    // the single-row case above, y unaffected by the second column.
+    expect(cs.slice(0, 3).map((c) => c.x)).toEqual([-0.75, -0.75, -0.75]);
+    expect(cs.slice(3, 6).map((c) => c.x)).toEqual([104.25, 104.25, 104.25]);
+    // Row 2: G wraps back to column 1, offset down by the box height (30) —
+    // NOT stacked into column 2 past its 3-line capacity.
+    expect(cs[6]!.x).toBe(-0.75);
+    expect(cs[6]!.y).toBe(cs[0]!.y + 30);
+  });
+
   it('keeps few lines entirely in the first column', () => {
     const svg = layoutTextSvg(
       body([para([piece('A'), br(), piece('B')])], {

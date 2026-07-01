@@ -633,14 +633,22 @@ const patternDef = (pat: {
   let body = '';
   // pct{N} — LibreOffice substitutes a diagonal hatch for these (not a literal
   // N%-coverage bitmap): a sparse single-direction hatch below ~30% density, a full
-  // crosshatch at and above it, with the pitch shrinking as density rises.
+  // crosshatch at and above it, with the pitch shrinking as density rises. The
+  // pitch formula is calibrated so pct5 (at the floor) comes out to
+  // `DIAG_TILE * 2`; PCT_DENSITY_FLOOR must stay the single reference density
+  // for both the clamp and the ratio below it or that calibration drifts.
+  const PCT_DENSITY_FLOOR = 0.05;
+  const PCT_TILE_MIN = 6;
   const pctMatch = /^pct(\d+)$/.exec(preset);
   const pctDensity = pctMatch
     ? Math.min(100, Math.max(0, Number.parseInt(pctMatch[1]!, 10))) / 100
     : null;
   const W =
     pctDensity !== null
-      ? Math.max(6, DIAG_TILE * 2 * Math.sqrt(0.05 / Math.max(pctDensity, 0.05)))
+      ? Math.max(
+          PCT_TILE_MIN,
+          DIAG_TILE * 2 * Math.sqrt(PCT_DENSITY_FLOOR / Math.max(pctDensity, PCT_DENSITY_FLOOR)),
+        )
       : (PATTERN_TILE_SIZE[preset] ?? DIAG_TILE);
   const H = W;
   const stripe = (orientation: 'h' | 'v' | 'd' | 'a', width = 1): string => {
@@ -3157,6 +3165,20 @@ interface ChartFrame {
   readonly legendY: number;
 }
 
+// Per-series projected geometry for a line/area chart, computed once and
+// shared between the fill pass (which reorders series for correct area
+// occlusion) and the stroke/marker/label/trendline pass (which stays in
+// authored order). See renderLineChart.
+interface SeriesGeometry {
+  readonly s: number;
+  readonly series: ChartSeries;
+  readonly color: string;
+  readonly ptsRaw: ReadonlyArray<[number, number] | null>;
+  readonly pts: ReadonlyArray<[number, number]>;
+  readonly basePts: ReadonlyArray<[number, number]>;
+  readonly dPath: string;
+}
+
 const layoutChart = (
   xEmu: number,
   yEmu: number,
@@ -4330,15 +4352,6 @@ const renderLineChart = (
   // Track cumulative values per category for stacked rendering. Each
   // series's projected y is the cumulative sum's y.
   const accumulated: number[] = Array.from({ length: N }, () => 0);
-  interface SeriesGeometry {
-    readonly s: number;
-    readonly series: (typeof spec.series)[number];
-    readonly color: string;
-    readonly ptsRaw: ReadonlyArray<[number, number] | null>;
-    readonly pts: ReadonlyArray<[number, number]>;
-    readonly basePts: ReadonlyArray<[number, number]>;
-    readonly dPath: string;
-  }
   const perSeries: SeriesGeometry[] = [];
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
@@ -5852,6 +5865,17 @@ const renderShape = (
     // flipH=… flipV=…> applies to the whole subtree, around the group's
     // outer-rect center. Compose those transforms first, then the
     // translate+scale that maps internal coords onto slide coords.
+    //
+    // KNOWN GAP: unlike the per-shape flip.vertical fix above, a group-level
+    // vertical flip has no text-upright compensation — `renderShape(child)`
+    // already emits each child's geometry AND text as one combined string, so
+    // the flip scale() below re-mirrors that child's already-correct text
+    // along with its geometry. Fixing this needs the group path to carry an
+    // ancestor flip-parity count down through the recursion so descendant
+    // text can add its own compensating rotation, mirroring how the per-shape
+    // fix works — out of scope here since there's no public API to author a
+    // flipped group (only getGroupChildren/getGroupTransform, read-only), so
+    // this only affects re-rendering a template that already has one.
     if (xform && rotation !== 0) {
       const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
       const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;

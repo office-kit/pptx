@@ -2436,7 +2436,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         },
       },
     });
-    const table = addSlideTable(s2, {
+    addSlideTable(s2, {
       x: inches(5.1),
       y: inches(1.6),
       w: inches(4.4),
@@ -2450,7 +2450,6 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       firstRow: true,
       bandRow: true,
     });
-    void table;
 
     const link = addSlideTextBox(s2, {
       x: inches(5.1),

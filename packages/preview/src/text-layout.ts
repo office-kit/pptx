@@ -649,6 +649,21 @@ const groupTokens = (toks: Token[]): Group[] => {
   return groups;
 };
 
+// SVG baseline-shift sign convention: positive shifts the glyph UP (smaller
+// y), so superscript is positive and subscript is negative — tspan() below
+// applies this to the native text-decoration underline, and wavyPath reuses
+// it (as a y offset in the opposite direction) so a wavy-underlined
+// super/subscript run draws under the shifted glyphs, not the line's plain
+// baseline.
+const SUPERSCRIPT_SHIFT_RATIO = 0.33;
+const SUBSCRIPT_SHIFT_RATIO = 0.16;
+const baselineShiftPxOf = (p: PieceInput): number =>
+  p.superSub === 1
+    ? p.sizePx * SUPERSCRIPT_SHIFT_RATIO
+    : p.superSub === -1
+      ? -p.sizePx * SUBSCRIPT_SHIFT_RATIO
+      : 0;
+
 // resvg has no `text-decoration-style: wavy` support (nor does core SVG
 // define one), so a wavy underline is drawn as an explicit path under its
 // run(s) instead of relying on `tspan`'s CSS decoration. `x0` is the same
@@ -670,18 +685,35 @@ const emitWavyUnderlines = (
   const parts: string[] = [];
   for (const g of groups) {
     if (g.piece.underline === 'wavy' && g.width > 0) {
-      parts.push(wavyPath(cursor, cursor + g.width, baselineY, g.piece));
+      // Subtract the baseline-shift (positive = up = smaller y) so a wavy
+      // super/subscript run's wave tracks its raised/lowered glyphs.
+      const y = baselineY - baselineShiftPxOf(g.piece);
+      parts.push(wavyPath(cursor, cursor + g.width, y, g.piece));
     }
     cursor += g.width;
   }
   return parts.join('');
 };
 
+// Calibrated purely for legibility at typical body-text sizes (no ground-truth
+// wavy-underline spec to match — OOXML doesn't define the wave's geometry,
+// only that it must render as one): amplitude and period scale with the
+// run's font size, the wave sits a little below the baseline like a real
+// underline, and the floors keep very small text from collapsing the wave
+// into an illegible flat line.
+const WAVY_AMPLITUDE_RATIO = 0.045;
+const WAVY_AMPLITUDE_MIN_PX = 0.6;
+const WAVY_PERIOD_RATIO = 0.18;
+const WAVY_PERIOD_MIN_PX = 2;
+const WAVY_BASELINE_OFFSET_RATIO = 0.12;
+const WAVY_STROKE_WIDTH_RATIO = 0.06;
+const WAVY_STROKE_WIDTH_MIN_PX = 0.6;
+
 const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput): string => {
   const size = piece.sizePx;
-  const amp = Math.max(0.6, size * 0.045);
-  const period = Math.max(2, size * 0.18);
-  const y = baselineY + size * 0.12;
+  const amp = Math.max(WAVY_AMPLITUDE_MIN_PX, size * WAVY_AMPLITUDE_RATIO);
+  const period = Math.max(WAVY_PERIOD_MIN_PX, size * WAVY_PERIOD_RATIO);
+  const y = baselineY + size * WAVY_BASELINE_OFFSET_RATIO;
   let d = `M${fmt(x1)} ${fmt(y)}`;
   let cx = x1;
   let up = true;
@@ -692,7 +724,8 @@ const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput):
     cx = midX;
     up = !up;
   }
-  return `<path d="${d}" stroke="${piece.fillHex}" stroke-width="${fmt(Math.max(0.6, size * 0.06))}" fill="none"/>`;
+  const strokeWidth = Math.max(WAVY_STROKE_WIDTH_MIN_PX, size * WAVY_STROKE_WIDTH_RATIO);
+  return `<path d="${d}" stroke="${piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
 };
 
 const samePiece = (a: PieceInput, b: PieceInput): boolean =>
@@ -724,8 +757,7 @@ const tspan = (g: Group): string => {
   if (p.strike) deco.push('line-through');
   if (deco.length) attrs.push(`text-decoration="${deco.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);
-  if (p.superSub === 1) attrs.push(`baseline-shift="${fmt(p.sizePx * 0.33)}"`);
-  else if (p.superSub === -1) attrs.push(`baseline-shift="${fmt(-p.sizePx * 0.16)}"`);
+  if (p.superSub !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);
   return `<tspan ${attrs.join(' ')}>${escapeXml(g.text)}</tspan>`;
 };
 
