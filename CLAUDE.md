@@ -298,6 +298,7 @@ situation matches.
 | `review-response`    | Responding to GitHub review comments                                   |
 | `run-check-and-test` | Running quality checks and tests before commit / PR                    |
 | `issue-triage`       | Classifying a GitHub issue and routing it to the right workflow        |
+| `consulting-deck-design` | Generating a McKinsey/consulting/government-caliber slide deck with pptx-kit |
 
 When you add a new skill, append it to this table.
 
