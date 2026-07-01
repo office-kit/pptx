@@ -24,7 +24,6 @@ import {
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
   SLIDE_SHAPES,
-  type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import {
@@ -36,42 +35,51 @@ import {
 import { getGroupTransform } from './shape-read-base.ts';
 
 /**
- * Groups two or more top-level shapes on `slide` into a single
- * `<p:grpSp>`, returning the new group as a `SlideShapeData`. The
- * group's slide-space bounds are the union of its members' bounds; the
- * members keep their own relative position/size (nothing is rescaled).
+ * Groups two or more top-level shapes into a single `<p:grpSp>`,
+ * returning the new group as a `SlideShapeData`. The group's
+ * slide-space bounds are the union of its members' bounds; the members
+ * keep their own relative position/size (nothing is rescaled). The
+ * target slide is taken from the first shape — every shape must belong
+ * to the same slide.
  *
  * Every shape must:
- *   - belong to `slide`,
+ *   - belong to the same slide as the others,
  *   - be a direct child of the slide's shape tree (not already nested
  *     inside another group — ungroup first, then re-group),
  *   - have an explicit `<a:xfrm>` (placeholders that inherit position
- *     from the layout have none and can't be grouped).
+ *     from the layout have none and can't be grouped),
+ *   - appear at most once in `shapes` (grouping the same shape twice
+ *     would duplicate its id).
  *
  * The group replaces its members at the position of the earliest one in
  * z-order, so grouping doesn't change how the selection stacks against
  * shapes that weren't part of it.
  */
 export const groupShapes = (
-  slide: SlideData,
   shapes: ReadonlyArray<SlideShapeData>,
   opts: { name?: string } = {},
 ): SlideShapeData => {
   if (shapes.length < 2) {
     throw new Error('groupShapes: at least 2 shapes are required');
   }
+  const slide = shapes[0]![SHAPE_SLIDE];
   const spTree = requireSpTree(slide);
 
   const elements: XmlElement[] = [];
+  const seen = new Set<XmlElement>();
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
   for (const shape of shapes) {
     if (shape[SHAPE_SLIDE] !== slide) {
-      throw new Error('groupShapes: all shapes must belong to the slide being grouped on');
+      throw new Error('groupShapes: all shapes must belong to the same slide');
     }
     const el = shape[SHAPE_ELEMENT];
+    if (seen.has(el)) {
+      throw new Error(`groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" was passed twice`);
+    }
+    seen.add(el);
     if (!spTree.children.includes(el)) {
       throw new Error(
         `groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" is not a direct child of the ` +
@@ -94,10 +102,10 @@ export const groupShapes = (
     maxY = Math.max(maxY, pos.y + size.h);
   }
 
-  const insertAt = Math.min(...elements.map((el) => spTree.children.indexOf(el)));
-  const toRemove = new Set(elements);
-  spTree.children = spTree.children.filter((c) => c.kind !== 'element' || !toRemove.has(c));
-
+  // Build the group element before touching `spTree.children` — it
+  // validates the computed bounds as EMU coordinates and can throw. Doing
+  // that after removing the members from the tree would leave the slide
+  // missing shapes with no group to replace them.
   const grp = buildGroup({
     id: nextShapeId(slide),
     ...(opts.name !== undefined ? { name: opts.name } : {}),
@@ -107,6 +115,9 @@ export const groupShapes = (
     h: maxY - minY,
     children: elements,
   });
+
+  const insertAt = Math.min(...elements.map((el) => spTree.children.indexOf(el)));
+  spTree.children = spTree.children.filter((c) => c.kind !== 'element' || !seen.has(c));
   spTree.children.splice(insertAt, 0, grp);
 
   commitSlideData(slide);

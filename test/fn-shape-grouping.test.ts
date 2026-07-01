@@ -66,7 +66,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       text: 'KPI card',
     });
 
-    const group = groupShapes(slide, [box, label], { name: 'KPI Card' });
+    const group = groupShapes([box, label], { name: 'KPI Card' });
 
     expect(getShapeKind(group)).toBe('group');
     expect(getShapeBounds(group)).toEqual({
@@ -95,7 +95,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       w: inches(1),
       h: inches(1),
     });
-    expect(() => groupShapes(slide, [only])).toThrow(/at least 2 shapes/);
+    expect(() => groupShapes([only])).toThrow(/at least 2 shapes/);
   });
 
   it('rejects a shape that has no explicit position/size', async () => {
@@ -113,7 +113,26 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       h: inches(1),
     });
     expect(title).not.toBeNull();
-    expect(() => groupShapes(slide, [title!, box])).toThrow(/no explicit position\/size/);
+    expect(() => groupShapes([title!, box])).toThrow(/no explicit position\/size/);
+  });
+
+  it('rejects the same shape passed twice (would duplicate its id)', () => {
+    const { slide } = blankSlide();
+    const a = addSlideShape(slide, {
+      preset: 'rect',
+      x: emu(0),
+      y: emu(0),
+      w: inches(1),
+      h: inches(1),
+    });
+    const b = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: emu(0),
+      w: inches(1),
+      h: inches(1),
+    });
+    expect(() => groupShapes([a, b, a])).toThrow(/was passed twice/);
   });
 
   it('rejects a shape that is already nested inside a group', () => {
@@ -139,10 +158,10 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       w: inches(1),
       h: inches(1),
     });
-    groupShapes(slide, [a, b]);
+    groupShapes([a, b]);
     // `a` is now nested one level down; grouping it directly (rather than
     // its enclosing group) must fail instead of silently doing nothing.
-    expect(() => groupShapes(slide, [a, c])).toThrow(/not a direct child/);
+    expect(() => groupShapes([a, c])).toThrow(/not a direct child/);
   });
 
   it('allows grouping an existing group with another top-level shape (nested groups)', () => {
@@ -168,8 +187,8 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       w: inches(1),
       h: inches(1),
     });
-    const inner = groupShapes(slide, [a, b]);
-    const outer = groupShapes(slide, [inner, c]);
+    const inner = groupShapes([a, b]);
+    const outer = groupShapes([inner, c]);
     expect(getShapeKind(outer)).toBe('group');
     expect(getGroupChildren(outer).map((s) => getShapeKind(s))).toEqual(['group', 'shape']);
   });
@@ -192,7 +211,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
     });
     const boundsBefore = [getShapeBounds(a), getShapeBounds(b)];
 
-    const group = groupShapes(slide, [a, b]);
+    const group = groupShapes([a, b]);
     const restored = ungroupShapes(group);
 
     expect(restored).toHaveLength(2);
@@ -216,7 +235,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       w: inches(1),
       h: inches(1),
     });
-    const group = groupShapes(slide, [a, b]);
+    const group = groupShapes([a, b]);
 
     // Original group bounds: (0,0) 2in x 1in. Move to (1in, 1in) and double
     // the size — every child should end up scaled 2x and offset by (1in,1in).
@@ -270,7 +289,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
     });
     setShapeRotation(a, 45);
 
-    const group = groupShapes(slide, [a, b]);
+    const group = groupShapes([a, b]);
     // Group replaces [a, b] at their original position, between back and
     // front — group children flatten right after the group itself.
     expect(getSlideShapes(slide).map((s) => getShapeId(s))).toEqual([
@@ -302,7 +321,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       w: inches(1),
       h: inches(1),
     });
-    const group = groupShapes(slide, [a, b]);
+    const group = groupShapes([a, b]);
     const transform = getGroupTransform(group);
     expect(transform).toEqual({ outer: transform!.inner, inner: transform!.inner });
   });
@@ -325,7 +344,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       h: inches(1),
       text: 'Phase 2',
     });
-    const group = groupShapes(slide, [a, b], { name: 'Process' });
+    const group = groupShapes([a, b], { name: 'Process' });
     setShapePosition(group, inches(0.5), inches(2));
     setShapeSize(group, inches(6), inches(2));
     expectSchemaValid(getSlideXmlString(slide), 'pml');

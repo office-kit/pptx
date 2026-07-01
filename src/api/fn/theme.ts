@@ -266,8 +266,7 @@ export interface PresentationFontsInput {
   readonly minorComplexScript?: string;
 }
 
-const setTypeface = (fontCollection: XmlElement | null, local: string, typeface: string): void => {
-  if (!fontCollection) return;
+const setTypeface = (fontCollection: XmlElement, local: string, typeface: string): void => {
   const el = firstChildElement(fontCollection, qname('a', local, NS.dml));
   if (!el) throw new Error(`setPresentationFonts: fontScheme is missing <a:${local}>`);
   el.attrs = el.attrs.filter((a) => a.name.localName !== 'typeface');
@@ -295,7 +294,9 @@ export const setPresentationFonts = (
   const fontScheme = firstChildElement(themeElements, qname('a', 'fontScheme', NS.dml));
   if (!fontScheme) throw new Error('setPresentationFonts: theme part has no <a:fontScheme>');
   const majorFont = firstChildElement(fontScheme, qname('a', 'majorFont', NS.dml));
+  if (!majorFont) throw new Error('setPresentationFonts: fontScheme has no <a:majorFont>');
   const minorFont = firstChildElement(fontScheme, qname('a', 'minorFont', NS.dml));
+  if (!minorFont) throw new Error('setPresentationFonts: fontScheme has no <a:minorFont>');
 
   if (fonts.majorLatin !== undefined) setTypeface(majorFont, 'latin', fonts.majorLatin);
   if (fonts.majorEastAsian !== undefined) setTypeface(majorFont, 'ea', fonts.majorEastAsian);

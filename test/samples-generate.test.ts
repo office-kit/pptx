@@ -1800,7 +1800,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       });
       setShapeRunFormat(labelBox, 0, 0, { font: 'Calibri', size: 10.5, color: MUTED });
 
-      return groupShapes(slide, [card, tab, valueBox, labelBox], { name: `KPI: ${label}` });
+      return groupShapes([card, tab, valueBox, labelBox], { name: `KPI: ${label}` });
     };
 
     // A roadmap "horizon" node: a numbered badge, a title bar, and an
@@ -1840,7 +1840,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       });
       setShapeRunFormat(titleBox, 0, 0, { font: 'Arial', size: 13, bold: true, color: '#FFFFFF' });
 
-      const node = groupShapes(slide, [header, badge, titleBox], {
+      const node = groupShapes([header, badge, titleBox], {
         name: `Horizon ${index}: ${title}`,
       });
 
@@ -1897,7 +1897,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       color: '#FFFFFF',
       spc: 100,
     });
-    groupShapes(cover, [mark, markLabel], { name: 'Firm mark' });
+    groupShapes([mark, markLabel], { name: 'Firm mark' });
 
     const kicker = addSlideTextBox(cover, {
       x: inches(0.7),

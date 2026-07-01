@@ -65,6 +65,17 @@ describe('fn API: setPresentationTheme', () => {
     expect(getPresentationTheme(pres)).toEqual(before);
   });
 
+  it('is all-or-nothing when a later field in the same call is invalid', () => {
+    // Slots are validated and written one at a time; a failure partway through
+    // must not leave earlier slots in this call already applied.
+    const pres = createPresentation();
+    const before = getPresentationTheme(pres)!;
+    expect(() =>
+      setPresentationTheme(pres, { accent1: '#123456', accent2: 'not-a-color' }),
+    ).toThrow();
+    expect(getPresentationTheme(pres)).toEqual(before);
+  });
+
   skipIfNoXmllint('produces a schema-valid theme part', () => {
     const pres = createPresentation();
     setPresentationTheme(pres, {

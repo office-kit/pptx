@@ -31,7 +31,7 @@ const label = addSlideTextBox(slide, {
   text: 'Revenue +12%',
 });
 
-const kpiCard = groupShapes(slide, [card, label], { name: 'KPI Card' });
+const kpiCard = groupShapes([card, label], { name: 'KPI Card' });
 
 // Move + resize the group; the rectangle and label scale together.
 setShapePosition(kpiCard, inches(5), inches(2));
