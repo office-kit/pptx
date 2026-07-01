@@ -54,6 +54,23 @@ describe('fn API: getShapeRunFormat', () => {
     expect(fmt!.size).toBeCloseTo(18);
   });
 
+  it('round-trips font and fontEastAsian independently', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const tb = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: '見出し',
+    });
+    setShapeRunFormat(tb, 0, 0, { font: 'Georgia', fontEastAsian: '游明朝' });
+    const fmt = getShapeRunFormat(tb, 0, 0);
+    expect(fmt).not.toBeNull();
+    expect(fmt!.font).toBe('Georgia');
+    expect(fmt!.fontEastAsian).toBe('游明朝');
+  });
+
   it('underline encodes both boolean and explicit token', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

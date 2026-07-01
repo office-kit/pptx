@@ -398,6 +398,11 @@ export const parseRPrLikeElement = (
     const t = getAttrValue(latin, qname('', 'typeface', ''));
     if (t !== null) out.font = t;
   }
+  const ea = firstChildElement(rPr, qname('a', 'ea', NS.dml));
+  if (ea !== null) {
+    const t = getAttrValue(ea, qname('', 'typeface', ''));
+    if (t !== null) out.fontEastAsian = t;
+  }
   return out;
 };
 

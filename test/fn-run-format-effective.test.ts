@@ -10,14 +10,17 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  addBlankSlide,
   addSlideTextBox,
   addTitleSlide,
+  createPresentation,
   findSlidePlaceholder,
   getShapeRunFormat,
   getShapeRunFormatEffective,
   getSlides,
   inches,
   loadPresentation,
+  setPresentationFonts,
   setShapeRunFormat,
 } from '../src/api/index.ts';
 
@@ -60,6 +63,26 @@ describe('fn API: getShapeRunFormatEffective', () => {
     // Office theme, which sets both major and minor to Calibri.
     const fmt = getShapeRunFormatEffective(pres, tb, 0, 0);
     expect(fmt.font).toBe('Calibri');
+  });
+
+  it('falls back to the theme East Asian font independently of the Latin font', () => {
+    const pres = createPresentation();
+    setPresentationFonts(pres, { majorEastAsian: '游明朝', minorEastAsian: 'メイリオ' });
+    const slide = addBlankSlide(pres);
+    const tb = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'plain',
+    });
+    expect(getShapeRunFormat(tb, 0, 0)?.fontEastAsian).toBeUndefined();
+    const fmt = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(fmt.fontEastAsian).toBe('メイリオ');
+
+    setShapeRunFormat(tb, 0, 0, { fontEastAsian: '游明朝' });
+    const overridden = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(overridden.fontEastAsian).toBe('游明朝');
   });
 
   it('inherits placeholder size from the master title style', async () => {

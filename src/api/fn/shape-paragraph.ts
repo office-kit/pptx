@@ -74,6 +74,9 @@ const NAME_P_OTHER_STYLE = qname('p', 'otherStyle', NS.pml);
 
 const mergeRPrLayer = (base: Partial<TextFormat>, layer: Partial<TextFormat>): void => {
   if (base.font === undefined && layer.font !== undefined) base.font = layer.font;
+  if (base.fontEastAsian === undefined && layer.fontEastAsian !== undefined) {
+    base.fontEastAsian = layer.fontEastAsian;
+  }
   if (base.size === undefined && layer.size !== undefined) base.size = layer.size;
   if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
   if (base.bold === undefined && layer.bold !== undefined) base.bold = layer.bold;
@@ -331,6 +334,15 @@ export const getShapeRunFormatEffective = (
       const useMajor = phType === 'title' || phType === 'ctrTitle';
       const fallback = useMajor ? fonts.majorLatin : fonts.minorLatin;
       if (fallback) result.font = fallback;
+    }
+    if (typeof result.fontEastAsian === 'string' && result.fontEastAsian.startsWith('+')) {
+      const resolved = resolveThemeToken(result.fontEastAsian);
+      if (resolved) result.fontEastAsian = resolved;
+    }
+    if (result.fontEastAsian === undefined) {
+      const useMajor = phType === 'title' || phType === 'ctrTitle';
+      const fallback = useMajor ? fonts.majorEastAsian : fonts.minorEastAsian;
+      if (fallback) result.fontEastAsian = fallback;
     }
   }
 
