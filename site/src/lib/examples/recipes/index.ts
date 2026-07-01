@@ -8,12 +8,14 @@ import addImage from './add-image.ts?raw';
 import addTable from './add-table.ts?raw';
 import buildFromScratch from './build-from-scratch.ts?raw';
 import fillsAndEffects from './fills-and-effects.ts?raw';
+import groupShapesRecipe from './group-shapes.ts?raw';
 import hyperlinks from './hyperlinks.ts?raw';
 import inspectParts from './inspect-parts.ts?raw';
 import notesAndComments from './notes-and-comments.ts?raw';
 import openAndIterate from './open-and-iterate.ts?raw';
 import presetShapes from './preset-shapes.ts?raw';
 import textFormatting from './text-formatting.ts?raw';
+import themeBranding from './theme-branding.ts?raw';
 import transitionsAnimations from './transitions-animations.ts?raw';
 import validate from './validate.ts?raw';
 
@@ -81,6 +83,24 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
         relatedApi: ['addSlide', 'findSlideLayout', 'findSlidePlaceholder', 'setShapeText'],
       },
       {
+        slug: 'theme-branding',
+        title: 'Brand a deck’s color scheme + fonts',
+        teaser:
+          'setPresentationTheme / setPresentationFonts patch the theme’s color and font scheme — no template required.',
+        path: 'site/src/lib/examples/recipes/theme-branding.ts',
+        source: themeBranding,
+        notes: [
+          'Only the slots you pass are overwritten; every other color/typeface keeps its default.',
+          'Colors are #RRGGBB strings; every theme slot is always a plain srgbClr, never a scheme-color reference.',
+        ],
+        relatedApi: [
+          'setPresentationTheme',
+          'setPresentationFonts',
+          'getPresentationTheme',
+          'getPresentationFonts',
+        ],
+      },
+      {
         slug: 'node-fs',
         title: 'Direct fs helpers (Node)',
         teaser: 'loadPresentationFile / savePresentationToFile skip the manual fs glue.',
@@ -130,6 +150,18 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
           'setShapeShadow',
           'setShapeGlow',
         ],
+      },
+      {
+        slug: 'group-shapes',
+        title: 'Group shapes into one component',
+        teaser: 'Compose a rectangle + label into a "KPI card"; move/resize the group as one unit.',
+        path: 'site/src/lib/examples/recipes/group-shapes.ts',
+        source: groupShapesRecipe,
+        notes: [
+          "groupShapes needs every member to have an explicit position/size — placeholders that inherit geometry from the layout can't be grouped directly.",
+          'ungroupShapes reverses it, rescaling each member if the group itself was moved/resized in between.',
+        ],
+        relatedApi: ['groupShapes', 'ungroupShapes', 'getGroupChildren', 'getGroupTransform'],
       },
     ],
   },

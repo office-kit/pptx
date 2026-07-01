@@ -3,14 +3,18 @@
 import {
   NS,
   type XmlElement,
+  attr,
+  elem,
   firstChildElement,
   getAttrValue,
   parseXml,
   qname,
+  serializeXml,
 } from '../../internal/xml/index.ts';
+import { parseSrgbHex } from '../../internal/drawingml/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
 import { INTERNAL_PACKAGE, type PresentationData } from '../_internal-symbols.ts';
-import { decode } from './_helpers.ts';
+import { decode, encode } from './_helpers.ts';
 
 // ---------------------------------------------------------------------------
 // Theme.
@@ -42,6 +46,28 @@ const NAME_THEME_ELEMENTS = qname('a', 'themeElements', NS.dml);
 const NAME_CLR_SCHEME = qname('a', 'clrScheme', NS.dml);
 const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
 const NAME_SYS_CLR = qname('a', 'sysClr', NS.dml);
+const ATTR_VAL = qname('', 'val', '');
+const ATTR_NAME = qname('', 'name', '');
+const ATTR_TYPEFACE = qname('', 'typeface', '');
+
+// `<a:clrScheme>` child order is a fixed XSD sequence
+// (`CT_ColorScheme`) — every slot below is required, in this order, on
+// any valid theme part. Maps `PresentationTheme` field names to the
+// local name of the scheme slot they read/write.
+const CLR_SCHEME_SLOTS: ReadonlyArray<readonly [keyof Omit<PresentationTheme, 'name'>, string]> = [
+  ['dark1', 'dk1'],
+  ['light1', 'lt1'],
+  ['dark2', 'dk2'],
+  ['light2', 'lt2'],
+  ['accent1', 'accent1'],
+  ['accent2', 'accent2'],
+  ['accent3', 'accent3'],
+  ['accent4', 'accent4'],
+  ['accent5', 'accent5'],
+  ['accent6', 'accent6'],
+  ['hyperlink', 'hlink'],
+  ['followedHyperlink', 'folHlink'],
+];
 
 const readSchemeSlot = (parent: XmlElement, local: string): string => {
   const slot = firstChildElement(parent, qname('a', local, NS.dml));
@@ -72,6 +98,17 @@ export const getPresentationTheme = (pres: PresentationData): PresentationTheme 
   themeFromPackage(pres[INTERNAL_PACKAGE]);
 
 /**
+ * Returns the package's first theme part (by part name, alphabetical),
+ * matching the "first theme wins" v1 semantics documented on
+ * {@link getPresentationTheme}. Shared by every theme reader/writer so
+ * they agree on which theme a multi-master deck exposes.
+ */
+const firstThemePart = (pkg: OpcPackage) =>
+  pkg.parts
+    .filter((p) => p.contentType === THEME_CONTENT_TYPE)
+    .sort((a, b) => a.name.localeCompare(b.name))[0];
+
+/**
  * Package-level theme reader behind {@link getPresentationTheme}. Exposed so
  * helpers holding only a package handle (e.g. color baking off a `SlideData`)
  * can read the theme without a `PresentationData`.
@@ -79,9 +116,7 @@ export const getPresentationTheme = (pres: PresentationData): PresentationTheme 
  * @internal
  */
 export const themeFromPackage = (pkg: OpcPackage): PresentationTheme | null => {
-  const themePart = pkg.parts
-    .filter((p) => p.contentType === THEME_CONTENT_TYPE)
-    .sort((a, b) => a.name.localeCompare(b.name))[0];
+  const themePart = firstThemePart(pkg);
   if (!themePart) return null;
   const root = parseXml(decode(themePart.data)).root;
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
@@ -140,9 +175,7 @@ const readTypeface = (parent: XmlElement | null, local: string): string | null =
  */
 export const getPresentationFonts = (pres: PresentationData): PresentationFonts | null => {
   const pkg = pres[INTERNAL_PACKAGE];
-  const themePart = pkg.parts
-    .filter((p) => p.contentType === THEME_CONTENT_TYPE)
-    .sort((a, b) => a.name.localeCompare(b.name))[0];
+  const themePart = firstThemePart(pkg);
   if (!themePart) return null;
   const root = parseXml(decode(themePart.data)).root;
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
@@ -159,4 +192,120 @@ export const getPresentationFonts = (pres: PresentationData): PresentationFonts 
     minorEastAsian: readTypeface(minorFont, 'ea'),
     minorComplexScript: readTypeface(minorFont, 'cs'),
   };
+};
+
+/**
+ * Overwrites the named slots of the package's first theme's color
+ * scheme (`<a:clrScheme>`), leaving every other slot untouched. Slot
+ * values are `#RRGGBB` (or 3-digit `#RGB`) strings; every branded
+ * `srgbClr`/`sysClr` slot is normalized to a plain `<a:srgbClr>` on
+ * write, since a theme slot is never a scheme-color reference.
+ *
+ * As with `getPresentationTheme`, multi-master decks are branded via
+ * their first theme part only — call this once per theme part if a
+ * deck's masters carry different themes.
+ *
+ * Throws if the presentation has no theme part, or if a provided color
+ * isn't a valid `#RRGGBB` string.
+ */
+export const setPresentationTheme = (
+  pres: PresentationData,
+  theme: Partial<Omit<PresentationTheme, 'name'>> & { name?: string },
+): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const themePart = firstThemePart(pkg);
+  if (!themePart) throw new Error('setPresentationTheme: presentation has no theme part');
+  const doc = parseXml(decode(themePart.data));
+  const themeElements = firstChildElement(doc.root, NAME_THEME_ELEMENTS);
+  if (!themeElements) throw new Error('setPresentationTheme: theme part has no <a:themeElements>');
+  const clrScheme = firstChildElement(themeElements, NAME_CLR_SCHEME);
+  if (!clrScheme) throw new Error('setPresentationTheme: theme part has no <a:clrScheme>');
+
+  if (theme.name !== undefined) {
+    clrScheme.attrs = clrScheme.attrs.filter((a) => a.name.localName !== 'name');
+    clrScheme.attrs.push(attr(ATTR_NAME, theme.name));
+  }
+
+  for (const [field, local] of CLR_SCHEME_SLOTS) {
+    const value = theme[field];
+    if (value === undefined) continue;
+    const hex = parseSrgbHex(value);
+    if (hex === null) {
+      throw new Error(
+        `setPresentationTheme: "${field}" must be a #RRGGBB or #RGB color, got ${JSON.stringify(value)}`,
+      );
+    }
+    const slotName = qname('a', local, NS.dml);
+    const idx = clrScheme.children.findIndex(
+      (c) => c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === local,
+    );
+    if (idx < 0) {
+      throw new Error(`setPresentationTheme: clrScheme is missing <a:${local}>`);
+    }
+    clrScheme.children[idx] = elem(slotName, {
+      children: [elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, hex)] })],
+    });
+  }
+
+  themePart.data = encode(serializeXml(doc));
+};
+
+/**
+ * Typeface overrides for {@link setPresentationFonts}. Unlike
+ * `PresentationFonts` (the read side, where an empty typeface value
+ * flattens to `null`), every field here is a plain string — the
+ * underlying `<a:latin>` / `<a:ea>` / `<a:cs>` elements are mandatory on
+ * a valid theme, so there's no "clear this typeface" operation.
+ */
+export interface PresentationFontsInput {
+  readonly majorLatin?: string;
+  readonly majorEastAsian?: string;
+  readonly majorComplexScript?: string;
+  readonly minorLatin?: string;
+  readonly minorEastAsian?: string;
+  readonly minorComplexScript?: string;
+}
+
+const setTypeface = (fontCollection: XmlElement, local: string, typeface: string): void => {
+  const el = firstChildElement(fontCollection, qname('a', local, NS.dml));
+  if (!el) throw new Error(`setPresentationFonts: fontScheme is missing <a:${local}>`);
+  el.attrs = el.attrs.filter((a) => a.name.localName !== 'typeface');
+  el.attrs.push(attr(ATTR_TYPEFACE, typeface));
+};
+
+/**
+ * Overwrites the named typefaces of the package's first theme's font
+ * scheme (major = headings, minor = body), leaving unset fields
+ * untouched. As with `setPresentationTheme`, only the first theme part
+ * is branded.
+ *
+ * Throws if the presentation has no theme part.
+ */
+export const setPresentationFonts = (
+  pres: PresentationData,
+  fonts: PresentationFontsInput,
+): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  const themePart = firstThemePart(pkg);
+  if (!themePart) throw new Error('setPresentationFonts: presentation has no theme part');
+  const doc = parseXml(decode(themePart.data));
+  const themeElements = firstChildElement(doc.root, NAME_THEME_ELEMENTS);
+  if (!themeElements) throw new Error('setPresentationFonts: theme part has no <a:themeElements>');
+  const fontScheme = firstChildElement(themeElements, qname('a', 'fontScheme', NS.dml));
+  if (!fontScheme) throw new Error('setPresentationFonts: theme part has no <a:fontScheme>');
+  const majorFont = firstChildElement(fontScheme, qname('a', 'majorFont', NS.dml));
+  if (!majorFont) throw new Error('setPresentationFonts: fontScheme has no <a:majorFont>');
+  const minorFont = firstChildElement(fontScheme, qname('a', 'minorFont', NS.dml));
+  if (!minorFont) throw new Error('setPresentationFonts: fontScheme has no <a:minorFont>');
+
+  if (fonts.majorLatin !== undefined) setTypeface(majorFont, 'latin', fonts.majorLatin);
+  if (fonts.majorEastAsian !== undefined) setTypeface(majorFont, 'ea', fonts.majorEastAsian);
+  if (fonts.majorComplexScript !== undefined)
+    setTypeface(majorFont, 'cs', fonts.majorComplexScript);
+  if (fonts.minorLatin !== undefined) setTypeface(minorFont, 'latin', fonts.minorLatin);
+  if (fonts.minorEastAsian !== undefined) setTypeface(minorFont, 'ea', fonts.minorEastAsian);
+  if (fonts.minorComplexScript !== undefined)
+    setTypeface(minorFont, 'cs', fonts.minorComplexScript);
+
+  themePart.data = encode(serializeXml(doc));
 };
