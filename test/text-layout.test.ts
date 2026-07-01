@@ -175,6 +175,26 @@ describe('layoutTextSvg', () => {
     expect(svg).toContain('stroke="#0000FF"');
   });
 
+  it('scales the wavy-underline path down for a superscript run, matching its shrunk glyph size', () => {
+    // tspan() renders a super/subscript run's glyphs at 0.65x sizePx — the
+    // wave must scale down the same way, or it reads oversized under the
+    // smaller glyphs it's supposed to underline.
+    const strokeWidthOf = (svg: string): number => {
+      const m = /<path d="[^"]*" stroke="[^"]*" stroke-width="([\d.]+)"/.exec(svg);
+      if (!m) throw new Error('no wavy-underline path found');
+      return Number(m[1]);
+    };
+    const normal = layoutTextSvg(
+      body([para([piece('wavy', { underline: 'wavy', sizePx: 20 })])]),
+      stubMeasurer,
+    );
+    const superscript = layoutTextSvg(
+      body([para([piece('wavy', { underline: 'wavy', sizePx: 20, superSub: 1 })])]),
+      stubMeasurer,
+    );
+    expect(strokeWidthOf(superscript)).toBeLessThan(strokeWidthOf(normal));
+  });
+
   it('renders a bullet glyph ahead of the first line', () => {
     const svg = layoutTextSvg(
       body([

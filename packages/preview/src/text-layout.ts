@@ -664,6 +664,14 @@ const baselineShiftPxOf = (p: PieceInput): number =>
       ? -p.sizePx * SUBSCRIPT_SHIFT_RATIO
       : 0;
 
+// A super/subscript run's glyphs render at this fraction of its authored
+// size (see tspan()) — wavyPath reuses it so a wavy-underlined super/
+// subscript run's wave is sized to the glyphs actually drawn, not the
+// pre-shrink font size.
+const SUPER_SUB_SIZE_RATIO = 0.65;
+const renderedSizePxOf = (p: PieceInput): number =>
+  p.superSub !== 0 ? p.sizePx * SUPER_SUB_SIZE_RATIO : p.sizePx;
+
 // resvg has no `text-decoration-style: wavy` support (nor does core SVG
 // define one), so a wavy underline is drawn as an explicit path under its
 // run(s) instead of relying on `tspan`'s CSS decoration. `x0` is the same
@@ -710,7 +718,7 @@ const WAVY_STROKE_WIDTH_RATIO = 0.06;
 const WAVY_STROKE_WIDTH_MIN_PX = 0.6;
 
 const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput): string => {
-  const size = piece.sizePx;
+  const size = renderedSizePxOf(piece);
   const amp = Math.max(WAVY_AMPLITUDE_MIN_PX, size * WAVY_AMPLITUDE_RATIO);
   const period = Math.max(WAVY_PERIOD_MIN_PX, size * WAVY_PERIOD_RATIO);
   const y = baselineY + size * WAVY_BASELINE_OFFSET_RATIO;
@@ -742,7 +750,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
 
 const tspan = (g: Group): string => {
   const p = g.piece;
-  const sizePx = p.superSub !== 0 ? p.sizePx * 0.65 : p.sizePx;
+  const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
     `font-family="${escapeXml(p.family)}"`,
     `font-size="${fmt(sizePx)}"`,
