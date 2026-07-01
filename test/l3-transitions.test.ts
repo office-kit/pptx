@@ -38,6 +38,50 @@ describe('L3: setSlideTransition', () => {
     expect(xml).toContain('spd="fast"');
   });
 
+  it("rejects a direction outside the effect's domain", async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    // `blinds` is CT_OrientationTransition (dir = horz|vert); the side token `l`
+    // would emit schema-invalid XML, so it must be rejected at the boundary.
+    expect(() => setSlideTransition(slide, { effect: 'blinds', direction: 'l' })).toThrow(
+      /not valid for effect/,
+    );
+  });
+
+  skipIfNoXmllint('an orientation-family direction (blinds horz) is schema-valid', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    setSlideTransition(slide, { effect: 'blinds', direction: 'horz' });
+    const xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).toContain('<p:blinds dir="horz"/>');
+    expectSchemaValid(xml, 'pml');
+  });
+
+  it('drops orientation on non-split and thruBlack on non-fade/cut effects', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    // `orient` exists only on CT_SplitTransition; `thruBlk` only on
+    // CT_OptionalBlackTransition (fade/cut). On `wipe` neither may appear.
+    setSlideTransition(slide, { effect: 'wipe', orientation: 'horz', thruBlack: true });
+    const xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).toContain('<p:wipe/>');
+    expect(xml).not.toContain('orient');
+    expect(xml).not.toContain('thruBlk');
+  });
+
+  skipIfNoXmllint('emits orient on split and thruBlk on fade (schema-valid)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    setSlideTransition(getSlides(pres)[0]!, { effect: 'split', orientation: 'horz' });
+    const splitXml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(splitXml).toContain('<p:split orient="horz"/>');
+    expectSchemaValid(splitXml, 'pml');
+
+    setSlideTransition(getSlides(pres)[1]!, { effect: 'fade', thruBlack: true });
+    const fadeXml = getSlideXmlString(getSlides(pres)[1]!);
+    expect(fadeXml).toContain('thruBlk="1"');
+    expectSchemaValid(fadeXml, 'pml');
+  });
+
   it('emits advClick / advTm only when not default', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

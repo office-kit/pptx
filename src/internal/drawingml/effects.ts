@@ -5,6 +5,7 @@
 // effectLst → scene3d → sp3d → extLst`. Callers locate the right
 // insertion slot using `effectInsertionIndex`.
 
+import { emuExtent } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
 
@@ -83,8 +84,11 @@ const colorWithAlpha = (color: string, opacity: number | undefined): XmlElement 
 export const setShadow = (host: XmlElement, options: ShadowOptions = {}): void => {
   removeEffectLst(host);
   const color = options.color ?? '#000000';
-  const blur = options.blurEmu ?? 50800;
-  const dist = options.offsetEmu ?? 38100;
+  // blurRad and dist are ST_PositiveCoordinate (EMU, 0..27273042316900); a
+  // fractional/negative/non-finite/over-max value would emit a schema-invalid
+  // `<a:outerShdw>`. Validate at this boundary like every other EMU input.
+  const blur = emuExtent(options.blurEmu ?? 50800, 'setShapeShadow: blurEmu');
+  const dist = emuExtent(options.offsetEmu ?? 38100, 'setShapeShadow: offsetEmu');
   const angleDeg = options.angleDeg ?? 45;
   const dir = String(Math.round((((angleDeg % 360) + 360) % 360) * 60000));
 
@@ -108,7 +112,8 @@ export const setShadow = (host: XmlElement, options: ShadowOptions = {}): void =
  */
 export const setGlow = (host: XmlElement, options: GlowOptions): void => {
   removeEffectLst(host);
-  const rad = String(options.radiusEmu ?? 63500);
+  // rad is ST_PositiveCoordinate — validate like the shadow EMU inputs above.
+  const rad = String(emuExtent(options.radiusEmu ?? 63500, 'setShapeGlow: radiusEmu'));
   const glow = elem(NAME_GLOW, {
     attrs: [attr(ATTR_RAD, rad)],
     children: [buildColorElement(options.color)],

@@ -14,7 +14,17 @@ export type {
   XmlPI,
   XmlText,
 } from './ast.ts';
-export { attr, cdata, comment, elem, pi, qname, qnameEquals, text } from './ast.ts';
+export {
+  attr,
+  cdata,
+  comment,
+  elem,
+  insertChildByRank,
+  pi,
+  qname,
+  qnameEquals,
+  text,
+} from './ast.ts';
 export { NS, SUGGESTED_PREFIX } from './namespaces.ts';
 export { XmlParseError, parseFragment, parseXml } from './parse.ts';
 export {

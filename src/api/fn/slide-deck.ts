@@ -541,6 +541,40 @@ export const duplicateSlideAt = (
   return slides[clamped]!;
 };
 
+// Collects every relationship id referenced (r:id / r:embed / r:link) anywhere
+// in `el`'s subtree. Relationship-typed attributes live in the officeDocRels
+// namespace regardless of local name.
+const collectRelRefs = (el: XmlElement, into: Set<string>): void => {
+  for (const a of el.attrs) {
+    if (a.name.namespaceURI === NS.officeDocRels) into.add(a.value);
+  }
+  for (const c of el.children) {
+    if (c.kind === 'element') collectRelRefs(c, into);
+  }
+};
+
+// importSlide copies the body verbatim but only carries image + hyperlink rels
+// across (charts / diagrams / OLE are dropped in v1). A `<p:graphicFrame>` that
+// still points at a dropped rel would be a dangling r:id — PowerPoint reports
+// the whole package corrupt. Drop those frames so the imported slide stays valid
+// (a chart-less slide is the documented v1 behavior). Recurses through groups.
+const pruneDanglingGraphicFrames = (el: XmlElement, keptRelIds: Set<string>): void => {
+  el.children = el.children.filter((c) => {
+    if (c.kind !== 'element') return true;
+    if (c.name.namespaceURI === NS.pml && c.name.localName === 'graphicFrame') {
+      const refs = new Set<string>();
+      collectRelRefs(c, refs);
+      for (const id of refs) {
+        if (!keptRelIds.has(id)) return false;
+      }
+    }
+    return true;
+  });
+  for (const c of el.children) {
+    if (c.kind === 'element') pruneDanglingGraphicFrames(c, keptRelIds);
+  }
+};
+
 /**
  * Imports a slide from another presentation into `targetPres`. The
  * slide's part bytes are copied verbatim; image rels are followed and
@@ -591,15 +625,19 @@ export const importSlide = (
   if (targetPkg.getPart(layoutPartName) === null) {
     throw new Error(`importSlide: layout ${layoutPartName} not in target package`);
   }
+  // The copied slide body keeps its original `r:embed` / `r:link` ids, so image
+  // and hyperlink rels are preserved verbatim below. The layout rel is NOT
+  // referenced from the body (PowerPoint resolves it by relationship type), so
+  // we can give it any id — but it must not collide with a preserved source id.
+  // Allocating past the source max keeps every rId on the new slide unique.
+  const layoutRelId = nextRelId(sourceRels?.items.map((r) => r.id) ?? []);
   newRels.items.push({
-    id: 'rId1',
+    id: layoutRelId,
     type: REL_TYPES.slideLayout,
     target: `../slideLayouts/${basename(layoutPartName)}`,
     targetMode: 'Internal',
   });
 
-  // Map from source rId → new rId so we can rewrite blip references later
-  // (skipped in v1; we just preserve original rId values when possible).
   if (sourceRels !== null) {
     for (const rel of sourceRels.items) {
       if (rel.type === REL_TYPES.slideLayout) continue; // handled above
@@ -641,6 +679,30 @@ export const importSlide = (
     }
   }
   targetPkg.setRels(newSlidePartName, newRels);
+
+  // The verbatim body may still reference a dropped rel (e.g. a chart frame's
+  // `<c:chart r:id="rId2"/>`). Strip any graphicFrame whose r:id is no longer in
+  // the slide's rels so we never emit a dangling relationship. Only re-serialize
+  // when there is actually a dangling reference, to keep the common (frame-less)
+  // import byte-for-byte identical.
+  const newPart = targetPkg.getPart(newSlidePartName);
+  if (newPart) {
+    const keptRelIds = new Set(newRels.items.map((r) => r.id));
+    const bodyDoc = parseXml(decode(newPart.data));
+    const bodyRefs = new Set<string>();
+    collectRelRefs(bodyDoc.root, bodyRefs);
+    let hasDangling = false;
+    for (const id of bodyRefs) {
+      if (!keptRelIds.has(id)) {
+        hasDangling = true;
+        break;
+      }
+    }
+    if (hasDangling) {
+      pruneDanglingGraphicFrames(bodyDoc.root, keptRelIds);
+      newPart.data = encode(serializeXml(bodyDoc));
+    }
+  }
 
   // presentation → slide rel + sldIdLst entry.
   const presRels = targetPkg.getRels(PRES_PART_NAME) ?? emptyRels();

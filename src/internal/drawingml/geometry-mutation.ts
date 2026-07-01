@@ -5,6 +5,7 @@
 // The shape-kind dispatch matches `geometry.ts` exactly — both modules
 // agree on where each shape kind keeps its transform.
 
+import { emuCoordinate, emuExtent } from '../bounds.ts';
 import { NS, attr, elem, firstChildElement, qname } from '../xml/index.ts';
 import type { XmlElement } from '../xml/index.ts';
 import type { ShapeKindForGeometry } from './geometry.ts';
@@ -71,7 +72,10 @@ export const setPosition = (
     off = elem(NAME_OFF);
     xfrm.children.unshift(off);
   }
-  off.attrs = [attr(ATTR_X, String(x)), attr(ATTR_Y, String(y))];
+  off.attrs = [
+    attr(ATTR_X, String(emuCoordinate(x, 'setShapePosition: x'))),
+    attr(ATTR_Y, String(emuCoordinate(y, 'setShapePosition: y'))),
+  ];
 };
 
 /** Sets the shape's `<a:ext>` to `(w, h)` in EMU. */
@@ -92,7 +96,10 @@ export const setSize = (
     if (offIdx >= 0) xfrm.children.splice(offIdx + 1, 0, ext);
     else xfrm.children.push(ext);
   }
-  ext.attrs = [attr(ATTR_CX, String(w)), attr(ATTR_CY, String(h))];
+  ext.attrs = [
+    attr(ATTR_CX, String(emuExtent(w, 'setShapeSize: w'))),
+    attr(ATTR_CY, String(emuExtent(h, 'setShapeSize: h'))),
+  ];
 };
 
 const ATTR_ROT = qname('', 'rot', '');

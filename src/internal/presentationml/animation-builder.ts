@@ -15,6 +15,7 @@
 // the actual `<p:set>` / `<p:anim>` is fixed; we just swap presetID,
 // presetClass, and the target spid.
 
+import { unsignedIntMs } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 
 const NAME_TIMING = qname('p', 'timing', NS.pml);
@@ -157,7 +158,12 @@ const buildOpacityAnim = (spid: number, durationMs: number, fadeIn: boolean): Xm
  */
 export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): XmlElement => {
   const preset = PRESETS[opts.effect];
-  const duration = opts.durationMs ?? 500;
+  // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"); reject
+  // fractional/negative/out-of-range so we never emit an invalid dur.
+  const duration =
+    opts.durationMs === undefined
+      ? 500
+      : unsignedIntMs(opts.durationMs, 'setShapeAnimation: durationMs');
 
   const isFade = opts.effect === 'fadeIn' || opts.effect === 'fadeOut';
   const isEntrance = preset.presetClass === 'entr';

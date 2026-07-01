@@ -21,6 +21,7 @@
 // The `r:embed` rId is allocated by the caller and must already exist as
 // a relationship on the slide's `.rels` part pointing at a media part.
 
+import { emuCoordinate, emuExtent } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname } from '../xml/index.ts';
 
 const NAME_PIC = qname('p', 'pic', NS.pml);
@@ -85,10 +86,16 @@ export const buildPicture = (opts: PictureOptions): XmlElement => {
   // Round to whole EMU — `fit: 'contain'` scaling produces fractional offsets
   // (`as Emu` cast), and fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
-    attrs: [attr(ATTR_X, String(Math.round(opts.x))), attr(ATTR_Y, String(Math.round(opts.y)))],
+    attrs: [
+      attr(ATTR_X, String(emuCoordinate(opts.x, 'addSlideImage: x'))),
+      attr(ATTR_Y, String(emuCoordinate(opts.y, 'addSlideImage: y'))),
+    ],
   });
   const ext = elem(NAME_EXT, {
-    attrs: [attr(ATTR_CX, String(Math.round(opts.w))), attr(ATTR_CY, String(Math.round(opts.h)))],
+    attrs: [
+      attr(ATTR_CX, String(emuExtent(opts.w, 'addSlideImage: w'))),
+      attr(ATTR_CY, String(emuExtent(opts.h, 'addSlideImage: h'))),
+    ],
   });
   const xfrm = elem(NAME_A_XFRM, { children: [off, ext] });
   const prstGeom = elem(NAME_PRST_GEOM, {

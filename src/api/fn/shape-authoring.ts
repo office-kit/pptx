@@ -72,7 +72,9 @@ export const addSlideShape = (
     w: Emu;
     h: Emu;
     text?: string;
-    textAnchor?: 'l' | 'ctr' | 'r' | 't' | 'b';
+    /** Vertical text anchor (`t` / `ctr` / `b`). Horizontal alignment is set
+     * separately via `setShapeAlignment` / `setParagraphAlignment`. */
+    textAnchor?: 'ctr' | 't' | 'b';
     name?: string;
   },
 ): SlideShapeData => {

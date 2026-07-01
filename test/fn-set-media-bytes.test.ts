@@ -53,4 +53,19 @@ describe('fn API: setMediaPartBytes', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     expect(setMediaPartBytes(pres, '/ppt/media/missing.png', tinyPng())).toBe(false);
   });
+
+  it('resolves the part name case-insensitively (OPC part-name semantics)', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideImage(getSlides(pres)[0]!, tinyPng(), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
+    });
+    const target = getMediaParts(pres)[0]!;
+    // A differently-cased name must hit the same part (ECMA-376 Part 2 §9.1.1).
+    expect(setMediaPartBytes(pres, target.name.toUpperCase(), otherPng())).toBe(true);
+    expect(getMediaParts(pres)[0]!.data).toEqual(otherPng());
+  });
 });

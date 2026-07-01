@@ -22,8 +22,11 @@ import {
   attr,
   elem,
   firstChildElement,
+  insertChildByRank,
   qname,
 } from '../xml/index.ts';
+import { fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
+import { parseColor } from './color.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
@@ -45,6 +48,36 @@ const ATTR_CAP = qname('', 'cap', '');
 const ATTR_TYPEFACE = qname('', 'typeface', '');
 const ATTR_VAL = qname('', 'val', '');
 const NAME_HIGHLIGHT = qname('a', 'highlight', NS.dml);
+
+// CT_TextCharacterProperties (a:rPr) is an xsd:sequence: children must appear
+// in this order or the run fails dml/pml schema validation. Setters strip the
+// existing element then re-insert at the mandated slot via insertChildByRank.
+const RPR_CHILD_RANK: Record<string, number> = {
+  ln: 0,
+  noFill: 1,
+  solidFill: 1,
+  gradFill: 1,
+  blipFill: 1,
+  pattFill: 1,
+  grpFill: 1,
+  effectLst: 2,
+  effectDag: 2,
+  highlight: 3,
+  uLnTx: 4,
+  uLn: 4,
+  uFillTx: 5,
+  uFill: 5,
+  latin: 6,
+  ea: 7,
+  cs: 8,
+  sym: 9,
+  hlinkClick: 10,
+  hlinkMouseOver: 11,
+  rtl: 12,
+  extLst: 13,
+};
+const rprChildRank = (el: XmlElement): number =>
+  el.name.namespaceURI === NS.dml ? (RPR_CHILD_RANK[el.name.localName] ?? 99) : 99;
 
 export interface TextFormat {
   /** Latin font family (`Calibri`, `Arial`, ...). Sets `<a:latin>`. */
@@ -76,8 +109,9 @@ export interface TextFormat {
    */
   spc?: number;
   /**
-   * Kerning threshold in half-points (`0` disables kerning, `1200` =
-   * apply kerning for runs ≥12pt). Mirrors `<a:rPr kern="…"/>`.
+   * Kerning threshold in 1/100 points (`ST_TextNonNegativePoint`, the same
+   * unit as `spc`): `0` disables kerning, `1200` = apply kerning for runs
+   * ≥12pt. Mirrors `<a:rPr kern="…"/>`.
    */
   kern?: number;
   /**
@@ -97,35 +131,6 @@ export interface TextFormat {
    */
   highlight?: string | null;
 }
-
-const SCHEME_TOKENS = new Set([
-  'bg1',
-  'tx1',
-  'bg2',
-  'tx2',
-  'accent1',
-  'accent2',
-  'accent3',
-  'accent4',
-  'accent5',
-  'accent6',
-  'hlink',
-  'folHlink',
-  'phClr',
-  'lt1',
-  'dk1',
-  'lt2',
-  'dk2',
-]);
-
-const parseColor = (
-  value: string,
-): { kind: 'srgb'; hex: string } | { kind: 'scheme'; token: string } | null => {
-  if (SCHEME_TOKENS.has(value)) return { kind: 'scheme', token: value };
-  const hex = value.startsWith('#') ? value.slice(1) : value;
-  if (/^[0-9A-Fa-f]{6}$/.test(hex)) return { kind: 'srgb', hex: hex.toUpperCase() };
-  return null;
-};
 
 const setOrRemoveAttr = (
   attrs: XmlAttr[],
@@ -151,10 +156,7 @@ const setSolidFill = (rPr: XmlElement, value: string | null): void => {
       ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
       : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
   const fill = elem(NAME_SOLID_FILL, { children: [inner] });
-  // Per the schema, fills come BEFORE typeface children. Insert after any
-  // text-decoration attrs but before latin/ea/cs. Easiest: prepend; xmllint
-  // accepts either placement since solidFill is a choice in CT_TextCharacterProperties.
-  rPr.children.unshift(fill);
+  insertChildByRank(rPr, fill, rprChildRank);
 };
 
 const setLatin = (rPr: XmlElement, font: string | null): void => {
@@ -163,7 +165,7 @@ const setLatin = (rPr: XmlElement, font: string | null): void => {
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'latin'),
   );
   if (font === null) return;
-  rPr.children.push(elem(NAME_LATIN, { attrs: [attr(ATTR_TYPEFACE, font)] }));
+  insertChildByRank(rPr, elem(NAME_LATIN, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
 };
 
 const setHighlight = (rPr: XmlElement, value: string | null): void => {
@@ -178,17 +180,15 @@ const setHighlight = (rPr: XmlElement, value: string | null): void => {
     parsed.kind === 'srgb'
       ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
       : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
-  // highlight follows solidFill but precedes the typeface children in the
-  // schema. Insert near the start; xmllint accepts either placement.
-  rPr.children.unshift(elem(NAME_HIGHLIGHT, { children: [inner] }));
+  insertChildByRank(rPr, elem(NAME_HIGHLIGHT, { children: [inner] }), rprChildRank);
 };
 
 /** Mutates `rPr` in place per `format`. */
 export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   let attrs = rPr.attrs;
   if (format.size !== undefined) {
-    // Hundredths of a point per the schema.
-    const sz = Math.round(format.size * 100);
+    // Hundredths of a point per the schema (ST_TextFontSize: 1..4000 pt).
+    const sz = fontSizeHundredthPt(format.size * 100, 'setShapeRunFormat: size');
     attrs = setOrRemoveAttr(attrs, ATTR_SZ, String(sz));
   }
   if (format.bold !== undefined) {
@@ -208,7 +208,8 @@ export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
     attrs = setOrRemoveAttr(attrs, ATTR_STRIKE, value);
   }
   if (format.spc !== undefined) {
-    attrs = setOrRemoveAttr(attrs, ATTR_SPC, String(Math.round(format.spc)));
+    const spc = textPointSpacing(format.spc, 'setShapeRunFormat: spc');
+    attrs = setOrRemoveAttr(attrs, ATTR_SPC, String(spc));
   }
   if (format.kern !== undefined) {
     attrs = setOrRemoveAttr(attrs, ATTR_KERN, String(Math.round(format.kern)));

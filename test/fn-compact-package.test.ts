@@ -8,6 +8,7 @@ import {
   addSlideImage,
   compactPackage,
   getMediaParts,
+  getOrphanMediaPartNames,
   getSlides,
   inches,
   loadPresentation,
@@ -73,6 +74,35 @@ describe('fn API: compactPackage', () => {
     const reloaded = await loadPresentation(await savePresentation(pres));
     const before = getMediaParts(reloaded).length;
     expect(before).toBeGreaterThan(0);
+    expect(compactPackage(reloaded).removed).toEqual([]);
+    expect(getMediaParts(reloaded).length).toBe(before);
+  });
+
+  it('keeps media whose rel target case differs from the stored part name', async () => {
+    // OPC part names compare case-insensitively (ECMA-376 Part 2 §9.1.1), so a
+    // rel pointing at `../media/IMAGE1.PNG` still references the stored
+    // `/ppt/media/image1.png`. A case-sensitive compaction would wrongly drop it.
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    addSlideImage(getSlides(pres)[0]!, tinyPng(), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      format: 'png',
+    });
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const pkg = _internalPackageOf(reloaded);
+    const slideRels = pkg.getRels(partName('/ppt/slides/slide1.xml'))!;
+    // Uppercase only the media rel's target; leave layout/other rels untouched.
+    pkg.setRels(partName('/ppt/slides/slide1.xml'), {
+      items: slideRels.items.map((r) =>
+        r.target.includes('/media/') ? { ...r, target: r.target.toUpperCase() } : r,
+      ),
+    });
+    const before = getMediaParts(reloaded).length;
+    expect(before).toBeGreaterThan(0);
+
+    expect(getOrphanMediaPartNames(reloaded)).toEqual([]);
     expect(compactPackage(reloaded).removed).toEqual([]);
     expect(getMediaParts(reloaded).length).toBe(before);
   });

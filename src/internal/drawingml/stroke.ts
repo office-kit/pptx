@@ -1,11 +1,13 @@
 // Outline (line) mutation for shapes.
 //
 // `<a:ln>` sits inside `<p:spPr>` after the fill choice. ECMA-376 §20.1.2
-// surface: width (EMU), cap, dash, fill choice (solid/no/grad), head/tail
-// arrow markers. At this phase we expose width + solid color + noFill;
-// dashes and arrowheads land when the next feature batch needs them.
+// surface: width (EMU), cap, dash, fill choice (solid/no/grad), join
+// (round/bevel/miter), and head/tail arrow markers. We expose width, solid
+// color, noFill, preset dash, join, and head/tail arrowheads — each inserted at
+// its CT_LineProperties slot via LN_CHILD_RANK below.
 
-import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
+import { lineWidthEmu } from '../bounds.ts';
+import { NS, type XmlElement, attr, elem, insertChildByRank, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
 
 const NAME_LN = qname('a', 'ln', NS.dml);
@@ -14,6 +16,29 @@ const NAME_NO_FILL = qname('a', 'noFill', NS.dml);
 const ATTR_W = qname('', 'w', '');
 
 const FILL_LOCALS = new Set(['noFill', 'solidFill', 'gradFill', 'pattFill']);
+
+// CT_LineProperties (a:ln) is an xsd:sequence: fill choice, then the dash,
+// then the join choice, then head/tail arrowheads, then extLst. Sub-element
+// setters must drop their element at the mandated slot rather than push to the
+// end, or combining (e.g.) a dash + arrowheads + join emits invalid order.
+const LN_CHILD_RANK: Record<string, number> = {
+  noFill: 0,
+  solidFill: 0,
+  gradFill: 0,
+  pattFill: 0,
+  prstDash: 1,
+  custDash: 1,
+  round: 2,
+  bevel: 2,
+  miter: 2,
+  headEnd: 3,
+  tailEnd: 4,
+  extLst: 5,
+};
+const lnChildRank = (el: XmlElement): number =>
+  el.name.namespaceURI === NS.dml ? (LN_CHILD_RANK[el.name.localName] ?? 99) : 99;
+const insertLnChild = (ln: XmlElement, el: XmlElement): void =>
+  insertChildByRank(ln, el, lnChildRank);
 
 const removeChildrenIn = (host: XmlElement, names: ReadonlySet<string>): void => {
   host.children = host.children.filter(
@@ -55,12 +80,12 @@ export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void =
   const ln = ensureLn(spPr);
   if (options.widthEmu !== undefined) {
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
-    ln.attrs.push(attr(ATTR_W, String(Math.round(options.widthEmu))));
+    ln.attrs.push(attr(ATTR_W, String(lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu'))));
   }
   // Replace any existing fill choice inside <a:ln>.
   removeChildrenIn(ln, FILL_LOCALS);
   if (options.color !== undefined) {
-    ln.children.unshift(elem(NAME_SOLID_FILL, { children: [buildColorElement(options.color)] }));
+    insertLnChild(ln, elem(NAME_SOLID_FILL, { children: [buildColorElement(options.color)] }));
   }
 };
 
@@ -68,7 +93,7 @@ export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void =
 export const setNoStroke = (spPr: XmlElement): void => {
   const ln = ensureLn(spPr);
   removeChildrenIn(ln, FILL_LOCALS);
-  ln.children.unshift(elem(NAME_NO_FILL));
+  insertLnChild(ln, elem(NAME_NO_FILL));
 };
 
 /** Removes any `<a:ln>` from a shape's spPr (restores inheritance). */
@@ -108,7 +133,7 @@ export const setStrokeDash = (spPr: XmlElement, dash: LineDash): void => {
     (c) =>
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'prstDash'),
   );
-  ln.children.push(elem(NAME_PRST_DASH, { attrs: [attr(ATTR_VAL, dash)] }));
+  insertLnChild(ln, elem(NAME_PRST_DASH, { attrs: [attr(ATTR_VAL, dash)] }));
 };
 
 /** ECMA-376 §20.1.10.39 `ST_LineEndType`. */
@@ -150,7 +175,7 @@ export const setStrokeArrow = (
   const attrs = [attr(ATTR_TYPE, options.type)];
   if (options.width !== undefined) attrs.push(attr(ATTR_W, options.width));
   if (options.length !== undefined) attrs.push(attr(ATTR_LEN, options.length));
-  ln.children.push(elem(qname('a', localName, NS.dml), { attrs }));
+  insertLnChild(ln, elem(qname('a', localName, NS.dml), { attrs }));
 };
 
 /** ECMA-376 §20.1.10.30 `ST_LineCap`. */
@@ -172,11 +197,8 @@ export const setStrokeJoin = (spPr: XmlElement, join: LineJoin | null): void => 
   const ln = ensureLn(spPr);
   removeChildrenIn(ln, JOIN_LOCALS);
   if (join !== null) {
-    // Join sits after `<a:prstDash>` and before `<a:headEnd>` per the
-    // CT_LineProperties schema. Append: the few siblings that follow
-    // (headEnd / tailEnd) tolerate trailing-only reordering in
-    // practice, and the renderers we care about read by name.
-    ln.children.push(elem(qname('a', join, NS.dml)));
+    // Join sits after <a:prstDash> and before <a:headEnd> per CT_LineProperties.
+    insertLnChild(ln, elem(qname('a', join, NS.dml)));
   }
 };
 

@@ -9,6 +9,7 @@
 // previous fill choice (`noFill`/`solidFill`/`gradFill`/`blipFill`/
 // `pattFill`/`grpFill`) before inserting the new `solidFill`.
 
+import { oneOf } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
 
@@ -18,6 +19,9 @@ const NAME_GRAD_FILL = qname('a', 'gradFill', NS.dml);
 const NAME_GS_LST = qname('a', 'gsLst', NS.dml);
 const NAME_GS = qname('a', 'gs', NS.dml);
 const NAME_LIN = qname('a', 'lin', NS.dml);
+const NAME_PATH = qname('a', 'path', NS.dml);
+const NAME_FILL_TO_RECT = qname('a', 'fillToRect', NS.dml);
+const ATTR_PATH = qname('', 'path', '');
 const ATTR_POS = qname('', 'pos', '');
 const ATTR_ANG = qname('', 'ang', '');
 const ATTR_SCALED = qname('', 'scaled', '');
@@ -124,8 +128,66 @@ export interface GradientFillOptions {
   };
 }
 
+/** Every `ST_PresetPatternVal` token (ECMA-376 dml-main.xsd). */
+export const PATTERN_PRESETS = [
+  'pct5',
+  'pct10',
+  'pct20',
+  'pct25',
+  'pct30',
+  'pct40',
+  'pct50',
+  'pct60',
+  'pct70',
+  'pct75',
+  'pct80',
+  'pct90',
+  'horz',
+  'vert',
+  'ltHorz',
+  'ltVert',
+  'dkHorz',
+  'dkVert',
+  'narHorz',
+  'narVert',
+  'dashHorz',
+  'dashVert',
+  'cross',
+  'dnDiag',
+  'upDiag',
+  'ltDnDiag',
+  'ltUpDiag',
+  'dkDnDiag',
+  'dkUpDiag',
+  'wdDnDiag',
+  'wdUpDiag',
+  'dashDnDiag',
+  'dashUpDiag',
+  'diagCross',
+  'smCheck',
+  'lgCheck',
+  'smGrid',
+  'lgGrid',
+  'dotGrid',
+  'smConfetti',
+  'lgConfetti',
+  'horzBrick',
+  'diagBrick',
+  'solidDmnd',
+  'openDmnd',
+  'dotDmnd',
+  'plaid',
+  'sphere',
+  'weave',
+  'divot',
+  'shingle',
+  'wave',
+  'trellis',
+  'zigZag',
+] as const;
+
 /** One of ECMA-376's `ST_PresetPatternVal` tokens (`pct50`, `dkUpDiag`, ...). */
-export type PatternPreset = string;
+export type PatternPreset = (typeof PATTERN_PRESETS)[number];
 
 export interface PatternFillOptions {
   /** Preset pattern token, e.g. `'pct50'`, `'dkUpDiag'`, `'wave'`. */
@@ -147,8 +209,11 @@ const ATTR_PRST = qname('', 'prst', '');
  */
 export const setPatternFill = (host: XmlElement, options: PatternFillOptions): void => {
   removeAnyFill(host);
+  // `preset` is typed but authoring input is a boundary — reject an out-of-enum
+  // token rather than emitting a schema-invalid `prst`.
+  const preset = oneOf(options.preset, PATTERN_PRESETS, 'setShapePatternFill: preset');
   const pattFill = elem(NAME_PATT_FILL, {
-    attrs: [attr(ATTR_PRST, options.preset)],
+    attrs: [attr(ATTR_PRST, preset)],
     children: [
       elem(NAME_FG_CLR, { children: [buildColorElement(options.foreground)] }),
       elem(NAME_BG_CLR, { children: [buildColorElement(options.background)] }),
@@ -175,18 +240,43 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
     });
   });
 
-  const angleDeg = options.angleDeg ?? 90;
-  // ECMA-376 ST_PositiveFixedAngle: 60000 units per degree, range
-  // [0, 21600000). Normalize negatives via modulo.
-  const norm = ((angleDeg % 360) + 360) % 360;
-  const angleAttr = String(Math.round(norm * 60000));
+  // The gradient direction is a choice: `<a:lin>` for a linear gradient (using
+  // angleDeg) or `<a:path path="circle|rect|shape">` for a non-linear one. When
+  // a path is requested we honor the documented `focus` fillToRect; emitting
+  // <a:lin> regardless (the prior behavior) silently downgraded radial/shape
+  // gradients to linear.
+  const pct = (n: number): string => String(Math.round(n * 100000));
+  const directionEl =
+    options.path === undefined || options.path === 'linear'
+      ? ((): XmlElement => {
+          const angleDeg = options.angleDeg ?? 90;
+          // ECMA-376 ST_PositiveFixedAngle: 60000 units per degree, range
+          // [0, 21600000). Normalize negatives via modulo.
+          const norm = ((angleDeg % 360) + 360) % 360;
+          return elem(NAME_LIN, {
+            attrs: [attr(ATTR_ANG, String(Math.round(norm * 60000))), attr(ATTR_SCALED, '0')],
+          });
+        })()
+      : elem(NAME_PATH, {
+          attrs: [attr(ATTR_PATH, options.path)],
+          children:
+            options.focus === undefined
+              ? []
+              : [
+                  elem(NAME_FILL_TO_RECT, {
+                    attrs: [
+                      attr(qname('', 'l', ''), pct(options.focus.left)),
+                      attr(qname('', 't', ''), pct(options.focus.top)),
+                      attr(qname('', 'r', ''), pct(options.focus.right)),
+                      attr(qname('', 'b', ''), pct(options.focus.bottom)),
+                    ],
+                  }),
+                ],
+        });
 
   const grad = elem(NAME_GRAD_FILL, {
     attrs: [attr(ATTR_FLIP, 'none'), attr(ATTR_ROT_WITH_SHAPE, '1')],
-    children: [
-      elem(NAME_GS_LST, { children: stops }),
-      elem(NAME_LIN, { attrs: [attr(ATTR_ANG, angleAttr), attr(ATTR_SCALED, '0')] }),
-    ],
+    children: [elem(NAME_GS_LST, { children: stops }), directionEl],
   });
   host.children.splice(fillInsertionIndex(host), 0, grad);
 };

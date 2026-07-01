@@ -9,6 +9,7 @@ import {
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
+import { emuCoordinate, emuExtent } from '../../internal/bounds.ts';
 import { parseSrgbHex } from '../../internal/drawingml/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
@@ -105,14 +106,14 @@ const buildChartGraphicFrame = (opts: {
   // Round to whole EMU; fractional ST_Coordinate values corrupt the file.
   const off = elem(NAME_OFF, {
     attrs: [
-      attr(qname('', 'x', ''), String(Math.round(opts.x))),
-      attr(qname('', 'y', ''), String(Math.round(opts.y))),
+      attr(qname('', 'x', ''), String(emuCoordinate(opts.x, 'addSlideChart: x'))),
+      attr(qname('', 'y', ''), String(emuCoordinate(opts.y, 'addSlideChart: y'))),
     ],
   });
   const ext = elem(NAME_EXT, {
     attrs: [
-      attr(qname('', 'cx', ''), String(Math.round(opts.w))),
-      attr(qname('', 'cy', ''), String(Math.round(opts.h))),
+      attr(qname('', 'cx', ''), String(emuExtent(opts.w, 'addSlideChart: w'))),
+      attr(qname('', 'cy', ''), String(emuExtent(opts.h, 'addSlideChart: h'))),
     ],
   });
   const xfrm = elem(NAME_XFRM, { children: [off, ext] });
@@ -523,7 +524,8 @@ export const findChartsWithTrendlines = (slide: SlideData): ReadonlyArray<SlideC
 export const findChartsWithDataLabels = (slide: SlideData): ReadonlyArray<SlideChartData> => {
   const out: SlideChartData[] = [];
   const hasLabel = (dl: ChartSpec['dataLabels'] | undefined): boolean =>
-    dl !== undefined && (dl.showValue || dl.showCategory || dl.showSeriesName || dl.showPercent);
+    dl !== undefined &&
+    Boolean(dl.showValue || dl.showCategory || dl.showSeriesName || dl.showPercent);
   for (const chart of getSlideCharts(slide)) {
     if (chart.spec === null) continue;
     if (hasLabel(chart.spec.dataLabels)) {

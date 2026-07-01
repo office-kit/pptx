@@ -1,14 +1,16 @@
-// Picture contrast via <a:lumMod>.
+// Picture contrast via the shared <a:blip><a:lum contrast="…"/>.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  getShapeImageBrightness,
   getShapeImageContrast,
   getShapeKind,
   getSlideShapes,
   getSlides,
   loadPresentation,
+  setShapeImageBrightness,
   setShapeImageContrast,
 } from '../src/api/index.ts';
 
@@ -23,12 +25,26 @@ describe('fn API: setShapeImageContrast', () => {
     expect(getShapeImageContrast(picture)).toBeNull();
     setShapeImageContrast(picture, 0.5);
     expect(getShapeImageContrast(picture)).toBeCloseTo(0.5);
-    setShapeImageContrast(picture, 1.5);
-    expect(getShapeImageContrast(picture)).toBeCloseTo(1.5);
+    setShapeImageContrast(picture, -0.5);
+    expect(getShapeImageContrast(picture)).toBeCloseTo(-0.5);
     setShapeImageContrast(picture, null);
     expect(getShapeImageContrast(picture)).toBeNull();
-    setShapeImageContrast(picture, 1);
-    expect(getShapeImageContrast(picture)).toBeNull(); // value 1 is identity → cleared
+    setShapeImageContrast(picture, 0);
+    expect(getShapeImageContrast(picture)).toBeNull(); // value 0 is identity → cleared
+  });
+
+  it('shares one <a:lum> element with brightness', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    setShapeImageBrightness(picture, 0.3);
+    setShapeImageContrast(picture, -0.2);
+    // Both corrections survive together.
+    expect(getShapeImageBrightness(picture)).toBeCloseTo(0.3);
+    expect(getShapeImageContrast(picture)).toBeCloseTo(-0.2);
+    // Clearing one leaves the other intact.
+    setShapeImageBrightness(picture, null);
+    expect(getShapeImageBrightness(picture)).toBeNull();
+    expect(getShapeImageContrast(picture)).toBeCloseTo(-0.2);
   });
 
   it('rejects non-pictures and out-of-range values', async () => {
@@ -41,7 +57,7 @@ describe('fn API: setShapeImageContrast', () => {
     const picture = getSlideShapes(getSlides(pres2)[0]!).find(
       (s) => getShapeKind(s) === 'picture',
     )!;
-    expect(() => setShapeImageContrast(picture, -0.1)).toThrow(RangeError);
+    expect(() => setShapeImageContrast(picture, -1.5)).toThrow(RangeError);
     expect(() => setShapeImageContrast(picture, 2.5)).toThrow(RangeError);
   });
 });

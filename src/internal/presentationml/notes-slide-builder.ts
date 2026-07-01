@@ -1,4 +1,9 @@
-// Builds the canonical empty `<p:notesSlide>` shape PowerPoint emits.
+// Builds the canonical empty notes-slide part PowerPoint emits.
+//
+// The part's root element is `<p:notes>` (ECMA-376 §19.3.1.26 — the global
+// element for CT_NotesSlide is named `notes`, not `notesSlide`; the
+// `notesSlide` token only appears in the part name and content type). Emitting
+// `<p:notesSlide>` here makes the part fail pml.xsd validation.
 //
 // Notes slides carry two placeholders: a `sldImg` placeholder that
 // PowerPoint renders as the slide thumbnail, and a `body` placeholder
@@ -15,7 +20,7 @@ import {
   text as textNode,
 } from '../xml/index.ts';
 
-const NAME_NOTES_SLIDE = qname('p', 'notesSlide', NS.pml);
+const NAME_NOTES_SLIDE = qname('p', 'notes', NS.pml);
 const NAME_CSLD = qname('p', 'cSld', NS.pml);
 const NAME_SP_TREE = qname('p', 'spTree', NS.pml);
 const NAME_NV_GRP_SP_PR = qname('p', 'nvGrpSpPr', NS.pml);
@@ -100,7 +105,7 @@ const buildNotesBodyPlaceholder = (id: number, notes: string): XmlElement => {
 };
 
 /**
- * Returns a fresh `<p:notesSlide>` document with the given notes text in
+ * Returns a fresh `<p:notes>` document with the given notes text in
  * the body placeholder. Designed for callers that need to create the
  * notesSlide part from scratch (no existing notes file yet for the
  * slide).

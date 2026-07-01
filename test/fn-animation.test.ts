@@ -4,10 +4,14 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  addBlankSlide,
+  addSlideShape,
   clearSlideAnimations,
+  createPresentation,
   getSlideShapes,
   getSlideXmlString,
   getSlides,
+  inches,
   loadPresentation,
   savePresentation,
   setShapeAnimation,
@@ -62,7 +66,7 @@ describe('fn API: animations (v1 — single click-effect)', () => {
     expect(xml).toContain('val="hidden"');
   });
 
-  it('setShapeAnimation replaces any existing timing on the slide', async () => {
+  it('setShapeAnimation merges a second effect into the existing timing', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = getSlideShapes(slide)[0]!;
@@ -70,10 +74,38 @@ describe('fn API: animations (v1 — single click-effect)', () => {
     setShapeAnimation(shape, { effect: 'fadeOut', durationMs: 1000 });
 
     const xml = await slideXml(await savePresentation(pres), 0);
-    // Only one <p:timing> block, and it's the exit effect.
+    // A second call merges rather than replaces: still a single <p:timing>, but
+    // both the entrance and the exit effect survive (a replace implementation
+    // would drop the fadeIn). Two build entries, both preset classes present.
     expect(xml.match(/<p:timing>/g)?.length).toBe(1);
+    expect(xml).toContain('presetClass="entr"');
     expect(xml).toContain('presetClass="exit"');
+    expect((xml.match(/<p:bldP/g) ?? []).length).toBe(2);
     expect(xml).toContain('dur="1000"');
+  });
+
+  it('keeps grpId unique across several animated shapes', async () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    for (let i = 0; i < 3; i++) {
+      const shape = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1 + i),
+        y: inches(1),
+        w: inches(1),
+        h: inches(1),
+        text: `s${i}`,
+      });
+      setShapeAnimation(shape, { effect: 'fadeIn' });
+    }
+    const xml = getSlideXmlString(getSlides(pres)[0]!);
+    const grpIds = [...xml.matchAll(/grpId="(\d+)"/g)].map((m) => m[1]);
+    // Each shape's build group must carry a distinct grpId — a duplicate would
+    // make PowerPoint fold two shapes' effects into one group.
+    const bldGrpIds = [...xml.matchAll(/<p:bldP[^>]*grpId="(\d+)"/g)].map((m) => m[1]);
+    expect(bldGrpIds.length).toBe(3);
+    expect(new Set(bldGrpIds).size).toBe(3);
+    expect(grpIds.length).toBeGreaterThan(0);
   });
 
   it('clearSlideAnimations removes the timing block', async () => {

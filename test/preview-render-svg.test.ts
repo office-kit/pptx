@@ -21,6 +21,7 @@ import {
   getSlides,
   inches,
   loadPresentation,
+  type PatternPreset,
   savePresentation,
   setShapeFill,
   setShapeGradientFill,
@@ -113,7 +114,7 @@ describe('renderSlideToSvg', () => {
   });
 
   it('pattern fill density scales with the pct preset', async () => {
-    const cells = async (preset: string): Promise<number> => {
+    const cells = async (preset: PatternPreset): Promise<number> => {
       const { pres, slide } = await blankSlide();
       const shape = addSlideShape(slide, {
         preset: 'rect',
@@ -126,10 +127,11 @@ describe('renderSlideToSvg', () => {
       const svg = renderSlideToSvg(pres, slide);
       return (svg.match(/width="2" height="2"/g) ?? []).length;
     };
-    // 4/16 Bayer cells lit at 25%, 8 at 50%; pct0 lights none.
+    // 4/16 Bayer cells lit at 25%, 8 at 50%; the sparsest preset lights fewer
+    // than 25%. (pct0 is not a valid ST_PresetPatternVal, so it can't be tested.)
     expect(await cells('pct25')).toBe(4);
     expect(await cells('pct50')).toBe(8);
-    expect(await cells('pct0')).toBe(0);
+    expect(await cells('pct5')).toBeLessThan(4);
   });
 
   it('foreignObject mode wraps text body in <foreignObject>', async () => {

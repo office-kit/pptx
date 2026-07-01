@@ -36,3 +36,6 @@ site/fidelity/baseline.candidate.json
 
 # corpus harness output
 test/corpus/out/
+
+# Local scratch probes (not part of the package)
+.probe/

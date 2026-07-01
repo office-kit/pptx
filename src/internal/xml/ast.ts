@@ -114,3 +114,37 @@ export const pi = (target: string, data: string): XmlPI => ({ kind: 'pi', target
 // detail) but is preserved on the values themselves.
 export const qnameEquals = (a: QName, b: QName): boolean =>
   a.localName === b.localName && a.namespaceURI === b.namespaceURI;
+
+/**
+ * Inserts `element` into `parent.children` at the slot dictated by `rankOf`,
+ * keeping element children ordered by ascending rank (stable for equal ranks).
+ *
+ * Many OOXML complex types are `xsd:sequence`s: a child must appear in a fixed
+ * order relative to its siblings or the part fails schema validation. Setters
+ * that `push`/`unshift` produce valid output only when the caller happens to
+ * invoke them in schema order — fragile across independent mutation calls.
+ * Callers should strip any pre-existing same-element first, then use this to
+ * drop the new element at its mandated position regardless of call order.
+ *
+ * `rankOf` returns the sibling's sequence position; return a large number for
+ * trailing/unknown children so they sort to the end. Non-element nodes are
+ * skipped when scanning, and the new element lands before the first existing
+ * element whose rank is strictly greater.
+ */
+export const insertChildByRank = (
+  parent: XmlElement,
+  element: XmlElement,
+  rankOf: (el: XmlElement) => number,
+): void => {
+  const rank = rankOf(element);
+  let idx = parent.children.length;
+  for (let i = 0; i < parent.children.length; i++) {
+    const child = parent.children[i];
+    if (child?.kind !== 'element') continue;
+    if (rankOf(child) > rank) {
+      idx = i;
+      break;
+    }
+  }
+  parent.children.splice(idx, 0, element);
+};

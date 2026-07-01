@@ -7,6 +7,13 @@
 // `<c:strCache>` / `<c:numCache>` blocks carry the values so PowerPoint
 // can render the chart without ever opening the workbook.
 
+import {
+  firstSliceAngle,
+  gapAmountPercent,
+  holeSizePercent,
+  lineWidthEmu as validateLineWidthEmu,
+  overlapPercent,
+} from '../bounds.ts';
 import { NS, type XmlDocument, type XmlElement, attr, elem, qname, text } from '../xml/index.ts';
 import type { ChartSpec, ChartTextStyle } from './types.ts';
 
@@ -150,7 +157,12 @@ const seriesSpPr = (
   const ln =
     lineWidthEmu !== undefined
       ? elem(a('ln'), {
-          attrs: [attr(qname('', 'w', ''), String(lineWidthEmu))],
+          attrs: [
+            attr(
+              qname('', 'w', ''),
+              String(validateLineWidthEmu(lineWidthEmu, 'chart series: lineWidthEmu')),
+            ),
+          ],
           children: lnChildren,
         })
       : elem(a('ln'), { children: lnChildren });
@@ -283,18 +295,35 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   } else {
     children.push(solidFillSpPr(color));
   }
-  if (series.invertIfNegative === true) {
+  // invertIfNegative only exists on CT_BarSer (bar/column). Emitting it on a
+  // line/pie/area series is schema-invalid, so gate on the bar-family kinds.
+  if (series.invertIfNegative === true && (spec.kind === 'bar' || spec.kind === 'column')) {
     children.push(valNode(c('invertIfNegative'), '1'));
   }
-  const mk = markerElement(series.markerSymbol, series.markerSizePt);
-  if (mk !== null) children.push(mk);
+  // <c:marker> is only valid on the marker-bearing series types
+  // (CT_LineSer / CT_ScatterSer / CT_RadarSer). Emitting it on bar/column/
+  // pie/doughnut/area produces schema-invalid XML.
+  if (spec.kind === 'line' || spec.kind === 'scatter' || spec.kind === 'radar') {
+    const mk = markerElement(series.markerSymbol, series.markerSizePt);
+    if (mk !== null) children.push(mk);
+  }
   // <c:dPt> overrides go after invertIfNegative / marker per schema.
   for (const dPt of dPtElements(series.pointColors, series.pointExplosions)) {
     children.push(dPt);
   }
   const serDLbls = buildDLblsFromLabels(series.dataLabels);
   if (serDLbls !== null) children.push(serDLbls);
-  if (series.trendline) children.push(trendlineElement(series.trendline));
+  // <c:trendline> exists on CT_BarSer/LineSer/AreaSer/ScatterSer/BubbleSer but
+  // NOT on CT_PieSer (pie/doughnut) or CT_RadarSer — emitting it there is
+  // schema-invalid, so gate on the trendline-bearing kinds.
+  if (
+    series.trendline &&
+    spec.kind !== 'pie' &&
+    spec.kind !== 'doughnut' &&
+    spec.kind !== 'radar'
+  ) {
+    children.push(trendlineElement(series.trendline));
+  }
   children.push(elem(c('cat'), { children: [strRef(catRange, spec.categories)] }));
   children.push(elem(c('val'), { children: [numRef(valRange, paddedValues)] }));
   // Line series always get an explicit <c:smooth>: the schema default for an
@@ -305,8 +334,6 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   // a bar/pie series would be schema-invalid.)
   if (spec.kind === 'line') {
     children.push(valNode(c('smooth'), series.smooth === true ? '1' : '0'));
-  } else if (series.smooth === true) {
-    children.push(valNode(c('smooth'), '1'));
   }
   return elem(c('ser'), { children });
 };
@@ -405,17 +432,19 @@ const catAxis = (spec: ChartSpec): XmlElement => {
 };
 
 const valAxis = (spec: ChartSpec): XmlElement => {
-  // <c:scaling> ordering matters: logBase, orientation, min, max.
+  // CT_Scaling sequence (dml-chart.xsd): logBase, orientation, max, min, extLst.
+  // `max` MUST precede `min` — emitting them in the other order is rejected by
+  // the schema ("element max: expected extLst").
   const scalingChildren: XmlElement[] = [];
   if (spec.valueAxis?.logBase !== undefined) {
     scalingChildren.push(valNode(c('logBase'), spec.valueAxis.logBase));
   }
   scalingChildren.push(valNode(c('orientation'), spec.valueAxisOrientation ?? 'minMax'));
-  if (spec.valueAxis?.min !== undefined) {
-    scalingChildren.push(valNode(c('min'), spec.valueAxis.min));
-  }
   if (spec.valueAxis?.max !== undefined) {
     scalingChildren.push(valNode(c('max'), spec.valueAxis.max));
+  }
+  if (spec.valueAxis?.min !== undefined) {
+    scalingChildren.push(valNode(c('min'), spec.valueAxis.min));
   }
   const children: XmlElement[] = [
     valNode(c('axId'), VAL_AX_ID),
@@ -536,7 +565,9 @@ const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar')
     ...ser,
     ...(dl ? [dl] : []),
   ];
-  if (spec.gapWidthPct !== undefined) children.push(valNode(c('gapWidth'), spec.gapWidthPct));
+  if (spec.gapWidthPct !== undefined) {
+    children.push(valNode(c('gapWidth'), gapAmountPercent(spec.gapWidthPct, 'chart: gapWidthPct')));
+  }
   // Stacked / 100%-stacked bars must overlap fully (overlap=100), otherwise
   // PowerPoint draws each series in its own sub-slot and the "stack" spreads
   // sideways across the category. PowerPoint always writes overlap=100 for
@@ -544,7 +575,9 @@ const buildBarChart = (spec: ChartSpec, sheet: string, direction: 'col' | 'bar')
   // overlap. Clustered keeps PowerPoint's own default (no element emitted).
   const overlapPct =
     spec.overlapPct ?? (grouping === 'stacked' || grouping === 'percentStacked' ? 100 : undefined);
-  if (overlapPct !== undefined) children.push(valNode(c('overlap'), overlapPct));
+  if (overlapPct !== undefined) {
+    children.push(valNode(c('overlap'), overlapPercent(overlapPct, 'chart: overlapPct')));
+  }
   children.push(valNode(c('axId'), CAT_AX_ID), valNode(c('axId'), VAL_AX_ID));
   return elem(c(direction === 'col' ? 'barChart' : 'barChart'), { children });
 };
@@ -579,7 +612,12 @@ const buildPieChart = (spec: ChartSpec, sheet: string): XmlElement => {
   const dl = dLblsElement(spec);
   const children: XmlElement[] = [valNode(c('varyColors'), '1'), ser, ...(dl ? [dl] : [])];
   if (spec.firstSliceAngleDeg !== undefined) {
-    children.push(valNode(c('firstSliceAng'), Math.round(spec.firstSliceAngleDeg)));
+    children.push(
+      valNode(
+        c('firstSliceAng'),
+        firstSliceAngle(spec.firstSliceAngleDeg, 'chart: firstSliceAngleDeg'),
+      ),
+    );
   }
   return elem(c('pieChart'), { children });
 };
@@ -592,9 +630,16 @@ const buildDoughnutChart = (spec: ChartSpec, sheet: string): XmlElement => {
   const dl = dLblsElement(spec);
   const children: XmlElement[] = [valNode(c('varyColors'), '1'), ser, ...(dl ? [dl] : [])];
   if (spec.firstSliceAngleDeg !== undefined) {
-    children.push(valNode(c('firstSliceAng'), Math.round(spec.firstSliceAngleDeg)));
+    children.push(
+      valNode(
+        c('firstSliceAng'),
+        firstSliceAngle(spec.firstSliceAngleDeg, 'chart: firstSliceAngleDeg'),
+      ),
+    );
   }
-  children.push(valNode(c('holeSize'), spec.holeSizePct ?? 50));
+  children.push(
+    valNode(c('holeSize'), holeSizePercent(spec.holeSizePct ?? 50, 'chart: holeSizePct')),
+  );
   return elem(c('doughnutChart'), { children });
 };
 

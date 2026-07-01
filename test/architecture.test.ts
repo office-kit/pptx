@@ -14,13 +14,27 @@ type Module = 'api' | `internal/${string}`;
 const allowed: Record<Module, ReadonlyArray<Module> | 'any-internal'> = {
   api: 'any-internal',
   'internal/xml': [],
+  // Leaf utility: ECMA-376 simple-type bounds validation. Imports nothing, so
+  // every authoring layer may depend on it (like internal/xml).
+  'internal/bounds': [],
   'internal/opc': ['internal/xml'],
   'internal/parts': ['internal/opc', 'internal/xml'],
-  'internal/drawingml': ['internal/xml'],
-  'internal/presentationml': ['internal/drawingml', 'internal/parts', 'internal/xml'],
+  'internal/drawingml': ['internal/bounds', 'internal/xml'],
+  'internal/presentationml': [
+    'internal/bounds',
+    'internal/drawingml',
+    'internal/parts',
+    'internal/xml',
+  ],
   // chartml additionally needs `internal/opc` for the ZIP writer it uses to
   // emit the embedded xlsx workbook each chart wraps.
-  'internal/chartml': ['internal/drawingml', 'internal/opc', 'internal/parts', 'internal/xml'],
+  'internal/chartml': [
+    'internal/bounds',
+    'internal/drawingml',
+    'internal/opc',
+    'internal/parts',
+    'internal/xml',
+  ],
   'internal/diagram': ['internal/drawingml', 'internal/parts', 'internal/xml'],
   'internal/io': [
     'internal/opc',
@@ -54,6 +68,10 @@ const moduleOf = (absPath: string): Module | null => {
   if (rel.startsWith('api/')) return 'api';
   const m = rel.match(/^internal\/([^/]+)\//);
   if (m) return `internal/${m[1]}` as Module;
+  // A leaf utility may live as a single top-level file under internal/
+  // (e.g. internal/bounds.ts) rather than its own directory.
+  const top = rel.match(/^internal\/([^/]+)\.ts$/);
+  if (top) return `internal/${top[1]}` as Module;
   return null;
 };
 
