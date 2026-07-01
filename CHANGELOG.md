@@ -1,5 +1,143 @@
 # pptx-kit
 
+## 0.9.0
+
+### Minor Changes
+
+- eeb8659: Validate authoring inputs at the API boundary so out-of-range values throw a
+  clear `RangeError` instead of silently emitting a schema-invalid `.pptx` that
+  PowerPoint marks corrupt and "repairs".
+
+  A generative schema-validation sweep surfaced a whole class of defects where a
+  caller-supplied number/string was serialized straight into a constrained
+  ECMA-376 attribute. These now reject (or, for GUIDs, normalize) at the boundary:
+
+  - Run formatting: `setShapeRunFormat` font `size` (ST_TextFontSize, 1..4000 pt)
+    and `spc` (ST_TextPoint). It also now accepts the 3-digit hex shorthand for
+    run `color` / `highlight`, matching `setShapeFill` / `setShapeStroke`.
+  - Tables: `setTableStyleId` / `addSlideTable` `styleId` (ST_Guid — a lowercase
+    GUID from `crypto.randomUUID()` is now accepted and normalized to uppercase;
+    a non-GUID string throws); `setTableCellBorders` `widthEmu` (ST_LineWidth);
+    `setTableColumnWidth` / `setTableRowHeight` / `addSlideTable` `w`/`h`
+    (ST_PositiveCoordinate); `setTableCellMargins` (ST_Coordinate32).
+  - Charts: bar/column `overlapPct` (ST_Overlap), `gapWidthPct` (ST_GapAmount),
+    and series `lineWidthEmu` (ST_LineWidth).
+  - Animations / transitions: `setShapeAnimation` `durationMs` and
+    `setSlideTransition` `advanceAfterMs` (xsd:unsignedInt); the transition
+    `effect` token is validated against the spec's effect set (an empty or unknown
+    string previously produced non-well-formed or schema-invalid XML).
+  - Connectors / strokes: `addSlideLine` and `setShapeStroke` `widthEmu`
+    (ST_LineWidth) and `addSlideLine` endpoint coordinates.
+  - Text boxes: `setShapeTextColumns` `count` (ST_TextColumnCount, 2..16) and
+    `gapEmu` (ST_PositiveCoordinate32); `setShapeTextMargins` insets
+    (ST_Coordinate32); `setShapeTextBodyRotationDeg` (guards the ST_Angle overflow).
+  - Fills: `setShapePatternFill` `preset` is validated against ST_PresetPatternVal
+    (and the `PatternPreset` type is now the exact token union, not `string`).
+  - Shape / image / chart geometry: `addSlideShape` / `addSlideTextBox` /
+    `addSlideImage` / `addSlideChart` and `setShapePosition` / `setShapeSize`
+    `x`/`y` (ST_Coordinate) and `w`/`h` (ST_PositiveCoordinate).
+
+- eeb8659: Fix a batch of "generates but is schema-invalid / wrong" authoring bugs, add an
+  AI-agent authoring skill, and smooth several LLM-facing rough edges.
+
+  Correctness fixes (output is now schema-valid in these cases):
+
+  - Notes slides emitted a `<p:notesSlide>` root instead of the spec's `<p:notes>`,
+    failing schema validation.
+  - Combining a run's text `color` with `highlight` emitted them out of order.
+  - Combining stroke dash / arrowheads / join, or a paragraph's bullet with
+    `setParagraphSpacing`, or a table cell's fill with `setTableCellBorders`,
+    emitted child elements out of their schema-mandated order.
+  - Table cells containing leading/trailing spaces, tabs, or newlines emitted an
+    illegal `xml:space` attribute (and a newline now correctly splits a cell into
+    multiple lines).
+  - `setSlideTransition({ effect: 'none' })` emitted an invalid `<p:none/>`; per-effect
+    attributes (`direction`/`orientation`/`thruBlack`) are now only emitted on
+    effects that allow them, and `direction` is validated against the effect's own
+    value domain (e.g. `blinds` takes `horz`/`vert`, `push` takes `l`/`r`/`u`/`d`) —
+    a mismatched pair like `{ effect: 'blinds', direction: 'l' }` now throws instead
+    of emitting schema-invalid XML.
+  - Charts emitted `<c:marker>`, `<c:smooth>`, `<c:invertIfNegative>`, and
+    `<c:trendline>` on series kinds that don't permit them (e.g. a trendline on a
+    `pie`/`doughnut`/`radar` series, which `CT_PieSer`/`CT_RadarSer` reject), and
+    `valueAxis` `min`/`max` in the wrong order.
+  - `setShapeImageBrightness` / `setShapeImageContrast` emitted `<a:lumOff>` /
+    `<a:lumMod>`, which aren't valid `<a:blip>` children; both now write a single
+    schema-valid `<a:lum bright/contrast>`.
+  - `setShapeGradientFill` ignored its documented `path` / `focus` options, silently
+    downgrading radial/shape gradients to linear.
+  - `importSlide` could emit a duplicate `rId` when the source slide's layout
+    relationship wasn't `rId1`.
+  - `setShapeAnimation` wiped any pre-existing `<p:timing>` on the slide (losing a
+    template's authored animations); it now merges, so multiple shapes can animate.
+  - `compactPackage` / `readPackagePart` / `setMediaPartBytes` matched part names
+    case-sensitively, unlike the rest of the package layer — a referenced image
+    whose rel-target case differed could be wrongly deleted or missed.
+
+  Behavior change:
+
+  - `setShapeImageContrast` now takes a `[-1, 1]` offset (`0` = no change) instead
+    of the previous `[0, 2]` multiplier, matching the underlying `<a:lum contrast>`.
+  - Unstyled connectors (`addSlideLine` without an explicit stroke) previously
+    emitted no line style and rendered invisibly; they now carry a default
+    `<p:style>` (`lnRef`/`fillRef`/`effectRef`/`fontRef`) so the line is visible.
+
+  Ergonomics:
+
+  - Colors accept the CSS-style 3-digit hex shorthand (`#f0a` → `FF00AA`).
+  - New `setParagraphLineSpacing(shape, p, { kind, value })` (the writer counterpart
+    to the existing getter).
+  - `setTableCellBorders` accepts a partial border per side, so `{ color, widthEmu }`
+    type-checks without spelling out `dash` (the read type `getTableCellBorders`
+    returns stays strict — all fields populated).
+  - `addSlideShape` `textAnchor` is narrowed to the valid vertical anchors
+    (`'t' | 'ctr' | 'b'`).
+
+  Docs:
+
+  - New `skill/SKILL.md` — a guide for driving pptx-kit from an AI agent (canonical
+    calls, design rules, footguns, and a QA protocol), with a verified worked
+    example.
+
+- eeb8659: Close a final batch of correctness defects a generative schema sweep surfaced,
+  where the writer emitted a `.pptx` PowerPoint marks corrupt:
+
+  - **XML-illegal control characters** in any text field (shape text, table cells,
+    notes, chart titles/categories/series, hyperlink tooltip/URL, section names,
+    comments) used to serialize raw, producing a non-well-formed part that
+    corrupts the whole package. They are now rejected at serialization with a
+    clear error; the XML-legal whitespace controls (tab / LF / CR) still pass
+    through. (XML 1.0 forbids the other C0 controls outright — they cannot even be
+    escaped as numeric references.)
+  - **Chart percentages** are now range-checked at the boundary: `gapWidthPct`
+    (ST_GapAmount, 0..500 — the previous limit of 65535 let 501..65535 through),
+    doughnut `holeSizePct` (ST_HoleSize, 1..90), and pie/doughnut
+    `firstSliceAngleDeg` (ST_FirstSliceAng, 0..360).
+  - **Shape effects**: `setShapeShadow` `blurEmu`/`offsetEmu` and `setShapeGlow`
+    `radiusEmu` are validated as ST_PositiveCoordinate (fractional rounds;
+    negative / non-finite / over-max throws) instead of emitting an invalid value.
+  - **Scheme-color round-trip**: the read-back getters return `scheme:<token>`, but
+    the setters rejected that string. `setShapeFill` / `setShapeStroke` /
+    `setSlideBackground` now accept the `scheme:` prefix, so `setX(getX(...))`
+    round-trips. (An unknown `scheme:` token still throws.)
+  - **`importSlide` / `mergePresentations`**: importing a slide that contains a
+    chart left a dangling `r:id` (the chart frame referenced a relationship the
+    imported slide no longer carried), producing a corrupt package. The orphaned
+    graphic frame is now dropped, matching the documented "charts are not imported
+    in v1" behavior.
+  - **`addSlideShape` presets**: the math-operator tokens were misspelled
+    (`minus`/`mult`/`div`/`equal`/`notEqual`) and not in `ST_ShapeType`, so the
+    shape silently vanished on open. They are now the spec names `mathMinus`,
+    `mathMultiply`, `mathDivide`, `mathEqual`, `mathNotEqual` (plus `mathPlus`).
+
+### Patch Changes
+
+- e9eae5c: Fix `<a:tint>` / `<a:shade>` colour resolution to compute in linear-light RGB,
+  matching PowerPoint and LibreOffice. A 75% tint of black now resolves to a mid
+  grey (~#8B8B8B) instead of the too-dark #404040, so colours derived from theme
+  scheme transforms (subtitle placeholders, table banding, chart fills) render at
+  the right lightness.
+
 ## 0.8.0
 
 ### Minor Changes
