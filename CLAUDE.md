@@ -23,7 +23,7 @@ slide masters / layouts, comments, notes).
 ## Tech stack
 
 - **Language**: TypeScript (strict mode), targeting ES2022.
-- **Runtimes**: Node.js >= 24.16 and modern browsers (Chrome / Firefox / Safari
+- **Runtimes**: Node.js >= 22.18 (Node 22 and 24 LTS lines) and modern browsers (Chrome / Firefox / Safari
   current-2). One ESM bundle, no Node-only built-ins on the hot path — use
   Web-standard `Uint8Array`, `TextEncoder/Decoder`, `CompressionStream` where
   available.
