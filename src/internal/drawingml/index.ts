@@ -57,4 +57,10 @@ export { applyHyperlinkToAllRuns } from './hyperlink.ts';
 export { getPictureEmbedRId } from './picture-mutation.ts';
 export type { Position, ShapeKindForGeometry, Size } from './geometry.ts';
 export { readFlip, readPosition, readRotation, readSize } from './geometry.ts';
-export { setFlip, setPosition, setRotation, setSize } from './geometry-mutation.ts';
+export {
+  setAdjustValues,
+  setFlip,
+  setPosition,
+  setRotation,
+  setSize,
+} from './geometry-mutation.ts';

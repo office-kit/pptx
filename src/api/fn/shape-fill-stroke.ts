@@ -9,6 +9,7 @@ import {
   type StrokeOptions,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
+  setAdjustValues as writeAdjustValues,
   setFlip as writeFlip,
   setGradientFill,
   setPatternFill,
@@ -76,6 +77,31 @@ export const setShapeSize = (shape: SlideShapeData, w: Emu, h: Emu): void => {
  */
 export const setShapeRotation = (shape: SlideShapeData, degrees: number): void => {
   writeRotation(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, degrees);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets the shape's preset-geometry adjust values (`<a:prstGeom><a:avLst>`),
+ * replacing any guides already authored. Keys are ECMA-376 guide names and
+ * values are the raw guide numbers (rounded to integers). The companion
+ * reader is {@link getShapeAdjustValues}.
+ *
+ * The common use is the corner radius of the `roundRect` preset, whose `adj`
+ * guide runs `0..50000` (thousandths of a percent of the shorter side;
+ * `16667` ≈ the PowerPoint default, `0` = square corners, `50000` = fully
+ * rounded). For example, `setShapeAdjustValues(shape, { adj: 5000 })` gives a
+ * subtle 5% rounding.
+ *
+ * Throws when the shape has no preset geometry (`<a:prstGeom>`) — a custom or
+ * inherited geometry has no adjust list to author.
+ */
+export const setShapeAdjustValues = (
+  shape: SlideShapeData,
+  values: Readonly<Record<string, number>>,
+): void => {
+  if (!writeAdjustValues(shape[SHAPE_ELEMENT], values)) {
+    throw new Error('setShapeAdjustValues: shape has no preset geometry (<a:prstGeom>)');
+  }
   commitAndRefresh(shape);
 };
 

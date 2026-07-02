@@ -444,6 +444,7 @@ export {
   setCoreProperties,
   setExtendedProperties,
   setMediaPartBytes,
+  setShapeAdjustValues,
   setShapeAlignment,
   setShapeAltTitle,
   setShapeAnimation,

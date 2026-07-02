@@ -142,3 +142,45 @@ export const setFlip = (
     if (options.vertical) xfrm.attrs.push(attr(ATTR_FLIP_V, '1'));
   }
 };
+
+const NAME_PRST_GEOM = qname('a', 'prstGeom', NS.dml);
+const NAME_AV_LST = qname('a', 'avLst', NS.dml);
+const NAME_GD = qname('a', 'gd', NS.dml);
+const ATTR_NAME = qname('', 'name', '');
+const ATTR_FMLA = qname('', 'fmla', '');
+
+/**
+ * Writes the preset geometry's adjust-handle values (`<a:prstGeom><a:avLst>
+ * <a:gd name=".." fmla="val N"/></a:avLst>`), replacing any guides already in
+ * the `<a:avLst>`. Values are the raw ECMA-376 guide numbers and are rounded
+ * to integers on the way out (guide values are stored as integers). For the
+ * `roundRect` preset the `adj` guide runs `0..50000` (thousandths of a
+ * percent of the shorter side; `50000` = fully rounded).
+ *
+ * Returns `false` — writing nothing — when the shape carries no
+ * `<a:prstGeom>` (it uses custom or inherited geometry, so there is no
+ * adjust list to author). Mirrors `getShapeAdjustValues`, which reads the
+ * same `val`-form guides.
+ */
+export const setAdjustValues = (
+  shape: XmlElement,
+  values: Readonly<Record<string, number>>,
+): boolean => {
+  const spPr = firstChildElement(shape, NAME_SP_PR);
+  if (spPr === null) return false;
+  const prstGeom = firstChildElement(spPr, NAME_PRST_GEOM);
+  if (prstGeom === null) return false;
+
+  let avLst = firstChildElement(prstGeom, NAME_AV_LST);
+  if (avLst === null) {
+    avLst = elem(NAME_AV_LST);
+    prstGeom.children.push(avLst);
+  }
+
+  avLst.children = Object.entries(values).map(([name, value]) =>
+    elem(NAME_GD, {
+      attrs: [attr(ATTR_NAME, name), attr(ATTR_FMLA, `val ${String(Math.round(value))}`)],
+    }),
+  );
+  return true;
+};

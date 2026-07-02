@@ -6,7 +6,9 @@ import { describe, expect, it } from 'vitest';
 import {
   addSlide,
   addSlideShape,
+  addSlideTable,
   findSlideLayout,
+  getShapeAdjustValues,
   getShapeKind,
   getShapePosition,
   getSlideShapes,
@@ -14,6 +16,7 @@ import {
   getSlides,
   inches,
   loadPresentation,
+  setShapeAdjustValues,
   setShapeFill,
   setShapeRotation,
   setShapeStroke,
@@ -124,6 +127,72 @@ describe('L3: addSlideShape', () => {
       h: inches(1),
       text: 'next',
     });
+    expectSchemaValid(getSlideXmlString(getSlides(pres).at(-1)!), 'pml');
+  });
+});
+
+describe('L3: setShapeAdjustValues', () => {
+  const roundRect = async () => {
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('expected layout');
+    const slide = addSlide(pres, { layout });
+    const shape = addSlideShape(slide, {
+      preset: 'roundRect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(3),
+      h: inches(2),
+    });
+    return { pres, slide, shape };
+  };
+
+  it('authors the roundRect corner-radius guide and reads it back', async () => {
+    const { pres, shape } = await roundRect();
+    setShapeAdjustValues(shape, { adj: 5000 });
+
+    expect(getShapeAdjustValues(shape)).toEqual({ adj: 5000 });
+    const xml = getSlideXmlString(getSlides(pres).at(-1)!);
+    expect(xml).toContain('<a:gd name="adj" fmla="val 5000"/>');
+  });
+
+  it('replaces guides already present in the avLst instead of appending', async () => {
+    const { pres, shape } = await roundRect();
+    setShapeAdjustValues(shape, { adj: 20000 });
+    setShapeAdjustValues(shape, { adj: 3000 });
+
+    expect(getShapeAdjustValues(shape)).toEqual({ adj: 3000 });
+    const xml = getSlideXmlString(getSlides(pres).at(-1)!);
+    expect(xml).toContain('fmla="val 3000"');
+    expect(xml).not.toContain('fmla="val 20000"');
+  });
+
+  it('rounds fractional guide values to integers', async () => {
+    const { shape } = await roundRect();
+    setShapeAdjustValues(shape, { adj: 5000.7 });
+
+    expect(getShapeAdjustValues(shape)).toEqual({ adj: 5001 });
+  });
+
+  it('throws for shapes without preset geometry', async () => {
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('expected layout');
+    const slide = addSlide(pres, { layout });
+    // A table renders as a `<p:graphicFrame>` — it has no `<a:prstGeom>`.
+    const table = addSlideTable(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+      rows: [['a', 'b']],
+    });
+    expect(() => setShapeAdjustValues(table, { adj: 5000 })).toThrow(/preset geometry/);
+  });
+
+  skipIfNoXmllint('roundRect with an authored adj validates against pml.xsd', async () => {
+    const { pres, shape } = await roundRect();
+    setShapeAdjustValues(shape, { adj: 5000 });
     expectSchemaValid(getSlideXmlString(getSlides(pres).at(-1)!), 'pml');
   });
 });
