@@ -1,4 +1,4 @@
-// `pptx-kit-preview/node` — Node entry: rasterize a slide to a PNG or raw
+// `@office-kit/pptx-preview/node` — Node entry: rasterize a slide to a PNG or raw
 // RGBA image, with no browser binary.
 //
 // Pipeline: `renderSlideToSvg(..., { textLayout: 'svg', measureText })` lays
@@ -8,7 +8,7 @@
 // glyphs.
 
 import { Resvg } from '@resvg/resvg-js';
-import { getSlideSize, type PresentationData, type SlideData } from 'pptx-kit';
+import { getSlideSize, type PresentationData, type SlideData } from '@office-kit/pptx';
 import { renderSlideSvg } from './render-slide.ts';
 import { MONO, SANS, SERIF, type TextMeasurer } from './text-layout.ts';
 import { buildFontkitMeasurer, FONT_FILES } from './measure.ts';

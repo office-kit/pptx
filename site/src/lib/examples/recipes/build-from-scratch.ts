@@ -11,7 +11,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(await readFile('blank.pptx'));
 
@@ -19,7 +19,7 @@ const titleLayout = findSlideLayout(pres, 'Title Slide');
 if (titleLayout) {
   const cover = addSlide(pres, { layout: titleLayout });
   const t = findSlidePlaceholder(cover, 'ctrTitle') ?? findSlidePlaceholder(cover, 'title');
-  if (t) setShapeText(t, 'pptx-kit demo');
+  if (t) setShapeText(t, '@office-kit/pptx demo');
   const sub = findSlidePlaceholder(cover, 'subTitle');
   if (sub) setShapeText(sub, 'an OOXML library for TypeScript');
 }

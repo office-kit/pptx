@@ -1,6 +1,6 @@
 # References
 
-This directory holds material used **only while developing pptx-kit**. None of
+This directory holds material used **only while developing @office-kit/pptx**. None of
 it ships in the published npm package (the `files` whitelist in `package.json`
 excludes everything outside `dist/`).
 

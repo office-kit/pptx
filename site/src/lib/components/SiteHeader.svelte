@@ -8,7 +8,7 @@
     { path: '/repl', label: 'REPL' },
     { path: '/playground', label: 'Playground' },
     { path: '/api', label: 'API' },
-    { path: 'https://github.com/baseballyama/pptx-kit', label: 'GitHub', external: true },
+    { path: 'https://github.com/office-kit/pptx', label: 'GitHub', external: true },
   ];
 
   function resolve(link: (typeof links)[number]): string {
@@ -25,7 +25,7 @@
   <div class="inner">
     <a href="{base}/" class="brand">
       <img src="{base}/logo.png" alt="" class="brand-mark" width="32" height="32" />
-      <span class="brand-name">pptx-kit</span>
+      <span class="brand-name">@office-kit/pptx</span>
       <span class="brand-tag">spec</span>
     </a>
     <nav>

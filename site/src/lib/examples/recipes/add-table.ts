@@ -1,6 +1,6 @@
 // Add a 5×4 table with a header row and banded styling.
 
-import { addSlideTable, inches, type SlideData } from 'pptx-kit';
+import { addSlideTable, inches, type SlideData } from '@office-kit/pptx';
 
 declare const slide: SlideData;
 

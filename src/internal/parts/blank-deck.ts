@@ -101,9 +101,9 @@ const VIEW_PROPS_XML = `${XML_DECL}<p:viewPr xmlns:a="http://schemas.openxmlform
 // than an unstyled block. (See `table-builder.ts` DEFAULT_TABLE_STYLE_ID.)
 const TABLE_STYLES_XML = `${XML_DECL}<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>`;
 
-const CORE_PROPS_XML = `${XML_DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title></dc:title><dc:creator>pptx-kit</dc:creator><cp:lastModifiedBy>pptx-kit</cp:lastModifiedBy></cp:coreProperties>`;
+const CORE_PROPS_XML = `${XML_DECL}<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"><dc:title></dc:title><dc:creator>@office-kit/pptx</dc:creator><cp:lastModifiedBy>@office-kit/pptx</cp:lastModifiedBy></cp:coreProperties>`;
 
-const EXTENDED_PROPS_XML = `${XML_DECL}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>pptx-kit</Application></Properties>`;
+const EXTENDED_PROPS_XML = `${XML_DECL}<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes"><Application>@office-kit/pptx</Application></Properties>`;
 
 // --- .rels ----------------------------------------------------------------
 const ROOT_RELS_XML = `${XML_DECL}<Relationships xmlns="${RT_PACKAGE}"><Relationship Id="rId1" Type="${RT}/officeDocument" Target="ppt/presentation.xml"/><Relationship Id="rId2" Type="${RT_PACKAGE}/metadata/core-properties" Target="docProps/core.xml"/><Relationship Id="rId3" Type="${RT}/extended-properties" Target="docProps/app.xml"/></Relationships>`;

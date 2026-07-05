@@ -61,12 +61,12 @@ const chartXmlOf = (bytes: Uint8Array): string | null => {
 
 /**
  * The *semantic* content of a deck's first chart — type plus each series'
- * name and values — read back with pptx-kit's own reader. Charts can't be
+ * name and values — read back with @office-kit/pptx's own reader. Charts can't be
  * compared as raw XML: PptxGenJS stamps dozens of opinionated chrome defaults
  * (data-label blocks, gridlines, its own palette, `multiLvlStrRef` categories)
- * that PowerPoint treats as optional and pptx-kit leaves to inheritance. What
+ * that PowerPoint treats as optional and @office-kit/pptx leaves to inheritance. What
  * must match is the data and the chart type, which is what this extracts —
- * from *either* library's output, since pptx-kit can read any PPTX.
+ * from *either* library's output, since @office-kit/pptx can read any PPTX.
  */
 export interface ChartSemantics {
   kind: string | null;
@@ -110,7 +110,7 @@ export const runCase = async (c: CorpusCase): Promise<CaseResult> => {
   c.pgjs(pgjsSlide, pptx);
   const pgjsBytes = new Uint8Array(await pptx.write('nodebuffer'));
 
-  // pptx-kit side — blank layout so no placeholder scaffolding pollutes the diff.
+  // @office-kit/pptx side — blank layout so no placeholder scaffolding pollutes the diff.
   const pres = createPresentation({ size: '16:9' });
   const layout = findSlideLayout(pres, 'Blank');
   if (!layout) throw new Error('no Blank layout in createPresentation deck');

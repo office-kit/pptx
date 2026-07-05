@@ -1,9 +1,9 @@
 // Corpus of parity cases. Each case authors the *same* visual slide twice —
 // once through PptxGenJS (the battle-tested reference whose output opens
-// cleanly in PowerPoint) and once through pptx-kit — so the harness can diff
+// cleanly in PowerPoint) and once through @office-kit/pptx — so the harness can diff
 // the two drawing trees and turn "is our output good?" into a number.
 //
-// `pgjs` receives a fresh PptxGenJS slide. `kit` receives a fresh pptx-kit
+// `pgjs` receives a fresh PptxGenJS slide. `kit` receives a fresh @office-kit/pptx
 // presentation plus a blank slide already added to it; author onto `slide`.
 
 import type { PresentationData, SlideData } from '../../src/api/_internal-symbols.ts';
@@ -44,9 +44,9 @@ export interface CorpusCase {
   id: string;
   /** PptxGenJS authoring. `slide` is a PptxGenJS Slide; `pptx` the deck. */
   pgjs: (slide: PgjsSlide, pptx: PgjsDeck) => void;
-  /** pptx-kit authoring onto the already-added blank `slide`. */
+  /** @office-kit/pptx authoring onto the already-added blank `slide`. */
   kit: (pres: PresentationData, slide: SlideData) => void;
-  /** Bytes the image case feeds to PptxGenJS (data URI) and pptx-kit. */
+  /** Bytes the image case feeds to PptxGenJS (data URI) and @office-kit/pptx. */
   png?: Uint8Array;
 }
 
@@ -54,8 +54,8 @@ const dataUri = (png: Uint8Array): string =>
   `data:image/png;base64,${Buffer.from(png).toString('base64')}`;
 
 // A filled preset shape — the same geometry token authored through both
-// libraries. Covers pptx-kit's `<a:prstGeom>` output for each preset against
-// PptxGenJS's. PptxGenJS takes the raw ST_ShapeType token, as does pptx-kit.
+// libraries. Covers @office-kit/pptx's `<a:prstGeom>` output for each preset against
+// PptxGenJS's. PptxGenJS takes the raw ST_ShapeType token, as does @office-kit/pptx.
 const presetCase = (preset: string, color: string): CorpusCase => ({
   id: `shape-${preset}`,
   pgjs: (s) => {
@@ -590,7 +590,7 @@ export const CASES: CorpusCase[] = [
         text: 'Open',
       });
       // PptxGenJS auto-underlines linked text and mirrors the link onto the
-      // shape (cNvPr); pptx-kit links the runs (which makes the text
+      // shape (cNvPr); @office-kit/pptx links the runs (which makes the text
       // clickable). Author the underline to match; the shape-level mirror is
       // folded by the comparator.
       setShapeRunHyperlink(box, 0, 0, 'https://example.com/');

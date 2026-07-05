@@ -3,7 +3,7 @@
   "width": 1280,
   "sofficeVersion": "LibreOffice 24.2.7.2 420(Build:2)",
   "files": {
-    "01-title-only.pptx": [0.9302],
+    "01-title-only.pptx": [0.8501],
     "02-layouts.pptx": [0.9027, 0.9019, 0.9151, 0.9135],
     "03-text-formatting.pptx": [0.8507],
     "04-bullets-alignment.pptx": [0.6899],
@@ -23,7 +23,7 @@
     "18-hyperlinks.pptx": [0.8209],
     "19-token-fill.pptx": [0.9398],
     "20-core-properties.pptx": [0.9472],
-    "21-showcase.pptx": [0.8665, 0.949, 0.737, 0.8348, 0.9938, 0.9458, 0.791],
+    "21-showcase.pptx": [0.8028, 0.949, 0.737, 0.8348, 0.9938, 0.9458, 0.791],
     "22-vertical-text.pptx": [0.7579],
     "23-columns.pptx": [0.3234],
     "24-gradient-fills.pptx": [0.978],

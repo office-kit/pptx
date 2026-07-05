@@ -22,7 +22,7 @@ export const docSections: DocSection[] = [
       {
         href: '/docs/install',
         title: 'Install',
-        description: 'Add pptx-kit to a Node or browser project.',
+        description: 'Add @office-kit/pptx to a Node or browser project.',
       },
       {
         href: '/docs/getting-started',

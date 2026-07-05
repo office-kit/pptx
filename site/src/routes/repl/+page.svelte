@@ -1,8 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
   import { onMount } from 'svelte';
-  import * as kit from 'pptx-kit';
-  import { renderSlideToSvg } from 'pptx-kit-preview';
+  import * as kit from '@office-kit/pptx';
+  import { renderSlideToSvg } from '@office-kit/pptx-preview';
   import { EditorState } from '@codemirror/state';
   import { EditorView, basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
@@ -10,7 +10,7 @@
 
   // Default snippet — touches the most-used corners of the API so a
   // brand-new visitor sees a non-trivial deck immediately.
-  const DEFAULT_CODE = `// pptx-kit is exposed as global functions — no imports needed.
+  const DEFAULT_CODE = `// @office-kit/pptx is exposed as global functions — no imports needed.
 // Edit anything; the preview updates as you type.
 // \`pres\` is a fresh PresentationData loaded from a blank template.
 
@@ -20,7 +20,7 @@ const contentLayout = findSlideLayout(pres, 'Title and Content');
 // Slide 1 — title
 const cover = addSlide(pres, { layout: titleLayout });
 const t = findSlidePlaceholder(cover, 'ctrTitle') ?? findSlidePlaceholder(cover, 'title');
-if (t) setShapeText(t, 'pptx-kit REPL');
+if (t) setShapeText(t, '@office-kit/pptx REPL');
 const sub = findSlidePlaceholder(cover, 'subTitle');
 if (sub) setShapeText(sub, 'Edit the code on the left.');
 
@@ -192,7 +192,7 @@ setShapeFill(star, '#FFD966');
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'pptx-kit-repl.pptx';
+    a.download = 'office-kit-pptx-repl.pptx';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -211,14 +211,14 @@ setShapeFill(star, '#FFD966');
 </script>
 
 <svelte:head>
-  <title>REPL · pptx-kit</title>
+  <title>REPL · @office-kit/pptx</title>
 </svelte:head>
 
 <section class="content">
   <p class="eyebrow">§ 04 · REPL</p>
   <h1>Write code, see the deck.</h1>
   <p class="lede">
-    A live editor for <code>pptx-kit</code>. Every public free-function
+    A live editor for <code>@office-kit/pptx</code>. Every public free-function
     export is in scope (no imports needed), <code>pres</code> is a
     fresh <code>PresentationData</code> loaded from a blank template,
     and the preview re-renders on every keystroke. Hit <kbd>Download</kbd>

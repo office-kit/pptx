@@ -4,7 +4,7 @@
 // chart data on existing templates without dropping to XML. The reader
 // uses inline `<c:strCache>` / `<c:numCache>` blocks rather than the
 // embedded workbook — the cache is what PowerPoint renders from
-// anyway, and it's always present in charts pptx-kit emits.
+// anyway, and it's always present in charts @office-kit/pptx emits.
 
 import {
   NS,

@@ -1,6 +1,6 @@
 // Add speaker notes and two review comments to a slide.
 
-import { addSlideComment, cm, setSlideNotes, type SlideData } from 'pptx-kit';
+import { addSlideComment, cm, setSlideNotes, type SlideData } from '@office-kit/pptx';
 
 declare const slide: SlideData;
 

@@ -7,7 +7,7 @@
     exports: ReadonlyArray<{ name: string; signature?: string }>;
   };
 
-  const REPO = 'https://github.com/baseballyama/pptx-kit/blob/main/src/api/fn.ts';
+  const REPO = 'https://github.com/office-kit/pptx/blob/main/src/api/fn.ts';
 
   const groups: ReadonlyArray<Group> = [
     {
@@ -17,8 +17,8 @@
         { name: 'loadPresentation', signature: '(input: Uint8Array | ArrayBuffer | Blob) => Promise<PresentationData>' },
         { name: 'savePresentation', signature: '(pres: PresentationData) => Promise<Uint8Array>' },
         { name: 'createPresentation', signature: '() => PresentationData' },
-        { name: 'loadPresentationFile', signature: '(path: string) => Promise<PresentationData> — pptx-kit/node' },
-        { name: 'savePresentationToFile', signature: '(pres: PresentationData, path: string) => Promise<void> — pptx-kit/node' },
+        { name: 'loadPresentationFile', signature: '(path: string) => Promise<PresentationData> — @office-kit/pptx/node' },
+        { name: 'savePresentationToFile', signature: '(pres: PresentationData, path: string) => Promise<void> — @office-kit/pptx/node' },
       ],
     },
     {
@@ -384,14 +384,14 @@
 </script>
 
 <svelte:head>
-  <title>API reference — pptx-kit</title>
+  <title>API reference — @office-kit/pptx</title>
 </svelte:head>
 
 <div class="content">
   <p class="eyebrow">Reference</p>
   <h1>API reference</h1>
   <p class="lede">
-    Every public export of <code>pptx-kit</code> and <code>pptx-kit/node</code>, organized
+    Every public export of <code>@office-kit/pptx</code> and <code>@office-kit/pptx/node</code>, organized
     by category. The library is fn-only — no classes — so this list is the entire
     callable surface. {total} exports across {groups.length} groups.
   </p>

@@ -36,7 +36,7 @@
 </script>
 
 <svelte:head>
-  <title>pptx-kit — Generate and edit PowerPoint .pptx in Node and the browser</title>
+  <title>@office-kit/pptx — Generate and edit PowerPoint .pptx in Node and the browser</title>
 </svelte:head>
 
 <section class="hero">
@@ -72,17 +72,17 @@
       </a>
       <a href="{base}/docs/recipes" class="btn ghost">Recipes</a>
       <a href="{base}/api" class="btn ghost">API reference</a>
-      <a href="https://github.com/baseballyama/pptx-kit" class="btn ghost">
+      <a href="https://github.com/office-kit/pptx" class="btn ghost">
         GitHub <span class="ext">↗</span>
       </a>
     </div>
 
     <div class="install" role="group" aria-label="Install command">
       <span class="install-coord">$</span>
-      <code class="install-cmd">pnpm add pptx-kit</code>
+      <code class="install-cmd">pnpm add @office-kit/pptx</code>
       <span class="install-alt">
         <span class="alt-sep">/</span>
-        <code>npm i pptx-kit</code>
+        <code>npm i @office-kit/pptx</code>
       </span>
     </div>
 

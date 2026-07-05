@@ -13,7 +13,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(await readFile('blank.pptx'));
 const titleLayout = findSlideLayout(pres, 'Title Slide');

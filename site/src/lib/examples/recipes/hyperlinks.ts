@@ -9,7 +9,7 @@ import {
   setShapeTextFormat,
   type PresentationData,
   type SlideData,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 declare const pres: PresentationData;
 declare const slide: SlideData;
@@ -21,7 +21,7 @@ const link = addSlideTextBox(slide, {
   h: inches(0.6),
   text: 'Open the docs',
 });
-setShapeHyperlink(link, 'https://github.com/baseballyama/pptx-kit');
+setShapeHyperlink(link, 'https://github.com/office-kit/pptx');
 setShapeTextFormat(link, { color: '#0563C1', underline: true });
 
 const nav = addSlideTextBox(slide, {

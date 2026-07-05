@@ -1,4 +1,4 @@
-// Generates the pptx-kit favicon + apple-touch-icon + logo PNGs.
+// Generates the @office-kit/pptx favicon + apple-touch-icon + logo PNGs.
 //
 // Runs as a plain Node script — no external image dependency. Output goes
 // to `site/static/`. The mark is a rounded orange square with a stylised
@@ -12,7 +12,7 @@ import { deflateRawSync } from 'node:zlib';
 
 const STATIC_DIR = fileURLToPath(new URL('../static/', import.meta.url));
 
-const ORANGE = [232, 80, 28]; // pptx-kit --accent
+const ORANGE = [232, 80, 28]; // @office-kit/pptx --accent
 const ORANGE_HOT = [255, 106, 54]; // --accent-hot
 
 // ---------------------------------------------------------------------------

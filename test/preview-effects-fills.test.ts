@@ -10,7 +10,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-// Import authoring from `pptx-kit` so the deck's `PresentationData` shares
+// Import authoring from `@office-kit/pptx` so the deck's `PresentationData` shares
 // type identity with `renderSlideToSvg` (both import from the package).
 import {
   addSlide,
@@ -22,7 +22,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 import { type ZipEntry, readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 

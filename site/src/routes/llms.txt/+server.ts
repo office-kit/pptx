@@ -3,7 +3,7 @@
 // The llmstxt.org proposal suggests a short index. We extend that: the file
 // keeps the index shape (H1 title, blockquote summary, link sections at the
 // end) but inlines enough API guidance that an agent can use every feature
-// of pptx-kit without having to fetch additional pages. For the long-form
+// of @office-kit/pptx without having to fetch additional pages. For the long-form
 // prose docs an agent can still follow the links at the bottom, append
 // `.md` to any docs URL for raw Markdown, or fetch `/llms-full.txt` for
 // the whole site concatenated into a single document.
@@ -13,7 +13,7 @@ import type { RequestHandler } from './$types';
 
 export const prerender = true;
 
-const HEADER = `# pptx-kit
+const HEADER = `# @office-kit/pptx
 
 > Generate and edit PowerPoint \`.pptx\` (OOXML PresentationML) files from
 > Node 20+ and modern browsers, with no PowerPoint, no Python, and no
@@ -21,7 +21,7 @@ const HEADER = `# pptx-kit
 > unknown extensions are preserved verbatim on save.
 
 This file is written for AI assistants. It is self-contained: an agent can
-use every documented feature of pptx-kit from this page alone. The link
+use every documented feature of @office-kit/pptx from this page alone. The link
 index at the bottom points at canonical docs — append \`.md\` to any docs
 URL for raw Markdown (e.g. \`/docs/install.md\`), or fetch \`/llms-full.txt\`
 for every page concatenated into a single document.
@@ -38,8 +38,8 @@ for every page concatenated into a single document.
 ## Install
 
 \`\`\`sh
-pnpm add pptx-kit
-# or: npm install pptx-kit / bun add pptx-kit
+pnpm add @office-kit/pptx
+# or: npm install @office-kit/pptx / bun add @office-kit/pptx
 \`\`\`
 
 TypeScript: \`tsconfig.json\` should use \`"moduleResolution": "bundler"\`
@@ -47,24 +47,24 @@ TypeScript: \`tsconfig.json\` should use \`"moduleResolution": "bundler"\`
 
 ## One way to do one thing
 
-pptx-kit ships a **single fn-only public surface**. Every capability has
+@office-kit/pptx ships a **single fn-only public surface**. Every capability has
 exactly one canonical function — no classes, no parallel APIs. The complete
 list of public exports lives at \`/api\` on the site; the most common
 entries are inlined below.
 
 ## Entries
 
-- \`pptx-kit\` — the full library. Runs in Node and the browser.
-- \`pptx-kit/node\` — adds \`loadPresentationFile\` / \`savePresentationToFile\`
+- \`@office-kit/pptx\` — the full library. Runs in Node and the browser.
+- \`@office-kit/pptx/node\` — adds \`loadPresentationFile\` / \`savePresentationToFile\`
   on top of the full library. Node-only.
 
 ## Units
 
-OOXML measures positions in EMUs (1 inch = 914 400 EMU). pptx-kit brands
+OOXML measures positions in EMUs (1 inch = 914 400 EMU). @office-kit/pptx brands
 \`Emu\` as a nominal type:
 
 \`\`\`ts
-import { inches, cm, mm, pt, emu, type Emu } from 'pptx-kit';
+import { inches, cm, mm, pt, emu, type Emu } from '@office-kit/pptx';
 
 inches(1) // Emu (914 400)
 cm(2.54)  // Emu (914 400)
@@ -77,7 +77,7 @@ emu(914400) // Emu — escape hatch
 ## Load + save round-trip
 
 \`\`\`ts
-import { loadPresentation, savePresentation } from 'pptx-kit';
+import { loadPresentation, savePresentation } from '@office-kit/pptx';
 
 const pres = await loadPresentation(bytes); // Uint8Array | ArrayBuffer | Blob
 // ...mutate...
@@ -90,7 +90,7 @@ so any authoring needs at least one layout from a loaded template.
 ## Template fill
 
 \`\`\`ts
-import { replaceTokensInPresentation } from 'pptx-kit';
+import { replaceTokensInPresentation } from '@office-kit/pptx';
 
 replaceTokensInPresentation(pres, {
   name: 'Yamashita',
@@ -114,7 +114,7 @@ import {
   moveSlide,
   removeSlide,
   setSlideTitle,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const layout = findSlideLayout(pres, 'Title and Content');
 const slide = addSlide(pres, { layout });
@@ -135,7 +135,7 @@ import {
   pt,
   setShapeFill,
   setShapeShadow,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const star = addSlideShape(slide, {
   preset: 'star5', // 180+ presets: rect, ellipse, triangle, star4..32, arrows...
@@ -158,7 +158,7 @@ Text is indexed by \`(paragraphIndex, runIndex)\`. Each \`\\n\` in the
 \`text:\` argument starts a new paragraph.
 
 \`\`\`ts
-import { setShapeRunFormat, setParagraphAlignment, setParagraphBullet } from 'pptx-kit';
+import { setShapeRunFormat, setParagraphAlignment, setParagraphBullet } from '@office-kit/pptx';
 
 setShapeRunFormat(box, 1, 0, {
   bold: true,
@@ -173,7 +173,7 @@ setParagraphBullet(box, 1, { char: '•' });
 ## Tables
 
 \`\`\`ts
-import { addSlideTable, inches } from 'pptx-kit';
+import { addSlideTable, inches } from '@office-kit/pptx';
 
 addSlideTable(slide, {
   x: inches(1), y: inches(1.5), w: inches(8), h: inches(3),
@@ -190,7 +190,7 @@ addSlideTable(slide, {
 ## Charts
 
 \`\`\`ts
-import { addSlideChart, inches } from 'pptx-kit';
+import { addSlideChart, inches } from '@office-kit/pptx';
 
 addSlideChart(slide, {
   x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5),
@@ -212,7 +212,7 @@ embedded xlsx that PowerPoint needs for "Edit data".
 ## Images
 
 \`\`\`ts
-import { addSlideImage, setShapeImage, inches } from 'pptx-kit';
+import { addSlideImage, setShapeImage, inches } from '@office-kit/pptx';
 
 addSlideImage(slide, pngBytes, {
   x: inches(1), y: inches(1), w: inches(3), h: inches(2),
@@ -234,7 +234,7 @@ import {
   setShapeAnimation,
   setSlideNotes,
   setSlideTransition,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 setSlideNotes(slide, 'Speaker note here.');
 setSlideTransition(slide, { effect: 'fade', speed: 'med' });
@@ -256,7 +256,7 @@ Transition effects: \`none\` / \`fade\` / \`push\` / \`cover\` / \`wipe\` /
 ## Document metadata
 
 \`\`\`ts
-import { setCoreProperties, setExtendedProperties } from 'pptx-kit';
+import { setCoreProperties, setExtendedProperties } from '@office-kit/pptx';
 
 setCoreProperties(pres, {
   title: 'Q3 review',
@@ -269,7 +269,7 @@ setCoreProperties(pres, {
 ## Validation
 
 \`\`\`ts
-import { validatePresentation } from 'pptx-kit';
+import { validatePresentation } from '@office-kit/pptx';
 
 const issues = validatePresentation(pres);
 for (const i of issues) console.error(i.severity, i.message);
@@ -282,7 +282,7 @@ against the ECMA-376 XSDs in the project's own CI.
 ## Node fs helpers
 
 \`\`\`ts
-import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/node';
 
 const pres = await loadPresentationFile('./template.pptx');
 // ...mutate...
@@ -318,8 +318,8 @@ URL. The same content powers this index, the long-form docs, and the
 
 ## Source
 
-- [GitHub repository](https://github.com/baseballyama/pptx-kit)
-- [npm package](https://www.npmjs.com/package/pptx-kit)
+- [GitHub repository](https://github.com/office-kit/pptx)
+- [npm package](https://www.npmjs.com/package/@office-kit/pptx)
 `;
 
 function buildBody(origin: string): string {

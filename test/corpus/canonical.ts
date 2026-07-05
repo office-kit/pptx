@@ -38,7 +38,7 @@ const rawAttr = (el: XmlElement, local: string): string | null =>
   el.attrs.find((a) => a.name.localName === local)?.value ?? null;
 const elementChildren = (el: XmlElement): XmlElement[] => el.children.filter(isElement);
 
-// A line/connector authored as `<p:cxnSp>` (pptx-kit, a true connector) and as
+// A line/connector authored as `<p:cxnSp>` (@office-kit/pptx, a true connector) and as
 // `<p:sp prstGeom="line">` (PptxGenJS, a shape) render an identical straight
 // line. Map the connector wrappers onto the shape wrappers so the two compare.
 const NAME_MAP: Record<string, string> = {
@@ -88,7 +88,7 @@ const TBL_STYLE_FLAGS = new Set([
   'bandCol',
 ]);
 
-// The "No Style, Table Grid" GUID. pptx-kit names it on `<a:tableStyleId>`;
+// The "No Style, Table Grid" GUID. @office-kit/pptx names it on `<a:tableStyleId>`;
 // PptxGenJS leaves `<a:tblPr/>` empty and inherits the same GUID from the
 // package's `tableStyles.xml` default. Same style, so the explicit reference
 // folds away.
@@ -113,7 +113,7 @@ const canonicalAttrs = (el: XmlElement): string[] => {
     // PptxGenJS omits — invisible either way.
     if (local === 'cNvSpPr' && an === 'txBox') continue;
     if (local === 'cSld' && an === 'name') continue;
-    // Vertical anchor: PptxGenJS defaults text boxes to centered, pptx-kit to
+    // Vertical anchor: PptxGenJS defaults text boxes to centered, @office-kit/pptx to
     // PowerPoint's top. A default-choice difference, not counted.
     if (local === 'bodyPr' && (an === 'anchor' || an === 'anchorCtr')) continue;
     // Font-family metadata PptxGenJS hard-codes regardless of the actual face.
@@ -129,7 +129,7 @@ const canonicalAttrs = (el: XmlElement): string[] => {
     // Shadow no-op geometry: `sx="100000" sy="100000"` (100% scale), `kx="0"
     // ky="0"` (no skew), and `algn` — which only shifts the shadow when it is
     // scaled, so with 100% scale it is invisible. PptxGenJS writes these out;
-    // pptx-kit relies on the defaults. Same shadow either way.
+    // @office-kit/pptx relies on the defaults. Same shadow either way.
     if (local === 'outerShdw' || local === 'innerShdw' || local === 'prstShdw') {
       if ((an === 'sx' || an === 'sy') && a.value === '100000') continue;
       if ((an === 'kx' || an === 'ky') && a.value === '0') continue;
@@ -141,7 +141,7 @@ const canonicalAttrs = (el: XmlElement): string[] => {
         continue;
       }
     }
-    // Table-style flags only have an effect relative to a style; pptx-kit
+    // Table-style flags only have an effect relative to a style; @office-kit/pptx
     // names the package's default grid style explicitly (see below) and
     // PptxGenJS inherits it, so the flags fold away with the style reference.
     if (local === 'tblPr' && TBL_STYLE_FLAGS.has(an)) continue;
@@ -192,7 +192,7 @@ const shouldDropChild = (parentLocal: string, child: XmlElement, lineFlag: boole
   }
   if (isInvisibleBorder(child)) return true; // w="0" noFill cell border
   // PptxGenJS mirrors a run-level link onto the shape (`<p:cNvPr><a:hlinkClick>`);
-  // pptx-kit links the runs, which already makes the text clickable. The
+  // @office-kit/pptx links the runs, which already makes the text clickable. The
   // shape-level mirror is redundant for a text box, so fold it.
   if (parentLocal === 'cNvPr' && (c === 'hlinkClick' || c === 'hlinkHover')) return true;
   // Explicit reference to the package's default grid style (see above).
@@ -289,7 +289,7 @@ const lcs = (a: string[], b: string[]): number[][] => {
   return dp;
 };
 
-/** A real LCS line-level diff (`-` pptx-kit, `+` pptxgenjs) for reports. */
+/** A real LCS line-level diff (`-` @office-kit/pptx, `+` pptxgenjs) for reports. */
 export const diffLines = (left: string, right: string): string => {
   const a = left ? left.split('\n') : [];
   const b = right ? right.split('\n') : [];

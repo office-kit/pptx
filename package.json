@@ -1,5 +1,5 @@
 {
-  "name": "pptx-kit",
+  "name": "@office-kit/pptx",
   "version": "0.11.1",
   "description": "Generate and edit .pptx (OOXML PresentationML) files from TypeScript, in Node and the browser.",
   "keywords": [
@@ -12,15 +12,15 @@
     "presentation",
     "presentationml"
   ],
-  "homepage": "https://github.com/baseballyama/pptx-kit#readme",
+  "homepage": "https://github.com/office-kit/pptx#readme",
   "bugs": {
-    "url": "https://github.com/baseballyama/pptx-kit/issues"
+    "url": "https://github.com/office-kit/pptx/issues"
   },
   "license": "MIT",
   "author": "Yuichiro Yamashita",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/baseballyama/pptx-kit.git"
+    "url": "git+https://github.com/office-kit/pptx.git"
   },
   "files": [
     "dist",

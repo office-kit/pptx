@@ -1,6 +1,6 @@
 // Property: every generated deck emits schema-valid PresentationML.
 //
-// For a randomized-but-valid deck, every slide part `pptx-kit` produces
+// For a randomized-but-valid deck, every slide part `@office-kit/pptx` produces
 // must validate against the ECMA-376 `pml.xsd`. This is the fuzz-scale
 // version of the per-feature L3 schema tests: instead of one hand-written
 // slide per shape feature, it throws thousands of random shape / fill /

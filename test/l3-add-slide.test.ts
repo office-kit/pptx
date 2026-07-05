@@ -64,7 +64,7 @@ describe('L3: addSlide from a layout', () => {
     if (!layout) throw new Error('expected Title Slide layout');
     const slide = addSlide(pres, { layout });
     const ctrTitle = findSlidePlaceholder(slide, 'ctrTitle');
-    if (ctrTitle) setShapeText(ctrTitle, 'pptx-kit');
+    if (ctrTitle) setShapeText(ctrTitle, '@office-kit/pptx');
     const subTitle = findSlidePlaceholder(slide, 'subTitle');
     if (subTitle) setShapeText(subTitle, 'an OOXML library for TypeScript');
 
@@ -73,7 +73,7 @@ describe('L3: addSlide from a layout', () => {
     const reSlide = getSlides(reloaded)[0]!;
     const reCtr = findSlidePlaceholder(reSlide, 'ctrTitle');
     const reSub = findSlidePlaceholder(reSlide, 'subTitle');
-    expect(reCtr && getShapeText(reCtr)).toBe('pptx-kit');
+    expect(reCtr && getShapeText(reCtr)).toBe('@office-kit/pptx');
     expect(reSub && getShapeText(reSub)).toBe('an OOXML library for TypeScript');
   });
 });

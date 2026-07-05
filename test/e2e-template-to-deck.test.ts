@@ -7,7 +7,7 @@
 // with fresh content.
 //
 // This file IS documentation for that path. A reader who wants to know how to
-// use pptx-kit for template-to-deck authoring should be able to read top to
+// use @office-kit/pptx for template-to-deck authoring should be able to read top to
 // bottom and understand every step.
 
 import { readFile } from 'node:fs/promises';
@@ -98,7 +98,7 @@ describe('E2E: template-to-deck', () => {
     const subTitle = findSlidePlaceholder(slide1, 'subTitle');
     if (!ctrTitle) throw new Error('ctrTitle placeholder missing on Title Slide');
     if (!subTitle) throw new Error('subTitle placeholder missing on Title Slide');
-    setShapeText(ctrTitle, 'pptx-kit E2E');
+    setShapeText(ctrTitle, '@office-kit/pptx E2E');
     setShapeText(subTitle, 'template-to-deck proof');
 
     // Slide 2: Token-replacement slide. The body carries {{company}} / {{year}}
@@ -176,7 +176,7 @@ describe('E2E: template-to-deck', () => {
     // XML independently — mutating the duplicate must not affect the original.
     const slide5 = duplicateSlide(template, slide1);
     const dupTitle = findSlidePlaceholder(slide5, 'ctrTitle');
-    if (dupTitle) setShapeText(dupTitle, 'pptx-kit E2E (copy)');
+    if (dupTitle) setShapeText(dupTitle, '@office-kit/pptx E2E (copy)');
 
     // Slide 6: Cross-deck import from one-text-slide.pptx.
     // importSlide brings the source slide's shapes into the target deck,
@@ -204,7 +204,7 @@ describe('E2E: template-to-deck', () => {
 
     // Slide 1: cover title survived round-trip.
     const s1CtrTitle = findSlidePlaceholder(slides[0]!, 'ctrTitle');
-    expect(s1CtrTitle && getShapeText(s1CtrTitle)).toBe('pptx-kit E2E');
+    expect(s1CtrTitle && getShapeText(s1CtrTitle)).toBe('@office-kit/pptx E2E');
 
     // Slide 2: tokens were replaced before saving.
     const s2Title = findSlidePlaceholder(slides[1]!, 'title');
@@ -214,10 +214,10 @@ describe('E2E: template-to-deck', () => {
 
     // Slide 5: duplicate got its own independent title mutation.
     const s5Title = findSlidePlaceholder(slides[4]!, 'ctrTitle');
-    expect(s5Title && getShapeText(s5Title)).toBe('pptx-kit E2E (copy)');
+    expect(s5Title && getShapeText(s5Title)).toBe('@office-kit/pptx E2E (copy)');
     // Original slide 1 text unchanged.
     const s1Still = findSlidePlaceholder(slides[0]!, 'ctrTitle');
-    expect(s1Still && getShapeText(s1Still)).toBe('pptx-kit E2E');
+    expect(s1Still && getShapeText(s1Still)).toBe('@office-kit/pptx E2E');
 
     // Slide 6: imported slide carries "Hello, OOXML" from the source deck.
     // getSlideText collapses all shape text into a single string.
@@ -292,7 +292,7 @@ describe('E2E: template-to-deck', () => {
 
     // Slide 1 cover title text is present in the rendered output.
     const s1Svg = renderSlideToSvg(reloaded, slides[0]!, { textLayout: 'foreignObject' });
-    expect(textContentOf(s1Svg)).toContain('pptx-kit E2E');
+    expect(textContentOf(s1Svg)).toContain('@office-kit/pptx E2E');
 
     // Slide 6 imported text is present.
     const s6Svg = renderSlideToSvg(reloaded, slides[5]!, { textLayout: 'foreignObject' });
@@ -311,7 +311,7 @@ describe('E2E: template-to-deck', () => {
     // In svg text mode the renderer emits <text> elements; the cover title
     // must appear as actual text content, not as a foreignObject fallback.
     const s1Svg = renderSlideToSvg(reloaded, slides[0]!, { textLayout: 'svg' });
-    expect(textContentOf(s1Svg)).toContain('pptx-kit E2E');
+    expect(textContentOf(s1Svg)).toContain('@office-kit/pptx E2E');
   });
 
   it('renderSlideToRgba (Node): first two slides produce non-blank rasters at 480 px', () => {

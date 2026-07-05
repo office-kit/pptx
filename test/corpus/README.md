@@ -1,17 +1,17 @@
 # PptxGenJS parity corpus
 
-Makes "is pptx-kit's _generated_ output any good?" a falsifiable number.
+Makes "is @office-kit/pptx's _generated_ output any good?" a falsifiable number.
 
 [PptxGenJS](https://github.com/gitbrent/PptxGenJS) is the most widely-used PPTX
 generator in the JS ecosystem; its output is battle-tested to open cleanly in
 PowerPoint, Keynote, Google Slides, and LibreOffice. This corpus authors the
-**same slide twice** — once through PptxGenJS, once through pptx-kit — and
+**same slide twice** — once through PptxGenJS, once through @office-kit/pptx — and
 compares the two drawing trees.
 
 ```
 case ──┬─ PptxGenJS .addText/.addShape/.addTable/... → slide1.xml ─┐
        │                                                            ├─ canonicalize → diff
-       └─ pptx-kit addSlideTextBox/addSlideShape/...  → slide1.xml ─┘
+       └─ @office-kit/pptx addSlideTextBox/addSlideShape/...  → slide1.xml ─┘
 ```
 
 The corpus covers the slide-content surface both libraries share — text
@@ -20,14 +20,14 @@ hyperlinks), shapes (rect, roundRect, ellipse, triangle, pentagon, star,
 diamond, shape-with-text), lines (plain, dashed, arrow), tables (cell fill,
 alignment), images, and charts (column, bar, line, pie, multi-series).
 
-(PptxGenJS demo areas with no comparable pptx-kit authoring path — animations,
+(PptxGenJS demo areas with no comparable @office-kit/pptx authoring path — animations,
 which PptxGenJS doesn't model, and `addMedia` video/audio — are out of scope;
 `defineSlideMaster` is a different comparison axis (master/layout parts) the
 corpus doesn't yet cover.)
 
 ## What it checks
 
-1. **Hard gate — schema validity.** Every slide pptx-kit emits is validated
+1. **Hard gate — schema validity.** Every slide @office-kit/pptx emits is validated
    against the ECMA-376 PresentationML XSD (`xmllint`), and every chart part
    against the chart XSD. A real structural defect fails the build. Skipped
    cleanly when `xmllint` is absent.
@@ -37,14 +37,14 @@ corpus doesn't yet cover.)
    stripped — shape ids/names, relationship ids, `@dirty` hints, PptxGenJS's
    `p14:modId`, whitespace — then diffed with an LCS. The count of divergent
    lines is compared to `parity-baseline.json`; it may only **shrink**. A
-   change that pushes pptx-kit further from the reference fails.
+   change that pushes @office-kit/pptx further from the reference fails.
 
 3. **Chart semantics.** A chart part can't be compared as raw XML — PptxGenJS
    stamps dozens of opinionated chrome defaults (data-label blocks, gridlines,
    tick marks, its own palette, `multiLvlStrRef` categories, an `Arial 12pt`
-   `txPr`) that PowerPoint treats as optional and pptx-kit leaves to
+   `txPr`) that PowerPoint treats as optional and @office-kit/pptx leaves to
    inheritance. What _must_ match is the data: read both charts back with
-   pptx-kit (it parses any PPTX) and assert equal chart type, categories, and
+   @office-kit/pptx (it parses any PPTX) and assert equal chart type, categories, and
    per-series values.
 
 ## Run it
@@ -56,7 +56,7 @@ CORPUS_RECORD=1 pnpm test test/corpus       # re-record the baseline after an
 ```
 
 Each run writes a human-readable `out/report.md` (git-ignored) with the full
-per-case diff (`-` pptx-kit, `+` PptxGenJS).
+per-case diff (`-` @office-kit/pptx, `+` PptxGenJS).
 
 ## Prerequisites
 
@@ -70,19 +70,19 @@ npm --prefix references/PptxGenJS install jszip
 
 When the submodule isn't checked out (e.g. a clean CI job), the suite
 **skips itself** rather than failing — `xmllint`-gated schema validation of
-pptx-kit's own output lives in `test/fn-create-presentation.test.ts` and the
+@office-kit/pptx's own output lives in `test/fn-create-presentation.test.ts` and the
 `l3-*` suites regardless.
 
 ## Current state — full parity
 
-Every case in the corpus is at **divergence 0**: for each one, pptx-kit and
+Every case in the corpus is at **divergence 0**: for each one, @office-kit/pptx and
 PptxGenJS produce the _same slide_ once volatile detail is stripped. The
 ratchet baseline (`parity-baseline.json`) is therefore all zeros — any future
-change that makes pptx-kit's output diverge from the reference fails the build.
+change that makes @office-kit/pptx's output diverge from the reference fails the build.
 
 Reaching zero combined two things:
 
-1. **Real pptx-kit fixes the corpus surfaced** — each a defect that made
+1. **Real @office-kit/pptx fixes the corpus surfaced** — each a defect that made
    generated slides look broken:
    - Tables emitted `firstRow` / `bandRow` flags but no `<a:tableStyleId>`, and
      `createPresentation` shipped no `tableStyles.xml`, so PowerPoint painted an
@@ -100,23 +100,23 @@ Reaching zero combined two things:
    each justified as either a PowerPoint default or pure metadata. The
    substantive ones:
 
-   | difference                                                | why it's folded                                                                                                     |
-   | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-   | `txBox="1"` on text boxes                                 | invisible "is a text box" hint; pptx-kit sets it (so does PowerPoint), PptxGenJS omits it                           |
-   | `bodyPr@anchor`                                           | PptxGenJS centers text-box content by default, pptx-kit follows PowerPoint's top default — a default choice         |
-   | explicit black run `<a:solidFill>`                        | equals the theme's `tx1` default resolution; pptx-kit inherits it                                                   |
-   | `<a:ea>`/`<a:cs>` + `charset`/`pitchFamily`               | font metadata PptxGenJS hard-codes for every face; pptx-kit emits just `<a:latin>`                                  |
-   | default `<a:tcPr>` insets + `w="0"` noFill borders        | PowerPoint's built-in cell defaults; omitting them renders identically                                              |
-   | `<a:tableStyleId>` + `firstRow`/`bandRow`                 | pptx-kit names the package's default grid style explicitly; PptxGenJS inherits the same GUID from `tableStyles.xml` |
-   | `<a:endParaRPr>`, empty `<a:pPr>`, `<a:buNone>`           | empty-paragraph / bullet-reset no-ops                                                                               |
-   | `<a:buSzPct val="100000">`                                | bullet sized at 100% of the text — the default                                                                      |
-   | hyperlink `<a:hlinkClick>` default attrs + shape mirror   | `endSnd/history/...` defaults; PptxGenJS also mirrors the run link onto `cNvPr`, redundant for a text box           |
-   | `<p:cxnSp>` vs `<p:sp prstGeom="line">`                   | both render an identical straight line                                                                              |
-   | `@dirty`, `@smtClean`, `descr`, `p14:modId`, `<p:extLst>` | authoring hints / app-private extensions                                                                            |
+   | difference                                                | why it's folded                                                                                                             |
+   | --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+   | `txBox="1"` on text boxes                                 | invisible "is a text box" hint; @office-kit/pptx sets it (so does PowerPoint), PptxGenJS omits it                           |
+   | `bodyPr@anchor`                                           | PptxGenJS centers text-box content by default, @office-kit/pptx follows PowerPoint's top default — a default choice         |
+   | explicit black run `<a:solidFill>`                        | equals the theme's `tx1` default resolution; @office-kit/pptx inherits it                                                   |
+   | `<a:ea>`/`<a:cs>` + `charset`/`pitchFamily`               | font metadata PptxGenJS hard-codes for every face; @office-kit/pptx emits just `<a:latin>`                                  |
+   | default `<a:tcPr>` insets + `w="0"` noFill borders        | PowerPoint's built-in cell defaults; omitting them renders identically                                                      |
+   | `<a:tableStyleId>` + `firstRow`/`bandRow`                 | @office-kit/pptx names the package's default grid style explicitly; PptxGenJS inherits the same GUID from `tableStyles.xml` |
+   | `<a:endParaRPr>`, empty `<a:pPr>`, `<a:buNone>`           | empty-paragraph / bullet-reset no-ops                                                                                       |
+   | `<a:buSzPct val="100000">`                                | bullet sized at 100% of the text — the default                                                                              |
+   | hyperlink `<a:hlinkClick>` default attrs + shape mirror   | `endSnd/history/...` defaults; PptxGenJS also mirrors the run link onto `cNvPr`, redundant for a text box                   |
+   | `<p:cxnSp>` vs `<p:sp prstGeom="line">`                   | both render an identical straight line                                                                                      |
+   | `@dirty`, `@smtClean`, `descr`, `p14:modId`, `<p:extLst>` | authoring hints / app-private extensions                                                                                    |
 
 The goal is **not** byte-identical output — that is impossible between two
-emitters and undesirable where pptx-kit is the more theme-correct of the two.
-The goal is: pptx-kit's generated slides render the same as the battle-tested
+emitters and undesirable where @office-kit/pptx is the more theme-correct of the two.
+The goal is: @office-kit/pptx's generated slides render the same as the battle-tested
 reference, stay schema-valid, and never regress. When a new case surfaces a
 genuine gap (not a foldable default), fix the emitter — don't add a fold.
 

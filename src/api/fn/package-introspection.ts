@@ -32,7 +32,7 @@ import { getSlideSections } from './sections.ts';
  * rels directly. Most callers should use the typed helpers above
  * (`listPackageParts`, `readPackagePart`, `getMediaParts`, etc.).
  *
- * @internal — used by `pptx-kit/node` to mount fs-backed helpers.
+ * @internal — used by `@office-kit/pptx/node` to mount fs-backed helpers.
  */
 export const _internalPackageOf = (pres: PresentationData): OpcPackage => pres[INTERNAL_PACKAGE];
 

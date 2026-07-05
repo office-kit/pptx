@@ -1,10 +1,10 @@
-# pptx-kit-preview
+# @office-kit/pptx-preview
 
-Preview renderer for [`pptx-kit`](https://github.com/baseballyama/pptx-kit).
-Turns a `pptx-kit` slide model into an **SVG** (browser + Node) or rasterizes
+Preview renderer for [`@office-kit/pptx`](https://github.com/office-kit/pptx).
+Turns a `@office-kit/pptx` slide model into an **SVG** (browser + Node) or rasterizes
 it to a **PNG / RGBA image in Node — with no headless browser**.
 
-> **Experimental (0.x).** This package lives in the `pptx-kit` monorepo and
+> **Experimental (0.x).** This package lives in the `@office-kit/pptx` monorepo and
 > also powers the docs-site playground and the fidelity harness. The renderer
 > is an _approximation_ of PowerPoint / LibreOffice output and is still
 > evolving; the API may change between minor versions, and `0.x` semver applies
@@ -12,7 +12,7 @@ it to a **PNG / RGBA image in Node — with no headless browser**.
 
 ## Why
 
-`pptx-kit` core does not render — by design. But "show me this deck" comes up
+`@office-kit/pptx` core does not render — by design. But "show me this deck" comes up
 constantly: a docs playground, a thumbnail service, a visual-diff test. The
 hard requirement is that rendering must work **in Node and rasterize to an
 image without spawning a browser**, so it fits CI and serverless. This package
@@ -21,10 +21,10 @@ lays text out as pure SVG `<text>` (no `<foreignObject>`) and paints it with
 
 ## Entry points
 
-| Import                  | Runtime        | Use                                                 |
-| ----------------------- | -------------- | --------------------------------------------------- |
-| `pptx-kit-preview`      | browser + Node | `renderSlideToSvg` → an SVG string                  |
-| `pptx-kit-preview/node` | Node only      | `renderSlideToImage` / `renderSlideToRgba` → pixels |
+| Import                          | Runtime        | Use                                                 |
+| ------------------------------- | -------------- | --------------------------------------------------- |
+| `@office-kit/pptx-preview`      | browser + Node | `renderSlideToSvg` → an SVG string                  |
+| `@office-kit/pptx-preview/node` | Node only      | `renderSlideToImage` / `renderSlideToRgba` → pixels |
 
 The browser entry pulls in **no** Node built-ins (no `node:fs`, resvg, or
 fontkit), so it bundles cleanly for the web.
@@ -34,8 +34,8 @@ fontkit), so it bundles cleanly for the web.
 ### SVG (browser or Node)
 
 ```ts
-import { renderSlideToSvg } from 'pptx-kit-preview';
-import { loadPresentation, getSlides } from 'pptx-kit';
+import { renderSlideToSvg } from '@office-kit/pptx-preview';
+import { loadPresentation, getSlides } from '@office-kit/pptx';
 
 const pres = await loadPresentation(bytes);
 const svg = renderSlideToSvg(pres, getSlides(pres)[0]);
@@ -45,8 +45,8 @@ const svg = renderSlideToSvg(pres, getSlides(pres)[0]);
 ### PNG / RGBA (Node, no browser)
 
 ```ts
-import { renderSlideToImage, renderSlideToRgba } from 'pptx-kit-preview/node';
-import { loadPresentationFile, getSlides } from 'pptx-kit/node';
+import { renderSlideToImage, renderSlideToRgba } from '@office-kit/pptx-preview/node';
+import { loadPresentationFile, getSlides } from '@office-kit/pptx/node';
 
 const pres = await loadPresentationFile('deck.pptx');
 const slide = getSlides(pres)[0];

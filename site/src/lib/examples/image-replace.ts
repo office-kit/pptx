@@ -10,7 +10,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeImage,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(await readFile('template.pptx'));
 const newLogo = await readFile('new-logo.png');

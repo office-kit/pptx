@@ -1,5 +1,5 @@
 {
-  "// note": "Standalone tsconfig for pptx-kit-preview. The root vitest also imports text-layout.ts from here and resolves this config (a clean one) instead of walking up to site/tsconfig.json, which extends the svelte-kit-generated ./.svelte-kit/tsconfig.json that only exists after `svelte-kit sync`.",
+  "// note": "Standalone tsconfig for @office-kit/pptx-preview. The root vitest also imports text-layout.ts from here and resolves this config (a clean one) instead of walking up to site/tsconfig.json, which extends the svelte-kit-generated ./.svelte-kit/tsconfig.json that only exists after `svelte-kit sync`.",
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",

@@ -20,7 +20,7 @@ interface BundleResult {
 }
 
 const bundleEntry = async (source: string): Promise<BundleResult> => {
-  const dir = mkdtempSync(join(tmpdir(), 'pptx-kit-ts-'));
+  const dir = mkdtempSync(join(tmpdir(), 'office-kit-pptx-ts-'));
   try {
     const entry = join(dir, 'entry.mjs');
     const out = join(dir, 'bundle.mjs');
@@ -34,7 +34,7 @@ const bundleEntry = async (source: string): Promise<BundleResult> => {
       outfile: out,
       treeShaking: true,
       minify: false,
-      alias: { 'pptx-kit': join(REPO_ROOT, 'src/index.ts') },
+      alias: { '@office-kit/pptx': join(REPO_ROOT, 'src/index.ts') },
       logLevel: 'silent',
     });
     const text = readFileSync(out, 'utf8');
@@ -47,7 +47,7 @@ const bundleEntry = async (source: string): Promise<BundleResult> => {
 describe('tree-shake: minimal load+save entry', () => {
   it('bundles successfully (free-function API)', async () => {
     const result = await bundleEntry(`
-      import { loadPresentation, savePresentation } from 'pptx-kit';
+      import { loadPresentation, savePresentation } from '@office-kit/pptx';
       export async function run(bytes) {
         const pres = await loadPresentation(bytes);
         return await savePresentation(pres);
@@ -59,7 +59,7 @@ describe('tree-shake: minimal load+save entry', () => {
 
   it("free-function bundle drops authoring identifiers it doesn't use", async () => {
     const fn = await bundleEntry(`
-      import { loadPresentation, savePresentation } from 'pptx-kit';
+      import { loadPresentation, savePresentation } from '@office-kit/pptx';
       export async function run(bytes) {
         const pres = await loadPresentation(bytes);
         return await savePresentation(pres);
@@ -99,7 +99,7 @@ describe('tree-shake: minimal load+save entry', () => {
         getShapeRotation,
         getShapeFlip,
         replaceTokensInSlide,
-      } from 'pptx-kit';
+      } from '@office-kit/pptx';
       export async function run(bytes) {
         const pres = await loadPresentation(bytes);
         for (const s of getSlides(pres)) {
@@ -136,7 +136,7 @@ describe('tree-shake: minimal load+save entry', () => {
     // A consumer that uses every free-function entry point should ship
     // a bundle below 250 KB — wide upper bound to catch regressions.
     const fn = await bundleEntry(`
-      import * as kit from 'pptx-kit';
+      import * as kit from '@office-kit/pptx';
       export async function run(bytes) {
         const pres = await kit.loadPresentation(bytes);
         const slides = kit.getSlides(pres);
@@ -179,7 +179,7 @@ describe('tree-shake: minimal load+save entry', () => {
         moveSlide,
         duplicateSlide,
         replaceTokensInPresentation,
-      } from 'pptx-kit';
+      } from '@office-kit/pptx';
       export async function run(bytes) {
         const pres = await loadPresentation(bytes);
         const slides = getSlides(pres);
@@ -215,7 +215,7 @@ describe('tree-shake: minimal load+save entry', () => {
 
   it('reports minimal-bundle size for the README record', async () => {
     const result = await bundleEntry(`
-      import { loadPresentation, savePresentation } from 'pptx-kit';
+      import { loadPresentation, savePresentation } from '@office-kit/pptx';
       export async function run(bytes) {
         const pres = await loadPresentation(bytes);
         return await savePresentation(pres);

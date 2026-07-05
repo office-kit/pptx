@@ -34,7 +34,7 @@ import {
   savePresentation,
   inches,
   pt,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 // Define the palette once and reuse it everywhere.
 const BRAND = '#2563EB';

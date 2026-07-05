@@ -1,7 +1,7 @@
 // Preview-fidelity harness entrypoint.
 //
-//   pnpm --filter pptx-kit-site fidelity                 # all samples, LibreOffice
-//   pnpm --filter pptx-kit-site fidelity -- --ours-only  # skip ground truth
+//   pnpm --filter @office-kit/pptx-site fidelity                 # all samples, LibreOffice
+//   pnpm --filter @office-kit/pptx-site fidelity -- --ours-only  # skip ground truth
 //   GROUND_TRUTH=powerpoint pnpm --filter ... fidelity   # local PP check (macOS)
 //
 // Produces site/fidelity/out/{index.html, results.json} plus per-slide PNGs:

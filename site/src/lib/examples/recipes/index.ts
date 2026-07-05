@@ -1,6 +1,6 @@
 // Recipe registry. Each entry pairs human-readable framing with the
 // literal source of a real .ts file in this directory; the file is
-// type-checked against `pptx-kit` on every build, so the snippet shown
+// type-checked against `@office-kit/pptx` on every build, so the snippet shown
 // to readers can never drift from the live API.
 
 import addChart from './add-chart.ts?raw';

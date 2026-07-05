@@ -1,6 +1,6 @@
 // Public API surface. The only directory users are intended to import from.
 //
-// pptx-kit exposes a single tree-shakeable free-function API
+// @office-kit/pptx exposes a single tree-shakeable free-function API
 // (`loadPresentation`, `savePresentation`, `addSlide`, ...). Importing
 // only what you use lets modern bundlers drop the rest. See
 // `test/tree-shake.test.ts` for the CI guard.

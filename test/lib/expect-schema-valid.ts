@@ -54,7 +54,7 @@ export const expectSchemaValid = (xml: string, kind: SchemaKind): void => {
       'xmllint is not installed; install libxml2-utils to run schema-validation tests',
     );
   }
-  const dir = mkdtempSync(join(tmpdir(), 'pptx-kit-schema-'));
+  const dir = mkdtempSync(join(tmpdir(), 'office-kit-pptx-schema-'));
   const file = join(dir, 'doc.xml');
   try {
     writeFileSync(file, xml, 'utf8');

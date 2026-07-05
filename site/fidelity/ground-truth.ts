@@ -71,7 +71,7 @@ const resolvePdftoppm = (): string => {
 // invocation collides with "soffice is already running". One persistent
 // profile per machine is enough since the harness runs sequentially.
 const loProfileDir = (): string => {
-  const dir = join(tmpdir(), 'pptx-kit-fidelity-lo-profile');
+  const dir = join(tmpdir(), 'office-kit-pptx-fidelity-lo-profile');
   mkdirSync(dir, { recursive: true });
   return dir;
 };
@@ -168,7 +168,7 @@ const pageNum = (file: string): number => {
 
 /** Render every slide of `pptxPath` to a reference image. */
 export const renderGroundTruth = (pptxPath: string, opts: GroundTruthOptions): RgbaImage[] => {
-  const work = mkdtempSync(join(tmpdir(), 'pptx-kit-gt-'));
+  const work = mkdtempSync(join(tmpdir(), 'office-kit-pptx-gt-'));
   try {
     const pdf =
       opts.engine === 'powerpoint'

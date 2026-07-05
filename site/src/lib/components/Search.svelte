@@ -51,7 +51,7 @@
       status = 'ready';
       return mod;
     } catch (err) {
-      console.error('[pptx-kit search] failed to load pagefind index', err);
+      console.error('[@office-kit/pptx search] failed to load pagefind index', err);
       status = 'unavailable';
       return null;
     }
@@ -164,7 +164,7 @@
       <div class="results" aria-live="polite">
         {#if status === 'unavailable'}
           <p class="status">
-            Search index not available. Run <code>pnpm --filter pptx-kit-site build</code>
+            Search index not available. Run <code>pnpm --filter @office-kit/pptx-site build</code>
             to generate it (the dev server skips indexing).
           </p>
         {:else if status === 'loading' && hits.length === 0}

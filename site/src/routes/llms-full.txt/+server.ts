@@ -6,11 +6,11 @@ import type { RequestHandler } from './$types';
 
 export const prerender = true;
 
-const PREAMBLE = `# pptx-kit — full documentation
+const PREAMBLE = `# @office-kit/pptx — full documentation
 
-This file is the concatenation of every page on pptx-kit's docs site, intended for LLM ingestion. Page boundaries are marked with H1 headings prefixed by the source path.
+This file is the concatenation of every page on @office-kit/pptx's docs site, intended for LLM ingestion. Page boundaries are marked with H1 headings prefixed by the source path.
 
-Source repo: https://github.com/baseballyama/pptx-kit
+Source repo: https://github.com/office-kit/pptx
 `;
 
 export const GET: RequestHandler = () => {

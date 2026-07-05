@@ -9,9 +9,9 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-// Import the authoring API from `pptx-kit` (not `../src/api`) so the deck's
+// Import the authoring API from `@office-kit/pptx` (not `../src/api`) so the deck's
 // `PresentationData` shares type identity with the `renderSlideToSvg`
-// signature, which also imports from `pptx-kit`. The vitest alias resolves
+// signature, which also imports from `@office-kit/pptx`. The vitest alias resolves
 // the package to the same source module at runtime.
 import {
   addSlide,
@@ -22,7 +22,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 

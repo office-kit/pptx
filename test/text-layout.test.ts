@@ -1,5 +1,5 @@
 // Unit coverage for the pure-SVG text layout engine. It is dependency-free
-// (no pptx-kit, no Node, no browser), so the wrap / position / emit logic and
+// (no @office-kit/pptx, no Node, no browser), so the wrap / position / emit logic and
 // the font substitution map are testable in isolation. See
 // packages/preview/src/text-layout.ts.
 

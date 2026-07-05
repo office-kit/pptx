@@ -1,4 +1,4 @@
-# pptx-kit
+# @office-kit/pptx
 
 Generate and edit `.pptx` (PowerPoint / Office Open XML Presentation) files
 from TypeScript — in **Node.js or the browser**, from a single ESM bundle.
@@ -20,7 +20,7 @@ one trade-off:
 - **Loose XML strings** that "usually open" → break in Keynote / Google Slides
   / the Open XML SDK validator.
 
-`pptx-kit` is built around a different stance:
+`@office-kit/pptx` is built around a different stance:
 
 - One ESM bundle that runs in **Node and the browser**.
 - A typed object model that mirrors the **OOXML PresentationML** spec
@@ -52,13 +52,13 @@ capability stands today. Items marked "post-1.0" are not implemented yet:
 | L4    | OLE / ActiveX authoring                                             | ❌ post-1.0 (read pass-through) |
 | L4    | Document encryption (read + write)                                  | ❌ post-1.0                     |
 
-Out-of-scope content is still **preserved on round-trip** — `pptx-kit` will
+Out-of-scope content is still **preserved on round-trip** — `@office-kit/pptx` will
 never silently strip parts it doesn't model. That's the L1 contract.
 
 When NOT to use this:
 
 - You need a **pixel-perfect** PPTX rendering (print, archival). The
-  companion [`pptx-kit-preview`](packages/preview) package renders slides to
+  companion [`@office-kit/pptx-preview`](packages/preview) package renders slides to
   SVG in the browser and to PNG on the server — its closeness to LibreOffice
   is measured per slide and gated in CI (`site/fidelity`) — but it is a
   high-fidelity preview, not a spec-complete paint engine. For
@@ -71,16 +71,16 @@ When NOT to use this:
 ## Install
 
 ```sh
-npm install pptx-kit
+npm install @office-kit/pptx
 # or
-pnpm add pptx-kit
+pnpm add @office-kit/pptx
 # or
-yarn add pptx-kit
+yarn add @office-kit/pptx
 ```
 
 ## One API
 
-pptx-kit exposes a single tree-shakeable free-function API. Every
+@office-kit/pptx exposes a single tree-shakeable free-function API. Every
 capability is a named export — `loadPresentation`, `savePresentation`,
 `addSlideTextBox`, `setShapeFill`, etc. Bundlers drop every entry you
 don't import, so the minimal `load → save` bundle is **~60 KB**.
@@ -92,7 +92,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(bytes);
 const title = findSlidePlaceholder(getSlides(pres)[0]!, 'title');
@@ -100,7 +100,7 @@ if (title) setShapeText(title, 'Hello');
 const out = await savePresentation(pres);
 ```
 
-## Driving pptx-kit from an AI agent
+## Driving @office-kit/pptx from an AI agent
 
 [`skill/SKILL.md`](skill/SKILL.md) is a self-contained guide for an LLM agent
 authoring presentations with this library: the canonical call for each
@@ -123,7 +123,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(existingPptxBytes);
 const cover = getSlides(pres)[0]!;
@@ -140,7 +140,7 @@ const out: Uint8Array = await savePresentation(pres);
 ### Token-based template fill
 
 ```ts
-import { loadPresentation, replaceTokensInPresentation, savePresentation } from 'pptx-kit';
+import { loadPresentation, replaceTokensInPresentation, savePresentation } from '@office-kit/pptx';
 
 const pres = await loadPresentation(templateBytes);
 // Replaces `{{name}}`, `{{event}}`, `{{date}}` across every slide.
@@ -164,7 +164,7 @@ import {
   findSlidePlaceholder,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 // Defaults to 16:9; pass { size: '4:3' } for the classic ratio.
 const pres = createPresentation();
@@ -179,7 +179,7 @@ addContentSlide(pres, { title: 'Agenda', body: 'Highlights and risks' });
 // the user-visible name, which is case-sensitive and localized.
 const titleLayout = findSlideLayoutByType(pres, 'title')!;
 const slide = addSlide(pres, { layout: titleLayout });
-setShapeText(findSlidePlaceholder(slide, 'ctrTitle')!, 'Authored with pptx-kit');
+setShapeText(findSlidePlaceholder(slide, 'ctrTitle')!, 'Authored with @office-kit/pptx');
 
 const out: Uint8Array = await savePresentation(pres);
 ```
@@ -199,13 +199,13 @@ import {
   moveSlide,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(await fetch('/blank.pptx').then((r) => r.arrayBuffer()));
 
 const titleLayout = findSlideLayout(pres, 'Title Slide')!;
 const slide1 = addSlide(pres, { layout: titleLayout });
-setShapeText(findSlidePlaceholder(slide1, 'ctrTitle')!, 'pptx-kit demo');
+setShapeText(findSlidePlaceholder(slide1, 'ctrTitle')!, '@office-kit/pptx demo');
 setShapeText(findSlidePlaceholder(slide1, 'subTitle')!, 'an OOXML library for TypeScript');
 
 const blank = findSlideLayout(pres, 'Blank')!;
@@ -236,7 +236,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeImage,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(templateBytes);
 for (const slide of getSlides(pres)) {
@@ -252,7 +252,7 @@ const out = await savePresentation(pres);
 ### Node convenience entry
 
 ```ts
-import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/node';
 
 const pres = await loadPresentationFile('./template.pptx');
 await savePresentationToFile(pres, './out.pptx');
@@ -261,7 +261,13 @@ await savePresentationToFile(pres, './out.pptx');
 ### Charts
 
 ```ts
-import { addSlideChart, getSlides, loadPresentation, savePresentation, inches } from 'pptx-kit';
+import {
+  addSlideChart,
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  inches,
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(templateBytes);
 const slide = getSlides(pres)[0];
@@ -291,7 +297,7 @@ chart renders without opening the workbook.
 ### Animations
 
 ```ts
-import { setShapeAnimation, getSlideShapes, getSlides } from 'pptx-kit';
+import { setShapeAnimation, getSlideShapes, getSlides } from '@office-kit/pptx';
 
 const slide = getSlides(pres)[0]!;
 const shape = getSlideShapes(slide)[0]!;
@@ -302,7 +308,7 @@ setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 800 });
 ### Comments
 
 ```ts
-import { addSlideComment, getSlides } from 'pptx-kit';
+import { addSlideComment, getSlides } from '@office-kit/pptx';
 
 const slide = getSlides(pres)[0]!;
 addSlideComment(slide, {
@@ -315,7 +321,7 @@ addSlideComment(slide, {
 ### Gradient fills
 
 ```ts
-import { setShapeGradientFill } from 'pptx-kit';
+import { setShapeGradientFill } from '@office-kit/pptx';
 
 setShapeGradientFill(shape, {
   stops: [
@@ -329,7 +335,7 @@ setShapeGradientFill(shape, {
 ### Validation
 
 ```ts
-import { validatePresentation } from 'pptx-kit';
+import { validatePresentation } from '@office-kit/pptx';
 
 const issues = validatePresentation(pres);
 for (const i of issues) console.error(i.severity, i.message);
@@ -388,8 +394,8 @@ shown together.
 ## Development
 
 ```sh
-git clone --recurse-submodules git@github.com:baseballyama/pptx-kit.git
-cd pptx-kit
+git clone --recurse-submodules git@github.com:office-kit/pptx.git
+cd @office-kit/pptx
 pnpm install
 pnpm test
 ```

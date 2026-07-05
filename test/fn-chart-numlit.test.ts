@@ -1,6 +1,6 @@
 // Regression: chart values authored as `<c:numLit>` (inline literal
 // array) instead of `<c:numRef>` (reference into the embedded
-// workbook). pptx-kit's own writer always emits `numRef` with a cache,
+// workbook). @office-kit/pptx's own writer always emits `numRef` with a cache,
 // but charts produced by python-pptx, hand-edited XML, or older
 // pptxgenjs paths sometimes use `numLit`. Before this fix, the reader
 // only walked `numRef`, so the values came back as empty arrays and

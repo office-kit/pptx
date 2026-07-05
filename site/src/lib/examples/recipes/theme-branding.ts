@@ -7,7 +7,7 @@ import {
   setPresentationFonts,
   setPresentationTheme,
   type PresentationData,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres: PresentationData = createPresentation();
 
