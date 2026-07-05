@@ -1,5 +1,5 @@
 {
-  "name": "pptx-kit-site",
+  "name": "@office-kit/pptx-site",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -19,14 +19,14 @@
     "codemirror": "^6.0.2"
   },
   "devDependencies": {
+    "@office-kit/pptx": "workspace:*",
+    "@office-kit/pptx-preview": "workspace:*",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.65.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@types/node": "^24.13.2",
     "mdsvex": "^0.12.7",
     "pagefind": "^1.5.2",
-    "pptx-kit": "workspace:*",
-    "pptx-kit-preview": "workspace:*",
     "shiki": "^4.2.0",
     "svelte": "^5.56.3",
     "svelte-check": "^4.6.0",

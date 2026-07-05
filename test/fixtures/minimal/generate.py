@@ -11,7 +11,7 @@ The script writes deterministic-looking files but python-pptx embeds a few
 context-dependent timestamps in the core properties; that's fine for our
 tests, which use a semantic-equivalence comparator, not byte-equal.
 
-Why python-pptx and not our own writer? Because at this phase of pptx-kit
+Why python-pptx and not our own writer? Because at this phase of @office-kit/pptx
 we have no PresentationML authoring yet — we need *some* real PPTX bytes
 to load and assert against. python-pptx is the de-facto reference in OSS
 and produces files PowerPoint opens without complaint.

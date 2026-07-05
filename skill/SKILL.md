@@ -1,11 +1,11 @@
 ---
-name: pptx-kit
-description: Author and edit PowerPoint (.pptx) files from TypeScript/JavaScript with pptx-kit — in Node or the browser. Use when an agent must generate a presentation from scratch, fill a template, or programmatically edit slides, shapes, text, tables, charts, and images, and needs the output to open cleanly in PowerPoint, Keynote, Google Slides, and LibreOffice.
+name: office-kit-pptx
+description: Author and edit PowerPoint (.pptx) files from TypeScript/JavaScript with @office-kit/pptx — in Node or the browser. Use when an agent must generate a presentation from scratch, fill a template, or programmatically edit slides, shapes, text, tables, charts, and images, and needs the output to open cleanly in PowerPoint, Keynote, Google Slides, and LibreOffice.
 ---
 
-# Authoring PPTX with pptx-kit
+# Authoring PPTX with @office-kit/pptx
 
-`pptx-kit` generates **schema-valid** Office Open XML PresentationML. Every
+`@office-kit/pptx` generates **schema-valid** Office Open XML PresentationML. Every
 authoring call maps to a specific ECMA-376 element, so a deck you build here
 opens and is **fully editable** in PowerPoint — not a flattened image, and not
 "valid enough to usually open." That is the bar: _if a file can't be opened and
@@ -29,7 +29,7 @@ If you need a _pixel-perfect render_ (print/archival) or format conversion
 ## Setup
 
 ```sh
-npm install pptx-kit
+npm install @office-kit/pptx
 ```
 
 ```ts
@@ -48,9 +48,9 @@ import {
   setShapeRunFormat,
   setShapeFill,
   savePresentation,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 // Node-only convenience (reads/writes files):
-import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/node';
 ```
 
 `savePresentation(pres)` returns a `Uint8Array`. In Node, write it with
@@ -231,7 +231,7 @@ import {
   getShapeKind,
   getShapeName,
   savePresentation,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(templateBytes);
 
@@ -310,7 +310,7 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
    combinations, validate them too.
 4. **Visual check.** Render to an image and _look at it_ — overflowing text,
    collisions, off-canvas shapes, and unreadable color contrast do not show up
-   in schema validation. Use `pptx-kit-preview` (SVG in the browser, PNG on the
+   in schema validation. Use `@office-kit/pptx-preview` (SVG in the browser, PNG on the
    server) or open the file in PowerPoint/LibreOffice. `findShapesOutsideCanvas`
    and `findOverlappingShapePairs` catch layout problems programmatically.
 5. **Content check.** Grep the saved deck's text (`getPresentationText(pres)`)

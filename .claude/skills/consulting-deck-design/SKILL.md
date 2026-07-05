@@ -1,9 +1,9 @@
 ---
 name: consulting-deck-design
-description: Use when generating a dense, professional consulting/government-style slide deck with pptx-kit (McKinsey/BCG/METI-council-caliber — cover, section dividers, executive summary, exhibits, appendix). Invoked when the user asks for a "McKinsey-style", "consulting-grade", or "board deck" presentation, or says the output looks "too generic" / "too much like a template" / "still too simple / thin compared to the real thing". Covers the visual design system, the chart-authoring pitfalls that make output look amateurish, and the verification workflow — not just "use gradients".
+description: Use when generating a dense, professional consulting/government-style slide deck with @office-kit/pptx (McKinsey/BCG/METI-council-caliber — cover, section dividers, executive summary, exhibits, appendix). Invoked when the user asks for a "McKinsey-style", "consulting-grade", or "board deck" presentation, or says the output looks "too generic" / "too much like a template" / "still too simple / thin compared to the real thing". Covers the visual design system, the chart-authoring pitfalls that make output look amateurish, and the verification workflow — not just "use gradients".
 ---
 
-# Consulting-grade deck design with pptx-kit
+# Consulting-grade deck design with @office-kit/pptx
 
 A deck that is schema-valid and opens without repair is a _correct_ deck. It is not
 automatically a deck that reads as real consulting/government work. The gap between
@@ -92,7 +92,7 @@ divider. Save rule lines for dividing regions that share the same background
 ### Cover and section-divider slides: gradient, not flat fill
 
 Flat navy reads as a corporate template. A real cover uses a diagonal navy→blue
-gradient across the full slide. In pptx-kit:
+gradient across the full slide. In @office-kit/pptx:
 
 ```ts
 const bg = addSlideShape(slide, {
@@ -229,7 +229,7 @@ slide.
 ### Icon strategy (no custom vector art)
 
 Real decks use simple monochrome line-art pictograms (a person, a chart, a
-lightbulb, a shield). pptx-kit has no custom-path/freeform-geometry authoring API
+lightbulb, a shield). @office-kit/pptx has no custom-path/freeform-geometry authoring API
 and no bundled icon set, so **don't attempt hand-drawn vector icons** — the
 practical, reliable substitute is a colored circle or rounded-rect "badge"
 (`addSlideShape` `ellipse`/`roundRect`) containing a single safe glyph character,
@@ -287,7 +287,7 @@ template" rather than "hand-built exhibit."
 
 ### 1. Pie/doughnut charts need explicit per-slice colors
 
-`varyColors: true` (or pptx-kit's default on pie/doughnut, which already sets it)
+`varyColors: true` (or @office-kit/pptx's default on pie/doughnut, which already sets it)
 only _requests_ that the renderer assign distinct colors per slice. It does not
 guarantee every viewer actually cycles through a palette — some render every slice
 in the same single color, which makes the chart useless. Always pass explicit
@@ -299,7 +299,7 @@ series: [{ ...series[0], pointColors: categories.map((_, i) => PALETTE[i % PALET
 
 ### 2. Every multi-series or pie/doughnut chart needs a visible legend
 
-`ChartSpec.legend` is `undefined` by default (no legend authored at all) — pptx-kit
+`ChartSpec.legend` is `undefined` by default (no legend authored at all) — @office-kit/pptx
 doesn't add one automatically. Without it, a reader can't tell which color means
 which series/category. Add `legend: { position: 'r' }` to any chart with more than
 one series, or any pie/doughnut (where "categories" function like series). A
@@ -310,7 +310,7 @@ say what each bar/point is, and a legend there is redundant chrome.
 
 Revenue in the hundreds and a margin percentage in single digits on the same axis
 means the percentage line collapses to a flat line near zero — unreadable.
-pptx-kit's `ChartSpec` has no secondary axis. Don't try to fake one. Split into two
+@office-kit/pptx's `ChartSpec` has no secondary axis. Don't try to fake one. Split into two
 independent single-metric charts side by side instead — same slide, same story, each
 chart properly scaled.
 
@@ -489,7 +489,7 @@ exactly how the previous tic got created.
 
 1. **XSD schema validation** on every generated slide/chart XML (see this repo's
    `test/lib/expect-schema-valid.ts` pattern) — catches structural corruption.
-2. **Render with a real engine and look at it.** pptx-kit's own bundled preview
+2. **Render with a real engine and look at it.** @office-kit/pptx's own bundled preview
    renderer does not ship CJK fonts — Japanese (or other non-Latin) text renders as
    tofu boxes in it even when the underlying XML is completely correct. That is a
    preview-renderer limitation, not a bug in your output, but it means you **cannot

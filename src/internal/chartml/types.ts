@@ -545,14 +545,14 @@ export interface ChartSpec {
    * of theme accent colors, gradients, effects, and font sizes that
    * PowerPoint applies when the user picks a chart style from the
    * "Chart Styles" gallery. Surface for round-trip parity; renderers in
-   * pptx-kit don't (yet) interpret it.
+   * @office-kit/pptx don't (yet) interpret it.
    */
   readonly chartStyle?: number;
   /**
    * Language code for the chart's number / date formatters
    * (`<c:chartSpace><c:lang val="…"/>`). PowerPoint emits the user's
    * Office UI language (e.g. `'en-US'`, `'ja-JP'`). Carried for
-   * round-trip parity; renderers in pptx-kit don't act on it yet.
+   * round-trip parity; renderers in @office-kit/pptx don't act on it yet.
    */
   readonly language?: string;
   /**

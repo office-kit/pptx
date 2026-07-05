@@ -10,17 +10,17 @@ The full TypeScript API is bundled with the npm package — your editor will aut
 
 ## One entry, fn-only
 
-Unlike xlsx-kit which splits the public surface across many subpaths, **pptx-kit ships a single entry** (`pptx-kit`) plus a Node convenience subpath (`pptx-kit/node`). Every export is a free function — no classes — so tree-shaking is straightforward.
+Unlike xlsx-kit which splits the public surface across many subpaths, **@office-kit/pptx ships a single entry** (`@office-kit/pptx`) plus a Node convenience subpath (`@office-kit/pptx/node`). Every export is a free function — no classes — so tree-shaking is straightforward.
 
 ```ts
 // Load, save, create — the only mandatory imports.
-import { loadPresentation, savePresentation, createPresentation } from 'pptx-kit';
+import { loadPresentation, savePresentation, createPresentation } from '@office-kit/pptx';
 
 // Slides + layouts.
-import { addSlide, findSlideLayout, getSlides, duplicateSlide } from 'pptx-kit';
+import { addSlide, findSlideLayout, getSlides, duplicateSlide } from '@office-kit/pptx';
 
 // Template fill.
-import { replaceTokensInPresentation } from 'pptx-kit';
+import { replaceTokensInPresentation } from '@office-kit/pptx';
 
 // Shapes (180+ presets, lines, tables, charts, images).
 import {
@@ -30,7 +30,7 @@ import {
   addSlideChart,
   addSlideImage,
   addSlideTextBox,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 // Per-shape mutations (fills, strokes, effects, text formatting).
 import {
@@ -39,13 +39,13 @@ import {
   setShapeShadow,
   setShapeRunFormat,
   setShapeAnimation,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 // Units: inches / cm / mm / pt / emu — all return branded Emu numbers.
-import { inches, cm, pt, emu } from 'pptx-kit';
+import { inches, cm, pt, emu } from '@office-kit/pptx';
 
 // Node fs glue.
-import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/node';
 ```
 
 Bundle budgets enforced by CI:
@@ -72,10 +72,10 @@ This is what lets the API be tree-shakable — there is no method dispatch, so t
 
 ## Units
 
-Everything OOXML measures in EMUs (1 inch = 914 400 EMU, 1 cm = 360 000 EMU, 1 pt = 12 700 EMU). pptx-kit brands `Emu` as a nominal type and forces callers to be explicit:
+Everything OOXML measures in EMUs (1 inch = 914 400 EMU, 1 cm = 360 000 EMU, 1 pt = 12 700 EMU). @office-kit/pptx brands `Emu` as a nominal type and forces callers to be explicit:
 
 ```ts
-import { inches, cm, pt, emu, type Emu } from 'pptx-kit';
+import { inches, cm, pt, emu, type Emu } from '@office-kit/pptx';
 
 addSlideShape(slide, {
   preset: 'rect',
@@ -90,7 +90,7 @@ addSlideShape(slide, {
 
 ## Discriminated unions
 
-Where the OOXML spec gives a choice, pptx-kit exposes a discriminated union:
+Where the OOXML spec gives a choice, @office-kit/pptx exposes a discriminated union:
 
 ```ts
 // Fill: solid | gradient | pattern | image | none

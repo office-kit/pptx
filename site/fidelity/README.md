@@ -1,6 +1,6 @@
 # Preview fidelity harness
 
-Measures how close pptx-kit's preview renderer (the `pptx-kit-preview`
+Measures how close @office-kit/pptx's preview renderer (the `@office-kit/pptx-preview`
 package) is to a real presentation engine, **as a number per slide** — the
 measurement spine from the preview-fidelity roadmap. Without it, "make the
 preview perfect" is unfalsifiable eyeballing.
@@ -8,10 +8,10 @@ preview perfect" is unfalsifiable eyeballing.
 ```
 ground truth (LibreOffice / PowerPoint)           →  PDF  →  PPM  ┐
                                                                   ├─→  SSIM + diff  →  report
-pptx-kit-preview/node · renderSlideToRgba(width)  →  SVG → resvg → RGBA  ┘
+@office-kit/pptx-preview/node · renderSlideToRgba(width)  →  SVG → resvg → RGBA  ┘
 ```
 
-`renderSlideToRgba` (from `pptx-kit-preview/node`) lays text out as pure SVG
+`renderSlideToRgba` (from `@office-kit/pptx-preview/node`) lays text out as pure SVG
 `<text>` (no `<foreignObject>`) using a fontkit measurer, so resvg can
 rasterize it without a browser. The measurer, resvg's `fontFiles`, and
 LibreOffice all use the same bundled substitute fonts (in the package's
@@ -20,14 +20,14 @@ LibreOffice all use the same bundled substitute fonts (in the package's
 ## Run it
 
 ```bash
-pnpm --filter pptx-kit-site fidelity                 # all samples, LibreOffice
-pnpm --filter pptx-kit-site fidelity -- --ours-only  # render only, no ground truth
-pnpm --filter pptx-kit-site fidelity -- ../samples/out/10-tables.pptx   # one file
-GROUND_TRUTH=powerpoint pnpm --filter pptx-kit-site fidelity            # local PP check (macOS)
+pnpm --filter @office-kit/pptx-site fidelity                 # all samples, LibreOffice
+pnpm --filter @office-kit/pptx-site fidelity -- --ours-only  # render only, no ground truth
+pnpm --filter @office-kit/pptx-site fidelity -- ../samples/out/10-tables.pptx   # one file
+GROUND_TRUTH=powerpoint pnpm --filter @office-kit/pptx-site fidelity            # local PP check (macOS)
 ```
 
 Output lands in `site/fidelity/out/` (git-ignored): `index.html` (side-by-side
-ground truth · pptx-kit · diff, colored by fg-SSIM), `results.json`, and the
+ground truth · @office-kit/pptx · diff, colored by fg-SSIM), `results.json`, and the
 per-slide PNGs.
 
 Flags: `--width <px>` (default 1280), `--engine libreoffice|powerpoint`,
@@ -61,7 +61,7 @@ libreoffice`; Debian/CI `apt-get install libreoffice`. Override the binary
 - The diff image is the ground truth for _what_ is wrong; fg-SSIM tells you
   _which_ slides to look at.
 - The metric core (`image.ts`, `ssim.ts`, `ppm.ts`, `png.ts`) and the layout
-  engine (`pptx-kit-preview`'s `packages/preview/src/text-layout.ts`) are
+  engine (`@office-kit/pptx-preview`'s `packages/preview/src/text-layout.ts`) are
   unit-tested in `test/fidelity-metric.test.ts` / `test/text-layout.test.ts`
   and run in CI without any external renderer.
 
@@ -70,7 +70,7 @@ libreoffice`; Debian/CI `apt-get install libreoffice`. Override the binary
 LibreOffice / GDI place the baseline at the font's `usWinAscent` and size the
 line box as `usWinAscent + usWinDescent` (no extra gap) unless the font sets the
 OS/2 `USE_TYPO_METRICS` bit, in which case the `sTypo*` metrics + `typoLineGap`
-apply. The measurer (`pptx-kit-preview`'s `measure.ts`) mirrors this; using
+apply. The measurer (`@office-kit/pptx-preview`'s `measure.ts`) mirrors this; using
 fontkit's hhea `.ascent` instead misplaces the baseline by ~12px at 44pt.
 
 **Center / bottom anchoring** carries one extra wrinkle: LibreOffice/PowerPoint
@@ -91,10 +91,10 @@ scores so CI can detect regressions automatically.
 
 ```bash
 # After a renderer change, record a fresh baseline:
-pnpm --filter pptx-kit-site fidelity -- --record
+pnpm --filter @office-kit/pptx-site fidelity -- --record
 
 # Gate CI (or a local branch) against the committed baseline:
-pnpm --filter pptx-kit-site fidelity -- --check
+pnpm --filter @office-kit/pptx-site fidelity -- --check
 ```
 
 `--record` writes `site/fidelity/baseline.json` (sorted keys, trailing newline)

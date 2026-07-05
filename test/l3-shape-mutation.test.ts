@@ -101,7 +101,7 @@ describe('L3: end-to-end deck build from blank', () => {
     const slide1 = addSlide(pres, { layout: titleLayout });
     {
       const ctr = findSlidePlaceholder(slide1, 'ctrTitle');
-      if (ctr) setShapeText(ctr, 'pptx-kit demo');
+      if (ctr) setShapeText(ctr, '@office-kit/pptx demo');
       const sub = findSlidePlaceholder(slide1, 'subTitle');
       if (sub) setShapeText(sub, 'end-to-end deck from a blank template');
     }

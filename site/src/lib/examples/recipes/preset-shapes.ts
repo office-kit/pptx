@@ -1,6 +1,6 @@
 // Drop in a few preset shapes from the 180+ DrawingML preset library.
 
-import { addSlideShape, inches, type SlideData } from 'pptx-kit';
+import { addSlideShape, inches, type SlideData } from '@office-kit/pptx';
 
 declare const slide: SlideData;
 

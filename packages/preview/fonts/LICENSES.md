@@ -20,7 +20,7 @@ convenience.
 
 The fonts are used only by the Node-side fidelity harness (`site/fidelity/`).
 They are not shipped in the browser bundle and are not part of the published
-`pptx-kit` package.
+`@office-kit/pptx` package.
 
 ---
 

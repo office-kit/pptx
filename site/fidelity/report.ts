@@ -64,7 +64,7 @@ const fileSection = (f: FileReport): string => `
   <section>
     <h2>${esc(f.name)} <span class="mean">mean fg-SSIM ${ssimFmt(f.meanFgSsim)} · SSIM ${ssimFmt(f.meanSsim)}</span></h2>
     <table>
-      <thead><tr><th>#</th><th>metrics</th><th>ground truth</th><th>pptx-kit</th><th>diff</th></tr></thead>
+      <thead><tr><th>#</th><th>metrics</th><th>ground truth</th><th>@office-kit/pptx</th><th>diff</th></tr></thead>
       <tbody>${f.slides.map(slideRow).join('')}</tbody>
     </table>
   </section>`;
@@ -72,7 +72,7 @@ const fileSection = (f: FileReport): string => `
 export const writeReport = (outDir: string, meta: ReportMeta, files: FileReport[]): string => {
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"/>
-<title>pptx-kit preview fidelity</title>
+<title>@office-kit/pptx preview fidelity</title>
 <style>
   :root { font-family: -apple-system, system-ui, sans-serif; }
   body { margin: 0; padding: 24px; background: #f7f7f8; color: #1f2330; }
@@ -94,7 +94,7 @@ export const writeReport = (outDir: string, meta: ReportMeta, files: FileReport[
 </style></head>
 <body>
   <header>
-    <h1>pptx-kit preview fidelity</h1>
+    <h1>@office-kit/pptx preview fidelity</h1>
     <div class="meta">engine: ${esc(meta.engine)} · width: ${meta.width}px · ${esc(meta.generatedNote)}</div>
     <div class="overall">overall mean fg-SSIM: <strong>${ssimFmt(meta.overallFgSsim)}</strong> · plain SSIM: ${ssimFmt(meta.overallSsim)}</div>
   </header>

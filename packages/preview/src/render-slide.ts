@@ -1,13 +1,13 @@
 // Per-slide SVG renderer for the playground.
 //
-// pptx-kit does not ship a full DrawingML renderer — that would be a
+// @office-kit/pptx does not ship a full DrawingML renderer — that would be a
 // project in its own right (see python-pptx-renderer, pptxgenjs viewer,
 // or the LibreOffice headless pipeline). What we do here is build a
 // reasonable approximation by:
 //
 //   1. Painting each shape's preset geometry on the slide canvas at its
 //      actual EMU bounds, with the rotation / flip / solid fill / stroke
-//      pptx-kit reports.
+//      @office-kit/pptx reports.
 //   2. Laying the shape's text on top via an SVG `<foreignObject>` that
 //      hosts real HTML — that's how we get proper word wrap, per-run
 //      bold / italic / underline / font, paragraph alignment, vertical
@@ -20,7 +20,7 @@
 // placeholder → master → theme), and custom geometry stay as labelled
 // placeholders — proper handling needs a real renderer.
 
-import type { getParagraphLineSpacing, getShapeEffects } from 'pptx-kit';
+import type { getParagraphLineSpacing, getShapeEffects } from '@office-kit/pptx';
 import {
   getParagraphAlignment,
   getParagraphBullet,
@@ -138,7 +138,7 @@ import {
   type SlideShapeData,
   type TableCellParagraph,
   type TextFormat,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 import {
   defaultMeasurer,
   layoutTextSvg,
@@ -231,7 +231,7 @@ const bytesToDataUrl = (bytes: Uint8Array): string => {
   return `data:${mime};base64,${u8ToBase64(bytes)}`;
 };
 
-// Fallback for when pptx-kit's `getShapeImageFormat` returns `null` —
+// Fallback for when @office-kit/pptx's `getShapeImageFormat` returns `null` —
 // usually that means the magic bytes don't match a recognised format
 // (EMF / WMF / HEIC / etc.), but the file extension on the media part
 // is often enough to get the right MIME for the browser to try.
@@ -258,7 +258,7 @@ const mimeFromPartName = (name: string | null): string | null => {
   return EXT_TO_MIME[ext] ?? null;
 };
 
-// Render the picture if pptx-kit handed us bytes; fall back to a
+// Render the picture if @office-kit/pptx handed us bytes; fall back to a
 // labelled placeholder describing why nothing is drawn. EMF / WMF
 // pictures still won't display (no browser can decode them) but the
 // label tells the user what's there.
@@ -535,7 +535,7 @@ let activeColorMap: Readonly<Record<string, string>> | null = null;
 let activeDeckTextColor = '#000000';
 
 // `<linearGradient>` definition + `fill="url(#…)"` reference, projected
-// from pptx-kit's `{ stops, angleDeg }` shape onto SVG's
+// from @office-kit/pptx's `{ stops, angleDeg }` shape onto SVG's
 // objectBoundingBox unit cube. ECMA-376 measures `angleDeg` clockwise
 // from 3 o'clock, which matches the trig below (0° = +x, 90° = +y).
 const gradientDef = (
@@ -1956,7 +1956,7 @@ const ANCHOR_TO_CSS: Record<string, string> = {
 };
 
 // PowerPoint's stock master defaults per placeholder type. Used when
-// the run has no `<a:rPr sz=…>` of its own — pptx-kit doesn't walk
+// the run has no `<a:rPr sz=…>` of its own — @office-kit/pptx doesn't walk
 // the lstStyle cascade to find the resolved size, so we mirror the
 // well-known master defaults here.
 const placeholderDefaultPt = (phType: string | null): number => {
@@ -3386,7 +3386,7 @@ const DISPLAY_UNIT_LABEL: Record<NonNullable<AxisSpec['displayUnits']>, string> 
 
 // PowerPoint draws axis spines and major tick marks for every non-deleted
 // axis. When the chart authors no `<c:spPr><a:ln>` and no `<c:style>` part
-// (which is what pptx-kit emits), PowerPoint falls back to a near-black
+// (which is what @office-kit/pptx emits), PowerPoint falls back to a near-black
 // line, so that is the renderer's default spine / tick color.
 const DEFAULT_AXIS_COLOR = '#000000';
 // Default major-gridline color when the axis authors none — a light gray,
@@ -3435,7 +3435,7 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
           axis.numberFormat,
         );
   // Major gridlines render only when the axis authors `<c:majorGridlines>`.
-  // pptx-kit emits none, and PowerPoint draws none in that case, so the
+  // @office-kit/pptx emits none, and PowerPoint draws none in that case, so the
   // default is off (a default-on grid is a divergence from PowerPoint).
   const showGrid = axis.majorGridlines ?? false;
   const gridStroke = axis.majorGridlineColor ?? DEFAULT_GRID_COLOR;
@@ -5097,7 +5097,7 @@ const renderChart = (
   switch (spec.kind) {
     case 'column':
     case 'bar':
-      // pptx-kit reports both as `bar` / `column` via separate `kind`;
+      // @office-kit/pptx reports both as `bar` / `column` via separate `kind`;
       // legacy `barDir` distinction. We branch on `kind`.
       plot =
         spec.kind === 'column'
@@ -5214,7 +5214,7 @@ const renderChart = (
 // cell's structured paragraphs. Table cells have no bullets, levels, indents,
 // or paragraph spacing, so those fields are inert. A run's effective point
 // size resolves to its explicit `<a:rPr sz>` when present, else the table-cell
-// default: pptx-kit doesn't model `<a:tblStyle>` text props, so unstyled cells
+// default: @office-kit/pptx doesn't model `<a:tblStyle>` text props, so unstyled cells
 // fall to PowerPoint's authored default cell size (18 pt — what it writes for a
 // freshly inserted table) in the theme's minor font and the cell's text color.
 const cellParaData = (
@@ -5939,7 +5939,7 @@ const renderShape = (
 
   if (kind === 'graphicFrame') {
     // Charts and tables get real renders. SmartArt and the
-    // graphicFrame variants pptx-kit doesn't model fall through to a
+    // graphicFrame variants @office-kit/pptx doesn't model fall through to a
     // labelled placeholder.
     if (isChartShape(shape)) {
       const chartSvg = renderChart(shape, x, y, w, h, transform, theme);
@@ -5953,7 +5953,7 @@ const renderShape = (
     try {
       if (isChartShape(shape)) {
         // `isChartShape` was true but renderChart returned null —
-        // pptx-kit couldn't model this chart kind. scatter / radar /
+        // @office-kit/pptx couldn't model this chart kind. scatter / radar /
         // bubble now render; what's left here is stock / surface / 3D /
         // of-pie, which the reader still folds or drops.
         label = 'chart (unsupported kind)';
@@ -6422,7 +6422,7 @@ export const renderSlideSvg = (
 };
 
 // Minimal magic-byte sniffer covering the formats we already know how
-// to MIME-type. Used for slide background images, which pptx-kit
+// to MIME-type. Used for slide background images, which @office-kit/pptx
 // returns as raw bytes without exposing the format.
 const detectImageFormatLocal = (bytes: Uint8Array): string | null => {
   if (bytes.length < 4) return null;

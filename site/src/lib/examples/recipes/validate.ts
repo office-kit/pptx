@@ -1,7 +1,7 @@
 // Run the invariant checker before saving — useful in CI to catch
 // dangling rels / missing parts / off-spec IDs.
 
-import { type PresentationData, validatePresentation } from 'pptx-kit';
+import { type PresentationData, validatePresentation } from '@office-kit/pptx';
 
 declare const pres: PresentationData;
 
@@ -10,5 +10,5 @@ for (const issue of issues) {
   console.error(`[${issue.severity}] ${issue.message}`);
 }
 if (issues.some((i) => i.severity === 'error')) {
-  throw new Error(`pptx-kit: ${issues.length} validation issue(s)`);
+  throw new Error(`@office-kit/pptx: ${issues.length} validation issue(s)`);
 }

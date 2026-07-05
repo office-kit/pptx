@@ -84,7 +84,7 @@ describe('fn API: createPresentation', () => {
     const titleLayout = findSlideLayout(pres, 'Title Slide')!;
     const titleSlide = addSlide(pres, { layout: titleLayout });
     const ctrTitle = findSlidePlaceholder(titleSlide, 'ctrTitle')!;
-    setShapeText(ctrTitle, 'pptx-kit from scratch');
+    setShapeText(ctrTitle, '@office-kit/pptx from scratch');
 
     // Content slide via the sugar helper.
     addContentSlide(pres, { title: 'Agenda', body: 'First item' });
@@ -122,7 +122,7 @@ describe('fn API: createPresentation', () => {
     expect(slides.length).toBe(3);
     expect(getSlideLayouts(reloaded).length).toBe(3);
 
-    expect(getSlideText(slides[0]!)).toContain('pptx-kit from scratch');
+    expect(getSlideText(slides[0]!)).toContain('@office-kit/pptx from scratch');
     expect(getSlideText(slides[1]!)).toContain('Agenda');
     expect(getSlideText(slides[1]!)).toContain('First item');
     expect(getSlideText(slides[2]!)).toContain('Free-form text box');
@@ -135,7 +135,7 @@ describe('fn API: createPresentation', () => {
     // The reloaded title placeholder still reads back its text.
     const reloadedTitle = findSlidePlaceholder(slides[0]!, 'ctrTitle');
     expect(reloadedTitle).not.toBeNull();
-    expect(getShapeText(reloadedTitle!)).toBe('pptx-kit from scratch');
+    expect(getShapeText(reloadedTitle!)).toBe('@office-kit/pptx from scratch');
   });
 
   it('adds a slide for every shipped layout without throwing', () => {

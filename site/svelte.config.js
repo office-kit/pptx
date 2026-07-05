@@ -21,7 +21,7 @@ const mdsvexOptions = {
 };
 
 // BASE_PATH lets the same build run locally (=''), on a GitHub user page
-// or custom domain (=''), or on a project page (e.g. '/pptx-kit'). Set
+// or custom domain (=''), or on a project page (e.g. '/pptx'). Set
 // it in CI for GitHub Actions deploys.
 const basePath = process.env.BASE_PATH ?? '';
 
@@ -34,13 +34,13 @@ const config = {
     prerender: { entries: ['*'] },
     paths: { base: basePath, relative: true },
     alias: {
-      // pptx-kit ships a single public entry plus a Node convenience subpath.
-      'pptx-kit': '../src/index.ts',
-      'pptx-kit/node': '../src/node.ts',
+      // @office-kit/pptx ships a single public entry plus a Node convenience subpath.
+      '@office-kit/pptx': '../src/index.ts',
+      '@office-kit/pptx/node': '../src/node.ts',
       // The preview renderer lives in a companion workspace package; alias to
       // its source so the playground hot-reloads without a build step — and
       // so CI can build the site without first building the package's dist.
-      'pptx-kit-preview': '../packages/preview/src/index.ts',
+      '@office-kit/pptx-preview': '../packages/preview/src/index.ts',
     },
   },
 };

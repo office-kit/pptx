@@ -1,6 +1,6 @@
 // Authoring-boundary input validation for charts, tables, and layout lookup.
 //
-// Regression coverage for the issues surfaced integrating pptx-kit into a
+// Regression coverage for the issues surfaced integrating @office-kit/pptx into a
 // downstream app:
 //   - chart series colors that aren't sRGB hex were silently emitted as
 //     invalid `<a:srgbClr val="…"/>` (PowerPoint dropped/repaired them);

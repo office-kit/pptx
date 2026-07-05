@@ -1,7 +1,7 @@
 {
-  "name": "pptx-kit-preview",
+  "name": "@office-kit/pptx-preview",
   "version": "0.6.2",
-  "description": "Experimental preview renderer for pptx-kit: render a slide to SVG (browser + Node) or rasterize it to a PNG/RGBA image in Node, with no browser binary.",
+  "description": "Experimental preview renderer for @office-kit/pptx: render a slide to SVG (browser + Node) or rasterize it to a PNG/RGBA image in Node, with no browser binary.",
   "keywords": [
     "ooxml",
     "png",
@@ -14,7 +14,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/baseballyama/pptx-kit.git",
+    "url": "git+https://github.com/office-kit/pptx.git",
     "directory": "packages/preview"
   },
   "files": [
@@ -49,13 +49,13 @@
     "fontkit": "^2.0.4"
   },
   "devDependencies": {
+    "@office-kit/pptx": "workspace:*",
     "@types/fontkit": "^2.0.9",
-    "pptx-kit": "workspace:*",
     "tsdown": "^0.22.2",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "pptx-kit": ">=0.6.3"
+    "@office-kit/pptx": ">=0.6.3"
   },
   "engines": {
     "node": ">=22.18.0"

@@ -51,7 +51,7 @@ export type MarkdownDoc = {
 function buildRecipesMarkdown(): string {
   const intro = `# Recipes
 
-Working code for the things people actually want to do with pptx-kit — fill a template, build a deck on a blank layout, add shapes / charts / tables / images, set up notes / comments / transitions / animations, validate before saving. Every snippet below is a real \`.ts\` file in the repo, type-checked against \`pptx-kit\` on every build.
+Working code for the things people actually want to do with @office-kit/pptx — fill a template, build a deck on a blank layout, add shapes / charts / tables / images, set up notes / comments / transitions / animations, validate before saving. Every snippet below is a real \`.ts\` file in the repo, type-checked against \`@office-kit/pptx\` on every build.
 `;
   const sections = recipeGroups.map((g) => {
     const recipes = g.recipes.map((r) => {

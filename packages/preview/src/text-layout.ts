@@ -6,7 +6,7 @@
 // real SVG <text>/<tspan>. This module does that layout itself: measure runs,
 // wrap to the inner box, position lines on their baselines, and emit SVG.
 //
-// It is PURE — no pptx-kit, no Node, no browser globals — so it runs in the
+// It is PURE — no @office-kit/pptx, no Node, no browser globals — so it runs in the
 // SvelteKit bundle, in the Node harness, and in unit tests. The caller injects
 // a `TextMeasurer`; in the browser that can wrap `ctx.measureText`, in Node it
 // wraps fontkit (see site/fidelity/measure.ts). All geometry is in CSS px.

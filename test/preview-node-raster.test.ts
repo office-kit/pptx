@@ -1,4 +1,4 @@
-// Smoke tests for the Node rasterization path (`pptx-kit-preview/node`).
+// Smoke tests for the Node rasterization path (`@office-kit/pptx-preview/node`).
 //
 // The pipeline: renderSlideToSvg (svg text mode) → resvg → PNG / RGBA.
 // We verify dimensions, the PNG magic bytes, that the output is not entirely

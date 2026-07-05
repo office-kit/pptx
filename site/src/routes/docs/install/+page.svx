@@ -4,16 +4,16 @@
 
 # Install
 
-`pptx-kit` ships as ESM-only. Pick the entry that matches your runtime.
+`@office-kit/pptx` ships as ESM-only. Pick the entry that matches your runtime.
 
 ## Package install
 
 ```sh
-pnpm add pptx-kit
+pnpm add @office-kit/pptx
 # or
-npm install pptx-kit
+npm install @office-kit/pptx
 # or
-bun add pptx-kit
+bun add @office-kit/pptx
 ```
 
 Requires **Node `>= 20`** for the built-in `Web Streams`, `Blob`, and `fetch` globals. Modern browsers (current and current-1 of Chromium, Firefox, Safari) work with the default entry — no Node built-ins are pulled in.
@@ -22,8 +22,8 @@ Requires **Node `>= 20`** for the built-in `Web Streams`, `Blob`, and `fetch` gl
 
 | Import | Use case |
 |--------|----------|
-| `pptx-kit` | Full library: load / save, slides, shapes, charts, tables, comments, themes. Runs in Node **and** the browser. |
-| `pptx-kit/node` | Adds `loadPresentationFile` / `savePresentationToFile` on top of the full lib. Node-only. |
+| `@office-kit/pptx` | Full library: load / save, slides, shapes, charts, tables, comments, themes. Runs in Node **and** the browser. |
+| `@office-kit/pptx/node` | Adds `loadPresentationFile` / `savePresentationToFile` on top of the full lib. Node-only. |
 
 Bundle budgets, unminified:
 
@@ -34,7 +34,7 @@ All exports are side-effect-free (`"sideEffects": false`), so unused chart / tab
 
 ## TypeScript
 
-Types are bundled. `tsconfig.json` should have `"moduleResolution": "bundler"` (or `"node16"` / `"nodenext"`) so the `pptx-kit/node` subpath resolves.
+Types are bundled. `tsconfig.json` should have `"moduleResolution": "bundler"` (or `"node16"` / `"nodenext"`) so the `@office-kit/pptx/node` subpath resolves.
 
 ```json
 {

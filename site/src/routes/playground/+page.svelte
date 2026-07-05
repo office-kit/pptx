@@ -1,8 +1,8 @@
 <script lang="ts">
   import { base } from '$app/paths';
 
-  // pptx-kit is consumed via the source-tree path alias set in
-  // svelte.config.js (`pptx-kit` → `../src/index.ts`). The playground
+  // @office-kit/pptx is consumed via the source-tree path alias set in
+  // svelte.config.js (`@office-kit/pptx` → `../src/index.ts`). The playground
   // exercises the real surface the same way the rest of the docs site
   // does — type errors here break the build.
   import {
@@ -37,8 +37,8 @@
     loadPresentation,
     savePresentation,
     slideHasAnimations,
-  } from 'pptx-kit';
-  import { renderSlideToSvg } from 'pptx-kit-preview';
+  } from '@office-kit/pptx';
+  import { renderSlideToSvg } from '@office-kit/pptx-preview';
 
   type SlideSnapshot = {
     index: number;
@@ -185,14 +185,14 @@
 </script>
 
 <svelte:head>
-  <title>Playground · pptx-kit</title>
+  <title>Playground · @office-kit/pptx</title>
 </svelte:head>
 
 <section class="content">
   <p class="eyebrow">§ 03 · Playground</p>
   <h1>Inspect a <code>.pptx</code> in the browser.</h1>
   <p class="lede">
-    Drop a file below. The page parses it with the real <code>pptx-kit</code> source from this
+    Drop a file below. The page parses it with the real <code>@office-kit/pptx</code> source from this
     repo, renders each slide's shapes as approximate SVG (preset geometry, fills, strokes,
     rotation, embedded images), and dumps the OPC parts list. No bytes leave your machine — the
     whole pipeline runs in this tab. For loading via fetch / fs see

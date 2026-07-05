@@ -1,7 +1,7 @@
 // Column chart with two series. addSlideChart writes the chart XML, the
 // drawing rels, and an embedded xlsx so PowerPoint's "Edit data" works.
 
-import { addSlideChart, inches, type SlideData } from 'pptx-kit';
+import { addSlideChart, inches, type SlideData } from '@office-kit/pptx';
 
 declare const slide: SlideData;
 

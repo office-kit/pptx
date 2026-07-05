@@ -1,7 +1,7 @@
 // Inspect the raw OPC parts in a package without dropping to the
 // internal OpcPackage class.
 
-import { type PresentationData, listPackageParts, readPackagePart } from 'pptx-kit';
+import { type PresentationData, listPackageParts, readPackagePart } from '@office-kit/pptx';
 
 declare const pres: PresentationData;
 

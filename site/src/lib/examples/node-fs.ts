@@ -1,7 +1,7 @@
-// One-shot read + save direct from / to disk via the pptx-kit/node
+// One-shot read + save direct from / to disk via the @office-kit/pptx/node
 // helpers, no manual fs glue needed.
 
-import { loadPresentationFile, savePresentationToFile } from 'pptx-kit/node';
+import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/node';
 
 const pres = await loadPresentationFile('input.pptx');
 // ...mutate pres...

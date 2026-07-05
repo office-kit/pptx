@@ -7,7 +7,7 @@ import {
   getSlideTitle,
   getSlides,
   loadPresentation,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(await readFile('input.pptx'));
 for (const slide of getSlides(pres)) {

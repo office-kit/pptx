@@ -2,7 +2,7 @@
 // Uint8Array / ArrayBuffer / Blob — `await response.arrayBuffer()` is the
 // most browser-portable form.
 
-import { getSlides, getSlideTitle, loadPresentation } from 'pptx-kit';
+import { getSlides, getSlideTitle, loadPresentation } from '@office-kit/pptx';
 
 const response = await fetch('/template.pptx');
 const pres = await loadPresentation(await response.arrayBuffer());

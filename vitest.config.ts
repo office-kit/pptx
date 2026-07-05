@@ -4,10 +4,10 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      // Allow packages/preview/src/* to import from 'pptx-kit' without a
+      // Allow packages/preview/src/* to import from '@office-kit/pptx' without a
       // built dist/ directory. The alias wires the package name directly to the
       // TypeScript source so vitest resolves the same code the tests exercise.
-      'pptx-kit': resolve('./src/api/index.ts'),
+      '@office-kit/pptx': resolve('./src/api/index.ts'),
     },
   },
   test: {

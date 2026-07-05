@@ -2,7 +2,7 @@
 // (PNG / JPEG / GIF / SVG / BMP / TIFF) from magic bytes.
 
 import { readFile } from 'node:fs/promises';
-import { addSlideImage, inches, type SlideData } from 'pptx-kit';
+import { addSlideImage, inches, type SlideData } from '@office-kit/pptx';
 
 declare const slide: SlideData;
 

@@ -1,8 +1,8 @@
 // The opaque-handle symbol keys MUST live in the process-global symbol
 // registry (`Symbol.for`), not be minted with plain `Symbol`. The library
-// ships as two separate bundles — `pptx-kit` (dist/index.js) and
-// `pptx-kit/node` (dist/node.js) — and companion packages (e.g.
-// `pptx-kit-preview`) bundle a third copy of the reader code. A handle built
+// ships as two separate bundles — `@office-kit/pptx` (dist/index.js) and
+// `@office-kit/pptx/node` (dist/node.js) — and companion packages (e.g.
+// `@office-kit/pptx-preview`) bundle a third copy of the reader code. A handle built
 // by one bundle is only readable by another if they agree on these keys; plain
 // `Symbol` mints a fresh key per bundle, so e.g. `getSlides` (index bundle)
 // would read `undefined` off a presentation from `loadPresentationFile` (node
@@ -32,7 +32,7 @@ describe('internal handle symbols', () => {
       const key = Symbol.keyFor(sym);
       // `undefined` means a plain `Symbol(...)` — the cross-bundle footgun.
       expect(key, `${name} must be a Symbol.for(...) registry symbol`).toBeDefined();
-      expect(key).toMatch(/^pptx-kit\./);
+      expect(key).toMatch(/^@office-kit\/pptx\./);
     }
   });
 

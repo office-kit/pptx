@@ -9,7 +9,7 @@ exact function(s) you import. The snippets below the index expand the most
 common patterns. For prose context see <a href="{base}/docs/recipes">Recipes</a>;
 for every export see <a href="{base}/api">API reference</a>.
 
-> Everything lives under the single `pptx-kit` entry (or `pptx-kit/node` for
+> Everything lives under the single `@office-kit/pptx` entry (or `@office-kit/pptx/node` for
 > the Node fs helpers). The library is fn-only — no classes — so once you
 > know the function name you know how to import it.
 
@@ -21,7 +21,7 @@ for every export see <a href="{base}/api">API reference</a>.
 |------|-----------|
 | Load a `.pptx` (any env) → `PresentationData` | `loadPresentation` |
 | Save a `PresentationData` → `Uint8Array` | `savePresentation` |
-| Node convenience: read from / write to disk | `loadPresentationFile` + `savePresentationToFile` (from `pptx-kit/node`) |
+| Node convenience: read from / write to disk | `loadPresentationFile` + `savePresentationToFile` (from `@office-kit/pptx/node`) |
 | Create an empty package (advanced) | `createPresentation` |
 
 ### Slides
@@ -125,7 +125,7 @@ you can copy-paste a single block into your file.
 ### Load + save round-trip
 
 ```ts
-import { loadPresentation, savePresentation } from 'pptx-kit';
+import { loadPresentation, savePresentation } from '@office-kit/pptx';
 
 const pres = await loadPresentation(bytes);
 // ...mutate pres...
@@ -135,7 +135,7 @@ const out = await savePresentation(pres);
 ### Token-based template fill
 
 ```ts
-import { loadPresentation, replaceTokensInPresentation, savePresentation } from 'pptx-kit';
+import { loadPresentation, replaceTokensInPresentation, savePresentation } from '@office-kit/pptx';
 
 const pres = await loadPresentation(templateBytes);
 replaceTokensInPresentation(pres, { name: 'Alice', date: '2026-12-01' });
@@ -152,7 +152,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeText,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const pres = await loadPresentation(blankBytes);
 const layout = findSlideLayout(pres, 'Title Slide');
@@ -171,14 +171,14 @@ import {
   addSlideTextBox,
   inches,
   setShapeRunFormat,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const box = addSlideTextBox(slide, {
   x: inches(1),
   y: inches(1),
   w: inches(5),
   h: inches(1),
-  text: 'Hello, pptx-kit',
+  text: 'Hello, @office-kit/pptx',
 });
 setShapeRunFormat(box, 0, 0, { bold: true, size: 28, color: '#C00000', font: 'Calibri' });
 ```
@@ -192,7 +192,7 @@ import {
   pt,
   setShapeFill,
   setShapeShadow,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 const star = addSlideShape(slide, {
   preset: 'star5',
@@ -215,7 +215,7 @@ setShapeShadow(star, {
 ### Add a column chart
 
 ```ts
-import { addSlideChart, inches } from 'pptx-kit';
+import { addSlideChart, inches } from '@office-kit/pptx';
 
 addSlideChart(slide, {
   x: inches(1),
@@ -234,7 +234,7 @@ addSlideChart(slide, {
 ### Add a table with header + banded rows
 
 ```ts
-import { addSlideTable, inches } from 'pptx-kit';
+import { addSlideTable, inches } from '@office-kit/pptx';
 
 addSlideTable(slide, {
   x: inches(0.7),
@@ -254,7 +254,7 @@ addSlideTable(slide, {
 ### Insert an image at a fixed size
 
 ```ts
-import { addSlideImage, inches } from 'pptx-kit';
+import { addSlideImage, inches } from '@office-kit/pptx';
 
 addSlideImage(slide, pngBytes, {
   x: inches(1),
@@ -267,7 +267,7 @@ addSlideImage(slide, pngBytes, {
 ### Replace an image's bytes in place
 
 ```ts
-import { getShapeKind, getShapeName, getSlideShapes, getSlides, setShapeImage } from 'pptx-kit';
+import { getShapeKind, getShapeName, getSlideShapes, getSlides, setShapeImage } from '@office-kit/pptx';
 
 for (const slide of getSlides(pres)) {
   for (const shape of getSlideShapes(slide)) {
@@ -281,7 +281,7 @@ for (const slide of getSlides(pres)) {
 ### Add a hyperlink on text
 
 ```ts
-import { setShapeHyperlink, setShapeTextFormat } from 'pptx-kit';
+import { setShapeHyperlink, setShapeTextFormat } from '@office-kit/pptx';
 
 setShapeHyperlink(linkShape, 'https://example.com');
 setShapeTextFormat(linkShape, { color: '#0563C1', underline: true });
@@ -290,7 +290,7 @@ setShapeTextFormat(linkShape, { color: '#0563C1', underline: true });
 ### Set a transition + animation
 
 ```ts
-import { setShapeAnimation, setSlideTransition } from 'pptx-kit';
+import { setShapeAnimation, setSlideTransition } from '@office-kit/pptx';
 
 setSlideTransition(slide, { effect: 'fade', speed: 'med' });
 setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 700 });
@@ -299,7 +299,7 @@ setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 700 });
 ### Validate before saving
 
 ```ts
-import { validatePresentation } from 'pptx-kit';
+import { validatePresentation } from '@office-kit/pptx';
 
 const issues = validatePresentation(pres);
 for (const i of issues) console.error(i.severity, i.message);
@@ -308,7 +308,7 @@ for (const i of issues) console.error(i.severity, i.message);
 ### Speaker notes
 
 ```ts
-import { setSlideNotes } from 'pptx-kit';
+import { setSlideNotes } from '@office-kit/pptx';
 
 setSlideNotes(slide, 'Open the comments pane to see review.');
 ```
@@ -316,7 +316,7 @@ setSlideNotes(slide, 'Open the comments pane to see review.');
 ### Comments
 
 ```ts
-import { addSlideComment, cm } from 'pptx-kit';
+import { addSlideComment, cm } from '@office-kit/pptx';
 
 addSlideComment(slide, {
   author: { name: 'Reviewer', initials: 'R' },

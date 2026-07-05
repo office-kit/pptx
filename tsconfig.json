@@ -4,7 +4,7 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "paths": {
-      "pptx-kit": ["./src/api/index.ts"]
+      "@office-kit/pptx": ["./src/api/index.ts"]
     },
     "lib": ["ES2022", "DOM"],
     "types": ["node"],

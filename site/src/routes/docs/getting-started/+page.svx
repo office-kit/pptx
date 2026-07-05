@@ -8,11 +8,11 @@
 
 # Getting started
 
-This page walks the canonical pptx-kit workflows: **fill a template**, **build a deck from scratch**, **edit images in place**. Every snippet below is a real `.ts` file in this repo — `svelte-check` compiles them against the live `pptx-kit` types on every build, so when this page renders, it's already proven that the code typechecks.
+This page walks the canonical @office-kit/pptx workflows: **fill a template**, **build a deck from scratch**, **edit images in place**. Every snippet below is a real `.ts` file in this repo — `svelte-check` compiles them against the live `@office-kit/pptx` types on every build, so when this page renders, it's already proven that the code typechecks.
 
 ## Token-based template fill
 
-The most common pptx-kit use case: take a designer-authored template, swap `{{tokens}}` with your data, save. Formatting on the surrounding runs is preserved.
+The most common @office-kit/pptx use case: take a designer-authored template, swap `{{tokens}}` with your data, save. Formatting on the surrounding runs is preserved.
 
 <CodeBlock html={ex.templateFill.html} title={ex.templateFill.path} />
 
@@ -24,7 +24,7 @@ For authoring from scratch you still need at least one master + layout — the s
 
 <CodeBlock html={ex.buildDeck.html} title={ex.buildDeck.path} />
 
-`inches(n)`, `cm(n)`, `pt(n)`, and `emu(n)` all return a branded `Emu` number — internally pptx-kit only sees EMUs, so unit confusion is caught at the type level.
+`inches(n)`, `cm(n)`, `pt(n)`, and `emu(n)` all return a branded `Emu` number — internally @office-kit/pptx only sees EMUs, so unit confusion is caught at the type level.
 
 ## Replace an image, preserve geometry
 
@@ -36,7 +36,7 @@ A common L2 (template-edit) workflow: a designer drops a placeholder image into 
 
 ## Direct fs helpers (Node)
 
-`pptx-kit/node` exposes `loadPresentationFile` / `savePresentationToFile` so you can skip the `readFile` / `writeFile` glue:
+`@office-kit/pptx/node` exposes `loadPresentationFile` / `savePresentationToFile` so you can skip the `readFile` / `writeFile` glue:
 
 <CodeBlock html={ex.nodeFs.html} title={ex.nodeFs.path} />
 
@@ -53,4 +53,4 @@ This works in any environment with `fetch`: modern browsers, Bun, Deno, Cloudfla
 - <strong><a href="{base}/docs/recipes">Recipes</a></strong> — copy-pasteable code for the most common tasks (charts, tables, comments, animations, transitions, validation).
 - <strong><a href="{base}/docs/cheatsheet">Cheatsheet</a></strong> — one-page lookup: "I want to do X" → exact functions to call.
 - <strong><a href="{base}/api">API reference</a></strong> — every export, organized by section.
-- **GitHub:** [`baseballyama/pptx-kit`](https://github.com/baseballyama/pptx-kit)
+- **GitHub:** [`office-kit/pptx`](https://github.com/office-kit/pptx)

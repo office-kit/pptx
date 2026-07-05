@@ -10,7 +10,7 @@ import {
   setParagraphAlignment,
   setShapeRunFormat,
   type SlideData,
-} from 'pptx-kit';
+} from '@office-kit/pptx';
 
 declare const slide: SlideData;
 

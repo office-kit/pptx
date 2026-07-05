@@ -45,7 +45,7 @@ export const examples = {
     title: 'Direct fs helpers',
     path: 'site/src/lib/examples/node-fs.ts',
     description:
-      'loadPresentationFile / savePresentationToFile from pptx-kit/node skip the manual fs glue.',
+      'loadPresentationFile / savePresentationToFile from @office-kit/pptx/node skip the manual fs glue.',
     source: nodeFs,
   },
   browserFetch: {

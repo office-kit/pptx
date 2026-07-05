@@ -49,12 +49,12 @@ importers:
         specifier: ^2.0.4
         version: 2.0.4
     devDependencies:
+      '@office-kit/pptx':
+        specifier: workspace:*
+        version: link:../..
       '@types/fontkit':
         specifier: ^2.0.9
         version: 2.0.9
-      pptx-kit:
-        specifier: workspace:*
-        version: link:../..
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)
@@ -80,6 +80,12 @@ importers:
         specifier: ^6.0.2
         version: 6.0.2
     devDependencies:
+      '@office-kit/pptx':
+        specifier: workspace:*
+        version: link:..
+      '@office-kit/pptx-preview':
+        specifier: workspace:*
+        version: link:../packages/preview
       '@sveltejs/adapter-static':
         specifier: ^3.0.10
         version: 3.0.10(@sveltejs/kit@2.65.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))
@@ -98,12 +104,6 @@ importers:
       pagefind:
         specifier: ^1.5.2
         version: 1.5.2
-      pptx-kit:
-        specifier: workspace:*
-        version: link:..
-      pptx-kit-preview:
-        specifier: workspace:*
-        version: link:../packages/preview
       shiki:
         specifier: ^4.2.0
         version: 4.2.0
