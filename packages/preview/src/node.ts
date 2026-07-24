@@ -19,6 +19,7 @@ export * from './index.ts';
 
 // Advanced: pre-build / share a fontkit measurer, or locate the bundled fonts.
 export { buildFontkitMeasurer, FONT_FILES, FONT_DIR } from './measure.ts';
+export type { FontkitMeasurerOptions, RegisteredFont } from './measure.ts';
 
 /** Raw, un-encoded raster: RGBA bytes in row-major order. */
 export interface RgbaImage {

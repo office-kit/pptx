@@ -33,6 +33,11 @@ export interface MeasureResult {
   readonly ascentPx?: number;
   readonly descentPx?: number;
   readonly lineGapPx?: number;
+  /** True when the width is an estimate rather than a glyph measurement —
+   *  the heuristic measurer always, the fontkit measurer when the resolved
+   *  font lacks a glyph and per-character ratios filled the gap. The audit
+   *  API surfaces this so borderline verdicts can be treated as advisory. */
+  readonly approximate?: boolean;
 }
 
 export type TextMeasurer = (text: string, spec: FontSpec) => MeasureResult;
@@ -78,17 +83,18 @@ export const substituteFamily = (family: string | null | undefined): string => {
 };
 
 // CJK detection — lifted from render-slide.ts so the heuristic measurer
-// matches today's autofit estimate exactly.
-const isCjk = (cp: number): boolean =>
+// matches today's autofit estimate exactly. Exported for the fontkit
+// measurer's missing-glyph fallback, which must estimate with the same ratios.
+export const isCjk = (cp: number): boolean =>
   (cp >= 0x3040 && cp <= 0x309f) ||
   (cp >= 0x30a0 && cp <= 0x30ff) ||
   (cp >= 0x4e00 && cp <= 0x9fff) ||
   (cp >= 0xac00 && cp <= 0xd7af);
 
 // Mean glyph width as a fraction of size for a typical sans-serif — the same
-// 0.55 PowerPoint's autofit estimator uses. Only used by the heuristic
-// measurer (no real font metrics available).
-const AVG_GLYPH_W_RATIO = 0.55;
+// 0.55 PowerPoint's autofit estimator uses. Used by the heuristic measurer
+// and by the fontkit measurer's missing-glyph fallback.
+export const AVG_GLYPH_W_RATIO = 0.55;
 
 export const defaultMeasurer: TextMeasurer = (text, spec) => {
   let w = 0;
@@ -201,7 +207,7 @@ export interface TextBodyInput {
 // ---------------------------------------------------------------------------
 // Layout internals.
 
-interface Token {
+export interface Token {
   readonly text: string;
   readonly piece: PieceInput;
   readonly isSpace: boolean;
@@ -209,8 +215,11 @@ interface Token {
   width: number;
 }
 
-interface Line {
+export interface Line {
   readonly tokens: Token[];
+  /** Index into TextBodyInput.paragraphs of the paragraph this line came
+   *  from — the audit API maps wrapped line counts back to paragraphs. */
+  readonly paraIndex: number;
   ascent: number;
   descent: number;
   lineGap: number;
@@ -233,7 +242,7 @@ interface Frame {
 
 // A laid-out line ready to emit: its baseline Y plus an X shift (non-zero only
 // for the second-and-later columns of a multi-column body).
-interface Placement {
+export interface Placement {
   readonly line: Line;
   readonly baselineY: number;
   readonly dx: number;
@@ -269,7 +278,7 @@ const fmt = (n: number): string => {
 
 // ---------------------------------------------------------------------------
 
-interface LayoutCore {
+export interface LayoutCore {
   readonly placements: Placement[];
   readonly requiredH: number; // laid-out content height in px (top-anchored space)
   readonly vert: VerticalLayout;
@@ -277,7 +286,9 @@ interface LayoutCore {
   readonly cy: number;
 }
 
-const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutCore => {
+// Exported (module-level, not part of the package's public surface) for the
+// audit API, which reads the raw placements instead of emitting SVG.
+export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutCore => {
   const widthCache = new Map<string, number>();
   const metricCache = new Map<string, { a: number; d: number; g: number }>();
   const key = (text: string, s: FontSpec): string =>
@@ -318,7 +329,8 @@ const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutCore => 
     const lines: Line[] = [];
     let cursorY = 0;
 
-    for (const para of input.paragraphs) {
+    for (let paraIndex = 0; paraIndex < input.paragraphs.length; paraIndex++) {
+      const para = input.paragraphs[paraIndex]!;
       cursorY += para.spcBefPx;
       const wrapLeft = contentLeft + para.marLpx;
       const wrapRight = contentRight - para.marRpx;
@@ -391,6 +403,7 @@ const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutCore => 
           : (isFirst ? firstLeft : wrapLeft) + bulletLead;
         const line: Line = {
           tokens: toks,
+          paraIndex,
           ascent,
           descent,
           lineGap,

@@ -175,7 +175,7 @@ const DEFAULT_SIZE = { width: 12_192_000, height: 6_858_000 };
 // Real browsers refuse to render text when CSS font-size grows into
 // the hundreds of thousands of pixels (which is what happens if you
 // keep EMU as the SVG user unit).
-const EMU_PER_PX = 9525;
+export const EMU_PER_PX = 9525;
 
 // CSS px per typographic point.
 const PX_PER_PT = 96 / 72;
@@ -2200,7 +2200,7 @@ const hasStrikeFmt = (fmt: TextFormat | null): boolean => {
   return s !== undefined && s !== false && s !== 'noStrike';
 };
 
-interface SvgTextArgs {
+export interface SvgTextArgs {
   readonly pres: PresentationData;
   readonly shape: SlideShapeData;
   readonly theme: PresentationTheme | null;
@@ -2220,6 +2220,13 @@ interface SvgTextArgs {
   readonly measure: TextMeasurer;
   readonly vert: VerticalLayout;
   readonly columns: ColumnLayout | null;
+  /** Maps an authored font name onto the family the measurer keys off.
+   *  The render paths leave this unset (= `substituteFamily`, whose output
+   *  must match the bundled TTFs' internal names for resvg). The audit path
+   *  passes the authored name through so a fontkit measurer with
+   *  user-registered fonts can resolve it before falling back to the
+   *  substitution map. */
+  readonly resolveFamily?: (family: string | null) => string;
 }
 
 const alignOf = (a: string): ParaInput['align'] =>
@@ -2239,7 +2246,9 @@ const alignOf = (a: string): ParaInput['align'] =>
 // agree for text that fits; they differ only past the box, where the deck is
 // already out of spec. Faithful multi-column upright wrapping in the SVG engine
 // is disproportionate to that edge case, so we accept the clip.
-const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): VerticalLayout => {
+export const verticalLayoutOf = (
+  vert: ReturnType<typeof getShapeTextDirection>,
+): VerticalLayout => {
   switch (vert) {
     case 'vert':
     case 'eaVert':
@@ -2256,7 +2265,7 @@ const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): Verti
 };
 
 // Build the px-native engine input from the resolved paraData (at a.autoFitScale).
-const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
+export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
   const scale = a.autoFitScale;
   const paragraphs: ParaInput[] = a.paraData.map((para, pi): ParaInput => {
     const pieces: PieceInput[] = [];
@@ -2278,7 +2287,7 @@ const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
           underline: fmt?.underline ?? true,
         };
       }
-      const family = substituteFamily(fmt?.font ?? a.themeFace);
+      const family = (a.resolveFamily ?? substituteFamily)(fmt?.font ?? a.themeFace);
       const sizePx = run.sizePt * scale * PX_PER_PT;
       const fillHex =
         fmt?.color !== undefined && fmt.color !== null
@@ -2426,7 +2435,7 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
     : a.defaultColor;
   return {
     text: char,
-    family: substituteFamily(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
+    family: (a.resolveFamily ?? substituteFamily)(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
     sizePx,
     fillHex,
     ...(para.bulletImageHref ? { imageHref: para.bulletImageHref } : {}),
@@ -2462,21 +2471,52 @@ const presetTextRect = (
   }
 };
 
-const renderTextBody = (
+// The render-path-independent half of a shape's text body: the resolved
+// paragraph/run model, the effective bodyPr cascade, the inner text rect, and
+// the final autofit factor. Extracted from renderTextBody so the audit API
+// (`auditTextLayout`) measures with EXACTLY the pipeline the renderer draws
+// with — any drift between the two would make the audit lie about the preview.
+export interface TextBodyModel {
+  readonly paraData: readonly ParaData[];
+  readonly numberLabels: ReadonlyArray<string | null>;
+  readonly authoredAutofit: ReturnType<typeof getShapeTextAutoFitParams>;
+  /** Final autofit factor: the baked `fontScale`, the bare-normAutofit shrink
+   *  search result, or the foreignObject-only heuristic. SVG-semantics callers
+   *  (the fidelity path, the audit) must apply it only when `authoredAutofit`
+   *  is set — see the render path's `svgScale`. */
+  readonly autoFitScale: number;
+  readonly lineHeightScale: number;
+  readonly defaultPt: number;
+  readonly themeFace: string | null;
+  readonly effectiveDefaultFont: string;
+  readonly effectiveBody: ReturnType<typeof getShapeBodyPrEffective>;
+  readonly anchor: 'top' | 'center' | 'bottom';
+  /** Inner text rect in EMU (preset-geometry text rect + insets applied). */
+  readonly innerX: number;
+  readonly innerY: number;
+  readonly innerW: number;
+  readonly innerH: number;
+  readonly svgTextRect: (v: VerticalLayout) => { x: number; y: number; w: number; h: number };
+}
+
+// Returns null when the shape has no text body worth laying out (no
+// paragraphs, no run text, or a degenerate inner rect).
+export const resolveTextBodyModel = (
   pres: PresentationData,
   shape: SlideShapeData,
   bounds: { x: number; y: number; w: number; h: number },
   theme: PresentationTheme | null,
   phType: string | null,
-  ctx: LayoutCtx,
-): string => {
+  measure: TextMeasurer,
+  defaultColor: string,
+): TextBodyModel | null => {
   let paragraphCount: number;
   try {
     paragraphCount = getShapeParagraphCount(shape);
   } catch {
-    return '';
+    return null;
   }
-  if (paragraphCount === 0) return '';
+  if (paragraphCount === 0) return null;
 
   const defaultPt = placeholderDefaultPt(phType);
   // Theme font stack — `<a:fontScheme><a:majorFont>` is the title face,
@@ -2540,7 +2580,7 @@ const renderTextBody = (
     innerW = rectW;
     innerH = rectH;
   }
-  if (innerW <= 0 || innerH <= 0) return '';
+  if (innerW <= 0 || innerH <= 0) return null;
 
   // The rect the pure-SVG path lays text into for a given vertical layout.
   // Horizontal and `upright` (wordArtVert) text use the shared inner rect; the
@@ -2708,7 +2748,7 @@ const renderTextBody = (
       indent,
     });
   }
-  if (!hasAnyText) return '';
+  if (!hasAnyText) return null;
 
   // Prefer the *authored* autofit factor when PowerPoint already
   // computed one (`<a:normAutofit fontScale=…/>`). That's the same
@@ -2827,30 +2867,82 @@ const renderTextBody = (
       lineHeightScale,
       defaultPt,
       themeFace,
-      defaultColor: activeDeckTextColor,
+      defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
       wrap: effectiveBody.wrap !== 'none',
       innerX: fitRect.x,
       innerY: fitRect.y,
       innerW: fitRect.w,
       innerH: fitRect.h,
-      measure: ctx.measure,
+      measure,
       vert: fitVert,
       columns: fitColumns,
     };
     let s = 1;
     while (s > AUTOFIT_FLOOR) {
       if (
-        measureTextBodyHeight(
-          buildSvgTextInput({ ...fitArgsBase, autoFitScale: s }),
-          ctx.measure,
-        ) <= fitBoxPx
+        measureTextBodyHeight(buildSvgTextInput({ ...fitArgsBase, autoFitScale: s }), measure) <=
+        fitBoxPx
       )
         break;
       s -= AUTOFIT_STEP;
     }
     autoFitScale = Math.max(AUTOFIT_FLOOR, s);
   }
+
+  return {
+    paraData,
+    numberLabels,
+    authoredAutofit,
+    autoFitScale,
+    lineHeightScale,
+    defaultPt,
+    themeFace,
+    effectiveDefaultFont,
+    effectiveBody,
+    anchor,
+    innerX,
+    innerY,
+    innerW,
+    innerH,
+    svgTextRect,
+  };
+};
+
+const renderTextBody = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  bounds: { x: number; y: number; w: number; h: number },
+  theme: PresentationTheme | null,
+  phType: string | null,
+  ctx: LayoutCtx,
+): string => {
+  const model = resolveTextBodyModel(
+    pres,
+    shape,
+    bounds,
+    theme,
+    phType,
+    ctx.measure,
+    activeDeckTextColor,
+  );
+  if (model === null) return '';
+  const {
+    paraData,
+    numberLabels,
+    authoredAutofit,
+    autoFitScale,
+    defaultPt,
+    themeFace,
+    effectiveDefaultFont,
+    effectiveBody,
+    anchor,
+    innerX,
+    innerY,
+    innerW,
+    innerH,
+    svgTextRect,
+  } = model;
 
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
