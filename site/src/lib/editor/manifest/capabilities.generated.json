@@ -1,0 +1,2583 @@
+{
+  "generatedFrom": "src/api/index.ts",
+  "count": 147,
+  "capabilities": [
+    {
+      "id": "addBlankSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "addContentSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ title?: string; body?: string }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSectionHeaderSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "title",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "{ layout: SlideLayoutData }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideAt",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "atIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ layout: SlideLayoutData }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideChart",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "chart",
+      "file": "api/fn/charts.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ spec: ChartSpec; x: Emu; y: Emu; w: Emu; h: Emu; name?: string; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideComment",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "comment",
+      "file": "api/fn/comments.ts",
+      "returns": "SlideCommentData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ author: { name: string; initials?: string }; text: string; position?: CommentPosition | null; date?: Date; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideImage",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-authoring.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "bytes",
+          "type": "Uint8Array",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "opts",
+          "type": "{ x: Emu; y: Emu; w: Emu; h: Emu; format?: ImageFormat; name?: string; fit?: ImageFit }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideLine",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/shape-authoring.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ from: { x: Emu; y: Emu }; to: { x: Emu; y: Emu }; color?: string; widthEmu?: number; name?: string; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideShape",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-authoring.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ preset: PresetShape | string; x: Emu; y: Emu; w: Emu; h: Emu; text?: string; /** Vertical text anchor (`t` / `ctr` / `b`). Horizontal alignment is set * separately via `setShapeAlignment` / `setParagraphAlignment`. */ textAnchor?: 'ctr' | 't' | 'b'; name?: string; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideTable",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/shape-authoring.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ x: Emu; y: Emu; w: Emu; h: Emu; rows: ReadonlyArray<ReadonlyArray<string>>; colWidths?: ReadonlyArray<Emu>; rowHeights?: ReadonlyArray<Emu>; firstRow?: boolean; bandRow?: boolean; name?: string; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideTextBox",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-authoring.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "{ x: Emu; y: Emu; w: Emu; h: Emu; text: string; name?: string }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addTitleSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "title",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "appendShapeText",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "appendSlideNotes",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "text",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "bringShapeForward",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "bringShapeToFront",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearAllHyperlinks",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearAllSlideComments",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "comment",
+      "file": "api/fn/comments.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearAllSlideNotes",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearShapeEffects",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "effect",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearShapeFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "fill",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearShapeStroke",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearSlideAnimations",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "animation",
+      "file": "api/fn/shape-animation.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearSlideBackground",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearSlideComments",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "comment",
+      "file": "api/fn/comments.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearSlideHyperlinks",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearSlideShapes",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearSlideTransition",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "transition",
+      "file": "api/fn/slide-transition.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "clearTableCellFill",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "compactPackage",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/package-introspection.ts",
+      "returns": "{ readonly removed: ReadonlyArray<string> }",
+      "canvas": false,
+      "params": []
+    },
+    {
+      "id": "copyShape",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "sourceShape",
+          "type": "SlideShapeData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "createPresentation",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "presentation",
+      "file": "api/fn/package-io.ts",
+      "returns": "PresentationData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "{ size?: PresentationSize }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "duplicateSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "slide",
+          "type": "SlideData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "duplicateSlideAt",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "atIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "slide",
+          "type": "SlideData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "groupShapes",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "shape",
+      "file": "api/fn/shape-grouping.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "shapes",
+          "type": "ReadonlyArray<SlideShapeData>",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "opts",
+          "type": "{ name?: string }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "importSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "SlideData",
+      "canvas": false,
+      "params": [
+        {
+          "name": "sourceSlide",
+          "type": "SlideData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "targetLayout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "incrementRevision",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/properties.ts",
+      "returns": "number",
+      "canvas": false,
+      "params": []
+    },
+    {
+      "id": "insertTableColumn",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "atIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": true
+        },
+        {
+          "name": "widthEmu",
+          "type": "number",
+          "kind": "number",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "insertTableRow",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "atIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": true
+        },
+        {
+          "name": "cells",
+          "type": "ReadonlyArray<string>",
+          "kind": "object",
+          "optional": false,
+          "default": "[]"
+        }
+      ]
+    },
+    {
+      "id": "mergePresentations",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "ReadonlyArray<SlideData>",
+      "canvas": false,
+      "params": [
+        {
+          "name": "sourcePres",
+          "type": "PresentationData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "targetLayout",
+          "type": "SlideLayoutData | ((sourceSlide: SlideData, index: number) => SlideLayoutData),",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "mergeTableCells",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "block",
+          "type": "{ readonly row: number; readonly col: number; readonly rowSpan: number; readonly colSpan: number; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "moveSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "slide",
+          "type": "SlideData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "toIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeShape",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "removeSlide",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "slide",
+          "type": "SlideData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeSlideComment",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "comment",
+      "file": "api/fn/comments.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "comment",
+          "type": "SlideCommentData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeSlideNotes",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "removeTableColumn",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "atIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeTableRow",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "atIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeThumbnail",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/thumbnail.ts",
+      "returns": "void",
+      "canvas": false,
+      "params": []
+    },
+    {
+      "id": "renameShape",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-read-base.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "newName",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceHyperlink",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "from",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceTextInNotes",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "from",
+          "type": "string | RegExp",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceTextInPresentation",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "from",
+          "type": "string | RegExp",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceTextInSlide",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "from",
+          "type": "string | RegExp",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceTextInSlideNotes",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "boolean",
+      "canvas": true,
+      "params": [
+        {
+          "name": "from",
+          "type": "string | RegExp",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "to",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceTokensInPresentation",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "tokens",
+          "type": "Record<string, string>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "replaceTokensInSlide",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/shape-slide-read.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": [
+        {
+          "name": "tokens",
+          "type": "Record<string, string>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "reverseSlides",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "sendShapeBackward",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "sendShapeToBack",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "setChartSpec",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "chart",
+      "file": "api/fn/charts.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "chart",
+          "type": "SlideChartData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "spec",
+          "type": "ChartSpec",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setCoreProperties",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/properties.ts",
+      "returns": "void",
+      "canvas": false,
+      "params": [
+        {
+          "name": "values",
+          "type": "Partial<CoreProperties>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setExtendedProperties",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/properties.ts",
+      "returns": "void",
+      "canvas": false,
+      "params": [
+        {
+          "name": "values",
+          "type": "Partial<ExtendedProperties>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setMediaPartBytes",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/package-introspection.ts",
+      "returns": "boolean",
+      "canvas": false,
+      "params": [
+        {
+          "name": "partName",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "bytes",
+          "type": "Uint8Array",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setParagraphAlignment",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "align",
+          "type": "ParagraphAlignment",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setParagraphBullet",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "style",
+          "type": "BulletStyle",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setParagraphLevel",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "level",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setParagraphLineSpacing",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "spacing",
+          "type": "| { readonly kind: 'pct'; readonly value: number } | { readonly kind: 'pts'; readonly value: number } | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setParagraphSpacing",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "opts",
+          "type": "{ beforePts?: number | null; afterPts?: number | null }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setPresentationFonts",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "theme",
+      "file": "api/fn/theme.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "fonts",
+          "type": "PresentationFontsInput",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setPresentationTheme",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "theme",
+      "file": "api/fn/theme.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "theme",
+          "type": "Partial<Omit<PresentationTheme, 'name'>> & { name?: string }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeAdjustValues",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "values",
+          "type": "Readonly<Record<string, number>>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeAlignment",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "align",
+          "type": "ParagraphAlignment",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeAltTitle",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-read-base.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "title",
+          "type": "string | null",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeAnimation",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "animation",
+      "file": "api/fn/shape-animation.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "AnimationOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeBounds",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-read-base.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "bounds",
+          "type": "ShapeBounds",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeBullets",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "style",
+          "type": "BulletStyle",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeClickAction",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-click-action.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "action",
+          "type": "ShapeClickAction | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeDescription",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-read-base.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "description",
+          "type": "string | null",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "fill",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "color",
+          "type": "string",
+          "kind": "color",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeFlip",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "{ horizontal?: boolean; vertical?: boolean }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeGlow",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "effect",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "GlowOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeGradientFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "fill",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "GradientFillOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeHidden",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-read-base.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "hidden",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeHyperlink",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "hyperlink",
+      "file": "api/fn/shape-paragraph.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "url",
+          "type": "string | null",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "kind": "string",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "setShapeImage",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "bytes",
+          "type": "Uint8Array",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ format?: ImageFormat; fit?: ImageFit }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageBrightness",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "number | null",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageContrast",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "number | null",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageCrop",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "crop",
+          "type": "ImageCrop | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "bytes",
+          "type": "Uint8Array",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ format?: ImageFormat }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageOpacity",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opacity",
+          "type": "number | null",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeNoFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "fill",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "setShapeNoStroke",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "setShapePatternFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "fill",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "PatternFillOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapePosition",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "x",
+          "type": "Emu",
+          "kind": "emu",
+          "optional": false
+        },
+        {
+          "name": "y",
+          "type": "Emu",
+          "kind": "emu",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeRotation",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "degrees",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeRunFormat",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-paragraph.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "runIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "format",
+          "type": "TextFormat",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeRunHyperlink",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "hyperlink",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "runIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "url",
+          "type": "string | null",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "tooltip",
+          "type": "string",
+          "kind": "string",
+          "optional": true
+        }
+      ]
+    },
+    {
+      "id": "setShapeRunText",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "runIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeShadow",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "effect",
+      "file": "api/fn/shape-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "ShadowOptions",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setShapeSize",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "w",
+          "type": "Emu",
+          "kind": "emu",
+          "optional": false
+        },
+        {
+          "name": "h",
+          "type": "Emu",
+          "kind": "emu",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeStroke",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "{ color?: string; widthEmu?: number }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeStrokeArrow",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "end",
+          "type": "'head' | 'tail'",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["head", "tail"]
+        },
+        {
+          "name": "options",
+          "type": "ArrowOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeStrokeCap",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "cap",
+          "type": "'rnd' | 'sq' | 'flat' | null",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["rnd", "sq", "flat"]
+        }
+      ]
+    },
+    {
+      "id": "setShapeStrokeCompound",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "cmpd",
+          "type": "'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri' | null",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["sng", "dbl", "thickThin", "thinThick", "tri"]
+        }
+      ]
+    },
+    {
+      "id": "setShapeStrokeDash",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "dash",
+          "type": "LineDash",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeStrokeJoin",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "stroke",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "join",
+          "type": "'round' | 'bevel' | 'miter' | null",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["round", "bevel", "miter"]
+        }
+      ]
+    },
+    {
+      "id": "setShapeText",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ bullets?: BulletStyle }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextAnchor",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "anchor",
+          "type": "TextAnchor",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextAutoFit",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "mode",
+          "type": "TextAutoFit",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextBodyRotationDeg",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "rotationDeg",
+          "type": "number | null",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextColumns",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "columns",
+          "type": "{ count: number; gapEmu?: number } | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextDirection",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "direction",
+          "type": "| 'horz' | 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextFormat",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "format",
+          "type": "TextFormat",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextMargins",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "margins",
+          "type": "{ left?: number; top?: number; right?: number; bottom?: number }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextWrap",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "wrap",
+          "type": "TextWrap",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeZIndex",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-removal-zorder.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "toIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackground",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "color",
+          "type": "string",
+          "kind": "color",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackgroundImage",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "bytes",
+          "type": "Uint8Array",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ format?: ImageFormat }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setSlideBody",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-title.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "text",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideHidden",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "hidden",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideLayout",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/shape-slide-read.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideNotes",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "notes",
+      "file": "api/fn/slide-notes.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "value",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlidePlaceholders",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-title.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "byType",
+          "type": "Readonly<Record<string, string>>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideSections",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "section",
+      "file": "api/fn/sections.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "sections",
+          "type": "ReadonlyArray<{ name: string; slides: ReadonlyArray<SlideData> }>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideSize",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-size.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "SlideSize",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideTitle",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-title.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "title",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideTransition",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "transition",
+      "file": "api/fn/slide-transition.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "TransitionOptions",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellAlignment",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "align",
+          "type": "ParagraphAlignment",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellAnchor",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "anchor",
+          "type": "'top' | 'center' | 'bottom' | null",
+          "kind": "enum",
+          "optional": false,
+          "enumValues": ["top", "center", "bottom"]
+        }
+      ]
+    },
+    {
+      "id": "setTableCellBorders",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "sides",
+          "type": "{ left?: Partial<TableCellBorder> | null; right?: Partial<TableCellBorder> | null; top?: Partial<TableCellBorder> | null; bottom?: Partial<TableCellBorder> | null; tlToBr?: Partial<TableCellBorder> | null; blToTr?: Partial<TableCellBorder> | null; } | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellFill",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "color",
+          "type": "string",
+          "kind": "color",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellMargins",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "margins",
+          "type": "{ left?: number | null; right?: number | null; top?: number | null; bottom?: number | null; } | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellText",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "text",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellTextDirection",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "direction",
+          "type": "| 'horz' | 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellTextFormat",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "format",
+          "type": "TextFormat",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableColumnWidth",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "col",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "width",
+          "type": "Emu",
+          "kind": "emu",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableRowHeight",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "row",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "height",
+          "type": "Emu",
+          "kind": "emu",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableStyleFlags",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "flags",
+          "type": "{ firstRow?: boolean; lastRow?: boolean; firstCol?: boolean; lastCol?: boolean; bandRow?: boolean; bandCol?: boolean; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableStyleId",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "styleId",
+          "type": "string | null",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setThumbnail",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/thumbnail.ts",
+      "returns": "void",
+      "canvas": false,
+      "params": [
+        {
+          "name": "bytes",
+          "type": "Uint8Array",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ format?: ImageFormat }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "sortSlides",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "compareFn",
+          "type": "(a: SlideData, b: SlideData) => number,",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "swapSlides",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-deck.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "indexA",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "indexB",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "touchModified",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "presentation",
+      "file": "api/fn/properties.ts",
+      "returns": "void",
+      "canvas": false,
+      "params": [
+        {
+          "name": "at",
+          "type": "Date",
+          "kind": "object",
+          "optional": false,
+          "default": "new Date()"
+        }
+      ]
+    },
+    {
+      "id": "translateShapes",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "shape",
+      "file": "api/fn/shape-slide-read.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "shapes",
+          "type": "ReadonlyArray<SlideShapeData>",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "dxEmu",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "dyEmu",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "ungroupShapes",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-grouping.ts",
+      "returns": "ReadonlyArray<SlideShapeData>",
+      "canvas": true,
+      "params": []
+    }
+  ]
+}

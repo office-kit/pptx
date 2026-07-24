@@ -1,0 +1,108 @@
+/* Design tokens for the editor — a restrained, Office-like light theme.
+   Scoped under .ok-editor so the editor's chrome never leaks into the docs
+   site (and vice versa). */
+.ok-editor {
+  --ok-accent: #b83b1d; /* office-kit brand rust, used like PowerPoint's orange */
+  --ok-accent-2: #d95a3a;
+  --ok-bg: #f3f2f1;
+  --ok-panel: #ffffff;
+  --ok-panel-2: #faf9f8;
+  --ok-ribbon: #f9f8f7;
+  --ok-ribbon-active: #ffffff;
+  --ok-border: #e1dfdd;
+  --ok-border-strong: #c8c6c4;
+  --ok-text: #201f1e;
+  --ok-text-2: #605e5c;
+  --ok-text-3: #8a8886;
+  --ok-hover: #f3f2f1;
+  --ok-selected: #eef4fb;
+  --ok-selected-border: #2b6cb0;
+  --ok-canvas-bg: #d0cfce;
+  --ok-danger: #a4262c;
+  --ok-radius: 3px;
+  --ok-radius-lg: 6px;
+  --ok-shadow: 0 1.6px 3.6px rgba(0, 0, 0, 0.13), 0 0.3px 0.9px rgba(0, 0, 0, 0.1);
+  --ok-shadow-lg: 0 6.4px 14.4px rgba(0, 0, 0, 0.13), 0 1.2px 3.6px rgba(0, 0, 0, 0.11);
+  --ok-font: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --ok-mono: 'Cascadia Code', 'SF Mono', 'Consolas', monospace;
+  --ok-ribbon-h: 92px;
+  --ok-nav-w: 200px;
+  --ok-panel-w: 300px;
+
+  font-family: var(--ok-font);
+  color: var(--ok-text);
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.ok-editor *,
+.ok-editor *::before,
+.ok-editor *::after {
+  box-sizing: border-box;
+}
+
+/* Small reusable primitives shared across editor components. */
+.ok-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--ok-text);
+  border-radius: var(--ok-radius);
+  padding: 4px 8px;
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+}
+.ok-btn:hover {
+  background: var(--ok-hover);
+  border-color: var(--ok-border);
+}
+.ok-btn:active {
+  background: var(--ok-selected);
+}
+.ok-btn[aria-pressed='true'],
+.ok-btn.is-active {
+  background: var(--ok-selected);
+  border-color: var(--ok-selected-border);
+}
+.ok-btn:disabled {
+  color: var(--ok-text-3);
+  cursor: default;
+  background: transparent;
+  border-color: transparent;
+}
+
+.ok-input,
+.ok-select {
+  border: 1px solid var(--ok-border-strong);
+  border-radius: var(--ok-radius);
+  padding: 3px 6px;
+  font: inherit;
+  color: var(--ok-text);
+  background: var(--ok-panel);
+  min-width: 0;
+}
+.ok-input:focus,
+.ok-select:focus {
+  outline: 2px solid var(--ok-selected-border);
+  outline-offset: -1px;
+}
+
+.ok-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.ok-field > label {
+  font-size: 11px;
+  color: var(--ok-text-2);
+}
+
+.ok-scroll {
+  overflow: auto;
+  scrollbar-width: thin;
+}

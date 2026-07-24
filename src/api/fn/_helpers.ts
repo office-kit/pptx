@@ -8,6 +8,7 @@ import { readSlidePart } from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
+  elem,
   firstChildElement,
   qname,
   serializeXml,
@@ -119,6 +120,36 @@ export const requireTxBody = (shape: SlideShapeData): XmlElement => {
   if (txBody === null) {
     throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
   }
+  return txBody;
+};
+
+const NAME_BODY_PR = qname('a', 'bodyPr', NS.dml);
+const NAME_LST_STYLE = qname('a', 'lstStyle', NS.dml);
+const NAME_A_P = qname('a', 'p', NS.dml);
+
+/**
+ * Returns the shape's `<p:txBody>`, creating an empty one if absent.
+ *
+ * PowerPoint always gives an autoshape a text body so it can hold text the
+ * moment you click in and type. A shape authored without text (e.g.
+ * `addSlideShape` with no `text`) has none, so setting text later would
+ * otherwise fail — this makes every text-bearing shape editable. Unlike
+ * `requireTxBody`, it never throws for a missing body; it still throws for a
+ * non-text-bearing shape kind (picture / table / etc.).
+ */
+export const ensureTxBody = (shape: SlideShapeData): XmlElement => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
+    throw new Error(
+      `text operations require a shape kind; ${shape[SHAPE_SNAPSHOT].kind} is not text-bearing`,
+    );
+  }
+  const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  if (existing !== null) return existing;
+  const txBody = elem(NAME_TX_BODY, {
+    children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), elem(NAME_A_P)],
+  });
+  // txBody is the last child of <p:sp>, after spPr / style.
+  shape[SHAPE_ELEMENT].children.push(txBody);
   return txBody;
 };
 
