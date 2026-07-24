@@ -66,6 +66,57 @@ Cambria, Liberation ≈ Arial/Times/Courier; OFL / Apache-2.0, see
 all reference the same fonts, so wrap/positioning math agrees with the painted
 glyphs and the result is deterministic (no system fonts).
 
+### Text-layout audit (overflow / soft-wrap detection)
+
+```ts
+import { auditTextLayout } from '@office-kit/pptx-preview';
+import { buildFontkitMeasurer } from '@office-kit/pptx-preview/node';
+
+// Register the fonts the deck actually uses (especially CJK) for accurate widths.
+const measureText = buildFontkitMeasurer({
+  fonts: [{ family: '游ゴシック', source: 'fonts/YuGothic.ttf' }],
+});
+
+const issues = auditTextLayout(pres, { measureText, reportSoftWraps: true });
+// → [{ kind: 'overflow-y', slideIndex: 2, shapeName: 'Title 1', overflowPx: 14.3, approximate: false }, …]
+```
+
+`auditTextLayout` measures every shape's text body — placeholders, text boxes,
+autoshapes, shapes inside groups — with the same engine the preview renders
+with, honouring the effective bodyPr cascade (insets, wrap, anchor, vertical
+text, columns) and `normAutofit` shrinking. It returns one issue per finding:
+
+| `kind`       | Meaning                                                                       | Extra fields                   |
+| ------------ | ----------------------------------------------------------------------------- | ------------------------------ |
+| `overflow-x` | Text ink escapes the box horizontally (typically `wrap="none"`)               | `overflowPx`                   |
+| `overflow-y` | Wrapped text is taller than the box (or escapes the top when bottom-anchored) | `overflowPx`                   |
+| `soft-wrap`  | A paragraph wrapped onto more lines than its authored `<a:br>` count (段落ち) | `paragraphIndex`, `extraLines` |
+
+Every issue also carries `slideIndex`, `shapeName`, and `approximate` —
+`true` when a width had to be estimated (the heuristic measurer, or glyphs the
+available fonts don't cover), in which case treat borderline verdicts as
+advisory.
+
+Options:
+
+- `measureText` — the measurer. Defaults to the browser-safe heuristic
+  (≈0.55 em per Latin glyph, 1 em per CJK glyph, always `approximate`); pass
+  `buildFontkitMeasurer()` in Node for real glyph metrics.
+- `tolerancePx` — overflow at or below this many px (96 DPI) is ignored.
+  Default `1`; raise it if you only care about visibly broken slides.
+- `reportSoftWraps` — opt into `soft-wrap` issues. Off by default because
+  wrapping is normal for body text; turn it on when auditing titles or labels
+  meant to stay on one line.
+
+Accuracy: the bundled fonts are metric-compatible with the Office defaults, so
+verdicts for Calibri / Cambria / Arial / Times / Courier decks match real glyph
+widths; for any other font (custom brand fonts, Japanese fonts), register the
+real files via `buildFontkitMeasurer({ fonts })` — a registered font is used
+both for runs that name it and as a glyph fallback for CJK text in runs that
+resolve to a Latin face. Line-break positions can differ from PowerPoint by a
+few characters in edge cases (kinsoku, hyphenation), which is what the default
+1 px tolerance absorbs. Table cell text is not audited yet.
+
 ## Fidelity
 
 This is a high-fidelity preview, not a spec-complete PowerPoint renderer.
