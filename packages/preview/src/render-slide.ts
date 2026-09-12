@@ -260,10 +260,8 @@ const mimeFromPartName = (name: string | null): string | null => {
   return EXT_TO_MIME[ext] ?? null;
 };
 
-// Render the picture if @office-kit/pptx handed us bytes; fall back to a
-// labelled placeholder describing why nothing is drawn. EMF / WMF
-// pictures still won't display (no browser can decode them) but the
-// label tells the user what's there.
+// Unsupported image formats retain a labelled placeholder so users can
+// identify artwork that the preview cannot render.
 const renderPicture = (
   shape: SlideShapeData,
   pres: PresentationData,
