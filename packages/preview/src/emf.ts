@@ -68,15 +68,18 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
   if (
     file.getUint32(0, true) !== RECORD.HEADER ||
     file.getUint32(SIGNATURE_OFFSET, true) !== SIGNATURE
-  ) return null;
+  )
+    return null;
   const left = file.getInt32(HEADER_BOUNDS_OFFSET, true);
   const top = file.getInt32(HEADER_BOUNDS_OFFSET + WORD_BYTES, true);
   const width = file.getInt32(HEADER_BOUNDS_OFFSET + WORD_BYTES * 2, true) - left;
   const height = file.getInt32(HEADER_BOUNDS_OFFSET + WORD_BYTES * 3, true) - top;
   if (
-    width <= 0 || height <= 0 ||
+    width <= 0 ||
+    height <= 0 ||
     file.getUint32(HEADER_FILE_SIZE_OFFSET, true) !== bytes.byteLength
-  ) return null;
+  )
+    return null;
 
   let windowX = 0;
   let windowY = 0;
@@ -109,9 +112,11 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
     const type = file.getUint32(offset, true);
     const size = file.getUint32(offset + WORD_BYTES, true);
     if (
-      size < RECORD_HEADER_BYTES || size % WORD_BYTES !== 0 ||
+      size < RECORD_HEADER_BYTES ||
+      size % WORD_BYTES !== 0 ||
       size > bytes.byteLength - offset
-    ) return null;
+    )
+      return null;
     const record = new DataView(bytes.buffer, bytes.byteOffset + offset, size);
     const unsigned = (at: number) => record.getUint32(at, true);
     const signed = (at: number) => record.getInt32(at, true);
@@ -122,9 +127,12 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         break;
       case RECORD.EOF:
         if (
-          size < EOF_MIN_BYTES || offset + size !== bytes.byteLength || recordingPath ||
+          size < EOF_MIN_BYTES ||
+          offset + size !== bytes.byteLength ||
+          recordingPath ||
           recordCount !== file.getUint32(HEADER_RECORD_COUNT_OFFSET, true)
-        ) return null;
+        )
+          return null;
         return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${left} ${top} ${width} ${height}" width="${width}" height="${height}"><defs>${definitions.join('')}</defs>${drawings.join('')}</svg>`;
       case RECORD.SETMAPMODE:
         if (size < VALUE_RECORD_BYTES) return null;
@@ -161,17 +169,23 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         const style = unsigned(SECOND_VALUE_OFFSET);
         if (style !== BRUSH_SOLID && style !== BRUSH_NULL) return null;
         const color = [
-          ...bytes.subarray(offset + BRUSH_COLOR_OFFSET, offset + BRUSH_COLOR_OFFSET + RGB_CHANNEL_COUNT),
-        ].map((channel) => channel.toString(HEX_RADIX).padStart(2, '0')).join('');
+          ...bytes.subarray(
+            offset + BRUSH_COLOR_OFFSET,
+            offset + BRUSH_COLOR_OFFSET + RGB_CHANNEL_COUNT,
+          ),
+        ]
+          .map((channel) => channel.toString(HEX_RADIX).padStart(2, '0'))
+          .join('');
         brushes.set(unsigned(VALUE_OFFSET), style === BRUSH_NULL ? 'none' : `#${color}`);
         break;
       }
       case RECORD.SELECTOBJECT: {
         if (size < VALUE_RECORD_BYTES) return null;
         const handle = unsigned(VALUE_OFFSET);
-        const selected = handle >= STOCK_OBJECT_FLAG
-          ? STOCK_BRUSHES[handle - STOCK_OBJECT_FLAG]
-          : brushes.get(handle);
+        const selected =
+          handle >= STOCK_OBJECT_FLAG
+            ? STOCK_BRUSHES[handle - STOCK_OBJECT_FLAG]
+            : brushes.get(handle);
         if (selected === undefined) return null;
         brush = selected;
         break;
@@ -184,7 +198,8 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         if (
           size < VALUE_RECORD_BYTES ||
           (unsigned(VALUE_OFFSET) !== FILL_ALTERNATE && unsigned(VALUE_OFFSET) !== FILL_WINDING)
-        ) return null;
+        )
+          return null;
         fillRule = unsigned(VALUE_OFFSET) === FILL_WINDING ? 'nonzero' : 'evenodd';
         break;
       case RECORD.BEGINPATH:
@@ -208,7 +223,8 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         if (
           count > Math.floor((size - POINTS_OFFSET) / pointBytes) ||
           (bezier && count % BEZIER_POINT_COUNT !== 0)
-        ) return null;
+        )
+          return null;
         for (let index = 0; index < count; index++) {
           const at = POINTS_OFFSET + index * pointBytes;
           const x = short ? record.getInt16(at, true) : signed(at);
@@ -233,9 +249,12 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         break;
       case RECORD.SELECTCLIPPATH: {
         if (
-          size < VALUE_RECORD_BYTES || unsigned(VALUE_OFFSET) !== REGION_COPY ||
-          recordingPath || path.length === 0
-        ) return null;
+          size < VALUE_RECORD_BYTES ||
+          unsigned(VALUE_OFFSET) !== REGION_COPY ||
+          recordingPath ||
+          path.length === 0
+        )
+          return null;
         const id = `emf-clip-${clipCount++}`;
         definitions.push(
           `<clipPath id="${id}"><path d="${path.join('')}" clip-rule="${fillRule}"/></clipPath>`,
@@ -246,17 +265,19 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
       }
       case RECORD.EXTSELECTCLIPRGN:
         if (
-          size < PAIR_RECORD_BYTES || unsigned(VALUE_OFFSET) !== 0 ||
+          size < PAIR_RECORD_BYTES ||
+          unsigned(VALUE_OFFSET) !== 0 ||
           unsigned(SECOND_VALUE_OFFSET) !== REGION_COPY
-        ) return null;
+        )
+          return null;
         clip = '';
         break;
       case RECORD.COMMENT:
-        if (size < VALUE_RECORD_BYTES || unsigned(VALUE_OFFSET) > size - VALUE_RECORD_BYTES) return null;
+        if (size < VALUE_RECORD_BYTES || unsigned(VALUE_OFFSET) > size - VALUE_RECORD_BYTES)
+          return null;
         // EMF+ comments can contain drawing commands absent from the GDI records.
-        if (
-          unsigned(VALUE_OFFSET) >= WORD_BYTES && unsigned(SECOND_VALUE_OFFSET) === EMFPLUS_COMMENT
-        ) return null;
+        if (unsigned(VALUE_OFFSET) >= WORD_BYTES && unsigned(SECOND_VALUE_OFFSET) === EMFPLUS_COMMENT)
+          return null;
         break;
       // Text/bitmap settings and the brush origin do not affect solid-filled paths.
       case RECORD.SETBKMODE:
