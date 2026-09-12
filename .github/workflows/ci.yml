@@ -44,12 +44,6 @@ jobs:
       - name: Format check
         run: pnpm format:check
 
-      - name: Show formatting diff
-        if: failure()
-        run: |
-          pnpm exec oxfmt --write packages/preview/src/emf.ts test/preview-imported-artwork.test.ts
-          git diff -- packages/preview/src/emf.ts test/preview-imported-artwork.test.ts
-
       - name: Lint
         run: pnpm lint
 

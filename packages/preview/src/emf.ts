@@ -111,11 +111,7 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
     if (bytes.byteLength - offset < RECORD_HEADER_BYTES) return null;
     const type = file.getUint32(offset, true);
     const size = file.getUint32(offset + WORD_BYTES, true);
-    if (
-      size < RECORD_HEADER_BYTES ||
-      size % WORD_BYTES !== 0 ||
-      size > bytes.byteLength - offset
-    )
+    if (size < RECORD_HEADER_BYTES || size % WORD_BYTES !== 0 || size > bytes.byteLength - offset)
       return null;
     const record = new DataView(bytes.buffer, bytes.byteOffset + offset, size);
     const unsigned = (at: number) => record.getUint32(at, true);
@@ -228,7 +224,9 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         for (let index = 0; index < count; index++) {
           const at = POINTS_OFFSET + index * pointBytes;
           const x = short ? record.getInt16(at, true) : signed(at);
-          const y = short ? record.getInt16(at + coordinateBytes, true) : signed(at + coordinateBytes);
+          const y = short
+            ? record.getInt16(at + coordinateBytes, true)
+            : signed(at + coordinateBytes);
           const command = bezier ? (index % BEZIER_POINT_COUNT === 0 ? 'C' : ' ') : 'L';
           path.push(`${command}${point(x, y)}`);
         }
@@ -244,7 +242,9 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         break;
       case RECORD.FILLPATH:
         if (size < BOUNDS_RECORD_BYTES || recordingPath || path.length === 0) return null;
-        drawings.push(`<path d="${path.join('')}" fill="${brush}" fill-rule="${fillRule}"${clip}/>`);
+        drawings.push(
+          `<path d="${path.join('')}" fill="${brush}" fill-rule="${fillRule}"${clip}/>`,
+        );
         path = [];
         break;
       case RECORD.SELECTCLIPPATH: {
@@ -276,7 +276,10 @@ export const renderEmfToSvg = (bytes: Uint8Array): string | null => {
         if (size < VALUE_RECORD_BYTES || unsigned(VALUE_OFFSET) > size - VALUE_RECORD_BYTES)
           return null;
         // EMF+ comments can contain drawing commands absent from the GDI records.
-        if (unsigned(VALUE_OFFSET) >= WORD_BYTES && unsigned(SECOND_VALUE_OFFSET) === EMFPLUS_COMMENT)
+        if (
+          unsigned(VALUE_OFFSET) >= WORD_BYTES &&
+          unsigned(SECOND_VALUE_OFFSET) === EMFPLUS_COMMENT
+        )
           return null;
         break;
       // Text/bitmap settings and the brush origin do not affect solid-filled paths.
