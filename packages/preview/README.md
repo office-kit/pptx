@@ -125,8 +125,10 @@ placeholder layout/master cascade), strokes, rotation, effects (shadow, glow,
 soft edge, reflection), images with adjustments, charts (column, bar, line,
 area, pie, doughnut, scatter, radar, bubble), tables with per-run cell text,
 vertical and multi-column text in both text-layout modes, picture bullets, and
-template (layout/master) decoration all render. SmartArt, animations, 3D, and
-EMF/WMF fall back to labelled placeholders carrying a machine-readable marker
+template (layout/master) decoration all render. EMF pictures containing solid-filled
+line/Bézier paths, including rectangular and path clipping with copy semantics,
+render as transparent SVG images. Other EMF drawing commands, WMF, SmartArt,
+animations, and 3D fall back to labelled placeholders carrying a machine-readable marker
 (below). Per-slide closeness to a LibreOffice baseline is measured and gated
 in CI by the fidelity harness in the monorepo (`site/fidelity`) — mean
 fg-SSIM ≈ 0.78 across the corpus, with the residual gaps documented there.

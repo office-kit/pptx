@@ -140,6 +140,7 @@ import {
   type TableCellParagraph,
   type TextFormat,
 } from '@office-kit/pptx';
+import { renderEmfToSvg } from './emf.ts';
 import {
   defaultMeasurer,
   layoutTextSvg,
@@ -259,10 +260,8 @@ const mimeFromPartName = (name: string | null): string | null => {
   return EXT_TO_MIME[ext] ?? null;
 };
 
-// Render the picture if @office-kit/pptx handed us bytes; fall back to a
-// labelled placeholder describing why nothing is drawn. EMF / WMF
-// pictures still won't display (no browser can decode them) but the
-// label tells the user what's there.
+// Unsupported image formats retain a labelled placeholder so users can
+// identify artwork that the preview cannot render.
 const renderPicture = (
   shape: SlideShapeData,
   pres: PresentationData,
@@ -278,6 +277,13 @@ const renderPicture = (
   let mime: string | null = null;
   if (bytes && format) {
     mime = imageMime[format] ?? null;
+  }
+  if (bytes && !mime) {
+    const svg = renderEmfToSvg(bytes);
+    if (svg !== null) {
+      bytes = new TextEncoder().encode(svg);
+      mime = 'image/svg+xml';
+    }
   }
   if (bytes && !mime) {
     // Format detection failed (likely EMF/WMF/HEIC). Try the part
@@ -544,7 +550,8 @@ const gradientDef = (
   theme: PresentationTheme | null,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
-  const stops = grad.stops
+  const orderedStops = [...grad.stops].sort((a, b) => a.offset - b.offset);
+  const stops = orderedStops
     .map(
       (s) =>
         `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
@@ -560,7 +567,7 @@ const gradientDef = (
     // ECMA-376 stops paint outward from the focus center; SVG's radial
     // gradient paints from cx/cy out to r. Reverse the stops so the
     // first-stop color sits at the center, matching PowerPoint.
-    const reversed = grad.stops
+    const reversed = orderedStops
       .slice()
       .reverse()
       .map(
