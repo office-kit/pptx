@@ -43,7 +43,7 @@ import {
   SHAPE_SNAPSHOT,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, decode, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, decode, ensureTxBody, requireTxBody } from './_helpers.ts';
 const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 // ---------------------------------------------------------------------------
@@ -59,15 +59,10 @@ export const setShapeText = (
   value: string,
   options: { bullets?: BulletStyle } = {},
 ): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
-    throw new Error(
-      `setShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
-  if (txBody === null) {
-    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
-  }
+  // Creates the text body if absent (PowerPoint always gives an autoshape one),
+  // so a shape authored without text is still editable. Throws only for
+  // non-text-bearing kinds (picture / table / …).
+  const txBody = ensureTxBody(shape);
   setTextBody(txBody, value);
   if (options.bullets !== undefined) {
     applyBulletToAllParagraphs(txBody, options.bullets);
@@ -84,15 +79,7 @@ export const setShapeText = (
  * minus the leading newline when there was no existing text.
  */
 export const appendShapeText = (shape: SlideShapeData, value: string): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
-    throw new Error(
-      `appendShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
-  if (txBody === null) {
-    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
-  }
+  const txBody = ensureTxBody(shape);
   const existing = shape[SHAPE_SNAPSHOT].text;
   const combined = existing.length === 0 ? value : `${existing}\n${value}`;
   setTextBody(txBody, combined);

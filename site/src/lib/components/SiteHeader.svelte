@@ -7,6 +7,7 @@
     { path: '/docs/getting-started', label: 'Docs' },
     { path: '/repl', label: 'REPL' },
     { path: '/playground', label: 'Playground' },
+    { path: '/editor', label: 'Editor' },
     { path: '/api', label: 'API' },
     { path: 'https://github.com/office-kit/pptx', label: 'GitHub', external: true },
   ];
