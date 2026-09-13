@@ -22,6 +22,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
+  setShapeStroke,
 } from '@office-kit/pptx';
 import { type ZipEntry, readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
@@ -217,5 +218,69 @@ describe('renderSlideToSvg: inherited gradient fills', () => {
       'utf8',
     );
     expect(src).not.toContain('FDBA74');
+  });
+});
+
+describe('renderSlideToSvg: translucent solid fills and outlines', () => {
+  // A 27% "veil" laid over layout artwork — common in corporate templates,
+  // where an opaque render hides the gradient (or slide background) beneath.
+  const VEIL =
+    '<a:solidFill><a:srgbClr val="3366CC"><a:alpha val="27000"/></a:srgbClr></a:solidFill>';
+  const VEIL_SHAPE =
+    '<p:sp><p:nvSpPr><p:cNvPr id="900" name="veil"/><p:cNvSpPr/><p:nvPr/></p:nvSpPr>' +
+    '<p:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="914400" cy="914400"/></a:xfrm>' +
+    `<a:prstGeom prst="rect"><a:avLst/></a:prstGeom>${VEIL}</p:spPr></p:sp>`;
+
+  it('emits fill-opacity and stroke-opacity for a slide shape', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    const rect = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
+    });
+    setShapeFill(rect, '#3366CC');
+    setShapeStroke(rect, { color: '#000000', widthEmu: 12_700 });
+    const { entries } = readZip(await savePresentation(pres));
+    const modified = editEntry(entries, slideEntryName(entries), (xml) =>
+      xml
+        .replace(
+          '<a:srgbClr val="3366CC"/>',
+          '<a:srgbClr val="3366CC"><a:alpha val="27000"/></a:srgbClr>',
+        )
+        .replace(
+          '<a:srgbClr val="000000"/>',
+          '<a:srgbClr val="000000"><a:alpha val="50000"/></a:srgbClr>',
+        ),
+    );
+    const reloaded = await loadPresentation(writeZip(modified));
+    const svg = renderSlideToSvg(reloaded, getSlides(reloaded).at(-1)!, { textLayout: 'svg' });
+    expect(svg).toContain('fill="#3366CC" fill-opacity="0.270"');
+    expect(svg).toContain('stroke-opacity="0.500"');
+  });
+
+  it('keeps layout artwork translucent instead of painting an opaque block', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    addSlide(pres, { layout });
+    const { entries } = readZip(await savePresentation(pres));
+    const slideName = slideEntryName(entries);
+    const rels = entries.find(
+      (e) => e.name === slideName.replace(/slides\/(slide\d+\.xml)$/, 'slides/_rels/$1.rels'),
+    );
+    if (!rels) throw new Error('slide rels missing');
+    const layoutFile = /slideLayouts\/(slideLayout\d+\.xml)/.exec(dec.decode(rels.data))?.[1];
+    if (!layoutFile) throw new Error('layout relationship missing');
+    const modified = editEntry(entries, `ppt/slideLayouts/${layoutFile}`, (xml) =>
+      xml.replace('</p:spTree>', `${VEIL_SHAPE}</p:spTree>`),
+    );
+    const reloaded = await loadPresentation(writeZip(modified));
+    const svg = renderSlideToSvg(reloaded, getSlides(reloaded).at(-1)!, { textLayout: 'svg' });
+    expect(svg).toContain('fill="#3366CC" fill-opacity="0.270"');
   });
 });

@@ -1,6 +1,6 @@
 // Shape reads: fill and stroke.
 
-import { resolveDrawingColor } from './shape-color.ts';
+import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
@@ -44,6 +44,28 @@ export type ShapeStroke =
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
 
+// The DrawingML color element inside `<a:solidFill>` under `container`,
+// or null when there is no solid fill there.
+const solidFillColorElement = (container: XmlElement): XmlElement | null => {
+  const solid = firstChildElement(container, qname('a', 'solidFill', NS.dml));
+  if (!solid) return null;
+  for (const inner of solid.children) {
+    if (inner.kind === 'element' && inner.name.namespaceURI === NS.dml) return inner;
+  }
+  return null;
+};
+
+const fillColorElement = (shape: SlideShapeData): XmlElement | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  return spPr ? solidFillColorElement(spPr) : null;
+};
+
+const strokeColorElement = (shape: SlideShapeData): XmlElement | null => {
+  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
+  const ln = spPr ? firstChildElement(spPr, qname('a', 'ln', NS.dml)) : null;
+  return ln ? solidFillColorElement(ln) : null;
+};
+
 /**
  * Convenience over `getShapeStroke(shape)`: returns the solid-
  * stroke color (`#RRGGBB` / `scheme:<token>`) or `null` when the
@@ -80,17 +102,20 @@ export const getShapeStrokeColorResolved = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): string | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const ln = firstChildElement(spPr, qname('a', 'ln', NS.dml));
-  if (!ln) return null;
-  const solid = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
-  if (!solid) return null;
-  for (const inner of solid.children) {
-    if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-    return resolveDrawingColor(inner, getPresentationTheme(pres));
-  }
-  return null;
+  const color = strokeColorElement(shape);
+  return color ? resolveDrawingColor(color, getPresentationTheme(pres)) : null;
+};
+
+/**
+ * Returns the opacity (`0`–`1`) of the shape's own solid outline, read from
+ * the `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children of its color
+ * element, or `null` when the outline isn't a solid color or carries no
+ * alpha transform (PowerPoint draws it fully opaque). Companion to
+ * `getShapeStrokeColorResolved`, which never carries the alpha channel.
+ */
+export const getShapeStrokeOpacity = (shape: SlideShapeData): number | null => {
+  const color = strokeColorElement(shape);
+  return color ? resolveDrawingColorOpacity(color) : null;
 };
 
 /**
@@ -310,15 +335,21 @@ export const getShapeFillColorResolved = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): string | null => {
-  const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
-  if (!spPr) return null;
-  const solid = firstChildElement(spPr, qname('a', 'solidFill', NS.dml));
-  if (!solid) return null;
-  for (const inner of solid.children) {
-    if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-    return resolveDrawingColor(inner, getPresentationTheme(pres));
-  }
-  return null;
+  const color = fillColorElement(shape);
+  return color ? resolveDrawingColor(color, getPresentationTheme(pres)) : null;
+};
+
+/**
+ * Returns the opacity (`0`–`1`) of the shape's own solid fill, read from
+ * the `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children of its color
+ * element, or `null` when the fill isn't solid or carries no alpha
+ * transform (PowerPoint paints it fully opaque). Companion to
+ * `getShapeFillColorResolved`, which never carries the alpha channel —
+ * OOXML encodes color and alpha independently.
+ */
+export const getShapeFillOpacity = (shape: SlideShapeData): number | null => {
+  const color = fillColorElement(shape);
+  return color ? resolveDrawingColorOpacity(color) : null;
 };
 
 /**
