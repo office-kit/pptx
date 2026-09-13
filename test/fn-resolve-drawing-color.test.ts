@@ -5,7 +5,7 @@
 // fill-format readers.
 
 import { describe, expect, it } from 'vitest';
-import { resolveDrawingColor } from '../src/api/index.ts';
+import { resolveDrawingColor, resolveDrawingColorOpacity } from '../src/api/index.ts';
 import { parseXml } from '../src/internal/xml/index.ts';
 
 const parseColorEl = (xml: string) => parseXml(xml).root;
@@ -113,5 +113,42 @@ describe('fn API: resolveDrawingColor', () => {
       `<a:sysClr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" val="windowText" lastClr="123456"/>`,
     );
     expect(resolveDrawingColor(el, null)).toBe('#123456');
+  });
+});
+
+describe('fn API: resolveDrawingColorOpacity', () => {
+  const A = 'http://schemas.openxmlformats.org/drawingml/2006/main';
+
+  it('returns null when the color carries no alpha transform', () => {
+    const el = parseColorEl(
+      `<a:srgbClr xmlns:a="${A}" val="3366CC"><a:lumMod val="50000"/></a:srgbClr>`,
+    );
+    expect(resolveDrawingColorOpacity(el)).toBeNull();
+  });
+
+  it('reads <a:alpha> as a percentage and leaves the resolved color untouched', () => {
+    const el = parseColorEl(
+      `<a:srgbClr xmlns:a="${A}" val="3366CC"><a:alpha val="27000"/></a:srgbClr>`,
+    );
+    expect(resolveDrawingColorOpacity(el)).toBeCloseTo(0.27, 6);
+    expect(resolveDrawingColor(el, null)).toBe('#3366CC');
+  });
+
+  it('applies alphaMod and alphaOff in document order from an opaque base', () => {
+    const el = parseColorEl(
+      `<a:schemeClr xmlns:a="${A}" val="accent1"><a:alphaMod val="50000"/><a:alphaOff val="-10000"/></a:schemeClr>`,
+    );
+    expect(resolveDrawingColorOpacity(el)).toBeCloseTo(0.4, 6);
+  });
+
+  it('clamps the result to the 0–1 range and accepts bare-float values', () => {
+    const over = parseColorEl(
+      `<a:srgbClr xmlns:a="${A}" val="000000"><a:alphaOff val="50000"/></a:srgbClr>`,
+    );
+    expect(resolveDrawingColorOpacity(over)).toBe(1);
+    const bare = parseColorEl(
+      `<a:srgbClr xmlns:a="${A}" val="000000"><a:alpha val="0.5"/></a:srgbClr>`,
+    );
+    expect(resolveDrawingColorOpacity(bare)).toBe(0.5);
   });
 });

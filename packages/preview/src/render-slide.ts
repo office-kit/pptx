@@ -38,6 +38,7 @@ import {
   getShapeBoundsResolved,
   getShapeEffectsEffective,
   getShapeFillEffective,
+  getShapeFillOpacity,
   getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
@@ -86,6 +87,7 @@ import {
   getShapeStrokeCompound,
   getShapeStrokeDash,
   getShapeStrokeJoin,
+  getShapeStrokeOpacity,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextMargins,
@@ -739,6 +741,8 @@ const patternDef = (pat: {
 
 interface PaintResult {
   fill: string;
+  /** Pre-built `fill-opacity` attribute for a translucent solid fill, else ''. */
+  fillAttrs: string;
   stroke: string;
   strokeWidth: number;
   /** Extra SVG `<defs>` the caller should emit before the shape. */
@@ -812,6 +816,7 @@ const paint = (
   pres?: PresentationData,
 ): PaintResult => {
   let fillColor: string;
+  let fillAttrs = '';
   let defs = '';
   if (fill.kind === 'solid') {
     // Prefer the transform-aware reader when we have a presentation
@@ -822,6 +827,10 @@ const paint = (
     let resolved: string | null = null;
     if (shape && pres) resolved = getShapeFillColorResolved(pres, shape);
     fillColor = resolved ?? resolveColor(fill.color, theme, '#E5E7EB');
+    // `<a:alpha>` lives beside the color, not in it — a 27% "veil" over
+    // layout artwork must not paint as an opaque block.
+    const opacity = shape ? getShapeFillOpacity(shape) : null;
+    if (opacity !== null && opacity < 1) fillAttrs = ` fill-opacity="${opacity.toFixed(3)}"`;
   } else if (fill.kind === 'none') {
     fillColor = 'none';
   } else if (fill.kind === 'gradient') {
@@ -879,6 +888,10 @@ const paint = (
     strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
     if (shape) {
+      const opacity = getShapeStrokeOpacity(shape);
+      if (opacity !== null && opacity < 1) {
+        strokeAttrParts.push(`stroke-opacity="${opacity.toFixed(3)}"`);
+      }
       const dash = getShapeStrokeDash(shape);
       if (dash && dash !== 'solid') {
         const pattern = DASH_PATTERNS[dash];
@@ -928,6 +941,7 @@ const paint = (
   }
   return {
     fill: fillColor,
+    fillAttrs,
     stroke: strokeColor,
     strokeWidth,
     defs,
@@ -5808,6 +5822,7 @@ const customGeometryToSvg = (
   w: number,
   h: number,
   fill: string,
+  fillExtra: string,
   stroke: string,
   strokeWidthEmu: number,
   strokeExtra: string,
@@ -5877,10 +5892,13 @@ const customGeometryToSvg = (
     }
     if (d.length === 0) continue;
     const pathFill = path.fill === 'none' ? 'none' : fill;
+    const fillAttrs = path.fill === 'none' ? '' : fillExtra;
     const strokeAttrs = path.stroke
       ? ` stroke="${stroke}" stroke-width="${E(strokeWidthEmu)}"${strokeExtra}${markerExtra}`
       : ' stroke="none"';
-    out.push(`<path d="${d.join(' ')}" fill="${pathFill}"${strokeAttrs} fill-rule="evenodd"/>`);
+    out.push(
+      `<path d="${d.join(' ')}" fill="${pathFill}"${fillAttrs}${strokeAttrs} fill-rule="evenodd"/>`,
+    );
   }
   return out.join('');
 };
@@ -6155,6 +6173,7 @@ const renderShape = (
   const rawPreset = getShapePreset(shape);
   const preset = rawPreset ?? 'rect';
 
+  const fa = p.fillAttrs;
   const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
   const ma = p.markerAttrs ?? '';
   // Custom geometry (<a:custGeom>) overrides the preset path entirely.
@@ -6162,7 +6181,7 @@ const renderShape = (
   const customGeom = rawPreset === null ? getShapeCustomGeometry(shape) : null;
   let geomSvg =
     customGeom !== null
-      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, p.stroke, p.strokeWidth, sa, ma)
+      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, fa, p.stroke, p.strokeWidth, sa, ma)
       : '';
   // No preset and no rendered custom geometry means either a custGeom that
   // failed to evaluate (a true fallback — marked) or no geometry at all
@@ -6176,7 +6195,7 @@ const renderShape = (
   if (geomSvg !== '') {
     // geomSvg already holds the rendered custom geometry.
   } else if (preset === 'rect') {
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'roundRect') {
     // A6 — adjust-handle aware corner radius. <a:gd name="adj"
     // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
@@ -6185,28 +6204,28 @@ const renderShape = (
     const adjVal = adjusts.adj ?? 16667;
     const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
     const r = E(Math.min(w, h) * ratio);
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'ellipse' || preset === 'oval') {
-    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else {
     const pathFn = PRESET_PATHS[preset];
     if (pathFn) {
       // The path generators output CSS-px coords directly (post-E).
       const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
-      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
+      geomSvg = `<path d="${d}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
     } else {
       const pointsFn = PRESET_POINTS[preset];
       if (pointsFn) {
         const points = pointsFn(w / EMU_PER_PX, h / EMU_PER_PX)
           .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
           .join(' ');
-        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+        geomSvg = `<polygon points="${points}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
       } else {
         // Unrecognised preset — fall back to a rectangle, but tag it
         // with the preset name so users (and future-us) can see which
         // shape needs a renderer. The `<title>` shows on hover; the
         // `data-pptx-preset` attribute is for DevTools inspection.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
       }
     }
   }
