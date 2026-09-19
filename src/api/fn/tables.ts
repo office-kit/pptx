@@ -1033,8 +1033,7 @@ export interface TableCellParagraph {
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
   /**
    * Literal format of the paragraph-end mark (`<a:endParaRPr>`), or `null`
-   * when absent. Its `size` is the line height of a paragraph with no
-   * `elements` — what keeps an empty cell from stretching its row.
+   * when absent — the only format a paragraph with no `elements` carries.
    */
   readonly endFormat: TextFormat | null;
 }

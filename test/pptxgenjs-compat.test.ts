@@ -361,14 +361,21 @@ describe('pptxgenjs compatibility: merged table', () => {
   it('keeps the unmodeled <a:cs> typefaces through a plain load / save', async () => {
     const src = await load('table-merge.pptx');
     const saved = await loadPresentation(await savePresentation(src));
-    const csIn = (xml: string, parent: string): number =>
-      xml.match(new RegExp(`<a:${parent}[^>]*>(?:(?!</a:${parent}>).)*?<a:cs `, 'g'))?.length ?? 0;
-    const [before, after] = [src, saved].map((pres) => {
-      const xml = partXml(pres, '/ppt/slides/slide1.xml');
-      return { run: csIn(xml, 'rPr'), endMark: csIn(xml, 'endParaRPr') };
-    });
-    expect(before).toEqual({ run: 5, endMark: 7 });
-    expect(after).toEqual(before);
+    // Paragraph ordinal + owner + the serialized element: a count alone would
+    // pass a <a:cs> that moved, or whose attributes changed.
+    const csElements = (pres: PresentationData): string[] =>
+      [...partXml(pres, '/ppt/slides/slide1.xml').matchAll(/<a:p>.*?<\/a:p>/gs)].flatMap(
+        ([paragraph], index) =>
+          [...paragraph.matchAll(/<a:(rPr|endParaRPr)\b[^>]*>(.*?)<\/a:\1>/gs)].flatMap(
+            ([, owner, inner]) =>
+              [...inner!.matchAll(/<a:cs [^>]*\/>/g)].map(([cs]) => `p${index} ${owner} ${cs}`),
+          ),
+      );
+    const before = csElements(src);
+    expect(before.filter((entry) => entry.includes(' rPr '))).toHaveLength(5);
+    expect(before.filter((entry) => entry.includes(' endParaRPr '))).toHaveLength(7);
+    expect(before[0]).toMatch(/^p\d+ (rPr|endParaRPr) <a:cs typeface="Yu Gothic" [^>]*\/>$/);
+    expect(csElements(saved)).toEqual(before);
   });
 });
 

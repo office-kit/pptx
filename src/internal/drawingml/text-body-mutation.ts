@@ -425,10 +425,8 @@ export interface ParagraphSpec {
   readonly align?: ParagraphAlignment;
   readonly runs: ReadonlyArray<RunSpec>;
   /**
-   * Format of the paragraph-end mark (`<a:endParaRPr>`). A paragraph with no
-   * runs takes its line height from this `size`; without it PowerPoint falls
-   * back to the inherited default (18pt), which stretches an empty table row.
-   * Omit to write no `<a:endParaRPr>`.
+   * Format of the paragraph-end mark (`<a:endParaRPr>`), the place to give a
+   * paragraph with no runs a font size. Omit to write no `<a:endParaRPr>`.
    */
   readonly endFormat?: TextFormat;
 }
@@ -445,7 +443,10 @@ export const buildTextBodyParagraphs = (
   if (paragraphs.length === 0) {
     throw new Error('setTextBodyParagraphs: at least one paragraph is required');
   }
-  return paragraphs.map((para) => {
+  const built: XmlElement[] = [];
+  // for...of, not map: map skips the holes of a sparse array and would hand
+  // them on as undefined children.
+  for (const para of paragraphs) {
     const children: XmlElement[] = [];
     if (para.align !== undefined) {
       children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align))] }));
@@ -462,11 +463,11 @@ export const buildTextBodyParagraphs = (
       applyRunFormat(endParaRPr, para.endFormat);
       children.push(endParaRPr);
     }
-    return elem(NAME_P, { children });
-  });
+    built.push(elem(NAME_P, { children }));
+  }
+  return built;
 };
 
-/** Swaps every `<a:p>` of `txBody` for elements from `buildTextBodyParagraphs`. */
 export const replaceTextBodyParagraphs = (
   txBody: XmlElement,
   built: ReadonlyArray<XmlElement>,

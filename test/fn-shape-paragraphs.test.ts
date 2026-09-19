@@ -18,6 +18,7 @@ import {
   getTableCellParagraphs,
   inches,
   loadPresentation,
+  type ParagraphSpec,
   mergeTableCells,
   readPackagePart,
   savePresentation,
@@ -281,6 +282,29 @@ describe('fn API: paragraph end format (<a:endParaRPr>)', () => {
     expect(getTableCellParagraphs(getTableCell(againTable, 0, 0))).toEqual(headBefore);
     expect(getTableCellParagraphs(getTableCell(againTable, 0, 1))).toEqual([]);
     expectSchemaValid(decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!), 'pml');
+  });
+
+  it('rejects a sparse paragraph list and leaves the existing text untouched', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = getSlideShapes(slide)[0]!;
+    const table = addSlideTable(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(1),
+      rows: [['other']],
+    });
+    setShapeParagraphs(shape, [{ runs: [{ text: 'kept' }] }]);
+    const sparse: ParagraphSpec[] = [{ runs: [{ text: 'first is fine' }] }];
+    sparse.length = 2;
+
+    expect(() => setShapeParagraphs(shape, sparse)).toThrow(TypeError);
+    // The slide part is only re-serialized by a later successful edit.
+    setTableCellText(getTableCell(table, 0, 0), 'edited');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getShapeText(getSlideShapes(getSlides(reloaded)[0]!)[0]!)).toBe('kept');
   });
 
   it('setShapeText and setTableCellText do not keep the end-mark format', async () => {

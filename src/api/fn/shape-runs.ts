@@ -164,10 +164,8 @@ export const getShapeParagraphElements = (
 
 /**
  * Reads the literal format of a paragraph's end mark (`<a:endParaRPr>`), or
- * `null` when the paragraph carries none. It sets the line height of a
- * paragraph with no runs, so renderers and exporters need it to reproduce an
- * empty line or an empty table cell. The write side is
- * `setShapeParagraphs`' `endFormat`.
+ * `null` when the paragraph carries none. It is the only format a paragraph
+ * with no runs carries. The write side is `setShapeParagraphs`' `endFormat`.
  */
 export const getParagraphEndFormat = (
   shape: SlideShapeData,
