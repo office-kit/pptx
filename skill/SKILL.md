@@ -203,25 +203,26 @@ addSlideImage(slide, pngBytes, {
 
 Formatting and slide features (one canonical call each):
 
-| Capability                      | Call                                                                                                                       |
-| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| Whole-shape text                | `setShapeText(shape, text, { bullets? })` (split lines with `\n`)                                                          |
-| Mixed-format paragraphs         | `setShapeParagraphs(shape, [{ align?, runs: [{ text, format? }] }])` (several runs per paragraph)                          |
-| One run's format                | `setShapeRunFormat(shape, p, r, { bold, italic, underline, size, color, font, highlight, ... })`                           |
-| Paragraph align / level         | `setParagraphAlignment(shape, p, 'ctr')`, `setParagraphLevel(shape, p, 1)`                                                 |
-| Paragraph spacing / leading     | `setParagraphSpacing(shape, p, { beforePts, afterPts })`, `setParagraphLineSpacing(shape, p, { kind: 'pct', value: 1.5 })` |
-| Solid / gradient / pattern fill | `setShapeFill(shape, '#2563EB')`, `setShapeGradientFill(...)`, `setShapePatternFill(...)`                                  |
-| Outline                         | `setShapeStroke(shape, { color, widthEmu })` + `setShapeStrokeDash/Arrow/Cap/Join`                                         |
-| Effects                         | `setShapeShadow(shape, {...})`, `setShapeGlow(shape, {...})`                                                               |
-| Geometry                        | `setShapePosition/Size/Rotation/Flip/Bounds`, `bringShapeToFront`, `sendShapeToBack`                                       |
-| Picture corrections             | `setShapeImageCrop/Opacity/Brightness/Contrast` (brightness/contrast in `[-1, 1]`)                                         |
-| Hyperlink / click action        | `setShapeHyperlink(shape, url)`, `setShapeClickAction(shape, { kind: 'nextSlide' })`                                       |
-| Slide background                | `setSlideBackground(slide, '#102030')`, `setSlideBackgroundImage(slide, bytes)`                                            |
-| Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — key is **`effect`**, not `type`                                          |
-| Animation                       | `setShapeAnimation(shape, { effect: 'fadeIn' })` (`fadeIn`/`fadeOut`/`appear`/`disappear`)                                 |
-| Speaker notes                   | `setSlideNotes(slide, '...')`                                                                                              |
-| Comments                        | `addSlideComment(slide, { author: { name }, text })`                                                                       |
-| Sections                        | `setSlideSections(pres, [{ name, slides: [...] }])`                                                                        |
+| Capability                      | Call                                                                                                                                                                                                                                |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Whole-shape text                | `setShapeText(shape, text, { bullets? })` (split lines with `\n`)                                                                                                                                                                   |
+| Mixed-format paragraphs         | `setShapeParagraphs(shape, [{ align?, runs: [{ text, format? }], endFormat? }])` (several runs per paragraph; `endFormat: { size }` gives a run-less paragraph its font size, read back with `getParagraphEndFormat`)               |
+| One run's format                | `setShapeRunFormat(shape, p, r, { bold, italic, underline, size, color, font, highlight, ... })`                                                                                                                                    |
+| Paragraph align / level         | `setParagraphAlignment(shape, p, 'ctr')`, `setParagraphLevel(shape, p, 1)`                                                                                                                                                          |
+| Paragraph spacing / leading     | `setParagraphSpacing(shape, p, { beforePts, afterPts })`, `setParagraphLineSpacing(shape, p, { kind: 'pct', value: 1.5 })`                                                                                                          |
+| Solid / gradient / pattern fill | `setShapeFill(shape, '#2563EB')`, `setShapeGradientFill(...)`, `setShapePatternFill(...)`                                                                                                                                           |
+| Outline                         | `setShapeStroke(shape, { color, widthEmu })` + `setShapeStrokeDash/Arrow/Cap/Join`                                                                                                                                                  |
+| Effects                         | `setShapeShadow(shape, {...})`, `setShapeGlow(shape, {...})`                                                                                                                                                                        |
+| Table cell text / merge         | `setTableCellParagraphs(getTableCell(table, r, c), [{ align?, runs, endFormat? }])`, `mergeTableCells(table, { row, col, rowSpan, colSpan }, { coveredText: 'drop' })` (`'drop'` removes the covered cells' text; default keeps it) |
+| Geometry                        | `setShapePosition/Size/Rotation/Flip/Bounds`, `bringShapeToFront`, `sendShapeToBack`                                                                                                                                                |
+| Picture corrections             | `setShapeImageCrop/Opacity/Brightness/Contrast` (brightness/contrast in `[-1, 1]`)                                                                                                                                                  |
+| Hyperlink / click action        | `setShapeHyperlink(shape, url)`, `setShapeClickAction(shape, { kind: 'nextSlide' })`                                                                                                                                                |
+| Slide background                | `setSlideBackground(slide, '#102030')`, `setSlideBackgroundImage(slide, bytes)`                                                                                                                                                     |
+| Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — key is **`effect`**, not `type`                                                                                                                                                   |
+| Animation                       | `setShapeAnimation(shape, { effect: 'fadeIn' })` (`fadeIn`/`fadeOut`/`appear`/`disappear`)                                                                                                                                          |
+| Speaker notes                   | `setSlideNotes(slide, '...')`                                                                                                                                                                                                       |
+| Comments                        | `addSlideComment(slide, { author: { name }, text })`                                                                                                                                                                                |
+| Sections                        | `setSlideSections(pres, [{ name, slides: [...] }])`                                                                                                                                                                                 |
 
 ## Fill a template instead
 

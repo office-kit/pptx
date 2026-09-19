@@ -34,6 +34,7 @@ const NAME_R = qname('a', 'r', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
 const NAME_PPR = qname('a', 'pPr', NS.dml);
+const NAME_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
 const ATTR_XML_SPACE = qname('xml', 'space', NS.xml);
 
 const cloneAttrs = (attrs: ReadonlyArray<XmlAttr>): XmlAttr[] =>
@@ -423,22 +424,28 @@ export interface RunSpec {
 export interface ParagraphSpec {
   readonly align?: ParagraphAlignment;
   readonly runs: ReadonlyArray<RunSpec>;
+  /**
+   * Format of the paragraph-end mark (`<a:endParaRPr>`), the place to give a
+   * paragraph with no runs a font size. Omit to write no `<a:endParaRPr>`.
+   */
+  readonly endFormat?: TextFormat;
 }
 
 /**
- * Replaces every paragraph of `txBody` with explicitly structured ones.
- * Unlike `setTextBody`, nothing is inherited from the existing runs: each
- * run gets a fresh `<a:rPr>` carrying only its own `format`.
+ * Builds the `<a:p>` elements for `paragraphs`. Every format is validated
+ * here, so a caller that builds before it touches the tree leaves the
+ * existing text intact when a value is rejected.
  */
-export const setTextBodyParagraphs = (
-  txBody: XmlElement,
+export const buildTextBodyParagraphs = (
   paragraphs: ReadonlyArray<ParagraphSpec>,
-): void => {
+): ReadonlyArray<XmlElement> => {
   // CT_TextBody requires at least one <a:p>; `[{ runs: [] }]` is the empty body.
   if (paragraphs.length === 0) {
     throw new Error('setTextBodyParagraphs: at least one paragraph is required');
   }
-  removeAllParagraphs(txBody);
+  const built: XmlElement[] = [];
+  // for...of, not map: map skips the holes of a sparse array and would hand
+  // them on as undefined children.
   for (const para of paragraphs) {
     const children: XmlElement[] = [];
     if (para.align !== undefined) {
@@ -450,6 +457,34 @@ export const setTextBodyParagraphs = (
       const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
       children.push(elem(NAME_R, { children: [rPr, t] }));
     }
-    txBody.children.push(elem(NAME_P, { children }));
+    // CT_TextParagraph is a sequence: <a:endParaRPr> comes after every run.
+    if (para.endFormat !== undefined) {
+      const endParaRPr = elem(NAME_END_PARA_RPR);
+      applyRunFormat(endParaRPr, para.endFormat);
+      children.push(endParaRPr);
+    }
+    built.push(elem(NAME_P, { children }));
   }
+  return built;
+};
+
+export const replaceTextBodyParagraphs = (
+  txBody: XmlElement,
+  built: ReadonlyArray<XmlElement>,
+): void => {
+  removeAllParagraphs(txBody);
+  txBody.children.push(...built);
+};
+
+/**
+ * Replaces every paragraph of `txBody` with explicitly structured ones.
+ * Unlike `setTextBody`, nothing is inherited from the existing runs: each
+ * run gets a fresh `<a:rPr>` carrying only its own `format`. A rejected
+ * format throws before `txBody` changes.
+ */
+export const setTextBodyParagraphs = (
+  txBody: XmlElement,
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+): void => {
+  replaceTextBodyParagraphs(txBody, buildTextBodyParagraphs(paragraphs));
 };

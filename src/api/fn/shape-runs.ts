@@ -46,6 +46,7 @@ const NAME_A_P = qname('a', 'p', NS.dml);
 const NAME_A_R = qname('a', 'r', NS.dml);
 export const NAME_A_RPR = qname('a', 'rPr', NS.dml);
 const NAME_A_T = qname('a', 't', NS.dml);
+const NAME_A_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
 
 const paragraphsOf = (txBody: XmlElement): XmlElement[] =>
   txBody.children.filter(
@@ -160,6 +161,26 @@ export const getShapeParagraphElements = (
   paragraphIndex: number,
 ): ReadonlyArray<ShapeParagraphElement> =>
   readParagraphElements(requireParagraph(shape, paragraphIndex));
+
+/**
+ * Reads the literal format of a paragraph's end mark (`<a:endParaRPr>`), or
+ * `null` when the paragraph carries none. It is the only format a paragraph
+ * with no runs carries. The write side is `setShapeParagraphs`' `endFormat`.
+ */
+export const getParagraphEndFormat = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): TextFormat | null => readParagraphEndFormat(requireParagraph(shape, paragraphIndex));
+
+/**
+ * Shared by the shape reader above and the table-cell paragraph reader.
+ *
+ * @internal
+ */
+export const readParagraphEndFormat = (paragraph: XmlElement): TextFormat | null => {
+  const endParaRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
+  return endParaRPr === null ? null : parseRPrLikeElement(endParaRPr);
+};
 
 /**
  * Walks a single `<a:p>` element and returns its inline children in

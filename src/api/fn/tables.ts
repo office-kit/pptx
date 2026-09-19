@@ -8,7 +8,8 @@ import {
   clearFill as clearFillImpl,
   setSolidFill,
   setTextBody,
-  setTextBodyParagraphs,
+  buildTextBodyParagraphs,
+  replaceTextBodyParagraphs,
   type TextFormat,
   type ParagraphAlignment,
   type ParagraphSpec,
@@ -25,6 +26,7 @@ import {
   getAttrValue,
   insertChildByRank,
   qname,
+  qnameEquals,
   text,
 } from '../../internal/xml/index.ts';
 import {
@@ -43,7 +45,11 @@ import {
 } from '../_internal-symbols.ts';
 import { emuCoordinate32, emuExtent, lineWidthEmu, normalizeGuid } from '../../internal/bounds.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
-import { type ShapeParagraphElement, readParagraphElements } from './shape-runs.ts';
+import {
+  type ShapeParagraphElement,
+  readParagraphElements,
+  readParagraphEndFormat,
+} from './shape-runs.ts';
 import { ALIGN_TOKEN_MAP } from './shape-paragraph.ts';
 import { getPresentationTheme } from './package.ts';
 import { resolveDrawingColor } from './shapes.ts';
@@ -448,12 +454,8 @@ const ensureCellTxBody = (cell: TableCellData): XmlElement => {
     // bodyPr lstStyle a:p — keep the canonical ordering.
     txBody.children.push(elem(qname('a', 'bodyPr', NS.dml)));
     txBody.children.push(elem(qname('a', 'lstStyle', NS.dml)));
-    // Insert before <a:tcPr> per the schema.
-    const tcPrIdx = tc.children.findIndex(
-      (c) => c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tcPr',
-    );
-    if (tcPrIdx >= 0) tc.children.splice(tcPrIdx, 0, txBody);
-    else tc.children.push(txBody);
+    // CT_TableCell is a sequence (txBody?, tcPr?, extLst?): txBody leads.
+    tc.children.unshift(txBody);
   }
   return txBody;
 };
@@ -469,7 +471,10 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
   return tcPr;
 };
 
-/** Replaces a cell's text. `\n` starts a new paragraph. */
+/**
+ * Replaces a cell's text. `\n` starts a new paragraph. The paragraph-end
+ * format (`<a:endParaRPr>`) is not kept; author it with `setTableCellParagraphs`.
+ */
 export const setTableCellText = (cell: TableCellData, text: string): void => {
   const txBody = ensureCellTxBody(cell);
   setTextBody(txBody, text);
@@ -485,7 +490,10 @@ export const setTableCellParagraphs = (
   cell: TableCellData,
   paragraphs: ReadonlyArray<ParagraphSpec>,
 ): void => {
-  setTextBodyParagraphs(ensureCellTxBody(cell), paragraphs);
+  // Built first: a rejected format must not leave a freshly created, empty
+  // (schema-invalid) <a:txBody> on a cell that had none.
+  const built = buildTextBodyParagraphs(paragraphs);
+  replaceTextBodyParagraphs(ensureCellTxBody(cell), built);
   commitTableCell(cell);
 };
 
@@ -569,9 +577,11 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  *     overlapping merges corrupt the grid and trip PowerPoint's repair
  *     dialog. Split the existing merge first.
  *
- * The anchor cell's text is preserved; covered cells keep their own
- * `<a:txBody>` in the XML (PowerPoint ignores it while the merge marker
- * is set) so the operation stays losslessly reversible.
+ * The anchor cell's text is preserved. `coveredText: 'keep'` (the default)
+ * leaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,
+ * so the covered cells carry no `<a:txBody>` at all (CT_TableCell allows
+ * that), which is how PptxGenJS writes a merge; `getTableCellParagraphs`
+ * reads them as `[]`.
  */
 export const mergeTableCells = (
   table: SlideShapeData,
@@ -581,8 +591,15 @@ export const mergeTableCells = (
     readonly rowSpan: number;
     readonly colSpan: number;
   },
+  options?: { readonly coveredText?: 'keep' | 'drop' },
 ): void => {
   const { row, col, rowSpan, colSpan } = block;
+  const coveredText = options?.coveredText ?? 'keep';
+  if (coveredText !== 'keep' && coveredText !== 'drop') {
+    throw new TypeError(
+      `mergeTableCells: coveredText must be 'keep' or 'drop' (got ${String(coveredText)})`,
+    );
+  }
   if (!Number.isInteger(rowSpan) || !Number.isInteger(colSpan) || rowSpan < 1 || colSpan < 1) {
     throw new RangeError(
       `mergeTableCells: rowSpan / colSpan must be integers ≥ 1 (got ${rowSpan} × ${colSpan})`,
@@ -638,6 +655,11 @@ export const mergeTableCells = (
       // offset sets vMerge. The bottom-right block carries both.
       if (c > col) setSpanAttr(tc, ATTR_H_MERGE, '1');
       if (r > row) setSpanAttr(tc, ATTR_V_MERGE, '1');
+      if (coveredText === 'drop') {
+        tc.children = tc.children.filter(
+          (child) => !(child.kind === 'element' && qnameEquals(child.name, NAME_A_TX_BODY_TBL)),
+        );
+      }
     }
   }
 
@@ -1009,6 +1031,11 @@ export interface TableCellParagraph {
   readonly align: ParagraphAlignment | null;
   /** Runs / fields / breaks in document order, with their literal `<a:rPr>` format. */
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
+  /**
+   * Literal format of the paragraph-end mark (`<a:endParaRPr>`), or `null`
+   * when absent — the only format a paragraph with no `elements` carries.
+   */
+  readonly endFormat: TextFormat | null;
 }
 
 /**
@@ -1038,7 +1065,7 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
     // rest of the API uses, mirroring the shape-text alignment cascade. A
     // token outside the map is malformed input and reads as unset.
     const align: ParagraphAlignment | null = algn !== null ? (ALIGN_TOKEN_MAP[algn] ?? null) : null;
-    out.push({ align, elements: readParagraphElements(p) });
+    out.push({ align, elements: readParagraphElements(p), endFormat: readParagraphEndFormat(p) });
   }
   return out;
 };

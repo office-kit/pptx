@@ -14,6 +14,8 @@ import {
   type ShapeParagraphElement,
   type SlideData,
   type SlideShapeData,
+  type TableCellParagraph,
+  type TextFormat,
   addSlide,
   addSlideChart,
   addSlideTable,
@@ -21,6 +23,7 @@ import {
   createPresentation,
   findSlideLayoutByType,
   getParagraphAlignment,
+  getParagraphEndFormat,
   getShapeChartSpec,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -28,9 +31,11 @@ import {
   getSlideShapes,
   getSlides,
   getTableCellParagraphs,
+  getTableCellSpan,
   getTableCells,
   inches,
   loadPresentation,
+  mergeTableCells,
   readPackagePart,
   savePresentation,
   setShapeParagraphs,
@@ -208,12 +213,14 @@ describe('pptxgenjs compatibility: charts', () => {
 interface ParagraphDto {
   readonly align: ReturnType<typeof getParagraphAlignment>;
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
+  readonly endFormat: TextFormat | null;
 }
 
 const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
   Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => ({
     align: getParagraphAlignment(shape, i),
     elements: getShapeParagraphElements(shape, i),
+    endFormat: getParagraphEndFormat(shape, i),
   }));
 
 const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
@@ -223,6 +230,7 @@ const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
       if (e.kind !== 'r') throw new Error(`fixture has a ${e.kind} element`);
       return { text: e.text, ...(e.format !== null ? { format: e.format } : {}) };
     }),
+    ...(p.endFormat !== null ? { endFormat: p.endFormat } : {}),
   }));
 
 describe('pptxgenjs compatibility: text', () => {
@@ -238,6 +246,11 @@ describe('pptxgenjs compatibility: text', () => {
       'Bold ',
       '\n',
       'plain',
+    ]);
+
+    expect(beforeText.map((p) => p.endFormat)).toEqual([{ size: 16 }]);
+    expect(beforeCells[0]![0]!.map((p) => p.endFormat)).toEqual([
+      { size: 10, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' },
     ]);
 
     const { pres, slide } = freshSlide();
@@ -267,6 +280,102 @@ describe('pptxgenjs compatibility: text', () => {
     expect(
       getTableCells(againTable!).map((row) => row.map((cell) => getTableCellParagraphs(cell))),
     ).toEqual(beforeCells);
+  });
+});
+
+describe('pptxgenjs compatibility: merged table', () => {
+  const END_FORMAT = { size: 9, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' };
+
+  it('round-trips empty cells and cells covered by a merge', async () => {
+    const src = await load('table-merge.pptx');
+    const srcTable = getSlideShapes(getSlides(src)[0]!).at(-1)!;
+    const beforeCells = getTableCells(srcTable).map((row) =>
+      row.map((cell) => ({
+        span: getTableCellSpan(cell),
+        paragraphs: getTableCellParagraphs(cell),
+      })),
+    );
+    expect(beforeCells[0]!.map((c) => c.paragraphs)).toEqual<TableCellParagraph[][]>([
+      [{ align: 'center', elements: [], endFormat: END_FORMAT }],
+      [
+        {
+          align: 'center',
+          elements: [expect.objectContaining({ text: 'Group' })],
+          endFormat: END_FORMAT,
+        },
+      ],
+      [],
+    ]);
+    expect(beforeCells[0]![2]!.span.hMerge).toBe(true);
+    expect(beforeCells[2]![0]!.span.vMerge).toBe(true);
+    expect(beforeCells[2]![0]!.paragraphs).toEqual([]);
+
+    const { pres, slide } = freshSlide();
+    const table = addSlideTable(slide, {
+      x: inches(0.5),
+      y: inches(1),
+      w: inches(9),
+      h: inches(1),
+      rows: beforeCells.map((row) => row.map(() => '')),
+    });
+    getTableCells(table).forEach((row, r) => {
+      row.forEach((cell, c) => {
+        const { paragraphs } = beforeCells[r]![c]!;
+        if (paragraphs.length > 0) setTableCellParagraphs(cell, toSpecs(paragraphs));
+      });
+    });
+    beforeCells.forEach((row, r) => {
+      row.forEach(({ span }, c) => {
+        if (span.gridSpan > 1 || span.rowSpan > 1) {
+          mergeTableCells(
+            table,
+            { row: r, col: c, rowSpan: span.rowSpan, colSpan: span.gridSpan },
+            { coveredText: 'drop' },
+          );
+        }
+      });
+    });
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const xml = partXml(reloaded, '/ppt/slides/slide1.xml');
+    xsd(xml, 'pml');
+    const againTable = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
+    expect(
+      getTableCells(againTable).map((row) =>
+        row.map((cell) => ({
+          span: getTableCellSpan(cell),
+          paragraphs: getTableCellParagraphs(cell),
+        })),
+      ),
+    ).toEqual(beforeCells);
+    expect(xml).toMatch(/<a:tc hMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
+    expect(xml).toMatch(/<a:tc vMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
+    // Known gap: TextFormat has no complex-script typeface, so the <a:cs>
+    // pptxgenjs writes is neither read nor re-authored.
+    expect([/<a:cs /.test(partXml(src, '/ppt/slides/slide1.xml')), /<a:cs /.test(xml)]).toEqual([
+      true,
+      false,
+    ]);
+  });
+
+  it('keeps the unmodeled <a:cs> typefaces through a plain load / save', async () => {
+    const src = await load('table-merge.pptx');
+    const saved = await loadPresentation(await savePresentation(src));
+    // Paragraph ordinal + owner + the serialized element: a count alone would
+    // pass a <a:cs> that moved, or whose attributes changed.
+    const csElements = (pres: PresentationData): string[] =>
+      [...partXml(pres, '/ppt/slides/slide1.xml').matchAll(/<a:p>.*?<\/a:p>/gs)].flatMap(
+        ([paragraph], index) =>
+          [...paragraph.matchAll(/<a:(rPr|endParaRPr)\b[^>]*>(.*?)<\/a:\1>/gs)].flatMap(
+            ([, owner, inner]) =>
+              [...inner!.matchAll(/<a:cs [^>]*\/>/g)].map(([cs]) => `p${index} ${owner} ${cs}`),
+          ),
+      );
+    const before = csElements(src);
+    expect(before.filter((entry) => entry.includes(' rPr '))).toHaveLength(5);
+    expect(before.filter((entry) => entry.includes(' endParaRPr '))).toHaveLength(7);
+    expect(before[0]).toMatch(/^p\d+ (rPr|endParaRPr) <a:cs typeface="Yu Gothic" [^>]*\/>$/);
+    expect(csElements(saved)).toEqual(before);
   });
 });
 

@@ -54,7 +54,8 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 /**
  * Replaces the shape's visible text with `value`. Newlines start a new
  * paragraph. Existing run/paragraph properties are preserved so font,
- * color, size, alignment, and bullet style stay intact.
+ * color, size, alignment, and bullet style stay intact. The paragraph-end
+ * format (`<a:endParaRPr>`) is not kept; author it with `setShapeParagraphs`.
  */
 export const setShapeText = (
   shape: SlideShapeData,

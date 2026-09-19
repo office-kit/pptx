@@ -8,6 +8,7 @@ import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-sch
 import {
   addSlideTable,
   getParagraphAlignment,
+  getParagraphEndFormat,
   getShapeParagraphCount,
   getShapeParagraphElements,
   getShapeText,
@@ -17,10 +18,14 @@ import {
   getTableCellParagraphs,
   inches,
   loadPresentation,
+  type ParagraphSpec,
+  mergeTableCells,
   readPackagePart,
   savePresentation,
   setShapeParagraphs,
+  setShapeText,
   setTableCellParagraphs,
+  setTableCellText,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -157,8 +162,179 @@ describe('fn API: setTableCellParagraphs — empty input', () => {
     const reloaded = await loadPresentation(await savePresentation(pres));
     const table = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
     expect(getTableCellParagraphs(getTableCell(table, 1, 0))).toEqual([
-      { align: null, elements: [] },
+      { align: null, elements: [], endFormat: null },
     ]);
     expectSchemaValid(decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!), 'pml');
+  });
+});
+
+describe('fn API: paragraph end format (<a:endParaRPr>)', () => {
+  const END_FORMAT = { size: 9, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' } as const;
+
+  skipIfNoXmllint('writes endFormat after the runs and reads it back on a shape', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    setShapeParagraphs(shape, [
+      { align: 'ctr', runs: [{ text: 'Lead', format: { bold: true } }], endFormat: END_FORMAT },
+      { runs: [], endFormat: { size: 24 } },
+      { runs: [{ text: 'no end mark' }] },
+    ]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+    expect(getParagraphEndFormat(again, 0)).toEqual(END_FORMAT);
+    expect(getParagraphEndFormat(again, 1)).toEqual({ size: 24 });
+    expect(getParagraphEndFormat(again, 2)).toBeNull();
+    // The end mark is not an inline element: run readers must not see it.
+    expect(getShapeParagraphElements(again, 1)).toHaveLength(0);
+
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml).toContain(
+      '</a:r><a:endParaRPr sz="900"><a:latin typeface="Yu Gothic"/><a:ea typeface="Yu Gothic"/></a:endParaRPr></a:p>',
+    );
+    expect(xml).toContain('<a:p><a:endParaRPr sz="2400"/></a:p>');
+    expectSchemaValid(xml, 'pml');
+  });
+
+  skipIfNoXmllint('writes endFormat into an empty table cell and reads it back', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const table = addSlideTable(getSlides(pres)[0]!, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(1),
+      rows: [['head'], ['body']],
+    });
+    setTableCellParagraphs(getTableCell(table, 0, 0), [
+      { align: 'ctr', runs: [], endFormat: END_FORMAT },
+    ]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
+    expect(getTableCellParagraphs(getTableCell(again, 0, 0))).toEqual([
+      { align: 'center', elements: [], endFormat: END_FORMAT },
+    ]);
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml).toContain('<a:p><a:pPr algn="ctr"/><a:endParaRPr sz="900">');
+    expectSchemaValid(xml, 'pml');
+  });
+
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 4001])(
+    'rejects end-mark size %s like a run size',
+    async (size) => {
+      const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+      const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+      expect(() => setShapeParagraphs(shape, [{ runs: [], endFormat: { size } }])).toThrow(
+        RangeError,
+      );
+    },
+  );
+
+  skipIfNoXmllint('replaces an existing <a:endParaRPr> instead of adding a second', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    setShapeParagraphs(shape, [{ runs: [{ text: 'x' }], endFormat: { size: 24 } }]);
+    setShapeParagraphs(shape, [{ runs: [{ text: 'x' }], endFormat: { size: 12 } }]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getParagraphEndFormat(getSlideShapes(getSlides(reloaded)[0]!)[0]!, 0)).toEqual({
+      size: 12,
+    });
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml.match(/<a:endParaRPr/g)).toHaveLength(1);
+    expectSchemaValid(xml, 'pml');
+  });
+
+  // A format rejected mid-list must not leave the body half replaced (or a
+  // <a:txBody> with no <a:p>, which CT_TextBody forbids).
+  skipIfNoXmllint.each([
+    ['endFormat', { runs: [], endFormat: { size: Number.NaN } }],
+    ['run format', { runs: [{ text: 'bad', format: { size: 4001 } }] }],
+  ] as const)('a rejected %s leaves the existing text untouched', async (_name, invalid) => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = getSlideShapes(slide)[0]!;
+    const table = addSlideTable(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(1),
+      rows: [['head', 'covered', 'other']],
+    });
+    const original = [{ runs: [{ text: 'kept' }], endFormat: END_FORMAT }];
+    setShapeParagraphs(shape, original);
+    setTableCellParagraphs(getTableCell(table, 0, 0), original);
+    mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'drop' });
+    const headBefore = getTableCellParagraphs(getTableCell(table, 0, 0));
+
+    const rejected = [{ runs: [{ text: 'first is fine' }] }, invalid];
+    expect(() => setShapeParagraphs(shape, rejected)).toThrow(RangeError);
+    expect(() => setTableCellParagraphs(getTableCell(table, 0, 0), rejected)).toThrow(RangeError);
+    expect(() => setTableCellParagraphs(getTableCell(table, 0, 1), rejected)).toThrow(RangeError);
+    // The slide part is only re-serialized by a later successful edit.
+    setTableCellText(getTableCell(table, 0, 2), 'edited');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const againShape = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+    const againTable = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
+    expect(getShapeText(againShape)).toBe('kept');
+    expect(getParagraphEndFormat(againShape, 0)).toEqual(END_FORMAT);
+    expect(getTableCellParagraphs(getTableCell(againTable, 0, 0))).toEqual(headBefore);
+    expect(getTableCellParagraphs(getTableCell(againTable, 0, 1))).toEqual([]);
+    expectSchemaValid(decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!), 'pml');
+  });
+
+  it('rejects a sparse paragraph list and leaves the existing text untouched', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = getSlideShapes(slide)[0]!;
+    const table = addSlideTable(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(1),
+      rows: [['other']],
+    });
+    setShapeParagraphs(shape, [{ runs: [{ text: 'kept' }] }]);
+    const sparse: ParagraphSpec[] = [{ runs: [{ text: 'first is fine' }] }];
+    sparse.length = 2;
+
+    expect(() => setShapeParagraphs(shape, sparse)).toThrow(TypeError);
+    // The slide part is only re-serialized by a later successful edit.
+    setTableCellText(getTableCell(table, 0, 0), 'edited');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getShapeText(getSlideShapes(getSlides(reloaded)[0]!)[0]!)).toBe('kept');
+  });
+
+  it('setShapeText and setTableCellText do not keep the end-mark format', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = getSlideShapes(slide)[0]!;
+    const cell = getTableCell(
+      addSlideTable(slide, {
+        x: inches(0.5),
+        y: inches(0.5),
+        w: inches(6),
+        h: inches(1),
+        rows: [['head']],
+      }),
+      0,
+      0,
+    );
+    setShapeParagraphs(shape, [{ runs: [{ text: 'x' }], endFormat: END_FORMAT }]);
+    setTableCellParagraphs(cell, [{ runs: [{ text: 'x' }], endFormat: END_FORMAT }]);
+
+    setShapeText(shape, 'y');
+    setTableCellText(cell, 'y');
+
+    expect(getParagraphEndFormat(shape, 0)).toBeNull();
+    expect(getTableCellParagraphs(cell)[0]!.endFormat).toBeNull();
+  });
+
+  it('throws on an out-of-range paragraph index', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(() => getParagraphEndFormat(shape, 99)).toThrow(RangeError);
   });
 });
