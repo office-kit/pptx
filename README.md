@@ -382,6 +382,8 @@ shown together.
 | Validation           | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                                                                                                                                                                                                                                                                                                                              |
 | Units                | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                                                                                                                                                                                                                                                                                                                           |
 
+Text formats (`TextFormat`, including a paragraph's `endFormat`) cover the Latin and East Asian typefaces (`font`, `fontEastAsian`). A complex-script typeface (`<a:cs>`) is neither read nor authored: it survives a load / save untouched, but is not carried over when paragraphs are rebuilt from what the getters return.
+
 ## Compatibility
 
 - **Node**: >= 24.16.

@@ -1,7 +1,5 @@
-// The preview must not trip over two table shapes the core can now author and
-// that pptxgenjs always writes: a run-less paragraph that carries only an
-// end-mark format (`<a:endParaRPr>`), and a merge-covered cell with no
-// `<a:txBody>` at all.
+// pptxgenjs writes both shapes on every table: a run-less paragraph holding
+// only `<a:endParaRPr>`, and a merge-covered cell with no `<a:txBody>`.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -29,11 +27,8 @@ const TEXT_LAYOUTS = ['svg', 'foreignObject'] as const;
 describe('preview: end-mark-only paragraphs and txBody-less covered cells', () => {
   it.each(TEXT_LAYOUTS)('renders the pptxgenjs merged table (%s)', async (textLayout) => {
     const pres = await loadPresentation(await readFile(fixture('pptxgenjs/table-merge.pptx')));
-    // pptxgenjs writes every row as `h="0"` (PowerPoint sizes it from the
-    // text) and the preview does not auto-size rows, so the cells collapse to
-    // zero height and no text is laid out. What this pins is that the covered
-    // cells and the end-mark-only cell get through the cell walk: the anchors'
-    // fills are painted and nothing throws.
+    // Rows are `h="0"` and the preview does not auto-size them, so no text is
+    // laid out; the anchors' fills are what shows the cell walk completed.
     const svg = renderSlideToSvg(pres, getSlides(pres)[0]!, { textLayout });
     expect(svg.match(/fill="#F0F0F0"/g)).toHaveLength(3);
   });

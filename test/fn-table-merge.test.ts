@@ -4,6 +4,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   _internalPackageOf,
@@ -18,13 +19,18 @@ import {
   loadPresentation,
   mergeTableCells,
   savePresentation,
+  setTableCellParagraphs,
   setTableCellText,
+  type TableCellData,
 } from '../src/api/index.ts';
 import { partName } from '../src/internal/opc/index.ts';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
+
+const SLIDE_ZIP_PATH = 'ppt/slides/slide1.xml';
+const EXT_LST = '<a:extLst><a:ext uri="{0B7C5A2E-6C1F-4E63-9B57-0A5D3E1F2C44}"/></a:extLst>';
 
 const decode = (b: Uint8Array): string => new TextDecoder().decode(b);
 const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
@@ -222,5 +228,55 @@ describe("fn API: mergeTableCells — coveredText: 'drop'", () => {
       mergeTableCells(tbl, { row: 0, col: 1, rowSpan: 2, colSpan: 1 }, { coveredText: 'drop' }),
     ).toThrow(/already part of a merge/);
     expect(getTableCellText(getTableCell(tbl, 1, 1))).toBe('e');
+  });
+
+  it('rejects an unknown coveredText and leaves the table untouched', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    // Untyped callers reach the boundary with values the union forbids.
+    const options: { coveredText: 'drop' } = JSON.parse('{"coveredText":"DROP"}');
+    expect(() => mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, options)).toThrow(
+      TypeError,
+    );
+    expect(getTableCellSpan(getTableCell(tbl, 0, 0)).gridSpan).toBe(1);
+    expect(getTableCellText(getTableCell(tbl, 0, 1))).toBe('b');
+  });
+
+  // CT_TableCell is (txBody?, tcPr?, extLst?): a cell may carry extLst alone,
+  // and a txBody written back must still come first.
+  skipIfNoXmllint.each([
+    ['setTableCellText', (cell: TableCellData) => setTableCellText(cell, 'back')],
+    [
+      'setTableCellParagraphs',
+      (cell: TableCellData) => setTableCellParagraphs(cell, [{ runs: [{ text: 'back' }] }]),
+    ],
+  ] as const)('%s puts <a:txBody> before a lone <a:extLst>', async (_name, write) => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'drop' });
+
+    const entries = unzipSync(await savePresentation(pres));
+    const slideXml = decode(entries[SLIDE_ZIP_PATH]!);
+    const withExtLstOnly = slideXml.replace(
+      /<a:tc hMerge="1"><a:tcPr[^>]*\/><\/a:tc>/,
+      `<a:tc hMerge="1">${EXT_LST}</a:tc>`,
+    );
+    expect(withExtLstOnly).not.toBe(slideXml);
+    expectSchemaValid(withExtLstOnly, 'pml');
+    entries[SLIDE_ZIP_PATH] = new TextEncoder().encode(withExtLstOnly);
+
+    const patched = await loadPresentation(zipSync(entries));
+    const patchedTable = getSlideTables(getSlides(patched)[0]!)[0]!;
+    expect(getTableCellParagraphs(getTableCell(patchedTable, 0, 1))).toEqual([]);
+    write(getTableCell(patchedTable, 0, 1));
+
+    const reloaded = await loadPresentation(await savePresentation(patched));
+    const again = getSlideTables(getSlides(reloaded)[0]!)[0]!;
+    expect(getTableCellText(getTableCell(again, 0, 1))).toBe('back');
+    const xml = decode(
+      _internalPackageOf(reloaded).getPart(partName('/ppt/slides/slide1.xml'))!.data,
+    );
+    expect(xml).toContain(`</a:txBody>${EXT_LST}</a:tc>`);
+    expectSchemaValid(xml, 'pml');
   });
 });

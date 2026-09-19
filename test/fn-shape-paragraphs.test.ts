@@ -21,7 +21,9 @@ import {
   readPackagePart,
   savePresentation,
   setShapeParagraphs,
+  setShapeText,
   setTableCellParagraphs,
+  setTableCellText,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -215,10 +217,55 @@ describe('fn API: paragraph end format (<a:endParaRPr>)', () => {
     expectSchemaValid(xml, 'pml');
   });
 
-  it('rejects an out-of-range end-mark size like a run size', async () => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, -1, 0, 4001])(
+    'rejects end-mark size %s like a run size',
+    async (size) => {
+      const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+      const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+      expect(() => setShapeParagraphs(shape, [{ runs: [], endFormat: { size } }])).toThrow(
+        RangeError,
+      );
+    },
+  );
+
+  skipIfNoXmllint('replaces an existing <a:endParaRPr> instead of adding a second', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
     const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
-    expect(() => setShapeParagraphs(shape, [{ runs: [], endFormat: { size: 0 } }])).toThrow();
+    setShapeParagraphs(shape, [{ runs: [{ text: 'x' }], endFormat: { size: 24 } }]);
+    setShapeParagraphs(shape, [{ runs: [{ text: 'x' }], endFormat: { size: 12 } }]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getParagraphEndFormat(getSlideShapes(getSlides(reloaded)[0]!)[0]!, 0)).toEqual({
+      size: 12,
+    });
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml.match(/<a:endParaRPr/g)).toHaveLength(1);
+    expectSchemaValid(xml, 'pml');
+  });
+
+  it('setShapeText and setTableCellText do not keep the end-mark format', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = getSlideShapes(slide)[0]!;
+    const cell = getTableCell(
+      addSlideTable(slide, {
+        x: inches(0.5),
+        y: inches(0.5),
+        w: inches(6),
+        h: inches(1),
+        rows: [['head']],
+      }),
+      0,
+      0,
+    );
+    setShapeParagraphs(shape, [{ runs: [{ text: 'x' }], endFormat: END_FORMAT }]);
+    setTableCellParagraphs(cell, [{ runs: [{ text: 'x' }], endFormat: END_FORMAT }]);
+
+    setShapeText(shape, 'y');
+    setTableCellText(cell, 'y');
+
+    expect(getParagraphEndFormat(shape, 0)).toBeNull();
+    expect(getTableCellParagraphs(cell)[0]!.endFormat).toBeNull();
   });
 
   it('throws on an out-of-range paragraph index', async () => {

@@ -453,12 +453,8 @@ const ensureCellTxBody = (cell: TableCellData): XmlElement => {
     // bodyPr lstStyle a:p — keep the canonical ordering.
     txBody.children.push(elem(qname('a', 'bodyPr', NS.dml)));
     txBody.children.push(elem(qname('a', 'lstStyle', NS.dml)));
-    // Insert before <a:tcPr> per the schema.
-    const tcPrIdx = tc.children.findIndex(
-      (c) => c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'tcPr',
-    );
-    if (tcPrIdx >= 0) tc.children.splice(tcPrIdx, 0, txBody);
-    else tc.children.push(txBody);
+    // CT_TableCell is a sequence (txBody?, tcPr?, extLst?): txBody leads.
+    tc.children.unshift(txBody);
   }
   return txBody;
 };
@@ -474,7 +470,10 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
   return tcPr;
 };
 
-/** Replaces a cell's text. `\n` starts a new paragraph. */
+/**
+ * Replaces a cell's text. `\n` starts a new paragraph. The paragraph-end
+ * format (`<a:endParaRPr>`) is not kept; author it with `setTableCellParagraphs`.
+ */
 export const setTableCellText = (cell: TableCellData, text: string): void => {
   const txBody = ensureCellTxBody(cell);
   setTextBody(txBody, text);
@@ -576,7 +575,7 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  *
  * The anchor cell's text is preserved; covered cells keep their own
  * `<a:txBody>` in the XML (PowerPoint ignores it while the merge marker
- * is set) so the operation stays losslessly reversible. Pass
+ * is set, and shows it again when the user splits the cell). Pass
  * `coveredText: 'drop'` to remove it instead — the covered cells then
  * carry no `<a:txBody>` at all (CT_TableCell allows that), which is how
  * PptxGenJS writes a merge; `getTableCellParagraphs` reads them as `[]`.
@@ -592,6 +591,12 @@ export const mergeTableCells = (
   options?: { readonly coveredText?: 'keep' | 'drop' },
 ): void => {
   const { row, col, rowSpan, colSpan } = block;
+  const coveredText = options?.coveredText ?? 'keep';
+  if (coveredText !== 'keep' && coveredText !== 'drop') {
+    throw new TypeError(
+      `mergeTableCells: coveredText must be 'keep' or 'drop' (got ${String(coveredText)})`,
+    );
+  }
   if (!Number.isInteger(rowSpan) || !Number.isInteger(colSpan) || rowSpan < 1 || colSpan < 1) {
     throw new RangeError(
       `mergeTableCells: rowSpan / colSpan must be integers ≥ 1 (got ${rowSpan} × ${colSpan})`,
@@ -647,7 +652,7 @@ export const mergeTableCells = (
       // offset sets vMerge. The bottom-right block carries both.
       if (c > col) setSpanAttr(tc, ATTR_H_MERGE, '1');
       if (r > row) setSpanAttr(tc, ATTR_V_MERGE, '1');
-      if (options?.coveredText === 'drop') {
+      if (coveredText === 'drop') {
         tc.children = tc.children.filter(
           (child) => !(child.kind === 'element' && qnameEquals(child.name, NAME_A_TX_BODY_TBL)),
         );

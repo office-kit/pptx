@@ -248,8 +248,6 @@ describe('pptxgenjs compatibility: text', () => {
       'plain',
     ]);
 
-    // pptxgenjs closes every paragraph with <a:endParaRPr>: bare on the text
-    // box, with the cell's font on the table.
     expect(beforeText.map((p) => p.endFormat)).toEqual([{ size: 16 }]);
     expect(beforeCells[0]![0]!.map((p) => p.endFormat)).toEqual([
       { size: 10, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' },
@@ -297,8 +295,6 @@ describe('pptxgenjs compatibility: merged table', () => {
         paragraphs: getTableCellParagraphs(cell),
       })),
     );
-    // Row 0: empty corner, a colspan-2 header, its covered cell. pptxgenjs
-    // gives the empty cell a sized end mark and the covered cell no <a:txBody>.
     expect(beforeCells[0]!.map((c) => c.paragraphs)).toEqual<TableCellParagraph[][]>([
       [{ align: 'center', elements: [], endFormat: END_FORMAT }],
       [
@@ -354,6 +350,12 @@ describe('pptxgenjs compatibility: merged table', () => {
     ).toEqual(beforeCells);
     expect(xml).toMatch(/<a:tc hMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
     expect(xml).toMatch(/<a:tc vMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
+    // Known gap: TextFormat has no complex-script typeface, so the <a:cs>
+    // pptxgenjs writes is neither read nor re-authored.
+    expect([/<a:cs /.test(partXml(src, '/ppt/slides/slide1.xml')), /<a:cs /.test(xml)]).toEqual([
+      true,
+      false,
+    ]);
   });
 });
 
