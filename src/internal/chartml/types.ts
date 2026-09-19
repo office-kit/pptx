@@ -66,6 +66,8 @@ export interface ChartSeries {
    * (`<c:valAx>` pair with `axPos="r"` plus a deleted companion
    * `<c:catAx>`). The builder emits the secondary axis pair on demand.
    * Only meaningful for the category kinds; rejected for pie / doughnut.
+   * At least one series must stay on the primary axis — a chart whose
+   * every series is secondary is rejected at authoring time.
    */
   readonly secondaryAxis?: boolean;
   /**
@@ -74,6 +76,12 @@ export interface ChartSeries {
    * back to the renderer's own pick.
    */
   readonly lineWidthEmu?: number;
+  /**
+   * Optional stroke color of the series outline / line
+   * (`<c:ser><c:spPr><a:ln><a:solidFill>`), as an sRGB hex. Defaults to
+   * `color`; on a pie / doughnut series it is the border between slices.
+   */
+  readonly lineColor?: string;
   /**
    * Optional line dash style token (`<c:ser><c:spPr><a:ln><a:prstDash
    * val="…"/>`), e.g. `'dash'`, `'dot'`, `'sysDash'`. Only
@@ -105,6 +113,18 @@ export interface ChartSeries {
    */
   readonly markerSizePt?: number;
   /**
+   * Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB
+   * hex. Defaults to `color`. The builder always writes it for line /
+   * scatter / radar series, because PowerPoint paints a marker without
+   * `<c:spPr>` in the theme's automatic color instead of the series color.
+   */
+  readonly markerColor?: string;
+  /**
+   * Optional marker outline color (`<c:marker><c:spPr><a:ln>`), as an sRGB
+   * hex. Defaults to `markerColor`, then `color`.
+   */
+  readonly markerLineColor?: string;
+  /**
    * Invert the series color for negative values (bar / column charts).
    * Mirrors `<c:ser><c:invertIfNegative val="1"/>`. Renderers typically
    * paint the negative bars in the inverted shade of the series color.
@@ -125,6 +145,14 @@ export interface ChartSeries {
    * percentage of the slice radius (`25` ≈ a quarter-radius pull-out).
    */
   readonly pointExplosions?: ReadonlyArray<number | null>;
+  /**
+   * Optional per-data-point data-label overrides
+   * (`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back
+   * to the series-level `dataLabels`. PowerPoint draws the per-point element
+   * over the series defaults, which is how pie / doughnut exporters give each
+   * slice its own label content and font.
+   */
+  readonly pointDataLabels?: ReadonlyArray<ChartDataLabels | null>;
   /**
    * Line-smoothing toggle (`<c:smooth val="1"/>`) — only meaningful for
    * line / scatter / area series. When `true`, the renderer interpolates
@@ -252,6 +280,14 @@ export interface ChartDataLabels {
    * the chart-title style and the axis-label style.
    */
   readonly textStyle?: ChartTextStyle;
+  /**
+   * Leader lines between a label and its data point
+   * (`<c:dLbls><c:showLeaderLines val="…"/>`). Omitted = the
+   * application default (shown). Series- and chart-level only: a
+   * per-point `<c:dLbl>` has no such element, so `pointDataLabels`
+   * ignores it on write and never reads it.
+   */
+  readonly showLeaderLines?: boolean;
 }
 
 /**
@@ -340,6 +376,32 @@ export interface ChartTextStyle {
   readonly color?: string;
 }
 
+/**
+ * Formatting for the secondary value axis (`<c:valAx>` with `axPos="r"`)
+ * that `ChartSeries.secondaryAxis` series plot against. The fields mirror
+ * the primary `valueAxis*` fields of `ChartSpec` without the prefix, limited
+ * to what a right-hand axis needs; the axis position (`r`) and crossing
+ * (`max`) stay fixed. Omit the whole object for PowerPoint's defaults.
+ */
+export interface ChartSecondaryValueAxis {
+  readonly scaling?: ChartAxisScaling;
+  readonly title?: string;
+  readonly titleStyle?: ChartTextStyle;
+  readonly labelStyle?: ChartTextStyle;
+  readonly majorGridlines?: boolean;
+  readonly majorGridlineColor?: string;
+  /** Major gridline width in EMU, the mirror of `ChartSpec.valueAxisMajorGridlineWidthEmu`. */
+  readonly majorGridlineWidthEmu?: number;
+  readonly lineColor?: string;
+  /** Axis line width in EMU, the mirror of `ChartSpec.valueAxisLineWidthEmu`. */
+  readonly lineWidthEmu?: number;
+  readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  readonly minorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Tick-label position, the mirror of `ChartSpec.valueAxisTickLabelPos`. */
+  readonly tickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
+  readonly crossBetween?: 'between' | 'midCat';
+}
+
 /** Full chart specification. */
 export interface ChartSpec {
   readonly kind: ChartKind;
@@ -354,6 +416,11 @@ export interface ChartSpec {
   readonly dataLabels?: ChartDataLabels;
   /** Optional value-axis scaling override (min / max). */
   readonly valueAxis?: ChartAxisScaling;
+  /**
+   * Formatting for the secondary value axis. Only meaningful when at least
+   * one series sets `secondaryAxis: true`; ignored otherwise.
+   */
+  readonly secondaryValueAxis?: ChartSecondaryValueAxis;
   /**
    * Plot-area background fill — `<c:plotArea><c:spPr><a:solidFill>
    * <a:srgbClr val="…"/>`. `null` for no fill / unsupported fill kind.
@@ -433,6 +500,13 @@ export interface ChartSpec {
   readonly categoryAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`). */
   readonly valueAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /**
+   * Value-axis tick label position (`<c:valAx><c:tickLblPos val="…"/>`),
+   * the same choices as `categoryAxisTickLabelPos`: `none` hides the
+   * labels, `low` / `high` puts them at the plot's start / end, `nextTo`
+   * (default) next to the axis. Primary axis only.
+   */
+  readonly valueAxisTickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
   /** Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`). */
   readonly categoryAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /**
@@ -449,6 +523,18 @@ export interface ChartSpec {
   /** Authored color on the category-axis minor gridlines. */
   readonly categoryAxisMinorGridlineColor?: string;
   /**
+   * Authored width of the value-axis major gridlines in EMU — the `w` of
+   * the same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).
+   * `undefined` leaves the width to the application (PowerPoint: 0.75 pt).
+   */
+  readonly valueAxisMajorGridlineWidthEmu?: number;
+  /** Companion width of the value-axis minor gridlines. */
+  readonly valueAxisMinorGridlineWidthEmu?: number;
+  /** Width of the category-axis major gridlines (same shape as `valueAxisMajorGridlineWidthEmu`). */
+  readonly categoryAxisMajorGridlineWidthEmu?: number;
+  /** Width of the category-axis minor gridlines. */
+  readonly categoryAxisMinorGridlineWidthEmu?: number;
+  /**
    * Authored color on the value-axis line itself — `<c:valAx><c:spPr>
    * <a:ln><a:solidFill><a:srgbClr val="…"/>`. Returned as `#RRGGBB`.
    * `undefined` falls back to the renderer's default axis stroke.
@@ -456,6 +542,13 @@ export interface ChartSpec {
   readonly valueAxisLineColor?: string;
   /** Authored color on the category-axis line (same shape as `valueAxisLineColor`). */
   readonly categoryAxisLineColor?: string;
+  /**
+   * Authored width of the value-axis line in EMU — the `w` of the same
+   * `<a:ln>` as `valueAxisLineColor`. `undefined` leaves it to the application.
+   */
+  readonly valueAxisLineWidthEmu?: number;
+  /** Width of the category-axis line (same shape as `valueAxisLineWidthEmu`). */
+  readonly categoryAxisLineWidthEmu?: number;
   /** When the value-axis emits `<c:minorGridlines/>` — minor gridlines are visible. */
   readonly valueAxisMinorGridlines?: boolean;
   /**

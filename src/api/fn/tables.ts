@@ -8,8 +8,10 @@ import {
   clearFill as clearFillImpl,
   setSolidFill,
   setTextBody,
+  setTextBodyParagraphs,
   type TextFormat,
   type ParagraphAlignment,
+  type ParagraphSpec,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import { buildTableCell, buildTableRow } from '../../internal/presentationml/index.ts';
@@ -471,6 +473,19 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
 export const setTableCellText = (cell: TableCellData, text: string): void => {
   const txBody = ensureCellTxBody(cell);
   setTextBody(txBody, text);
+  commitTableCell(cell);
+};
+
+/**
+ * Replaces the cell's text with explicitly structured paragraphs and runs —
+ * the table counterpart of `setShapeParagraphs`. Read back with
+ * `getTableCellParagraphs`.
+ */
+export const setTableCellParagraphs = (
+  cell: TableCellData,
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+): void => {
+  setTextBodyParagraphs(ensureCellTxBody(cell), paragraphs);
   commitTableCell(cell);
 };
 

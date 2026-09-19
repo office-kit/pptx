@@ -3825,7 +3825,7 @@ const renderChartLegend = (
   colors: ReadonlyArray<string>,
   position: 'r' | 't' | 'b' | 'l' | 'tr' = 'b',
   textStyle?: ChartTextStyle,
-  markerSymbols?: ReadonlyArray<ChartSeries['markerSymbol']>,
+  markers?: ReadonlyArray<Pick<ChartSeries, 'markerSymbol' | 'markerColor' | 'markerLineColor'>>,
 ): string => {
   if (names.length === 0) return '';
   // Authored <c:txPr> font / weight / color overrides the 11pt #374151 default.
@@ -3839,14 +3839,20 @@ const renderChartLegend = (
   // back to the 9×9 color rect.
   const swatch = (i: number, swatchX: number, swatchY: number): string => {
     const color = colors[i % colors.length]!;
-    // `markerSymbols` is supplied only for line / area charts. In that
+    // `markers` is supplied only for line / area charts. In that
     // context an absent / `auto` symbol still plots a glyph (via the
     // automatic rotation), so the legend must show the matching glyph
     // rather than the bar/pie color rect.
-    const sym = markerSymbols?.[i];
-    if (markerSymbols !== undefined && sym !== 'none') {
+    const marker = markers?.[i];
+    if (marker !== undefined && marker.markerSymbol !== 'none') {
       const r = 4.5;
-      return seriesMarker(autoMarkerSymbol(sym, i), swatchX + r, swatchY + r, r, color);
+      return seriesMarker(
+        autoMarkerSymbol(marker.markerSymbol, i),
+        swatchX + r,
+        swatchY + r,
+        r,
+        ...markerColors(marker, color),
+      );
     }
     return `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${color}"/>`;
   };
@@ -4228,21 +4234,27 @@ const autoMarkerSymbol = (
     : AUTO_MARKER_SYMBOLS[seriesIdx % AUTO_MARKER_SYMBOLS.length]!;
 
 // Per-series data-point marker glyph. `symbol` mirrors ECMA-376's
-// ST_MarkerStyle (subset).
+// ST_MarkerStyle (subset). `color` fills the glyph; `lineColor` strokes the
+// line-only glyphs and outlines the filled ones when it differs from the fill.
 const seriesMarker = (
   symbol: NonNullable<ChartSeries['markerSymbol']>,
   cx: number,
   cy: number,
   r: number,
   color: string,
+  lineColor: string = color,
 ): string => {
+  const paint =
+    lineColor === color
+      ? `fill="${color}"`
+      : `fill="${color}" stroke="${lineColor}" stroke-width="1"`;
   switch (symbol) {
     case 'square':
-      return `<rect x="${px(cx - r)}" y="${px(cy - r)}" width="${px(r * 2)}" height="${px(r * 2)}" fill="${color}"/>`;
+      return `<rect x="${px(cx - r)}" y="${px(cy - r)}" width="${px(r * 2)}" height="${px(r * 2)}" ${paint}/>`;
     case 'diamond':
-      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy)} ${px(cx)},${px(cy + r)} ${px(cx - r)},${px(cy)}" fill="${color}"/>`;
+      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy)} ${px(cx)},${px(cy + r)} ${px(cx - r)},${px(cy)}" ${paint}/>`;
     case 'triangle':
-      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy + r)} ${px(cx - r)},${px(cy + r)}" fill="${color}"/>`;
+      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy + r)} ${px(cx - r)},${px(cy + r)}" ${paint}/>`;
     case 'star':
       // 5-point star, rough; good enough at marker scale.
       return `<polygon points="${(() => {
@@ -4253,22 +4265,32 @@ const seriesMarker = (
           pts.push(`${px(cx + rr * Math.cos(ang))},${px(cy + rr * Math.sin(ang))}`);
         }
         return pts.join(' ');
-      })()}" fill="${color}"/>`;
+      })()}" ${paint}/>`;
     case 'x':
-      return `<g stroke="${color}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy - r)}" x2="${px(cx + r)}" y2="${px(cy + r)}"/><line x1="${px(cx - r)}" y1="${px(cy + r)}" x2="${px(cx + r)}" y2="${px(cy - r)}"/></g>`;
+      return `<g stroke="${lineColor}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy - r)}" x2="${px(cx + r)}" y2="${px(cy + r)}"/><line x1="${px(cx - r)}" y1="${px(cy + r)}" x2="${px(cx + r)}" y2="${px(cy - r)}"/></g>`;
     case 'plus':
-      return `<g stroke="${color}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}"/><line x1="${px(cx)}" y1="${px(cy - r)}" x2="${px(cx)}" y2="${px(cy + r)}"/></g>`;
+      return `<g stroke="${lineColor}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}"/><line x1="${px(cx)}" y1="${px(cy - r)}" x2="${px(cx)}" y2="${px(cy + r)}"/></g>`;
     case 'dash':
-      return `<line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}" stroke="${color}" stroke-width="${Math.max(1.5, r * 0.6).toFixed(2)}" stroke-linecap="round"/>`;
+      return `<line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}" stroke="${lineColor}" stroke-width="${Math.max(1.5, r * 0.6).toFixed(2)}" stroke-linecap="round"/>`;
     case 'dot':
-      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${(r * 0.6).toFixed(2)}" fill="${color}"/>`;
+      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${(r * 0.6).toFixed(2)}" ${paint}/>`;
     case 'picture':
     case 'auto':
     case 'circle':
     case 'none':
     default:
-      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${px(r)}" fill="${color}"/>`;
+      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${px(r)}" ${paint}/>`;
   }
+};
+
+// Marker fill / outline the way the builder writes them: the fill falls back
+// to the series color, the outline to the fill.
+const markerColors = (
+  series: Pick<ChartSeries, 'markerColor' | 'markerLineColor'>,
+  seriesColor: string,
+): [fill: string, line: string] => {
+  const fill = series.markerColor ?? seriesColor;
+  return [fill, series.markerLineColor ?? fill];
 };
 
 // Trim long decimals; large numbers keep their integer form.
@@ -4571,7 +4593,7 @@ const renderLineChart = (
         })()
       : '';
     out.push(
-      `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
+      `<path d="${dPath}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
     );
     if (!isStacked) {
       // Markers show only on the "Line with Markers" subtype
@@ -4592,7 +4614,7 @@ const renderLineChart = (
         const size = series.markerSizePt ?? 5;
         const r = Math.max(1, size * 0.5);
         for (const [xp, yp] of pts) {
-          out.push(seriesMarker(symbol, xp, yp, r, color));
+          out.push(seriesMarker(symbol, xp, yp, r, ...markerColors(series, color)));
         }
       }
     }
@@ -4894,7 +4916,7 @@ const renderScatterChart = (
           : proj.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
       const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
       out.push(
-        `<path d="${d}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"/>`,
+        `<path d="${d}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"/>`,
       );
     }
     // markerSymbol='none' always hides; an explicit symbol always shows
@@ -4904,7 +4926,10 @@ const renderScatterChart = (
     if (drawMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
       const glyph = autoMarkerSymbol(sym, s);
-      for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
+      const [markerFill, markerLine] = markerColors(series, color);
+      for (const [xp, yp] of proj) {
+        out.push(seriesMarker(glyph, xp, yp, r, markerFill, markerLine));
+      }
     }
   }
   return out.join('');
@@ -5044,13 +5069,16 @@ const renderRadarChart = (
     const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.8;
     out.push(
       filled
-        ? `<polygon points="${ptsStr}" fill="${color}" fill-opacity="0.3" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`
-        : `<polygon points="${ptsStr}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`,
+        ? `<polygon points="${ptsStr}" fill="${color}" fill-opacity="0.3" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`
+        : `<polygon points="${ptsStr}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`,
     );
     if (showMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
       const glyph = autoMarkerSymbol(series.markerSymbol, s);
-      for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
+      const [markerFill, markerLine] = markerColors(series, color);
+      for (const [xp, yp] of proj) {
+        out.push(seriesMarker(glyph, xp, yp, r, markerFill, markerLine));
+      }
     }
   }
   return out.join('');
@@ -5125,8 +5153,8 @@ const renderChart = (
   const showsMarkers =
     spec.kind === 'line' &&
     (spec.lineMarkers === true || spec.series.some((s) => explicitMarker(s.markerSymbol)));
-  const markerSymbolsForLegend = showsMarkers
-    ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
+  const markersForLegend = showsMarkers
+    ? spec.series.filter((_, i) => !hiddenSet.has(i))
     : undefined;
 
   // Count finite values across all series — when zero, draw a hint
@@ -5393,7 +5421,7 @@ const renderChart = (
           spec.legend?.textStyle,
           // Marker glyphs only carry visual meaning for line / area
           // charts; bar / column / pie use the swatch rect.
-          markerSymbolsForLegend,
+          markersForLegend,
         )
       : '',
     '</g>',

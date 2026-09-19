@@ -230,6 +230,48 @@ describe('chart fidelity vs PowerPoint', () => {
     expect(countTags(svg, 'path')).toBeGreaterThanOrEqual(1);
   });
 
+  it('paints markers in markerColor / markerLineColor instead of the series color', async () => {
+    const svg = await renderChart({
+      kind: 'line',
+      categories: ['A', 'B'],
+      series: [
+        {
+          name: 'S',
+          values: [1, 2],
+          color: '#112233',
+          markerSymbol: 'circle',
+          markerColor: '#AABBCC',
+          markerLineColor: '#DD0000',
+        },
+      ],
+      legend: { position: 'r' },
+    });
+    // Two data points + the legend swatch.
+    const markers = svg.match(/<circle[^>]*fill="#AABBCC" stroke="#DD0000"[^>]*\/>/g) ?? [];
+    expect(markers).toHaveLength(3);
+    expect(svg).not.toMatch(/<circle[^>]*fill="#112233"/);
+  });
+
+  it('strokes the series line in lineColor and keeps plain markers unstroked', async () => {
+    const svg = await renderChart({
+      kind: 'line',
+      categories: ['A', 'B'],
+      series: [
+        {
+          name: 'S',
+          values: [1, 2],
+          color: '#112233',
+          lineColor: '#00AA00',
+          markerSymbol: 'circle',
+        },
+      ],
+    });
+    expect(svg).toMatch(/<path[^>]*fill="none" stroke="#00AA00"/);
+    expect(svg).not.toMatch(/<path[^>]*fill="none" stroke="#112233"/);
+    // No authored marker colors: the marker takes the series color, no outline.
+    expect(svg).toMatch(/<circle[^>]*fill="#112233"\/>/);
+  });
+
   it('uses the automatic marker rotation across series (not all circles)', async () => {
     const svg = await renderChart({
       kind: 'line',

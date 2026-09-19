@@ -165,13 +165,33 @@ const validateChartSpecColors = (spec: ChartSpec): void => {
   );
   checkChartColor(spec.valueAxisLineColor, 'addSlideChart: valueAxisLineColor');
   checkChartColor(spec.categoryAxisLineColor, 'addSlideChart: categoryAxisLineColor');
+  checkChartColor(
+    spec.secondaryValueAxis?.majorGridlineColor,
+    'addSlideChart: secondaryValueAxis.majorGridlineColor',
+  );
+  checkChartColor(
+    spec.secondaryValueAxis?.lineColor,
+    'addSlideChart: secondaryValueAxis.lineColor',
+  );
   spec.series.forEach((series, i) => {
     checkChartColor(series.color, `addSlideChart: series[${i}].color`);
+    checkChartColor(series.lineColor, `addSlideChart: series[${i}].lineColor`);
+    checkChartColor(series.markerColor, `addSlideChart: series[${i}].markerColor`);
+    checkChartColor(series.markerLineColor, `addSlideChart: series[${i}].markerLineColor`);
     checkChartColor(series.trendline?.color, `addSlideChart: series[${i}].trendline.color`);
     series.pointColors?.forEach((c, j) => {
       checkChartColor(c, `addSlideChart: series[${i}].pointColors[${j}]`);
     });
   });
+};
+
+// The secondary axis pair is emitted next to the primary one, never instead
+// of it: a chart with no primary series has an axis pair nothing plots on,
+// and its reader would hand the secondary series back as primary.
+const validateChartSpecAxes = (spec: ChartSpec): void => {
+  if (spec.series.length > 0 && spec.series.every((series) => series.secondaryAxis === true)) {
+    throw new Error('chart: at least one series must plot on the primary axis');
+  }
 };
 
 /**
@@ -198,16 +218,32 @@ const validateChartSpecColors = (spec: ChartSpec): void => {
 // A chart inherits no master text style, so any label without an authored
 // color falls back to the `tx1` token — which a deck with an inverted color
 // map paints the same as the surface, hiding axis labels, the legend, and data
-// labels. Bake the deck's resolved body-text color onto every text style the
-// caller left unset (authored colors always win).
+// labels. Bake the deck's resolved body-text color onto the axis labels, the
+// chart / secondary-axis titles, the legend and the chart-level data labels
+// the caller left unset (authored colors always win). Series-level and
+// per-point label styles, and the category / primary value axis titles, are
+// left as authored.
 const withChartDefaultTextColor = (spec: ChartSpec, color: string | null): ChartSpec => {
   if (color === null) return spec;
   const withColor = (style: ChartTextStyle | undefined): ChartTextStyle =>
     style === undefined ? { color } : style.color === undefined ? { ...style, color } : style;
+  const hasSecondary = spec.series.some((series) => series.secondaryAxis === true);
+  const secondary = spec.secondaryValueAxis ?? {};
   return {
     ...spec,
     categoryAxisLabelStyle: withColor(spec.categoryAxisLabelStyle),
     valueAxisLabelStyle: withColor(spec.valueAxisLabelStyle),
+    ...(hasSecondary
+      ? {
+          secondaryValueAxis: {
+            ...secondary,
+            labelStyle: withColor(secondary.labelStyle),
+            ...(secondary.title !== undefined
+              ? { titleStyle: withColor(secondary.titleStyle) }
+              : {}),
+          },
+        }
+      : {}),
     ...(spec.title !== undefined ? { titleStyle: withColor(spec.titleStyle) } : {}),
     ...(spec.legend !== undefined
       ? { legend: { ...spec.legend, textStyle: withColor(spec.legend.textStyle) } }
@@ -230,6 +266,7 @@ export const addSlideChart = (
   },
 ): SlideShapeData => {
   validateChartSpecColors(opts.spec);
+  validateChartSpecAxes(opts.spec);
   const spec = withChartDefaultTextColor(opts.spec, resolveDeckBodyTextColor(slide));
   const pkg = slide[INTERNAL_PACKAGE];
   const chartN = allocateChartIndex(pkg);
@@ -359,6 +396,7 @@ export const resolveChartPartName = (
  */
 export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
   validateChartSpecColors(spec);
+  validateChartSpecAxes(spec);
   const slide = chart.shape[SHAPE_SLIDE];
   const pkg = slide[INTERNAL_PACKAGE];
   const resolved = resolveChartPartName(slide, chart.shape);
@@ -366,8 +404,8 @@ export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
     throw new Error('setChartSpec: shape is not a chart graphic frame');
   }
 
-  // Rewrite the chart XML.
-  const doc = buildChartSpaceDoc(spec);
+  // Rewrite the chart XML, with the same unset-color baking as addSlideChart.
+  const doc = buildChartSpaceDoc(withChartDefaultTextColor(spec, resolveDeckBodyTextColor(slide)));
   const chartBytes = encode(serializeXml(doc));
   const chartPart = pkg.getPart(resolved.partName);
   if (!chartPart) {
