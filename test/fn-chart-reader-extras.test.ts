@@ -417,3 +417,77 @@ describe('chart reader: scatter / radar / bubble', () => {
     expect(spec.series[0]!.bubbleSizes).toBeUndefined();
   });
 });
+
+describe('chart reader: label style merge and multi-level categories', () => {
+  it('merges the paragraph defRPr under the run rPr for a title', () => {
+    const xml = wrap(`
+      <c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/>
+        <a:p><a:pPr><a:defRPr sz="1400"/></a:pPr><a:r><a:rPr b="1"/><a:t>T</a:t></a:r></a:p>
+      </c:rich></c:tx></c:title>${MIN_PLOT_AREA}`);
+    expect(readChartSpec(parseXml(xml).root)!.titleStyle).toEqual({ sizePt: 14, bold: true });
+  });
+
+  it('leaves the title size undefined when neither defRPr nor rPr sets it', () => {
+    const xml = wrap(`
+      <c:title><c:tx><c:rich><a:bodyPr/><a:lstStyle/>
+        <a:p><a:pPr><a:defRPr/></a:pPr><a:r><a:rPr lang="en-US"/><a:t>T</a:t></a:r></a:p>
+      </c:rich></c:tx></c:title>${MIN_PLOT_AREA}`);
+    const spec = readChartSpec(parseXml(xml).root)!;
+    expect(spec.title).toBe('T');
+    expect(spec.titleStyle).toBeUndefined();
+  });
+
+  it('pads multi-level categories to the cache ptCount', () => {
+    const xml = wrap(`
+      <c:plotArea><c:layout/>
+        <c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>
+          <c:ser><c:idx val="0"/><c:order val="0"/>
+            <c:cat><c:multiLvlStrRef><c:f>Sheet1!$A$2:$B$4</c:f><c:multiLvlStrCache>
+              <c:ptCount val="3"/>
+              <c:lvl><c:pt idx="0"><c:v>a</c:v></c:pt><c:pt idx="2"><c:v>c</c:v></c:pt></c:lvl>
+              <c:lvl><c:pt idx="0"><c:v>G</c:v></c:pt></c:lvl>
+            </c:multiLvlStrCache></c:multiLvlStrRef></c:cat>
+            <c:val><c:numLit><c:ptCount val="3"/><c:pt idx="0"><c:v>1</c:v></c:pt></c:numLit></c:val>
+          </c:ser>
+          <c:axId val="1"/><c:axId val="2"/>
+        </c:barChart>
+        <c:catAx><c:axId val="2"/><c:crossAx val="1"/></c:catAx>
+        <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+      </c:plotArea>`);
+    expect(readChartSpec(parseXml(xml).root)!.categories).toEqual(['a', '', 'c']);
+  });
+});
+
+describe('chart reader: cache point indices', () => {
+  const plotAreaWithValues = (numLit: string): string => `
+      <c:plotArea><c:layout/>
+        <c:barChart><c:barDir val="col"/><c:grouping val="clustered"/>
+          <c:ser><c:idx val="0"/><c:order val="0"/>
+            <c:val><c:numLit>${numLit}</c:numLit></c:val>
+          </c:ser>
+          <c:axId val="1"/><c:axId val="2"/>
+        </c:barChart>
+        <c:catAx><c:axId val="2"/><c:crossAx val="1"/></c:catAx>
+        <c:valAx><c:axId val="1"/><c:crossAx val="2"/></c:valAx>
+      </c:plotArea>`;
+
+  it('drops a <c:pt> whose idx is past the authored ptCount', () => {
+    const xml = wrap(
+      plotAreaWithValues(
+        `<c:ptCount val="2"/><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="100000000"><c:v>9</c:v></c:pt><c:pt idx="2"><c:v>3</c:v></c:pt>`,
+      ),
+    );
+    expect(readChartSpec(parseXml(xml).root)!.series[0]!.values).toEqual([1, null]);
+  });
+
+  it('caps a <c:pt> idx without ptCount and reads idx strictly', () => {
+    const xml = wrap(
+      plotAreaWithValues(
+        `<c:pt idx="1"><c:v>2</c:v></c:pt><c:pt idx="100000000"><c:v>9</c:v></c:pt><c:pt idx="1e1"><c:v>9</c:v></c:pt><c:pt idx="-1"><c:v>9</c:v></c:pt>`,
+      ),
+    );
+    const values = readChartSpec(parseXml(xml).root)!.series[0]!.values;
+    expect(values).toHaveLength(2);
+    expect(values[1]).toBe(2);
+  });
+});

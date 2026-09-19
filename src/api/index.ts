@@ -27,6 +27,7 @@ export type { ImageFormat } from '../internal/opc/index.ts';
 export type {
   ChartAxisScaling,
   ChartDataLabels,
+  ChartSecondaryValueAxis,
   ChartGrouping,
   ChartKind,
   ChartDataLabelPosition,
@@ -474,6 +475,7 @@ export {
   setShapeNoFill,
   setShapeNoStroke,
   setShapePatternFill,
+  setShapeParagraphs,
   setParagraphAlignment,
   setParagraphBullet,
   setParagraphLevel,
@@ -519,6 +521,7 @@ export {
   setTableCellBorders,
   setTableCellFill,
   setTableCellMargins,
+  setTableCellParagraphs,
   setTableCellText,
   setTableCellTextDirection,
   setTableCellTextFormat,
@@ -538,7 +541,13 @@ export {
   validatePresentation,
 } from './fn.ts';
 
-export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';
+export type {
+  BulletStyle,
+  ParagraphAlignment,
+  ParagraphSpec,
+  RunSpec,
+  TextFormat,
+} from '../internal/drawingml/index.ts';
 export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type {

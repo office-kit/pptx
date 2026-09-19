@@ -15,7 +15,7 @@ import {
   overlapPercent,
 } from '../bounds.ts';
 import { NS, type XmlDocument, type XmlElement, attr, elem, qname, text } from '../xml/index.ts';
-import type { ChartSpec, ChartTextStyle } from './types.ts';
+import type { ChartAxisScaling, ChartDataLabels, ChartSpec, ChartTextStyle } from './types.ts';
 
 // QNames (chart `c:` namespace) --------------------------------------------
 
@@ -79,20 +79,43 @@ const solidFillSpPr = (color: string): XmlElement => {
 // <c:majorGridlines|minorGridlines> with optional spPr/ln/solidFill/srgbClr
 // for the gridline color. Centralizes the per-gridline color emit so all
 // four axis-gridline slots share the same shape.
+// `<c:spPr><a:ln w?>` with an optional solid color, or null when neither is
+// authored. Every child of <a:ln> is optional, so a width alone is valid.
+const lineSpPr = (
+  color: string | undefined,
+  widthEmu: number | undefined,
+  field: string,
+): XmlElement | null => {
+  if (color === undefined && widthEmu === undefined) return null;
+  const ln = elem(a('ln'), {
+    attrs:
+      widthEmu !== undefined
+        ? [attr(qname('', 'w', ''), String(validateLineWidthEmu(widthEmu, field)))]
+        : [],
+    children:
+      color !== undefined
+        ? [
+            elem(a('solidFill'), {
+              children: [
+                elem(a('srgbClr'), {
+                  attrs: [attr(qname('', 'val', ''), color.replace(/^#/, '').toUpperCase())],
+                }),
+              ],
+            }),
+          ]
+        : [],
+  });
+  return elem(c('spPr'), { children: [ln] });
+};
+
 const gridlinesElement = (
   local: 'majorGridlines' | 'minorGridlines',
   color: string | undefined,
+  widthEmu: number | undefined,
+  field: string,
 ): XmlElement => {
-  if (color === undefined) return elem(c(local));
-  const hex = color.replace(/^#/, '').toUpperCase();
-  const ln = elem(a('ln'), {
-    children: [
-      elem(a('solidFill'), {
-        children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), hex)] })],
-      }),
-    ],
-  });
-  return elem(c(local), { children: [elem(c('spPr'), { children: [ln] })] });
+  const spPr = lineSpPr(color, widthEmu, field);
+  return spPr === null ? elem(c(local)) : elem(c(local), { children: [spPr] });
 };
 
 // Generic <c:spPr> with optional fill color + line color. Used for the
@@ -138,17 +161,18 @@ const DEFAULT_ACCENT_COLORS = [
   '70AD47', // accent6
 ];
 
-// Builds <c:spPr> for a series — solidFill + optional <a:ln> (line
-// width + dash). The reader extracts color from solidFill and width
-// /dash from the ln; this writer keeps them in lock-step.
+// Builds <c:spPr> for a series — solidFill + <a:ln> (line color, width,
+// dash). The reader extracts color from solidFill and the line props from
+// the ln; this writer keeps them in lock-step.
 const seriesSpPr = (
   color: string,
+  lineColor: string,
   lineWidthEmu: number | undefined,
   lineDash: string | undefined,
 ): XmlElement => {
   const lnChildren: XmlElement[] = [
     elem(a('solidFill'), {
-      children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), color)] })],
+      children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), lineColor)] })],
     }),
   ];
   if (lineDash !== undefined) {
@@ -176,17 +200,27 @@ const seriesSpPr = (
   });
 };
 
-// `<c:marker>` for a series. PowerPoint accepts symbol + size; the
-// inner <c:spPr> can carry per-marker fill/stroke but we leave that to
-// the existing series color.
+// `<c:marker>` for a series. PowerPoint paints a marker without <c:spPr> in
+// the theme's automatic series color, not the series' own color, so the fill
+// and outline colors are always written.
 const markerElement = (
   symbol: string | undefined,
   sizePt: number | undefined,
-): XmlElement | null => {
-  if (symbol === undefined && sizePt === undefined) return null;
+  color: string,
+  lineColor: string,
+): XmlElement => {
   const children: XmlElement[] = [];
   if (symbol !== undefined) children.push(valNode(c('symbol'), symbol));
   if (sizePt !== undefined) children.push(valNode(c('size'), Math.round(sizePt)));
+  if (symbol !== 'none') {
+    const fill = (hex: string): XmlElement =>
+      elem(a('solidFill'), {
+        children: [elem(a('srgbClr'), { attrs: [attr(qname('', 'val', ''), hex)] })],
+      });
+    children.push(
+      elem(c('spPr'), { children: [fill(color), elem(a('ln'), { children: [fill(lineColor)] })] }),
+    );
+  }
   return elem(c('marker'), { children });
 };
 
@@ -277,6 +311,8 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
     paddedValues.push(i < series.values.length ? (series.values[i] ?? null) : null);
   }
 
+  // A combo series is shaped by its own plot group, not the chart's kind.
+  const kind = series.chartKind ?? spec.kind;
   const children: XmlElement[] = [
     valNode(c('idx'), seriesIdx),
     valNode(c('order'), seriesIdx),
@@ -290,38 +326,55 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   // and <a:solidFill>, so it colors the line for PowerPoint while keeping the
   // solidFill the reader round-trips. Bar / column / pie keep the legacy
   // solid-fill-only shape for tight round-trip compatibility with fixtures.
-  if (spec.kind === 'line' || series.lineWidthEmu !== undefined || series.lineDash !== undefined) {
-    children.push(seriesSpPr(color, series.lineWidthEmu, series.lineDash));
+  if (
+    kind === 'line' ||
+    series.lineWidthEmu !== undefined ||
+    series.lineColor !== undefined ||
+    series.lineDash !== undefined
+  ) {
+    const lineColor =
+      series.lineColor !== undefined ? series.lineColor.replace(/^#/, '').toUpperCase() : color;
+    children.push(seriesSpPr(color, lineColor, series.lineWidthEmu, series.lineDash));
   } else {
     children.push(solidFillSpPr(color));
   }
   // invertIfNegative only exists on CT_BarSer (bar/column). Emitting it on a
   // line/pie/area series is schema-invalid, so gate on the bar-family kinds.
-  if (series.invertIfNegative === true && (spec.kind === 'bar' || spec.kind === 'column')) {
+  if (series.invertIfNegative === true && (kind === 'bar' || kind === 'column')) {
     children.push(valNode(c('invertIfNegative'), '1'));
   }
   // <c:marker> is only valid on the marker-bearing series types
   // (CT_LineSer / CT_ScatterSer / CT_RadarSer). Emitting it on bar/column/
   // pie/doughnut/area produces schema-invalid XML.
-  if (spec.kind === 'line' || spec.kind === 'scatter' || spec.kind === 'radar') {
-    const mk = markerElement(series.markerSymbol, series.markerSizePt);
-    if (mk !== null) children.push(mk);
+  if (kind === 'line' || kind === 'scatter' || kind === 'radar') {
+    const markerColor =
+      series.markerColor !== undefined ? series.markerColor.replace(/^#/, '').toUpperCase() : color;
+    const markerLineColor =
+      series.markerLineColor !== undefined
+        ? series.markerLineColor.replace(/^#/, '').toUpperCase()
+        : markerColor;
+    children.push(
+      markerElement(series.markerSymbol, series.markerSizePt, markerColor, markerLineColor),
+    );
   }
   // <c:dPt> overrides go after invertIfNegative / marker per schema.
   for (const dPt of dPtElements(series.pointColors, series.pointExplosions)) {
     children.push(dPt);
   }
-  const serDLbls = buildDLblsFromLabels(series.dataLabels);
+  // Without the series-level show* group, LibreOffice treats the missing
+  // toggles as on and paints every label kind on the points that have no
+  // override — so per-point labels require the series defaults.
+  if (series.pointDataLabels !== undefined && series.dataLabels === undefined) {
+    throw new Error(
+      `chart: series '${series.name}' sets pointDataLabels without dataLabels; add the series-level dataLabels the overrides fall back to`,
+    );
+  }
+  const serDLbls = buildDLblsFromLabels(series.dataLabels, series.pointDataLabels);
   if (serDLbls !== null) children.push(serDLbls);
   // <c:trendline> exists on CT_BarSer/LineSer/AreaSer/ScatterSer/BubbleSer but
   // NOT on CT_PieSer (pie/doughnut) or CT_RadarSer — emitting it there is
   // schema-invalid, so gate on the trendline-bearing kinds.
-  if (
-    series.trendline &&
-    spec.kind !== 'pie' &&
-    spec.kind !== 'doughnut' &&
-    spec.kind !== 'radar'
-  ) {
+  if (series.trendline && kind !== 'pie' && kind !== 'doughnut' && kind !== 'radar') {
     children.push(trendlineElement(series.trendline));
   }
   children.push(elem(c('cat'), { children: [strRef(catRange, spec.categories)] }));
@@ -332,7 +385,7 @@ const seriesElement = (spec: ChartSpec, seriesIdx: number, sheet: string): XmlEl
   // writes the element; doing the same keeps every renderer straight unless
   // smoothing was asked for. (Only CT_LineSer carries smooth — emitting it on
   // a bar/pie series would be schema-invalid.)
-  if (spec.kind === 'line') {
+  if (kind === 'line') {
     children.push(valNode(c('smooth'), series.smooth === true ? '1' : '0'));
   }
   return elem(c('ser'), { children });
@@ -412,13 +465,27 @@ const catAxis = (spec: ChartSpec): XmlElement => {
     valNode(c('axId'), CAT_AX_ID),
     elem(c('scaling'), { children: [valNode(c('orientation'), catOrientation)] }),
     valNode(c('delete'), spec.categoryAxisHidden ? '1' : '0'),
-    valNode(c('axPos'), 'b'),
+    valNode(c('axPos'), isHorizontalBar(spec) ? 'l' : 'b'),
   ];
   if (spec.categoryAxisMajorGridlines) {
-    children.push(gridlinesElement('majorGridlines', spec.categoryAxisMajorGridlineColor));
+    children.push(
+      gridlinesElement(
+        'majorGridlines',
+        spec.categoryAxisMajorGridlineColor,
+        spec.categoryAxisMajorGridlineWidthEmu,
+        'chart: categoryAxisMajorGridlineWidthEmu',
+      ),
+    );
   }
   if (spec.categoryAxisMinorGridlines) {
-    children.push(gridlinesElement('minorGridlines', spec.categoryAxisMinorGridlineColor));
+    children.push(
+      gridlinesElement(
+        'minorGridlines',
+        spec.categoryAxisMinorGridlineColor,
+        spec.categoryAxisMinorGridlineWidthEmu,
+        'chart: categoryAxisMinorGridlineWidthEmu',
+      ),
+    );
   }
   if (spec.categoryAxisTitle !== undefined) {
     children.push(
@@ -448,9 +515,12 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   if (spec.categoryAxisTickLabelPos !== undefined) {
     children.push(valNode(c('tickLblPos'), spec.categoryAxisTickLabelPos));
   }
-  if (spec.categoryAxisLineColor !== undefined) {
-    children.push(spPrChildren(undefined, spec.categoryAxisLineColor));
-  }
+  const catLine = lineSpPr(
+    spec.categoryAxisLineColor,
+    spec.categoryAxisLineWidthEmu,
+    'chart: categoryAxisLineWidthEmu',
+  );
+  if (catLine !== null) children.push(catLine);
   const catTxPr = axisTxPrElement(spec.categoryAxisLabelStyle, spec.categoryAxisLabelRotationDeg);
   if (catTxPr) children.push(catTxPr);
   children.push(valNode(c('crossAx'), VAL_AX_ID));
@@ -471,63 +541,113 @@ const catAxis = (spec: ChartSpec): XmlElement => {
   return elem(c('catAx'), { children });
 };
 
-const valAxis = (spec: ChartSpec): XmlElement => {
+// The primary and secondary value axes share one element shape; only the
+// axis ids, the position, and the crossing differ. Every field is spelled
+// out (with `undefined`) so both callers must decide about each one.
+interface ValueAxisFields {
+  readonly scaling: ChartAxisScaling | undefined;
+  readonly orientation: 'minMax' | 'maxMin' | undefined;
+  readonly hidden: boolean | undefined;
+  readonly majorGridlines: boolean | undefined;
+  readonly majorGridlineColor: string | undefined;
+  readonly majorGridlineWidthEmu: number | undefined;
+  readonly minorGridlines: boolean | undefined;
+  readonly minorGridlineColor: string | undefined;
+  readonly minorGridlineWidthEmu: number | undefined;
+  readonly title: string | undefined;
+  readonly titleStyle: ChartTextStyle | undefined;
+  readonly titleRotationDeg: number | undefined;
+  readonly majorTickMark: 'in' | 'out' | 'cross' | 'none' | undefined;
+  readonly minorTickMark: 'in' | 'out' | 'cross' | 'none' | undefined;
+  readonly tickLabelPos: 'none' | 'low' | 'high' | 'nextTo' | undefined;
+  readonly lineColor: string | undefined;
+  readonly lineWidthEmu: number | undefined;
+  /** Spec paths of this axis' width fields, for validation messages. */
+  readonly widthFields: {
+    readonly majorGridline: string;
+    readonly minorGridline: string;
+    readonly line: string;
+  };
+  readonly labelStyle: ChartTextStyle | undefined;
+  readonly labelRotationDeg: number | undefined;
+  readonly crosses: ChartSpec['valueAxisCrosses'];
+  readonly crossBetween: 'between' | 'midCat' | undefined;
+}
+
+const valueAxisElement = (
+  f: ValueAxisFields,
+  ids: { axId: number; crossAxId: number; axPos: 'l' | 'r' | 'b' | 't' },
+): XmlElement => {
   // CT_Scaling sequence (dml-chart.xsd): logBase, orientation, max, min, extLst.
   // `max` MUST precede `min` — emitting them in the other order is rejected by
   // the schema ("element max: expected extLst").
   const scalingChildren: XmlElement[] = [];
-  if (spec.valueAxis?.logBase !== undefined) {
-    scalingChildren.push(valNode(c('logBase'), spec.valueAxis.logBase));
+  if (f.scaling?.logBase !== undefined) {
+    scalingChildren.push(valNode(c('logBase'), f.scaling.logBase));
   }
-  scalingChildren.push(valNode(c('orientation'), spec.valueAxisOrientation ?? 'minMax'));
-  if (spec.valueAxis?.max !== undefined) {
-    scalingChildren.push(valNode(c('max'), spec.valueAxis.max));
+  scalingChildren.push(valNode(c('orientation'), f.orientation ?? 'minMax'));
+  if (f.scaling?.max !== undefined) {
+    scalingChildren.push(valNode(c('max'), f.scaling.max));
   }
-  if (spec.valueAxis?.min !== undefined) {
-    scalingChildren.push(valNode(c('min'), spec.valueAxis.min));
+  if (f.scaling?.min !== undefined) {
+    scalingChildren.push(valNode(c('min'), f.scaling.min));
   }
   const children: XmlElement[] = [
-    valNode(c('axId'), VAL_AX_ID),
+    valNode(c('axId'), ids.axId),
     elem(c('scaling'), { children: scalingChildren }),
-    valNode(c('delete'), spec.valueAxisHidden ? '1' : '0'),
-    valNode(c('axPos'), 'l'),
+    valNode(c('delete'), f.hidden ? '1' : '0'),
+    valNode(c('axPos'), ids.axPos),
   ];
-  if (spec.valueAxisMajorGridlines) {
-    children.push(gridlinesElement('majorGridlines', spec.valueAxisMajorGridlineColor));
-  }
-  if (spec.valueAxisMinorGridlines) {
-    children.push(gridlinesElement('minorGridlines', spec.valueAxisMinorGridlineColor));
-  }
-  if (spec.valueAxisTitle !== undefined) {
+  if (f.majorGridlines) {
     children.push(
-      titleElement(spec.valueAxisTitle, spec.valueAxisTitleStyle, spec.valueAxisTitleRotationDeg),
+      gridlinesElement(
+        'majorGridlines',
+        f.majorGridlineColor,
+        f.majorGridlineWidthEmu,
+        `chart: ${f.widthFields.majorGridline}`,
+      ),
     );
   }
-  if (spec.valueAxis?.numberFormat !== undefined) {
+  if (f.minorGridlines) {
+    children.push(
+      gridlinesElement(
+        'minorGridlines',
+        f.minorGridlineColor,
+        f.minorGridlineWidthEmu,
+        `chart: ${f.widthFields.minorGridline}`,
+      ),
+    );
+  }
+  if (f.title !== undefined) {
+    children.push(titleElement(f.title, f.titleStyle, f.titleRotationDeg));
+  }
+  if (f.scaling?.numberFormat !== undefined) {
     children.push(
       elem(c('numFmt'), {
         attrs: [
-          attr(qname('', 'formatCode', ''), spec.valueAxis.numberFormat),
+          attr(qname('', 'formatCode', ''), f.scaling.numberFormat),
           attr(qname('', 'sourceLinked', ''), '0'),
         ],
       }),
     );
   }
-  if (spec.valueAxisMajorTickMark !== undefined) {
-    children.push(valNode(c('majorTickMark'), spec.valueAxisMajorTickMark));
+  if (f.majorTickMark !== undefined) {
+    children.push(valNode(c('majorTickMark'), f.majorTickMark));
   }
-  if (spec.valueAxisMinorTickMark !== undefined) {
-    children.push(valNode(c('minorTickMark'), spec.valueAxisMinorTickMark));
+  if (f.minorTickMark !== undefined) {
+    children.push(valNode(c('minorTickMark'), f.minorTickMark));
   }
-  if (spec.valueAxisLineColor !== undefined) {
-    children.push(spPrChildren(undefined, spec.valueAxisLineColor));
+  if (f.tickLabelPos !== undefined) {
+    children.push(valNode(c('tickLblPos'), f.tickLabelPos));
   }
-  const valTxPr = axisTxPrElement(spec.valueAxisLabelStyle, spec.valueAxisLabelRotationDeg);
+  const axisLine = lineSpPr(f.lineColor, f.lineWidthEmu, `chart: ${f.widthFields.line}`);
+  if (axisLine !== null) children.push(axisLine);
+  const valTxPr = axisTxPrElement(f.labelStyle, f.labelRotationDeg);
   if (valTxPr) children.push(valTxPr);
-  children.push(valNode(c('crossAx'), CAT_AX_ID));
+  children.push(valNode(c('crossAx'), ids.crossAxId));
   // <c:crosses val>/`crossesAt val>` — mutually exclusive per the
   // schema. Object form `{ at: N }` → crossesAt; string form → crosses.
-  const xross = spec.valueAxisCrosses;
+  const xross = f.crosses;
   if (xross !== undefined) {
     if (typeof xross === 'string') {
       children.push(valNode(c('crosses'), xross));
@@ -535,31 +655,91 @@ const valAxis = (spec: ChartSpec): XmlElement => {
       children.push(valNode(c('crossesAt'), String(xross.at)));
     }
   }
-  if (spec.valueAxisCrossBetween !== undefined) {
-    children.push(valNode(c('crossBetween'), spec.valueAxisCrossBetween));
+  if (f.crossBetween !== undefined) {
+    children.push(valNode(c('crossBetween'), f.crossBetween));
   }
-  if (spec.valueAxis?.majorUnit !== undefined) {
-    children.push(valNode(c('majorUnit'), spec.valueAxis.majorUnit));
+  if (f.scaling?.majorUnit !== undefined) {
+    children.push(valNode(c('majorUnit'), f.scaling.majorUnit));
   }
-  if (spec.valueAxis?.minorUnit !== undefined) {
-    children.push(valNode(c('minorUnit'), spec.valueAxis.minorUnit));
+  if (f.scaling?.minorUnit !== undefined) {
+    children.push(valNode(c('minorUnit'), f.scaling.minorUnit));
   }
-  if (spec.valueAxis?.displayUnits !== undefined) {
+  if (f.scaling?.displayUnits !== undefined) {
     children.push(
       elem(c('dispUnits'), {
-        children: [valNode(c('builtInUnit'), spec.valueAxis.displayUnits)],
+        children: [valNode(c('builtInUnit'), f.scaling.displayUnits)],
       }),
     );
   }
   return elem(c('valAx'), { children });
 };
 
+// Horizontal bars swap the axis positions: categories run down the left
+// edge and values along the bottom. PowerPoint and PptxGenJS both write
+// `catAx axPos="l"` / `valAx axPos="b"` for `barDir="bar"`.
+const isHorizontalBar = (spec: ChartSpec): boolean => spec.kind === 'bar';
+
+const valAxis = (spec: ChartSpec): XmlElement =>
+  valueAxisElement(
+    {
+      scaling: spec.valueAxis,
+      orientation: spec.valueAxisOrientation,
+      hidden: spec.valueAxisHidden,
+      majorGridlines: spec.valueAxisMajorGridlines,
+      majorGridlineColor: spec.valueAxisMajorGridlineColor,
+      majorGridlineWidthEmu: spec.valueAxisMajorGridlineWidthEmu,
+      minorGridlines: spec.valueAxisMinorGridlines,
+      minorGridlineColor: spec.valueAxisMinorGridlineColor,
+      minorGridlineWidthEmu: spec.valueAxisMinorGridlineWidthEmu,
+      title: spec.valueAxisTitle,
+      titleStyle: spec.valueAxisTitleStyle,
+      titleRotationDeg: spec.valueAxisTitleRotationDeg,
+      majorTickMark: spec.valueAxisMajorTickMark,
+      minorTickMark: spec.valueAxisMinorTickMark,
+      tickLabelPos: spec.valueAxisTickLabelPos,
+      lineColor: spec.valueAxisLineColor,
+      lineWidthEmu: spec.valueAxisLineWidthEmu,
+      widthFields: {
+        majorGridline: 'valueAxisMajorGridlineWidthEmu',
+        minorGridline: 'valueAxisMinorGridlineWidthEmu',
+        line: 'valueAxisLineWidthEmu',
+      },
+      labelStyle: spec.valueAxisLabelStyle,
+      labelRotationDeg: spec.valueAxisLabelRotationDeg,
+      crosses: spec.valueAxisCrosses,
+      crossBetween: spec.valueAxisCrossBetween,
+    },
+    { axId: VAL_AX_ID, crossAxId: CAT_AX_ID, axPos: isHorizontalBar(spec) ? 'b' : 'l' },
+  );
+
 // Build `<c:dLbls>` from a ChartDataLabels (showVal / showCatName /
 // showSerName / showPercent toggles plus optional numFmt, position,
 // separator). Returns `null` when no dataLabels were authored so
 // callers know to skip the element entirely.
-const buildDLblsFromLabels = (dl: ChartSpec['dataLabels'] | undefined): XmlElement | null => {
-  if (!dl) return null;
+const buildDLblsFromLabels = (
+  dl: ChartDataLabels | undefined,
+  pointLabels: ReadonlyArray<ChartDataLabels | null> | undefined = undefined,
+): XmlElement | null => {
+  // CT_DLbls: the per-point <c:dLbl> overrides precede the series-level
+  // group, and a <c:dLbls> holding only overrides is schema-valid.
+  const children: XmlElement[] = [];
+  pointLabels?.forEach((pl, i) => {
+    if (pl === null) return;
+    children.push(elem(c('dLbl'), { children: [valNode(c('idx'), i), ...dLblGroupChildren(pl)] }));
+  });
+  if (dl) {
+    children.push(...dLblGroupChildren(dl));
+    // Group_DLbls only: showLeaderLines follows separator in schema order.
+    if (dl.showLeaderLines !== undefined) {
+      children.push(valNode(c('showLeaderLines'), dl.showLeaderLines ? '1' : '0'));
+    }
+  }
+  return children.length === 0 ? null : elem(c('dLbls'), { children });
+};
+
+// The shared tail of CT_DLbl / CT_DLbls (Group_DLbl / Group_DLbls): numFmt,
+// txPr, dLblPos, the show* toggles, separator — in schema order.
+const dLblGroupChildren = (dl: ChartDataLabels): XmlElement[] => {
   const children: XmlElement[] = [];
   if (dl.numberFormat !== undefined) {
     children.push(
@@ -589,7 +769,7 @@ const buildDLblsFromLabels = (dl: ChartSpec['dataLabels'] | undefined): XmlEleme
   if (dl.separator !== undefined) {
     children.push(elem(c('separator'), { children: [text(dl.separator)] }));
   }
-  return elem(c('dLbls'), { children });
+  return children;
 };
 
 const dLblsElement = (spec: ChartSpec): XmlElement | null => buildDLblsFromLabels(spec.dataLabels);
@@ -628,6 +808,11 @@ const buildBarChart = (
   return elem(c(direction === 'col' ? 'barChart' : 'barChart'), { children });
 };
 
+// CT_Grouping (line / area) has no `clustered`, unlike CT_BarGrouping; a
+// combo chart's bar grouping maps to the plain `standard` for those groups.
+const lineAreaGrouping = (spec: ChartSpec): 'standard' | 'stacked' | 'percentStacked' =>
+  spec.grouping === 'stacked' || spec.grouping === 'percentStacked' ? spec.grouping : 'standard';
+
 const buildLineChart = (
   spec: ChartSpec,
   sheet: string,
@@ -637,7 +822,7 @@ const buildLineChart = (
   const ser = seriesIndices.map((i) => seriesElement(spec, i, sheet));
   const dl = dLblsElement(spec);
   const children: XmlElement[] = [
-    valNode(c('grouping'), spec.grouping ?? 'standard'),
+    valNode(c('grouping'), lineAreaGrouping(spec)),
     valNode(c('varyColors'), spec.varyColors ? '1' : '0'),
     ...ser,
     ...(dl ? [dl] : []),
@@ -704,7 +889,7 @@ const buildAreaChart = (
   const dl = dLblsElement(spec);
   return elem(c('areaChart'), {
     children: [
-      valNode(c('grouping'), spec.grouping ?? 'standard'),
+      valNode(c('grouping'), lineAreaGrouping(spec)),
       valNode(c('varyColors'), spec.varyColors ? '1' : '0'),
       ...ser,
       ...(dl ? [dl] : []),
@@ -739,31 +924,56 @@ const buildComboGroupChart = (
 /**
  * Secondary value axis (`axPos="r"`, crossing at the category maximum) —
  * the right-hand axis PowerPoint pairs with `secondaryAxis` series.
+ * Formatting comes from `spec.secondaryValueAxis`; PowerPoint's defaults
+ * apply for everything left out.
  */
-const secondaryValAxis = (): XmlElement =>
-  elem(c('valAx'), {
-    children: [
-      valNode(c('axId'), SEC_VAL_AX_ID),
-      elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
-      valNode(c('delete'), '0'),
-      valNode(c('axPos'), 'r'),
-      valNode(c('crossAx'), SEC_CAT_AX_ID),
-      valNode(c('crosses'), 'max'),
-    ],
-  });
+const secondaryValAxis = (spec: ChartSpec): XmlElement => {
+  const s = spec.secondaryValueAxis ?? {};
+  return valueAxisElement(
+    {
+      scaling: s.scaling,
+      orientation: undefined,
+      hidden: undefined,
+      majorGridlines: s.majorGridlines,
+      majorGridlineColor: s.majorGridlineColor,
+      majorGridlineWidthEmu: s.majorGridlineWidthEmu,
+      minorGridlines: undefined,
+      minorGridlineColor: undefined,
+      minorGridlineWidthEmu: undefined,
+      title: s.title,
+      titleStyle: s.titleStyle,
+      titleRotationDeg: undefined,
+      majorTickMark: s.majorTickMark,
+      minorTickMark: s.minorTickMark,
+      tickLabelPos: s.tickLabelPos,
+      lineColor: s.lineColor,
+      lineWidthEmu: s.lineWidthEmu,
+      widthFields: {
+        majorGridline: 'secondaryValueAxis.majorGridlineWidthEmu',
+        minorGridline: 'secondaryValueAxis.minorGridlineWidthEmu',
+        line: 'secondaryValueAxis.lineWidthEmu',
+      },
+      labelStyle: s.labelStyle,
+      labelRotationDeg: undefined,
+      crosses: 'max',
+      crossBetween: s.crossBetween,
+    },
+    { axId: SEC_VAL_AX_ID, crossAxId: SEC_CAT_AX_ID, axPos: 'r' },
+  );
+};
 
 /**
  * Deleted companion category axis for the secondary pair. PowerPoint
  * requires every plot group's axId pair to resolve to a cat+val pair,
  * so the secondary group gets its own (hidden) category axis.
  */
-const secondaryCatAxis = (): XmlElement =>
+const secondaryCatAxis = (spec: ChartSpec): XmlElement =>
   elem(c('catAx'), {
     children: [
       valNode(c('axId'), SEC_CAT_AX_ID),
       elem(c('scaling'), { children: [valNode(c('orientation'), 'minMax')] }),
       valNode(c('delete'), '1'),
-      valNode(c('axPos'), 'b'),
+      valNode(c('axPos'), isHorizontalBar(spec) ? 'l' : 'b'),
       valNode(c('crossAx'), SEC_VAL_AX_ID),
     ],
   });
@@ -806,10 +1016,9 @@ const rPrAttrsFromStyle = (
 };
 
 const titleElement = (title: string, style?: ChartTextStyle, rotationDeg?: number): XmlElement => {
-  // defRPr stays 1400 (14pt) as the legacy default; the run-level
-  // <a:rPr> carries authored overrides so renderers honor them.
-  const rPr = elem(a('defRPr'), { attrs: [attr(qname('', 'sz', ''), '1400')] });
-  const pPr = elem(a('pPr'), { children: [rPr] });
+  // The paragraph defaults stay empty so an unset size falls back to the
+  // application default; the run-level <a:rPr> carries the authored style.
+  const pPr = elem(a('pPr'), { children: [elem(a('defRPr'))] });
   const { attrs: runAttrs, children: runChildren } = rPrAttrsFromStyle(style);
   const runRPr = elem(a('rPr'), {
     attrs: [attr(qname('', 'lang', ''), 'en-US'), ...runAttrs],
@@ -819,16 +1028,19 @@ const titleElement = (title: string, style?: ChartTextStyle, rotationDeg?: numbe
     children: [runRPr, elem(a('t'), { children: [text(title)] })],
   });
   const para = elem(a('p'), { children: [pPr, tRun] });
-  const rotStr =
-    rotationDeg !== undefined && rotationDeg !== 0 ? String(Math.round(rotationDeg * 60000)) : '0';
+  // `rot` and `vert` are only written when authored: PowerPoint reads a
+  // `vert="horz"` without `rot` as "not rotated" and lays a value-axis title
+  // out horizontally instead of applying its vertical default.
   const rich = elem(c('rich'), {
     children: [
       elem(a('bodyPr'), {
         attrs: [
-          attr(qname('', 'rot', ''), rotStr),
+          ...(rotationDeg !== undefined
+            ? [attr(qname('', 'rot', ''), String(Math.round(rotationDeg * 60000)))]
+            : []),
           attr(qname('', 'spcFirstLastPara', ''), '1'),
           attr(qname('', 'vertOverflow', ''), 'ellipsis'),
-          attr(qname('', 'vert', ''), 'horz'),
+          ...(rotationDeg !== undefined ? [attr(qname('', 'vert', ''), 'horz')] : []),
           attr(qname('', 'wrap', ''), 'square'),
           attr(qname('', 'anchor', ''), 'ctr'),
           attr(qname('', 'anchorCtr', ''), '1'),
@@ -913,7 +1125,7 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   if (!axisless) {
     plotAreaChildren.push(catAxis(spec), valAxis(spec));
     if (hasSecondary) {
-      plotAreaChildren.push(secondaryValAxis(), secondaryCatAxis());
+      plotAreaChildren.push(secondaryValAxis(spec), secondaryCatAxis(spec));
     }
   }
   // <c:plotArea><c:spPr><a:solidFill> + optional <a:ln><a:solidFill>.

@@ -183,6 +183,11 @@ addSlideChart(slide, {
     ],
     title: 'Revenue vs plan ($M)',
     dataLabels: { showValue: true, showCategory: false, showSeriesName: false, showPercent: false },
+    // Axis tick labels: `categoryAxisTickLabelPos` / `valueAxisTickLabelPos` / `secondaryValueAxis.tickLabelPos`
+    // ('none' | 'low' | 'high' | 'nextTo'). Series outline: `lineColor`; marker fill / outline: `markerColor` / `markerLineColor` (fill defaults to the series color, outline to the fill); label leader lines: `dataLabels.showLeaderLines`.
+    // Axis line / gridline widths (EMU, 12700 = 1 pt): `valueAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu`,
+    // the `categoryAxis…` mirrors, `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu`. Unset = PowerPoint's 0.75 pt.
+    // At least one series must stay on the primary axis when others set `secondaryAxis: true`.
   },
 });
 
@@ -201,6 +206,7 @@ Formatting and slide features (one canonical call each):
 | Capability                      | Call                                                                                                                       |
 | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Whole-shape text                | `setShapeText(shape, text, { bullets? })` (split lines with `\n`)                                                          |
+| Mixed-format paragraphs         | `setShapeParagraphs(shape, [{ align?, runs: [{ text, format? }] }])` (several runs per paragraph)                          |
 | One run's format                | `setShapeRunFormat(shape, p, r, { bold, italic, underline, size, color, font, highlight, ... })`                           |
 | Paragraph align / level         | `setParagraphAlignment(shape, p, 'ctr')`, `setParagraphLevel(shape, p, 1)`                                                 |
 | Paragraph spacing / leading     | `setParagraphSpacing(shape, p, { beforePts, afterPts })`, `setParagraphLineSpacing(shape, p, { kind: 'pct', value: 1.5 })` |

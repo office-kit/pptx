@@ -8,9 +8,12 @@ export {
   applyBulletToParagraph,
   type BulletStyle,
   type ParagraphAlignment,
+  type ParagraphSpec,
+  type RunSpec,
   replaceTextInTree,
   replaceTokensInTree,
   setTextBody,
+  setTextBodyParagraphs,
 } from './text-body-mutation.ts';
 export type { TextFormat } from './text-format.ts';
 export { applyFormatToAllRuns, applyRunFormat } from './text-format.ts';

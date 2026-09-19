@@ -18,6 +18,7 @@ import {
   text,
   walkElements,
 } from '../xml/index.ts';
+import { type TextFormat, applyRunFormat } from './text-format.ts';
 
 const NAME_BU_CHAR = qname('a', 'buChar', NS.dml);
 const NAME_BU_AUTO_NUM = qname('a', 'buAutoNum', NS.dml);
@@ -405,4 +406,50 @@ export const setTextBody = (txBody: XmlElement, value: string): void => {
     txBody.children.push(p);
   }
   void ATTR_XML_SPACE;
+};
+
+/** One run of a `ParagraphSpec`: text plus the format applied to its `<a:rPr>`. */
+export interface RunSpec {
+  /**
+   * Run text, written verbatim — unlike `setShapeText`, newlines are not
+   * split into paragraphs (PowerPoint shows a CR LF inside a run as a line
+   * break, which some exporters rely on).
+   */
+  readonly text: string;
+  readonly format?: TextFormat;
+}
+
+/** One paragraph for `setTextBodyParagraphs`: optional alignment plus its runs. */
+export interface ParagraphSpec {
+  readonly align?: ParagraphAlignment;
+  readonly runs: ReadonlyArray<RunSpec>;
+}
+
+/**
+ * Replaces every paragraph of `txBody` with explicitly structured ones.
+ * Unlike `setTextBody`, nothing is inherited from the existing runs: each
+ * run gets a fresh `<a:rPr>` carrying only its own `format`.
+ */
+export const setTextBodyParagraphs = (
+  txBody: XmlElement,
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+): void => {
+  // CT_TextBody requires at least one <a:p>; `[{ runs: [] }]` is the empty body.
+  if (paragraphs.length === 0) {
+    throw new Error('setTextBodyParagraphs: at least one paragraph is required');
+  }
+  removeAllParagraphs(txBody);
+  for (const para of paragraphs) {
+    const children: XmlElement[] = [];
+    if (para.align !== undefined) {
+      children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align))] }));
+    }
+    for (const run of para.runs) {
+      const rPr = elem(NAME_RPR);
+      if (run.format !== undefined) applyRunFormat(rPr, run.format);
+      const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
+      children.push(elem(NAME_R, { children: [rPr, t] }));
+    }
+    txBody.children.push(elem(NAME_P, { children }));
+  }
 };

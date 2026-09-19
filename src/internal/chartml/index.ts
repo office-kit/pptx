@@ -7,6 +7,7 @@ export type {
   ChartDataLabels,
   ChartGrouping,
   ChartKind,
+  ChartSecondaryValueAxis,
   ChartSeries,
   ChartSpec,
   ChartTextStyle,

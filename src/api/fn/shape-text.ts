@@ -9,11 +9,13 @@ import { getSlideLayout } from './shape-slide-read.ts';
 import {
   type BulletStyle,
   type ParagraphAlignment,
+  type ParagraphSpec,
   type TextFormat,
   applyAlignmentToAllParagraphs,
   applyBulletToAllParagraphs,
   applyFormatToAllRuns,
   setTextBody,
+  setTextBodyParagraphs,
 } from '../../internal/drawingml/index.ts';
 import {
   angle60000,
@@ -667,5 +669,20 @@ export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignme
  */
 export const setShapeTextFormat = (shape: SlideShapeData, format: TextFormat): void => {
   applyFormatToAllRuns(requireTxBody(shape), format);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Replaces the shape's text with explicitly structured paragraphs, each
+ * carrying its own runs and per-run formats. `setShapeText` yields one run
+ * per paragraph; use this when a paragraph mixes formats (a bold lead-in
+ * followed by plain text, for example). Read back with
+ * `getShapeParagraphElements`.
+ */
+export const setShapeParagraphs = (
+  shape: SlideShapeData,
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+): void => {
+  setTextBodyParagraphs(requireTxBody(shape), paragraphs);
   commitAndRefresh(shape);
 };
