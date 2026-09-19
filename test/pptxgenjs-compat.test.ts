@@ -250,7 +250,7 @@ describe('pptxgenjs compatibility: text', () => {
 
     expect(beforeText.map((p) => p.endFormat)).toEqual([{ size: 16 }]);
     expect(beforeCells[0]![0]!.map((p) => p.endFormat)).toEqual([
-      { size: 10, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' },
+      { size: 10, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic', fontComplexScript: 'Yu Gothic' },
     ]);
 
     const { pres, slide } = freshSlide();
@@ -284,7 +284,12 @@ describe('pptxgenjs compatibility: text', () => {
 });
 
 describe('pptxgenjs compatibility: merged table', () => {
-  const END_FORMAT = { size: 9, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' };
+  const END_FORMAT = {
+    size: 9,
+    font: 'Yu Gothic',
+    fontEastAsian: 'Yu Gothic',
+    fontComplexScript: 'Yu Gothic',
+  };
 
   it('round-trips empty cells and cells covered by a merge', async () => {
     const src = await load('table-merge.pptx');
@@ -350,15 +355,17 @@ describe('pptxgenjs compatibility: merged table', () => {
     ).toEqual(beforeCells);
     expect(xml).toMatch(/<a:tc hMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
     expect(xml).toMatch(/<a:tc vMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
-    // Known gap: TextFormat has no complex-script typeface, so the <a:cs>
-    // pptxgenjs writes is neither read nor re-authored.
+    // The <a:cs> pptxgenjs writes is read back as `fontComplexScript` and
+    // re-authored from it — with the typeface alone, since pitchFamily /
+    // charset are not modeled (same as <a:latin> / <a:ea>).
     expect([/<a:cs /.test(partXml(src, '/ppt/slides/slide1.xml')), /<a:cs /.test(xml)]).toEqual([
       true,
-      false,
+      true,
     ]);
+    expect(xml).toContain('<a:cs typeface="Yu Gothic"/>');
   });
 
-  it('keeps the unmodeled <a:cs> typefaces through a plain load / save', async () => {
+  it('keeps the unmodeled <a:cs> attributes through a plain load / save', async () => {
     const src = await load('table-merge.pptx');
     const saved = await loadPresentation(await savePresentation(src));
     // Paragraph ordinal + owner + the serialized element: a count alone would
@@ -376,6 +383,26 @@ describe('pptxgenjs compatibility: merged table', () => {
     expect(before.filter((entry) => entry.includes(' endParaRPr '))).toHaveLength(7);
     expect(before[0]).toMatch(/^p\d+ (rPr|endParaRPr) <a:cs typeface="Yu Gothic" [^>]*\/>$/);
     expect(csElements(saved)).toEqual(before);
+  });
+
+  it("rewrites a run's <a:cs> down to the typeface when fontComplexScript is set", async () => {
+    const src = await load('table-merge.pptx');
+    const cell = getTableCells(getSlideShapes(getSlides(src)[0]!).at(-1)!)[0]![1]!;
+    const before = getTableCellParagraphs(cell);
+    expect(before[0]!.endFormat?.fontComplexScript).toBe('Yu Gothic');
+
+    setTableCellParagraphs(cell, [
+      {
+        ...toSpecs(before)[0]!,
+        endFormat: { ...before[0]!.endFormat, fontComplexScript: 'Leelawadee UI' },
+      },
+    ]);
+    const saved = await loadPresentation(await savePresentation(src));
+    const xml = partXml(saved, '/ppt/slides/slide1.xml');
+    // Rebuilding a format replaces the whole <a:cs>, so pitchFamily / charset
+    // are dropped — the same trade the <a:latin> / <a:ea> setters make.
+    expect(xml).toContain('<a:cs typeface="Leelawadee UI"/>');
+    expect(xml).not.toContain('Leelawadee UI" pitchFamily');
   });
 });
 

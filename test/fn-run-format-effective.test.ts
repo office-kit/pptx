@@ -85,6 +85,29 @@ describe('fn API: getShapeRunFormatEffective', () => {
     expect(overridden.fontEastAsian).toBe('游明朝');
   });
 
+  it('falls back to the theme complex-script font independently of the others', () => {
+    const pres = createPresentation();
+    setPresentationFonts(pres, {
+      majorComplexScript: 'Traditional Arabic',
+      minorComplexScript: 'Leelawadee UI',
+    });
+    const slide = addBlankSlide(pres);
+    const tb = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'plain',
+    });
+    expect(getShapeRunFormat(tb, 0, 0)?.fontComplexScript).toBeUndefined();
+    const fmt = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(fmt.fontComplexScript).toBe('Leelawadee UI');
+
+    setShapeRunFormat(tb, 0, 0, { fontComplexScript: 'Traditional Arabic' });
+    const overridden = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(overridden.fontComplexScript).toBe('Traditional Arabic');
+  });
+
   it('inherits placeholder size from the master title style', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     const slide = addTitleSlide(pres, 'Hello');
