@@ -366,6 +366,13 @@ export interface ChartTextStyle {
    * Mirrors the latin/ea pairing PowerPoint emits for CJK chart fonts.
    */
   readonly font?: string;
+  /**
+   * Complex-script font face — `<a:rPr><a:cs typeface="…"/>`. Written only
+   * when set: `font` fills the latin and east-asian slots and never the
+   * complex-script one, so a chart that mixes Arabic / Hebrew / Thai labels
+   * has to name the face here as well.
+   */
+  readonly fontComplexScript?: string;
   /** Font size in points. From `<a:rPr sz="N"/>` where N is in 100ths of a pt. */
   readonly sizePt?: number;
   /** Bold flag from `<a:rPr b="1"/>`. */
