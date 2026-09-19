@@ -8,7 +8,8 @@ import {
   clearFill as clearFillImpl,
   setSolidFill,
   setTextBody,
-  setTextBodyParagraphs,
+  buildTextBodyParagraphs,
+  replaceTextBodyParagraphs,
   type TextFormat,
   type ParagraphAlignment,
   type ParagraphSpec,
@@ -489,7 +490,10 @@ export const setTableCellParagraphs = (
   cell: TableCellData,
   paragraphs: ReadonlyArray<ParagraphSpec>,
 ): void => {
-  setTextBodyParagraphs(ensureCellTxBody(cell), paragraphs);
+  // Built first: a rejected format must not leave a freshly created, empty
+  // (schema-invalid) <a:txBody> on a cell that had none.
+  const built = buildTextBodyParagraphs(paragraphs);
+  replaceTextBodyParagraphs(ensureCellTxBody(cell), built);
   commitTableCell(cell);
 };
 
@@ -573,12 +577,11 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  *     overlapping merges corrupt the grid and trip PowerPoint's repair
  *     dialog. Split the existing merge first.
  *
- * The anchor cell's text is preserved; covered cells keep their own
- * `<a:txBody>` in the XML (PowerPoint ignores it while the merge marker
- * is set, and shows it again when the user splits the cell). Pass
- * `coveredText: 'drop'` to remove it instead — the covered cells then
- * carry no `<a:txBody>` at all (CT_TableCell allows that), which is how
- * PptxGenJS writes a merge; `getTableCellParagraphs` reads them as `[]`.
+ * The anchor cell's text is preserved. `coveredText: 'keep'` (the default)
+ * leaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,
+ * so the covered cells carry no `<a:txBody>` at all (CT_TableCell allows
+ * that), which is how PptxGenJS writes a merge; `getTableCellParagraphs`
+ * reads them as `[]`.
  */
 export const mergeTableCells = (
   table: SlideShapeData,

@@ -434,20 +434,18 @@ export interface ParagraphSpec {
 }
 
 /**
- * Replaces every paragraph of `txBody` with explicitly structured ones.
- * Unlike `setTextBody`, nothing is inherited from the existing runs: each
- * run gets a fresh `<a:rPr>` carrying only its own `format`.
+ * Builds the `<a:p>` elements for `paragraphs`. Every format is validated
+ * here, so a caller that builds before it touches the tree leaves the
+ * existing text intact when a value is rejected.
  */
-export const setTextBodyParagraphs = (
-  txBody: XmlElement,
+export const buildTextBodyParagraphs = (
   paragraphs: ReadonlyArray<ParagraphSpec>,
-): void => {
+): ReadonlyArray<XmlElement> => {
   // CT_TextBody requires at least one <a:p>; `[{ runs: [] }]` is the empty body.
   if (paragraphs.length === 0) {
     throw new Error('setTextBodyParagraphs: at least one paragraph is required');
   }
-  removeAllParagraphs(txBody);
-  for (const para of paragraphs) {
+  return paragraphs.map((para) => {
     const children: XmlElement[] = [];
     if (para.align !== undefined) {
       children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align))] }));
@@ -464,6 +462,28 @@ export const setTextBodyParagraphs = (
       applyRunFormat(endParaRPr, para.endFormat);
       children.push(endParaRPr);
     }
-    txBody.children.push(elem(NAME_P, { children }));
-  }
+    return elem(NAME_P, { children });
+  });
+};
+
+/** Swaps every `<a:p>` of `txBody` for elements from `buildTextBodyParagraphs`. */
+export const replaceTextBodyParagraphs = (
+  txBody: XmlElement,
+  built: ReadonlyArray<XmlElement>,
+): void => {
+  removeAllParagraphs(txBody);
+  txBody.children.push(...built);
+};
+
+/**
+ * Replaces every paragraph of `txBody` with explicitly structured ones.
+ * Unlike `setTextBody`, nothing is inherited from the existing runs: each
+ * run gets a fresh `<a:rPr>` carrying only its own `format`. A rejected
+ * format throws before `txBody` changes.
+ */
+export const setTextBodyParagraphs = (
+  txBody: XmlElement,
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+): void => {
+  replaceTextBodyParagraphs(txBody, buildTextBodyParagraphs(paragraphs));
 };

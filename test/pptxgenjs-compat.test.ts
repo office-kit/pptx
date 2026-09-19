@@ -357,6 +357,19 @@ describe('pptxgenjs compatibility: merged table', () => {
       false,
     ]);
   });
+
+  it('keeps the unmodeled <a:cs> typefaces through a plain load / save', async () => {
+    const src = await load('table-merge.pptx');
+    const saved = await loadPresentation(await savePresentation(src));
+    const csIn = (xml: string, parent: string): number =>
+      xml.match(new RegExp(`<a:${parent}[^>]*>(?:(?!</a:${parent}>).)*?<a:cs `, 'g'))?.length ?? 0;
+    const [before, after] = [src, saved].map((pres) => {
+      const xml = partXml(pres, '/ppt/slides/slide1.xml');
+      return { run: csIn(xml, 'rPr'), endMark: csIn(xml, 'endParaRPr') };
+    });
+    expect(before).toEqual({ run: 5, endMark: 7 });
+    expect(after).toEqual(before);
+  });
 });
 
 void skipIfNoXmllint;
