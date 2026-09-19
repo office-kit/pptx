@@ -14,6 +14,8 @@ import {
   type ShapeParagraphElement,
   type SlideData,
   type SlideShapeData,
+  type TableCellParagraph,
+  type TextFormat,
   addSlide,
   addSlideChart,
   addSlideTable,
@@ -21,6 +23,7 @@ import {
   createPresentation,
   findSlideLayoutByType,
   getParagraphAlignment,
+  getParagraphEndFormat,
   getShapeChartSpec,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -28,9 +31,11 @@ import {
   getSlideShapes,
   getSlides,
   getTableCellParagraphs,
+  getTableCellSpan,
   getTableCells,
   inches,
   loadPresentation,
+  mergeTableCells,
   readPackagePart,
   savePresentation,
   setShapeParagraphs,
@@ -208,12 +213,14 @@ describe('pptxgenjs compatibility: charts', () => {
 interface ParagraphDto {
   readonly align: ReturnType<typeof getParagraphAlignment>;
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
+  readonly endFormat: TextFormat | null;
 }
 
 const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
   Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => ({
     align: getParagraphAlignment(shape, i),
     elements: getShapeParagraphElements(shape, i),
+    endFormat: getParagraphEndFormat(shape, i),
   }));
 
 const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
@@ -223,6 +230,7 @@ const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
       if (e.kind !== 'r') throw new Error(`fixture has a ${e.kind} element`);
       return { text: e.text, ...(e.format !== null ? { format: e.format } : {}) };
     }),
+    ...(p.endFormat !== null ? { endFormat: p.endFormat } : {}),
   }));
 
 describe('pptxgenjs compatibility: text', () => {
@@ -238,6 +246,13 @@ describe('pptxgenjs compatibility: text', () => {
       'Bold ',
       '\n',
       'plain',
+    ]);
+
+    // pptxgenjs closes every paragraph with <a:endParaRPr>: bare on the text
+    // box, with the cell's font on the table.
+    expect(beforeText.map((p) => p.endFormat)).toEqual([{ size: 16 }]);
+    expect(beforeCells[0]![0]!.map((p) => p.endFormat)).toEqual([
+      { size: 10, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' },
     ]);
 
     const { pres, slide } = freshSlide();
@@ -267,6 +282,78 @@ describe('pptxgenjs compatibility: text', () => {
     expect(
       getTableCells(againTable!).map((row) => row.map((cell) => getTableCellParagraphs(cell))),
     ).toEqual(beforeCells);
+  });
+});
+
+describe('pptxgenjs compatibility: merged table', () => {
+  const END_FORMAT = { size: 9, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' };
+
+  it('round-trips empty cells and cells covered by a merge', async () => {
+    const src = await load('table-merge.pptx');
+    const srcTable = getSlideShapes(getSlides(src)[0]!).at(-1)!;
+    const beforeCells = getTableCells(srcTable).map((row) =>
+      row.map((cell) => ({
+        span: getTableCellSpan(cell),
+        paragraphs: getTableCellParagraphs(cell),
+      })),
+    );
+    // Row 0: empty corner, a colspan-2 header, its covered cell. pptxgenjs
+    // gives the empty cell a sized end mark and the covered cell no <a:txBody>.
+    expect(beforeCells[0]!.map((c) => c.paragraphs)).toEqual<TableCellParagraph[][]>([
+      [{ align: 'center', elements: [], endFormat: END_FORMAT }],
+      [
+        {
+          align: 'center',
+          elements: [expect.objectContaining({ text: 'Group' })],
+          endFormat: END_FORMAT,
+        },
+      ],
+      [],
+    ]);
+    expect(beforeCells[0]![2]!.span.hMerge).toBe(true);
+    expect(beforeCells[2]![0]!.span.vMerge).toBe(true);
+    expect(beforeCells[2]![0]!.paragraphs).toEqual([]);
+
+    const { pres, slide } = freshSlide();
+    const table = addSlideTable(slide, {
+      x: inches(0.5),
+      y: inches(1),
+      w: inches(9),
+      h: inches(1),
+      rows: beforeCells.map((row) => row.map(() => '')),
+    });
+    getTableCells(table).forEach((row, r) => {
+      row.forEach((cell, c) => {
+        const { paragraphs } = beforeCells[r]![c]!;
+        if (paragraphs.length > 0) setTableCellParagraphs(cell, toSpecs(paragraphs));
+      });
+    });
+    beforeCells.forEach((row, r) => {
+      row.forEach(({ span }, c) => {
+        if (span.gridSpan > 1 || span.rowSpan > 1) {
+          mergeTableCells(
+            table,
+            { row: r, col: c, rowSpan: span.rowSpan, colSpan: span.gridSpan },
+            { coveredText: 'drop' },
+          );
+        }
+      });
+    });
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const xml = partXml(reloaded, '/ppt/slides/slide1.xml');
+    xsd(xml, 'pml');
+    const againTable = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
+    expect(
+      getTableCells(againTable).map((row) =>
+        row.map((cell) => ({
+          span: getTableCellSpan(cell),
+          paragraphs: getTableCellParagraphs(cell),
+        })),
+      ),
+    ).toEqual(beforeCells);
+    expect(xml).toMatch(/<a:tc hMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
+    expect(xml).toMatch(/<a:tc vMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
   });
 });
 

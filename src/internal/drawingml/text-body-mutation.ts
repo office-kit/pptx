@@ -34,6 +34,7 @@ const NAME_R = qname('a', 'r', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
 const NAME_PPR = qname('a', 'pPr', NS.dml);
+const NAME_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
 const ATTR_XML_SPACE = qname('xml', 'space', NS.xml);
 
 const cloneAttrs = (attrs: ReadonlyArray<XmlAttr>): XmlAttr[] =>
@@ -423,6 +424,13 @@ export interface RunSpec {
 export interface ParagraphSpec {
   readonly align?: ParagraphAlignment;
   readonly runs: ReadonlyArray<RunSpec>;
+  /**
+   * Format of the paragraph-end mark (`<a:endParaRPr>`). A paragraph with no
+   * runs takes its line height from this `size`; without it PowerPoint falls
+   * back to the inherited default (18pt), which stretches an empty table row.
+   * Omit to write no `<a:endParaRPr>`.
+   */
+  readonly endFormat?: TextFormat;
 }
 
 /**
@@ -449,6 +457,12 @@ export const setTextBodyParagraphs = (
       if (run.format !== undefined) applyRunFormat(rPr, run.format);
       const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
       children.push(elem(NAME_R, { children: [rPr, t] }));
+    }
+    // CT_TextParagraph is a sequence: <a:endParaRPr> comes after every run.
+    if (para.endFormat !== undefined) {
+      const endParaRPr = elem(NAME_END_PARA_RPR);
+      applyRunFormat(endParaRPr, para.endFormat);
+      children.push(endParaRPr);
     }
     txBody.children.push(elem(NAME_P, { children }));
   }

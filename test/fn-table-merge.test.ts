@@ -11,11 +11,14 @@ import {
   getSlides,
   getSlideTables,
   getTableCell,
+  getTableCellParagraphs,
   getTableCellSpan,
+  getTableCellText,
   inches,
   loadPresentation,
   mergeTableCells,
   savePresentation,
+  setTableCellText,
 } from '../src/api/index.ts';
 import { partName } from '../src/internal/opc/index.ts';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
@@ -156,5 +159,68 @@ describe('fn API: mergeTableCells', () => {
     const slidePart = pkg.getPart(partName('/ppt/slides/slide1.xml'));
     expect(slidePart).not.toBeNull();
     expectSchemaValid(decode(slidePart!.data), 'pml');
+  });
+});
+
+describe("fn API: mergeTableCells — coveredText: 'drop'", () => {
+  it("keeps the covered cells' text by default", async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 1, colSpan: 2 });
+    expect(getTableCellText(getTableCell(tbl, 0, 1))).toBe('b');
+  });
+
+  skipIfNoXmllint('removes <a:txBody> from every covered cell and only from those', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 2, colSpan: 2 }, { coveredText: 'drop' });
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideTables(getSlides(reloaded)[0]!)[0]!;
+    const paragraphCounts = [0, 1, 2].map((r) =>
+      [0, 1, 2].map((c) => getTableCellParagraphs(getTableCell(again, r, c)).length),
+    );
+    expect(paragraphCounts).toEqual([
+      [1, 0, 1],
+      [0, 0, 1],
+      [1, 1, 1],
+    ]);
+    expect(getTableCellText(getTableCell(again, 0, 0))).toBe('a');
+    expect(getTableCellSpan(getTableCell(again, 1, 1))).toMatchObject({
+      hMerge: true,
+      vMerge: true,
+    });
+
+    const xml = decode(
+      _internalPackageOf(reloaded).getPart(partName('/ppt/slides/slide1.xml'))!.data,
+    );
+    expect(xml).toMatch(/<a:tc hMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
+    expect(xml).toMatch(/<a:tc hMerge="1" vMerge="1"><a:tcPr[^>]*\/><\/a:tc>/);
+    expectSchemaValid(xml, 'pml');
+  });
+
+  skipIfNoXmllint('a covered cell without <a:txBody> can be written to again', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'drop' });
+    setTableCellText(getTableCell(tbl, 0, 1), 'back');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideTables(getSlides(reloaded)[0]!)[0]!;
+    expect(getTableCellText(getTableCell(again, 0, 1))).toBe('back');
+    expectSchemaValid(
+      decode(_internalPackageOf(reloaded).getPart(partName('/ppt/slides/slide1.xml'))!.data),
+      'pml',
+    );
+  });
+
+  it('a rejected merge drops nothing', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 1, colSpan: 2 });
+    expect(() =>
+      mergeTableCells(tbl, { row: 0, col: 1, rowSpan: 2, colSpan: 1 }, { coveredText: 'drop' }),
+    ).toThrow(/already part of a merge/);
+    expect(getTableCellText(getTableCell(tbl, 1, 1))).toBe('e');
   });
 });

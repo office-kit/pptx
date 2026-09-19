@@ -205,6 +205,7 @@ export {
   getParagraphBullet,
   getParagraphBulletStyle,
   getParagraphBulletImageBytes,
+  getParagraphEndFormat,
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,

@@ -8,6 +8,7 @@ import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-sch
 import {
   addSlideTable,
   getParagraphAlignment,
+  getParagraphEndFormat,
   getShapeParagraphCount,
   getShapeParagraphElements,
   getShapeText,
@@ -157,8 +158,72 @@ describe('fn API: setTableCellParagraphs — empty input', () => {
     const reloaded = await loadPresentation(await savePresentation(pres));
     const table = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
     expect(getTableCellParagraphs(getTableCell(table, 1, 0))).toEqual([
-      { align: null, elements: [] },
+      { align: null, elements: [], endFormat: null },
     ]);
     expectSchemaValid(decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!), 'pml');
+  });
+});
+
+describe('fn API: paragraph end format (<a:endParaRPr>)', () => {
+  const END_FORMAT = { size: 9, font: 'Yu Gothic', fontEastAsian: 'Yu Gothic' } as const;
+
+  skipIfNoXmllint('writes endFormat after the runs and reads it back on a shape', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    setShapeParagraphs(shape, [
+      { align: 'ctr', runs: [{ text: 'Lead', format: { bold: true } }], endFormat: END_FORMAT },
+      { runs: [], endFormat: { size: 24 } },
+      { runs: [{ text: 'no end mark' }] },
+    ]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+    expect(getParagraphEndFormat(again, 0)).toEqual(END_FORMAT);
+    expect(getParagraphEndFormat(again, 1)).toEqual({ size: 24 });
+    expect(getParagraphEndFormat(again, 2)).toBeNull();
+    // The end mark is not an inline element: run readers must not see it.
+    expect(getShapeParagraphElements(again, 1)).toHaveLength(0);
+
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml).toContain(
+      '</a:r><a:endParaRPr sz="900"><a:latin typeface="Yu Gothic"/><a:ea typeface="Yu Gothic"/></a:endParaRPr></a:p>',
+    );
+    expect(xml).toContain('<a:p><a:endParaRPr sz="2400"/></a:p>');
+    expectSchemaValid(xml, 'pml');
+  });
+
+  skipIfNoXmllint('writes endFormat into an empty table cell and reads it back', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const table = addSlideTable(getSlides(pres)[0]!, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(1),
+      rows: [['head'], ['body']],
+    });
+    setTableCellParagraphs(getTableCell(table, 0, 0), [
+      { align: 'ctr', runs: [], endFormat: END_FORMAT },
+    ]);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
+    expect(getTableCellParagraphs(getTableCell(again, 0, 0))).toEqual([
+      { align: 'center', elements: [], endFormat: END_FORMAT },
+    ]);
+    const xml = decoder.decode(readPackagePart(reloaded, '/ppt/slides/slide1.xml')!);
+    expect(xml).toContain('<a:p><a:pPr algn="ctr"/><a:endParaRPr sz="900">');
+    expectSchemaValid(xml, 'pml');
+  });
+
+  it('rejects an out-of-range end-mark size like a run size', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(() => setShapeParagraphs(shape, [{ runs: [], endFormat: { size: 0 } }])).toThrow();
+  });
+
+  it('throws on an out-of-range paragraph index', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(() => getParagraphEndFormat(shape, 99)).toThrow(RangeError);
   });
 });
