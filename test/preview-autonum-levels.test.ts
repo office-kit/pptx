@@ -24,7 +24,7 @@ const labelsIn = (svg: string): string[] =>
 describe('renderSlideToSvg: auto-numbering per level', () => {
   it('continues the outer list across a nested numbered list', async () => {
     const pres = await loadPresentation(await readFile(fixturePath));
-    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank') });
+    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
     const box = addSlideTextBox(slide, {
       x: inches(1),
       y: inches(1),
@@ -44,7 +44,7 @@ describe('renderSlideToSvg: auto-numbering per level', () => {
 
   it('restarts a level after a non-numbered paragraph at that level', async () => {
     const pres = await loadPresentation(await readFile(fixturePath));
-    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank') });
+    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
     const box = addSlideTextBox(slide, {
       x: inches(1),
       y: inches(1),
