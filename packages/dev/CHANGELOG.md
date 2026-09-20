@@ -1,5 +1,16 @@
 # @office-kit/pptx-dev
 
+## 0.2.1
+
+### Patch Changes
+
+- ad3cbd2: Keep slide previews steady while editing TSX: update only changed thumbnails and slides, preserve zoom and scroll position, and retain the previous frame until its replacement is ready. Transfer SVG changes incrementally, preload build workers between saves, and cancel obsolete evaluations so rapid edits and accidental infinite loops do not delay the next revision.
+- Updated dependencies [71deec5]
+- Updated dependencies [71deec5]
+  - @office-kit/pptx@0.17.0
+  - @office-kit/pptx-preview@0.9.6
+  - @office-kit/pptx-dsl@0.3.0
+
 ## 0.2.0
 
 ### Minor Changes
