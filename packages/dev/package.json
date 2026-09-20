@@ -30,7 +30,8 @@
     "build": "tsdown",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs",
-    "prepublishOnly": "tsdown"
+    "prepublishOnly": "tsdown",
+    "test:browser": "node --test test/browser/*.test.mjs"
   },
   "dependencies": {
     "@office-kit/pptx": "workspace:^",
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
+    "playwright": "^1.63.0",
     "tsdown": "^0.22.2",
     "typescript": "^6.0.3"
   },

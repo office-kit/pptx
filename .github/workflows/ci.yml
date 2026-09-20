@@ -100,6 +100,12 @@ jobs:
         run: pnpm --filter @office-kit/pptx-dev... build
       - name: Test TSX authoring and live preview
         run: pnpm --filter @office-kit/pptx-dev test
+      - name: Install preview test browser
+        if: matrix.node-version == '24'
+        run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
+      - name: Test live preview in Chromium
+        if: matrix.node-version == '24'
+        run: pnpm --filter @office-kit/pptx-dev test:browser
 
   # Measures how closely @office-kit/pptx-preview's SVG renderer matches LibreOffice's
   # output for each generated sample slide, and gates on a committed baseline.

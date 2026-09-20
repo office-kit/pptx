@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, rm, symlink, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { spawn, execFile } from 'node:child_process';
@@ -84,7 +84,9 @@ test('watch updates and retains the last successful deck through an error', asyn
   const source = (text) => `import { Presentation, Slide, Text } from '@office-kit/pptx-dsl';
 export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${text}</Text></Slide></Presentation>;`;
   await writeFile(deck, source('Before edit'));
+  const workerDirectory = await fixture(t);
   const child = spawn(process.execPath, [cli, 'dev', deck, '--port', '0'], {
+    env: { ...process.env, TMPDIR: workerDirectory },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   t.after(() => {
@@ -116,9 +118,17 @@ export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${tex
     }
     throw new Error('Preview did not update');
   }
-  await until((state) => state.slides[0]?.includes('Before edit'));
+  const initial = await until((state) => state.slides[0]?.includes('Before edit'));
   await writeFile(deck, source('After edit'));
-  await until((state) => state.slides[0]?.includes('After edit'));
+  const edited = await until((state) => state.slides[0]?.includes('After edit'));
+  const delta = await fetch(`${url}/state?since=${initial.revision}`).then((r) => r.json());
+  assert.equal(delta.slides, undefined);
+  assert.deepEqual(delta.changes, { 0: edited.slides[0] });
+  assert.equal(delta.count, 1);
+  const unchanged = await fetch(`${url}/state?since=${edited.revision}`).then((r) => r.json());
+  assert.deepEqual(unchanged.changes, {});
+  const stale = await fetch(`${url}/state?since=-10`).then((r) => r.json());
+  assert.deepEqual(stale.slides, edited.slides);
   const beforeError = new Uint8Array(
     await fetch(`${url}/deck.pptx`).then((response) => response.arrayBuffer()),
   );
@@ -131,4 +141,36 @@ export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${tex
   await writeFile(deck, source('Recovered'));
   await until((state) => !state.error && state.slides[0]?.includes('Recovered'));
   assert.match(await readFile(deck, 'utf8'), /Recovered/);
+  await writeFile(deck, `await new Promise(r => setTimeout(r, 500));\n${source('Superseded')}`);
+  await until((state) => state.building);
+  await writeFile(deck, source('Newest'));
+  const newest = await until((state) => {
+    assert.ok(!state.slides[0]?.includes('Superseded'));
+    return state.slides[0]?.includes('Newest');
+  });
+  assert.equal(newest.error, null);
+  const isolated = (suffix) => `import { Presentation, Slide, Text } from '@office-kit/pptx-dsl';
+const counter = globalThis.__counter = (globalThis.__counter ?? 0) + 1;
+export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${suffix} {counter}</Text></Slide></Presentation>`;
+  await writeFile(deck, isolated('First'));
+  await until((state) => state.slides[0]?.includes('First 1'));
+  await writeFile(deck, isolated('Second'));
+  await until((state) => state.slides[0]?.includes('Second 1'));
+
+  await writeFile(deck, `while (true) {}\n${source('Never finishes')}`);
+  await until((state) => state.building);
+  const recoveryStarted = Date.now();
+  await writeFile(deck, source('Cancelled obsolete evaluation'));
+  await until(
+    (state) => !state.error && state.slides[0]?.includes('Cancelled obsolete evaluation'),
+  );
+  assert.equal(
+    (await readdir(workerDirectory)).length,
+    1,
+    'only the next preloaded worker retains a temporary directory',
+  );
+  assert.ok(
+    Date.now() - recoveryStarted < 3000,
+    'an obsolete infinite loop must not delay the next edit',
+  );
 });

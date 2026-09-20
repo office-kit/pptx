@@ -1,13 +1,17 @@
 import { createServer, type ServerResponse } from 'node:http';
 import { watch } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
-import { buildDeck, type BuildResult } from './index.ts';
+import type { BuildResult } from './build.ts';
+import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
 
 export async function serveDeck(entry: string, port = 4173) {
   let latest: BuildResult | undefined;
   let error: string | null = null;
   let building = false;
+  let revision = 0;
+  let generation = 0;
+  let patch: Record<number, string> = {};
   let pending = false;
   let closed = false;
   const clients = new Set<ServerResponse>();
@@ -23,11 +27,21 @@ export async function serveDeck(entry: string, port = 4173) {
       response.write('data: ready\n\n');
       clients.add(response);
       request.on('close', () => clients.delete(response));
-    } else if (request.url === '/state') {
+    } else if (request.url === '/state' || request.url?.startsWith('/state?')) {
+      const since = new URL(request.url, 'http://localhost').searchParams.get('since');
+      const incremental =
+        since !== null && (since === String(revision) || since === String(revision - 1));
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(
         JSON.stringify({
-          slides: latest?.slides ?? [],
+          revision,
+          building,
+          ...(incremental
+            ? {
+                changes: since === String(revision) ? {} : patch,
+                count: latest?.slides.length ?? 0,
+              }
+            : { slides: latest?.slides ?? [] }),
           aspectRatio: latest?.aspectRatio ?? 16 / 9,
           error,
           diagnostics: latest?.diagnostics ?? [],
@@ -53,15 +67,26 @@ export async function serveDeck(entry: string, port = 4173) {
       return;
     }
     building = true;
+    const started = generation;
+    for (const client of clients) client.write('data: building\n\n');
     try {
-      latest = await buildDeck(entry);
-      error = null;
+      const result = await builder.build();
+      if (started === generation && !closed) {
+        patch = {};
+        result.slides.forEach((svg, index) => {
+          if (svg !== latest?.slides[index]) patch[index] = svg;
+        });
+        latest = result;
+        revision++;
+        error = null;
+      }
     } catch (cause) {
-      error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
+      if (started === generation)
+        error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
     } finally {
       building = false;
       for (const client of clients) client.write('data: updated\n\n');
-      if (pending) {
+      if (pending && !timer) {
         pending = false;
         void rebuild();
       }
@@ -78,11 +103,16 @@ export async function serveDeck(entry: string, port = 4173) {
     )
       return;
     if (!/\.([cm]?[jt]sx?|json|pptx|png|jpe?g|gif|bmp|tiff?|emf|wmf|svg)$/i.test(filename)) return;
+    generation++;
+    void builder.cancel();
     clearTimeout(timer);
     timer = setTimeout(() => {
+      timer = undefined;
+      pending = false;
       void rebuild();
-    }, 100);
+    }, 30);
   });
+  const builder = createDeckBuilder(entry);
   let actualPort = port;
   try {
     await new Promise<void>((resolveListen, reject) => {
@@ -94,6 +124,7 @@ export async function serveDeck(entry: string, port = 4173) {
     });
   } catch (cause) {
     watcher.close();
+    await builder.close();
     throw cause;
   }
   const address = server.address();
@@ -105,6 +136,7 @@ export async function serveDeck(entry: string, port = 4173) {
       closed = true;
       clearTimeout(timer);
       watcher.close();
+      await builder.close();
       for (const client of clients) client.end();
       await new Promise<void>((done, reject) =>
         server.close((cause) => (cause ? reject(cause) : done())),
