@@ -1,5 +1,11 @@
 # @office-kit/pptx-dev
 
+## 0.4.1
+
+### Patch Changes
+
+- 1ca6ad7: Resize the preview chat panel by dragging its left edge or using the keyboard, with the chosen width remembered across reloads.
+
 ## 0.4.0
 
 ### Minor Changes
