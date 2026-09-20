@@ -23,7 +23,7 @@ import {
   type ChartSpec,
 } from '../src/api/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
-import { countTags } from './lib/svg-query.ts';
+import { attrsOf, countTags } from './lib/svg-query.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
 
@@ -288,4 +288,24 @@ describe('chart fidelity vs PowerPoint', () => {
     expect(countTags(svg, 'circle')).toBe(0);
     expect(countTags(svg, 'polygon')).toBeGreaterThanOrEqual(4);
   });
+
+  // `pointColors` writes a `<c:dPt>` per point, which PowerPoint paints over
+  // the series fill on any chart kind: the "one bar in colour, the rest in
+  // grey" exhibit depends on it.
+  it.each(['column', 'bar'] as const)(
+    'paints per-point colors on a clustered %s chart',
+    async (kind) => {
+      const svg = await renderChart({
+        kind,
+        categories: ['A', 'B', 'C'],
+        series: [
+          { name: 'S', values: [3, 2, 1], color: '#111111', pointColors: ['#1E4FFF', null] },
+        ],
+      });
+      const fills = attrsOf(svg, 'rect').map((attrs) => attrs['fill']);
+      expect(fills.filter((fill) => fill === '#1E4FFF')).toHaveLength(1);
+      // A null or missing entry leaves that point on the series color.
+      expect(fills.filter((fill) => fill === '#111111')).toHaveLength(2);
+    },
+  );
 });
