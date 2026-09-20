@@ -31,7 +31,12 @@ describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
           categories: ['A'],
           valueAxis: { min: 0, max: grouping === 'percentStacked' ? 1 : 100 },
           series: [
-            { name: 'Base', values: [20], color: '#010203', fillOpacity },
+            {
+              name: 'Base',
+              values: [20],
+              color: '#010203',
+              ...(fillOpacity === undefined ? {} : { fillOpacity }),
+            },
             { name: 'Visible', values: [30], color: '#AABBCC' },
           ],
         });
