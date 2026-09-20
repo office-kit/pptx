@@ -455,12 +455,15 @@ export interface FillProps extends Children {
   target: Target;
   text?: string;
   format?: api.TextFormat;
+  /** Omitted keeps whatever the template's `<a:bodyPr>` says. */
+  autoFit?: api.TextAutoFit;
 }
 export function Fill(props: FillProps): Node {
   return node('Fill', (context) => {
     const shape = selectShape(requireSlide(context), props.target);
     api.setShapeText(shape, props.text ?? literal(props.children));
     if (props.format) api.setShapeTextFormat(shape, props.format);
+    if (props.autoFit) api.setShapeTextAutoFit(shape, props.autoFit);
   });
 }
 export function Remove(props: { target: Target }): Node {

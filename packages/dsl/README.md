@@ -62,7 +62,7 @@ Layout is explicit: CSS and automatic UI layout are not implemented.
 | `Media`        | `kind` `video` / `audio` with bytes in `data`, or `online` with a `url`   |
 | `Chart`        | Complete core `ChartSpec` via `spec`                                      |
 | `Table`        | String rows, column and row sizes, cell/header/stripe styles, `styleCell` |
-| `Fill`         | Existing shape target, replacement text, optional format                  |
+| `Fill`         | Existing shape target, replacement text, optional format and `autoFit`    |
 | `Remove`       | Existing shape target                                                     |
 | `Raw`          | Deferred callback receiving the presentation and enclosing slide/shape    |
 
@@ -128,6 +128,8 @@ slides; use `<Slide from={{index: 0}}>` to duplicate an original slide. Referenc
 always refer to the source sequence, and each compilation loads the source fresh.
 A source deck is not reconstructed from DSL-understood fields: the core package
 retains existing parts. Editing text intentionally replaces that shape's text.
+`Fill` takes the same `autoFit` values as `Text` (`"normal"` shrinks text that is
+longer than the placeholder); omitted, the shape keeps the template's setting.
 `size` applies only to new decks; source decks retain their original dimensions.
 `theme` accepts the core theme overrides and follows its first-theme semantics.
 

@@ -80,7 +80,7 @@ Bounds (`x`, `y`, `width`, `height`) are required for new visual objects.
 | `Image`        | Byte `data`, optional `format` and `fit`. Load local bytes with `readFile(new URL('./image.png', import.meta.url))`.                                             |
 | `Chart`        | Core `ChartSpec` in `spec`, including categories and series.                                                                                                     |
 | `Table`        | String `rows`, `columnWidths`, `rowHeights`, `cellStyle`, `headerStyle`, `stripeFill`, per-cell `styleCell({ row, column, value })`.                             |
-| `Fill`         | Existing shape `target`, replacement text children, optional `format`.                                                                                           |
+| `Fill`         | Existing shape `target`, replacement text children, optional `format`, `autoFit`.                                                                                |
 | `Remove`       | Existing shape `target`.                                                                                                                                         |
 | `Raw`          | Public core API callback with optional explicit scope.                                                                                                           |
 
@@ -113,6 +113,9 @@ Missing and ambiguous targets fail.
 existing masters, layouts and unknown package parts. `Fill` intentionally replaces
 the selected shape's text. A rebuild loads the source fresh; write to a separate
 output file so edits are not reapplied to their own output.
+
+When replacement text may be longer than the placeholder (a sentence-length
+title), add `autoFit="normal"` to the `Fill`; omitted, the template's setting stays.
 
 Use `mode="compose"` with `<Slide from={{ index: 0 }}>` to duplicate source slides
 into a new sequence, only when that is the intent. Compose removes the original
