@@ -166,6 +166,12 @@ export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from '
 interface LayoutCtx {
   readonly mode: TextLayoutMode;
   readonly measure: TextMeasurer;
+  // Product of the scale factors of every enclosing group (`<a:ext>` over
+  // `<a:chExt>`). Geometry scales with the group; text does not — PowerPoint
+  // and LibreOffice both keep a group child's glyphs at their authored size
+  // and aspect when the group is resized, so the text path renders into the
+  // group-scaled rect and cancels the scale back out (see `renderShape`).
+  readonly groupScale: { readonly sx: number; readonly sy: number };
 }
 
 // Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
@@ -2445,9 +2451,7 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
       : para.bulletDetail.sizePts !== null
         ? para.bulletDetail.sizePts * PX_PER_PT * a.autoFitScale
         : baseSizePx;
-  const fillHex = para.bulletDetail.color
-    ? resolveColor(para.bulletDetail.color, a.theme, '#000000')
-    : a.defaultColor;
+  const fillHex = bulletFillOf(para, a.theme, a.defaultColor);
   return {
     text: char,
     family: (a.resolveFamily ?? substituteFamily)(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
@@ -2455,6 +2459,24 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
     fillHex,
     ...(para.bulletImageHref ? { imageHref: para.bulletImageHref } : {}),
   };
+};
+
+// A bullet with no `<a:buClr>` anywhere in the cascade takes the colour of the
+// paragraph's FIRST RUN, the same rule an un-sized bullet already follows for
+// its size. Falling back to the body default instead paints the marker black on
+// a deck whose runs carry their own light colour, which is what a dark-themed
+// agenda slide with `<a:buAutoNum>` looks like when the numbers go missing.
+const bulletFillOf = (
+  para: ParaData,
+  theme: PresentationTheme | null,
+  defaultColor: string,
+): string => {
+  if (para.bulletDetail.color) return resolveColor(para.bulletDetail.color, theme, '#000000');
+  const firstRun = para.runs.find((r) => r.text !== '\n' && r.text !== '');
+  const runColor = firstRun?.fmt?.color;
+  return runColor === undefined || runColor === null
+    ? defaultColor
+    : resolveColor(runColor, theme, defaultColor);
 };
 
 // Preset geometry text rectangle (ECMA-376 `<a:rect>`), as fractions of w/h.
@@ -2926,6 +2948,11 @@ const renderTextBody = (
     svgTextRect,
   } = model;
 
+  // Fallback color for runs with no authored color — the deck's body-text color
+  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
+  // Bullets fall back through it too, so it has to be in hand before the loop.
+  const defaultColor = activeDeckTextColor;
+
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
   for (let pi = 0; pi < paraData.length; pi++) {
@@ -3048,9 +3075,7 @@ const renderTextBody = (
       const bulletStyles: string[] = [
         `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
       ];
-      if (para.bulletDetail.color) {
-        bulletStyles.push(`color:${resolveColor(para.bulletDetail.color, theme, '#000000')}`);
-      }
+      bulletStyles.push(`color:${bulletFillOf(para, theme, defaultColor)}`);
       if (para.bulletDetail.sizePct !== null) {
         bulletStyles.push(`font-size:${(para.bulletDetail.sizePct * 100).toFixed(1)}%`);
       } else if (para.bulletDetail.sizePts !== null) {
@@ -3074,9 +3099,6 @@ const renderTextBody = (
   }
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
-  // Fallback color for runs with no authored color — the deck's body-text color
-  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
-  const defaultColor = activeDeckTextColor;
 
   // Pure-SVG text path (browser-free rasterization). Rebuild the px-native
   // layout model from the already-resolved paraData and hand it to the engine,
@@ -5994,10 +6016,26 @@ const renderShape = (
   const textTransform =
     textRotation !== 0 ? ` transform="rotate(${textRotation} ${E(cx)} ${E(cy)})"` : '';
 
-  const textOverlay =
+  // A group's scale moves and resizes its children but leaves their text at the
+  // authored point size — resizing a group in PowerPoint never reflows the type,
+  // and LibreOffice renders it the same way. Laying the text out inside the
+  // group-scaled rect and cancelling the scale back out keeps the box where the
+  // geometry is while the glyphs stay undistorted; a non-uniform group scale
+  // would otherwise squash them (`<a:ext cy>` far under `<a:chExt cy>` is what
+  // Google Slides writes for a hand-resized group).
+  const { sx: gsx, sy: gsy } = ctx.groupScale;
+  const groupScaled = gsx !== 1 || gsy !== 1;
+  const textBounds = groupScaled
+    ? { x: x * gsx, y: y * gsy, w: w * gsx, h: h * gsy }
+    : { x, y, w, h };
+  const rawTextOverlay =
     kind === 'shape' || kind === 'graphicFrame'
-      ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType, ctx)
+      ? renderTextBody(pres, shape, textBounds, theme, phType, ctx)
       : '';
+  const textOverlay =
+    rawTextOverlay !== '' && groupScaled
+      ? `<g transform="scale(${(1 / gsx).toFixed(6)} ${(1 / gsy).toFixed(6)})">${rawTextOverlay}</g>`
+      : rawTextOverlay;
 
   if (kind === 'picture') {
     return renderPicture(
@@ -6126,6 +6164,8 @@ const renderShape = (
     const children = getGroupChildren(shape);
     if (children.length === 0) return '';
     const tParts: string[] = [];
+    let groupScaleX = 1;
+    let groupScaleY = 1;
     // B7 — group-level rotation / flip. The group's <a:xfrm rot=…
     // flipH=… flipV=…> applies to the whole subtree, around the group's
     // outer-rect center. Compose those transforms first, then the
@@ -6163,8 +6203,10 @@ const renderShape = (
       const iy = xform.inner.y as number;
       const iw = (xform.inner.w as number) || 1;
       const ih = (xform.inner.h as number) || 1;
-      const sx = (ow / iw).toFixed(6);
-      const sy = (oh / ih).toFixed(6);
+      groupScaleX = ow / iw;
+      groupScaleY = oh / ih;
+      const sx = groupScaleX.toFixed(6);
+      const sy = groupScaleY.toFixed(6);
       // translate first, then scale, so the child's natural coords
       // (px) project: ox/EMU_PER_PX + (cx - ix) * sx / EMU_PER_PX,
       // which factors as translate(ox/EMU - ix*sx/EMU) scale(sx).
@@ -6173,7 +6215,17 @@ const renderShape = (
       tParts.push(`translate(${tx} ${ty})`, `scale(${sx} ${sy})`);
     }
     const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
-    const childrenSvg = children.map((c) => renderShape(c, pres, theme, ctx)).join('');
+    const childCtx: LayoutCtx =
+      groupScaleX === 1 && groupScaleY === 1
+        ? ctx
+        : {
+            ...ctx,
+            groupScale: {
+              sx: ctx.groupScale.sx * groupScaleX,
+              sy: ctx.groupScale.sy * groupScaleY,
+            },
+          };
+    const childrenSvg = children.map((c) => renderShape(c, pres, theme, childCtx)).join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
@@ -6586,6 +6638,7 @@ export const renderSlideSvg = (
   activeColorMap = getEffectiveColorMap(slide);
   activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
   const ctx: LayoutCtx = {
+    groupScale: { sx: 1, sy: 1 },
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
   };
