@@ -15,7 +15,7 @@
 // the actual `<p:set>` / `<p:anim>` is fixed; we just swap presetID,
 // presetClass, and the target spid.
 
-import { unsignedIntMs } from '../bounds.ts';
+import { oneOf, unsignedIntMs } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 
 const NAME_TIMING = qname('p', 'timing', NS.pml);
@@ -154,10 +154,15 @@ const buildOpacityAnim = (spid: number, durationMs: number, fadeIn: boolean): Xm
 
 /**
  * Builds the complete `<p:timing>` element for a single click-effect on
- * the given shape id. Returns null for unsupported effect kinds.
+ * the given shape id.
  */
 export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): XmlElement => {
-  const preset = PRESETS[opts.effect];
+  const effect = oneOf(
+    opts.effect,
+    ['fadeIn', 'fadeOut', 'appear', 'disappear'],
+    'setShapeAnimation: effect',
+  );
+  const preset = PRESETS[effect];
   // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"); reject
   // fractional/negative/out-of-range so we never emit an invalid dur.
   const duration =

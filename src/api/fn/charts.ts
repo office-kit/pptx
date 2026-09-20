@@ -1,5 +1,6 @@
 // Charts (read + write).
 
+import { validateChartSpecEnums } from '../../internal/chartml/enum-validation.ts';
 import type { Emu } from '../units.ts';
 import {
   type PartName,
@@ -290,6 +291,7 @@ export const addSlideChart = (
     name?: string;
   },
 ): SlideShapeData => {
+  validateChartSpecEnums(opts.spec, 'addSlideChart');
   validateChartSpecColors(opts.spec);
   validateChartSpecAxes(opts.spec);
   const spec = withChartDefaultTextColor(opts.spec, resolveDeckBodyTextColor(slide));
@@ -413,6 +415,7 @@ export const resolveChartPartName = (
  * fresh data."
  */
 export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
+  validateChartSpecEnums(spec, 'setChartSpec');
   validateChartSpecColors(spec);
   validateChartSpecAxes(spec);
   const slide = chart.shape[SHAPE_SLIDE];

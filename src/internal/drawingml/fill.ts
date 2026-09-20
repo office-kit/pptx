@@ -224,6 +224,8 @@ export const setPatternFill = (host: XmlElement, options: PatternFillOptions): v
 
 /** Sets `<a:gradFill>` on `host`, replacing any previous fill choice. */
 export const setGradientFill = (host: XmlElement, options: GradientFillOptions): void => {
+  if (options.path !== undefined)
+    oneOf(options.path, ['linear', 'circle', 'rect', 'shape'], 'setShapeGradientFill: path');
   if (options.stops.length < 2) {
     throw new Error('gradient fill requires at least two stops');
   }

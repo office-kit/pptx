@@ -2,6 +2,7 @@
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
 import {
+  alignToken,
   type BulletStyle,
   type ParagraphAlignment,
   type TextFormat,
@@ -446,28 +447,6 @@ const ensurePPr = (paragraph: XmlElement): XmlElement => {
   return fresh;
 };
 
-const alignTokenForFn = (a: ParagraphAlignment): string => {
-  switch (a) {
-    case 'left':
-    case 'l':
-      return 'l';
-    case 'center':
-    case 'ctr':
-      return 'ctr';
-    case 'right':
-    case 'r':
-      return 'r';
-    case 'justify':
-    case 'just':
-      return 'just';
-    case 'distribute':
-    case 'dist':
-      return 'dist';
-    default:
-      return a;
-  }
-};
-
 /**
  * Sets the horizontal alignment of a single paragraph. Same token set
  * as `setShapeAlignment`. Other paragraphs are untouched.
@@ -477,10 +456,11 @@ export const setParagraphAlignment = (
   paragraphIndex: number,
   align: ParagraphAlignment,
 ): void => {
+  const token = alignToken(align, 'setParagraphAlignment');
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = ensurePPr(paragraph);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'algn');
-  pPr.attrs.push(attr(ATTR_ALGN_FN, alignTokenForFn(align)));
+  pPr.attrs.push(attr(ATTR_ALGN_FN, token));
   commitAndRefresh(shape);
 };
 

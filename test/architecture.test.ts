@@ -17,11 +17,14 @@ const allowed: Record<Module, ReadonlyArray<Module> | 'any-internal'> = {
   // Leaf utility: ECMA-376 simple-type bounds validation. Imports nothing, so
   // every authoring layer may depend on it (like internal/xml).
   'internal/bounds': [],
+  // Leaf constants: ECMA-376 enum domains shared by authoring layers.
+  'internal/enum-values': [],
   'internal/opc': ['internal/xml'],
   'internal/parts': ['internal/opc', 'internal/xml'],
-  'internal/drawingml': ['internal/bounds', 'internal/xml'],
+  'internal/drawingml': ['internal/bounds', 'internal/enum-values', 'internal/xml'],
   'internal/presentationml': [
     'internal/bounds',
+    'internal/enum-values',
     'internal/drawingml',
     'internal/parts',
     'internal/xml',
@@ -30,6 +33,7 @@ const allowed: Record<Module, ReadonlyArray<Module> | 'any-internal'> = {
   // emit the embedded xlsx workbook each chart wraps.
   'internal/chartml': [
     'internal/bounds',
+    'internal/enum-values',
     'internal/drawingml',
     'internal/opc',
     'internal/parts',

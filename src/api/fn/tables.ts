@@ -1,9 +1,13 @@
 // Table cell access.
 
+import { oneOf } from '../../internal/bounds.ts';
+import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
 import {
-  applyAlignmentToAllParagraphs,
-  applyFormatToAllRuns,
+  alignToken,
+  applyAlignmentTokenToAllParagraphs,
+  applyValidatedFormatToAllRuns,
+  validateFormatEnums,
   buildColorElement,
   clearFill as clearFillImpl,
   setSolidFill,
@@ -454,6 +458,7 @@ const ensureCellTxBody = (cell: TableCellData): XmlElement => {
     // bodyPr lstStyle a:p — keep the canonical ordering.
     txBody.children.push(elem(qname('a', 'bodyPr', NS.dml)));
     txBody.children.push(elem(qname('a', 'lstStyle', NS.dml)));
+    txBody.children.push(elem(qname('a', 'p', NS.dml)));
     // CT_TableCell is a sequence (txBody?, tcPr?, extLst?): txBody leads.
     tc.children.unshift(txBody);
   }
@@ -492,7 +497,7 @@ export const setTableCellParagraphs = (
 ): void => {
   // Built first: a rejected format must not leave a freshly created, empty
   // (schema-invalid) <a:txBody> on a cell that had none.
-  const built = buildTextBodyParagraphs(paragraphs);
+  const built = buildTextBodyParagraphs(paragraphs, 'setTableCellParagraphs');
   replaceTextBodyParagraphs(ensureCellTxBody(cell), built);
   commitTableCell(cell);
 };
@@ -826,6 +831,12 @@ export const setTableCellBorders = (
     blToTr?: Partial<TableCellBorder> | null;
   } | null,
 ): void => {
+  if (sides !== null) {
+    for (const [side, border] of Object.entries(sides)) {
+      if (border?.dash != null)
+        oneOf(border.dash, LINE_DASHES, `setTableCellBorders: ${side}.dash`);
+    }
+  }
   const tcPr = ensureCellTcPr(cell);
   if (sides === null) {
     for (const local of Object.values(BORDER_SIDE_LOCALS)) writeBorderLn(tcPr, local, null);
@@ -889,6 +900,7 @@ export const setTableCellTextDirection = (
     | 'wordArtVertRtl'
     | null,
 ): void => {
+  if (direction !== null) oneOf(direction, TEXT_DIRECTIONS, 'setTableCellTextDirection: direction');
   const tcPr = ensureCellTcPr(cell);
   tcPr.attrs = tcPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
@@ -923,12 +935,13 @@ export const setTableCellAnchor = (
   cell: TableCellData,
   anchor: 'top' | 'center' | 'bottom' | null,
 ): void => {
+  if (anchor !== null) oneOf(anchor, ['top', 'center', 'bottom'], 'setTableCellAnchor: anchor');
   const tcPr = ensureCellTcPr(cell);
   tcPr.attrs = tcPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchor'),
   );
   if (anchor !== null) {
-    const mapped = anchor === 'top' ? 't' : anchor === 'center' ? 'ctr' : 'b';
+    const mapped = TEXT_ANCHORS[anchor];
     tcPr.attrs.push(attr(qname('', 'anchor', ''), mapped));
   }
   commitTableCell(cell);
@@ -1110,15 +1123,17 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
 
 /** Applies a TextFormat to every run in the cell's text. */
 export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
+  validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
-  applyFormatToAllRuns(txBody, format);
+  applyValidatedFormatToAllRuns(txBody, format);
   commitTableCell(cell);
 };
 
 /** Sets horizontal alignment on every paragraph in the cell. */
 export const setTableCellAlignment = (cell: TableCellData, align: ParagraphAlignment): void => {
+  const token = alignToken(align, 'setTableCellAlignment');
   const txBody = ensureCellTxBody(cell);
-  applyAlignmentToAllParagraphs(txBody, align);
+  applyAlignmentTokenToAllParagraphs(txBody, token);
   commitTableCell(cell);
 };
 
