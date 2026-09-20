@@ -88,6 +88,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Fetch ECMA-376 schemas for enum domain tests
+        run: git submodule update --init --depth 1 references/ecma-376-5th
+
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -167,8 +170,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Secondary OOXML oracle. xmllint + the ECMA-376 XSDs (run in the test job)
-  # only check structural schema conformance; they can't express the semantic
+  # Secondary OOXML oracle. The test job compares enum domains against XSDs;
+  # full XSD validation also requires xmllint, which this workflow doesn't install.
+  # Even full XSD validation can't express the semantic
   # OOXML rules PowerPoint enforces before it calls a file corrupt. This job
   # runs Microsoft's own OpenXmlValidator over the generated decks as an
   # independent check. It GATES — CLAUDE.md treats invalid output as a bug, so a
