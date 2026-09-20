@@ -66,26 +66,25 @@ PptxGenJS cannot open it.
 
 Compared against PptxGenJS 4.0.1:
 
-|                                   | `@office-kit/pptx`                                                                           | PptxGenJS                                                 |
-| --------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Open and edit an existing `.pptx` | ✅ Load, change, save; unknown parts are preserved                                           | ❌ Creates new files only                                 |
-| Templates                         | Any `.pptx` a designer made in PowerPoint                                                    | Slide masters defined in code (`defineSlideMaster`)       |
-| Read back what is in a deck       | ✅ Every setter has a getter, plus deck-wide queries                                         | ❌ The API is write-only                                  |
-| API shape                         | Tree-shakeable functions (`addSlideChart(slide, …)`)                                         | One class with methods (`slide.addChart(…)`)              |
-| Module formats                    | ESM only                                                                                     | ESM, CommonJS, and a script-tag bundle                    |
-| Runtime dependencies              | 1 (`fflate`)                                                                                 | 4 (`jszip`, `image-size`, `https`, `@types/node`)         |
-| Slide transitions                 | ✅                                                                                           | ❌                                                        |
-| Animations                        | ✅ Four entrance / exit presets                                                              | ❌                                                        |
-| Comments                          | ✅                                                                                           | ❌ (speaker notes only)                                   |
-| Chart types you can author        | Bar, column, line, pie, doughnut, area; combos, secondary axis, trendlines, per-point labels | Those, plus scatter, bubble, radar, and 3D bar            |
-| Audio, video, YouTube embeds      | ❌ Not yet (media already in a deck is preserved)                                            | ✅                                                        |
-| HTML `<table>` to slides          | ❌                                                                                           | ✅ With automatic paging                                  |
-| Render a slide to an image        | ✅ SVG and PNG, via [`@office-kit/pptx-preview`](packages/preview)                           | ❌                                                        |
-| How output is checked             | Open XML SDK validator and ECMA-376 XSDs, in CI                                              | Manual runs in PowerPoint and other apps before a release |
+|                                   | `@office-kit/pptx`                                                                                              | PptxGenJS                                                                        |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Open and edit an existing `.pptx` | ✅ Load, change, save; unknown parts are preserved                                                              | ❌ Creates new files only                                                        |
+| Templates                         | Any `.pptx` a designer made in PowerPoint                                                                       | Slide masters defined in code (`defineSlideMaster`)                              |
+| Read back what is in a deck       | ✅ Every setter has a getter, plus deck-wide queries                                                            | ❌ The API is write-only                                                         |
+| API shape                         | Tree-shakeable functions (`addSlideChart(slide, …)`)                                                            | One class with methods (`slide.addChart(…)`)                                     |
+| Module formats                    | ESM only                                                                                                        | ESM, CommonJS, and a script-tag bundle                                           |
+| Runtime dependencies              | 1 (`fflate`)                                                                                                    | 4 (`jszip`, `image-size`, `https`, `@types/node`)                                |
+| Slide transitions                 | ✅                                                                                                              | ❌                                                                               |
+| Animations                        | ✅ Four entrance / exit presets                                                                                 | ❌                                                                               |
+| Comments                          | ✅                                                                                                              | ❌ (speaker notes only)                                                          |
+| Chart types you can author        | ✅ All 16 ECMA-376 plot types, incl. 3-D, stock, surface, pie-of-pie; combos, error bars, data table, date axis | Bar, line, area, pie, doughnut, scatter, bubble, radar, 3-D bar / bubble; combos |
+| Audio, video, YouTube embeds      | ✅ Embedded from bytes (Node and browser), with read-back (`getShapeMedia`); clips de-duplicated per deck       | ✅ From a path or base64; write-only                                             |
+| HTML `<table>` to slides          | ❌                                                                                                              | ✅ With automatic paging                                                         |
+| Render a slide to an image        | ✅ SVG and PNG, via [`@office-kit/pptx-preview`](packages/preview)                                              | ❌                                                                               |
+| How output is checked             | Open XML SDK validator and ECMA-376 XSDs, in CI                                                                 | Manual runs in PowerPoint and other apps before a release                        |
 
-**Pick PptxGenJS** if you only ever generate new decks and need video,
-scatter / bubble / radar charts, HTML-table import, CommonJS, or a
-`<script>`-tag build.
+**Pick PptxGenJS** if you only ever generate new decks and need HTML-table
+import, CommonJS, or a `<script>`-tag build.
 
 **Pick `@office-kit/pptx`** if a template, an existing deck, or a validation
 requirement is involved, or if you need to read a deck as well as write one.
@@ -210,11 +209,10 @@ of level 4. Items marked "post-1.0" are not implemented yet:
 | L3    | Authoring on top of existing themes / masters / layouts             | ✅                              |
 | L3    | Rebranding a deck: theme colors and theme fonts                     | ✅                              |
 | L3    | Constructing new themes / masters / layouts from scratch            | ❌ post-1.0                     |
-| L3    | Charts: bar, column, line, pie, doughnut, area, and combos          | ✅                              |
-| L3    | Charts: scatter, radar, bubble                                      | Read + preview only             |
+| L3    | Charts: all 16 plot types (incl. 3-D, stock, surface), and combos   | ✅                              |
 | L4    | Notes, comments, transitions                                        | ✅                              |
 | L4    | Simple animations (entrance / exit presets)                         | ✅                              |
-| L4    | Audio / video authoring                                             | ❌ post-1.0 (read pass-through) |
+| L4    | Audio / video / online video: embed, link and read back             | ✅                              |
 | L4    | SmartArt authoring                                                  | ❌ post-1.0 (read pass-through) |
 | L4    | Complex animation timing trees                                      | ❌ post-1.0                     |
 | L4    | OLE / ActiveX authoring                                             | ❌ post-1.0 (read pass-through) |
@@ -411,6 +409,49 @@ moveSlide(pres, dup, 0);
 const out: Uint8Array = await savePresentation(pres);
 ```
 
+### Add video, audio or an online video
+
+```ts
+import { addSlideMedia, getShapeMedia, inches } from '@office-kit/pptx';
+
+const box = { x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5) };
+
+// Embedded video / audio, from bytes. The container is detected from the bytes.
+const clip = addSlideMedia(slide, {
+  kind: 'video',
+  data: mp4Bytes,
+  poster: posterPngBytes,
+  ...box,
+});
+addSlideMedia(slide, {
+  kind: 'audio',
+  data: mp3Bytes,
+  x: inches(0.5),
+  y: inches(6.5),
+  w: inches(0.6),
+  h: inches(0.6),
+});
+
+// Online video. YouTube watch / youtu.be / shorts URLs become the embed URL.
+addSlideMedia(slide2, {
+  kind: 'online',
+  url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+  ...box,
+});
+
+const media = getShapeMedia(clip);
+// { kind: 'video', partName: '/ppt/media/media1.mp4', contentType: 'video/mp4', bytes }
+// an online video reads back as { kind: 'online', url }
+```
+
+The shape is an ordinary picture showing the poster frame, so `setShapeImage`
+replaces the poster and `getShapeImageBytes` reads it. Without `poster` a neutral
+play-button image is used. Containers detected from the bytes: mp4, m4v, mov,
+webm, avi, wmv, mp3, wav, m4a, ogg, wma — pass `format` when the signature
+check cannot tell which of those a file is. Identical clip bytes are stored once
+per deck, and the clip survives `copyShape`, `duplicateSlide` and `importSlide`.
+Whether a clip plays depends on the codecs of the application showing the deck.
+
 ### Replace an image in place
 
 ```ts
@@ -548,7 +589,7 @@ shown together.
 | Transitions          | `getSlideTransition` / `setSlideTransition` / `clearSlideTransition`                                                                                                                                                                                                                                                                                                                                                                                      |
 | Animations           | `getShapeAnimation` / `setShapeAnimation` (`fadeIn` / `fadeOut` / `appear` / `disappear`), `clearSlideAnimations`                                                                                                                                                                                                                                                                                                                                         |
 | Comments             | `addSlideComment`, `getSlideComments`, `removeSlideComment`, `getCommentAuthors`, `getCommentText` / `getCommentAuthor` / `getCommentPosition`                                                                                                                                                                                                                                                                                                            |
-| Shape authoring      | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideChart`                                                                                                                                                                                                                                                                                                                                                     |
+| Shape authoring      | `addSlideTextBox`, `addSlideShape`, `addSlideLine`, `addSlideTable`, `addSlideImage`, `addSlideMedia`, `addSlideChart`                                                                                                                                                                                                                                                                                                                                    |
 | Shape lookup         | `findShapeByName`, `findShapesByName`, `findShapesByKind`, `findShapeInPresentation`, `getAllShapes`, `getSlideShapes`                                                                                                                                                                                                                                                                                                                                    |
 | Shape text           | `setShapeText`, `setShapeParagraphs`, `setShapeBullets`, `setShapeAlignment`, `setShapeTextFormat`, `setShapeHyperlink` / `getShapeHyperlink`                                                                                                                                                                                                                                                                                                             |
 | Per-paragraph        | `setParagraphAlignment` / `getParagraphAlignment`, `setParagraphLevel` / `getParagraphLevel`, `setParagraphBullet` / `getParagraphBullet`, `setParagraphSpacing` / `getParagraphSpacing`, `setParagraphLineSpacing` / `getParagraphLineSpacing`, `getParagraphEndFormat`                                                                                                                                                                                  |

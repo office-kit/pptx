@@ -4891,6 +4891,8 @@ const renderScatterChart = (
   if (allX.length === 0) return '';
   const xB = scatterAxisBounds(allX);
   const yB = scatterAxisBounds(allY);
+  if (spec.categoryAxisScaling?.min !== undefined) xB.min = spec.categoryAxisScaling.min;
+  if (spec.categoryAxisScaling?.max !== undefined) xB.max = spec.categoryAxisScaling.max;
   if (spec.valueAxis?.min !== undefined) yB.min = spec.valueAxis.min;
   if (spec.valueAxis?.max !== undefined) yB.max = spec.valueAxis.max;
   const xRange = xB.max - xB.min || 1;
@@ -4957,6 +4959,8 @@ const renderBubbleChart = (
   if (allX.length === 0) return '';
   const xB = scatterAxisBounds(allX);
   const yB = scatterAxisBounds(allY);
+  if (spec.categoryAxisScaling?.min !== undefined) xB.min = spec.categoryAxisScaling.min;
+  if (spec.categoryAxisScaling?.max !== undefined) xB.max = spec.categoryAxisScaling.max;
   if (spec.valueAxis?.min !== undefined) yB.min = spec.valueAxis.min;
   if (spec.valueAxis?.max !== undefined) yB.max = spec.valueAxis.max;
   const xRange = xB.max - xB.min || 1;
@@ -5103,6 +5107,11 @@ const renderChart = (
     return null;
   }
   if (!spec) return null;
+  // There is no candlestick or surface plotter: a stock chart draws as its
+  // [open,] high / low / close lines and a surface as columns, which keeps
+  // the data legible instead of dropping the chart.
+  if (spec.kind === 'stock') spec = { ...spec, kind: 'line' };
+  else if (spec.kind === 'surface') spec = { ...spec, kind: 'column' };
   const colors = accentSequence(theme);
   const isCartesian =
     spec.kind === 'column' || spec.kind === 'bar' || spec.kind === 'line' || spec.kind === 'area';
@@ -5353,8 +5362,8 @@ const renderChart = (
         plot = renderBubbleChart(f, spec, colors);
         break;
       default:
-        // stock / surface / 3D variants the reader still folds into a
-        // modeled kind never reach here; truly unmodeled kinds (resolved
+        // stock / surface were mapped to a drawable kind above, and 3-D
+        // variants read as their flat kind; truly unmodeled kinds (resolved
         // to `null` spec) are handled earlier. Anything left falls back.
         return null;
     }

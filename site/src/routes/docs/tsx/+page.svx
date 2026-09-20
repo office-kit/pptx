@@ -54,6 +54,7 @@ Child order is drawing order. Geometry is explicit; there is no automatic layout
 | `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`. |
 | `Shape` | Required bounds and `preset`; fill, stroke, effects, optional text. |
 | `Image` | Required bounds and byte `data`; optional format and fit. |
+| `Media` | Required bounds; `kind` `video` / `audio` with byte `data`, or `online` with a `url`; optional `poster`. |
 | `Chart` | Required bounds and core `ChartSpec` in `spec`. |
 | `Table` | Required bounds and string `rows`; column widths, row heights, cell/header styles and stripe fill. |
 | `Fill` | Existing shape `target`, replacement text children, optional `format`. |

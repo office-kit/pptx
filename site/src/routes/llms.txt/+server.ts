@@ -220,7 +220,9 @@ import { addSlideChart, inches } from '@office-kit/pptx';
 addSlideChart(slide, {
   x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5),
   spec: {
-    kind: 'column', // bar | column | line | pie | doughnut | area
+    // bar | column | line | area | pie | doughnut | radar | stock | surface
+    // (scatter | bubble take per-series xValues instead of categories)
+    kind: 'column',
     categories: ['Q1', 'Q2', 'Q3', 'Q4'],
     series: [
       { name: 'Revenue', values: [120, 180, 240, 300] },
@@ -233,6 +235,35 @@ addSlideChart(slide, {
 
 \`addSlideChart\` generates the chart XML, the drawing rels, **and** the
 embedded xlsx that PowerPoint needs for "Edit data".
+
+Every ECMA-376 plot type is authorable. The kind names the data shape; modifiers
+on the spec pick the variant:
+
+\`\`\`ts
+// Scatter / bubble: each series carries its own x channel.
+{ kind: 'scatter', categories: [], scatterStyle: 'lineMarker',
+  series: [{ name: 'Trial', xValues: [1, 2, 3], values: [2.5, 4.1, 6.2] }] }
+{ kind: 'bubble', categories: [],
+  series: [{ name: 'Markets', xValues: [10, 20], values: [5, 9], bubbleSizes: [100, 250] }] }
+
+// 3-D bar / column / line / area / pie: add view3D.
+{ kind: 'column', categories, series, view3D: { rotX: 20, rotY: 30 }, bar3DShape: 'cylinder' }
+
+// Pie-of-pie / bar-of-pie.
+{ kind: 'pie', categories, series: [one], ofPie: { type: 'bar', splitType: 'pos', splitPos: 3 } }
+
+// Stock: series by position — high, low, close, or open first for candlesticks.
+{ kind: 'stock', categories: days, series: [open, high, low, close] }
+
+// Surface (surfaceContour: true for the top-down contour plot).
+{ kind: 'surface', categories: xs, series: rows }
+\`\`\`
+
+Also on the spec: per-series \`errorBars\` / \`trendline\` / \`fillOpacity\`,
+\`dataTable\`, \`categoryAxisDate\` (date axis), \`categoryGroupLevels\`
+(multi-level categories), \`upDownBars\`, \`plotAreaLayout\`, combo charts via
+per-series \`chartKind\` / \`secondaryAxis\`. A spec whose fields contradict
+each other throws instead of writing a chart PowerPoint would repair.
 
 ## Images
 
@@ -249,6 +280,30 @@ setShapeImage(pictureShape, newBytes);
 
 Formats: PNG, JPEG, GIF, SVG, BMP, TIFF — detected from magic bytes; pass
 \`options.format\` to override.
+
+## Video, audio, online video
+
+\`\`\`ts
+import { addSlideMedia, getShapeMedia, inches } from '@office-kit/pptx';
+
+const box = { x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5) };
+
+// Embedded video / audio, from bytes. The container is detected from the bytes.
+const clip = addSlideMedia(slide, { kind: 'video', data: mp4Bytes, poster: posterPngBytes, ...box });
+addSlideMedia(slide, { kind: 'audio', data: mp3Bytes, x: inches(0.5), y: inches(6.5), w: inches(0.6), h: inches(0.6) });
+
+// Online video. YouTube watch / youtu.be / shorts URLs become the embed URL.
+addSlideMedia(slide2, { kind: 'online', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', ...box });
+
+const media = getShapeMedia(clip);
+// { kind: 'video', partName: '/ppt/media/media1.mp4', contentType: 'video/mp4', bytes }
+// an online video reads back as { kind: 'online', url }
+\`\`\`
+
+The shape is a picture showing the poster frame (\`setShapeImage\` replaces it;
+a play-button poster is used when \`poster\` is omitted). Containers detected
+from magic bytes: mp4, m4v, mov, webm, avi, wmv, mp3, wav, m4a, ogg, wma; pass
+\`format\` to override. Identical clip bytes are stored once per deck.
 
 ## Notes, comments, transitions, animations
 

@@ -59,6 +59,7 @@ for every export see <a href="{base}/api">API reference</a>.
 | Add a preset shape (180+ presets) | `addSlideShape` |
 | Add a line / connector / arrow | `addSlideLine` + `setShapeStrokeArrow` |
 | Add a picture | `addSlideImage` |
+| Add video / audio / online video, read it back | `addSlideMedia` + `getShapeMedia` + `findShapesWithMedia` |
 | Solid fill / gradient / pattern / image fill | `setShapeFill` + `setShapeGradientFill` + `setShapePatternFill` + `setShapeImageFill` |
 | Stroke color / width / dash | `setShapeStroke` + `setShapeStrokeDash` |
 | Shadow / glow | `setShapeShadow` + `setShapeGlow` |
@@ -231,6 +232,56 @@ addSlideChart(slide, {
 });
 ```
 
+### Add a scatter, 3-D or stock chart
+
+Every ECMA-376 plot type is authorable. `kind` names the data shape; a modifier
+on the spec picks the variant.
+
+```ts
+import { addSlideChart, inches } from '@office-kit/pptx';
+
+const box = { x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5) };
+
+// Scatter / bubble: each series carries its own x channel, `categories` is unused.
+addSlideChart(slide, {
+  ...box,
+  spec: {
+    kind: 'scatter',
+    categories: [],
+    scatterStyle: 'lineMarker',
+    series: [
+      {
+        name: 'Trial A',
+        xValues: [1, 2, 3],
+        values: [2.5, 4.1, 6.2],
+        errorBars: { barType: 'both', amount: { type: 'percentage', value: 10 } },
+      },
+    ],
+    categoryAxisScaling: { min: 0, max: 4 }, // the x axis
+  },
+});
+
+// 3-D: add `view3D` to bar / column / line / area / pie.
+addSlideChart(slide, {
+  ...box,
+  spec: { kind: 'column', categories, series, view3D: { rotX: 20, rotY: 30 } },
+});
+
+// Stock: series are read by position — high, low, close (open first for candlesticks).
+addSlideChart(slide, {
+  ...box,
+  spec: { kind: 'stock', categories: days, series: [open, high, low, close] },
+});
+```
+
+| Kind                                   | Element                       | Modifier                                     |
+| -------------------------------------- | ----------------------------- | -------------------------------------------- |
+| `bar` `column` `line` `area`           | bar / line / area chart       | `view3D` → the 3-D element                   |
+| `pie`                                  | pie chart                     | `view3D` → 3-D pie, `ofPie` → pie-of-pie     |
+| `doughnut` `radar` `scatter` `stock`   | their own element             | `radarStyle`, `scatterStyle`, `upDownBars`   |
+| `bubble`                               | bubble chart                  | `bubble3D`, `bubbleScale`                    |
+| `surface`                              | 3-D surface                   | `surfaceContour` → contour, `surfaceWireframe` |
+
 ### Add a table with header + banded rows
 
 ```ts
@@ -263,6 +314,28 @@ addSlideImage(slide, pngBytes, {
   h: inches(2),
 });
 ```
+
+### Add video, audio or an online video
+
+```ts
+import { addSlideMedia, getShapeMedia, inches } from '@office-kit/pptx';
+
+const box = { x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5) };
+
+// Embedded video / audio, from bytes. The container is detected from the bytes.
+const clip = addSlideMedia(slide, { kind: 'video', data: mp4Bytes, poster: posterPngBytes, ...box });
+addSlideMedia(slide, { kind: 'audio', data: mp3Bytes, x: inches(0.5), y: inches(6.5), w: inches(0.6), h: inches(0.6) });
+
+// Online video. YouTube watch / youtu.be / shorts URLs become the embed URL.
+addSlideMedia(slide2, { kind: 'online', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', ...box });
+
+const media = getShapeMedia(clip);
+// { kind: 'video', partName: '/ppt/media/media1.mp4', contentType: 'video/mp4', bytes }
+// an online video reads back as { kind: 'online', url }
+```
+
+The shape is a picture showing the poster frame, so `setShapeImage` replaces the
+poster. Identical clip bytes are stored once per deck.
 
 ### Replace an image's bytes in place
 

@@ -59,6 +59,9 @@ const STORE_BY_EXTENSION = new Set([
   'wmv',
   'mov',
   'avi',
+  'webm',
+  'ogg',
+  'wma',
   // archives — already compressed
   'pdf',
   'zip',

@@ -38,27 +38,16 @@ const colLetter = (col: number): string => {
 
 const cellRef = (row: number, col: number): string => `${colLetter(col)}${row + 1}`;
 
-/** A row in the embedded sheet — string in column 0, numeric values after. */
-export interface DataRow {
-  readonly label: string;
-  readonly values: ReadonlyArray<number | null>;
-}
+/** One sheet cell: text, a number, or `null` for an empty cell. */
+export type SheetCell = string | number | null;
 
 /**
- * Builds the bytes of a fresh xlsx whose only sheet is laid out as
- *
- *   |       | seriesNames[0] | seriesNames[1] | ...
- *   |-------|----------------|----------------|----
- *   | row0  | row0.values[0] | row0.values[1] | ...
- *   | row1  | row1.values[0] | ...            | ...
- *
- * Header row is row 1 in the sheet (1-indexed). The first column carries
- * category labels; subsequent columns carry series values.
+ * Builds the bytes of a fresh xlsx whose only sheet holds `grid`, row by
+ * row from A1. Which cell means what is the caller's business — see
+ * `layoutChartSheet`, which also produces the `<c:f>` formulas that point
+ * back into this grid.
  */
-export const buildEmbeddedXlsx = (
-  seriesNames: ReadonlyArray<string>,
-  rows: ReadonlyArray<DataRow>,
-): Uint8Array => {
+export const buildEmbeddedXlsx = (grid: ReadonlyArray<ReadonlyArray<SheetCell>>): Uint8Array => {
   // ----- /xl/worksheets/sheet1.xml --------------------------------------
   const sheetXmlParts: string[] = [];
   sheetXmlParts.push(
@@ -67,31 +56,18 @@ export const buildEmbeddedXlsx = (
     '<sheetData>',
   );
 
-  // Header row.
-  sheetXmlParts.push('<row r="1">');
-  // A1 = blank.
-  sheetXmlParts.push(`<c r="${cellRef(0, 0)}" t="inlineStr"><is><t></t></is></c>`);
-  for (let i = 0; i < seriesNames.length; i++) {
-    sheetXmlParts.push(
-      `<c r="${cellRef(0, i + 1)}" t="inlineStr"><is><t>${xmlEscape(seriesNames[i] ?? '')}</t></is></c>`,
-    );
-  }
-  sheetXmlParts.push('</row>');
-
-  for (let r = 0; r < rows.length; r++) {
-    const row = rows[r]!;
-    const rowIdx = r + 1; // header sits at index 0.
-    sheetXmlParts.push(`<row r="${rowIdx + 1}">`);
-    sheetXmlParts.push(
-      `<c r="${cellRef(rowIdx, 0)}" t="inlineStr"><is><t>${xmlEscape(row.label)}</t></is></c>`,
-    );
-    for (let i = 0; i < row.values.length; i++) {
-      const v = row.values[i];
-      if (v === null || v === undefined) continue; // omit empty cell.
-      sheetXmlParts.push(`<c r="${cellRef(rowIdx, i + 1)}"><v>${v}</v></c>`);
-    }
+  grid.forEach((row, r) => {
+    sheetXmlParts.push(`<row r="${r + 1}">`);
+    row.forEach((cell, col) => {
+      if (cell === null) return; // omit empty cell.
+      sheetXmlParts.push(
+        typeof cell === 'number'
+          ? `<c r="${cellRef(r, col)}"><v>${cell}</v></c>`
+          : `<c r="${cellRef(r, col)}" t="inlineStr"><is><t>${xmlEscape(cell)}</t></is></c>`,
+      );
+    });
     sheetXmlParts.push('</row>');
-  }
+  });
 
   sheetXmlParts.push('</sheetData></worksheet>');
   const sheetXml = sheetXmlParts.join('');
@@ -146,10 +122,16 @@ export const buildEmbeddedXlsx = (
  * formulas. Example: `cellRange('Sheet1', 1, 0, 4)` →
  * `"Sheet1!$A$2:$A$5"` (column A, rows 2–5 inclusive, 0-indexed input).
  */
-export const cellRange = (sheet: string, startRow: number, col: number, count: number): string => {
-  const colA = colLetter(col);
-  return `${sheet}!$${colA}$${startRow + 1}:$${colA}$${startRow + count}`;
-};
+export const cellRange = (
+  sheet: string,
+  startRow: number,
+  col: number,
+  count: number,
+  // A multi-level category axis spans several columns; every other channel
+  // is a single one.
+  endCol: number = col,
+): string =>
+  `${sheet}!$${colLetter(col)}$${startRow + 1}:$${colLetter(endCol)}$${startRow + count}`;
 
 /** Single-cell reference, e.g. `cellAddr('Sheet1', 0, 1)` → `"Sheet1!$B$1"`. */
 export const cellAddr = (sheet: string, row: number, col: number): string =>

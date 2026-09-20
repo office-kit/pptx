@@ -122,15 +122,15 @@
     {
       topic: 'Chart types you can author',
       ours: {
-        text: 'Bar, column, line, pie, doughnut, area; combos, secondary axis, trendlines',
-        tone: 'part',
+        text: 'Every ECMA-376 plot type, 3-D, stock and surface included; combos, error bars, data table, date axis',
+        tone: 'yes',
       },
-      theirs: { text: 'Those plus scatter, bubble, radar, and 3D bar', tone: 'yes' },
+      theirs: { text: 'Bar, line, area, pie, doughnut, scatter, bubble, radar, 3-D bar', tone: 'part' },
     },
     {
       topic: 'Audio, video, YouTube embeds',
-      ours: { text: 'Not yet. Media already in a deck is preserved', tone: 'no' },
-      theirs: { text: 'Yes', tone: 'yes' },
+      ours: { text: 'Yes, from bytes in Node and the browser, with read-back', tone: 'yes' },
+      theirs: { text: 'Yes (write-only)', tone: 'yes' },
     },
     {
       topic: 'HTML table to slides',
@@ -149,7 +149,7 @@
     { area: 'Text', items: 'Paragraphs, runs, bullets, spacing, autofit. Latin, East Asian, and complex-script fonts.' },
     { area: 'Shapes', items: '180+ presets, lines, groups, fills (solid, gradient, pattern, picture), strokes, shadows, glows, z-order.' },
     { area: 'Tables', items: 'Rows, columns, merges, borders, fills, per-cell text, margins, and direction.' },
-    { area: 'Charts', items: 'Six kinds plus combos, secondary axis, data labels, trendlines. The workbook behind “Edit data” is generated for you.' },
+    { area: 'Charts', items: 'All 16 plot types, 3-D, stock and surface included, plus combos, secondary axis, data labels, trendlines, error bars, data table. The workbook behind “Edit data” is generated for you.' },
     { area: 'Pictures', items: 'PNG, JPEG, GIF, BMP, TIFF, WebP, SVG. Crop, opacity, brightness, contrast, in-place swap.' },
     { area: 'Review', items: 'Speaker notes, comments, hyperlinks, click actions, with deck-wide find and replace.' },
     { area: 'Deck', items: 'Theme colors and fonts, document properties, thumbnail, package inspection, validatePresentation().' },
@@ -158,8 +158,6 @@
   const notYet = [
     'New themes, masters, and layouts from scratch',
     'SmartArt and OLE authoring (both are preserved on round trip)',
-    'Audio and video authoring',
-    'Scatter, radar, and bubble chart authoring (they read and render)',
     'Encrypted files',
   ];
 </script>
@@ -308,8 +306,8 @@
       </table>
     </div>
     <p class="compare-advice">
-      Pick PptxGenJS if you only ever generate new decks and need video, scatter charts, or a
-      script-tag build. Pick this library if a template, an existing deck, or a validation
+      Pick PptxGenJS if you only ever generate new decks and need HTML-table import, CommonJS,
+      or a script-tag build. Pick this library if a template, an existing deck, or a validation
       requirement is involved.
     </p>
   </div>
