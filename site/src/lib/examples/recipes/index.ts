@@ -214,7 +214,7 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
     ],
   },
   {
-    title: 'L4: notes, comments, transitions, animations',
+    title: 'Notes, comments, transitions, animations',
     recipes: [
       {
         slug: 'notes-and-comments',
