@@ -2785,31 +2785,32 @@ export const resolveTextBodyModel = (
   const effectiveLineHeight = LINE_HEIGHT * lineHeightScale;
   void effectiveLineHeight; // currently unused — kept for forward compat
 
-  // Numbering pre-pass — assign an autonum index per paragraph for
-  // consecutive numbered paragraphs at the same level. Resets on a
-  // non-numbered paragraph or a level change.
+  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
+  // keeps one counter per indent level: a nested list (level 1) between two
+  // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
+  // renders as such. A paragraph resets the counters of every deeper level;
+  // a non-numbered paragraph also resets its own level, and a different
+  // numbering scheme at the same level starts over at 1.
   const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
   {
-    let counter = 0;
-    let activeLevel = -1;
-    let activeType: string | null = null;
+    const counters: number[] = [];
+    const types: Array<string | null> = [];
     for (let i = 0; i < paraData.length; i++) {
       const para = paraData[i]!;
       const num = bulletAutoNumType(para.bulletStyle);
-      if (num === null) {
-        counter = 0;
-        activeLevel = -1;
-        activeType = null;
-        continue;
+      const level = Math.max(0, para.level);
+      for (let l = num === null ? level : level + 1; l < counters.length; l++) {
+        counters[l] = 0;
+        types[l] = null;
       }
-      if (para.level !== activeLevel || num !== activeType) {
-        counter = 1;
-        activeLevel = para.level;
-        activeType = num;
+      if (num === null) continue;
+      if (types[level] !== num) {
+        counters[level] = 1;
+        types[level] = num;
       } else {
-        counter += 1;
+        counters[level] = (counters[level] ?? 0) + 1;
       }
-      numberLabels[i] = formatAutoNum(num, counter);
+      numberLabels[i] = formatAutoNum(num, counters[level]!);
     }
   }
 
