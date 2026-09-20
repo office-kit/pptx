@@ -3920,6 +3920,9 @@ const pointCount = (spec: ChartSpec): number => {
   return n;
 };
 
+const chartFillOpacityAttr = (opacity = 1): string =>
+  opacity === 1 ? '' : ` fill-opacity="${opacity}"`;
+
 const renderColumnChart = (
   f: ChartFrame,
   spec: ChartSpec,
@@ -3977,7 +3980,7 @@ const renderColumnChart = (
           f.plotY + f.plotH - ((Math.min(stackedTop, stackedBase) - min) / range) * f.plotH;
         const h = Math.abs(y1 - y0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
@@ -4018,7 +4021,7 @@ const renderColumnChart = (
             ? mixHex(baseColor, '#000000', 0.55)
             : baseColor;
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelFor(s)) {
           // dLblPos: ctr (center) / inEnd (just inside the bar tip) /
@@ -4376,7 +4379,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
         const w = Math.abs(x1 - x0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
@@ -4413,7 +4416,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
             ? mixHex(baseColor, '#000000', 0.55)
             : baseColor;
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelForBar(s)) {
           // dLblPos for horizontal bars uses the same enum as columns
