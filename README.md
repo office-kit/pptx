@@ -1,72 +1,208 @@
 # @office-kit/pptx
 
-Generate and edit `.pptx` (PowerPoint / Office Open XML Presentation) files
-from TypeScript — in **Node.js or the browser**, from a single ESM bundle.
+[![npm](https://img.shields.io/npm/v/@office-kit/pptx)](https://www.npmjs.com/package/@office-kit/pptx)
+[![CI](https://github.com/office-kit/pptx/actions/workflows/ci.yml/badge.svg)](https://github.com/office-kit/pptx/actions/workflows/ci.yml)
+[![license](https://img.shields.io/npm/l/@office-kit/pptx)](./LICENSE)
 
-> **Status: 0.x — pre-1.0, public API still evolving.** The capabilities in
-> the table below are exercised against real PPTX fixtures, and emitted XML is
-> checked against the ECMA-376 schemas with `xmllint` where it is available on
-> the machine running the tests. Until the 1.0 release the public API is not
-> frozen — breaking changes can land in a minor (`0.x`) release, so pin a
+Read, edit, and write `.pptx` (PowerPoint / Office Open XML Presentation) files
+from TypeScript, in **Node.js and the browser**, from a single ESM bundle.
+
+**[Documentation](https://office-kit.github.io/pptx/)** ·
+**[Playground](https://office-kit.github.io/pptx/playground)** (inspect a deck in your browser) ·
+**[REPL](https://office-kit.github.io/pptx/repl)** (write code, watch the deck redraw)
+
+```ts
+import { loadPresentation, replaceTokensInPresentation, savePresentation } from '@office-kit/pptx';
+
+// A designer makes template.pptx in PowerPoint. Your code fills it in.
+const pres = await loadPresentation(templateBytes);
+replaceTokensInPresentation(pres, { name: 'Alice', event: 'Re:Invent', date: '2026-12-01' });
+const out: Uint8Array = await savePresentation(pres);
+```
+
+> **Status: 0.x, pre-1.0.** The capabilities in the [scope table](#scope) are
+> exercised against real PPTX fixtures and validated in CI (see
+> [How output is checked](#how-output-is-checked)). Until 1.0 the public API is
+> not frozen: a breaking change can land in a minor (`0.x`) release, so pin a
 > version or an exact range.
 
-## Why
+## Why this library
 
-The JavaScript ecosystem has several PPTX libraries, but they typically pick
-one trade-off:
+- **It reads as well as it writes.** Open a deck made in PowerPoint, Keynote,
+  or Google Slides, change it, and save it. Every setter has a getter, and
+  there are deck-wide queries (find every hyperlink, every comment by an
+  author, every slide with an empty title).
+- **Parts it does not model survive the round trip.** SmartArt, OLE objects,
+  video, modern threaded comments, and vendor extensions are carried through
+  untouched. The library never silently strips what it does not understand.
+- **The output is valid, not "valid enough".** Microsoft's own
+  `OpenXmlValidator` gates every CI run. A file that opens in PowerPoint but
+  breaks Keynote is treated as a bug.
+- **One ESM bundle for Node and the browser.** No `fs`, `Buffer`, or `zlib` on
+  the hot path, and one runtime dependency ([fflate](https://github.com/101arrowz/fflate), for ZIP).
+- **You ship only what you import.** The API is 451 side-effect-free functions.
+  A `load → save` bundle is about 56 KB unminified; the entire API is about
+  142 KB. CI fails if either grows past its cap (`test/tree-shake.test.ts`).
+- **Types follow the spec.** The model mirrors ECMA-376 Part 1 §19
+  (PresentationML). Positions are branded `Emu` numbers, so inches and points
+  cannot be mixed up by accident.
 
-- **Node-only** with a Buffer-shaped API → does not work in the browser.
-- **Browser-only** wrapping a fixed template → cannot author from scratch.
-- **Loose XML strings** that "usually open" → break in Keynote / Google Slides
-  / the Open XML SDK validator.
+## How it differs from PptxGenJS
 
-`@office-kit/pptx` is built around a different stance:
+[PptxGenJS](https://github.com/gitbrent/PptxGenJS) is the established way to
+generate a deck in JavaScript, and it is good at that job. The difference is
+direction: **PptxGenJS writes new files; `@office-kit/pptx` reads, edits, and
+writes.** If your deck starts from a template, or from a file a person made,
+PptxGenJS cannot open it.
 
-- One ESM bundle that runs in **Node and the browser**.
-- A typed object model that mirrors the **OOXML PresentationML** spec
-  (ECMA-376 Part 1, §19). When the spec says something is a choice, our types
-  say it is a discriminated union.
-- Output that passes Microsoft's
-  [Open XML SDK Productivity Tool](https://github.com/dotnet/Open-XML-SDK)
-  validator, not just PowerPoint's "open and pray."
-- Two complementary paths: **author from scratch** _or_ **edit a template**.
+Compared against PptxGenJS 4.0.1:
+
+|                                   | `@office-kit/pptx`                                                                           | PptxGenJS                                                 |
+| --------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Open and edit an existing `.pptx` | ✅ Load, change, save; unknown parts are preserved                                           | ❌ Creates new files only                                 |
+| Templates                         | Any `.pptx` a designer made in PowerPoint                                                    | Slide masters defined in code (`defineSlideMaster`)       |
+| Read back what is in a deck       | ✅ Every setter has a getter, plus deck-wide queries                                         | ❌ The API is write-only                                  |
+| API shape                         | Tree-shakeable functions (`addSlideChart(slide, …)`)                                         | One class with methods (`slide.addChart(…)`)              |
+| Module formats                    | ESM only                                                                                     | ESM, CommonJS, and a script-tag bundle                    |
+| Runtime dependencies              | 1 (`fflate`)                                                                                 | 4 (`jszip`, `image-size`, `https`, `@types/node`)         |
+| Slide transitions                 | ✅                                                                                           | ❌                                                        |
+| Animations                        | ✅ Four entrance / exit presets                                                              | ❌                                                        |
+| Comments                          | ✅                                                                                           | ❌ (speaker notes only)                                   |
+| Chart types you can author        | Bar, column, line, pie, doughnut, area; combos, secondary axis, trendlines, per-point labels | Those, plus scatter, bubble, radar, and 3D bar            |
+| Audio, video, YouTube embeds      | ❌ Not yet (media already in a deck is preserved)                                            | ✅                                                        |
+| HTML `<table>` to slides          | ❌                                                                                           | ✅ With automatic paging                                  |
+| Render a slide to an image        | ✅ SVG and PNG, via [`@office-kit/pptx-preview`](packages/preview)                           | ❌                                                        |
+| How output is checked             | Open XML SDK validator and ECMA-376 XSDs, in CI                                              | Manual runs in PowerPoint and other apps before a release |
+
+**Pick PptxGenJS** if you only ever generate new decks and need video,
+scatter / bubble / radar charts, HTML-table import, CommonJS, or a
+`<script>`-tag build.
+
+**Pick `@office-kit/pptx`** if a template, an existing deck, or a validation
+requirement is involved, or if you need to read a deck as well as write one.
+
+The two also work together. Decks written by PptxGenJS are part of this
+library's test fixtures (`test/pptxgenjs-compat.test.ts`), so you can generate
+with PptxGenJS and post-process the result here.
+
+### The same slide in both
+
+```ts
+// PptxGenJS
+import pptxgen from 'pptxgenjs';
+
+const pptx = new pptxgen();
+const slide = pptx.addSlide();
+slide.addText('Q3 Review', { x: 1, y: 0.5, w: 8, h: 1, fontSize: 28, bold: true });
+slide.addChart(
+  pptx.ChartType.bar,
+  [{ name: 'Revenue', labels: ['Q1', 'Q2'], values: [120, 180] }],
+  {
+    x: 1,
+    y: 1.5,
+    w: 8,
+    h: 4,
+    barDir: 'col',
+  },
+);
+await pptx.writeFile({ fileName: 'out.pptx' });
+```
+
+```ts
+// @office-kit/pptx
+import {
+  addBlankSlide,
+  addSlideChart,
+  addSlideTextBox,
+  createPresentation,
+  inches,
+  setShapeTextFormat,
+} from '@office-kit/pptx';
+import { savePresentationToFile } from '@office-kit/pptx/node';
+
+const pres = createPresentation();
+const slide = addBlankSlide(pres);
+const title = addSlideTextBox(slide, {
+  x: inches(1),
+  y: inches(0.5),
+  w: inches(8),
+  h: inches(1),
+  text: 'Q3 Review',
+});
+setShapeTextFormat(title, { size: 28, bold: true });
+addSlideChart(slide, {
+  x: inches(1),
+  y: inches(1.5),
+  w: inches(8),
+  h: inches(4),
+  spec: {
+    kind: 'column',
+    categories: ['Q1', 'Q2'],
+    series: [{ name: 'Revenue', values: [120, 180] }],
+  },
+});
+await savePresentationToFile(pres, 'out.pptx');
+```
+
+Two differences show up straight away. Positions are explicit units
+(`inches(1)`, `cm(2.5)`, `pt(12)`) rather than bare numbers, and everything is
+a function that takes the thing it changes, which is what lets a bundler drop
+the ones you do not call.
+
+## How output is checked
+
+- **Open XML SDK.** A CI job generates the sample decks and runs Microsoft's
+  `OpenXmlValidator` over them (`tools/ooxml-validate`). Any validation error
+  fails the build.
+- **ECMA-376 XSDs.** Emitted XML is validated against the official schemas
+  with `xmllint` in the test suite (these tests skip on a machine without
+  `xmllint`).
+- **Real files and a parity corpus.** Fixture tests round-trip decks written
+  by python-pptx and PptxGenJS, and `test/corpus` authors the same slide once
+  with PptxGenJS and once with this library, then diffs the two drawing trees.
+  The suite runs on Node 22, 24, and 26.
+- **At runtime.** `validatePresentation(pres)` checks package invariants
+  (missing relationships, dangling slide ids, duplicate shape ids, layouts
+  without masters) in Node and the browser.
 
 ## Scope
 
-The work is split into four levels of completeness. The current `0.x` line
-covers levels 1-3 in full and level 4 in part; the table tracks where each
-capability stands today. Items marked "post-1.0" are not implemented yet:
+The work is split into four levels. The `0.x` line covers levels 1–3 and part
+of level 4. Items marked "post-1.0" are not implemented yet:
 
 | Level | Capability                                                          | 0.x                             |
 | ----- | ------------------------------------------------------------------- | ------------------------------- |
 | L1    | Read an existing PPTX, save it back without corruption              | ✅                              |
-| L2    | Template edit — text replacement, image swap, add slide from layout | ✅                              |
-| L3    | Authoring — shapes, text, tables, fills, effects, transforms        | ✅                              |
+| L2    | Template edit: text replacement, image swap, add slide from layout  | ✅                              |
+| L3    | Authoring: shapes, text, tables, fills, effects, transforms, groups | ✅                              |
 | L3    | Authoring on top of existing themes / masters / layouts             | ✅                              |
+| L3    | Rebranding a deck: theme colors and theme fonts                     | ✅                              |
 | L3    | Constructing new themes / masters / layouts from scratch            | ❌ post-1.0                     |
-| L3    | Charts (all common types) with embedded data                        | ✅                              |
+| L3    | Charts: bar, column, line, pie, doughnut, area, and combos          | ✅                              |
+| L3    | Charts: scatter, radar, bubble                                      | Read + preview only             |
 | L4    | Notes, comments, transitions                                        | ✅                              |
-| L4    | Simple animations (entrance / exit / emphasis presets)              | ✅                              |
+| L4    | Simple animations (entrance / exit presets)                         | ✅                              |
+| L4    | Audio / video authoring                                             | ❌ post-1.0 (read pass-through) |
 | L4    | SmartArt authoring                                                  | ❌ post-1.0 (read pass-through) |
 | L4    | Complex animation timing trees                                      | ❌ post-1.0                     |
 | L4    | OLE / ActiveX authoring                                             | ❌ post-1.0 (read pass-through) |
 | L4    | Document encryption (read + write)                                  | ❌ post-1.0                     |
 
-Out-of-scope content is still **preserved on round-trip** — `@office-kit/pptx` will
-never silently strip parts it doesn't model. That's the L1 contract.
+Out-of-scope content is still **preserved on round-trip**. That is the L1
+contract.
 
 When NOT to use this:
 
 - You need a **pixel-perfect** PPTX rendering (print, archival). The
   companion [`@office-kit/pptx-preview`](packages/preview) package renders slides to
-  SVG in the browser and to PNG on the server — its closeness to LibreOffice
-  is measured per slide and gated in CI (`site/fidelity`) — but it is a
+  SVG in the browser and to PNG on the server, and its closeness to LibreOffice
+  is measured per slide and gated in CI (`site/fidelity`). It is a
   high-fidelity preview, not a spec-complete paint engine. For
   pixel-authoritative output, use PowerPoint itself or LibreOffice headless.
-- You need a thin DSL for one-off "report" slides and do not care about
-  schema validity. A simpler library will be lighter.
+- You only generate new decks and need a feature in the PptxGenJS column
+  above. Use PptxGenJS.
 - You want to convert PPTX to another format (Keynote, ODP). Out of scope
-  forever — that's a renderer's job.
+  forever; that is a renderer's job.
 
 ## Install
 
@@ -83,7 +219,8 @@ yarn add @office-kit/pptx
 @office-kit/pptx exposes a single tree-shakeable free-function API. Every
 capability is a named export — `loadPresentation`, `savePresentation`,
 `addSlideTextBox`, `setShapeFill`, etc. Bundlers drop every entry you
-don't import, so the minimal `load → save` bundle is **~60 KB**.
+don't import, so the minimal `load → save` bundle is **about 56 KB**
+unminified. CI enforces the bound in `test/tree-shake.test.ts`.
 
 ```ts
 import {
@@ -109,8 +246,6 @@ the handful of API footguns worth memorizing, and a QA loop to run before
 declaring a deck done. Its [worked example](skill/examples/business-deck.md) is
 exercised by the test suite, so the code there is known to produce a
 schema-valid deck.
-
-CI enforces the tree-shake bound in `test/tree-shake.test.ts`.
 
 ## Usage
 
@@ -277,7 +412,7 @@ addSlideChart(slide!, {
   w: inches(8),
   h: inches(4.5),
   spec: {
-    kind: 'column', // bar | column | line | pie | doughnut | area
+    kind: 'column', // bar | column | line | pie | doughnut | area (combine per series with `chartKind`)
     categories: ['Q1', 'Q2', 'Q3', 'Q4'],
     series: [
       { name: 'Revenue', values: [120, 180, 240, 300] },
@@ -378,7 +513,12 @@ shown together.
 | Shape removal        | `removeShape`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Tables               | `getTableCell` / `getTableCells`, `setTableCellText` / `getTableCellText`, `setTableCellParagraphs` / `getTableCellParagraphs`, `setTableCellFill` / `clearTableCellFill`, `setTableCellAlignment`, `setTableCellTextFormat`, `insertTableRow` / `removeTableRow`, `insertTableColumn` / `removeTableColumn`, `mergeTableCells` / `getTableCellSpan`                                                                                                      |
 | Charts               | `addSlideChart`, `getSlideCharts`, `setChartSpec` — kinds: `bar`, `column`, `line`, `pie`, `doughnut`, `area`; axis tick labels via `categoryAxisTickLabelPos` / `valueAxisTickLabelPos` / `secondaryValueAxis.tickLabelPos`; axis line / gridline widths via `valueAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` and their category / secondary-axis mirrors; series `lineColor` / `markerColor` / `markerLineColor`; `dataLabels.showLeaderLines` |
-| Theme                | `getPresentationTheme` — color scheme (`accent1`..`accent6`, `dark1`, `light1`, `hyperlink`, ...)                                                                                                                                                                                                                                                                                                                                                         |
+| Theme                | `getPresentationTheme` / `setPresentationTheme` — color scheme (`accent1`..`accent6`, `dark1`, `light1`, `hyperlink`, ...); `getPresentationFonts` / `setPresentationFonts` — major / minor Latin, East Asian, and complex-script faces                                                                                                                                                                                                                   |
+| Groups               | `groupShapes`, `ungroupShapes`, `getGroupChildren`, `getGroupTransform`                                                                                                                                                                                                                                                                                                                                                                                   |
+| Text autofit         | `setShapeTextAutoFit` / `getShapeTextAutoFit`, `getShapeTextAutoFitParams`                                                                                                                                                                                                                                                                                                                                                                                |
+| Preset adjustments   | `setShapeAdjustValues`; `getShapeCustomGeometry` (custom geometry is read-only)                                                                                                                                                                                                                                                                                                                                                                           |
+| Document properties  | `getCoreProperties` / `setCoreProperties`, `touchModified`, `getThumbnail` / `setThumbnail` / `removeThumbnail`                                                                                                                                                                                                                                                                                                                                           |
+| Package inspection   | `listPackageParts`, `readPackagePart`, `getMediaParts`, `getOrphanMediaPartNames`, `getPackageSize`, `compactPackage`                                                                                                                                                                                                                                                                                                                                     |
 | Validation           | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                                                                                                                                                                                                                                                                                                                              |
 | Units                | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                                                                                                                                                                                                                                                                                                                           |
 
@@ -388,20 +528,48 @@ Runs that name no face fall back to the theme's font scheme, which is also where
 
 Authored XML text and attribute values must contain only XML 1.0 characters. Illegal C0 controls (except tab, LF, and CR), U+FFFE, U+FFFF, and unpaired UTF-16 surrogates throw an error identifying the code point. Remove these characters before authoring; valid supplementary characters such as emoji are preserved.
 
+## Preview and text-overflow checks
+
+[`@office-kit/pptx-preview`](packages/preview) is a companion package that
+renders a slide to SVG (browser and Node) or to PNG (Node, via resvg, with no
+headless Office). `auditTextLayout` reports text that overflows its box or
+wraps unexpectedly, which is how an automated pipeline catches a broken slide
+before a person sees it.
+
+```ts
+import { getSlides } from '@office-kit/pptx';
+import { renderSlideToSvg } from '@office-kit/pptx-preview';
+
+const svg = renderSlideToSvg(pres, getSlides(pres)[0]!);
+```
+
+## Office Kit
+
+`@office-kit/pptx` is one of three libraries built on the same rules: the
+ECMA-376 spec is the source of truth, output has to validate, and one ESM
+build has to run everywhere.
+
+| Package                                                  | Files              |
+| -------------------------------------------------------- | ------------------ |
+| [`@office-kit/pptx`](https://github.com/office-kit/pptx) | PowerPoint `.pptx` |
+| [`@office-kit/xlsx`](https://github.com/office-kit/xlsx) | Excel `.xlsx`      |
+| [`@office-kit/docx`](https://github.com/office-kit/docx) | Word `.docx`       |
+
 ## Compatibility
 
-- **Node**: >= 24.16.
+- **Node**: >= 22.18 (CI runs 22, 24, and 26).
 - **Browsers**: current and current-1 of Chrome, Firefox, Safari, Edge.
 - **TypeScript**: >= 5.4 (for strict `satisfies` and `const` type parameters).
-- **Output**: PPTX files checked against the ECMA-376 schemas with `xmllint`
-  where it is available, and smoke-tested against PowerPoint (current),
-  Keynote (current), Google Slides, and LibreOffice Impress.
+- **Output**: validated with the Open XML SDK and the ECMA-376 schemas (see
+  [How output is checked](#how-output-is-checked)), and smoke-tested against
+  PowerPoint (current), Keynote (current), Google Slides, and LibreOffice
+  Impress.
 
 ## Development
 
 ```sh
 git clone --recurse-submodules git@github.com:office-kit/pptx.git
-cd @office-kit/pptx
+cd pptx
 pnpm install
 pnpm test
 ```

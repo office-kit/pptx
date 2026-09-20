@@ -1,100 +1,168 @@
-/* @office-kit/pptx — Editorial spec-sheet design system.
- * Warm-dark engineering manual, shared with the rest of the kit suite.
- * Display: Fraunces. Body: Mona Sans. Code/labels: JetBrains Mono. */
+/* Office Kit design system.
+ *
+ * One stylesheet serves the whole family (pptx / xlsx / docx). Everything a
+ * product changes is a `[data-product]` token — its accent and the pattern
+ * drawn behind its hero stage — so the three sites stay one system.
+ *
+ * Display: Funnel Display. Text: Funnel Sans. Code: Geist Mono. */
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 
-  /* Warm ink palette — replaces generic cool blue-gray. */
-  --bg: #0d0c0a;
-  --bg-elev: #15130f;
-  --bg-soft: #1c1a14;
-  --bg-paper: #211e16;
-  --code-bg: #0a0907;
+  --paper: #ffffff;
+  --wash: #f5f6f8;
+  --ink: #15171c;
+  --ink-2: #4a4f5b;
+  --ink-3: #737986;
+  --line: #e2e4e9;
+  --line-strong: #c9cdd6;
 
-  /* Hairline rules — semi-transparent so they breathe over warm ink. */
-  --border: rgba(255, 250, 240, 0.18);
-  --border-strong: rgba(255, 250, 240, 0.32);
-  --rule: rgba(255, 250, 240, 0.08);
+  /* Code panels stay dark in both themes: the Shiki theme is dark, and a dark
+   * panel on a light page is what separates "code" from "prose" at a glance. */
+  --night: #101217;
+  --night-2: #181b22;
+  --night-line: #2a2e38;
+  --night-ink: #e6e8ec;
+  --night-ink-2: #9aa0ad;
 
-  /* Foregrounds — near-white with a warm tint, tuned for high contrast. */
-  --fg: #ffffff;
-  --fg-soft: #f0ece2;
-  --fg-muted: #d4cdb8;
-  --fg-faint: #a39b85;
+  --display: 'Funnel Display', 'Funnel Sans', system-ui, sans-serif;
+  --sans: 'Funnel Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --mono: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Accents — ember (softened Svelte orange). Less neon at rest, still
-   * recognisably warm. Brass remains a quiet sibling co-accent shared
-   * with word-kit so the kit suite reads as one family. */
-  --accent: #e8501c;
-  --accent-hot: #ff6a36;
-  --accent-soft: rgba(232, 80, 28, 0.12);
-  --accent-glow: rgba(232, 80, 28, 0.22);
-  --brass: #d4a544;
-  --brass-soft: rgba(212, 165, 68, 0.12);
+  --frame: 1200px;
+  --measure: 760px;
+  --sidebar-w: 256px;
+  --header-h: 64px;
+  --gutter: 1.5rem;
+  --radius: 8px;
+  --radius-sm: 5px;
 
-  /* Type. */
-  --display: 'Fraunces', ui-serif, Georgia, 'Times New Roman', serif;
-  --sans: 'Mona Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-  /* Layout. */
-  --max-content: 980px;
-  --max-wide: 1240px;
-  --sidebar-w: 248px;
-  --header-h: 60px;
-  --radius: 6px;
-  --radius-sm: 3px;
+  --shadow-pop: 0 1px 2px rgb(16 18 23 / 0.06), 0 12px 32px -8px rgb(16 18 23 / 0.18);
 }
 
-* {
+/* Product accents. `--accent` fills surfaces; `--accent-ink` is the same hue
+ * darkened until it passes 4.5:1 as text on `--paper`. */
+:root,
+[data-product='pptx'] {
+  --accent: #e5481f;
+  --accent-ink: #bf3610;
+  --accent-wash: #fdeee8;
+  --on-accent: #ffffff;
+}
+
+[data-product='xlsx'] {
+  --accent: #168a4f;
+  --accent-ink: #11703f;
+  --accent-wash: #e6f4ec;
+  --on-accent: #ffffff;
+}
+
+[data-product='docx'] {
+  --accent: #2b63d9;
+  --accent-ink: #2453b8;
+  --accent-wash: #e9effc;
+  --on-accent: #ffffff;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: #0f1115;
+  --wash: #15181e;
+  --ink: #f2f3f5;
+  --ink-2: #b4b9c4;
+  --ink-3: #8a909c;
+  --line: #252932;
+  --line-strong: #3a3f4b;
+  --night: #161920;
+  --night-2: #1d212a;
+  --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -8px rgb(0 0 0 / 0.6);
+}
+
+:root[data-theme='dark'],
+:root[data-theme='dark'] [data-product='pptx'] {
+  --accent-ink: #ff7a52;
+  --accent-wash: #2a1710;
+}
+
+:root[data-theme='dark'] [data-product='xlsx'],
+:root[data-theme='dark'][data-product='xlsx'] {
+  --accent-ink: #4cc98a;
+  --accent-wash: #0f241a;
+}
+
+:root[data-theme='dark'] [data-product='docx'],
+:root[data-theme='dark'][data-product='docx'] {
+  --accent-ink: #7da6ff;
+  --accent-wash: #121c33;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --paper: #0f1115;
+    --wash: #15181e;
+    --ink: #f2f3f5;
+    --ink-2: #b4b9c4;
+    --ink-3: #8a909c;
+    --line: #252932;
+    --line-strong: #3a3f4b;
+    --night: #161920;
+    --night-2: #1d212a;
+    --shadow-pop: 0 1px 2px rgb(0 0 0 / 0.4), 0 12px 32px -8px rgb(0 0 0 / 0.6);
+  }
+
+  :root:not([data-theme='light']),
+  :root:not([data-theme='light']) [data-product='pptx'] {
+    --accent-ink: #ff7a52;
+    --accent-wash: #2a1710;
+  }
+
+  :root:not([data-theme='light']) [data-product='xlsx'],
+  :root:not([data-theme='light'])[data-product='xlsx'] {
+    --accent-ink: #4cc98a;
+    --accent-wash: #0f241a;
+  }
+
+  :root:not([data-theme='light']) [data-product='docx'],
+  :root:not([data-theme='light'])[data-product='docx'] {
+    --accent-ink: #7da6ff;
+    --accent-wash: #121c33;
+  }
+}
+
+*,
+*::before,
+*::after {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--header-h) + 1rem);
 }
 
 html,
 body {
   margin: 0;
   padding: 0;
-  background: var(--bg);
-  color: var(--fg);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--sans);
   font-size: 16px;
-  font-weight: 420;
+  font-weight: 400;
   line-height: 1.6;
-  font-feature-settings: 'ss01', 'cv11';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Decorative spreadsheet column hairlines drifting behind the entire site.
- * Fixed, very faint, parallax-free — sets atmosphere without distracting. */
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  background-image: linear-gradient(
-    90deg,
-    transparent 0,
-    transparent calc(100% / 12 - 1px),
-    var(--rule) calc(100% / 12 - 1px),
-    var(--rule) calc(100% / 12),
-    transparent calc(100% / 12)
-  );
-  background-size: calc(100% / 6) 100%;
-  mask-image: linear-gradient(180deg, black 0, black 70vh, transparent 100vh);
-}
-
-body > * {
-  position: relative;
-  z-index: 1;
+body {
+  overflow-x: clip;
 }
 
 a {
-  color: var(--accent);
+  color: var(--accent-ink);
   text-decoration: none;
-  text-underline-offset: 0.18em;
+  text-underline-offset: 0.2em;
   text-decoration-thickness: 1px;
 }
 
@@ -102,212 +170,245 @@ a:hover {
   text-decoration: underline;
 }
 
-/* Headings: Fraunces with optical sizing axis. SOFT axis adds warmth. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 h1,
 h2,
 h3,
 h4 {
   font-family: var(--display);
-  font-weight: 540;
-  line-height: 1.12;
-  letter-spacing: -0.018em;
-  margin: 2.4rem 0 1rem;
-  font-variation-settings:
-    'opsz' 96,
-    'SOFT' 25;
-  color: var(--fg);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin: 2.5rem 0 1rem;
+  color: var(--ink);
+  text-wrap: balance;
 }
 
 h1 {
-  font-size: clamp(2rem, 4.2vw, 2.85rem);
+  font-size: clamp(2rem, 4vw, 2.75rem);
+  letter-spacing: -0.03em;
   margin-top: 0;
-  letter-spacing: -0.025em;
-  font-weight: 480;
-  font-variation-settings:
-    'opsz' 144,
-    'SOFT' 30;
 }
 
 h2 {
-  font-size: 1.65rem;
-  font-weight: 520;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 0.5rem;
-  font-variation-settings:
-    'opsz' 64,
-    'SOFT' 25;
+  font-size: 1.6rem;
 }
 
 h3 {
-  font-size: 1.18rem;
-  font-weight: 560;
-  font-variation-settings:
-    'opsz' 32,
-    'SOFT' 20;
+  font-size: 1.2rem;
+  letter-spacing: -0.012em;
 }
 
 h4 {
   font-size: 1rem;
-  font-weight: 600;
-  font-variation-settings:
-    'opsz' 24,
-    'SOFT' 15;
+  letter-spacing: 0;
 }
 
 p,
 ul,
 ol {
-  margin: 0.75rem 0;
+  margin: 0.85rem 0;
 }
 
 ul,
 ol {
-  padding-left: 1.4rem;
+  padding-left: 1.35rem;
+}
+
+li + li {
+  margin-top: 0.3rem;
 }
 
 strong {
   font-weight: 650;
-  color: var(--fg);
 }
 
-em {
-  font-style: italic;
-  font-variation-settings:
-    'opsz' 144,
-    'SOFT' 60;
-}
-
-code {
+code,
+kbd {
   font-family: var(--mono);
-  font-size: max(13px, 0.88em);
-  background: var(--bg-soft);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  padding: 0.08em 0.38em;
-  color: var(--fg);
+  font-size: 0.875em;
   font-variant-ligatures: none;
 }
 
+:not(pre) > code {
+  background: var(--wash);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.36em;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
 pre {
-  background: var(--code-bg);
-  border: 1px solid var(--border);
+  background: var(--night);
+  color: var(--night-ink);
+  border: 1px solid var(--night-line);
   border-radius: var(--radius);
-  padding: 1rem 1.1rem;
+  padding: 1rem 1.15rem;
   overflow-x: auto;
-  font-size: 0.875rem;
-  line-height: 1.6;
-  margin: 1rem 0;
   font-family: var(--mono);
+  font-size: 0.84rem;
+  line-height: 1.65;
+  margin: 1.25rem 0;
+  tab-size: 2;
+}
+
+/* Shiki paints its own background inline; ours is the single source. */
+pre.shiki {
+  background: var(--night) !important;
 }
 
 pre code {
-  background: transparent;
-  border: none;
-  padding: 0;
   font-size: inherit;
 }
 
 table {
   border-collapse: collapse;
   width: 100%;
-  margin: 1.25rem 0;
+  margin: 1.5rem 0;
   font-size: 0.92rem;
-  border: 1px solid var(--border);
 }
 
 th,
 td {
-  border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--line);
+  padding: 0.65rem 0.9rem 0.65rem 0;
   text-align: left;
-}
-
-th:last-child,
-td:last-child {
-  border-right: none;
-}
-
-tr:last-child td {
-  border-bottom: none;
+  vertical-align: top;
 }
 
 th {
-  background: var(--bg-paper);
-  font-family: var(--mono);
-  font-size: 0.78rem;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--fg-soft);
+  color: var(--ink-2);
+  border-bottom-color: var(--line-strong);
+  white-space: nowrap;
 }
 
 blockquote {
-  border-left: 2px solid var(--accent);
-  background: var(--accent-soft);
-  margin: 1.25rem 0;
-  padding: 0.75rem 1.1rem;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-wash);
+  margin: 1.5rem 0;
+  padding: 0.85rem 1.15rem;
   border-radius: 0 var(--radius) var(--radius) 0;
-  color: var(--fg);
 }
 
-blockquote p:first-child {
+blockquote > :first-child {
   margin-top: 0;
 }
 
-blockquote p:last-child {
+blockquote > :last-child {
   margin-bottom: 0;
 }
 
 hr {
   border: none;
-  border-top: 1px solid var(--border);
-  margin: 2.25rem 0;
+  border-top: 1px solid var(--line);
+  margin: 2.5rem 0;
+}
+
+img,
+svg {
+  max-width: 100%;
 }
 
 ::selection {
   background: var(--accent);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 
-/* Refined scrollbars — slim, warm. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--border-strong) transparent;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
-*::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Layout primitives shared by every page.
+ *
+ * `.band` is a full-width horizontal stripe closed by a hairline; `.frame` is
+ * the centered column inside it, ruled on both sides. Stacked bands make the
+ * two vertical rules read as one continuous frame down the whole page. */
+.band {
+  border-bottom: 1px solid var(--line);
 }
 
-*::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  border-radius: 4px;
+.frame {
+  width: 100%;
+  max-width: var(--frame);
+  margin-inline: auto;
+  border-inline: 1px solid var(--line);
 }
 
-*::-webkit-scrollbar-thumb:hover {
-  background: var(--fg-faint);
+@media (max-width: 1232px) {
+  .frame {
+    border-inline: none;
+  }
 }
 
-/* Shared editorial atoms reused across pages. */
-.eyebrow {
+/* Tables wider than a phone scroll inside their own box, never the page. */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Buttons. */
+.btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  font-family: var(--mono);
-  font-weight: 540;
-  font-size: 12px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--fg-soft);
-  margin: 0 0 0.6rem;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 44px;
+  padding: 0 1.15rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line-strong);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 0.97rem;
+  font-weight: 550;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 120ms ease,
+    border-color 120ms ease;
 }
 
-.eyebrow::before {
-  content: '';
-  display: inline-block;
-  width: 18px;
-  height: 1px;
+.btn:hover {
+  text-decoration: none;
+  background: var(--wash);
+  border-color: var(--ink-3);
+}
+
+.btn.primary {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--paper);
+}
+
+.btn.primary:hover {
   background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
