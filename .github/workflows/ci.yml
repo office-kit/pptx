@@ -62,11 +62,12 @@ jobs:
       - name: Build preview package
         run: pnpm --filter @office-kit/pptx-preview build
 
-      - name: Type check DSL package
-        run: pnpm --filter @office-kit/pptx-dsl typecheck
-
       - name: Build DSL package
         run: pnpm --filter @office-kit/pptx-dsl build
+
+      # Examples import the package's public exports, including its JSX runtime.
+      - name: Type check DSL package
+        run: pnpm --filter @office-kit/pptx-dsl typecheck
 
       - name: Type check authoring tools
         run: pnpm --filter @office-kit/pptx-dev typecheck
