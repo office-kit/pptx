@@ -86,6 +86,9 @@ importers:
       '@office-kit/pptx-preview':
         specifier: workspace:*
         version: link:../packages/preview
+      '@office-kit/site-kit':
+        specifier: github:office-kit/office-kit.github.io#main&path:/packages/site-kit
+        version: https://codeload.github.com/office-kit/office-kit.github.io/tar.gz/ddb5d00b417425839c4c27ef9c08c8ee792fb5e5#path:/packages/site-kit(@sveltejs/kit@2.65.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)
       '@sveltejs/adapter-static':
         specifier: ^3.0.10
         version: 3.0.10(@sveltejs/kit@2.65.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))
@@ -469,6 +472,13 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
+
+  '@office-kit/site-kit@https://codeload.github.com/office-kit/office-kit.github.io/tar.gz/ddb5d00b417425839c4c27ef9c08c8ee792fb5e5#path:/packages/site-kit':
+    resolution: {gitHosted: true, integrity: sha512-CkbOypXFe2ZMb6k91ciwxrZ5NKDmN2KqV5LTRx8VpFcbOgZ25qYEo9sI31Lz02xACq1XZkuhUz51TBKNhDJFWA==, tarball: https://codeload.github.com/office-kit/office-kit.github.io/tar.gz/ddb5d00b417425839c4c27ef9c08c8ee792fb5e5}
+    version: 0.1.0
+    peerDependencies:
+      '@sveltejs/kit': ^2.0.0
+      svelte: ^5.0.0
 
   '@oxc-project/types@0.133.0':
     resolution: {integrity: sha512-KzkdCd6Uxqnf6l3HOw1xfatAlUURA0g14cvBYFyJ5SaNOQbOUvBr9PKArcPcrNIeRsBdgcUzOGrhKveVpvOIGA==}
@@ -2611,6 +2621,11 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.20.1
+
+  '@office-kit/site-kit@https://codeload.github.com/office-kit/office-kit.github.io/tar.gz/ddb5d00b417425839c4c27ef9c08c8ee792fb5e5#path:/packages/site-kit(@sveltejs/kit@2.65.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)':
+    dependencies:
+      '@sveltejs/kit': 2.65.1(@sveltejs/vite-plugin-svelte@7.1.2(svelte@5.56.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4)))(svelte@5.56.3)(typescript@6.0.3)(vite@8.0.16(@types/node@24.13.2)(esbuild@0.28.1)(tsx@4.22.4))
+      svelte: 5.56.3
 
   '@oxc-project/types@0.133.0': {}
 
