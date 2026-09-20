@@ -18,9 +18,9 @@ The most common @office-kit/pptx use case: take a designer-authored template, sw
 
 `loadPresentation` accepts a `Uint8Array`, `ArrayBuffer`, or `Blob` — anything you can `fetch` or `readFile`. `replaceTokensInPresentation` walks every text run in every slide (and the speaker notes) replacing exact-match `{{name}}` tokens.
 
-## Build a deck from a blank template
+## Build a deck from scratch
 
-For authoring from scratch you still need at least one master + layout — the simplest path is to ship a small `blank.pptx` alongside your app. Then add slides on its layouts and fill them in with the typed `addSlide*` helpers:
+`createPresentation()` returns an empty deck that already carries a slide master, the Office theme, and three layouts (`Blank`, `Title Slide`, `Title and Content`), so there is no template file to ship. Add slides with `addTitleSlide` / `addContentSlide` / `addBlankSlide`, then fill them in with the typed `addSlide*` helpers:
 
 <CodeBlock html={ex.buildDeck.html} title={ex.buildDeck.path} />
 

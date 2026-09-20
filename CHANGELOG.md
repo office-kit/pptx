@@ -1,4 +1,4 @@
-# pptx-kit
+# @office-kit/pptx
 
 ## 0.16.0
 

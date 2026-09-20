@@ -196,8 +196,9 @@ const validateChartSpecAxes = (spec: ChartSpec): void => {
 
 /**
  * Adds a chart to the slide. Returns the new shape handle (kind
- * `graphicFrame`). Supported chart kinds today: `bar`, `column`,
- * `line`, `pie` — see `ChartSpec.kind`.
+ * `graphicFrame`). Authorable chart kinds: `bar`, `column`, `line`,
+ * `pie`, `doughnut`, `area`. `scatter`, `radar` and `bubble` are read +
+ * render only and are rejected here — see `ChartKind`.
  *
  * Side effects:
  *

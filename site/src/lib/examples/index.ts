@@ -29,9 +29,10 @@ export const examples = {
     source: templateFill,
   },
   buildDeck: {
-    title: 'Build a deck from a blank template',
+    title: 'Build a deck from scratch',
     path: 'site/src/lib/examples/build-deck.ts',
-    description: 'Add slides on a layout, drop in a text box, an image, and a chart, then save.',
+    description:
+      'Start from the built-in empty deck, drop in a text box, an image, and a chart, then save.',
     source: buildDeck,
   },
   imageReplace: {
