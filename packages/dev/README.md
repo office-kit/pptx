@@ -45,6 +45,11 @@ presentation** task, then use **Simple Browser: Show** with the printed URL and
 move it to a side editor group. No custom editor extension is needed for this
 workflow. Clicking a slide supplies chat context; opening its exact TSX location is not implemented.
 
+Saved TSX edits reuse unchanged source transforms and slide previews to reduce update
+latency. The deck is still evaluated in a fresh worker on every build. Changes to
+shared resources, including themes, relationships, charts and images, redraw all
+slides. Update time depends on the deck size and any code it runs.
+
 ## Chat in the preview
 
 The right panel defaults to **Claude Code**. Click **Start** to open the locally
