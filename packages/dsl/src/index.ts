@@ -192,8 +192,15 @@ function style(shape: api.SlideShapeData, props: ShapeStyle) {
   if (props.glow) api.setShapeGlow(shape, props.glow);
   if (props.click) api.setShapeClickAction(shape, props.click);
 }
+/** A paragraph's indent level: 0 is the top, 8 the deepest PowerPoint has. */
+export type TextLevel = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+export interface TextParagraph extends api.ParagraphSpec {
+  /** This paragraph's own bullet; wins over `bullets`. */
+  bullet?: api.BulletStyle;
+  level?: TextLevel;
+}
 export interface TextProps extends Bounds, ShapeStyle, api.TextFormat, Children {
-  paragraphs?: readonly api.ParagraphSpec[];
+  paragraphs?: readonly TextParagraph[];
   align?: api.ParagraphAlignment;
   anchor?: api.TextAnchor;
   autoFit?: api.TextAutoFit;
@@ -221,7 +228,14 @@ export function Text(props: TextProps): Node {
     if (props.align) api.setShapeAlignment(shape, props.align);
     if (props.anchor) api.setShapeTextAnchor(shape, props.anchor);
     if (props.autoFit) api.setShapeTextAutoFit(shape, props.autoFit);
+    // Before any bullet: the core sizes a bullet's hanging indent from the level.
+    props.paragraphs?.forEach((paragraph, index) => {
+      if (paragraph.level !== undefined) api.setParagraphLevel(shape, index, paragraph.level);
+    });
     if (props.bullets !== undefined) api.setShapeBullets(shape, props.bullets);
+    props.paragraphs?.forEach((paragraph, index) => {
+      if (paragraph.bullet !== undefined) api.setParagraphBullet(shape, index, paragraph.bullet);
+    });
     if (props.paragraphSpacing) {
       const { before, after } = props.paragraphSpacing;
       const spacing = {

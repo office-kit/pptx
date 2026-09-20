@@ -72,6 +72,26 @@ accepts the core `TextFormat` properties directly, plus alignment, anchor,
 text auto-fit, `bullets` and `paragraphSpacing` (both apply to every paragraph; a
 newline in the text starts one). A `Shape` with `text` takes `align` and `anchor`.
 
+Each entry of `paragraphs` is a core `ParagraphSpec` that also takes its own `bullet`
+and `level`. The paragraph's `bullet` wins over `bullets`, so `bullet: 'none'` keeps a
+heading line out of the list. `level` is the `TextLevel` type, `0` to `8`, and nests
+the list; `tsc` rejects any other number.
+
+```tsx
+<Text
+  x={1}
+  y={1}
+  width={8}
+  height={3}
+  bullets="bullet"
+  paragraphs={[
+    { runs: [{ text: 'What changed' }], bullet: 'none' },
+    { runs: [{ text: 'Churn fell to 4.2%' }] },
+    { runs: [{ text: 'Driver: simpler setup' }], level: 1, bullet: { char: '–' } },
+  ]}
+/>
+```
+
 A `Line` runs from (`x1`, `y1`) to (`x2`, `y2`) instead of taking bounds. A
 `Group` holds two or more visual elements and may contain other groups; the
 result moves and resizes as one object in PowerPoint.

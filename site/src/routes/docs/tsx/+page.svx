@@ -52,7 +52,7 @@ Child order is drawing order. Geometry is explicit; there is no automatic layout
 | --- | --- |
 | `Presentation` | Optional source PPTX bytes, `size`, `theme`, `mode`. |
 | `Slide` | Optional `background`, `notes`, `layout`, source `from`, or edit `target`. |
-| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`; `bullets` and `paragraphSpacing`. |
+| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`; `bullets` and `paragraphSpacing`; a `bullet` and `level` per entry of `paragraphs`. |
 | `Shape` | Required bounds and `preset`; fill, stroke, effects, optional text with `align` and `anchor`. |
 | `Line` | End points `x1`, `y1`, `x2`, `y2`; `color` and `width`. |
 | `Group` | Two or more visual elements that move and resize as one object; optional `name`. |

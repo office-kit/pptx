@@ -84,6 +84,10 @@ Bounds (`x`, `y`, `width`, `height`) are required for new visual objects.
 | `Remove`       | Existing shape `target`.                                                                                                                                         |
 | `Raw`          | Public core API callback with optional explicit scope.                                                                                                           |
 
+For a nested list, write `paragraphs` and give an entry `level` (0 to 8). An entry's
+own `bullet` wins over `bullets`; `bullet: 'none'` keeps a heading line out of the
+list. Do not use `Raw` for either.
+
 ## Existing PPTX files
 
 Run `npx --no-install office-pptx inspect template.pptx` in the project first.
