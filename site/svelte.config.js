@@ -41,6 +41,10 @@ const config = {
       // its source so the playground hot-reloads without a build step — and
       // so CI can build the site without first building the package's dist.
       '@office-kit/pptx-preview': '../packages/preview/src/index.ts',
+      // Same for the TSX DSL the REPL evaluates. The subpath comes first:
+      // aliases match by prefix, and the package alias would swallow it.
+      '@office-kit/pptx-dsl/jsx-runtime': '../packages/dsl/src/jsx-runtime.ts',
+      '@office-kit/pptx-dsl': '../packages/dsl/src/index.ts',
     },
   },
 };

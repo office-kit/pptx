@@ -16,10 +16,12 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.43.1",
-    "codemirror": "^6.0.2"
+    "codemirror": "^6.0.2",
+    "sucrase": "^3.35.1"
   },
   "devDependencies": {
     "@office-kit/pptx": "workspace:*",
+    "@office-kit/pptx-dsl": "workspace:*",
     "@office-kit/pptx-preview": "workspace:*",
     "@office-kit/site-kit": "github:office-kit/office-kit.github.io#site-kit",
     "@sveltejs/adapter-static": "^3.0.10",
