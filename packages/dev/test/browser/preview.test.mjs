@@ -44,12 +44,14 @@ test(
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url);
       await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
-      await page.waitForFunction(
-        () => document.querySelector('#slide iframe')?.style.visibility === 'visible',
-      );
+      const slideSvg = (label) => {
+        const svg = document.querySelector('#slide').shadowRoot.querySelector('svg');
+        return svg !== null && (label === undefined || svg.textContent.includes(label));
+      };
+      await page.waitForFunction(slideSvg);
       await page.selectOption('#zoom', '2');
       await page.evaluate(() => {
-        window.oldFrame = document.querySelector('#slide iframe');
+        window.oldSvg = document.querySelector('#slide').shadowRoot.querySelector('svg');
         window.oldThumb = document.querySelectorAll('.thumbnail')[2];
         document.querySelector('#stage').scrollTop = 100;
         document.querySelector('.filmstrip').scrollTop = 300;
@@ -58,60 +60,44 @@ test(
       await page.waitForFunction(() => state.slides[40].includes('Offscreen'));
       assert.deepEqual(
         await page.evaluate(() => ({
-          sameFrame: oldFrame === document.querySelector('#slide iframe'),
+          sameSvg: oldSvg === document.querySelector('#slide').shadowRoot.querySelector('svg'),
           sameThumb: oldThumb === document.querySelectorAll('.thumbnail')[2],
           zoom: document.querySelector('#zoom').value,
           stage: document.querySelector('#stage').scrollTop,
           film: document.querySelector('.filmstrip').scrollTop,
         })),
-        { sameFrame: true, sameThumb: true, zoom: '2', stage: 100, film: 300 },
+        { sameSvg: true, sameThumb: true, zoom: '2', stage: 100, film: 300 },
       );
       const times = [];
       for (let i = 0; i < 5; i++) {
         const label = 'Revision' + i;
         const start = performance.now();
         await writeFile(file, source(label, 'Offscreen'));
-        await page.waitForFunction(
-          (label) =>
-            Array.from(document.querySelectorAll('#slide iframe')).some(
-              (f) => f.style.visibility === 'visible' && f.srcdoc.includes(label),
-            ),
-          label,
-          { polling: 'raf' },
-        );
+        await page.waitForFunction(slideSvg, label, { polling: 'raf' });
         times.push(Math.round(performance.now() - start));
       }
       await writeFile(file, 'export default <');
       await page.locator('#error').waitFor({ state: 'visible' });
-      assert.ok(
-        await page
-          .locator('#slide iframe')
-          .getAttribute('srcdoc')
-          .then((s) => s.includes('Revision4')),
-      );
+      assert.ok(await page.evaluate(slideSvg, 'Revision4'));
       await writeFile(file, source('Recovered'));
       await page.locator('#error').waitFor({ state: 'hidden' });
-      await page.waitForFunction(() =>
-        document.querySelector('#slide iframe')?.srcdoc.includes('Recovered'),
-      );
+      await page.waitForFunction(slideSvg, 'Recovered');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      // Slide text is real DOM inside the shadow root: select it and read the selection.
+      await page.locator('#slide p').first().click({ clickCount: 3 });
+      assert.ok((await page.evaluate(() => getSelection().toString())).includes('Slide 2'));
+      await page.keyboard.press('ArrowRight');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 50');
+      await page.keyboard.press('ArrowLeft');
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await writeFile(file, source('Presenting'));
-      await page.waitForFunction(() =>
-        Array.from(document.querySelectorAll('#slide iframe')).some(
-          (f) => f.style.visibility === 'visible' && f.srcdoc.includes('Presenting'),
-        ),
-      );
+      await page.waitForFunction(slideSvg, 'Presenting');
       assert.ok(await page.locator('body').evaluate((el) => el.classList.contains('presenting')));
       await page.keyboard.press('Escape');
       await page.context().setOffline(true);
       await writeFile(file, source('Reconnect'));
       await page.context().setOffline(false);
-      await page.waitForFunction(() =>
-        Array.from(document.querySelectorAll('#slide iframe')).some(
-          (f) => f.style.visibility === 'visible' && f.srcdoc.includes('Reconnect'),
-        ),
-      );
+      await page.waitForFunction(slideSvg, 'Reconnect');
       await writeFile(file, source('', '', 2));
       await page.waitForFunction(
         () => document.querySelector('#count').textContent === 'Slide 2 of 2',
@@ -121,7 +107,7 @@ test(
       await page.waitForFunction(
         () => document.querySelector('#count').textContent === 'No slides',
       );
-      assert.equal(await page.locator('#slide iframe').count(), 0);
+      assert.equal(await page.evaluate(slideSvg), false);
       await writeFile(file, source('Restored'));
       await page.waitForFunction(
         () => document.querySelector('#count').textContent === 'Slide 1 of 50',

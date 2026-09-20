@@ -24,7 +24,7 @@ main{min-width:0;min-height:0;display:flex;flex-direction:column}
 #error[hidden]{display:none}
 #stage{flex:1;min-height:0;overflow:auto;display:flex;padding:32px;overscroll-behavior:contain}
 #slide{position:relative;flex:none;margin:auto;background:white;box-shadow:0 3px 24px #19212d20;overflow:hidden}
-#slide iframe{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;pointer-events:none}
+#slide{user-select:text;-webkit-user-select:text}
 #empty{margin:auto;color:#737d8e}
 footer{display:flex;align-items:center;gap:14px;padding:0 16px;background:#fff;border-top:1px solid #d4d9e2;font-size:12px}
 #count{min-width:90px}footer .hint{flex:1;color:#737d8e}footer button{padding:3px 10px}footer select{padding:3px 8px}
@@ -43,13 +43,18 @@ body.presenting{grid-template-rows:minmax(0,1fr);background:#111}
 <nav class="filmstrip" aria-label="Slides"><h2>Slides</h2><ol id="thumbnails"></ol></nav>
 <main aria-label="Slide viewer"><pre id="error" role="alert" hidden></pre><div id="stage" tabindex="-1"><div id="empty">Waiting for slides…</div><div id="slide" hidden></div></div></main>
 </div>
-<footer><span id="count" aria-live="polite">No slides</span><span class="hint">Changes appear automatically · View only</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
+<footer><span id="count" aria-live="polite">No slides</span><span class="hint">Changes appear automatically · Text can be selected and copied</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
 <div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
-let displayedSvg, pendingFrame;
+let displayedSvg;
 const byId=id=>document.getElementById(id);
 const stage=byId('stage'),slide=byId('slide'),thumbnails=byId('thumbnails');
+// The slide lives in a shadow root rather than a sandboxed iframe so its text
+// (XHTML inside <foreignObject>) can be selected and copied while the deck's
+// SVG stays out of the viewer's own DOM and CSS. Keyboard events still reach the
+// document, so arrow-key navigation keeps working after clicking into a slide.
+const canvas=slide.attachShadow({mode:'open'});
 function resize(){
   if(!state.slides.length)return;
   const style=getComputedStyle(stage);
@@ -72,21 +77,9 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   const svg=state.slides[index];
   if(svg!==displayedSvg){
     displayedSvg=svg;
-    if(pendingFrame){pendingFrame.remove();pendingFrame=null;}
-    if(svg){
-      const frame=document.createElement('iframe');frame.sandbox='';frame.tabIndex=-1;
-      frame.title='Slide '+(index+1);frame.style.visibility='hidden';
-      pendingFrame=frame;
-      frame.onload=()=>{
-        if(pendingFrame!==frame)return;
-        for(const child of Array.from(slide.children))if(child!==frame)child.remove();
-        frame.style.visibility='visible';pendingFrame=null;
-      };
-      frame.srcdoc='<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style>'+svg;
-      slide.append(frame);
-    }else slide.replaceChildren();
+    canvas.innerHTML=svg?'<style>svg{display:block;width:100%;height:100%}</style>'+svg:'';
   }
-  for(const frame of slide.children)frame.title='Slide '+(index+1);
+  slide.setAttribute('aria-label','Slide '+(index+1));
   for(const [position,item] of Array.from(thumbnails.children).entries()){
     const button=item.firstElementChild,selected=position===index;
     button.setAttribute('aria-current',String(selected));button.tabIndex=selected?0:-1;
@@ -145,7 +138,7 @@ document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>selectSlide(index-1);
 for(const id of ['next','present-next'])byId(id).onclick=()=>selectSlide(index+1);
 byId('zoom').onchange=resize;
-stage.onclick=()=>{if(presenting)selectSlide(index+1);};
+stage.onclick=()=>{if(presenting&&!getSelection().toString())selectSlide(index+1);};
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
