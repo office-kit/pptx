@@ -384,6 +384,8 @@ shown together.
 
 Text formats (`TextFormat`, including a paragraph's `endFormat`) cover the Latin and East Asian typefaces (`font`, `fontEastAsian`). A complex-script typeface (`<a:cs>`) is neither read nor authored: it survives a load / save untouched, but is not carried over when paragraphs are rebuilt from what the getters return.
 
+Authored XML text and attribute values must contain only XML 1.0 characters. Illegal C0 controls (except tab, LF, and CR), U+FFFE, U+FFFF, and unpaired UTF-16 surrogates throw an error identifying the code point. Remove these characters before authoring; valid supplementary characters such as emoji are preserved.
+
 ## Compatibility
 
 - **Node**: >= 24.16.

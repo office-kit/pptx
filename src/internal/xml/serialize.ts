@@ -12,7 +12,7 @@
 //   - Escape rules tight enough for PowerPoint to accept the output: the
 //     predefined entities, numeric references for the whitespace controls that
 //     attribute-value normalization would otherwise eat (tab / LF / CR), and a
-//     hard reject for the C0 control characters XML 1.0 forbids outright.
+//     hard reject for characters outside the XML 1.0 Char production.
 //
 // Out of scope:
 //
@@ -22,19 +22,17 @@
 
 import type { XmlAttr, XmlDocument, XmlElement, XmlNode } from './ast.ts';
 
-// XML 1.0 forbids the C0 control characters except tab (0x09), LF (0x0A), and
-// CR (0x0D). Unlike most escapable characters these cannot be rescued with a
-// numeric reference either — `&#0;` … `&#8;` are themselves illegal because the
-// referenced code point is not a legal `Char` (XML 1.0 §2.2). A value carrying
-// one can only have entered through authoring input (a parsed document could not
-// have held it), so we reject loudly: emitting it raw produces a non-well-formed
-// part that corrupts the entire .pptx, and silently dropping it would be a
-// surprise data loss. Strip the character upstream before authoring.
-const rejectForbiddenControlChar = (c: number): void => {
-  if (c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d) {
+// XML 1.0 §2.2 excludes C0 controls other than tab / LF / CR, U+FFFE,
+// U+FFFF, and unpaired surrogates. Numeric references cannot rescue them.
+// Iterate by code point so valid surrogate pairs remain legal supplementary
+// characters, while lone surrogates are rejected before UTF-8 replaces them.
+const rejectForbiddenChar = (c: number): void => {
+  const control = c < 0x20 && c !== 0x09 && c !== 0x0a && c !== 0x0d;
+  if (control || (c >= 0xd800 && c <= 0xdfff) || c === 0xfffe || c === 0xffff) {
     const hex = c.toString(16).toUpperCase().padStart(4, '0');
+    const kind = control ? 'control character' : 'character';
     throw new Error(
-      `XML-illegal control character U+${hex} in text; strip control characters before authoring`,
+      `XML-illegal ${kind} U+${hex} in text; strip ${control ? 'control' : 'illegal'} characters before authoring`,
     );
   }
 };
@@ -44,9 +42,9 @@ const escapeAttr = (s: string): string => {
   // double quotes, so single quotes pass through. CR and LF must be encoded
   // numerically because XML parsers normalize whitespace in attribute values.
   let out = '';
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    rejectForbiddenControlChar(c);
+  for (const char of s) {
+    const c = char.codePointAt(0)!;
+    rejectForbiddenChar(c);
     if (c === 38) out += '&amp;';
     else if (c === 60) out += '&lt;';
     else if (c === 62) out += '&gt;';
@@ -54,21 +52,21 @@ const escapeAttr = (s: string): string => {
     else if (c === 9) out += '&#9;';
     else if (c === 10) out += '&#10;';
     else if (c === 13) out += '&#13;';
-    else out += s[i];
+    else out += char;
   }
   return out;
 };
 
 const escapeText = (s: string): string => {
   let out = '';
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    rejectForbiddenControlChar(c);
+  for (const char of s) {
+    const c = char.codePointAt(0)!;
+    rejectForbiddenChar(c);
     if (c === 38) out += '&amp;';
     else if (c === 60) out += '&lt;';
     else if (c === 62) out += '&gt;';
     else if (c === 13) out += '&#13;';
-    else out += s[i];
+    else out += char;
   }
   return out;
 };
