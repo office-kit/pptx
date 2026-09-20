@@ -4,6 +4,10 @@ import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
 import {
+  alignToken,
+  applyAlignmentTokenToAllParagraphs,
+  applyValidatedFormatToAllRuns,
+  validateFormatEnums,
   buildColorElement,
   clearFill as clearFillImpl,
   setSolidFill,
@@ -14,14 +18,6 @@ import {
   type ParagraphAlignment,
   type ParagraphSpec,
 } from '../../internal/drawingml/index.ts';
-import {
-  alignToken,
-  applyAlignmentTokenToAllParagraphs,
-} from '../../internal/drawingml/text-body-mutation.ts';
-import {
-  validateFormatEnums,
-  applyValidatedFormatToAllRuns,
-} from '../../internal/drawingml/text-format.ts';
 import type { Emu } from '../units.ts';
 import { buildTableCell, buildTableRow } from '../../internal/presentationml/index.ts';
 import {

@@ -3,7 +3,9 @@
 
 export { paragraphText, paragraphsOf, runsOf, textBodyText } from './text-body.ts';
 export {
+  alignToken,
   applyAlignmentToAllParagraphs,
+  applyAlignmentTokenToAllParagraphs,
   applyBulletToAllParagraphs,
   applyBulletToParagraph,
   type BulletStyle,
@@ -18,7 +20,12 @@ export {
   setTextBodyParagraphs,
 } from './text-body-mutation.ts';
 export type { TextFormat } from './text-format.ts';
-export { applyFormatToAllRuns, applyRunFormat } from './text-format.ts';
+export {
+  applyFormatToAllRuns,
+  applyRunFormat,
+  applyValidatedFormatToAllRuns,
+  validateFormatEnums,
+} from './text-format.ts';
 export type { ParsedColor } from './color.ts';
 export { buildColorElement, parseColor, parseSrgbHex } from './color.ts';
 export type {

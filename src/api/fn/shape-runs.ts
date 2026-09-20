@@ -1,8 +1,8 @@
 // Per-run text accessors.
 
-import { alignToken } from '../../internal/drawingml/text-body-mutation.ts';
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
 import {
+  alignToken,
   type BulletStyle,
   type ParagraphAlignment,
   type TextFormat,
