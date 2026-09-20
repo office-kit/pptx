@@ -1,5 +1,11 @@
 # pptx-kit
 
+## 0.15.1
+
+### Patch Changes
+
+- d6036a5: Reject U+FFFE, U+FFFF, and unpaired surrogates in authored XML text and attributes, preventing malformed PPTX parts and silent replacement with U+FFFD. Valid supplementary characters, including emoji, remain unchanged.
+
 ## 0.15.0
 
 ### Minor Changes
