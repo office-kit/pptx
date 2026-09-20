@@ -93,6 +93,11 @@ each request. The dev server retains up to 100 messages until it exits.
 sends a message. Model/settings menus in the embedded terminal are currently
 specific to Claude Code.
 
+Drag the left edge of the chat panel to adjust its width. The preview remembers the
+width in this browser; double-click the edge to reset it. You can also focus the
+edge and use the left/right arrow keys (Shift for larger steps), or Home/End for
+the minimum/maximum width. Narrow screens keep the stacked layout.
+
 Use **Chat** in the header to hide/show the panel. On narrow screens the panel
 moves below the preview. Presentation mode hides it without ending the session.
 Both providers save TSX directly, which triggers the usual automatic rebuild.
