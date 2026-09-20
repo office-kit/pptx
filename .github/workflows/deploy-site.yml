@@ -6,6 +6,10 @@ on:
     paths:
       - 'site/**'
       - 'src/**'
+      # The site compiles these two packages from source (see the aliases in
+      # site/svelte.config.js), and the REPL's TSX starter is the DSL example.
+      - 'packages/dsl/**'
+      - 'packages/preview/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'

@@ -1,6 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { replaceState } from '$app/navigation';
   import * as kit from '@office-kit/pptx';
+  import * as dsl from '@office-kit/pptx-dsl';
+  import * as jsxRuntime from '@office-kit/pptx-dsl/jsx-runtime';
   import { renderSlideToSvg } from '@office-kit/pptx-preview';
   import { EditorState } from '@codemirror/state';
   import { EditorView, basicSetup } from 'codemirror';
@@ -13,7 +16,29 @@
   // library function is a free identifier, which `checkJs` would reject.
   // test/site-repl-starter.test.ts runs it against the library instead.
   import DEFAULT_CODE from '../../../repl/default-deck.js?raw';
+  // The TSX starter is the DSL package's own example, so `pnpm typecheck`
+  // there checks the very text the editor opens with.
+  import DEFAULT_TSX from '../../../../packages/dsl/examples/review.tsx?raw';
+  import { WRAPPER_LINES, asyncBody, evaluateTsx } from '../../../repl/evaluate.ts';
 
+  type Mode = 'functions' | 'tsx';
+  const MODES: ReadonlyArray<{ id: Mode; label: string }> = [
+    { id: 'functions', label: 'Functions' },
+    { id: 'tsx', label: 'TSX' },
+  ];
+  const STARTERS: Record<Mode, string> = { functions: DEFAULT_CODE, tsx: DEFAULT_TSX };
+  // `?mode=tsx` opens the TSX tab, so the docs can link straight to it.
+  const MODE_PARAM = 'mode';
+  // What a TSX deck may import: the same three modules a project on disk has.
+  const TSX_MODULES = {
+    '@office-kit/pptx': kit,
+    '@office-kit/pptx-dsl': dsl,
+    '@office-kit/pptx-dsl/jsx-runtime': jsxRuntime,
+  };
+
+  let mode = $state<Mode>('functions');
+  // Each tab keeps its own text, so switching back does not lose an edit.
+  const drafts: Record<Mode, string> = { ...STARTERS };
   let code = $state<string>(DEFAULT_CODE);
   let error = $state<string>('');
   let slides = $state<Array<{ index: number; svg: string; title: string }>>([]);
@@ -36,7 +61,7 @@
           doc: code,
           extensions: [
             basicSetup,
-            javascript({ typescript: true }),
+            javascript({ typescript: true, jsx: true }),
             oneDark,
             // One Dark supplies the syntax colours; the surfaces are ours so
             // the editor matches every other code panel on the site.
@@ -52,6 +77,7 @@
             EditorView.updateListener.of((update) => {
               if (update.docChanged) {
                 code = update.state.doc.toString();
+                drafts[mode] = code;
               }
             }),
           ],
@@ -59,6 +85,9 @@
         parent: editorContainer,
       });
     }
+    // Read here, not from `page.url`: the page is prerendered, where search
+    // params are not available.
+    if (new URLSearchParams(location.search).get(MODE_PARAM) === 'tsx') selectMode('tsx');
     mounted = true;
     return () => {
       view?.destroy();
@@ -71,6 +100,7 @@
   // would update but the visible editor would be stale.
   function setEditorText(next: string) {
     code = next;
+    drafts[mode] = next;
     if (view) {
       view.dispatch({
         changes: { from: 0, to: view.state.doc.length, insert: next },
@@ -78,19 +108,34 @@
     }
   }
 
+  function selectMode(next: Mode) {
+    if (next === mode) return;
+    mode = next;
+    // A stale preview is kept while code is broken, but only a deck this tab
+    // built: the other tab's deck under this tab's error would mislead.
+    slides = [];
+    bytes = null;
+    setEditorText(drafts[next]);
+  }
+
+  function switchMode(next: Mode) {
+    selectMode(next);
+    const url = new URL(location.href);
+    if (next === 'functions') url.searchParams.delete(MODE_PARAM);
+    else url.searchParams.set(MODE_PARAM, next);
+    replaceState(url, {});
+  }
+
   let runTimer: ReturnType<typeof setTimeout> | null = null;
   $effect(() => {
     // Subscribe to `code` so each keystroke triggers a re-run, with a
     // 250 ms debounce so we don't recompile on every character.
     void code;
+    void mode;
     if (!mounted) return;
     if (runTimer) clearTimeout(runTimer);
     runTimer = setTimeout(() => void run(), 250);
   });
-
-  // `new Function` wraps the source in a two-line header, and we add two more
-  // lines before the user's code, so a stack frame's line is off by four.
-  const WRAPPER_LINES = 4;
 
   // A minified stack trace is noise to someone writing eight lines of code.
   // Show the message, the line it came from, and a hint for the one mistake
@@ -106,26 +151,33 @@
     return `${where}${err.message}${hint}`;
   }
 
+  async function runFunctions(): Promise<kit.PresentationData> {
+    const pres = kit.createPresentation();
+    // Filter out the underscore-prefixed escape hatch and the
+    // `VERSION` constant; expose everything else as a free function
+    // parameter so the user can write `addSlide(...)` etc. directly.
+    const entries = Object.entries(kit).filter(([k]) => !k.startsWith('_') && k !== 'VERSION');
+    const names = entries.map((e) => e[0]);
+    const values = entries.map((e) => e[1]);
+    await new Function(...names, 'pres', asyncBody(code))(...values, pres);
+    return pres;
+  }
+
+  // The default export comes out of evaluated text, so nothing vouches for its
+  // shape until this check.
+  const isDslNode = (value: unknown): value is dsl.Node =>
+    typeof value === 'object' && value !== null && 'kind' in value;
+
+  async function runTsx(): Promise<kit.PresentationData> {
+    const root = await evaluateTsx(code, TSX_MODULES);
+    if (!isDslNode(root)) throw new Error('The TSX file must default-export a Presentation.');
+    return dsl.compile(root);
+  }
+
   async function run() {
     busy = true;
     try {
-      const pres = kit.createPresentation();
-      // Filter out the underscore-prefixed escape hatch and the
-      // `VERSION` constant; expose everything else as a free function
-      // parameter so the user can write `addSlide(...)` etc. directly.
-      const entries = Object.entries(kit).filter(
-        ([k]) => !k.startsWith('_') && k !== 'VERSION',
-      );
-      const names = entries.map((e) => e[0]);
-      const values = entries.map((e) => e[1]);
-      // Wrap user code in an async function so `await` is allowed.
-      const fn = new Function(
-        ...names,
-        'pres',
-        `'use strict';\nreturn (async () => {\n${code}\n})();`,
-      );
-      await fn(...values, pres);
-
+      const pres = mode === 'tsx' ? await runTsx() : await runFunctions();
       const list = kit.getSlides(pres);
       slides = list.map((slide, i) => ({
         index: i + 1,
@@ -165,7 +217,7 @@
   }
 
   function resetCode() {
-    setEditorText(DEFAULT_CODE);
+    setEditorText(STARTERS[mode]);
   }
 </script>
 
@@ -177,18 +229,25 @@
   <header class="intro">
     <h1>REPL</h1>
     <p class="lede">
-      Write code and the deck redraws as you type. Every public function is already in
-      scope, and <code>pres</code> is a new 16:9 deck from <code>createPresentation()</code>. The
-      starter is a six-slide board deck driven by one data object: change a number and the
-      headlines, charts, and table follow. The download is the same bytes
-      <code>savePresentation</code> writes in production.
+      Write code and the deck redraws as you type. In <strong>Functions</strong> every public
+      function is already in scope, and <code>pres</code> is a new 16:9 deck from
+      <code>createPresentation()</code>; the starter is a six-slide board deck driven by one data
+      object. <strong>TSX</strong> runs a <code>@office-kit/pptx-dsl</code> file exactly as you
+      would save it: imports at the top, a <code>&lt;Presentation&gt;</code> as the default export.
+      Either way the download is the same bytes <code>savePresentation</code> writes in production.
     </p>
   </header>
 
   <div class="repl-grid">
     <div class="pane editor-pane">
       <div class="pane-head">
-        <h2>Code</h2>
+        <div class="modes" role="group" aria-label="Authoring style">
+          {#each MODES as m (m.id)}
+            <button type="button" aria-pressed={mode === m.id} onclick={() => switchMode(m.id)}>
+              {m.label}
+            </button>
+          {/each}
+        </div>
         <div class="pane-actions">
           <button type="button" onclick={resetCode}>Reset</button>
           <button type="button" onclick={copyCode}>Copy</button>
@@ -219,7 +278,12 @@
         {/each}
         {#if slides.length === 0 && !error && !busy}
           <p class="empty">
-            The deck has no slides yet. Add one with <code>addSlide(pres, &#123; layout &#125;)</code>.
+            The deck has no slides yet. Add one with
+            {#if mode === 'tsx'}
+              <code>&lt;Slide&gt;</code> inside <code>&lt;Presentation&gt;</code>.
+            {:else}
+              <code>addSlide(pres, &#123; layout &#125;)</code>.
+            {/if}
           </p>
         {/if}
       </div>
@@ -294,6 +358,40 @@
     font-weight: 600;
     letter-spacing: 0;
     color: inherit;
+  }
+
+  /* Two pressed-state buttons sharing one border, so they read as one control. */
+  .modes {
+    display: flex;
+    border: 1px solid var(--night-line);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .modes button {
+    height: 30px;
+    padding: 0 0.8rem;
+    border: none;
+    background: transparent;
+    color: var(--night-ink);
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 550;
+    cursor: pointer;
+    opacity: 0.7;
+  }
+
+  .modes button + button {
+    border-left: 1px solid var(--night-line);
+  }
+
+  .modes button:hover {
+    opacity: 1;
+  }
+
+  .modes button[aria-pressed='true'] {
+    background: var(--night-2);
+    opacity: 1;
   }
 
   .pane-actions {
