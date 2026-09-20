@@ -3299,6 +3299,7 @@ const layoutChart = (
   legendOverlay = false,
   hasLegend = true,
   titlePx = DEFAULT_CHART_TITLE_PT * PX_PER_PT,
+  plotAreaLayout?: ChartSpec['plotAreaLayout'],
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3315,15 +3316,23 @@ const layoutChart = (
   const padding = 8;
   const yAxisGutter = hasAxes ? 32 : 0;
   const xAxisGutter = hasAxes ? 18 : 0;
+  // Outer layouts include axis labels and titles, so their gutters still need automatic layout.
+  const inner = plotAreaLayout?.target === 'inner' ? plotAreaLayout : undefined;
+  const plotX = inner ? x + Math.max(0, Math.min(1, inner.x)) * w : x + padding + yAxisGutter;
+  const plotY = inner ? y + Math.max(0, Math.min(1, inner.y)) * h : y + titleStrip + padding;
   return {
     x,
     y,
     w,
     h,
-    plotX: x + padding + yAxisGutter,
-    plotY: y + titleStrip + padding,
-    plotW: Math.max(0, w - 2 * padding - yAxisGutter),
-    plotH: Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
+    plotX,
+    plotY,
+    plotW: inner
+      ? Math.max(0, Math.min(x + w, x + (inner.x + inner.w) * w) - plotX)
+      : Math.max(0, w - 2 * padding - yAxisGutter),
+    plotH: inner
+      ? Math.max(0, Math.min(y + h, y + (inner.y + inner.h) * h) - plotY)
+      : Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
     // The title sits near the TOP of its (now taller) strip, not its bottom —
     // dominant-baseline:middle, so center it ~0.7 of the title px below the top
     // edge to match where LibreOffice paints the title line.
@@ -5183,6 +5192,7 @@ const renderChart = (
     spec.legend?.overlay ?? false,
     hasLegend,
     (spec.titleStyle?.sizePt ?? DEFAULT_CHART_TITLE_PT) * PX_PER_PT,
+    spec.plotAreaLayout,
   );
   const allNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
