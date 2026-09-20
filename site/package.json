@@ -21,7 +21,7 @@
   "devDependencies": {
     "@office-kit/pptx": "workspace:*",
     "@office-kit/pptx-preview": "workspace:*",
-    "@office-kit/site-kit": "github:office-kit/office-kit.github.io#main&path:/packages/site-kit",
+    "@office-kit/site-kit": "github:office-kit/office-kit.github.io#site-kit",
     "@sveltejs/adapter-static": "^3.0.10",
     "@sveltejs/kit": "^2.65.1",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
