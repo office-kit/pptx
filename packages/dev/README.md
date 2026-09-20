@@ -17,7 +17,7 @@ npm run dev
 ```
 
 Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
-has a vertical thumbnail strip and a large slide canvas. Click a thumbnail or use
+has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
 exit) are viewing controls; the canvas has no editing, dragging or resize handles.
 Changes are made only in TSX, including when an AI agent edits the presentation.
@@ -43,7 +43,50 @@ The generated `CLAUDE.md` explains authoring conventions. VSCode picks up the
 included `tsconfig.json` for completion and diagnostics. Start the **Preview
 presentation** task, then use **Simple Browser: Show** with the printed URL and
 move it to a side editor group. No custom editor extension is needed for this
-workflow. Preview-to-source selection is not implemented.
+workflow. Clicking a slide supplies chat context; opening its exact TSX location is not implemented.
+
+## Chat in the preview
+
+Choose **Claude Code** or **Codex** in the right panel and describe the change.
+Install the selected CLI (`claude` or `codex`) on your PATH and sign in through
+that CLI once before using chat. The dev server runs it from the deck entry's
+directory, using its existing account and model configuration. No API key is
+stored in the browser. Requests use the selected provider and its normal usage
+limits. Sending a message authorizes edits to the local project.
+
+Each request includes the focused slide's **1-based number, text, slide count,
+preview revision, deck entry and source dependency paths**, plus any build error.
+The focus is captured at send time, so navigating during a response does not
+change it. A stale preview is rejected with a retry message. Dependency paths are
+source candidates, not an exact slide-to-file mapping; the agent locates the
+relevant TSX using the entry, slide order and text. This also works for single-file
+decks, generated slide lists and imported presentations.
+
+“This slide” directs a focused patch; requests mentioning other slides or the
+whole deck can edit other files or shared styling. Saving uses the same automatic
+preview rebuild as manual editing. Both CLIs run non-interactively:
+
+- Claude Code uses print mode with JSON events and `acceptEdits`, exposing only
+  `Read`, `Edit`, `Write`, `Glob` and `Grep`. Shell execution is not exposed.
+- Codex uses `exec --json` with the `workspace-write` sandbox. Sandbox bypass is
+  never enabled. Operations requiring interactive approval are not supported.
+
+Progress, replies and failures appear in the panel. **Stop** terminates the running
+agent; edits already saved remain. Only one edit runs at a time across browser
+tabs. **New chat** clears conversational context without reverting files. Recent
+12 messages (bounded text) are passed to each new CLI invocation; these are new
+CLI sessions, not a continuation of an existing terminal conversation. The server
+keeps up to 100 messages in memory, shared by its tabs, until it exits. Reloading
+restores that conversation. Restarting the server clears it.
+
+Use **Chat** in the header to hide/show the panel, and Ctrl/Cmd+Enter to send.
+On narrow screens the panel moves below the preview. Presentation mode hides it.
+Chat requests require same-origin JSON as well as the server's loopback Host
+check. Authentication and CLI installation still happen in a terminal; normal
+slide editing and review can then stay in the preview.
+
+Protocol references: [Codex non-interactive mode](https://developers.openai.com/codex/noninteractive)
+and [Claude Code programmatic use](https://code.claude.com/docs/en/headless).
 
 ## Edit only what changed
 
@@ -86,7 +129,7 @@ preview server binds to `127.0.0.1` and rejects unexpected Host headers.
 
 Programmatic exports: `buildDeck`, `exportDeck`, `initProject`, `inspectTemplate`.
 `buildDeck` returns PPTX bytes, SVG slides, aspect ratio, module dependencies and
-core validation diagnostics. Browser APIs and DOM globals are not available in
+slide text and core validation diagnostics. Browser APIs and DOM globals are not available in
 TSX evaluation.
 
 ## Developing in this monorepo
