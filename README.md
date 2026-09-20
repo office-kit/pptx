@@ -34,9 +34,9 @@ For declarative TSX authoring, use the companion
 template editing, a local watch preview and PPTX export, with no React or Vue
 runtime. The dev package initializes a project with VSCode tasks and a
 `CLAUDE.md` authoring guide. Start with the
-[step-by-step authoring guide](https://office-kit.github.io/pptx/docs/authoring):
-the CLI and DSL are not yet published to npm, so it includes a verified
-source-checkout installation.
+[authoring guide](https://office-kit.github.io/pptx/docs/authoring): install the
+Claude Code skill and describe your presentation. The agent handles project
+setup, preview and export using the published npm packages.
 
 - **It reads as well as it writes.** Open a deck made in PowerPoint, Keynote,
   or Google Slides, change it, and save it. Every setter has a getter, and
@@ -249,13 +249,26 @@ const out = await savePresentation(pres);
 
 ## Driving @office-kit/pptx from an AI agent
 
-[`skill/SKILL.md`](skill/SKILL.md) is a self-contained guide for an LLM agent
-authoring presentations with this library: the canonical call for each
-capability, the design rules that keep output from looking template-generated,
-the handful of API footguns worth memorizing, and a QA loop to run before
-declaring a deck done. Its [worked example](skill/examples/business-deck.md) is
-exercised by the test suite, so the code there is known to produce a
-schema-valid deck.
+Install the Claude Code skill once:
+
+```sh
+npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill --agent claude-code --global --yes
+```
+
+Then ask Claude Code:
+
+```text
+/office-kit-pptx Create a quarterly business review with a revenue chart
+and a next-actions table. Use labelled sample data where needed.
+```
+
+The [skill](skill/SKILL.md) creates a TSX project, starts the view-only preview,
+checks the source and exports an editable PPTX. Ask for changes in the same
+conversation; the preview updates as the agent edits TSX. You need Node.js 22.18+
+and Git alongside Claude Code. See the
+[authoring guide](https://office-kit.github.io/pptx/docs/authoring) for template
+editing and manual setup. The bundled [core reference](skill/references/core-api.md)
+and [tested example](skill/examples/business-deck.md) cover direct API use.
 
 ## Usage
 

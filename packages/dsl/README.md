@@ -1,9 +1,12 @@
 # @office-kit/pptx-dsl
 
-Start with [Create slides with AI and TSX](https://office-kit.github.io/pptx/docs/authoring)
+Start with [Create slides with AI](https://office-kit.github.io/pptx/docs/authoring)
 for installation and preview, then see the
 [TSX reference](https://office-kit.github.io/pptx/docs/tsx).
-The DSL and CLI are not yet published to npm; the guide uses local packages.
+Install the Claude Code skill to let the agent handle project setup, or run
+`npx --yes @office-kit/pptx-dev@latest init my-slides` to create a project yourself.
+For an existing TypeScript project, install `@office-kit/pptx-dsl` and
+`@office-kit/pptx` from npm.
 
 Typed, declarative PowerPoint authoring in TSX. This package uses its own JSX
 runtime; React and Vue are not dependencies. It creates native editable PPTX

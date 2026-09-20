@@ -24,7 +24,9 @@ slide masters / layouts, comments, notes).
 
 ### TSX presentation authoring
 
-For creating a deck interactively, use the separate `@office-kit/pptx-dsl`
+For creating a deck interactively, follow the distributable
+`skill/SKILL.md` workflow. It sets up published npm packages and runs the preview
+and export for the user. For implementation details, use the separate `@office-kit/pptx-dsl`
 package. Read `packages/dsl/README.md` for native element props and template
 semantics, and `packages/dev/README.md` for the local preview workflow.
 Do not import React or Vue. High-level presentation components are outside the

@@ -22,7 +22,8 @@ export const docSections: DocSection[] = [
       {
         href: '/docs/authoring',
         title: 'Create slides with AI',
-        description: 'Create a TSX project, edit with Claude Code, preview, and export a PPTX.',
+        description:
+          'Install the Claude Code skill, describe your presentation, and review the live preview.',
       },
       {
         href: '/docs/tsx',

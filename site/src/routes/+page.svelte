@@ -53,8 +53,8 @@
       link: 'Read the template guide',
     },
     {
-      title: 'Create slides with AI and TSX',
-      body: 'Initialize a typed TSX project, ask Claude Code to edit its source, and review each save in a view-only slide viewer. Export native PowerPoint text, shapes, tables, and charts. The companion packages currently require a source checkout; the guide walks through the working setup.',
+      title: 'Create slides with AI',
+      body: 'Install the Claude Code skill and describe your presentation. Claude handles setup, TSX authoring, live preview, and PowerPoint export. Review the slides and ask for changes.',
       code: 'deck.tsx → preview → deck.pptx',
       href: '/docs/authoring',
       link: 'Create your first presentation',
@@ -349,8 +349,8 @@
       <h2>Written to be driven by AI agents too</h2>
       <p>
         Decks are increasingly written by agents, so the docs are built for them as well as for you.
-        The agent skill teaches the canonical call for each task, the design rules that keep a deck
-        from looking generated, and a QA loop to run before calling it done.
+        The Claude Code skill handles project setup, TSX authoring, preview and export.
+        Install it once, then describe the presentation you want.
       </p>
     </div>
     <ul>
@@ -368,7 +368,7 @@
       </li>
       <li>
         <a href="{currentProduct.repo}/blob/main/skill/SKILL.md"><code>skill/SKILL.md</code></a>
-        <span>The agent skill. Its worked example runs in the test suite.</span>
+        <span>The installable Claude Code skill, with bundled TSX and core references.</span>
       </li>
     </ul>
   </div>

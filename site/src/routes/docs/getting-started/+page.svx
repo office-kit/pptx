@@ -9,7 +9,7 @@
 # Core library workflows
 
 To create slides by editing TSX with an AI agent and a live preview, start with
-<a href="{base}/docs/authoring">Create slides with AI and TSX</a>. This page covers
+<a href="{base}/docs/authoring">Create slides with AI</a>. This page covers
 the underlying function API.
 
 This page walks the canonical @office-kit/pptx workflows: **fill a template**, **build a deck from scratch**, **edit images in place**. Every snippet below is a real `.ts` file in this repo — `svelte-check` compiles them against the live `@office-kit/pptx` types on every build, so when this page renders, it's already proven that the code typechecks.
