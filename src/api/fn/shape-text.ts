@@ -1,5 +1,6 @@
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
+import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
 import {
   getShapePlaceholderIdx,
   getShapePlaceholderType,
@@ -18,6 +19,7 @@ import {
   setTextBodyParagraphs,
 } from '../../internal/drawingml/index.ts';
 import {
+  oneOf,
   angle60000,
   emuCoordinate32,
   emuPositiveCoordinate32,
@@ -71,10 +73,7 @@ export const setShapeText = (
   if (txBody === null) {
     throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
   }
-  setTextBody(txBody, value);
-  if (options.bullets !== undefined) {
-    applyBulletToAllParagraphs(txBody, options.bullets);
-  }
+  setTextBody(txBody, value, options.bullets);
   commitAndRefresh(shape);
 };
 
@@ -151,6 +150,7 @@ const requireBodyPr = (shape: SlideShapeData): XmlElement => {
  * Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextWrap = (shape: SlideShapeData, wrap: TextWrap): void => {
+  oneOf(wrap, ['none', 'square'], 'setShapeTextWrap: wrap');
   const bodyPr = requireBodyPr(shape);
   const ATTR_WRAP = qname('', 'wrap', '');
   bodyPr.attrs = bodyPr.attrs.filter(
@@ -182,6 +182,7 @@ export const getShapeTextWrap = (shape: SlideShapeData): TextWrap | null => {
  * non-text-bearing shape kinds.
  */
 export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): void => {
+  oneOf(mode, ['none', 'normal', 'shape'], 'setShapeTextAutoFit: mode');
   const bodyPr = requireBodyPr(shape);
   bodyPr.children = bodyPr.children.filter(
     (c) =>
@@ -191,7 +192,7 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
         AUTO_FIT_LOCALS.has(c.name.localName)
       ),
   );
-  const local = mode === 'none' ? 'noAutofit' : mode === 'normal' ? 'normAutofit' : 'spAutoFit';
+  const local = { none: 'noAutofit', normal: 'normAutofit', shape: 'spAutoFit' }[mode];
   bodyPr.children.push(elem(qname('a', local, NS.dml)));
   commitAndRefresh(shape);
 };
@@ -442,6 +443,7 @@ export const setShapeTextDirection = (
     | 'wordArtVertRtl'
     | null,
 ): void => {
+  if (direction !== null) oneOf(direction, TEXT_DIRECTIONS, 'setShapeTextDirection: direction');
   const bodyPr = requireBodyPr(shape);
   bodyPr.attrs = bodyPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
@@ -597,13 +599,14 @@ export const getShapeBodyPrEffective = (
 };
 
 export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
+  oneOf(anchor, ['top', 'center', 'bottom'], 'setShapeTextAnchor: anchor');
   const txBody = requireTxBody(shape);
   let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
   if (bodyPr === null) {
     bodyPr = elem(NAME_A_BODY_PR);
     txBody.children.unshift(bodyPr);
   }
-  const token = anchor === 'top' ? 't' : anchor === 'center' ? 'ctr' : 'b';
+  const token = TEXT_ANCHORS[anchor];
   const ATTR_ANCHOR = qname('', 'anchor', '');
   // Replace any existing anchor attribute.
   bodyPr.attrs = bodyPr.attrs.filter(
@@ -669,7 +672,7 @@ export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignme
  * updates compose.
  */
 export const setShapeTextFormat = (shape: SlideShapeData, format: TextFormat): void => {
-  applyFormatToAllRuns(requireTxBody(shape), format);
+  applyFormatToAllRuns(requireTxBody(shape), format, 'setShapeTextFormat');
   commitAndRefresh(shape);
 };
 

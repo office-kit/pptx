@@ -25,7 +25,8 @@ import {
   insertChildByRank,
   qname,
 } from '../xml/index.ts';
-import { fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
+import { UNDERLINES, STRIKES } from '../enum-values.ts';
+import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
 import { parseColor } from './color.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
@@ -212,8 +213,25 @@ const setHighlight = (rPr: XmlElement, value: string | null): void => {
   insertChildByRank(rPr, elem(NAME_HIGHLIGHT, { children: [inner] }), rprChildRank);
 };
 
+const validateFormatEnums = (format: TextFormat, caller: string): void => {
+  if (format.underline !== undefined && typeof format.underline !== 'boolean')
+    oneOf(format.underline, UNDERLINES, `${caller}: underline`);
+  if (format.strike !== undefined && typeof format.strike !== 'boolean')
+    oneOf(format.strike, STRIKES, `${caller}: strike`);
+  if (format.cap !== undefined) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
+};
+
 /** Mutates `rPr` in place per `format`. */
-export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
+export const applyRunFormat = (
+  rPr: XmlElement,
+  format: TextFormat,
+  caller = 'setShapeRunFormat',
+): void => {
+  validateFormatEnums(format, caller);
+  applyValidatedRunFormat(rPr, format);
+};
+
+const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   let attrs = rPr.attrs;
   if (format.size !== undefined) {
     // Hundredths of a point per the schema (ST_TextFontSize: 1..4000 pt).
@@ -266,7 +284,12 @@ export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
  * supplied format. Existing run-property attributes not addressed by
  * `format` are preserved.
  */
-export const applyFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
+export const applyFormatToAllRuns = (
+  txBody: XmlElement,
+  format: TextFormat,
+  caller = 'setShapeTextFormat',
+): void => {
+  validateFormatEnums(format, caller);
   // Walk depth-first; runs live two levels deep (txBody > p > r).
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
@@ -282,7 +305,7 @@ export const applyFormatToAllRuns = (txBody: XmlElement, format: TextFormat): vo
         // rPr must be the first child of the run per the schema.
         r.children.unshift(rPr);
       }
-      applyRunFormat(rPr, format);
+      applyValidatedRunFormat(rPr, format);
     }
   }
   // Force-touch a NAME_R reference so it isn't elided as unused.

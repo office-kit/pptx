@@ -1,3 +1,5 @@
+import { oneOf } from '../bounds.ts';
+import { SHAPE_PRESETS } from '../enum-values.ts';
 // Builds a generic preset shape (`<p:sp>` with `<a:prstGeom prst="...">`).
 //
 // Different from `text-box-builder` in two ways:
@@ -161,6 +163,9 @@ const buildTextBody = (
 };
 
 export const buildShape = (opts: ShapeOptions): XmlElement => {
+  oneOf(opts.preset, SHAPE_PRESETS, 'addSlideShape: preset');
+  if (opts.textAnchor !== undefined)
+    oneOf(opts.textAnchor, ['t', 'ctr', 'b'], 'addSlideShape: textAnchor');
   const name = opts.name ?? `${opts.preset} ${opts.id}`;
   const anchor = opts.textAnchor ?? 'ctr';
 

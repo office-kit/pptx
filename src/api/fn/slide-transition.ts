@@ -74,8 +74,9 @@ export const getSlideTransition = (slide: SlideData): TransitionOptions | null =
 
 /** Sets the slide's transition effect. */
 export const setSlideTransition = (slide: SlideData, options: TransitionOptions): void => {
+  const transition = buildTransition(options);
   removeTransition(slide);
-  insertAfterClrMapOvr(slide, buildTransition(options));
+  insertAfterClrMapOvr(slide, transition);
   commitSlideData(slide);
   refreshSlideData(slide);
 };

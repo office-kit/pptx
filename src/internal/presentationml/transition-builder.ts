@@ -159,6 +159,7 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
   }
   // `orient` only exists on CT_SplitTransition.
   if (opts.orientation !== undefined && opts.effect === 'split') {
+    oneOf(opts.orientation, ['horz', 'vert'], 'setSlideTransition: orientation');
     attrs.push(attr(ATTR_ORIENT, opts.orientation));
   }
   if (opts.thruBlack && THRU_BLK_EFFECTS.has(opts.effect)) {
@@ -169,6 +170,8 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
 
 /** Returns a complete `<p:transition>` element. */
 export const buildTransition = (opts: TransitionOptions): XmlElement => {
+  if (opts.speed !== undefined)
+    oneOf(opts.speed, ['slow', 'med', 'fast'], 'setSlideTransition: speed');
   const attrs = [];
   if (opts.speed !== undefined) attrs.push(attr(ATTR_SPD, opts.speed));
   if (opts.advanceOnClick === false) attrs.push(attr(ATTR_ADV_CLICK, '0'));
