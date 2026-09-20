@@ -6,103 +6,13 @@
   import { EditorView, basicSetup } from 'codemirror';
   import { javascript } from '@codemirror/lang-javascript';
   import { oneDark } from '@codemirror/theme-one-dark';
-
-  // The starter deck. It has to survive being typed into: nothing here can
-  // return null, so a half-edited string never takes the whole deck down with
-  // a null-dereference. (`findSlideLayout(pres, 'Title Slid')` did exactly that.)
-  const DEFAULT_CODE = `// Every @office-kit/pptx function is in scope. No imports needed.
-// \`pres\` is a new 16:9 deck from createPresentation().
-
-const INK = '#15171C';
-const MUTED = '#5B616E';
-const ACCENT = '#E5481F';
-const WASH = '#F3F4F7';
-
-// Adds a text box and formats it in one go.
-function text(slide, str, x, y, w, h, format) {
-  const box = addSlideTextBox(slide, {
-    x: inches(x), y: inches(y), w: inches(w), h: inches(h), text: str,
-  });
-  setShapeTextFormat(box, format);
-  return box;
-}
-
-// A filled rectangle with no outline.
-function block(slide, preset, x, y, w, h, color) {
-  const shape = addSlideShape(slide, {
-    preset, x: inches(x), y: inches(y), w: inches(w), h: inches(h),
-  });
-  setShapeFill(shape, color);
-  setShapeNoStroke(shape);
-  return shape;
-}
-
-// Slide 1: cover
-const cover = addBlankSlide(pres);
-setSlideBackground(cover, INK);
-block(cover, 'rect', 0.9, 2.55, 0.14, 1.75, ACCENT);
-text(cover, 'Q3 business review', 1.25, 2.4, 10, 1.1, { size: 48, bold: true, color: '#FFFFFF' });
-text(cover, 'Revenue, margin, and what we do next', 1.25, 3.55, 10, 0.6, { size: 22, color: '#B4B9C4' });
-text(cover, 'Finance team, October 2026', 1.25, 6.4, 10, 0.4, { size: 14, color: '#8A909C' });
-
-// Slide 2: three numbers and the chart behind them
-const numbers = addBlankSlide(pres);
-text(numbers, 'Revenue grew 2.5x in four quarters', 0.9, 0.55, 11.5, 0.8, { size: 30, bold: true, color: INK });
-
-const kpis = [
-  ['$300k', 'Q4 revenue'],
-  ['47%', 'Gross margin'],
-  ['+25%', 'Quarter on quarter'],
-];
-kpis.forEach(([value, label], i) => {
-  const y = 1.7 + i * 1.75;
-  block(numbers, 'roundRect', 0.9, y, 3.4, 1.5, WASH);
-  text(numbers, value, 1.15, y + 0.15, 3, 0.75, { size: 34, bold: true, color: ACCENT });
-  text(numbers, label, 1.15, y + 0.9, 3, 0.4, { size: 14, color: MUTED });
-});
-
-addSlideChart(numbers, {
-  x: inches(4.7), y: inches(1.6), w: inches(7.8), h: inches(5.3),
-  spec: {
-    kind: 'column',
-    categories: ['Q1', 'Q2', 'Q3', 'Q4'],
-    series: [
-      { name: 'Revenue', values: [120, 180, 240, 300], color: ACCENT },
-      { name: 'Cost', values: [80, 90, 130, 160], color: '#C9CDD6' },
-    ],
-    legend: { position: 'b' },
-    valueAxisMajorGridlines: true,
-    valueAxisMajorGridlineColor: '#E2E4E9',
-    gapWidthPct: 80,
-  },
-});
-
-// Slide 3: a table with a styled header row
-const plan = addBlankSlide(pres);
-text(plan, 'What we do next', 0.9, 0.55, 11.5, 0.8, { size: 30, bold: true, color: INK });
-
-const rows = [
-  ['Owner', 'Action', 'Due'],
-  ['Aiko', 'Renegotiate the hosting contract', 'Nov 15'],
-  ['Ben', 'Ship annual billing', 'Dec 1'],
-  ['Chloe', 'Hire two support engineers', 'Jan 10'],
-];
-const table = addSlideTable(plan, {
-  x: inches(0.9), y: inches(1.7), w: inches(11.5), h: inches(3.2),
-  rows,
-  colWidths: [inches(2.2), inches(7), inches(2.3)],
-});
-rows.forEach((row, r) => {
-  row.forEach((_, c) => {
-    const cell = getTableCell(table, r, c);
-    setTableCellFill(cell, r === 0 ? INK : r % 2 === 0 ? WASH : '#FFFFFF');
-    setTableCellAnchor(cell, 'center');
-    setTableCellTextFormat(cell, {
-      size: 16, bold: r === 0, color: r === 0 ? '#FFFFFF' : INK,
-    });
-  });
-});
-`;
+  // The starter deck has to survive being typed into: nothing in it may return
+  // null, or a half-edited string takes the whole deck down with a
+  // null-dereference. (`findSlideLayout(pres, 'Title Slid')` did exactly that.)
+  // It lives outside `src/` because it is a script body, not a module: every
+  // library function is a free identifier, which `checkJs` would reject.
+  // test/site-repl-starter.test.ts runs it against the library instead.
+  import DEFAULT_CODE from '../../../repl/default-deck.js?raw';
 
   let code = $state<string>(DEFAULT_CODE);
   let error = $state<string>('');
@@ -269,7 +179,9 @@ rows.forEach((row, r) => {
     <p class="lede">
       Write code and the deck redraws as you type. Every public function is already in
       scope, and <code>pres</code> is a new 16:9 deck from <code>createPresentation()</code>. The
-      download is the same bytes <code>savePresentation</code> writes in production.
+      starter is a six-slide board deck driven by one data object: change a number and the
+      headlines, charts, and table follow. The download is the same bytes
+      <code>savePresentation</code> writes in production.
     </p>
   </header>
 

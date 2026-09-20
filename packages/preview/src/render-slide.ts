@@ -4005,11 +4005,13 @@ const renderColumnChart = (
         // invertIfNegative paints the negative bars in the inverted shade
         // of the series color (typically a darker / muted variant).
         // varyColors (single-series): each data point gets a distinct
-        // accent color, mirroring PowerPoint's "Vary colors by point".
+        // accent color, mirroring PowerPoint's "Vary colors by point". A
+        // per-point `<c:dPt>` color beats both, as it does in PowerPoint.
         const baseColor =
-          spec.varyColors && spec.series.length === 1
+          spec.series[s]?.pointColors?.[c] ??
+          (spec.varyColors && spec.series.length === 1
             ? colors[c % colors.length]!
-            : (spec.series[s]?.color ?? colors[s % colors.length]!);
+            : (spec.series[s]?.color ?? colors[s % colors.length]!));
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
@@ -4401,9 +4403,10 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
         const baseColor =
-          spec.varyColors && spec.series.length === 1
+          spec.series[s]?.pointColors?.[c] ??
+          (spec.varyColors && spec.series.length === 1
             ? colors[c % colors.length]!
-            : (spec.series[s]?.color ?? colors[s % colors.length]!);
+            : (spec.series[s]?.color ?? colors[s % colors.length]!));
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
