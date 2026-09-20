@@ -14,6 +14,7 @@ import {
   loadPresentation,
   setShapeSize,
   setShapeText,
+  setShapeTextFormat,
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 
@@ -37,7 +38,8 @@ const deckWith = async (opts: { group: boolean }) => {
     h: inches(1),
     text: 'Alpha',
   });
-  setShapeText(top, 'Alpha', { size: TEXT_PT });
+  setShapeText(top, 'Alpha');
+  setShapeTextFormat(top, { size: TEXT_PT });
   const bottom = addSlideTextBox(slide, {
     x: inches(1),
     y: inches(2.5),
@@ -45,7 +47,8 @@ const deckWith = async (opts: { group: boolean }) => {
     h: inches(1),
     text: 'Beta',
   });
-  setShapeText(bottom, 'Beta', { size: TEXT_PT });
+  setShapeText(bottom, 'Beta');
+  setShapeTextFormat(bottom, { size: TEXT_PT });
   if (opts.group) {
     const group = groupShapes([top, bottom]);
     setShapeSize(group, inches(3), inches(1.25));
