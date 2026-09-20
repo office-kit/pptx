@@ -4,6 +4,7 @@ import { dirname, resolve, sep } from 'node:path';
 import type { BuildResult } from './build.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
+import { createChat } from './chat.ts';
 
 export async function serveDeck(entry: string, port = 4173) {
   let latest: BuildResult | undefined;
@@ -15,6 +16,9 @@ export async function serveDeck(entry: string, port = 4173) {
   let pending = false;
   let closed = false;
   const clients = new Set<ServerResponse>();
+  const chat = createChat(entry, () => {
+    for (const client of clients) client.write('data: chat\n\n');
+  });
   const server = createServer((request, response) => {
     const host = request.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {
@@ -22,7 +26,25 @@ export async function serveDeck(entry: string, port = 4173) {
       return;
     }
     response.setHeader('Cache-Control', 'no-store');
-    if (request.url === '/events') {
+    if (request.url === '/chat' || request.url?.startsWith('/chat/')) {
+      void chat.handle(request, response, (index, viewedRevision) => {
+        if (viewedRevision !== revision)
+          throw new Error('Preview changed. Review the current slide and send again.');
+        if (index !== null && (!latest || index >= latest.slides.length))
+          throw new Error('Slide no longer exists.');
+        return {
+          slide: index === null ? null : index + 1,
+          count: latest?.slides.length ?? 0,
+          revision,
+          text: index === null ? '' : (latest?.slideTexts[index] ?? '').slice(0, 12000),
+          entry: resolve(entry),
+          files: latest?.dependencies ?? [resolve(entry)],
+          buildError: error,
+        };
+      });
+    } else if (request.method !== 'GET') {
+      response.writeHead(405).end();
+    } else if (request.url === '/events') {
       response.writeHead(200, { 'Content-Type': 'text/event-stream' });
       response.write('data: ready\n\n');
       clients.add(response);
@@ -136,6 +158,7 @@ export async function serveDeck(entry: string, port = 4173) {
       closed = true;
       clearTimeout(timer);
       watcher.close();
+      await chat.close();
       await builder.close();
       for (const client of clients) client.end();
       await new Promise<void>((done, reject) =>

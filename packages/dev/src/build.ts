@@ -6,6 +6,7 @@ import { compile, type Node } from '@office-kit/pptx-dsl';
 import {
   getSlideSize,
   getSlides,
+  getSlideText,
   loadPresentation,
   savePresentation,
   validatePresentation,
@@ -16,6 +17,7 @@ const resolvePackage = (name: string) => fileURLToPath(import.meta.resolve(name)
 export interface BuildResult {
   bytes: Uint8Array;
   slides: string[];
+  slideTexts: string[];
   aspectRatio: number;
   dependencies: string[];
   diagnostics: ReturnType<typeof validatePresentation>;
@@ -90,6 +92,7 @@ export async function buildDeck(entry: string, directory: string): Promise<Build
     aspectRatio: size ? size.width / size.height : 16 / 9,
     slides: getSlides(saved).map((slide) => renderSlideToSvg(saved, slide)),
     dependencies: Object.keys(result.metafile.inputs).map((path) => resolve(path)),
+    slideTexts: getSlides(saved).map((slide) => getSlideText(slide)),
     diagnostics,
   };
 }

@@ -12,16 +12,26 @@ test(
   async (t) => {
     const dir = await mkdtemp(join(tmpdir(), 'office-hmr-live-'));
     const file = dir + '/deck.tsx';
+    await writeFile(
+      dir + '/claude',
+      `#!${process.execPath}
+import { readFileSync, writeFileSync } from 'node:fs';
+let input='';for await(const chunk of process.stdin)input+=chunk;
+writeFileSync('chat-prompt.txt',input);
+writeFileSync('deck.tsx',readFileSync('deck.tsx','utf8').replace("i===2?'':","i===2?'ChatEdited':"));
+console.log(JSON.stringify({type:'assistant',message:{content:[{type:'text',text:'Updated the focused slide.'}]}}));
+console.log(JSON.stringify({type:'result',is_error:false,result:'Done'}));
+`,
+      { mode: 0o755 },
+    );
     const source = (changed = '', other = '', count = 50) =>
       `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation>{Array.from({length:${count}},(_,i)=><Slide><Text x={1} y={1} width={8} height={1}>Slide {i} {i===2?'${changed}':i===40?'${other}':''}</Text></Slide>)}</Presentation>`;
     await writeFile(file, source());
-    const proc = spawn(process.execPath, [
-      fileURLToPath(new URL('../../dist/cli.mjs', import.meta.url)),
-      'dev',
-      file,
-      '--port',
-      '0',
-    ]);
+    const proc = spawn(
+      process.execPath,
+      [fileURLToPath(new URL('../../dist/cli.mjs', import.meta.url)), 'dev', file, '--port', '0'],
+      { env: { ...process.env, PATH: dir + ':' + process.env.PATH } },
+    );
     let browser;
     try {
       const url = await new Promise((res, rej) => {
@@ -49,6 +59,34 @@ test(
         return svg !== null && (label === undefined || svg.textContent.includes(label));
       };
       await page.waitForFunction(slideSvg);
+      await page.locator('#chat-input').fill('Make this slide clearer 日本語');
+      await page.keyboard.press('ArrowLeft');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      await page.locator('#chat-send').click();
+      await page.waitForFunction(
+        () => document.querySelector('#chat-status').textContent === 'Done',
+      );
+      await page.waitForFunction(slideSvg, 'ChatEdited');
+      const chat = await (await page.request.get(url + '/chat')).json();
+      assert.equal(chat.messages[0].context.slide, 3);
+      assert.equal(chat.messages[0].context.count, 50);
+      assert.match(chat.messages[0].context.text, /Slide 2/);
+      assert.match(chat.messages[1].text, /Updated the focused slide/);
+      await page.reload();
+      await page.waitForFunction(() =>
+        document.querySelector('#messages').textContent.includes('Updated the focused slide'),
+      );
+      await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
+      await page.locator('#toggle-chat').click();
+      assert.equal(await page.locator('#chat').isVisible(), false);
+      await page.locator('#toggle-chat').click();
+      assert.equal(await page.locator('#chat').isVisible(), true);
+      await page.setViewportSize({ width: 640, height: 800 });
+      assert.equal(await page.locator('#chat-input').isVisible(), true);
+      assert.equal(await page.evaluate(() => document.body.scrollWidth <= innerWidth), true);
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await writeFile(file, source());
+      await page.waitForFunction(() => !state.slides[2].includes('ChatEdited'));
       await page.selectOption('#zoom', '2');
       await page.evaluate(() => {
         window.oldSvg = document.querySelector('#slide').shadowRoot.querySelector('svg');
@@ -89,10 +127,16 @@ test(
       await page.keyboard.press('ArrowRight');
       assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 50');
       await page.keyboard.press('ArrowLeft');
+      await page.locator('#toggle-chat').click();
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await writeFile(file, source('Presenting'));
       await page.waitForFunction(slideSvg, 'Presenting');
       assert.ok(await page.locator('body').evaluate((el) => el.classList.contains('presenting')));
+      assert.equal(await page.locator('#chat').isVisible(), false);
+      assert.equal(
+        await page.locator('main').evaluate((el) => el.clientWidth),
+        await page.evaluate(() => innerWidth),
+      );
       await page.keyboard.press('Escape');
       await page.context().setOffline(true);
       await writeFile(file, source('Reconnect'));
