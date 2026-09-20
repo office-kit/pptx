@@ -16,7 +16,9 @@ import {
   replaceTextBodyParagraphs,
   type TextFormat,
   type ParagraphAlignment,
+  type ParagraphAlignmentToken,
   type ParagraphSpec,
+  parseAlignmentToken,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import { buildTableCell, buildTableRow } from '../../internal/presentationml/index.ts';
@@ -1144,12 +1146,14 @@ export const getTableCellPosition = (cell: TableCellData): { row: number; col: n
 });
 
 /**
- * Reads the horizontal alignment from the cell's first paragraph
- * (`l`, `ctr`, `r`, `just`, `dist`, `justLow`, `thaiDist`). Returns
- * `null` when the cell has no `<a:txBody>` or its first paragraph
- * has no explicit `algn` attribute (PowerPoint then defaults to `l`).
+ * Reads the horizontal alignment from the cell's first paragraph as its
+ * spec token (`l`, `ctr`, `r`, `just`, `dist`, `justLow`, `thaiDist`) — so
+ * `setTableCellAlignment(cell, 'center')` reads back as `'ctr'`. Returns
+ * `null` when the cell has no `<a:txBody>`, or its first paragraph has no
+ * valid `algn` attribute (PowerPoint then defaults to `l`). For a
+ * plain-English name per paragraph, use `getTableCellParagraphs`.
  */
-export const getTableCellAlignment = (cell: TableCellData): ParagraphAlignment | null => {
+export const getTableCellAlignment = (cell: TableCellData): ParagraphAlignmentToken | null => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
   if (!txBody) return null;
   for (const p of txBody.children) {
@@ -1157,8 +1161,7 @@ export const getTableCellAlignment = (cell: TableCellData): ParagraphAlignment |
       continue;
     const pPr = firstChildElement(p, qname('a', 'pPr', NS.dml));
     if (!pPr) return null;
-    const v = getAttrValue(pPr, qname('', 'algn', ''));
-    return (v as ParagraphAlignment | null) ?? null;
+    return parseAlignmentToken(getAttrValue(pPr, qname('', 'algn', '')));
   }
   return null;
 };

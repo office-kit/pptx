@@ -565,6 +565,7 @@ export {
 export type {
   BulletStyle,
   ParagraphAlignment,
+  ParagraphAlignmentToken,
   ParagraphSpec,
   RunSpec,
   TextFormat,

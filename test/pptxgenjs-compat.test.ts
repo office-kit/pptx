@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import {
   type ChartSpec,
+  type ParagraphAlignment,
   type ParagraphSpec,
   type PresentationData,
   type ShapeParagraphElement,
@@ -211,7 +212,9 @@ describe('pptxgenjs compatibility: charts', () => {
 });
 
 interface ParagraphDto {
-  readonly align: ReturnType<typeof getParagraphAlignment>;
+  // Fed back into a setter, so it holds either read form: the spec token of
+  // getParagraphAlignment or the plain-English name of getTableCellParagraphs.
+  readonly align: ParagraphAlignment | null;
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
   readonly endFormat: TextFormat | null;
 }
