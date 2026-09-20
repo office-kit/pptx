@@ -28,6 +28,14 @@ const out: Uint8Array = await savePresentation(pres);
 
 ## Why this library
 
+For declarative TSX authoring, use the companion
+[`@office-kit/pptx-dsl`](packages/dsl) and
+[`@office-kit/pptx-dev`](packages/dev) packages. They provide typed elements,
+template editing, a local watch preview and PPTX export, with no React or Vue
+runtime. The dev package initializes a project with VSCode tasks and a
+`CLAUDE.md` authoring guide. See its README for commands that also work directly
+from this checkout before the new packages are published.
+
 - **It reads as well as it writes.** Open a deck made in PowerPoint, Keynote,
   or Google Slides, change it, and save it. Every setter has a getter, and
   there are deck-wide queries (find every hyperlink, every comment by an

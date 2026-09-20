@@ -22,6 +22,31 @@ slide masters / layouts, comments, notes).
 
 ## Tech stack
 
+### TSX presentation authoring
+
+For creating a deck interactively, use the separate `@office-kit/pptx-dsl`
+package. Read `packages/dsl/README.md` for native element props and template
+semantics, and `packages/dev/README.md` for the local preview workflow.
+Do not import React or Vue. High-level presentation components are outside the
+initial scope; use TypeScript functions to reuse elements.
+
+From this checkout (without publishing packages):
+
+```sh
+pnpm --filter @office-kit/pptx-dev... build
+node packages/dev/dist/cli.mjs dev packages/dsl/examples/review.tsx
+node packages/dev/dist/cli.mjs build packages/dsl/examples/review.tsx --out review.pptx
+```
+
+Edit the TSX and inspect all slides in the live preview after saving. Prefer
+native objects so the exported PPTX stays editable. Existing decks use
+`Presentation source={bytes}`; its default preserves unmentioned slides.
+Use `mode="compose"` only when intentionally replacing the slide sequence.
+Unknown parts must not be discarded or flattened. `Raw` is the escape hatch
+for core APIs, not evidence of typed DSL coverage.
+
+### Core library
+
 - **Language**: TypeScript (strict mode), targeting ES2022.
 - **Runtimes**: Node.js >= 22.18 (Node 22 and 24 LTS lines) and modern browsers (Chrome / Firefox / Safari
   current-2). One ESM bundle, no Node-only built-ins on the hot path — use
