@@ -3447,6 +3447,7 @@ interface AxisSpec {
   readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Authored axis-line stroke color from `<c:valAx><c:spPr><a:ln>`. */
   readonly lineColor?: string;
+  readonly lineHidden?: boolean;
   /** Authored tick-label rotation, in degrees. */
   readonly labelRotationDeg?: number;
   /** Authored `<c:dispUnits>` value-axis scale token. */
@@ -3496,6 +3497,7 @@ const DEFAULT_AXIS_COLOR = '#000000';
 const DEFAULT_GRID_COLOR = '#D9D9D9';
 // Major tick marks read at ~5px against the 1280px-wide reference raster.
 const AXIS_TICK_LEN = 5;
+const AXIS_MINOR_TICK_LEN = 3;
 
 // Chart text carries `sizePt` in typographic points, but the SVG canvas is
 // 96px/in — emit the converted px size so labels don't render ~25% too small
@@ -3619,22 +3621,20 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       );
     }
   }
-  // The value-axis spine. PowerPoint always draws it for a non-deleted
-  // axis (a deleted axis never reaches this function), authored color or
-  // not — so the spine is unconditional, falling back to the default
-  // axis color when `<c:valAx><c:spPr><a:ln>` is absent.
-  if (axis.orientation === 'vertical') {
-    out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
-    );
-  } else {
-    // Horizontal value axis (bar chart) sits at the category baseline,
-    // which is value 0 when the range straddles it, else the bottom edge.
-    const zeroY = f.plotY + f.plotH - ((0 - axis.min) / range) * f.plotH;
-    const spineY = axis.min <= 0 && axis.max >= 0 ? zeroY : f.plotY + f.plotH;
-    out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(spineY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(spineY)}" stroke="${axisColor}" stroke-width="1"/>`,
-    );
+  if (!axis.lineHidden) {
+    if (axis.orientation === 'vertical') {
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+      );
+    } else {
+      // Horizontal value axis (bar chart) sits at the category baseline,
+      // which is value 0 when the range straddles it, else the bottom edge.
+      const zeroY = f.plotY + f.plotH - ((0 - axis.min) / range) * f.plotH;
+      const spineY = axis.min <= 0 && axis.max >= 0 ? zeroY : f.plotY + f.plotH;
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(spineY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(spineY)}" stroke="${axisColor}" stroke-width="1"/>`,
+      );
+    }
   }
   return out.join('');
 };
@@ -3650,6 +3650,9 @@ const renderCategoryAxis = (
   labelRotationDeg?: number,
   labelAlign?: 'ctr' | 'l' | 'r',
   lineColor?: string,
+  lineHidden = false,
+  majorTickMark: ChartSpec['categoryAxisMajorTickMark'] = 'out',
+  minorTickMark: ChartSpec['categoryAxisMinorTickMark'] = 'none',
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -3721,37 +3724,39 @@ const renderCategoryAxis = (
       );
     }
   }
-  // The category-axis spine plus its major tick marks. PowerPoint draws
-  // both for every non-deleted axis (default tick mark = 'out'), with the
-  // ticks sitting at the category boundaries — N+1 of them. The spine sits
-  // at the bottom edge for horizontal (column / line / area) and the left
-  // edge for vertical (bar chart); both fall back to the default axis color
-  // when `<c:catAx><c:spPr><a:ln>` is absent.
   const axisColor = lineColor ?? DEFAULT_AXIS_COLOR;
-  if (orientation === 'horizontal') {
-    const baseY = f.plotY + f.plotH;
+  const horizontal = orientation === 'horizontal';
+  const edge = horizontal ? f.plotY + f.plotH : f.plotX;
+  const start = horizontal ? f.plotX : f.plotY;
+  const span = horizontal ? f.plotW : f.plotH;
+  if (!lineHidden) {
     out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="${axisColor}" stroke-width="1"/>`,
+      horizontal
+        ? `<line x1="${px(start)}" y1="${px(edge)}" x2="${px(start + span)}" y2="${px(edge)}" stroke="${axisColor}" stroke-width="1"/>`
+        : `<line x1="${px(edge)}" y1="${px(start)}" x2="${px(edge)}" y2="${px(start + span)}" stroke="${axisColor}" stroke-width="1"/>`,
     );
-    const stepB = pointCount > 0 ? f.plotW / pointCount : 0;
-    for (let i = 0; i <= pointCount; i++) {
-      const bx = f.plotX + i * stepB;
-      out.push(
-        `<line x1="${px(bx)}" y1="${px(baseY)}" x2="${px(bx)}" y2="${px(baseY + AXIS_TICK_LEN)}" stroke="${axisColor}" stroke-width="1"/>`,
-      );
-    }
-  } else {
-    out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
-    );
-    const stepB = pointCount > 0 ? f.plotH / pointCount : 0;
-    for (let i = 0; i <= pointCount; i++) {
-      const by = f.plotY + i * stepB;
-      out.push(
-        `<line x1="${px(f.plotX - AXIS_TICK_LEN)}" y1="${px(by)}" x2="${px(f.plotX)}" y2="${px(by)}" stroke="${axisColor}" stroke-width="1"/>`,
-      );
-    }
   }
+  const step = pointCount > 0 ? span / pointCount : 0;
+  // Major ticks bound category slots; minor ticks sit halfway between them.
+  const ticks = (
+    mark: NonNullable<ChartSpec['categoryAxisMajorTickMark']>,
+    length: number,
+    offset: number,
+  ): void => {
+    if (mark === 'none') return;
+    const outward = mark === 'in' ? 0 : length;
+    const inward = mark === 'out' ? 0 : -length;
+    for (let i = offset; i <= pointCount; i++) {
+      const pos = start + i * step;
+      out.push(
+        horizontal
+          ? `<line x1="${px(pos)}" y1="${px(edge + outward)}" x2="${px(pos)}" y2="${px(edge + inward)}" stroke="${axisColor}" stroke-width="1"/>`
+          : `<line x1="${px(edge - outward)}" y1="${px(pos)}" x2="${px(edge - inward)}" y2="${px(pos)}" stroke="${axisColor}" stroke-width="1"/>`,
+      );
+    }
+  };
+  ticks(majorTickMark, AXIS_TICK_LEN, 0);
+  ticks(minorTickMark, AXIS_MINOR_TICK_LEN, 0.5);
   return out.join('');
 };
 
@@ -4069,9 +4074,11 @@ const renderColumnChart = (
     }
   }
   // Zero baseline for visual reference.
-  out.push(
-    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
-  );
+  if (!(spec.categoryAxisHidden || spec.categoryAxisLineHidden)) {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+    );
+  }
   // Trendlines per series — overlay after bars so they sit on top.
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
@@ -4467,9 +4474,11 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
       }
     }
   }
-  out.push(
-    `<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
-  );
+  if (!(spec.categoryAxisHidden || spec.categoryAxisLineHidden)) {
+    out.push(
+      `<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+    );
+  }
   return out.join('');
 };
 
@@ -4502,9 +4511,11 @@ const renderLineChart = (
   const xAt = (c: number): number => (fill ? f.plotX + c * band : f.plotX + (c + 0.5) * band);
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
-  out.push(
-    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
-  );
+  if (!(spec.categoryAxisHidden || spec.categoryAxisLineHidden)) {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+    );
+  }
   // Track cumulative values per category for stacked rendering. Each
   // series's projected y is the cumulative sum's y.
   const accumulated: number[] = Array.from({ length: N }, () => 0);
@@ -4889,12 +4900,23 @@ const renderScatterAxes = (
     orientation: 'vertical',
     min: yB.min,
     max: yB.max,
+    ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
     ...(spec.valueAxis?.numberFormat !== undefined
       ? { numberFormat: spec.valueAxis.numberFormat }
       : {}),
   };
-  const xAxis: AxisSpec = { orientation: 'horizontal', min: xB.min, max: xB.max };
-  return renderValueAxis(f, yAxis) + renderValueAxis(f, xAxis);
+  const xAxis: AxisSpec = {
+    orientation: 'horizontal',
+    min: xB.min,
+    max: xB.max,
+    ...(spec.categoryAxisLineHidden !== undefined
+      ? { lineHidden: spec.categoryAxisLineHidden }
+      : {}),
+  };
+  return (
+    (spec.valueAxisHidden ? '' : renderValueAxis(f, yAxis)) +
+    (spec.categoryAxisHidden ? '' : renderValueAxis(f, xAxis))
+  );
 };
 
 const renderScatterChart = (
@@ -5237,6 +5259,11 @@ const renderChart = (
         min: primaryScale.min,
         max: primaryScale.max,
         majorUnit: spec.valueAxis?.majorUnit ?? primaryScale.step,
+        ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
+        ...(spec.valueAxisLineColor !== undefined ? { lineColor: spec.valueAxisLineColor } : {}),
+        ...(spec.valueAxisMajorTickMark !== undefined
+          ? { majorTickMark: spec.valueAxisMajorTickMark }
+          : {}),
         ...(spec.valueAxis?.numberFormat !== undefined
           ? { numberFormat: spec.valueAxis.numberFormat }
           : {}),
@@ -5270,6 +5297,9 @@ const renderChart = (
         spec.categoryAxisLabelRotationDeg,
         spec.categoryAxisLabelAlign,
         spec.categoryAxisLineColor,
+        spec.categoryAxisLineHidden,
+        spec.categoryAxisMajorTickMark,
+        spec.categoryAxisMinorTickMark,
       );
     }
 
@@ -5308,6 +5338,7 @@ const renderChart = (
     const majorUnit = spec.valueAxis?.majorUnit ?? step;
     const numberFormat = spec.valueAxis?.numberFormat;
     const axisExtras = {
+      ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
       ...(majorUnit !== undefined ? { majorUnit } : {}),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
       ...(spec.valueAxisMajorGridlines !== undefined
@@ -5349,6 +5380,9 @@ const renderChart = (
         spec.categoryAxisLabelRotationDeg,
         spec.categoryAxisLabelAlign,
         spec.categoryAxisLineColor,
+        spec.categoryAxisLineHidden,
+        spec.categoryAxisMajorTickMark,
+        spec.categoryAxisMinorTickMark,
       );
     }
   }
