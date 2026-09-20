@@ -76,11 +76,17 @@ export const recipeGroups: Array<{ title: string; recipes: Recipe[] }> = [
       },
       {
         slug: 'build-from-scratch',
-        title: 'Build a deck on a blank template',
-        teaser: 'Start from a tiny blank.pptx, add slides on its layouts, and save.',
+        title: 'Build a deck from scratch',
+        teaser: 'Start from createPresentation(), add slides on its built-in layouts, and save.',
         path: 'site/src/lib/examples/recipes/build-from-scratch.ts',
         source: buildFromScratch,
-        relatedApi: ['addSlide', 'findSlideLayout', 'findSlidePlaceholder', 'setShapeText'],
+        relatedApi: [
+          'createPresentation',
+          'addSlide',
+          'findSlideLayout',
+          'findSlidePlaceholder',
+          'setShapeText',
+        ],
       },
       {
         slug: 'theme-branding',

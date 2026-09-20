@@ -319,7 +319,7 @@ setShapeText(findSlidePlaceholder(slide, 'ctrTitle')!, 'Authored with @office-ki
 const out: Uint8Array = await savePresentation(pres);
 ```
 
-### Build a deck from a blank template
+### Add slides to your own template
 
 ```ts
 import {
@@ -336,7 +336,8 @@ import {
   setShapeText,
 } from '@office-kit/pptx';
 
-const pres = await loadPresentation(await fetch('/blank.pptx').then((r) => r.arrayBuffer()));
+// Layout names come from the template; list them with getSlideLayouts(pres).
+const pres = await loadPresentation(await fetch('/template.pptx').then((r) => r.arrayBuffer()));
 
 const titleLayout = findSlideLayout(pres, 'Title Slide')!;
 const slide1 = addSlide(pres, { layout: titleLayout });
