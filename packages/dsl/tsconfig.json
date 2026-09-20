@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "jsx": "react-jsx",
+    "jsxImportSource": "@office-kit/pptx-dsl"
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx", "examples/**/*.tsx", "tsdown.config.ts"],
+  "exclude": ["dist", "node_modules"]
+}

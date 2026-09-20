@@ -1,0 +1,49 @@
+{
+  "name": "@office-kit/pptx-dev",
+  "version": "0.1.0",
+  "description": "Build and preview PowerPoint TSX presentations locally",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/office-kit/pptx.git",
+    "directory": "packages/dev"
+  },
+  "bin": {
+    "office-pptx": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "tsdown"
+  },
+  "dependencies": {
+    "@office-kit/pptx": "workspace:^",
+    "@office-kit/pptx-dsl": "workspace:^",
+    "@office-kit/pptx-preview": "workspace:^",
+    "esbuild": "^0.28.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

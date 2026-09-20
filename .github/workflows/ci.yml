@@ -62,6 +62,19 @@ jobs:
       - name: Build preview package
         run: pnpm --filter @office-kit/pptx-preview build
 
+      - name: Build DSL package
+        run: pnpm --filter @office-kit/pptx-dsl build
+
+      # Examples import the package's public exports, including its JSX runtime.
+      - name: Type check DSL package
+        run: pnpm --filter @office-kit/pptx-dsl typecheck
+
+      - name: Type check authoring tools
+        run: pnpm --filter @office-kit/pptx-dev typecheck
+
+      - name: Build authoring tools
+        run: pnpm --filter @office-kit/pptx-dev build
+
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
   # supports. Drop versions that are past their EOL date.
   test:
@@ -83,6 +96,10 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      - name: Build authoring packages
+        run: pnpm --filter @office-kit/pptx-dev... build
+      - name: Test TSX authoring and live preview
+        run: pnpm --filter @office-kit/pptx-dev test
 
   # Measures how closely @office-kit/pptx-preview's SVG renderer matches LibreOffice's
   # output for each generated sample slide, and gates on a committed baseline.

@@ -72,6 +72,10 @@ jobs:
       - run: pnpm lint
       - run: pnpm test
       - run: pnpm build
+      - run: pnpm --filter @office-kit/pptx-dev... build
+      - run: pnpm --filter @office-kit/pptx-dsl typecheck
+      - run: pnpm --filter @office-kit/pptx-dev typecheck
+      - run: pnpm --filter @office-kit/pptx-dev test
 
       - name: Create Release PR or publish to npm
         id: changesets
