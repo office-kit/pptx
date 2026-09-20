@@ -89,6 +89,12 @@ export interface TextFormat {
    * and CJK text and needs a consistent look across the whole run.
    */
   fontEastAsian?: string;
+  /**
+   * Complex-script font family. Sets `<a:cs>`, the typeface renderers pick
+   * for complex scripts such as Arabic, Hebrew and Thai — independently of
+   * `font` (Latin) and `fontEastAsian` (CJK).
+   */
+  fontComplexScript?: string;
   /** Font size in points; fractional values allowed (`12`, `12.5`). */
   size?: number;
   /**
@@ -183,6 +189,14 @@ const setEastAsian = (rPr: XmlElement, font: string | null): void => {
   insertChildByRank(rPr, elem(NAME_EA, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
 };
 
+const setComplexScript = (rPr: XmlElement, font: string | null): void => {
+  rPr.children = rPr.children.filter(
+    (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'cs'),
+  );
+  if (font === null) return;
+  insertChildByRank(rPr, elem(NAME_CS, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
+};
+
 const setHighlight = (rPr: XmlElement, value: string | null): void => {
   rPr.children = rPr.children.filter(
     (c) =>
@@ -242,10 +256,9 @@ export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
 
   if (format.font !== undefined) setLatin(rPr, format.font);
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
+  if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
   if (format.color !== undefined) setSolidFill(rPr, format.color);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
-
-  void NAME_CS;
 };
 
 /**

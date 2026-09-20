@@ -120,7 +120,8 @@ Both references use a visibly different, heavier headline treatment than the
 sans-serif body/bullets/table text beneath. `setShapeRunFormat`'s `font` field
 only sets the _Latin_ typeface (`<a:latin>`); Japanese glyphs render through a
 separate East Asian typeface (`<a:ea>`), settable per-run via the `fontEastAsian`
-field:
+field (a third slot, `fontComplexScript` / `<a:cs>`, covers Arabic / Hebrew /
+Thai and is irrelevant to a Japanese deck):
 
 ```ts
 setShapeRunFormat(headlineBox, 0, 0, {

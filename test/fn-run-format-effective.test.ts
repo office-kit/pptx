@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addBlankSlide,
+  addContentSlide,
   addSlideTextBox,
   addTitleSlide,
   createPresentation,
@@ -20,9 +21,11 @@ import {
   getSlides,
   inches,
   loadPresentation,
+  savePresentation,
   setPresentationFonts,
   setShapeRunFormat,
 } from '../src/api/index.ts';
+import { readZip, writeZip } from '../src/internal/opc/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -83,6 +86,66 @@ describe('fn API: getShapeRunFormatEffective', () => {
     setShapeRunFormat(tb, 0, 0, { fontEastAsian: '游明朝' });
     const overridden = getShapeRunFormatEffective(pres, tb, 0, 0);
     expect(overridden.fontEastAsian).toBe('游明朝');
+  });
+
+  it('falls back to the theme complex-script font independently of the others', () => {
+    const pres = createPresentation();
+    setPresentationFonts(pres, {
+      majorComplexScript: 'Traditional Arabic',
+      minorComplexScript: 'Leelawadee UI',
+    });
+    const slide = addBlankSlide(pres);
+    const tb = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'plain',
+    });
+    expect(getShapeRunFormat(tb, 0, 0)?.fontComplexScript).toBeUndefined();
+    const fmt = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(fmt.fontComplexScript).toBe('Leelawadee UI');
+
+    setShapeRunFormat(tb, 0, 0, { fontComplexScript: 'Traditional Arabic' });
+    const overridden = getShapeRunFormatEffective(pres, tb, 0, 0);
+    expect(overridden.fontComplexScript).toBe('Traditional Arabic');
+  });
+
+  it('resolves the master +mj-cs / +mn-cs tokens for a title and a body', async () => {
+    // The master's titleStyle carries `<a:cs typeface="+mj-cs"/>` and its
+    // bodyStyle `+mn-cs`, which is also what the theme fallback would pick for
+    // each — so the tokens are swapped here to tell the two paths apart: what
+    // comes back can only have travelled through the master's txStyles.
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    const { entries } = readZip(await savePresentation(createPresentation()));
+    const swapped = entries.map((e) =>
+      e.name.endsWith('slideMasters/slideMaster1.xml')
+        ? {
+            name: e.name,
+            data: encoder.encode(
+              decoder
+                .decode(e.data)
+                .replaceAll('+mj-cs', '+swap-cs')
+                .replaceAll('+mn-cs', '+mj-cs')
+                .replaceAll('+swap-cs', '+mn-cs'),
+            ),
+          }
+        : e,
+    );
+    const pres = await loadPresentation(writeZip(swapped));
+    setPresentationFonts(pres, {
+      majorComplexScript: 'Traditional Arabic',
+      minorComplexScript: 'Leelawadee UI',
+    });
+    const slide = addContentSlide(pres, { title: 'Title', body: 'Body' });
+    const title = findSlidePlaceholder(slide, 'title')!;
+    const body = findSlidePlaceholder(slide, 'body')!;
+    expect(getShapeRunFormat(title, 0, 0)?.fontComplexScript).toBeUndefined();
+    expect(getShapeRunFormatEffective(pres, title, 0, 0).fontComplexScript).toBe('Leelawadee UI');
+    expect(getShapeRunFormatEffective(pres, body, 0, 0).fontComplexScript).toBe(
+      'Traditional Arabic',
+    );
   });
 
   it('inherits placeholder size from the master title style', async () => {

@@ -1004,13 +1004,20 @@ const rPrAttrsFromStyle = (
       }),
     );
   }
-  // <a:latin> / <a:ea> follow the fill group in CT_TextCharacterProperties;
-  // ea carries the same face so CJK glyphs aren't dropped to the renderer's
-  // latin-only fallback (the latin slot is ignored for east-asian script).
+  // <a:latin> / <a:ea> / <a:cs> follow the fill group in
+  // CT_TextCharacterProperties, in that order; ea carries the same face as
+  // latin so CJK glyphs aren't dropped to the renderer's latin-only fallback
+  // (the latin slot is ignored for east-asian script). cs stays separate:
+  // `font` alone must not change how complex scripts render.
   if (style?.font !== undefined) {
     const typeface = attr(qname('', 'typeface', ''), style.font);
     children.push(elem(a('latin'), { attrs: [typeface] }));
     children.push(elem(a('ea'), { attrs: [typeface] }));
+  }
+  if (style?.fontComplexScript !== undefined) {
+    children.push(
+      elem(a('cs'), { attrs: [attr(qname('', 'typeface', ''), style.fontComplexScript)] }),
+    );
   }
   return { attrs, children };
 };
@@ -1018,12 +1025,13 @@ const rPrAttrsFromStyle = (
 const titleElement = (title: string, style?: ChartTextStyle, rotationDeg?: number): XmlElement => {
   // The paragraph defaults stay empty so an unset size falls back to the
   // application default; the run-level <a:rPr> carries the authored style.
+  //
+  // No `lang`: it names the language of the run's text, and hard-coding
+  // `en-US` on a title we did not author the words of is a claim we cannot
+  // make. The chart-level language tag is `ChartSpec.language` (`<c:lang>`).
   const pPr = elem(a('pPr'), { children: [elem(a('defRPr'))] });
   const { attrs: runAttrs, children: runChildren } = rPrAttrsFromStyle(style);
-  const runRPr = elem(a('rPr'), {
-    attrs: [attr(qname('', 'lang', ''), 'en-US'), ...runAttrs],
-    children: runChildren,
-  });
+  const runRPr = elem(a('rPr'), { attrs: runAttrs, children: runChildren });
   const tRun = elem(a('r'), {
     children: [runRPr, elem(a('t'), { children: [text(title)] })],
   });

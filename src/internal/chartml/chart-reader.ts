@@ -525,6 +525,7 @@ const NAME_A_DEF_RPR = qname('a', 'defRPr', NS_A);
 const NAME_A_PPR = qname('a', 'pPr', NS_A);
 const NAME_A_SRGB = qname('a', 'srgbClr', NS_A);
 const NAME_A_LATIN = qname('a', 'latin', NS_A);
+const NAME_A_CS = qname('a', 'cs', NS_A);
 const ATTR_TYPEFACE = qname('', 'typeface', '');
 
 // Reads `<a:rPr>` / `<a:defRPr>` attributes (size in 100ths of a pt,
@@ -533,6 +534,7 @@ const ATTR_TYPEFACE = qname('', 'typeface', '');
 // the style entirely in that case.
 const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
   let font: string | undefined;
+  let fontComplexScript: string | undefined;
   let sizePt: number | undefined;
   let bold: boolean | undefined;
   let italic: boolean | undefined;
@@ -562,8 +564,14 @@ const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
     const tf = getAttrValue(latin, ATTR_TYPEFACE);
     if (tf !== null && tf !== '') font = tf;
   }
+  const cs = firstChildElement(rPr, NAME_A_CS);
+  if (cs) {
+    const tf = getAttrValue(cs, ATTR_TYPEFACE);
+    if (tf !== null && tf !== '') fontComplexScript = tf;
+  }
   if (
     font === undefined &&
+    fontComplexScript === undefined &&
     sizePt === undefined &&
     bold === undefined &&
     italic === undefined &&
@@ -573,6 +581,7 @@ const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
   }
   return {
     ...(font !== undefined ? { font } : {}),
+    ...(fontComplexScript !== undefined ? { fontComplexScript } : {}),
     ...(sizePt !== undefined ? { sizePt } : {}),
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),

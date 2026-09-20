@@ -17,6 +17,7 @@ import {
   findSlideLayoutByType,
   findSlidePlaceholder,
   getShapeKind,
+  getPresentationFonts,
   getShapeText,
   getSlideCharts,
   getSlideLayoutName,
@@ -29,6 +30,7 @@ import {
   loadPresentation,
   readPackagePart,
   savePresentation,
+  setPresentationFonts,
   setShapeText,
   validatePresentation,
 } from '../src/api/index.ts';
@@ -39,6 +41,109 @@ import {
 } from './lib/expect-schema-valid.ts';
 
 const decoder = new TextDecoder();
+
+// The standard Office theme's per-script font lists, in document order.
+// Transcribed from a PowerPoint-authored theme1.xml, the same source the
+// blank deck's THEME_XML uses; the test below pins the deck against them.
+const MAJOR_SCRIPT_FONTS: ReadonlyArray<readonly [string, string]> = [
+  ['Jpan', '游ゴシック Light'],
+  ['Hang', '맑은 고딕'],
+  ['Hans', '等线 Light'],
+  ['Hant', '新細明體'],
+  ['Arab', 'Times New Roman'],
+  ['Hebr', 'Times New Roman'],
+  ['Thai', 'Angsana New'],
+  ['Ethi', 'Nyala'],
+  ['Beng', 'Vrinda'],
+  ['Gujr', 'Shruti'],
+  ['Khmr', 'MoolBoran'],
+  ['Knda', 'Tunga'],
+  ['Guru', 'Raavi'],
+  ['Cans', 'Euphemia'],
+  ['Cher', 'Plantagenet Cherokee'],
+  ['Yiii', 'Microsoft Yi Baiti'],
+  ['Tibt', 'Microsoft Himalaya'],
+  ['Thaa', 'MV Boli'],
+  ['Deva', 'Mangal'],
+  ['Telu', 'Gautami'],
+  ['Taml', 'Latha'],
+  ['Syrc', 'Estrangelo Edessa'],
+  ['Orya', 'Kalinga'],
+  ['Mlym', 'Kartika'],
+  ['Laoo', 'DokChampa'],
+  ['Sinh', 'Iskoola Pota'],
+  ['Mong', 'Mongolian Baiti'],
+  ['Viet', 'Times New Roman'],
+  ['Uigh', 'Microsoft Uighur'],
+  ['Geor', 'Sylfaen'],
+  ['Armn', 'Arial'],
+  ['Bugi', 'Leelawadee UI'],
+  ['Bopo', 'Microsoft JhengHei'],
+  ['Java', 'Javanese Text'],
+  ['Lisu', 'Segoe UI'],
+  ['Mymr', 'Myanmar Text'],
+  ['Nkoo', 'Ebrima'],
+  ['Olck', 'Nirmala UI'],
+  ['Osma', 'Ebrima'],
+  ['Phag', 'Phagspa'],
+  ['Syrn', 'Estrangelo Edessa'],
+  ['Syrj', 'Estrangelo Edessa'],
+  ['Syre', 'Estrangelo Edessa'],
+  ['Sora', 'Nirmala UI'],
+  ['Tale', 'Microsoft Tai Le'],
+  ['Talu', 'Microsoft New Tai Lue'],
+  ['Tfng', 'Ebrima'],
+];
+
+const MINOR_SCRIPT_FONTS: ReadonlyArray<readonly [string, string]> = [
+  ['Jpan', '游ゴシック'],
+  ['Hang', '맑은 고딕'],
+  ['Hans', '等线'],
+  ['Hant', '新細明體'],
+  ['Arab', 'Arial'],
+  ['Hebr', 'Arial'],
+  ['Thai', 'Cordia New'],
+  ['Ethi', 'Nyala'],
+  ['Beng', 'Vrinda'],
+  ['Gujr', 'Shruti'],
+  ['Khmr', 'DaunPenh'],
+  ['Knda', 'Tunga'],
+  ['Guru', 'Raavi'],
+  ['Cans', 'Euphemia'],
+  ['Cher', 'Plantagenet Cherokee'],
+  ['Yiii', 'Microsoft Yi Baiti'],
+  ['Tibt', 'Microsoft Himalaya'],
+  ['Thaa', 'MV Boli'],
+  ['Deva', 'Mangal'],
+  ['Telu', 'Gautami'],
+  ['Taml', 'Latha'],
+  ['Syrc', 'Estrangelo Edessa'],
+  ['Orya', 'Kalinga'],
+  ['Mlym', 'Kartika'],
+  ['Laoo', 'DokChampa'],
+  ['Sinh', 'Iskoola Pota'],
+  ['Mong', 'Mongolian Baiti'],
+  ['Viet', 'Arial'],
+  ['Uigh', 'Microsoft Uighur'],
+  ['Geor', 'Sylfaen'],
+  ['Armn', 'Arial'],
+  ['Bugi', 'Leelawadee UI'],
+  ['Bopo', 'Microsoft JhengHei'],
+  ['Java', 'Javanese Text'],
+  ['Lisu', 'Segoe UI'],
+  ['Mymr', 'Myanmar Text'],
+  ['Nkoo', 'Ebrima'],
+  ['Olck', 'Nirmala UI'],
+  ['Osma', 'Ebrima'],
+  ['Phag', 'Phagspa'],
+  ['Syrn', 'Estrangelo Edessa'],
+  ['Syrj', 'Estrangelo Edessa'],
+  ['Syre', 'Estrangelo Edessa'],
+  ['Sora', 'Nirmala UI'],
+  ['Tale', 'Microsoft Tai Le'],
+  ['Talu', 'Microsoft New Tai Lue'],
+  ['Tfng', 'Ebrima'],
+];
 
 describe('fn API: createPresentation', () => {
   it('returns a deck with master-backed layouts ready for addSlide', () => {
@@ -147,6 +252,36 @@ describe('fn API: createPresentation', () => {
     }
     expect(getSlides(pres).length).toBe(3);
     expect(validatePresentation(pres)).toEqual([]);
+  });
+
+  it("carries Office's per-script font lists in the theme font scheme", async () => {
+    const pres = createPresentation();
+    setPresentationFonts(pres, { minorLatin: 'Arial' });
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const theme = decoder.decode(readPackagePart(loaded, '/ppt/theme/theme1.xml')!);
+    const collection = (tag: 'majorFont' | 'minorFont'): string =>
+      theme.slice(theme.indexOf(`<a:${tag}>`), theme.indexOf(`</a:${tag}>`));
+    const scriptFonts = (xml: string): ReadonlyArray<readonly [string, string]> =>
+      [...xml.matchAll(/<a:font script="([^"]*)" typeface="([^"]*)"\/>/g)].map(
+        ([, script, typeface]) => [script!, typeface!] as const,
+      );
+    const major = collection('majorFont');
+    const minor = collection('minorFont');
+
+    // Both lists, in order, entry for entry: a count plus a spot check would
+    // pass a reordered list or a changed non-Thai face.
+    expect(scriptFonts(major)).toEqual(MAJOR_SCRIPT_FONTS);
+    expect(scriptFonts(minor)).toEqual(MINOR_SCRIPT_FONTS);
+    // CT_FontCollection is a sequence: latin, ea, cs, then the script list.
+    expect(minor).toMatch(/<a:latin [^>]*\/><a:ea [^>]*\/><a:cs [^>]*\/><a:font script=/);
+    // setPresentationFonts still writes the three slots and nothing else.
+    expect(minor).toContain('<a:latin typeface="Arial"/>');
+    expect(major).toContain('<a:latin typeface="Calibri"/>');
+    expect(getPresentationFonts(loaded)).toMatchObject({
+      majorLatin: 'Calibri',
+      minorLatin: 'Arial',
+      minorComplexScript: null,
+    });
   });
 
   it.runIf(isSchemaValidationAvailable())(
