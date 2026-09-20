@@ -4,32 +4,43 @@
 
 # Create slides with AI
 
-Install the office-kit skill, then tell Claude Code what presentation you want.
+Install the Office Kit plugin, then tell Claude Code what presentation you want.
 Claude creates the project, writes the slides, starts a live preview, and exports
 an editable PowerPoint file. You review the slides and ask for changes.
 
 You need **Claude Code**, **Node.js 22.18 or later** (with npm), and **Git** for
-the skill installer. The authoring packages are available on npm.
+plugin installation. The authoring packages are available on npm.
 
-## 1. Install the skill once
+## 1. Install the plugin once
 
 Run this in your terminal:
 
 ```sh
-npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill --agent claude-code --global --yes
+claude plugin marketplace add office-kit/skills
+claude plugin install pptx@office-kit
 ```
 
-This installs the `office-kit-pptx` skill for Claude Code across your projects.
-It includes the authoring instructions and TSX reference. The
-[skills installer](https://github.com/vercel-labs/skills) downloads them from this
-repository; you do not need to clone or build office-kit yourself.
+The shared [Office Kit marketplace](https://github.com/office-kit/skills) lists
+independently installable plugins. The `pptx` plugin includes the authoring skill
+and TSX reference from this repository. Future XLSX and DOCX plugins can be added
+to the same marketplace; only PPTX is available today.
+
+In Claude Code, open `/plugin` → **Marketplaces** → **office-kit** →
+**Enable auto-update**. This is a one-time setting: third-party marketplaces have
+auto-update disabled by default. Claude Code checks for updates in the background
+at startup; use `/reload-plugins` or start a new session to load a downloaded update.
+See [Claude Code's auto-update documentation](https://code.claude.com/docs/en/discover-plugins#configure-auto-updates).
+
+Plugin updates update the instructions, not the npm dependencies of existing
+slide projects. Those keep their package manifest and lockfile; ask Claude to
+upgrade a project explicitly when needed.
 
 ## 2. Ask for a presentation
 
 Start Claude Code in the folder where you keep your work, then enter:
 
 ```text
-/office-kit-pptx Create a five-slide quarterly business review in Japanese.
+/pptx:office-kit-pptx Create a five-slide quarterly business review in Japanese.
 Use a white background, dark text and an orange accent. Include a revenue
 chart and a next-actions table. Label any sample figures as illustrative.
 ```
@@ -47,8 +58,9 @@ Make the chart on slide 3 larger and shorten its headline.
 
 Claude edits the same project. The preview updates after each save and retains
 the selected slide. You do not need to write TSX or run build commands yourself.
-If the skill does not appear, start a new Claude Code session after installation.
-To update the skill later, rerun the installation command.
+If the skill does not appear, run `/reload-plugins` or start a new Claude Code session.
+For a manual update, run `claude plugin marketplace update office-kit` followed by
+`claude plugin update pptx@office-kit`, then reload plugins.
 
 ## Review your slides
 
@@ -74,7 +86,7 @@ exported file in your target application before final delivery.
 Give Claude the path to your PPTX and describe what should change:
 
 ```text
-/office-kit-pptx Use ./company-template.pptx. Update the first slide's title to
+/pptx:office-kit-pptx Use ./company-template.pptx. Update the first slide's title to
 “Q3 business review”. Keep the other slides and the existing design unchanged.
 Open a preview and export the revised deck to a separate file.
 ```
@@ -82,6 +94,28 @@ Open a preview and export the revised deck to a separate file.
 The skill inspects the file before selecting targets. Existing slides, masters,
 layouts and unknown package parts are retained through the core model. If you
 ask for a new slide sequence, Claude can compose one from the source slides.
+
+## Already installed the standalone skill?
+
+Install the plugin above first. Once `/pptx:office-kit-pptx` is available, remove
+the old standalone copy to avoid duplicate instructions:
+
+```sh
+npx --yes skills remove office-kit-pptx --agent claude-code --global --yes
+```
+
+This removes the globally installed standalone skill, not your slide projects.
+If you originally installed at project scope, omit `--global` and run it in that
+project. Start a new session afterwards.
+
+For agents that use standalone skills, the existing distribution remains available:
+
+```sh
+npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill
+```
+
+Select your agent in the installer. These copies do not use Claude Code's plugin
+auto-update; run `npx --yes skills update` to update them.
 
 ## Prefer to edit TSX yourself?
 
@@ -108,7 +142,7 @@ Use one preview process per project; reuse a server Claude already started.
 
 | Symptom | What to do |
 | --- | --- |
-| The skill is not listed | Rerun the installer for `claude-code`, then start a new Claude Code session. |
+| The skill is not listed | Check `claude plugin list`, then run `/reload-plugins` or start a new session. |
 | npm reports 404 for an office-kit package | Check `npm config get registry`. If a private mirror is missing the package, add `--registry=https://registry.npmjs.org` to the `npx` and `npm install` commands. |
 | The preview port is busy | Ask Claude to use another port; `npm run dev -- --port 0` selects a free port. Open the printed URL. |
 | An import or JSX type cannot be found | Ensure dependencies are installed and VSCode has opened the generated project folder. |

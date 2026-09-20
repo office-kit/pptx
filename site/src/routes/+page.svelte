@@ -79,7 +79,7 @@
     },
     {
       claim: 'You ship only the functions you import.',
-      how: '451 side-effect-free exports. A load → save bundle is 56 KB unminified and the whole API is 142 KB. CI fails if either grows past its cap.',
+      how: 'Side-effect-free exports let bundlers remove unused functions. CI checks tree-shaking and bundle-size limits.',
     },
     {
       claim: 'One runtime dependency.',

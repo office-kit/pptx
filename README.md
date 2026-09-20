@@ -50,9 +50,8 @@ setup, preview and export using the published npm packages.
   breaks Keynote is treated as a bug.
 - **One ESM bundle for Node and the browser.** No `fs`, `Buffer`, or `zlib` on
   the hot path, and one runtime dependency ([fflate](https://github.com/101arrowz/fflate), for ZIP).
-- **You ship only what you import.** The API is 451 side-effect-free functions.
-  A `load → save` bundle is about 56 KB unminified; the entire API is about
-  142 KB. CI fails if either grows past its cap (`test/tree-shake.test.ts`).
+- **You ship only what you import.** The API uses side-effect-free functions.
+  CI checks tree-shaking and bundle-size limits (`test/tree-shake.test.ts`).
 - **Types follow the spec.** The model mirrors ECMA-376 Part 1 §19
   (PresentationML). Positions are branded `Emu` numbers, so inches and points
   cannot be mixed up by accident.
@@ -95,13 +94,14 @@ The two also work together. Decks written by PptxGenJS are part of this
 library's test fixtures (`test/pptxgenjs-compat.test.ts`), so you can generate
 with PptxGenJS and post-process the result here.
 
-### The same slide in both
+### The same slide with PptxGenJS, the core API, and TSX
 
 ```ts
 // PptxGenJS
 import pptxgen from 'pptxgenjs';
 
 const pptx = new pptxgen();
+pptx.layout = 'LAYOUT_WIDE';
 const slide = pptx.addSlide();
 slide.addText('Q3 Review', { x: 1, y: 0.5, w: 8, h: 1, fontSize: 28, bold: true });
 slide.addChart(
@@ -119,28 +119,21 @@ await pptx.writeFile({ fileName: 'out.pptx' });
 ```
 
 ```ts
-// @office-kit/pptx
-import {
-  addBlankSlide,
-  addSlideChart,
-  addSlideTextBox,
-  createPresentation,
-  inches,
-  setShapeTextFormat,
-} from '@office-kit/pptx';
-import { savePresentationToFile } from '@office-kit/pptx/node';
+// @office-kit/pptx: the Node barrel includes the core API and file helpers.
+import * as pptx from '@office-kit/pptx/node';
 
-const pres = createPresentation();
-const slide = addBlankSlide(pres);
-const title = addSlideTextBox(slide, {
+const { inches } = pptx;
+const pres = pptx.createPresentation();
+const slide = pptx.addBlankSlide(pres);
+const title = pptx.addSlideTextBox(slide, {
   x: inches(1),
   y: inches(0.5),
   w: inches(8),
   h: inches(1),
   text: 'Q3 Review',
 });
-setShapeTextFormat(title, { size: 28, bold: true });
-addSlideChart(slide, {
+pptx.setShapeTextFormat(title, { size: 28, bold: true });
+pptx.addSlideChart(slide, {
   x: inches(1),
   y: inches(1.5),
   w: inches(8),
@@ -151,13 +144,42 @@ addSlideChart(slide, {
     series: [{ name: 'Revenue', values: [120, 180] }],
   },
 });
-await savePresentationToFile(pres, 'out.pptx');
+await pptx.savePresentationToFile(pres, 'out.pptx');
 ```
 
-Two differences show up straight away. Positions are explicit units
-(`inches(1)`, `cm(2.5)`, `pt(12)`) rather than bare numbers, and everything is
-a function that takes the thing it changes, which is what lets a bundler drop
-the ones you do not call.
+```tsx
+// @office-kit/pptx-dsl — deck.tsx
+import { Presentation, Slide, Text, Chart } from '@office-kit/pptx-dsl';
+
+export default (
+  <Presentation>
+    <Slide>
+      <Text x={1} y={0.5} width={8} height={1} size={28} bold>
+        Q3 Review
+      </Text>
+      <Chart
+        x={1}
+        y={1.5}
+        width={8}
+        height={4}
+        spec={{
+          kind: 'column',
+          categories: ['Q1', 'Q2'],
+          series: [{ name: 'Revenue', values: [120, 180] }],
+        }}
+      />
+    </Slide>
+  </Presentation>
+);
+```
+
+Save the TSX example as `deck.tsx` in an
+[initialized authoring project](https://office-kit.github.io/pptx/docs/tsx), then
+run `npx --no-install office-pptx build deck.tsx --out out.pptx`.
+
+The core API uses explicit units (`inches(1)`, `cm(2.5)`, `pt(12)`). The DSL uses
+inches for numeric geometry and points for font sizes, and compiles to the same
+core model. Both produce editable PowerPoint text and charts.
 
 ## How output is checked
 
@@ -249,16 +271,21 @@ const out = await savePresentation(pres);
 
 ## Driving @office-kit/pptx from an AI agent
 
-Install the Claude Code skill once:
+Install the Claude Code plugin once from the shared [Office Kit marketplace](https://github.com/office-kit/skills):
 
 ```sh
-npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill --agent claude-code --global --yes
+claude plugin marketplace add office-kit/skills
+claude plugin install pptx@office-kit
 ```
+
+In Claude Code, open `/plugin` → **Marketplaces** → **office-kit** and enable
+**auto-update** once. Third-party marketplaces do not enable it by default.
+Updates load after `/reload-plugins` or a new session.
 
 Then ask Claude Code:
 
 ```text
-/office-kit-pptx Create a quarterly business review with a revenue chart
+/pptx:office-kit-pptx Create a quarterly business review with a revenue chart
 and a next-actions table. Use labelled sample data where needed.
 ```
 

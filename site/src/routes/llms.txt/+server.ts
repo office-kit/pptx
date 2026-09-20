@@ -30,14 +30,17 @@ for every page concatenated into a single document.
 
 The companion packages \`@office-kit/pptx-dsl\` and \`@office-kit/pptx-dev\`
 provide typed TSX, project initialization, a view-only slide viewer, and export.
-They are published on npm. For Claude Code, install the skill with:
+They are published on npm. For Claude Code, install the plugin with:
 
 \`\`\`sh
-npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill --agent claude-code --global --yes
+claude plugin marketplace add office-kit/skills
+claude plugin install pptx@office-kit
 \`\`\`
 
-Invoke \`/office-kit-pptx\` with the presentation brief. The skill handles setup,
-authoring, preview and export. To initialize manually, run
+Invoke \`/pptx:office-kit-pptx\` with the presentation brief. The skill handles setup,
+authoring, preview and export. Enable auto-update once in /plugin → Marketplaces
+→ office-kit. Reload plugins or restart to load updates. Existing project npm
+dependencies are not automatically upgraded. To initialize manually, run
 \`npx --yes @office-kit/pptx-dev@latest init my-slides\`, then run
 \`npm install\` inside the generated directory.
 

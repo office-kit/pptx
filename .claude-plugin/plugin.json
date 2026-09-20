@@ -1,0 +1,11 @@
+{
+  "name": "pptx",
+  "description": "Create and edit PowerPoint presentations with typed TSX, live preview, and native PPTX export.",
+  "author": {
+    "name": "Office Kit"
+  },
+  "homepage": "https://office-kit.github.io/pptx/docs/authoring",
+  "repository": "https://github.com/office-kit/pptx",
+  "license": "MIT",
+  "skills": ["./skill"]
+}
