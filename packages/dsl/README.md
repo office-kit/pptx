@@ -217,6 +217,46 @@ context-specific handles and a nesting check. Without scope, contextual handles
 are optional. Text also
 accepts Raw children. An enclosing shape does not accept new Slide-level objects.
 
+## Embedding `compile()` in your own build
+
+An `office-pptx init` project comes with a build that records source locations and
+a `check` script that runs `tsc --noEmit`. A host that calls `compile()` from its own
+build (a server compiling generated TSX, a bundler plugin) has to arrange both.
+
+**Build with the dev JSX transform to get source locations.** `compile()` prefixes
+an error with `file:line:col <Element>:` for each enclosing element, but only when the
+module was built with the dev runtime, which records where each element was written.
+`office-pptx` always builds that way.
+
+| Tool       | Setting                                        |
+| ---------- | ---------------------------------------------- |
+| TypeScript | `"jsx": "react-jsxdev"` instead of `react-jsx` |
+| esbuild    | `jsx: 'automatic', jsxDev: true`               |
+
+```text
+react-jsx      Shape reference matched 0 shapes: {"name":"Titel 1"}
+react-jsxdev   deck.tsx:6:7 <Slide>: deck.tsx:7:9 <Fill>: Shape reference matched 0 shapes: {"name":"Titel 1"}
+```
+
+**Type-check authored modules with `tsc` in strict mode.** The runtime does not
+validate prop names, so `<Table cellFills={...}>` compiles and the unknown prop is
+ignored. Type checking is what rejects it, along with a misspelt literal such as
+`anchor="ctr"`. A transpile-only build (esbuild, swc) skips that check, and a prop
+passed through an object spread escapes it even in `tsc`.
+
+**Compile and save.** `compile(root)` takes the root `Presentation` element (a
+module's default export) and resolves to the core presentation; `savePresentation`
+from `@office-kit/pptx` turns that into `.pptx` bytes. Template bytes go in through
+`<Presentation source={bytes}>`, from wherever the host holds them.
+
+```ts
+import { savePresentation } from '@office-kit/pptx';
+import { compile } from '@office-kit/pptx-dsl';
+
+const { default: root } = await import(builtModuleUrl);
+const bytes = await savePresentation(await compile(root));
+```
+
 ## Current coverage
 
 This is an initial DSL, not complete OOXML coverage. Typed master/layout creation,

@@ -150,6 +150,21 @@ corresponding context and check nesting. Without scope, slide/shape handles are
 optional. `Raw` executes trusted local code, as do other imports in the TSX file.
 The static SVG preview does not play the transition in this example.
 
+## Embedding compile() in your own build
+
+An `office-pptx init` project comes with a build that records source locations and a
+`check` script that runs `tsc --noEmit`. A host that calls `compile()` from its own
+build has to arrange both.
+
+- Build with the dev JSX transform (TypeScript `"jsx": "react-jsxdev"`, esbuild
+  `jsx: 'automatic', jsxDev: true`). Only then does a `compile()` error start with
+  `file:line:col <Element>:` for each enclosing element.
+- Run `tsc` in strict mode on authored modules. The runtime ignores a prop it does
+  not know, so type checking is the only thing that rejects one.
+- `compile(root)` takes the root `Presentation` element and resolves to the core
+  presentation; `savePresentation` from `@office-kit/pptx` gives the `.pptx` bytes.
+  Template bytes go in through `<Presentation source={bytes}>`.
+
 ## Package responsibilities and current limits
 
 | Package | Responsibility |
