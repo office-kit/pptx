@@ -335,6 +335,25 @@ const bulletIndentForLevel = (lvl: number): { marL: number; indent: number } =>
 const ATTR_MAR_L = qname('', 'marL', '');
 const ATTR_INDENT = qname('', 'indent', '');
 
+export const updateBulletIndentForLevel = (
+  pPr: XmlElement,
+  previousLevel: number,
+  level: number,
+): void => {
+  const previous = bulletIndentForLevel(previousLevel);
+  const marL = pPr.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'marL');
+  const indent = pPr.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'indent');
+  if (marL?.value !== String(previous.marL) || indent?.value !== String(previous.indent)) return;
+  const next = bulletIndentForLevel(level);
+  pPr.attrs = pPr.attrs.map((a) =>
+    a === marL
+      ? attr(a.name, String(next.marL))
+      : a === indent
+        ? attr(a.name, String(next.indent))
+        : a,
+  );
+};
+
 const hasAttr = (el: XmlElement, local: string): boolean =>
   el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === local);
 

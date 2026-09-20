@@ -18,6 +18,7 @@ export {
   replaceTokensInTree,
   setTextBody,
   setTextBodyParagraphs,
+  updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
 export type { TextFormat } from './text-format.ts';
 export {

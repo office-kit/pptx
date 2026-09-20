@@ -7,6 +7,7 @@ import {
   type ParagraphAlignment,
   type TextFormat,
   applyBulletToParagraph,
+  updateBulletIndentForLevel,
 } from '../../internal/drawingml/index.ts';
 import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
@@ -468,6 +469,8 @@ export const setParagraphAlignment = (
  * Sets the paragraph's nesting level (`<a:pPr lvl="N"/>`). Levels are
  * 0-indexed; PowerPoint accepts 0 through 8. Pass `0` to clear an
  * existing level — `<a:pPr lvl="0"/>` is the same as omitting the attr.
+ * Indents matching the previous level's default bullet pair follow the level;
+ * other indent values are preserved.
  *
  * Used in tandem with bullets to author nested lists:
  *
@@ -485,8 +488,10 @@ export const setParagraphLevel = (
   }
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = ensurePPr(paragraph);
+  const previousLevel = Number.parseInt(getAttrValue(pPr, ATTR_LVL) ?? '0', 10);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
   if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
+  updateBulletIndentForLevel(pPr, Number.isFinite(previousLevel) ? previousLevel : 0, level);
   commitAndRefresh(shape);
 };
 

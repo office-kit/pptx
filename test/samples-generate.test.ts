@@ -1236,10 +1236,8 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
   it('28 — multilevel bullets and autonumbered indent levels', async () => {
     const pres = await loadBlank();
 
-    // Slide 1: a 3-deep nested bulleted list. The `lvl` attribute (via
-    // setParagraphLevel) pulls each deeper level in using the deck's
-    // defaultTextStyle indents; per-level bullet chars keep the nesting
-    // legible (•, ◦, – are all covered by the bundled faces).
+    // Per-level bullet chars reinforce the nesting shown by explicit paragraph
+    // indents (•, ◦, – are all covered by the bundled faces).
     const s1 = freshSlide(pres);
     setSlideTitle(s1, 'Nested bullets');
     const nested = addSlideTextBox(s1, {
