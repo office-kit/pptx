@@ -1,5 +1,11 @@
 # @office-kit/pptx-dev
 
+## 0.3.0
+
+### Minor Changes
+
+- 9be0737: Add a preview chat panel backed by local Claude Code or Codex, with focused-slide context, automatic TSX edit previews, conversation recovery and cancellation.
+
 ## 0.2.4
 
 ### Patch Changes
