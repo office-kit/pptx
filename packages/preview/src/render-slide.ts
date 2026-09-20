@@ -6009,7 +6009,9 @@ const renderShape = (
   // Google Slides writes for a hand-resized group).
   const { sx: gsx, sy: gsy } = ctx.groupScale;
   const groupScaled = gsx !== 1 || gsy !== 1;
-  const textBounds = groupScaled ? { x: x * gsx, y: y * gsy, w: w * gsx, h: h * gsy } : { x, y, w, h };
+  const textBounds = groupScaled
+    ? { x: x * gsx, y: y * gsy, w: w * gsx, h: h * gsy }
+    : { x, y, w, h };
   const rawTextOverlay =
     kind === 'shape' || kind === 'graphicFrame'
       ? renderTextBody(pres, shape, textBounds, theme, phType, ctx)
@@ -6202,7 +6204,10 @@ const renderShape = (
         ? ctx
         : {
             ...ctx,
-            groupScale: { sx: ctx.groupScale.sx * groupScaleX, sy: ctx.groupScale.sy * groupScaleY },
+            groupScale: {
+              sx: ctx.groupScale.sx * groupScaleX,
+              sy: ctx.groupScale.sy * groupScaleY,
+            },
           };
     const childrenSvg = children.map((c) => renderShape(c, pres, theme, childCtx)).join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
