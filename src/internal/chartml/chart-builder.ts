@@ -1025,12 +1025,13 @@ const rPrAttrsFromStyle = (
 const titleElement = (title: string, style?: ChartTextStyle, rotationDeg?: number): XmlElement => {
   // The paragraph defaults stay empty so an unset size falls back to the
   // application default; the run-level <a:rPr> carries the authored style.
+  //
+  // No `lang`: it names the language of the run's text, and hard-coding
+  // `en-US` on a title we did not author the words of is a claim we cannot
+  // make. The chart-level language tag is `ChartSpec.language` (`<c:lang>`).
   const pPr = elem(a('pPr'), { children: [elem(a('defRPr'))] });
   const { attrs: runAttrs, children: runChildren } = rPrAttrsFromStyle(style);
-  const runRPr = elem(a('rPr'), {
-    attrs: [attr(qname('', 'lang', ''), 'en-US'), ...runAttrs],
-    children: runChildren,
-  });
+  const runRPr = elem(a('rPr'), { attrs: runAttrs, children: runChildren });
   const tRun = elem(a('r'), {
     children: [runRPr, elem(a('t'), { children: [text(title)] })],
   });

@@ -411,7 +411,7 @@ describe('fn API: inverted clrMap end-to-end', () => {
     expect(secondaryXml).toContain(
       '<c:txPr><a:bodyPr vert="horz"/><a:lstStyle/><a:p><a:pPr><a:defRPr><a:solidFill><a:srgbClr val="FFFFFF"/>',
     );
-    expect(secondaryXml).toContain('<a:rPr lang="en-US"><a:solidFill><a:srgbClr val="FFFFFF"/>');
+    expect(secondaryXml).toContain('<a:rPr><a:solidFill><a:srgbClr val="FFFFFF"/>');
     expect(chartXml).not.toContain('val="000000"');
   });
 

@@ -65,8 +65,36 @@ describe('fn API: chart title defaults', () => {
     const { spec, xml } = await roundTrip({ ...base, title: 'T', titleStyle: { sizePt: 20 } });
     const title = sliceElement(xml, 'title');
     expect(title).toContain('<a:defRPr/>');
-    expect(title).toContain('<a:rPr lang="en-US" sz="2000"');
+    expect(title).toContain('<a:rPr sz="2000"');
     expect(spec.titleStyle?.sizePt).toBe(20);
+  });
+
+  skipIfNoXmllint('writes no lang on the chart-title or axis-title run', async () => {
+    const { xml } = await roundTrip({
+      ...base,
+      title: 'T',
+      titleStyle: { sizePt: 20 },
+      categoryAxisTitle: 'Cat',
+      valueAxisTitle: 'Val',
+    });
+    // `lang` names the language of the run's own words, which the library
+    // does not know; `ChartSpec.language` is the chart-level tag instead.
+    expect(xml).not.toContain('lang=');
+    // Attributes other than lang are untouched; the deck's text color is
+    // still baked onto the run as a child.
+    expect(sliceElement(xml, 'title')).toContain('<a:rPr sz="2000"><a:solidFill>');
+    // An axis title with no style of its own is left with an empty run
+    // property element, which CT_TextCharacterProperties allows.
+    expect(titleIn(xml, 'catAx')).toContain('<a:rPr/>');
+    expect(titleIn(xml, 'valAx')).toContain('<a:rPr/>');
+    expectSchemaValid(xml, 'chart');
+  });
+
+  skipIfNoXmllint('still writes the chart-level <c:lang> when spec.language is set', async () => {
+    const { spec, xml } = await roundTrip({ ...base, title: 'T', language: 'ja-JP' });
+    expect(xml).toContain('<c:lang val="ja-JP"/>');
+    expect(sliceElement(xml, 'title')).not.toContain('lang=');
+    expect(spec.language).toBe('ja-JP');
   });
 });
 
