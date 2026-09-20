@@ -12,7 +12,9 @@ and layout changes in TSX. The browser viewer has no editing controls.
 ## Start or resume a project
 
 For an existing office-kit slide project, read its `CLAUDE.md`, `package.json`
-and presentation source, then use its installed dependencies and scripts.
+and entry file to locate the requested slides, then use its installed dependencies
+and scripts. Read the relevant slide sources and their dependencies as needed;
+do not load every slide for a local revision.
 Do not initialize over existing work or upgrade packages just to edit a deck.
 
 For a new deck, choose a new child directory in the user's workspace (for example,
@@ -35,7 +37,8 @@ automatically when Claude was started in the parent directory.
 
 ## Author and revise
 
-Read [the TSX reference](references/tsx.md) before writing the deck. It covers
+Read [the TSX reference](references/tsx.md) when first authoring or using unfamiliar
+elements; reuse already-read guidance during revisions. It covers
 native elements, charts, tables, template selection and the Raw escape hatch.
 The default export of `deck.tsx` is a `Presentation`. Use ordinary TypeScript
 functions and data to reuse content; do not add React, Vue or a web UI.
@@ -59,6 +62,24 @@ functions and data to reuse content; do not add React, Vue or a web UI.
   and installed type declarations. Do not invent props or describe Raw support
   as complete declarative coverage.
 
+## Keep revisions small
+
+For new decks, keep slide order in `deck.tsx`, each slide in a descriptively named
+`slides/*.tsx` file, and shared design values in `theme.ts`. Keep filenames stable
+when reordering slides. Reuse ordinary functions for shared elements. Existing
+projects can keep their structure; do not split or migrate them for a small edit.
+
+For a request such as “shorten slide 3's headline”, find the slide through the entry
+file (or search for its visible text), read its source and necessary dependencies,
+and patch only that text. For mapped slides, locate the corresponding data item.
+Do not rewrite the whole file/deck or reformat unrelated code. Inspect the diff
+when available to ensure unrelated content and slide order are preserved.
+
+Change shared theme values or components only when the request applies to their
+consumers. For a one-slide exception, override that slide's props instead. For a
+shared change, inspect the affected consumers. Do not add a second source of truth
+or an editing DSL: TSX and ordinary code patches are the editing interface.
+
 ## Preview for the user
 
 Run `npm run dev` in the slide project using your terminal tool's background-task
@@ -68,8 +89,10 @@ reuse it on follow-up edits. If the port is busy, use `npm run dev -- --port 0`
 and read the assigned URL. Do not stop unrelated processes.
 
 Saving TSX updates the preview. The user selects slides in the vertical thumbnail
-strip, uses Fit/zoom, or chooses Present for presentation mode. Review the slides
-with available browser/image tools and fix problems in TSX. If visual inspection
+strip, uses Fit/zoom, or chooses Present for presentation mode. Review affected slides
+with available browser/image tools and fix problems in TSX. Keep this loop to
+source edits and the running preview; do not run a separate export or restart
+the server for each intermediate change. If visual inspection
 is unavailable, state that limitation rather than claiming a visual check.
 
 A failed build leaves the last successful preview visible with an error. Fix the
@@ -91,4 +114,5 @@ aid, not a guarantee of PowerPoint fidelity or animation/media playback.
 
 Deliver the preview URL, the generated `deck.pptx` path and the editable project
 path. State any unverified rendering or unsupported requested feature. On the
-next revision, edit the same project, rerun the checks and rebuild the output.
+next revision, patch the same project and use the running preview. Rerun the
+checks and export when delivering the revised output.

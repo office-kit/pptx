@@ -44,7 +44,8 @@ dependencies are not automatically upgraded. To initialize manually, run
 \`npx --yes @office-kit/pptx-dev@latest init my-slides\`, then run
 \`npm install\` inside the generated directory.
 
-In an initialized project, edit \`deck.tsx\` (read its \`CLAUDE.md\` first),
+In an initialized project, edit the relevant \`slides/*.tsx\` file (read \`CLAUDE.md\` first).
+Use \`deck.tsx\` for slide order and \`theme.ts\` for shared design values,
 keep \`npm run dev\` running, and use \`npm run check\` plus \`npm run build\`
 before delivery. The output is \`deck.pptx\`. The viewer has vertical thumbnails,
 zoom and presentation mode; all content changes happen in TSX. The TSX guide

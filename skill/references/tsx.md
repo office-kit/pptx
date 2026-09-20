@@ -152,3 +152,26 @@ DSL's numeric inch props. See [core API details](core-api.md) as needed.
 Full PPTX expressiveness is a goal, not current typed coverage. The static preview
 does not play transitions or media. Preserve unsupported existing content even
 when the preview cannot render it; do not recreate a template from visible objects.
+
+## Organize for focused revisions
+
+Keep `deck.tsx` as a small composition of imported slide functions:
+
+```tsx
+import { Presentation } from '@office-kit/pptx-dsl';
+import { Cover } from './slides/cover.tsx';
+import { Revenue } from './slides/revenue.tsx';
+
+export default (
+  <Presentation>
+    <Cover />
+    <Revenue />
+  </Presentation>
+);
+```
+
+Each function returns a `Slide`. Use `theme.ts` for shared palette/typography
+values; import only what the slide needs. Use descriptive filenames that stay
+stable when slides move. Patch text, props or the relevant data item for local
+changes; change a shared value only when all its consumers should change.
+Existing inline slides and data-driven compositions remain valid.
