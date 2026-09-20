@@ -1,5 +1,21 @@
 # pptx-kit-preview
 
+## 0.9.9
+
+### Patch Changes
+
+- bb5a337: fix: transparent column and bar series appeared opaque in previews (#349)
+
+  Column and bar previews now respect series fill opacity in clustered, stacked, and percent-stacked charts. Transparent bases remain part of the stack, preserving the position of visible segments in waterfall-style charts.
+
+- 3c9850f: fix: chart previews ignored axis visibility and category tick settings (#351)
+
+  Hiding an axis line now preserves its labels and tick marks, and category axes use the requested major and minor tick marks. Hiding the category axis or its line also removes the zero baseline in column, bar, line, and area charts. Scatter and bubble previews now hide the entire corresponding axis, including its labels and ticks, when the value-axis or category-axis visibility setting requests it.
+
+- 55fc76b: fix: chart previews ignored manually positioned inner plot areas (#348)
+
+  Plotted data now uses the authored inner plot position and size. Negative sizes collapse to zero, and plot rectangles are clipped to the chart frame so malformed layouts cannot produce negative SVG dimensions or extend the plot over neighboring shapes. Outer layouts retain automatic axis gutters.
+
 ## 0.9.8
 
 ### Patch Changes

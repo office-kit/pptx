@@ -1,5 +1,18 @@
 # @office-kit/pptx-dev
 
+## 0.4.0
+
+### Minor Changes
+
+- 7982fc9: Embed interactive Claude Code in the preview, including its model selection, skills, settings and permission prompts. Attach focused-slide context with a prompt hook, preserve the session across browser reloads, simplify the chat layout, and render Markdown in Codex responses.
+
+### Patch Changes
+
+- Updated dependencies [bb5a337]
+- Updated dependencies [3c9850f]
+- Updated dependencies [55fc76b]
+  - @office-kit/pptx-preview@0.9.9
+
 ## 0.3.0
 
 ### Minor Changes
