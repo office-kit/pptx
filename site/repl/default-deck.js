@@ -37,22 +37,23 @@ const STATUS = { 'On track': '#2E9E6C', 'At risk': '#D64545', 'Not started': SLA
 // Positions are [x, y, width, height] in inches.
 const frame = ([x, y, w, h]) => ({ x: inches(x), y: inches(y), w: inches(w), h: inches(h) });
 
-function text(slide, str, box, format, anchor = 'top') {
+function text(slide, str, box, format, anchor) {
   const shape = addSlideTextBox(slide, { ...frame(box), text: str });
   setShapeTextFormat(shape, format);
-  setShapeTextAnchor(shape, anchor);
+  if (anchor) setShapeTextAnchor(shape, anchor);
   return shape;
 }
 
 // A filled shape with no outline. With `label`, bold white text centred in it.
 function block(slide, preset, box, color, label, size = 18) {
-  const words = label ? { text: label, textAnchor: 'ctr' } : {};
+  const words = label ? { text: label } : {};
   const shape = addSlideShape(slide, { preset, ...frame(box), ...words });
   setShapeFill(shape, color);
   setShapeNoStroke(shape);
   if (label) {
     setShapeTextFormat(shape, { size, bold: true, color: WHITE });
     setShapeAlignment(shape, 'center');
+    setShapeTextAnchor(shape, 'center');
   }
   return shape;
 }

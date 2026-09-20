@@ -1,5 +1,6 @@
 import * as api from '@office-kit/pptx';
 import {
+  created,
   textContent,
   literal,
   node,
@@ -196,6 +197,10 @@ export interface TextProps extends Bounds, ShapeStyle, api.TextFormat, Children 
   align?: api.ParagraphAlignment;
   anchor?: api.TextAnchor;
   autoFit?: api.TextAutoFit;
+  /** Bullet or numbering for every paragraph; a newline in the text starts a paragraph. */
+  bullets?: api.BulletStyle;
+  /** Space before / after every paragraph, in points. */
+  paragraphSpacing?: { before?: number; after?: number };
 }
 export function Text(props: TextProps): Node {
   return node('Text', async (context) => {
@@ -203,16 +208,30 @@ export function Text(props: TextProps): Node {
     const content = textContent(props.children);
     if (props.paragraphs && content.text.trim())
       throw new Error('Text accepts either text children or paragraphs.');
-    const shape = api.addSlideTextBox(slide, {
-      ...bounds(props),
-      ...(props.name ? { name: props.name } : {}),
-      text: content.text,
-    });
+    const shape = created(
+      context,
+      api.addSlideTextBox(slide, {
+        ...bounds(props),
+        ...(props.name ? { name: props.name } : {}),
+        text: content.text,
+      }),
+    );
     if (props.paragraphs) api.setShapeParagraphs(shape, props.paragraphs);
     api.setShapeTextFormat(shape, props);
     if (props.align) api.setShapeAlignment(shape, props.align);
     if (props.anchor) api.setShapeTextAnchor(shape, props.anchor);
     if (props.autoFit) api.setShapeTextAutoFit(shape, props.autoFit);
+    if (props.bullets !== undefined) api.setShapeBullets(shape, props.bullets);
+    if (props.paragraphSpacing) {
+      const { before, after } = props.paragraphSpacing;
+      const spacing = {
+        ...(before !== undefined ? { beforePts: before } : {}),
+        ...(after !== undefined ? { afterPts: after } : {}),
+      };
+      for (let i = 0; i < api.getShapeParagraphCount(shape); i++) {
+        api.setParagraphSpacing(shape, i, spacing);
+      }
+    }
     style(shape, props);
     await visit(content.elements, { ...context, slide, shape, scope: 'shape' });
   });
@@ -221,17 +240,27 @@ export interface ShapeProps extends Bounds, ShapeStyle, Children {
   preset: Parameters<typeof api.addSlideShape>[1]['preset'];
   text?: string;
   format?: api.TextFormat;
+  /** Alignment and anchor of `text` inside the shape. */
+  align?: api.ParagraphAlignment;
+  anchor?: api.TextAnchor;
 }
 export function Shape(props: ShapeProps): Node {
   return node('Shape', async (context) => {
-    const shape = api.addSlideShape(requireSlide(context), {
-      ...bounds(props),
-      preset: props.preset,
-      ...(props.name ? { name: props.name } : {}),
-      ...(props.text !== undefined ? { text: props.text } : {}),
-    });
+    if ((props.align || props.anchor) && props.text === undefined)
+      throw new Error('Shape align and anchor position its text; set text as well.');
+    const shape = created(
+      context,
+      api.addSlideShape(requireSlide(context), {
+        ...bounds(props),
+        preset: props.preset,
+        ...(props.name ? { name: props.name } : {}),
+        ...(props.text !== undefined ? { text: props.text } : {}),
+      }),
+    );
     style(shape, props);
     if (props.format) api.setShapeTextFormat(shape, props.format);
+    if (props.align) api.setShapeAlignment(shape, props.align);
+    if (props.anchor) api.setShapeTextAnchor(shape, props.anchor);
     await visit(props.children, { ...context, shape, scope: 'shape' });
   });
 }
@@ -242,12 +271,15 @@ export interface ImageProps extends Bounds, ShapeStyle, Children {
 }
 export function Image(props: ImageProps): Node {
   return node('Image', async (context) => {
-    const shape = api.addSlideImage(requireSlide(context), props.data, {
-      ...bounds(props),
-      ...(props.format ? { format: props.format } : {}),
-      ...(props.fit ? { fit: props.fit } : {}),
-      ...(props.name ? { name: props.name } : {}),
-    });
+    const shape = created(
+      context,
+      api.addSlideImage(requireSlide(context), props.data, {
+        ...bounds(props),
+        ...(props.format ? { format: props.format } : {}),
+        ...(props.fit ? { fit: props.fit } : {}),
+        ...(props.name ? { name: props.name } : {}),
+      }),
+    );
     style(shape, props);
     await visit(props.children, { ...context, shape, scope: 'shape' });
   });
@@ -264,7 +296,10 @@ export type MediaProps = Bounds &
 export function Media(props: MediaProps): Node {
   return node('Media', async (context) => {
     const { x: _x, y: _y, width: _width, height: _height, children, ...media } = props;
-    const shape = api.addSlideMedia(requireSlide(context), { ...media, ...bounds(props) });
+    const shape = created(
+      context,
+      api.addSlideMedia(requireSlide(context), { ...media, ...bounds(props) }),
+    );
     await visit(children, { ...context, shape, scope: 'shape' });
   });
 }
@@ -273,19 +308,32 @@ export interface ChartProps extends Bounds, ShapeStyle, Children {
 }
 export function Chart(props: ChartProps): Node {
   return node('Chart', async (context) => {
-    const shape = api.addSlideChart(requireSlide(context), {
-      ...bounds(props),
-      spec: props.spec,
-      ...(props.name ? { name: props.name } : {}),
-    });
+    const shape = created(
+      context,
+      api.addSlideChart(requireSlide(context), {
+        ...bounds(props),
+        spec: props.spec,
+        ...(props.name ? { name: props.name } : {}),
+      }),
+    );
     style(shape, props);
     await visit(props.children, { ...context, shape, scope: 'shape' });
   });
 }
+export type CellBorderSide = 'left' | 'right' | 'top' | 'bottom';
 export interface CellStyle {
   fill?: string;
   format?: api.TextFormat;
   anchor?: api.TextAnchor;
+  align?: api.ParagraphAlignment;
+  /** Border per side. `width` is in points; without it the line has no explicit width. */
+  borders?: Partial<Record<CellBorderSide, { color: string; width?: number }>>;
+}
+export interface TableCellInfo {
+  /** Zero-based; row 0 is the header. */
+  row: number;
+  column: number;
+  value: string;
 }
 export interface TableProps extends Bounds, Children {
   rows: readonly (readonly string[])[];
@@ -294,30 +342,98 @@ export interface TableProps extends Bounds, Children {
   cellStyle?: CellStyle;
   headerStyle?: CellStyle;
   stripeFill?: string;
+  /**
+   * Style for one cell, merged over `cellStyle`, `headerStyle` and
+   * `stripeFill` — for a status column, a total row, a highlighted figure.
+   */
+  styleCell?: (cell: TableCellInfo) => CellStyle | undefined;
+}
+function cellBorders(borders: NonNullable<CellStyle['borders']>) {
+  const sides: Partial<Record<CellBorderSide, { color: string; widthEmu?: number }>> = {};
+  for (const side of ['left', 'right', 'top', 'bottom'] as const) {
+    const border = borders[side];
+    if (!border) continue;
+    sides[side] = {
+      color: border.color,
+      ...(border.width !== undefined ? { widthEmu: api.pt(border.width) } : {}),
+    };
+  }
+  return sides;
 }
 export function Table(props: TableProps): Node {
   return node('Table', async (context) => {
-    const shape = api.addSlideTable(requireSlide(context), {
-      ...bounds(props),
-      rows: props.rows,
-      ...(props.columnWidths ? { colWidths: props.columnWidths.map(api.inches) } : {}),
-      ...(props.rowHeights ? { rowHeights: props.rowHeights.map(api.inches) } : {}),
-    });
+    const shape = created(
+      context,
+      api.addSlideTable(requireSlide(context), {
+        ...bounds(props),
+        rows: props.rows,
+        ...(props.columnWidths ? { colWidths: props.columnWidths.map(api.inches) } : {}),
+        ...(props.rowHeights ? { rowHeights: props.rowHeights.map(api.inches) } : {}),
+      }),
+    );
     props.rows.forEach((row, r) =>
-      row.forEach((_, c) => {
+      row.forEach((value, c) => {
         const cell = api.getTableCell(shape, r, c);
-        const appearance = {
+        const header = r === 0 ? props.headerStyle : undefined;
+        const own = props.styleCell?.({ row: r, column: c, value });
+        const striped = r > 0 && r % 2 === 0 ? props.stripeFill : undefined;
+        const appearance: CellStyle = {
           ...props.cellStyle,
-          ...(r === 0 ? props.headerStyle : {}),
-          format: { ...props.cellStyle?.format, ...(r === 0 ? props.headerStyle?.format : {}) },
+          ...header,
+          ...(striped !== undefined ? { fill: striped } : {}),
+          ...own,
+          format: { ...props.cellStyle?.format, ...header?.format, ...own?.format },
         };
         if (appearance.fill) api.setTableCellFill(cell, appearance.fill);
-        if (r > 0 && r % 2 === 0 && props.stripeFill) api.setTableCellFill(cell, props.stripeFill);
         if (appearance.format) api.setTableCellTextFormat(cell, appearance.format);
         if (appearance.anchor) api.setTableCellAnchor(cell, appearance.anchor);
+        if (appearance.align) api.setTableCellAlignment(cell, appearance.align);
+        // Only when a side is set: an empty call would still give every cell a <a:tcPr>.
+        const borders = cellBorders({
+          ...props.cellStyle?.borders,
+          ...header?.borders,
+          ...own?.borders,
+        });
+        if (Object.keys(borders).length > 0) api.setTableCellBorders(cell, borders);
       }),
     );
     await visit(props.children, { ...context, shape, scope: 'shape' });
+  });
+}
+export interface LineProps {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color?: string;
+  /** Stroke width in points. */
+  width?: number;
+  name?: string;
+}
+export function Line(props: LineProps): Node {
+  return node('Line', (context) => {
+    created(
+      context,
+      api.addSlideLine(requireSlide(context), {
+        from: { x: api.inches(props.x1), y: api.inches(props.y1) },
+        to: { x: api.inches(props.x2), y: api.inches(props.y2) },
+        ...(props.color !== undefined ? { color: props.color } : {}),
+        ...(props.width !== undefined ? { widthEmu: api.pt(props.width) } : {}),
+        ...(props.name ? { name: props.name } : {}),
+      }),
+    );
+  });
+}
+export interface GroupProps extends Children {
+  name?: string;
+}
+/** Groups the shapes its children create, so they move and resize as one object. */
+export function Group(props: GroupProps): Node {
+  return node('Group', async (context) => {
+    requireSlide(context);
+    const members: api.SlideShapeData[] = [];
+    await visit(props.children, { ...context, members });
+    created(context, api.groupShapes(members, props.name ? { name: props.name } : {}));
   });
 }
 function selectShape(slide: api.SlideData, target: Target): api.SlideShapeData {

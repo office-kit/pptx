@@ -52,12 +52,14 @@ Child order is drawing order. Geometry is explicit; there is no automatic layout
 | --- | --- |
 | `Presentation` | Optional source PPTX bytes, `size`, `theme`, `mode`. |
 | `Slide` | Optional `background`, `notes`, `layout`, source `from`, or edit `target`. |
-| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`. |
-| `Shape` | Required bounds and `preset`; fill, stroke, effects, optional text. |
+| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`; `bullets` and `paragraphSpacing`. |
+| `Shape` | Required bounds and `preset`; fill, stroke, effects, optional text with `align` and `anchor`. |
+| `Line` | End points `x1`, `y1`, `x2`, `y2`; `color` and `width`. |
+| `Group` | Two or more visual elements that move and resize as one object; optional `name`. |
 | `Image` | Required bounds and byte `data`; optional format and fit. |
 | `Media` | Required bounds; `kind` `video` / `audio` with byte `data`, or `online` with a `url`; optional `poster`. |
 | `Chart` | Required bounds and core `ChartSpec` in `spec`. |
-| `Table` | Required bounds and string `rows`; column widths, row heights, cell/header styles and stripe fill. |
+| `Table` | Required bounds and string `rows`; column widths, row heights, cell/header styles, stripe fill, and a per-cell `styleCell` callback. Cell styles cover fill, text format, anchor, alignment and borders. |
 | `Fill` | Existing shape `target`, replacement text children, optional `format`. |
 | `Remove` | Existing shape `target`. |
 | `Raw` | Deferred callback for public core APIs; optional explicit scope. |
@@ -158,6 +160,7 @@ The static SVG preview does not play the transition in this example.
 | `@office-kit/pptx-dev` | Node CLI: project creation, watch, viewer, inspection and export. |
 
 The DSL is initial coverage, not complete PPTX coverage. Typed master/layout
-creation, animations, transitions, connectors, groups, media playback and
-structured table cells need additional elements or core work. Raw can use
+creation, animations, transitions, connectors attached to shapes (`Line` is a
+free-standing straight line), media playback, and merged or rich-text table
+cells need additional elements or core work. Raw can use
 available core functions, but does not count as typed declarative coverage.

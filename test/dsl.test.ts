@@ -3,6 +3,8 @@ import * as api from '../src/api/index.ts';
 import {
   Chart,
   Fill,
+  Group,
+  Line,
   Media,
   Presentation,
   Raw,
@@ -233,4 +235,152 @@ it('allows typed Raw inside text and rejects a mismatched requested scope', asyn
   await expect(
     compile(Presentation({ children: Raw({ scope: 'shape', apply: () => {} }) })),
   ).rejects.toThrow('cannot run inside presentation');
+});
+
+describe('lines, groups and richer text and table styling', () => {
+  const box = { x: 1, y: 1, width: 3, height: 1 };
+  const firstSlideShapes = (pres: api.PresentationData) =>
+    api.getSlideShapes(api.getSlides(pres)[0]!);
+
+  it('draws a line between two points given in inches', async () => {
+    const pres = await compile(
+      Presentation({
+        children: Slide({
+          children: Line({ x1: 1, y1: 2, x2: 4, y2: 2, color: '#FF0000', width: 2, name: 'rule' }),
+        }),
+      }),
+    );
+    const [line] = firstSlideShapes(pres);
+    expect(api.getShapeKind(line!)).toBe('connector');
+    expect(api.getShapeName(line!)).toBe('rule');
+    expect(api.getShapeStrokeWidth(line!)).toBe(api.pt(2));
+    expect(api.getShapeStrokeColor(line!)).toBe('#FF0000');
+  });
+
+  it('groups the shapes its children create, including a nested group', async () => {
+    const pres = await compile(
+      Presentation({
+        children: Slide({
+          children: Group({
+            name: 'card',
+            children: [
+              Shape({ ...box, preset: 'rect' }),
+              Group({
+                children: [Text({ ...box, children: 'a' }), Text({ ...box, children: 'b' })],
+              }),
+            ],
+          }),
+        }),
+      }),
+    );
+    // getSlideShapes flattens groups: the outer group comes first, then its
+    // descendants.
+    const [card, ...descendants] = firstSlideShapes(pres);
+    expect(descendants).toHaveLength(4);
+    expect(api.getShapeName(card!)).toBe('card');
+    const children = api.getGroupChildren(card!);
+    expect(children.map((child) => api.getShapeKind(child))).toEqual(['shape', 'group']);
+    expect(api.getGroupChildren(children[1]!)).toHaveLength(2);
+  });
+
+  it('rejects a group of fewer than two shapes', async () => {
+    await expect(
+      compile(
+        Presentation({
+          children: Slide({ children: Group({ children: Shape({ ...box, preset: 'rect' }) }) }),
+        }),
+      ),
+    ).rejects.toThrow('at least 2 shapes');
+  });
+
+  it('applies bullets and spacing to every paragraph of a Text', async () => {
+    const pres = await compile(
+      Presentation({
+        children: Slide({
+          children: Text({
+            ...box,
+            bullets: 'bullet',
+            paragraphSpacing: { before: 2, after: 9 },
+            children: 'one\ntwo\nthree',
+          }),
+        }),
+      }),
+    );
+    const [text] = firstSlideShapes(pres);
+    expect(api.getShapeParagraphCount(text!)).toBe(3);
+    for (let i = 0; i < 3; i++) {
+      expect(api.getParagraphBullet(text!, i)).toBe('bullet');
+      expect(api.getParagraphSpacing(text!, i)).toMatchObject({ beforePts: 2, afterPts: 9 });
+    }
+  });
+
+  it('positions the text of a Shape, and refuses to without text', async () => {
+    const pres = await compile(
+      Presentation({
+        children: Slide({
+          children: Shape({
+            ...box,
+            preset: 'ellipse',
+            text: '1',
+            align: 'center',
+            anchor: 'center',
+          }),
+        }),
+      }),
+    );
+    const [shape] = firstSlideShapes(pres);
+    expect(api.getParagraphAlignment(shape!, 0)).toBe('ctr');
+    expect(api.getShapeTextAnchor(shape!)).toBe('center');
+    await expect(
+      compile(
+        Presentation({
+          children: Slide({ children: Shape({ ...box, preset: 'rect', anchor: 'center' }) }),
+        }),
+      ),
+    ).rejects.toThrow('set text as well');
+  });
+
+  it('merges styleCell over the cell, header and stripe styles', async () => {
+    const pres = await compile(
+      Presentation({
+        children: Slide({
+          children: Table({
+            x: 1,
+            y: 1,
+            width: 6,
+            height: 2,
+            rows: [
+              ['Name', 'Status'],
+              ['A', 'ok'],
+              ['B', 'late'],
+            ],
+            cellStyle: {
+              fill: '#FFFFFF',
+              align: 'left',
+              borders: { bottom: { color: '#CCCCCC', width: 0.75 } },
+            },
+            headerStyle: { fill: '#000000' },
+            stripeFill: '#EEEEEE',
+            styleCell: ({ row, value }) =>
+              row > 0 && value === 'late'
+                ? { fill: '#FF0000', align: 'center', borders: { left: { color: '#FF0000' } } }
+                : undefined,
+          }),
+        }),
+      }),
+    );
+    const [table] = firstSlideShapes(pres);
+    const cell = (r: number, c: number) => api.getTableCell(table!, r, c);
+    expect(api.getTableCellFill(cell(0, 0))).toBe('#000000');
+    expect(api.getTableCellFill(cell(1, 0))).toBe('#FFFFFF');
+    // Row 2 is striped, and its own style still wins over the stripe.
+    expect(api.getTableCellFill(cell(2, 0))).toBe('#EEEEEE');
+    expect(api.getTableCellFill(cell(2, 1))).toBe('#FF0000');
+    expect(api.getTableCellAlignment(cell(2, 0))).toBe('l');
+    expect(api.getTableCellAlignment(cell(2, 1))).toBe('ctr');
+    const borders = api.getTableCellBorders(pres, cell(2, 1));
+    expect(borders.bottom).toMatchObject({ color: '#CCCCCC', widthEmu: api.pt(0.75) });
+    expect(borders.left).toMatchObject({ color: '#FF0000' });
+    expect(api.getTableCellBorders(pres, cell(1, 0)).left).toBeNull();
+  });
 });

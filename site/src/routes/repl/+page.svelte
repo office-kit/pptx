@@ -16,9 +16,11 @@
   // library function is a free identifier, which `checkJs` would reject.
   // test/site-repl-starter.test.ts runs it against the library instead.
   import DEFAULT_CODE from '../../../repl/default-deck.js?raw';
-  // The TSX starter is the DSL package's own example, so `pnpm typecheck`
+  // The TSX starter is the same deck, so the two tabs compare authoring styles
+  // and nothing else: test/site-repl-parity.test.ts holds their slides and
+  // charts byte-identical. It is a DSL package example, so `pnpm typecheck`
   // there checks the very text the editor opens with.
-  import DEFAULT_TSX from '../../../../packages/dsl/examples/review.tsx?raw';
+  import DEFAULT_TSX from '../../../../packages/dsl/examples/board-deck.tsx?raw';
   import { WRAPPER_LINES, asyncBody, evaluateTsx } from '../../../repl/evaluate.ts';
 
   type Mode = 'functions' | 'tsx';
@@ -229,12 +231,13 @@
   <header class="intro">
     <h1>REPL</h1>
     <p class="lede">
-      Write code and the deck redraws as you type. In <strong>Functions</strong> every public
-      function is already in scope, and <code>pres</code> is a new 16:9 deck from
-      <code>createPresentation()</code>; the starter is a six-slide board deck driven by one data
-      object. <strong>TSX</strong> runs a <code>@office-kit/pptx-dsl</code> file exactly as you
-      would save it: imports at the top, a <code>&lt;Presentation&gt;</code> as the default export.
-      Either way the download is the same bytes <code>savePresentation</code> writes in production.
+      Write code and the deck redraws as you type. Both tabs open on the same six-slide board
+      deck, driven by one data object, so you can compare the two ways of writing it. In
+      <strong>Functions</strong> every public function is already in scope, and <code>pres</code>
+      is a new 16:9 deck from <code>createPresentation()</code>. <strong>TSX</strong> runs a
+      <code>@office-kit/pptx-dsl</code> file exactly as you would save it: imports at the top, a
+      <code>&lt;Presentation&gt;</code> as the default export. Either way the download is the same
+      bytes <code>savePresentation</code> writes in production.
     </p>
   </header>
 
