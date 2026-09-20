@@ -14,6 +14,7 @@
 //   - A slide that has no `slideLayout` rel.
 //   - A slide layout that has no `slideMaster` rel.
 //   - Duplicate `<p:sldId>` `id` or `r:id` within `<p:sldIdLst>`.
+//   - A video / audio time node whose target shape is not on the slide.
 //
 // What this doesn't catch (yet):
 //
@@ -24,7 +25,7 @@
 
 import { type PartName, type Relationship, partName, resolveTarget } from '../opc/index.ts';
 import type { OpcPackage } from '../parts/index.ts';
-import { REL_TYPES } from '../presentationml/index.ts';
+import { REL_TYPES, isMediaTimingNode, mediaTimingNodeTarget } from '../presentationml/index.ts';
 import {
   NS,
   allChildElements,
@@ -226,6 +227,9 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
       if (rel.targetMode === 'External') continue;
       if (
         rel.type !== REL_TYPES.image &&
+        rel.type !== REL_TYPES.media &&
+        rel.type !== REL_TYPES.video &&
+        rel.type !== REL_TYPES.audio &&
         rel.type !== REL_TYPES.chart &&
         rel.type !== REL_TYPES.notesSlide &&
         rel.type !== REL_TYPES.comments &&
@@ -298,6 +302,28 @@ export const validatePresentationPackage = (pkg: OpcPackage): ValidationIssue[] 
         });
       }
     }
+
+    // A `<p:video>` / `<p:audio>` time node is bound to its picture by shape
+    // id only; one left behind after its shape was deleted targets nothing.
+    const timing = firstChildElement(slideRoot, qname('p', 'timing', NS.pml));
+    const checkMediaNodes = (host: ReturnType<typeof parseXml>['root']): void => {
+      for (const child of host.children) {
+        if (child.kind !== 'element') continue;
+        if (!isMediaTimingNode(child)) {
+          checkMediaNodes(child);
+          continue;
+        }
+        const target = mediaTimingNodeTarget(child);
+        if (target !== null && !seenShapeIds.has(String(target))) {
+          issues.push({
+            severity: 'error',
+            message: `media time node in slide ${slideName} targets missing shape id="${target}"`,
+            partName: slideName,
+          });
+        }
+      }
+    };
+    if (timing) checkMediaNodes(timing);
   }
 
   // Chart parts must resolve to their embedded xlsx workbooks.

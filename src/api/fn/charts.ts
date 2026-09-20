@@ -19,6 +19,7 @@ import {
   type ChartTextStyle,
   buildChartSpaceDoc,
   buildEmbeddedXlsx,
+  layoutChartSheet,
   readChartSpec,
 } from '../../internal/chartml/index.ts';
 import {
@@ -173,12 +174,28 @@ const validateChartSpecColors = (spec: ChartSpec): void => {
     spec.secondaryValueAxis?.lineColor,
     'addSlideChart: secondaryValueAxis.lineColor',
   );
+  checkChartColor(spec.dataLabels?.fillColor, 'addSlideChart: dataLabels.fillColor');
+  checkChartColor(spec.upDownBars?.upColor, 'addSlideChart: upDownBars.upColor');
+  checkChartColor(spec.upDownBars?.downColor, 'addSlideChart: upDownBars.downColor');
+  checkChartColor(spec.seriesAxis?.lineColor, 'addSlideChart: seriesAxis.lineColor');
   spec.series.forEach((series, i) => {
     checkChartColor(series.color, `addSlideChart: series[${i}].color`);
     checkChartColor(series.lineColor, `addSlideChart: series[${i}].lineColor`);
     checkChartColor(series.markerColor, `addSlideChart: series[${i}].markerColor`);
     checkChartColor(series.markerLineColor, `addSlideChart: series[${i}].markerLineColor`);
     checkChartColor(series.trendline?.color, `addSlideChart: series[${i}].trendline.color`);
+    checkChartColor(series.errorBars?.color, `addSlideChart: series[${i}].errorBars.color`);
+    checkChartColor(series.xErrorBars?.color, `addSlideChart: series[${i}].xErrorBars.color`);
+    checkChartColor(
+      series.dataLabels?.fillColor,
+      `addSlideChart: series[${i}].dataLabels.fillColor`,
+    );
+    series.pointDataLabels?.forEach((label, j) => {
+      checkChartColor(
+        label?.fillColor,
+        `addSlideChart: series[${i}].pointDataLabels[${j}].fillColor`,
+      );
+    });
     series.pointColors?.forEach((c, j) => {
       checkChartColor(c, `addSlideChart: series[${i}].pointColors[${j}]`);
     });
@@ -196,9 +213,10 @@ const validateChartSpecAxes = (spec: ChartSpec): void => {
 
 /**
  * Adds a chart to the slide. Returns the new shape handle (kind
- * `graphicFrame`). Authorable chart kinds: `bar`, `column`, `line`,
- * `pie`, `doughnut`, `area`. `scatter`, `radar` and `bubble` are read +
- * render only and are rejected here — see `ChartKind`.
+ * `graphicFrame`). Every `ChartKind` is authorable, and the `view3D` /
+ * `ofPie` / `surfaceContour` modifiers reach the remaining plot-group
+ * elements (3-D bar / line / area / pie, pie-of-pie, contour) — see the
+ * table on `ChartKind`.
  *
  * Side effects:
  *
@@ -212,9 +230,15 @@ const validateChartSpecAxes = (spec: ChartSpec): void => {
  *
  * Constraints:
  *
- *   - `pie` charts require exactly one series.
- *   - All series should have at most `categories.length` values; missing
- *     values are treated as blanks (gaps in the visualization).
+ *   - `pie` / `doughnut` charts require exactly one series; `stock`
+ *     charts exactly three (high, low, close) or four (open first).
+ *   - `scatter` / `bubble` series carry their own `xValues` (and
+ *     `bubbleSizes`); `categories` is unused for them.
+ *   - All other series should have at most `categories.length` values;
+ *     missing values are treated as blanks (gaps in the visualization).
+ *   - A spec whose fields contradict each other (e.g. `view3D` on a
+ *     scatter chart, error bars on a pie) throws instead of writing a
+ *     chart PowerPoint would repair.
  */
 // A chart inherits no master text style, so any label without an authored
 // color falls back to the `tx1` token — which a deck with an inverted color
@@ -274,16 +298,9 @@ export const addSlideChart = (
   const chartPartName = partName(`/ppt/charts/chart${chartN}.xml`);
   const xlsxPartName = partName(`/ppt/embeddings/Microsoft_Excel_Worksheet${chartN}.xlsx`);
 
-  // Build the embedded xlsx bytes. Each row in the sheet corresponds to
-  // one category; header row carries the series names.
-  const xlsxRows = spec.categories.map((label, i) => ({
-    label,
-    values: spec.series.map((s) => s.values[i] ?? null),
-  }));
-  const xlsxBytes = buildEmbeddedXlsx(
-    spec.series.map((s) => s.name),
-    xlsxRows,
-  );
+  // The workbook grid and the chart's `<c:f>` formulas come from the same
+  // layout, so "Edit data" opens onto exactly the cells the chart names.
+  const xlsxBytes = buildEmbeddedXlsx(layoutChartSheet(spec).grid);
 
   // Build the chart XML and serialize.
   const chartDoc = buildChartSpaceDoc(spec);
@@ -425,16 +442,8 @@ export const setChartSpec = (chart: SlideChartData, spec: ChartSpec): void => {
         ? partName(xlsxRel.target)
         : resolveTarget(resolved.partName, xlsxRel.target);
       const xlsxPart = pkg.getPart(xlsxName);
-      const rows = spec.categories.map((label, i) => ({
-        label,
-        values: spec.series.map((s) => s.values[i] ?? null),
-      }));
-      const xlsxBytes = buildEmbeddedXlsx(
-        spec.series.map((s) => s.name),
-        rows,
-      );
       if (xlsxPart) {
-        xlsxPart.data = xlsxBytes;
+        xlsxPart.data = buildEmbeddedXlsx(layoutChartSheet(spec).grid);
       }
     }
   }
@@ -615,6 +624,8 @@ export const getPresentationChartKindCounts = (
     scatter: 0,
     radar: 0,
     bubble: 0,
+    stock: 0,
+    surface: 0,
   };
   for (const slide of getSlides(pres)) {
     for (const chart of getSlideCharts(slide)) {

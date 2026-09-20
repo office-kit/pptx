@@ -252,6 +252,22 @@ export function Image(props: ImageProps): Node {
     await visit(props.children, { ...context, shape, scope: 'shape' });
   });
 }
+// No ShapeStyle: a clip's picture already carries the `ppaction://media` click
+// action that makes it playable, which `click` would replace.
+export type MediaProps = Bounds &
+  Children &
+  api.SlideMediaSource & {
+    name?: string;
+    poster?: Uint8Array;
+    posterFormat?: api.ImageFormat;
+  };
+export function Media(props: MediaProps): Node {
+  return node('Media', async (context) => {
+    const { x: _x, y: _y, width: _width, height: _height, children, ...media } = props;
+    const shape = api.addSlideMedia(requireSlide(context), { ...media, ...bounds(props) });
+    await visit(children, { ...context, shape, scope: 'shape' });
+  });
+}
 export interface ChartProps extends Bounds, ShapeStyle, Children {
   spec: api.ChartSpec;
 }

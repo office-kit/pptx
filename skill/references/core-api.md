@@ -283,9 +283,13 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
 - **Multi-line text** in a text box, shape, or table cell uses `\n` between
   lines — each becomes its own paragraph. A literal newline inside one run is
   not a line break.
-- **Authorable chart kinds** are `bar`, `column`, `line`, `pie`, `doughnut`,
-  `area`. `scatter`/`radar`/`bubble` are read-only today (authoring them
-  throws). `pie`/`doughnut` take exactly one series.
+- **Every chart kind is authorable**: `bar`, `column`, `line`, `area`, `pie`,
+  `doughnut`, `radar`, `stock`, `surface`, plus `scatter` / `bubble`, whose
+  series carry their own `xValues` (and `bubbleSizes`) instead of sharing
+  `categories`. 3-D is a modifier, not a kind: add `view3D` to `bar` / `column`
+  / `line` / `area` / `pie`. `pie`/`doughnut` take exactly one series; `stock`
+  takes three (high, low, close) or four (open first). A spec whose fields
+  contradict each other (e.g. `view3D` on a scatter chart) throws.
 - **Find placeholders by type token**, not display name:
   `findSlidePlaceholder(slide, 'title' | 'body' | 'ctrTitle' | 'subTitle')`.
 

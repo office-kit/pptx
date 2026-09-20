@@ -7,7 +7,7 @@
 
 const OFFICE_DOC = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const PACKAGE = 'http://schemas.openxmlformats.org/package/2006/relationships';
-const MS_2010 = 'http://schemas.microsoft.com/office/2010/relationships';
+const MS_2007 = 'http://schemas.microsoft.com/office/2007/relationships';
 const MS_2015 = 'http://schemas.microsoft.com/office/2015/relationships';
 
 export const REL_TYPES = {
@@ -46,10 +46,13 @@ export const REL_TYPES = {
   diagramLayout: `${OFFICE_DOC}/diagramLayout`,
   diagramQuickStyle: `${OFFICE_DOC}/diagramQuickStyle`,
   diagramColors: `${OFFICE_DOC}/diagramColors`,
-  media: `${MS_2010}/media`,
-  video: `${MS_2010}/video`,
-  audio: `${MS_2010}/audio`,
-  font: `${MS_2010}/font`,
+  // A clip carries two rels to the same part: the ECMA-376 `video` / `audio`
+  // one (`<a:videoFile r:link>`) and PowerPoint 2010's `media` one
+  // (`<p14:media r:embed>`), which lives in Microsoft's 2007 namespace.
+  media: `${MS_2007}/media`,
+  video: `${OFFICE_DOC}/video`,
+  audio: `${OFFICE_DOC}/audio`,
+  font: `${OFFICE_DOC}/font`,
 
   // Authors list for modern comments
   authors: `${MS_2015}/authors`,

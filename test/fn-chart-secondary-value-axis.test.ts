@@ -225,7 +225,10 @@ describe('chart reader: secondary value axis selection', () => {
       const spec = readChartSpec(parseXml(scatterWithXAt(xPos)).root)!;
       expect(spec.secondaryValueAxis).toBeUndefined();
       expect(spec.series[0]!.secondaryAxis).toBeUndefined();
-      expect(spec.valueAxis).toEqual({ max: 20 });
+      // The group's first axId is the x axis, wherever it is drawn: its
+      // scaling is the horizontal axis', the other one the value axis'.
+      expect(spec.categoryAxisScaling).toEqual({ max: 20 });
+      expect(spec.valueAxis).toEqual({ max: 40 });
     },
   );
 });

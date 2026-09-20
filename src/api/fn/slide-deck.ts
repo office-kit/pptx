@@ -567,7 +567,14 @@ const collectRelRefs = (el: XmlElement, into: Set<string>): void => {
   }
 };
 
-// importSlide copies the body verbatim but only carries image + hyperlink rels
+const IMPORTED_MEDIA_REL_TYPES: ReadonlySet<string> = new Set([
+  REL_TYPES.image,
+  REL_TYPES.media,
+  REL_TYPES.video,
+  REL_TYPES.audio,
+]);
+
+// importSlide copies the body verbatim but only carries media + hyperlink rels
 // across (charts / diagrams / OLE are dropped in v1). A `<p:graphicFrame>` that
 // still points at a dropped rel would be a dangling r:id — PowerPoint reports
 // the whole package corrupt. Drop those frames so the imported slide stays valid
@@ -598,8 +605,8 @@ const pruneDanglingGraphicFrames = (el: XmlElement, keptRelIds: Set<string>): vo
  *
  * Limitations (v1):
  *
- *   - Only `image` rels are copied across. Other rels (charts, embedded
- *     workbooks, oleObjects, comments) are dropped from the imported
+ *   - Only image / video / audio rels are copied across. Other rels (charts,
+ *     embedded workbooks, oleObjects, comments) are dropped from the imported
  *     slide. A diagnostic message is appended for each dropped rel.
  *   - Hyperlinks (external URLs) are preserved.
  *   - Slide → notesSlide is dropped (notes don't follow imports).
@@ -632,7 +639,7 @@ export const importSlide = (
 
   // Build the new slide's rels:
   //   - one slideLayout pointing at the supplied target layout
-  //   - one image rel per source image (with media imported)
+  //   - the image / video / audio rels (with each media part imported once)
   //   - external hyperlink rels copied verbatim
   const newRels = emptyRels();
   const layoutPartName = targetLayout[LAYOUT_PART_NAME];
@@ -652,37 +659,47 @@ export const importSlide = (
     targetMode: 'Internal',
   });
 
+  // A clip is referenced by two rels (`media` + `video` / `audio`) that must
+  // keep pointing at ONE part, so copies are keyed by source part name.
+  const importedMedia = new Map<string, string>();
   if (sourceRels !== null) {
     for (const rel of sourceRels.items) {
       if (rel.type === REL_TYPES.slideLayout) continue; // handled above
       if (rel.type === REL_TYPES.notesSlide) continue;
-      if (rel.type === REL_TYPES.image && rel.targetMode === 'Internal') {
-        // Copy the media part across with a fresh name.
+      if (IMPORTED_MEDIA_REL_TYPES.has(rel.type)) {
+        // An online video's URL (or a linked image) has no part to copy.
+        if (rel.targetMode === 'External') {
+          newRels.items.push({ ...rel });
+          continue;
+        }
         const mediaName = rel.target.startsWith('/')
           ? partName(rel.target)
           : resolveTarget(sourcePartName, rel.target);
-        const mediaPart = sourcePkg.getPart(mediaName);
-        if (!mediaPart) continue;
-        const dotIdx = mediaName.lastIndexOf('.');
-        const extension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1) : 'bin';
-        let nextN = 1;
-        const re = /^\/ppt\/media\/image(\d+)\./;
-        for (const p of targetPkg.parts) {
-          const m = p.name.match(re);
-          if (m?.[1] !== undefined) {
-            const n = Number.parseInt(m[1], 10);
-            if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+        let target = importedMedia.get(mediaName);
+        if (target === undefined) {
+          const mediaPart = sourcePkg.getPart(mediaName);
+          if (!mediaPart) continue;
+          const dotIdx = mediaName.lastIndexOf('.');
+          const extension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1) : 'bin';
+          // Copy the media part across with a fresh name, in PowerPoint's
+          // `imageN` / `mediaN` naming.
+          const stem = rel.type === REL_TYPES.image ? 'image' : 'media';
+          let nextN = 1;
+          const re = new RegExp(`^/ppt/media/${stem}(\\d+)\\.`);
+          for (const p of targetPkg.parts) {
+            const m = p.name.match(re);
+            if (m?.[1] !== undefined) {
+              const n = Number.parseInt(m[1], 10);
+              if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
+            }
           }
+          const newMediaName = partName(`/ppt/media/${stem}${nextN}.${extension}`);
+          setOpcDefault(targetPkg, extension.toLowerCase(), mediaPart.contentType);
+          targetPkg.addPart(newMediaName, mediaPart.contentType, new Uint8Array(mediaPart.data));
+          target = `../media/${stem}${nextN}.${extension}`;
+          importedMedia.set(mediaName, target);
         }
-        const newMediaName = partName(`/ppt/media/image${nextN}.${extension}`);
-        setOpcDefault(targetPkg, extension.toLowerCase(), mediaPart.contentType);
-        targetPkg.addPart(newMediaName, mediaPart.contentType, new Uint8Array(mediaPart.data));
-        newRels.items.push({
-          id: rel.id,
-          type: REL_TYPES.image,
-          target: `../media/image${nextN}.${extension}`,
-          targetMode: 'Internal',
-        });
+        newRels.items.push({ id: rel.id, type: rel.type, target, targetMode: 'Internal' });
         continue;
       }
       if (rel.type === REL_TYPES.hyperlink) {

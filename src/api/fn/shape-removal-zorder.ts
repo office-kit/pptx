@@ -1,7 +1,14 @@
 // Shape removal and z-order.
 
 import { emptyRels, nextRelId } from '../../internal/opc/index.ts';
-import { NS, type XmlElement, firstChildElement, qname } from '../../internal/xml/index.ts';
+import { readPictureMediaRef } from '../../internal/presentationml/index.ts';
+import {
+  NS,
+  type XmlElement,
+  firstChildElement,
+  getAttrValue,
+  qname,
+} from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
   SHAPE_ELEMENT,
@@ -18,6 +25,7 @@ import {
   rebuildShapesFromDocument,
   requireSpTree,
 } from './_helpers.ts';
+import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — removal.
 
@@ -81,6 +89,11 @@ export const copyShape = (targetSlide: SlideData, sourceShape: SlideShapeData): 
     });
     pkg.setRels(targetSlide[SLIDE_PART_NAME], targetRels);
   }
+
+  // A clip's play controls come from a media time node keyed by shape id, so
+  // the copy needs its own node under the id it was just given.
+  const media = cloned.name.localName === 'pic' ? readPictureMediaRef(cloned) : null;
+  if (media !== null) addMediaTimingNode(targetSlide, media.kind, newId);
 
   return appendAndReturnNewShape(targetSlide, cloned);
 };
@@ -305,14 +318,16 @@ export const sendShapeBackward = (shape: SlideShapeData): void => {
  */
 export const clearSlideShapes = (slide: SlideData): void => {
   const spTree = requireSpTree(slide);
-  spTree.children = spTree.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.pml &&
-        SHAPE_CHILD_LOCALS.has(c.name.localName)
-      ),
-  );
+  const removedIds = new Set<number>();
+  spTree.children = spTree.children.filter((c) => {
+    const isShape =
+      c.kind === 'element' &&
+      c.name.namespaceURI === NS.pml &&
+      SHAPE_CHILD_LOCALS.has(c.name.localName);
+    if (isShape) collectShapeIds(c, removedIds);
+    return !isShape;
+  });
+  removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
 };
@@ -327,6 +342,23 @@ export const removeShape = (shape: SlideShapeData): void => {
   const idx = spTree.children.indexOf(shape[SHAPE_ELEMENT]);
   if (idx < 0) return;
   spTree.children.splice(idx, 1);
+  const removedIds = new Set<number>();
+  collectShapeIds(shape[SHAPE_ELEMENT], removedIds);
+  removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
+};
+
+// Ids of `el` and every shape nested in it (a removed group takes its media
+// pictures with it), so no media time node is left targeting a shape id that
+// no longer exists.
+const collectShapeIds = (el: XmlElement, into: Set<number>): void => {
+  if (el.name.namespaceURI === NS.pml && el.name.localName === 'cNvPr') {
+    const id = Number.parseInt(getAttrValue(el, qname('', 'id', '')) ?? '', 10);
+    if (Number.isFinite(id)) into.add(id);
+    return;
+  }
+  for (const c of el.children) {
+    if (c.kind === 'element') collectShapeIds(c, into);
+  }
 };

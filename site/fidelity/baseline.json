@@ -43,6 +43,11 @@
     "38-roadmap-timeline.pptx": [0.8098],
     "39-process-flow.pptx": [0.8798],
     "40-financial-report.pptx": [0.7906, 0.7923],
-    "41-marketing-one-pager.pptx": [0.8287]
+    "41-marketing-one-pager.pptx": [0.8287],
+    "42-media.pptx": [0.9097, 0.9955, 0.9851],
+    "43-chart-plot-types.pptx": [
+      0.6559, 0.6808, 0.7117, 0.5806, 0.6975, 0.7231, 0.6681, 0.6324, 0.4154, 0.8845, 0.8092,
+      0.8384, 0.7715, 0.6858
+    ]
   }
 }

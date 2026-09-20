@@ -57,6 +57,7 @@ Layout is explicit: CSS and automatic UI layout are not implemented.
 | `Text`         | Literal children or core `ParagraphSpec[]` via `paragraphs`, text format |
 | `Shape`        | Core preset geometry, fill, stroke, effects, optional text               |
 | `Image`        | Bytes in `data`, optional format and fit                                 |
+| `Media`        | `kind` `video` / `audio` with bytes in `data`, or `online` with a `url`  |
 | `Chart`        | Complete core `ChartSpec` via `spec`                                     |
 | `Table`        | String rows, column widths, row heights, cell/header styles, stripe fill |
 | `Fill`         | Existing shape target, replacement text, optional format                 |
@@ -67,6 +68,17 @@ Bounds are required for newly created visual objects. Shape styles support solid
 and gradient fills, stroke, rotation, shadow, glow and click actions. `Text`
 accepts the core `TextFormat` properties directly, plus alignment, anchor and
 text auto-fit. Table cell formats are merged with header overrides.
+
+`Media` embeds a video or audio clip from bytes, or links an online video by
+URL (YouTube page URLs are rewritten to the embed form). `poster` supplies the
+image shown before playback; a neutral play-button poster is used otherwise.
+It takes bounds and `name` but no shape styles: the clip's picture already owns
+its click action.
+
+```tsx
+<Media kind="video" data={clipBytes} poster={posterBytes} x={1} y={1.5} width={8} height={4.5} />
+<Media kind="online" url="https://youtu.be/dQw4w9WgXcQ" x={1} y={1.5} width={8} height={4.5} />
+```
 
 ## Existing presentations
 

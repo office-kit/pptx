@@ -243,6 +243,15 @@
       ],
     },
     {
+      title: 'Media',
+      description: 'Embedded video / audio and online (URL) video — add and read back.',
+      exports: [
+        { name: 'addSlideMedia' },
+        { name: 'getShapeMedia' },
+        { name: 'findShapesWithMedia' },
+      ],
+    },
+    {
       title: 'Tables',
       description: 'Per-cell text / fill / alignment, structural insert / remove, sizing.',
       exports: [

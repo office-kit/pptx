@@ -3,6 +3,7 @@ import * as api from '../src/api/index.ts';
 import {
   Chart,
   Fill,
+  Media,
   Presentation,
   Raw,
   Shape,
@@ -123,6 +124,35 @@ describe('declarative authoring', () => {
       }),
     );
     expect(api.getShapeRotation(api.getSlideShapes(api.getSlides(result)[0]!)[0]!)).toBe(15);
+  });
+
+  it('adds embedded and online media with inch bounds', async () => {
+    const mp3 = new Uint8Array([0x49, 0x44, 0x33, 3, 0, 0, 0, 0, 0, 0]);
+    const result = await compile(
+      Presentation({
+        children: Slide({
+          children: [
+            Media({ kind: 'audio', data: mp3, x: 1, y: 1, width: 1, height: 1, name: 'jingle' }),
+            Media({
+              kind: 'online',
+              url: 'https://youtu.be/dQw4w9WgXcQ',
+              x: 3,
+              y: 1,
+              width: 4,
+              height: 2.25,
+            }),
+          ],
+        }),
+      }),
+    );
+    const [audio, online] = api.findShapesWithMedia(api.getSlides(result)[0]!);
+    expect(api.getShapeName(audio!)).toBe('jingle');
+    expect(api.getShapeMedia(audio!)).toMatchObject({ kind: 'audio', contentType: 'audio/mpeg' });
+    expect(api.getShapeBounds(audio!)).toMatchObject({ x: api.inches(1), w: api.inches(1) });
+    expect(api.getShapeMedia(online!)).toEqual({
+      kind: 'online',
+      url: 'https://www.youtube.com/embed/dQw4w9WgXcQ?feature=oembed',
+    });
   });
 
   it('fails for ambiguous references and incompatible parent scopes', async () => {

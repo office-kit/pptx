@@ -29,6 +29,8 @@ describe('fn API: getPresentationChartKindCounts', () => {
       scatter: 0,
       radar: 0,
       bubble: 0,
+      stock: 0,
+      surface: 0,
     });
   });
 
@@ -66,6 +68,8 @@ describe('fn API: getPresentationChartKindCounts', () => {
       scatter: 0,
       radar: 0,
       bubble: 0,
+      stock: 0,
+      surface: 0,
     });
   });
 
@@ -81,7 +85,19 @@ describe('fn API: getPresentationChartKindCounts', () => {
     });
     const counts = getPresentationChartKindCounts(pres);
     expect(Object.keys(counts).sort()).toEqual(
-      ['area', 'bar', 'bubble', 'column', 'doughnut', 'line', 'pie', 'radar', 'scatter'].sort(),
+      [
+        'area',
+        'bar',
+        'bubble',
+        'column',
+        'doughnut',
+        'line',
+        'pie',
+        'radar',
+        'scatter',
+        'stock',
+        'surface',
+      ].sort(),
     );
     expect(counts.line).toBe(1);
   });

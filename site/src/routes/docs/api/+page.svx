@@ -22,13 +22,14 @@ import { addSlide, findSlideLayout, getSlides, duplicateSlide } from '@office-ki
 // Template fill.
 import { replaceTokensInPresentation } from '@office-kit/pptx';
 
-// Shapes (180+ presets, lines, tables, charts, images).
+// Shapes (180+ presets, lines, tables, charts, images, video / audio).
 import {
   addSlideShape,
   addSlideLine,
   addSlideTable,
   addSlideChart,
   addSlideImage,
+  addSlideMedia,
   addSlideTextBox,
 } from '@office-kit/pptx';
 
@@ -115,6 +116,7 @@ type ShapeClickAction =
 - **Malformed package** — `loadPresentation` throws a descriptive `Error` naming the missing or malformed OPC part.
 - **Encrypted .pptx** — detected by CFB Compound Document magic and rejected up-front; decrypt with [`officecrypto-tool`](https://github.com/zurmokeeper/officecrypto-tool) first.
 - **Unknown image format** — `addSlideImage` / `setShapeImage` throw if the magic bytes don't match a supported format (PNG / JPEG / GIF / SVG / BMP / TIFF). Pass `options.format` to override detection.
+- **Unknown media container / bad URL** — `addSlideMedia` throws when a clip's container cannot be detected (pass `format`), when the poster is not a supported image, or when an online video `url` is not an absolute `http(s)` URL. Nothing is added to the package in that case.
 - **Off-spec IDs** — `validatePresentation(pres)` returns the list of invariant violations as `ValidationIssue[]` (severity + message). Run it before saving in CI.
 
 ## Stability
