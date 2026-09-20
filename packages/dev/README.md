@@ -4,12 +4,30 @@ Local TSX authoring tools for `@office-kit/pptx-dsl`. Build and preview an edita
 PowerPoint presentation while changing its source in VSCode or Claude Code.
 Requires Node.js 22.18 or later.
 
+The CLI and DSL packages are **not yet published to npm**. Start with the
+[step-by-step authoring guide](https://office-kit.github.io/pptx/docs/authoring)
+for a source-checkout installation. In the repository root (after
+`pnpm install --frozen-lockfile`), run:
+
 ```sh
-npx @office-kit/pptx-dev init my-slides
-cd my-slides
-npm install
+pnpm --filter @office-kit/pptx-dev... build
+PPTX_REPO="$PWD"
+PPTX_PACKS="$PPTX_REPO/.probe/packages"
+mkdir -p "$PPTX_PACKS"
+pnpm --filter @office-kit/pptx-dev... exec pnpm pack --pack-destination "$PPTX_PACKS"
+node "$PPTX_REPO/packages/dev/dist/cli.mjs" init ../my-slides
+cd ../my-slides
+npm install --legacy-peer-deps "$PPTX_PACKS"/*.tgz
+npm run check
 npm run dev
 ```
+
+Install all four tarballs from the same checkout. The temporary peer override is
+needed because the DSL targets the next core release, whose version number has
+not been bumped yet; the source checkout contains the required core changes.
+Keep the tarballs for reinstalls, and use an empty pack directory after upgrading
+so old versions are not included. The guide also covers Claude Code, VSCode,
+templates, viewing controls, and troubleshooting.
 
 Open the local URL printed by the server. Save `deck.tsx` to rebuild. The viewer
 has a vertical thumbnail strip and a large slide canvas. Click a thumbnail or use

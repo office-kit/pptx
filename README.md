@@ -33,8 +33,10 @@ For declarative TSX authoring, use the companion
 [`@office-kit/pptx-dev`](packages/dev) packages. They provide typed elements,
 template editing, a local watch preview and PPTX export, with no React or Vue
 runtime. The dev package initializes a project with VSCode tasks and a
-`CLAUDE.md` authoring guide. See its README for commands that also work directly
-from this checkout before the new packages are published.
+`CLAUDE.md` authoring guide. Start with the
+[step-by-step authoring guide](https://office-kit.github.io/pptx/docs/authoring):
+the CLI and DSL are not yet published to npm, so it includes a verified
+source-checkout installation.
 
 - **It reads as well as it writes.** Open a deck made in PowerPoint, Keynote,
   or Google Slides, change it, and save it. Every setter has a getter, and

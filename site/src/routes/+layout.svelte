@@ -11,7 +11,7 @@
   const { children }: Props = $props();
 
   const links = [
-    { path: '/docs/getting-started', label: 'Docs', section: '/docs' },
+    { path: '/docs/authoring', label: 'Docs', section: '/docs' },
     { path: '/docs/recipes', label: 'Recipes' },
     { path: '/api', label: 'API' },
     { path: '/playground', label: 'Playground' },

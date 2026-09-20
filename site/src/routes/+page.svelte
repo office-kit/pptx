@@ -53,11 +53,11 @@
       link: 'Read the template guide',
     },
     {
-      title: 'Start from an empty deck',
-      body: 'createPresentation() returns a deck with a slide master, the Office theme, and three layouts, so there is no template file to ship. Add text, 180+ preset shapes, tables, pictures, and charts with their embedded workbook. Brand it with your own theme colors and fonts.',
-      code: 'createPresentation()',
-      href: '/docs/recipes',
-      link: 'Browse the recipes',
+      title: 'Create slides with AI and TSX',
+      body: 'Initialize a typed TSX project, ask Claude Code to edit its source, and review each save in a view-only slide viewer. Export native PowerPoint text, shapes, tables, and charts. The companion packages currently require a source checkout; the guide walks through the working setup.',
+      code: 'deck.tsx → preview → deck.pptx',
+      href: '/docs/authoring',
+      link: 'Create your first presentation',
     },
     {
       title: 'See the slide before you send it',
@@ -177,7 +177,7 @@
       cleanly. It runs in Node and in the browser.
     </p>
     <div class="cta">
-      <a href="{base}/docs/getting-started" class="btn primary">Get started</a>
+      <a href="{base}/docs/authoring" class="btn primary">Create slides with AI</a>
       <a href="{base}/playground" class="btn">Open the playground</a>
       <InstallCommand pkg={currentProduct.pkg} />
     </div>
