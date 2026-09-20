@@ -3921,7 +3921,7 @@ const pointCount = (spec: ChartSpec): number => {
 };
 
 const chartFillOpacityAttr = (opacity = 1): string =>
-  opacity === 1 ? '' : ` fill-opacity="${opacity}"`;
+  opacity === 1 ? '' : ` fill-opacity="${opacity.toFixed(3)}"`;
 
 const renderColumnChart = (
   f: ChartFrame,

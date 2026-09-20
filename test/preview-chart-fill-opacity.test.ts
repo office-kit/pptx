@@ -22,9 +22,15 @@ async function render(spec: ChartSpec) {
 
 describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
   describe.each(['clustered', 'stacked', 'percentStacked'] as const)('%s grouping', (grouping) => {
-    it.each([0, 0.35, 1, undefined])(
+    it.each([
+      [0, '0.000'],
+      [0.35, '0.350'],
+      [0.12345, '0.123'],
+      [1, undefined],
+      [undefined, undefined],
+    ] as const)(
       'renders opacity %s without changing the stack',
-      async (fillOpacity) => {
+      async (fillOpacity, expectedOpacity) => {
         const svg = await render({
           kind,
           grouping,
@@ -43,9 +49,7 @@ describe.each(['column', 'bar'] as const)('%s fill opacity', (kind) => {
         const rects = attrsOf(svg, 'rect');
         const base = rects.find((r) => r.fill === '#010203')!;
         const visible = rects.find((r) => r.fill === '#AABBCC')!;
-        expect(base['fill-opacity']).toBe(
-          fillOpacity === undefined || fillOpacity === 1 ? undefined : String(fillOpacity),
-        );
+        expect(base['fill-opacity']).toBe(expectedOpacity);
         expect(visible['fill-opacity']).toBeUndefined();
         if (grouping !== 'clustered') {
           const fraction = grouping === 'percentStacked' ? 0.4 : 0.2;
