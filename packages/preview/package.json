@@ -1,6 +1,6 @@
 {
   "name": "@office-kit/pptx-preview",
-  "version": "0.9.6",
+  "version": "0.9.7",
   "description": "Experimental preview renderer for @office-kit/pptx: render a slide to SVG (browser + Node) or rasterize it to a PNG/RGBA image in Node, with no browser binary.",
   "keywords": [
     "ooxml",
