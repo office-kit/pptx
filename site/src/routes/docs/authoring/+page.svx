@@ -8,7 +8,7 @@ Install the Office Kit plugin, then tell Claude Code what presentation you want.
 Claude creates the project, writes the slides, starts a live preview, and exports
 an editable PowerPoint file. You review the slides and ask for changes.
 
-You need **Claude Code**, **Node.js 22.18 or later** (with npm), and **Git** for
+You need an **up-to-date Claude Code**, **Node.js 22.18 or later** (with npm), and **Git** for
 plugin installation. The authoring packages are available on npm.
 
 ## 1. Install the plugin once
