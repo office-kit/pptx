@@ -1,5 +1,13 @@
 # @office-kit/pptx-dev
 
+## 0.2.2
+
+### Patch Changes
+
+- 8278aa4: Initialize slide projects with separate slide files, a shared theme and a small deck entry. Guide AI revisions toward focused source patches and the running preview instead of regenerating the deck.
+- Updated dependencies [983eb10]
+  - @office-kit/pptx-dsl@0.4.0
+
 ## 0.2.1
 
 ### Patch Changes
