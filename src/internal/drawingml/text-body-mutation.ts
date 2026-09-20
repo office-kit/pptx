@@ -231,13 +231,24 @@ export type ParagraphAlignment =
   | 'right'
   | 'justify'
   | 'distribute'
-  | 'l'
-  | 'ctr'
-  | 'r'
-  | 'just'
-  | 'dist'
-  | 'justLow'
-  | 'thaiDist';
+  | ParagraphAlignmentToken;
+
+const ALIGNMENT_TOKENS = ['l', 'ctr', 'r', 'just', 'dist', 'justLow', 'thaiDist'] as const;
+
+/**
+ * The `ST_TextAlignType` tokens themselves — what a literal `algn` read
+ * returns. Setters take the wider `ParagraphAlignment`; reads never produce a
+ * plain-English name, because `justLow` and `thaiDist` have none and a read
+ * must not lose them.
+ */
+export type ParagraphAlignmentToken = (typeof ALIGNMENT_TOKENS)[number];
+
+/**
+ * Parses an `algn` attribute value from a file. A value outside
+ * `ST_TextAlignType` is malformed input and reads as unset.
+ */
+export const parseAlignmentToken = (value: string | null): ParagraphAlignmentToken | null =>
+  ALIGNMENT_TOKENS.find((token) => token === value) ?? null;
 
 export const alignToken = (a: ParagraphAlignment, caller: string): string => {
   oneOf(

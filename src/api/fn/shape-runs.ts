@@ -5,8 +5,10 @@ import {
   alignToken,
   type BulletStyle,
   type ParagraphAlignment,
+  type ParagraphAlignmentToken,
   type TextFormat,
   applyBulletToParagraph,
+  parseAlignmentToken,
   updateBulletIndentForLevel,
 } from '../../internal/drawingml/index.ts';
 import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
@@ -496,18 +498,21 @@ export const setParagraphLevel = (
 };
 
 /**
- * Reads the paragraph's horizontal alignment. Returns `null` when no
- * `algn` attribute is present (inherits from layout / master).
+ * Reads the paragraph's own `algn` as its spec token (`l`, `ctr`, `r`,
+ * `just`, `dist`, `justLow`, `thaiDist`) — so `setParagraphAlignment(…,
+ * 'center')` reads back as `'ctr'`. Returns `null` when the attribute is
+ * absent (the paragraph inherits from its layout / master) or is not a
+ * valid token. For the inherited value under a plain-English name, use
+ * `getParagraphPropertiesEffective`.
  */
 export const getParagraphAlignment = (
   shape: SlideShapeData,
   paragraphIndex: number,
-): ParagraphAlignment | null => {
+): ParagraphAlignmentToken | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (pPr === null) return null;
-  const v = getAttrValue(pPr, ATTR_ALGN_FN);
-  return (v as ParagraphAlignment | null) ?? null;
+  return parseAlignmentToken(getAttrValue(pPr, ATTR_ALGN_FN));
 };
 
 /**
