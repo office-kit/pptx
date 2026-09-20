@@ -125,9 +125,9 @@ paragraph.
 `colSpan` and `rowSpan` on a cell object make it the top-left of a merge. `rows` stays
 a full rectangular grid, so a column index means the same in every row: each position
 the merge covers is written as `''`, and anything else there is an error because
-PowerPoint would not show it. PowerPoint paints a merged block from its top-left cell
-alone, fill and all four borders, so covered positions get no style and `styleCell`
-is not called for them. Spans that leave the grid or overlap throw the core error.
+a covered cell's text is never shown. The merged block takes its fill and borders from
+its top-left cell (this is how the preview renders it), so covered positions get no
+style and `styleCell` is not called for them. Spans that leave the grid or overlap throw the core error.
 
 ```tsx
 <Table
