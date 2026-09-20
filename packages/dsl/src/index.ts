@@ -228,7 +228,6 @@ export function Text(props: TextProps): Node {
     if (props.align) api.setShapeAlignment(shape, props.align);
     if (props.anchor) api.setShapeTextAnchor(shape, props.anchor);
     if (props.autoFit) api.setShapeTextAutoFit(shape, props.autoFit);
-    // Before any bullet: the core sizes a bullet's hanging indent from the level.
     props.paragraphs?.forEach((paragraph, index) => {
       if (paragraph.level !== undefined) api.setParagraphLevel(shape, index, paragraph.level);
     });
