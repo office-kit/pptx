@@ -69,20 +69,47 @@ export default (
 Use functions, fragments, arrays, conditions and `.map()` to compose content.
 Bounds (`x`, `y`, `width`, `height`) are required for new visual objects.
 
-| Element        | Inputs                                                                                                                                                           |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Presentation` | Optional `source` bytes, new-deck `size`, `theme`, `mode`.                                                                                                       |
-| `Slide`        | `background`, `notes`, `layout`, source `from` or edit `target`.                                                                                                 |
-| `Text`         | Literal children or rich core `ParagraphSpec[]` in `paragraphs`; core `TextFormat` props such as `size`, `font`, `bold`, `color`; `bullets`, `paragraphSpacing`. |
-| `Shape`        | `preset`, solid/gradient `fill`, `stroke`, rotation, effects, optional text with `align` and `anchor`.                                                           |
-| `Line`         | End points `x1`, `y1`, `x2`, `y2` (no bounds), `color`, `width` in points.                                                                                       |
-| `Group`        | Two or more visual children grouped into one object; optional `name`. Groups nest.                                                                               |
-| `Image`        | Byte `data`, optional `format` and `fit`. Load local bytes with `readFile(new URL('./image.png', import.meta.url))`.                                             |
-| `Chart`        | Core `ChartSpec` in `spec`, including categories and series.                                                                                                     |
-| `Table`        | String `rows`, `columnWidths`, `rowHeights`, `cellStyle`, `headerStyle`, `stripeFill`, per-cell `styleCell({ row, column, value })`.                             |
-| `Fill`         | Existing shape `target`, replacement text children, optional `format`.                                                                                           |
-| `Remove`       | Existing shape `target`.                                                                                                                                         |
-| `Raw`          | Public core API callback with optional explicit scope.                                                                                                           |
+| Element        | Inputs                                                                                                                                                                                                  |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Presentation` | Optional `source` bytes, new-deck `size`, `theme`, `mode`.                                                                                                                                              |
+| `Slide`        | `background`, `notes`, `layout`, source `from` or edit `target`.                                                                                                                                        |
+| `Text`         | Literal children or rich core `ParagraphSpec[]` in `paragraphs`; core `TextFormat` props such as `size`, `font`, `bold`, `color`; `bullets`, `paragraphSpacing`.                                        |
+| `Shape`        | `preset`, solid/gradient `fill`, `stroke`, rotation, effects, optional text with `align` and `anchor`.                                                                                                  |
+| `Line`         | End points `x1`, `y1`, `x2`, `y2` (no bounds), `color`, `width` in points.                                                                                                                              |
+| `Group`        | Two or more visual children grouped into one object; optional `name`. Groups nest.                                                                                                                      |
+| `Image`        | Byte `data`, optional `format` and `fit`. Load local bytes with `readFile(new URL('./image.png', import.meta.url))`.                                                                                    |
+| `Chart`        | Core `ChartSpec` in `spec`, including categories and series.                                                                                                                                            |
+| `Table`        | `rows` of strings or cell objects (`text` / `paragraphs`, `colSpan` / `rowSpan`), `columnWidths`, `rowHeights`, `cellStyle`, `headerStyle`, `stripeFill`, per-cell `styleCell({ row, column, value })`. |
+| `Fill`         | Existing shape `target`, replacement text children, optional `format`, `autoFit`.                                                                                                                       |
+| `Remove`       | Existing shape `target`.                                                                                                                                                                                |
+| `Raw`          | Public core API callback with optional explicit scope.                                                                                                                                                  |
+
+For a nested list, write `paragraphs` and give an entry `level` (0 to 8). An entry's
+own `bullet` wins over `bullets`; `bullet: 'none'` keeps a heading line out of the
+list. Do not use `Raw` for either.
+
+A table cell is a string, `{ text }` or `{ paragraphs }` (core `ParagraphSpec[]`, for
+bold or colored runs inside one cell); the cell style is the base of every run. For a
+merge, put `colSpan` / `rowSpan` on the top-left cell and keep every covered position
+in `rows` as `''`; any other content there is an error. Style a merged block on its
+top-left cell: covered positions get no style and no `styleCell` call.
+
+```tsx
+<Table
+  x={1}
+  y={1}
+  width={8}
+  height={2}
+  rows={[
+    [{ text: 'Plan', rowSpan: 2 }, { text: 'Effect', colSpan: 2 }, ''],
+    [
+      '',
+      'Count',
+      { paragraphs: [{ runs: [{ text: '+26% ' }, { text: 'QoQ', format: { bold: true } }] }] },
+    ],
+  ]}
+/>
+```
 
 ## Existing PPTX files
 
@@ -113,6 +140,9 @@ Missing and ambiguous targets fail.
 existing masters, layouts and unknown package parts. `Fill` intentionally replaces
 the selected shape's text. A rebuild loads the source fresh; write to a separate
 output file so edits are not reapplied to their own output.
+
+When replacement text may be longer than the placeholder (a sentence-length
+title), add `autoFit="normal"` to the `Fill`; omitted, the template's setting stays.
 
 Use `mode="compose"` with `<Slide from={{ index: 0 }}>` to duplicate source slides
 into a new sequence, only when that is the intent. Compose removes the original

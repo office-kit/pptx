@@ -61,8 +61,8 @@ Layout is explicit: CSS and automatic UI layout are not implemented.
 | `Image`        | Bytes in `data`, optional format and fit                                  |
 | `Media`        | `kind` `video` / `audio` with bytes in `data`, or `online` with a `url`   |
 | `Chart`        | Complete core `ChartSpec` via `spec`                                      |
-| `Table`        | String rows, column and row sizes, cell/header/stripe styles, `styleCell` |
-| `Fill`         | Existing shape target, replacement text, optional format                  |
+| `Table`        | Rows of strings, rich cells or merges; sizes; cell styles and `styleCell` |
+| `Fill`         | Existing shape target, replacement text, optional format and `autoFit`    |
 | `Remove`       | Existing shape target                                                     |
 | `Raw`          | Deferred callback receiving the presentation and enclosing slide/shape    |
 
@@ -71,6 +71,26 @@ and gradient fills, stroke, rotation, shadow, glow and click actions. `Text`
 accepts the core `TextFormat` properties directly, plus alignment, anchor,
 text auto-fit, `bullets` and `paragraphSpacing` (both apply to every paragraph; a
 newline in the text starts one). A `Shape` with `text` takes `align` and `anchor`.
+
+Each entry of `paragraphs` is a core `ParagraphSpec` that also takes its own `bullet`
+and `level`. The paragraph's `bullet` wins over `bullets`, so `bullet: 'none'` keeps a
+heading line out of the list. `level` is the `TextLevel` type, `0` to `8`, and nests
+the list; `tsc` rejects any other number.
+
+```tsx
+<Text
+  x={1}
+  y={1}
+  width={8}
+  height={3}
+  bullets="bullet"
+  paragraphs={[
+    { runs: [{ text: 'What changed' }], bullet: 'none' },
+    { runs: [{ text: 'Churn fell to 4.2%' }] },
+    { runs: [{ text: 'Driver: simpler setup' }], level: 1, bullet: { char: '–' } },
+  ]}
+/>
+```
 
 A `Line` runs from (`x1`, `y1`) to (`x2`, `y2`) instead of taking bounds. A
 `Group` holds two or more visual elements and may contain other groups; the
@@ -92,6 +112,39 @@ field: `cellStyle`, `headerStyle` (row 0), `stripeFill` (even body rows), then
   styleCell={({ row, value }) =>
     row > 0 && value === 'At risk' ? { fill: '#D64545', format: { color: '#FFFFFF' } } : undefined
   }
+/>
+```
+
+A cell in `rows` is a string or a cell object, `{ text }` or `{ paragraphs }`, never
+both or neither. `paragraphs` takes core `ParagraphSpec[]` for more than one run or
+paragraph in a cell. The merged cell style is the base of every run, so a run states
+only what differs, and the style's `align` applies unless a paragraph has its own.
+`styleCell` receives a rich cell's `value` as its run texts joined, one line per
+paragraph.
+
+`colSpan` and `rowSpan` on a cell object make it the top-left of a merge. `rows` stays
+a full rectangular grid, so a column index means the same in every row: each position
+the merge covers is written as `''`, and anything else there is an error because
+a covered cell's text is never shown. The merged block takes its fill and borders from
+its top-left cell (this is how the preview renders it), so covered positions get no
+style and `styleCell` is not called for them. Spans that leave the grid or overlap throw the core error.
+
+```tsx
+<Table
+  x={1}
+  y={1}
+  width={8}
+  height={3}
+  rows={[
+    [{ text: 'Plan', rowSpan: 2 }, { text: 'Effect', colSpan: 2 }, ''],
+    ['', 'Count', 'Change'],
+    [
+      'FAQ',
+      '372',
+      { paragraphs: [{ runs: [{ text: '+26% ' }, { text: 'QoQ', format: { bold: true } }] }] },
+    ],
+  ]}
+  cellStyle={{ format: { size: 14 } }}
 />
 ```
 
@@ -128,6 +181,8 @@ slides; use `<Slide from={{index: 0}}>` to duplicate an original slide. Referenc
 always refer to the source sequence, and each compilation loads the source fresh.
 A source deck is not reconstructed from DSL-understood fields: the core package
 retains existing parts. Editing text intentionally replaces that shape's text.
+`Fill` takes the same `autoFit` values as `Text` (`"normal"` shrinks text that is
+longer than the placeholder); omitted, the shape keeps the template's setting.
 `size` applies only to new decks; source decks retain their original dimensions.
 `theme` accepts the core theme overrides and follows its first-theme semantics.
 
@@ -162,11 +217,50 @@ context-specific handles and a nesting check. Without scope, contextual handles
 are optional. Text also
 accepts Raw children. An enclosing shape does not accept new Slide-level objects.
 
+## Embedding `compile()` in your own build
+
+An `office-pptx init` project comes with a build that records source locations and
+a `check` script that runs `tsc --noEmit`. A host that calls `compile()` from its own
+build (a server compiling generated TSX, a bundler plugin) has to arrange both.
+
+**Build with the dev JSX transform to get source locations.** `compile()` prefixes
+an error with `file:line:col <Element>:` for each enclosing element, but only when the
+module was built with the dev runtime, which records where each element was written.
+`office-pptx` always builds that way.
+
+| Tool       | Setting                                        |
+| ---------- | ---------------------------------------------- |
+| TypeScript | `"jsx": "react-jsxdev"` instead of `react-jsx` |
+| esbuild    | `jsx: 'automatic', jsxDev: true`               |
+
+```text
+react-jsx      Shape reference matched 0 shapes: {"name":"Titel 1"}
+react-jsxdev   deck.tsx:6:7 <Slide>: deck.tsx:7:9 <Fill>: Shape reference matched 0 shapes: {"name":"Titel 1"}
+```
+
+**Type-check authored modules with `tsc` in strict mode.** The runtime does not
+validate prop names, so `<Table cellFills={...}>` compiles and the unknown prop is
+ignored. Type checking is what rejects it, along with a misspelt literal such as
+`anchor="ctr"`. A transpile-only build (esbuild, swc) skips that check, and a prop
+passed through an object spread escapes it even in `tsc`.
+
+**Compile and save.** `compile(root)` takes the root `Presentation` element (a
+module's default export) and resolves to the core presentation; `savePresentation`
+from `@office-kit/pptx` turns that into `.pptx` bytes. Template bytes go in through
+`<Presentation source={bytes}>`, from wherever the host holds them.
+
+```ts
+import { savePresentation } from '@office-kit/pptx';
+import { compile } from '@office-kit/pptx-dsl';
+
+const { default: root } = await import(builtModuleUrl);
+const bytes = await savePresentation(await compile(root));
+```
+
 ## Current coverage
 
 This is an initial DSL, not complete OOXML coverage. Typed master/layout creation,
-animations, transitions, connectors, groups, media playback, and structured table
-cells still require additional declarative elements or core work. Raw can invoke
+animations, transitions, connectors, groups and media playback still require additional declarative elements or core work. Raw can invoke
 available core capabilities but does not count as typed declarative support.
 Cross-presentation imports are not exposed because the current core import API
 can discard unsupported relationships. Do not use it as a lossless import path.

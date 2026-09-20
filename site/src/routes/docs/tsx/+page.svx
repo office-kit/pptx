@@ -52,15 +52,15 @@ Child order is drawing order. Geometry is explicit; there is no automatic layout
 | --- | --- |
 | `Presentation` | Optional source PPTX bytes, `size`, `theme`, `mode`. |
 | `Slide` | Optional `background`, `notes`, `layout`, source `from`, or edit `target`. |
-| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`; `bullets` and `paragraphSpacing`. |
+| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`; `bullets` and `paragraphSpacing`; a `bullet` and `level` per entry of `paragraphs`. |
 | `Shape` | Required bounds and `preset`; fill, stroke, effects, optional text with `align` and `anchor`. |
 | `Line` | End points `x1`, `y1`, `x2`, `y2`; `color` and `width`. |
 | `Group` | Two or more visual elements that move and resize as one object; optional `name`. |
 | `Image` | Required bounds and byte `data`; optional format and fit. |
 | `Media` | Required bounds; `kind` `video` / `audio` with byte `data`, or `online` with a `url`; optional `poster`. |
 | `Chart` | Required bounds and core `ChartSpec` in `spec`. |
-| `Table` | Required bounds and string `rows`; column widths, row heights, cell/header styles, stripe fill, and a per-cell `styleCell` callback. Cell styles cover fill, text format, anchor, alignment and borders. |
-| `Fill` | Existing shape `target`, replacement text children, optional `format`. |
+| `Table` | Required bounds and `rows` of strings or cell objects (`text` or rich `paragraphs`, `colSpan`, `rowSpan`); column widths, row heights, cell/header styles, stripe fill, and a per-cell `styleCell` callback. Cell styles cover fill, text format, anchor, alignment and borders. |
+| `Fill` | Existing shape `target`, replacement text children, optional `format` and `autoFit`. |
 | `Remove` | Existing shape `target`. |
 | `Raw` | Deferred callback for public core APIs; optional explicit scope. |
 
@@ -149,6 +149,21 @@ export default (
 corresponding context and check nesting. Without scope, slide/shape handles are
 optional. `Raw` executes trusted local code, as do other imports in the TSX file.
 The static SVG preview does not play the transition in this example.
+
+## Embedding compile() in your own build
+
+An `office-pptx init` project comes with a build that records source locations and a
+`check` script that runs `tsc --noEmit`. A host that calls `compile()` from its own
+build has to arrange both.
+
+- Build with the dev JSX transform (TypeScript `"jsx": "react-jsxdev"`, esbuild
+  `jsx: 'automatic', jsxDev: true`). Only then does a `compile()` error start with
+  `file:line:col <Element>:` for each enclosing element.
+- Run `tsc` in strict mode on authored modules. The runtime ignores a prop it does
+  not know, so type checking is the only thing that rejects one.
+- `compile(root)` takes the root `Presentation` element and resolves to the core
+  presentation; `savePresentation` from `@office-kit/pptx` gives the `.pptx` bytes.
+  Template bytes go in through `<Presentation source={bytes}>`.
 
 ## Package responsibilities and current limits
 

@@ -14,7 +14,7 @@ import {
   Text,
   compile,
 } from '../packages/dsl/src/index.ts';
-import { jsx, jsxs } from '../packages/dsl/src/jsx-runtime.ts';
+import { jsx, jsxDEV, jsxs } from '../packages/dsl/src/jsx-runtime.ts';
 
 const title = (value: string) =>
   Text({ x: 1, y: 1, width: 9, height: 1, size: 30, name: 'title', children: value });
@@ -383,4 +383,28 @@ describe('lines, groups and richer text and table styling', () => {
     expect(borders.left).toMatchObject({ color: '#FF0000' });
     expect(api.getTableCellBorders(pres, cell(1, 0)).left).toBeNull();
   });
+});
+
+// packages/dsl/README.md documents this prefix as what the dev JSX transform buys.
+it('prefixes a compile error with the source location of each enclosing element', async () => {
+  const at = (lineNumber: number, columnNumber: number) => ({
+    fileName: 'deck.tsx',
+    lineNumber,
+    columnNumber,
+  });
+  const fill = jsxDEV(
+    Fill,
+    { target: { name: 'Titel 1' }, children: 'x' },
+    undefined,
+    false,
+    at(7, 9),
+  );
+  const slide = jsxDEV(Slide, { children: fill }, undefined, false, at(6, 7));
+  await expect(compile(jsx(Presentation, { children: slide }))).rejects.toThrow(
+    'deck.tsx:6:7 <Slide>: deck.tsx:7:9 <Fill>: Shape reference matched 0 shapes: {"name":"Titel 1"}',
+  );
+  const plain = jsx(Slide, { children: jsx(Fill, { target: { name: 'Titel 1' }, children: 'x' }) });
+  await expect(compile(jsx(Presentation, { children: plain }))).rejects.toThrow(
+    /^Shape reference matched 0 shapes/,
+  );
 });
