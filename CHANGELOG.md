@@ -1,5 +1,15 @@
 # @office-kit/pptx
 
+## 0.16.1
+
+### Patch Changes
+
+- b8adc13: Duplicated slides now have independent charts, embedded workbooks and notes.
+  Editing a duplicate no longer changes the original's chart or notes. Unknown
+  owned dependency parts are copied too, including cyclic relationships. Layouts,
+  masters, themes and media remain shared. Invalid missing dependencies fail before
+  parts are added.
+
 ## 0.16.0
 
 ### Minor Changes
