@@ -4,6 +4,8 @@ import { dirname, resolve, sep } from 'node:path';
 import type { BuildResult } from './build.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
+import { readFile } from 'node:fs/promises';
+import { createTerminal } from './terminal.ts';
 import { createChat } from './chat.ts';
 
 export async function serveDeck(entry: string, port = 4173) {
@@ -16,9 +18,14 @@ export async function serveDeck(entry: string, port = 4173) {
   let pending = false;
   let closed = false;
   const clients = new Set<ServerResponse>();
-  const chat = createChat(entry, () => {
-    for (const client of clients) client.write('data: chat\n\n');
-  });
+  const chat = createChat(
+    entry,
+    () => {
+      for (const client of clients) client.write('data: chat\n\n');
+    },
+    () => terminal.isRunning(),
+  );
+  const terminal = createTerminal(entry, () => chat.isRunning());
   const server = createServer((request, response) => {
     const host = request.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {
@@ -26,8 +33,13 @@ export async function serveDeck(entry: string, port = 4173) {
       return;
     }
     response.setHeader('Cache-Control', 'no-store');
-    if (request.url === '/chat' || request.url?.startsWith('/chat/')) {
-      void chat.handle(request, response, (index, viewedRevision) => {
+    if (
+      request.url === '/chat' ||
+      request.url?.startsWith('/chat/') ||
+      request.url?.startsWith('/terminal/')
+    ) {
+      const handler = request.url.startsWith('/terminal/') ? terminal : chat;
+      void handler.handle(request, response, (index, viewedRevision) => {
         if (viewedRevision !== revision)
           throw new Error('Preview changed. Review the current slide and send again.');
         if (index !== null && (!latest || index >= latest.slides.length))
@@ -42,6 +54,20 @@ export async function serveDeck(entry: string, port = 4173) {
           buildError: error,
         };
       });
+    } else if (
+      request.method === 'GET' &&
+      ['/terminal.js', '/terminal.css'].includes(request.url ?? '')
+    ) {
+      const asset = request.url === '/terminal.js' ? 'terminal-client.js' : 'terminal-client.css';
+      void readFile(new URL(asset, import.meta.url)).then(
+        (bytes) => {
+          response.writeHead(200, {
+            'Content-Type': asset.endsWith('.css') ? 'text/css' : 'text/javascript',
+          });
+          response.end(bytes);
+        },
+        () => response.writeHead(500).end('Terminal assets unavailable. Rebuild pptx-dev.'),
+      );
     } else if (request.method !== 'GET') {
       response.writeHead(405).end();
     } else if (request.url === '/events') {
@@ -158,6 +184,7 @@ export async function serveDeck(entry: string, port = 4173) {
       closed = true;
       clearTimeout(timer);
       watcher.close();
+      await terminal.close();
       await chat.close();
       await builder.close();
       for (const client of clients) client.end();

@@ -27,19 +27,24 @@
     "provenance": true
   },
   "scripts": {
-    "build": "tsdown",
+    "build": "tsdown && node build-terminal.mjs",
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs",
-    "prepublishOnly": "tsdown",
+    "prepublishOnly": "tsdown && node build-terminal.mjs",
     "test:browser": "node --test test/browser/*.test.mjs"
   },
   "dependencies": {
     "@office-kit/pptx": "workspace:^",
     "@office-kit/pptx-dsl": "workspace:^",
     "@office-kit/pptx-preview": "workspace:^",
-    "esbuild": "^0.28.1"
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "esbuild": "^0.28.1",
+    "markdown-it": "^15.0.2",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.13.2",
     "playwright": "^1.63.0",
     "tsdown": "^0.22.2",
