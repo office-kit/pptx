@@ -3959,6 +3959,18 @@ const pointCount = (spec: ChartSpec): number => {
 const chartFillOpacityAttr = (opacity = 1): string =>
   opacity === 1 ? '' : ` fill-opacity="${opacity.toFixed(3)}"`;
 
+// Stacked inversion is unsupported in the preview, so negative-color inversion stays with clustered callers.
+const chartPointBaseColor = (
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+  seriesIndex: number,
+  pointIndex: number,
+): string =>
+  spec.series[seriesIndex]?.pointColors?.[pointIndex] ??
+  (spec.varyColors && spec.series.length === 1
+    ? colors[pointIndex % colors.length]!
+    : (spec.series[seriesIndex]?.color ?? colors[seriesIndex % colors.length]!));
+
 const renderColumnChart = (
   f: ChartFrame,
   spec: ChartSpec,
@@ -4016,7 +4028,7 @@ const renderColumnChart = (
           f.plotY + f.plotH - ((Math.min(stackedTop, stackedBase) - min) / range) * f.plotH;
         const h = Math.abs(y1 - y0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
@@ -4047,11 +4059,7 @@ const renderColumnChart = (
         // varyColors (single-series): each data point gets a distinct
         // accent color, mirroring PowerPoint's "Vary colors by point". A
         // per-point `<c:dPt>` color beats both, as it does in PowerPoint.
-        const baseColor =
-          spec.series[s]?.pointColors?.[c] ??
-          (spec.varyColors && spec.series.length === 1
-            ? colors[c % colors.length]!
-            : (spec.series[s]?.color ?? colors[s % colors.length]!));
+        const baseColor = chartPointBaseColor(spec, colors, s, c);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
@@ -4417,7 +4425,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
         const w = Math.abs(x1 - x0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
@@ -4444,11 +4452,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
-        const baseColor =
-          spec.series[s]?.pointColors?.[c] ??
-          (spec.varyColors && spec.series.length === 1
-            ? colors[c % colors.length]!
-            : (spec.series[s]?.color ?? colors[s % colors.length]!));
+        const baseColor = chartPointBaseColor(spec, colors, s, c);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
