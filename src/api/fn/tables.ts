@@ -456,6 +456,7 @@ const ensureCellTxBody = (cell: TableCellData): XmlElement => {
     // bodyPr lstStyle a:p — keep the canonical ordering.
     txBody.children.push(elem(qname('a', 'bodyPr', NS.dml)));
     txBody.children.push(elem(qname('a', 'lstStyle', NS.dml)));
+    txBody.children.push(elem(qname('a', 'p', NS.dml)));
     // CT_TableCell is a sequence (txBody?, tcPr?, extLst?): txBody leads.
     tc.children.unshift(txBody);
   }
