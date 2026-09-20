@@ -17,6 +17,7 @@ import {
   findSlideLayoutByType,
   findSlidePlaceholder,
   getShapeKind,
+  getPresentationFonts,
   getShapeText,
   getSlideCharts,
   getSlideLayoutName,
@@ -29,6 +30,7 @@ import {
   loadPresentation,
   readPackagePart,
   savePresentation,
+  setPresentationFonts,
   setShapeText,
   validatePresentation,
 } from '../src/api/index.ts';
@@ -147,6 +149,35 @@ describe('fn API: createPresentation', () => {
     }
     expect(getSlides(pres).length).toBe(3);
     expect(validatePresentation(pres)).toEqual([]);
+  });
+
+  it("carries Office's per-script font lists in the theme font scheme", async () => {
+    const pres = createPresentation();
+    setPresentationFonts(pres, { minorLatin: 'Arial' });
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const theme = decoder.decode(readPackagePart(loaded, '/ppt/theme/theme1.xml')!);
+    const collection = (tag: 'majorFont' | 'minorFont'): string =>
+      theme.slice(theme.indexOf(`<a:${tag}>`), theme.indexOf(`</a:${tag}>`));
+    const major = collection('majorFont');
+    const minor = collection('minorFont');
+
+    // The list is what a renderer consults for a script no run names a face
+    // for; Thai is the entry the two collections disagree on.
+    expect(major).toContain('<a:font script="Thai" typeface="Angsana New"/>');
+    expect(minor).toContain('<a:font script="Thai" typeface="Cordia New"/>');
+    const SCRIPT_ENTRIES = 47;
+    expect(major.match(/<a:font script=/g)).toHaveLength(SCRIPT_ENTRIES);
+    expect(minor.match(/<a:font script=/g)).toHaveLength(SCRIPT_ENTRIES);
+    // CT_FontCollection is a sequence: latin, ea, cs, then the script list.
+    expect(minor).toMatch(/<a:latin [^>]*\/><a:ea [^>]*\/><a:cs [^>]*\/><a:font script=/);
+    // setPresentationFonts still writes the three slots and nothing else.
+    expect(minor).toContain('<a:latin typeface="Arial"/>');
+    expect(major).toContain('<a:latin typeface="Calibri"/>');
+    expect(getPresentationFonts(loaded)).toMatchObject({
+      majorLatin: 'Calibri',
+      minorLatin: 'Arial',
+      minorComplexScript: null,
+    });
   });
 
   it.runIf(isSchemaValidationAvailable())(
