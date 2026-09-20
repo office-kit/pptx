@@ -4878,7 +4878,7 @@ const renderScatterAxes = (
     orientation: 'vertical',
     min: yB.min,
     max: yB.max,
-    lineHidden: spec.valueAxisLineHidden,
+    ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
     ...(spec.valueAxis?.numberFormat !== undefined
       ? { numberFormat: spec.valueAxis.numberFormat }
       : {}),
@@ -4887,7 +4887,9 @@ const renderScatterAxes = (
     orientation: 'horizontal',
     min: xB.min,
     max: xB.max,
-    lineHidden: spec.categoryAxisLineHidden,
+    ...(spec.categoryAxisLineHidden !== undefined
+      ? { lineHidden: spec.categoryAxisLineHidden }
+      : {}),
   };
   return (
     (spec.valueAxisHidden ? '' : renderValueAxis(f, yAxis)) +
@@ -5235,9 +5237,11 @@ const renderChart = (
         min: primaryScale.min,
         max: primaryScale.max,
         majorUnit: spec.valueAxis?.majorUnit ?? primaryScale.step,
-        lineHidden: spec.valueAxisLineHidden,
-        lineColor: spec.valueAxisLineColor,
-        majorTickMark: spec.valueAxisMajorTickMark,
+        ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
+        ...(spec.valueAxisLineColor !== undefined ? { lineColor: spec.valueAxisLineColor } : {}),
+        ...(spec.valueAxisMajorTickMark !== undefined
+          ? { majorTickMark: spec.valueAxisMajorTickMark }
+          : {}),
         ...(spec.valueAxis?.numberFormat !== undefined
           ? { numberFormat: spec.valueAxis.numberFormat }
           : {}),
@@ -5312,7 +5316,7 @@ const renderChart = (
     const majorUnit = spec.valueAxis?.majorUnit ?? step;
     const numberFormat = spec.valueAxis?.numberFormat;
     const axisExtras = {
-      lineHidden: spec.valueAxisLineHidden,
+      ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
       ...(majorUnit !== undefined ? { majorUnit } : {}),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
       ...(spec.valueAxisMajorGridlines !== undefined
