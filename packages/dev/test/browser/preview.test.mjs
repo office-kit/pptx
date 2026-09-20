@@ -13,14 +13,29 @@ test(
     const dir = await mkdtemp(join(tmpdir(), 'office-hmr-live-'));
     const file = dir + '/deck.tsx';
     await writeFile(
-      dir + '/claude',
+      dir + '/codex',
       `#!${process.execPath}
 import { readFileSync, writeFileSync } from 'node:fs';
 let input='';for await(const chunk of process.stdin)input+=chunk;
 writeFileSync('chat-prompt.txt',input);
 writeFileSync('deck.tsx',readFileSync('deck.tsx','utf8').replace("i===2?'':","i===2?'ChatEdited':"));
-console.log(JSON.stringify({type:'assistant',message:{content:[{type:'text',text:'Updated the focused slide.'}]}}));
-console.log(JSON.stringify({type:'result',is_error:false,result:'Done'}));
+console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'Updated the focused slide. **Verified**'}}));
+console.log(JSON.stringify({type:'turn.completed'}));
+`,
+      { mode: 0o755 },
+    );
+    await writeFile(
+      dir + '/claude',
+      `#!${process.execPath}
+const {writeFileSync}=require('node:fs');
+console.log('Claude Code terminal ready');
+process.stdin.setEncoding('utf8');
+process.stdin.on('data',async data=>{
+ const hook=JSON.parse(process.argv[3]).hooks.UserPromptSubmit[0].hooks[0];
+ const response=await fetch(hook.url,{method:'POST',headers:hook.headers,body:'{}'});
+ writeFileSync('terminal-context.json',await response.text());
+ console.log('Model menu: '+data.trim());
+});
 `,
       { mode: 0o755 },
     );
@@ -59,6 +74,37 @@ console.log(JSON.stringify({type:'result',is_error:false,result:'Done'}));
         return svg !== null && (label === undefined || svg.textContent.includes(label));
       };
       await page.waitForFunction(slideSvg);
+      assert.equal(await page.getByText('What would you like to change?').count(), 0);
+      await page.locator('#terminal-start').click();
+      await page.waitForFunction(() =>
+        document.querySelector('#terminal').textContent.includes('Claude Code terminal ready'),
+      );
+      await page.locator('.xterm-helper-textarea').pressSequentially('/model');
+      await page.locator('.xterm-helper-textarea').press('Enter');
+      await page.waitForFunction(() =>
+        document.querySelector('#terminal').textContent.includes('Model menu: /model'),
+      );
+      await page.locator('.xterm-helper-textarea').press('ArrowDown');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      await page.reload();
+      await page.waitForFunction(() =>
+        document.querySelector('#terminal').textContent.includes('Model menu: /model'),
+      );
+      assert.equal(await page.locator('#terminal-start').isVisible(), false);
+      const blocked = await page.request.post(url + '/chat', {
+        headers: { origin: url },
+        data: { provider: 'codex', message: 'conflicting edit', slide: 2, revision: 0 },
+      });
+      assert.equal(blocked.status(), 409);
+      const other = await browser.newPage();
+      await other.goto(url);
+      await other.getByText('Open in another tab · view only').waitFor();
+      assert.equal(await other.locator('#terminal-stop').isVisible(), false);
+      await other.close();
+      await page.locator('#terminal-stop').click();
+      await page.locator('#terminal-start').waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
+      await page.selectOption('#chat-provider', 'codex');
       await page.locator('#chat-input').fill('Make this slide clearer 日本語');
       await page.keyboard.press('ArrowLeft');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
@@ -72,7 +118,9 @@ console.log(JSON.stringify({type:'result',is_error:false,result:'Done'}));
       assert.equal(chat.messages[0].context.count, 50);
       assert.match(chat.messages[0].context.text, /Slide 2/);
       assert.match(chat.messages[1].text, /Updated the focused slide/);
+      assert.equal(await page.locator('#messages strong').textContent(), 'Verified');
       await page.reload();
+      await page.selectOption('#chat-provider', 'codex');
       await page.waitForFunction(() =>
         document.querySelector('#messages').textContent.includes('Updated the focused slide'),
       );

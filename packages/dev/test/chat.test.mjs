@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { createChat } from '../src/chat.ts';
 
 const pause = () => new Promise((done) => setTimeout(done, 20));
-test('CLI chat includes focus/history, handles both protocols, serializes edits and stops', async (t) => {
+test('CLI chat includes focus/history, renders Markdown, serializes edits and stops', async (t) => {
   const directory = await mkdtemp(join(tmpdir(), 'pptx-chat-'));
   const previousPath = process.env.PATH;
   process.env.PATH = directory + ':' + previousPath;
@@ -16,12 +16,9 @@ import {writeFileSync} from 'node:fs';
 let input='';for await(const chunk of process.stdin)input+=chunk;
 writeFileSync('prompt.txt',input);writeFileSync('args.json',JSON.stringify(process.argv));
 if(input.includes('WAIT_FOREVER'))setInterval(()=>{},1000);
-else if(process.argv[1].endsWith('codex')){
- console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'Codex edit complete'}}));
- console.log(JSON.stringify({type:'turn.completed'}));
-}else{
- console.log(JSON.stringify({type:'assistant',message:{content:[{type:'text',text:'Claude edit complete'}]}}));
- console.log(JSON.stringify({type:'result',is_error:input.includes('FAIL_RESULT'),result:'Result',permission_denials:input.includes('DENY_TOOL')?[{}]:[]}));
+else {
+ console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:input.includes('MARKDOWN')?'**Bold** and '+String.fromCharCode(96)+'code'+String.fromCharCode(96)+'\\n\\n- item\\n\\n<script>alert(1)</script>\\n\\n[unsafe](javascript:alert(1))':'Codex edit complete'}}));
+ console.log(JSON.stringify(input.includes('FAIL_RESULT')?{type:'turn.failed',error:{message:'Result'}}:{type:'turn.completed'}));
 }`;
   for (const provider of ['claude', 'codex'])
     await writeFile(join(directory, provider), script, { mode: 0o755 });
@@ -57,7 +54,7 @@ else if(process.argv[1].endsWith('codex')){
       headers: { origin, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-  const request = (message, provider = 'claude') => ({ message, provider, slide: 2, revision: 7 });
+  const request = (message, provider = 'codex') => ({ message, provider, slide: 2, revision: 7 });
   const state = async () => (await fetch(url + '/chat')).json();
   const finished = async () => {
     for (let i = 0; i < 150; i++) {
@@ -91,7 +88,7 @@ else if(process.argv[1].endsWith('codex')){
   assert.equal(splitStatus, 202);
   let result = await finished();
   assert.equal(result.status, 'Done');
-  assert.equal(result.messages[1].text, 'Claude edit complete');
+  assert.equal(result.messages[1].text, 'Codex edit complete');
   let prompt = await readFile(join(directory, 'prompt.txt'), 'utf8');
   assert.match(prompt, /Revenue 日本語/);
   assert.match(prompt, /"slide":3/);
@@ -114,9 +111,14 @@ else if(process.argv[1].endsWith('codex')){
   assert.deepEqual((await state()).messages, []);
   await post(request('FAIL_RESULT'));
   assert.equal((await finished()).status, 'Result');
-  await post(request('DENY_TOOL'));
-  assert.match((await finished()).status, /denied/);
-  await rm(join(directory, 'claude'));
+  await post(request('MARKDOWN'));
+  const rendered = (await finished()).messages.at(-1).html;
+  assert.match(rendered, /<strong>Bold<\/strong>/);
+  assert.match(rendered, /<code>code<\/code>/);
+  assert.ok(!rendered.includes('<script>'));
+  assert.ok(!rendered.includes('href="javascript:'));
+  assert.equal((await post(request('legacy', 'claude'))).status, 400);
+  await rm(join(directory, 'codex'));
   // Keep the real installed CLI out of PATH for this missing-command case.
   process.env.PATH = directory;
   await post(request('missing executable'));

@@ -47,46 +47,66 @@ workflow. Clicking a slide supplies chat context; opening its exact TSX location
 
 ## Chat in the preview
 
-Choose **Claude Code** or **Codex** in the right panel and describe the change.
-Install the selected CLI (`claude` or `codex`) on your PATH and sign in through
-that CLI once before using chat. The dev server runs it from the deck entry's
-directory, using its existing account and model configuration. No API key is
-stored in the browser. Requests use the selected provider and its normal usage
-limits. Sending a message authorizes edits to the local project.
+The right panel defaults to **Claude Code**. Click **Start** to open the locally
+installed `claude` CLI in an interactive terminal. Install and sign in to Claude
+Code first. Use a current version with HTTP `UserPromptSubmit` hook support.
+The session runs in the deck entry's directory and uses your normal account,
+user/project settings, CLAUDE.md, plugins, skills, MCP servers and hooks.
 
-Each request includes the focused slide's **1-based number, text, slide count,
-preview revision, deck entry and source dependency paths**, plus any build error.
-The focus is captured at send time, so navigating during a response does not
-change it. A stale preview is rejected with a retry message. Dependency paths are
-source candidates, not an exact slide-to-file mapping; the agent locates the
-relevant TSX using the entry, slide order and text. This also works for single-file
-decks, generated slide lists and imported presentations.
+Type `/model` to choose a model, `/config` to change settings, or `/` to browse
+available commands and skills. Bash and other tools are available according to
+Claude Code's own configuration, and permission prompts are answered directly in
+the panel. The preview does not force `acceptEdits`, restrict the tool list or
+bypass permissions. Installation and account setup use the CLI's usual flow.
+Markdown responses are displayed by Claude Code's terminal renderer; its native
+formatting may differ from a web Markdown page. OS-specific actions such as
+opening an external editor still use your local environment.
 
-“This slide” directs a focused patch; requests mentioning other slides or the
-whole deck can edit other files or shared styling. Saving uses the same automatic
-preview rebuild as manual editing. Both CLIs run non-interactively:
+Each submitted Claude prompt receives the focused slide's **1-based number,
+text, slide count, preview revision, deck entry and source dependency paths**,
+plus any build error, through a session-scoped `UserPromptSubmit` HTTP hook.
+The preview captures context with terminal input before forwarding it to the
+CLI. Navigation while Claude is replying does not change that turn's context.
+Stale input is rejected with a retry message. If your Claude settings or managed
+policy disable hooks, automatic context attachment is unavailable; enable the
+preview hook in Claude Code to use it. No project settings file is rewritten.
+Dependency paths are source candidates, not an exact slide-to-file mapping.
+“This slide” requests a focused patch; requests about another slide or the
+whole deck can edit other files or shared styling.
 
-- Claude Code uses print mode with JSON events and `acceptEdits`, exposing only
-  `Read`, `Edit`, `Write`, `Glob` and `Grep`. Shell execution is not exposed.
-- Codex uses `exec --json` with the `workspace-write` sandbox. Sandbox bypass is
-  never enabled. Operations requiring interactive approval are not supported.
+Reloading the browser reconnects to the same process and replays its recent
+terminal output (up to 2 MB). One browser tab controls the session; other tabs
+can view it. Keep the owning tab open, or end the session there before moving to
+another tab. **End session** stops the process; saved edits remain. Start opens
+a new session, and Claude's `/resume` command can restore an earlier conversation.
+Stopping the dev server also stops the embedded session. This is independent of
+the Claude Code conversation that may have launched your dev server.
 
-Progress, replies and failures appear in the panel. **Stop** terminates the running
-agent; edits already saved remain. Only one edit runs at a time across browser
-tabs. **New chat** clears conversational context without reverting files. Recent
-12 messages (bounded text) are passed to each new CLI invocation; these are new
-CLI sessions, not a continuation of an existing terminal conversation. The server
-keeps up to 100 messages in memory, shared by its tabs, until it exits. Reloading
-restores that conversation. Restarting the server clears it.
+Select **Codex** while Claude Code is stopped to use the existing message-based
+chat. Codex replies render Markdown (including lists, code blocks and tables);
+raw HTML, unsafe links and remote images are not rendered. Codex still uses
+`exec --json` with the `workspace-write` sandbox and its installed CLI login.
+Operations requiring interactive approval are not supported in this adapter.
+The most recent 12 messages (bounded text) and the focused slide are sent with
+each request. The dev server retains up to 100 messages until it exits.
+**New chat** clears this history; **Stop** cancels the running edit. Ctrl/Cmd+Enter
+sends a message. Model/settings menus in the embedded terminal are currently
+specific to Claude Code.
 
-Use **Chat** in the header to hide/show the panel, and Ctrl/Cmd+Enter to send.
-On narrow screens the panel moves below the preview. Presentation mode hides it.
-Chat requests require same-origin JSON as well as the server's loopback Host
-check. Authentication and CLI installation still happen in a terminal; normal
-slide editing and review can then stay in the preview.
+Use **Chat** in the header to hide/show the panel. On narrow screens the panel
+moves below the preview. Presentation mode hides it without ending the session.
+Both providers save TSX directly, which triggers the usual automatic rebuild.
+The server binds to loopback and requires same-origin JSON for terminal control;
+the local context hook uses a separate per-server token.
 
-Protocol references: [Codex non-interactive mode](https://developers.openai.com/codex/noninteractive)
-and [Claude Code programmatic use](https://code.claude.com/docs/en/headless).
+The terminal uses `node-pty` and xterm.js. Linux systems without a matching PTY
+prebuild need the native build prerequisites documented by
+[node-pty](https://github.com/microsoft/node-pty). With pnpm, allow `node-pty`'s
+install script (`pnpm approve-builds`) if your project blocks dependency scripts.
+
+References: [Claude Code commands](https://code.claude.com/docs/en/commands),
+[Claude Code hooks](https://code.claude.com/docs/en/hooks), and
+[Codex non-interactive mode](https://developers.openai.com/codex/noninteractive).
 
 ## Edit only what changed
 

@@ -2,3 +2,6 @@ packages:
   - '.'
   - 'site'
   - 'packages/*'
+
+onlyBuiltDependencies:
+  - node-pty

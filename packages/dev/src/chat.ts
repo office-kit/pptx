@@ -1,8 +1,13 @@
+import MarkdownIt from 'markdown-it';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-export type Provider = 'claude' | 'codex';
+export type Provider = 'codex';
+const markdown = new MarkdownIt({ html: false, linkify: false });
+// Do not fetch remote images from model output.
+markdown.renderer.rules.image = (tokens, index) =>
+  markdown.utils.escapeHtml(tokens[index]?.content ?? '');
 export interface FocusContext {
   slide: number | null;
   count: number;
@@ -19,15 +24,23 @@ interface Message {
 }
 
 /** One shared conversation and one editing process per dev server. */
-export function createChat(entry: string, notify: () => void) {
+export function createChat(entry: string, notify: () => void, busy = () => false) {
   let messages: Message[] = [];
-  let provider: Provider = 'claude';
+  let provider: Provider = 'codex';
   let child: ChildProcess | undefined;
   let status = 'Ready';
   let stopping = false;
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   let completion: Promise<void> = Promise.resolve();
-  const snapshot = () => ({ messages, provider, running: !!child, status });
+  const snapshot = () => ({
+    messages: messages.map((message) => ({
+      ...message,
+      ...(message.role === 'assistant' ? { html: markdown.render(message.text) } : {}),
+    })),
+    provider,
+    running: !!child,
+    status,
+  });
   function stop() {
     if (!child || stopping) return;
     stopping = true;
@@ -68,19 +81,7 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
     if (messages.length > 100) messages = messages.slice(-100);
     status = 'Working…';
     stopping = false;
-    const args =
-      selected === 'codex'
-        ? ['exec', '--json', '--sandbox', 'workspace-write', '--skip-git-repo-check', '-']
-        : [
-            '--print',
-            '--verbose',
-            '--output-format',
-            'stream-json',
-            '--permission-mode',
-            'acceptEdits',
-            '--tools',
-            'Read,Edit,Write,Glob,Grep',
-          ];
+    const args = ['exec', '--json', '--sandbox', 'workspace-write', '--skip-git-repo-check', '-'];
     child = spawn(selected, args, {
       cwd: dirname(resolve(entry)),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -100,35 +101,15 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
       if (!line.trim()) return;
       try {
         const event = JSON.parse(line);
-        if (selected === 'codex') {
-          if (event.type === 'item.completed' && event.item?.type === 'agent_message')
-            append(event.item.text ?? '');
-          if (event.type === 'item.started') {
-            status = 'Editing / inspecting…';
-            notify();
-          }
-          if (event.type === 'turn.completed') sawResult = true;
-          if (event.type === 'turn.failed' || event.type === 'error')
-            failure = event.error?.message ?? event.message ?? 'Agent failed';
-        } else {
-          if (event.type === 'assistant') {
-            for (const block of event.message?.content ?? []) {
-              if (block.type === 'text') append(block.text);
-              if (block.type === 'tool_use') {
-                status = 'Using ' + block.name + '…';
-                notify();
-              }
-            }
-          }
-          if (event.type === 'result') {
-            sawResult = true;
-            if (event.is_error)
-              failure = event.result || event.errors?.join('\n') || 'Agent failed';
-            else if (!answer.text && event.result) append(event.result);
-            if (event.permission_denials?.length)
-              failure = 'Some actions were denied by CLI permissions. ' + (event.result ?? '');
-          }
+        if (event.type === 'item.completed' && event.item?.type === 'agent_message')
+          append(event.item.text ?? '');
+        if (event.type === 'item.started') {
+          status = 'Editing / inspecting…';
+          notify();
         }
+        if (event.type === 'turn.completed') sawResult = true;
+        if (event.type === 'turn.failed' || event.type === 'error')
+          failure = event.error?.message ?? event.message ?? 'Agent failed';
       } catch {
         failure = 'Unexpected CLI output. Update your CLI and try again.';
       }
@@ -237,11 +218,15 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
         typeof value.message !== 'string' ||
         !value.message.trim() ||
         value.message.length > 16000 ||
-        !['claude', 'codex'].includes(value.provider) ||
+        value.provider !== 'codex' ||
         !(value.slide === null || (Number.isInteger(value.slide) && value.slide >= 0)) ||
         !Number.isInteger(value.revision)
       ) {
         json(400, { error: 'Invalid chat request' });
+        return;
+      }
+      if (busy()) {
+        json(409, { error: 'End the Claude Code session before starting a Codex edit' });
         return;
       }
       const context = focus(value.slide, value.revision);
@@ -253,6 +238,7 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
   }
   return {
     handle,
+    isRunning: () => !!child,
     async close() {
       stop();
       await completion;
