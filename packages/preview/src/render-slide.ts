@@ -3959,6 +3959,7 @@ const pointCount = (spec: ChartSpec): number => {
 const chartFillOpacityAttr = (opacity = 1): string =>
   opacity === 1 ? '' : ` fill-opacity="${opacity.toFixed(3)}"`;
 
+// Stacked inversion is unsupported in the preview, so negative-color inversion stays with clustered callers.
 const chartPointBaseColor = (
   spec: ChartSpec,
   colors: ReadonlyArray<string>,
