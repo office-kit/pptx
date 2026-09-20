@@ -9,6 +9,7 @@ import {
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
+import { duplicatePartGraph } from '../../internal/parts/duplicate-graph.ts';
 import { REL_TYPES, buildSlideFromLayout } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -460,12 +461,14 @@ export const moveSlide = (pres: PresentationData, slide: SlideData, toIndex: num
 /**
  * Duplicates a slide. Returns the new `SlideData` appended to deck order.
  *
- * Part bytes and rels are cloned verbatim; media parts are NOT copied —
- * the duplicate shares the original's media references (PowerPoint
- * does the same).
+ * Charts, embedded workbooks, notes and other owned dependencies are copied.
+ * Layouts, masters, themes, media and links to other slides remain shared.
+ * Unknown dependency bodies are retained without interpreting their content.
  */
 export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideData => {
   const pkg = pres[INTERNAL_PACKAGE];
+  if (slide[INTERNAL_PACKAGE] !== pkg)
+    throw new Error('duplicateSlide: slide belongs to another presentation');
   const sourcePartName = slide[SLIDE_PART_NAME];
   const sourcePart = pkg.getPart(sourcePartName);
   if (!sourcePart) throw new Error(`duplicateSlide: source ${sourcePartName} not found`);
@@ -478,12 +481,23 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
 
   const slideN = allocateSlideN(pkg);
   const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
-  pkg.addPart(newSlidePartName, sourcePart.contentType, new Uint8Array(sourcePart.data));
-
-  const sourceRels = pkg.getRels(sourcePartName);
-  if (sourceRels !== null) {
-    pkg.setRels(newSlidePartName, { items: sourceRels.items.map((r) => ({ ...r })) });
-  }
+  duplicatePartGraph(
+    pkg,
+    sourcePartName,
+    newSlidePartName,
+    new Set([
+      REL_TYPES.slideLayout,
+      REL_TYPES.slideMaster,
+      REL_TYPES.notesMaster,
+      REL_TYPES.handoutMaster,
+      REL_TYPES.theme,
+      REL_TYPES.slide,
+      REL_TYPES.image,
+      REL_TYPES.media,
+      REL_TYPES.video,
+      REL_TYPES.audio,
+    ]),
+  );
 
   const presRels = pkg.getRels(PRES_PART_NAME) ?? emptyRels();
   const newRId = nextRelId(presRels.items.map((r) => r.id));
