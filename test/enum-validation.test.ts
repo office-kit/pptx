@@ -212,9 +212,12 @@ it('setShapeBullets validates autoNum', () => {
 
 it('setShapeText validates bullets', () => {
   const { shape, slide } = fixture();
+  api.setShapeText(shape, 'first\nsecond', { bullets: 'bullet' });
+  const before = api.getSlideXmlString(slide);
   expect(() => {
     api.setShapeText(shape, 'new', { bullets: { autoNum: 'bogus' } });
   }).toThrow(/setShapeText: .*is not one of:/);
+  expect(api.getSlideXmlString(slide)).toBe(before);
   expect(() => api.setShapeText(shape, 'new', { bullets: 'number' })).not.toThrow();
   expect(api.getSlideXmlString(slide)).toContain('type="arabicPeriod"');
 });
@@ -315,10 +318,13 @@ it('setSlideTransition validates orientation', () => {
 
 it('setSlideTransition validates speed', () => {
   const { slide } = fixture();
+  api.setSlideTransition(slide, { effect: 'split', orientation: 'vert', speed: 'slow' });
+  const before = api.getSlideTransition(slide);
   expect(() => {
     // @ts-expect-error Exercise the JavaScript boundary.
     api.setSlideTransition(slide, { effect: 'fade', speed: 'bogus' });
   }).toThrow(/setSlideTransition: .*is not one of:/);
+  expect(api.getSlideTransition(slide)).toEqual(before);
   expect(() => api.setSlideTransition(slide, { effect: 'fade', speed: 'fast' })).not.toThrow();
   expect(api.getSlideXmlString(slide)).toContain('spd="fast"');
 });
@@ -410,3 +416,45 @@ it('validates shape-builder anchor and arrow end without changing existing shape
   api.addSlideShape(slide, { ...box, preset: 'rect', text: 'X', textAnchor: 'ctr' });
   expect(api.getSlideXmlString(slide)).toContain('anchor="ctr"');
 });
+
+it('preserves JavaScript null clearing for underline, strike, and cap', () => {
+  const { shape, slide } = fixture();
+  api.setShapeTextFormat(shape, { underline: 'dbl', strike: 'dblStrike', cap: 'all' });
+  const before = api.getSlideXmlString(slide);
+  for (const attribute of ['u="dbl"', 'strike="dblStrike"', 'cap="all"'])
+    expect(before).toContain(attribute);
+  api.setShapeTextFormat(shape, {
+    // @ts-expect-error Preserve the existing JavaScript null-clearing behavior.
+    underline: null,
+    // @ts-expect-error Preserve the existing JavaScript null-clearing behavior.
+    strike: null,
+    // @ts-expect-error Preserve the existing JavaScript null-clearing behavior.
+    cap: null,
+  });
+  const after = api.getSlideXmlString(slide);
+  for (const attribute of [' u=', ' strike=', ' cap=']) expect(after).not.toContain(attribute);
+});
+
+it.each(['alignment', 'textFormat'] as const)(
+  'rejects invalid cell %s before creating a text body',
+  (setter) => {
+    const pres = api.createPresentation();
+    const slide = api.addBlankSlide(pres);
+    const table = api.addSlideTable(slide, { ...box, rows: [['a', 'b']] });
+    api.mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'drop' });
+    const cell = api.getTableCell(table, 0, 1);
+    api.setTableCellFill(cell, 'FF0000');
+    const before = api.getSlideXmlString(slide);
+    expect(() => {
+      if (setter === 'alignment') {
+        // @ts-expect-error Exercise the JavaScript boundary.
+        api.setTableCellAlignment(cell, 'middle');
+      } else {
+        api.setTableCellTextFormat(cell, { underline: 'single' });
+      }
+    }).toThrow(RangeError);
+    // A later successful setter must not commit a rejected setter's mutations.
+    api.setTableCellFill(cell, 'FF0000');
+    expect(api.getSlideXmlString(slide)).toBe(before);
+  },
+);

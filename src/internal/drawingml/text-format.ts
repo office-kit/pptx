@@ -213,12 +213,12 @@ const setHighlight = (rPr: XmlElement, value: string | null): void => {
   insertChildByRank(rPr, elem(NAME_HIGHLIGHT, { children: [inner] }), rprChildRank);
 };
 
-const validateFormatEnums = (format: TextFormat, caller: string): void => {
-  if (format.underline !== undefined && typeof format.underline !== 'boolean')
+export const validateFormatEnums = (format: TextFormat, caller: string): void => {
+  if (format.underline != null && typeof format.underline !== 'boolean')
     oneOf(format.underline, UNDERLINES, `${caller}: underline`);
-  if (format.strike !== undefined && typeof format.strike !== 'boolean')
+  if (format.strike != null && typeof format.strike !== 'boolean')
     oneOf(format.strike, STRIKES, `${caller}: strike`);
-  if (format.cap !== undefined) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
+  if (format.cap != null) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
 };
 
 /** Mutates `rPr` in place per `format`. */
@@ -290,6 +290,10 @@ export const applyFormatToAllRuns = (
   caller = 'setShapeTextFormat',
 ): void => {
   validateFormatEnums(format, caller);
+  applyValidatedFormatToAllRuns(txBody, format);
+};
+
+export const applyValidatedFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
   // Walk depth-first; runs live two levels deep (txBody > p > r).
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {

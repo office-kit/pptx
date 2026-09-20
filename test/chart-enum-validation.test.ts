@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { unzipSync } from 'fflate';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import * as api from '../src/api/index.ts';
 const box = { x: api.inches(1), y: api.inches(1), w: api.inches(5), h: api.inches(3) };
@@ -169,12 +170,13 @@ it.each(invalidCharts)(
     const slide = api.addBlankSlide(pres);
     api.addSlideChart(slide, { ...box, spec: baseChart });
     const chart = api.getSlideCharts(slide)[0]!;
-    const before = await api.savePresentation(pres);
+    const before = unzipSync(await api.savePresentation(pres));
     expect(() => api.addSlideChart(slide, { ...box, spec })).toThrow(
       /addSlideChart: .*is not one of:/,
     );
     expect(() => api.setChartSpec(chart, spec)).toThrow(/setChartSpec: .*is not one of:/);
-    expect(await api.savePresentation(pres)).toEqual(before);
+    // ZIP timestamps can change between saves even when every part is unchanged.
+    expect(unzipSync(await api.savePresentation(pres))).toEqual(before);
   },
 );
 

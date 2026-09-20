@@ -2,38 +2,84 @@ import { oneOf } from '../bounds.ts';
 import { LINE_DASHES } from '../enum-values.ts';
 import type { ChartSpec, ChartDataLabels, ChartAxisScaling } from './types.ts';
 
-const TICK_MARKS = ['in', 'out', 'cross', 'none'] as const;
-const TICK_LABEL_POSITIONS = ['none', 'low', 'high', 'nextTo'] as const;
-const ORIENTATIONS = ['minMax', 'maxMin'] as const;
-const CROSS_BETWEEN = ['between', 'midCat'] as const;
-const TIME_UNITS = ['days', 'months', 'years'] as const;
+export const LABEL_POSITIONS = [
+  'ctr',
+  'inEnd',
+  'outEnd',
+  'inBase',
+  't',
+  'b',
+  'l',
+  'r',
+  'bestFit',
+] as const;
+export const DISPLAY_UNITS = [
+  'hundreds',
+  'thousands',
+  'tenThousands',
+  'hundredThousands',
+  'millions',
+  'tenMillions',
+  'hundredMillions',
+  'billions',
+  'trillions',
+] as const;
+export const LABEL_ALIGNMENTS = ['ctr', 'l', 'r'] as const;
+export const DISPLAY_BLANKS = ['gap', 'zero', 'span'] as const;
+export const SCATTER_STYLES = [
+  'none',
+  'line',
+  'lineMarker',
+  'marker',
+  'smooth',
+  'smoothMarker',
+] as const;
+export const RADAR_STYLES = ['standard', 'marker', 'filled'] as const;
+export const BAR_3D_SHAPES = [
+  'box',
+  'cone',
+  'coneToMax',
+  'cylinder',
+  'pyramid',
+  'pyramidToMax',
+] as const;
+export const OF_PIE_TYPES = ['pie', 'bar'] as const;
+export const SPLIT_TYPES = ['auto', 'cust', 'percent', 'pos', 'val'] as const;
+export const LAYOUT_TARGETS = ['inner', 'outer'] as const;
+export const AXIS_CROSSES = ['autoZero', 'min', 'max'] as const;
+export const LEGEND_POSITIONS = ['r', 't', 'b', 'l', 'tr'] as const;
+export const MARKER_SYMBOLS = [
+  'none',
+  'auto',
+  'circle',
+  'square',
+  'diamond',
+  'triangle',
+  'star',
+  'x',
+  'plus',
+  'dash',
+  'dot',
+  'picture',
+] as const;
+export const TRENDLINE_TYPES = ['linear', 'exp', 'log', 'poly', 'power', 'movingAvg'] as const;
+export const ERROR_BAR_TYPES = ['both', 'plus', 'minus'] as const;
+export const ERROR_VALUE_TYPES = ['fixedVal', 'percentage', 'stdDev', 'stdErr', 'cust'] as const;
+
+export const GROUPINGS = ['clustered', 'stacked', 'percentStacked', 'standard'] as const;
+export const TICK_MARKS = ['in', 'out', 'cross', 'none'] as const;
+export const TICK_LABEL_POSITIONS = ['none', 'low', 'high', 'nextTo'] as const;
+export const ORIENTATIONS = ['minMax', 'maxMin'] as const;
+export const CROSS_BETWEEN = ['between', 'midCat'] as const;
+export const TIME_UNITS = ['days', 'months', 'years'] as const;
 
 const validateLabels = (labels: ChartDataLabels | null | undefined, field: string): void => {
-  if (labels?.position !== undefined)
-    oneOf(
-      labels.position,
-      ['ctr', 'inEnd', 'outEnd', 'inBase', 't', 'b', 'l', 'r', 'bestFit'],
-      `${field}.position`,
-    );
+  if (labels?.position !== undefined) oneOf(labels.position, LABEL_POSITIONS, `${field}.position`);
 };
 
 const validateScaling = (scaling: ChartAxisScaling | undefined, field: string): void => {
   if (scaling?.displayUnits !== undefined)
-    oneOf(
-      scaling.displayUnits,
-      [
-        'hundreds',
-        'thousands',
-        'tenThousands',
-        'hundredThousands',
-        'millions',
-        'tenMillions',
-        'hundredMillions',
-        'billions',
-        'trillions',
-      ],
-      `${field}.displayUnits`,
-    );
+    oneOf(scaling.displayUnits, DISPLAY_UNITS, `${field}.displayUnits`);
 };
 
 /** Validate before chart XML or its embedded workbook is changed. */
@@ -55,12 +101,7 @@ export const validateChartSpecEnums = (spec: ChartSpec, caller: string): void =>
     ],
     `${caller}: kind`,
   );
-  if (spec.grouping !== undefined)
-    oneOf(
-      spec.grouping,
-      ['clustered', 'stacked', 'percentStacked', 'standard'],
-      `${caller}: grouping`,
-    );
+  if (spec.grouping !== undefined) oneOf(spec.grouping, GROUPINGS, `${caller}: grouping`);
   if (spec.valueAxisMajorTickMark !== undefined)
     oneOf(spec.valueAxisMajorTickMark, TICK_MARKS, `${caller}: valueAxisMajorTickMark`);
   if (spec.valueAxisMinorTickMark !== undefined)
@@ -78,7 +119,7 @@ export const validateChartSpecEnums = (spec: ChartSpec, caller: string): void =>
       `${caller}: categoryAxisTickLabelPos`,
     );
   if (spec.categoryAxisLabelAlign !== undefined)
-    oneOf(spec.categoryAxisLabelAlign, ['ctr', 'l', 'r'], `${caller}: categoryAxisLabelAlign`);
+    oneOf(spec.categoryAxisLabelAlign, LABEL_ALIGNMENTS, `${caller}: categoryAxisLabelAlign`);
   if (spec.categoryAxisOrientation !== undefined)
     oneOf(spec.categoryAxisOrientation, ORIENTATIONS, `${caller}: categoryAxisOrientation`);
   if (spec.valueAxisOrientation !== undefined)
@@ -86,23 +127,13 @@ export const validateChartSpecEnums = (spec: ChartSpec, caller: string): void =>
   if (spec.valueAxisCrossBetween !== undefined)
     oneOf(spec.valueAxisCrossBetween, CROSS_BETWEEN, `${caller}: valueAxisCrossBetween`);
   if (spec.dispBlanksAs !== undefined)
-    oneOf(spec.dispBlanksAs, ['gap', 'zero', 'span'], `${caller}: dispBlanksAs`);
+    oneOf(spec.dispBlanksAs, DISPLAY_BLANKS, `${caller}: dispBlanksAs`);
   if (spec.scatterStyle !== undefined)
-    oneOf(
-      spec.scatterStyle,
-      ['none', 'line', 'lineMarker', 'marker', 'smooth', 'smoothMarker'],
-      `${caller}: scatterStyle`,
-    );
-  if (spec.radarStyle !== undefined)
-    oneOf(spec.radarStyle, ['standard', 'marker', 'filled'], `${caller}: radarStyle`);
+    oneOf(spec.scatterStyle, SCATTER_STYLES, `${caller}: scatterStyle`);
+  if (spec.radarStyle !== undefined) oneOf(spec.radarStyle, RADAR_STYLES, `${caller}: radarStyle`);
   if (spec.bubbleSizeRepresents !== undefined)
     oneOf(spec.bubbleSizeRepresents, ['area', 'width'], `${caller}: bubbleSizeRepresents`);
-  if (spec.bar3DShape !== undefined)
-    oneOf(
-      spec.bar3DShape,
-      ['box', 'cone', 'coneToMax', 'cylinder', 'pyramid', 'pyramidToMax'],
-      `${caller}: bar3DShape`,
-    );
+  if (spec.bar3DShape !== undefined) oneOf(spec.bar3DShape, BAR_3D_SHAPES, `${caller}: bar3DShape`);
   if (spec.secondaryValueAxis?.majorTickMark !== undefined)
     oneOf(
       spec.secondaryValueAxis.majorTickMark,
@@ -149,22 +180,17 @@ export const validateChartSpecEnums = (spec: ChartSpec, caller: string): void =>
       TIME_UNITS,
       `${caller}: categoryAxisDate.minorTimeUnit`,
     );
-  if (spec.ofPie?.type !== undefined)
-    oneOf(spec.ofPie.type, ['pie', 'bar'], `${caller}: ofPie.type`);
+  if (spec.ofPie?.type !== undefined) oneOf(spec.ofPie.type, OF_PIE_TYPES, `${caller}: ofPie.type`);
   if (spec.ofPie?.splitType !== undefined)
-    oneOf(
-      spec.ofPie.splitType,
-      ['auto', 'cust', 'percent', 'pos', 'val'],
-      `${caller}: ofPie.splitType`,
-    );
+    oneOf(spec.ofPie.splitType, SPLIT_TYPES, `${caller}: ofPie.splitType`);
   if (spec.plotAreaLayout?.target !== undefined)
-    oneOf(spec.plotAreaLayout.target, ['inner', 'outer'], `${caller}: plotAreaLayout.target`);
+    oneOf(spec.plotAreaLayout.target, LAYOUT_TARGETS, `${caller}: plotAreaLayout.target`);
   if (spec.legend?.layout?.target !== undefined)
-    oneOf(spec.legend.layout.target, ['inner', 'outer'], `${caller}: legend.layout.target`);
+    oneOf(spec.legend.layout.target, LAYOUT_TARGETS, `${caller}: legend.layout.target`);
   if (spec.valueAxisCrosses !== undefined && typeof spec.valueAxisCrosses !== 'object')
-    oneOf(spec.valueAxisCrosses, ['autoZero', 'min', 'max'], `${caller}: valueAxisCrosses`);
+    oneOf(spec.valueAxisCrosses, AXIS_CROSSES, `${caller}: valueAxisCrosses`);
   if (spec.legend?.position != null)
-    oneOf(spec.legend.position, ['r', 't', 'b', 'l', 'tr'], `${caller}: legend.position`);
+    oneOf(spec.legend.position, LEGEND_POSITIONS, `${caller}: legend.position`);
   validateLabels(spec.dataLabels, `${caller}: dataLabels`);
   validateScaling(spec.valueAxis, `${caller}: valueAxis`);
   validateScaling(spec.categoryAxisScaling, `${caller}: categoryAxisScaling`);
@@ -175,42 +201,17 @@ export const validateChartSpecEnums = (spec: ChartSpec, caller: string): void =>
       oneOf(series.chartKind, ['bar', 'column', 'line', 'area'], `${field}.chartKind`);
     if (series.lineDash !== undefined) oneOf(series.lineDash, LINE_DASHES, `${field}.lineDash`);
     if (series.markerSymbol !== undefined)
-      oneOf(
-        series.markerSymbol,
-        [
-          'none',
-          'auto',
-          'circle',
-          'square',
-          'diamond',
-          'triangle',
-          'star',
-          'x',
-          'plus',
-          'dash',
-          'dot',
-          'picture',
-        ],
-        `${field}.markerSymbol`,
-      );
+      oneOf(series.markerSymbol, MARKER_SYMBOLS, `${field}.markerSymbol`);
     if (series.trendline !== undefined)
-      oneOf(
-        series.trendline.type,
-        ['linear', 'exp', 'log', 'poly', 'power', 'movingAvg'],
-        `${field}.trendline.type`,
-      );
+      oneOf(series.trendline.type, TRENDLINE_TYPES, `${field}.trendline.type`);
     validateLabels(series.dataLabels, `${field}.dataLabels`);
     for (const [point, labels] of (series.pointDataLabels ?? []).entries())
       validateLabels(labels, `${field}.pointDataLabels[${point}]`);
     for (const direction of ['errorBars', 'xErrorBars'] as const) {
       const bars = series[direction];
       if (bars === undefined) continue;
-      oneOf(bars.barType, ['both', 'plus', 'minus'], `${field}.${direction}.barType`);
-      oneOf(
-        bars.amount.type,
-        ['fixedVal', 'percentage', 'stdDev', 'stdErr', 'cust'],
-        `${field}.${direction}.amount.type`,
-      );
+      oneOf(bars.barType, ERROR_BAR_TYPES, `${field}.${direction}.barType`);
+      oneOf(bars.amount.type, ERROR_VALUE_TYPES, `${field}.${direction}.amount.type`);
     }
   }
 };

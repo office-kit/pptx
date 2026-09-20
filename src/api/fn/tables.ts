@@ -4,8 +4,6 @@ import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
 import {
-  applyAlignmentToAllParagraphs,
-  applyFormatToAllRuns,
   buildColorElement,
   clearFill as clearFillImpl,
   setSolidFill,
@@ -16,6 +14,14 @@ import {
   type ParagraphAlignment,
   type ParagraphSpec,
 } from '../../internal/drawingml/index.ts';
+import {
+  alignToken,
+  applyAlignmentTokenToAllParagraphs,
+} from '../../internal/drawingml/text-body-mutation.ts';
+import {
+  validateFormatEnums,
+  applyValidatedFormatToAllRuns,
+} from '../../internal/drawingml/text-format.ts';
 import type { Emu } from '../units.ts';
 import { buildTableCell, buildTableRow } from '../../internal/presentationml/index.ts';
 import {
@@ -1121,15 +1127,17 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
 
 /** Applies a TextFormat to every run in the cell's text. */
 export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
+  validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
-  applyFormatToAllRuns(txBody, format, 'setTableCellTextFormat');
+  applyValidatedFormatToAllRuns(txBody, format);
   commitTableCell(cell);
 };
 
 /** Sets horizontal alignment on every paragraph in the cell. */
 export const setTableCellAlignment = (cell: TableCellData, align: ParagraphAlignment): void => {
+  const token = alignToken(align, 'setTableCellAlignment');
   const txBody = ensureCellTxBody(cell);
-  applyAlignmentToAllParagraphs(txBody, align, 'setTableCellAlignment');
+  applyAlignmentTokenToAllParagraphs(txBody, token);
   commitTableCell(cell);
 };
 

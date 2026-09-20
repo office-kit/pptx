@@ -290,7 +290,10 @@ export const applyAlignmentToAllParagraphs = (
   align: ParagraphAlignment,
   caller = 'setShapeAlignment',
 ): void => {
-  const token = alignToken(align, caller);
+  applyAlignmentTokenToAllParagraphs(txBody, alignToken(align, caller));
+};
+
+export const applyAlignmentTokenToAllParagraphs = (txBody: XmlElement, token: string): void => {
   for (const p of txBody.children) {
     if (
       p.kind !== 'element' ||
