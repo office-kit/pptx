@@ -11,8 +11,12 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by the server. Save `deck.tsx` to rebuild. Arrow keys
-or Previous/Next select slides; Download PPTX exports the last successful build.
+Open the local URL printed by the server. Save `deck.tsx` to rebuild. The viewer
+has a vertical thumbnail strip and a large slide canvas. Click a thumbnail or use
+arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
+exit) are viewing controls; the canvas has no editing, dragging or resize handles.
+Changes are made only in TSX, including when an AI agent edits the presentation.
+Download PPTX exports the last successful build.
 A syntax or runtime error is shown without discarding the last successful preview.
 DSL evaluation errors include the TSX element's source file and line number.
 
