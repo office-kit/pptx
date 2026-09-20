@@ -50,24 +50,50 @@ Layout is explicit: CSS and automatic UI layout are not implemented.
 
 ## Elements
 
-| Element        | Input                                                                    |
-| -------------- | ------------------------------------------------------------------------ |
-| `Presentation` | Optional source PPTX bytes or `size`, theme, `mode`                      |
-| `Slide`        | Source `from` or edit `target`, layout, background, notes                |
-| `Text`         | Literal children or core `ParagraphSpec[]` via `paragraphs`, text format |
-| `Shape`        | Core preset geometry, fill, stroke, effects, optional text               |
-| `Image`        | Bytes in `data`, optional format and fit                                 |
-| `Media`        | `kind` `video` / `audio` with bytes in `data`, or `online` with a `url`  |
-| `Chart`        | Complete core `ChartSpec` via `spec`                                     |
-| `Table`        | String rows, column widths, row heights, cell/header styles, stripe fill |
-| `Fill`         | Existing shape target, replacement text, optional format                 |
-| `Remove`       | Existing shape target                                                    |
-| `Raw`          | Deferred callback receiving the presentation and enclosing slide/shape   |
+| Element        | Input                                                                     |
+| -------------- | ------------------------------------------------------------------------- |
+| `Presentation` | Optional source PPTX bytes or `size`, theme, `mode`                       |
+| `Slide`        | Source `from` or edit `target`, layout, background, notes                 |
+| `Text`         | Literal children or core `ParagraphSpec[]` via `paragraphs`, text format  |
+| `Shape`        | Core preset geometry, fill, stroke, effects, optional text                |
+| `Line`         | End points `x1` `y1` `x2` `y2`, `color`, `width`                          |
+| `Group`        | Groups the shapes its children create; optional `name`                    |
+| `Image`        | Bytes in `data`, optional format and fit                                  |
+| `Media`        | `kind` `video` / `audio` with bytes in `data`, or `online` with a `url`   |
+| `Chart`        | Complete core `ChartSpec` via `spec`                                      |
+| `Table`        | String rows, column and row sizes, cell/header/stripe styles, `styleCell` |
+| `Fill`         | Existing shape target, replacement text, optional format                  |
+| `Remove`       | Existing shape target                                                     |
+| `Raw`          | Deferred callback receiving the presentation and enclosing slide/shape    |
 
 Bounds are required for newly created visual objects. Shape styles support solid
 and gradient fills, stroke, rotation, shadow, glow and click actions. `Text`
-accepts the core `TextFormat` properties directly, plus alignment, anchor and
-text auto-fit. Table cell formats are merged with header overrides.
+accepts the core `TextFormat` properties directly, plus alignment, anchor,
+text auto-fit, `bullets` and `paragraphSpacing` (both apply to every paragraph; a
+newline in the text starts one). A `Shape` with `text` takes `align` and `anchor`.
+
+A `Line` runs from (`x1`, `y1`) to (`x2`, `y2`) instead of taking bounds. A
+`Group` holds two or more visual elements and may contain other groups; the
+result moves and resizes as one object in PowerPoint.
+
+A table cell style sets `fill`, `format`, `anchor`, `align` and `borders` (per
+side, `width` in points). Styles merge in this order, later ones winning per
+field: `cellStyle`, `headerStyle` (row 0), `stripeFill` (even body rows), then
+`styleCell`, a callback that receives `{ row, column, value }`:
+
+```tsx
+<Table
+  x={1}
+  y={1}
+  width={8}
+  height={3}
+  rows={rows}
+  cellStyle={{ borders: { bottom: { color: '#D5D9E0', width: 0.75 } } }}
+  styleCell={({ row, value }) =>
+    row > 0 && value === 'At risk' ? { fill: '#D64545', format: { color: '#FFFFFF' } } : undefined
+  }
+/>
+```
 
 `Media` embeds a video or audio clip from bytes, or links an online video by
 URL (YouTube page URLs are rewritten to the embed form). `poster` supplies the

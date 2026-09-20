@@ -11,7 +11,10 @@ import * as jsxRuntime from '../packages/dsl/src/jsx-runtime.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import { WRAPPER_LINES, evaluateTsx } from '../site/repl/evaluate.ts';
 
-const starterPath = fileURLToPath(new URL('../packages/dsl/examples/review.tsx', import.meta.url));
+// Both DSL examples: the REPL's starter, and the deck the docs walk through.
+const EXAMPLES = ['board-deck.tsx', 'review.tsx'];
+const examplePath = (name: string): string =>
+  fileURLToPath(new URL(`../packages/dsl/examples/${name}`, import.meta.url));
 const MODULES = {
   '@office-kit/pptx': kit,
   '@office-kit/pptx-dsl': dsl,
@@ -24,8 +27,8 @@ const build = async (source: string): Promise<kit.PresentationData> => {
 };
 
 describe('REPL TSX mode', () => {
-  it('builds and renders the starter deck', async () => {
-    const pres = await build(await readFile(starterPath, 'utf8'));
+  it.each(EXAMPLES)('builds and renders %s', async (name) => {
+    const pres = await build(await readFile(examplePath(name), 'utf8'));
     const slides = kit.getSlides(pres);
     expect(slides.length).toBeGreaterThan(1);
     for (const slide of slides) {

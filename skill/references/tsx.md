@@ -69,18 +69,20 @@ export default (
 Use functions, fragments, arrays, conditions and `.map()` to compose content.
 Bounds (`x`, `y`, `width`, `height`) are required for new visual objects.
 
-| Element        | Inputs                                                                                                                            |
-| -------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `Presentation` | Optional `source` bytes, new-deck `size`, `theme`, `mode`.                                                                        |
-| `Slide`        | `background`, `notes`, `layout`, source `from` or edit `target`.                                                                  |
-| `Text`         | Literal children or rich core `ParagraphSpec[]` in `paragraphs`; core `TextFormat` props such as `size`, `font`, `bold`, `color`. |
-| `Shape`        | `preset`, solid/gradient `fill`, `stroke`, rotation, effects, optional text.                                                      |
-| `Image`        | Byte `data`, optional `format` and `fit`. Load local bytes with `readFile(new URL('./image.png', import.meta.url))`.              |
-| `Chart`        | Core `ChartSpec` in `spec`, including categories and series.                                                                      |
-| `Table`        | String `rows`, `columnWidths`, `rowHeights`, `cellStyle`, `headerStyle`, `stripeFill`.                                            |
-| `Fill`         | Existing shape `target`, replacement text children, optional `format`.                                                            |
-| `Remove`       | Existing shape `target`.                                                                                                          |
-| `Raw`          | Public core API callback with optional explicit scope.                                                                            |
+| Element        | Inputs                                                                                                                                                           |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Presentation` | Optional `source` bytes, new-deck `size`, `theme`, `mode`.                                                                                                       |
+| `Slide`        | `background`, `notes`, `layout`, source `from` or edit `target`.                                                                                                 |
+| `Text`         | Literal children or rich core `ParagraphSpec[]` in `paragraphs`; core `TextFormat` props such as `size`, `font`, `bold`, `color`; `bullets`, `paragraphSpacing`. |
+| `Shape`        | `preset`, solid/gradient `fill`, `stroke`, rotation, effects, optional text with `align` and `anchor`.                                                           |
+| `Line`         | End points `x1`, `y1`, `x2`, `y2` (no bounds), `color`, `width` in points.                                                                                       |
+| `Group`        | Two or more visual children grouped into one object; optional `name`. Groups nest.                                                                               |
+| `Image`        | Byte `data`, optional `format` and `fit`. Load local bytes with `readFile(new URL('./image.png', import.meta.url))`.                                             |
+| `Chart`        | Core `ChartSpec` in `spec`, including categories and series.                                                                                                     |
+| `Table`        | String `rows`, `columnWidths`, `rowHeights`, `cellStyle`, `headerStyle`, `stripeFill`, per-cell `styleCell({ row, column, value })`.                             |
+| `Fill`         | Existing shape `target`, replacement text children, optional `format`.                                                                                           |
+| `Remove`       | Existing shape `target`.                                                                                                                                         |
+| `Raw`          | Public core API callback with optional explicit scope.                                                                                                           |
 
 ## Existing PPTX files
 

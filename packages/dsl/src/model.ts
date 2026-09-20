@@ -14,6 +14,8 @@ export interface Context extends RawContext {
   scope: 'presentation' | 'slide' | 'shape';
   originals: readonly api.SlideData[];
   deferred: Array<() => void | Promise<void>>;
+  /** Set inside a `Group`: every shape created there, in drawing order. */
+  members?: api.SlideShapeData[];
 }
 export interface Node {
   readonly kind: string;
@@ -51,6 +53,11 @@ export function requireSlide(context: Context): api.SlideData {
   if (!context.slide || context.scope !== 'slide')
     throw new Error('This element must be a child of Slide.');
   return context.slide;
+}
+/** Reports a new shape to the enclosing `Group`, if there is one. */
+export function created(context: Context, shape: api.SlideShapeData): api.SlideShapeData {
+  context.members?.push(shape);
+  return shape;
 }
 export function literal(children: Child): string {
   if (children == null || typeof children === 'boolean') return '';
