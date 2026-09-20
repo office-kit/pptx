@@ -1,6 +1,10 @@
 // How the REPL turns editor text into running code. Both modes end up in
 // `new Function`, wrapped the same way, so an error's line maps back to the
 // editor with one shared offset.
+//
+// This lives outside `src/`, under its own tsconfig, because the root test
+// suite imports it: `site/tsconfig.json` extends a file `svelte-kit sync`
+// generates, which does not exist in a test job that never builds the site.
 
 const JSX_IMPORT_SOURCE = '@office-kit/pptx-dsl';
 

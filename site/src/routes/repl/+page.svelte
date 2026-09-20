@@ -19,7 +19,7 @@
   // The TSX starter is the DSL package's own example, so `pnpm typecheck`
   // there checks the very text the editor opens with.
   import DEFAULT_TSX from '../../../../packages/dsl/examples/review.tsx?raw';
-  import { WRAPPER_LINES, asyncBody, evaluateTsx } from '$lib/repl/evaluate';
+  import { WRAPPER_LINES, asyncBody, evaluateTsx } from '../../../repl/evaluate.ts';
 
   type Mode = 'functions' | 'tsx';
   const MODES: ReadonlyArray<{ id: Mode; label: string }> = [

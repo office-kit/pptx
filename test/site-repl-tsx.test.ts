@@ -9,7 +9,7 @@ import * as kit from '../src/api/index.ts';
 import * as dsl from '../packages/dsl/src/index.ts';
 import * as jsxRuntime from '../packages/dsl/src/jsx-runtime.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
-import { WRAPPER_LINES, evaluateTsx } from '../site/src/lib/repl/evaluate.ts';
+import { WRAPPER_LINES, evaluateTsx } from '../site/repl/evaluate.ts';
 
 const starterPath = fileURLToPath(new URL('../packages/dsl/examples/review.tsx', import.meta.url));
 const MODULES = {
