@@ -1,5 +1,12 @@
 # pptx-kit-preview
 
+## 0.9.8
+
+### Patch Changes
+
+- 8a8ac43: Paint an unstyled bullet in its paragraph's first-run colour. Without `<a:buClr>` anywhere in the cascade the renderer fell back to the deck's body-text colour, so a numbered agenda whose runs carry their own light colour drew its `1.` / `a.` markers in the default black and they sank into a dark background. PowerPoint and LibreOffice take the first run's colour, which is the same rule an un-sized bullet already followed for its size.
+- 8a8ac43: Keep a resized group's text at its authored size in the preview. A group whose `<a:ext>` differs from its `<a:chExt>` scales its children, and the renderer was applying that scale to their glyphs as well, so a group squashed vertically (what Google Slides writes for a hand-resized group) drew stretched, half-height letters. PowerPoint and LibreOffice resize only the geometry, so the text now lays out inside the group-scaled rect at its authored point size and aspect.
+
 ## 0.9.7
 
 ### Patch Changes
