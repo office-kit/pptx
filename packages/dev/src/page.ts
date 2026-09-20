@@ -23,8 +23,8 @@ main{min-width:0;min-height:0;display:flex;flex-direction:column}
 #error{flex:none;max-height:30%;overflow:auto;background:#fff0ef;color:#922e25;margin:0;padding:16px 20px;white-space:pre-wrap;border-bottom:1px solid #e8bbb7}
 #error[hidden]{display:none}
 #stage{flex:1;min-height:0;overflow:auto;display:flex;padding:32px;overscroll-behavior:contain}
-#slide{flex:none;margin:auto;background:white;box-shadow:0 3px 24px #19212d20;overflow:hidden}
-#slide iframe{display:block;width:100%;height:100%;border:0;pointer-events:none}
+#slide{position:relative;flex:none;margin:auto;background:white;box-shadow:0 3px 24px #19212d20;overflow:hidden}
+#slide iframe{position:absolute;inset:0;display:block;width:100%;height:100%;border:0;pointer-events:none}
 #empty{margin:auto;color:#737d8e}
 footer{display:flex;align-items:center;gap:14px;padding:0 16px;background:#fff;border-top:1px solid #d4d9e2;font-size:12px}
 #count{min-width:90px}footer .hint{flex:1;color:#737d8e}footer button{padding:3px 10px}footer select{padding:3px 8px}
@@ -47,6 +47,7 @@ body.presenting{grid-template-rows:minmax(0,1fr);background:#111}
 <div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
+let displayedSvg, pendingFrame;
 const byId=id=>document.getElementById(id);
 const stage=byId('stage'),slide=byId('slide'),thumbnails=byId('thumbnails');
 function resize(){
@@ -59,7 +60,7 @@ function resize(){
   const slideWidth=presenting||zoom==='fit'?Math.min(width,height*ratio):1280*Number(zoom);
   slide.style.width=slideWidth+'px';slide.style.height=slideWidth/ratio+'px';
 }
-function selectSlide(next,focusThumbnail=false){
+function selectSlide(next,focusThumbnail=false,reveal=true){
   index=Math.max(0,Math.min(next,state.slides.length-1));
   const count=state.slides.length?'Slide '+(index+1)+' of '+state.slides.length:'No slides';
   byId('count').textContent=count;byId('present-count').textContent=count;
@@ -68,38 +69,59 @@ function selectSlide(next,focusThumbnail=false){
   byId('present').disabled=!state.slides.length;
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
-  slide.replaceChildren();
-  if(state.slides[index]){
-    const frame=document.createElement('iframe');frame.sandbox='';frame.tabIndex=-1;frame.title='Slide '+(index+1);
-    frame.srcdoc='<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style>'+state.slides[index];
-    slide.append(frame);
+  const svg=state.slides[index];
+  if(svg!==displayedSvg){
+    displayedSvg=svg;
+    if(pendingFrame){pendingFrame.remove();pendingFrame=null;}
+    if(svg){
+      const frame=document.createElement('iframe');frame.sandbox='';frame.tabIndex=-1;
+      frame.title='Slide '+(index+1);frame.style.visibility='hidden';
+      pendingFrame=frame;
+      frame.onload=()=>{
+        if(pendingFrame!==frame)return;
+        for(const child of Array.from(slide.children))if(child!==frame)child.remove();
+        frame.style.visibility='visible';pendingFrame=null;
+      };
+      frame.srcdoc='<style>html,body{margin:0;width:100%;height:100%;overflow:hidden}svg{display:block;width:100%;height:100%}</style>'+svg;
+      slide.append(frame);
+    }else slide.replaceChildren();
   }
+  for(const frame of slide.children)frame.title='Slide '+(index+1);
   for(const [position,item] of Array.from(thumbnails.children).entries()){
     const button=item.firstElementChild,selected=position===index;
     button.setAttribute('aria-current',String(selected));button.tabIndex=selected?0:-1;
-    if(selected){button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
+    if(selected){if(reveal)button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
   }
   resize();
 }
 function update(updated){
   const focusedThumbnail=thumbnails.contains(document.activeElement);
-  const changed=updated.slides.length!==state.slides.length||updated.slides.some((svg,i)=>svg!==state.slides[i]);
+  const previous=state;
   state=updated;
-  byId('status').textContent=state.error?'Build failed · showing last successful output':state.slides.length+' slides · Live';
+  byId('status').textContent=state.error?'Build failed · showing last successful output':state.building?'Updating…':state.slides.length+' slides · Live';
   byId('error').textContent=state.error||'';byId('error').hidden=!state.error;
   document.documentElement.style.setProperty('--slide-ratio',String(state.aspectRatio));
-  if(changed){
-    for(const url of urls)URL.revokeObjectURL(url);
-    urls=state.slides.map(svg=>URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'})));
-    thumbnails.replaceChildren(...urls.map((url,i)=>{
-      const item=document.createElement('li'),button=document.createElement('button'),number=document.createElement('span'),image=document.createElement('img');
+  for(let i=state.slides.length;i<urls.length;i++){
+    URL.revokeObjectURL(urls[i]);thumbnails.lastElementChild.remove();
+  }
+  urls.length=state.slides.length;
+  state.slides.forEach((svg,i)=>{
+    if(svg===previous.slides[i])return;
+    const oldUrl=urls[i];
+    urls[i]=URL.createObjectURL(new Blob([svg],{type:'image/svg+xml'}));
+    let item=thumbnails.children[i];
+    if(!item){
+      item=document.createElement('li');
+      const button=document.createElement('button'),number=document.createElement('span'),image=document.createElement('img');
       button.className='thumbnail';button.setAttribute('aria-label','Slide '+(i+1));button.onclick=()=>selectSlide(i,true);
       number.className='slide-number';number.textContent=String(i+1);
-      image.src=url;image.alt='';image.draggable=false;image.loading='lazy';
-      button.append(number,image);item.append(button);return item;
-    }));
-    selectSlide(index,focusedThumbnail);
-  }else resize();
+      image.alt='';image.draggable=false;image.loading='lazy';
+      button.append(number,image);item.append(button);thumbnails.append(item);
+    }
+    item.querySelector('img').src=urls[i];
+    if(oldUrl)URL.revokeObjectURL(oldUrl);
+  });
+  selectSlide(index,focusedThumbnail,false);
   if(!state.slides.length&&presenting)void exitPresentation();
 }
 function setPresenting(value){
@@ -140,8 +162,8 @@ new ResizeObserver(resize).observe(stage);
 let refreshId=0;
 async function refresh(){
   const id=++refreshId;
-  try{const response=await fetch('/state');if(!response.ok)throw new Error('Preview unavailable');const updated=await response.json();if(id===refreshId)update(updated);}
+  try{const response=await fetch('/state'+(state.revision===undefined?'':'?since='+state.revision));if(!response.ok)throw new Error('Preview unavailable');const updated=await response.json();if(id===refreshId){if(updated.changes){updated.slides=state.slides.slice(0,updated.count);updated.slides.length=updated.count;for(const [position,svg] of Object.entries(updated.changes))updated.slides[Number(position)]=svg;}update(updated);}}
   catch{if(id===refreshId)byId('status').textContent='Reconnecting…';}
 }
-const events=new EventSource('/events');events.onmessage=refresh;events.onerror=()=>{byId('status').textContent='Reconnecting…'};refresh();
+const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='ready')delete state.revision;void refresh();};events.onerror=()=>{byId('status').textContent='Reconnecting…'};refresh();
 </script></html>`;

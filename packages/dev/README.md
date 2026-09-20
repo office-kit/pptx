@@ -21,6 +21,10 @@ has a vertical thumbnail strip and a large slide canvas. Click a thumbnail or us
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
 exit) are viewing controls; the canvas has no editing, dragging or resize handles.
 Changes are made only in TSX, including when an AI agent edits the presentation.
+Keep the server running throughout the edit/review loop. Saving updates only the
+changed thumbnails and slide view, preserving zoom, scroll position and presentation
+mode. The previous slide stays visible until its replacement is ready. Rapid edits
+cancel obsolete evaluations; only the latest successful result is published.
 Download PPTX exports the last successful build.
 A syntax or runtime error is shown without discarding the last successful preview.
 DSL evaluation errors include the TSX element's source file and line number.
@@ -54,7 +58,8 @@ assets with `readFile(new URL('./asset.png', import.meta.url))`; the compiler
 preserves the original URL of each bundled source module.
 
 TSX runs as trusted local Node code, including imports and Raw callbacks.
-A fresh worker evaluates each build, with a 60-second limit, so module state
+The watch server preloads libraries in the next worker between edits. Each build
+still evaluates the complete TSX in a fresh worker, with a 60-second limit, so module state
 cannot accumulate across updates. Workers are not a security sandbox. The
 preview server binds to `127.0.0.1` and rejects unexpected Host headers.
 
@@ -74,3 +79,17 @@ node packages/dev/dist/cli.mjs dev packages/dsl/examples/review.tsx
 node packages/dev/dist/cli.mjs build packages/dsl/examples/review.tsx --out review.pptx
 pnpm --filter @office-kit/pptx-dev test
 ```
+
+Browser regression tests cover partial updates, viewport preservation, errors,
+reconnection and presentation mode, and report save-to-visible timings for a
+50-slide text deck:
+
+```sh
+pnpm --filter @office-kit/pptx-dev exec playwright install chromium
+pnpm --filter @office-kit/pptx-dev test:browser
+```
+
+To use an installed Chrome instead, set `PLAYWRIGHT_CHANNEL=chrome`. Timings depend
+on the deck and machine; complex templates and charts still incur full generation
+and serialization costs. SVG updates are transferred as deltas, with a complete
+snapshot after reconnecting or falling behind.
