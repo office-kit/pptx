@@ -1,5 +1,30 @@
 # @office-kit/pptx-dsl
 
+## 0.5.0
+
+### Minor Changes
+
+- 36c4987: feat: `Fill` accepts `autoFit`
+
+  `<Fill target={...} autoFit="normal">` sets text auto-fit on the placeholder it writes into, with the same values as `Text` (`'none'`, `'normal'`, `'shape'`). Text longer than a template placeholder can now be told to shrink without a `Raw` callback that selects the same shape a second time. Omitting `autoFit` keeps whatever the template's `<a:bodyPr>` says, as before.
+
+- 36c4987: feat: rich runs and merges in `Table` cells
+
+  `styleCell` and the cell styles (0.4.0) cover a cell's fill, format, alignment, anchor and borders. This adds the two things a style cannot express.
+
+  - A cell in `rows` is a string or a cell object, `{ text }` or `{ paragraphs }` with optional `colSpan` / `rowSpan`. Strings behave as before and can be mixed with objects; an empty cell is the string `''`. The new exported types are `TableCell` and `TableCellSpec`.
+  - `paragraphs` takes core `ParagraphSpec[]`, for bold or colored runs inside one cell. The merged cell style (`cellStyle`, `headerStyle`, `styleCell`) is the base of every run, so a run states only what differs; a `Raw` callback used to lose the table-wide size and color. The style's `align` applies unless a paragraph has its own. `styleCell` receives a rich cell's `value` as its run texts joined, one line per paragraph.
+  - A merge is declared on its top-left cell with `colSpan` / `rowSpan`. `rows` stays a full rectangular grid and every covered position is written as `''`; any other content there is an error. Covered positions get no style and no `styleCell` call, because the merged block takes its fill and borders from its top-left cell.
+
+- 36c4987: feat: `bullet` and `level` on single `Text` paragraphs
+
+  `bullets` and `paragraphSpacing` (0.4.0) apply to every paragraph. This adds the per-paragraph half, for nested lists and for a heading line that stays out of the list.
+
+  - Each entry of `paragraphs` accepts `bullet` (`'bullet'`, `'number'`, `'none'`, `{ char }`, `{ autoNum }`) and `level` next to the core `ParagraphSpec` fields. The new exported types are `TextParagraph` and `TextLevel`.
+  - A paragraph's `bullet` wins over `bullets`, so `bullet: 'none'` exempts one line.
+  - `level` is typed `0` to `8`, so `tsc` rejects a level outside that range. A nested bullet is indented deeper than its parent.
+  - A nested list no longer needs a `Raw` callback that addresses paragraphs by index.
+
 ## 0.4.0
 
 ### Minor Changes
