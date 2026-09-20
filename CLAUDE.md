@@ -40,7 +40,9 @@ node packages/dev/dist/cli.mjs dev packages/dsl/examples/review.tsx
 node packages/dev/dist/cli.mjs build packages/dsl/examples/review.tsx --out review.pptx
 ```
 
-Edit the TSX and inspect all slides in the live preview after saving. Prefer
+Patch the relevant TSX or data and inspect affected slides in the running preview.
+Review the whole deck before delivery; preserve existing file structures for
+local revisions. Prefer
 native objects so the exported PPTX stays editable. Existing decks use
 `Presentation source={bytes}`; its default preserves unmentioned slides.
 Use `mode="compose"` only when intentionally replacing the slide sequence.

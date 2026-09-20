@@ -16,7 +16,7 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by the server. Save `deck.tsx` to rebuild. The viewer
+Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
 has a vertical thumbnail strip and a large slide canvas. Click a thumbnail or use
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
 exit) are viewing controls; the canvas has no editing, dragging or resize handles.
@@ -44,6 +44,27 @@ included `tsconfig.json` for completion and diagnostics. Start the **Preview
 presentation** task, then use **Simple Browser: Show** with the printed URL and
 move it to a side editor group. No custom editor extension is needed for this
 workflow. Preview-to-source selection is not implemented.
+
+## Edit only what changed
+
+New projects separate slide order, content and shared styling:
+
+```text
+deck.tsx          # Slide imports and order
+slides/cover.tsx  # One slide per descriptively named file
+theme.ts          # Shared design values
+```
+
+For example, a headline revision changes only the text in the corresponding
+slide file. A deck-wide palette change belongs in `theme.ts`; a one-slide color
+exception belongs in that slide's props. Imported files are watched, so keep the
+preview running while editing. Existing single-file decks remain supported and
+do not need migration for a small revision.
+
+Use focused code patches for revisions. Review affected slides while iterating;
+check types, export and review the whole deck before delivery. The build still
+evaluates the whole presentation; file splitting reduces authoring scope, not
+the amount of PPTX evaluation.
 
 ## Commands
 

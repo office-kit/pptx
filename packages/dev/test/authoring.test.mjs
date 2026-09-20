@@ -29,6 +29,16 @@ test('initialized TSX typechecks, builds, and uses source-relative assets in imp
   const result = await buildDeck(deck);
   assert.equal(result.slides.length, 1);
   assert.match(result.slides[0], /Your next presentation/);
+  const entry = await readFile(deck, 'utf8');
+  const coverPath = join(project, 'slides/cover.tsx');
+  const cover = await readFile(coverPath, 'utf8');
+  await writeFile(coverPath, cover.replace('Your next presentation', 'Quarterly review'));
+  assert.match((await buildDeck(deck)).slides[0], /Quarterly review/);
+  const themePath = join(project, 'theme.ts');
+  const theme = await readFile(themePath, 'utf8');
+  await writeFile(themePath, theme.replace('#E5481F', '#123456'));
+  assert.match((await buildDeck(deck)).slides[0], /#123456/i);
+  assert.equal(await readFile(deck, 'utf8'), entry);
   await writeFile(join(project, 'template.pptx'), result.bytes);
   await writeFile(
     join(project, 'template.ts'),
@@ -129,6 +139,16 @@ export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${tex
   assert.deepEqual(unchanged.changes, {});
   const stale = await fetch(`${url}/state?since=-10`).then((r) => r.json());
   assert.deepEqual(stale.slides, edited.slides);
+  const imported = join(directory, 'content.ts');
+  await writeFile(imported, "export const title = 'Imported title';");
+  const importedEntry = `import { title } from './content.ts';\n${source('{title}')}`;
+  await writeFile(deck, importedEntry);
+  await until((state) => state.slides[0]?.includes('Imported title'));
+  await writeFile(imported, "export const title = 'Patched title';");
+  await until((state) => state.slides[0]?.includes('Patched title'));
+  assert.equal(await readFile(deck, 'utf8'), importedEntry);
+  await writeFile(deck, source('After edit'));
+  await until((state) => state.slides[0]?.includes('After edit'));
   const beforeError = new Uint8Array(
     await fetch(`${url}/deck.pptx`).then((response) => response.arrayBuffer()),
   );

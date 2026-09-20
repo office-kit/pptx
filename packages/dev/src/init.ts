@@ -1,26 +1,46 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-const starter = `import { Presentation, Slide, Text, Shape } from '@office-kit/pptx-dsl';
+const starter = `import { Presentation } from '@office-kit/pptx-dsl';
+import { Cover } from './slides/cover.tsx';
 
 export default (
   <Presentation>
-    <Slide background="#15171C">
-      <Shape preset="rect" x={0.9} y={2.55} width={0.14} height={1.75} fill="#E5481F" stroke={false} />
-      <Text x={1.25} y={2.4} width={10} height={1.1} size={48} bold color="#FFFFFF">
-        Your next presentation
-      </Text>
-      <Text x={1.25} y={3.55} width={10} height={0.6} size={22} color="#B4B9C4">
-        Edit this TSX and save to update the preview.
-      </Text>
-    </Slide>
+    <Cover />
   </Presentation>
 );
 `;
 
+const theme = `export const theme = {
+  background: '#15171C',
+  accent: '#E5481F',
+  text: '#FFFFFF',
+  muted: '#B4B9C4',
+} as const;
+`;
+
+const cover = `import { Slide, Text, Shape } from '@office-kit/pptx-dsl';
+import { theme } from '../theme.ts';
+
+export function Cover() {
+  return (
+    <Slide background={theme.background}>
+      <Shape preset="rect" x={0.9} y={2.55} width={0.14} height={1.75} fill={theme.accent} stroke={false} />
+      <Text x={1.25} y={2.4} width={10} height={1.1} size={48} bold color={theme.text}>
+        Your next presentation
+      </Text>
+      <Text x={1.25} y={3.55} width={10} height={0.6} size={22} color={theme.muted}>
+        Edit this TSX and save to update the preview.
+      </Text>
+    </Slide>
+  );
+}
+`;
+
 const guide = `# Writing this presentation
 
-Edit deck.tsx and local TypeScript components. The JSX runtime is
+Use deck.tsx for slide order, slides/*.tsx for individual slides, and theme.ts
+for shared design values. The JSX runtime is
 @office-kit/pptx-dsl, with no React or Vue dependency.
 
 - Run npm run dev, then open its local URL to preview. Saving source files
@@ -28,8 +48,16 @@ Edit deck.tsx and local TypeScript components. The JSX runtime is
 - The preview is view-only: use the vertical thumbnails to select slides, zoom
   to inspect details, and Present to view full-screen (Escape exits). Make all
   content and layout changes in TSX; there are no canvas editing controls.
-- Run npm run check for TypeScript diagnostics; run npm run build to export
-  deck.pptx. Inspect every slide in the preview after changes.
+- For a local revision, locate the slide through deck.tsx or a text search and
+  read only the relevant source and dependencies. Patch the requested text, data
+  or props; do not regenerate the deck or reformat unrelated code. Keep descriptive
+  filenames stable when reordering slides. Preserve existing project structures.
+- Change shared theme values/components only for changes intended for all their
+  consumers; use a local prop override for a one-slide exception.
+- Keep the preview running during revisions and inspect affected slides after
+  saving. Review all affected consumers for shared changes. Do not run a separate
+  export for every intermediate edit. Before delivery, run npm run check and
+  npm run build to export deck.pptx, then review the whole deck.
 - Coordinates and dimensions are inches; font sizes and stroke widths are points.
   The default 16:9 canvas is 13.333 × 7.5 inches.
 - Use native Text, Shape, Image, Table and Chart elements. Use JS functions,
@@ -113,6 +141,8 @@ export async function initProject(directory: string): Promise<string> {
         2,
       ) + '\n',
     'deck.tsx': starter,
+    'theme.ts': theme,
+    'slides/cover.tsx': cover,
     'CLAUDE.md': guide,
     '.gitignore': 'node_modules/\ndeck.pptx\n',
     '.vscode/tasks.json':
@@ -152,7 +182,7 @@ export async function initProject(directory: string): Promise<string> {
         2,
       ) + '\n',
   };
-  await mkdir(join(root, '.vscode'));
+  await Promise.all(['.vscode', 'slides'].map((directory) => mkdir(join(root, directory))));
   await Promise.all(
     Object.entries(files).map(([name, content]) =>
       writeFile(join(root, name), content, { flag: 'wx' }),
