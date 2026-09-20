@@ -1,0 +1,161 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+</script>
+
+# TSX elements and templates
+
+`@office-kit/pptx-dsl` turns typed TSX into native PPTX objects through
+`@office-kit/pptx`. It has its own JSX runtime; it does not use React, Vue, the DOM,
+or CSS layout. To install and preview a project, follow
+<a href="{base}/docs/authoring">Create slides with AI and TSX</a> first.
+
+## A complete deck
+
+Replace the generated `deck.tsx` with the following, then save:
+
+```tsx
+import { Presentation, Slide, Text, Chart } from '@office-kit/pptx-dsl';
+
+export default (
+  <Presentation>
+    <Slide background="#15171C">
+      <Text x={1} y={2.5} width={11} height={1} size={44} bold color="#FFFFFF">
+        Quarterly business review
+      </Text>
+    </Slide>
+    <Slide background="#FFFFFF">
+      <Text x={0.9} y={0.5} width={11.5} height={0.8} size={30} bold>
+        Revenue by quarter
+      </Text>
+      <Chart
+        x={0.9} y={1.7} width={11.5} height={5}
+        spec={{
+          kind: 'column',
+          categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+          series: [{ name: 'Revenue', values: [120, 180, 240, 300], color: '#E5481F' }],
+        }}
+      />
+    </Slide>
+  </Presentation>
+);
+```
+
+Export a `Presentation` as the module's default export. The default canvas is
+16:9, approximately **13.333 × 7.5 inches**. Positions and dimensions (`x`, `y`,
+`width`, `height`) are in **inches**; font sizes and stroke widths are in **points**.
+Child order is drawing order. Geometry is explicit; there is no automatic layout.
+
+## Native elements
+
+| Element | Main inputs |
+| --- | --- |
+| `Presentation` | Optional source PPTX bytes, `size`, `theme`, `mode`. |
+| `Slide` | Optional `background`, `notes`, `layout`, source `from`, or edit `target`. |
+| `Text` | Required bounds; literal children or rich `paragraphs`; text formatting such as `size`, `bold`, `color`. |
+| `Shape` | Required bounds and `preset`; fill, stroke, effects, optional text. |
+| `Image` | Required bounds and byte `data`; optional format and fit. |
+| `Chart` | Required bounds and core `ChartSpec` in `spec`. |
+| `Table` | Required bounds and string `rows`; column widths, row heights, cell/header styles and stripe fill. |
+| `Fill` | Existing shape `target`, replacement text children, optional `format`. |
+| `Remove` | Existing shape `target`. |
+| `Raw` | Deferred callback for public core APIs; optional explicit scope. |
+
+Use editor completion on each element to see its typed props. The
+<a href="{base}/api">core API reference</a> documents types such as `ChartSpec`
+and `ParagraphSpec`; it is the function-level API, not a list of JSX components.
+
+Reuse elements with ordinary TypeScript functions, arrays, fragments, conditions
+and `.map()`. A separate high-level component library is not included. Images can
+be loaded in the Node authoring workflow with
+`readFile(new URL('./image.png', import.meta.url))`; pass the resulting bytes to
+`Image` through `data`.
+
+## Edit or compose a template
+
+First run `npx --no-install office-pptx inspect template.pptx` in an initialized
+project. It prints slide indices, part names, layouts, shape names and IDs.
+Missing or ambiguous references are errors.
+
+| Reference | Supported selectors |
+| --- | --- |
+| Slide | Zero-based `index`, exact `title`, or `part`. |
+| Layout | Exact `name`, `type`, or `part`. |
+| Shape | Exact `name`, `id`, or `placeholder` with optional `type` and/or `idx`. |
+
+With `Presentation source={bytes}`, the default is `mode="edit"`. A
+`Slide target={{ index: 0 }}` edits the original first slide while unmentioned
+slides remain. `Fill` replaces only the selected shape's text; formatting changes
+are explicit. Existing template masters and layouts remain in the package.
+
+To deliberately replace the slide sequence, use compose mode:
+
+```tsx
+import { readFile } from 'node:fs/promises';
+import { Presentation, Slide, Fill } from '@office-kit/pptx-dsl';
+
+const source = await readFile(new URL('./template.pptx', import.meta.url));
+
+export default (
+  <Presentation source={source} mode="compose">
+    <Slide from={{ index: 0 }}>
+      <Fill target={{ name: 'Title 1' }}>Opening</Fill>
+    </Slide>
+    <Slide from={{ index: 0 }}>
+      <Fill target={{ name: 'Title 1' }}>Closing</Fill>
+    </Slide>
+  </Presentation>
+);
+```
+
+This produces two copies of the original first slide and removes the original
+sequence. Replace `Title 1` with a real target. Source references always refer
+to the original deck, and every rebuild loads the source fresh. Source decks keep
+their original dimensions; `size` applies only to new presentations.
+
+Preserving existing OOXML is different from exposing every feature as a typed
+DSL element. Unknown content should remain in the package even if the preview
+cannot render it. Cross-presentation imports are not offered as a lossless path.
+
+## Raw escape hatch
+
+Use `Raw` when the core library supports a capability that has no declarative
+prop. It runs after normal construction, in declaration order, before compose
+mode removes original slides. Callbacks can be async.
+
+```tsx
+import { setSlideTransition } from '@office-kit/pptx';
+import { Presentation, Slide, Text, Raw } from '@office-kit/pptx-dsl';
+
+export default (
+  <Presentation>
+    <Slide>
+      <Text x={1} y={1} width={10} height={1} size={32}>Welcome</Text>
+      <Raw
+        scope="slide"
+        apply={({ slide }) => {
+          setSlideTransition(slide, { effect: 'fade', speed: 'med' });
+        }}
+      />
+    </Slide>
+  </Presentation>
+);
+```
+
+`scope="presentation"`, `scope="slide"`, and `scope="shape"` require the
+corresponding context and check nesting. Without scope, slide/shape handles are
+optional. `Raw` executes trusted local code, as do other imports in the TSX file.
+The static SVG preview does not play the transition in this example.
+
+## Package responsibilities and current limits
+
+| Package | Responsibility |
+| --- | --- |
+| `@office-kit/pptx` | Read, change, validate and serialize the PPTX/OOXML package. |
+| `@office-kit/pptx-dsl` | Typed TSX elements and compilation to the core model. |
+| `@office-kit/pptx-preview` | Rendering; separate from authoring and preservation. |
+| `@office-kit/pptx-dev` | Node CLI: project creation, watch, viewer, inspection and export. |
+
+The DSL is initial coverage, not complete PPTX coverage. Typed master/layout
+creation, animations, transitions, connectors, groups, media playback and
+structured table cells need additional elements or core work. Raw can use
+available core functions, but does not count as typed declarative coverage.

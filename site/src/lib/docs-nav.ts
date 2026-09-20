@@ -20,13 +20,23 @@ export const docSections: DocSection[] = [
     title: 'Getting started',
     links: [
       {
+        href: '/docs/authoring',
+        title: 'Create slides with AI',
+        description: 'Create a TSX project, edit with Claude Code, preview, and export a PPTX.',
+      },
+      {
+        href: '/docs/tsx',
+        title: 'TSX elements and templates',
+        description: 'Typed elements, template references, units, and the Raw escape hatch.',
+      },
+      {
         href: '/docs/install',
-        title: 'Install',
+        title: 'Core library install',
         description: 'Add @office-kit/pptx to a Node or browser project.',
       },
       {
         href: '/docs/getting-started',
-        title: 'Getting started',
+        title: 'Core library workflows',
         description: 'Read, edit, and write your first .pptx presentation.',
       },
       {

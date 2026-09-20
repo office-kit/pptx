@@ -1,0 +1,193 @@
+<script lang="ts">
+  import { base } from '$app/paths';
+</script>
+
+# Create slides with AI and TSX
+
+Create a project, keep its preview open, and ask Claude Code to edit `deck.tsx`.
+Saving the source rebuilds the presentation. The browser is a **view-only slide
+viewer**: vertical thumbnails, a selected slide, zoom, and presentation mode.
+All content and layout changes happen in TSX.
+
+## 1. Set up the tools
+
+You need **Node.js 22.18 or later**, Git, and **pnpm 10.34.4** for the source
+checkout. Claude Code is optional; any editor can change the same TSX files.
+
+**The TSX packages are not yet published to npm.** The core library's npm
+package alone does not install this workflow. Use the source checkout below;
+`npx @office-kit/pptx-dev` will not work until the companion packages are published.
+
+Run these commands in a terminal (macOS/Linux shell):
+
+```sh
+git clone https://github.com/office-kit/pptx.git
+cd pptx
+pnpm install --frozen-lockfile
+pnpm --filter @office-kit/pptx-dev... build
+```
+
+If you already have this repository, start in its root and run the last two
+commands. Package the four local libraries so your slide project can live outside
+the repository. Run this in the same terminal:
+
+```sh
+PPTX_REPO="$PWD"
+PPTX_PACKS="$PPTX_REPO/.probe/packages"
+mkdir -p "$PPTX_PACKS"
+pnpm --filter @office-kit/pptx-dev... exec pnpm pack --pack-destination "$PPTX_PACKS"
+```
+
+## 2. Create your presentation project
+
+Choose a new directory. `init` refuses to overwrite an existing one. Here we
+create `my-slides` beside the repository:
+
+```sh
+node "$PPTX_REPO/packages/dev/dist/cli.mjs" init ../my-slides
+cd ../my-slides
+npm install --legacy-peer-deps "$PPTX_PACKS"/*.tgz
+npm run check
+npm run dev
+```
+
+The temporary `--legacy-peer-deps` option is needed for this source-checkout
+installation: the DSL requires the next core release, while the checkout's core
+version number has not been bumped yet. Install **all four tarballs from the same
+checkout**; its core includes the required changes. This option is not a general
+recommendation for installing released packages. Keep the tarballs available if
+you need to reinstall this project. After updating the checkout, use an empty
+pack directory so each package has only one tarball version.
+
+The terminal prints a URL such as `http://127.0.0.1:4173`. Open the **printed
+URL** and leave the process running. You should see one cover slide with the
+heading “Your next presentation”. If that port is busy, use
+`npm run dev -- --port 4174`.
+
+Your project contains:
+
+| File | Purpose |
+| --- | --- |
+| `deck.tsx` | The presentation source. Ask the AI to edit this file. |
+| `CLAUDE.md` | Instructions for the AI: units, elements, templates, and verification. |
+| `tsconfig.json` | TSX runtime configuration, type checking, and editor completion. |
+| `.vscode/tasks.json` | Tasks for preview, checking, and export. |
+| `package.json` | The `dev`, `check`, and `build` commands. |
+
+## 3. Ask Claude Code to create the slides
+
+Open **another terminal in `my-slides`** and start your installed Claude Code:
+
+```sh
+claude
+```
+
+For example, give it this request:
+
+```text
+Read CLAUDE.md and edit deck.tsx to create a five-slide presentation in Japanese
+for a quarterly business review: cover, summary, revenue chart, challenges,
+and next actions. Use a white background, dark text and an orange accent.
+Use clearly labelled sample data where figures have not been supplied.
+Use native Text, Shape, Chart and Table elements, not screenshots of slides.
+Run npm run check and npm run build after making changes.
+```
+
+Keep the preview beside the conversation. After inspecting the result, ask for
+specific changes such as “Make the chart on slide 3 larger and shorten its
+headline”. The AI edits TSX; the viewer updates after each save and keeps the
+selected slide index. If a build fails, an error appears above the last successful
+preview. Ask the AI to fix that error before continuing.
+
+The viewer does not contain an AI chat. Claude Code runs in your terminal or
+editor. Automatic rebuilding also does **not** run TypeScript checking; use
+`npm run check` to catch type errors.
+
+## 4. Review and export
+
+- Select slides in the left thumbnail strip; use arrow keys, Page Up/Down,
+  Home, or End to navigate.
+- Use **Fit** or a zoom percentage to inspect the slide.
+- Use **Present** for presentation mode. Arrow keys, Space, or clicking the
+  slide advances; Shift+Space goes back; Escape exits. If the browser denies
+  fullscreen, presentation mode stays inside the window.
+- There are no text editors, drag handles, resizing, or slide-reordering controls.
+  Ask the AI to make those changes in TSX.
+
+When ready, run in the project directory:
+
+```sh
+npm run check
+npm run build
+```
+
+The output is **`my-slides/deck.pptx`**. **Download PPTX** in the viewer also saves
+the last successful build. If an error is visible, that download is the older
+successful version, not the failing source.
+
+Text, shapes, tables and charts are native PPTX objects. The preview is rendered
+from the exported PPTX, but it does not guarantee pixel-identical PowerPoint
+rendering or animation/media playback. Check the exported file in the target
+application before delivering it.
+
+## Use VSCode beside the viewer
+
+Open the `my-slides` folder in VSCode. Completion and diagnostics come from the
+generated `tsconfig.json`; no React or Vue installation is needed.
+
+Run **Tasks: Run Task → Preview presentation**, then **Simple Browser: Show**
+and paste the printed URL. Move the browser editor to a side group. Alternatively,
+keep an ordinary browser window beside VSCode. Use only one preview process for
+this project; skip the task if `npm run dev` is already running in a terminal.
+
+A dedicated VSCode extension and click-to-source navigation are not implemented.
+
+## Start from an existing PPTX
+
+Copy the file into `my-slides/template.pptx`, then inspect it:
+
+```sh
+npx --no-install office-pptx inspect template.pptx
+```
+
+Use the returned names or IDs as targets. Replace `deck.tsx` with this example,
+changing `Title 1` to an actual shape name from your file:
+
+```tsx
+import { readFile } from 'node:fs/promises';
+import { Presentation, Slide, Fill } from '@office-kit/pptx-dsl';
+
+const source = await readFile(new URL('./template.pptx', import.meta.url));
+
+export default (
+  <Presentation source={source} mode="edit">
+    <Slide target={{ index: 0 }}>
+      <Fill target={{ name: 'Title 1' }}>Quarterly business review</Fill>
+    </Slide>
+  </Presentation>
+);
+```
+
+`mode="edit"` preserves the existing slide sequence and changes only explicit
+targets. Indices are zero-based. Existing masters, layouts and unknown package
+parts are retained through the core model, rather than recreated from the DSL's
+known fields. Replacing text intentionally replaces that target's text.
+
+Use `mode="compose"` only when you want to replace the original slide sequence.
+Keep imported components, templates and images inside the project directory so
+the watcher can detect their changes. See the
+<a href="{base}/docs/tsx">TSX elements and template guide</a> for the syntax.
+
+## Troubleshooting
+
+| Symptom | What to do |
+| --- | --- |
+| npm reports 404 for `@office-kit/pptx-dev` or `@office-kit/pptx-dsl` | These packages are not published yet. Follow the local tarball installation above. |
+| `office-pptx` is not found | Install the project dependencies and run `npm run dev` inside `my-slides`. |
+| An import or JSX type cannot be found | Check that dependencies are installed and VSCode opened the generated project folder with its `tsconfig.json`. |
+| An asset cannot be found | Load it with `readFile(new URL('./asset.png', import.meta.url))`, relative to the source file. |
+| Saving an asset does not rebuild | Keep it under the entry file's directory; `node_modules`, `.git`, `dist` and `.office-kit` are excluded. |
+| A template target is missing or ambiguous | Run `inspect`, then choose an exact shape ID, name, or slide part name. |
+
+For AI-readable documentation, append `.md` to this page's URL, or use
+<a href="{base}/llms-full.txt">the full documentation text</a>.

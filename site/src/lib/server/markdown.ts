@@ -5,6 +5,7 @@
 // import.meta.glob with eager + ?raw inlines every .svx source string at
 // build time, no runtime fs lookup.
 
+import { base } from '$app/paths';
 import { examples, type ExampleKey } from '$lib/examples';
 import { recipeGroups } from '$lib/examples/recipes';
 import { allDocLinks, type DocLink } from '$lib/docs-nav';
@@ -35,6 +36,12 @@ function svxToMarkdown(source: string): string {
     if (!ex) return `\`\`\`text\n[unknown example: ${key}]\n\`\`\``;
     return [`\`\`\`ts title="${ex.path}"`, ex.source.trimEnd(), '```'].join('\n');
   });
+
+  // Resolve site links for Markdown consumers, including GitHub Pages' base path.
+  body = body.replace(
+    /<a href="\{base\}([^"]+)">([\s\S]*?)<\/a>/g,
+    (_, path: string, label: string) => `[${label}](${base}${path})`,
+  );
 
   return body.trim() + '\n';
 }

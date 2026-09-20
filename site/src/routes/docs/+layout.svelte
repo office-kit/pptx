@@ -12,9 +12,7 @@
   const { children }: Props = $props();
 
   const mdHref = $derived(`${page.url.pathname.replace(/\/$/, '')}.md`);
-  const currentRoute = $derived(
-    page.url.pathname.replace(new RegExp(`^${base}`), '').replace(/\/$/, '') || '/',
-  );
+  const currentRoute = $derived(page.route.id);
   const index = $derived(allDocLinks.findIndex((l) => l.href === currentRoute));
   const current = $derived(allDocLinks[index]);
   const prev = $derived(index > 0 ? allDocLinks[index - 1] : undefined);
@@ -24,6 +22,13 @@
   let navOpen = $state(false);
   afterNavigate(() => (navOpen = false));
 </script>
+
+<svelte:head>
+  <title>{current?.title ?? 'Documentation'} — @office-kit/pptx</title>
+  {#if current}
+    <meta name="description" content={current.description} />
+  {/if}
+</svelte:head>
 
 <div class="docs frame">
   <aside class="sidebar" data-pagefind-ignore>

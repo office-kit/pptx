@@ -2,12 +2,12 @@
 //
 // The llmstxt.org proposal suggests a short index. We extend that: the file
 // keeps the index shape (H1 title, blockquote summary, link sections at the
-// end) but inlines enough API guidance that an agent can use every feature
-// of @office-kit/pptx without having to fetch additional pages. For the long-form
+// end) but also inlines common core API guidance. For TSX and the long-form
 // prose docs an agent can still follow the links at the bottom, append
 // `.md` to any docs URL for raw Markdown, or fetch `/llms-full.txt` for
 // the whole site concatenated into a single document.
 
+import { base } from '$app/paths';
 import { docSections } from '$lib/docs-nav';
 import type { RequestHandler } from './$types';
 
@@ -16,19 +16,33 @@ export const prerender = true;
 const HEADER = `# @office-kit/pptx
 
 > Generate and edit PowerPoint \`.pptx\` (OOXML PresentationML) files from
-> Node 20+ and modern browsers, with no PowerPoint, no Python, and no
+> Node 22.18+ and modern browsers, with no PowerPoint, no Python, and no
 > native runtime dependencies. Round-trip safety is the design center —
 > unknown extensions are preserved verbatim on save.
 
-This file is written for AI assistants. It is self-contained: an agent can
-use every documented feature of @office-kit/pptx from this page alone. The link
+This file is written for AI assistants. It contains a core API quick reference.
+For the TSX authoring workflow, follow the authoring and TSX guides. The link
 index at the bottom points at canonical docs — append \`.md\` to any docs
 URL for raw Markdown (e.g. \`/docs/install.md\`), or fetch \`/llms-full.txt\`
 for every page concatenated into a single document.
 
+## TSX authoring and preview
+
+The companion packages \`@office-kit/pptx-dsl\` and \`@office-kit/pptx-dev\`
+provide typed TSX, project initialization, a view-only slide viewer, and export.
+They are not yet published to npm: use the source-checkout and local-tarball
+instructions in the linked **Create slides with AI** guide. Do not suggest
+\`npx @office-kit/pptx-dev\` as a working installation yet.
+
+In an initialized project, edit \`deck.tsx\` (read its \`CLAUDE.md\` first),
+keep \`npm run dev\` running, and use \`npm run check\` plus \`npm run build\`
+before delivery. The output is \`deck.pptx\`. The viewer has vertical thumbnails,
+zoom and presentation mode; all content changes happen in TSX. The TSX guide
+covers native elements, template references, and Raw callbacks for core APIs.
+
 ## Runtime
 
-- Node \`>= 20\` (uses built-in Web Streams, Blob, fetch).
+- Node \`>= 22.18\` (uses built-in Web Streams, Blob, fetch).
 - Modern browsers, Bun, Deno, Cloudflare Workers, edge runtimes — anywhere
   with \`fetch\` + Uint8Array.
 - ESM-only. \`"sideEffects": false\` — fully tree-shakable.
@@ -84,8 +98,9 @@ const pres = await loadPresentation(bytes); // Uint8Array | ArrayBuffer | Blob
 const out: Uint8Array = await savePresentation(pres);
 \`\`\`
 
-\`createPresentation()\` returns an empty package — but it has no layouts,
-so any authoring needs at least one layout from a loaded template.
+\`createPresentation()\` returns an empty deck with a slide master, the Office
+theme, and three layouts (Blank, Title Slide, Title and Content). No template
+file is needed to author a new deck.
 
 ## Template fill
 
@@ -322,12 +337,12 @@ URL. The same content powers this index, the long-form docs, and the
 - [npm package](https://www.npmjs.com/package/@office-kit/pptx)
 `;
 
-function buildBody(origin: string): string {
+function buildBody(siteBase: string): string {
   const sections = docSections
     .map((section) => {
       const lines = [
         `### ${section.title}`,
-        ...section.links.map((l) => `- [${l.title}](${origin}${l.href}.md): ${l.description}`),
+        ...section.links.map((l) => `- [${l.title}](${siteBase}${l.href}.md): ${l.description}`),
       ];
       return lines.join('\n');
     })
@@ -335,8 +350,8 @@ function buildBody(origin: string): string {
   return `${HEADER}\n${sections}${FOOTER}`;
 }
 
-export const GET: RequestHandler = ({ url }) => {
-  return new Response(buildBody(url.origin), {
+export const GET: RequestHandler = () => {
+  return new Response(buildBody(base), {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=300',

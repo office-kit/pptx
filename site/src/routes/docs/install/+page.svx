@@ -2,7 +2,11 @@
   import { base } from '$app/paths';
 </script>
 
-# Install
+# Core library install
+
+For a TSX authoring project with live preview and AI editing, use
+<a href="{base}/docs/authoring">the presentation project setup guide</a>. Installing
+the core library alone does not install the DSL or CLI.
 
 `@office-kit/pptx` ships as ESM-only. Pick the entry that matches your runtime.
 
@@ -16,7 +20,7 @@ npm install @office-kit/pptx
 bun add @office-kit/pptx
 ```
 
-Requires **Node `>= 20`** for the built-in `Web Streams`, `Blob`, and `fetch` globals. Modern browsers (current and current-1 of Chromium, Firefox, Safari) work with the default entry — no Node built-ins are pulled in.
+Requires **Node `>= 22.18`** for the built-in `Web Streams`, `Blob`, and `fetch` globals. Modern browsers (current and current-1 of Chromium, Firefox, Safari) work with the default entry — no Node built-ins are pulled in.
 
 ## Subpath entries
 
