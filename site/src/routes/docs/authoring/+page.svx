@@ -2,192 +2,118 @@
   import { base } from '$app/paths';
 </script>
 
-# Create slides with AI and TSX
+# Create slides with AI
 
-Create a project, keep its preview open, and ask Claude Code to edit `deck.tsx`.
-Saving the source rebuilds the presentation. The browser is a **view-only slide
-viewer**: vertical thumbnails, a selected slide, zoom, and presentation mode.
-All content and layout changes happen in TSX.
+Install the office-kit skill, then tell Claude Code what presentation you want.
+Claude creates the project, writes the slides, starts a live preview, and exports
+an editable PowerPoint file. You review the slides and ask for changes.
 
-## 1. Set up the tools
+You need **Claude Code**, **Node.js 22.18 or later** (with npm), and **Git** for
+the skill installer. The authoring packages are available on npm.
 
-You need **Node.js 22.18 or later**, Git, and **pnpm 10.34.4** for the source
-checkout. Claude Code is optional; any editor can change the same TSX files.
+## 1. Install the skill once
 
-**The TSX packages are not yet published to npm.** The core library's npm
-package alone does not install this workflow. Use the source checkout below;
-`npx @office-kit/pptx-dev` will not work until the companion packages are published.
-
-Run these commands in a terminal (macOS/Linux shell):
+Run this in your terminal:
 
 ```sh
-git clone https://github.com/office-kit/pptx.git
-cd pptx
-pnpm install --frozen-lockfile
-pnpm --filter @office-kit/pptx-dev... build
+npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill --agent claude-code --global --yes
 ```
 
-If you already have this repository, start in its root and run the last two
-commands. Package the four local libraries so your slide project can live outside
-the repository. Run this in the same terminal:
+This installs the `office-kit-pptx` skill for Claude Code across your projects.
+It includes the authoring instructions and TSX reference. The
+[skills installer](https://github.com/vercel-labs/skills) downloads them from this
+repository; you do not need to clone or build office-kit yourself.
 
-```sh
-PPTX_REPO="$PWD"
-PPTX_PACKS="$PPTX_REPO/.probe/packages"
-mkdir -p "$PPTX_PACKS"
-pnpm --filter @office-kit/pptx-dev... exec pnpm pack --pack-destination "$PPTX_PACKS"
+## 2. Ask for a presentation
+
+Start Claude Code in the folder where you keep your work, then enter:
+
+```text
+/office-kit-pptx Create a five-slide quarterly business review in Japanese.
+Use a white background, dark text and an orange accent. Include a revenue
+chart and a next-actions table. Label any sample figures as illustrative.
 ```
 
-## 2. Create your presentation project
+Claude handles project initialization, dependency installation, TSX authoring,
+preview startup, type checking and PPTX export. It gives you a local preview URL
+and the path to the `.pptx` file. Allow the requested local commands when Claude
+Code asks; the skill does not bypass your permission settings.
 
-Choose a new directory. `init` refuses to overwrite an existing one. Here we
-create `my-slides` beside the repository:
+Open the preview and continue the conversation:
+
+```text
+Make the chart on slide 3 larger and shorten its headline.
+```
+
+Claude edits the same project. The preview updates after each save and retains
+the selected slide. You do not need to write TSX or run build commands yourself.
+If the skill does not appear, start a new Claude Code session after installation.
+To update the skill later, rerun the installation command.
+
+## Review your slides
+
+The browser is a **view-only slide viewer**. Select slides in the left thumbnail
+strip, use **Fit** or zoom to inspect details, and choose **Present** to show the
+deck. Arrow keys navigate; Escape exits presentation mode.
+
+All content and layout changes happen through your conversation with Claude Code.
+There are no drag handles or canvas editing controls, and the viewer does not
+contain an AI chat.
+
+The project keeps `deck.tsx` as the editable source and exports **`deck.pptx`**.
+**Download PPTX** saves the last successful build. If an error is visible, the
+preview and download still represent the older successful build; ask Claude to
+fix the error before using them.
+
+Text, shapes, charts and tables are native PowerPoint objects. Preview rendering
+may differ from PowerPoint, and it does not play animations or media. Check the
+exported file in your target application before final delivery.
+
+## Start from an existing presentation
+
+Give Claude the path to your PPTX and describe what should change:
+
+```text
+/office-kit-pptx Use ./company-template.pptx. Update the first slide's title to
+“Q3 business review”. Keep the other slides and the existing design unchanged.
+Open a preview and export the revised deck to a separate file.
+```
+
+The skill inspects the file before selecting targets. Existing slides, masters,
+layouts and unknown package parts are retained through the core model. If you
+ask for a new slide sequence, Claude can compose one from the source slides.
+
+## Prefer to edit TSX yourself?
+
+The same workflow is available without an AI agent:
 
 ```sh
-node "$PPTX_REPO/packages/dev/dist/cli.mjs" init ../my-slides
-cd ../my-slides
-npm install --legacy-peer-deps "$PPTX_PACKS"/*.tgz
-npm run check
+npx --yes @office-kit/pptx-dev@latest init my-slides
+cd my-slides
+npm install
 npm run dev
 ```
 
-The temporary `--legacy-peer-deps` option is needed for this source-checkout
-installation: the DSL requires the next core release, while the checkout's core
-version number has not been bumped yet. Install **all four tarballs from the same
-checkout**; its core includes the required changes. This option is not a general
-recommendation for installing released packages. Keep the tarballs available if
-you need to reinstall this project. After updating the checkout, use an empty
-pack directory so each package has only one tarball version.
+Open the URL printed by the server and edit `deck.tsx`. Run `npm run check` for
+TypeScript diagnostics and `npm run build` to export `deck.pptx`. Live rebuilding
+does not run TypeScript checking. See the
+<a href="{base}/docs/tsx">TSX elements and template reference</a> for syntax.
 
-The terminal prints a URL such as `http://127.0.0.1:4173`. Open the **printed
-URL** and leave the process running. You should see one cover slide with the
-heading “Your next presentation”. If that port is busy, use
-`npm run dev -- --port 4174`.
-
-Your project contains:
-
-| File | Purpose |
-| --- | --- |
-| `deck.tsx` | The presentation source. Ask the AI to edit this file. |
-| `CLAUDE.md` | Instructions for the AI: units, elements, templates, and verification. |
-| `tsconfig.json` | TSX runtime configuration, type checking, and editor completion. |
-| `.vscode/tasks.json` | Tasks for preview, checking, and export. |
-| `package.json` | The `dev`, `check`, and `build` commands. |
-
-## 3. Ask Claude Code to create the slides
-
-Open **another terminal in `my-slides`** and start your installed Claude Code:
-
-```sh
-claude
-```
-
-For example, give it this request:
-
-```text
-Read CLAUDE.md and edit deck.tsx to create a five-slide presentation in Japanese
-for a quarterly business review: cover, summary, revenue chart, challenges,
-and next actions. Use a white background, dark text and an orange accent.
-Use clearly labelled sample data where figures have not been supplied.
-Use native Text, Shape, Chart and Table elements, not screenshots of slides.
-Run npm run check and npm run build after making changes.
-```
-
-Keep the preview beside the conversation. After inspecting the result, ask for
-specific changes such as “Make the chart on slide 3 larger and shorten its
-headline”. The AI edits TSX; the viewer updates after each save and keeps the
-selected slide index. If a build fails, an error appears above the last successful
-preview. Ask the AI to fix that error before continuing.
-
-The viewer does not contain an AI chat. Claude Code runs in your terminal or
-editor. Automatic rebuilding also does **not** run TypeScript checking; use
-`npm run check` to catch type errors.
-
-## 4. Review and export
-
-- Select slides in the left thumbnail strip; use arrow keys, Page Up/Down,
-  Home, or End to navigate.
-- Use **Fit** or a zoom percentage to inspect the slide.
-- Use **Present** for presentation mode. Arrow keys, Space, or clicking the
-  slide advances; Shift+Space goes back; Escape exits. If the browser denies
-  fullscreen, presentation mode stays inside the window.
-- There are no text editors, drag handles, resizing, or slide-reordering controls.
-  Ask the AI to make those changes in TSX.
-
-When ready, run in the project directory:
-
-```sh
-npm run check
-npm run build
-```
-
-The output is **`my-slides/deck.pptx`**. **Download PPTX** in the viewer also saves
-the last successful build. If an error is visible, that download is the older
-successful version, not the failing source.
-
-Text, shapes, tables and charts are native PPTX objects. The preview is rendered
-from the exported PPTX, but it does not guarantee pixel-identical PowerPoint
-rendering or animation/media playback. Check the exported file in the target
-application before delivering it.
-
-## Use VSCode beside the viewer
-
-Open the `my-slides` folder in VSCode. Completion and diagnostics come from the
-generated `tsconfig.json`; no React or Vue installation is needed.
-
-Run **Tasks: Run Task → Preview presentation**, then **Simple Browser: Show**
-and paste the printed URL. Move the browser editor to a side group. Alternatively,
-keep an ordinary browser window beside VSCode. Use only one preview process for
-this project; skip the task if `npm run dev` is already running in a terminal.
-
-A dedicated VSCode extension and click-to-source navigation are not implemented.
-
-## Start from an existing PPTX
-
-Copy the file into `my-slides/template.pptx`, then inspect it:
-
-```sh
-npx --no-install office-pptx inspect template.pptx
-```
-
-Use the returned names or IDs as targets. Replace `deck.tsx` with this example,
-changing `Title 1` to an actual shape name from your file:
-
-```tsx
-import { readFile } from 'node:fs/promises';
-import { Presentation, Slide, Fill } from '@office-kit/pptx-dsl';
-
-const source = await readFile(new URL('./template.pptx', import.meta.url));
-
-export default (
-  <Presentation source={source} mode="edit">
-    <Slide target={{ index: 0 }}>
-      <Fill target={{ name: 'Title 1' }}>Quarterly business review</Fill>
-    </Slide>
-  </Presentation>
-);
-```
-
-`mode="edit"` preserves the existing slide sequence and changes only explicit
-targets. Indices are zero-based. Existing masters, layouts and unknown package
-parts are retained through the core model, rather than recreated from the DSL's
-known fields. Replacing text intentionally replaces that target's text.
-
-Use `mode="compose"` only when you want to replace the original slide sequence.
-Keep imported components, templates and images inside the project directory so
-the watcher can detect their changes. See the
-<a href="{base}/docs/tsx">TSX elements and template guide</a> for the syntax.
+The generated project includes a `CLAUDE.md` guide, TypeScript completion and
+VSCode tasks. To view slides inside VSCode, run **Preview presentation**, then
+**Simple Browser: Show** with the printed URL. Move it to a side editor group.
+Use one preview process per project; reuse a server Claude already started.
 
 ## Troubleshooting
 
 | Symptom | What to do |
 | --- | --- |
-| npm reports 404 for `@office-kit/pptx-dev` or `@office-kit/pptx-dsl` | These packages are not published yet. Follow the local tarball installation above. |
-| `office-pptx` is not found | Install the project dependencies and run `npm run dev` inside `my-slides`. |
-| An import or JSX type cannot be found | Check that dependencies are installed and VSCode opened the generated project folder with its `tsconfig.json`. |
-| An asset cannot be found | Load it with `readFile(new URL('./asset.png', import.meta.url))`, relative to the source file. |
-| Saving an asset does not rebuild | Keep it under the entry file's directory; `node_modules`, `.git`, `dist` and `.office-kit` are excluded. |
-| A template target is missing or ambiguous | Run `inspect`, then choose an exact shape ID, name, or slide part name. |
+| The skill is not listed | Rerun the installer for `claude-code`, then start a new Claude Code session. |
+| npm reports 404 for an office-kit package | Check `npm config get registry`. If a private mirror is missing the package, add `--registry=https://registry.npmjs.org` to the `npx` and `npm install` commands. |
+| The preview port is busy | Ask Claude to use another port; `npm run dev -- --port 0` selects a free port. Open the printed URL. |
+| An import or JSX type cannot be found | Ensure dependencies are installed and VSCode has opened the generated project folder. |
+| A template target is missing or ambiguous | Ask Claude to inspect the template and use an exact shape ID, name or slide part. |
+| An asset change does not appear | Keep assets inside the slide project, outside `node_modules`, `.git`, `dist` and `.office-kit`. |
 
 For AI-readable documentation, append `.md` to this page's URL, or use
 <a href="{base}/llms-full.txt">the full documentation text</a>.

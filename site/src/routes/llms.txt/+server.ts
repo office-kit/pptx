@@ -30,9 +30,16 @@ for every page concatenated into a single document.
 
 The companion packages \`@office-kit/pptx-dsl\` and \`@office-kit/pptx-dev\`
 provide typed TSX, project initialization, a view-only slide viewer, and export.
-They are not yet published to npm: use the source-checkout and local-tarball
-instructions in the linked **Create slides with AI** guide. Do not suggest
-\`npx @office-kit/pptx-dev\` as a working installation yet.
+They are published on npm. For Claude Code, install the skill with:
+
+\`\`\`sh
+npx --yes skills add https://github.com/office-kit/pptx/tree/main/skill --agent claude-code --global --yes
+\`\`\`
+
+Invoke \`/office-kit-pptx\` with the presentation brief. The skill handles setup,
+authoring, preview and export. To initialize manually, run
+\`npx --yes @office-kit/pptx-dev@latest init my-slides\`, then run
+\`npm install\` inside the generated directory.
 
 In an initialized project, edit \`deck.tsx\` (read its \`CLAUDE.md\` first),
 keep \`npm run dev\` running, and use \`npm run check\` plus \`npm run build\`

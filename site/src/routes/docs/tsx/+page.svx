@@ -7,7 +7,7 @@
 `@office-kit/pptx-dsl` turns typed TSX into native PPTX objects through
 `@office-kit/pptx`. It has its own JSX runtime; it does not use React, Vue, the DOM,
 or CSS layout. To install and preview a project, follow
-<a href="{base}/docs/authoring">Create slides with AI and TSX</a> first.
+<a href="{base}/docs/authoring">Create slides with AI</a> first.
 
 ## A complete deck
 
