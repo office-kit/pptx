@@ -1,8 +1,8 @@
 <script lang="ts">
-  import '../app.css';
+  import '@office-kit/site-kit/site.css';
+  import { KitFooter, KitHeader } from '@office-kit/site-kit';
   import CodeCopyEnhancer from '$lib/components/CodeCopyEnhancer.svelte';
-  import KitFooter from '$lib/kit/KitFooter.svelte';
-  import KitHeader from '$lib/kit/KitHeader.svelte';
+  import Search from '$lib/components/Search.svelte';
 
   type Props = {
     children?: import('svelte').Snippet;
@@ -21,7 +21,11 @@
 
 <a class="skip" href="#main">Skip to content</a>
 
-<KitHeader {links} />
+<KitHeader product="pptx" {links}>
+  {#snippet search()}
+    <Search />
+  {/snippet}
+</KitHeader>
 
 <main id="main">
   {@render children?.()}
@@ -29,7 +33,7 @@
 
 <CodeCopyEnhancer />
 
-<KitFooter {links} />
+<KitFooter product="pptx" {links} />
 
 <style>
   main {
