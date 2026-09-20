@@ -1,5 +1,11 @@
 # @office-kit/pptx-dev
 
+## 0.4.2
+
+### Patch Changes
+
+- 716a089: Reduce TSX save-to-preview latency by reusing the compiler and unchanged slide renders, while preserving fresh deck evaluation and invalidating previews when shared resources change.
+
 ## 0.4.1
 
 ### Patch Changes
