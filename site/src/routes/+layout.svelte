@@ -1,6 +1,6 @@
 <script lang="ts">
   import '@office-kit/site-kit/site.css';
-  import { KitFooter, KitHeader } from '@office-kit/site-kit';
+  import { KitFooter, KitHeader, KitSeo } from '@office-kit/site-kit';
   import CodeCopyEnhancer from '$lib/components/CodeCopyEnhancer.svelte';
   import Search from '$lib/components/Search.svelte';
 
@@ -18,6 +18,12 @@
     { path: '/repl', label: 'REPL' },
   ];
 </script>
+
+<KitSeo
+  product="pptx"
+  title="@office-kit/pptx: read, edit, and write PowerPoint files in TypeScript"
+  description="Open any .pptx or start from an empty deck, change slides, charts, and tables through typed functions, and save a file PowerPoint, Keynote, Google Slides, and LibreOffice open. Runs in Node and the browser."
+/>
 
 <a class="skip" href="#main">Skip to content</a>
 
