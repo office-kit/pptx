@@ -88,6 +88,29 @@ For a nested list, write `paragraphs` and give an entry `level` (0 to 8). An ent
 own `bullet` wins over `bullets`; `bullet: 'none'` keeps a heading line out of the
 list. Do not use `Raw` for either.
 
+A table cell is a string, `{ text }` or `{ paragraphs }` (core `ParagraphSpec[]`, for
+bold or colored runs inside one cell); the cell style is the base of every run. For a
+merge, put `colSpan` / `rowSpan` on the top-left cell and keep every covered position
+in `rows` as `''`; any other content there is an error. Style a merged block on its
+top-left cell: covered positions get no style and no `styleCell` call.
+
+```tsx
+<Table
+  x={1}
+  y={1}
+  width={8}
+  height={2}
+  rows={[
+    [{ text: 'Plan', rowSpan: 2 }, { text: 'Effect', colSpan: 2 }, ''],
+    [
+      '',
+      'Count',
+      { paragraphs: [{ runs: [{ text: '+26% ' }, { text: 'QoQ', format: { bold: true } }] }] },
+    ],
+  ]}
+/>
+```
+
 ## Existing PPTX files
 
 Run `npx --no-install office-pptx inspect template.pptx` in the project first.

@@ -59,7 +59,7 @@ Child order is drawing order. Geometry is explicit; there is no automatic layout
 | `Image` | Required bounds and byte `data`; optional format and fit. |
 | `Media` | Required bounds; `kind` `video` / `audio` with byte `data`, or `online` with a `url`; optional `poster`. |
 | `Chart` | Required bounds and core `ChartSpec` in `spec`. |
-| `Table` | Required bounds and string `rows`; column widths, row heights, cell/header styles, stripe fill, and a per-cell `styleCell` callback. Cell styles cover fill, text format, anchor, alignment and borders. |
+| `Table` | Required bounds and `rows` of strings or cell objects (`text` or rich `paragraphs`, `colSpan`, `rowSpan`); column widths, row heights, cell/header styles, stripe fill, and a per-cell `styleCell` callback. Cell styles cover fill, text format, anchor, alignment and borders. |
 | `Fill` | Existing shape `target`, replacement text children, optional `format` and `autoFit`. |
 | `Remove` | Existing shape `target`. |
 | `Raw` | Deferred callback for public core APIs; optional explicit scope. |

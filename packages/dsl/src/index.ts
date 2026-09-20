@@ -347,10 +347,21 @@ export interface TableCellInfo {
   /** Zero-based; row 0 is the header. */
   row: number;
   column: number;
+  /** A cell's text; for `paragraphs`, the run texts joined, one line per paragraph. */
   value: string;
 }
+/** Exactly one of `text` and `paragraphs`. An empty cell is the string `''`. */
+type TableCellContent =
+  | { text: string; paragraphs?: never }
+  | { text?: never; paragraphs: readonly api.ParagraphSpec[] };
+export type TableCellSpec = TableCellContent & {
+  /** This cell is the top-left of a merge. The positions it covers stay in `rows` as `''`. */
+  colSpan?: number;
+  rowSpan?: number;
+};
+export type TableCell = string | TableCellSpec;
 export interface TableProps extends Bounds, Children {
-  rows: readonly (readonly string[])[];
+  rows: readonly (readonly TableCell[])[];
   columnWidths?: readonly number[];
   rowHeights?: readonly number[];
   cellStyle?: CellStyle;
@@ -374,22 +385,70 @@ function cellBorders(borders: NonNullable<CellStyle['borders']>) {
   }
   return sides;
 }
+type CellPosition = { row: number; col: number };
+const positionKey = (row: number, col: number) => `${row}:${col}`;
+const cellSpec = (cell: TableCell): TableCellSpec =>
+  typeof cell === 'string' ? { text: cell } : cell;
+const cellValue = (spec: TableCellSpec): string =>
+  spec.paragraphs
+    ? spec.paragraphs.map((paragraph) => paragraph.runs.map((run) => run.text).join('')).join('\n')
+    : spec.text;
+
+/** Maps every position a merge covers to that merge's top-left cell. */
+function coveredPositions(rows: TableProps['rows']): Map<string, CellPosition> {
+  const covered = new Map<string, CellPosition>();
+  rows.forEach((cells, row) =>
+    cells.forEach((cell, col) => {
+      const { rowSpan = 1, colSpan = 1 } = cellSpec(cell);
+      // Clamped to the grid: the core rejects an oversized span later, and an
+      // unbounded loop must not run first.
+      const lastRow = Math.min(row + rowSpan, rows.length);
+      const lastCol = Math.min(col + colSpan, cells.length);
+      for (let r = row; r < lastRow; r++)
+        for (let c = col; c < lastCol; c++)
+          if (r !== row || c !== col) covered.set(positionKey(r, c), { row, col });
+    }),
+  );
+  return covered;
+}
+function checkCells(rows: TableProps['rows'], covered: Map<string, CellPosition>) {
+  rows.forEach((cells, row) =>
+    cells.forEach((cell, col) => {
+      const spec = cellSpec(cell);
+      if ((spec.text === undefined) === (spec.paragraphs === undefined))
+        throw new Error(`Table cell (${row}, ${col}) accepts either text or paragraphs.`);
+      const anchor = covered.get(positionKey(row, col));
+      // PowerPoint paints only the merge's top-left cell, so anything written
+      // here would vanish from the slide without a trace.
+      if (anchor && cell !== '')
+        throw new Error(
+          `Table cell (${row}, ${col}) is covered by the merge at (${anchor.row}, ${anchor.col}); write it as ''.`,
+        );
+    }),
+  );
+}
 export function Table(props: TableProps): Node {
   return node('Table', async (context) => {
+    const covered = coveredPositions(props.rows);
+    checkCells(props.rows, covered);
     const shape = created(
       context,
       api.addSlideTable(requireSlide(context), {
         ...bounds(props),
-        rows: props.rows,
+        rows: props.rows.map((cells) => cells.map((cell) => cellSpec(cell).text ?? '')),
         ...(props.columnWidths ? { colWidths: props.columnWidths.map(api.inches) } : {}),
         ...(props.rowHeights ? { rowHeights: props.rowHeights.map(api.inches) } : {}),
       }),
     );
     props.rows.forEach((row, r) =>
-      row.forEach((value, c) => {
+      row.forEach((entry, c) => {
+        // A merged block is painted from its top-left cell alone, fill and all
+        // four borders, so a covered position gets no style and no styleCell call.
+        if (covered.has(positionKey(r, c))) return;
+        const spec = cellSpec(entry);
         const cell = api.getTableCell(shape, r, c);
         const header = r === 0 ? props.headerStyle : undefined;
-        const own = props.styleCell?.({ row: r, column: c, value });
+        const own = props.styleCell?.({ row: r, column: c, value: cellValue(spec) });
         const striped = r > 0 && r % 2 === 0 ? props.stripeFill : undefined;
         const appearance: CellStyle = {
           ...props.cellStyle,
@@ -399,9 +458,25 @@ export function Table(props: TableProps): Node {
           format: { ...props.cellStyle?.format, ...header?.format, ...own?.format },
         };
         if (appearance.fill) api.setTableCellFill(cell, appearance.fill);
-        if (appearance.format) api.setTableCellTextFormat(cell, appearance.format);
+        if (spec.paragraphs) {
+          // addSlideTable bakes the deck's body-text color into each run so text
+          // stays readable on an inverted color map; new runs must keep it.
+          const built = api.getTableCellParagraphs(cell)[0]?.elements[0];
+          const base = { ...(built?.kind === 'r' ? built.format : {}), ...appearance.format };
+          const { align } = appearance;
+          api.setTableCellParagraphs(
+            cell,
+            spec.paragraphs.map((paragraph) => ({
+              ...paragraph,
+              ...(paragraph.align === undefined && align ? { align } : {}),
+              runs: paragraph.runs.map((run) => ({ ...run, format: { ...base, ...run.format } })),
+            })),
+          );
+        } else {
+          if (appearance.format) api.setTableCellTextFormat(cell, appearance.format);
+          if (appearance.align) api.setTableCellAlignment(cell, appearance.align);
+        }
         if (appearance.anchor) api.setTableCellAnchor(cell, appearance.anchor);
-        if (appearance.align) api.setTableCellAlignment(cell, appearance.align);
         // Only when a side is set: an empty call would still give every cell a <a:tcPr>.
         const borders = cellBorders({
           ...props.cellStyle?.borders,
@@ -409,6 +484,13 @@ export function Table(props: TableProps): Node {
           ...own?.borders,
         });
         if (Object.keys(borders).length > 0) api.setTableCellBorders(cell, borders);
+      }),
+    );
+    props.rows.forEach((row, r) =>
+      row.forEach((entry, c) => {
+        const { rowSpan = 1, colSpan = 1 } = cellSpec(entry);
+        if (rowSpan !== 1 || colSpan !== 1)
+          api.mergeTableCells(shape, { row: r, col: c, rowSpan, colSpan });
       }),
     );
     await visit(props.children, { ...context, shape, scope: 'shape' });

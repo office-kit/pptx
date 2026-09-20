@@ -61,7 +61,7 @@ Layout is explicit: CSS and automatic UI layout are not implemented.
 | `Image`        | Bytes in `data`, optional format and fit                                  |
 | `Media`        | `kind` `video` / `audio` with bytes in `data`, or `online` with a `url`   |
 | `Chart`        | Complete core `ChartSpec` via `spec`                                      |
-| `Table`        | String rows, column and row sizes, cell/header/stripe styles, `styleCell` |
+| `Table`        | Rows of strings, rich cells or merges; sizes; cell styles and `styleCell` |
 | `Fill`         | Existing shape target, replacement text, optional format and `autoFit`    |
 | `Remove`       | Existing shape target                                                     |
 | `Raw`          | Deferred callback receiving the presentation and enclosing slide/shape    |
@@ -112,6 +112,39 @@ field: `cellStyle`, `headerStyle` (row 0), `stripeFill` (even body rows), then
   styleCell={({ row, value }) =>
     row > 0 && value === 'At risk' ? { fill: '#D64545', format: { color: '#FFFFFF' } } : undefined
   }
+/>
+```
+
+A cell in `rows` is a string or a cell object, `{ text }` or `{ paragraphs }`, never
+both or neither. `paragraphs` takes core `ParagraphSpec[]` for more than one run or
+paragraph in a cell. The merged cell style is the base of every run, so a run states
+only what differs, and the style's `align` applies unless a paragraph has its own.
+`styleCell` receives a rich cell's `value` as its run texts joined, one line per
+paragraph.
+
+`colSpan` and `rowSpan` on a cell object make it the top-left of a merge. `rows` stays
+a full rectangular grid, so a column index means the same in every row: each position
+the merge covers is written as `''`, and anything else there is an error because
+PowerPoint would not show it. PowerPoint paints a merged block from its top-left cell
+alone, fill and all four borders, so covered positions get no style and `styleCell`
+is not called for them. Spans that leave the grid or overlap throw the core error.
+
+```tsx
+<Table
+  x={1}
+  y={1}
+  width={8}
+  height={3}
+  rows={[
+    [{ text: 'Plan', rowSpan: 2 }, { text: 'Effect', colSpan: 2 }, ''],
+    ['', 'Count', 'Change'],
+    [
+      'FAQ',
+      '372',
+      { paragraphs: [{ runs: [{ text: '+26% ' }, { text: 'QoQ', format: { bold: true } }] }] },
+    ],
+  ]}
+  cellStyle={{ format: { size: 14 } }}
 />
 ```
 
@@ -187,8 +220,7 @@ accepts Raw children. An enclosing shape does not accept new Slide-level objects
 ## Current coverage
 
 This is an initial DSL, not complete OOXML coverage. Typed master/layout creation,
-animations, transitions, connectors, groups, media playback, and structured table
-cells still require additional declarative elements or core work. Raw can invoke
+animations, transitions, connectors, groups and media playback still require additional declarative elements or core work. Raw can invoke
 available core capabilities but does not count as typed declarative support.
 Cross-presentation imports are not exposed because the current core import API
 can discard unsupported relationships. Do not use it as a lossless import path.
