@@ -25,6 +25,9 @@ Edit deck.tsx and local TypeScript components. The JSX runtime is
 
 - Run npm run dev, then open its local URL to preview. Saving source files
   updates the preview. A failed build retains the last successful output.
+- The preview is view-only: use the vertical thumbnails to select slides, zoom
+  to inspect details, and Present to view full-screen (Escape exits). Make all
+  content and layout changes in TSX; there are no canvas editing controls.
 - Run npm run check for TypeScript diagnostics; run npm run build to export
   deck.pptx. Inspect every slide in the preview after changes.
 - Coordinates and dimensions are inches; font sizes and stroke widths are points.
