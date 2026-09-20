@@ -1,11 +1,11 @@
 <script lang="ts">
   import { base } from '$app/paths';
-  import FamilyGrid from '$lib/kit/FamilyGrid.svelte';
-  import InstallCommand from '$lib/kit/InstallCommand.svelte';
-  import { currentProduct } from '$lib/kit/products';
+  import { FamilyGrid, InstallCommand, getProduct } from '@office-kit/site-kit';
   import type { PageProps } from './$types';
 
   const { data }: PageProps = $props();
+
+  const currentProduct = getProduct('pptx');
 
   const PPTX_MIME = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
   const DOWNLOAD_NAME = 'office-kit-demo.pptx';
@@ -383,7 +383,7 @@
         of truth, output has to validate, and one ESM build has to run everywhere.
       </p>
     </div>
-    <FamilyGrid />
+    <FamilyGrid product="pptx" />
   </div>
 </section>
 
