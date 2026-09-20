@@ -12,7 +12,7 @@ button:hover:not(:disabled),.download:hover{background:#f0f3f9}button:disabled{o
 header{display:flex;align-items:center;gap:16px;padding:0 20px;background:#fff;border-bottom:1px solid #d4d9e2;min-width:0}
 .brand{font-weight:700;font-size:17px;white-space:nowrap}.badge{font-size:11px;color:#616b7c;background:#f1f3f7;border-radius:4px;padding:3px 6px}
 #status{flex:1;color:#667085;min-width:0}#present{background:#293c73;color:#fff;border-color:#293c73}
-.workspace{display:grid;grid-template-columns:190px minmax(0,1fr) minmax(380px,38vw);min-height:0}
+.workspace{--filmstrip-width:190px;--chat-width:38vw;display:grid;grid-template-columns:var(--filmstrip-width) minmax(0,1fr) clamp(280px,var(--chat-width),calc(100vw - var(--filmstrip-width) - 240px));min-height:0}
 .filmstrip{background:#f7f8fa;border-right:1px solid #d4d9e2;overflow:auto;overscroll-behavior:contain;padding:16px 12px}
 .filmstrip h2{margin:0 0 12px 26px;text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:#7c8596;font-weight:600}
 #thumbnails{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
@@ -37,15 +37,16 @@ body.presenting{grid-template-rows:minmax(0,1fr);background:#111}
 .presenting #presentation-controls:hover,.presenting #presentation-controls:focus-within{opacity:1}
 #presentation-controls button{background:transparent;color:white;border-color:#5d6575}
 @media(max-width:700px){.workspace{grid-template-columns:140px minmax(0,1fr)}.filmstrip{padding:12px 5px}header{padding:0 12px;gap:10px}.badge,footer .hint{display:none}#stage{padding:16px}footer{gap:8px}#status{font-size:11px}.download{padding:7px 8px}}
-#chat{min-height:0;display:flex;flex-direction:column;background:#fff;border-left:1px solid #d4d9e2}
+#chat{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;background:#fff;border-left:1px solid #d4d9e2}
+#chat-resizer{position:absolute;left:-5px;top:0;bottom:0;width:10px;z-index:3;cursor:col-resize;touch-action:none}#chat-resizer::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:2px}#chat-resizer:hover::after,#chat-resizer:focus-visible::after,.resizing-chat #chat-resizer::after{background:#4967dd}body.resizing-chat,body.resizing-chat *{cursor:col-resize!important;user-select:none!important}
 .chat-heading{display:flex;align-items:center;gap:8px;padding:16px;border-bottom:1px solid #e6e9ef}.chat-heading strong{flex:1}.chat-heading button{padding:5px 8px}
 #messages{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:16px;overscroll-behavior:contain}
 .chat-message{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6}.chat-message.user{background:#eef2ff;border-radius:8px;padding:10px 12px}.chat-message small{display:block;color:#697386;font-size:11px;margin-bottom:4px}.chat-intro{color:#737d8e;line-height:1.7}
 #chat-form{padding:14px;border-top:1px solid #e6e9ef}#chat-context{font-size:11px;color:#4967dd;margin-bottom:8px}#chat-input{font:inherit;resize:vertical;min-height:90px;max-height:200px;width:100%;padding:10px;border:1px solid #d4d9e2;border-radius:8px} .chat-actions{display:flex;gap:8px;margin-top:8px;align-items:center}.chat-actions select{min-width:0;flex:1}#chat-send{background:#293c73;color:white}#chat-status{padding:0 14px 12px;color:#667085;font-size:11px;white-space:pre-wrap;max-height:90px;overflow:auto}
 body.chat-hidden .workspace{grid-template-columns:190px minmax(0,1fr)}body.chat-hidden #chat{display:none}
 body.presenting .workspace{grid-template-columns:minmax(0,1fr)}
-@media(max-width:1000px){.workspace{grid-template-columns:120px minmax(0,1fr) 380px}.filmstrip{padding:12px 5px}#stage{padding:16px}}
-@media(max-width:700px){.workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(160px,1fr) minmax(200px,1fr)}.filmstrip{display:none}#chat{border-top:1px solid #d4d9e2}.chat-heading{padding:8px 12px}#chat-form{padding:8px 12px}#chat-input{min-height:50px}body.chat-hidden .workspace,.presenting .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.brand{font-size:14px}header{gap:6px}.download{font-size:11px}}
+@media(max-width:1000px){.workspace{--filmstrip-width:120px;--chat-width:380px}.filmstrip{padding:12px 5px}#stage{padding:16px}}
+@media(max-width:700px){#chat-resizer{display:none}.workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(160px,1fr) minmax(200px,1fr)}.filmstrip{display:none}#chat{border-top:1px solid #d4d9e2}.chat-heading{padding:8px 12px}#chat-form{padding:8px 12px}#chat-input{min-height:50px}body.chat-hidden .workspace,.presenting .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}.brand{font-size:14px}header{gap:6px}.download{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important}}
 
 [hidden]{display:none!important}
@@ -64,6 +65,7 @@ body.presenting .workspace{grid-template-columns:minmax(0,1fr)}
 <nav class="filmstrip" aria-label="Slides"><h2>Slides</h2><ol id="thumbnails"></ol></nav>
 <main aria-label="Slide viewer"><pre id="error" role="alert" hidden></pre><div id="stage" tabindex="-1"><div id="empty">Waiting for slides…</div><div id="slide" hidden></div></div></main>
 <aside id="chat" aria-label="Slide chat">
+<div id="chat-resizer" role="separator" tabindex="0" aria-label="Chat width" aria-orientation="vertical" aria-controls="chat" title="Drag to resize · Double-click to reset"></div>
 <div class="chat-heading"><select id="chat-provider" aria-label="AI provider"><option value="claude">Claude Code</option><option value="codex">Codex</option></select><button id="chat-reset" hidden>New chat</button></div>
 <div id="chat-context">No slide selected</div>
 <section id="claude-panel" aria-label="Claude Code terminal"><div class="terminal-toolbar"><span id="terminal-status" role="status">Start Claude Code to edit your slides.</span><button id="terminal-start">Start</button><button id="terminal-stop" hidden>End session</button></div><div id="terminal"></div></section>
@@ -81,6 +83,36 @@ let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=fal
 let displayedSvg;
 const byId=id=>document.getElementById(id);
 const stage=byId('stage'),slide=byId('slide'),thumbnails=byId('thumbnails');
+const workspace=document.querySelector('.workspace'),chatResizer=byId('chat-resizer');
+const chatWidthKey='office-kit-chat-width',minChatWidth=280,minStageWidth=240;
+function chatWidthLimits(){return {min:minChatWidth,max:Math.max(minChatWidth,workspace.clientWidth-document.querySelector('.filmstrip').getBoundingClientRect().width-minStageWidth)};}
+function updateChatWidthAria(){
+  const {min,max}=chatWidthLimits();
+  chatResizer.setAttribute('aria-valuemin',String(min));chatResizer.setAttribute('aria-valuemax',String(Math.round(max)));
+  const width=Math.round(byId('chat').getBoundingClientRect().width);
+  chatResizer.setAttribute('aria-valuenow',String(width));chatResizer.setAttribute('aria-valuetext',width+' pixels');
+}
+function setChatWidth(width){const {min,max}=chatWidthLimits();workspace.style.setProperty('--chat-width',Math.min(max,Math.max(min,width))+'px');}
+function saveChatWidth(){try{const width=workspace.style.getPropertyValue('--chat-width');if(width)localStorage.setItem(chatWidthKey,String(parseFloat(width)));else localStorage.removeItem(chatWidthKey);}catch(error){console.warn('Could not save chat width',error);}}
+try{const saved=Number(localStorage.getItem(chatWidthKey));if(Number.isFinite(saved)&&saved>=minChatWidth)workspace.style.setProperty('--chat-width',saved+'px');}catch(error){console.warn('Could not restore chat width',error);}
+let chatDrag=null;
+chatResizer.onpointerdown=event=>{
+  if(event.button!==0||!event.isPrimary)return;
+  event.preventDefault();chatResizer.focus();chatDrag={id:event.pointerId,x:event.clientX,width:byId('chat').getBoundingClientRect().width};
+  chatResizer.setPointerCapture(event.pointerId);document.body.classList.add('resizing-chat');
+};
+chatResizer.onpointermove=event=>{if(chatDrag?.id===event.pointerId)setChatWidth(chatDrag.width+chatDrag.x-event.clientX);};
+function finishChatResize(){if(!chatDrag)return;chatDrag=null;document.body.classList.remove('resizing-chat');saveChatWidth();}
+chatResizer.onpointerup=finishChatResize;chatResizer.onpointercancel=finishChatResize;chatResizer.onlostpointercapture=finishChatResize;
+chatResizer.ondblclick=()=>{workspace.style.removeProperty('--chat-width');saveChatWidth();};
+chatResizer.onkeydown=event=>{
+  const {min,max}=chatWidthLimits(),width=byId('chat').getBoundingClientRect().width,step=event.shiftKey?50:10;
+  let next;
+  if(event.key==='ArrowLeft')next=width+step;else if(event.key==='ArrowRight')next=width-step;else if(event.key==='Home')next=min;else if(event.key==='End')next=max;else return;
+  event.preventDefault();event.stopPropagation();setChatWidth(next);saveChatWidth();
+};
+new ResizeObserver(updateChatWidthAria).observe(byId('chat'));
+
 // The slide lives in a shadow root rather than a sandboxed iframe so its text
 // (XHTML inside <foreignObject>) can be selected and copied while the deck's
 // SVG stays out of the viewer's own DOM and CSS. Keyboard events still reach the

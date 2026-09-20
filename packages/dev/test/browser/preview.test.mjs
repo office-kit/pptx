@@ -75,6 +75,33 @@ process.stdin.on('data',async data=>{
       };
       await page.waitForFunction(slideSvg);
       assert.equal(await page.getByText('What would you like to change?').count(), 0);
+      const chatWidth = () =>
+        page.locator('#chat').evaluate((el) => el.getBoundingClientRect().width);
+      const initialWidth = await chatWidth();
+      const resizer = page.getByRole('separator', { name: 'Chat width' });
+      const handle = await resizer.boundingBox();
+      await page.mouse.move(handle.x + handle.width / 2, handle.y + 100);
+      await page.mouse.down();
+      await page.mouse.move(handle.x + handle.width / 2 - 100, handle.y + 100);
+      await page.mouse.up();
+      assert.ok(Math.abs((await chatWidth()) - initialWidth - 100) < 2);
+      await resizer.press('ArrowLeft');
+      assert.ok(Math.abs((await chatWidth()) - initialWidth - 110) < 2);
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      await page.reload();
+      assert.ok(Math.abs((await chatWidth()) - initialWidth - 110) < 2);
+      await resizer.press('End');
+      assert.ok(await page.locator('main').evaluate((el) => el.clientWidth >= 240));
+      await page.setViewportSize({ width: 800, height: 800 });
+      assert.ok(await page.locator('main').evaluate((el) => el.clientWidth >= 240));
+      await page.setViewportSize({ width: 600, height: 800 });
+      assert.equal(await resizer.isVisible(), false);
+      assert.equal(Math.round(await chatWidth()), 600);
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await resizer.dblclick();
+      assert.ok(Math.abs((await chatWidth()) - initialWidth) < 2);
+      await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
+
       await page.locator('#terminal-start').click();
       await page.waitForFunction(() =>
         document.querySelector('#terminal').textContent.includes('Claude Code terminal ready'),
