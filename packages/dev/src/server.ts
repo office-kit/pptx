@@ -4,6 +4,7 @@ import { dirname, resolve, sep } from 'node:path';
 import type { BuildResult } from './build.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
+import { agentPage } from './agent-page.ts';
 import { readFile } from 'node:fs/promises';
 import { createTerminal } from './terminal.ts';
 import { createChat } from './chat.ts';
@@ -18,14 +19,30 @@ export async function serveDeck(entry: string, port = 4173) {
   let pending = false;
   let closed = false;
   const clients = new Set<ServerResponse>();
-  const chat = createChat(
-    entry,
-    () => {
-      for (const client of clients) client.write('data: chat\n\n');
-    },
-    () => terminal.isRunning(),
-  );
-  const terminal = createTerminal(entry, () => chat.isRunning());
+  const sessions = new Map<
+    string,
+    {
+      chat: ReturnType<typeof createChat>;
+      terminal: ReturnType<typeof createTerminal>;
+      closing: boolean;
+    }
+  >();
+  function session(id: string) {
+    let result = sessions.get(id);
+    if (!result) {
+      const chat = createChat(
+        entry,
+        () => {
+          for (const client of clients) client.write('data: chat\n\n');
+        },
+        () => terminal.isRunning(),
+      );
+      const terminal = createTerminal(entry, () => chat.isRunning(), id ? '/agents/' + id : '');
+      result = { chat, terminal, closing: false };
+      sessions.set(id, result);
+    }
+    return result;
+  }
   const server = createServer((request, response) => {
     const host = request.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {
@@ -33,12 +50,74 @@ export async function serveDeck(entry: string, port = 4173) {
       return;
     }
     response.setHeader('Cache-Control', 'no-store');
+    const match = request.url?.match(
+      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context)|close))?$/,
+    );
+    if (request.url?.startsWith('/agents/') && !match) {
+      response.writeHead(404).end();
+      return;
+    }
+    const id = match?.[1] ?? '';
+    if (match) {
+      if (
+        request.headers['sec-fetch-site'] === 'cross-site' ||
+        (request.headers.origin && request.headers.origin !== `http://${host}`)
+      ) {
+        response.writeHead(403).end();
+        return;
+      }
+      if (sessions.get(id)?.closing) {
+        response.writeHead(409).end('{"error":"Agent is closing"}');
+        return;
+      }
+      if (match[2] === '/close') {
+        if (
+          request.method !== 'POST' ||
+          request.headers.origin !== `http://${host}` ||
+          request.headers['content-type'] !== 'application/json'
+        ) {
+          response.writeHead(403).end();
+          return;
+        }
+        request.resume();
+        const current = sessions.get(id);
+        void (async () => {
+          if (current) {
+            current.closing = true;
+            await Promise.all([current.terminal.close(), current.chat.close()]);
+            sessions.delete(id);
+          }
+          response.writeHead(200).end('{}');
+        })().catch(() => response.writeHead(500).end());
+        return;
+      }
+      if (!sessions.has(id) && sessions.size >= 8) {
+        response.writeHead(429).end('Too many agent sessions. Close an existing pane.');
+        return;
+      }
+      if (!match[2]) {
+        if (request.method !== 'GET') {
+          response.writeHead(405).end();
+          return;
+        }
+        session(id);
+        response.writeHead(200, { 'Content-Type': 'text/html' }).end(agentPage);
+        return;
+      }
+      if (!sessions.has(id)) {
+        response.writeHead(404).end();
+        return;
+      }
+      request.url = match[2];
+    }
+
     if (
       request.url === '/chat' ||
       request.url?.startsWith('/chat/') ||
       request.url?.startsWith('/terminal/')
     ) {
-      const handler = request.url.startsWith('/terminal/') ? terminal : chat;
+      const current = session(id);
+      const handler = request.url.startsWith('/terminal/') ? current.terminal : current.chat;
       void handler.handle(request, response, (index, viewedRevision) => {
         if (viewedRevision !== revision)
           throw new Error('Preview changed. Review the current slide and send again.');
@@ -184,8 +263,9 @@ export async function serveDeck(entry: string, port = 4173) {
       closed = true;
       clearTimeout(timer);
       watcher.close();
-      await terminal.close();
-      await chat.close();
+      await Promise.all(
+        [...sessions.values()].flatMap(({ terminal, chat }) => [terminal.close(), chat.close()]),
+      );
       await builder.close();
       for (const client of clients) client.end();
       await new Promise<void>((done, reject) =>

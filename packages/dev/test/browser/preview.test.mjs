@@ -3,12 +3,12 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, rm } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import assert from 'node:assert/strict';
 test(
   'live edits preserve the viewport and patch only changed slides',
-  { timeout: 30000 },
+  { timeout: 60000 },
   async (t) => {
     const dir = await mkdtemp(join(tmpdir(), 'office-hmr-live-'));
     const file = dir + '/deck.tsx';
@@ -33,7 +33,7 @@ process.stdin.setEncoding('utf8');
 process.stdin.on('data',async data=>{
  const hook=JSON.parse(process.argv[3]).hooks.UserPromptSubmit[0].hooks[0];
  const response=await fetch(hook.url,{method:'POST',headers:hook.headers,body:'{}'});
- writeFileSync('terminal-context.json',await response.text());
+ writeFileSync('terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
  console.log('Model menu: '+data.trim());
 });
 `,
@@ -102,53 +102,149 @@ process.stdin.on('data',async data=>{
       assert.ok(Math.abs((await chatWidth()) - initialWidth) < 2);
       await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
 
-      await page.locator('#terminal-start').click();
-      await page.waitForFunction(() =>
+      let agent = page.frames().find((frame) => /\/agents\//.test(frame.url()));
+      const agentPath = new URL(agent.url()).pathname;
+      await agent.locator('#terminal-start').click();
+      await agent.waitForFunction(() =>
         document.querySelector('#terminal').textContent.includes('Claude Code terminal ready'),
       );
-      await page.locator('.xterm-helper-textarea').pressSequentially('/model');
-      await page.locator('.xterm-helper-textarea').press('Enter');
-      await page.waitForFunction(() =>
+      const assertTerminalFits = async (frame) => {
+        await frame.waitForFunction(() => {
+          const host = document.querySelector('#terminal').getBoundingClientRect();
+          const screen = document.querySelector('.xterm-screen').getBoundingClientRect();
+          return screen.width > 0 && screen.right <= host.right && screen.bottom <= host.bottom;
+        });
+      };
+      await assertTerminalFits(agent);
+      await resizer.press('ArrowLeft');
+      await assertTerminalFits(agent);
+      await resizer.press('ArrowRight');
+      await assertTerminalFits(agent);
+      await page.screenshot({ path: '/tmp/office-kit-studio.png' });
+      await agent.locator('.xterm-helper-textarea').pressSequentially('/model');
+      await agent.locator('.xterm-helper-textarea').press('Enter');
+      await agent.waitForFunction(() =>
         document.querySelector('#terminal').textContent.includes('Model menu: /model'),
       );
-      await page.locator('.xterm-helper-textarea').press('ArrowDown');
+      await agent.locator('.xterm-helper-textarea').press('ArrowDown');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
       await page.reload();
-      await page.waitForFunction(() =>
+      agent = page.frames().find((frame) => frame.url().endsWith(agentPath));
+      await agent.waitForFunction(() =>
         document.querySelector('#terminal').textContent.includes('Model menu: /model'),
       );
-      assert.equal(await page.locator('#terminal-start').isVisible(), false);
-      const blocked = await page.request.post(url + '/chat', {
+      assert.equal(await agent.locator('#terminal-start').isVisible(), false);
+      const blocked = await page.request.post(url + agentPath + '/chat', {
         headers: { origin: url },
         data: { provider: 'codex', message: 'conflicting edit', slide: 2, revision: 0 },
       });
       assert.equal(blocked.status(), 409);
-      const other = await browser.newPage();
-      await other.goto(url);
-      await other.getByText('Open in another tab · view only').waitFor();
-      assert.equal(await other.locator('#terminal-stop').isVisible(), false);
-      await other.close();
-      await page.locator('#terminal-stop').click();
-      await page.locator('#terminal-start').waitFor({ state: 'visible' });
+      // Split without interrupting the running first terminal; start an independent second.
+      await page.getByRole('button', { name: 'Split down', exact: true }).first().click();
+      await page.locator('iframe').nth(1).waitFor();
+      const secondPath = await page.locator('iframe').nth(1).getAttribute('src');
+      await page.waitForFunction(() =>
+        document.querySelectorAll('iframe')[1].contentDocument?.querySelector('#terminal-start'),
+      );
+      const second = page.frames().find((frame) => frame.url().endsWith(secondPath));
+      await second.locator('#terminal-start').click();
+      await second.waitForFunction(() =>
+        document.querySelector('#terminal').textContent.includes('Claude Code terminal ready'),
+      );
+      assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
+      await assertTerminalFits(agent);
+      await assertTerminalFits(second);
       await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
-      await page.selectOption('#chat-provider', 'codex');
-      await page.locator('#chat-input').fill('Make this slide clearer 日本語');
+      await second.waitForFunction(
+        () => document.querySelector('#chat-context').textContent === 'Slide 3 of 50',
+      );
+      await second.locator('.xterm-helper-textarea').pressSequentially('second-agent');
+      await second.locator('.xterm-helper-textarea').press('Enter');
+      await second.waitForFunction(() =>
+        document.querySelector('#terminal').textContent.includes('Model menu: second-agent'),
+      );
+      assert.ok(!(await agent.locator('#terminal').textContent()).includes('second-agent'));
+      const secondContext = await readFile(
+        dir + '/terminal-context-' + secondPath.split('/').at(-1) + '.json',
+        'utf8',
+      );
+      assert.match(JSON.parse(secondContext).hookSpecificOutput.additionalContext, /"slide":3/);
+      // A third Codex pane can work while both Claude sessions are running.
+      await page.getByRole('button', { name: 'Split right', exact: true }).nth(1).click();
+      await page.waitForFunction(() =>
+        document.querySelectorAll('iframe')[2]?.contentDocument?.querySelector('#chat-provider'),
+      );
+      const thirdPath = await page.locator('iframe').nth(2).getAttribute('src');
+      const third = page.frames().find((frame) => frame.url().endsWith(thirdPath));
+      await assertTerminalFits(second);
+      await third.selectOption('#chat-provider', 'codex');
+      await third.locator('#chat-input').fill('Parallel edit');
+      await third.locator('#chat-send').click();
+      await third.waitForFunction(
+        () => document.querySelector('#chat-status').textContent === 'Done',
+      );
+      assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
+      assert.equal(await second.locator('#terminal-stop').isVisible(), true);
+      assert.equal(
+        (await (await page.request.get(url + agentPath + '/chat')).json()).messages.length,
+        0,
+      );
+      await third.locator('#chat-input').fill('independent draft');
+      await page.getByRole('button', { name: 'Split down', exact: true }).nth(2).click();
+      assert.equal(await third.locator('#chat-input').inputValue(), 'independent draft');
+      assert.equal(await page.locator('.agent-pane').count(), 4);
+      assert.equal(
+        await page.getByRole('button', { name: 'Split right', exact: true }).first().isDisabled(),
+        true,
+      );
+      await page.screenshot({ path: '/tmp/office-kit-splits.png' });
+      const divider = page.getByRole('separator', { name: 'Agent split', exact: true }).first();
+      await divider.press('ArrowUp');
+      assert.equal(await divider.getAttribute('aria-valuenow'), '45');
+      await page.reload();
+      await page.waitForFunction(() => document.querySelectorAll('iframe').length === 4);
+      agent = page.frames().find((frame) => frame.url().endsWith(agentPath));
+      await agent.waitForFunction(() =>
+        document.querySelector('#terminal').textContent.includes('Model menu: /model'),
+      );
+      assert.equal(
+        await page
+          .getByRole('separator', { name: 'Agent split', exact: true })
+          .first()
+          .getAttribute('aria-valuenow'),
+        '45',
+      );
+      for (let count = 4; count > 1; count--) {
+        await page.getByRole('button', { name: 'Close', exact: true }).last().click();
+        await page.waitForFunction(
+          (count) => document.querySelectorAll('.agent-pane').length === count - 1,
+          count,
+        );
+      }
+      assert.equal((await page.request.get(url + secondPath + '/chat')).status(), 404);
+      assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
+      await agent.locator('#terminal-stop').click();
+      await agent.locator('#terminal-start').waitFor({ state: 'visible' });
+      await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
+      await agent.selectOption('#chat-provider', 'codex');
+      await agent.locator('#chat-input').fill('Make this slide clearer 日本語');
       await page.keyboard.press('ArrowLeft');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
-      await page.locator('#chat-send').click();
-      await page.waitForFunction(
+      await agent.locator('#chat-send').click();
+      await agent.waitForFunction(
         () => document.querySelector('#chat-status').textContent === 'Done',
       );
       await page.waitForFunction(slideSvg, 'ChatEdited');
-      const chat = await (await page.request.get(url + '/chat')).json();
+      const chat = await (await page.request.get(url + agentPath + '/chat')).json();
       assert.equal(chat.messages[0].context.slide, 3);
       assert.equal(chat.messages[0].context.count, 50);
       assert.match(chat.messages[0].context.text, /Slide 2/);
       assert.match(chat.messages[1].text, /Updated the focused slide/);
-      assert.equal(await page.locator('#messages strong').textContent(), 'Verified');
+      assert.equal(await agent.locator('#messages strong').textContent(), 'Verified');
       await page.reload();
-      await page.selectOption('#chat-provider', 'codex');
-      await page.waitForFunction(() =>
+      agent = page.frames().find((frame) => frame.url().endsWith(agentPath));
+      await agent.selectOption('#chat-provider', 'codex');
+      await agent.waitForFunction(() =>
         document.querySelector('#messages').textContent.includes('Updated the focused slide'),
       );
       await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
@@ -157,7 +253,7 @@ process.stdin.on('data',async data=>{
       await page.locator('#toggle-chat').click();
       assert.equal(await page.locator('#chat').isVisible(), true);
       await page.setViewportSize({ width: 640, height: 800 });
-      assert.equal(await page.locator('#chat-input').isVisible(), true);
+      assert.equal(await agent.locator('#chat-input').isVisible(), true);
       assert.equal(await page.evaluate(() => document.body.scrollWidth <= innerWidth), true);
       await page.setViewportSize({ width: 1280, height: 800 });
       await writeFile(file, source());

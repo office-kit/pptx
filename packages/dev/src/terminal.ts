@@ -10,7 +10,7 @@ const OUTPUT_LIMIT = 2_000_000;
 const REQUEST_LIMIT = 128_000;
 
 /** A real interactive Claude session, shared across reloads of its owning tab. */
-export function createTerminal(entry: string, busy = () => false) {
+export function createTerminal(entry: string, busy = () => false, base = '') {
   let process: IPty | undefined;
   let owner = '';
   let output = '';
@@ -117,10 +117,10 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
       const size = () => {
         if (
           !Number.isInteger(value.cols) ||
-          value.cols < 20 ||
+          value.cols < 2 ||
           value.cols > 500 ||
           !Number.isInteger(value.rows) ||
-          value.rows < 5 ||
+          value.rows < 1 ||
           value.rows > 300
         )
           throw new Error('Invalid terminal dimensions');
@@ -166,7 +166,7 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
                     hooks: [
                       {
                         type: 'http',
-                        url: `${origin}/terminal/context`,
+                        url: `${origin}${base}/terminal/context`,
                         headers: { Authorization: `Bearer ${token}` },
                         timeout: 5,
                       },

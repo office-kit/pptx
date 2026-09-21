@@ -109,6 +109,8 @@ process.stdin.on('data',async data=>{
       value.hookSpecificOutput.additionalContext.includes('"slide":6'),
     );
     assert.match(context.hookSpecificOutput.additionalContext, /NOT a restriction/);
+    assert.equal((await post('resize', { cols: 12, rows: 3 })).status, 200);
+    assert.equal((await post('resize', { cols: 1, rows: 0 })).status, 400);
     assert.equal((await post('resize', { cols: 100, rows: 30 })).status, 200);
     assert.equal((await post('context', {})).status, 403);
     const controller = new AbortController();
