@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
+  import { getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -12,6 +12,12 @@
     const shape = doc.shapeById(sel.slideIndex, sel.shapeIds[0]!);
     return shape && getShapeKind(shape) === 'picture' ? shape : null;
   });
+  const masks: Array<[PresetShape, string]> = [['rect', 'Rectangle'], ['roundRect', 'Rounded rectangle'], ['ellipse', 'Ellipse'], ['triangle', 'Triangle'], ['diamond', 'Diamond'], ['pentagon', 'Pentagon'], ['hexagon', 'Hexagon'], ['star5', 'Star'], ['heart', 'Heart']];
+  const mask = $derived.by(() => { doc.version; return picture ? getShapePreset(picture) : null; });
+  function setMask(value: string) {
+    const preset = masks.find(([key]) => key === value)?.[0];
+    if (picture && preset) editor.invoke('setShapePreset', { preset });
+  }
   const crop = $derived.by(() => { doc.version; return picture ? getShapeImageCrop(picture) : null; });
   const description = $derived.by(() => { doc.version; return picture ? getShapeDescription(picture) ?? '' : ''; });
   const sides = [['left', 'Crop left (%)'], ['top', 'Crop top (%)'], ['right', 'Crop right (%)'], ['bottom', 'Crop bottom (%)']] as const;
@@ -36,6 +42,10 @@
     <strong>{t('Image options')}</strong>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setShapeImage')}>{t('Replace image')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setShapeImageCrop')}>{t('Crop image')}</button>
+    <label>{t('Image shape')}<select class="ok-input" aria-label={t('Image shape')} value={mask ?? ''} onchange={e => setMask(e.currentTarget.value)}>
+      {#if !masks.some(([key]) => key === mask)}<option value={mask ?? ''}>{t('Custom shape')}</option>{/if}
+      {#each masks as [key, label]}<option value={key}>{t(label)}</option>{/each}
+    </select></label>
     <div class="fields">
       {#each sides as [side, label]}
         <label>{t(label)}<input class="ok-input" type="number" min="0" max="99.9" step="0.1" required value={Math.round((crop?.[side] ?? 0) * 1000) / 10} onchange={(e) => setCrop(side, e.currentTarget)} /></label>
