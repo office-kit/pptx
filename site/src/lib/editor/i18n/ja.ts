@@ -2,6 +2,7 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Applies to all text in the selected cells.': '選択したセル内のすべての文字に適用します。',
   'Edit link': 'リンクを編集',
   'The selected text contains different links.':
     '選択したテキストには異なるリンクが設定されています。',

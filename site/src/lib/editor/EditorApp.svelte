@@ -172,7 +172,7 @@
       {#key editor.activeDialog}<ChartDialog edit={editor.activeDialog === 'setChartSpec'} />{/key}
     {:else if editor.activeDialog === 'replaceTextInPresentation'}
       <FindReplaceDialog />
-    {:else if editor.activeDialog === 'setShapeHyperlink'}
+    {:else if editor.activeDialog === 'setShapeHyperlink' || editor.activeDialog === 'setTableCellClickAction'}
       <LinkDialog />
     {:else if ['addSlideComment', 'setCommentText', 'removeSlideComment'].includes(editor.activeDialog ?? '')}
       <CommentsDialog />

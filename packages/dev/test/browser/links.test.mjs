@@ -365,7 +365,7 @@ for (const target of ['shape', 'cell'])
           if (keyboard) await input.press('Control+k');
           else
             await editor
-              .locator('.text-format-bar')
+              .locator('.canvas-shell .text-format-bar')
               .getByRole('button', { name: ja ? 'リンクを編集' : 'Edit link', exact: true })
               .click();
           return editor.getByRole('dialog', {
@@ -493,3 +493,135 @@ for (const target of ['shape', 'cell'])
       }
     },
   );
+
+test(
+  'selected table cells share bilingual links with atomic undo and reload',
+  { timeout: 60000 },
+  async () => {
+    const api = await import('@office-kit/pptx');
+    const dir = await mkdtemp(join(tmpdir(), 'office-cell-batch-links-'));
+    let preview, browser, page;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Table} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Table x={1} y={1} width={8} height={2} rows={[["First 日本語","Second","Untouched"]]} /></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () => {
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const table = getSlideShapes(getSlides(pres)[0])[0];
+        assert.equal(getShapeClickAction(table), null);
+        return api
+          .getTableCells(table)[0]
+          .map((cell) => api.getTableCellParagraphs(cell)[0].elements[0]);
+      };
+      const cell = (c) =>
+        editor.getByRole('button', { name: `${ja ? 'セル' : 'Cell'} 1, ${c}`, exact: true });
+      const open = async (ribbon = false) => {
+        if (ribbon) {
+          await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+          await editor.locator('button[title$="— setShapeHyperlink"]').click();
+        } else
+          await editor
+            .getByRole('button', { name: ja ? 'リンクを編集' : 'Edit link', exact: true })
+            .click();
+        const dialog = editor.getByRole('dialog');
+        await dialog
+          .getByText(
+            ja
+              ? '選択したセル内のすべての文字に適用します。'
+              : 'Applies to all text in the selected cells.',
+            { exact: true },
+          )
+          .waitFor();
+        return dialog;
+      };
+      await saved();
+      await editor.locator('.hit').first().click();
+      // The table panel starts with its first cell even before explicit cell selection.
+      let dialog = await open();
+      await dialog.getByLabel('Link address', { exact: true }).fill('https://example.com/first');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(
+        (await read()).map((run) => run.clickAction?.url ?? null),
+        ['https://example.com/first', null, null],
+      );
+      await cell(1).click();
+      await cell(2).click({ modifiers: ['Shift'] });
+      await editor.locator('select').first().selectOption('ja');
+      ja = true;
+      dialog = await open(true);
+      await dialog
+        .getByText('選択したテキストには異なるリンクが設定されています。', { exact: true })
+        .waitFor();
+      await dialog.getByLabel('リンク先', { exact: true }).fill('https://example.com/shared');
+      await dialog.getByLabel('リンクの説明', { exact: true }).fill('共通の資料');
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      const shared = ['https://example.com/shared', 'https://example.com/shared', null];
+      assert.deepEqual(
+        (await read()).map((run) => run.clickAction?.url ?? null),
+        shared,
+      );
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(
+        (await read()).map((run) => run.clickAction?.url ?? null),
+        ['https://example.com/first', null, null],
+      );
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(
+        (await read()).map((run) => run.tooltip ?? null),
+        ['共通の資料', '共通の資料', null],
+      );
+      await editor.locator('.hit').first().click();
+      await cell(1).click();
+      await cell(2).click({ modifiers: ['Shift'] });
+      dialog = await open();
+      assert.equal(await dialog.getByLabel('リンク先', { exact: true }).inputValue(), shared[0]);
+      await dialog.getByRole('button', { name: 'リンクを解除', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      const runs = await read();
+      assert.deepEqual(
+        runs.map((run) => run.clickAction ?? null),
+        [null, null, null],
+      );
+      assert.deepEqual(
+        runs.map((run) => run.text),
+        ['First 日本語', 'Second', 'Untouched'],
+      );
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({
+        path: '/tmp/pptx-pr287-cell-batch-link-failure.png',
+        fullPage: true,
+      });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

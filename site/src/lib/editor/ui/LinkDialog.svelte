@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getTableCell, getTableCellParagraphs, setTableCellClickAction, getShapeParagraphCount, getShapeParagraphElements, getShapeRunClickAction, type ShapeClickAction, getShapeRunHyperlinkTooltip, getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
+  import { getTableCells, getTableCell, getTableCellParagraphs, setTableCellClickAction, getShapeParagraphCount, getShapeParagraphElements, getShapeRunClickAction, type ShapeClickAction, getShapeRunHyperlinkTooltip, getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
@@ -12,22 +13,23 @@
   const version = untrack(() => doc.version);
   const shapes = selectedShapeIds(selection).map(id => doc.shapeById(selection.slideIndex, id));
   const slides = untrack(() => doc.slides);
-  const supported = selection.kind === 'shape' && shapes.length > 0 && shapes.every(shape => shape && ['shape', 'picture', 'connector', 'graphicFrame'].includes(getShapeKind(shape)));
-  const selectedRuns = shapes.flatMap(shape => {
-    if (!shape || !range) return [];
-    if (cellPosition) {
-      let offset = 0;
-      return getTableCellParagraphs(getTableCell(shape, cellPosition.row, cellPosition.col)).flatMap(paragraph => {
-        const runs = paragraph.elements.flatMap(element => {
-          const length = element.kind === 'br' ? 1 : element.text.length;
-          const selected = offset < range.end && offset + length > range.start;
-          offset += length;
-          return selected ? [{ action: element.clickAction ?? null, tip: element.tooltip ?? null }] : [];
-        });
-        offset++;
-        return runs;
+  const cells = cellPosition && shapes[0] ? [getTableCell(shapes[0], cellPosition.row, cellPosition.col)] : selection.kind === 'cell' && shapes[0] ? [...tableCellsInRange(getTableCells(shapes[0]), tableSelectionBlock(selection))] : [];
+  const cellTarget = cells.length > 0;
+  const supported = (selection.kind === 'shape' || selection.kind === 'cell') && shapes.length > 0 && shapes.every(shape => shape && ['shape', 'picture', 'connector', 'graphicFrame'].includes(getShapeKind(shape)));
+  const selectedRuns = cellTarget ? cells.flatMap(cell => {
+    let offset = 0;
+    return getTableCellParagraphs(cell).flatMap(paragraph => {
+      const runs = paragraph.elements.flatMap(element => {
+        const length = element.kind === 'br' ? 1 : element.text.length;
+        const selected = !range || (offset < range.end && offset + length > range.start);
+        offset += length;
+        return selected && length > 0 ? [{ action: element.clickAction ?? null, tip: element.tooltip ?? null }] : [];
       });
-    }
+      offset++;
+      return runs;
+    });
+  }) : shapes.flatMap(shape => {
+    if (!shape || !range) return [];
     const runs: { action: ShapeClickAction | null; tip: string | null }[] = [];
     let offset = 0;
     for (let p = 0; p < getShapeParagraphCount(shape); p++) {
@@ -44,7 +46,7 @@
     }
     return runs;
   });
-  const actions = range ? selectedRuns.map(run => run.action) : shapes.map(shape => {
+  const actions = range || cellTarget ? selectedRuns.map(run => run.action) : shapes.map(shape => {
     if (!shape) return null;
     const url = getShapeHyperlink(shape);
     return url ? { kind: 'url' as const, url } : getShapeClickAction(shape);
@@ -56,7 +58,7 @@
   let destination = $state(initial?.kind ?? 'url');
   let slideIndex = $state(initial?.kind === 'slide' ? getSlideIndex(doc.pres, initial.slide) : selection.slideIndex);
   let url = $state(initial?.kind === 'url' ? initial.url : '');
-  const tips = range ? selectedRuns.map(run => run.tip) : shapes.map(shape => shape ? getShapeHyperlinkTooltip(shape) : null);
+  const tips = range || cellTarget ? selectedRuns.map(run => run.tip) : shapes.map(shape => shape ? getShapeHyperlinkTooltip(shape) : null);
   let tooltip = $state(tips.every(tip => tip === tips[0]) ? tips[0] ?? '' : '');
   const valid = $derived(destination === 'slide' ? !!slides[slideIndex] : destination === 'url' ? !!url.trim() : presets.some(kind => kind === destination));
   let error = $state('');
@@ -67,11 +69,12 @@
     if (doc.version !== version || doc.selection !== selection) { error = t('The selection changed. Reopen this dialog.'); return; }
     try {
       doc.transact(t(remove ? 'Remove link' : 'Edit link'), () => {
+        if (cellTarget) {
+          const action: ShapeClickAction | null = remove ? null : destination === 'url' ? { kind: 'url', url: url.trim() } : destination === 'slide' ? { kind: 'slide', slide: slides[slideIndex]! } : { kind: destination };
+          for (const cell of cells) setTableCellClickAction(cell, action, { ...(range ? { range } : {}), tooltip: tooltip.trim() || undefined });
+          return;
+        }
         for (const shape of shapes) if (shape) {
-          if (range && cellPosition) {
-            setTableCellClickAction(getTableCell(shape, cellPosition.row, cellPosition.col), remove ? null : destination === 'url' ? { kind: 'url', url: url.trim() } : destination === 'slide' ? { kind: 'slide', slide: slides[slideIndex]! } : { kind: destination }, { range, tooltip: tooltip.trim() || undefined });
-            continue;
-          }
           if (range) {
             if (remove) setShapeClickAction(shape, null, { range });
             else if (destination === 'url') setShapeHyperlink(shape, url.trim(), tooltip.trim() || undefined, { range });
@@ -98,14 +101,14 @@
   <form onsubmit={(event) => { event.preventDefault(); apply(); }}>
     <header><strong>{t('Edit link')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     {#if supported}
-      <p>{t(range ? 'Applies to the selected text.' : 'Applies to the selected objects.')}</p>
+      <p>{t(range ? 'Applies to the selected text.' : cellTarget ? 'Applies to all text in the selected cells.' : 'Applies to the selected objects.')}</p>
       <label>{t('Link destination')}<select class="ok-input" bind:value={destination} aria-label={t('Link destination')}><option value="url">{t('Web address')}</option><option value="slide">{t('Slide in this presentation')}</option><option value="nextSlide">{t('Next slide')}</option><option value="prevSlide">{t('Previous slide')}</option><option value="firstSlide">{t('First slide')}</option><option value="lastSlide">{t('Last slide')}</option></select></label>
       {#if destination === 'url'}
       <label>{t('Link address')}<input class="ok-input" type="url" required bind:value={url} placeholder="https://example.com" aria-label={t('Link address')} /></label>
       {:else if destination === 'slide'}
         <label>{t('Target slide')}<select class="ok-input" bind:value={slideIndex} aria-label={t('Target slide')}>{#each slides as slide, i}<option value={i}>{i + 1}. {getSlideTitle(slide) || t('Untitled slide')}</option>{/each}</select></label>
       {/if}
-      {#if mixed}<p>{t(range ? 'The selected text contains different links.' : 'The selected shapes have different links.')}</p>{/if}
+      {#if mixed}<p>{t(range || cellTarget ? 'The selected text contains different links.' : 'The selected shapes have different links.')}</p>{/if}
       <label>{t('Link description')}<input class="ok-input" bind:value={tooltip} aria-label={t('Link description')} /></label>
     {:else}<p role="alert">{t('Select objects to edit their links.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
