@@ -87,7 +87,10 @@ that a user can complete the corresponding editing workflow.
   The shared text toolbar also applies font families, fractional point sizes,
   color and underline to cell ranges. Browser tests verify mixed values, saved
   formats after reload, and restoring mixed sizes with undo in Japanese.
-  Borders and direct canvas cell editing still require complete workflows.
+  Border controls apply color, width and line style to all cell edges or just
+  the outside of a selected range, including merged cells. Browser tests verify
+  preserved interior borders, reset, undo and reload in both languages.
+  Direct canvas cell editing still requires a complete workflow.
 
 ## Outstanding work
 

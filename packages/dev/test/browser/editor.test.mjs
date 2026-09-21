@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import {
   getTableCells,
   getTableCellSpan,
+  getTableCellBorders,
   getTableCellAlignment,
   getTableCellAnchor,
   getTableCellText,
@@ -732,6 +733,49 @@ test(
         await japaneseFontPanel.getByLabel('文字サイズ', { exact: true }).inputValue(),
         '',
       );
+      await japaneseFontPanel.getByText('セルの罫線', { exact: true }).click();
+      await japaneseFontPanel.getByLabel('罫線の色', { exact: true }).fill('#ee9900');
+      await japaneseFontPanel.getByLabel('罫線の太さ（ポイント）', { exact: true }).fill('2');
+      await japaneseFontPanel.getByLabel('罫線の種類', { exact: true }).selectOption('dash');
+      await japaneseFontPanel.getByRole('button', { name: '罫線を適用', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      const readBorders = async () => {
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const table = getSlideShapes(getSlides(pres)[0])[0];
+        return getTableCells(table).map((row) =>
+          row.map((cell) => getTableCellBorders(pres, cell)),
+        );
+      };
+      let borders = await readBorders();
+      for (const cell of borders.flat())
+        for (const side of ['left', 'right', 'top', 'bottom'])
+          assert.deepEqual(cell[side], { color: '#EE9900', widthEmu: 25400, dash: 'dash' });
+      await editor.locator('select').first().selectOption('en');
+      await fontPanel.getByLabel('Border color', { exact: true }).fill('#0066cc');
+      await fontPanel.getByLabel('Border placement', { exact: true }).selectOption('outer');
+      await fontPanel.getByRole('button', { name: 'Apply borders', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      borders = await readBorders();
+      assert.equal(borders[0][0].left.color, '#0066CC');
+      assert.equal(borders[0][0].right.color, '#0066CC');
+      assert.equal(borders[0][0].bottom.color, '#EE9900');
+      assert.equal(borders[2][0].top.color, '#EE9900');
+      assert.equal(borders[2][0].bottom.color, '#0066CC');
+      await fontPanel.getByRole('button', { name: 'Reset borders', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      for (const cell of (await readBorders()).flat())
+        for (const side of ['left', 'right', 'top', 'bottom']) assert.equal(cell[side], null);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.deepEqual(await readBorders(), borders);
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.deepEqual(await readBorders(), borders);
+      await editor.locator('.hit').first().click();
+      await editor.locator('select').first().selectOption('ja');
+      await editor.getByText('セルの罫線', { exact: true }).click();
       await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {

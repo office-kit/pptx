@@ -3,7 +3,7 @@
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
+  import { getTableCellPosition, setTableCellBorders, type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -50,6 +50,28 @@
   }
   function formatCells(format: TextFormat) {
     applyToCells(t('Format selected cells'), cell => setTableCellTextFormat(cell, format));
+  }
+  const EMU_PER_POINT = 12700;
+  let borderColor = $state('#000000');
+  let borderWidth = $state(1);
+  let borderDash = $state('solid');
+  let borderMode = $state('all');
+  function applyBorders() {
+    const current = tableState;
+    const selected = selectedCells;
+    if (!current) return;
+    const line = { color: borderColor, widthEmu: Math.round(borderWidth * EMU_PER_POINT), dash: borderDash };
+    applyToCells(t('Apply borders'), cell => {
+      const { row, col } = getTableCellPosition(cell);
+      const span = getTableCellSpan(cell);
+      const outside = (r: number, c: number) => { const neighbor = current.cells[r]?.[c]; return !neighbor || !selected.has(neighbor); };
+      setTableCellBorders(cell, {
+        left: borderMode === 'all' || outside(row, col - 1) ? line : undefined,
+        right: borderMode === 'all' || outside(row, col + span.gridSpan) ? line : undefined,
+        top: borderMode === 'all' || outside(row - 1, col) ? line : undefined,
+        bottom: borderMode === 'all' || outside(row + span.rowSpan, col) ? line : undefined,
+      });
+    });
   }
   const canMerge = $derived.by(() => {
     if (!tableState || !block || block.rowSpan * block.colSpan < 2 || block.row + block.rowSpan > tableState.cells.length || block.col + block.colSpan > tableState.widths.length) return false;
@@ -125,6 +147,16 @@
       <label>{t('Vertical alignment')}<select aria-label={t('Vertical alignment')} class="ok-input" value={getTableCellAnchor(tableState.cell) ?? 'top'} onchange={(e) => { const v = e.currentTarget.value; if (v === 'top' || v === 'center' || v === 'bottom') applyToCells(t('Vertical alignment'), cell => setTableCellAnchor(cell, v)); }}>
         <option value="top">{t('Top')}</option><option value="center">{t('Center')}</option><option value="bottom">{t('Bottom')}</option>
       </select></label>
+      <details>
+        <summary>{t('Cell borders')}</summary>
+        <form onsubmit={(e) => { e.preventDefault(); applyBorders(); }}>
+          <label>{t('Border color')}<input type="color" bind:value={borderColor} /></label>
+          <label>{t('Border width (points)')}<input class="ok-input" type="number" min="0.25" max="100" step="0.25" required bind:value={borderWidth} /></label>
+          <label>{t('Border style')}<select aria-label={t('Border style')} class="ok-input" bind:value={borderDash}><option value="solid">{t('Solid line')}</option><option value="dash">{t('Dashed line')}</option><option value="dot">{t('Dotted line')}</option></select></label>
+          <label>{t('Border placement')}<select aria-label={t('Border placement')} class="ok-input" bind:value={borderMode}><option value="all">{t('All cell borders')}</option><option value="outer">{t('Outside borders')}</option></select></label>
+          <div class="actions"><button class="ok-btn" type="submit">{t('Apply borders')}</button><button class="ok-btn" type="button" onclick={() => applyToCells(t('Reset borders'), cell => setTableCellBorders(cell, null))}>{t('Reset borders')}</button></div>
+        </form>
+      </details>
       <label>{t('Row height (inches)')}<input class="ok-input" type="number" min="0.01" step="0.01" required value={tableState.heights[tableState.row]! / inches(1)} onchange={(e) => { const s = tableState; if (s && e.currentTarget.reportValidity()) doc.transact(t('Resize table row'), () => setTableRowHeight(s.table, s.row, inches(e.currentTarget.valueAsNumber))); }} /></label>
       <label>{t('Column width (inches)')}<input class="ok-input" type="number" min="0.01" step="0.01" required value={tableState.widths[tableState.col]! / inches(1)} onchange={(e) => { const s = tableState; if (s && e.currentTarget.reportValidity()) doc.transact(t('Resize table column'), () => setTableColumnWidth(s.table, s.col, inches(e.currentTarget.valueAsNumber))); }} /></label>
       <div class="actions">
@@ -140,6 +172,8 @@
 
 <style>
   .table-controls { padding: 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--ok-border); }
+  form { display: grid; gap: 8px; margin-top: 8px; }
+  summary { cursor: pointer; font-size: 12px; }
   strong { font-size: 12px; }
   label { display: grid; gap: 4px; font-size: 11px; }
   textarea, input, select { width: 100%; box-sizing: border-box; }
