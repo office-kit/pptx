@@ -31,7 +31,7 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test test/*.test.mjs",
     "prepublishOnly": "tsdown && node build-terminal.mjs",
-    "test:browser": "node --test test/browser/*.test.mjs"
+    "test:browser": "node --test --test-concurrency=1 test/browser/*.test.mjs"
   },
   "dependencies": {
     "@office-kit/pptx": "workspace:^",

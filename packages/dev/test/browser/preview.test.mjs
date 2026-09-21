@@ -35,13 +35,14 @@ console.log(JSON.stringify({type:'turn.completed'}));
     await writeFile(
       dir + '/claude',
       `#!${process.execPath}
-const {writeFileSync}=require('node:fs');
+const {writeFileSync,mkdirSync}=require('node:fs');
+mkdirSync('.office-kit',{recursive:true});
 console.log('Claude Code terminal ready');
 process.stdin.setEncoding('utf8');
 process.stdin.on('data',async data=>{
  const hook=JSON.parse(process.argv[3]).hooks.UserPromptSubmit[0].hooks[0];
  const response=await fetch(hook.url,{method:'POST',headers:hook.headers,body:'{}'});
- writeFileSync('terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
+ writeFileSync('.office-kit/terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
  console.log('Model menu: '+data.replaceAll('\\x1b[13;2u','').trim());
 });
 `,
@@ -183,7 +184,7 @@ process.stdin.on('data',async data=>{
       );
       assert.ok(!(await agent.locator('#terminal').textContent()).includes('second-agent'));
       const secondContext = await readFile(
-        dir + '/terminal-context-' + secondPath.split('/').at(-1) + '.json',
+        dir + '/.office-kit/terminal-context-' + secondPath.split('/').at(-1) + '.json',
         'utf8',
       );
       assert.match(JSON.parse(secondContext).hookSpecificOutput.additionalContext, /"slide":3/);
