@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getShapeKind, hasShapeText, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, setParagraphAlignment, setParagraphBullet, setParagraphLevel, setParagraphLineSpacing, setParagraphSpacing } from '@office-kit/pptx';
+  import { getShapeKind, hasShapeText, isShapeTextBox, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, setParagraphAlignment, setParagraphBullet, setParagraphLevel, setParagraphLineSpacing, setParagraphSpacing } from '@office-kit/pptx';
 
   const doc = getEditor().doc;
   let target = $state<{ key: string; index: number } | null>(null);
@@ -10,7 +10,7 @@
     const sel = doc.selection;
     if (sel.kind !== 'shape' || sel.shapeIds.length !== 1) return null;
     const shape = doc.shapeById(sel.slideIndex, sel.shapeIds[0]!);
-    if (!shape || getShapeKind(shape) !== 'shape' || !hasShapeText(shape)) return null;
+    if (!shape || getShapeKind(shape) !== 'shape' || (!hasShapeText(shape) && !isShapeTextBox(shape))) return null;
     const paragraphs = Array.from({ length: getShapeParagraphCount(shape) }, (_, index) => ({
       index,
       text: getShapeParagraphElements(shape, index).map(element => element.kind === 'br' ? ' ' : element.text).join(''),

@@ -13,6 +13,7 @@ import {
   getParagraphLineSpacing,
   getParagraphSpacing,
   getShapeParagraphElements,
+  getShapeText,
   loadPresentation,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
@@ -27,7 +28,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4} paragraphs={[{runs:[{text:'English',format:{bold:true}}]},{runs:[{text:'日本語',format:{italic:true}}]},{runs:[{text:'Third paragraph'}]}]} /></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4} paragraphs={[{runs:[{text:'English',format:{bold:true}}]},{runs:[{text:'日本語',format:{italic:true}}]},{runs:[{text:'Third paragraph'}]}]} /></Slide><Slide><Text x={1} y={1} width={7} height={3} /></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -118,6 +119,37 @@ test(
       await panel.getByLabel('行間の指定方法', { exact: true }).selectOption('inherit');
       await saved();
       assert.equal(getParagraphLineSpacing(await shape(), 1), null);
+      await editor.locator('.thumb-row').nth(1).click();
+      await editor.locator('.hit').first().click();
+      await panel.getByLabel('リストの種類', { exact: true }).selectOption('number');
+      await saved();
+      await panel.getByLabel('段落の配置', { exact: true }).selectOption('right');
+      await saved();
+      await editor.locator('.hit').first().dblclick();
+      await editor.locator('.inline-edit').fill('First line\n最初の入力');
+      await editor.locator('.inline-edit').press('Control+Enter');
+      await saved();
+      const emptyShape = async () =>
+        getSlideShapes(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[1],
+        )[0];
+      assert.equal(getShapeText(await emptyShape()), 'First line\n最初の入力');
+      assert.equal(getParagraphBullet(await emptyShape(), 0), 'number');
+      assert.equal(getParagraphAlignment(await emptyShape(), 0), 'r');
+      assert.equal(getParagraphBullet(await emptyShape(), 1), 'number');
+      assert.equal(getParagraphAlignment(await emptyShape(), 1), 'r');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getShapeText(await emptyShape()), '');
+      await panel.getByLabel('リストの種類', { exact: true }).waitFor();
+      assert.equal(await panel.getByLabel('段落の配置', { exact: true }).inputValue(), 'right');
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.equal(getShapeText(await emptyShape()), 'First line\n最初の入力');
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-paragraph-failure.png', fullPage: true });

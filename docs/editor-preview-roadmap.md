@@ -28,8 +28,10 @@ that a user can complete the corresponding editing workflow.
   and edits alignment, bullets/numbering, nine outline levels, proportional or
   fixed line spacing, and before/after spacing. Browser verification covers
   individual and bulk edits, rich-text preservation, saved PPTX properties,
-  undo/redo, Japanese labels and reload. Inline caret-based paragraph targeting,
-  empty text shapes and table-cell paragraph controls remain separate work.
+  undo/redo, Japanese labels and reload. Empty text boxes can be formatted before
+  typing; first input and added paragraphs retain the chosen settings, including
+  through undo/redo. Inline caret-based paragraph targeting and table-cell
+  paragraph controls remain separate work.
 
 - Slide text replacement now matches across adjacent formatting runs, preserving
   surrounding run formats and assigning replacements the first matched run’s
