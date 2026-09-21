@@ -111,6 +111,46 @@ top-left cell: covered positions get no style and no `styleCell` call.
 />
 ```
 
+## Lists and tables of contents
+
+An agenda is a normal slide composed from `Text`. There are no built-in `Bullets`
+or `TableOfContents` components. Import an existing project helper or define a
+local function; do not invent package exports or fall back to `Raw`.
+
+```tsx
+import { Slide, Text } from '@office-kit/pptx-dsl';
+
+export function TableOfContents() {
+  const sections = ['前提', '課題', '解決策'];
+  return (
+    <Slide background="#15171C">
+      <Text x={0.9} y={0.6} width={11} height={0.8} size={32} bold color="#FFFFFF">
+        目次
+      </Text>
+      {sections.map((title, index) => (
+        <Text x={1.1} y={2 + index * 1.2} width={10} height={0.8} size={26} color="#E4E8F0">
+          {`${String(index + 1).padStart(2, '0')}  ${title}`}
+        </Text>
+      ))}
+    </Slide>
+  );
+}
+```
+
+Use `<Text bullets="bullet" paragraphs={...} ... />` for a conventional list.
+Use each paragraph's `level` for nesting. For aligned page numbers, map separate
+`Text` objects with an explicit right-aligned page-number column instead of spaces.
+
+## Readable colors
+
+Choose text and its actual background together, including cards, table cells,
+chart labels and footnotes. Set text colors explicitly when changing a background;
+check inherited theme colors and shared helpers too. Aim for at least 4.5:1 contrast
+for normal text and 3:1 for large text (18 pt, or 14 pt bold). Do not use color alone
+to communicate meaning. Over images or gradients, add a solid backing surface if
+readability cannot be guaranteed. Inspect the rendered slide at presentation size;
+a successful build does not verify visual contrast.
+
 ## Existing PPTX files
 
 Run `npx --no-install office-pptx inspect template.pptx` in the project first.

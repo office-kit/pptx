@@ -55,7 +55,7 @@ import {
   getSlideLayouts,
   getSlideLayoutPlaceholders,
 } from './layouts.ts';
-import { getSlides } from './slide-query.ts';
+import { buildSlideData, getSlides } from './slide-query.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
 
 // ---------------------------------------------------------------------------
@@ -265,7 +265,13 @@ export const addSlide = (
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  pres._slidesCache = null;
+  // Appending does not change existing slide documents. Re-parsing them here
+  // made composing a deck quadratic and detached previously returned handles.
+  if (pres._slidesCache !== null) {
+    const added = buildSlideData(pkg, newSlidePartName, slideBytes);
+    pres._slidesCache = [...pres._slidesCache, added];
+    return added;
+  }
   const slides = getSlides(pres);
   const last = slides[slides.length - 1];
   if (!last) throw new Error('addSlide: post-condition failed; slide not in cache');
@@ -516,7 +522,11 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  pres._slidesCache = null;
+  if (pres._slidesCache !== null) {
+    const added = buildSlideData(pkg, newSlidePartName, pkg.getPart(newSlidePartName)!.data);
+    pres._slidesCache = [...pres._slidesCache, added];
+    return added;
+  }
   const slides = getSlides(pres);
   const dup = slides[slides.length - 1];
   if (!dup) throw new Error('duplicateSlide: post-condition failed');

@@ -12,6 +12,7 @@ import {
   getPresentationTheme,
   loadPresentation,
   savePresentation,
+  setPresentationFonts,
   setPresentationTheme,
 } from '../src/api/index.ts';
 
@@ -44,6 +45,20 @@ const withDecoyTheme = async (): Promise<Uint8Array> => {
 };
 
 describe('fn API: deck theme follows the slide master', () => {
+  it('observes theme and font changes after repeated reads', async () => {
+    const pres = await loadPresentation(await withDecoyTheme());
+    const original = getPresentationTheme(pres)!;
+    const fonts = getPresentationFonts(pres)!;
+    expect(getPresentationTheme(pres)).toEqual(original);
+    expect(getPresentationFonts(pres)).toEqual(fonts);
+    setPresentationTheme(pres, { accent1: '#ABCDEF' });
+    setPresentationFonts(pres, { minorLatin: 'Test Sans' });
+    expect(getPresentationTheme(pres)!.accent1).toBe('#ABCDEF');
+    expect(getPresentationFonts(pres)!.minorLatin).toBe('Test Sans');
+    expect(original.accent1).not.toBe('#ABCDEF');
+    expect(fonts.minorLatin).not.toBe('Test Sans');
+  });
+
   it('reads the master theme when an unreferenced theme sorts first by name', async () => {
     const plain = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const expected = getPresentationTheme(plain)!;

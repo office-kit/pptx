@@ -194,3 +194,24 @@ export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${suf
     'an obsolete infinite loop must not delay the next edit',
   );
 });
+
+test('the documented TSX agenda builds without Raw or invented components', async (t) => {
+  const directory = await fixture(t);
+  const reference = await readFile(
+    new URL('../../../skill/references/tsx.md', import.meta.url),
+    'utf8',
+  );
+  const example = reference
+    .split('## Lists and tables of contents')[1]
+    .match(/```tsx\n([\s\S]*?)```/)[1];
+  const entry = join(directory, 'deck.tsx');
+  await writeFile(
+    entry,
+    example +
+      "\nimport { Presentation } from '@office-kit/pptx-dsl';\nexport default <Presentation><TableOfContents /></Presentation>;",
+  );
+  const result = await buildDeck(entry);
+  assert.equal(result.slides.length, 1);
+  for (const title of ['目次', '前提', '課題', '解決策'])
+    assert.match(result.slideTexts[0], new RegExp(title));
+});

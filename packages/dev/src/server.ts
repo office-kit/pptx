@@ -36,8 +36,14 @@ export async function serveDeck(entry: string, port = 4173) {
           for (const client of clients) client.write('data: chat\n\n');
         },
         () => terminal.isRunning(),
+        verify,
       );
-      const terminal = createTerminal(entry, () => chat.isRunning(), id ? '/agents/' + id : '');
+      const terminal = createTerminal(
+        entry,
+        () => chat.isRunning(),
+        id ? '/agents/' + id : '',
+        verify,
+      );
       result = { chat, terminal, closing: false };
       sessions.set(id, result);
     }
@@ -51,7 +57,7 @@ export async function serveDeck(entry: string, port = 4173) {
     }
     response.setHeader('Cache-Control', 'no-store');
     const match = request.url?.match(
-      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context)|close))?$/,
+      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context|verify)|close))?$/,
     );
     if (request.url?.startsWith('/agents/') && !match) {
       response.writeHead(404).end();
@@ -187,6 +193,17 @@ export async function serveDeck(entry: string, port = 4173) {
       response.writeHead(404).end();
     }
   });
+  async function verify() {
+    // A fresh build also covers writes whose watcher notification has not arrived yet.
+    void rebuild();
+    const deadline = Date.now() + 30000;
+    while (!closed && (building || timer || pending)) {
+      if (Date.now() >= deadline)
+        return 'Preview verification timed out. Inspect the build before claiming success.';
+      await new Promise((done) => setTimeout(done, 50));
+    }
+    return closed ? 'Preview server closed.' : error;
+  }
   async function rebuild() {
     if (closed) return;
     if (building) {
