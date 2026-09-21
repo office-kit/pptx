@@ -13,6 +13,7 @@
     type CategoryId,
     type ResolvedCapability,
   } from '../manifest/index.ts';
+  import ChartSection from './ChartSection.svelte';
   import TableSection from './TableSection.svelte';
   import ImageSection from './ImageSection.svelte';
   import ArrangeSection from './ArrangeSection.svelte';
@@ -72,6 +73,7 @@
   </div>
 
   <!-- Hand-tuned quick controls for the common properties. -->
+  <ChartSection />
   <TableSection />
   <ImageSection />
   <ArrangeSection />

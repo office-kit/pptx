@@ -23,6 +23,13 @@ that a user can complete the corresponding editing workflow.
 
 ## Verified so far
 
+- Bilingual chart dialogs create column, bar, line, area, pie, doughnut and radar
+  charts, edit titles, category labels, series names, colors and numeric data,
+  and add or remove categories and series. Browser tests verify all seven kinds,
+  blanks/zero/negative values, geometry preservation, cancel, undo/redo, reload
+  and actual embedded workbook contents. Other chart kinds and advanced chart
+  formatting still need dedicated controls and workflow verification.
+
 - The editor branch incorporates main's development-tool source and current API.
 - The generated manifest lists 151 authoring operations. Registry coverage and
   smoke tests verify function discovery and selected API mutations.

@@ -4,7 +4,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { unzipSync, strFromU8 } from 'fflate';
 import {
+  getShapeChartSpec,
+  readPackagePart,
+  listPackageParts,
   getTableStyleFlags,
   getTableCells,
   getTableCellSpan,
@@ -947,6 +951,124 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-table-insert-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'chart dialogs create and edit bilingual data, save workbooks and restore history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-chart-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide /></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const download = async () =>
+        loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+      const chart = (pres) => getShapeChartSpec(getSlideShapes(getSlides(pres)[0])[0]);
+      await saved();
+      await editor.locator('select').first().selectOption('ja');
+      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.locator('button[title$="— addSlideChart"]').click();
+      const jp = editor.getByRole('dialog', { name: 'グラフを挿入', exact: true });
+      await jp.getByLabel('グラフのタイトル', { exact: true }).fill('売上 / Revenue');
+      await jp.getByLabel('系列名 1', { exact: true }).fill('日本');
+      await jp.getByLabel('項目 1', { exact: true }).fill('春');
+      await jp.getByLabel('値 1, 1', { exact: true }).fill('0');
+      await jp.getByLabel('値 2, 1', { exact: true }).fill('-2.5');
+      await jp.getByLabel('値 3, 1', { exact: true }).fill('');
+      await jp.getByRole('button', { name: '項目を追加', exact: true }).click();
+      await jp.getByLabel('項目 4', { exact: true }).fill('冬');
+      await jp.getByRole('button', { name: '系列を追加', exact: true }).click();
+      await jp.getByLabel('系列名 2', { exact: true }).fill('Global');
+      await jp.getByLabel('値 4, 2', { exact: true }).fill('42.5');
+      await page.screenshot({ path: '/tmp/pptx-pr287-chart-ja.png', fullPage: true });
+      await jp.getByRole('button', { name: 'グラフを挿入', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      let pres = await download();
+      assert.equal(chart(pres).kind, 'column');
+      assert.equal(chart(pres).title, '売上 / Revenue');
+      assert.deepEqual(chart(pres).series[0].values, [0, -2.5, null, 0]);
+      assert.deepEqual(chart(pres).series[1].values, [0, 0, 0, 42.5]);
+      const bounds = getShapeBoundsResolved(pres, getSlideShapes(getSlides(pres)[0])[0]);
+      await editor.locator('select').first().selectOption('en');
+      await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+      const dialog = editor.getByRole('dialog', { name: 'Edit chart', exact: true });
+      await dialog.getByLabel('Chart type', { exact: true }).selectOption('pie');
+      assert.equal(
+        await dialog.getByRole('button', { name: 'Apply changes', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(chart(await download()).kind, 'column');
+      await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+      await dialog.getByLabel('Chart type', { exact: true }).selectOption('line');
+      await dialog.getByLabel('Category 1', { exact: true }).fill('Spring');
+      await dialog.getByLabel('Value 1, 1', { exact: true }).fill('123.75');
+      await dialog.getByRole('button', { name: 'Remove category 2', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Remove series 2', exact: true }).click();
+      await dialog.getByLabel('Series color 1', { exact: true }).fill('#d04030');
+      await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+      await saved();
+      pres = await download();
+      assert.equal(chart(pres).kind, 'line');
+      assert.deepEqual(chart(pres).categories, ['Spring', '項目 3', '冬']);
+      assert.deepEqual(chart(pres).series[0].values, [123.75, null, 0]);
+      assert.equal(chart(pres).series.length, 1);
+      assert.equal(chart(pres).series[0].color.toLowerCase(), '#d04030');
+      assert.deepEqual(getShapeBoundsResolved(pres, getSlideShapes(getSlides(pres)[0])[0]), bounds);
+      const workbookPath = listPackageParts(pres).find((part) => part.name.endsWith('.xlsx'))?.name;
+      assert.ok(workbookPath);
+      const workbook = unzipSync(readPackagePart(pres, workbookPath));
+      const workbookXml = Object.entries(workbook)
+        .filter(([name]) => name.endsWith('.xml'))
+        .map(([, bytes]) => strFromU8(bytes))
+        .join('\n');
+      assert.match(workbookXml, /Spring/);
+      assert.match(workbookXml, /123.75/);
+      assert.doesNotMatch(workbookXml, /Global|42.5/);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(chart(await download()).kind, 'column');
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.equal(chart(await download()).kind, 'line');
+      for (const kind of ['bar', 'area', 'pie', 'doughnut', 'radar']) {
+        await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+        await dialog.getByLabel('Chart type', { exact: true }).selectOption(kind);
+        await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+        await saved();
+        assert.equal(chart(await download()).kind, kind);
+        assert.match(await editor.locator('.paint').textContent(), /売上/);
+      }
+      await page.reload();
+      await saved();
+      pres = await download();
+      assert.equal(chart(pres).kind, 'radar');
+      assert.deepEqual(chart(pres).series[0].values, [123.75, null, 0]);
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-chart-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();

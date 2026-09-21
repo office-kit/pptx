@@ -2,6 +2,37 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Category: '項目',
+  Series: '系列',
+  Value: '値',
+  'Pie and doughnut charts require one series. Remove extra series or choose another chart type.':
+    '円グラフとドーナツグラフは1系列で作成します。余分な系列を削除するか、別の種類を選択してください。',
+  'Insert chart': 'グラフを挿入',
+  'Edit chart': 'グラフを編集',
+  'Chart options': 'グラフの設定',
+  'Chart type': 'グラフの種類',
+  'Chart title': 'グラフのタイトル',
+  'Chart data': 'グラフのデータ',
+  'Column chart': '縦棒グラフ',
+  'Bar chart': '横棒グラフ',
+  'Line chart': '折れ線グラフ',
+  'Area chart': '面グラフ',
+  'Pie chart': '円グラフ',
+  'Doughnut chart': 'ドーナツグラフ',
+  'Radar chart': 'レーダーチャート',
+  'Series name': '系列名',
+  'Series color': '系列の色',
+  'Remove series': '系列を削除',
+  'Remove category': '項目を削除',
+  'Add category': '項目を追加',
+  'Add series': '系列を追加',
+  'Apply changes': '変更を適用',
+  'Select a supported chart to edit its data.':
+    'データを編集するには対応するグラフを選択してください。',
+  'The document changed. Reopen the chart editor.':
+    '文書が変更されました。グラフの編集画面を開き直してください。',
+  'The chart could not be updated': 'グラフを更新できませんでした',
+
   'Insert table': '表を挿入',
   'Number of rows': '行数',
   'Number of columns': '列数',
