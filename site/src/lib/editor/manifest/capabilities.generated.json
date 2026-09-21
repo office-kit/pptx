@@ -2404,6 +2404,12 @@
           "type": "string",
           "kind": "string",
           "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ preserveFormatting?: boolean }",
+          "kind": "object",
+          "optional": true
         }
       ]
     },

@@ -1,5 +1,7 @@
 // Table cell access.
 
+import { textBodyText } from '../../internal/drawingml/text-body.ts';
+import { editTextBody } from '../../internal/drawingml/text-body-edit.ts';
 import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
@@ -480,11 +482,17 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
 
 /**
  * Replaces a cell's text. `\n` starts a new paragraph. The paragraph-end
- * format (`<a:endParaRPr>`) is not kept; author it with `setTableCellParagraphs`.
+ * format (`<a:endParaRPr>`) is not kept unless `preserveFormatting` is enabled.
+ * That option preserves unaffected runs and paragraph properties during editing.
  */
-export const setTableCellText = (cell: TableCellData, text: string): void => {
+export const setTableCellText = (
+  cell: TableCellData,
+  text: string,
+  options?: { preserveFormatting?: boolean },
+): void => {
   const txBody = ensureCellTxBody(cell);
-  setTextBody(txBody, text);
+  if (options?.preserveFormatting) editTextBody(txBody, text);
+  else setTextBody(txBody, text);
   commitTableCell(cell);
 };
 
@@ -1017,24 +1025,7 @@ export const setTableCellMargins = (
 /** Reads the cell's plain text (paragraphs joined with `\n`). */
 export const getTableCellText = (cell: TableCellData): string => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
-  if (!txBody) return '';
-  const lines: string[] = [];
-  for (const p of txBody.children) {
-    if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p')
-      continue;
-    let line = '';
-    for (const r of p.children) {
-      if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r')
-        continue;
-      const tEl = firstChildElement(r, qname('a', 't', NS.dml));
-      if (!tEl) continue;
-      for (const child of tEl.children) {
-        if (child.kind === 'text' || child.kind === 'cdata') line += child.data;
-      }
-    }
-    lines.push(line);
-  }
-  return lines.join('\n');
+  return txBody ? textBodyText(txBody) : '';
 };
 
 /** One paragraph of a cell's text, with its alignment and inline elements. */

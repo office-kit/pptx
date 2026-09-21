@@ -5,6 +5,11 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  getTableCells,
+  getTableCellText,
+  getTableCellParagraphs,
+  getTableCellFill,
+  getTableColumnWidths,
   getShapeBoundsResolved,
   getShapeKind,
   getShapeParagraphElements,
@@ -540,6 +545,88 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-text-format-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'table cells, dimensions and rows can be edited and saved in both languages',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-table-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Table} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Table x={1} y={1} width={6} height={2} rows={[[{paragraphs:[{runs:[{text:'Hello ',format:{bold:true}},{text:'日本語',format:{italic:true}}]}]},'B'],['C','D']]} /></Slide></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      const panel = editor.getByRole('region', { name: 'Table options', exact: true });
+      await panel.getByRole('button', { name: 'Cell 1, 1', exact: true }).click();
+      await panel.getByLabel('Cell text', { exact: true }).fill('Hello 日本語!');
+      await panel.getByLabel('Cell text', { exact: true }).press('Tab');
+      await panel.getByLabel('Cell fill', { exact: true }).fill('#aabbcc');
+      await panel.getByLabel('Horizontal alignment', { exact: true }).selectOption('ctr');
+      assert.equal(
+        await panel.getByLabel('Horizontal alignment', { exact: true }).inputValue(),
+        'ctr',
+      );
+      await panel.getByLabel('Column width (inches)', { exact: true }).fill('2.5');
+      await panel.getByLabel('Column width (inches)', { exact: true }).press('Tab');
+      await panel.getByRole('button', { name: 'Insert row below', exact: true }).click();
+      await panel.getByRole('button', { name: 'Cell 2, 2', exact: true }).click();
+      await panel.getByLabel('Cell text', { exact: true }).fill('追加');
+      await panel.getByLabel('Cell text', { exact: true }).press('Tab');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const readTable = async () =>
+        getSlideShapes(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        )[0];
+      let table = await readTable();
+      let cells = getTableCells(table);
+      assert.equal(cells.length, 3);
+      assert.equal(getTableCellText(cells[1][1]), '追加');
+      assert.equal(getTableCellText(cells[0][0]), 'Hello 日本語!');
+      assert.equal(getTableCellFill(cells[0][0]), '#AABBCC');
+      assert.equal(getTableColumnWidths(table)[0], 2286000);
+      const runs = getTableCellParagraphs(cells[0][0])[0].elements;
+      assert.equal(runs[0].format.bold, true);
+      assert.equal(runs[1].format.italic, true);
+      await editor.locator('select').first().selectOption('ja');
+      await editor.getByRole('button', { name: '列を削除', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(getTableCells(await readTable())[0].length, 1);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(getTableCells(await readTable())[0].length, 2);
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('button', { name: 'セル 2, 2', exact: true }).click();
+      assert.equal(await editor.getByLabel('セルのテキスト', { exact: true }).inputValue(), '追加');
+      await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-table-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();
