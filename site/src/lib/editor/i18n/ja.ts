@@ -2,6 +2,16 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Edit link': 'リンクを編集',
+  'Remove link': 'リンクを解除',
+  'Link address': 'リンク先',
+  'Link description': 'リンクの説明',
+  'Link update failed': 'リンクを更新できませんでした',
+  'Applies to all text in the selected shapes.': '選択した図形内のすべての文字に適用します。',
+  'The selected shapes have different links.': '選択した図形には異なるリンクが設定されています。',
+  'Select text shapes to edit their links.': 'リンクを編集するテキスト図形を選択してください。',
+  'The selection changed. Reopen this dialog.':
+    '選択内容が変更されました。この画面を開き直してください。',
   'Arrow keys move between cells. Shift+Arrow extends the range. Delete clears text.':
     '矢印キーでセルを移動、Shift＋矢印で範囲を選択、Deleteで文字列を消去できます。',
   'Reset left margin': '左余白を標準に戻す',

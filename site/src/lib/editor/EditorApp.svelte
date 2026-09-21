@@ -17,6 +17,7 @@
   import ImageDialog from './ui/ImageDialog.svelte';
   import ChartDialog from './ui/ChartDialog.svelte';
   import FindReplaceDialog from './ui/FindReplaceDialog.svelte';
+  import LinkDialog from './ui/LinkDialog.svelte';
   import NotesDialog from './ui/NotesDialog.svelte';
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
@@ -170,6 +171,8 @@
       {#key editor.activeDialog}<ChartDialog edit={editor.activeDialog === 'setChartSpec'} />{/key}
     {:else if editor.activeDialog === 'replaceTextInPresentation'}
       <FindReplaceDialog />
+    {:else if editor.activeDialog === 'setShapeHyperlink'}
+      <LinkDialog />
     {:else if editor.activeDialog === 'setSlideNotes'}
       <NotesDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
