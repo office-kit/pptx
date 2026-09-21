@@ -4,6 +4,13 @@
 export const ja: Record<string, string> = {
   'Edit link': 'リンクを編集',
   'Remove link': 'リンクを解除',
+  'Link destination': 'リンク先の種類',
+  'Web address': 'ウェブアドレス',
+  'Slide in this presentation': 'このプレゼンテーション内のスライド',
+  'Untitled slide': '無題のスライド',
+  'Target slide': '移動先のスライド',
+  'Applies to the selected objects.': '選択したオブジェクトに適用します。',
+  'Select objects to edit their links.': 'リンクを編集するオブジェクトを選択してください。',
   'Link address': 'リンク先',
   'Link description': 'リンクの説明',
   'Link update failed': 'リンクを更新できませんでした',

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
+  import { getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -9,21 +9,41 @@
   const selection = untrack(() => doc.selection);
   const version = untrack(() => doc.version);
   const shapes = selectedShapeIds(selection).map(id => doc.shapeById(selection.slideIndex, id));
-  const supported = shapes.length > 0 && shapes.every(shape => shape && getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0);
-  const urls = shapes.map(shape => shape ? getShapeHyperlink(shape) : null);
+  const slides = untrack(() => doc.slides);
+  const supported = selection.kind === 'shape' && shapes.length > 0 && shapes.every(shape => shape && ['shape', 'picture', 'connector', 'graphicFrame'].includes(getShapeKind(shape)));
+  const textOnly = shapes.every(shape => shape && getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0);
+  const actions = shapes.map(shape => {
+    if (!shape) return null;
+    const url = getShapeHyperlink(shape);
+    return url ? { kind: 'url' as const, url } : getShapeClickAction(shape);
+  });
+  const keys = actions.map(action => action?.kind === 'url' ? `url:${action.url}` : action?.kind === 'slide' ? `slide:${getSlideIndex(doc.pres, action.slide)}` : action?.kind ?? '');
+  const mixed = keys.some(key => key !== keys[0]);
+  const initial = mixed ? null : actions[0];
+  let destination = $state(initial?.kind === 'slide' ? 'slide' : 'url');
+  let slideIndex = $state(initial?.kind === 'slide' ? getSlideIndex(doc.pres, initial.slide) : selection.slideIndex);
+  let url = $state(initial?.kind === 'url' ? initial.url : '');
   const tips = shapes.map(shape => shape ? getShapeHyperlinkTooltip(shape) : null);
-  const mixed = urls.some(url => url !== urls[0]);
-  let url = $state(mixed ? '' : urls[0] ?? '');
   let tooltip = $state(tips.every(tip => tip === tips[0]) ? tips[0] ?? '' : '');
+  const valid = $derived(destination === 'slide' ? !!slides[slideIndex] : !!url.trim());
   let error = $state('');
   let dialog: HTMLDialogElement;
   onMount(() => dialog.showModal());
   function apply(remove = false) {
-    if (!supported || (!remove && !url.trim())) return;
+    if (!supported || (!remove && !valid)) return;
     if (doc.version !== version || doc.selection !== selection) { error = t('The selection changed. Reopen this dialog.'); return; }
     try {
       doc.transact(t(remove ? 'Remove link' : 'Edit link'), () => {
-        for (const shape of shapes) if (shape) setShapeHyperlink(shape, remove ? null : url.trim(), remove ? undefined : tooltip.trim() || undefined);
+        for (const shape of shapes) if (shape) {
+          const hasText = getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0;
+          if (hasText) setShapeHyperlink(shape, null);
+          setShapeClickAction(shape, null);
+          if (!remove) {
+            if (destination === 'slide') setShapeClickAction(shape, { kind: 'slide', slide: slides[slideIndex]! });
+            else if (hasText) setShapeHyperlink(shape, url.trim(), textOnly ? tooltip.trim() || undefined : undefined);
+            else setShapeClickAction(shape, { kind: 'url', url: url.trim() });
+          }
+        }
       });
       editor.closeDialog();
     } catch (cause) { error = `${t('Link update failed')}: ${cause instanceof Error ? cause.message : String(cause)}`; }
@@ -34,13 +54,18 @@
   <form onsubmit={(event) => { event.preventDefault(); apply(); }}>
     <header><strong>{t('Edit link')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     {#if supported}
-      <p>{t('Applies to all text in the selected shapes.')}</p>
+      <p>{t('Applies to the selected objects.')}</p>
+      <label>{t('Link destination')}<select class="ok-input" bind:value={destination} aria-label={t('Link destination')}><option value="url">{t('Web address')}</option><option value="slide">{t('Slide in this presentation')}</option></select></label>
+      {#if destination === 'url'}
       <label>{t('Link address')}<input class="ok-input" type="url" required bind:value={url} placeholder="https://example.com" aria-label={t('Link address')} /></label>
+      {:else}
+        <label>{t('Target slide')}<select class="ok-input" bind:value={slideIndex} aria-label={t('Target slide')}>{#each slides as slide, i}<option value={i}>{i + 1}. {getSlideTitle(slide) || t('Untitled slide')}</option>{/each}</select></label>
+      {/if}
       {#if mixed}<p>{t('The selected shapes have different links.')}</p>{/if}
-      <label>{t('Link description')}<input class="ok-input" bind:value={tooltip} aria-label={t('Link description')} /></label>
-    {:else}<p role="alert">{t('Select text shapes to edit their links.')}</p>{/if}
+      {#if textOnly && destination === 'url'}<label>{t('Link description')}<input class="ok-input" bind:value={tooltip} aria-label={t('Link description')} /></label>{/if}
+    {:else}<p role="alert">{t('Select objects to edit their links.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
-    <footer><button type="button" class="ok-btn" disabled={!supported || !urls.some(Boolean)} onclick={() => apply(true)}>{t('Remove link')}</button><span></span><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!supported || !url.trim()}>{t('Apply')}</button></footer>
+    <footer><button type="button" class="ok-btn" disabled={!supported || !actions.some(Boolean)} onclick={() => apply(true)}>{t('Remove link')}</button><span></span><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!supported || !valid}>{t('Apply')}</button></footer>
   </form>
 </dialog>
 
