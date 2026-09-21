@@ -276,3 +276,5 @@ The bilingual chart dialog now exposes category/value axis titles, value-axis mi
 Chart axis settings also expose category/value axis visibility and value-axis major gridlines in Japanese and English. These controls preserve scaling and other imported axis settings, support cancel and a single undoable update, and persist through save/reload. Browser checks cover visible SVG gridlines and their removal alongside the saved chart specification.
 
 Chart preview tick generation is bounded for extremely small authored intervals and large floating-point values. Intervals requiring more than 1,000 ticks use automatic preview ticks; exported axis settings remain unchanged. Regression tests cover dense, subnormal, fractional, and large-offset intervals.
+
+Chart axis controls now include bilingual value-axis minor-gridline visibility. Cartesian previews (including combo charts) render authored minor spacing, color and width, or automatic spacing when unspecified or too dense. Major tick positions are excluded from minor gridlines. Browser checks cover insertion, editing, save/reload and history.

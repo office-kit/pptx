@@ -43,6 +43,7 @@
   let showCategoryAxis = $state(!(original?.categoryAxisHidden ?? false));
   let showValueAxis = $state(!(original?.valueAxisHidden ?? false));
   let showMajorGridlines = $state(original?.valueAxisMajorGridlines ?? false);
+  let showMinorGridlines = $state(original?.valueAxisMinorGridlines ?? false);
   let axisVisibilityChanged = $state(false);
   const hasAxes = $derived(['column', 'bar', 'line', 'area'].includes(kind));
   const validAxes = $derived(!hasAxes || !axesChanged || (
@@ -96,6 +97,7 @@
         categoryAxisHidden: !showCategoryAxis,
         valueAxisHidden: !showValueAxis,
         valueAxisMajorGridlines: showMajorGridlines,
+        valueAxisMinorGridlines: showMinorGridlines,
       } : {}),
       kind, title: title || undefined, categories: [...categories],
       legend: legendChanged ? { ...original?.legend, position: legendPosition, layout: undefined } : original?.legend,
@@ -148,6 +150,7 @@
             <label><input type="checkbox" bind:checked={showCategoryAxis} />{t('Show category axis')}</label>
             <label><input type="checkbox" bind:checked={showValueAxis} />{t('Show value axis')}</label>
             <label><input type="checkbox" bind:checked={showMajorGridlines} />{t('Show major gridlines')}</label>
+            <label><input type="checkbox" bind:checked={showMinorGridlines} />{t('Show minor gridlines')}</label>
           </fieldset>
           <div class="axis-grid" oninput={() => axesChanged = true}>
             <label>{t('Category axis title')}<input class="ok-input" bind:value={categoryAxisTitle} /></label>
