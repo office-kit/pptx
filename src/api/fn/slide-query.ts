@@ -602,7 +602,10 @@ export const replaceTokensInPresentation = (
 /**
  * Replaces every occurrence of `from` in every slide's text with `to`.
  * `from` may be a string (treated as a literal) or a `RegExp`. Returns
- * the number of `<a:t>` elements mutated across the whole deck.
+ * the number of `<a:t>` elements mutated across the whole deck. Matches can
+ * span formatting runs within a paragraph, but not explicit line breaks.
+ * Inserted text inherits the first matched run’s formatting. `to` follows
+ * JavaScript replacement-string rules (`$$`, `$&`, capture groups).
  *
  * Use this for the broad "rename product X to Y" pattern; for
  * `{{token}}` style substitutions, prefer
@@ -630,7 +633,10 @@ export const replaceTextInPresentation = (
 
 /**
  * Replaces every occurrence of `from` in the slide's text with `to`.
- * Returns the number of `<a:t>` elements mutated on this slide.
+ * Matches span adjacent formatting runs, bounded by paragraphs and explicit
+ * line breaks. Inserted text inherits the first matched run’s formatting;
+ * `to` follows JavaScript replacement-string rules. Returns the number of
+ * `<a:t>` elements mutated on this slide.
  */
 export const replaceTextInSlide = (slide: SlideData, from: string | RegExp, to: string): number => {
   const n = replaceTextInTree(slide[SLIDE_DOCUMENT].root, from, to);
