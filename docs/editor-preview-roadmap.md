@@ -280,3 +280,5 @@ Chart preview tick generation is bounded for extremely small authored intervals 
 Chart axis controls now include bilingual value-axis minor-gridline visibility. Cartesian previews (including combo charts) render authored minor spacing, color and width, or automatic spacing when unspecified or too dense. Major tick positions are excluded from minor gridlines. Browser checks cover insertion, editing, save/reload and history.
 
 Chart editing now exposes normal, stacked and 100% stacked series modes in Japanese and English for column, bar, line and area charts. Explicit mode changes reset bar overlap to the appropriate default while preserving chart data and other formatting. Browser coverage exercises all 12 type/mode combinations, percentage rendering, cancellation, undo/redo and reload.
+
+New chart series show the same default palette color in the dialog that the ChartML writer saves. Browser coverage checks the second-series swatch in Japanese, the saved color, and the English editing dialog.
