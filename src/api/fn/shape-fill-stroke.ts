@@ -337,7 +337,7 @@ export const clearShapeFill = (shape: SlideShapeData): void => {
   commitAndRefresh(shape);
 };
 
-/** Sets a solid-color outline on the shape. */
+/** Updates outline color and/or width; omitted properties are preserved. */
 export const setShapeStroke = (
   shape: SlideShapeData,
   options: { color?: string; widthEmu?: number },

@@ -76,16 +76,16 @@ export interface StrokeOptions {
   widthEmu?: number;
 }
 
-/** Sets a solid-color outline on a shape's spPr. */
+/** Updates the supplied outline properties, preserving omitted properties. */
 export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void => {
   const ln = ensureLn(spPr);
   if (options.widthEmu !== undefined) {
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
     ln.attrs.push(attr(ATTR_W, String(lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu'))));
   }
-  // Replace any existing fill choice inside <a:ln>.
-  removeChildrenIn(ln, FILL_LOCALS);
+  // Width-only edits preserve theme references, color transforms and noFill.
   if (options.color !== undefined) {
+    removeChildrenIn(ln, FILL_LOCALS);
     insertLnChild(ln, elem(NAME_SOLID_FILL, { children: [buildColorElement(options.color)] }));
   }
 };

@@ -124,6 +124,8 @@ test(
       await editor.getByLabel('画像の枠線の色', { exact: true }).fill('#7c3aed');
       await editor.getByLabel('画像の枠線の太さ（ポイント）', { exact: true }).fill('6');
       await editor.getByLabel('画像の枠線の太さ（ポイント）', { exact: true }).press('Tab');
+      await saved();
+      assert.equal(getShapeStroke(await picture()).color, '#7C3AED');
       await editor.getByLabel('画像の枠線の種類', { exact: true }).selectOption('dash');
       await saved();
       assert.equal(getShapeStroke(await picture()).widthEmu, 76200);
