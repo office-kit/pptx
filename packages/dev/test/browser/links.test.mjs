@@ -295,7 +295,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1} bold>Before 日本語 After</Text></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1} bold>Before 日本語 After</Text></Slide><Slide><Text x={1} y={1} width={5} height={1}>Target</Text></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -341,7 +341,7 @@ test(
       await dialog.getByLabel('Link description', { exact: true }).fill('日本語の資料');
       await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
       await saved();
-      const { getShapeRunHyperlink, getShapeRunHyperlinkTooltip } =
+      const { getShapeRunHyperlink, getShapeRunHyperlinkTooltip, getShapeRunClickAction } =
         await import('@office-kit/pptx');
       let shape = await read();
       assert.deepEqual(
@@ -374,6 +374,43 @@ test(
       shape = await read();
       assert.equal(getShapeRunHyperlink(shape, 0, 1), 'https://example.com/japanese');
       assert.equal(getShapeRunHyperlinkTooltip(shape, 0, 1), '日本語の資料');
+      dialog = await open(true);
+      await dialog.getByLabel('リンク先の種類', { exact: true }).selectOption('slide');
+      await dialog.getByLabel('移動先のスライド', { exact: true }).selectOption('1');
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      assert.equal(getShapeRunClickAction(await read(), 0, 1)?.kind, 'slide');
+      await page.reload();
+      await saved();
+      dialog = await open();
+      assert.equal(
+        await dialog.getByLabel('リンク先の種類', { exact: true }).inputValue(),
+        'slide',
+      );
+      assert.equal(await dialog.getByLabel('移動先のスライド', { exact: true }).inputValue(), '1');
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      await editor.locator('select').first().selectOption('en');
+      ja = false;
+      for (const kind of ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide']) {
+        dialog = await open(true);
+        await dialog.getByLabel('Link destination', { exact: true }).selectOption(kind);
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+        await saved();
+        shape = await read();
+        assert.deepEqual(getShapeRunClickAction(shape, 0, 1), { kind });
+        assert.equal(getShapeClickAction(shape), null);
+        assert.equal(getShapeRunClickAction(shape, 0, 0), null);
+        assert.equal(getShapeRunClickAction(shape, 0, 2), null);
+        assert.ok(getShapeParagraphElements(shape, 0).every((e) => e.format.bold));
+      }
+      dialog = await open();
+      assert.equal(
+        await dialog.getByLabel('Link destination', { exact: true }).inputValue(),
+        'lastSlide',
+      );
+      await dialog.getByRole('button', { name: 'Remove link', exact: true }).click();
+      await saved();
+      assert.equal(getShapeRunClickAction(await read(), 0, 1), null);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

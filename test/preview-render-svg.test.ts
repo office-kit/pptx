@@ -456,6 +456,9 @@ describe('renderSlideToSvg', () => {
     ] as const) {
       setShapeClickAction(shape, { kind });
       expect(renderSlideToSvg(pres, slide!)).toContain(`href="#slide-${target}"`);
+      setShapeClickAction(shape, null);
+      setShapeClickAction(shape, { kind }, { range: { start: 0, end: 4 } });
+      expect(renderSlideToSvg(pres, slide!)).toContain(`href="#slide-${target}"`);
     }
     setShapeClickAction(end, { kind: 'prevSlide' });
     expect(renderSlideToSvg(pres, last!)).toContain('href="#slide-1"');
@@ -476,6 +479,9 @@ describe('renderSlideToSvg', () => {
       text: 'Go to target',
     });
     setShapeClickAction(shape, { kind: 'slide', slide: target });
+    expect(renderSlideToSvg(pres, slide)).toContain(`href="#slide-${getSlides(pres).length}"`);
+    setShapeClickAction(shape, null);
+    setShapeClickAction(shape, { kind: 'slide', slide: target }, { range: { start: 0, end: 2 } });
     expect(renderSlideToSvg(pres, slide)).toContain(`href="#slide-${getSlides(pres).length}"`);
     moveSlide(pres, target, 0);
     expect(renderSlideToSvg(pres, slide)).toContain('href="#slide-1"');
