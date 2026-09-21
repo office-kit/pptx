@@ -34,6 +34,9 @@
   let title = $state(original?.title ?? '');
   let stacking = $state<'none' | 'stacked' | 'percentStacked'>(original?.grouping === 'stacked' || original?.grouping === 'percentStacked' ? original.grouping : 'none');
   let stackingChanged = $state(false);
+  let blanks = $state<NonNullable<ChartSpec['dispBlanksAs']>>(original?.dispBlanksAs ?? 'gap');
+  let blanksChanged = $state(false);
+  const supportsBlanks = $derived(kind === 'line' || kind === 'area');
   let legendPosition = $state<NonNullable<ChartSpec['legend']>['position']>(original?.legend?.position ?? null);
   let legendChanged = $state(false);
   let showValue = $state(original?.dataLabels?.showValue ?? false);
@@ -100,6 +103,7 @@
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
     const spec: ChartSpec = {
       ...original,
+      ...(supportsBlanks && blanksChanged ? { dispBlanksAs: blanks } : {}),
       ...(hasAxes && stackingChanged ? {
         grouping: stacking === 'none' ? (kind === 'column' || kind === 'bar' ? 'clustered' : 'standard') : stacking,
         overlapPct: undefined,
@@ -150,6 +154,11 @@
         {#if hasAxes}
           <label>{t('Series stacking')}<select class="ok-input" aria-label={t('Series stacking')} bind:value={stacking} onchange={() => stackingChanged = true}>
             <option value="none">{t('No stacking')}</option><option value="stacked">{t('Stacked')}</option><option value="percentStacked">{t('100% stacked')}</option>
+          </select></label>
+        {/if}
+        {#if supportsBlanks}
+          <label>{t('Blank values')}<select class="ok-input" aria-label={t('Blank values')} bind:value={blanks} onchange={() => blanksChanged = true}>
+            <option value="gap">{t('Leave gaps')}</option><option value="zero">{t('Treat as zero')}</option><option value="span">{t('Connect data points')}</option>
           </select></label>
         {/if}
       </div>

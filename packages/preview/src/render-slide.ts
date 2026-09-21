@@ -3382,7 +3382,7 @@ interface SeriesGeometry {
   readonly color: string;
   readonly ptsRaw: ReadonlyArray<[number, number] | null>;
   readonly pts: ReadonlyArray<[number, number]>;
-  readonly basePts: ReadonlyArray<[number, number]>;
+  readonly areaPath: string;
   readonly dPath: string;
 }
 
@@ -4732,14 +4732,28 @@ const renderLineChart = (
       }
     }
     if (segment.length > 0) segments.push(segment);
-    const dPath = segments
-      .map((points) =>
-        series.smooth && points.length > 2
-          ? smoothPath(points)
-          : points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x)},${px(y)}`).join(' '),
-      )
-      .join(' ');
-    perSeries.push({ s, series, color, ptsRaw, pts, basePts, dPath });
+    const paths = segments.map((points) =>
+      series.smooth && points.length > 2
+        ? smoothPath(points)
+        : points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x)},${px(y)}`).join(' '),
+    );
+    const dPath = paths.join(' ');
+    let offset = 0;
+    // Close each area against its own baseline, including stacked baselines.
+    const areaPath = fill
+      ? segments
+          .map((points, i) => {
+            const back = basePts
+              .slice(offset, offset + points.length)
+              .reverse()
+              .map(([x, y]) => `L${px(x)},${px(y)}`)
+              .join(' ');
+            offset += points.length;
+            return `${paths[i]} ${back} Z`;
+          })
+          .join(' ')
+      : '';
+    perSeries.push({ s, series, color, ptsRaw, pts, areaPath, dPath });
   }
   // Area fills are opaque in PowerPoint (the authored solidFill at full
   // alpha). Overlapping (non-stacked) areas paint back-to-front — series and
@@ -4751,15 +4765,8 @@ const renderLineChart = (
   // concern either, so both keep authored order.
   const paintOrder = fill && !isStacked ? perSeries.slice().reverse() : perSeries;
   if (fill) {
-    for (const { color, basePts, dPath } of paintOrder) {
-      // Walk back along the baseline (or the previous series's top for
-      // stacked) to close the area.
-      const back = basePts
-        .slice()
-        .reverse()
-        .map(([xp, yp]) => `L${px(xp)},${px(yp)}`)
-        .join(' ');
-      out.push(`<path d="${dPath} ${back} Z" fill="${color}" stroke="none"/>`);
+    for (const { color, areaPath } of paintOrder) {
+      out.push(`<path d="${areaPath}" fill="${color}" stroke="none"/>`);
     }
   }
   for (const { s, series, color, ptsRaw, pts, dPath } of paintOrder) {
