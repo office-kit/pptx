@@ -86,6 +86,7 @@ export const ja: Record<string, string> = {
   'Bulleted list': '箇条書き',
   'No list': 'リストなし',
   'List style': 'リストの種類',
+  'Current paragraph': 'カーソル位置の段落',
   'Paragraph alignment': '段落の配置',
   'Empty paragraph': '空の段落',
   'All paragraphs': 'すべての段落',

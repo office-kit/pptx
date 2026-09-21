@@ -8,10 +8,14 @@
   import { onMount, tick } from 'svelte';
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
+  import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
   import {
+    getParagraphPropertiesEffective,
+    setParagraphAlignment,
+    setParagraphBullet,
     getTableCells,
     insertTableRow,
     getTableCellText,
@@ -593,6 +597,40 @@
     }
     return formats;
   });
+  function inlineParagraphTarget() {
+    const box = boxes.find(b => b.id === editing?.id);
+    if (!box || !editing) return null;
+    const cell = editing.cell ? getTableCells(box.shape)[editing.cell.row]![editing.cell.col]! : null;
+    const paragraphs = cell ? getTableCellParagraphs(cell).map(p => p.elements)
+      : Array.from({ length: getShapeParagraphCount(box.shape) }, (_, i) => getShapeParagraphElements(box.shape, i));
+    const lengths = paragraphs.map(elements => elements.reduce((length, element) => length + (element.kind === 'br' ? 1 : element.text.length), 0));
+    return { shape: cell ?? box.shape, indices: paragraphsInTextRange(lengths, textRange) };
+  }
+  const inlineParagraph = $derived.by(() => {
+    doc.version;
+    const target = inlineParagraphTarget();
+    const properties = target?.indices.map(index => getParagraphPropertiesEffective(doc.pres, target.shape, index)) ?? [];
+    const alignments = properties.map(p => p.align ?? 'left');
+    const bullets = properties.map(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : '');
+    return { align: alignments.every(value => value === alignments[0]) ? alignments[0] ?? '' : '', bullet: bullets.every(value => value === bullets[0]) ? bullets[0] ?? '' : '' };
+  });
+  function applyInlineParagraph(kind: 'align' | 'bullet', value: string) {
+    const cur = editing;
+    const box = boxes.find(b => b.id === cur?.id);
+    if (!cur || !box) return;
+    const range = { ...textRange };
+    doc.transact(t('Format paragraphs'), () => {
+      replayEdits(box, cur);
+      const target = inlineParagraphTarget();
+      if (!target) return;
+      for (const index of target.indices) {
+        if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify')) setParagraphAlignment(target.shape, index, value);
+        if (kind === 'bullet' && (value === 'none' || value === 'bullet' || value === 'number')) setParagraphBullet(target.shape, index, value);
+      }
+    });
+    cur.changes = [];
+    requestAnimationFrame(() => textArea?.setSelectionRange(range.start, range.end));
+  }
   function applyInlineFormat(format: TextFormat) {
     if (!editing || textRange.start === textRange.end) return;
     const cur = editing;
@@ -678,7 +716,7 @@
 
 <div class="canvas-shell" onfocusout={onTextFocusOut}>
 {#if editing}
-  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onlink={editSelectedTextLink} ondone={commitEditing} />
+  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
 {/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
