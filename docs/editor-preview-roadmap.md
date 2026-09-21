@@ -278,3 +278,5 @@ Chart axis settings also expose category/value axis visibility and value-axis ma
 Chart preview tick generation is bounded for extremely small authored intervals and large floating-point values. Intervals requiring more than 1,000 ticks use automatic preview ticks; exported axis settings remain unchanged. Regression tests cover dense, subnormal, fractional, and large-offset intervals.
 
 Chart axis controls now include bilingual value-axis minor-gridline visibility. Cartesian previews (including combo charts) render authored minor spacing, color and width, or automatic spacing when unspecified or too dense. Major tick positions are excluded from minor gridlines. Browser checks cover insertion, editing, save/reload and history.
+
+Chart editing now exposes normal, stacked and 100% stacked series modes in Japanese and English for column, bar, line and area charts. Explicit mode changes reset bar overlap to the appropriate default while preserving chart data and other formatting. Browser coverage exercises all 12 type/mode combinations, percentage rendering, cancellation, undo/redo and reload.

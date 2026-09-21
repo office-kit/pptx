@@ -25,6 +25,8 @@
   let dialog: HTMLDialogElement;
   let kind = $state<ChartKind>(original?.kind ?? 'column');
   let title = $state(original?.title ?? '');
+  let stacking = $state<'none' | 'stacked' | 'percentStacked'>(original?.grouping === 'stacked' || original?.grouping === 'percentStacked' ? original.grouping : 'none');
+  let stackingChanged = $state(false);
   let legendPosition = $state<NonNullable<ChartSpec['legend']>['position']>(original?.legend?.position ?? null);
   let legendChanged = $state(false);
   let showValue = $state(original?.dataLabels?.showValue ?? false);
@@ -88,6 +90,10 @@
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
     const spec: ChartSpec = {
       ...original,
+      ...(hasAxes && stackingChanged ? {
+        grouping: stacking === 'none' ? (kind === 'column' || kind === 'bar' ? 'clustered' : 'standard') : stacking,
+        overlapPct: undefined,
+      } : {}),
       ...(hasAxes && axesChanged ? {
         categoryAxisTitle: categoryAxisTitle || undefined,
         valueAxisTitle: valueAxisTitle || undefined,
@@ -131,6 +137,11 @@
       <div class="settings">
         <label>{t('Chart type')}<select class="ok-input" aria-label={t('Chart type')} bind:value={kind}>{#each kinds as item}<option value={item.value}>{t(item.label)}</option>{/each}</select></label>
         <label>{t('Chart title')}<input class="ok-input" bind:value={title} /></label>
+        {#if hasAxes}
+          <label>{t('Series stacking')}<select class="ok-input" aria-label={t('Series stacking')} bind:value={stacking} onchange={() => stackingChanged = true}>
+            <option value="none">{t('No stacking')}</option><option value="stacked">{t('Stacked')}</option><option value="percentStacked">{t('100% stacked')}</option>
+          </select></label>
+        {/if}
       </div>
       <div class="chart-format">
         <label>{t('Legend')}<select class="ok-input" aria-label={t('Legend')} bind:value={legendPosition} onchange={() => legendChanged = true}>
