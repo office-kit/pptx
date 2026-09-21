@@ -17,8 +17,12 @@ import {
   findSlideLayout,
   getTableCell,
   inches,
+  emu,
   loadPresentation,
   setTableCellAlignment,
+  setTableCellMargins,
+  setSlideSize,
+  getSlideSize,
   setTableCellTextFormat,
 } from '../src/api/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
@@ -35,6 +39,56 @@ const blankSlide = async () => {
 };
 
 describe('table cell text rendering', () => {
+  for (const textLayout of ['svg', 'foreignObject'] as const) {
+    it.each([false, true])(
+      `${textLayout}: omitted cell margins match OOXML defaults (zero left: %s)`,
+      async (zeroLeft) => {
+        const { pres, slide } = await blankSlide();
+        const table = addSlideTable(slide, {
+          x: inches(1),
+          y: inches(1),
+          w: inches(1.5),
+          h: inches(2),
+          rows: [['Wrapping cell text spans several lines here']],
+        });
+        const cell = getTableCell(table, 0, 0);
+        setTableCellMargins(cell, zeroLeft ? { left: 0 } : null);
+        const implicit = renderSlideToSvg(pres, slide, { textLayout });
+        setTableCellMargins(cell, {
+          left: zeroLeft ? 0 : 91440,
+          right: 91440,
+          top: 45720,
+          bottom: 45720,
+        });
+        expect(renderSlideToSvg(pres, slide, { textLayout })).toBe(implicit);
+      },
+    );
+  }
+
+  it('page fitting scales the default cell text box proportionally', async () => {
+    const { pres, slide } = await blankSlide();
+    const table = addSlideTable(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(3),
+      h: inches(2),
+      rows: [['Fit table']],
+    });
+    setTableCellTextFormat(getTableCell(table, 0, 0), { size: 18 });
+    const options = { textLayout: 'foreignObject' as const };
+    const before = attrsOf(renderSlideToSvg(pres, slide, options), 'foreignObject')[0]!;
+    const size = getSlideSize(pres)!;
+    setSlideSize(
+      pres,
+      { width: emu(size.width * 2), height: emu(size.height * 2) },
+      { content: 'fit' },
+    );
+    const after = attrsOf(renderSlideToSvg(pres, slide, options), 'foreignObject')[0]!;
+    for (const attr of ['x', 'y', 'width', 'height']) {
+      expect(Number(after[attr])).toBeCloseTo(Number(before[attr]) * 2, 2);
+    }
+  });
+
   it('svg mode: an explicitly formatted cell carries its size / weight / color per run', async () => {
     const { pres, slide } = await blankSlide();
     const table = addSlideTable(slide, {
