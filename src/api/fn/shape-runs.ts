@@ -478,7 +478,7 @@ export const setParagraphAlignment = (
  * Used in tandem with bullets to author nested lists:
  *
  *   setShapeText(shape, 'Item 1\nNested\nItem 2');
- *   setShapeBullets(shape, 'bullet');
+ *   setShapeBulletStyle(shape, 'bullet');
  *   setParagraphLevel(shape, 1, 1);  // indent the second line
  */
 export const setParagraphLevel = (
@@ -899,7 +899,7 @@ export const getParagraphBulletStyle = (
 
 /**
  * Sets the bullet style on a single paragraph. Same `BulletStyle` shape
- * as `setShapeBullets` — pass `'bullet'` / `'number'` / `'none'` or an
+ * as `setShapeBulletStyle` — pass `'bullet'` / `'number'` / `'none'` or an
  * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.
  */
 export const setParagraphBullet = (

@@ -233,7 +233,7 @@ export function Text(props: TextProps): Node {
     props.paragraphs?.forEach((paragraph, index) => {
       if (paragraph.level !== undefined) api.setParagraphLevel(shape, index, paragraph.level);
     });
-    if (props.bullets !== undefined) api.setShapeBullets(shape, props.bullets);
+    if (props.bullets !== undefined) api.setShapeBulletStyle(shape, props.bullets);
     props.paragraphs?.forEach((paragraph, index) => {
       if (paragraph.bullet !== undefined) api.setParagraphBullet(shape, index, paragraph.bullet);
     });

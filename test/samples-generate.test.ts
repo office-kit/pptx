@@ -51,7 +51,7 @@ import {
   setPresentationFonts,
   setPresentationTheme,
   setShapeAnimation,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeGlow,
@@ -204,7 +204,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Centered line',
       ].join('\n'),
     });
-    setShapeBullets(box, 'bullet');
+    setShapeBulletStyle(box, 'bullet');
     setParagraphBullet(box, 0, 'none');
     setParagraphBullet(box, 3, { char: '◦' });
     setParagraphAlignment(box, 5, 'r');
@@ -1257,7 +1257,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Dark mode',
       ].join('\n'),
     });
-    setShapeBullets(nested, 'bullet');
+    setShapeBulletStyle(nested, 'bullet');
     const nestedLevels = [0, 0, 1, 2, 2, 1, 0, 1, 2];
     nestedLevels.forEach((lvl, i) => {
       setParagraphLevel(nested, i, lvl);
@@ -1286,7 +1286,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Build and deploy',
       ].join('\n'),
     });
-    setShapeBullets(numbered, { autoNum: 'arabicPeriod' });
+    setShapeBulletStyle(numbered, { autoNum: 'arabicPeriod' });
     const numberedLevels = [0, 1, 1, 0, 1, 2, 2, 0];
     numberedLevels.forEach((lvl, i) => {
       setParagraphLevel(numbered, i, lvl);
@@ -1853,7 +1853,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         h: inches(1.7),
         text: initiatives.join('\n'),
       });
-      setShapeBullets(listBox, { char: '—' });
+      setShapeBulletStyle(listBox, { char: '—' });
       for (let i = 0; i < initiatives.length; i++) {
         setShapeRunFormat(listBox, i, 0, { font: 'Calibri', size: 11, color: INK });
         setParagraphSpacing(listBox, i, { afterPts: 6 });
@@ -1989,7 +1989,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       h: inches(2.6),
       text: takeawayLines.join('\n'),
     });
-    setShapeBullets(takeaways, { char: '●' });
+    setShapeBulletStyle(takeaways, { char: '●' });
     for (let i = 0; i < takeawayLines.length; i++) {
       setShapeRunFormat(takeaways, i, 0, { font: 'Calibri', size: 13, color: INK });
       setParagraphSpacing(takeaways, i, { afterPts: 10 });
@@ -2191,7 +2191,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'LATAM is on track for its first profitable quarter since launch.',
       ].join('\n'),
     });
-    setShapeBullets(highlights, 'bullet');
+    setShapeBulletStyle(highlights, 'bullet');
     setShapeTextColumns(highlights, { count: 2, gapEmu: pt(18) });
 
     const detail = addSlideTable(s2, {
@@ -2267,7 +2267,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         h: inches(2.8),
         text: ['Key deliverable', 'Workstream A', 'Workstream B'].join('\n'),
       });
-      setShapeBullets(detail, 'bullet');
+      setShapeBulletStyle(detail, 'bullet');
       setParagraphLevel(detail, 0, 0);
       setShapeRunFormat(detail, 0, 0, { bold: true, size: 12 });
       setParagraphLevel(detail, 1, 1);
@@ -2539,7 +2539,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Native integrations for the tools your team already uses.',
       ].join('\n'),
     });
-    setShapeBullets(body, 'bullet');
+    setShapeBulletStyle(body, 'bullet');
     setShapeTextColumns(body, { count: 2, gapEmu: pt(16) });
     setShapeTextFormat(body, { size: 14 });
 

@@ -21,7 +21,7 @@ import {
   pt,
   setParagraphAlignment,
   setShapeFill,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFlip,
   setShapeRotation,
   setShapeShadow,
@@ -672,7 +672,7 @@ export const CASES: CorpusCase[] = [
         h: inches(3),
         text: 'One\nTwo\nThree',
       });
-      setShapeBullets(box, 'bullet');
+      setShapeBulletStyle(box, 'bullet');
     },
   },
   {
@@ -946,7 +946,7 @@ export const CASES: CorpusCase[] = [
         h: inches(3),
         text: 'One\nTwo\nThree',
       });
-      setShapeBullets(box, 'number');
+      setShapeBulletStyle(box, 'number');
     },
   },
   {

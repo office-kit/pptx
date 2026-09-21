@@ -201,12 +201,12 @@ it('setShapeStrokeArrow validates length', () => {
   expect(api.getSlideXmlString(slide)).toContain('type="none"');
 });
 
-it('setShapeBullets validates autoNum', () => {
+it('setShapeBulletStyle validates autoNum', () => {
   const { shape, slide } = fixture();
   expect(() => {
-    api.setShapeBullets(shape, { autoNum: 'bogus' });
-  }).toThrow(/setShapeBullets: .*is not one of:/);
-  expect(() => api.setShapeBullets(shape, { autoNum: 'thaiNumPeriod' })).not.toThrow();
+    api.setShapeBulletStyle(shape, { autoNum: 'bogus' });
+  }).toThrow(/setShapeBulletStyle: .*is not one of:/);
+  expect(() => api.setShapeBulletStyle(shape, { autoNum: 'thaiNumPeriod' })).not.toThrow();
   expect(api.getSlideXmlString(slide)).toContain('type="thaiNumPeriod"');
 });
 
@@ -409,8 +409,8 @@ it('validates shape-builder anchor and arrow end without changing existing shape
     /setShapeStrokeArrow: end: .*is not one of:/,
   );
   // @ts-expect-error Exercise the JavaScript boundary.
-  expect(() => api.setShapeBullets(shape, 'bogus')).toThrow(
-    /setShapeBullets: bullets: .*is not one of:/,
+  expect(() => api.setShapeBulletStyle(shape, 'bogus')).toThrow(
+    /setShapeBulletStyle: bullets: .*is not one of:/,
   );
   expect(api.getSlideXmlString(slide)).toBe(before);
   api.addSlideShape(slide, { ...box, preset: 'rect', text: 'X', textAnchor: 'ctr' });

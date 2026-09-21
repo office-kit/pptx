@@ -1998,7 +1998,7 @@ const bulletChar = (level: number): string => (level <= 0 ? '•' : level === 1 
 
 // Maps a `BulletStyle` value to the underlying `ST_TextAutoNumberScheme`
 // token (or `null` when the paragraph isn't auto-numbered). `'number'`
-// is the shorthand for arabicPeriod that setShapeBullets uses.
+// is the shorthand for arabicPeriod that setShapeBulletStyle uses.
 const bulletAutoNumType = (style: ReturnType<typeof getParagraphBullet>): string | null => {
   if (style === 'number') return 'arabicPeriod';
   if (style !== null && typeof style === 'object' && 'autoNum' in style) {

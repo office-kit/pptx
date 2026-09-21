@@ -127,7 +127,7 @@
         { name: 'setParagraphLevel' },
         { name: 'setParagraphBullet' },
         { name: 'setParagraphSpacing' },
-        { name: 'setShapeBullets' },
+        { name: 'setShapeBulletStyle' },
         { name: 'setShapeAlignment' },
         { name: 'setShapeTextAnchor' },
         { name: 'setShapeTextMargins' },

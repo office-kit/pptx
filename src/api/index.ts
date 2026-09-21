@@ -477,7 +477,7 @@ export {
   setShapeAltTitle,
   setShapeAnimation,
   setShapeBounds,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeGlow,

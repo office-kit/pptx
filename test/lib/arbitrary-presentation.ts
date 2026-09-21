@@ -32,7 +32,7 @@ import {
   findSlideLayoutByType,
   type PatternPreset,
   type PresentationData,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeGradientFill,
@@ -394,7 +394,7 @@ const applyTextShape = (shape: SlideShapeData, spec: TextShapeCommon): void => {
     size: spec.format.sizePt,
     font: spec.format.font,
   });
-  if (spec.bullet !== null) setShapeBullets(shape, spec.bullet);
+  if (spec.bullet !== null) setShapeBulletStyle(shape, spec.bullet);
 };
 
 const applyShape = (slide: SlideData, spec: ShapeSpec): void => {
