@@ -28,6 +28,22 @@ body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 <script>
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
 let displayedSvg;
+let advanceTimer,advanceKey;
+function scheduleAdvance(){
+  const delay=state.transitions?.[index]?.advanceAfterMs;
+  const key=presenting&&index<state.slides.length-1&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
+  if(key===advanceKey)return;
+  clearTimeout(advanceTimer);advanceKey=key;
+  if(key===null)return;
+  // OOXML unsigned milliseconds can exceed the browser's signed timer limit.
+  const deadline=performance.now()+delay;
+  function tick(){
+    const remaining=deadline-performance.now();
+    if(remaining>0)advanceTimer=setTimeout(tick,Math.min(remaining,2147483647));
+    else {advanceKey=null;selectSlide(index+1);}
+  }
+  advanceTimer=setTimeout(tick,Math.min(delay,2147483647));
+}
 const byId=id=>document.getElementById(id);
 const stage=byId('stage'),slide=byId('slide'),thumbnails=byId('thumbnails');
 const workspace=document.querySelector('.workspace'),chatResizer=byId('chat-resizer');
@@ -100,6 +116,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
     if(selected){if(reveal)button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
   }
   resize();
+  scheduleAdvance();
 }
 function update(updated){
   const focusedThumbnail=thumbnails.contains(document.activeElement);
@@ -132,7 +149,7 @@ function update(updated){
   if(!state.slides.length&&presenting)void exitPresentation();
 }
 function setPresenting(value){
-  presenting=value;document.body.classList.toggle('presenting',value);resize();
+  presenting=value;document.body.classList.toggle('presenting',value);resize();scheduleAdvance();
   if(value)stage.focus();else{
     byId('present').focus();
     thumbnails.children[index]?.firstElementChild.scrollIntoView({block:'nearest'});
@@ -152,7 +169,7 @@ document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>selectSlide(index-1);
 for(const id of ['next','present-next'])byId(id).onclick=()=>selectSlide(index+1);
 byId('zoom').onchange=resize;
-stage.onclick=()=>{if(presenting&&!getSelection().toString())selectSlide(index+1);};
+stage.onclick=()=>{if(presenting&&state.transitions?.[index]?.advanceOnClick!==false&&!getSelection().toString())selectSlide(index+1);};
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;

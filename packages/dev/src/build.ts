@@ -3,6 +3,8 @@ import { pathToFileURL } from 'node:url';
 import { compile, type Node } from '@office-kit/pptx-dsl';
 import {
   getSlideSize,
+  getSlides,
+  getSlideTransition,
   loadPresentation,
   savePresentation,
   validatePresentation,
@@ -13,6 +15,7 @@ export interface BuildResult {
   bytes: Uint8Array;
   slides: string[];
   slideTexts: string[];
+  transitions: ReturnType<typeof getSlideTransition>[];
   aspectRatio: number;
   dependencies: string[];
   diagnostics: ReturnType<typeof validatePresentation>;
@@ -54,6 +57,7 @@ export async function renderDeck(
       slides,
       dependencies,
       slideTexts,
+      transitions: getSlides(saved).map(getSlideTransition),
       diagnostics,
     },
   };
