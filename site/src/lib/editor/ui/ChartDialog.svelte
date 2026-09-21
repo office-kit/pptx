@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { addSlideChart, setChartSpec, getShapeId, getSlideCharts, emu, type ChartKind, type ChartSeries, type ChartSpec } from '@office-kit/pptx';
+  import { addSlideChart, setChartSpec, getShapeId, getSlideCharts, emu, type ChartKind, type ChartSeries, type ChartSpec, type ChartDataLabels } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { slideMetrics } from '../canvas/geometry.ts';
@@ -53,6 +53,28 @@
   let showSeriesName = $state(original?.dataLabels?.showSeriesName ?? false);
   let showPercent = $state(original?.dataLabels?.showPercent ?? false);
   let labelsChanged = $state(false);
+  let labelPosition = $state<ChartDataLabels['position'] | ''>(original?.dataLabels?.position ?? '');
+  let labelNumberFormat = $state(original?.dataLabels?.numberFormat ?? '');
+  let labelPositionChanged = $state(false);
+  let labelNumberFormatChanged = $state(false);
+  const labelPositions = $derived(
+    kind === 'column' || kind === 'bar' ? ['ctr', 'inEnd', 'outEnd', 'inBase'] :
+    kind === 'line' || kind === 'area' ? ['ctr', 't', 'b', 'l', 'r'] :
+    kind === 'pie' || kind === 'doughnut' ? ['ctr', 'inEnd', 'outEnd', 'bestFit'] : []
+  );
+  const labelPositionNames: Record<NonNullable<ChartDataLabels['position']>, string> = {
+    ctr: 'Center', inEnd: 'Inside end', outEnd: 'Outside end', inBase: 'Inside base',
+    t: 'Top', b: 'Bottom', l: 'Left', r: 'Right', bestFit: 'Best fit',
+  };
+  function updatedLabels(base: ChartDataLabels | undefined): ChartDataLabels | undefined {
+    if (!labelsChanged && !labelPositionChanged && !labelNumberFormatChanged) return base;
+    return {
+      showValue, showCategory, showSeriesName, showPercent, ...base,
+      ...(labelsChanged ? { showValue, showCategory, showSeriesName, showPercent } : {}),
+      ...(labelPositionChanged ? { position: labelPosition || undefined } : {}),
+      ...(labelNumberFormatChanged ? { numberFormat: labelNumberFormat || undefined } : {}),
+    };
+  }
   let categoryAxisTitle = $state(original?.categoryAxisTitle ?? '');
   let valueAxisTitle = $state(original?.valueAxisTitle ?? '');
   let axisMin = $state<number | null | undefined>(original?.valueAxis?.min);
@@ -140,11 +162,11 @@
       } : {}),
       kind, title: title || undefined, categories: [...categories],
       legend: legendChanged ? { ...original?.legend, position: legendPosition, layout: undefined } : original?.legend,
-      dataLabels: labelsChanged ? { ...original?.dataLabels, showValue, showCategory, showSeriesName, showPercent } : original?.dataLabels,
+      dataLabels: updatedLabels(original?.dataLabels),
       series: series.map(entry => ({
         ...entry.base, name: entry.name, color: entry.color, values: entry.values.map(value => value ?? null),
-        dataLabels: labelsChanged && entry.base.dataLabels ? { ...entry.base.dataLabels, showValue, showCategory, showSeriesName, showPercent } : entry.base.dataLabels,
-        pointDataLabels: labelsChanged ? entry.base.pointDataLabels?.map(label => label ? { ...label, showValue, showCategory, showSeriesName, showPercent } : null) : entry.base.pointDataLabels,
+        dataLabels: entry.base.dataLabels ? updatedLabels(entry.base.dataLabels) : undefined,
+        pointDataLabels: entry.base.pointDataLabels?.map(label => label ? updatedLabels(label)! : null),
       })),
     };
     try {
@@ -198,6 +220,18 @@
           <label><input type="checkbox" bind:checked={showPercent} />{t('Show percentages')}</label>
         </fieldset>
       </div>
+      <details class="label-settings"><summary>{t('Data label format')}</summary>
+        <div class="axis-grid">
+          {#if labelPositions.length}
+            <label>{t('Label position')}<select class="ok-input" aria-label={t('Label position')} value={labelPosition ?? ''} onchange={e => { labelPosition = e.currentTarget.value as typeof labelPosition; labelPositionChanged = true; }}>
+              <option value="">{t('Automatic')}</option>
+              {#each labelPositions as position}<option value={position}>{t(labelPositionNames[position as NonNullable<ChartDataLabels['position']>])}</option>{/each}
+              {#if labelPosition && !labelPositions.includes(labelPosition)}<option value={labelPosition} disabled>{t(labelPositionNames[labelPosition])}</option>{/if}
+            </select></label>
+          {/if}
+          <label>{t('Label number format')}<input class="ok-input" placeholder={t('Automatic')} bind:value={labelNumberFormat} oninput={() => labelNumberFormatChanged = true} /></label>
+        </div>
+      </details>
       {#if hasAxes}
         <details class="axis-settings"><summary>{t('Chart axes')}</summary>
           <fieldset class="axis-visibility" onchange={() => axisVisibilityChanged = true}>
