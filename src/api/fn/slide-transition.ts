@@ -56,6 +56,7 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
   let thruBlack: boolean | undefined;
   for (const child of transition.children) {
     if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
+    if (child.name.localName === 'sndAc' || child.name.localName === 'extLst') continue;
     effect = child.name.localName;
     direction = getAttrValue(child, qname('', 'dir', ''));
     const o = getAttrValue(child, qname('', 'orient', ''));
@@ -64,9 +65,8 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
     if (tb !== null) thruBlack = tb === '1';
     break;
   }
-  if (effect === null) return null;
   return {
-    effect,
+    effect: effect ?? 'none',
     ...(speed !== null ? { speed } : {}),
     ...(direction !== null ? { direction } : {}),
     ...(orientation !== null ? { orientation } : {}),

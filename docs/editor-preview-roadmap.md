@@ -23,6 +23,16 @@ that a user can complete the corresponding editing workflow.
 
 ## Verified so far
 
+- Bilingual speaker-note dialogs load and edit multiline notes for the selected
+  slide. Notes readers/writers target the body placeholder, preserve unrelated
+  footer placeholders, and read soft breaks and field text. Browser tests verify
+  separate notes on two slides, cancellation, undo/redo and reload.
+  Transition dialogs configure effects, effect-specific directions, speed,
+  through-black fades, click/automatic advance and optional application to all
+  slides in one undo step. Browser tests verify push, fade, split, no-effect
+  timing, reset, isolation of other slides and persisted settings. Animated
+  playback of the configured effects remains to be verified.
+
 - A bilingual slide options pane selects layouts already in the document, sets
   background colors or uploaded images, and resets to the inherited background.
   Browser tests verify layout relationships, untouched text and neighboring

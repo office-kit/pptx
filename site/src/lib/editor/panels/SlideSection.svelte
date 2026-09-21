@@ -45,6 +45,8 @@
 {#if slide && (doc.selection.kind === 'none' || doc.selection.kind === 'slide')}
   <section aria-label={t('Slide options')}>
     <strong>{t('Slide options')}</strong>
+    <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideNotes')}>{t('Speaker notes')}</button>
+    <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideTransition')}>{t('Slide transition')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideSize')}>{t('Page setup')}</button>
     <label>{t('Slide layout')}<select class="ok-input" aria-label={t('Slide layout')} value={layoutId} onchange={event => changeLayout(event.currentTarget.value)}>
       {#if !layout}<option value="">{t('None')}</option>{/if}

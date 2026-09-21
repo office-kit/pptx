@@ -8,7 +8,14 @@ import {
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import { REL_TYPES, buildEmptyNotesSlide } from '../../internal/presentationml/index.ts';
-import { NS, firstChildElement, parseXml, qname, serializeXml } from '../../internal/xml/index.ts';
+import {
+  NS,
+  firstChildElement,
+  getAttrValue,
+  parseXml,
+  qname,
+  serializeXml,
+} from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
   type PresentationData,
@@ -19,7 +26,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { NAME_CSLD, NAME_SP_TREE, decode, encode } from './_helpers.ts';
-import { setTextBody } from '../../internal/drawingml/index.ts';
+import { setTextBody, textBodyText } from '../../internal/drawingml/index.ts';
 import { getSlides, isSlideHidden } from './slide-query.ts';
 import { getShapeHyperlink, setShapeHyperlink } from './shapes.ts';
 import {
@@ -68,34 +75,10 @@ export const getSlideNotes = (slide: SlideData): string | null => {
     const nvPr = firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
     if (!nvPr) continue;
     const ph = firstChildElement(nvPr, qname('p', 'ph', NS.pml));
-    if (!ph) continue;
+    if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
     const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
     if (!txBody) continue;
-    const lines: string[] = [];
-    for (const p of txBody.children) {
-      if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
-        continue;
-      }
-      let line = '';
-      for (const r of p.children) {
-        if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
-          continue;
-        }
-        for (const tElement of r.children) {
-          if (
-            tElement.kind === 'element' &&
-            tElement.name.namespaceURI === NS.dml &&
-            tElement.name.localName === 't'
-          ) {
-            for (const tc of tElement.children) {
-              if (tc.kind === 'text') line += tc.data;
-            }
-          }
-        }
-      }
-      lines.push(line);
-    }
-    return lines.join('\n');
+    return textBodyText(txBody);
   }
   return null;
 };
@@ -647,7 +630,7 @@ export const setSlideNotes = (slide: SlideData, value: string): void => {
       const nvPr = firstChildElement(nvSpPr, qname('p', 'nvPr', NS.pml));
       if (!nvPr) continue;
       const ph = firstChildElement(nvPr, qname('p', 'ph', NS.pml));
-      if (!ph) continue;
+      if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
       const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
       if (!txBody) continue;
       setTextBody(txBody, value);

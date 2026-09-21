@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  getSlideTransition,
   clearSlideTransition,
   getSlideXmlString,
   getSlides,
@@ -129,5 +130,20 @@ describe('L3: setSlideTransition', () => {
     const slide = getSlides(pres)[0]!;
     setSlideTransition(slide, { effect: 'fade', speed: 'med' });
     expectSchemaValid(getSlideXmlString(getSlides(pres)[0]!), 'pml');
+  });
+});
+
+it('round-trips advance timing even when no transition effect is selected', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  setSlideTransition(getSlides(pres)[0]!, {
+    effect: 'none',
+    advanceOnClick: false,
+    advanceAfterMs: 2500,
+  });
+  const reloaded = await loadPresentation(await savePresentation(pres));
+  expect(getSlideTransition(getSlides(reloaded)[0]!)).toEqual({
+    effect: 'none',
+    advanceOnClick: false,
+    advanceAfterMs: 2500,
   });
 });
