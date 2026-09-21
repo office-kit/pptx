@@ -1,5 +1,17 @@
 # @office-kit/pptx-dev
 
+## 0.8.0
+
+### Minor Changes
+
+- cc7740b: Edit slides directly without switching modes: click objects for AI instructions, drag a region, or double-click text to edit in place. Undo and Redo now restore source and asset changes across AI turns, text edits, and external saves, with keyboard shortcuts and grouped concurrent agent edits.
+
+### Patch Changes
+
+- Updated dependencies [3eecc92]
+- Updated dependencies [cb702c1]
+  - @office-kit/pptx@0.19.0
+
 ## 0.7.0
 
 ### Minor Changes
