@@ -553,6 +553,7 @@ export {
   setSlideBody,
   setSlideHidden,
   setSlideLayout,
+  setCommentText,
   setSlideNotes,
   setSlidePlaceholders,
   setSlideSections,

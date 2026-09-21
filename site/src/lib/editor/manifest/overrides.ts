@@ -13,6 +13,7 @@ import type { CapabilityOverride } from './types.ts';
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
+  setCommentText: { labelEn: 'Edit Comments', labelJa: 'コメントを編集' },
   splitTableCell: { labelJa: '結合セルを分割' },
   addSectionHeaderSlide: { labelJa: 'セクション見出しスライドの追加' },
   addSlide: { labelJa: 'スライドの追加' },

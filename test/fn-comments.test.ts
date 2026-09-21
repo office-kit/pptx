@@ -27,6 +27,7 @@ import {
   loadPresentation,
   removeSlideComment,
   savePresentation,
+  setCommentText,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -38,6 +39,29 @@ const partExists = async (presBytes: Uint8Array, partPath: string): Promise<bool
 };
 
 describe('fn API: comments', () => {
+  it('edits text without changing comment metadata and rejects a deleted handle', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const comment = addSlideComment(slide, {
+      author: { name: 'Reviewer', initials: 'RV' },
+      text: 'Before',
+      date: new Date('2026-01-01T00:00:00Z'),
+      position: { x: 100, y: 200 },
+    });
+    const author = getCommentAuthor(comment);
+    setCommentText(comment, '修正済み <>&\nUpdated');
+    expect(getCommentText(comment)).toBe('修正済み <>&\nUpdated');
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const saved = getSlideComments(getSlides(loaded)[0]!)[0]!;
+    expect(getCommentText(saved)).toBe('修正済み <>&\nUpdated');
+    expect(getCommentAuthor(saved)).toEqual(author);
+    expect(getCommentDate(saved)).toBe('2026-01-01T00:00:00.000Z');
+    expect(getCommentPosition(saved)).toEqual({ x: 100, y: 200 });
+    removeSlideComment(comment);
+    expect(() => setCommentText(comment, 'Restore')).toThrow('no longer exists');
+    expect(getSlideComments(slide)).toHaveLength(0);
+  });
+
   it('addSlideComment bootstraps authors + comments parts on a clean slide', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     expect(getCommentAuthors(pres)).toHaveLength(0);

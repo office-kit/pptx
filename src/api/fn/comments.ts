@@ -13,7 +13,7 @@ import {
   readCommentAuthorList,
   readCommentList,
 } from '../../internal/presentationml/index.ts';
-import { parseXml, serializeXml } from '../../internal/xml/index.ts';
+import { NS, getAttrValue, qname, parseXml, serializeXml } from '../../internal/xml/index.ts';
 import {
   COMMENT_SLIDE,
   COMMENT_SNAPSHOT,
@@ -480,6 +480,36 @@ export const addSlideComment = (
   writeCommentsForSlide(slide, comments);
 
   return asCommentData(slide, snap, updatedAuthor);
+};
+
+/** Updates comment text while retaining author, date, position, and extension XML. */
+export const setCommentText = (comment: SlideCommentData, text: string): void => {
+  const slide = comment[COMMENT_SLIDE];
+  const snapshot = comment[COMMENT_SNAPSHOT];
+  const part = slide[INTERNAL_PACKAGE].getPart(commentsPartNameForSlide(slide));
+  if (!part) throw new Error('setCommentText: comment no longer exists');
+  const doc = parseXml(decode(part.data));
+  const element = doc.root.children.find(
+    (node) =>
+      node.kind === 'element' &&
+      node.name.namespaceURI === NS.pml &&
+      node.name.localName === 'cm' &&
+      getAttrValue(node, qname('', 'authorId', '')) === String(snapshot.authorId) &&
+      getAttrValue(node, qname('', 'idx', '')) === String(snapshot.idx),
+  );
+  if (!element || element.kind !== 'element')
+    throw new Error('setCommentText: comment no longer exists');
+  const body = element.children.find(
+    (node) =>
+      node.kind === 'element' &&
+      node.name.namespaceURI === NS.pml &&
+      node.name.localName === 'text',
+  );
+  if (!body || body.kind !== 'element')
+    throw new Error('setCommentText: comment text element is missing');
+  body.children = [{ kind: 'text', data: text }];
+  part.data = encode(serializeXml(doc));
+  comment[COMMENT_SNAPSHOT] = { ...snapshot, text };
 };
 
 /**
