@@ -113,7 +113,11 @@ that a user can complete the corresponding editing workflow.
   The navigator supports Shift ranges, Ctrl/Command toggles, Select All, and
   batch copy/cut/paste, duplicate, delete and reorder (keys, buttons and drag).
   Selection is restored with undo/redo; browser tests cover persisted order and
-  both languages. Other slide property controls still target the active slide.
+  both languages. Background color/image/reset, existing layout selection, skipped
+  presentation state, and transitions apply to every selected slide in one undo
+  step. Mixed values are identified in the property controls; speaker notes
+  explicitly target the current slide. Browser coverage verifies mixed state,
+  unaffected slides, undo/redo and persisted background images/transitions.
 
 - The Arrange pane aligns objects to the selection (or slide for a single object)
   and distributes equal horizontal/vertical gaps. Group/ungroup bind selected

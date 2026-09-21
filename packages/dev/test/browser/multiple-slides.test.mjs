@@ -53,7 +53,10 @@ test(
       await thumbs.nth(1).click();
       await thumbs.nth(3).click({ modifiers: ['Shift'] });
       assert.deepEqual(await selected(), [1, 2, 3]);
-      await editor.getByText('Selected slides: 3', { exact: true }).waitFor();
+      await editor
+        .locator('.selection-count')
+        .getByText('Selected slides: 3', { exact: true })
+        .waitFor();
       await thumbs.nth(2).click({ modifiers: ['Meta'] });
       assert.deepEqual(await selected(), [1, 3]);
       // A context menu on a selected thumbnail must retain the whole selection.
@@ -84,7 +87,10 @@ test(
       await thumbs.nth(1).click();
       await thumbs.nth(1).press('Shift+ArrowDown');
       assert.deepEqual(await selected(), [1, 2]);
-      await editor.getByText('選択中のスライド: 2', { exact: true }).waitFor();
+      await editor
+        .locator('.selection-count')
+        .getByText('選択中のスライド: 2', { exact: true })
+        .waitFor();
       await thumbs.nth(2).press('Control+d');
       await thumbs.nth(6).waitFor();
       await saved();
