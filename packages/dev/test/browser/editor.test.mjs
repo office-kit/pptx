@@ -6,6 +6,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getTableCells,
+  getTableCellSpan,
   getTableCellText,
   getTableCellParagraphs,
   getTableCellFill,
@@ -623,6 +624,29 @@ test(
       await editor.locator('.hit').first().click();
       await editor.getByRole('button', { name: 'セル 2, 2', exact: true }).click();
       assert.equal(await editor.getByLabel('セルのテキスト', { exact: true }).inputValue(), '追加');
+      await editor.getByRole('button', { name: 'セル 1, 1', exact: true }).click();
+      await editor
+        .getByRole('button', { name: 'セル 2, 2', exact: true })
+        .click({ modifiers: ['Shift'] });
+      await editor.getByRole('button', { name: 'セルを結合', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      assert.equal(getTableCellSpan(cells[0][0]).gridSpan, 2);
+      assert.equal(getTableCellSpan(cells[0][0]).rowSpan, 2);
+      assert.equal(getTableCellText(cells[0][0]), 'Hello 日本語!\nB\n追加');
+      await editor.getByRole('button', { name: 'セルを分割', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      assert.equal(getTableCellSpan(cells[0][0]).gridSpan, 1);
+      assert.equal(getTableCellText(cells[0][1]), '');
+      assert.equal(getTableCellText(cells[0][0]), 'Hello 日本語!\nB\n追加');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(getTableCellSpan(getTableCells(await readTable())[0][0]).gridSpan, 2);
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      assert.equal(await editor.getByRole('button', { name: 'セル 1, 2', exact: true }).count(), 0);
       await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {

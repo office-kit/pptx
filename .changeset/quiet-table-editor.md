@@ -9,3 +9,7 @@ through undo and reload.
 
 Allow setTableCellText to preserve unaffected formatting. Read soft breaks and
 field text in getTableCellText so editing does not silently drop visible content.
+
+Merge selected table cells in the preview while retaining their formatted text,
+and split merged cells. Expose splitTableCell and an append text policy for
+mergeTableCells; preserve text and reject malformed merges before mutation.

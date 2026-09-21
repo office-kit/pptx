@@ -2,6 +2,10 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Shift-click another cell to select a range':
+    'Shiftキーを押しながら別のセルを選ぶと範囲を選択できます',
+  'Merge cells': 'セルを結合',
+  'Split cell': 'セルを分割',
   Bottom: '下',
   Top: '上',
   Center: '中央',

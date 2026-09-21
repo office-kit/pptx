@@ -10,6 +10,7 @@ import {
   _internalPackageOf,
   addSlideTable,
   getSlides,
+  getSlideXmlString,
   getSlideTables,
   getTableCell,
   getTableCellParagraphs,
@@ -18,6 +19,7 @@ import {
   inches,
   loadPresentation,
   mergeTableCells,
+  splitTableCell,
   savePresentation,
   setTableCellParagraphs,
   setTableCellText,
@@ -279,4 +281,78 @@ describe("fn API: mergeTableCells — coveredText: 'drop'", () => {
     expect(xml).toContain(`</a:txBody>${EXT_LST}</a:tc>`);
     expectSchemaValid(xml, 'pml');
   });
+});
+
+it.each([
+  [1, 2],
+  [2, 1],
+  [2, 2],
+])('splits a %s by %s merge from a covered cell and retains contents', async (rowSpan, colSpan) => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const table = buildTable(getSlides(pres)[0]!);
+  mergeTableCells(table, { row: 0, col: 0, rowSpan, colSpan });
+  splitTableCell(getTableCell(table, rowSpan - 1, colSpan - 1));
+  const restored = await loadPresentation(await savePresentation(pres));
+  const result = getSlideTables(getSlides(restored)[0]!)[0]!;
+  for (let r = 0; r < 3; r++)
+    for (let c = 0; c < 3; c++) {
+      expect(getTableCellSpan(getTableCell(result, r, c))).toEqual({
+        rowSpan: 1,
+        gridSpan: 1,
+        hMerge: false,
+        vMerge: false,
+      });
+      expect(getTableCellText(getTableCell(result, r, c))).toBe(
+        String.fromCharCode(97 + r * 3 + c),
+      );
+    }
+});
+
+it('appends covered paragraphs with their formatting and leaves split cells empty', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const table = buildTable(getSlides(pres)[0]!);
+  setTableCellParagraphs(getTableCell(table, 0, 1), [
+    { align: 'center', runs: [{ text: '日本語', format: { bold: true } }] },
+  ]);
+  mergeTableCells(table, { row: 0, col: 0, rowSpan: 2, colSpan: 2 }, { coveredText: 'append' });
+  expect(getTableCellText(getTableCell(table, 0, 0))).toBe('a\n日本語\nd\ne');
+  expect(getTableCellParagraphs(getTableCell(table, 0, 0))[1]!.elements[0]!.format?.bold).toBe(
+    true,
+  );
+  splitTableCell(getTableCell(table, 0, 0));
+  expect(getTableCellText(getTableCell(table, 0, 0))).toBe('a\n日本語\nd\ne');
+  expect(getTableCellText(getTableCell(table, 0, 1))).toBe('');
+  if (isSchemaValidationAvailable())
+    expectSchemaValid(getSlideXmlString(getSlides(pres)[0]!), 'pml');
+});
+
+it('does not prepend an empty paragraph when merging into an empty cell', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const table = buildTable(getSlides(pres)[0]!);
+  setTableCellParagraphs(getTableCell(table, 0, 0), [{ runs: [{ text: '' }] }]);
+  mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'append' });
+  expect(getTableCellText(getTableCell(table, 0, 0))).toBe('b');
+  const restored = await loadPresentation(await savePresentation(pres));
+  expect(getTableCellText(getTableCell(getSlideTables(getSlides(restored)[0]!)[0]!, 0, 0))).toBe(
+    'b',
+  );
+});
+
+it('rejects inconsistent imported merges without changing any cells', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const table = buildTable(getSlides(pres)[0]!);
+  mergeTableCells(table, { row: 0, col: 0, rowSpan: 2, colSpan: 2 });
+  const entries = unzipSync(await savePresentation(pres));
+  const original = decode(entries[SLIDE_ZIP_PATH]!);
+  const malformed = original.replace('hMerge="1" vMerge="1"', 'hMerge="1"');
+  expect(malformed).not.toBe(original);
+  entries[SLIDE_ZIP_PATH] = new TextEncoder().encode(malformed);
+  const imported = await loadPresentation(zipSync(entries));
+  const slide = getSlides(imported)[0]!;
+  const importedTable = getSlideTables(slide)[0]!;
+  const before = getSlideXmlString(slide);
+  expect(() => splitTableCell(getTableCell(importedTable, 0, 0))).toThrow(
+    'inconsistent merged region',
+  );
+  expect(getSlideXmlString(slide)).toBe(before);
 });

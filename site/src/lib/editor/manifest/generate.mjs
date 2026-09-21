@@ -44,6 +44,7 @@ export const MUTATING_VERBS = [
   'rename',
   'move',
   'merge',
+  'split',
   'import',
   'copy',
   'create',
