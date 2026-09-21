@@ -13,6 +13,7 @@
     type CategoryId,
     type ResolvedCapability,
   } from '../manifest/index.ts';
+  import TableSection from './TableSection.svelte';
   import ImageSection from './ImageSection.svelte';
   import ArrangeSection from './ArrangeSection.svelte';
   import BespokeSections from './BespokeSections.svelte';
@@ -71,6 +72,7 @@
   </div>
 
   <!-- Hand-tuned quick controls for the common properties. -->
+  <TableSection />
   <ImageSection />
   <ArrangeSection />
   <BespokeSections />

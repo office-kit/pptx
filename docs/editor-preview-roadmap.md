@@ -74,6 +74,13 @@ that a user can complete the corresponding editing workflow.
   Preview contrast treats zero as neutral and scales colors around mid-gray.
   Interactive crop handles still need a dedicated workflow.
 
+- A bilingual table pane exposes a cell grid, text, fill, alignment, row heights,
+  column widths and row/column insertion and deletion. Browser tests verify mixed
+  formatting preservation, saved dimensions/content, undo and Japanese reload.
+  Merged-table structural edits are disabled until span-aware mutation is supported.
+  Merge/split controls, borders, cell-range formatting and direct canvas cell
+  editing still require complete workflows.
+
 ## Outstanding work
 
 Complete workflow coverage, remaining UI translations, accessibility and draft
