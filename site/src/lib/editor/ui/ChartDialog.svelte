@@ -32,6 +32,21 @@
   let showSeriesName = $state(original?.dataLabels?.showSeriesName ?? false);
   let showPercent = $state(original?.dataLabels?.showPercent ?? false);
   let labelsChanged = $state(false);
+  let categoryAxisTitle = $state(original?.categoryAxisTitle ?? '');
+  let valueAxisTitle = $state(original?.valueAxisTitle ?? '');
+  let axisMin = $state<number | null | undefined>(original?.valueAxis?.min);
+  let axisMax = $state<number | null | undefined>(original?.valueAxis?.max);
+  let majorUnit = $state<number | null | undefined>(original?.valueAxis?.majorUnit);
+  let minorUnit = $state<number | null | undefined>(original?.valueAxis?.minorUnit);
+  let numberFormat = $state(original?.valueAxis?.numberFormat ?? '');
+  let axesChanged = $state(false);
+  const hasAxes = $derived(['column', 'bar', 'line', 'area'].includes(kind));
+  const validAxes = $derived(!hasAxes || !axesChanged || (
+    [axisMin, axisMax, majorUnit, minorUnit].every(value => value == null || Number.isFinite(value)) &&
+    (axisMin == null || axisMax == null || axisMin < axisMax) &&
+    (majorUnit == null || majorUnit > 0) && (minorUnit == null || minorUnit > 0) &&
+    (!original?.valueAxis?.logBase || ((axisMin == null || axisMin > 0) && (axisMax == null || axisMax > 0)))
+  ));
   let categories = $state([...(original?.categories ?? [t('Category') + ' 1', t('Category') + ' 2', t('Category') + ' 3'])]);
   type SeriesDraft = { base: ChartSeries; name: string; color?: string; values: (number | undefined)[] };
   const initialSeries = original?.series ?? [{ name: t('Series') + ' 1', values: [10, 20, 15], color: '#4472C4' }];
@@ -64,10 +79,16 @@
   }
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!supported || !validSeries || !doc.currentSlide) return;
+    if (!supported || !validSeries || !validAxes || !doc.currentSlide) return;
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
     const spec: ChartSpec = {
-      ...original, kind, title: title || undefined, categories: [...categories],
+      ...original,
+      ...(hasAxes && axesChanged ? {
+        categoryAxisTitle: categoryAxisTitle || undefined,
+        valueAxisTitle: valueAxisTitle || undefined,
+        valueAxis: { ...original?.valueAxis, min: axisMin ?? undefined, max: axisMax ?? undefined, majorUnit: majorUnit ?? undefined, minorUnit: minorUnit ?? undefined, numberFormat: numberFormat || undefined },
+      } : {}),
+      kind, title: title || undefined, categories: [...categories],
       legend: legendChanged ? { ...original?.legend, position: legendPosition, layout: undefined } : original?.legend,
       dataLabels: labelsChanged ? { ...original?.dataLabels, showValue, showCategory, showSeriesName, showPercent } : original?.dataLabels,
       series: series.map(entry => ({
@@ -111,6 +132,20 @@
           <label><input type="checkbox" bind:checked={showPercent} />{t('Show percentages')}</label>
         </fieldset>
       </div>
+      {#if hasAxes}
+        <details class="axis-settings"><summary>{t('Chart axes')}</summary>
+          <div class="axis-grid" oninput={() => axesChanged = true}>
+            <label>{t('Category axis title')}<input class="ok-input" bind:value={categoryAxisTitle} /></label>
+            <label>{t('Value axis title')}<input class="ok-input" bind:value={valueAxisTitle} /></label>
+            <label>{t('Axis minimum')}<input class="ok-input" type="number" step="any" placeholder={t('Automatic')} bind:value={axisMin} /></label>
+            <label>{t('Axis maximum')}<input class="ok-input" type="number" step="any" placeholder={t('Automatic')} bind:value={axisMax} /></label>
+            <label>{t('Major tick interval')}<input class="ok-input" type="number" step="any" placeholder={t('Automatic')} bind:value={majorUnit} /></label>
+            <label>{t('Minor tick interval')}<input class="ok-input" type="number" step="any" placeholder={t('Automatic')} bind:value={minorUnit} /></label>
+            <label>{t('Axis number format')}<input class="ok-input" placeholder={t('Automatic')} bind:value={numberFormat} /></label>
+          </div>
+          <p>{t('Leave values blank for automatic axis scaling.')}</p>
+        </details>
+      {/if}
       <div class="data-grid">
         <table aria-label={t('Chart data')}>
           <thead><tr><th>{t('Category')}</th>{#each series as entry, s}<th>
@@ -128,8 +163,9 @@
       <div class="add"><button class="ok-btn" type="button" onclick={addCategory}>{t('Add category')}</button><button class="ok-btn" type="button" disabled={singleSeries} onclick={addSeries}>{t('Add series')}</button></div>
     {:else}<p role="alert">{t('Select a supported chart to edit its data.')}</p>{/if}
     {#if !validSeries}<p role="alert">{t('Pie and doughnut charts require one series. Remove extra series or choose another chart type.')}</p>{/if}
+    {#if !validAxes}<p role="alert">{t('Axis minimum must be below maximum, tick intervals must be positive, and logarithmic bounds must be positive.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
-    <footer><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!supported || !validSeries}>{t(edit ? 'Apply changes' : 'Insert chart')}</button></footer>
+    <footer><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!supported || !validSeries || !validAxes}>{t(edit ? 'Apply changes' : 'Insert chart')}</button></footer>
   </form>
 </dialog>
 
@@ -145,6 +181,9 @@
   .chart-format { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
   fieldset { display: flex; flex-wrap: wrap; gap: 8px 16px; border: 1px solid var(--ok-border); }
   fieldset label { display: flex; align-items: center; gap: 4px; }
+  .axis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  summary { cursor: pointer; }
+  .axis-settings p { font-size: 12px; opacity: 0.8; }
   .data-grid { overflow: auto; max-height: 44vh; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--ok-border); padding: 5px; font-weight: normal; }
