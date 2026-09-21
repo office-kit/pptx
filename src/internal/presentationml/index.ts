@@ -10,7 +10,7 @@ export type {
   SlideSize,
 } from './presentation-part.ts';
 export { readPresentationPart } from './presentation-part.ts';
-export type { ShapeKind, SlidePart, SlideShape } from './slide-part.ts';
+export type { PlaceholderType, ShapeKind, SlidePart, SlideShape } from './slide-part.ts';
 export {
   readGroupChildren,
   readShapeTreeFromCsldRoot,
@@ -42,7 +42,7 @@ export {
 export type { TableOptions } from './table-builder.ts';
 export { buildTable, buildTableCell, buildTableRow } from './table-builder.ts';
 export { buildEmptyNotesSlide } from './notes-slide-builder.ts';
-export type { TransitionEffect, TransitionOptions } from './transition-builder.ts';
+export type { SlideTransition, TransitionEffect, TransitionOptions } from './transition-builder.ts';
 export { buildTransition } from './transition-builder.ts';
 export type { AnimationEffect, AnimationOptions } from './animation-builder.ts';
 export { buildSingleEffectTiming } from './animation-builder.ts';

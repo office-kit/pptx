@@ -202,7 +202,7 @@ Formatting and slide features (one canonical call each):
 | Picture corrections             | `setShapeImageCrop/Opacity/Brightness/Contrast` (brightness/contrast in `[-1, 1]`)                                                                                                                                                  |
 | Hyperlink / click action        | `setShapeHyperlink(shape, url)`, `setShapeClickAction(shape, { kind: 'nextSlide' })`                                                                                                                                                |
 | Slide background                | `setSlideBackground(slide, '#102030')`, `setSlideBackgroundImage(slide, bytes)`                                                                                                                                                     |
-| Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — key is **`effect`**, not `type`                                                                                                                                                   |
+| Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — `effect: 'none'` emits no transition; `clearSlideTransition(slide)` removes one                                                                                                   |
 | Animation                       | `setShapeAnimation(shape, { effect: 'fadeIn' })` (`fadeIn`/`fadeOut`/`appear`/`disappear`)                                                                                                                                          |
 | Speaker notes                   | `setSlideNotes(slide, '...')`                                                                                                                                                                                                       |
 | Comments                        | `addSlideComment(slide, { author: { name }, text })`                                                                                                                                                                                |
@@ -272,9 +272,6 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
 
 - **`setShapeFill(shape, color)` takes a color string**, e.g.
   `setShapeFill(card, '#059669')` — not an object.
-- **Transitions key on `effect`**: `setSlideTransition(slide, { effect: 'fade' })`.
-  `{ type: 'fade' }` is wrong. `effect: 'none'` emits no transition (use
-  `clearSlideTransition` to remove one).
 - **Multi-line text** in a text box, shape, or table cell uses `\n` between
   lines — each becomes its own paragraph. A literal newline inside one run is
   not a line break.
@@ -285,8 +282,6 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
   / `line` / `area` / `pie`. `pie`/`doughnut` take exactly one series; `stock`
   takes three (high, low, close) or four (open first). A spec whose fields
   contradict each other (e.g. `view3D` on a scatter chart) throws.
-- **Find placeholders by type token**, not display name:
-  `findSlidePlaceholder(slide, 'title' | 'body' | 'ctrTitle' | 'subTitle')`.
 
 ## QA protocol — run this before saying "done"
 

@@ -2,7 +2,11 @@
 
 import { readPosition, readSize } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
-import { type SlideLayoutType, readSlideLayoutPart } from '../../internal/presentationml/index.ts';
+import {
+  type PlaceholderType,
+  type SlideLayoutType,
+  readSlideLayoutPart,
+} from '../../internal/presentationml/index.ts';
 import { parseXml } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
@@ -134,7 +138,7 @@ export const findSlideLayout = (
  */
 export const findLayoutsWithPlaceholderType = (
   pres: PresentationData,
-  type: string,
+  type: PlaceholderType,
 ): ReadonlyArray<SlideLayoutData> => {
   const out: SlideLayoutData[] = [];
   for (const layout of getSlideLayouts(pres)) {
