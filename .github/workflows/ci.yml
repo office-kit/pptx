@@ -107,6 +107,8 @@ jobs:
         if: matrix.node-version == '24'
         run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
       - name: Test live preview in Chromium
+        env:
+          PLAYWRIGHT_CHANNEL: chromium
         if: matrix.node-version == '24'
         run: pnpm --filter @office-kit/pptx-dev test:browser
 
