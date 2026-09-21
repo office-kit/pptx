@@ -32,6 +32,11 @@
   function formatCells(format: TextFormat) {
     applyToCells(t('Format selected cells'), cell => setTableCellTextFormat(cell, format));
   }
+  function editCellLinks() {
+    if (!tableState) return;
+    if (doc.selection.kind !== 'cell') select(tableState.row, tableState.col, false);
+    editor.runOrPrompt('setTableCellClickAction');
+  }
   const EMU_PER_POINT = 12700;
   // OOXML cell margins use signed 32-bit EMU coordinates.
   const MAX_MARGIN_POINTS = 2147483647 / EMU_PER_POINT;
@@ -166,7 +171,7 @@
         <button class="ok-btn" disabled={getTableCellSpan(tableState.cell).gridSpan === 1 && getTableCellSpan(tableState.cell).rowSpan === 1} onclick={split}>{t('Split cell')}</button>
       </div>
       <label>{t('Cell text')}<textarea class="ok-input" rows="3" value={getTableCellText(tableState.cell)} onchange={(e) => { const s = tableState; if (s?.cell) doc.transact(t('Edit cell text'), () => setTableCellText(s.cell!, e.currentTarget.value, { preserveFormatting: true })); }}></textarea></label>
-      <TextFormatBar formats={textRuns.map(run => run.format ?? {})} selected={selectedCells.size > 0} onformat={formatCells} context="cells" />
+      <TextFormatBar formats={textRuns.map(run => run.format ?? {})} selected={selectedCells.size > 0} onformat={formatCells} onlink={editCellLinks} context="cells" />
       <label>{t('Cell fill')}<input type="color" value={getTableCellFill(tableState.cell) ?? '#ffffff'} onchange={(e) => { const value = e.currentTarget.value; applyToCells(t('Cell fill'), cell => setTableCellFill(cell, value)); }} /></label>
       <label>{t('Horizontal alignment')}<select aria-label={t('Horizontal alignment')} class="ok-input" value={getTableCellAlignment(tableState.cell) ?? 'l'} onchange={(e) => { const v = e.currentTarget.value; if (v === 'l' || v === 'ctr' || v === 'r') applyToCells(t('Horizontal alignment'), cell => setTableCellAlignment(cell, v)); }}>
         <option value="l">{t('Left')}</option><option value="ctr">{t('Center')}</option><option value="r">{t('Right')}</option>
