@@ -1,3 +1,4 @@
+import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
@@ -275,14 +276,6 @@ export const setShapeRunHyperlink = (
     rPr = elem(qname('a', 'rPr', NS.dml));
     run.children.unshift(rPr);
   }
-  rPr.children = rPr.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'hlinkClick'
-      ),
-  );
   if (url !== null) {
     const slide = shape[SHAPE_SLIDE];
     const pkg = slide[INTERNAL_PACKAGE];
@@ -303,16 +296,8 @@ export const setShapeRunHyperlink = (
       });
       pkg.setRels(slide[SLIDE_PART_NAME], rels);
     }
-    const hlinkAttrs = [attr(qname('r', 'id', NS.officeDocRels), rId)];
-    if (tooltip !== undefined) {
-      hlinkAttrs.push(attr(qname('', 'tooltip', ''), tooltip));
-    }
-    rPr.children.push(
-      elem(qname('a', 'hlinkClick', NS.dml), {
-        attrs: hlinkAttrs,
-      }),
-    );
-  }
+    applyHyperlinkToProperties(rPr, rId, tooltip);
+  } else applyHyperlinkToProperties(rPr, null);
   commitAndRefresh(shape);
   releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
 };

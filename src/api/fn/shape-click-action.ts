@@ -1,3 +1,4 @@
+import { replaceClickHyperlink } from '../../internal/drawingml/hyperlink.ts';
 import {
   mutateTextBodyRangeProperties,
   validateTextRange,
@@ -62,17 +63,6 @@ export const findCNvPr = (shape: SlideShapeData): XmlElement | null => {
   const wrapper = firstChildElement(root, qname('p', wrapperName, NS.pml));
   if (!wrapper) return null;
   return firstChildElement(wrapper, qname('p', 'cNvPr', NS.pml));
-};
-
-const removeExistingHlinkClick = (cNvPr: XmlElement): void => {
-  cNvPr.children = cNvPr.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'hlinkClick'
-      ),
-  );
 };
 
 const findExistingHyperlinkRel = (
@@ -178,8 +168,7 @@ export const setShapeClickAction = (
 
   const hlink = action ? buildClickAction(shape, action) : null;
   const apply = (parent: XmlElement) => {
-    removeExistingHlinkClick(parent);
-    if (hlink) parent.children.push(structuredClone(hlink));
+    replaceClickHyperlink(parent, hlink ? structuredClone(hlink) : null);
   };
   if (range && body) mutateTextBodyRangeProperties(body, range, apply);
   else apply(cNvPr);
