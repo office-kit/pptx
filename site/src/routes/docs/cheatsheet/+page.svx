@@ -78,6 +78,9 @@ for every export see <a href="{base}/api">API reference</a>.
 | Cell fill / alignment / text format | `setTableCellFill` + `setTableCellAlignment` + `setTableCellTextFormat` |
 | Insert / remove a row or column | `insertTableRow` + `removeTableRow` + `insertTableColumn` + `removeTableColumn` |
 | Resize a row or column | `setTableRowHeight` + `setTableColumnWidth` |
+| Merge / split cells | `mergeTableCells` + `splitTableCell` |
+
+Pass `{ coveredText: 'append' }` to `mergeTableCells` to collect the selected cells' formatted paragraphs in the top-left cell. Splitting leaves that combined text in the top-left cell. The default merge policy preserves text in each covered cell, which becomes visible again after splitting.
 
 ### Charts
 

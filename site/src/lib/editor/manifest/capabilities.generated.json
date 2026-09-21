@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 150,
+  "count": 151,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -658,7 +658,7 @@
         },
         {
           "name": "options",
-          "type": "{ readonly coveredText?: 'keep' | 'drop' }",
+          "type": "{ readonly coveredText?: 'keep' | 'drop' | 'append' }",
           "kind": "object",
           "optional": true
         }
@@ -2567,6 +2567,16 @@
           "optional": false
         }
       ]
+    },
+    {
+      "id": "splitTableCell",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
     },
     {
       "id": "swapSlides",

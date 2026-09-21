@@ -424,6 +424,7 @@ export {
   getTableStyleFlags,
   getTableStyleId,
   mergeTableCells,
+  splitTableCell,
   getThumbnail,
   getVisibleSlides,
   hasShapeText,

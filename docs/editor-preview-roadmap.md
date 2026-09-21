@@ -24,9 +24,9 @@ that a user can complete the corresponding editing workflow.
 ## Verified so far
 
 - The editor branch incorporates main's development-tool source and current API.
-- The generated manifest lists 150 authoring operations. Registry coverage and
+- The generated manifest lists 151 authoring operations. Registry coverage and
   smoke tests verify function discovery and selected API mutations.
-- All 150 command labels have English and Japanese versions, enforced by a test.
+- All 151 command labels have English and Japanese versions, enforced by a test.
 - Shape text creation and main's bullet-preservation behavior coexist; targeted
   text and registry tests pass.
 
@@ -78,8 +78,11 @@ that a user can complete the corresponding editing workflow.
   column widths and row/column insertion and deletion. Browser tests verify mixed
   formatting preservation, saved dimensions/content, undo and Japanese reload.
   Merged-table structural edits are disabled until span-aware mutation is supported.
-  Merge/split controls, borders, cell-range formatting and direct canvas cell
-  editing still require complete workflows.
+  Shift-click selects a cell range for merging; the merged cell can be split.
+  Merging keeps formatted paragraphs in the anchor cell. Browser tests verify
+  merge, split, saved content, undo and reload in Japanese.
+  Borders, cell-range formatting and direct canvas cell editing still require
+  complete workflows.
 
 ## Outstanding work
 

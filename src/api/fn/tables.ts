@@ -596,7 +596,8 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  * leaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,
  * so the covered cells carry no `<a:txBody>` at all (CT_TableCell allows
  * that), which is how PptxGenJS writes a merge; `getTableCellParagraphs`
- * reads them as `[]`.
+ * reads them as `[]`. `'append'` moves covered paragraphs into the anchor in
+ * row-major order, preserving their formatting and leaving covered cells empty.
  */
 export const mergeTableCells = (
   table: SlideShapeData,
@@ -606,13 +607,13 @@ export const mergeTableCells = (
     readonly rowSpan: number;
     readonly colSpan: number;
   },
-  options?: { readonly coveredText?: 'keep' | 'drop' },
+  options?: { readonly coveredText?: 'keep' | 'drop' | 'append' },
 ): void => {
   const { row, col, rowSpan, colSpan } = block;
   const coveredText = options?.coveredText ?? 'keep';
-  if (coveredText !== 'keep' && coveredText !== 'drop') {
+  if (coveredText !== 'keep' && coveredText !== 'drop' && coveredText !== 'append') {
     throw new TypeError(
-      `mergeTableCells: coveredText must be 'keep' or 'drop' (got ${String(coveredText)})`,
+      `mergeTableCells: coveredText must be 'keep', 'drop' or 'append' (got ${String(coveredText)})`,
     );
   }
   if (!Number.isInteger(rowSpan) || !Number.isInteger(colSpan) || rowSpan < 1 || colSpan < 1) {
@@ -658,6 +659,28 @@ export const mergeTableCells = (
     }
   }
 
+  if (coveredText === 'append') {
+    const anchor = ensureCellTxBody(cells[row]![col]!);
+    let emptyAnchor = !textBodyText(anchor);
+    for (let r = row; r <= lastRow; r++) {
+      for (let c = col; c <= lastCol; c++) {
+        if (r === row && c === col) continue;
+        const source = cells[r]![c]!;
+        const body = firstChildElement(source[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+        if (!body || !textBodyText(body)) continue;
+        if (emptyAnchor) {
+          anchor.children = anchor.children.filter(
+            (child) =>
+              !(child.kind === 'element' && qnameEquals(child.name, qname('a', 'p', NS.dml))),
+          );
+          emptyAnchor = false;
+        }
+        anchor.children.push(...structuredClone(allChildElements(body, qname('a', 'p', NS.dml))));
+        setTextBody(body, '');
+      }
+    }
+  }
+
   for (let r = row; r <= lastRow; r++) {
     for (let c = col; c <= lastCol; c++) {
       const tc = cells[r]![c]![CELL_ELEMENT];
@@ -678,6 +701,57 @@ export const mergeTableCells = (
     }
   }
 
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/**
+ * Splits the merged region containing `cell`, including a covered cell.
+ * Retains each cell's text and properties; text removed during merging stays empty.
+ * An unmerged cell is unchanged. Malformed regions throw before any mutation.
+ */
+export const splitTableCell = (cell: TableCellData): void => {
+  const table = cell[CELL_TABLE];
+  const cells = getTableCells(table);
+  const row = cell[CELL_ROW];
+  const col = cell[CELL_COL];
+  let block: { row: number; col: number; rows: number; cols: number } | undefined;
+  for (let r = 0; r <= row; r++) {
+    for (let c = 0; c <= col; c++) {
+      const candidate = cells[r]?.[c];
+      if (!candidate) continue;
+      const span = getTableCellSpan(candidate);
+      if (span.hMerge || span.vMerge || (span.rowSpan === 1 && span.gridSpan === 1)) continue;
+      if (r + span.rowSpan > row && c + span.gridSpan > col) {
+        if (block) throw new Error('splitTableCell: overlapping merged regions');
+        block = { row: r, col: c, rows: span.rowSpan, cols: span.gridSpan };
+      }
+    }
+  }
+  if (!block) {
+    const span = getTableCellSpan(cell);
+    if (span.hMerge || span.vMerge) throw new Error('splitTableCell: covered cell has no anchor');
+    return;
+  }
+  const affected: XmlElement[] = [];
+  for (let r = block.row; r < block.row + block.rows; r++) {
+    for (let c = block.col; c < block.col + block.cols; c++) {
+      const covered = cells[r]?.[c];
+      if (!covered) throw new Error('splitTableCell: merged region exceeds the table');
+      const span = getTableCellSpan(covered);
+      if (span.hMerge !== c > block.col || span.vMerge !== r > block.row) {
+        throw new Error('splitTableCell: inconsistent merged region');
+      }
+      affected.push(covered[CELL_ELEMENT]);
+    }
+  }
+  for (const tc of affected) {
+    tc.attrs = tc.attrs.filter(
+      (a) =>
+        a.name.namespaceURI !== '' ||
+        !['gridSpan', 'rowSpan', 'hMerge', 'vMerge'].includes(a.name.localName),
+    );
+  }
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
