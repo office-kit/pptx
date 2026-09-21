@@ -29,7 +29,7 @@ import {
   type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh } from './_helpers.ts';
+import { commitAndRefresh, releaseUnusedLinkRels } from './_helpers.ts';
 // ---------------------------------------------------------------------------
 // Shape click action — `<a:hlinkClick>` on the shape's cNvPr.
 //
@@ -178,6 +178,7 @@ export const setShapeClickAction = (
 
   if (action === null) {
     commitAndRefresh(shape);
+    releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
     return;
   }
 
@@ -258,4 +259,5 @@ export const setShapeClickAction = (
   );
 
   commitAndRefresh(shape);
+  releaseUnusedLinkRels(slide);
 };
