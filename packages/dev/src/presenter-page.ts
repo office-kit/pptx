@@ -28,8 +28,8 @@ function update(data){
   byId(name).style.aspectRatio=String(data.aspectRatio);byId(name).hidden=!svg;
  }
  byId('notes').textContent=data.notes||text('No speaker notes.','発表者ノートはありません。');
- byId('prev').disabled=!data.count||data.index===0;
- byId('next-button').disabled=data.index>=data.count-1;
+ byId('prev').disabled=!data.hasPrevious;
+ byId('next-button').disabled=!data.next;
  byId('exit').disabled=!data.presenting;
  byId('end').hidden=!!data.next;byId('end').textContent=text('End of presentation','プレゼンテーションの最後です');
 }

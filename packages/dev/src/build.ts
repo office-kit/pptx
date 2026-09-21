@@ -5,6 +5,7 @@ import {
   getSlideSize,
   getSlides,
   getSlideNotes,
+  isSlideHidden,
   getSlideTransition,
   loadPresentation,
   savePresentation,
@@ -17,6 +18,7 @@ export interface BuildResult {
   slides: string[];
   slideTexts: string[];
   notes: (string | null)[];
+  hiddenSlides: boolean[];
   transitions: ReturnType<typeof getSlideTransition>[];
   aspectRatio: number;
   dependencies: string[];
@@ -60,6 +62,7 @@ export async function renderDeck(
       dependencies,
       slideTexts,
       notes: getSlides(saved).map(getSlideNotes),
+      hiddenSlides: getSlides(saved).map(isSlideHidden),
       transitions: getSlides(saved).map(getSlideTransition),
       diagnostics,
     },

@@ -7,6 +7,8 @@ export const page = `<!doctype html>
 <style>
 ${previewStyles}
 #agent-workspace{position:relative;flex:1;min-height:0;min-width:0;display:flex;overflow:auto}.agent-pane{position:absolute;padding:3px 5px;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden}.agent-pane iframe{border:0;width:100%;flex:1;min-height:0;border-radius:0 0 9px 9px}.agent-tools{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:6px;background:#20253a;border:1px solid #34334e;border-radius:9px 9px 0 0}.agent-tools span{flex:1;font-size:10px;letter-spacing:.04em;color:#b3abc9}.agent-tools svg{width:14px;height:14px}.agent-pane:focus-within .agent-tools{border-color:#8b6ed577;background:#29243e}.agent-tools button{font-size:11px;padding:5px;background:transparent;border:0;display:grid;place-items:center}.agent-divider{position:absolute;z-index:2;background:#101422;cursor:col-resize;touch-action:none}.agent-divider.vertical{cursor:row-resize}.agent-divider:hover,.agent-divider:focus-visible{background:#9b87ff}.splitting-agents iframe,.resizing-chat iframe{pointer-events:none}
+.thumbnail[data-skipped="true"] .slide-number{text-decoration:line-through}
+.thumbnail[data-skipped="true"] img{opacity:.6}
 #editor-frame{display:none;border:0;width:100%;height:100%;flex:1;min-height:0}
 body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 .editing:not(.presenting) .workspace{--filmstrip-width:0px;grid-template-columns:minmax(0,1fr) clamp(280px,var(--chat-width),calc(100vw - 500px))}
@@ -29,10 +31,18 @@ body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
 let displayedSvg;
 let presenterWindow;
+function findSlide(start,step,skipHidden=presenting){
+ for(let i=start;i>=0&&i<state.slides.length;i+=step)if(!skipHidden||!state.hiddenSlides?.[i])return i;
+ return -1;
+}
+function moveSlide(step,skipHidden=presenting){
+ const next=findSlide(index+step,step,skipHidden);
+ if(next>=0)selectSlide(next);
+}
 let advanceTimer,advanceKey;
 function scheduleAdvance(){
   const delay=state.transitions?.[index]?.advanceAfterMs;
-  const key=presenting&&index<state.slides.length-1&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
+  const key=presenting&&findSlide(index+1,1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
   if(key===advanceKey)return;
   clearTimeout(advanceTimer);advanceKey=key;
   if(key===null)return;
@@ -41,7 +51,7 @@ function scheduleAdvance(){
   function tick(){
     const remaining=deadline-performance.now();
     if(remaining>0)advanceTimer=setTimeout(tick,Math.min(remaining,2147483647));
-    else {advanceKey=null;selectSlide(index+1);}
+    else {advanceKey=null;moveSlide(1);}
   }
   advanceTimer=setTimeout(tick,Math.min(delay,2147483647));
 }
@@ -94,16 +104,19 @@ function resize(){
 }
 function selectSlide(next,focusThumbnail=false,reveal=true){
   index=Math.max(0,Math.min(next,state.slides.length-1));
+  if(presenting&&state.hiddenSlides?.[index]){
+    const forward=findSlide(index,1);index=forward>=0?forward:Math.max(0,findSlide(index,-1));
+  }
   const count=state.slides.length?'Slide '+(index+1)+' of '+state.slides.length:'No slides';
   byId('chat-context').textContent=state.slides.length?count:'Whole project';
   byId('chat-context').dataset.focus=JSON.stringify({slide:state.slides.length?index:null,revision:state.revision??0});
   window.dispatchEvent(new Event('agent-focus'));
   if(document.body.classList.contains('editing')&&editorFocus)applyEditorFocus();
   byId('count').textContent=count;byId('present-count').textContent=count;
-  for(const id of ['prev','present-prev'])byId(id).disabled=index===0;
-  for(const id of ['next','present-next'])byId(id).disabled=index>=state.slides.length-1;
-  byId('present').disabled=!state.slides.length;
-  byId('presenter').disabled=!state.slides.length;
+  for(const id of ['prev','present-prev'])byId(id).disabled=findSlide(index-1,-1)<0;
+  for(const id of ['next','present-next'])byId(id).disabled=findSlide(index+1,1)<0;
+  byId('present').disabled=findSlide(0,1,true)<0;
+  byId('presenter').disabled=byId('present').disabled;
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
@@ -115,6 +128,8 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   for(const [position,item] of Array.from(thumbnails.children).entries()){
     const button=item.firstElementChild,selected=position===index;
     button.setAttribute('aria-current',String(selected));button.tabIndex=selected?0:-1;
+    button.dataset.skipped=String(!!state.hiddenSlides?.[position]);
+    button.title=state.hiddenSlides?.[position]?(editorFocus?.locale==='ja'?'プレゼンテーションでスキップされます':'Skipped during presentation'):'';
     if(selected){if(reveal)button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
   }
   resize();
@@ -148,12 +163,12 @@ function update(updated){
     item.querySelector('img').src=urls[i];
     if(oldUrl)URL.revokeObjectURL(oldUrl);
   });
+  if(presenting&&findSlide(0,1,true)<0)void exitPresentation();
   selectSlide(index,focusedThumbnail,false);
-  if(!state.slides.length&&presenting)void exitPresentation();
 }
 function setPresenting(value){
-  presenting=value;document.body.classList.toggle('presenting',value);resize();scheduleAdvance();updatePresenter();
-  if(value)stage.focus();else{
+  presenting=value&&findSlide(0,1,true)>=0;document.body.classList.toggle('presenting',presenting);selectSlide(index);
+  if(presenting)stage.focus();else{
     byId('present').focus();
     thumbnails.children[index]?.firstElementChild.scrollIntoView({block:'nearest'});
   }
@@ -169,7 +184,7 @@ byId('present').onclick=async()=>{
 };
 function updatePresenter(){
  if(!presenterWindow||presenterWindow.closed)return;
- presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,current:state.slides[index]??null,next:state.slides[index+1]??null,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:editorFocus?.locale??'en',presenting},location.origin);
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,current:state.slides[index]??null,next:state.slides[findSlide(index+1,1,true)]??null,hasPrevious:findSlide(index-1,-1,true)>=0,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:editorFocus?.locale??'en',presenting},location.origin);
 }
 byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
@@ -180,27 +195,27 @@ byId('presenter').onclick=()=>{
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==presenterWindow||event.data?.type!=='presenter-command')return;
  if(event.data.action==='ready')updatePresenter();
- else if(event.data.action==='next')selectSlide(index+1);
- else if(event.data.action==='previous')selectSlide(index-1);
+ else if(event.data.action==='next')moveSlide(1,true);
+ else if(event.data.action==='previous')moveSlide(-1,true);
  else if(event.data.action==='exit')void exitPresentation();
 });
 byId('exit-present').onclick=exitPresentation;
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&presenting)setPresenting(false);});
-for(const id of ['prev','present-prev'])byId(id).onclick=()=>selectSlide(index-1);
-for(const id of ['next','present-next'])byId(id).onclick=()=>selectSlide(index+1);
+for(const id of ['prev','present-prev'])byId(id).onclick=()=>moveSlide(-1);
+for(const id of ['next','present-next'])byId(id).onclick=()=>moveSlide(1);
 byId('zoom').onchange=resize;
-stage.onclick=()=>{if(presenting&&state.transitions?.[index]?.advanceOnClick!==false&&!getSelection().toString())selectSlide(index+1);};
+stage.onclick=()=>{if(presenting&&state.transitions?.[index]?.advanceOnClick!==false&&!getSelection().toString())moveSlide(1);};
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
   let next=index;
-  if(['ArrowLeft','ArrowUp','PageUp'].includes(event.key))next--;
-  else if(['ArrowRight','ArrowDown','PageDown'].includes(event.key))next++;
-  else if(event.key==='Home')next=0;
-  else if(event.key==='End')next=state.slides.length-1;
-  else if(event.key===' '&&presenting&&!event.target.closest('button,a'))next+=event.shiftKey?-1:1;
+  if(['ArrowLeft','ArrowUp','PageUp'].includes(event.key))next=findSlide(index-1,-1);
+  else if(['ArrowRight','ArrowDown','PageDown'].includes(event.key))next=findSlide(index+1,1);
+  else if(event.key==='Home')next=findSlide(0,1);
+  else if(event.key==='End')next=findSlide(state.slides.length-1,-1);
+  else if(event.key===' '&&presenting&&!event.target.closest('button,a'))next=findSlide(index+(event.shiftKey?-1:1),event.shiftKey?-1:1);
   else return;
-  event.preventDefault();selectSlide(next,thumbnails.contains(document.activeElement));
+  event.preventDefault();if(next>=0)selectSlide(next,thumbnails.contains(document.activeElement));
 });
 new ResizeObserver(resize).observe(stage);
 let refreshId=0;

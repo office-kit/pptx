@@ -321,6 +321,7 @@ export async function serveDeck(entry: string, port = 4173) {
           aspectRatio: latest?.aspectRatio ?? 16 / 9,
           transitions: latest?.transitions ?? [],
           notes: latest?.notes ?? [],
+          hiddenSlides: latest?.hiddenSlides ?? [],
           error,
           diagnostics: latest?.diagnostics ?? [],
         }),

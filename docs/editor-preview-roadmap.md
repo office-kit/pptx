@@ -152,3 +152,11 @@ the audience window. Notes render as plain text outside the audience surface.
 Browser checks cover multiline Japanese/English notes, literal HTML in notes,
 empty notes, saved note updates, last-slide navigation, popup reload, locale
 switching, and a closed opener. Animated transitions remain outstanding.
+
+Skipped slides have a bilingual checkbox in slide options and a marked thumbnail
+in both editing and preview views. Playback omits skipped slides when starting,
+advancing automatically, using buttons/keyboard/stage clicks, and computing the
+presenter window's next slide. Editing still includes the entire deck. The
+browser test covers leading, middle, trailing, and all-skipped slides; undo/redo;
+Japanese controls; and reload of saved visibility. All-skipped decks cannot start
+presentation.

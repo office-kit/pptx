@@ -2,6 +2,8 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Skip during presentation': 'プレゼンテーションでスキップ',
+  'Skipped during presentation': 'プレゼンテーションでスキップされます',
   'Cut transition': 'カット',
   'Choose a supported effect and enter a valid time in seconds.':
     '対応する効果を選び、秒数を有効な値で入力してください。',
