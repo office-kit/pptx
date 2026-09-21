@@ -292,3 +292,5 @@ Line and area charts expose blank-value handling (gaps, zero, or connected point
 Pie and doughnut dialogs expose first-slice rotation (0–360°); doughnut charts also expose hole size (10–90%). Both settings support whole-number validation and automatic reset in Japanese and English. Browser checks cover saved geometry, cancellation, reset, undo/redo, reload and switching to pie. Imported 3-D and pie-of-pie charts retain their existing angle behavior.
 
 Pie and doughnut charts support per-slice colors, a one-click color palette, and resetting individual slices to the series color in Japanese and English. Color overrides follow their categories when rows are removed and survive undo, redo and reload.
+
+Data label formatting exposes chart-appropriate placement and numeric format codes in Japanese and English. Blank settings restore automatic defaults; edits update existing series and point overrides without changing unrelated label properties. Browser coverage verifies formatted text, placement, cancellation, undo/redo and reload.
