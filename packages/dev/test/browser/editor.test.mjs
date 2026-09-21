@@ -6,6 +6,8 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import { unzipSync, strFromU8 } from 'fflate';
 import {
+  getSlideNotes,
+  getSlideTransition,
   getSlideSize,
   getSlideBackground,
   getSlideBackgroundImageBytes,
@@ -1317,6 +1319,173 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-page-setup-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'speaker notes and slide transitions edit selected slides and persist bilingual history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-notes-transitions-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide /><Slide /></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let locale = 'en';
+      const saved = () =>
+        editor
+          .getByText(locale === 'en' ? 'Saved to this project' : 'このプロジェクトに保存済み', {
+            exact: true,
+          })
+          .waitFor();
+      const slides = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        );
+      await saved();
+      await editor.getByRole('button', { name: 'Speaker notes', exact: true }).click();
+      let dialog = editor.getByRole('dialog', { name: 'Speaker notes', exact: true });
+      const notes = 'Opening remarks\n日本語の説明 🎉\n\nFinal point';
+      await dialog.getByLabel('Notes content', { exact: true }).fill(notes);
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.equal(getSlideNotes((await slides())[0]), notes);
+      assert.equal(getSlideNotes((await slides())[1]), null);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getSlideNotes((await slides())[0]), null);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.getByRole('button', { name: 'Speaker notes', exact: true }).click();
+      assert.equal(await dialog.getByLabel('Notes content', { exact: true }).inputValue(), notes);
+      await dialog.getByLabel('Notes content', { exact: true }).fill('Discard this edit');
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(getSlideNotes((await slides())[0]), notes);
+      await editor.locator('.thumb-row').nth(1).click();
+      await editor.locator('.lang select').selectOption('ja');
+      locale = 'ja';
+      await editor.getByRole('button', { name: '発表者ノート', exact: true }).click();
+      dialog = editor.getByRole('dialog', { name: '発表者ノート', exact: true });
+      assert.equal(await dialog.getByLabel('ノートの内容', { exact: true }).inputValue(), '');
+      await dialog.getByLabel('ノートの内容', { exact: true }).fill('次のスライドの説明');
+      await page.screenshot({ path: '/tmp/pptx-pr287-notes-ja.png', fullPage: true });
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      await editor.getByRole('button', { name: 'スライドの画面切り替え', exact: true }).click();
+      dialog = editor.getByRole('dialog', { name: 'スライドの画面切り替え', exact: true });
+      await dialog.getByLabel('切り替え効果', { exact: true }).selectOption('push');
+      await dialog.getByLabel('切り替え速度', { exact: true }).selectOption('fast');
+      await dialog.getByLabel('切り替え方向', { exact: true }).selectOption('r');
+      await dialog.getByLabel('クリックで次に進む', { exact: true }).uncheck();
+      await dialog.getByLabel('自動で次に進む', { exact: true }).check();
+      await dialog.getByLabel('次に進むまでの秒数', { exact: true }).fill('-1');
+      assert.equal(
+        await dialog.getByRole('button', { name: '適用', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog.getByLabel('次に進むまでの秒数', { exact: true }).fill('2.5');
+      await dialog.getByLabel('すべてのスライドに適用', { exact: true }).check();
+      await page.screenshot({ path: '/tmp/pptx-pr287-transition-ja.png', fullPage: true });
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      const push = {
+        effect: 'push',
+        speed: 'fast',
+        direction: 'r',
+        advanceOnClick: false,
+        advanceAfterMs: 2500,
+      };
+      for (const slide of await slides()) assert.deepEqual(getSlideTransition(slide), push);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      for (const slide of await slides()) assert.equal(getSlideTransition(slide), null);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.locator('.thumb-row').first().click();
+      await editor.locator('.lang select').selectOption('en');
+      locale = 'en';
+      await editor.getByRole('button', { name: 'Slide transition', exact: true }).click();
+      dialog = editor.getByRole('dialog', { name: 'Slide transition', exact: true });
+      assert.equal(
+        await dialog.getByLabel('Advance after (seconds)', { exact: true }).inputValue(),
+        '2.5',
+      );
+      await dialog.getByLabel('Transition effect', { exact: true }).selectOption('fade');
+      await dialog.getByLabel('Through black', { exact: true }).check();
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(getSlideTransition((await slides())[0]), {
+        effect: 'fade',
+        speed: 'fast',
+        thruBlack: true,
+        advanceOnClick: false,
+        advanceAfterMs: 2500,
+      });
+      assert.deepEqual(getSlideTransition((await slides())[1]), push);
+      await editor.getByRole('button', { name: 'Slide transition', exact: true }).click();
+      await dialog.getByLabel('Transition effect', { exact: true }).selectOption('split');
+      await dialog.getByLabel('Transition direction', { exact: true }).selectOption('out');
+      await dialog.getByLabel('Split orientation', { exact: true }).selectOption('vert');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(getSlideTransition((await slides())[0]), {
+        effect: 'split',
+        speed: 'fast',
+        direction: 'out',
+        orientation: 'vert',
+        advanceOnClick: false,
+        advanceAfterMs: 2500,
+      });
+      await editor.getByRole('button', { name: 'Slide transition', exact: true }).click();
+      await dialog.getByLabel('Transition effect', { exact: true }).selectOption('none');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(getSlideTransition((await slides())[0]), {
+        effect: 'none',
+        advanceOnClick: false,
+        advanceAfterMs: 2500,
+      });
+      await editor.getByRole('button', { name: 'Slide transition', exact: true }).click();
+      assert.equal(
+        await dialog.getByLabel('Advance automatically', { exact: true }).isChecked(),
+        true,
+      );
+      await dialog.getByLabel('Advance automatically', { exact: true }).uncheck();
+      await dialog.getByLabel('Advance on click', { exact: true }).check();
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      const result = await slides();
+      assert.equal(getSlideTransition(result[0]), null);
+      assert.deepEqual(getSlideTransition(result[1]), push);
+      assert.equal(getSlideNotes(result[0]), notes);
+      assert.equal(getSlideNotes(result[1]), '次のスライドの説明');
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({
+        path: '/tmp/pptx-pr287-notes-transition-failure.png',
+        fullPage: true,
+      });
       throw error;
     } finally {
       await browser?.close();
