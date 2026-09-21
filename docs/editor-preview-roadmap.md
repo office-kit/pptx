@@ -284,3 +284,5 @@ Chart editing now exposes normal, stacked and 100% stacked series modes in Japan
 New chart series show the same default palette color in the dialog that the ChartML writer saves. Browser coverage checks the second-series swatch in Japanese, the saved color, and the English editing dialog.
 
 Line chart series now expose marker shapes, marker sizes (2–72 whole points or automatic), and smoothing in Japanese and English. Explicit markers also render on stacked and percentage-stacked lines at their cumulative positions. Browser coverage checks saved settings, rendered markers/curves, validation, cancellation, automatic-size reset, undo/redo and reload.
+
+Smoothed line charts preserve gaps at blank values: curves are calculated separately for each uninterrupted segment. Rendering tests cover gap/span/zero handling, consecutive and edge blanks, and isolated or two-point segments.

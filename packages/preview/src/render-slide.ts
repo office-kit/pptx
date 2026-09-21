@@ -4719,39 +4719,26 @@ const renderLineChart = (
       basePtsRaw.push([xp, yBase]);
       if (isStacked) accumulated[c] = top;
     }
-    // For 'span', drop nulls entirely so the path connects across.
-    // For 'gap' (default), the path renders in segments split on nulls;
-    // we approximate by skipping null entries from the pts list since
-    // every consecutive non-null pair already produces a straight L.
-    const pts: Array<[number, number]> =
-      dba === 'span'
-        ? ptsRaw.filter((p): p is [number, number] => p !== null)
-        : ptsRaw.filter((p): p is [number, number] => p !== null);
-    const basePts: Array<[number, number]> =
-      dba === 'span'
-        ? basePtsRaw.filter((p): p is [number, number] => p !== null)
-        : basePtsRaw.filter((p): p is [number, number] => p !== null);
-    // <c:smooth val="1"/> — interpolate a Catmull-Rom-style curve through
-    // the points by emitting cubic Bézier segments with control points
-    // derived from the immediate neighbours. Matches PowerPoint's
-    // "smooth line" visual within reasonable tolerance.
-    const dPath =
-      series.smooth && pts.length > 2
-        ? smoothPath(pts)
-        : (() => {
-            // Walk ptsRaw to allow segment breaks for dispBlanksAs='gap'.
-            let path = '';
-            let starting = true;
-            for (const p of ptsRaw) {
-              if (p === null) {
-                if (dba === 'gap') starting = true;
-                continue;
-              }
-              path += `${starting ? 'M' : 'L'}${px(p[0])},${px(p[1])} `;
-              starting = false;
-            }
-            return path.trim();
-          })();
+    const pts = ptsRaw.filter((p): p is [number, number] => p !== null);
+    const basePts = basePtsRaw.filter((p): p is [number, number] => p !== null);
+    // Split before smoothing so control points cannot bridge a missing value.
+    const segments: Array<Array<[number, number]>> = [];
+    let segment: Array<[number, number]> = [];
+    for (const point of ptsRaw) {
+      if (point !== null) segment.push(point);
+      else if (dba === 'gap' && segment.length > 0) {
+        segments.push(segment);
+        segment = [];
+      }
+    }
+    if (segment.length > 0) segments.push(segment);
+    const dPath = segments
+      .map((points) =>
+        series.smooth && points.length > 2
+          ? smoothPath(points)
+          : points.map(([x, y], i) => `${i === 0 ? 'M' : 'L'}${px(x)},${px(y)}`).join(' '),
+      )
+      .join(' ');
     perSeries.push({ s, series, color, ptsRaw, pts, basePts, dPath });
   }
   // Area fills are opaque in PowerPoint (the authored solidFill at full
