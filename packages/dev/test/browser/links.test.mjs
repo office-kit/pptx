@@ -242,6 +242,38 @@ test(
       assert.equal(getShapeClickAction(text), null);
       assert.equal(getShapeHyperlink(text), 'https://example.com/text');
       assert.equal(getShapeParagraphElements(text, 0)[0].format.bold, true);
+      for (const kind of ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide']) {
+        dialog = await open();
+        await dialog.getByLabel('リンク先の種類', { exact: true }).selectOption(kind);
+        await dialog.getByRole('button', { name: '適用', exact: true }).click();
+        await saved();
+        const updated = getSlideShapes(getSlides(await read())[0])[0];
+        assert.deepEqual(getShapeClickAction(updated), { kind });
+        assert.equal(getShapeHyperlink(updated), null);
+        assert.equal(getShapeParagraphElements(updated, 0)[0].format.bold, true);
+      }
+      await page.reload();
+      await saved();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ position: { x: 5, y: 5 } });
+      await editor.locator('.lang select').selectOption('en');
+      ja = false;
+      dialog = await open();
+      assert.equal(
+        await dialog.getByLabel('Link destination', { exact: true }).inputValue(),
+        'lastSlide',
+      );
+      await dialog.getByLabel('Link destination', { exact: true }).selectOption('nextSlide');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(
+        getShapeClickAction(getSlideShapes(getSlides(await read())[0])[0]).kind,
+        'lastSlide',
+      );
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-object-link-failure.png', fullPage: true });
       throw error;

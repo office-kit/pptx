@@ -20,12 +20,13 @@
   const keys = actions.map(action => action?.kind === 'url' ? `url:${action.url}` : action?.kind === 'slide' ? `slide:${getSlideIndex(doc.pres, action.slide)}` : action?.kind ?? '');
   const mixed = keys.some(key => key !== keys[0]);
   const initial = mixed ? null : actions[0];
-  let destination = $state(initial?.kind === 'slide' ? 'slide' : 'url');
+  const presets = ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide'] as const;
+  let destination = $state(initial?.kind ?? 'url');
   let slideIndex = $state(initial?.kind === 'slide' ? getSlideIndex(doc.pres, initial.slide) : selection.slideIndex);
   let url = $state(initial?.kind === 'url' ? initial.url : '');
   const tips = shapes.map(shape => shape ? getShapeHyperlinkTooltip(shape) : null);
   let tooltip = $state(tips.every(tip => tip === tips[0]) ? tips[0] ?? '' : '');
-  const valid = $derived(destination === 'slide' ? !!slides[slideIndex] : !!url.trim());
+  const valid = $derived(destination === 'slide' ? !!slides[slideIndex] : destination === 'url' ? !!url.trim() : presets.some(kind => kind === destination));
   let error = $state('');
   let dialog: HTMLDialogElement;
   onMount(() => dialog.showModal());
@@ -40,6 +41,7 @@
           setShapeClickAction(shape, null);
           if (!remove) {
             if (destination === 'slide') setShapeClickAction(shape, { kind: 'slide', slide: slides[slideIndex]! });
+            else if (destination !== 'url') setShapeClickAction(shape, { kind: destination });
             else if (hasText) setShapeHyperlink(shape, url.trim(), textOnly ? tooltip.trim() || undefined : undefined);
             else setShapeClickAction(shape, { kind: 'url', url: url.trim() });
           }
@@ -55,10 +57,10 @@
     <header><strong>{t('Edit link')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     {#if supported}
       <p>{t('Applies to the selected objects.')}</p>
-      <label>{t('Link destination')}<select class="ok-input" bind:value={destination} aria-label={t('Link destination')}><option value="url">{t('Web address')}</option><option value="slide">{t('Slide in this presentation')}</option></select></label>
+      <label>{t('Link destination')}<select class="ok-input" bind:value={destination} aria-label={t('Link destination')}><option value="url">{t('Web address')}</option><option value="slide">{t('Slide in this presentation')}</option><option value="nextSlide">{t('Next slide')}</option><option value="prevSlide">{t('Previous slide')}</option><option value="firstSlide">{t('First slide')}</option><option value="lastSlide">{t('Last slide')}</option></select></label>
       {#if destination === 'url'}
       <label>{t('Link address')}<input class="ok-input" type="url" required bind:value={url} placeholder="https://example.com" aria-label={t('Link address')} /></label>
-      {:else}
+      {:else if destination === 'slide'}
         <label>{t('Target slide')}<select class="ok-input" bind:value={slideIndex} aria-label={t('Target slide')}>{#each slides as slide, i}<option value={i}>{i + 1}. {getSlideTitle(slide) || t('Untitled slide')}</option>{/each}</select></label>
       {/if}
       {#if mixed}<p>{t('The selected shapes have different links.')}</p>{/if}

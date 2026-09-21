@@ -26,6 +26,7 @@ import {
   type PatternPreset,
   savePresentation,
   setShapeClickAction,
+  setSlideHidden,
   setShapeFill,
   setShapeFlip,
   setShapeGradientFill,
@@ -424,6 +425,44 @@ describe('renderSlideToSvg', () => {
     setShapeHyperlink(shape, 'https://example.com');
     const svg = renderSlideToSvg(pres, slide);
     expect(svg).toContain('href="https://example.com"');
+  });
+
+  it('renders navigation presets with hidden-slide skipping and boundary no-ops', async () => {
+    const { pres } = await blankSlide();
+    const layout = findSlideLayout(pres, 'Blank')!;
+    addSlide(pres, { layout });
+    addSlide(pres, { layout });
+    const [slide, hidden, last] = getSlides(pres);
+    setSlideHidden(hidden!, true);
+    const shape = addSlideTextBox(slide!, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Navigate',
+    });
+    const end = addSlideTextBox(last!, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Back',
+    });
+    for (const [kind, target] of [
+      ['nextSlide', 3],
+      ['prevSlide', 1],
+      ['firstSlide', 1],
+      ['lastSlide', 3],
+    ] as const) {
+      setShapeClickAction(shape, { kind });
+      expect(renderSlideToSvg(pres, slide!)).toContain(`href="#slide-${target}"`);
+    }
+    setShapeClickAction(end, { kind: 'prevSlide' });
+    expect(renderSlideToSvg(pres, last!)).toContain('href="#slide-1"');
+    setShapeClickAction(end, { kind: 'nextSlide' });
+    expect(renderSlideToSvg(pres, last!)).toContain('href="#slide-3"');
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(renderSlideToSvg(loaded, getSlides(loaded)[0]!)).toContain('href="#slide-3"');
   });
 
   it('renders internal slide links using the current presentation order', async () => {

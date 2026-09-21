@@ -47,6 +47,9 @@ import {
   getShapeBodyPrEffective,
   getShapeChartSpec,
   getShapeClickAction,
+  getShapeSlide,
+  getSlides,
+  isSlideHidden,
   getShapeAltTitle,
   getShapeDescription,
   getShapeHyperlink,
@@ -173,6 +176,34 @@ interface LayoutCtx {
   // group-scaled rect and cancels the scale back out (see `renderShape`).
   readonly groupScale: { readonly sx: number; readonly sy: number };
 }
+
+const clickActionHref = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  action: ReturnType<typeof getShapeClickAction>,
+): string | undefined => {
+  if (!action) return undefined;
+  if (action.kind === 'url') return action.url;
+  if (action.kind === 'slide') {
+    const index = getSlideIndex(pres, action.slide);
+    return index >= 0 ? `#slide-${index + 1}` : undefined;
+  }
+  const slides = getSlides(pres);
+  const current = getSlideIndex(pres, getShapeSlide(shape));
+  if (current < 0) return undefined;
+  const backwards = action.kind === 'prevSlide' || action.kind === 'lastSlide';
+  const step = backwards ? -1 : 1;
+  const start =
+    action.kind === 'firstSlide'
+      ? 0
+      : action.kind === 'lastSlide'
+        ? slides.length - 1
+        : current + step;
+  for (let index = start; index >= 0 && index < slides.length; index += step) {
+    if (!isSlideHidden(slides[index]!)) return `#slide-${index + 1}`;
+  }
+  return `#slide-${current + 1}`;
+};
 
 // Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
 // default since 2013. See ECMA-376 §19.3.1.39 `SlideSizeType`.
@@ -2793,12 +2824,7 @@ export const resolveTextBodyModel = (
           // Fall back to them only when no external URL was authored.
           if (!href) {
             const act = getShapeRunClickAction(shape, p, rIdx);
-            if (act?.kind === 'slide') {
-              const idx = getSlideIndex(pres, act.slide);
-              if (idx >= 0) href = `#slide-${idx + 1}`;
-            } else if (act?.kind === 'url') {
-              href = act.url;
-            }
+            href = clickActionHref(pres, shape, act);
           }
           if (href) hrefTip = getShapeRunHyperlinkTooltip(shape, p, rIdx) ?? undefined;
         } catch {
@@ -6520,14 +6546,8 @@ const renderShape = (
   // gives each <li> an id="slide-N" so the browser jumps in-page.
   const action = getShapeClickAction(shape);
   if (action) {
-    let href: string | null = null;
-    if (action.kind === 'slide') {
-      const idx = getSlideIndex(pres, action.slide);
-      if (idx >= 0) href = `#slide-${idx + 1}`;
-    } else if (action.kind === 'url') {
-      href = action.url;
-    }
-    if (href !== null) {
+    const href = clickActionHref(pres, shape, action);
+    if (href !== undefined) {
       const isInPage = href.startsWith('#');
       const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
       return `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;

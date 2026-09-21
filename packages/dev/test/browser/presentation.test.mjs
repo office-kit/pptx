@@ -429,3 +429,68 @@ test(
     }
   },
 );
+
+test(
+  'navigation presets skip hidden slides and work from presenter next-slide preview',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-navigation-'));
+    let preview, browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: ['Next', 'Hidden', 'Previous', 'First'].map((title) =>
+            Slide({ children: Text({ x: 1, y: 1, width: 5, height: 1, children: title }) }),
+          ),
+        }),
+      );
+      const slides = getSlides(deck);
+      setSlideHidden(slides[1], true);
+      for (const [index, kind] of [
+        [0, 'nextSlide'],
+        [2, 'prevSlide'],
+        [3, 'firstSlide'],
+      ])
+        setShapeClickAction(getSlideShapes(slides[index])[0], { kind });
+      await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(join(dir, 'source.pptx'))})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.locator('#slide a').click();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
+      await page.locator('#slide a').focus();
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
+      const ready = page.waitForEvent('popup');
+      await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
+      const presenter = await ready;
+      presenter.on('pageerror', (error) => errors.push(error.message));
+      await presenter.locator('#next a').click();
+      await presenter.getByText('Slide 1 of 4', { exact: true }).waitFor();
+      await presenter.locator('#current a').click();
+      await presenter.getByText('Slide 3 of 4', { exact: true }).waitFor();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
+      await presenter.locator('#current a').focus();
+      await presenter.keyboard.press('Enter');
+      await presenter.getByText('Slide 1 of 4', { exact: true }).waitFor();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
+      await presenter.getByRole('button', { name: 'Exit presentation', exact: true }).click();
+      await page.waitForFunction(() => !presenting);
+      await presenter.close();
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
