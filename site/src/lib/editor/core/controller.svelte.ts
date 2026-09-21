@@ -8,6 +8,11 @@
 
 import {
   copyShape,
+  emu,
+  loadPresentation,
+  getSlides,
+  findShapeById,
+  type PresentationData,
   getShapeBoundsResolved,
   getShapeId,
   getSlideShapes,
@@ -19,6 +24,7 @@ import {
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
+import { t } from '../i18n/i18n.svelte.ts';
 import { selectedShapeIds } from './selection.ts';
 
 export interface Toast {
@@ -32,13 +38,14 @@ export interface ContextMenuState {
   readonly y: number;
 }
 
-/** What copy/cut stashed: the slide + shape ids to clone on paste. */
+/** A byte snapshot keeps copied content independent of live edits and history. */
 interface Clipboard {
+  presentation: Promise<PresentationData>;
   slideIndex: number;
   shapeIds: number[];
 }
 
-const PASTE_OFFSET = inches(0.25) as unknown as number;
+const PASTE_OFFSET = inches(0.25);
 
 let toastSeq = 0;
 
@@ -155,7 +162,7 @@ export class EditorController {
   }
 
   // --- Clipboard & shape actions -----------------------------------------
-  #clipboard: Clipboard | null = null;
+  #clipboard = $state.raw<Clipboard | null>(null);
 
   /** Resolve the currently selected shapes to live objects. */
   selectedShapes(): SlideShapeData[] {
@@ -177,10 +184,10 @@ export class EditorController {
   deleteSelection(): void {
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
-    this.doc.transact('Delete', () => {
+    this.doc.transact(t('Delete'), () => {
       for (const s of shapes) removeShape(s);
+      this.doc.clearShapeSelection();
     });
-    this.doc.clearShapeSelection();
   }
 
   /** Clone shapes onto `slide`, offset, and return the new ids. */
@@ -193,8 +200,8 @@ export class EditorController {
       const b = getShapeBoundsResolved(this.doc.pres, copy);
       if (b) {
         setShapeBounds(copy, {
-          x: ((b.x as unknown as number) + offset) as never,
-          y: ((b.y as unknown as number) + offset) as never,
+          x: emu(b.x + offset),
+          y: emu(b.y + offset),
           w: b.w,
           h: b.h,
         });
@@ -208,18 +215,23 @@ export class EditorController {
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
     const slideIndex = this.doc.selection.slideIndex;
-    const newIds = this.doc.transact('Duplicate', () =>
-      this.#cloneOnto(shapes, slideIndex, PASTE_OFFSET),
-    );
-    if (newIds.length) this.doc.select({ kind: 'shape', slideIndex, shapeIds: newIds });
+    this.doc.transact(t('Duplicate'), () => {
+      const newIds = this.#cloneOnto(shapes, slideIndex, PASTE_OFFSET);
+      this.doc.select({ kind: 'shape', slideIndex, shapeIds: newIds });
+    });
   }
 
   copySelection(): void {
     const sel = this.doc.selection;
     const ids = selectedShapeIds(sel);
     if (!ids.length) return;
-    this.#clipboard = { slideIndex: sel.slideIndex, shapeIds: [...ids] };
-    this.toast('info', `Copied ${ids.length} shape${ids.length > 1 ? 's' : ''}`);
+    this.#clipboard = {
+      presentation: this.doc.toBytes().then(loadPresentation),
+      slideIndex: sel.slideIndex,
+      shapeIds: [...ids],
+    };
+    // Attach a handler immediately; a later paste reports the captured failure.
+    void this.#clipboard.presentation.catch((error: Error) => this.toast('error', error.message));
   }
 
   cutSelection(): void {
@@ -227,18 +239,30 @@ export class EditorController {
     this.deleteSelection();
   }
 
-  paste(): void {
+  async paste(): Promise<void> {
     const clip = this.#clipboard;
     if (!clip) return;
-    const sources = clip.shapeIds
-      .map((id) => this.doc.shapeById(clip.slideIndex, id))
-      .filter((s): s is SlideShapeData => s != null);
-    if (!sources.length) return;
-    const slideIndex = this.doc.selection.slideIndex;
-    const newIds = this.doc.transact('Paste', () =>
-      this.#cloneOnto(sources, slideIndex, PASTE_OFFSET),
-    );
-    if (newIds.length) this.doc.select({ kind: 'shape', slideIndex, shapeIds: newIds });
+    const targetPresentation = this.doc.pres;
+    const targetSlide = this.doc.slideAt(this.doc.selection.slideIndex);
+    if (!targetSlide) return;
+    try {
+      const source = await clip.presentation;
+      // New/Open or undo replaces the document. Never paste into a stale target.
+      if (this.doc.pres !== targetPresentation) return;
+      const slideIndex = getSlides(targetPresentation).indexOf(targetSlide);
+      if (slideIndex < 0) return;
+      const sourceSlide = getSlides(source)[clip.slideIndex]!;
+      const sources = clip.shapeIds.map((id) => findShapeById(sourceSlide, id)!);
+      this.doc.transact(t('Paste'), () => {
+        const newIds = this.#cloneOnto(sources, slideIndex, PASTE_OFFSET);
+        this.doc.select({ kind: 'shape', slideIndex, shapeIds: newIds });
+      });
+    } catch (error) {
+      this.toast(
+        'error',
+        `${t('Paste')}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
   }
 
   hasClipboard(): boolean {
@@ -249,13 +273,13 @@ export class EditorController {
   nudge(dxEmu: number, dyEmu: number): void {
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
-    this.doc.transact('Move', () => {
+    this.doc.transact(t('Move'), () => {
       for (const s of shapes) {
         const b = getShapeBoundsResolved(this.doc.pres, s);
         if (!b) continue;
         setShapeBounds(s, {
-          x: ((b.x as unknown as number) + dxEmu) as never,
-          y: ((b.y as unknown as number) + dyEmu) as never,
+          x: emu(b.x + dxEmu),
+          y: emu(b.y + dyEmu),
           w: b.w,
           h: b.h,
         });

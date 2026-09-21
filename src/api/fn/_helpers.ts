@@ -10,6 +10,7 @@ import {
   type XmlElement,
   elem,
   firstChildElement,
+  getAttrValue,
   qname,
   serializeXml,
 } from '../../internal/xml/index.ts';
@@ -168,9 +169,14 @@ export const requireSpTree = (slide: SlideData): XmlElement => {
 
 export const nextShapeId = (slide: SlideData): number => {
   let maxId = 0;
-  for (const s of slide[SLIDE_PART].shapes) {
-    if (s.id > maxId) maxId = s.id;
-  }
+  const walk = (el: XmlElement): void => {
+    if (el.name.namespaceURI === NS.pml && el.name.localName === 'cNvPr') {
+      const id = Number(getAttrValue(el, qname('', 'id', '')));
+      if (id > maxId) maxId = id;
+    }
+    for (const child of el.children) if (child.kind === 'element') walk(child);
+  };
+  walk(requireSpTree(slide));
   return Math.max(maxId, 1) + 1;
 };
 

@@ -2,6 +2,7 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Move: '移動',
   Download: 'ダウンロード',
   'Preview unavailable': 'プレビューに接続できません',
   'Replace editor changes with the current source?':

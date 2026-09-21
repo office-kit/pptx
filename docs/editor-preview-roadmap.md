@@ -41,6 +41,12 @@ that a user can complete the corresponding editing workflow.
 - History tests cover rapid edits, rapid undo/redo, edits during restore,
   new/open invalidation, gesture boundaries and version-aware save completion.
 
+- Clipboard snapshots survive source edits, deletion, undo and opening a new
+  document. A browser test verifies cut, paste, undo, redo and persisted output.
+- Cross-presentation shape copies preserve images, charts, workbooks and unknown
+  dependencies, including cycles. Nested group IDs remain unique after repeated
+  copies and subsequent shape creation.
+
 ## Outstanding work
 
 Complete workflow coverage, remaining UI translations, accessibility and draft
