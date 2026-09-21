@@ -1,4 +1,5 @@
 import { readFile } from 'node:fs/promises';
+import { unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideTextBox,
@@ -100,18 +101,18 @@ describe('text range hyperlinks', () => {
     const { pres, shape } = await fixture();
     const foreign = await fixture();
     setShapeClickAction(shape, { kind: 'lastSlide' });
-    const before = await savePresentation(pres);
+    const before = unzipSync(await savePresentation(pres));
     expect(() => setShapeClickAction(shape, { kind: 'slide', slide: foreign.slide })).toThrow();
     expect(() =>
       setShapeClickAction(shape, { kind: 'nextSlide' }, { range: { start: 4, end: 5 } }),
     ).toThrow();
-    expect(await savePresentation(pres)).toEqual(before);
+    expect(unzipSync(await savePresentation(pres))).toEqual(before);
   });
 
   it('rejects invalid or split-surrogate ranges and ignores empty ranges without mutation', async () => {
     const { pres, slide, shape } = await fixture();
     const before = getSlideXmlString(slide);
-    const bytes = await savePresentation(pres);
+    const parts = unzipSync(await savePresentation(pres));
     for (const range of [
       { start: -1, end: 2 },
       { start: 4, end: 5 },
@@ -124,6 +125,6 @@ describe('text range hyperlinks', () => {
       expect(getSlideXmlString(slide)).toBe(before);
     }
     setShapeHyperlink(shape, 'https://unused.example', undefined, { range: { start: 1, end: 1 } });
-    expect(await savePresentation(pres)).toEqual(bytes);
+    expect(unzipSync(await savePresentation(pres))).toEqual(parts);
   });
 });
