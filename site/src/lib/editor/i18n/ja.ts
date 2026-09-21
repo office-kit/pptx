@@ -2,6 +2,33 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Insert image': '画像を挿入',
+  'Replace image': '画像を差し替え',
+  'Choose image': '画像を選択',
+  'No image selected': '画像が選択されていません',
+  'Image file': '画像ファイル',
+  'Image options': '画像の設定',
+  'Selected image preview': '選択した画像のプレビュー',
+  'Reading image…': '画像を読み込み中…',
+  'The image could not be read': '画像を読み込めませんでした',
+  'The image could not be inserted': '画像を挿入できませんでした',
+  'The document changed. Select the image again.':
+    '文書が変更されました。画像を選び直してください。',
+  'The image keeps its position, crop and appearance.':
+    '画像の位置、トリミング、見た目の設定を保持します。',
+  'The image is centered on the slide. Drag its handles to resize it.':
+    '画像をスライドの中央に配置します。ハンドルをドラッグするとサイズを変更できます。',
+  'Crop left (%)': '左のトリミング (%)',
+  'Crop top (%)': '上のトリミング (%)',
+  'Crop right (%)': '右のトリミング (%)',
+  'Crop bottom (%)': '下のトリミング (%)',
+  'Crop must leave part of the image visible': '画像が見える範囲を残してトリミングしてください',
+  'Reset crop': 'トリミングをリセット',
+  'Opacity (%)': '不透明度 (%)',
+  'Brightness (%)': '明るさ (%)',
+  'Contrast (%)': 'コントラスト (%)',
+  'Alternative text': '代替テキスト',
+
   'Duplicate slide': 'スライドを複製',
   'Delete slide': 'スライドを削除',
   'Move slide up': 'スライドを上へ移動',

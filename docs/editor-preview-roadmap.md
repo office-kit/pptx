@@ -64,7 +64,11 @@ that a user can complete the corresponding editing workflow.
   remain independent. Tests cover same-slide and cross-slide copies, same-format
   and cross-format replacement, repeated edits and saved PPTX reloads. Rejected
   crop edits retain the previous crop through a later successful edit and save.
-  Direct upload/replacement/crop controls still need workflow verification.
+  Bilingual upload and replacement dialogs and image options now cover numeric
+  crop, opacity, brightness, contrast and alternative text. Browser tests verify
+  insertion, replacement, undo, crop reset and persisted output after reload.
+  Preview contrast treats zero as neutral and scales colors around mid-gray.
+  Interactive crop handles still need a dedicated workflow.
 
 ## Outstanding work
 

@@ -301,7 +301,7 @@ const renderPicture = (
   }
   if (bytes && mime) {
     const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-    // Apply <a:srcRect> crop, brightness (lumOff), contrast (lumMod),
+    // Apply <a:srcRect> crop, brightness/contrast (lum),
     // and opacity (alphaModFix) so PowerPoint's "Picture Format >
     // Corrections" matches what the playground paints.
     const crop = getShapeImageCrop(shape);
@@ -331,7 +331,7 @@ const renderPicture = (
       clipAttr = ` clip-path="url(#${clipId})"`;
     }
     const brightness = getShapeImageBrightness(shape) ?? 0;
-    const contrast = getShapeImageContrast(shape) ?? 1;
+    const contrast = getShapeImageContrast(shape) ?? 0;
     const opacity = getShapeImageOpacity(shape) ?? 1;
     const grayscale = isShapeImageGrayscale(shape);
     const biLevel = getShapeImageBiLevelThreshold(shape);
@@ -339,7 +339,7 @@ const renderPicture = (
     let filterAttr = '';
     if (
       brightness !== 0 ||
-      contrast !== 1 ||
+      contrast !== 0 ||
       grayscale ||
       biLevel !== null ||
       (duotone && (duotone.firstColor || duotone.secondColor))
@@ -349,9 +349,13 @@ const renderPicture = (
       // (discrete table that snaps each channel to 0 or 1 at thresh).
       const fid = mintId();
       const prims: string[] = [];
-      if (brightness !== 0 || contrast !== 1) {
+      if (brightness !== 0 || contrast !== 0) {
+        // DrawingML contrast is a signed percentage change, with zero neutral.
+        // Scale channel distances from mid-gray; negative values reduce contrast.
+        const slope = 1 + contrast;
+        const intercept = brightness + (1 - slope) / 2;
         prims.push(
-          `<feComponentTransfer><feFuncR type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncG type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncB type="linear" slope="${contrast}" intercept="${brightness}"/></feComponentTransfer>`,
+          `<feComponentTransfer><feFuncR type="linear" slope="${slope}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope}" intercept="${intercept}"/></feComponentTransfer>`,
         );
       }
       if (grayscale) {

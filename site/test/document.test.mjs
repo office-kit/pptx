@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,9 @@ const result = await build({
   ],
 });
 const {
+  getShapeImageBytes,
+  getShapeImageCrop,
+  getShapeDescription,
   getSlideSize,
   addSlideShape,
   getShapeKind,
@@ -383,4 +386,36 @@ test('nested groups remain a single selectable object and ungroup one level at a
   assert.deepEqual(editor.selectedShapes().map(getShapeKind), ['group', 'shape']);
   editor.invoke('ungroupShapes');
   assert.deepEqual(editor.doc.selection.shapeIds, shapes.map(getShapeId));
+});
+
+test('image insertion preserves aspect ratio, selects the image and restores it through history', async () => {
+  const editor = new EditorController();
+  const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  const before = getSlideShapes(editor.doc.currentSlide).length;
+  assert.equal(editor.applyImage(bytes, 'Photo.png', 800, 400), true);
+  const selection = editor.doc.selection;
+  assert.equal(selection.kind, 'shape');
+  let image = editor.doc.shapeById(selection.slideIndex, selection.shapeIds[0]);
+  const bounds = getShapeBoundsResolved(editor.doc.pres, image);
+  const size = getSlideSize(editor.doc.pres);
+  assert.equal(bounds.w, bounds.h * 2);
+  assert.equal(bounds.x, Math.round((size.width - bounds.w) / 2));
+  assert.equal(bounds.y, Math.round((size.height - bounds.h) / 2));
+  assert.deepEqual(getShapeImageBytes(image), bytes);
+  await editor.doc.undo();
+  assert.equal(getSlideShapes(editor.doc.currentSlide).length, before);
+  await editor.doc.redo();
+  assert.deepEqual(editor.doc.selection, selection);
+  editor.invoke('setShapeImageCrop', { crop: { left: 0.2 } });
+  editor.invoke('setShapeDescription', { description: '写真 / Photo' });
+  const replacement = new Uint8Array([255, 216, 255, 224, 0, 16]);
+  assert.equal(editor.applyImage(replacement, 'New.jpg', 400, 800, true), true);
+  image = editor.doc.shapeById(selection.slideIndex, selection.shapeIds[0]);
+  assert.deepEqual(getShapeBoundsResolved(editor.doc.pres, image), bounds);
+  assert.equal(getShapeImageCrop(image).left, 0.2);
+  assert.equal(getShapeDescription(image), '写真 / Photo');
+  assert.deepEqual(getShapeImageBytes(image), replacement);
+  await editor.doc.undo();
+  image = editor.doc.shapeById(selection.slideIndex, selection.shapeIds[0]);
+  assert.deepEqual(getShapeImageBytes(image), bytes);
 });

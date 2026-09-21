@@ -6,6 +6,12 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getShapeBoundsResolved,
+  getShapeKind,
+  getShapeImageBytes,
+  getShapeImageCrop,
+  getShapeImageOpacity,
+  getShapeImageBrightness,
+  getShapeDescription,
   getSlides,
   getSlideShapes,
   getSlideText,
@@ -287,6 +293,121 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-arrange-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'image upload, crop, appearance, replacement and alt text persist from the bilingual preview',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-image-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide /></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const png = async (color) =>
+        Buffer.from(
+          await page.evaluate((fill) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = 200;
+            canvas.height = 100;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = fill;
+            ctx.fillRect(0, 0, 200, 100);
+            return canvas.toDataURL('image/png').split(',')[1];
+          }, color),
+          'base64',
+        );
+      const original = await png('#eb5757'),
+        replacement = await png('#2d9cdb');
+      await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+      await editor.getByTitle(/— addSlideImage$/).click();
+      let dialog = editor.getByRole('dialog', { name: 'Insert image', exact: true });
+      await dialog
+        .getByLabel('Image file', { exact: true })
+        .setInputFiles({ name: 'red.png', mimeType: 'image/png', buffer: original });
+      await dialog.getByRole('button', { name: 'Insert image', exact: true }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      await editor.locator('.image-controls').waitFor();
+      const change = async (label, value) => {
+        await editor.getByLabel(label, { exact: true }).fill(value);
+        await editor.getByLabel(label, { exact: true }).press('Tab');
+      };
+      await change('Crop left (%)', '20');
+      await change('Opacity (%)', '70');
+      await change('Brightness (%)', '10');
+      await change('Alternative text', '赤い画像 / Red image');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const download = async () =>
+        loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+      let deck = await download();
+      let picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
+      const bounds = getShapeBoundsResolved(deck, picture);
+      assert.equal(bounds.w, bounds.h * 2);
+      assert.equal(getShapeImageCrop(picture).left, 0.2);
+      assert.equal(getShapeImageOpacity(picture), 0.7);
+      assert.equal(getShapeImageBrightness(picture), 0.1);
+      assert.equal(getShapeDescription(picture), '赤い画像 / Red image');
+      assert.deepEqual(Buffer.from(getShapeImageBytes(picture)), original);
+      await editor.locator('.lang select').selectOption('ja');
+      await editor.getByRole('button', { name: '画像を差し替え', exact: true }).click();
+      dialog = editor.getByRole('dialog', { name: '画像を差し替え', exact: true });
+      await dialog
+        .getByLabel('画像ファイル', { exact: true })
+        .setInputFiles({ name: 'blue.png', mimeType: 'image/png', buffer: replacement });
+      await dialog.getByRole('button', { name: '画像を差し替え', exact: true }).click();
+      await dialog.waitFor({ state: 'hidden' });
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      deck = await download();
+      picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
+      assert.deepEqual(Buffer.from(getShapeImageBytes(picture)), replacement);
+      assert.deepEqual(getShapeBoundsResolved(deck, picture), bounds);
+      assert.equal(getShapeImageCrop(picture).left, 0.2);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      deck = await download();
+      picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
+      assert.deepEqual(Buffer.from(getShapeImageBytes(picture)), original);
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await editor.locator('.hit').click();
+      assert.equal(
+        await editor.getByLabel('左のトリミング (%)', { exact: true }).inputValue(),
+        '20',
+      );
+      assert.equal(
+        await editor.getByLabel('代替テキスト', { exact: true }).inputValue(),
+        '赤い画像 / Red image',
+      );
+      await page.screenshot({ path: '/tmp/pptx-pr287-image-ja.png', fullPage: true });
+      await editor.getByRole('button', { name: 'トリミングをリセット', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      deck = await download();
+      picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
+      assert.equal(getShapeImageCrop(picture), null);
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-image-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();

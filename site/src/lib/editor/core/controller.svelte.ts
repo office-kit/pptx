@@ -8,6 +8,9 @@
 
 import {
   copyShape,
+  addSlideImage,
+  getShapeKind,
+  setShapeImage,
   emu,
   loadPresentation,
   getSlides,
@@ -105,6 +108,54 @@ export class EditorController {
     } else {
       this.pendingPreset = presetArgs;
       this.activeDialog = id;
+    }
+  }
+
+  /** Place decoded image bytes as one undoable edit, or replace one selected picture. */
+  applyImage(
+    bytes: Uint8Array,
+    name: string,
+    width: number,
+    height: number,
+    replace = false,
+  ): boolean {
+    const slide = this.doc.currentSlide;
+    if (!slide) return false;
+    if (![width, height].every((value) => Number.isFinite(value) && value > 0)) {
+      this.toast('error', t('The image could not be read'));
+      return false;
+    }
+    const selection = this.doc.selection;
+    try {
+      if (replace) {
+        const ids = selectedShapeIds(selection);
+        const shape = ids.length === 1 ? findShapeById(slide, ids[0]!) : null;
+        if (!shape || getShapeKind(shape) !== 'picture') return false;
+        this.doc.transact(t('Replace image'), () => setShapeImage(shape, bytes));
+      } else {
+        const size = getSlideSize(this.doc.pres);
+        if (!size) return false;
+        const scale = Math.min((size.width * 0.8) / width, (size.height * 0.8) / height);
+        const w = emu(Math.max(1, Math.round(width * scale)));
+        const h = emu(Math.max(1, Math.round(height * scale)));
+        this.doc.transact(t('Insert image'), () => {
+          const shape = addSlideImage(slide, bytes, {
+            name,
+            x: emu(Math.round((size.width - w) / 2)),
+            y: emu(Math.round((size.height - h) / 2)),
+            w,
+            h,
+          });
+          this.doc.selectShape(getSlides(this.doc.pres).indexOf(slide), getShapeId(shape));
+        });
+      }
+      return true;
+    } catch (error) {
+      this.toast(
+        'error',
+        `${t('The image could not be inserted')}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return false;
     }
   }
 
