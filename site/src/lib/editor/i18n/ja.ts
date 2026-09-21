@@ -2,6 +2,18 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Choose background image': '背景画像を選択',
+  'Title and Content': 'タイトルとコンテンツ',
+  'Title Slide': 'タイトルスライド',
+  Blank: '白紙',
+  'The slide changed. Choose the background image again.':
+    'スライドが変更されました。背景画像を選び直してください。',
+  'Slide update failed': 'スライドを更新できませんでした',
+  'Reset background': '背景をリセット',
+  'Background image': '背景画像',
+  'Background color': '背景色',
+  'Slide layout': 'スライドのレイアウト',
+  'Slide options': 'スライドの設定',
   None: 'なし',
   'Top right': '右上',
   'Show percentages': '割合を表示',
