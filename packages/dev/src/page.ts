@@ -198,6 +198,7 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='next')moveSlide(1,true);
  else if(event.data.action==='previous')moveSlide(-1,true);
  else if(event.data.action==='exit')void exitPresentation();
+ else if(event.data.action==='jump'&&Number.isInteger(event.data.index)&&event.data.index>=0&&event.data.index<state.slides.length)selectSlide(event.data.index);
 });
 byId('exit-present').onclick=exitPresentation;
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&presenting)setPresenting(false);});

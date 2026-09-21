@@ -352,6 +352,7 @@ test(
         kind: 'url',
         url: 'https://example.com/link-test',
       });
+      setSlideNotes(slides[2], 'Linked destination notes / 移動先のノート');
       await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
       const file = join(dir, 'deck.tsx');
       await writeFile(
@@ -375,6 +376,36 @@ test(
       await page.keyboard.press('Enter');
       assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
       assert.equal(new URL(page.url()).hash, '');
+      const presenterReady = page.waitForEvent('popup');
+      await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
+      const presenter = await presenterReady;
+      presenter.on('pageerror', (error) => errors.push(error.message));
+      await presenter.locator('#current a').click();
+      await presenter.getByText('Slide 3 of 4', { exact: true }).waitFor();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
+      assert.equal(
+        await presenter.locator('#notes').textContent(),
+        'Linked destination notes / 移動先のノート',
+      );
+      await presenter.locator('#current a').focus();
+      await presenter.keyboard.press('Enter');
+      await presenter.getByText('Slide 1 of 4', { exact: true }).waitFor();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
+      assert.equal(new URL(presenter.url()).hash, '');
+      // A stale or malformed jump cannot clamp to an unrelated slide.
+      await presenter.evaluate(() => {
+        send('jump', -1);
+        send('jump', 99);
+        send('jump', '2');
+        send('jump', 0.5);
+        send('ready');
+      });
+      await presenter.getByText('Slide 1 of 4', { exact: true }).waitFor();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
+      await presenter.getByRole('button', { name: 'Exit presentation', exact: true }).click();
+      await page.waitForFunction(() => !presenting);
+      await presenter.close();
+
       await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.locator('#slide a').click();
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
