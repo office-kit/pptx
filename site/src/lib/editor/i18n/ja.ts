@@ -4,6 +4,10 @@
 export const ja: Record<string, string> = {
   'Edit link': 'リンクを編集',
   'Remove link': 'リンクを解除',
+  'Next slide': '次のスライド',
+  'Previous slide': '前のスライド',
+  'First slide': '最初のスライド',
+  'Last slide': '最後のスライド',
   'Link destination': 'リンク先の種類',
   'Web address': 'ウェブアドレス',
   'Slide in this presentation': 'このプレゼンテーション内のスライド',
