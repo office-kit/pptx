@@ -74,7 +74,7 @@
       doc.redo();
     } else if (mod && e.key.toLowerCase() === 'a') {
       e.preventDefault();
-      editor.selectAllShapes();
+      editor.selectAll();
     } else if (mod && e.key.toLowerCase() === 'd') {
       e.preventDefault();
       editor.duplicateSelection();
@@ -99,8 +99,7 @@
       editor.zoomFit();
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && (hasShapes || doc.selection.kind === 'slide')) {
       e.preventDefault();
-      if (doc.selection.kind === 'cell') editor.clearCellText();
-      else editor.deleteSelection();
+      editor.deleteSelection();
     } else if (e.key.startsWith('Arrow') && hasShapes) {
       e.preventDefault();
       if (doc.selection.kind === 'cell') {

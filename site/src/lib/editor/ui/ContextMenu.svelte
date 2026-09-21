@@ -23,7 +23,19 @@
 
   const items = $derived.by<Item[]>(() => {
     const list: Item[] = [];
-    if (hasShapes) {
+    if (doc.selection.kind === 'cell') {
+      list.push(
+        { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
+        { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
+        { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
+        { label: 'Clear cell text', accel: 'Del', run: () => editor.deleteSelection(), sep: true },
+        { label: 'Select all cells', accel: '⌘A', run: () => editor.selectAll() },
+        { label: 'Select table', run: () => {
+          const selection = doc.selection;
+          if (selection.kind === 'cell') doc.select({ kind: 'shape', slideIndex: selection.slideIndex, shapeIds: [selection.shapeId] });
+        } },
+      );
+    } else if (hasShapes) {
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
@@ -57,6 +69,20 @@
     return list;
   });
 
+  function place(node: HTMLDivElement, position: { x: number; y: number }) {
+    let current = position;
+    const update = () => {
+      node.style.left = `${Math.max(8, Math.min(current.x, window.innerWidth - node.offsetWidth - 8))}px`;
+      node.style.top = `${Math.max(8, Math.min(current.y, window.innerHeight - node.offsetHeight - 8))}px`;
+    };
+    update();
+    window.addEventListener('resize', update);
+    return {
+      update(position: { x: number; y: number }) { current = position; update(); },
+      destroy() { window.removeEventListener('resize', update); },
+    };
+  }
+
   function activate(item: Item) {
     if (item.disabled) return;
     item.run();
@@ -71,7 +97,7 @@
 
 <div
   class="ctx ok-editor"
-  style="left:{menu.x}px; top:{menu.y}px;"
+  use:place={menu}
   role="menu"
   tabindex="-1"
   onpointerdown={(e) => e.stopPropagation()}
@@ -89,7 +115,11 @@
   .ctx {
     position: fixed;
     z-index: 400;
-    min-width: 200px;
+    min-width: min(200px, calc(100vw - 16px));
+    max-width: calc(100vw - 16px);
+    max-height: calc(100dvh - 16px);
+    box-sizing: border-box;
+    overflow: auto;
     background: var(--ok-panel);
     border: 1px solid var(--ok-border);
     border-radius: var(--ok-radius-lg);

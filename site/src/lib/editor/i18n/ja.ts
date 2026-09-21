@@ -15,6 +15,8 @@ export const ja: Record<string, string> = {
   'Bottom margin (points)': '下余白（pt）',
   'Leave a margin blank to use the default': '空欄にすると標準の余白を使用します',
   'Reset cell margins': 'セル内の余白をリセット',
+  'Select all cells': 'すべてのセルを選択',
+  'Select table': '表全体を選択',
   'Clear cell text': 'セルの文字列を消去',
   'Edit table': '表を編集',
   'The clipboard table text is malformed': 'クリップボードの表データを読み取れませんでした',
