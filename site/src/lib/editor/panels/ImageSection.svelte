@@ -29,14 +29,14 @@
     if (value === 'none') { editor.invoke('setShapeNoStroke'); return; }
     if (value !== 'solid' && value !== 'dash' && value !== 'dot') return;
     doc.transact(t('Image border style'), () => {
-      setShapeStroke(picture!, { color: border.color, widthEmu: Math.round((border.width || 1) * 12700) });
+      if (!border.visible) setShapeStroke(picture!, { color: border.color, widthEmu: 12700 });
       setShapeStrokeDash(picture!, value);
     });
   }
   function borderWidth(input: HTMLInputElement) {
     if (!input.reportValidity()) { input.value = String(border.width); return; }
     if (input.valueAsNumber === 0) editor.invoke('setShapeNoStroke');
-    else editor.invoke('setShapeStroke', { options: { color: border.color, widthEmu: Math.round(input.valueAsNumber * 12700) } });
+    else editor.invoke('setShapeStroke', { options: { ...(border.visible ? {} : { color: border.color }), widthEmu: Math.round(input.valueAsNumber * 12700) } });
   }
   const crop = $derived.by(() => { doc.version; return picture ? getShapeImageCrop(picture) : null; });
   const description = $derived.by(() => { doc.version; return picture ? getShapeDescription(picture) ?? '' : ''; });
