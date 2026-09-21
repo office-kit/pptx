@@ -30,8 +30,9 @@ that a user can complete the corresponding editing workflow.
   individual and bulk edits, rich-text preservation, saved PPTX properties,
   undo/redo, Japanese labels and reload. Empty text boxes can be formatted before
   typing; first input and added paragraphs retain the chosen settings, including
-  through undo/redo. Inline caret-based paragraph targeting and table-cell
-  paragraph controls remain separate work.
+  through undo/redo. The same controls support individual paragraphs or all paragraphs in a selected
+  table-cell range, with bullets and spacing reflected in both preview renderers.
+  Inline caret-based paragraph targeting remains separate work.
 
 - Slide text replacement now matches across adjacent formatting runs, preserving
   surrounding run formats and assigning replacements the first matched run’s

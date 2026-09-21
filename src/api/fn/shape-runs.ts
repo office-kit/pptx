@@ -25,6 +25,9 @@ import {
   qname,
 } from '../../internal/xml/index.ts';
 import {
+  CELL_ELEMENT,
+  CELL_TABLE,
+  type TableCellData,
   INTERNAL_PACKAGE,
   type PresentationData,
   SHAPE_ELEMENT,
@@ -69,8 +72,19 @@ export const runsOf = (paragraph: XmlElement): XmlElement[] =>
       c.name.localName === 'r',
   );
 
-export const requireParagraph = (shape: SlideShapeData, paragraphIndex: number): XmlElement => {
-  const txBody = requireTxBody(shape);
+/** Shared DrawingML text body for shape and table-cell paragraph operations. */
+export const requireParagraphTextBody = (target: SlideShapeData | TableCellData): XmlElement => {
+  if (!(CELL_ELEMENT in target)) return requireTxBody(target);
+  const body = firstChildElement(target[CELL_ELEMENT], qname('a', 'txBody', NS.dml));
+  if (!body) throw new Error('table cell has no <a:txBody>');
+  return body;
+};
+
+export const requireParagraph = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+): XmlElement => {
+  const txBody = requireParagraphTextBody(shape);
   const paragraphs = paragraphsOf(txBody);
   const paragraph = paragraphs[paragraphIndex];
   if (!paragraph) {
@@ -457,7 +471,7 @@ const ensurePPr = (paragraph: XmlElement): XmlElement => {
  * as `setShapeAlignment`. Other paragraphs are untouched.
  */
 export const setParagraphAlignment = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   align: ParagraphAlignment,
 ): void => {
@@ -466,7 +480,7 @@ export const setParagraphAlignment = (
   const pPr = ensurePPr(paragraph);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'algn');
   pPr.attrs.push(attr(ATTR_ALGN_FN, token));
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -483,7 +497,7 @@ export const setParagraphAlignment = (
  *   setParagraphLevel(shape, 1, 1);  // indent the second line
  */
 export const setParagraphLevel = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   level: number,
 ): void => {
@@ -496,7 +510,7 @@ export const setParagraphLevel = (
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
   if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
   updateBulletIndentForLevel(pPr, Number.isFinite(previousLevel) ? previousLevel : 0, level);
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -508,7 +522,7 @@ export const setParagraphLevel = (
  * `getParagraphPropertiesEffective`.
  */
 export const getParagraphAlignment = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): ParagraphAlignmentToken | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -522,7 +536,10 @@ export const getParagraphAlignment = (
  * absent — PowerPoint's default. Returns `null` for non-existent
  * paragraphs.
  */
-export const getParagraphLevel = (shape: SlideShapeData, paragraphIndex: number): number => {
+export const getParagraphLevel = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+): number => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (pPr === null) return 0;
@@ -568,7 +585,7 @@ const pPrChildRank = (el: XmlElement): number =>
  * Passing a side as `null` removes that spacing element.
  */
 export const setParagraphSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   opts: { beforePts?: number | null; afterPts?: number | null },
 ): void => {
@@ -600,7 +617,7 @@ export const setParagraphSpacing = (
 
   writeSide('spcBef', opts.beforePts);
   writeSide('spcAft', opts.afterPts);
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -610,7 +627,7 @@ export const setParagraphSpacing = (
  * spacing is reported as `null` for now).
  */
 export const getParagraphSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): { readonly beforePts: number | null; readonly afterPts: number | null } => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -639,7 +656,7 @@ export const getParagraphSpacing = (
  * from the layout / master).
  */
 export const getParagraphIndent = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): { leftEmu: number | null; rightEmu: number | null; firstLineEmu: number | null } => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -672,7 +689,7 @@ export const getParagraphIndent = (
  * inherits line spacing from the layout / master).
  */
 export const getParagraphLineSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ):
   | { readonly kind: 'pct'; readonly value: number }
@@ -717,7 +734,7 @@ export const getParagraphLineSpacing = (
  * spacing from the layout / master).
  */
 export const setParagraphLineSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   spacing:
     | { readonly kind: 'pct'; readonly value: number }
@@ -747,7 +764,7 @@ export const setParagraphLineSpacing = (
     // <a:lnSpc> is the first child of CT_TextParagraphProperties.
     insertChildByRank(pPr, elem(qname('a', 'lnSpc', NS.dml), { children: [inner] }), pPrChildRank);
   }
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -756,7 +773,7 @@ export const setParagraphLineSpacing = (
  * paragraph inherits its bullet from the layout / master).
  */
 export const getParagraphBullet = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): BulletStyle | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -790,7 +807,7 @@ export const getParagraphBullet = (
  * *is* an image is usually enough for the UI to pick a fallback.
  */
 export const isParagraphBulletPicture = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): boolean => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -811,7 +828,7 @@ export const isParagraphBulletPicture = (
  * live view into the package media part; treat it as read-only.
  */
 export const getParagraphBulletImageBytes = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): Uint8Array | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -823,7 +840,7 @@ export const getParagraphBulletImageBytes = (
   if (!blip) return null;
   const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
   if (rEmbed === null) return null;
-  const slide = shape[SHAPE_SLIDE];
+  const slide = (CELL_TABLE in shape ? shape[CELL_TABLE] : shape)[SHAPE_SLIDE];
   const pkg = slide[INTERNAL_PACKAGE];
   const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
   if (!rels) return null;
@@ -847,7 +864,7 @@ export const getParagraphBulletImageBytes = (
  */
 export const getParagraphBulletStyle = (
   pres: PresentationData,
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): {
   color: string | null;
@@ -904,13 +921,13 @@ export const getParagraphBulletStyle = (
  * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.
  */
 export const setParagraphBullet = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   style: BulletStyle,
 ): void => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   applyBulletToParagraph(paragraph, style);
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
