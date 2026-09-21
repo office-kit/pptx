@@ -281,6 +281,7 @@ const renderPicture = (
   textOverlay: string,
   bytes: Uint8Array | null,
   format: string | null,
+  outline: PaintResult,
 ): string => {
   let mime: string | null = null;
   if (bytes && format) {
@@ -412,7 +413,13 @@ const renderPicture = (
       filterAttr = ` filter="url(#${fid})"`;
     }
     const opacityAttr = opacity !== 1 ? ` opacity="${opacity.toFixed(3)}"` : '';
-    return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g><g${transform}>${textOverlay}</g>`;
+    // Paint the outline outside the image clip: otherwise half its width is
+    // cut off at the mask boundary. It shares the image's rotation and flips.
+    const border =
+      outline.stroke !== 'none' && outline.strokeWidth > 0
+        ? `<g${transform} fill="none" stroke="${outline.stroke}" stroke-width="${E(outline.strokeWidth)}"${outline.strokeAttrs ? ` ${outline.strokeAttrs}` : ''}>${pictureClipGeometry(shape, preset, x, y, w, h)}</g>`
+        : '';
+    return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g>${border}<g${transform}>${textOverlay}</g>`;
   }
   // B14 — external r:link pictures don't ship bytes in the package.
   // Surface the URL in the placeholder so users can see where the
@@ -6168,6 +6175,7 @@ const renderShape = (
       textOverlay,
       getShapeImageBytes(shape),
       getShapeImageFormat(shape),
+      paint(shape, fill, stroke, theme, false, pres),
     );
   }
 
@@ -6187,6 +6195,7 @@ const renderShape = (
       textOverlay,
       getShapeImageFillBytes(shape),
       getShapeImageFormat(shape),
+      paint(shape, fill, stroke, theme, false, pres),
     );
   }
 

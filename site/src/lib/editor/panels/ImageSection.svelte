@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
+  import { getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -17,6 +17,26 @@
   function setMask(value: string) {
     const preset = masks.find(([key]) => key === value)?.[0];
     if (picture && preset) editor.invoke('setShapePreset', { preset });
+  }
+  const border = $derived.by(() => {
+    doc.version;
+    const stroke = picture ? getShapeStrokeEffective(doc.pres, picture) : null;
+    const visible = stroke?.kind === 'solid';
+    return { visible, color: picture ? getShapeStrokeColorResolved(doc.pres, picture) ?? '#000000' : '#000000', width: visible ? (stroke.widthEmu ?? 9525) / 12700 : 0, dash: picture ? getShapeStrokeDash(picture) ?? 'solid' : 'solid' };
+  });
+  function borderStyle(value: string) {
+    if (!picture) return;
+    if (value === 'none') { editor.invoke('setShapeNoStroke'); return; }
+    if (value !== 'solid' && value !== 'dash' && value !== 'dot') return;
+    doc.transact(t('Image border style'), () => {
+      setShapeStroke(picture!, { color: border.color, widthEmu: Math.round((border.width || 1) * 12700) });
+      setShapeStrokeDash(picture!, value);
+    });
+  }
+  function borderWidth(input: HTMLInputElement) {
+    if (!input.reportValidity()) { input.value = String(border.width); return; }
+    if (input.valueAsNumber === 0) editor.invoke('setShapeNoStroke');
+    else editor.invoke('setShapeStroke', { options: { color: border.color, widthEmu: Math.round(input.valueAsNumber * 12700) } });
   }
   const crop = $derived.by(() => { doc.version; return picture ? getShapeImageCrop(picture) : null; });
   const description = $derived.by(() => { doc.version; return picture ? getShapeDescription(picture) ?? '' : ''; });
@@ -52,6 +72,14 @@
       {/each}
     </div>
     <button class="ok-btn" disabled={!crop} onclick={() => editor.invoke('setShapeImageCrop', { crop: null })}>{t('Reset crop')}</button>
+    <div class="fields">
+      <label>{t('Image border color')}<input type="color" value={/^#[0-9a-f]{6}$/i.test(border.color) ? border.color : '#000000'} onchange={e => editor.invoke('setShapeStroke', { options: { color: e.currentTarget.value, widthEmu: Math.round((border.width || 1) * 12700) } })} /></label>
+      <label>{t('Image border width (points)')}<input class="ok-input" type="number" min="0" max="1584" step="0.25" required value={Math.round(border.width * 100) / 100} onchange={e => borderWidth(e.currentTarget)} /></label>
+    </div>
+    <label>{t('Image border style')}<select class="ok-input" aria-label={t('Image border style')} value={border.visible ? border.dash : 'none'} onchange={e => borderStyle(e.currentTarget.value)}>
+      <option value="none">{t('No outline')}</option><option value="solid">{t('Solid line')}</option><option value="dash">{t('Dashed line')}</option><option value="dot">{t('Dotted line')}</option>
+      {#if !['solid', 'dash', 'dot'].includes(border.dash)}<option value={border.dash}>{t('Custom line')}</option>{/if}
+    </select></label>
     {#each effects as effect}
       <label>{t(effect.label)}<input class="ok-input" type="number" min={effect.min} max="100" step="1" required value={Math.round(effect.value)} onchange={(e) => {
         if (e.currentTarget.reportValidity()) editor.invoke(effect.id, { [effect.param]: e.currentTarget.valueAsNumber / 100 });

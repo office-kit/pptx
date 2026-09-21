@@ -12,6 +12,8 @@ import {
   getShapeImageBytes,
   getShapeBounds,
   getShapePreset,
+  getShapeStroke,
+  getShapeStrokeDash,
   loadPresentation,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
@@ -118,6 +120,40 @@ test(
       await saved();
       assert.equal(getShapePreset(await picture()), 'rect');
       assert.deepEqual(getShapeImageCrop(await picture()), crop);
+      await editor.getByLabel('画像の形状', { exact: true }).selectOption('ellipse');
+      await editor.getByLabel('画像の枠線の色', { exact: true }).fill('#7c3aed');
+      await editor.getByLabel('画像の枠線の太さ（ポイント）', { exact: true }).fill('6');
+      await editor.getByLabel('画像の枠線の太さ（ポイント）', { exact: true }).press('Tab');
+      await editor.getByLabel('画像の枠線の種類', { exact: true }).selectOption('dash');
+      await saved();
+      assert.equal(getShapeStroke(await picture()).widthEmu, 76200);
+      assert.equal(getShapeStrokeDash(await picture()), 'dash');
+      const outline = editor.locator('.paint g[fill="none"][stroke="#7C3AED"]');
+      await outline.waitFor({ state: 'attached' });
+      assert.equal(await outline.getAttribute('stroke-width'), '8.00');
+      assert.equal(await outline.getAttribute('clip-path'), null);
+      assert.equal(await outline.locator('ellipse').count(), 1);
+      assert.ok(await outline.getAttribute('stroke-dasharray'));
+      await page.screenshot({ path: '/tmp/pptx-pr287-image-border-ja.png', fullPage: true });
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getShapeStrokeDash(await picture()) ?? 'solid', 'solid');
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.equal(getShapeStrokeDash(await picture()), 'dash');
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').click();
+      assert.equal(getShapeStroke(await picture()).widthEmu, 76200);
+      await editor.getByLabel('画像の枠線の種類', { exact: true }).selectOption('none');
+      await saved();
+      assert.equal(getShapeStroke(await picture()).kind, 'none');
+      assert.equal(await outline.count(), 0);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getShapeStrokeDash(await picture()), 'dash');
+      assert.equal(getShapeStroke(await picture()).widthEmu, 76200);
+      assert.deepEqual(Buffer.from(getShapeImageBytes(await picture())), png);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
