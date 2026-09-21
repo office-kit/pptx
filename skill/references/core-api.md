@@ -280,9 +280,16 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
   `doughnut`, `radar`, `stock`, `surface`, plus `scatter` / `bubble`, whose
   series carry their own `xValues` (and `bubbleSizes`) instead of sharing
   `categories`. 3-D is a modifier, not a kind: add `view3D` to `bar` / `column`
-  / `line` / `area` / `pie`. `pie`/`doughnut` take exactly one series; `stock`
-  takes three (high, low, close) or four (open first). A spec whose fields
-  contradict each other (e.g. `view3D` on a scatter chart) throws.
+  / `line` / `area` / `pie` / `surface`. `pie`/`doughnut` take exactly one
+  series; `stock` takes three (high, low, close) or four (open first).
+  `ChartSpec` is a union over `kind`, so a field the kind has no element for —
+  `scatterStyle` on a column, an axis title on a pie, `bar3DShape` without
+  `view3D` — is a type error rather than a value the writer drops.
+  `getShapeChartSpec` returns the permissive `ReadChartSpec` instead, since a
+  deck authored elsewhere can carry any combination; narrow it back with
+  `isChartSpec` before writing it.
+- **Find placeholders by type token**, not display name:
+  `findSlidePlaceholder(slide, 'title' | 'body' | 'ctrTitle' | 'subTitle')`.
 
 ## QA protocol — run this before saying "done"
 

@@ -15,6 +15,7 @@ import {
   _internalPackageOf,
   addBlankSlide,
   addContentSlide,
+  type ChartSpec,
   addSlideChart,
   addSlideImage,
   addSlideLine,
@@ -264,50 +265,56 @@ describe('generative fuzz: every authored part is schema-valid', () => {
             }
             if (chance(0.3)) {
               const kind = pick(CHART_KINDS);
+              const seriesA = {
+                name: 'A',
+                values: [1, 2, 3, 4],
+                ...(chance(0.5) ? { color: '4472C4' } : {}),
+              };
+              const common = {
+                categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+                ...(chance(0.5)
+                  ? {
+                      dataLabels: {
+                        showValue: true,
+                        showCategory: false,
+                        showSeriesName: false,
+                        showPercent: false,
+                      },
+                    }
+                  : {}),
+              };
+              // Random-but-valid percentages for the kinds that take them, so the
+              // bounds wrappers (gap 0..500, hole 1..90, angle 0..360) are exercised
+              // at real values rather than only at the defaults.
+              const firstSliceAng = chance(0.5)
+                ? { firstSliceAngleDeg: Math.floor(rng() * 361) }
+                : {};
               // pie / doughnut take exactly one series.
-              const single = kind === 'pie' || kind === 'doughnut';
-              const series = single
-                ? [{ name: 'A', values: [1, 2, 3, 4], ...(chance(0.5) ? { color: '4472C4' } : {}) }]
-                : [
-                    {
-                      name: 'A',
-                      values: [1, 2, 3, 4],
-                      ...(chance(0.5) ? { color: '4472C4' } : {}),
-                    },
-                    { name: 'B', values: [4, 3, 2, 1] },
-                  ];
+              const spec: ChartSpec =
+                kind === 'pie'
+                  ? { ...common, kind, series: [seriesA], ...firstSliceAng }
+                  : kind === 'doughnut'
+                    ? {
+                        ...common,
+                        kind,
+                        series: [seriesA],
+                        ...firstSliceAng,
+                        ...(chance(0.5) ? { holeSizePct: 1 + Math.floor(rng() * 90) } : {}),
+                      }
+                    : {
+                        ...common,
+                        kind,
+                        series: [seriesA, { name: 'B', values: [4, 3, 2, 1] }],
+                        ...((kind === 'bar' || kind === 'column') && chance(0.5)
+                          ? { gapWidthPct: Math.floor(rng() * 501) }
+                          : {}),
+                      };
               addSlideChart(slide, {
                 x: emu(0.3, 2),
                 y: emu(0.3, 2),
                 w: emu(4, 7),
                 h: emu(2, 4),
-                spec: {
-                  kind,
-                  categories: ['Q1', 'Q2', 'Q3', 'Q4'],
-                  series,
-                  // Random-but-valid percentages for the kinds that take them, so
-                  // the bounds wrappers (gap 0..500, hole 1..90, angle 0..360) are
-                  // exercised at real values rather than only at the defaults.
-                  ...((kind === 'bar' || kind === 'column') && chance(0.5)
-                    ? { gapWidthPct: Math.floor(rng() * 501) }
-                    : {}),
-                  ...(kind === 'doughnut' && chance(0.5)
-                    ? { holeSizePct: 1 + Math.floor(rng() * 90) }
-                    : {}),
-                  ...((kind === 'pie' || kind === 'doughnut') && chance(0.5)
-                    ? { firstSliceAngleDeg: Math.floor(rng() * 361) }
-                    : {}),
-                  ...(chance(0.5)
-                    ? {
-                        dataLabels: {
-                          showValue: true,
-                          showCategory: false,
-                          showSeriesName: false,
-                          showPercent: false,
-                        },
-                      }
-                    : {}),
-                },
+                spec,
               });
             }
             if (chance(0.3)) {

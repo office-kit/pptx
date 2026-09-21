@@ -619,8 +619,13 @@ export interface ChartSecondaryValueAxis {
   readonly crossBetween?: 'between' | 'midCat';
 }
 
-/** Full chart specification. */
-export interface ChartSpec {
+/**
+ * Every field a chart can carry, with no cross-field rules applied — the
+ * shape `readChartSpec` returns. A deck authored elsewhere can combine
+ * fields that this library would never write together, so the read type
+ * stays permissive; `ChartSpec` is the closed, write-side domain.
+ */
+export interface ReadChartSpec {
   readonly kind: ChartKind;
   /** Category labels along the x-axis (or pie slice labels for `kind: 'pie'`). */
   readonly categories: ReadonlyArray<string>;

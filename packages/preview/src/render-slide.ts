@@ -131,7 +131,7 @@ import {
   type PresentationTheme,
   type ChartKind,
   type ChartSeries,
-  type ChartSpec,
+  type ReadChartSpec,
   type ChartTextStyle,
   type CustomGeometry,
   type ReadGradientFill,
@@ -3299,7 +3299,7 @@ const layoutChart = (
   legendOverlay = false,
   hasLegend = true,
   titlePx = DEFAULT_CHART_TITLE_PT * PX_PER_PT,
-  plotAreaLayout?: ChartSpec['plotAreaLayout'],
+  plotAreaLayout?: ReadChartSpec['plotAreaLayout'],
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3660,8 +3660,8 @@ const renderCategoryAxis = (
   labelAlign?: 'ctr' | 'l' | 'r',
   lineColor?: string,
   lineHidden = false,
-  majorTickMark: ChartSpec['categoryAxisMajorTickMark'] = 'out',
-  minorTickMark: ChartSpec['categoryAxisMinorTickMark'] = 'none',
+  majorTickMark: ReadChartSpec['categoryAxisMajorTickMark'] = 'out',
+  minorTickMark: ReadChartSpec['categoryAxisMinorTickMark'] = 'none',
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -3748,7 +3748,7 @@ const renderCategoryAxis = (
   const step = pointCount > 0 ? span / pointCount : 0;
   // Major ticks bound category slots; minor ticks sit halfway between them.
   const ticks = (
-    mark: NonNullable<ChartSpec['categoryAxisMajorTickMark']>,
+    mark: NonNullable<ReadChartSpec['categoryAxisMajorTickMark']>,
     length: number,
     offset: number,
   ): void => {
@@ -3769,7 +3769,7 @@ const renderCategoryAxis = (
   return out.join('');
 };
 
-const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number } => {
+const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: number } => {
   // Stacked charts scale the value axis to the per-category stacked total,
   // not the largest single value, or the bars overflow / the axis labels
   // disagree with the bar heights. percentStacked always spans 0..100%.
@@ -3949,7 +3949,7 @@ const renderChartLegend = (
 // `<c:val>` array alone is enough; PowerPoint then labels the x-axis
 // 1, 2, 3, ... Use the longest series as the point count when
 // `spec.categories` is empty so those charts still plot.
-const pointCount = (spec: ChartSpec): number => {
+const pointCount = (spec: ReadChartSpec): number => {
   if (spec.categories.length > 0) return spec.categories.length;
   let n = 0;
   for (const s of spec.series) if (s.values.length > n) n = s.values.length;
@@ -3961,7 +3961,7 @@ const chartFillOpacityAttr = (opacity = 1): string =>
 
 // Stacked inversion is unsupported in the preview, so negative-color inversion stays with clustered callers.
 const chartPointBaseColor = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
   seriesIndex: number,
   pointIndex: number,
@@ -3973,7 +3973,7 @@ const chartPointBaseColor = (
 
 const renderColumnChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const N = pointCount(spec);
@@ -4359,7 +4359,7 @@ const formatChartValue = (v: number): string => {
 // per-series override winning over the chart-level default, and projects
 // `v` through it. Falls back to `formatChartValue` when neither layer
 // authors a format.
-const formatDataLabelValue = (spec: ChartSpec, seriesIdx: number, v: number): string => {
+const formatDataLabelValue = (spec: ReadChartSpec, seriesIdx: number, v: number): string => {
   const nf = spec.series[seriesIdx]?.dataLabels?.numberFormat ?? spec.dataLabels?.numberFormat;
   return nf ? formatAxisLabel(v, nf) : formatChartValue(v);
 };
@@ -4368,7 +4368,7 @@ const formatDataLabelValue = (spec: ChartSpec, seriesIdx: number, v: number): st
 // Falls back to the renderer's hardcoded size / caller-supplied fill /
 // weight so existing layouts don't shift when no textStyle is authored.
 const dataLabelTextAttrs = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   seriesIdx: number,
   fallbackFill: string,
   fallbackSizePt = 9,
@@ -4383,7 +4383,11 @@ const dataLabelTextAttrs = (
   return `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}"${weight}${italic}`;
 };
 
-const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
+const renderBarChart = (
+  f: ChartFrame,
+  spec: ReadChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   const grouping = spec.grouping ?? 'clustered';
@@ -4500,7 +4504,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
 
 const renderLineChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
   fill: boolean,
 ): string => {
@@ -4761,7 +4765,7 @@ const renderLineChart = (
 
 const renderPieChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
   doughnut: boolean,
 ): string => {
@@ -4908,7 +4912,7 @@ const xyPoints = (series: ChartSeries): Array<{ x: number; y: number; size: numb
 // (y) axis).
 const renderScatterAxes = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   xB: { min: number; max: number },
   yB: { min: number; max: number },
 ): string => {
@@ -4937,7 +4941,7 @@ const renderScatterAxes = (
 
 const renderScatterChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const perSeries = spec.series.map((s) => xyPoints(s));
@@ -5003,7 +5007,7 @@ const renderScatterChart = (
 
 const renderBubbleChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const perSeries = spec.series.map((s) => xyPoints(s));
@@ -5058,7 +5062,7 @@ const renderBubbleChart = (
 
 const renderRadarChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const N = pointCount(spec);
@@ -5161,7 +5165,7 @@ const renderChart = (
   transform: string,
   theme: PresentationTheme | null,
 ): string | null => {
-  let spec: ChartSpec | null = null;
+  let spec: ReadChartSpec | null = null;
   try {
     spec = getShapeChartSpec(shape);
   } catch {
@@ -5337,7 +5341,7 @@ const renderChart = (
       (g.secondary ? 2 : 0) + (g.kind === 'line' || g.kind === 'area' ? 1 : 0);
     for (const group of [...groups.values()].sort((a, b) => paintOrder(a) - paintOrder(b))) {
       const scale = group.secondary && secondaryScale ? secondaryScale : primaryScale;
-      const groupSpec: ChartSpec = {
+      const groupSpec: ReadChartSpec = {
         ...spec,
         series: group.series,
         valueAxis: { min: scale.min, max: scale.max },

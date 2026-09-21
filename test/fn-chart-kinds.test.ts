@@ -15,6 +15,7 @@ import {
   getSlideShapes,
   getSlides,
   inches,
+  isChartSpec,
   loadPresentation,
   readPackagePart,
   savePresentation,
@@ -60,6 +61,9 @@ const author = async (spec: ChartSpec): Promise<Authored> => {
   const chartShape = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
   const readBack = getShapeChartSpec(chartShape);
   if (readBack === null) throw new Error('chart did not read back');
+  // Everything this library writes must narrow back to the write-side
+  // domain, or a read-modify-write pass could not put it back.
+  if (!isChartSpec(readBack)) throw new Error(`a ${readBack.kind} chart read back unwritable`);
   if (isSchemaValidationAvailable()) expectSchemaValid(xml, 'chart');
   // Round trip: what was read back must write the very same chart. Anything
   // the reader drops or the builder defaults differently shows up here.
@@ -173,9 +177,11 @@ describe('chart kinds: xy charts', () => {
 
   it('rejects an xy series without its x channel', async () => {
     await expect(
+      // @ts-expect-error a scatter series must carry its x channel
       author({ kind: 'scatter', categories: [], series: [{ name: 'S', values: [1, 2] }] }),
     ).rejects.toThrow(/needs xValues/);
     await expect(
+      // @ts-expect-error a bubble series must carry its size channel
       author({
         kind: 'bubble',
         categories: [],
@@ -230,6 +236,7 @@ describe('chart kinds: radar, stock, surface', () => {
 
   it('stock chart rejects a series count CT_StockChart cannot hold', async () => {
     await expect(
+      // @ts-expect-error a stock chart takes three or four series
       author({ kind: 'stock', categories: ['Mon'], series: TWO_SERIES }),
     ).rejects.toThrow(/3 series .* or 4/);
   });
@@ -344,9 +351,11 @@ describe('chart kinds: 3-D variants', () => {
 
   it('rejects view3D where no 3-D element exists', async () => {
     await expect(
+      // @ts-expect-error a doughnut has no 3-D element
       author({ kind: 'doughnut', categories: CATEGORIES, series: [TWO_SERIES[0]!], view3D: {} }),
     ).rejects.toThrow(/no 3-D variant/);
     await expect(
+      // @ts-expect-error a 3-D pie turns with the camera, not firstSliceAngleDeg
       author({
         kind: 'pie',
         categories: CATEGORIES,

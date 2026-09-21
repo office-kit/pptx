@@ -22,6 +22,7 @@ import {
   buildEmbeddedXlsx,
   layoutChartSheet,
   readChartSpec,
+  type ReadChartSpec,
 } from '../../internal/chartml/index.ts';
 import {
   NS,
@@ -248,17 +249,38 @@ const validateChartSpecAxes = (spec: ChartSpec): void => {
 // chart / secondary-axis titles, the legend and the chart-level data labels
 // the caller left unset (authored colors always win). Series-level and
 // per-point label styles, and the category / primary value axis titles, are
-// left as authored.
+// left as authored. Pie / doughnut have no axes, so they take the shared
+// defaults only.
 const withChartDefaultTextColor = (spec: ChartSpec, color: string | null): ChartSpec => {
   if (color === null) return spec;
   const withColor = (style: ChartTextStyle | undefined): ChartTextStyle =>
     style === undefined ? { color } : style.color === undefined ? { ...style, color } : style;
+  const shared = {
+    ...(spec.title !== undefined ? { titleStyle: withColor(spec.titleStyle) } : {}),
+    ...(spec.legend !== undefined
+      ? { legend: { ...spec.legend, textStyle: withColor(spec.legend.textStyle) } }
+      : {}),
+    ...(spec.dataLabels !== undefined
+      ? { dataLabels: { ...spec.dataLabels, textStyle: withColor(spec.dataLabels.textStyle) } }
+      : {}),
+  };
+  if (spec.kind === 'pie' || spec.kind === 'doughnut') return { ...spec, ...shared };
+  const axisLabels = {
+    categoryAxisLabelStyle: withColor(spec.categoryAxisLabelStyle),
+    valueAxisLabelStyle: withColor(spec.valueAxisLabelStyle),
+  };
+  // Only a 2-D bar / column / line / area chart can move a series to the
+  // secondary axis; every other kind has just the one value axis.
+  const isCombo =
+    spec.view3D === undefined &&
+    (spec.kind === 'bar' || spec.kind === 'column' || spec.kind === 'line' || spec.kind === 'area');
+  if (!isCombo) return { ...spec, ...shared, ...axisLabels };
   const hasSecondary = spec.series.some((series) => series.secondaryAxis === true);
   const secondary = spec.secondaryValueAxis ?? {};
   return {
     ...spec,
-    categoryAxisLabelStyle: withColor(spec.categoryAxisLabelStyle),
-    valueAxisLabelStyle: withColor(spec.valueAxisLabelStyle),
+    ...shared,
+    ...axisLabels,
     ...(hasSecondary
       ? {
           secondaryValueAxis: {
@@ -269,13 +291,6 @@ const withChartDefaultTextColor = (spec: ChartSpec, color: string | null): Chart
               : {}),
           },
         }
-      : {}),
-    ...(spec.title !== undefined ? { titleStyle: withColor(spec.titleStyle) } : {}),
-    ...(spec.legend !== undefined
-      ? { legend: { ...spec.legend, textStyle: withColor(spec.legend.textStyle) } }
-      : {}),
-    ...(spec.dataLabels !== undefined
-      ? { dataLabels: { ...spec.dataLabels, textStyle: withColor(spec.dataLabels.textStyle) } }
       : {}),
   };
 };
@@ -365,7 +380,7 @@ export type { ChartKind, ChartSeries, ChartSpec };
  */
 export interface SlideChartData {
   readonly shape: SlideShapeData;
-  readonly spec: ChartSpec | null;
+  readonly spec: ReadChartSpec | null;
 }
 
 const NAME_A_GRAPHIC_FN = qname('a', 'graphic', NS.dml);
@@ -516,7 +531,7 @@ export const getShapeChartSeriesValues = (
   return series ? series.values : null;
 };
 
-export const getShapeChartSpec = (shape: SlideShapeData): ChartSpec | null => {
+export const getShapeChartSpec = (shape: SlideShapeData): ReadChartSpec | null => {
   const slide = shape[SHAPE_SLIDE];
   const resolved = resolveChartPartName(slide, shape);
   if (!resolved) return null;
@@ -574,7 +589,7 @@ export const findChartsWithTrendlines = (slide: SlideData): ReadonlyArray<SlideC
  */
 export const findChartsWithDataLabels = (slide: SlideData): ReadonlyArray<SlideChartData> => {
   const out: SlideChartData[] = [];
-  const hasLabel = (dl: ChartSpec['dataLabels'] | undefined): boolean =>
+  const hasLabel = (dl: ReadChartSpec['dataLabels'] | undefined): boolean =>
     dl !== undefined &&
     Boolean(dl.showValue || dl.showCategory || dl.showSeriesName || dl.showPercent);
   for (const chart of getSlideCharts(slide)) {
@@ -657,7 +672,7 @@ export const getSlideCharts = (slide: SlideData): ReadonlyArray<SlideChartData> 
     if (!resolved) continue;
     const chartPart = pkg.getPart(resolved.partName);
     if (!chartPart) continue;
-    let spec: ChartSpec | null;
+    let spec: ReadChartSpec | null;
     try {
       const root = parseXml(decode(chartPart.data)).root;
       spec = readChartSpec(root);

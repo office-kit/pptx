@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import {
   type ChartDataLabels,
   type ChartSpec,
+  type ReadChartSpec,
+  isChartSpec,
   addSlideChart,
   getSlideCharts,
   getSlides,
@@ -29,7 +31,7 @@ const decoder = new TextDecoder();
 
 const roundTrip = async (
   spec: ChartSpec,
-): Promise<{ readonly spec: ChartSpec; readonly xml: string }> => {
+): Promise<{ readonly spec: ReadChartSpec; readonly xml: string }> => {
   const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
   addSlideChart(getSlides(pres)[0]!, {
     x: inches(0.5),
@@ -174,7 +176,11 @@ describe('chart reader: per-point data labels', () => {
     });
   });
 
-  const readDoughnut = (ser: string): ChartSpec => readChartSpec(parseXml(wrap(ser)).root)!;
+  const readDoughnut = (ser: string): ChartSpec => {
+    const spec = readChartSpec(parseXml(wrap(ser)).root)!;
+    if (!isChartSpec(spec)) throw new Error('the doughnut fixture does not narrow to a ChartSpec');
+    return spec;
+  };
   const twoPoints = `<c:val><c:numLit><c:ptCount val="2"/><c:pt idx="0"><c:v>1</c:v></c:pt><c:pt idx="1"><c:v>2</c:v></c:pt></c:numLit></c:val>`;
   const seriesShowVal = `<c:showLegendKey val="0"/><c:showVal val="1"/><c:showCatName val="0"/><c:showSerName val="0"/><c:showPercent val="0"/><c:showBubbleSize val="0"/>`;
 

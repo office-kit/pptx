@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import {
   type ChartSpec,
+  isChartSpec,
   type ParagraphAlignment,
   type ParagraphSpec,
   type PresentationData,
@@ -63,9 +64,13 @@ const freshSlide = (): { pres: PresentationData; slide: SlideData } => {
   return { pres, slide: addSlide(pres, { layout }) };
 };
 
+// The round trip writes what it read, so the spec has to narrow to the
+// write-side domain — a deck pptxgenjs authored may not.
 const chartOf = (pres: PresentationData): ChartSpec => {
   const shape = getSlideShapes(getSlides(pres)[0]!).at(-1)!;
-  return getShapeChartSpec(shape)!;
+  const spec = getShapeChartSpec(shape)!;
+  if (!isChartSpec(spec)) throw new Error(`a ${spec.kind} chart read back unwritable`);
+  return spec;
 };
 
 const partXml = (pres: PresentationData, name: string): string =>
