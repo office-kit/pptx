@@ -1,5 +1,14 @@
 # @office-kit/pptx-dev
 
+## 0.8.2
+
+### Patch Changes
+
+- Updated dependencies [4235418]
+- Updated dependencies [4235418]
+  - @office-kit/pptx-preview@0.10.0
+  - @office-kit/pptx-dsl@0.6.0
+
 ## 0.8.1
 
 ### Patch Changes
