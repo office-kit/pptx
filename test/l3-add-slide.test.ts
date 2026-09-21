@@ -5,6 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   addSlide,
+  duplicateSlide,
+  importSlide,
+  moveSlide,
+  removeSlide,
+  reverseSlides,
+  isSlideHidden,
+  setSlideHidden,
   findSlidePlaceholder,
   getShapeText,
   getSlideLayout,
@@ -20,6 +27,39 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('L3: addSlide from a layout', () => {
+  it('keeps retained slide and shape edits live across deck changes', async () => {
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = getSlideLayouts(pres).find((l) => getSlideLayoutName(l) === 'Title Only')!;
+    const first = addSlide(pres, { layout });
+    const title = findSlidePlaceholder(first, 'title')!;
+    const second = addSlide(pres, { layout });
+    const assertRetainedEdits = async (label: string) => {
+      setShapeText(title, label);
+      setSlideHidden(first, true);
+      expect(getSlides(pres)).toContain(first);
+      expect(findSlidePlaceholder(first, 'title')).toBe(title);
+      const reloaded = await loadPresentation(await savePresentation(pres));
+      const index = getSlides(pres).indexOf(first);
+      expect(isSlideHidden(getSlides(reloaded)[index]!)).toBe(true);
+      expect(getShapeText(findSlidePlaceholder(getSlides(reloaded)[index]!, 'title')!)).toBe(label);
+      setSlideHidden(first, false);
+    };
+    await assertRetainedEdits('After add / 追加後');
+    const duplicate = duplicateSlide(pres, first);
+    await assertRetainedEdits('After duplicate');
+    moveSlide(pres, first, 2);
+    await assertRetainedEdits('After move');
+    reverseSlides(pres);
+    await assertRetainedEdits('After reverse');
+    removeSlide(pres, second);
+    await assertRetainedEdits('After remove');
+    expect(getSlides(pres)).not.toContain(second);
+    const source = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    importSlide(pres, getSlides(source)[0]!, layout);
+    await assertRetainedEdits('After import');
+    expect(getShapeText(findSlidePlaceholder(duplicate, 'title')!)).toBe('After add / 追加後');
+  });
+
   it('adds a single slide bound to the chosen layout and persists', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
     expect(getSlides(pres).length).toBe(0);
