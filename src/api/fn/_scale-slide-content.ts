@@ -1,7 +1,15 @@
 // Uniform page fitting. Restrict edits to dimensional DrawingML properties;
 // image bytes, crop fractions, geometry paths, relationships and timing stay intact.
 import { boundedInt } from '../../internal/bounds.ts';
-import { NS, attr, qname, firstChildElement, type XmlElement } from '../../internal/xml/index.ts';
+import {
+  NS,
+  attr,
+  elem,
+  getAttrValue,
+  qname,
+  firstChildElement,
+  type XmlElement,
+} from '../../internal/xml/index.ts';
 
 const SHAPES = new Set(['sp', 'pic', 'cxnSp', 'graphicFrame', 'grpSp']);
 const TEXT_PROPS = new Set(['rPr', 'defRPr', 'endParaRPr']);
@@ -10,6 +18,49 @@ const PARAGRAPH_PROPS = new Set([
   'defPPr',
   ...Array.from({ length: 9 }, (_, i) => `lvl${i + 1}pPr`),
 ]);
+
+// Unsized table text uses the editor's 18pt default. Record it before scaling
+// only where no local font-size source exists, so authored inheritance survives.
+const materializeTableFontDefaults = (body: XmlElement): void => {
+  const child = (node: XmlElement | null, name: string) =>
+    node && firstChildElement(node, qname('a', name, NS.dml));
+  const size = (node: XmlElement | null) => node && getAttrValue(node, qname('', 'sz', ''));
+  const ensureSize = (parent: XmlElement, name: string): void => {
+    let props = child(parent, name);
+    if (!props) {
+      props = elem(qname('a', name, NS.dml));
+      if (name === 'rPr') parent.children.unshift(props);
+      else parent.children.push(props);
+    }
+    if (size(props) === null) props.attrs.push(attr(qname('', 'sz', ''), '1800'));
+  };
+  const list = child(body, 'lstStyle');
+  for (const paragraph of body.children) {
+    if (
+      paragraph.kind !== 'element' ||
+      paragraph.name.namespaceURI !== NS.dml ||
+      paragraph.name.localName !== 'p'
+    )
+      continue;
+    const pPr = child(paragraph, 'pPr');
+    const level = Number(pPr && getAttrValue(pPr, qname('', 'lvl', ''))) || 0;
+    const levelProps =
+      child(list, `lvl${level + 1}pPr`) ?? (level === 0 ? child(list, 'defPPr') : null);
+    if (size(child(pPr, 'defRPr')) !== null || size(child(levelProps, 'defRPr')) !== null) continue;
+    const runs = paragraph.children.filter(
+      (node): node is XmlElement =>
+        node.kind === 'element' &&
+        node.name.namespaceURI === NS.dml &&
+        ['r', 'fld', 'br'].includes(node.name.localName),
+    );
+    const endSize = size(child(paragraph, 'endParaRPr'));
+    for (const run of runs) {
+      if (run === runs.at(-1) && endSize !== null) continue;
+      ensureSize(run, 'rPr');
+    }
+    ensureSize(paragraph, 'endParaRPr');
+  }
+};
 
 /** Scales coordinates and physical formatting; centers only top-level objects. */
 export const scaleSlideContent = (
@@ -27,6 +78,7 @@ export const scaleSlideContent = (
     const { localName: name, namespaceURI: ns } = node.name;
     const depth = shapeDepth + (ns === NS.pml && SHAPES.has(name) ? 1 : 0);
     const drawing = ns === NS.dml;
+    if (drawing && name === 'txBody' && parent === 'tc') materializeTableFontDefaults(node);
     if (ns === NS.pml && SHAPES.has(name)) {
       const nonVisual = firstChildElement(node, qname('p', 'nvSpPr', NS.pml));
       const application = nonVisual && firstChildElement(nonVisual, qname('p', 'nvPr', NS.pml));

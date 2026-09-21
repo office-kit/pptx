@@ -16,6 +16,8 @@ import {
   getShapeTextMargins,
   getSlideXmlString,
   getTableColumnWidths,
+  getTableCell,
+  getTableCellParagraphs,
   getTableRowHeights,
   groupShapes,
   getGroupChildren,
@@ -178,4 +180,27 @@ it('fits inherited placeholder bounds and margins through save and reload', asyn
   const restoredTitle = getSlideShapes(getSlides(restored)[0]!)[0]!;
   expect(getShapeBoundsResolved(restored, restoredTitle)).toEqual(expectedBounds);
   expect(getShapeBodyPrEffective(restored, restoredTitle).margins).toEqual(expectedMargins);
+});
+
+it('persists implicit table font sizes and scales them once on repeated fits', async () => {
+  const pres = await load();
+  setSlideSize(pres, SLIDE_SIZE_4_3);
+  const slide = getSlides(pres)[0]!;
+  const table = addSlideTable(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(3),
+    h: inches(2),
+    rows: [['Default', '']],
+  });
+  setSlideSize(pres, { width: inches(20), height: inches(15) }, { content: 'fit' });
+  expect(getTableCellParagraphs(getTableCell(table, 0, 0))[0]!.elements[0]!.format?.size).toBe(36);
+  expect(getTableCellParagraphs(getTableCell(table, 0, 1))[0]!.endFormat?.size).toBe(36);
+  const restored = await loadPresentation(await savePresentation(pres));
+  setSlideSize(restored, SLIDE_SIZE_4_3, { content: 'fit' });
+  const restoredTable = getSlideShapes(getSlides(restored)[0]!).at(-1)!;
+  expect(
+    getTableCellParagraphs(getTableCell(restoredTable, 0, 0))[0]!.elements[0]!.format?.size,
+  ).toBe(18);
+  expect(getTableCellParagraphs(getTableCell(restoredTable, 0, 1))[0]!.endFormat?.size).toBe(18);
 });
