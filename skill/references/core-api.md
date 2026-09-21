@@ -288,8 +288,6 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
   `getShapeChartSpec` returns the permissive `ReadChartSpec` instead, since a
   deck authored elsewhere can carry any combination; narrow it back with
   `isChartSpec` before writing it.
-- **Find placeholders by type token**, not display name:
-  `findSlidePlaceholder(slide, 'title' | 'body' | 'ctrTitle' | 'subTitle')`.
 
 ## QA protocol — run this before saying "done"
 

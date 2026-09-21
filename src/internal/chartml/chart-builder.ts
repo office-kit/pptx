@@ -1767,7 +1767,8 @@ const XY_KINDS: ReadonlySet<ChartSpec['kind']> = new Set(['scatter', 'bubble']);
 // Cross-field rules of a spec that no single element builder owns. Each one
 // would otherwise serialize into a chart PowerPoint repairs or misdraws.
 // `ChartSpec` already rules most of them out at compile time; this is the
-// guard for the specs that reach the builder untyped (JS callers, `asChartSpec`).
+// guard for the specs that reach the builder untyped (JS callers, a spec
+// `isChartSpec` has not narrowed).
 const validateSpec = (spec: ReadChartSpec, usesComboFields: boolean): void => {
   if (usesComboFields && !COMBO_KINDS.has(spec.kind)) {
     throw new Error(
