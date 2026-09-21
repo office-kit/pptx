@@ -22,6 +22,7 @@ else {
 }`;
   for (const provider of ['claude', 'codex'])
     await writeFile(join(directory, provider), script, { mode: 0o755 });
+  const historyEvents = [];
   let verificationErrors = [];
   let verificationGate;
   const chat = createChat(
@@ -31,6 +32,16 @@ else {
     async () => {
       await verificationGate;
       return verificationErrors.shift() ?? null;
+    },
+    undefined,
+    undefined,
+    {
+      async begin() {
+        historyEvents.push('begin');
+      },
+      async end() {
+        historyEvents.push('end');
+      },
     },
   );
   const focus = {
@@ -78,6 +89,7 @@ else {
   await post(request('Create an agenda'));
   let repaired = await finished();
   assert.equal(repaired.status, 'Done');
+  assert.deepEqual(historyEvents, ['begin', 'end']);
   assert.equal(repaired.messages.filter((message) => message.role === 'user').length, 2);
   assert.match(await readFile(join(directory, 'prompt.txt'), 'utf8'), /Bullets is not defined/);
   await post({}, '/chat/reset');
@@ -85,6 +97,7 @@ else {
   await post(request('Create an agenda'));
   repaired = await finished();
   assert.match(repaired.status, /after 3 repair attempts/);
+  assert.deepEqual(historyEvents, ['begin', 'end', 'begin', 'end']);
   assert.equal(repaired.messages.filter((message) => message.role === 'user').length, 4);
   await post({}, '/chat/reset');
   let releaseVerification;
@@ -99,6 +112,7 @@ else {
   releaseVerification();
   const stopped = await finished();
   assert.match(stopped.status, /Stopped/);
+  assert.deepEqual(historyEvents.slice(-2), ['begin', 'end']);
   assert.equal(stopped.messages.filter((message) => message.role === 'user').length, 1);
   verificationGate = undefined;
   await post({}, '/chat/reset');

@@ -1,3 +1,4 @@
+import { createHistory, historyFile } from './history.ts';
 import { createTextEditor } from './text-edit.ts';
 import { createVisualReviewer } from './visual-review.ts';
 import { createServer, type ServerResponse } from 'node:http';
@@ -29,11 +30,19 @@ export async function serveDeck(entry: string, port = 4173) {
       closing: boolean;
     }
   >();
+  const history = await createHistory(dirname(resolve(entry)), () => {
+    for (const client of clients) client.write('data: history\n\n');
+  });
+  let textEdits = 0;
   const capturedReviews = new Map<string, string[]>();
   function session(id: string) {
     let result = sessions.get(id);
     if (!result) {
       const review = createVisualReviewer(resolve(entry), () => latest?.slides ?? []);
+      const turnHistory = {
+        begin: () => history.begin('agent:' + id, 'AI edit'),
+        end: () => history.end('agent:' + id),
+      };
       const chat = createChat(
         entry,
         () => {
@@ -43,6 +52,7 @@ export async function serveDeck(entry: string, port = 4173) {
         verify,
         review,
         (prompt) => capturedReviews.get(prompt) ?? [],
+        turnHistory,
       );
       const terminal = createTerminal(
         entry,
@@ -50,6 +60,7 @@ export async function serveDeck(entry: string, port = 4173) {
         id ? '/agents/' + id : '',
         verify,
         review,
+        turnHistory,
       );
       result = { chat, terminal, closing: false };
       sessions.set(id, result);
@@ -79,7 +90,17 @@ export async function serveDeck(entry: string, port = 4173) {
       response.writeHead(404).end();
       return;
     }
-    if (request.url === '/text-edit' || request.url === '/text-edit/undo') {
+    if (request.url === '/history' && request.method === 'GET') {
+      response
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify(history.state()));
+      return;
+    }
+    if (
+      request.url === '/text-edit' ||
+      request.url === '/history/undo' ||
+      request.url === '/history/redo'
+    ) {
       if (
         request.method !== 'POST' ||
         request.headers.origin !== `http://${host}` ||
@@ -95,10 +116,23 @@ export async function serveDeck(entry: string, port = 4173) {
           body += chunk;
           if (Buffer.byteLength(body) > 100000) throw new Error('Request too large');
         }
+        if (request.url !== '/text-edit') {
+          await history.move(request.url === '/history/undo' ? 'undo' : 'redo');
+          const buildError = await verify();
+          response
+            .writeHead(200, { 'Content-Type': 'application/json' })
+            .end(JSON.stringify({ ...history.state(), buildError }));
+          return;
+        }
         const manualReview = createVisualReviewer(resolve(entry), () => latest?.slides ?? []);
         manualReview.begin();
-        if (request.url === '/text-edit/undo') await textEditor.undo();
-        else await textEditor.edit(JSON.parse(body));
+        const editId = 'text:' + ++textEdits;
+        await history.begin(editId, 'Text edit');
+        try {
+          await textEditor.edit(JSON.parse(body));
+        } finally {
+          await history.end(editId);
+        }
         let review;
         let reviewError;
         try {
@@ -287,6 +321,9 @@ export async function serveDeck(entry: string, port = 4173) {
         error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
     } finally {
       building = false;
+      void history.capture().catch(() => {
+        /* The history endpoint exposes capture failures. */
+      });
       for (const client of clients) client.write('data: updated\n\n');
       if (pending && !timer) {
         pending = false;
@@ -304,7 +341,7 @@ export async function serveDeck(entry: string, port = 4173) {
         .some((part) => ['node_modules', '.git', 'dist', '.office-kit'].includes(part))
     )
       return;
-    if (!/\.([cm]?[jt]sx?|json|pptx|png|jpe?g|gif|bmp|tiff?|emf|wmf|svg)$/i.test(filename)) return;
+    if (!historyFile(filename)) return;
     generation++;
     void builder.cancel();
     clearTimeout(timer);

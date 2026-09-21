@@ -39,7 +39,7 @@ npm run dev
 Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
 has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
-exit) are viewing controls. Select an area for an AI instruction or use **Edit text**
+exit) are viewing controls. Click an object or drag an area for an AI instruction, or double-click text
 to save a literal directly. All edits are persisted in TSX.
 Keep the server running throughout the edit/review loop. Saving updates only the
 changed thumbnails and slide view, preserving zoom, scroll position and presentation
@@ -162,22 +162,44 @@ References: [Claude Code commands](https://code.claude.com/docs/en/commands),
 
 ## Edit from the slide
 
-Use **Select area** and drag a rectangle, then enter an instruction such as
-“Move this down a little.” Choose an agent pane and click **Apply with AI**.
-The request includes the slide, preview revision, relative bounds and intersecting
-text. Start Claude Code in that pane first; Codex starts when you send.
-Selection is cleared when the preview or selected slide changes. Shift+Enter
-inserts a newline; Cmd/Ctrl+Enter sends the request.
+Hover to see an object's outline, **click an object** to give it an AI instruction,
+or **drag a rectangle** to select an arbitrary area. No mode switching is needed.
+Enter an instruction such as “Move this down a little,” choose an agent pane, and
+click **Apply with AI**. The request includes the slide, preview revision, relative
+bounds and intersecting text. Start Claude Code in that pane first; Codex starts
+when you send. Click the background or press Escape to deselect. Selection also
+clears when the preview or selected slide changes. Shift+Enter inserts a newline;
+Cmd/Ctrl+Enter sends the request.
 
-Use **Edit text**, click a paragraph, and **Save text** to update its TSX source
-without waiting for an agent. Direct saves require a unique source literal within
-the entry directory and verify that other slides did not change. Computed text,
-shared values and ambiguous matches use **Apply with AI** instead. **Undo text**
-restores the last direct edit only if its file has not changed since. **Undo with
-AI** asks the agent to reverse its previous selection edit while preserving newer
-work; it is not a source snapshot restore.
+**Double-click a paragraph** to edit it in place. Enter inserts a newline;
+Cmd/Ctrl+Enter or **Save text** saves, and Escape cancels. Direct saves require a
+unique source literal within the entry directory and verify that other slides did
+not change. Computed text, shared values and ambiguous matches use **Apply with AI**
+instead.
 
-After each successful agent edit or direct text save/undo, the dev server captures
+### Undo and Redo
+
+The toolbar's **Undo / Redo** restores actual source and asset changes, including
+AI edits, direct text saves and saves from an external editor. Use **Cmd/Ctrl+Z**
+and **Cmd/Ctrl+Shift+Z** (or Ctrl+Y) while focused on the preview. Inside a text
+field or agent terminal, those keys keep their normal local meaning.
+
+An AI turn includes its build repairs and screenshot correction passes. Overlapping
+agent turns are grouped as **Concurrent edits**; Undo waits until all have finished.
+A direct text save and any subsequent AI visual corrections are separate entries.
+New edits clear Redo. File additions and deletions are included; newer external saves
+are recorded as their own edit before Undo, and conflicting writes are refused.
+Undo/Redo rebuilds the preview without asking an agent to reinterpret or change the
+restored design. It also works when an AI edit broke the build.
+
+History lasts for the dev server session (browser reloads preserve it), up to 50
+entries / 128 MiB. It covers TS/JS, JSON, CSS, Markdown, YAML, PPTX and image files
+inside the entry directory, excluding symlinks, `node_modules`, `.git`, `dist` and
+`.office-kit`. The tracked project must fit within 64 MiB. Changes outside that
+folder, CLI session state and conversation transcripts are not restored. Keep Git for
+persistent project history.
+
+After each successful agent edit or direct text save, the dev server captures
 all changed slides, including slides offscreen. Codex receives PNG attachments;
 Claude Code receives local PNG paths through its Stop hook and is instructed to
 read them. The agent checks overlap, clipping, alignment, spacing and contrast,
