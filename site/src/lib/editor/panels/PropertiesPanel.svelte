@@ -18,6 +18,7 @@
   import TableSection from './TableSection.svelte';
   import ImageSection from './ImageSection.svelte';
   import ArrangeSection from './ArrangeSection.svelte';
+  import ParagraphSection from './ParagraphSection.svelte';
   import BespokeSections from './BespokeSections.svelte';
   import { t, capLabel, catLabel, getLocale } from '../i18n/i18n.svelte.ts';
 
@@ -78,6 +79,7 @@
   <ChartSection />
   <TableSection />
   <ImageSection />
+  <ParagraphSection />
   <ArrangeSection />
   <BespokeSections />
 
