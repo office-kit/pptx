@@ -129,6 +129,18 @@
   // Marquee (rubber-band) selection, in stage-local px.
   let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
 
+  let cellDrag: { id: number; pointer: number } | null = null;
+  const selectedCellBoxes = $derived.by(() => {
+    doc.version;
+    const selection = doc.selection;
+    if (selection.kind !== 'cell') return [];
+    const box = boxes.find(box => box.id === selection.shapeId);
+    if (!box) return [];
+    const cells = getTableCells(box.shape);
+    const selected = tableCellsInRange(cells, tableSelectionBlock(selection));
+    return tableCellBoxes(box.shape).filter(cell => selected.has(cells[cell.row]![cell.col]!));
+  });
+
   let raf = 0;
   function schedule(fn: () => void) {
     if (raf) return;
@@ -159,7 +171,22 @@
 
   // ---- Selection + gesture start ----------------------------------------
   function beginMove(e: PointerEvent, box: Box) {
-    if (editing || e.button !== 0) return;
+    if (e.button !== 0) return;
+    const selection = doc.selection;
+    if (selection.kind === 'cell' && selection.shapeId === box.id) {
+      const cell = cellAtPointer(e, box);
+      if (cell) {
+        e.preventDefault();
+        e.stopPropagation();
+        commitEditing();
+        doc.selectCell(selection.slideIndex, box.id, cell.row, cell.col, e.shiftKey);
+        cellDrag = { id: box.id, pointer: e.pointerId };
+        if (e.currentTarget instanceof HTMLElement) e.currentTarget.focus({ preventScroll: true });
+        capture(e);
+        return;
+      }
+    }
+    if (editing) return;
     e.stopPropagation();
     const already = selectedIds.has(box.id);
     if (e.shiftKey) {
@@ -207,6 +234,13 @@
   }
 
   function onPointerMove(e: PointerEvent) {
+    if (cellDrag) {
+      if (cellDrag.pointer !== e.pointerId) return;
+      const box = boxes.find(box => box.id === cellDrag!.id);
+      const cell = box ? cellAtPointer(e, box) : undefined;
+      if (cell) doc.selectCell(doc.selection.slideIndex, cellDrag.id, cell.row, cell.col, true);
+      return;
+    }
     if (marquee) {
       const rect = stageEl!.getBoundingClientRect();
       marquee = { ...marquee, x1: e.clientX - rect.left, y1: e.clientY - rect.top };
@@ -277,6 +311,7 @@
   }
 
   function onPointerUp() {
+    if (cellDrag) { cellDrag = null; return; }
     if (raf) {
       cancelAnimationFrame(raf);
       raf = 0;
@@ -607,6 +642,7 @@
     role="presentation"
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
+    onpointercancel={() => cellDrag = null}
   >
     <div
       bind:this={stageEl}
@@ -637,10 +673,8 @@
             }}
           >
             {#if isSel && doc.selection.kind === 'cell'}
-              {#each tableCellBoxes(box.shape) as cell}
-                {#if cell.row === doc.selection.row && cell.col === doc.selection.col}
-                  <div class="cell-selection" style="left:{cell.left}%; top:{cell.top}%; width:{cell.width}%; height:{cell.height}%;"></div>
-                {/if}
+              {#each selectedCellBoxes as cell}
+                <div class="cell-selection" aria-hidden="true" style="left:{cell.left}%; top:{cell.top}%; width:{cell.width}%; height:{cell.height}%;"></div>
               {/each}
             {/if}
             {#if isSel && !editing && selectedIds.size === 1}
@@ -757,7 +791,7 @@
   .hit.selected {
     outline: 1.5px solid var(--ok-selected-border);
   }
-  .cell-selection { position: absolute; pointer-events: none; outline: 2px solid var(--ok-selected-border); outline-offset: -2px; }
+  .cell-selection { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--ok-selected-border) 16%, transparent); outline: 2px solid var(--ok-selected-border); outline-offset: -2px; }
   .handle {
     position: absolute;
     width: 10px;
