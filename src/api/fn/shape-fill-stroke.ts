@@ -36,6 +36,7 @@ import {
   nextRelId,
   partName,
 } from '../../internal/opc/index.ts';
+import type { PresetShape } from '../../internal/presentationml/shape-builder.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -58,6 +59,39 @@ import { commitAndRefresh, requireSpPr, setOpcDefault } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — geometry.
+
+/**
+ * Replace the preset or custom geometry of a shape, picture, or connector.
+ * Picture geometry clips the image without modifying its bytes or crop.
+ * Existing adjust guides are removed; use `setShapeAdjustValues` afterward
+ * to customize the new preset. Position, size, fill, and effects are preserved.
+ */
+export const setShapePreset = (shape: SlideShapeData, preset: PresetShape): void => {
+  const spPr = requireSpPr(shape);
+  spPr.children = spPr.children.filter(
+    (child) =>
+      !(
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['prstGeom', 'custGeom'].includes(child.name.localName)
+      ),
+  );
+  const transform = spPr.children.findIndex(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'xfrm',
+  );
+  spPr.children.splice(
+    transform + 1,
+    0,
+    elem(qname('a', 'prstGeom', NS.dml), {
+      attrs: [attr(qname('', 'prst', ''), preset)],
+      children: [elem(qname('a', 'avLst', NS.dml))],
+    }),
+  );
+  commitAndRefresh(shape);
+};
 
 /** Sets the shape's position in EMU. Companion to `setShapeSize`. */
 export const setShapePosition = (shape: SlideShapeData, x: Emu, y: Emu): void => {

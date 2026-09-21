@@ -64,8 +64,7 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
  * `'rightArrow'`, ...) for shapes whose body carries a
  * `<a:prstGeom prst="…"/>`. Returns `null` for:
  *
- *   - non-`'shape'` kinds (pictures, connectors, group shapes, tables,
- *     charts — they have their own geometry tags or no geometry),
+ *   - group shapes, tables, and charts (they have no preset geometry),
  *   - shapes using custom geometry (`<a:custGeom>`),
  *   - shapes whose preset is missing (malformed but possible).
  *
@@ -73,8 +72,7 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
  * approximation of each shape without dropping to the raw XML.
  */
 export const getShapePreset = (shape: SlideShapeData): string | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape' && shape[SHAPE_SNAPSHOT].kind !== 'connector')
-    return null;
+  if (!['shape', 'picture', 'connector'].includes(shape[SHAPE_SNAPSHOT].kind)) return null;
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));

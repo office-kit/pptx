@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 151,
+  "count": 152,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1643,6 +1643,23 @@
           "name": "y",
           "type": "Emu",
           "kind": "emu",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapePreset",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "preset",
+          "type": "PresetShape",
+          "kind": "object",
           "optional": false
         }
       ]

@@ -221,6 +221,31 @@ const handOverrides: Record<string, CapabilityOverride> = {
     ribbonGroup: 'arrange',
     params: [],
   },
+  setShapePreset: {
+    labelEn: 'Change shape',
+    labelJa: '形状の変更',
+    params: [
+      {
+        name: 'preset',
+        type: 'PresetShape',
+        kind: 'enum',
+        optional: false,
+        label: 'Shape',
+        enumValues: [
+          'rect',
+          'roundRect',
+          'ellipse',
+          'triangle',
+          'diamond',
+          'pentagon',
+          'hexagon',
+          'star5',
+          'heart',
+        ],
+        default: 'rect',
+      },
+    ],
+  },
   setShapeRotation: {
     labelEn: 'Rotation',
     labelJa: '回転',

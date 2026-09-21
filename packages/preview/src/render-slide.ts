@@ -326,8 +326,12 @@ const renderPicture = (
       imgH = h * scaleY;
       imgX = x - imgW * cropL;
       imgY = y - imgH * cropT;
+    }
+    const preset = getShapePreset(shape) ?? 'rect';
+    if (crop || preset !== 'rect') {
       const clipId = mintId();
-      clipDef = `<defs><clipPath id="${clipId}"><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}"/></clipPath></defs>`;
+      const geometry = pictureClipGeometry(shape, preset, x, y, w, h);
+      clipDef = `<defs><clipPath id="${clipId}">${geometry}</clipPath></defs>`;
       clipAttr = ` clip-path="url(#${clipId})"`;
     }
     const brightness = getShapeImageBrightness(shape) ?? 0;
@@ -420,6 +424,36 @@ const renderPicture = (
       : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
   return `<g data-pptx-fallback="image"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+};
+
+// Share preset path generators with native shapes so image masks use the
+// same slide coordinates and are transformed together with the cropped image.
+const pictureClipGeometry = (
+  shape: SlideShapeData,
+  preset: string,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): string => {
+  if (preset === 'ellipse')
+    return `<ellipse cx="${E(x + w / 2)}" cy="${E(y + h / 2)}" rx="${E(w / 2)}" ry="${E(h / 2)}"/>`;
+  if (preset === 'roundRect') {
+    const radius = E(
+      Math.min(w, h) *
+        Math.max(0, Math.min(0.5, (getShapeAdjustValues(shape).adj ?? 16667) / 100000)),
+    );
+    return `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${radius}" ry="${radius}"/>`;
+  }
+  const path = PRESET_PATHS[preset];
+  if (path)
+    return `<path d="${path(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX)}" clip-rule="evenodd"/>`;
+  const points = PRESET_POINTS[preset];
+  if (points)
+    return `<polygon points="${points(w / EMU_PER_PX, h / EMU_PER_PX)
+      .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
+      .join(' ')}"/>`;
+  return `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}"/>`;
 };
 
 const renderPicturePlaceholderLabel = (
