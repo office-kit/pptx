@@ -5,7 +5,7 @@
   // double-click to edit text. Gestures mutate the real model on every frame
   // (so the shape moves for real, not a ghost) via `applyLive`, then commit a
   // single undo step on release. Zoom + right-click menu round out the feel.
-  import { tick } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
@@ -29,7 +29,7 @@
     setShapeRotation,
     setShapeText,
   } from '@office-kit/pptx';
-  import { selectedShapeIds, topLevelShapes } from '../core/selection.ts';
+  import { selectedShapeIds, topLevelShapes, type Selection } from '../core/selection.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { snapMove, type Guide, type Rect } from './snapping.ts';
 
@@ -141,6 +141,36 @@
     return tableCellBoxes(box.shape).filter(cell => selected.has(cells[cell.row]![cell.col]!));
   });
 
+  let gestureSelection: Selection | null = null;
+  let cancelling = false;
+  function cancelGesture() {
+    if (!drag && !marquee && !cellDrag) return;
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
+    drag = null;
+    marquee = null;
+    cellDrag = null;
+    guides = [];
+    if (gestureSelection) doc.select(gestureSelection);
+    gestureSelection = null;
+    cancelling = true;
+    void doc.cancelLive().catch(cause => editor.toast('error', cause instanceof Error ? cause.message : String(cause))).finally(() => cancelling = false);
+  }
+  onMount(() => {
+    const key = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape' || (!drag && !marquee && !cellDrag)) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      cancelGesture();
+    };
+    window.addEventListener('keydown', key, true);
+    window.addEventListener('blur', cancelGesture);
+    return () => {
+      window.removeEventListener('keydown', key, true);
+      window.removeEventListener('blur', cancelGesture);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  });
+
   let raf = 0;
   function schedule(fn: () => void) {
     if (raf) return;
@@ -171,8 +201,9 @@
 
   // ---- Selection + gesture start ----------------------------------------
   function beginMove(e: PointerEvent, box: Box) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || cancelling) return;
     const selection = doc.selection;
+    gestureSelection = selection;
     if (selection.kind === 'cell' && selection.shapeId === box.id) {
       const cell = cellAtPointer(e, box);
       if (cell) {
@@ -199,7 +230,8 @@
   }
 
   function startDrag(mode: Drag['mode'], handle: Handle | undefined, ids: number[], e: PointerEvent) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || cancelling) return;
+    gestureSelection = doc.selection;
     const startRects = new Map<number, Rect>();
     for (const id of ids) {
       const r = resolvedRect(id);
@@ -222,7 +254,8 @@
   }
 
   function onStagePointerDown(e: PointerEvent) {
-    if (editing || e.button !== 0) return;
+    if (editing || e.button !== 0 || cancelling) return;
+    gestureSelection = doc.selection;
     // Empty-area press → marquee select.
     if (!stageEl) return;
     const rect = stageEl.getBoundingClientRect();
@@ -252,7 +285,7 @@
     }
     drag.last = { x: e.clientX, y: e.clientY };
     drag.shift = e.shiftKey;
-    schedule(applyDragFrame);
+    if (drag.moved) schedule(applyDragFrame);
   }
 
   function applyDragFrame() {
@@ -311,6 +344,7 @@
   }
 
   function onPointerUp() {
+    gestureSelection = null;
     if (cellDrag) { cellDrag = null; return; }
     if (raf) {
       cancelAnimationFrame(raf);
@@ -359,13 +393,13 @@
 
   // ---- Handles / rotate --------------------------------------------------
   function onHandleDown(e: PointerEvent, box: Box, handle: Handle) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || cancelling) return;
     e.stopPropagation();
     doc.selectShape(doc.selection.slideIndex, box.id);
     startDrag('resize', handle, [box.id], e);
   }
   function onRotateDown(e: PointerEvent, box: Box) {
-    if (e.button !== 0) return;
+    if (e.button !== 0 || cancelling) return;
     e.stopPropagation();
     doc.selectShape(doc.selection.slideIndex, box.id);
     startDrag('rotate', undefined, [box.id], e);
@@ -642,7 +676,8 @@
     role="presentation"
     onpointermove={onPointerMove}
     onpointerup={onPointerUp}
-    onpointercancel={() => cellDrag = null}
+    onpointercancel={cancelGesture}
+    onlostpointercapture={cancelGesture}
   >
     <div
       bind:this={stageEl}
