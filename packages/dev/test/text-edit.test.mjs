@@ -50,8 +50,8 @@ test('literal edits escape TSX and refuse ambiguous, stale, shared and concurren
       await readFile(file, 'utf8'),
       'const deck = <Text>{' + JSON.stringify(replacement) + '}</Text>',
     );
-    await editor.undo();
-    assert.equal(await readFile(file, 'utf8'), initial);
+
+    state = { ...state, slides: ['svg1', 'svg2'], slideTexts: ['Hello', 'Other'] };
     await writeFile(file, initial + '; const second = "Hello"');
     await assert.rejects(editor.edit(request()), /multiple source matches/);
     await writeFile(file, initial);
@@ -62,12 +62,6 @@ test('literal edits escape TSX and refuse ambiguous, stale, shared and concurren
     behavior = 'concurrent';
     await assert.rejects(editor.edit(request()), /newer changes were preserved/);
     assert.match(await readFile(file, 'utf8'), /external edit/);
-    behavior = 'normal';
-    await writeFile(file, initial);
-    await editor.edit(request());
-    await writeFile(file, 'newer user source');
-    await assert.rejects(editor.undo(), /newer changes were preserved/);
-    assert.equal(await readFile(file, 'utf8'), 'newer user source');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }

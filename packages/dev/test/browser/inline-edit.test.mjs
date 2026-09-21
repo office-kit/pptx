@@ -54,7 +54,7 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       await page.locator('#slide p').first().waitFor();
       const agent = page.frames().find((f) => /\/agents\//.test(f.url()));
       await agent.selectOption('#chat-provider', 'codex');
-      await page.getByRole('button', { name: 'Select area' }).click();
+      assert.equal(await page.getByRole('button', { name: 'Select area' }).count(), 0);
       const bounds = await page.locator('#slide').boundingBox();
       await page.mouse.move(bounds.x + bounds.width * 0.04, bounds.y + bounds.height * 0.05);
       await page.mouse.down();
@@ -80,9 +80,22 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       const image = requests[1].args[requests[1].args.indexOf('--image') + 1];
       assert.match(image, /slide-1\.png$/);
       assert.deepEqual([...(await readFile(image))].slice(0, 8), [137, 80, 78, 71, 13, 10, 26, 10]);
-      await page.getByRole('button', { name: 'Edit text', exact: true }).click();
+      await Promise.all([
+        page.waitForResponse((r) => r.url().endsWith('/history/undo')),
+        page.getByRole('button', { name: '↶ Undo', exact: true }).click(),
+      ]);
+      assert.equal(await readFile(join(dir, 'deck.tsx'), 'utf8'), source);
+      await Promise.all([
+        page.waitForResponse((r) => r.url().endsWith('/history/redo')),
+        page.getByRole('button', { name: '↷ Redo', exact: true }).click(),
+      ]);
+      assert.match(await readFile(join(dir, 'deck.tsx'), 'utf8'), /y=\{1.2\}/);
       await page.locator('#slide p').first().click();
-      await page.getByRole('textbox', { name: 'Selection edit' }).fill('Hello 日本語');
+      assert.equal(await page.getByRole('form', { name: 'Edit selection' }).isVisible(), true);
+      await page.locator('#slide p').first().dblclick();
+      await page
+        .getByRole('textbox', { name: 'Edit slide text', exact: true })
+        .fill('Hello 日本語');
       await page.screenshot({ path: '/tmp/office-kit-inline-edit.png' });
       await page.getByRole('button', { name: 'Save text', exact: true }).click();
       await page.waitForFunction(() =>
@@ -99,7 +112,24 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
         .map(JSON.parse);
       assert.ok(requests.at(-1).args.includes('--image'));
       assert.ok((await readdir(join(dir, '.office-kit', 'reviews'))).length >= 2);
-      await page.getByRole('button', { name: 'Undo text', exact: true }).click();
+      await Promise.all([
+        page.waitForResponse((r) => r.url().endsWith('/history/undo')),
+        page.getByRole('button', { name: '↶ Undo', exact: true }).click(),
+      ]);
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#slide').shadowRoot.querySelector('p').textContent ===
+          'Hello world',
+      );
+      await page.locator('#slide').focus();
+      await page.keyboard.press('Control+Shift+z');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#slide').shadowRoot.querySelector('p').textContent ===
+          'Hello 日本語',
+      );
+      await page.waitForFunction(() => !document.querySelector('[data-undo]').disabled);
+      await page.keyboard.press('Control+z');
       await page.waitForFunction(
         () =>
           document.querySelector('#slide').shadowRoot.querySelector('p').textContent ===

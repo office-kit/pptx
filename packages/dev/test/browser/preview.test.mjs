@@ -198,9 +198,14 @@ process.stdin.on('data',async data=>{
       await third.selectOption('#chat-provider', 'codex');
       await third.locator('#chat-input').fill('Parallel edit');
       await third.locator('#chat-send').click();
-      await third.waitForFunction(
-        () => document.querySelector('#chat-status').textContent === 'Done',
-      );
+      try {
+        await third.waitForFunction(
+          () => document.querySelector('#chat-status').textContent === 'Done',
+        );
+      } catch (cause) {
+        const chat = await (await page.request.get(url + thirdPath + '/chat')).json();
+        throw new Error('Parallel agent did not finish: ' + JSON.stringify(chat), { cause });
+      }
       assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
       assert.equal(await second.locator('#terminal-stop').isVisible(), true);
       assert.equal(
@@ -311,9 +316,17 @@ process.stdin.on('data',async data=>{
       await page.locator('#error').waitFor({ state: 'hidden' });
       await page.waitForFunction(slideSvg, 'Recovered');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
-      // Slide text is real DOM inside the shadow root: select it and read the selection.
-      await page.locator('#slide p').first().click({ clickCount: 3 });
-      assert.ok((await page.evaluate(() => getSelection().toString())).includes('Slide 2'));
+      // Text editing owns arrow keys until the user exits the in-place field.
+      await page.locator('#slide p').first().dblclick();
+      assert.ok(
+        (
+          await page.getByRole('textbox', { name: 'Edit slide text', exact: true }).inputValue()
+        ).includes('Slide 2'),
+      );
+      await page.keyboard.press('ArrowRight');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      await page.keyboard.press('Escape');
+      await page.locator('#slide').focus();
       await page.keyboard.press('ArrowRight');
       assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 50');
       await page.keyboard.press('ArrowLeft');

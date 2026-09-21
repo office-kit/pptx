@@ -33,7 +33,10 @@ export function createChat(
   verify: () => Promise<string | null> = async () => null,
   review?: { begin(): void; next(): Promise<VisualReview | undefined> },
   reviewImages: (prompt: string) => string[] = () => [],
+  history?: { begin(): Promise<void>; end(): Promise<void> },
 ) {
+  let starting = false;
+  let closing = false;
   let messages: Message[] = [];
   let provider: Provider = 'codex';
   let child: ChildProcess | undefined;
@@ -47,7 +50,7 @@ export function createChat(
       ...(message.role === 'assistant' ? { html: markdown.render(message.text) } : {}),
     })),
     provider,
-    running: !!child,
+    running: starting || !!child,
     status,
   });
   function stop() {
@@ -86,7 +89,7 @@ export function createChat(
     provider = selected;
     const user: Message = { role: 'user', text, context };
     // Keep recent conversational intent, including each turn's original focus.
-    const history = messages.slice(-12).map((message) => ({
+    const conversation = messages.slice(-12).map((message) => ({
       ...message,
       text: message.text.slice(-12000),
     }));
@@ -97,7 +100,7 @@ ${authoringGuidance}
 The attached focus is context, NOT a restriction: use it for references such as "this slide". For other slides or deck-wide requests, find the relevant source or shared theme instead. Do not rewrite the whole deck for a local edit.
 Slide numbers are 1-based and refer to the last successful preview at send time. Source may have changed since then; verify it before editing. Files are dependency candidates, not an exact slide-to-source mapping.
 Respond in the user's language, briefly describing edits or answering their question. If permissions prevent an action, explain that instead of claiming success.
-Recent conversation (JSON): ${JSON.stringify(history)}
+Recent conversation (JSON): ${JSON.stringify(conversation)}
 Current request and preview context (JSON): ${JSON.stringify(user)}`;
     messages.push(user);
     const answer: Message = { role: 'assistant', text: '' };
@@ -219,6 +222,11 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
               ? 'Preview still has errors after 3 repair attempts.\n' + buildError.slice(0, 16000)
               : reviewFailure || 'Done';
         }
+        try {
+          await history?.end();
+        } catch (cause) {
+          status = 'History: ' + String(cause);
+        }
         if (status !== 'Done') append(status);
         child = undefined;
         notify();
@@ -268,7 +276,7 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
         json(200, snapshot());
         return;
       }
-      if (child) {
+      if (child || starting || closing) {
         json(409, { error: 'An edit is already running' });
         return;
       }
@@ -299,7 +307,17 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
         return;
       }
       const context = focus(value.slide, value.revision);
-      start(value.message.trim(), value.provider, context, 0, reviewImages(value.message.trim()));
+      starting = true;
+      try {
+        await history?.begin();
+        if (closing) {
+          await history?.end();
+          throw new Error('Agent is closing');
+        }
+        start(value.message.trim(), value.provider, context, 0, reviewImages(value.message.trim()));
+      } finally {
+        starting = false;
+      }
       json(202, snapshot());
     } catch (cause) {
       json(400, { error: cause instanceof Error ? cause.message : 'Invalid request' });
@@ -307,8 +325,9 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
   }
   return {
     handle,
-    isRunning: () => !!child,
+    isRunning: () => starting || !!child,
     async close() {
+      closing = true;
       stop();
       await completion;
     },

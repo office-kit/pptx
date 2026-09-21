@@ -31,6 +31,7 @@ process.stdin.on('data',async data=>{
 `,
       { mode: 0o755 },
     );
+    let historyActive = false;
     let busy = true;
     let visual = false;
     const review = {
@@ -48,6 +49,14 @@ process.stdin.on('data',async data=>{
       '',
       async () => buildError,
       review,
+      {
+        async begin() {
+          historyActive = true;
+        },
+        async end() {
+          historyActive = false;
+        },
+      },
     );
     const server = createServer(
       (req, res) =>
@@ -135,12 +144,15 @@ process.stdin.on('data',async data=>{
         })
       ).json();
     assert.equal((await post('verify', {})).status, 403);
+    assert.equal(historyActive, true);
     for (let attempt = 0; attempt < 3; attempt++) {
       const feedback = await verify();
       assert.equal(feedback.decision, 'block');
+      assert.equal(historyActive, true);
       assert.match(feedback.reason, /Bullets is not defined/);
     }
     assert.equal((await verify()).decision, undefined);
+    assert.equal(historyActive, false);
     buildError = null;
     visual = true;
     const visualFeedback = await verify();

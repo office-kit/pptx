@@ -18,6 +18,7 @@ export function createTerminal(
   base = '',
   verify: () => Promise<string | null> = async () => null,
   review?: { begin(): void; next(): Promise<VisualReview | undefined> },
+  history?: { begin(): Promise<void>; end(): Promise<void> },
 ) {
   let repairs = 0;
   let working = false;
@@ -109,11 +110,22 @@ export function createTerminal(
               error = cause instanceof Error ? cause.message : String(cause);
             }
           }
+          try {
+            await history?.end();
+          } catch (cause) {
+            error = 'History: ' + String(cause);
+          }
           working = false;
           status = error ? 'Preview verification incomplete: ' + error : 'Preview build verified';
           json(200, {});
         }
         emit('state', snapshot());
+        return;
+      }
+      try {
+        await history?.begin();
+      } catch (cause) {
+        json(409, { error: String(cause) });
         return;
       }
       repairs = 0;
@@ -270,11 +282,16 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
             emit('output', data);
           });
           completion = new Promise<void>((done) =>
-            process!.onExit(({ exitCode }) => {
+            process!.onExit(async ({ exitCode }) => {
               process = undefined;
               working = false;
               stopping = false;
               status = `Claude Code exited (${exitCode}). Start to open a new session.`;
+              try {
+                await history?.end();
+              } catch (cause) {
+                status += ' History: ' + String(cause);
+              }
               emit('state', snapshot());
               done();
             }),
@@ -296,6 +313,17 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
           throw new Error('Invalid inline prompt');
         updateFocus();
         working = true;
+        try {
+          await history?.begin();
+        } catch (cause) {
+          working = false;
+          throw cause;
+        }
+        if (!process || closing || stopping) {
+          await history?.end();
+          working = false;
+          throw new Error('Claude Code stopped before submitting.');
+        }
         process.write('\x1b[200~' + value.message + '\x1b[201~');
         await new Promise((done) => setTimeout(done, 100));
         if (!process || stopping) throw new Error('Claude Code stopped before submitting.');
@@ -305,8 +333,11 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
         if (typeof value.data !== 'string' || value.data.length > 32000)
           throw new Error('Invalid terminal input');
         updateFocus();
-        if (value.data.includes('\x03')) working = false;
         process.write(value.data);
+        if (value.data.includes('\x03')) {
+          working = false;
+          await history?.end();
+        }
       } else if (request.url === '/terminal/resize') {
         size();
         process?.resize(value.cols, value.rows);

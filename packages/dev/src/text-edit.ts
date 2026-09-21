@@ -21,7 +21,6 @@ export function createTextEditor(
   verify: () => Promise<string | null>,
 ) {
   let busy = false;
-  let undo: Change | undefined;
   async function restore(change: Change) {
     if (
       (await realpath(change.file)) !== change.file ||
@@ -138,25 +137,11 @@ export function createTextEditor(
             (await readFile(change.file, 'utf8')) !== change.after
           )
             throw new Error('Source changed during editing.');
-          undo = change;
         } catch (error) {
           await restore(change);
           await verify();
           throw error;
         }
-      } finally {
-        busy = false;
-      }
-    },
-    async undo() {
-      if (busy) throw new Error('A text edit is already running.');
-      if (!undo) throw new Error('No direct text edit to undo.');
-      busy = true;
-      try {
-        await restore(undo);
-        undo = undefined;
-        const error = await verify();
-        if (error) throw new Error('Text restored, but the project has build errors.');
       } finally {
         busy = false;
       }
