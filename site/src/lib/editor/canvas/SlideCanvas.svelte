@@ -8,6 +8,7 @@
   import { onMount, tick } from 'svelte';
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
+  import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { projectTextEdits, replayTextEdits } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
@@ -667,14 +668,8 @@
       textArea?.setSelectionRange(range.start, range.end);
     });
   }
-  function toggleInlineFormat(property: 'bold' | 'italic' | 'underline') {
-    applyInlineFormat(formats => {
-      const active = formats.length > 0 && formats.every(format => {
-        const value = format[property];
-        return value === true || (property === 'underline' && typeof value === 'string' && value !== 'none');
-      });
-      return { [property]: !active };
-    });
+  function toggleInlineFormat(property: TextFormatToggle) {
+    applyInlineFormat(formats => toggleTextFormat(formats, property));
   }
   function editSelectedTextLink() {
     if (!editing || textRange.start === textRange.end) return;
