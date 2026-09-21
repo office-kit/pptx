@@ -9,8 +9,10 @@ import {
   getSlides,
   getSlideShapes,
   getParagraphBullet,
+  getParagraphPropertiesEffective,
   getParagraphAlignment,
   getShapeParagraphElements,
+  getShapeParagraphCount,
   getShapeText,
   loadPresentation,
 } from '@office-kit/pptx';
@@ -51,6 +53,16 @@ test(
             ),
           )[0],
         )[0];
+      const levels = async () => {
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const text = getSlideShapes(getSlides(pres)[0])[0];
+        return Array.from(
+          { length: getShapeParagraphCount(text) },
+          (_, i) => getParagraphPropertiesEffective(pres, text, i).level,
+        );
+      };
       await saved();
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.inline-edit');
@@ -71,6 +83,9 @@ test(
       assert.equal(getParagraphAlignment(await shape(), 1), 'ctr');
       assert.notEqual(getParagraphAlignment(await shape(), 0), 'ctr');
       assert.notEqual(getParagraphAlignment(await shape(), 2), 'ctr');
+      await bar.getByLabel('List level', { exact: true }).selectOption({ value: '8' });
+      await saved();
+      assert.deepEqual((await levels()).slice(0, 3), [0, 8, 0]);
       await select(0, 8);
       await bar.getByLabel('List style', { exact: true }).selectOption('bullet');
       await saved();
@@ -94,15 +109,30 @@ test(
       locale = 'ja';
       await editor.locator('.hit').first().dblclick();
       await select(8, 28);
+      assert.equal(await bar.getByLabel('リストの階層', { exact: true }).inputValue(), '');
+      await bar.getByLabel('リストの階層', { exact: true }).selectOption({ value: '2' });
+      await saved();
+      assert.deepEqual(await levels(), [0, 2, 2, 0]);
       await bar.getByLabel('段落の配置', { exact: true }).selectOption('justify');
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'just');
       assert.equal(getParagraphAlignment(await shape(), 2), 'just');
       assert.equal(getParagraphAlignment(await shape(), 3), 'r');
+      await bar.getByRole('button', { name: '完了', exact: true }).click();
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await levels(), [0, 8, 0, 0]);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
       await page.reload();
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'just');
       assert.equal(getParagraphBullet(await shape(), 0), 'bullet');
+      assert.deepEqual(await levels(), [0, 2, 2, 0]);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
@@ -161,9 +191,17 @@ test(
       await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('right');
       await bar.getByLabel('List style', { exact: true }).selectOption('number');
       await saved();
+      await bar.getByLabel('List level', { exact: true }).selectOption({ value: '3' });
+      await saved();
       let cells = getTableCells(await shape());
       assert.equal(getParagraphAlignment(cells[0][0], 1), 'r');
       assert.equal(getParagraphBullet(cells[0][0], 1), 'number');
+      const presForLevels = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][0], 1).level, 3);
+      assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][0], 0).level, 0);
+      assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][1], 0).level, 0);
       assert.notEqual(getParagraphAlignment(cells[0][0], 0), 'r');
       assert.notEqual(getParagraphAlignment(cells[0][1], 0), 'r');
       await bar.getByRole('button', { name: 'Done', exact: true }).click();

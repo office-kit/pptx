@@ -15,6 +15,7 @@
   import {
     getParagraphPropertiesEffective,
     setParagraphAlignment,
+    setParagraphLevel,
     setParagraphBullet,
     getTableCells,
     insertTableRow,
@@ -612,9 +613,10 @@
     const properties = target?.indices.map(index => getParagraphPropertiesEffective(doc.pres, target.shape, index)) ?? [];
     const alignments = properties.map(p => p.align ?? 'left');
     const bullets = properties.map(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : '');
-    return { align: alignments.every(value => value === alignments[0]) ? alignments[0] ?? '' : '', bullet: bullets.every(value => value === bullets[0]) ? bullets[0] ?? '' : '' };
+    const levels = properties.map(p => String(p.level));
+    return { level: levels.every(value => value === levels[0]) ? levels[0] ?? '' : '', align: alignments.every(value => value === alignments[0]) ? alignments[0] ?? '' : '', bullet: bullets.every(value => value === bullets[0]) ? bullets[0] ?? '' : '' };
   });
-  function applyInlineParagraph(kind: 'align' | 'bullet', value: string) {
+  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level', value: string) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
     if (!cur || !box) return;
@@ -625,6 +627,7 @@
       if (!target) return;
       for (const index of target.indices) {
         if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify')) setParagraphAlignment(target.shape, index, value);
+        if (kind === 'level' && /^[0-8]$/.test(value)) setParagraphLevel(target.shape, index, Number(value));
         if (kind === 'bullet' && (value === 'none' || value === 'bullet' || value === 'number')) setParagraphBullet(target.shape, index, value);
       }
     });

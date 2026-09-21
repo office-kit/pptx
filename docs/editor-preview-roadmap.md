@@ -306,3 +306,5 @@ Percentage-stacked columns and bars display original data values when value labe
 Image options include a bilingual reset for opacity, brightness and contrast in one undo step. The action is disabled when adjustments are already neutral. Browser coverage checks reset, undo/redo and reload in both languages while preserving image bytes, crop, shape and bounds.
 
 The inline text toolbar exposes paragraph alignment and list style for the caret paragraph or all paragraphs touched by a text selection, including table-cell text. Pending text edits are committed with formatting in a single undo step, preserving rich runs. Selection boundaries exclude a paragraph whose start equals the selection end. Browser coverage verifies English/Japanese editing, added paragraphs, range boundaries, table-cell isolation, history and reload.
+
+The inline paragraph toolbar also exposes all nine list levels in Japanese and English. It reports mixed levels across a selection and changes only touched paragraphs, including within table cells. Browser coverage checks boundary levels, selection isolation, undo/redo and persisted levels after reload.

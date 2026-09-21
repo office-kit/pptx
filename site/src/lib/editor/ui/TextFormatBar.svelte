@@ -8,8 +8,8 @@
     onformat: (format: TextFormat) => void;
     ondone?: () => void;
     onlink?: () => void;
-    paragraph?: { align: string; bullet: string };
-    onparagraph?: (kind: 'align' | 'bullet', value: string) => void;
+    paragraph?: { align: string; bullet: string; level: string };
+    onparagraph?: (kind: 'align' | 'bullet' | 'level', value: string) => void;
     context?: 'text' | 'cells';
   } = $props();
   const bold = $derived(formats.length > 0 && formats.every((f) => f.bold === true));
@@ -35,6 +35,10 @@
     </select></label>
     <label>{t('List style')}<select aria-label={t('List style')} value={paragraph.bullet} onchange={e => onparagraph?.('bullet', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option><option value="none">{t('No list')}</option><option value="bullet">{t('Bulleted list')}</option><option value="number">{t('Numbered list')}</option>
+    </select></label>
+    <label>{t('List level')}<select aria-label={t('List level')} value={paragraph.level} onchange={e => onparagraph?.('level', e.currentTarget.value)}>
+      <option value="" disabled>{t('Mixed')}</option>
+      {#each Array.from({ length: 9 }, (_, i) => i) as value}<option value={value}>{value + 1}</option>{/each}
     </select></label>
   {/if}
   {#if onlink}<button class="ok-btn" disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={onlink}>{t('Edit link')}</button>{/if}
