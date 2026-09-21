@@ -19,7 +19,16 @@ import {
   readCommentAuthorList,
   readCommentList,
 } from '../../internal/presentationml/index.ts';
-import { NS, getAttrValue, qname, parseXml, serializeXml } from '../../internal/xml/index.ts';
+import {
+  NS,
+  getAttrValue,
+  qname,
+  qnameEquals,
+  parseXml,
+  serializeXml,
+  type XmlDocument,
+  type XmlElement,
+} from '../../internal/xml/index.ts';
 import {
   COMMENT_SLIDE,
   COMMENT_SNAPSHOT,
@@ -74,6 +83,56 @@ const loadAuthorList = (pkg: OpcPackage): CommentAuthor[] => {
   return list.authors.slice();
 };
 
+// Retain imported nodes and extension XML while adding/removing keyed entries.
+const reconcileList = (
+  original: XmlDocument,
+  generated: XmlDocument,
+  localName: string,
+  key: (node: XmlElement) => string,
+  updateAttributes: boolean,
+): XmlDocument => {
+  const pending = new Map(
+    generated.root.children
+      .filter((node): node is XmlElement => node.kind === 'element')
+      .map((node) => [key(node), node]),
+  );
+  original.root.children = original.root.children.filter((node) => {
+    if (
+      node.kind !== 'element' ||
+      node.name.namespaceURI !== NS.pml ||
+      node.name.localName !== localName
+    )
+      return true;
+    const replacement = pending.get(key(node));
+    if (!replacement) return false;
+    pending.delete(key(node));
+    if (updateAttributes) {
+      for (const attribute of replacement.attrs) {
+        const index = node.attrs.findIndex((existing) =>
+          qnameEquals(existing.name, attribute.name),
+        );
+        if (index < 0) node.attrs.push(attribute);
+        else node.attrs[index] = { ...node.attrs[index]!, value: attribute.value };
+      }
+    }
+    return true;
+  });
+  const added = [...pending.values()];
+  for (const node of added) node.prefixDecls.set('p', NS.pml);
+  const extension = original.root.children.findIndex(
+    (node) =>
+      node.kind === 'element' &&
+      node.name.namespaceURI === NS.pml &&
+      node.name.localName === 'extLst',
+  );
+  original.root.children.splice(
+    extension < 0 ? original.root.children.length : extension,
+    0,
+    ...added,
+  );
+  return original;
+};
+
 const writeAuthorList = (pkg: OpcPackage, authors: ReadonlyArray<CommentAuthor>): void => {
   const doc = buildCommentAuthorListDoc(authors);
   const bytes = encode(serializeXml(doc));
@@ -82,7 +141,14 @@ const writeAuthorList = (pkg: OpcPackage, authors: ReadonlyArray<CommentAuthor>)
     unusedPartName(pkg, '/ppt/commentAuthors');
   const existing = pkg.getPart(name);
   if (existing !== null) {
-    existing.data = bytes;
+    const preserved = reconcileList(
+      parseXml(decode(existing.data)),
+      doc,
+      'cmAuthor',
+      (node) => getAttrValue(node, qname('', 'id', '')) ?? '',
+      true,
+    );
+    existing.data = encode(serializeXml(preserved));
     return;
   }
   pkg.addPart(name, COMMENT_AUTHORS_CONTENT_TYPE, bytes);
@@ -138,7 +204,15 @@ const writeCommentsForSlide = (slide: SlideData, comments: ReadonlyArray<SlideCo
   const bytes = encode(serializeXml(doc));
   const existing = pkg.getPart(commentsName);
   if (existing !== null) {
-    existing.data = bytes;
+    const preserved = reconcileList(
+      parseXml(decode(existing.data)),
+      doc,
+      'cm',
+      (node) =>
+        `${getAttrValue(node, qname('', 'authorId', ''))}:${getAttrValue(node, qname('', 'idx', ''))}`,
+      false,
+    );
+    existing.data = encode(serializeXml(preserved));
     return;
   }
   pkg.addPart(commentsName, COMMENTS_CONTENT_TYPE, bytes);

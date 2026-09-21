@@ -42,6 +42,49 @@ const partExists = async (presBytes: Uint8Array, partPath: string): Promise<bool
 };
 
 describe('fn API: comments', () => {
+  it('preserves imported comment and author extensions when adding and deleting entries', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    addSlideComment(slide, { author: { name: 'Reviewer' }, text: 'Keep me' });
+    const pkg = pres[INTERNAL_PACKAGE];
+    for (const [path, entry, root] of [
+      ['/ppt/comments/comment1.xml', 'cm', 'cmLst'],
+      ['/ppt/commentAuthors.xml', 'cmAuthor', 'cmAuthorLst'],
+    ]) {
+      const part = pkg.getPart(partName(path!))!;
+      let xml = new TextDecoder().decode(part.data);
+      const extension =
+        '<p:extLst><p:ext uri="test"><x:metadata xmlns:x="urn:test" value="retained"/></p:ext></p:extLst>';
+      if (entry === 'cmAuthor')
+        xml = xml.replace(/<p:cmAuthor ([^>]+)\/>/, `<p:cmAuthor $1>${extension}</p:cmAuthor>`);
+      else xml = xml.replace(`</p:${entry}>`, `${extension}</p:${entry}>`);
+      xml = xml
+        .replace(`</p:${root}>`, `${extension}</p:${root}>`)
+        .replace(/(<\/?)p:/g, '$1q:')
+        .replace('xmlns:p=', 'xmlns:q=');
+      part.data = new TextEncoder().encode(xml);
+    }
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const current = getSlides(loaded)[0]!;
+    const added = addSlideComment(current, { author: { name: 'Reviewer' }, text: 'Temporary' });
+    addSlideComment(current, { author: { name: 'New author' }, text: 'New comment' });
+    removeSlideComment(added);
+    setCommentText(getSlideComments(current)[0]!, 'Updated');
+    const saved = await loadPresentation(await savePresentation(loaded));
+    expect(getSlideComments(getSlides(saved)[0]!).map(getCommentText)).toEqual([
+      'Updated',
+      'New comment',
+    ]);
+    expect(getCommentAuthors(saved).map((author) => author.name)).toEqual([
+      'Reviewer',
+      'New author',
+    ]);
+    for (const path of ['/ppt/comments/comment1.xml', '/ppt/commentAuthors.xml']) {
+      const xml = new TextDecoder().decode(saved[INTERNAL_PACKAGE].getPart(partName(path))!.data);
+      expect(xml.match(/value="retained"/g)).toHaveLength(2);
+    }
+  });
+
   it('follows imported comment and author relationships and avoids part collisions', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const [first] = getSlides(pres);
