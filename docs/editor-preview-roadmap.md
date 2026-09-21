@@ -23,6 +23,14 @@ that a user can complete the corresponding editing workflow.
 
 ## Verified so far
 
+- A bilingual paragraph panel targets one paragraph or all paragraphs in a
+  selected text shape. It reads inherited formatting, indicates mixed values,
+  and edits alignment, bullets/numbering, nine outline levels, proportional or
+  fixed line spacing, and before/after spacing. Browser verification covers
+  individual and bulk edits, rich-text preservation, saved PPTX properties,
+  undo/redo, Japanese labels and reload. Inline caret-based paragraph targeting,
+  empty text shapes and table-cell paragraph controls remain separate work.
+
 - Slide text replacement now matches across adjacent formatting runs, preserving
   surrounding run formats and assigning replacements the first matched run’s
   formatting. Tests cover Japanese/English, emoji, regular-expression captures,
