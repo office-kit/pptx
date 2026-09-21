@@ -2811,34 +2811,7 @@ export const resolveTextBodyModel = (
   const effectiveLineHeight = LINE_HEIGHT * lineHeightScale;
   void effectiveLineHeight; // currently unused — kept for forward compat
 
-  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
-  // keeps one counter per indent level: a nested list (level 1) between two
-  // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
-  // renders as such. A paragraph resets the counters of every deeper level;
-  // a non-numbered paragraph also resets its own level, and a different
-  // numbering scheme at the same level starts over at 1.
-  const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
-  {
-    const counters: number[] = [];
-    const types: Array<string | null> = [];
-    for (let i = 0; i < paraData.length; i++) {
-      const para = paraData[i]!;
-      const num = bulletAutoNumType(para.bulletStyle);
-      const level = Math.max(0, para.level);
-      for (let l = num === null ? level : level + 1; l < counters.length; l++) {
-        counters[l] = 0;
-        types[l] = null;
-      }
-      if (num === null) continue;
-      if (types[level] !== num) {
-        counters[level] = 1;
-        types[level] = num;
-      } else {
-        counters[level] = (counters[level] ?? 0) + 1;
-      }
-      numberLabels[i] = formatAutoNum(num, counters[level]!);
-    }
-  }
+  const numberLabels = paragraphNumberLabels(paraData);
 
   // A bare `<a:normAutofit/>` (no baked `fontScale`, so it defaults to 1) means
   // "shrink text to fit the box" — PowerPoint computes that reduction at display
@@ -2917,46 +2890,47 @@ export const resolveTextBodyModel = (
   };
 };
 
-const renderTextBody = (
-  pres: PresentationData,
-  shape: SlideShapeData,
-  bounds: { x: number; y: number; w: number; h: number },
+const paragraphNumberLabels = (paraData: ReadonlyArray<ParaData>): Array<string | null> => {
+  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
+  // keeps one counter per indent level: a nested list (level 1) between two
+  // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
+  // renders as such. A paragraph resets the counters of every deeper level;
+  // a non-numbered paragraph also resets its own level, and a different
+  // numbering scheme at the same level starts over at 1.
+  const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
+  {
+    const counters: number[] = [];
+    const types: Array<string | null> = [];
+    for (let i = 0; i < paraData.length; i++) {
+      const para = paraData[i]!;
+      const num = bulletAutoNumType(para.bulletStyle);
+      const level = Math.max(0, para.level);
+      for (let l = num === null ? level : level + 1; l < counters.length; l++) {
+        counters[l] = 0;
+        types[l] = null;
+      }
+      if (num === null) continue;
+      if (types[level] !== num) {
+        counters[level] = 1;
+        types[level] = num;
+      } else {
+        counters[level] = (counters[level] ?? 0) + 1;
+      }
+      numberLabels[i] = formatAutoNum(num, counters[level]!);
+    }
+  }
+
+  return numberLabels;
+};
+
+const renderHtmlParagraphs = (
+  paraData: ReadonlyArray<ParaData>,
+  numberLabels: ReadonlyArray<string | null>,
   theme: PresentationTheme | null,
-  phType: string | null,
-  ctx: LayoutCtx,
-): string => {
-  const model = resolveTextBodyModel(
-    pres,
-    shape,
-    bounds,
-    theme,
-    phType,
-    ctx.measure,
-    activeDeckTextColor,
-  );
-  if (model === null) return '';
-  const {
-    paraData,
-    numberLabels,
-    authoredAutofit,
-    autoFitScale,
-    defaultPt,
-    themeFace,
-    effectiveDefaultFont,
-    effectiveBody,
-    anchor,
-    innerX,
-    innerY,
-    innerW,
-    innerH,
-    svgTextRect,
-  } = model;
-
-  // Fallback color for runs with no authored color — the deck's body-text color
-  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
-  // Bullets fall back through it too, so it has to be in hand before the loop.
-  const defaultColor = activeDeckTextColor;
-
+  autoFitScale: number,
+  defaultPt: number,
+  defaultColor: string,
+): string[] => {
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
   for (let pi = 0; pi < paraData.length; pi++) {
@@ -3023,7 +2997,8 @@ const renderTextBody = (
         ? (para.indent.firstLineEmu / EMU_PER_PX) * autoFitScale
         : 0;
     const pStyles: string[] = [
-      marginTopCss || (marginBottomCss ? '' : 'margin:0'),
+      'margin:0',
+      marginTopCss,
       marginBottomCss,
       'padding:0',
       `text-align:${ALIGNMENT_TO_CSS[para.align] ?? 'left'}`,
@@ -3101,6 +3076,58 @@ const renderTextBody = (
       `<p style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
     );
   }
+
+  return paragraphs;
+};
+
+const renderTextBody = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  bounds: { x: number; y: number; w: number; h: number },
+  theme: PresentationTheme | null,
+  phType: string | null,
+  ctx: LayoutCtx,
+): string => {
+  const model = resolveTextBodyModel(
+    pres,
+    shape,
+    bounds,
+    theme,
+    phType,
+    ctx.measure,
+    activeDeckTextColor,
+  );
+  if (model === null) return '';
+  const {
+    paraData,
+    numberLabels,
+    authoredAutofit,
+    autoFitScale,
+    defaultPt,
+    themeFace,
+    effectiveDefaultFont,
+    effectiveBody,
+    anchor,
+    innerX,
+    innerY,
+    innerW,
+    innerH,
+    svgTextRect,
+  } = model;
+
+  // Fallback color for runs with no authored color — the deck's body-text color
+  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
+  // Bullets fall back through it too, so it has to be in hand before the loop.
+  const defaultColor = activeDeckTextColor;
+
+  const paragraphs = renderHtmlParagraphs(
+    paraData,
+    numberLabels,
+    theme,
+    autoFitScale,
+    defaultPt,
+    defaultColor,
+  );
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
 
@@ -5526,17 +5553,21 @@ const renderChart = (
 // wrapping, and the svg ↔ foreignObject split for free.
 
 // Builds the per-paragraph layout model the shared text engine consumes from a
-// cell's structured paragraphs. Table cells have no bullets, levels, indents,
-// or paragraph spacing, so those fields are inert. A run's effective point
+// cell's structured paragraphs and shared DrawingML paragraph properties. A run's effective point
 // size resolves to its explicit `<a:rPr sz>` when present, else the table-cell
 // default: @office-kit/pptx doesn't model `<a:tblStyle>` text props, so unstyled cells
 // fall to PowerPoint's authored default cell size (18 pt — what it writes for a
 // freshly inserted table) in the theme's minor font and the cell's text color.
 const cellParaData = (
   paragraphs: ReadonlyArray<TableCellParagraph>,
+  cell: Parameters<typeof getTableCellParagraphs>[0],
+  pres: PresentationData,
 ): { paraData: ParaData[]; hasText: boolean } => {
   let hasText = false;
-  const paraData = paragraphs.map((para): ParaData => {
+  const paraData = paragraphs.map((para, index): ParaData => {
+    const properties = getParagraphPropertiesEffective(pres, cell, index);
+    const bulletIsPicture = isParagraphBulletPicture(cell, index);
+    const bulletImageBytes = bulletIsPicture ? getParagraphBulletImageBytes(cell, index) : null;
     const runs: RunData[] = [];
     for (const el of para.elements) {
       if (el.kind === 'br') {
@@ -5547,25 +5578,28 @@ const cellParaData = (
       runs.push({ text: el.text, fmt: el.format, sizePt: el.format?.size ?? DEFAULT_BODY_PT });
     }
     return {
-      align: para.align ?? 'left',
-      level: 0,
-      bulletStyle: null,
-      bulletDetail: { color: null, sizePct: null, sizePts: null, font: null },
-      bulletIsPicture: false,
-      // Table cells never carry picture bullets (no <a:pPr> bullet model
-      // in <a:tc> text bodies).
-      bulletImageHref: null,
+      align: properties.align ?? 'left',
+      level: properties.level,
+      bulletStyle: properties.bullet,
+      bulletDetail: getParagraphBulletStyle(pres, cell, index),
+      bulletIsPicture,
+      bulletImageHref: bulletImageBytes ? bytesToDataUrl(bulletImageBytes) : null,
       runs,
-      lineSpacing: null,
-      spcBefPts: null,
-      spcAftPts: null,
-      indent: { leftEmu: null, rightEmu: null, firstLineEmu: null },
+      lineSpacing: properties.lineSpacing,
+      spcBefPts: properties.spcBefPts,
+      spcAftPts: properties.spcAftPts,
+      indent: {
+        leftEmu: properties.marL,
+        rightEmu: properties.marR,
+        firstLineEmu: properties.indent,
+      },
     };
   });
   return { paraData, hasText };
 };
 
 const renderTableCellText = (
+  cell: Parameters<typeof getTableCellParagraphs>[0],
   paragraphs: ReadonlyArray<TableCellParagraph>,
   cx: number,
   cy: number,
@@ -5585,8 +5619,9 @@ const renderTableCellText = (
     bottom: number | null;
   },
 ): string => {
-  const { paraData, hasText } = cellParaData(paragraphs);
+  const { paraData, hasText } = cellParaData(paragraphs, cell, pres);
   if (!hasText) return '';
+  const numberLabels = paragraphNumberLabels(paraData);
   // PowerPoint stores margins in EMU; fall back to ~4px when unset.
   const defaultPadPx = 4;
   const padL = margins.left !== null ? margins.left / EMU_PER_PX : defaultPadPx;
@@ -5609,7 +5644,7 @@ const renderTableCellText = (
       shape,
       theme,
       paraData,
-      numberLabels: paraData.map(() => null),
+      numberLabels,
       autoFitScale: 1,
       lineHeightScale: 1,
       defaultPt: DEFAULT_BODY_PT,
@@ -5633,16 +5668,10 @@ const renderTableCellText = (
   // rendered through renderRun so the browser lays the styled text out.
   const justify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
   const familyFont = themeFace ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
-  const body = paraData
-    .map((para) => {
-      const runHtml = para.runs
-        .map((run) => renderRun(run.text, run.fmt, theme, run.sizePt, run.fmt?.size === undefined))
-        .join('');
-      const textAlign = ALIGNMENT_TO_CSS[para.align] ?? 'left';
-      return `<p style="margin:0;padding:0;text-align:${textAlign};line-height:1.2">${runHtml || '&#8203;'}</p>`;
-    })
-    .join('');
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
+  const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
+    '',
+  );
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:1.2;font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
@@ -5838,6 +5867,7 @@ const renderTable = (
       const cellMargins = getTableCellMargins(typedCell);
       out.push(
         renderTableCellText(
+          typedCell,
           cellParagraphs,
           cx,
           cy,

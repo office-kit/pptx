@@ -6,6 +6,7 @@ import {
   NAME_A_RPR,
   ensureRPr,
   requireParagraph,
+  requireParagraphTextBody,
   requireRun,
   runsOf,
 } from './shape-runs.ts';
@@ -34,6 +35,8 @@ import {
   qname,
 } from '../../internal/xml/index.ts';
 import {
+  CELL_ELEMENT,
+  type TableCellData,
   INTERNAL_PACKAGE,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
@@ -541,7 +544,7 @@ const mergePPrLayer = (
  */
 export const getParagraphPropertiesEffective = (
   pres: PresentationData,
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): ParagraphProperties => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -562,47 +565,52 @@ export const getParagraphPropertiesEffective = (
   if (pPr) mergePPrLayer(result, parsePPrLikeElement(pPr));
 
   // 2. Text-body lstStyle at the paragraph's level.
-  const shapeLstStyle = findShapeLstStyleElement(shape);
+  const shapeLstStyle =
+    CELL_ELEMENT in shape
+      ? firstChildElement(requireParagraphTextBody(shape), NAME_A_LST_STYLE)
+      : findShapeLstStyleElement(shape);
   const shapeLvlPPr = lstStyleLevelPPr(shapeLstStyle, level);
   if (shapeLvlPPr) mergePPrLayer(result, parsePPrLikeElement(shapeLvlPPr));
 
-  const phIdx = getShapePlaceholderIdx(shape);
-  const phType = getShapePlaceholderType(shape);
-  const isPlaceholder = shapeIsPlaceholder(shape);
-  const slide = shape[SHAPE_SLIDE];
-  const layout = getSlideLayout(slide);
+  if (!(CELL_ELEMENT in shape)) {
+    const phIdx = getShapePlaceholderIdx(shape);
+    const phType = getShapePlaceholderType(shape);
+    const isPlaceholder = shapeIsPlaceholder(shape);
+    const slide = shape[SHAPE_SLIDE];
+    const layout = getSlideLayout(slide);
 
-  // Placeholder inheritance only: a plain text box does not read the master's
-  // txStyles for paragraph defaults (align / indent / spacing) either.
-  if (layout && isPlaceholder) {
-    // 3. Layout placeholder lstStyle.
-    const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
-    if (layoutPh) {
-      const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
-      const layoutLvlPPr = lstStyleLevelPPr(layoutLst, level);
-      if (layoutLvlPPr) mergePPrLayer(result, parsePPrLikeElement(layoutLvlPPr));
-    }
+    // Placeholder inheritance only: a plain text box does not read the master's
+    // txStyles for paragraph defaults (align / indent / spacing) either.
+    if (layout && isPlaceholder) {
+      // 3. Layout placeholder lstStyle.
+      const layoutPh = findPlaceholderShapeIn(layout[LAYOUT_PART].shapes, phIdx, phType);
+      if (layoutPh) {
+        const layoutLst = extractPlaceholderLstStyle(layoutPh.element);
+        const layoutLvlPPr = lstStyleLevelPPr(layoutLst, level);
+        if (layoutLvlPPr) mergePPrLayer(result, parsePPrLikeElement(layoutLvlPPr));
+      }
 
-    // 4. Master placeholder lstStyle + master txStyles.
-    const pkg = pres[INTERNAL_PACKAGE];
-    const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
-    const layoutRels = pkg.getRels(layoutPartName);
-    if (layoutRels) {
-      const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
-      if (masterRel) {
-        const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
-        if (masterPart) {
-          const masterRoot = parseXml(decode(masterPart.data)).root;
-          const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
-          const masterPh = findPlaceholderShapeIn(masterShapes, phIdx, phType);
-          if (masterPh) {
-            const masterLst = extractPlaceholderLstStyle(masterPh.element);
-            const masterLvlPPr = lstStyleLevelPPr(masterLst, level);
-            if (masterLvlPPr) mergePPrLayer(result, parsePPrLikeElement(masterLvlPPr));
+      // 4. Master placeholder lstStyle + master txStyles.
+      const pkg = pres[INTERNAL_PACKAGE];
+      const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
+      const layoutRels = pkg.getRels(layoutPartName);
+      if (layoutRels) {
+        const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+        if (masterRel) {
+          const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
+          if (masterPart) {
+            const masterRoot = parseXml(decode(masterPart.data)).root;
+            const { shapes: masterShapes } = readShapeTreeFromCsldRoot(masterRoot, 'sldMaster');
+            const masterPh = findPlaceholderShapeIn(masterShapes, phIdx, phType);
+            if (masterPh) {
+              const masterLst = extractPlaceholderLstStyle(masterPh.element);
+              const masterLvlPPr = lstStyleLevelPPr(masterLst, level);
+              if (masterLvlPPr) mergePPrLayer(result, parsePPrLikeElement(masterLvlPPr));
+            }
+            const txStyle = masterTxStyleFor(masterRoot, phType);
+            const txLvlPPr = lstStyleLevelPPr(txStyle, level);
+            if (txLvlPPr) mergePPrLayer(result, parsePPrLikeElement(txLvlPPr));
           }
-          const txStyle = masterTxStyleFor(masterRoot, phType);
-          const txLvlPPr = lstStyleLevelPPr(txStyle, level);
-          if (txLvlPPr) mergePPrLayer(result, parsePPrLikeElement(txLvlPPr));
         }
       }
     }

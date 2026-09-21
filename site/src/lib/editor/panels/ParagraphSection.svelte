@@ -1,22 +1,41 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
+  import { tableCellsInRange, tableSelectionBlock } from '../core/table-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getShapeKind, hasShapeText, isShapeTextBox, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, setParagraphAlignment, setParagraphBullet, setParagraphLevel, setParagraphLineSpacing, setParagraphSpacing } from '@office-kit/pptx';
+  import { getTableCells, getTableCellSpan, getTableCellParagraphs, getTableCellPosition, getShapeKind, hasShapeText, isShapeTextBox, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, setParagraphAlignment, setParagraphBullet, setParagraphLevel, setParagraphLineSpacing, setParagraphSpacing } from '@office-kit/pptx';
 
   const doc = getEditor().doc;
   let target = $state<{ key: string; index: number } | null>(null);
   const current = $derived.by(() => {
     doc.version;
     const sel = doc.selection;
+    if (sel.kind === 'cell') {
+      const table = doc.shapeById(sel.slideIndex, sel.shapeId);
+      if (!table) return null;
+      const cells = [...tableCellsInRange(getTableCells(table), tableSelectionBlock(sel))].filter(cell => {
+        const span = getTableCellSpan(cell);
+        return !span.hMerge && !span.vMerge;
+      });
+      let index = 0;
+      const paragraphs = cells.flatMap(cell => {
+        const { row, col } = getTableCellPosition(cell);
+        return getTableCellParagraphs(cell).map((paragraph, paragraphIndex) => ({
+          index: index++, paragraphIndex, shape: cell,
+          text: `${t('Cell')} ${row + 1}, ${col + 1}: ${paragraph.elements.map(element => element.kind === 'br' ? ' ' : element.text).join('')}`,
+          properties: getParagraphPropertiesEffective(doc.pres, cell, paragraphIndex),
+        }));
+      });
+      return { key: `${sel.slideIndex}:${sel.shapeId}:${sel.row},${sel.col}:${sel.end?.row},${sel.end?.col}`, paragraphs };
+    }
     if (sel.kind !== 'shape' || sel.shapeIds.length !== 1) return null;
     const shape = doc.shapeById(sel.slideIndex, sel.shapeIds[0]!);
     if (!shape || getShapeKind(shape) !== 'shape' || (!hasShapeText(shape) && !isShapeTextBox(shape))) return null;
     const paragraphs = Array.from({ length: getShapeParagraphCount(shape) }, (_, index) => ({
-      index,
+      index, paragraphIndex: index, shape,
       text: getShapeParagraphElements(shape, index).map(element => element.kind === 'br' ? ' ' : element.text).join(''),
       properties: getParagraphPropertiesEffective(doc.pres, shape, index),
     }));
-    return { shape, key: `${sel.slideIndex}:${sel.shapeIds[0]}`, paragraphs };
+    return { key: `${sel.slideIndex}:${sel.shapeIds[0]}`, paragraphs };
   });
   const index = $derived(current && target?.key === current.key && target.index < current.paragraphs.length ? target.index : -1);
   const selected = $derived(current?.paragraphs.filter(p => index === -1 || p.index === index) ?? []);
@@ -32,11 +51,10 @@
   const before = $derived(common(p => p.spcBefPts));
   const after = $derived(common(p => p.spcAftPts));
 
-  function apply(edit: (shape: NonNullable<typeof current>['shape'], index: number) => void) {
+  function apply(edit: (shape: Parameters<typeof setParagraphAlignment>[0], index: number) => void) {
     if (!current) return;
-    const shape = current.shape;
     doc.transact(t('Format paragraphs'), () => {
-      for (const p of selected) edit(shape, p.index);
+      for (const p of selected) edit(p.shape, p.paragraphIndex);
     });
   }
   function alignment(value: string) {
