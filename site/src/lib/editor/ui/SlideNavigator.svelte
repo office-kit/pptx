@@ -5,13 +5,14 @@
   // undo/redo like everything else.
   import { getEditor } from '../core/context.ts';
   import { renderSlideToSvg } from '@office-kit/pptx-preview';
-  import { getSlideSize } from '@office-kit/pptx';
+  import { getSlideSize, isSlideHidden } from '@office-kit/pptx';
   import { tick } from 'svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
 
+  const skippedSlides = $derived.by(() => { doc.version; return doc.slides.map(isSlideHidden); });
   const size = $derived.by(() => { doc.version; return getSlideSize(doc.pres); });
 
   function thumb(index: number): { svg: string; error: string } {
@@ -87,10 +88,12 @@
     <div
       class="thumb-row"
       class:active={doc.selection.slideIndex === i}
+      class:skipped={skippedSlides[i]}
       draggable="true"
       role="button"
       data-slide-index={i}
       aria-label={`${t('Slide')} ${i + 1}`}
+      title={skippedSlides[i] ? t('Skipped during presentation') : undefined}
       aria-current={doc.selection.slideIndex === i ? 'true' : undefined}
       tabindex={doc.selection.slideIndex === i ? 0 : -1}
       onfocus={() => doc.selectSlide(i)}
@@ -117,7 +120,7 @@
       onclick={() => doc.selectSlide(i)}
       onkeydown={(event) => onKeydown(event, i)}
     >
-      <span class="num">{i + 1}</span>
+      <span class="num">{i + 1}{#if skippedSlides[i]}<span class="skip-mark" aria-label={t('Skipped during presentation')}>⊘</span>{/if}</span>
       <div class="thumb" style:aspect-ratio={size ? `${size.width} / ${size.height}` : '16 / 9'}>
         {#if preview.error}<span class="render-error" title={preview.error}>{t('Preview unavailable')}</span>{:else}{@html preview.svg}{/if}
       </div>
@@ -126,6 +129,9 @@
 </div>
 
 <style>
+  .skipped .num { text-decoration: line-through; }
+  .skip-mark { display: block; text-decoration: none; }
+  .skipped .thumb { opacity: .6; }
   .nav {
     background: var(--ok-panel-2);
     border-right: 1px solid var(--ok-border);

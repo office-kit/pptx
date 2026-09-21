@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
   const doc = editor.doc;
   const slide = $derived.by(() => { doc.version; return doc.currentSlide; });
+  const skipped = $derived.by(() => { doc.version; return slide ? isSlideHidden(slide) : false; });
   const background = $derived.by(() => { doc.version; return slide ? getSlideBackground(slide) : null; });
   const layouts = $derived.by(() => { doc.version; return getSlideLayouts(doc.pres); });
   const layout = $derived.by(() => { doc.version; return slide ? getSlideLayout(slide) : null; });
@@ -45,6 +46,7 @@
 {#if slide && (doc.selection.kind === 'none' || doc.selection.kind === 'slide')}
   <section aria-label={t('Slide options')}>
     <strong>{t('Slide options')}</strong>
+    <label class="skip"><input type="checkbox" checked={skipped} onchange={event => { const hidden = event.currentTarget.checked; apply('Skip during presentation', () => setSlideHidden(slide!, hidden)); }} />{t('Skip during presentation')}</label>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideNotes')}>{t('Speaker notes')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideTransition')}>{t('Slide transition')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideSize')}>{t('Page setup')}</button>
@@ -64,6 +66,7 @@
   section { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--ok-border); }
   strong { font-size: 12px; }
   label { display: grid; gap: 6px; font-size: 11px; }
+  .skip { display: flex; align-items: center; }
   input[type='file'] { width: 100%; font-size: 11px; }
   input[type='color'] { width: 100%; height: 26px; }
   [role='alert'] { color: #bf3131; font-size: 11px; }

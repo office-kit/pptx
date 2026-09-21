@@ -5,7 +5,13 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import { compile, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
-import { getSlides, savePresentation, setSlideNotes, setSlideTransition } from '@office-kit/pptx';
+import {
+  getSlides,
+  savePresentation,
+  setSlideNotes,
+  setSlideHidden,
+  setSlideTransition,
+} from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -196,6 +202,123 @@ test(
         await presenter.getByRole('button', { name: '前へ', exact: true }).isDisabled(),
         true,
       );
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'skipped slides remain editable but are omitted from playback and presenter navigation',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-skipped-'));
+    let preview;
+    let browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: [
+            'Hidden first',
+            'Visible opening',
+            'Hidden middle',
+            'Visible closing',
+            'Hidden last',
+          ].map((title) =>
+            Slide({ children: Text({ x: 1, y: 1, width: 5, height: 1, children: title }) }),
+          ),
+        }),
+      );
+      const slides = getSlides(deck);
+      for (const i of [0, 2, 4]) setSlideHidden(slides[i], true);
+      setSlideTransition(slides[1], { effect: 'none', advanceAfterMs: 1200 });
+      await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(join(dir, 'source.pptx'))})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
+      const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      const editor = page.frameLocator('#editor-frame');
+      const skip = editor.getByRole('checkbox', { name: 'Skip during presentation', exact: true });
+      await skip.waitFor();
+      assert.equal(await skip.isChecked(), true);
+      assert.equal(await editor.locator('.thumb-row.skipped').count(), 3);
+      await skip.uncheck();
+      await page.waitForFunction(() => state.hiddenSlides?.[0] === false);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await page.waitForFunction(() => state.hiddenSlides?.[0] === true);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await page.waitForFunction(() => state.hiddenSlides?.[0] === false);
+      await skip.check();
+      await page.waitForFunction(() => state.hiddenSlides?.[0] === true);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 5');
+      assert.equal(await page.locator('.thumbnail[data-skipped="true"]').count(), 3);
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 2 of 5');
+      assert.equal(await page.locator('#present-prev').isDisabled(), true);
+      await page.waitForFunction(() => index === 3); // Automatic advance skips the middle slide.
+      assert.equal(await page.locator('#present-next').isDisabled(), true);
+      await page.keyboard.press('ArrowRight');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 5');
+      await page.keyboard.press('Home');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 2 of 5');
+      await page.keyboard.press('End');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 5');
+      await page.keyboard.press('ArrowLeft');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 2 of 5');
+      await page.locator('#stage').click({ position: { x: 15, y: 15 } });
+      assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 5');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Slide 1', exact: true }).click();
+      const ready = page.waitForEvent('popup');
+      await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
+      const presenter = await ready;
+      presenter.on('pageerror', (error) => errors.push(error.message));
+      await presenter.getByText('Slide 2 of 5', { exact: true }).waitFor();
+      assert.ok((await presenter.locator('#next svg').textContent()).includes('Visible closing'));
+      assert.equal(
+        await presenter.getByRole('button', { name: 'Previous', exact: true }).isDisabled(),
+        true,
+      );
+      await presenter.getByRole('button', { name: 'Next', exact: true }).click();
+      await presenter.getByText('Slide 4 of 5', { exact: true }).waitFor();
+      assert.equal(
+        await presenter.getByRole('button', { name: 'Next', exact: true }).isDisabled(),
+        true,
+      );
+      await presenter.getByRole('button', { name: 'Exit presentation', exact: true }).click();
+      await page.getByRole('button', { name: 'Edit', exact: true }).click();
+      await editor.locator('.lang select').selectOption('ja');
+      for (let i = 0; i < 5; i++) {
+        await editor.locator('.thumb-row').nth(i).click();
+        await editor
+          .getByRole('checkbox', { name: 'プレゼンテーションでスキップ', exact: true })
+          .check();
+      }
+      await page.waitForFunction(
+        () => state.hiddenSlides?.length === 5 && state.hiddenSlides.every(Boolean),
+      );
+      await page.screenshot({ path: '/tmp/pptx-pr287-skip-ja.png', fullPage: true });
+      await page.getByRole('button', { name: 'プレビュー', exact: true }).click();
+      assert.equal(await page.locator('#present').isDisabled(), true);
+      assert.equal(await page.locator('#presenter').isDisabled(), true);
+      await page.reload();
+      await page.waitForFunction(
+        () => state.hiddenSlides?.length === 5 && state.hiddenSlides.every(Boolean),
+      );
+      assert.equal(await page.locator('#present').isDisabled(), true);
+      assert.equal(await page.locator('.thumbnail').count(), 5);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
