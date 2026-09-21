@@ -6,6 +6,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getTableCells,
+  getTableCellParagraphs,
   getSlides,
   getSlideShapes,
   getParagraphBullet,
@@ -187,7 +188,7 @@ test(
         node.setSelectionRange(8, 8);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
-      const bar = editor.locator('.text-format-bar');
+      const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
       await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('right');
       await bar.getByLabel('List style', { exact: true }).selectOption('number');
       await saved();
@@ -220,12 +221,25 @@ test(
       assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][1], 0).level, 0);
       assert.notEqual(getParagraphAlignment(cells[0][0], 0), 'r');
       assert.notEqual(getParagraphAlignment(cells[0][1], 0), 'r');
+      await input.focus();
+      await input.evaluate((node) => {
+        node.setSelectionRange(6, 12);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      await bar.getByRole('button', { name: 'Strikethrough', exact: true }).click();
+      await saved();
+      await bar.getByRole('button', { name: 'Superscript', exact: true }).click();
+      await saved();
       await bar.getByRole('button', { name: 'Done', exact: true }).click();
       await page.reload();
       await saved();
       cells = getTableCells(await shape());
       assert.equal(getParagraphAlignment(cells[0][0], 1), 'r');
       assert.equal(getParagraphBullet(cells[0][0], 1), 'number');
+      assert.equal(getTableCellParagraphs(cells[0][0])[1].elements[0].format.strike, true);
+      assert.equal(getTableCellParagraphs(cells[0][0])[1].elements[0].format.baseline, 0.3);
+      assert.notEqual(getTableCellParagraphs(cells[0][0])[0].elements[0].format?.strike, true);
+      assert.notEqual(getTableCellParagraphs(cells[0][1])[0].elements[0].format?.baseline, 0.3);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
@@ -427,6 +441,23 @@ for (const control of ['keyboard', 'toolbar'])
         await toggle('Control+i', 'Italic');
         await saved();
         assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, false);
+        if (control === 'toolbar') {
+          await bar.getByRole('button', { name: 'Strikethrough', exact: true }).click();
+          await saved();
+          assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.strike, true);
+          await bar.getByRole('button', { name: 'Superscript', exact: true }).click();
+          await saved();
+          assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.baseline, 0.3);
+          await bar.getByRole('button', { name: 'Subscript', exact: true }).click();
+          await saved();
+          assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.baseline, -0.25);
+          assert.equal(
+            await bar
+              .getByRole('button', { name: 'Superscript', exact: true })
+              .getAttribute('aria-pressed'),
+            'false',
+          );
+        }
         await toggle('Meta+u', 'Underline');
         await saved();
         assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
@@ -450,9 +481,20 @@ for (const control of ['keyboard', 'toolbar'])
           await bar.getByRole('button', { name: '下線', exact: true }).getAttribute('aria-pressed'),
           'false',
         );
+        if (control === 'toolbar') {
+          await bar.getByRole('button', { name: '取り消し線', exact: true }).click();
+          await saved();
+          await bar.getByRole('button', { name: '下付き', exact: true }).click();
+          await saved();
+        }
         await page.reload();
         await saved();
         text = await shape();
+        if (control === 'toolbar') {
+          assert.equal(getShapeParagraphElements(text, 1)[0].format.strike, false);
+          assert.equal(getShapeParagraphElements(text, 1)[0].format.baseline, 0);
+          assert.equal(getShapeParagraphElements(text, 2)[0].format.baseline, undefined);
+        }
         assert.equal(getShapeText(text), 'Prefix\nEnglish\n日本語\nThird paragraph');
         assert.equal(getShapeParagraphElements(text, 1)[0].format.underline, false);
         assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
