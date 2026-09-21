@@ -1,5 +1,5 @@
 ---
-'@office-kit/pptx-preview': major
+'@office-kit/pptx-preview': minor
 ---
 
 fix: narrow the `@office-kit/pptx` peer range to `^0.20.0`

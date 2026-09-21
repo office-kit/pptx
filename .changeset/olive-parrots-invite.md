@@ -1,5 +1,5 @@
 ---
-'@office-kit/pptx-dsl': major
+'@office-kit/pptx-dsl': minor
 ---
 
 fix: `Text` with `bullets` crashed on `@office-kit/pptx` 0.20.0 with `api.setShapeBullets is not a function`
