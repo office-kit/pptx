@@ -106,8 +106,11 @@ that a user can complete the corresponding editing workflow.
 - Slide commands bind the active slide rather than asking for internal objects.
   Navigator buttons, context menus and keyboard navigation cover insertion,
   duplication, deletion and reordering. Browser tests verify Japanese labels,
-  undo selection, persisted order and reload. Slide clipboard, layout selection
-  and multi-slide selection still need complete UI workflows.
+  undo selection, persisted order and reload. Slide copy/cut/paste now use
+  independent snapshots, retain source layouts/themes, charts and notes, and
+  insert after the active slide. Browser coverage checks menus, shortcuts,
+  Japanese/English labels, undo/redo and pasting after replacing the document.
+  Multi-slide selection still needs a complete UI workflow.
 
 - The Arrange pane aligns objects to the selection (or slide for a single object)
   and distributes equal horizontal/vertical gaps. Group/ungroup bind selected
