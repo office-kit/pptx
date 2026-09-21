@@ -1,5 +1,6 @@
 /** @jsxImportSource @office-kit/pptx-dsl */
 import { pt } from '@office-kit/pptx';
+import type { Color, RunSpec } from '@office-kit/pptx';
 import { Presentation, Slide, Text, Shape, Line, Group, Chart, Table } from '@office-kit/pptx-dsl';
 import type { Child, ShapeProps } from '@office-kit/pptx-dsl';
 
@@ -36,7 +37,7 @@ const LINE = '#D5D9E0';
 const INK = '#111827';
 const MUTED = '#5B6673';
 const WHITE = '#FFFFFF';
-const STATUS: Record<string, string> = {
+const STATUS: Record<string, Color> = {
   'On track': '#2E9E6C',
   'At risk': '#D64545',
   'Not started': SLATE,
@@ -50,7 +51,7 @@ const at = ([x, y, width, height]: Box) => ({ x, y, width, height });
 function Block(props: {
   preset: ShapeProps['preset'];
   box: Box;
-  color: string;
+  color: Color;
   label?: string;
   size?: number;
 }) {
@@ -68,7 +69,7 @@ function Block(props: {
   );
 }
 
-function Rule(props: { from: [number, number]; to: [number, number]; color?: string }) {
+function Rule(props: { from: [number, number]; to: [number, number]; color?: Color }) {
   const [x1, y1] = props.from;
   const [x2, y2] = props.to;
   return <Line x1={x1} y1={y1} x2={x2} y2={y2} color={props.color ?? LINE} width={0.75} />;
@@ -77,7 +78,9 @@ function Rule(props: { from: [number, number]; to: [number, number]; color?: str
 // One paragraph, two formats: a bold lead-in, then the sentence in grey.
 function LeadIn(props: { lead: string; rest: string; box: Box; size?: number }) {
   const size = props.size ?? 14;
-  const runs = [
+  // Annotated so the palette's literal types survive into `format.color`; a
+  // bare array literal widens them back to `string`, which `Color` rejects.
+  const runs: RunSpec[] = [
     { text: props.lead + ' ', format: { size, bold: true, color: INK } },
     { text: props.rest, format: { size, color: MUTED } },
   ];
