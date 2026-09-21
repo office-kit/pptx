@@ -168,14 +168,15 @@ Enter an instruction such as “Move this down a little,” choose an agent pane
 click **Apply with AI**. The request includes the slide, preview revision, relative
 bounds and intersecting text. Start Claude Code in that pane first; Codex starts
 when you send. Click the background or press Escape to deselect. Selection also
-clears when the preview or selected slide changes. Shift+Enter inserts a newline;
-Cmd/Ctrl+Enter sends the request.
+clears when the preview or selected slide changes. Shift+Enter (or Cmd/Ctrl+Enter)
+sends the request; Enter inserts a newline.
 
 **Double-click a paragraph** to edit it in place. Enter inserts a newline;
-Cmd/Ctrl+Enter or **Save text** saves, and Escape cancels. Direct saves require a
+Shift+Enter (or Cmd/Ctrl+Enter) saves immediately, and Escape cancels.
+There is no separate text editing dialog. Direct saves require a
 unique source literal within the entry directory and verify that other slides did
-not change. Computed text, shared values and ambiguous matches use **Apply with AI**
-instead.
+not change. For computed text, shared values and ambiguous matches, press Escape,
+click the object and describe the replacement with **Apply with AI** instead.
 
 ### Undo and Redo
 

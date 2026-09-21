@@ -25,7 +25,7 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
   const tools = document.createElement('div');
   tools.className = 'slide-edit-tools';
   tools.innerHTML =
-    '<button type="button" data-undo disabled title="Undo (⌘/Ctrl+Z)">↶ Undo</button><button type="button" data-redo disabled title="Redo (⌘/Ctrl+Shift+Z)">↷ Redo</button><span>Click to select · Double-click text to edit · Drag to select an area</span><small role="status" data-history-status></small>';
+    '<button type="button" data-undo aria-label="Undo" disabled title="Undo (⌘/Ctrl+Z)"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M12.8332 9.66691C12.8332 9.25106 12.7516 8.8392 12.5925 8.455C12.4333 8.07081 12.2 7.7217 11.9059 7.42766C11.6119 7.13361 11.2628 6.90027 10.8786 6.74113C10.4944 6.58199 10.0825 6.50041 9.66667 6.50041H3.8737L6.35368 8.9799C6.54889 9.17511 6.54878 9.49166 6.35368 9.68693C6.15842 9.88219 5.84191 9.88219 5.64665 9.68693L2.31315 6.35393C2.11792 6.15869 2.11797 5.84216 2.31315 5.64689L5.64665 2.3134C5.84192 2.11822 6.15845 2.11816 6.35368 2.3134C6.54883 2.50864 6.54883 2.82519 6.35368 3.02043L3.8737 5.50041H9.66667C10.2138 5.50041 10.7559 5.60791 11.2614 5.8173C11.7669 6.0267 12.2261 6.33375 12.613 6.72062C12.9998 7.1075 13.3069 7.56672 13.5163 8.07219C13.7257 8.57771 13.8332 9.11974 13.8332 9.66691C13.8332 10.2141 13.7257 10.7561 13.5163 11.2616C13.3069 11.7671 12.9998 12.2263 12.613 12.6132C12.2261 13.0001 11.7669 13.3071 11.2614 13.5165C10.7559 13.7259 10.2138 13.8334 9.66667 13.8334H7.33317C7.05711 13.8333 6.83317 13.6095 6.83317 13.3334C6.83326 13.0574 7.05716 12.8335 7.33317 12.8334H9.66667C10.0825 12.8334 10.4944 12.7518 10.8786 12.5927C11.2628 12.4336 11.6119 12.2002 11.9059 11.9062C12.2 11.6121 12.4333 11.263 12.5925 10.8788C12.7516 10.4946 12.8332 10.0828 12.8332 9.66691Z"/></svg></button><button type="button" data-redo aria-label="Redo" disabled title="Redo (⌘/Ctrl+Shift+Z)"><svg width="18" height="18" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M3.16683 9.66691C3.16683 9.25106 3.24841 8.8392 3.40755 8.455C3.56669 8.07081 3.80002 7.7217 4.09407 7.42766C4.38812 7.13361 4.73722 6.90027 5.12142 6.74113C5.50561 6.58199 5.91748 6.50041 6.33333 6.50041H12.1263L9.64632 8.9799C9.45111 9.17511 9.45122 9.49166 9.64632 9.68693C9.84158 9.88219 10.1581 9.88219 10.3533 9.68693L13.6868 6.35393C13.8821 6.15869 13.882 5.84216 13.6868 5.64689L10.3533 2.3134C10.1581 2.11822 9.84155 2.11816 9.64632 2.3134C9.45117 2.50864 9.45117 2.82519 9.64632 3.02043L12.1263 5.50041H6.33333C5.78616 5.50041 5.24413 5.60791 4.7386 5.8173C4.23314 6.0267 3.77392 6.33375 3.38704 6.72062C3.00017 7.1075 2.69311 7.56672 2.48372 8.07219C2.27433 8.57771 2.16683 9.11974 2.16683 9.66691C2.16683 10.2141 2.27433 10.7561 2.48372 11.2616C2.69311 11.7671 3.00017 12.2263 3.38704 12.6132C3.77392 13.0001 4.23314 13.3071 4.7386 13.5165C5.24413 13.7259 5.78616 13.8334 6.33333 13.8334H8.66683C8.94289 13.8333 9.16683 13.6095 9.16683 13.3334C9.16674 13.0574 8.94284 12.8335 8.66683 12.8334H6.33333C5.91748 12.8334 5.50561 12.7518 5.12142 12.5927C4.73722 12.4336 4.38812 12.2002 4.09407 11.9062C3.80002 11.6121 3.56669 11.263 3.40755 10.8788C3.24841 10.4946 3.16683 10.0828 3.16683 9.66691Z"/></svg></button><span>Click to select · Double-click text to edit · Drag to select an area</span><small role="status" data-history-status></small>';
   document.querySelector('main')!.prepend(tools);
   const outline = document.createElement('div');
   outline.className = 'slide-selection';
@@ -35,7 +35,7 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
   panel.hidden = true;
   panel.setAttribute('aria-label', 'Edit selection');
   panel.innerHTML =
-    '<div class="selection-heading"><strong></strong><button type="button" data-cancel aria-label="Cancel selection">×</button></div><textarea aria-label="Selection edit" maxlength="12000" required></textarea><div class="selection-actions"><select aria-label="Editing agent"></select><button type="button" data-review hidden>Retry visual review</button><button type="button" data-save>Save text</button><button type="submit">Apply with AI</button></div><small role="status"></small>';
+    '<div class="selection-heading"><strong></strong><button type="button" data-cancel aria-label="Cancel selection">×</button></div><textarea aria-label="Selection edit" maxlength="12000" required></textarea><div class="selection-actions"><select aria-label="Editing agent"></select><button type="button" data-review hidden>Retry visual review</button><button type="submit">Apply with AI</button></div><small role="status"></small>';
   const hover = document.createElement('div');
   hover.className = 'slide-hover';
   hover.hidden = true;
@@ -48,11 +48,14 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
   const input = panel.querySelector('textarea')!;
   const agents = panel.querySelector('select')!;
   const status = panel.querySelector('small')!;
-  const save = panel.querySelector<HTMLButtonElement>('[data-save]')!;
   const retry = panel.querySelector<HTMLButtonElement>('[data-review]')!;
   const undo = tools.querySelector<HTMLButtonElement>('[data-undo]')!;
   const redo = tools.querySelector<HTMLButtonElement>('[data-redo]')!;
   const historyStatus = tools.querySelector<HTMLElement>('[data-history-status]')!;
+  tools.append(retry);
+  function setStatus(message: string) {
+    (mode === 'text' || panel.hidden ? historyStatus : status).textContent = message;
+  }
   function close() {
     selection = undefined;
     start = undefined;
@@ -97,21 +100,20 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
     agents.replaceChildren(...[...frames].map(([id, frame]) => new Option(frame.title, id)));
     if (frames.has(previous)) agents.value = previous;
     panel.querySelector('strong')!.textContent =
-      mode === 'text'
-        ? 'Edit text · Slide ' + (selection.focus.slide! + 1)
-        : 'Selected area · Slide ' + (selection.focus.slide! + 1);
+      'Selected area · Slide ' + (selection.focus.slide! + 1);
     input.value = '';
     input.hidden = mode === 'text';
     input.required = mode !== 'text';
     textInput.hidden = mode !== 'text';
     textInput.value = text;
-    input.placeholder = mode === 'text' ? 'Replacement text…' : 'Move this down a little…';
-    save.hidden = mode !== 'text';
-    status.textContent =
+    input.placeholder = 'Move this down a little…';
+    panel.hidden = mode === 'text';
+    setStatus(
       mode === 'text'
-        ? '⌘/Ctrl+Enter to save · Esc to cancel. Use AI for computed text.'
-        : 'Only this area is edited unless you ask for a broader change.';
-    panel.hidden = outline.hidden = false;
+        ? 'Shift+Enter to save · Enter for newline · Esc to cancel.'
+        : 'Shift+Enter to send · Enter for newline.',
+    );
+    outline.hidden = false;
     position();
     if (mode === 'text') {
       if (textTarget) {
@@ -281,9 +283,10 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
     try {
       await action();
     } catch (error) {
-      status.textContent = error instanceof Error ? error.message : String(error);
+      setStatus(error instanceof Error ? error.message : String(error));
     } finally {
       sending = false;
+      textInput.readOnly = false;
       for (const button of panel.querySelectorAll('button')) button.disabled = false;
       position();
     }
@@ -307,9 +310,8 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
         '\nText intersecting the selection: ' +
         JSON.stringify(selection.text) +
         '\n' +
-        (mode === 'text'
-          ? 'Replace this text with exactly: ' + JSON.stringify(textInput.value)
-          : 'Instruction: ' + input.value) +
+        'Instruction: ' +
+        input.value +
         '\nLocate the corresponding TSX before editing. Change only the selected instance, preserving other slides and shared components unless explicitly requested. Verify the updated preview.';
       status.textContent = 'Sending…';
       await send(message, agents.value, selection.focus);
@@ -317,15 +319,21 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
     });
   };
   input.onkeydown = (event) => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) {
+    if (
+      event.key === 'Enter' &&
+      (event.shiftKey || event.metaKey || event.ctrlKey) &&
+      !event.isComposing
+    ) {
       event.preventDefault();
       panel.requestSubmit();
     }
   };
-  save.onclick = () =>
+  const saveText = () =>
     void run(async () => {
       if (!selection) return;
-      status.textContent = 'Saving and capturing the updated slide…';
+      const edited = selection;
+      textInput.readOnly = true;
+      setStatus('Saving…');
       const response = await fetch('/text-edit', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -337,19 +345,24 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
       });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error);
-      status.textContent = 'Text saved. Sending visual review…';
+      close();
+      setStatus('Text saved. Sending visual review…');
       if (result.reviewError) throw new Error(result.reviewError);
       if (result.review) {
-        pendingReview = { prompt: result.review.prompt, slide: selection.focus.slide };
+        pendingReview = { prompt: result.review.prompt, slide: edited.focus.slide };
         retry.hidden = false;
         await sendReview();
       }
-      status.textContent = 'Text saved · the agent is reviewing the updated slide.';
+      setStatus('Text saved · the agent is reviewing the updated slide.');
     });
   textInput.onkeydown = (event) => {
-    if (event.key === 'Enter' && (event.metaKey || event.ctrlKey) && !event.isComposing) {
+    if (
+      event.key === 'Enter' &&
+      (event.shiftKey || event.metaKey || event.ctrlKey) &&
+      !event.isComposing
+    ) {
       event.preventDefault();
-      save.click();
+      saveText();
     }
   };
   async function sendReview() {
@@ -365,7 +378,7 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
   retry.onclick = () =>
     void run(async () => {
       await sendReview();
-      status.textContent = 'Visual review sent · follow progress in the agent pane.';
+      setStatus('Visual review sent · follow progress in the agent pane.');
     });
   let historyBusy = false;
   async function refreshHistory() {
@@ -429,8 +442,10 @@ export function mountEditor(frames: Map<string, HTMLIFrameElement>) {
   });
   window.addEventListener('agent-focus', () =>
     queueMicrotask(() => {
-      if (selection && JSON.stringify(selection.focus) !== JSON.stringify(focus()) && !sending)
-        close();
+      if (selection && JSON.stringify(selection.focus) !== JSON.stringify(focus())) {
+        if (!sending) close();
+        else if (mode === 'text') textInput.hidden = outline.hidden = true;
+      }
     }),
   );
   new MutationObserver(() => {
