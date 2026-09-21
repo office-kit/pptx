@@ -32,7 +32,7 @@ import {
   SLIDE_PART_NAME,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
 import { getSlides } from './slide-query.ts';
 import { findCNvPr, NAME_HLINK_CLICK_FN, type ShapeClickAction } from './embedded.ts';
@@ -299,6 +299,7 @@ export const setShapeRunHyperlink = (
     );
   }
   commitAndRefresh(shape);
+  releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
 };
 
 /**

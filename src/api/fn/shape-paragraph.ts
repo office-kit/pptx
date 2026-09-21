@@ -44,7 +44,7 @@ import {
   SLIDE_PART_NAME,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, decode, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, decode, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 import { getPresentationFonts, getPresentationTheme } from './theme.ts';
 // -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
 //
@@ -712,4 +712,5 @@ export const setShapeHyperlink = (
     applyHyperlinkToAllRuns(txBody, rId, tooltip);
   }
   commitAndRefresh(shape);
+  releaseUnusedLinkRels(slide);
 };
