@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 153,
+  "count": 154,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2395,6 +2395,29 @@
           "type": "{ left?: Partial<TableCellBorder> | null; right?: Partial<TableCellBorder> | null; top?: Partial<TableCellBorder> | null; bottom?: Partial<TableCellBorder> | null; tlToBr?: Partial<TableCellBorder> | null; blToTr?: Partial<TableCellBorder> | null; } | null",
           "kind": "object",
           "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellClickAction",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "action",
+          "type": "ShapeClickAction | null",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ range?: { start: number; end: number }; tooltip?: string }",
+          "kind": "object",
+          "optional": true
         }
       ]
     },

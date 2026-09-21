@@ -1,12 +1,13 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getShapeParagraphCount, getShapeParagraphElements, getShapeRunClickAction, type ShapeClickAction, getShapeRunHyperlinkTooltip, getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
+  import { getTableCell, getTableCellParagraphs, setTableCellClickAction, getShapeParagraphCount, getShapeParagraphElements, getShapeRunClickAction, type ShapeClickAction, getShapeRunHyperlinkTooltip, getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
   const doc = editor.doc;
   const range = untrack(() => editor.linkTextRange);
+  const cellPosition = untrack(() => editor.linkTableCell);
   const selection = untrack(() => doc.selection);
   const version = untrack(() => doc.version);
   const shapes = selectedShapeIds(selection).map(id => doc.shapeById(selection.slideIndex, id));
@@ -14,6 +15,19 @@
   const supported = selection.kind === 'shape' && shapes.length > 0 && shapes.every(shape => shape && ['shape', 'picture', 'connector', 'graphicFrame'].includes(getShapeKind(shape)));
   const selectedRuns = shapes.flatMap(shape => {
     if (!shape || !range) return [];
+    if (cellPosition) {
+      let offset = 0;
+      return getTableCellParagraphs(getTableCell(shape, cellPosition.row, cellPosition.col)).flatMap(paragraph => {
+        const runs = paragraph.elements.flatMap(element => {
+          const length = element.kind === 'br' ? 1 : element.text.length;
+          const selected = offset < range.end && offset + length > range.start;
+          offset += length;
+          return selected ? [{ action: element.clickAction ?? null, tip: element.tooltip ?? null }] : [];
+        });
+        offset++;
+        return runs;
+      });
+    }
     const runs: { action: ShapeClickAction | null; tip: string | null }[] = [];
     let offset = 0;
     for (let p = 0; p < getShapeParagraphCount(shape); p++) {
@@ -54,6 +68,10 @@
     try {
       doc.transact(t(remove ? 'Remove link' : 'Edit link'), () => {
         for (const shape of shapes) if (shape) {
+          if (range && cellPosition) {
+            setTableCellClickAction(getTableCell(shape, cellPosition.row, cellPosition.col), remove ? null : destination === 'url' ? { kind: 'url', url: url.trim() } : destination === 'slide' ? { kind: 'slide', slide: slides[slideIndex]! } : { kind: destination }, { range, tooltip: tooltip.trim() || undefined });
+            continue;
+          }
           if (range) {
             if (remove) setShapeClickAction(shape, null, { range });
             else if (destination === 'url') setShapeHyperlink(shape, url.trim(), tooltip.trim() || undefined, { range });

@@ -149,6 +149,7 @@ export interface PieceInput {
   readonly strike: boolean;
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   readonly href: string | null;
+  readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
 }
 
@@ -675,7 +676,17 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   const content = toks.filter((t) => !t.isBreak);
   if (content.length === 0) return '';
   const groups = groupTokens(content);
-  const tspans = groups.map((g) => tspan(g)).join('');
+  const tspans = groups
+    .map((g) => {
+      const span = tspan(g);
+      if (!g.piece.href) return span;
+      const target = g.piece.href.startsWith('#')
+        ? ''
+        : ' target="_blank" rel="noopener noreferrer"';
+      const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
+      return `<a href="${escapeXml(g.piece.href)}"${target}>${title}${span}</a>`;
+    })
+    .join('');
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
@@ -800,7 +811,8 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.underline === b.underline &&
   a.strike === b.strike &&
   a.superSub === b.superSub &&
-  a.href === b.href;
+  a.href === b.href &&
+  a.hrefTip === b.hrefTip;
 
 const tspan = (g: Group): string => {
   const p = g.piece;

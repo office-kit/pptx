@@ -610,12 +610,14 @@
     });
   }
   function editSelectedTextLink() {
-    if (!editing || editing.cell || textRange.start === textRange.end) return;
+    if (!editing || textRange.start === textRange.end) return;
     const range = { ...textRange };
     const id = editing.id;
+    const cell = editing.cell ?? null;
     commitEditing();
     doc.selectShape(doc.selection.slideIndex, id);
     editor.linkTextRange = range;
+    editor.linkTableCell = cell;
     editor.runOrPrompt('setShapeHyperlink');
   }
   function onTextFocusOut(event: FocusEvent) {
@@ -676,7 +678,7 @@
 
 <div class="canvas-shell" onfocusout={onTextFocusOut}>
 {#if editing}
-  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onlink={editing.cell ? undefined : editSelectedTextLink} ondone={commitEditing} />
+  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onlink={editSelectedTextLink} ondone={commitEditing} />
 {/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div

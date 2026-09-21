@@ -89,6 +89,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setSlideLayout: { labelJa: 'スライドのレイアウト' },
   setSlideNotes: { labelJa: 'スピーカーノートの編集' },
   setSlideTitle: { labelJa: 'スライドタイトルの編集' },
+  setTableCellClickAction: { labelEn: 'Set Table Cell Link', labelJa: '表セルのリンクを設定' },
   setTableCellAnchor: { labelJa: 'セルの縦方向の配置' },
   setTableCellFill: { labelJa: 'セルの塗りつぶし' },
   setTableCellParagraphs: { labelJa: 'セルの段落と文字書式の編集' },
