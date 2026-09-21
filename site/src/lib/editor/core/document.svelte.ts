@@ -14,8 +14,8 @@
 // `OpcPackage` instance that structuredClone silently drops, producing a
 // corrupt copy. save→load is the library's guaranteed round-trip, so it is the
 // only sound snapshot. Edits stay instant (the mutation runs synchronously);
-// the byte snapshot is taken asynchronously afterwards, which is why undo
-// availability can trail an edit by a few milliseconds. Because each discrete
+// savePresentation captures bytes synchronously and returns a promise. Store
+// that promise immediately so rapid edits remain distinct. Because each discrete
 // gesture (a drag, a click) commits exactly one transaction, this is one
 // serialization per user action — not per pointer move.
 
@@ -32,7 +32,7 @@ import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pp
 import type { Selection } from './selection.ts';
 
 interface Snapshot {
-  readonly bytes: Uint8Array;
+  readonly bytes: Promise<Uint8Array>;
   readonly selection: Selection;
   readonly label: string;
 }
@@ -44,6 +44,8 @@ export class EditorDocument {
   pres = $state.raw<PresentationData>(createInitial());
   /** Bumped on every mutation to invalidate derived rendering. */
   version = $state(0);
+  committedVersion = $state(0);
+  liveEditing = $state(false);
   selection = $state.raw<Selection>({ kind: 'none', slideIndex: 0 });
   fileName = $state<string>('Untitled.pptx');
   dirty = $state<boolean>(false);
@@ -52,12 +54,13 @@ export class EditorDocument {
   // of the current state within `#history`.
   #history = $state.raw<Snapshot[]>([]);
   #cursor = $state(-1);
-  #serializing = false;
-  #pending = false;
+  // A requested restore may still be loading while another undo is requested.
+  #requestedCursor = $state(-1);
+  #operation = 0;
 
   constructor() {
     // Seed the initial state so the first undo returns to the blank deck.
-    void this.#snapshot('Initial');
+    this.#snapshot('Initial');
   }
 
   // --- Derived views -----------------------------------------------------
@@ -83,8 +86,10 @@ export class EditorDocument {
     }
   });
 
-  canUndo = $derived(this.#cursor > 0);
-  canRedo = $derived(this.#cursor >= 0 && this.#cursor < this.#history.length - 1);
+  canUndo = $derived(this.#requestedCursor > 0);
+  canRedo = $derived(
+    this.#requestedCursor >= 0 && this.#requestedCursor < this.#history.length - 1,
+  );
 
   // --- Resolvers ---------------------------------------------------------
   slideAt(index: number): SlideData | null {
@@ -103,10 +108,11 @@ export class EditorDocument {
    * undo. Returns whatever `fn` returns (e.g. a newly created shape/slide).
    */
   transact<T>(label: string, fn: () => T): T {
+    this.#invalidateRestore();
     const result = fn();
     this.version++;
     this.dirty = true;
-    void this.#snapshot(label);
+    this.#snapshot(label);
     return result;
   }
 
@@ -116,6 +122,8 @@ export class EditorDocument {
    * Call `commit()` once when the gesture ends.
    */
   applyLive<T>(fn: () => T): T {
+    this.liveEditing = true;
+    this.#invalidateRestore();
     const result = fn();
     this.version++;
     this.dirty = true;
@@ -124,48 +132,54 @@ export class EditorDocument {
 
   /** Close a live gesture by taking a single undo snapshot. */
   commit(label: string): void {
-    void this.#snapshot(label);
+    this.liveEditing = false;
+    this.#snapshot(label);
   }
 
-  /** Serialize the current state and push it as the new history head. */
-  async #snapshot(label: string): Promise<void> {
-    if (this.#serializing) {
-      this.#pending = true;
-      return;
-    }
-    this.#serializing = true;
-    try {
-      const bytes = await savePresentation(this.pres);
-      const kept = this.#history.slice(0, this.#cursor + 1);
-      kept.push({ bytes, selection: this.selection, label });
-      const trimmed = kept.slice(-HISTORY_MAX);
-      this.#history = trimmed;
-      this.#cursor = trimmed.length - 1;
-    } finally {
-      this.#serializing = false;
-      if (this.#pending) {
-        this.#pending = false;
-        void this.#snapshot(label);
-      }
-    }
+  #invalidateRestore(): void {
+    this.#operation++;
+    this.#requestedCursor = this.#cursor;
+  }
+
+  /** Capture before yielding: neither the document nor selection may drift. */
+  #snapshot(label: string): void {
+    this.committedVersion = this.version;
+    const bytes = savePresentation(this.pres);
+    const kept = this.#history.slice(0, this.#cursor + 1);
+    kept.push({ bytes, selection: this.selection, label });
+    this.#history = kept.slice(-HISTORY_MAX);
+    this.#cursor = this.#history.length - 1;
+    this.#requestedCursor = this.#cursor;
   }
 
   async #restore(index: number): Promise<void> {
     const snap = this.#history[index];
     if (!snap) return;
-    this.pres = await loadPresentation(snap.bytes);
-    this.selection = snap.selection;
-    this.#cursor = index;
-    this.version++;
-    this.dirty = true;
+    const operation = ++this.#operation;
+    this.#requestedCursor = index;
+    try {
+      const pres = await loadPresentation(await snap.bytes);
+      // New/Open, another restore, or an edit takes precedence over stale work.
+      if (operation !== this.#operation) return;
+      this.pres = pres;
+      this.selection = snap.selection;
+      this.#cursor = index;
+      this.version++;
+      this.committedVersion = this.version;
+      this.dirty = true;
+    } catch (error) {
+      if (operation === this.#operation) this.#requestedCursor = this.#cursor;
+      throw error;
+    }
   }
 
   async undo(): Promise<void> {
-    if (this.#cursor > 0) await this.#restore(this.#cursor - 1);
+    if (this.#requestedCursor > 0) await this.#restore(this.#requestedCursor - 1);
   }
 
   async redo(): Promise<void> {
-    if (this.#cursor < this.#history.length - 1) await this.#restore(this.#cursor + 1);
+    if (this.#requestedCursor < this.#history.length - 1)
+      await this.#restore(this.#requestedCursor + 1);
   }
 
   // --- Selection ---------------------------------------------------------
@@ -199,7 +213,10 @@ export class EditorDocument {
 
   // --- IO ----------------------------------------------------------------
   async loadBytes(bytes: Uint8Array, name: string): Promise<void> {
+    this.#invalidateRestore();
+    const operation = this.#operation;
     const pres = await loadPresentation(bytes);
+    if (operation !== this.#operation) return;
     this.pres = pres;
     this.fileName = name;
     this.#history = [];
@@ -207,14 +224,20 @@ export class EditorDocument {
     this.selection = { kind: 'none', slideIndex: 0 };
     this.version++;
     this.dirty = false;
-    void this.#snapshot('Open');
+    this.liveEditing = false;
+    this.#snapshot('Open');
   }
 
   async toBytes(): Promise<Uint8Array> {
     return savePresentation(this.pres);
   }
 
+  markSaved(version: number): void {
+    if (version === this.version) this.dirty = false;
+  }
+
   resetBlank(): void {
+    this.#invalidateRestore();
     this.pres = createInitial();
     this.fileName = 'Untitled.pptx';
     this.#history = [];
@@ -222,7 +245,8 @@ export class EditorDocument {
     this.selection = { kind: 'none', slideIndex: 0 };
     this.version++;
     this.dirty = false;
-    void this.#snapshot('New');
+    this.liveEditing = false;
+    this.#snapshot('New');
   }
 }
 

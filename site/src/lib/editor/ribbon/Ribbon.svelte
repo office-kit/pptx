@@ -76,6 +76,7 @@
 
 <style>
   .ribbon {
+    min-width: 0;
     background: var(--ok-ribbon);
     border-bottom: 1px solid var(--ok-border);
     display: flex;

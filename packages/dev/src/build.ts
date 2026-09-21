@@ -32,7 +32,18 @@ export async function buildDeck(
   if (errors.length) throw new Error(`Invalid presentation: ${JSON.stringify(errors)}`);
   const bytes = await savePresentation(presentation);
   // Preview serialized output too, so persistence defects are visible during authoring.
+  return renderDeck(bytes, dependencies, previous);
+}
+
+export async function renderDeck(
+  bytes: Uint8Array,
+  dependencies: string[],
+  previous?: PreviewCache,
+): Promise<{ result: BuildResult; cache: PreviewCache }> {
   const saved = await loadPresentation(bytes);
+  const diagnostics = validatePresentation(saved);
+  const errors = diagnostics.filter((issue) => issue.severity === 'error');
+  if (errors.length) throw new Error(`Invalid presentation: ${JSON.stringify(errors)}`);
   const size = getSlideSize(saved);
   const { slides, slideTexts, cache } = renderPreview(saved, bytes, previous);
   return {
