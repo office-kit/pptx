@@ -5,9 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   getShapeClickAction,
+  getSlideIndex,
   getSlideShapes,
   getSlides,
   loadPresentation,
+  moveSlide,
+  removeSlide,
+  savePresentation,
   setShapeClickAction,
 } from '../src/api/index.ts';
 
@@ -47,6 +51,29 @@ describe('fn API: getShapeClickAction', () => {
       const { getSlideText } = await import('../src/api/index.ts');
       expect(getSlideText(got.slide)).toBe(getSlideText(target));
     }
+  });
+
+  it('resolves slide jump handles across reordering and serialization', async () => {
+    const bytes = await readFile(fixture('two-slides.pptx'));
+    const pres = await loadPresentation(bytes);
+    const [source, target] = getSlides(pres);
+    const shape = getSlideShapes(source!)[0]!;
+    setShapeClickAction(shape, { kind: 'slide', slide: target! });
+    const action = getShapeClickAction(shape);
+    if (action?.kind !== 'slide') throw new Error('Expected slide jump');
+    expect(getSlideIndex(pres, action.slide)).toBe(1);
+    expect(getSlideIndex(await loadPresentation(bytes), action.slide)).toBe(-1);
+
+    moveSlide(pres, target!, 0);
+    expect(getSlideIndex(pres, action.slide)).toBe(0);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const reloadedAction = getShapeClickAction(getSlideShapes(getSlides(reloaded)[1]!)[0]!);
+    if (reloadedAction?.kind !== 'slide') throw new Error('Expected saved slide jump');
+    expect(getSlideIndex(reloaded, reloadedAction.slide)).toBe(0);
+    expect(getSlideIndex(reloaded, action.slide)).toBe(-1);
+
+    removeSlide(pres, target!);
+    expect(getSlideIndex(pres, action.slide)).toBe(-1);
   });
 
   it('round-trips preset navigation actions', async () => {

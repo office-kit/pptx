@@ -22,8 +22,10 @@ import {
   groupShapes,
   inches,
   loadPresentation,
+  moveSlide,
   type PatternPreset,
   savePresentation,
+  setShapeClickAction,
   setShapeFill,
   setShapeFlip,
   setShapeGradientFill,
@@ -422,6 +424,24 @@ describe('renderSlideToSvg', () => {
     setShapeHyperlink(shape, 'https://example.com');
     const svg = renderSlideToSvg(pres, slide);
     expect(svg).toContain('href="https://example.com"');
+  });
+
+  it('renders internal slide links using the current presentation order', async () => {
+    const { pres, slide } = await blankSlide();
+    const target = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Go to target',
+    });
+    setShapeClickAction(shape, { kind: 'slide', slide: target });
+    expect(renderSlideToSvg(pres, slide)).toContain(`href="#slide-${getSlides(pres).length}"`);
+    moveSlide(pres, target, 0);
+    expect(renderSlideToSvg(pres, slide)).toContain('href="#slide-1"');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(renderSlideToSvg(reloaded, getSlides(reloaded).at(-1)!)).toContain('href="#slide-1"');
   });
 
   it('shapes carry data-pptx-shape-name for accessibility / DevTools', async () => {
