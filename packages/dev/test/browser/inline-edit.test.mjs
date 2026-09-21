@@ -61,12 +61,12 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       await page.mouse.move(bounds.x + bounds.width * 0.9, bounds.y + bounds.height * 0.5);
       await page.mouse.up();
       await page.getByRole('textbox', { name: 'Selection edit' }).fill('Move down');
-      await page.getByRole('textbox', { name: 'Selection edit' }).press('Shift+Enter');
+      await page.getByRole('textbox', { name: 'Selection edit' }).press('Enter');
       assert.equal(
         await page.getByRole('textbox', { name: 'Selection edit' }).inputValue(),
         'Move down\n',
       );
-      await page.getByRole('button', { name: 'Apply with AI', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Selection edit' }).press('Shift+Enter');
       await agent.waitForFunction(
         () => document.querySelector('#chat-status').textContent === 'Done',
       );
@@ -76,18 +76,20 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
         .map(JSON.parse);
       assert.match(requests[0].input, /fractions of the full slide/);
       assert.match(requests[0].input, /Hello world/);
+      assert.ok(requests[0].input.includes('Instruction: Move down\\n\\nLocate'));
+      assert.equal(await page.getByRole('button', { name: 'Undo', exact: true }).textContent(), '');
       assert.equal(requests.length, 2);
       const image = requests[1].args[requests[1].args.indexOf('--image') + 1];
       assert.match(image, /slide-1\.png$/);
       assert.deepEqual([...(await readFile(image))].slice(0, 8), [137, 80, 78, 71, 13, 10, 26, 10]);
       await Promise.all([
         page.waitForResponse((r) => r.url().endsWith('/history/undo')),
-        page.getByRole('button', { name: '↶ Undo', exact: true }).click(),
+        page.getByRole('button', { name: 'Undo', exact: true }).click(),
       ]);
       assert.equal(await readFile(join(dir, 'deck.tsx'), 'utf8'), source);
       await Promise.all([
         page.waitForResponse((r) => r.url().endsWith('/history/redo')),
-        page.getByRole('button', { name: '↷ Redo', exact: true }).click(),
+        page.getByRole('button', { name: 'Redo', exact: true }).click(),
       ]);
       assert.match(await readFile(join(dir, 'deck.tsx'), 'utf8'), /y=\{1.2\}/);
       await page.locator('#slide p').first().click();
@@ -97,9 +99,19 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
         .getByRole('textbox', { name: 'Edit slide text', exact: true })
         .fill('Hello 日本語');
       await page.screenshot({ path: '/tmp/office-kit-inline-edit.png' });
-      await page.getByRole('button', { name: 'Save text', exact: true }).click();
+      await page.route('**/text-edit', async (route) => {
+        const response = await route.fetch();
+        // Preview updates must be visible before the screenshot/review response arrives.
+        await page.waitForFunction(() => document.querySelector('.slide-text-input').hidden);
+        assert.equal(await page.locator('#slide p').first().textContent(), 'Hello 日本語');
+        await route.fulfill({ response });
+      });
+      assert.equal(await page.getByRole('form', { name: 'Edit selection' }).isVisible(), false);
+      await page
+        .getByRole('textbox', { name: 'Edit slide text', exact: true })
+        .press('Shift+Enter');
       await page.waitForFunction(() =>
-        document.querySelector('.slide-edit-panel small').textContent.includes('Text saved ·'),
+        document.querySelector('[data-history-status]').textContent.includes('Text saved ·'),
       );
       await agent.waitForFunction(
         () => document.querySelector('#chat-status').textContent === 'Done',
@@ -114,7 +126,7 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       assert.ok((await readdir(join(dir, '.office-kit', 'reviews'))).length >= 2);
       await Promise.all([
         page.waitForResponse((r) => r.url().endsWith('/history/undo')),
-        page.getByRole('button', { name: '↶ Undo', exact: true }).click(),
+        page.getByRole('button', { name: 'Undo', exact: true }).click(),
       ]);
       await page.waitForFunction(
         () =>
