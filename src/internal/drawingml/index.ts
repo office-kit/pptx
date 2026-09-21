@@ -22,18 +22,20 @@ export {
   setTextBodyParagraphs,
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
-export type { TextFormat } from './text-format.ts';
+export type { ReadTextFormat, TextFormat } from './text-format.ts';
 export {
   applyFormatToAllRuns,
   applyRunFormat,
   applyValidatedFormatToAllRuns,
   validateFormatEnums,
 } from './text-format.ts';
-export type { ParsedColor } from './color.ts';
-export { buildColorElement, parseColor, parseSrgbHex } from './color.ts';
+export type { Color, HexColor, ParsedColor, SchemeColorToken } from './color.ts';
+export { asColor, buildColorElement, parseColor, parseSrgbHex } from './color.ts';
 export type {
   GradientFillOptions,
   GradientStop,
+  ReadGradientFill,
+  ReadGradientStop,
   PatternFillOptions,
   PatternPreset,
 } from './fill.ts';

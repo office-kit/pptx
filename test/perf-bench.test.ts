@@ -27,6 +27,7 @@ import {
   setShapeFill,
   setShapeRunFormat,
   setSlideTitle,
+  type Color,
 } from '../src/api/index.ts';
 
 const ENABLED = process.env.PERF === '1';
@@ -69,10 +70,15 @@ describe.skipIf(!ENABLED)('performance bench', () => {
             h: inches(2),
             text: `Card ${s + 1}`,
           });
-          setShapeFill(
-            shape,
-            ['#2E75B6', '#548235', '#C00000', '#7030A0', '#BF8F00', '#0070C0'][s]!,
-          );
+          const palette: Color[] = [
+            '#2E75B6',
+            '#548235',
+            '#C00000',
+            '#7030A0',
+            '#BF8F00',
+            '#0070C0',
+          ];
+          setShapeFill(shape, palette[s]!);
         }
       } else if (mod === 2) {
         addSlideTable(slide, {

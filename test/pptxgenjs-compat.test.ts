@@ -12,6 +12,7 @@ import {
   type ParagraphAlignment,
   type ParagraphSpec,
   type PresentationData,
+  type ReadTextFormat,
   type ShapeParagraphElement,
   type SlideData,
   type SlideShapeData,
@@ -21,6 +22,7 @@ import {
   addSlideChart,
   addSlideTable,
   addSlideTextBox,
+  asColor,
   createPresentation,
   findSlideLayoutByType,
   getParagraphAlignment,
@@ -216,7 +218,7 @@ interface ParagraphDto {
   // getParagraphAlignment or the plain-English name of getTableCellParagraphs.
   readonly align: ParagraphAlignment | null;
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
-  readonly endFormat: TextFormat | null;
+  readonly endFormat: ReadTextFormat | null;
 }
 
 const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
@@ -226,14 +228,26 @@ const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
     endFormat: getParagraphEndFormat(shape, i),
   }));
 
+// A format read back from the deck carries colors as plain strings, since a
+// deck can hold a scheme token outside the theme. Re-applying it has to go
+// through the same check the writer would run.
+const writableFormat = (format: ReadTextFormat): TextFormat => {
+  const { color, highlight, ...rest } = format;
+  return {
+    ...rest,
+    ...(color == null ? {} : { color: asColor(color) }),
+    ...(highlight == null ? {} : { highlight: asColor(highlight) }),
+  };
+};
+
 const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
   paragraphs.map((p) => ({
     ...(p.align !== null ? { align: p.align } : {}),
     runs: p.elements.map((e) => {
       if (e.kind !== 'r') throw new Error(`fixture has a ${e.kind} element`);
-      return { text: e.text, ...(e.format !== null ? { format: e.format } : {}) };
+      return { text: e.text, ...(e.format !== null ? { format: writableFormat(e.format) } : {}) };
     }),
-    ...(p.endFormat !== null ? { endFormat: p.endFormat } : {}),
+    ...(p.endFormat !== null ? { endFormat: writableFormat(p.endFormat) } : {}),
   }));
 
 describe('pptxgenjs compatibility: text', () => {
@@ -397,7 +411,10 @@ describe('pptxgenjs compatibility: merged table', () => {
     setTableCellParagraphs(cell, [
       {
         ...toSpecs(before)[0]!,
-        endFormat: { ...before[0]!.endFormat, fontComplexScript: 'Leelawadee UI' },
+        endFormat: {
+          ...(before[0]!.endFormat === null ? {} : writableFormat(before[0]!.endFormat)),
+          fontComplexScript: 'Leelawadee UI',
+        },
       },
     ]);
     const saved = await loadPresentation(await savePresentation(src));

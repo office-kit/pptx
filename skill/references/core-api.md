@@ -52,11 +52,14 @@ import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/n
 3. **Build, then format.** Add a shape/slide; it returns a handle. Pass that
    handle to formatting functions (`setShape*`). Order of formatting calls does
    not matter — the library inserts each XML child at its schema-mandated slot.
-4. **Colors** are `#RRGGBB`, the 3-digit shorthand `#RGB`, bare `RRGGBB`, or a
-   theme token (`accent1`…`accent6`, `tx1`, `bg1`, `dk1`, `lt1`, `hlink`). An
-   unrecognized color **throws** — it is never silently emitted. One exception:
-   chart series colors accept the hex forms but **not** theme tokens (a series
-   must resolve to a concrete sRGB value).
+4. **Colors** are `#RRGGBB`, the 3-digit shorthand `#RGB`, or a theme token
+   (`accent1`…`accent6`, `tx1`, `bg1`, `dk1`, `lt1`, `hlink`) — the exported
+   `Color` type, which rejects anything else at compile time. The `#` is
+   required. Chart series colors take `HexColor`: a series must resolve to a
+   concrete sRGB value, so a theme token is not accepted there. A malformed
+   hex body such as `'#zzzzzz'` still **throws** at run time, because
+   TypeScript cannot spell "six hex digits". Colors read back off a deck are
+   plain `string`; pass one through `asColor` to write it again.
 
 ## Core workflow — build a deck from scratch
 
@@ -270,8 +273,6 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
 
 ## Footguns (memorize these — each is a real, easy mistake)
 
-- **`setShapeFill(shape, color)` takes a color string**, e.g.
-  `setShapeFill(card, '#059669')` — not an object.
 - **Multi-line text** in a text box, shape, or table cell uses `\n` between
   lines — each becomes its own paragraph. A literal newline inside one run is
   not a line break.

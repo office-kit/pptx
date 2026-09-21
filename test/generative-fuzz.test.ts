@@ -41,6 +41,8 @@ import {
   setSlideTransition,
   setTableCellBorders,
   setTableCellFill,
+  type Color,
+  type SchemeColorToken,
 } from '../src/api/index.ts';
 import { buildPng } from './lib/build-png.ts';
 import {
@@ -75,7 +77,7 @@ const makeRng = (seed: number): (() => number) => {
 };
 
 const HEX = '0123456789abcdef';
-const SCHEME = ['accent1', 'accent2', 'accent3', 'tx1', 'bg1', 'dk1', 'lt1'];
+const SCHEME: SchemeColorToken[] = ['accent1', 'accent2', 'accent3', 'tx1', 'bg1', 'dk1', 'lt1'];
 const PATTERNS = ['pct50', 'dkUpDiag', 'wave', 'cross', 'horzBrick', 'zigZag'] as const;
 const TRANSITIONS = [
   { effect: 'fade' as const },
@@ -115,17 +117,17 @@ describe('generative fuzz: every authored part is schema-valid', () => {
         const rng = makeRng(seed);
         const pick = <T>(arr: ReadonlyArray<T>): T => arr[Math.floor(rng() * arr.length)]!;
         const chance = (p: number): boolean => rng() < p;
-        const color = (): string => {
+        const color = (): Color => {
           if (chance(0.3)) {
             const token = pick(SCHEME);
             // Exercise both spellings the API accepts: bare and `scheme:`-prefixed
             // (the latter is what the read-back getters emit, so it must round-trip).
             return chance(0.5) ? `scheme:${token}` : token;
           }
-          let s = '#';
+          let body = '';
           const n = chance(0.5) ? 3 : 6;
-          for (let i = 0; i < n; i++) s += HEX[Math.floor(rng() * 16)];
-          return s;
+          for (let i = 0; i < n; i++) body += HEX[Math.floor(rng() * 16)];
+          return `#${body}`;
         };
         const emu = (lo: number, hi: number) => inches(lo + rng() * (hi - lo));
 

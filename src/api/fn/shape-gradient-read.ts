@@ -2,7 +2,7 @@
 
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
-import { type GradientFillOptions } from '../../internal/drawingml/index.ts';
+import { type ReadGradientFill, type ReadGradientStop } from '../../internal/drawingml/index.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES, readShapeTreeFromCsldRoot } from '../../internal/presentationml/index.ts';
 import {
@@ -53,10 +53,10 @@ export const readColorFromContainer = (parent: XmlElement): string | null => {
 
 // Parses one `<a:gradFill>` element into the stop list + direction.
 // Shared by the shape-own reader and the placeholder-cascade reader.
-const parseGradFill = (gradFill: XmlElement): GradientFillOptions | null => {
+const parseGradFill = (gradFill: XmlElement): ReadGradientFill | null => {
   const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
   if (!gsLst) return null;
-  const stops: Array<{ offset: number; color: string }> = [];
+  const stops: ReadGradientStop[] = [];
   for (const c of gsLst.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs') {
       continue;
@@ -89,7 +89,7 @@ const parseGradFill = (gradFill: XmlElement): GradientFillOptions | null => {
     const pathVal: 'circle' | 'rect' | 'shape' | null =
       p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
     if (pathVal) {
-      let focus: GradientFillOptions['focus'];
+      let focus: ReadGradientFill['focus'];
       const fillToRect = firstChildElement(pathEl, qname('a', 'fillToRect', NS.dml));
       if (fillToRect) {
         const pct = (name: string): number | undefined => {
@@ -118,7 +118,7 @@ const parseGradFill = (gradFill: XmlElement): GradientFillOptions | null => {
  * other fill kind, including `inherit` — the function does not walk the
  * layout / master cascade. Use `getShapeGradientFillEffective` for that.
  */
-export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions | null => {
+export const getShapeGradientFill = (shape: SlideShapeData): ReadGradientFill | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
@@ -141,7 +141,7 @@ export const getShapeGradientFill = (shape: SlideShapeData): GradientFillOptions
 export const getShapeGradientFillEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
-): GradientFillOptions | null => {
+): ReadGradientFill | null => {
   const own = getShapeGradientFill(shape);
   if (own) return own;
 
@@ -152,7 +152,7 @@ export const getShapeGradientFillEffective = (
   const layout = getSlideLayout(shape[SHAPE_SLIDE]);
   if (!layout) return null;
 
-  const readGradFromSpPr = (el: XmlElement): GradientFillOptions | null => {
+  const readGradFromSpPr = (el: XmlElement): ReadGradientFill | null => {
     const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
     if (!spPr) return null;
     const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);

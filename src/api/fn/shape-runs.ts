@@ -6,6 +6,7 @@ import {
   type BulletStyle,
   type ParagraphAlignment,
   type ParagraphAlignmentToken,
+  type ReadTextFormat,
   type TextFormat,
   applyBulletToParagraph,
   parseAlignmentToken,
@@ -145,14 +146,14 @@ export const getShapeParagraphCount = (shape: SlideShapeData): number =>
  * unchanged so renderers can decide whether to substitute live values.
  */
 export type ShapeParagraphElement =
-  | { readonly kind: 'r'; readonly text: string; readonly format: TextFormat | null }
+  | { readonly kind: 'r'; readonly text: string; readonly format: ReadTextFormat | null }
   | {
       readonly kind: 'fld';
       readonly text: string;
-      readonly format: TextFormat | null;
+      readonly format: ReadTextFormat | null;
       readonly type: string | null;
     }
-  | { readonly kind: 'br'; readonly format: TextFormat | null };
+  | { readonly kind: 'br'; readonly format: ReadTextFormat | null };
 
 /**
  * Returns the inline children of a paragraph in document order — runs,
@@ -174,14 +175,14 @@ export const getShapeParagraphElements = (
 export const getParagraphEndFormat = (
   shape: SlideShapeData,
   paragraphIndex: number,
-): TextFormat | null => readParagraphEndFormat(requireParagraph(shape, paragraphIndex));
+): ReadTextFormat | null => readParagraphEndFormat(requireParagraph(shape, paragraphIndex));
 
 /**
  * Shared by the shape reader above and the table-cell paragraph reader.
  *
  * @internal
  */
-export const readParagraphEndFormat = (paragraph: XmlElement): TextFormat | null => {
+export const readParagraphEndFormat = (paragraph: XmlElement): ReadTextFormat | null => {
   const endParaRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
   return endParaRPr === null ? null : parseRPrLikeElement(endParaRPr);
 };
@@ -207,7 +208,7 @@ export const readParagraphElements = (
     }
     return acc;
   };
-  const readFmt = (parent: XmlElement): TextFormat | null => {
+  const readFmt = (parent: XmlElement): ReadTextFormat | null => {
     const rPr = firstChildElement(parent, NAME_A_RPR);
     if (!rPr) return null;
     return parseRPrLikeElement(rPr) as TextFormat;
