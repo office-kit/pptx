@@ -26,8 +26,11 @@ that a user can complete the corresponding editing workflow.
 - A bilingual slide options pane selects layouts already in the document, sets
   background colors or uploaded images, and resets to the inherited background.
   Browser tests verify layout relationships, untouched text and neighboring
-  slides, embedded image bytes, reset, undo and reload. Slide dimensions and
-  fuller layout/placeholder workflows still need dedicated editing controls.
+  slides, embedded image bytes, reset, undo and reload. Bilingual page setup
+  supports 16:9, 4:3, 16:10 and custom dimensions in inches or centimeters.
+  Browser tests verify live canvas ratios, saved dimensions, unit conversion,
+  invalid input, cancellation, undo/redo and unchanged object geometry.
+  Content scaling and fuller layout/placeholder workflows remain outstanding.
 
 - Bilingual chart dialogs create column, bar, line, area, pie, doughnut and radar
   charts, edit titles, category labels, series names, colors and numeric data,
