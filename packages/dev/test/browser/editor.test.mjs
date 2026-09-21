@@ -7,6 +7,8 @@ import { chromium } from 'playwright';
 import {
   getTableCells,
   getTableCellSpan,
+  getTableCellAlignment,
+  getTableCellAnchor,
   getTableCellText,
   getTableCellParagraphs,
   getTableCellFill,
@@ -628,6 +630,28 @@ test(
       await editor
         .getByRole('button', { name: 'セル 2, 2', exact: true })
         .click({ modifiers: ['Shift'] });
+      await editor.getByLabel('セルの塗りつぶし', { exact: true }).fill('#112233');
+      await editor.getByLabel('水平方向の配置', { exact: true }).selectOption('r');
+      await editor.getByLabel('垂直方向の配置', { exact: true }).selectOption('bottom');
+      const tablePanel = editor.getByRole('region', { name: '表の設定', exact: true });
+      await tablePanel.getByRole('button', { name: '太字', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      for (const cell of cells.slice(0, 2).flat()) {
+        assert.equal(getTableCellFill(cell), '#112233');
+        assert.equal(getTableCellAlignment(cell), 'r');
+        assert.equal(getTableCellAnchor(cell), 'bottom');
+        for (const paragraph of getTableCellParagraphs(cell))
+          for (const run of paragraph.elements) assert.equal(run.format?.bold, true);
+      }
+      assert.notEqual(getTableCellFill(cells[2][0]), '#112233');
+      assert.notEqual(getTableCellAlignment(cells[2][0]), 'r');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      assert.equal(getTableCellParagraphs(cells[0][0])[0].elements[0].format.bold, true);
+      assert.notEqual(getTableCellParagraphs(cells[0][0])[0].elements[1].format.bold, true);
+      assert.notEqual(getTableCellParagraphs(cells[0][1])[0].elements[0].format?.bold, true);
       await editor.getByRole('button', { name: 'セルを結合', exact: true }).click();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       cells = getTableCells(await readTable());
@@ -647,6 +671,18 @@ test(
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       await editor.locator('.hit').first().click();
       assert.equal(await editor.getByRole('button', { name: 'セル 1, 2', exact: true }).count(), 0);
+      await editor.locator('select').first().selectOption('en');
+      await editor
+        .getByRole('region', { name: 'Table options', exact: true })
+        .getByRole('button', { name: 'Italic', exact: true })
+        .click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      for (const cell of cells.slice(0, 2).flat())
+        for (const paragraph of getTableCellParagraphs(cell))
+          for (const run of paragraph.elements) assert.equal(run.format?.italic, true);
+      assert.notEqual(getTableCellParagraphs(cells[2][0])[0].elements[0].format?.italic, true);
+      await editor.locator('select').first().selectOption('ja');
       await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {
