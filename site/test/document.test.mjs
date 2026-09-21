@@ -203,3 +203,51 @@ test('copy is unaffected by source edits, undo, slide changes or a new document'
   assert.equal(getShapeText(editor.selectedShapes()[0]), text);
   assert.equal(getSlideShapes(editor.doc.slideAt(0)).length, count + 1);
 });
+
+test('slide commands use the selected slide and keep insertion order through undo and redo', async () => {
+  const editor = new EditorController();
+  append(editor.doc, 'A');
+  append(editor.doc, 'B');
+  editor.doc.selectSlide(1);
+  assert.equal(editor.command('duplicateSlide').params.length, 0);
+  editor.invoke('duplicateSlide');
+  assert.deepEqual(titles(editor.doc).slice(1), ['A', 'A', 'B']);
+  assert.equal(editor.doc.selection.slideIndex, 2);
+  await editor.doc.undo();
+  assert.deepEqual(titles(editor.doc).slice(1), ['A', 'B']);
+  await editor.doc.redo();
+  assert.equal(editor.doc.selection.slideIndex, 2);
+  editor.invoke('removeSlide');
+  assert.deepEqual(titles(editor.doc).slice(1), ['A', 'B']);
+  assert.equal(editor.doc.selection.slideIndex, 2);
+});
+
+test('new slides insert after the active slide and moving selects the resulting position', async () => {
+  const editor = new EditorController();
+  append(editor.doc, 'A');
+  append(editor.doc, 'B');
+  editor.doc.selectSlide(0);
+  editor.invoke('addBlankSlide');
+  assert.deepEqual(titles(editor.doc).slice(1), ['', 'A', 'B']);
+  assert.equal(editor.doc.selection.slideIndex, 1);
+  editor.doc.selectSlide(3);
+  editor.invoke('moveSlide', { toIndex: 0 });
+  assert.equal(titles(editor.doc)[0], 'B');
+  assert.equal(editor.doc.selection.slideIndex, 0);
+  await editor.doc.undo();
+  await editor.doc.redo();
+  assert.equal(editor.doc.selection.slideIndex, 0);
+});
+
+test('deleting the final slide leaves an empty deck that can accept a new slide', async () => {
+  const editor = new EditorController();
+  editor.invoke('removeSlide');
+  assert.equal(editor.doc.slides.length, 0);
+  assert.equal(editor.canRun('removeSlide'), false);
+  assert.equal(editor.canRun('duplicateSlide'), false);
+  editor.invoke('addBlankSlide');
+  assert.equal(editor.doc.slides.length, 1);
+  assert.equal(editor.doc.selection.slideIndex, 0);
+  await editor.doc.undo();
+  assert.equal(editor.doc.slides.length, 0);
+});

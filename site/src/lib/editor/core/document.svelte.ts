@@ -109,6 +109,11 @@ export class EditorDocument {
    */
   transact<T>(label: string, fn: () => T): T {
     this.#invalidateRestore();
+    const current = this.#history[this.#cursor];
+    if (current)
+      this.#history = this.#history.map((snapshot, index) =>
+        index === this.#cursor ? { ...snapshot, selection: this.selection } : snapshot,
+      );
     const result = fn();
     this.version++;
     this.dirty = true;
@@ -188,8 +193,8 @@ export class EditorDocument {
   }
 
   selectSlide(index: number): void {
-    const clamped = Math.max(0, Math.min(index, this.slides.length - 1));
-    this.selection = { kind: 'none', slideIndex: clamped };
+    const clamped = Math.max(0, Math.min(index, getSlides(this.pres).length - 1));
+    this.selection = { kind: 'slide', slideIndex: clamped };
   }
 
   selectShape(slideIndex: number, shapeId: number, additive = false): void {

@@ -137,3 +137,75 @@ test(
     }
   },
 );
+
+test(
+  'slide controls insert, duplicate, reorder and delete with keyboard history and persisted order',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-slides-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1}>First</Text></Slide><Slide><Text x={1} y={1} width={6} height={1}>Second</Text></Slide></Presentation>`,
+    );
+    let preview;
+    let browser;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const rows = editor.locator('.thumb-row');
+      await rows.first().click();
+      await page.keyboard.press('Control+d');
+      await editor.getByRole('button', { name: 'Slide 3', exact: true }).waitFor();
+      assert.equal(
+        await editor.locator('.thumb-row[aria-current="true"]').getAttribute('data-slide-index'),
+        '1',
+      );
+      await page.keyboard.press('Alt+ArrowDown');
+      assert.equal(
+        await editor.locator('.thumb-row[aria-current="true"]').getAttribute('data-slide-index'),
+        '2',
+      );
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const titles = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        ).map(getSlideText);
+      assert.deepEqual(await titles(), ['First', 'Second', 'First']);
+      await page.keyboard.press('Delete');
+      await editor
+        .getByRole('button', { name: 'Slide 3', exact: true })
+        .waitFor({ state: 'detached' });
+      await page.keyboard.press('Control+z');
+      await editor.getByRole('button', { name: 'Slide 3', exact: true }).waitFor();
+      assert.equal(
+        await editor.locator('.thumb-row[aria-current="true"]').getAttribute('data-slide-index'),
+        '2',
+      );
+      await editor.locator('.lang select').selectOption('ja');
+      await editor.getByRole('button', { name: 'スライドを上へ移動', exact: true }).click();
+      await editor.getByRole('button', { name: 'スライドを削除', exact: true }).click();
+      await editor.locator('.nav').getByTitle('新しいスライド', { exact: true }).click();
+      await editor.getByRole('button', { name: 'スライド 3', exact: true }).waitFor();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.deepEqual(await titles(), ['First', 'Second', '']);
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(await rows.count(), 3);
+      await page.screenshot({ path: '/tmp/pptx-pr287-slide-controls-ja.png', fullPage: true });
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

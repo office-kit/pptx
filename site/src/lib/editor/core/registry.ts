@@ -110,7 +110,7 @@ function applyResultSelection(doc: CommandDoc, cap: ResolvedCapability, result: 
       const id = (lib.getShapeId as (s: unknown) => number)(result);
       doc.selectShape(doc.selection.slideIndex, id);
     } else if (ret.includes('SlideData')) {
-      const slides = doc.slides;
+      const slides = pptx.getSlides(doc.pres);
       const idx = slides.indexOf(result as never);
       if (idx >= 0) doc.selectSlide(idx);
     }
@@ -160,8 +160,75 @@ class ManifestCommand implements Command {
   }
 }
 
+// Slide operations need both the presentation and the active slide. Keep these
+// bindings here so ribbon, palette and navigator expose the same commands.
+const activeSlideCommands = new Set([
+  'duplicateSlide',
+  'removeSlide',
+  'moveSlide',
+  'duplicateSlideAt',
+]);
+class SlideCommand extends ManifestCommand {
+  override get params(): ResolvedCapability['params'] {
+    return super.params.filter((param) => param.name !== 'slide');
+  }
+
+  override canRun(ctx: CommandContext): boolean {
+    return (
+      this.capability.id === 'addBlankSlide' ||
+      ctx.doc.slideAt(ctx.doc.selection.slideIndex) !== null
+    );
+  }
+
+  override run(ctx: CommandContext, args: Record<string, unknown>): unknown {
+    const doc = ctx.doc;
+    const index = doc.selection.slideIndex;
+    const slide = doc.slideAt(index);
+    const id = this.capability.id;
+    if (id !== 'addBlankSlide' && !slide) throw new CommandError('No slide selected.');
+    return doc.transact(this.capability.labelEn, () => {
+      switch (id) {
+        case 'addBlankSlide': {
+          const added = pptx.addBlankSlide(doc.pres);
+          pptx.moveSlide(doc.pres, added, index + 1);
+          doc.selectSlide(Math.min(index + 1, pptx.getSlides(doc.pres).length - 1));
+          return pptx.getSlides(doc.pres)[doc.selection.slideIndex];
+        }
+        case 'duplicateSlide':
+        case 'duplicateSlideAt': {
+          const at = id === 'duplicateSlide' ? index + 1 : args.atIndex;
+          if (typeof at !== 'number' || !Number.isInteger(at))
+            throw new CommandError('Slide position must be an integer.');
+          const duplicate = pptx.duplicateSlideAt(doc.pres, at, slide!);
+          doc.selectSlide(pptx.getSlides(doc.pres).indexOf(duplicate));
+          return duplicate;
+        }
+        case 'removeSlide':
+          pptx.removeSlide(doc.pres, slide!);
+          doc.selectSlide(index);
+          return;
+        case 'moveSlide': {
+          const at = args.toIndex;
+          if (typeof at !== 'number' || !Number.isInteger(at))
+            throw new CommandError('Slide position must be an integer.');
+          pptx.moveSlide(doc.pres, slide!, at);
+          doc.selectSlide(at);
+          return;
+        }
+        default:
+          throw new CommandError(`Unknown slide command: ${id}`);
+      }
+    });
+  }
+}
+
 const registry = new Map<string, Command>(
-  capabilities.map((cap) => [cap.id, new ManifestCommand(cap)]),
+  capabilities.map((cap) => [
+    cap.id,
+    activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide'
+      ? new SlideCommand(cap)
+      : new ManifestCommand(cap),
+  ]),
 );
 
 export function getCommand(id: string): Command | undefined {

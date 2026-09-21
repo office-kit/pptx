@@ -182,6 +182,10 @@ export class EditorController {
   }
 
   deleteSelection(): void {
+    if (this.doc.selection.kind === 'slide') {
+      this.invoke('removeSlide');
+      return;
+    }
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
     this.doc.transact(t('Delete'), () => {
@@ -212,6 +216,10 @@ export class EditorController {
   }
 
   duplicateSelection(): void {
+    if (this.doc.selection.kind === 'slide') {
+      this.invoke('duplicateSlide');
+      return;
+    }
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
     const slideIndex = this.doc.selection.slideIndex;
@@ -235,6 +243,7 @@ export class EditorController {
   }
 
   cutSelection(): void {
+    if (!this.selectedShapes().length) return;
     this.copySelection();
     this.deleteSelection();
   }

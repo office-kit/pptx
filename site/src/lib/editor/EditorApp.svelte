@@ -27,6 +27,7 @@
   const NUDGE_BIG = 182880; // 0.2in
 
   function onKeydown(e: KeyboardEvent) {
+    if (e.isComposing) return;
     const mod = e.ctrlKey || e.metaKey;
     const target = e.target as HTMLElement;
     const typing =
@@ -42,7 +43,7 @@
       editor.togglePalette();
       return;
     }
-    if (typing) return;
+    if (typing || e.defaultPrevented) return;
 
     const hasShapes = doc.selection.kind === 'shape' || doc.selection.kind === 'cell';
 
@@ -73,7 +74,7 @@
     } else if (mod && e.key === '0') {
       e.preventDefault();
       editor.zoomFit();
-    } else if ((e.key === 'Delete' || e.key === 'Backspace') && hasShapes) {
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && (hasShapes || doc.selection.kind === 'slide')) {
       e.preventDefault();
       editor.deleteSelection();
     } else if (e.key.startsWith('Arrow') && hasShapes) {
