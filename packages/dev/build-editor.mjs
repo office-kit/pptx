@@ -6,7 +6,7 @@ import { compile, compileModule } from 'svelte/compiler';
 // Bundle the site's canonical editor into the published CLI; no site server is needed.
 await build({
   entryPoints: [fileURLToPath(new URL('../../site/src/lib/editor/dev/main.ts', import.meta.url))],
-  outfile: 'dist/editor.js',
+  outfile: fileURLToPath(new URL('./dist/editor.js', import.meta.url)),
   bundle: true,
   minify: true,
   format: 'esm',

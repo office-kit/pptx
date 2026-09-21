@@ -5,9 +5,16 @@
   // double-click to edit text. Gestures mutate the real model on every frame
   // (so the shape moves for real, not a ghost) via `applyLive`, then commit a
   // single undo step on release. Zoom + right-click menu round out the feel.
+  import TextFormatBar from '../ui/TextFormatBar.svelte';
+  import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
+    getShapeKind,
+    getShapeParagraphCount,
+    getShapeParagraphElements,
+    setShapeTextFormat,
+    type TextFormat,
     setShapeBounds,
     setShapeRotation,
     setShapeText,
@@ -106,6 +113,8 @@
   }
   let drag = $state<Drag | null>(null);
   let guides = $state<readonly Guide[]>([]);
+  let textArea = $state<HTMLTextAreaElement>();
+  let textRange = $state({ start: 0, end: 0 });
   let editing = $state<{ id: number; text: string; changes: { start: number; end: number; text: string }[] } | null>(null);
 
   // Marquee (rubber-band) selection, in stage-local px.
@@ -316,12 +325,14 @@
 
   // ---- Text editing ------------------------------------------------------
   function startEditing(box: Box) {
+    if (getShapeKind(box.shape) !== 'shape') return;
     let text = '';
     try {
       text = getShapeText(box.shape);
     } catch {
       text = '';
     }
+    textRange = { start: text.length, end: text.length };
     editing = { id: box.id, text, changes: [] };
   }
 
@@ -362,13 +373,54 @@
     editing = null;
     if (!box) return;
     if (!cur.changes.length) return;
-    doc.transact('Edit text', () => {
+    doc.transact(t('Edit text'), () => {
       let value = getShapeText(box.shape);
       for (const change of cur.changes) {
         value = value.slice(0, change.start) + change.text + value.slice(change.end);
         setShapeText(box.shape, value, { preserveFormatting: true });
       }
     });
+  }
+
+  const rangeFormats = $derived.by(() => {
+    doc.version;
+    const box = boxes.find((b) => b.id === editing?.id);
+    if (!box) return [];
+    const formats: TextFormat[] = [];
+    let offset = 0;
+    for (let i = 0; i < getShapeParagraphCount(box.shape); i++) {
+      for (const element of getShapeParagraphElements(box.shape, i)) {
+        const length = element.kind === 'br' ? 1 : element.text.length;
+        if (offset < textRange.end && offset + length > textRange.start) formats.push(element.format ?? {});
+        offset += length;
+      }
+      offset++;
+    }
+    return formats;
+  });
+  function applyInlineFormat(format: TextFormat) {
+    if (!editing || textRange.start === textRange.end) return;
+    const cur = editing;
+    const box = boxes.find((b) => b.id === cur.id);
+    if (!box) return;
+    const range = { ...textRange };
+    doc.transact(t('Format selected text'), () => {
+      let value = getShapeText(box.shape);
+      for (const change of cur.changes) {
+        value = value.slice(0, change.start) + change.text + value.slice(change.end);
+        setShapeText(box.shape, value, { preserveFormatting: true });
+      }
+      setShapeTextFormat(box.shape, format, { range });
+    });
+    cur.changes = [];
+    requestAnimationFrame(() => {
+      textArea?.setSelectionRange(range.start, range.end);
+    });
+  }
+  function onTextFocusOut(event: FocusEvent) {
+    const target = event.relatedTarget;
+    if (target instanceof Element && target.closest('.text-format-bar, .inline-edit')) return;
+    commitEditing();
   }
 
   function onContext(e: MouseEvent) {
@@ -403,6 +455,10 @@
 
 <svelte:window onkeydown={onTypeToEdit} />
 
+<div class="canvas-shell" onfocusout={onTextFocusOut}>
+{#if editing}
+  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ondone={commitEditing} />
+{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
     class="stage-wrap"
@@ -470,6 +526,9 @@
           {#if eb}
             <textarea
               class="inline-edit"
+              aria-label={t('Edit text')}
+              bind:this={textArea}
+              onselect={(e) => { textRange = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; }}
               style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%;"
               value={editing.text}
               oninput={(e) => updateEditing(e.currentTarget.value)}
@@ -477,7 +536,6 @@
               onpointerdown={(e) => e.stopPropagation()}
               onpointerup={(e) => e.stopPropagation()}
               ondblclick={(e) => e.stopPropagation()}
-              onblur={commitEditing}
               onkeydown={(e) => {
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                   commitEditing();
@@ -496,8 +554,12 @@
   </div>
 </div>
 
+</div>
+
 <style>
+  .canvas-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .canvas-area {
+    flex: 1;
     background:
       radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 1px, transparent 0) 0 0 / 22px 22px,
       var(--ok-canvas-bg);
