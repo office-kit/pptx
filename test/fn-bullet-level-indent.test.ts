@@ -15,7 +15,7 @@ import {
   savePresentation,
   setParagraphBullet,
   setParagraphLevel,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeText,
 } from '../src/api/index.ts';
 
@@ -35,13 +35,13 @@ const rootIndent = { leftEmu: 342900, rightEmu: null, firstLineEmu: -342900 };
 const nestedIndent = { leftEmu: 742950, rightEmu: null, firstLineEmu: -285750 };
 
 describe('bullet indentation follows paragraph level', () => {
-  it('produces the same indent regardless of setShapeBullets / setParagraphLevel order', () => {
+  it('produces the same indent regardless of setShapeBulletStyle / setParagraphLevel order', () => {
     const first = makeBox().box;
     const second = makeBox().box;
-    setShapeBullets(first, 'bullet');
+    setShapeBulletStyle(first, 'bullet');
     setParagraphLevel(first, 1, 1);
     setParagraphLevel(second, 1, 1);
-    setShapeBullets(second, 'bullet');
+    setShapeBulletStyle(second, 'bullet');
     expect(getParagraphIndent(first, 1)).toEqual(getParagraphIndent(second, 1));
     expect(getParagraphIndent(first, 1)).toEqual(nestedIndent);
     expect(getParagraphIndent(first, 0)).toEqual(rootIndent);
@@ -78,7 +78,7 @@ describe('bullet indentation follows paragraph level', () => {
 
   it.each([undefined, 'none'] as const)('does not add indentation with bullets %j', (style) => {
     const { box } = makeBox();
-    if (style !== undefined) setShapeBullets(box, style);
+    if (style !== undefined) setShapeBulletStyle(box, style);
     setParagraphLevel(box, 1, 1);
     expect(getParagraphIndent(box, 1)).toEqual({
       leftEmu: null,
@@ -89,17 +89,17 @@ describe('bullet indentation follows paragraph level', () => {
 
   it('updates default indentation even while bullets are disabled', () => {
     const { box } = makeBox();
-    setShapeBullets(box, 'bullet');
-    setShapeBullets(box, 'none');
+    setShapeBulletStyle(box, 'bullet');
+    setShapeBulletStyle(box, 'none');
     setParagraphLevel(box, 1, 1);
     expect(getParagraphIndent(box, 1)).toEqual(nestedIndent);
-    setShapeBullets(box, 'number');
+    setShapeBulletStyle(box, 'number');
     expect(getParagraphIndent(box, 1)).toEqual(nestedIndent);
   });
 
   it('updates default indentation after saving and reloading', async () => {
     const { pres, box } = makeBox();
-    setShapeBullets(box, 'bullet');
+    setShapeBulletStyle(box, 'bullet');
     const loaded = await loadPresentation(await savePresentation(pres));
     const loadedBox = getSlideShapes(getSlides(loaded)[0]!)[0]!;
     setParagraphLevel(loadedBox, 1, 1);
@@ -108,7 +108,7 @@ describe('bullet indentation follows paragraph level', () => {
 
   it('updates default indentation on a duplicated slide', () => {
     const { pres, box } = makeBox();
-    setShapeBullets(box, 'bullet');
+    setShapeBulletStyle(box, 'bullet');
     const copy = duplicateSlide(pres, getSlides(pres)[0]!);
     const copiedBox = getSlideShapes(copy)[0]!;
     setParagraphLevel(copiedBox, 1, 1);
@@ -118,7 +118,7 @@ describe('bullet indentation follows paragraph level', () => {
 
   it('updates default indentation on a copied shape', () => {
     const { pres, box } = makeBox();
-    setShapeBullets(box, 'bullet');
+    setShapeBulletStyle(box, 'bullet');
     const copiedBox = copyShape(addBlankSlide(pres), box);
     setParagraphLevel(copiedBox, 1, 1);
     expect(getParagraphIndent(copiedBox, 1)).toEqual(nestedIndent);
@@ -132,7 +132,7 @@ describe('bullet indentation follows paragraph level', () => {
     'preserves both indents when only $attribute differs from the default',
     async ({ attribute, value, expected }) => {
       const { pres, box } = makeBox();
-      setShapeBullets(box, 'bullet');
+      setShapeBulletStyle(box, 'bullet');
       const parts = unzipSync(await savePresentation(pres));
       const path = 'ppt/slides/slide1.xml';
       parts[path] = strToU8(
@@ -143,7 +143,7 @@ describe('bullet indentation follows paragraph level', () => {
       );
       const loaded = await loadPresentation(zipSync(parts));
       const templateBox = getSlideShapes(getSlides(loaded)[0]!)[0]!;
-      setShapeBullets(templateBox, 'number');
+      setShapeBulletStyle(templateBox, 'number');
       setShapeText(templateBox, 'replacement\nchild');
       setParagraphLevel(templateBox, 1, 1);
       expect(getParagraphIndent(templateBox, 1)).toEqual(expected);

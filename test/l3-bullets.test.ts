@@ -11,7 +11,7 @@ import {
   getSlides,
   inches,
   loadPresentation,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeText,
 } from '../src/api/index.ts';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
@@ -65,21 +65,21 @@ describe('L3: bullet / numbered lists', () => {
     expect(xml).toContain('char="◆"');
   });
 
-  it('setShapeBullets after setShapeText applies bullets without touching text', async () => {
+  it('setShapeBulletStyle after setShapeText applies bullets without touching text', async () => {
     const { pres, box } = await makeBoxedDeck('blank.pptx');
     setShapeText(box, 'First\nSecond');
-    setShapeBullets(box, 'bullet');
+    setShapeBulletStyle(box, 'bullet');
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
     expect(xml).toContain('First');
     expect(xml).toContain('Second');
     expect((xml.match(/<a:buChar/g) ?? []).length).toBe(2);
   });
 
-  it("setShapeBullets('none') forces explicit bullet-free paragraphs", async () => {
+  it("setShapeBulletStyle('none') forces explicit bullet-free paragraphs", async () => {
     const { pres, box } = await makeBoxedDeck('blank.pptx');
     setShapeText(box, 'a\nb');
-    setShapeBullets(box, 'bullet');
-    setShapeBullets(box, 'none');
+    setShapeBulletStyle(box, 'bullet');
+    setShapeBulletStyle(box, 'none');
     const xml = getSlideXmlString(getSlides(pres).at(-1)!);
     expect(xml).not.toContain('<a:buChar');
     expect((xml.match(/<a:buNone\/>/g) ?? []).length).toBe(2);

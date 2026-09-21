@@ -218,7 +218,7 @@ describe('Layer 1: schema validation', () => {
       loadPresentation,
       savePresentation,
       setParagraphLevel,
-      setShapeBullets,
+      setShapeBulletStyle,
     } = await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0];
@@ -230,7 +230,7 @@ describe('Layer 1: schema validation', () => {
       h: inches(3),
       text: 'Top\nNested\nBack',
     });
-    setShapeBullets(tb, 'bullet');
+    setShapeBulletStyle(tb, 'bullet');
     setParagraphLevel(tb, 1, 1);
     const bytes = await savePresentation(pres);
     const reloaded = await loadPresentation(bytes);

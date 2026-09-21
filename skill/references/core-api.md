@@ -75,7 +75,6 @@ if (subtitle) setShapeText(subtitle, 'Strategy, results, and the road ahead');
 // Title + body content slide.
 const agenda = addContentSlide(pres, { title: 'Agenda' });
 const body = findSlidePlaceholder(agenda, 'body');
-// IMPORTANT: bullet *content* is multi-line text + a bullet style, NOT a list arg.
 if (body) setShapeText(body, 'Highlights\nFinancials\nRoadmap\nRisks', { bullets: 'bullet' });
 
 const out = await savePresentation(pres);
@@ -190,6 +189,7 @@ Formatting and slide features (one canonical call each):
 | Capability                      | Call                                                                                                                                                                                                                                |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Whole-shape text                | `setShapeText(shape, text, { bullets? })` (split lines with `\n`)                                                                                                                                                                   |
+| Bullet glyph style              | `setShapeBulletStyle(shape, 'bullet' \| 'number' \| 'none' \| { char } \| { autoNum })` (restyles existing paragraphs)                                                                                                              |
 | Mixed-format paragraphs         | `setShapeParagraphs(shape, [{ align?, runs: [{ text, format? }], endFormat? }])` (several runs per paragraph; `endFormat: { size }` gives a run-less paragraph its font size, read back with `getParagraphEndFormat`)               |
 | One run's format                | `setShapeRunFormat(shape, p, r, { bold, italic, underline, size, color, font, highlight, ... })`                                                                                                                                    |
 | Paragraph align / level         | `setParagraphAlignment(shape, p, 'ctr')`, `setParagraphLevel(shape, p, 1)`                                                                                                                                                          |
@@ -270,11 +270,6 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
 
 ## Footguns (memorize these — each is a real, easy mistake)
 
-- **Bullets are content + style, not a list argument.** To make a bulleted
-  list: `setShapeText(shape, 'A\nB\nC', { bullets: 'bullet' })`.
-  `setShapeBullets(shape, style)` sets the _bullet glyph style_ (`'bullet'` |
-  `'number'` | `'none'` | `{ char }` | `{ autoNum }`) on existing paragraphs —
-  it is NOT how you set the text.
 - **`setShapeFill(shape, color)` takes a color string**, e.g.
   `setShapeFill(card, '#059669')` — not an object.
 - **Transitions key on `effect`**: `setSlideTransition(slide, { effect: 'fade' })`.

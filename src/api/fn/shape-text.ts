@@ -655,7 +655,7 @@ export const setShapeTextMargins = (
 };
 
 /** Sets the bullet style on every paragraph in the shape's text body. */
-export const setShapeBullets = (shape: SlideShapeData, style: BulletStyle): void => {
+export const setShapeBulletStyle = (shape: SlideShapeData, style: BulletStyle): void => {
   applyBulletToAllParagraphs(requireTxBody(shape), style);
   commitAndRefresh(shape);
 };

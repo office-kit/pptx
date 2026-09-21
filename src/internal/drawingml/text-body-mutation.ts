@@ -418,7 +418,7 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
 };
 
 export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyle): void => {
-  const normalized = normalizeBulletStyle(style, 'setShapeBullets');
+  const normalized = normalizeBulletStyle(style, 'setShapeBulletStyle');
   for (const p of txBody.children) {
     if (
       p.kind !== 'element' ||
