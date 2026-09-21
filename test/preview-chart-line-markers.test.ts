@@ -93,3 +93,18 @@ it('retains isolated points and straight two-point segments around consecutive g
   expect(path).not.toContain('C');
   expect(attrsOf(svg, 'circle')).toHaveLength(3);
 });
+
+it.each(['gap', 'span', 'zero'] as const)(
+  'closes each area segment with %s blanks',
+  async (dispBlanksAs) => {
+    const svg = await render({
+      kind: 'area',
+      categories: ['A', 'B', 'C', 'D', 'E'],
+      dispBlanksAs,
+      series: [{ name: 'S', values: [10, 20, null, 30, 15], color: '#123456' }],
+    });
+    const area = attrsOf(svg, 'path').find((path) => path.fill === '#123456')?.d ?? '';
+    expect(area.match(/M/g)).toHaveLength(dispBlanksAs === 'gap' ? 2 : 1);
+    expect(area.match(/Z/g)).toHaveLength(dispBlanksAs === 'gap' ? 2 : 1);
+  },
+);

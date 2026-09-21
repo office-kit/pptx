@@ -286,3 +286,5 @@ New chart series show the same default palette color in the dialog that the Char
 Line chart series now expose marker shapes, marker sizes (2–72 whole points or automatic), and smoothing in Japanese and English. Explicit markers also render on stacked and percentage-stacked lines at their cumulative positions. Browser coverage checks saved settings, rendered markers/curves, validation, cancellation, automatic-size reset, undo/redo and reload.
 
 Smoothed line charts preserve gaps at blank values: curves are calculated separately for each uninterrupted segment. Rendering tests cover gap/span/zero handling, consecutive and edge blanks, and isolated or two-point segments.
+
+Line and area charts expose blank-value handling (gaps, zero, or connected points) in Japanese and English. Area fills close each uninterrupted segment separately, preserving gaps. Browser checks cover all six type/mode combinations, unchanged source values, cancellation, save/reload and undo/redo.
