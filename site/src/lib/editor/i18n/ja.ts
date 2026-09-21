@@ -3,6 +3,10 @@
 
 export const ja: Record<string, string> = {
   'Applies to all text in the selected cells.': '選択したセル内のすべての文字に適用します。',
+  'Axis visibility': '軸の表示',
+  'Show category axis': '項目軸を表示',
+  'Show value axis': '数値軸を表示',
+  'Show major gridlines': '主目盛線を表示',
   Automatic: '自動',
   'Chart axes': 'グラフの軸',
   'Category axis title': '項目軸のタイトル',

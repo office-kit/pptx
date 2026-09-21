@@ -66,6 +66,7 @@ test(
       await dialog.getByLabel('主目盛りの間隔', { exact: true }).fill('10');
       await dialog.getByLabel('補助目盛りの間隔', { exact: true }).fill('2');
       await dialog.getByLabel('軸の数値書式', { exact: true }).fill('0.0');
+      await dialog.getByLabel('主目盛線を表示', { exact: true }).check();
       await page.screenshot({ path: '/tmp/pptx-pr287-chart-axes-ja.png', fullPage: true });
       await dialog.getByRole('button', { name: 'グラフを挿入', exact: true }).click();
       await saved();
@@ -77,6 +78,8 @@ test(
       assert.equal(spec.valueAxis.majorUnit, 10);
       assert.equal(spec.valueAxis.minorUnit, 2);
       assert.equal(spec.valueAxis.numberFormat, '0.0');
+      assert.equal(spec.valueAxisMajorGridlines, true);
+      assert.ok((await editor.locator('.paint line[stroke-width="0.5"]').count()) > 0);
       assert.match(await editor.locator('.paint').textContent(), /四半期/);
       assert.match(await editor.locator('.paint').textContent(), /売上高/);
       await page.reload();
@@ -91,6 +94,22 @@ test(
         await dialog.getByLabel('Value axis title', { exact: true }).inputValue(),
         '売上高',
       );
+      assert.equal(
+        await dialog.getByLabel('Show major gridlines', { exact: true }).isChecked(),
+        true,
+      );
+      assert.equal(
+        await dialog.getByLabel('Show category axis', { exact: true }).isChecked(),
+        true,
+      );
+      assert.equal(await dialog.getByLabel('Show value axis', { exact: true }).isChecked(), true);
+      await dialog.getByLabel('Show value axis', { exact: true }).uncheck();
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal((await read()).valueAxisHidden ?? false, false);
+      await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+      await dialog.getByText('Chart axes', { exact: true }).click();
+      for (const label of ['Show category axis', 'Show value axis', 'Show major gridlines'])
+        await dialog.getByLabel(label, { exact: true }).uncheck();
       for (const label of [
         'Axis minimum',
         'Axis maximum',
@@ -108,14 +127,23 @@ test(
         assert.equal(spec.valueAxis?.[key], undefined);
       assert.equal(spec.categoryAxisTitle, undefined);
       assert.equal(spec.valueAxisTitle, undefined);
+      assert.equal(spec.categoryAxisHidden, true);
+      assert.equal(spec.valueAxisHidden, true);
+      assert.equal(spec.valueAxisMajorGridlines, false);
+      assert.equal(await editor.locator('.paint line[stroke-width="0.5"]').count(), 0);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal((await read()).valueAxis.min, -10);
+      assert.equal((await read()).valueAxisHidden ?? false, false);
+      assert.equal((await read()).valueAxisMajorGridlines, true);
       await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
       await saved();
       await page.reload();
       await saved();
       assert.equal((await read()).valueAxis?.min, undefined);
+      assert.equal((await read()).valueAxisHidden, true);
+      assert.equal((await read()).categoryAxisHidden, true);
+      assert.equal((await read()).valueAxisMajorGridlines, false);
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-chart-axes-failure.png', fullPage: true });
