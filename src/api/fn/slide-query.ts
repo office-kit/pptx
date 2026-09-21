@@ -266,8 +266,12 @@ export const getPresentationTextLengthsBySlide = (pres: PresentationData): Reado
  * call, or if it was constructed from a different package).
  */
 export const getSlideIndex = (pres: PresentationData, slide: SlideData): number => {
-  const slides = getSlides(pres);
-  return slides.indexOf(slide);
+  if (slide[INTERNAL_PACKAGE] !== pres[INTERNAL_PACKAGE]) return -1;
+  // Link readers rebuild handles from the same package, so object identity
+  // alone cannot identify their target in the presentation's cached slides.
+  return getSlides(pres).findIndex(
+    (candidate) => candidate[SLIDE_PART_NAME] === slide[SLIDE_PART_NAME],
+  );
 };
 
 /**
