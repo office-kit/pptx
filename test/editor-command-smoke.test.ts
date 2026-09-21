@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createPresentation,
+  getShapeChartSpec,
   addBlankSlide,
   findShapeById,
   getShapeId,
@@ -61,6 +62,33 @@ function run(doc: FakeDoc, id: string, args: Record<string, unknown> = {}) {
 }
 
 describe('editor command registry drives the library', () => {
+  it('binds chart updates to exactly one selected chart', () => {
+    const pres = createPresentation();
+    addBlankSlide(pres);
+    const doc = new FakeDoc(pres);
+    const command = getCommand('setChartSpec')!;
+    expect(command.canRun({ doc })).toBe(false);
+    expect(command.params.map((param) => param.name)).toEqual(['spec']);
+    const spec = { kind: 'column', categories: ['A'], series: [{ name: 'Sales', values: [5] }] };
+    run(doc, 'addSlideChart', {
+      opts: { x: inches(1), y: inches(1), w: inches(4), h: inches(3), spec },
+    });
+    const chart = getSlideShapes(doc.slides[0]!)[0]!;
+    const chartId = getShapeId(chart);
+    expect(command.canRun({ doc })).toBe(true);
+    command.run({ doc }, { spec: { ...spec, title: 'Updated', legend: { position: 'b' } } });
+    expect(getShapeChartSpec(chart)?.title).toBe('Updated');
+    run(doc, 'addSlideShape', {
+      opts: { preset: 'rect', x: inches(0), y: inches(0), w: inches(1), h: inches(1) },
+    });
+    const shape = getSlideShapes(doc.slides[0]!)[1]!;
+    expect(command.canRun({ doc })).toBe(false);
+    doc.select({ kind: 'shape', slideIndex: 0, shapeIds: [chartId, getShapeId(shape)] });
+    expect(command.canRun({ doc })).toBe(false);
+    expect(() => command.run({ doc }, { spec })).toThrow('Select one chart');
+    expect(getShapeChartSpec(chart)?.title).toBe('Updated');
+  });
+
   it('authors a slide + shape through the registry and round-trips', async () => {
     const pres = createPresentation();
     addBlankSlide(pres);

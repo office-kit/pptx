@@ -25,6 +25,13 @@
   let dialog: HTMLDialogElement;
   let kind = $state<ChartKind>(original?.kind ?? 'column');
   let title = $state(original?.title ?? '');
+  let legendPosition = $state<NonNullable<ChartSpec['legend']>['position']>(original?.legend?.position ?? null);
+  let legendChanged = $state(false);
+  let showValue = $state(original?.dataLabels?.showValue ?? false);
+  let showCategory = $state(original?.dataLabels?.showCategory ?? false);
+  let showSeriesName = $state(original?.dataLabels?.showSeriesName ?? false);
+  let showPercent = $state(original?.dataLabels?.showPercent ?? false);
+  let labelsChanged = $state(false);
   let categories = $state([...(original?.categories ?? [t('Category') + ' 1', t('Category') + ' 2', t('Category') + ' 3'])]);
   type SeriesDraft = { base: ChartSeries; name: string; color?: string; values: (number | undefined)[] };
   const initialSeries = original?.series ?? [{ name: t('Series') + ' 1', values: [10, 20, 15], color: '#4472C4' }];
@@ -61,7 +68,13 @@
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
     const spec: ChartSpec = {
       ...original, kind, title: title || undefined, categories: [...categories],
-      series: series.map(entry => ({ ...entry.base, name: entry.name, color: entry.color, values: entry.values.map(value => value ?? null) })),
+      legend: legendChanged ? { ...original?.legend, position: legendPosition, layout: undefined } : original?.legend,
+      dataLabels: labelsChanged ? { ...original?.dataLabels, showValue, showCategory, showSeriesName, showPercent } : original?.dataLabels,
+      series: series.map(entry => ({
+        ...entry.base, name: entry.name, color: entry.color, values: entry.values.map(value => value ?? null),
+        dataLabels: labelsChanged && entry.base.dataLabels ? { ...entry.base.dataLabels, showValue, showCategory, showSeriesName, showPercent } : entry.base.dataLabels,
+        pointDataLabels: labelsChanged ? entry.base.pointDataLabels?.map(label => label ? { ...label, showValue, showCategory, showSeriesName, showPercent } : null) : entry.base.pointDataLabels,
+      })),
     };
     try {
       doc.transact(heading, () => {
@@ -86,6 +99,17 @@
       <div class="settings">
         <label>{t('Chart type')}<select class="ok-input" aria-label={t('Chart type')} bind:value={kind}>{#each kinds as item}<option value={item.value}>{t(item.label)}</option>{/each}</select></label>
         <label>{t('Chart title')}<input class="ok-input" bind:value={title} /></label>
+      </div>
+      <div class="chart-format">
+        <label>{t('Legend')}<select class="ok-input" aria-label={t('Legend')} bind:value={legendPosition} onchange={() => legendChanged = true}>
+          <option value={null}>{t('None')}</option><option value="r">{t('Right')}</option><option value="l">{t('Left')}</option><option value="t">{t('Top')}</option><option value="b">{t('Bottom')}</option><option value="tr">{t('Top right')}</option>
+        </select></label>
+        <fieldset onchange={() => labelsChanged = true}><legend>{t('Data labels')}</legend>
+          <label><input type="checkbox" bind:checked={showValue} />{t('Show values')}</label>
+          <label><input type="checkbox" bind:checked={showCategory} />{t('Show categories')}</label>
+          <label><input type="checkbox" bind:checked={showSeriesName} />{t('Show series names')}</label>
+          <label><input type="checkbox" bind:checked={showPercent} />{t('Show percentages')}</label>
+        </fieldset>
       </div>
       <div class="data-grid">
         <table aria-label={t('Chart data')}>
@@ -118,6 +142,9 @@
   .add { justify-content: flex-start; }
   .settings { display: grid; grid-template-columns: 1fr 2fr; gap: 12px; }
   label { display: grid; gap: 6px; }
+  .chart-format { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
+  fieldset { display: flex; flex-wrap: wrap; gap: 8px 16px; border: 1px solid var(--ok-border); }
+  fieldset label { display: flex; align-items: center; gap: 4px; }
   .data-grid { overflow: auto; max-height: 44vh; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--ok-border); padding: 5px; font-weight: normal; }
