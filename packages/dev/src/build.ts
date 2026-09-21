@@ -4,6 +4,7 @@ import { compile, type Node } from '@office-kit/pptx-dsl';
 import {
   getSlideSize,
   getSlides,
+  getSlideNotes,
   getSlideTransition,
   loadPresentation,
   savePresentation,
@@ -15,6 +16,7 @@ export interface BuildResult {
   bytes: Uint8Array;
   slides: string[];
   slideTexts: string[];
+  notes: (string | null)[];
   transitions: ReturnType<typeof getSlideTransition>[];
   aspectRatio: number;
   dependencies: string[];
@@ -57,6 +59,7 @@ export async function renderDeck(
       slides,
       dependencies,
       slideTexts,
+      notes: getSlides(saved).map(getSlideNotes),
       transitions: getSlides(saved).map(getSlideTransition),
       diagnostics,
     },

@@ -6,6 +6,7 @@ import { renderDeck, type BuildResult } from './build.ts';
 import { editorStore, sourceFingerprint } from './editor-store.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
+import { presenterPage } from './presenter-page.ts';
 import { agentPage } from './agent-page.ts';
 import { readFile } from 'node:fs/promises';
 import { createTerminal } from './terminal.ts';
@@ -319,6 +320,7 @@ export async function serveDeck(entry: string, port = 4173) {
             : { slides: latest?.slides ?? [] }),
           aspectRatio: latest?.aspectRatio ?? 16 / 9,
           transitions: latest?.transitions ?? [],
+          notes: latest?.notes ?? [],
           error,
           diagnostics: latest?.diagnostics ?? [],
         }),
@@ -334,6 +336,9 @@ export async function serveDeck(entry: string, port = 4173) {
       response.end(
         '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Office Kit Editor</title><link rel="stylesheet" href="/editor.css"><body><script type="module" src="/editor.js"></script></body></html>',
       );
+    } else if (request.url === '/presenter') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end(presenterPage);
     } else if (request.url === '/') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       response.end(page);

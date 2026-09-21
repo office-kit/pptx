@@ -11,11 +11,11 @@ ${previewStyles}
 body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 .editing:not(.presenting) .workspace{--filmstrip-width:0px;grid-template-columns:minmax(0,1fr) clamp(280px,var(--chat-width),calc(100vw - 500px))}
 .editing.chat-hidden:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}
-.editing:not(.presenting) .filmstrip,.editing:not(.presenting) footer,.editing:not(.presenting) #stage,.editing:not(.presenting) #present,.editing:not(.presenting) .download{display:none}
+.editing:not(.presenting) .filmstrip,.editing:not(.presenting) footer,.editing:not(.presenting) #stage,.editing:not(.presenting) #present,.editing:not(.presenting) #presenter,.editing:not(.presenting) .download{display:none}
 .editing:not(.presenting) #editor-frame{display:block}
 @media(max-width:900px){.editing:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}.editing:not(.presenting) #chat{display:none}}
 </style>
-<body class="editing"><header><span class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="brand-gradient" x2="1" y2="1"><stop stop-color="#c39aff"/><stop offset="1" stop-color="#7165f4"/></linearGradient></defs><rect x="2" y="2" width="32" height="32" rx="10" fill="url(#brand-gradient)"/><path d="M11 10h9l6 6v10H11z" fill="none" stroke="white" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 10v7h6M15 21h7M15 25h4" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="m28 3 1.2 3.8L33 8l-3.8 1.2L28 13l-1.2-3.8L23 8l3.8-1.2z" fill="#e7dbff"/></svg>Office <em>Kit</em></span><span class="badge">Studio</span><span id="status" role="status">Building…</span><button id="toggle-editor" aria-pressed="true">Preview</button><button id="toggle-chat" aria-expanded="true" aria-controls="chat">✦ Agents</button><button id="present" disabled>Present</button><a class="download" href="/deck.pptx">Download PPTX</a></header>
+<body class="editing"><header><span class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="brand-gradient" x2="1" y2="1"><stop stop-color="#c39aff"/><stop offset="1" stop-color="#7165f4"/></linearGradient></defs><rect x="2" y="2" width="32" height="32" rx="10" fill="url(#brand-gradient)"/><path d="M11 10h9l6 6v10H11z" fill="none" stroke="white" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 10v7h6M15 21h7M15 25h4" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="m28 3 1.2 3.8L33 8l-3.8 1.2L28 13l-1.2-3.8L23 8l3.8-1.2z" fill="#e7dbff"/></svg>Office <em>Kit</em></span><span class="badge">Studio</span><span id="status" role="status">Building…</span><button id="toggle-editor" aria-pressed="true">Preview</button><button id="toggle-chat" aria-expanded="true" aria-controls="chat">✦ Agents</button><button id="present" disabled>Present</button><button id="presenter" disabled>Presenter view</button><a class="download" href="/deck.pptx">Download PPTX</a></header>
 <div class="workspace">
 <nav class="filmstrip" aria-label="Slides"><h2>Slides</h2><ol id="thumbnails"></ol></nav>
 <main aria-label="Slide viewer"><iframe id="editor-frame" title="Presentation editor"></iframe><pre id="error" role="alert" hidden></pre><div id="stage" tabindex="-1"><div id="empty">Waiting for slides…</div><div id="slide" hidden></div></div></main>
@@ -28,6 +28,7 @@ body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 <script>
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
 let displayedSvg;
+let presenterWindow;
 let advanceTimer,advanceKey;
 function scheduleAdvance(){
   const delay=state.transitions?.[index]?.advanceAfterMs;
@@ -102,6 +103,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   for(const id of ['prev','present-prev'])byId(id).disabled=index===0;
   for(const id of ['next','present-next'])byId(id).disabled=index>=state.slides.length-1;
   byId('present').disabled=!state.slides.length;
+  byId('presenter').disabled=!state.slides.length;
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
@@ -117,6 +119,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   }
   resize();
   scheduleAdvance();
+  updatePresenter();
 }
 function update(updated){
   const focusedThumbnail=thumbnails.contains(document.activeElement);
@@ -149,7 +152,7 @@ function update(updated){
   if(!state.slides.length&&presenting)void exitPresentation();
 }
 function setPresenting(value){
-  presenting=value;document.body.classList.toggle('presenting',value);resize();scheduleAdvance();
+  presenting=value;document.body.classList.toggle('presenting',value);resize();scheduleAdvance();updatePresenter();
   if(value)stage.focus();else{
     byId('present').focus();
     thumbnails.children[index]?.firstElementChild.scrollIntoView({block:'nearest'});
@@ -164,6 +167,23 @@ byId('present').onclick=async()=>{
   try{await document.documentElement.requestFullscreen();}
   catch{byId('exit-present').textContent='Exit view · Esc';}
 };
+function updatePresenter(){
+ if(!presenterWindow||presenterWindow.closed)return;
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,current:state.slides[index]??null,next:state.slides[index+1]??null,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:editorFocus?.locale??'en',presenting},location.origin);
+}
+byId('presenter').onclick=()=>{
+ if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
+ presenterWindow=window.open('/presenter','office-kit-presenter','popup,width=1100,height=800');
+ if(presenterWindow)setPresenting(true);
+ else byId('status').textContent=editorFocus?.locale==='ja'?'発表者ビューを開くにはポップアップを許可してください。':'Allow popups to open presenter view.';
+};
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==presenterWindow||event.data?.type!=='presenter-command')return;
+ if(event.data.action==='ready')updatePresenter();
+ else if(event.data.action==='next')selectSlide(index+1);
+ else if(event.data.action==='previous')selectSlide(index-1);
+ else if(event.data.action==='exit')void exitPresentation();
+});
 byId('exit-present').onclick=exitPresentation;
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&presenting)setPresenting(false);});
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>selectSlide(index-1);
@@ -215,6 +235,8 @@ function applyEditorFocus(){
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-focus')return;
  editorFocus=event.data;
+ byId('presenter').textContent=editorFocus.locale==='ja'?'発表者ビュー':'Presenter view';
+ updatePresenter();
  if(document.body.classList.contains('editing'))applyEditorFocus();
  byId('toggle-editor').textContent=editorFocus.locale==='ja'?(document.body.classList.contains('editing')?'プレビュー':'編集'):(document.body.classList.contains('editing')?'Preview':'Edit');
 });
