@@ -29,6 +29,13 @@ If you prefer the bare `office-pptx dev deck.tsx` command, install the CLI once
 with `npm install --global @office-kit/pptx-dev@latest`. The local npm script
 continues to use the project's installed version.
 
+To update an existing project, stop its dev server and run inside the project:
+
+```sh
+npm install -D @office-kit/pptx-dev@latest
+npm run dev
+```
+
 Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
 has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to

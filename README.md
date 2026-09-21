@@ -7,6 +7,7 @@
 Read, edit, and write `.pptx` (PowerPoint / Office Open XML Presentation) files
 from TypeScript, in **Node.js and the browser**, from a single ESM bundle.
 
+**[Create slides with AI](#create-slides-with-ai-and-live-preview)** ·
 **[Documentation](https://office-kit.github.io/pptx/)** ·
 **[Playground](https://office-kit.github.io/pptx/playground)** (inspect a deck in your browser) ·
 **[REPL](https://office-kit.github.io/pptx/repl)** (write code, watch the deck redraw)
@@ -26,17 +27,48 @@ const out: Uint8Array = await savePresentation(pres);
 > not frozen: a breaking change can land in a minor (`0.x`) release, so pin a
 > version or an exact range.
 
-## Why this library
+## Create slides with AI and live preview
 
-For declarative TSX authoring, use the companion
-[`@office-kit/pptx-dsl`](packages/dsl) and
-[`@office-kit/pptx-dev`](packages/dev) packages. They provide typed elements,
-template editing, a local watch preview and PPTX export, with no React or Vue
-runtime. The dev package initializes a project with VSCode tasks and a
-`CLAUDE.md` authoring guide. Start with the
-[authoring guide](https://office-kit.github.io/pptx/docs/authoring): install the
-Claude Code skill and describe your presentation. The agent handles project
-setup, preview and export using the published npm packages.
+Create presentations in TSX with a live browser preview and Claude Code or Codex
+beside the slide. Select an area and ask the agent to change it, edit text
+directly, and export an editable PowerPoint file. Changes are saved in the TSX
+source; saving a source file also updates the preview.
+
+Requires Node.js 22.18 or later. Create a project and start the preview in one
+command (macOS/Linux):
+
+```sh
+npx --yes @office-kit/pptx-dev@latest init my-slides && cd my-slides && npm install && npm run dev
+```
+
+Open the local URL printed by the server. The generated project includes
+`deck.tsx`, individual slides, a shared theme and a `CLAUDE.md` authoring guide.
+For later sessions, run this inside the project:
+
+```sh
+npx office-pptx dev deck.tsx
+```
+
+`npm run dev` starts the same preview. To update an existing project's dev tools,
+stop the server, then run:
+
+```sh
+npm install -D @office-kit/pptx-dev@latest
+npm run dev
+```
+
+Run `npm run check` to type-check the deck and `npm run build` to export
+`deck.pptx`. AI editing uses your locally installed and authenticated Claude Code
+or Codex CLI. After edits, changed-slide screenshots are supplied to the agent
+for design review; capture requires Chrome or Playwright Chromium.
+
+See the [preview and agent setup](packages/dev/README.md),
+[selection, text editing and visual review](packages/dev/README.md#edit-from-the-slide),
+and [TSX element reference](packages/dsl/README.md). To let Claude Code handle
+project setup as well, follow the
+[skill installation guide](https://office-kit.github.io/pptx/docs/authoring).
+
+## Why this library
 
 - **It reads as well as it writes.** Open a deck made in PowerPoint, Keynote,
   or Google Slides, change it, and save it. Every setter has a getter, and
