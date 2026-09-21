@@ -104,6 +104,29 @@ test(
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
+      // Right-click inside a range keeps it; Delete in the menu clears only text.
+      await cell(2, 2).click({ button: 'right' });
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
+      await editor.getByRole('menuitem', { name: 'Clear cell text', exact: false }).click();
+      await saved();
+      assert.deepEqual(await values(), [
+        ['', '', 'C'],
+        ['', '', 'F'],
+        ['G', 'H', 'I'],
+      ]);
+      assert.deepEqual(getShapeBounds(await table()), bounds);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      // Right-click outside the range targets that cell. Select all stays inside the table.
+      await cell(3, 3).click({ button: 'right' });
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 1);
+      await editor.getByRole('menuitem', { name: 'Select all cells', exact: false }).click();
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
+      await cell(1, 1).click();
+      await cell(1, 1).press('ControlOrMeta+a');
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
+      await cell(1, 1).click();
+      await cell(2, 2).click({ modifiers: ['Shift'] });
       await editor.getByRole('button', { name: 'Merge cells', exact: true }).click();
       await saved();
       await cell(1, 1).click();
@@ -131,13 +154,39 @@ test(
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal((await values())[2][0], 'G');
+      const mergedValues = await values();
+      await cell(1, 1).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'すべてのセルを選択', exact: false }).click();
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 6);
+      await cell(3, 3).click({ button: 'right' });
+      assert.equal(
+        await editor.getByRole('menu').evaluate((node) => {
+          const bounds = node.getBoundingClientRect();
+          return (
+            bounds.left >= 0 &&
+            bounds.top >= 0 &&
+            bounds.right <= innerWidth &&
+            bounds.bottom <= innerHeight
+          );
+        }),
+        true,
+      );
+      await page.screenshot({ path: '/tmp/pptx-pr287-cell-context-ja.png' });
+      await editor.getByRole('menuitem', { name: 'セルの文字列を消去', exact: false }).click();
+      await saved();
+      assert.ok((await values()).flat().every((value) => value === ''));
+      assert.deepEqual(getShapeBounds(await table()), bounds);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await values(), mergedValues);
       await page.reload();
       await saved();
       assert.equal((await values())[2][0], 'G');
       assert.deepEqual(getShapeBounds(await table()), bounds);
       await editor.locator('.hit').first().click();
       await cell(1, 1).click();
-      await cell(1, 1).press('Escape');
+      await cell(1, 1).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '表全体を選択', exact: true }).click();
       await page.keyboard.press('Delete');
       await saved();
       assert.equal(await table(), undefined);

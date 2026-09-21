@@ -227,3 +227,7 @@ Cell selection supports native copy/cut/paste of plain-text ranges, including
 spreadsheet quoting for tabs, newlines and quotes. Cut clears cell text rather
 than deleting the table; paste retains destination formatting and expands
 unmerged tables when needed. Source formatting is not transferred by this path.
+
+- Table cell context menus keep deletion scoped to cell text, preserve ranges on
+  right-click, and offer Select All Cells and Select Table in English and Japanese.
+  Ctrl/Cmd+A selects all cells while a cell is selected, including merged tables.

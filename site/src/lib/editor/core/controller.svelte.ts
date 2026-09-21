@@ -328,6 +328,27 @@ export class EditorController {
     });
   }
 
+  selectAll(): void {
+    const selection = this.doc.selection;
+    if (selection.kind !== 'cell') {
+      this.selectAllShapes();
+      return;
+    }
+    const table = this.doc.shapeById(selection.slideIndex, selection.shapeId);
+    if (!table) return;
+    const cells = getTableCells(table);
+    const columns = cells[0]?.length ?? 0;
+    if (!cells.length || !columns) return;
+    this.doc.selectCell(selection.slideIndex, selection.shapeId, 0, 0);
+    this.doc.selectCell(
+      selection.slideIndex,
+      selection.shapeId,
+      cells.length - 1,
+      columns - 1,
+      true,
+    );
+  }
+
   selectAllShapes(): void {
     const slideIndex = this.doc.selection.slideIndex;
     const slide = this.doc.slideAt(slideIndex);
@@ -337,6 +358,10 @@ export class EditorController {
   }
 
   deleteSelection(): void {
+    if (this.doc.selection.kind === 'cell') {
+      this.clearCellText();
+      return;
+    }
     if (this.doc.selection.kind === 'slide') {
       this.invoke('removeSlide');
       return;
@@ -412,8 +437,7 @@ export class EditorController {
   cutSelection(): string | undefined {
     if (this.doc.selection.kind !== 'slide' && !this.selectedShapes().length) return;
     const text = this.copySelection();
-    if (this.doc.selection.kind === 'cell') this.clearCellText();
-    else this.deleteSelection();
+    this.deleteSelection();
     return text;
   }
 

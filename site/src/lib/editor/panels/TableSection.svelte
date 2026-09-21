@@ -86,6 +86,13 @@
     if (!tableState) return;
     doc.selectCell(doc.selection.slideIndex, tableState.id, row, col, extend);
   }
+  function onCellContext(event: MouseEvent, row: number, col: number) {
+    event.preventDefault();
+    if (!tableState) return;
+    const cell = tableState.cells[row]?.[col];
+    if (doc.selection.kind !== 'cell' || !cell || !selectedCells.has(cell)) select(row, col, false);
+    editor.openContextMenu(event.clientX, event.clientY);
+  }
   async function onCellKeydown(event: KeyboardEvent, row: number, col: number) {
     if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || !tableState) return;
     if (event.key === 'Delete' || event.key === 'Backspace') {
@@ -145,7 +152,7 @@
           {#each row as cell, c}
             {@const span = getTableCellSpan(cell)}
             {#if !span.hMerge && !span.vMerge}
-              <td rowspan={span.rowSpan} colspan={span.gridSpan}><button class="ok-btn" onkeydown={(e) => onCellKeydown(e, r, c)} data-cell={`${r},${c}`} aria-label={`${t('Cell')} ${r + 1}, ${c + 1}`} aria-pressed={selectedCells.has(cell)} onclick={(e) => select(r, c, e.shiftKey)}>{getTableCellText(cell) || '—'}</button></td>
+              <td rowspan={span.rowSpan} colspan={span.gridSpan}><button class="ok-btn" oncontextmenu={(e) => onCellContext(e, r, c)} onkeydown={(e) => onCellKeydown(e, r, c)} data-cell={`${r},${c}`} aria-label={`${t('Cell')} ${r + 1}, ${c + 1}`} aria-pressed={selectedCells.has(cell)} onclick={(e) => select(r, c, e.shiftKey)}>{getTableCellText(cell) || '—'}</button></td>
             {/if}
           {/each}
         </tr>{/each}
