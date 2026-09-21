@@ -206,3 +206,9 @@ presentation.
   Pasting across merged cells or expanding a merged table requires splitting
   those cells first. Browser coverage checks navigation, Japanese multiline
   paste, saved round trips, undo/redo and rejected merged-cell paste.
+
+- Cell selection uses arrows to navigate merged anchors without moving the table.
+  In the table pane, Shift+Arrow extends a range and Delete/Backspace clears the
+  selected cells in one undo step. Canvas cell selection clears only cell text;
+  Escape selects the whole table before subsequent object operations. Browser
+  checks cover table geometry, range history, Japanese controls and reload.

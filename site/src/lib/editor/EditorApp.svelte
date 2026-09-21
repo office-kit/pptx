@@ -97,9 +97,14 @@
       editor.zoomFit();
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && (hasShapes || doc.selection.kind === 'slide')) {
       e.preventDefault();
-      editor.deleteSelection();
+      if (doc.selection.kind === 'cell') editor.clearCellText();
+      else editor.deleteSelection();
     } else if (e.key.startsWith('Arrow') && hasShapes) {
       e.preventDefault();
+      if (doc.selection.kind === 'cell') {
+        editor.moveCellSelection(e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0, e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0);
+        return;
+      }
       const d = e.shiftKey ? NUDGE_BIG : NUDGE;
       if (e.key === 'ArrowLeft') editor.nudge(-d, 0);
       else if (e.key === 'ArrowRight') editor.nudge(d, 0);
@@ -109,6 +114,7 @@
       if (editor.contextMenu) editor.closeContextMenu();
       else if (editor.paletteOpen) editor.togglePalette(false);
       else if (editor.activeDialog) editor.closeDialog();
+      else if (doc.selection.kind === 'cell') doc.selectShape(doc.selection.slideIndex, doc.selection.shapeId);
       else doc.clearShapeSelection();
     }
   }

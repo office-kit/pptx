@@ -2,6 +2,9 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Arrow keys move between cells. Shift+Arrow extends the range. Delete clears text.':
+    '矢印キーでセルを移動、Shift＋矢印で範囲を選択、Deleteで文字列を消去できます。',
+  'Clear cell text': 'セルの文字列を消去',
   'Edit table': '表を編集',
   'Paste table cells': '表のセルを貼り付け',
   'Split merged cells before adding a row': '行を追加する前に結合セルを分割してください',

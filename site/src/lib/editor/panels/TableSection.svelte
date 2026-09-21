@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { tick } from 'svelte';
+  import { neighboringTableCell } from '../core/table-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
@@ -85,6 +87,28 @@
     if (extend) rangeEnd = { id: tableState.id, slide: doc.selection.slideIndex, anchorRow: tableState.row, anchorCol: tableState.col, row, col };
     else { rangeEnd = null; doc.selectCell(doc.selection.slideIndex, tableState.id, row, col); }
   }
+  async function onCellKeydown(event: KeyboardEvent, row: number, col: number) {
+    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || !tableState) return;
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      if (doc.selection.kind !== 'cell') return;
+      event.preventDefault();
+      event.stopPropagation();
+      if ([...selectedCells].some(cell => getTableCellText(cell)))
+        applyToCells(t('Clear cell text'), cell => setTableCellText(cell, '', { preserveFormatting: true }));
+      return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const next = neighboringTableCell(tableState.table, row, col,
+      event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0,
+      event.key === 'ArrowLeft' ? -1 : event.key === 'ArrowRight' ? 1 : 0);
+    if (!next) return;
+    const grid = (event.currentTarget as HTMLElement).closest('.cell-grid');
+    select(next.row, next.col, event.shiftKey);
+    await tick();
+    grid?.querySelector<HTMLButtonElement>(`[data-cell="${next.row},${next.col}"]`)?.focus();
+  }
   function merge() {
     const s = tableState;
     const b = block;
@@ -126,13 +150,14 @@
           {#each row as cell, c}
             {@const span = getTableCellSpan(cell)}
             {#if !span.hMerge && !span.vMerge}
-              <td rowspan={span.rowSpan} colspan={span.gridSpan}><button class="ok-btn" aria-label={`${t('Cell')} ${r + 1}, ${c + 1}`} aria-pressed={selectedCells.has(cell)} onclick={(e) => select(r, c, e.shiftKey)}>{getTableCellText(cell) || '—'}</button></td>
+              <td rowspan={span.rowSpan} colspan={span.gridSpan}><button class="ok-btn" onkeydown={(e) => onCellKeydown(e, r, c)} data-cell={`${r},${c}`} aria-label={`${t('Cell')} ${r + 1}, ${c + 1}`} aria-pressed={selectedCells.has(cell)} onclick={(e) => select(r, c, e.shiftKey)}>{getTableCellText(cell) || '—'}</button></td>
             {/if}
           {/each}
         </tr>{/each}
       </tbody></table>
     </div>
     <small>{t('Shift-click another cell to select a range')}</small>
+    <small>{t('Arrow keys move between cells. Shift+Arrow extends the range. Delete clears text.')}</small>
     {#if tableState.cell}
       <div class="actions">
         <button class="ok-btn" disabled={!canMerge} onclick={merge}>{t('Merge cells')}</button>

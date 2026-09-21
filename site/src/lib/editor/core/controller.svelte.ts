@@ -7,6 +7,9 @@
 // so there is exactly one path from "user intent" to "library call".
 
 import {
+  getTableCells,
+  getTableCellText,
+  setTableCellText,
   copyShape,
   importSlide,
   moveSlide,
@@ -27,6 +30,7 @@ import {
   type SlideShapeData,
   type ShapeBounds,
 } from '@office-kit/pptx';
+import { neighboringTableCell } from './table-selection.ts';
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
@@ -225,6 +229,27 @@ export class EditorController {
     return ids
       .map((id) => this.doc.shapeById(sel.slideIndex, id))
       .filter((s): s is SlideShapeData => s != null);
+  }
+
+  moveCellSelection(dr: number, dc: number): void {
+    const selection = this.doc.selection;
+    if (selection.kind !== 'cell') return;
+    const table = this.doc.shapeById(selection.slideIndex, selection.shapeId);
+    if (!table) return;
+    const next = neighboringTableCell(table, selection.row, selection.col, dr, dc);
+    if (next) this.doc.selectCell(selection.slideIndex, selection.shapeId, next.row, next.col);
+  }
+
+  clearCellText(): void {
+    const selection = this.doc.selection;
+    if (selection.kind !== 'cell') return;
+    const table = this.doc.shapeById(selection.slideIndex, selection.shapeId);
+    if (!table) return;
+    const cell = getTableCells(table)[selection.row]?.[selection.col];
+    if (!cell || !getTableCellText(cell)) return;
+    this.doc.transact(t('Clear cell text'), () =>
+      setTableCellText(cell, '', { preserveFormatting: true }),
+    );
   }
 
   private selectedGeometry(): { shape: SlideShapeData; bounds: ShapeBounds }[] {
