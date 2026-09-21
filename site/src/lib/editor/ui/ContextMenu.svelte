@@ -69,7 +69,30 @@
     return list;
   });
 
+  let origin: HTMLElement | null = null;
+  let menuNode: HTMLDivElement | null = null;
+  function dismiss() {
+    editor.closeContextMenu();
+    if (origin?.isConnected) origin.focus({ preventScroll: true });
+  }
+  function onKeydown(event: KeyboardEvent) {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); dismiss(); return; }
+    if (event.key === 'Tab') { dismiss(); return; }
+    if (!menuNode || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const buttons = [...menuNode.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+    if (!buttons.length) return;
+    const current = buttons.findIndex(button => button === document.activeElement);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 :
+      (current + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) % buttons.length;
+    buttons[next]?.focus();
+  }
+
   function place(node: HTMLDivElement, position: { x: number; y: number }) {
+    origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    menuNode = node;
+    node.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus({ preventScroll: true });
     let current = position;
     const update = () => {
       node.style.left = `${Math.max(8, Math.min(current.x, window.innerWidth - node.offsetWidth - 8))}px`;
@@ -85,8 +108,8 @@
 
   function activate(item: Item) {
     if (item.disabled) return;
+    dismiss();
     item.run();
-    editor.closeContextMenu();
   }
 </script>
 
@@ -100,11 +123,12 @@
   use:place={menu}
   role="menu"
   tabindex="-1"
+  onkeydown={onKeydown}
   onpointerdown={(e) => e.stopPropagation()}
   oncontextmenu={(e) => e.preventDefault()}
 >
   {#each items as item (item.label)}
-    <button class="ctx-item" class:sep={item.sep} role="menuitem" disabled={item.disabled} onclick={() => activate(item)}>
+    <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" disabled={item.disabled} onclick={() => activate(item)}>
       <span>{t(item.label)}</span>
       {#if item.accel}<span class="accel">{item.accel}</span>{/if}
     </button>
@@ -142,7 +166,7 @@
     color: var(--ok-text);
     cursor: pointer;
   }
-  .ctx-item:hover:not(:disabled) {
+  .ctx-item:hover:not(:disabled), .ctx-item:focus-visible {
     background: var(--ok-selected);
   }
   .ctx-item:disabled {

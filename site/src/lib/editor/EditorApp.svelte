@@ -63,6 +63,12 @@
       return;
     }
     if (typing || e.defaultPrevented) return;
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const bounds = target.getBoundingClientRect();
+      editor.openContextMenu(bounds.left, bounds.bottom);
+      return;
+    }
 
     const hasShapes = doc.selection.kind === 'shape' || doc.selection.kind === 'cell';
 
