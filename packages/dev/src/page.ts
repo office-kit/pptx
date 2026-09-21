@@ -204,7 +204,19 @@ document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>moveSlide(-1);
 for(const id of ['next','present-next'])byId(id).onclick=()=>moveSlide(1);
 byId('zoom').onchange=resize;
-stage.onclick=()=>{if(presenting&&state.transitions?.[index]?.advanceOnClick!==false&&!getSelection().toString())moveSlide(1);};
+stage.onclick=event=>{
+  const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
+  if(link){
+    const href=link.getAttribute('href')??link.getAttributeNS('http://www.w3.org/1999/xlink','href')??'';
+    if(href.startsWith('#slide-')){
+      event.preventDefault();
+      const number=Number(href.slice(7));
+      if(Number.isInteger(number)&&number>=1&&number<=state.slides.length)selectSlide(number-1);
+    }
+    return;
+  }
+  if(presenting&&state.transitions?.[index]?.advanceOnClick!==false&&!getSelection().toString())moveSlide(1);
+};
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
