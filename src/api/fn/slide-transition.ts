@@ -1,7 +1,11 @@
 // Slide transitions.
 
 import { NS, type XmlElement, getAttrValue, qname } from '../../internal/xml/index.ts';
-import { type TransitionOptions, buildTransition } from '../../internal/presentationml/index.ts';
+import {
+  type SlideTransition,
+  type TransitionOptions,
+  buildTransition,
+} from '../../internal/presentationml/index.ts';
 import { SLIDE_DOCUMENT, type SlideData } from '../_internal-symbols.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 
@@ -36,7 +40,7 @@ const insertAfterClrMapOvr = (slide: SlideData, t: XmlElement): void => {
  * `<p:transition>` is present). The returned shape mirrors what
  * `setSlideTransition` accepts.
  */
-export const getSlideTransition = (slide: SlideData): TransitionOptions | null => {
+export const getSlideTransition = (slide: SlideData): SlideTransition | null => {
   const transition = slide[SLIDE_DOCUMENT].root.children.find(
     (c): c is XmlElement =>
       c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'transition',

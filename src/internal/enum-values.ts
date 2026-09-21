@@ -288,6 +288,26 @@ export const UNDERLINES = [
 export const STRIKES = ['noStrike', 'sngStrike', 'dblStrike'] as const;
 
 // ST_SlideSizeType
+// ST_PlaceholderType
+export const PLACEHOLDER_TYPES = [
+  'title',
+  'body',
+  'ctrTitle',
+  'subTitle',
+  'dt',
+  'sldNum',
+  'ftr',
+  'hdr',
+  'obj',
+  'chart',
+  'tbl',
+  'clipArt',
+  'dgm',
+  'media',
+  'sldImg',
+  'pic',
+] as const;
+
 export const SLIDE_SIZE_TYPES = [
   'screen4x3',
   'letter',

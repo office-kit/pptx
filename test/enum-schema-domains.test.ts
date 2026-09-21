@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { expect, it } from 'vitest';
 import * as common from '../src/internal/enum-values.ts';
 import * as chart from '../src/internal/chartml/enum-validation.ts';
+import { TRANSITION_EFFECTS } from '../src/internal/presentationml/transition-builder.ts';
 
 const schemaUrl = (file: string): URL =>
   new URL(
@@ -17,6 +18,7 @@ const domains = [
   ['UNDERLINES', common.UNDERLINES, 'dml-main', ['ST_TextUnderlineType']],
   ['STRIKES', common.STRIKES, 'dml-main', ['ST_TextStrikeType']],
   ['SLIDE_SIZE_TYPES', common.SLIDE_SIZE_TYPES, 'pml', ['ST_SlideSizeType']],
+  ['PLACEHOLDER_TYPES', common.PLACEHOLDER_TYPES, 'pml', ['ST_PlaceholderType']],
   ['LABEL_POSITIONS', chart.LABEL_POSITIONS, 'dml-chart', ['ST_DLblPos']],
   ['DISPLAY_UNITS', chart.DISPLAY_UNITS, 'dml-chart', ['ST_BuiltInUnit']],
   ['LABEL_ALIGNMENTS', chart.LABEL_ALIGNMENTS, 'dml-chart', ['ST_LblAlgn']],
@@ -59,3 +61,20 @@ for (const [name, values, file, types] of domains) {
     expect([...values].sort()).toEqual([...new Set(expected)].sort());
   });
 }
+
+// CT_SlideTransition's effects are a choice of elements rather than an ST_* enum.
+// `sndAc` and `extLst` are siblings of that choice, not effects.
+it.skipIf(!existsSync(schemaUrl('pml')))(
+  'TRANSITION_EFFECTS matches the CT_SlideTransition element choice exactly',
+  () => {
+    const schema = readFileSync(schemaUrl('pml'), 'utf8');
+    const body = schema.match(
+      /<xsd:complexType name="CT_SlideTransition">([\s\S]*?)<\/xsd:complexType>/,
+    )?.[1];
+    expect(body).toBeDefined();
+    const expected = [...body!.matchAll(/<xsd:element name="(\w+)"/g)]
+      .map((match) => match[1]!)
+      .filter((name) => name !== 'sndAc' && name !== 'extLst');
+    expect([...TRANSITION_EFFECTS].sort()).toEqual(expected.sort());
+  },
+);

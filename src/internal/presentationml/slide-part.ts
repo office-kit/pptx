@@ -21,11 +21,19 @@
 // Geometry, fill, effects, and full authoring are deferred. They live in
 // drawingml/ once we need them.
 
+import type { PLACEHOLDER_TYPES } from '../enum-values.ts';
 import { textBodyText } from '../drawingml/index.ts';
 import { NS, firstChildElement, getAttrValue, qname } from '../xml/index.ts';
 import type { XmlElement } from '../xml/index.ts';
 
 export type ShapeKind = 'shape' | 'picture' | 'group' | 'graphicFrame' | 'connector';
+
+/**
+ * Placeholder token from `<p:ph type="...">` (ECMA-376 `ST_PlaceholderType`).
+ * Placeholder lookups take this closed set, while `SlideShape.placeholderType`
+ * stays `string | null`: a loaded deck can carry a value outside it.
+ */
+export type PlaceholderType = (typeof PLACEHOLDER_TYPES)[number];
 
 export interface SlideShape {
   readonly kind: ShapeKind;

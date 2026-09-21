@@ -573,7 +573,9 @@ export type {
 export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type {
+  PlaceholderType,
   PresetShape,
+  SlideTransition,
   TransitionEffect,
   TransitionOptions,
 } from '../internal/presentationml/index.ts';
