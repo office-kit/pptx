@@ -90,7 +90,12 @@ that a user can complete the corresponding editing workflow.
   Border controls apply color, width and line style to all cell edges or just
   the outside of a selected range, including merged cells. Browser tests verify
   preserved interior borders, reset, undo and reload in both languages.
-  Direct canvas cell editing still requires a complete workflow.
+  Double-clicking cells on the canvas opens an inline editor at the cell's
+  bounds, including merged regions and unequal column widths. Cell selection
+  remains visible on the canvas and synchronizes with the properties pane.
+  Text edits preserve existing runs; the shared toolbar formats selected text
+  through the optional UTF-16 range in setTableCellTextFormat. Browser tests
+  cover English/Japanese editing, merged-cell hit areas, cancellation and undo.
 
 ## Outstanding work
 

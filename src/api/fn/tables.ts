@@ -1,7 +1,7 @@
 // Table cell access.
 
 import { textBodyText } from '../../internal/drawingml/text-body.ts';
-import { editTextBody } from '../../internal/drawingml/text-body-edit.ts';
+import { editTextBody, formatTextBodyRange } from '../../internal/drawingml/text-body-edit.ts';
 import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
@@ -1188,11 +1188,18 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
   return null;
 };
 
-/** Applies a TextFormat to every run in the cell's text. */
-export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
+/** Applies a TextFormat to the cell's text, optionally within UTF-16 offsets
+ * in getTableCellText (exclusive end). Breaks count as one character; invalid
+ * ranges and split-surrogate boundaries throw without changing the text. */
+export const setTableCellTextFormat = (
+  cell: TableCellData,
+  format: TextFormat,
+  options?: { range?: { start: number; end: number } },
+): void => {
   validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
-  applyValidatedFormatToAllRuns(txBody, format);
+  if (options?.range) formatTextBodyRange(txBody, format, options.range);
+  else applyValidatedFormatToAllRuns(txBody, format);
   commitTableCell(cell);
 };
 

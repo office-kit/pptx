@@ -4,6 +4,11 @@
 // zoom without re-measuring.
 
 import {
+  getTableCells,
+  getTableCellSpan,
+  getTableColumnWidths,
+  getTableRowHeights,
+  isTableShape,
   getShapeBoundsResolved,
   getShapeId,
   getShapeRotation,
@@ -74,4 +79,39 @@ export function emuPerPx(m: SlideMetrics, rectW: number, rectH: number) {
     x: rectW ? m.widthEmu / rectW : 1,
     y: rectH ? m.heightEmu / rectH : 1,
   };
+}
+
+/** Visible cells, expressed as percentages of the table's unrotated box. */
+export function tableCellBoxes(shape: SlideShapeData) {
+  if (!isTableShape(shape)) return [];
+  const cells = getTableCells(shape);
+  const offsets = (sizes: readonly number[]) => {
+    const total = sizes.reduce((sum, size) => sum + size, 0);
+    let offset = 0;
+    return [
+      0,
+      ...sizes.map((size) => {
+        offset += size;
+        return total > 0 ? (offset / total) * 100 : 0;
+      }),
+    ];
+  };
+  const xs = offsets(getTableColumnWidths(shape));
+  const ys = offsets(getTableRowHeights(shape));
+  return cells.flatMap((row, r) =>
+    row.flatMap((cell, c) => {
+      const span = getTableCellSpan(cell);
+      if (span.hMerge || span.vMerge) return [];
+      return [
+        {
+          row: r,
+          col: c,
+          left: xs[c]!,
+          top: ys[r]!,
+          width: xs[Math.min(c + span.gridSpan, xs.length - 1)]! - xs[c]!,
+          height: ys[Math.min(r + span.rowSpan, ys.length - 1)]! - ys[r]!,
+        },
+      ];
+    }),
+  );
 }
