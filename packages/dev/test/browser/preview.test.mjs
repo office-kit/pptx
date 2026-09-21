@@ -198,9 +198,14 @@ process.stdin.on('data',async data=>{
       await third.selectOption('#chat-provider', 'codex');
       await third.locator('#chat-input').fill('Parallel edit');
       await third.locator('#chat-send').click();
-      await third.waitForFunction(
-        () => document.querySelector('#chat-status').textContent === 'Done',
-      );
+      try {
+        await third.waitForFunction(
+          () => document.querySelector('#chat-status').textContent === 'Done',
+        );
+      } catch (cause) {
+        const chat = await (await page.request.get(url + thirdPath + '/chat')).json();
+        throw new Error('Parallel agent did not finish: ' + JSON.stringify(chat), { cause });
+      }
       assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
       assert.equal(await second.locator('#terminal-stop').isVisible(), true);
       assert.equal(
