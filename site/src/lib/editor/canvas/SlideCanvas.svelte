@@ -670,9 +670,8 @@
       textArea?.setSelectionRange(range.start, range.end);
     });
   }
-  function toggleInlineFormat(key: 'b' | 'i' | 'u') {
+  function toggleInlineFormat(property: 'bold' | 'italic' | 'underline') {
     applyInlineFormat(formats => {
-      const property = key === 'b' ? 'bold' : key === 'i' ? 'italic' : 'underline';
       const active = formats.length > 0 && formats.every(format => {
         const value = format[property];
         return value === true || (property === 'underline' && typeof value === 'string' && value !== 'none');
@@ -749,7 +748,7 @@
 
 <div class="canvas-shell" onfocusout={onTextFocusOut}>
 {#if editing}
-  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
+  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
 {/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
@@ -845,7 +844,7 @@
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();
-                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u') && textRange.start !== textRange.end) { e.preventDefault(); toggleInlineFormat(formatKey); }
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u') && textRange.start !== textRange.end) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
                 else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
                 else if (e.key === 'Escape') editing = null;

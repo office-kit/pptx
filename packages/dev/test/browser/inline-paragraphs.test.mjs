@@ -351,99 +351,109 @@ test(
   },
 );
 
-test(
-  'inline formatting shortcuts toggle current runs after pending edits',
-  { timeout: 60000 },
-  async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-inline-paragraph-'));
-    let preview, browser, page;
-    try {
-      const file = join(dir, 'deck.tsx');
-      await writeFile(
-        file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4} paragraphs={[{runs:[{text:'English',format:{bold:true}}]},{runs:[{text:'日本語',format:{italic:true}}]},{runs:[{text:'Third paragraph'}]}]} /></Slide><Slide><Text x={1} y={1} width={7} height={3} /></Slide></Presentation>`,
-      );
-      preview = await startPreview(file);
-      browser = await chromium.launch({ headless: true });
-      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
-      const errors = [];
-      page.on('pageerror', (e) => errors.push(e.message));
-      await page.goto(preview.url);
-      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
-      const editor = page.frameLocator('#editor-frame');
-      let locale = 'en';
-      const saved = () =>
-        editor
-          .getByText(locale === 'en' ? 'Saved to this project' : 'このプロジェクトに保存済み', {
-            exact: true,
-          })
-          .waitFor();
-      const shape = async () =>
-        getSlideShapes(
-          getSlides(
-            await loadPresentation(
-              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
-            ),
-          )[0],
-        )[0];
-      await saved();
-      await editor.locator('.hit').first().dblclick();
-      const input = editor.locator('.inline-edit');
-      await input.fill('Prefix\nEnglish\n日本語\nThird paragraph');
-      await input.evaluate((node) => {
-        node.setSelectionRange(7, 14);
-        node.dispatchEvent(new Event('select', { bubbles: true }));
-      });
-      await input.press('Control+b');
-      await saved();
-      let text = await shape();
-      assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
-      assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
-      const bar = editor.locator('.text-format-bar');
-      assert.equal(
-        await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
-        'false',
-      );
-      await input.press('Meta+i');
-      await saved();
-      assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, true);
-      await input.press('Control+i');
-      await saved();
-      assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, false);
-      await input.press('Meta+u');
-      await saved();
-      assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
-      await bar.getByRole('button', { name: 'Done', exact: true }).click();
-      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
-      await saved();
-      assert.notEqual(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
-      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
-      await saved();
-      await editor.locator('.lang select').selectOption('ja');
-      locale = 'ja';
-      await editor.locator('.hit').first().dblclick();
-      await input.evaluate((node) => {
-        node.setSelectionRange(7, 14);
-        node.dispatchEvent(new Event('select', { bubbles: true }));
-      });
-      await input.press('Control+u');
-      await saved();
-      assert.equal(
-        await bar.getByRole('button', { name: '下線', exact: true }).getAttribute('aria-pressed'),
-        'false',
-      );
-      await page.reload();
-      await saved();
-      text = await shape();
-      assert.equal(getShapeText(text), 'Prefix\nEnglish\n日本語\nThird paragraph');
-      assert.equal(getShapeParagraphElements(text, 1)[0].format.underline, false);
-      assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
-      assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
-      assert.deepEqual(errors, []);
-    } finally {
-      await browser?.close();
-      await preview?.close();
-      await rm(dir, { recursive: true, force: true });
-    }
-  },
-);
+for (const control of ['keyboard', 'toolbar'])
+  test(
+    `inline ${control} formatting toggles current runs after pending edits`,
+    { timeout: 60000 },
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'office-inline-paragraph-'));
+      let preview, browser, page;
+      try {
+        const file = join(dir, 'deck.tsx');
+        await writeFile(
+          file,
+          `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4} paragraphs={[{runs:[{text:'English',format:{bold:true}}]},{runs:[{text:'日本語',format:{italic:true}}]},{runs:[{text:'Third paragraph'}]}]} /></Slide><Slide><Text x={1} y={1} width={7} height={3} /></Slide></Presentation>`,
+        );
+        preview = await startPreview(file);
+        browser = await chromium.launch({ headless: true });
+        page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+        const errors = [];
+        page.on('pageerror', (e) => errors.push(e.message));
+        await page.goto(preview.url);
+        await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+        const editor = page.frameLocator('#editor-frame');
+        let locale = 'en';
+        const saved = () =>
+          editor
+            .getByText(locale === 'en' ? 'Saved to this project' : 'このプロジェクトに保存済み', {
+              exact: true,
+            })
+            .waitFor();
+        const shape = async () =>
+          getSlideShapes(
+            getSlides(
+              await loadPresentation(
+                new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+              ),
+            )[0],
+          )[0];
+        await saved();
+        await editor.locator('.hit').first().dblclick();
+        const input = editor.locator('.inline-edit');
+        await input.fill('Prefix\nEnglish\n日本語\nThird paragraph');
+        await input.evaluate((node) => {
+          node.setSelectionRange(7, 14);
+          node.dispatchEvent(new Event('select', { bubbles: true }));
+        });
+        const toggle = async (key, label) => {
+          if (control === 'keyboard') await input.press(key);
+          else
+            await editor
+              .locator('.text-format-bar')
+              .getByRole('button', { name: label, exact: true })
+              .click();
+        };
+        await toggle('Control+b', 'Bold');
+        await saved();
+        let text = await shape();
+        assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
+        assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
+        const bar = editor.locator('.text-format-bar');
+        assert.equal(
+          await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
+          'false',
+        );
+        await toggle('Meta+i', 'Italic');
+        await saved();
+        assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, true);
+        await toggle('Control+i', 'Italic');
+        await saved();
+        assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, false);
+        await toggle('Meta+u', 'Underline');
+        await saved();
+        assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
+        await bar.getByRole('button', { name: 'Done', exact: true }).click();
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.notEqual(getShapeParagraphElements(await shape(), 1)[0].format.underline, true);
+        await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+        await saved();
+        await editor.locator('.lang select').selectOption('ja');
+        locale = 'ja';
+        await editor.locator('.hit').first().dblclick();
+        await input.focus();
+        await input.evaluate((node) => {
+          node.setSelectionRange(7, 14);
+          node.dispatchEvent(new Event('select', { bubbles: true }));
+        });
+        await toggle('Control+u', '下線');
+        await saved();
+        assert.equal(
+          await bar.getByRole('button', { name: '下線', exact: true }).getAttribute('aria-pressed'),
+          'false',
+        );
+        await page.reload();
+        await saved();
+        text = await shape();
+        assert.equal(getShapeText(text), 'Prefix\nEnglish\n日本語\nThird paragraph');
+        assert.equal(getShapeParagraphElements(text, 1)[0].format.underline, false);
+        assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
+        assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
+        assert.deepEqual(errors, []);
+      } finally {
+        await browser?.close();
+        await preview?.close();
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
