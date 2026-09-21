@@ -30,6 +30,7 @@ import {
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
+  SLIDE_DOCUMENT,
   SLIDE_PART_NAME,
   type SlideData,
   type SlideLayoutData,
@@ -47,6 +48,8 @@ import {
   SLD_ID_MAX,
   SLD_ID_MIN,
   SLIDE_CONTENT_TYPE,
+  commitSlideData,
+  refreshSlideData,
   decode,
   encode,
 } from './_helpers.ts';
@@ -276,6 +279,8 @@ export const addSlide = (
 /**
  * Removes the given slide from the deck. Removes the `<p:sldId>`, the
  * `presentation.xml.rels` entry, and the slide part + its `.rels` part.
+ * Links to this slide from other slides are cleared to prevent accidental
+ * retargeting when a slide part name is reused.
  *
  * Media parts are intentionally NOT cleaned up — they may be shared
  * with other slides. The freed `sldId` is NOT reused on subsequent
@@ -284,15 +289,20 @@ export const addSlide = (
 export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
   const pkg = pres[INTERNAL_PACKAGE];
   const slidePartName = slide[SLIDE_PART_NAME];
+  if (slide[INTERNAL_PACKAGE] !== pkg) {
+    throw new Error('removeSlide: slide must belong to this presentation');
+  }
   if (pkg.getPart(slidePartName) === null) {
     throw new Error(`removeSlide: ${slidePartName} not present in package`);
   }
 
   const presRels = pkg.getRels(PRES_PART_NAME);
   if (!presRels) throw new Error('presentation.xml has no rels');
-  const slideTargetRel = `slides/${basename(slidePartName)}`;
   const removedRel = presRels.items.find(
-    (r) => r.type === REL_TYPES.slide && r.target === slideTargetRel,
+    (r) =>
+      r.type === REL_TYPES.slide &&
+      r.targetMode !== 'External' &&
+      resolveTarget(PRES_PART_NAME, r.target) === slidePartName,
   );
   if (!removedRel) {
     throw new Error(`presentation.xml.rels missing entry for slide ${slidePartName}`);
@@ -312,6 +322,43 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
     });
   }
   presPart.data = encode(serializeXml(presDoc));
+
+  // Remove inbound slide links before their part name or relationship id can be
+  // reused. Edit the live document so retained shape/cell handles stay in sync.
+  for (const source of getSlides(pres)) {
+    if (source[SLIDE_PART_NAME] === slidePartName) continue;
+    const rels = pkg.getRels(source[SLIDE_PART_NAME]);
+    if (!rels) continue;
+    const removedIds = new Set(
+      rels.items
+        .filter(
+          (rel) =>
+            rel.type === REL_TYPES.slide &&
+            rel.targetMode !== 'External' &&
+            resolveTarget(source[SLIDE_PART_NAME], rel.target) === slidePartName,
+        )
+        .map((rel) => rel.id),
+    );
+    if (!removedIds.size) continue;
+    const removeLinks = (node: XmlElement): void => {
+      node.children = node.children.filter((child) => {
+        if (child.kind !== 'element') return true;
+        if (
+          child.name.namespaceURI === NS.dml &&
+          ['hlinkClick', 'hlinkMouseOver', 'hlinkHover'].includes(child.name.localName) &&
+          removedIds.has(getAttrValue(child, ATTR_R_ID) ?? '')
+        )
+          return false;
+        removeLinks(child);
+        return true;
+      });
+    };
+    removeLinks(source[SLIDE_DOCUMENT].root);
+    rels.items = rels.items.filter((rel) => !removedIds.has(rel.id));
+    pkg.setRels(source[SLIDE_PART_NAME], rels);
+    commitSlideData(source);
+    refreshSlideData(source);
+  }
 
   pkg.removePart(relsPartNameFor(slidePartName));
   pkg.removePart(slidePartName);

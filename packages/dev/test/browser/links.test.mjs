@@ -625,3 +625,67 @@ test(
     }
   },
 );
+
+test(
+  'deleting a linked slide clears its links and undo restores destinations',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-delete-linked-slide-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Source</Text></Slide><Slide><Text x={1} y={1} width={4} height={1}>Target</Text></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      const read = async () =>
+        loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+      await editor.locator('select').first().selectOption('ja');
+      await saved();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.locator('button[title$="— setShapeHyperlink"]').click();
+      const dialog = editor.getByRole('dialog');
+      await dialog.getByLabel('リンク先の種類', { exact: true }).selectOption('slide');
+      await dialog.getByLabel('移動先のスライド', { exact: true }).selectOption('1');
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      await editor.locator('.thumb-row').nth(1).click();
+      await editor.locator('.thumb-row').nth(1).press('Delete');
+      await saved();
+      let pres = await read();
+      assert.equal(getSlides(pres).length, 1);
+      assert.equal(getShapeClickAction(getSlideShapes(getSlides(pres)[0])[0]), null);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      pres = await read();
+      assert.equal(getSlides(pres).length, 2);
+      const restored = getShapeClickAction(getSlideShapes(getSlides(pres)[0])[0]);
+      assert.equal(restored?.kind, 'slide');
+      assert.equal(getSlideIndex(pres, restored.slide), 1);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      pres = await read();
+      assert.equal(getSlides(pres).length, 1);
+      assert.equal(getShapeClickAction(getSlideShapes(getSlides(pres)[0])[0]), null);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
