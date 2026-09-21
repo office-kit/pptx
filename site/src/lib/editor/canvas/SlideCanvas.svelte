@@ -106,7 +106,7 @@
   }
   let drag = $state<Drag | null>(null);
   let guides = $state<readonly Guide[]>([]);
-  let editing = $state<{ id: number; text: string } | null>(null);
+  let editing = $state<{ id: number; text: string; changes: { start: number; end: number; text: string }[] } | null>(null);
 
   // Marquee (rubber-band) selection, in stage-local px.
   let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -322,7 +322,7 @@
     } catch {
       text = '';
     }
-    editing = { id: box.id, text };
+    editing = { id: box.id, text, changes: [] };
   }
 
   // Google-Slides parity: with a single shape selected, Enter/F2 edits its text,
@@ -340,8 +340,20 @@
       startEditing(box);
     } else if (e.key.length === 1) {
       e.preventDefault();
-      editing = { id: box.id, text: e.key };
+      startEditing(box);
+      updateEditing(e.key);
     }
+  }
+  function updateEditing(value: string) {
+    if (!editing) return;
+    const before = editing.text;
+    let start = 0;
+    while (start < before.length && start < value.length && before[start] === value[start]) start++;
+    let end = before.length;
+    let newEnd = value.length;
+    while (end > start && newEnd > start && before[end - 1] === value[newEnd - 1]) { end--; newEnd--; }
+    if (start !== end || start !== newEnd) editing.changes.push({ start, end, text: value.slice(start, newEnd) });
+    editing.text = value;
   }
   function commitEditing() {
     if (!editing) return;
@@ -349,7 +361,14 @@
     const cur = editing;
     editing = null;
     if (!box) return;
-    doc.transact('Edit text', () => setShapeText(box.shape, cur.text));
+    if (!cur.changes.length) return;
+    doc.transact('Edit text', () => {
+      let value = getShapeText(box.shape);
+      for (const change of cur.changes) {
+        value = value.slice(0, change.start) + change.text + value.slice(change.end);
+        setShapeText(box.shape, value, { preserveFormatting: true });
+      }
+    });
   }
 
   function onContext(e: MouseEvent) {
@@ -452,7 +471,8 @@
             <textarea
               class="inline-edit"
               style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%;"
-              bind:value={editing.text}
+              value={editing.text}
+              oninput={(e) => updateEditing(e.currentTarget.value)}
               use:focusEdit
               onpointerdown={(e) => e.stopPropagation()}
               onpointerup={(e) => e.stopPropagation()}
