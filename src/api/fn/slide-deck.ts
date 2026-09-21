@@ -22,6 +22,7 @@ import {
   firstChildElement,
   getAttrValue,
   parseXml,
+  qname,
   serializeXml,
 } from '../../internal/xml/index.ts';
 import {
@@ -556,7 +557,8 @@ export const duplicateSlideAt = (
 };
 
 /**
- * Imports a slide into `targetPres`, rebinding its layout to `targetLayout`.
+ * Imports a slide into `targetPres`. When `targetLayout` is supplied, rebinds
+ * the slide to it. Otherwise preserves the source layout, master and theme.
  * Copies the complete relationship graph, including charts, workbooks, notes,
  * media and unknown extension parts. Shared dependencies and cycles retain
  * their relationships; external hyperlinks are preserved. Missing dependencies
@@ -566,7 +568,7 @@ export const duplicateSlideAt = (
 export const importSlide = (
   targetPres: PresentationData,
   sourceSlide: SlideData,
-  targetLayout: SlideLayoutData,
+  targetLayout?: SlideLayoutData,
 ): SlideData => {
   const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
   const sourcePartName = sourceSlide[SLIDE_PART_NAME];
@@ -584,21 +586,22 @@ export const importSlide = (
   const slideN = allocateSlideN(targetPkg);
   const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
 
-  const layoutPartName = targetLayout[LAYOUT_PART_NAME];
-  if (targetPkg.getPart(layoutPartName) === null) {
+  const layoutPartName = targetLayout?.[LAYOUT_PART_NAME];
+  if (layoutPartName && targetPkg.getPart(layoutPartName) === null) {
     throw new Error(`importSlide: layout ${layoutPartName} not in target package`);
   }
   const layoutRel = sourceRels?.items.find((rel) => rel.type === REL_TYPES.slideLayout);
   const mappedLayouts = new Map<PartName, PartName>();
-  if (layoutRel) mappedLayouts.set(resolveTarget(sourcePartName, layoutRel.target), layoutPartName);
-  copyPartGraphs(
+  if (layoutRel && layoutPartName)
+    mappedLayouts.set(resolveTarget(sourcePartName, layoutRel.target), layoutPartName);
+  const copies = copyPartGraphs(
     sourcePkg,
     targetPkg,
     new Map([[sourcePartName, newSlidePartName]]),
     new Set(),
     mappedLayouts,
   );
-  if (!layoutRel) {
+  if (!layoutRel && layoutPartName) {
     const rels = targetPkg.getRels(newSlidePartName) ?? emptyRels();
     rels.items.push({
       id: nextRelId(rels.items.map((rel) => rel.id)),
@@ -611,6 +614,36 @@ export const importSlide = (
 
   // presentation → slide rel + sldIdLst entry.
   const presRels = targetPkg.getRels(PRES_PART_NAME) ?? emptyRels();
+  // Imported masters must be discoverable from presentation.xml as well as layouts.
+  const masterName = qname('p', 'sldMasterId', NS.pml);
+  const masters = [...copies.values()].filter((name) =>
+    targetPkg.getPart(name)?.contentType.endsWith('slideMaster+xml'),
+  );
+  if (masters.length) {
+    let masterList = firstChildElement(presDoc.root, NAME_SLD_MASTER_ID_LST);
+    if (!masterList) {
+      masterList = elem(NAME_SLD_MASTER_ID_LST);
+      presDoc.root.children.unshift(masterList);
+    }
+    const used = new Set(
+      allChildElements(masterList, masterName).map((item) => Number(getAttrValue(item, ATTR_ID))),
+    );
+    let id = 2147483648;
+    for (const master of masters) {
+      while (used.has(id)) id++;
+      used.add(id);
+      const relId = nextRelId(presRels.items.map((rel) => rel.id));
+      presRels.items.push({
+        id: relId,
+        type: REL_TYPES.slideMaster,
+        target: master,
+        targetMode: 'Internal',
+      });
+      masterList.children.push(
+        elem(masterName, { attrs: [attr(ATTR_ID, String(id)), attr(ATTR_R_ID, relId)] }),
+      );
+    }
+  }
   const newRId = nextRelId(presRels.items.map((r) => r.id));
   presRels.items.push({
     id: newRId,

@@ -14,6 +14,8 @@ import {
   findSlideLayout,
   getMediaParts,
   getSlideLayout,
+  getSlideMasterCount,
+  getSlideMasterPartName,
   getSlideLayoutName,
   getSlideShapes,
   getSlideText,
@@ -197,6 +199,39 @@ describe('fn API: importSlide', () => {
     );
     expect(_internalPackageOf(target).parts).toEqual(before);
     expect(getSlides(target)).toHaveLength(0);
+  });
+
+  it('preserves and registers the source layout, master and theme when no layout is supplied', async () => {
+    const source = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const sourceSlide = getSlides(source)[0]!;
+    const target = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const before = getSlideMasterCount(target);
+    const imported = importSlide(target, sourceSlide);
+    expect(getSlideLayoutName(getSlideLayout(imported)!)).toBe(
+      getSlideLayoutName(getSlideLayout(sourceSlide)!),
+    );
+    expect(getSlideMasterCount(target)).toBe(before + 1);
+    const master = getSlideMasterPartName(imported)!;
+    expect(master).not.toBe(getSlideMasterPartName(sourceSlide));
+    const pkg = _internalPackageOf(target);
+    expect(
+      pkg
+        .getRels(partName('/ppt/presentation.xml'))!
+        .items.some((rel) => rel.type.endsWith('/slideMaster') && rel.target === master),
+    ).toBe(true);
+    const sourcePkg = _internalPackageOf(source);
+    const originalThemes = sourcePkg.parts
+      .filter((part) => part.contentType.endsWith('theme+xml'))
+      .map((part) => part.data);
+    const importedThemes = pkg.parts.filter(
+      (part) => part.contentType.endsWith('theme+xml') && part.name.includes('-copy'),
+    );
+    expect(importedThemes.length).toBeGreaterThan(0);
+    for (const theme of importedThemes) expect(originalThemes).toContainEqual(theme.data);
+    const reloaded = await loadPresentation(await savePresentation(target));
+    expect(getSlideMasterCount(reloaded)).toBe(before + 1);
+    expect(getSlideMasterPartName(getSlides(reloaded)[0]!)).toBe(master);
+    expect(getSlideText(getSlides(reloaded)[0]!)).toBe(getSlideText(sourceSlide));
   });
 
   it('binds the imported slide to the supplied layout', async () => {

@@ -36,6 +36,9 @@
       );
     } else if (doc.selection.kind === 'slide') {
       list.push(
+        { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
+        { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
+        { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
         { label: 'New slide', run: () => editor.invoke('addBlankSlide') },
         { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
         { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },

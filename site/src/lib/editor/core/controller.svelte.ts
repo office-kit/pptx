@@ -8,6 +8,8 @@
 
 import {
   copyShape,
+  importSlide,
+  moveSlide,
   addSlideImage,
   getShapeKind,
   setShapeImage,
@@ -46,7 +48,7 @@ export interface ContextMenuState {
 interface Clipboard {
   presentation: Promise<PresentationData>;
   slideIndex: number;
-  shapeIds: number[];
+  content: { kind: 'slide' } | { kind: 'shapes'; shapeIds: number[] };
 }
 
 const PASTE_OFFSET = inches(0.25);
@@ -350,18 +352,19 @@ export class EditorController {
   copySelection(): void {
     const sel = this.doc.selection;
     const ids = selectedShapeIds(sel);
-    if (!ids.length) return;
+    if (sel.kind !== 'slide' && !ids.length) return;
+    if (!this.doc.slideAt(sel.slideIndex)) return;
     this.#clipboard = {
       presentation: this.doc.toBytes().then(loadPresentation),
       slideIndex: sel.slideIndex,
-      shapeIds: [...ids],
+      content: sel.kind === 'slide' ? { kind: 'slide' } : { kind: 'shapes', shapeIds: [...ids] },
     };
     // Attach a handler immediately; a later paste reports the captured failure.
     void this.#clipboard.presentation.catch((error: Error) => this.toast('error', error.message));
   }
 
   cutSelection(): void {
-    if (!this.selectedShapes().length) return;
+    if (this.doc.selection.kind !== 'slide' && !this.selectedShapes().length) return;
     this.copySelection();
     this.deleteSelection();
   }
@@ -371,15 +374,23 @@ export class EditorController {
     if (!clip) return;
     const targetPresentation = this.doc.pres;
     const targetSlide = this.doc.slideAt(this.doc.selection.slideIndex);
-    if (!targetSlide) return;
+    if (!targetSlide && clip.content.kind !== 'slide') return;
     try {
       const source = await clip.presentation;
       // New/Open or undo replaces the document. Never paste into a stale target.
       if (this.doc.pres !== targetPresentation) return;
-      const slideIndex = getSlides(targetPresentation).indexOf(targetSlide);
-      if (slideIndex < 0) return;
+      const slideIndex = targetSlide ? getSlides(targetPresentation).indexOf(targetSlide) : -1;
+      if (targetSlide && slideIndex < 0) return;
       const sourceSlide = getSlides(source)[clip.slideIndex]!;
-      const sources = clip.shapeIds.map((id) => findShapeById(sourceSlide, id)!);
+      if (clip.content.kind === 'slide') {
+        this.doc.transact(t('Paste'), () => {
+          const imported = importSlide(targetPresentation, sourceSlide);
+          moveSlide(targetPresentation, imported, slideIndex + 1);
+          this.doc.selectSlide(slideIndex + 1);
+        });
+        return;
+      }
+      const sources = clip.content.shapeIds.map((id) => findShapeById(sourceSlide, id)!);
       this.doc.transact(t('Paste'), () => {
         const newIds = this.#cloneOnto(sources, slideIndex, PASTE_OFFSET);
         this.doc.select({ kind: 'shape', slideIndex, shapeIds: newIds });
