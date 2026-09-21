@@ -123,6 +123,13 @@ test(
       assert.equal(await dialog.getByLabel('Label position', { exact: true }).count(), 0);
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal((await read()).kind, 'pie');
+      await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+      await dialog.getByLabel('Show values', { exact: true }).uncheck();
+      await dialog.getByLabel('Show series names', { exact: true }).check();
+      await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+      await saved();
+      const seriesName = (await read()).series[0].name;
+      assert.equal(await editor.locator('.paint text').filter({ hasText: seriesName }).count(), 3);
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({

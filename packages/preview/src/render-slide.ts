@@ -4501,15 +4501,25 @@ const formatChartValue = (v: number): string => {
 };
 
 // Resolves the data-label number format (`<c:dLbls><c:numFmt>`) with the
-// per-series override winning over the chart-level default, and projects
+// point override winning over the series and chart defaults, and projects
 // `v` through it. Falls back to `formatChartValue` when neither layer
 // authors a format.
-const formatDataLabelValue = (spec: ChartSpec, seriesIdx: number, v: number): string => {
-  const nf = spec.series[seriesIdx]?.dataLabels?.numberFormat ?? spec.dataLabels?.numberFormat;
+const formatDataLabelValue = (
+  spec: ChartSpec,
+  seriesIdx: number,
+  v: number,
+  pointIdx?: number,
+): string => {
+  const point =
+    pointIdx === undefined ? undefined : spec.series[seriesIdx]?.pointDataLabels?.[pointIdx];
+  const nf =
+    point?.numberFormat ??
+    spec.series[seriesIdx]?.dataLabels?.numberFormat ??
+    spec.dataLabels?.numberFormat;
   return nf ? formatAxisLabel(v, nf) : formatChartValue(v);
 };
 
-// Per-series <c:dLbls><c:txPr> wins over the chart-level default.
+// Point label text style wins over the series and chart defaults.
 // Falls back to the renderer's hardcoded size / caller-supplied fill /
 // weight so existing layouts don't shift when no textStyle is authored.
 const dataLabelTextAttrs = (
@@ -4518,8 +4528,12 @@ const dataLabelTextAttrs = (
   fallbackFill: string,
   fallbackSizePt = 9,
   fallbackBold = false,
+  pointIdx?: number,
 ): string => {
-  const style = spec.series[seriesIdx]?.dataLabels?.textStyle ?? spec.dataLabels?.textStyle;
+  const point =
+    pointIdx === undefined ? undefined : spec.series[seriesIdx]?.pointDataLabels?.[pointIdx];
+  const style =
+    point?.textStyle ?? spec.series[seriesIdx]?.dataLabels?.textStyle ?? spec.dataLabels?.textStyle;
   const sz = style?.sizePt ?? fallbackSizePt;
   const fill = style?.color ?? fallbackFill;
   const isBold = style?.bold ?? fallbackBold;
@@ -4955,7 +4969,12 @@ const renderPieChart = (
     //   - outEnd: outside the slice (with a darker fill so it shows on
     //     the chart-area background)
     const labelMid = (start + end) / 2;
-    const pos = spec.series[0]?.dataLabels?.position ?? spec.dataLabels?.position;
+    const labelOptions = {
+      ...spec.dataLabels,
+      ...series.dataLabels,
+      ...series.pointDataLabels?.[i],
+    };
+    const pos = labelOptions.position;
     let labelR: number;
     let labelFill = '#FFFFFF';
     if (pos === 'inEnd') {
@@ -4972,15 +4991,17 @@ const renderPieChart = (
     // PowerPoint/LibreOffice order a pie/doughnut label as category, then
     // value, then percent (e.g. "Web — 48%"), not the reverse.
     const labels: string[] = [];
-    if (spec.dataLabels?.showCategory) {
+    if (labelOptions.showSeriesName && series.name) labels.push(series.name);
+    if (labelOptions.showCategory) {
       const catLabel = spec.categories[i];
       if (catLabel) labels.push(catLabel);
     }
-    if (spec.dataLabels?.showValue) labels.push(formatDataLabelValue(spec, 0, v));
-    if (spec.dataLabels?.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
-    if (labels.length > 0) {
+    if (labelOptions.showValue) labels.push(formatDataLabelValue(spec, 0, v, i));
+    if (labelOptions.showPercent) labels.push(`${((v / total) * 100).toFixed(0)}%`);
+    const labelText = labelOptions.text ?? labels.join(labelOptions.separator ?? ' ');
+    if (labelText) {
       out.push(
-        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" ${dataLabelTextAttrs(spec, 0, labelFill, 10, true)}>${escapeXml(labels.join(spec.series[0]?.dataLabels?.separator ?? spec.dataLabels?.separator ?? ' '))}</text>`,
+        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" ${dataLabelTextAttrs(spec, 0, labelFill, 10, true, i)}>${escapeXml(labelText)}</text>`,
       );
     }
   }

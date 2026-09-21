@@ -294,3 +294,5 @@ Pie and doughnut dialogs expose first-slice rotation (0–360°); doughnut chart
 Pie and doughnut charts support per-slice colors, a one-click color palette, and resetting individual slices to the series color in Japanese and English. Color overrides follow their categories when rows are removed and survive undo, redo and reload.
 
 Data label formatting exposes chart-appropriate placement and numeric format codes in Japanese and English. Blank settings restore automatic defaults; edits update existing series and point overrides without changing unrelated label properties. Browser coverage verifies formatted text, placement, cancellation, undo/redo and reload.
+
+Pie and doughnut previews render series-name labels and honor series/point label overrides for visibility, literal text, placement, numeric formatting and text style. Regression tests cover inheritance and XML escaping; the browser verifies series-name-only labels.
