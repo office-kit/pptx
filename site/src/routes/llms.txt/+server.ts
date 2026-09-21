@@ -29,7 +29,7 @@ for every page concatenated into a single document.
 ## TSX authoring and preview
 
 The companion packages \`@office-kit/pptx-dsl\` and \`@office-kit/pptx-dev\`
-provide typed TSX, project initialization, a view-only slide viewer, and export.
+provide typed TSX, project initialization, an interactive slide preview, and export.
 They are published on npm. For Claude Code, install the plugin with:
 
 \`\`\`sh

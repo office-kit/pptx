@@ -42,14 +42,14 @@
     "esbuild": "^0.28.1",
     "fflate": "^0.8.3",
     "markdown-it": "^15.0.2",
-    "node-pty": "^1.1.0"
+    "node-pty": "^1.1.0",
+    "playwright": "^1.63.0",
+    "typescript": "^6.0.3"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.2.0",
     "@types/node": "^24.13.2",
-    "playwright": "^1.63.0",
-    "tsdown": "^0.22.2",
-    "typescript": "^6.0.3"
+    "tsdown": "^0.22.2"
   },
   "engines": {
     "node": ">=22.18.0"

@@ -65,13 +65,17 @@ For a manual update, run `claude plugin marketplace update office-kit` followed 
 
 ## Review your slides
 
-The browser is a **view-only slide viewer**. Select slides in the left thumbnail
+The browser is an **interactive slide preview**. Select slides in the left thumbnail
 strip, use **Fit** or zoom to inspect details, and choose **Present** to show the
 deck. Arrow keys navigate; Escape exits presentation mode.
 
-All content and layout changes happen through your conversation with Claude Code.
-There are no drag handles or canvas editing controls, and the viewer does not
-contain an AI chat.
+Use **Select area** to drag a region and request an inline change from an agent,
+or **Edit text** to save a uniquely identifiable text literal directly to TSX.
+The right panel embeds Claude Code and also supports Codex; start your chosen agent
+before sending. Multiple agent panes can be split horizontally or vertically.
+After edits, screenshots of changed slides are supplied to the agent for design
+review and up to two correction passes. Screenshot capture requires Chrome or
+Playwright Chromium. Ambiguous or computed text can be changed with **Apply with AI**.
 
 New projects separate the editable source into slide files and export **`deck.pptx`**.
 
@@ -144,6 +148,17 @@ cd my-slides
 npm install
 npm run dev
 ```
+
+For a single-command first launch on macOS/Linux:
+
+```sh
+npx --yes @office-kit/pptx-dev@latest init my-slides && cd my-slides && npm install && npm run dev
+```
+
+`init` generates the starter with compatible dependencies, so a separate `degit`
+checkout is unnecessary. Next time, run `npm run dev` or `npx office-pptx dev deck.tsx`
+in the project. For a bare `office-pptx dev deck.tsx` command, install the CLI once
+with `npm install --global @office-kit/pptx-dev@latest`.
 
 Open the URL printed by the server and edit `slides/cover.tsx`. Use `deck.tsx` to add or reorder slides and
 `theme.ts` for shared colors. Run `npm run check` for

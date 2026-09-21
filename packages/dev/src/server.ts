@@ -1,3 +1,5 @@
+import { createTextEditor } from './text-edit.ts';
+import { createVisualReviewer } from './visual-review.ts';
 import { createServer, type ServerResponse } from 'node:http';
 import { watch } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
@@ -27,9 +29,11 @@ export async function serveDeck(entry: string, port = 4173) {
       closing: boolean;
     }
   >();
+  const capturedReviews = new Map<string, string[]>();
   function session(id: string) {
     let result = sessions.get(id);
     if (!result) {
+      const review = createVisualReviewer(resolve(entry), () => latest?.slides ?? []);
       const chat = createChat(
         entry,
         () => {
@@ -37,18 +41,30 @@ export async function serveDeck(entry: string, port = 4173) {
         },
         () => terminal.isRunning(),
         verify,
+        review,
+        (prompt) => capturedReviews.get(prompt) ?? [],
       );
       const terminal = createTerminal(
         entry,
         () => chat.isRunning(),
         id ? '/agents/' + id : '',
         verify,
+        review,
       );
       result = { chat, terminal, closing: false };
       sessions.set(id, result);
     }
     return result;
   }
+  const textEditor = createTextEditor(
+    resolve(entry),
+    () => {
+      if (!latest || building || pending || timer || error)
+        throw new Error('Wait for a successful preview build.');
+      return { ...latest, revision };
+    },
+    verify,
+  );
   const server = createServer((request, response) => {
     const host = request.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {
@@ -57,10 +73,52 @@ export async function serveDeck(entry: string, port = 4173) {
     }
     response.setHeader('Cache-Control', 'no-store');
     const match = request.url?.match(
-      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context|verify)|close))?$/,
+      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|prompt|resize|stop|events|context|verify)|close))?$/,
     );
     if (request.url?.startsWith('/agents/') && !match) {
       response.writeHead(404).end();
+      return;
+    }
+    if (request.url === '/text-edit' || request.url === '/text-edit/undo') {
+      if (
+        request.method !== 'POST' ||
+        request.headers.origin !== `http://${host}` ||
+        request.headers['content-type'] !== 'application/json'
+      ) {
+        response.writeHead(403).end();
+        return;
+      }
+      void (async () => {
+        let body = '';
+        request.setEncoding('utf8');
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 100000) throw new Error('Request too large');
+        }
+        const manualReview = createVisualReviewer(resolve(entry), () => latest?.slides ?? []);
+        manualReview.begin();
+        if (request.url === '/text-edit/undo') await textEditor.undo();
+        else await textEditor.edit(JSON.parse(body));
+        let review;
+        let reviewError;
+        try {
+          review = await manualReview.next();
+          if (review) {
+            capturedReviews.set(review.prompt, review.images);
+            if (capturedReviews.size > 64)
+              capturedReviews.delete(capturedReviews.keys().next().value!);
+          }
+        } catch (cause) {
+          reviewError = cause instanceof Error ? cause.message : String(cause);
+        }
+        response
+          .writeHead(200, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ review, reviewError }));
+      })().catch((cause) =>
+        response
+          .writeHead(400, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ error: cause instanceof Error ? cause.message : String(cause) })),
+      );
       return;
     }
     const id = match?.[1] ?? '';

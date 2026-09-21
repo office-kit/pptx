@@ -287,7 +287,7 @@ Then ask Claude Code:
 and a next-actions table. Use labelled sample data where needed.
 ```
 
-The [skill](skill/SKILL.md) creates a TSX project, starts the view-only preview,
+The [skill](skill/SKILL.md) creates a TSX project, starts the interactive preview,
 checks the source and exports an editable PPTX. Ask for changes in the same
 conversation; the preview updates as the agent edits TSX. You need Node.js 22.18+
 and Git alongside Claude Code. See the

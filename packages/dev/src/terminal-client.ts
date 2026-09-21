@@ -42,6 +42,35 @@ export function mountTerminal() {
     const result = await response.json();
     if (!response.ok) throw new Error(result.error);
   }
+  window.addEventListener('message', (event) => {
+    if (
+      event.origin !== location.origin ||
+      event.source !== parent ||
+      event.data?.type !== 'inline-edit' ||
+      (element('chat-provider') as HTMLSelectElement).value !== 'claude'
+    )
+      return;
+    void (async () => {
+      try {
+        if (!running || !owned) throw new Error('Start Claude Code in this agent pane first.');
+        const prompt = queue.then(() =>
+          action('prompt', { message: event.data.message, ...event.data.focus }),
+        );
+        queue = prompt.catch(() => undefined);
+        await prompt;
+        parent.postMessage({ type: 'inline-result', id: event.data.id }, location.origin);
+      } catch (error) {
+        parent.postMessage(
+          {
+            type: 'inline-result',
+            id: event.data.id,
+            error: error instanceof Error ? error.message : String(error),
+          },
+          location.origin,
+        );
+      }
+    })();
+  });
   function send(path: string, data: Record<string, unknown>) {
     // Preserve keystroke order even while earlier requests are in flight.
     queue = queue

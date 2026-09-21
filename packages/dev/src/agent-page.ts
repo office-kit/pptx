@@ -16,6 +16,10 @@ window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==parent)return;
  if(event.data?.type==='focus'){focus=event.data.focus;byId('chat-context').dataset.focus=JSON.stringify(focus);byId('chat-context').textContent=event.data.label;}
  if(event.data?.type==='chat')void refreshChat();
+ if(event.data?.type==='inline-edit'&&byId('chat-provider').value==='codex'){
+  void (async()=>{try{if(chatBusy)throw new Error('This agent is working. Wait for it to finish.');await chatAction('/chat',{message:event.data.message,provider:'codex',...event.data.focus});parent.postMessage({type:'inline-result',id:event.data.id},location.origin);}catch(error){parent.postMessage({type:'inline-result',id:event.data.id,error:error.message},location.origin);}})();
+ }
+
 });
 parent.postMessage({type:'agent-ready'},location.origin);
 let chatRequest=0,chatBusy=false,lastMessages='';
