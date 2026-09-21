@@ -15,7 +15,16 @@ const canvases={current:byId('current').attachShadow({mode:'open'}),next:byId('n
 const displayed={};
 let locale='en',started=performance.now(),connected=false;
 const text=(en,ja)=>locale==='ja'?ja:en;
-function send(action){if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'presenter-command',action},location.origin);}
+function send(action,index){if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'presenter-command',action,index},location.origin);}
+for(const canvas of Object.values(canvases))canvas.addEventListener('click',event=>{
+ const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
+ const href=link?.getAttribute('href')??link?.getAttributeNS('http://www.w3.org/1999/xlink','href')??'';
+ if(href.startsWith('#slide-')){
+  event.preventDefault();
+  const number=Number(href.slice(7));
+  if(Number.isInteger(number)&&number>=1)send('jump',number-1);
+ }
+});
 function update(data){
  connected=true;locale=data.locale;document.documentElement.lang=locale;
  for(const [id,en,ja] of [['title','Presenter view','発表者ビュー'],['timer-label','Elapsed','経過時間'],['reset','Reset timer','タイマーをリセット'],['current-title','Current slide','現在のスライド'],['notes-title','Speaker notes','発表者ノート'],['next-title','Next slide','次のスライド'],['prev','Previous','前へ'],['next-button','Next','次へ'],['exit','Exit presentation','プレゼンテーションを終了']])byId(id).textContent=text(en,ja);
