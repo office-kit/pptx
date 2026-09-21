@@ -5,6 +5,10 @@ import {
   getSlideShapes,
   getShapePreset,
   setShapePreset,
+  setShapeStroke,
+  setShapeStrokeDash,
+  setShapeNoStroke,
+  setShapeRotation,
   getShapeBounds,
   getShapeImageBytes,
   getShapeImageCrop,
@@ -70,4 +74,24 @@ it('changes native shape geometry and resets adjust guides without changing text
   expect(getShapeBounds(result)).toEqual(bounds);
   expect(getShapeAdjustValues(result)).toEqual({});
   expect(getSlideXmlString(getSlides(restored)[0]!).match(/<a:t>.*?<\/a:t>/g)).toEqual(text);
+});
+
+it('renders picture outlines outside the crop clip with mask shape and line styling', async () => {
+  const pres = await loadPresentation(
+    await readFile(new URL('./fixtures/minimal/one-image-slide.pptx', import.meta.url)),
+  );
+  const slide = getSlides(pres)[0]!;
+  const picture = getSlideShapes(slide)[1]!;
+  setShapePreset(picture, 'ellipse');
+  setShapeImageCrop(picture, { left: 0.2 });
+  setShapeRotation(picture, 25);
+  setShapeStroke(picture, { color: 'FF2200', widthEmu: 50800 });
+  setShapeStrokeDash(picture, 'dash');
+  const svg = renderSlideToSvg(pres, slide);
+  expect(svg).toMatch(
+    /<g transform="rotate\(25 [^"]+" fill="none" stroke="#FF2200" stroke-width="5.33" stroke-dasharray="[^"]+"><ellipse/,
+  );
+  expect(svg).toMatch(/<\/g><g transform="rotate\(25 [^"]+" fill="none"/);
+  setShapeNoStroke(picture);
+  expect(renderSlideToSvg(pres, slide)).not.toContain('stroke="#FF2200"');
 });
