@@ -124,6 +124,11 @@ export const ja: Record<string, string> = {
   'Applies to every slide. Objects keep their positions and sizes.':
     'すべてのスライドに適用します。オブジェクトの位置と大きさは保持されます。',
   'Page height': 'ページの高さ',
+  'When resizing': 'サイズ変更時の処理',
+  'Keep object positions and sizes': '位置と大きさを保持',
+  'Fit content to page': '内容をページに合わせる',
+  'Applies to every slide. Content scales proportionally and is centered on the page.':
+    'すべてのスライドに適用します。内容の縦横比を保って拡大縮小し、ページ中央に配置します。',
   'Page width': 'ページの幅',
   Centimeters: 'センチメートル',
   Inches: 'インチ',

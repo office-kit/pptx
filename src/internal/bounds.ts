@@ -23,6 +23,9 @@ const RANGES = {
   lineWidth: [0, 20116800], // ST_LineWidth
   angle: [-2147483648, 2147483647], // ST_Angle (1/60000 degree, xsd:int)
   fontSize: [100, 400000], // ST_TextFontSize (1/100 pt → 1..4000 pt)
+  textNonNegativePoint: [0, 400000], // ST_TextNonNegativePoint (kerning threshold)
+  textMargin: [0, 51206400], // ST_TextMargin (EMU)
+  textIndent: [-51206400, 51206400], // ST_TextIndent (EMU)
   textPoint: [-400000, 400000], // ST_TextPoint (1/100 pt)
   textSpacingPoint: [0, 158400], // ST_TextSpacingPoint (1/100 pt)
   unsignedInt: [0, 4294967295], // xsd:unsignedInt (advTm; ST_TLTime numeric form)

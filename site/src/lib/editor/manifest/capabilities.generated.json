@@ -2267,6 +2267,13 @@
           "type": "SlideSize",
           "kind": "object",
           "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ content?: 'keep' | 'fit' }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
         }
       ]
     },

@@ -1,3 +1,4 @@
+import { unzipSync } from 'fflate';
 // Free-function slide-size API.
 //
 // PowerPoint stores the slide canvas as `<p:sldSz cx="..." cy="..."/>`
@@ -64,12 +65,12 @@ it.each([NaN, Infinity, -Infinity, -1, 0, 914399, 51206401])(
   'rejects invalid slide dimension %s without changing the presentation',
   async (value) => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
-    const before = await savePresentation(pres);
+    const before = unzipSync(await savePresentation(pres));
     for (const axis of ['width', 'height'] as const) {
       expect(() => setSlideSize(pres, { ...SLIDE_SIZE_16_9, [axis]: emu(value) })).toThrow(
         RangeError,
       );
-      expect(await savePresentation(pres)).toEqual(before);
+      expect(unzipSync(await savePresentation(pres))).toEqual(before);
     }
   },
 );
