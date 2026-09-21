@@ -31,7 +31,7 @@ import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
 import { t } from '../i18n/i18n.svelte.ts';
-import { selectedShapeIds, topLevelShapes } from './selection.ts';
+import { selectedSlideIndices, selectedShapeIds, topLevelShapes } from './selection.ts';
 
 export interface Toast {
   readonly id: number;
@@ -48,7 +48,7 @@ export interface ContextMenuState {
 interface Clipboard {
   presentation: Promise<PresentationData>;
   slideIndex: number;
-  content: { kind: 'slide' } | { kind: 'shapes'; shapeIds: number[] };
+  content: { kind: 'slide'; slideIndices: number[] } | { kind: 'shapes'; shapeIds: number[] };
 }
 
 const PASTE_OFFSET = inches(0.25);
@@ -357,7 +357,10 @@ export class EditorController {
     this.#clipboard = {
       presentation: this.doc.toBytes().then(loadPresentation),
       slideIndex: sel.slideIndex,
-      content: sel.kind === 'slide' ? { kind: 'slide' } : { kind: 'shapes', shapeIds: [...ids] },
+      content:
+        sel.kind === 'slide'
+          ? { kind: 'slide', slideIndices: selectedSlideIndices(sel) }
+          : { kind: 'shapes', shapeIds: [...ids] },
     };
     // Attach a handler immediately; a later paste reports the captured failure.
     void this.#clipboard.presentation.catch((error: Error) => this.toast('error', error.message));
@@ -384,9 +387,21 @@ export class EditorController {
       const sourceSlide = getSlides(source)[clip.slideIndex]!;
       if (clip.content.kind === 'slide') {
         this.doc.transact(t('Paste'), () => {
-          const imported = importSlide(targetPresentation, sourceSlide);
-          moveSlide(targetPresentation, imported, slideIndex + 1);
-          this.doc.selectSlide(slideIndex + 1);
+          const inserted: number[] = [];
+          for (const sourceIndex of clip.content.kind === 'slide'
+            ? clip.content.slideIndices
+            : []) {
+            const imported = importSlide(targetPresentation, getSlides(source)[sourceIndex]!);
+            const at = slideIndex + 1 + inserted.length;
+            moveSlide(targetPresentation, imported, at);
+            inserted.push(at);
+          }
+          this.doc.select({
+            kind: 'slide',
+            slideIndex: inserted[0]!,
+            slideIndices: inserted,
+            anchorIndex: inserted[0],
+          });
         });
         return;
       }

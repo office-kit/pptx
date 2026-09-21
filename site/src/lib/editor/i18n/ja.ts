@@ -326,6 +326,7 @@ export const ja: Record<string, string> = {
   // Context menu
   Cut: '切り取り',
   Copy: 'コピー',
+  'Selected slides': '選択中のスライド',
   Paste: '貼り付け',
   Duplicate: '複製',
   Delete: '削除',

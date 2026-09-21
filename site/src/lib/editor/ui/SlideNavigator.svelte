@@ -7,10 +7,13 @@
   import { renderSlideToSvg } from '@office-kit/pptx-preview';
   import { getSlideSize, isSlideHidden } from '@office-kit/pptx';
   import { tick } from 'svelte';
+  import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
+  const selected = $derived(selectedSlideIndices(doc.selection));
+  const firstSelected = $derived(selected[0] ?? 0);
 
   const skippedSlides = $derived.by(() => { doc.version; return doc.slides.map(isSlideHidden); });
   const size = $derived.by(() => { doc.version; return getSlideSize(doc.pres); });
@@ -26,51 +29,68 @@
     }
   }
 
-  async function focusSlide(index: number) {
-    doc.selectSlide(index);
+  async function focusSlide(index: number, range = false, preserve = false) {
+    if (!preserve) doc.selectSlide(index, { range });
     await tick();
     rail?.querySelector<HTMLElement>(`[data-slide-index="${doc.selection.slideIndex}"]`)?.focus();
   }
 
   function reorder(from: number, to: number) {
-    if (from === to || to < 0 || to >= doc.slides.length) return;
-    doc.selectSlide(from);
+    if ((selected.includes(from) ? firstSelected : from) === to || to < 0 || to >= doc.slides.length) return;
+    if (doc.selection.kind !== 'slide' || !selected.includes(from)) doc.selectSlide(from);
     editor.invoke('moveSlide', { toIndex: to });
-    void focusSlide(to);
+    void focusSlide(doc.selection.slideIndex, false, true);
   }
 
   function onKeydown(event: KeyboardEvent, index: number) {
     if (event.isComposing) return;
     const mod = event.ctrlKey || event.metaKey;
+    if (mod && event.key.toLowerCase() === 'a') {
+      event.preventDefault();
+      const indices = doc.slides.map((_, i) => i);
+      doc.select({ kind: 'slide', slideIndex: index, slideIndices: indices, anchorIndex: index });
+      return;
+    }
     if (mod && event.key.toLowerCase() === 'd') {
       event.preventDefault();
       editor.invoke('duplicateSlide');
-      void focusSlide(doc.selection.slideIndex);
+      void focusSlide(doc.selection.slideIndex, false, true);
       return;
     }
     if (event.key === 'Delete' || event.key === 'Backspace') {
       event.preventDefault();
       editor.invoke('removeSlide');
-      void focusSlide(doc.selection.slideIndex);
+      void focusSlide(doc.selection.slideIndex, false, true);
       return;
     }
     const delta = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
     if (delta) {
       event.preventDefault();
-      if (event.altKey) reorder(index, index + delta);
-      else void focusSlide(index + delta);
+      if (event.altKey) reorder(index, firstSelected + delta);
+      else void focusSlide(index + delta, event.shiftKey);
     } else if (event.key === 'Home' || event.key === 'End') {
       event.preventDefault();
-      void focusSlide(event.key === 'Home' ? 0 : doc.slides.length - 1);
+      void focusSlide(event.key === 'Home' ? 0 : doc.slides.length - 1, event.shiftKey);
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       doc.selectSlide(index);
     }
   }
 
+  let pointerSelecting = false;
   let rail: HTMLDivElement;
   let dragIndex = $state<number | null>(null);
+
+  // Keep keyboard focus aligned when history restores a different selection.
+  $effect(() => {
+    const selection = doc.selection;
+    if (selection.kind === 'slide' && rail?.contains(document.activeElement) && document.activeElement?.classList.contains('thumb-row')) {
+      rail.querySelector<HTMLElement>(`[data-slide-index="${selection.slideIndex}"]`)?.focus();
+    }
+  });
 </script>
+
+<svelte:window onpointerup={() => pointerSelecting = false} onpointercancel={() => pointerSelecting = false} />
 
 <div class="nav ok-scroll" bind:this={rail}>
   <div class="nav-actions">
@@ -78,16 +98,18 @@
     <div class="slide-actions">
       <button class="ok-btn" title={t('Duplicate slide')} aria-label={t('Duplicate slide')} disabled={!doc.slides.length} onclick={() => editor.invoke('duplicateSlide')}>⧉</button>
       <button class="ok-btn" title={t('Delete slide')} aria-label={t('Delete slide')} disabled={!doc.slides.length} onclick={() => editor.invoke('removeSlide')}>×</button>
-      <button class="ok-btn" title={t('Move slide up')} aria-label={t('Move slide up')} disabled={doc.selection.slideIndex === 0} onclick={() => reorder(doc.selection.slideIndex, doc.selection.slideIndex - 1)}>↑</button>
-      <button class="ok-btn" title={t('Move slide down')} aria-label={t('Move slide down')} disabled={doc.selection.slideIndex >= doc.slides.length - 1} onclick={() => reorder(doc.selection.slideIndex, doc.selection.slideIndex + 1)}>↓</button>
+      <button class="ok-btn" title={t('Move slide up')} aria-label={t('Move slide up')} disabled={firstSelected === 0} onclick={() => reorder(doc.selection.slideIndex, firstSelected - 1)}>↑</button>
+      <button class="ok-btn" title={t('Move slide down')} aria-label={t('Move slide down')} disabled={firstSelected >= doc.slides.length - selected.length} onclick={() => reorder(doc.selection.slideIndex, firstSelected + 1)}>↓</button>
     </div>
   </div>
+
+  {#if doc.selection.kind === 'slide' && selected.length > 1}<div class="selection-count" aria-live="polite">{t('Selected slides')}: {selected.length}</div>{/if}
 
   {#each doc.slides as _slide, i (i)}
     {@const preview = thumb(i)}
     <div
       class="thumb-row"
-      class:active={doc.selection.slideIndex === i}
+      class:active={doc.selection.kind === 'slide' ? selected.includes(i) : doc.selection.slideIndex === i}
       class:skipped={skippedSlides[i]}
       draggable="true"
       role="button"
@@ -96,16 +118,18 @@
       title={skippedSlides[i] ? t('Skipped during presentation') : undefined}
       aria-current={doc.selection.slideIndex === i ? 'true' : undefined}
       tabindex={doc.selection.slideIndex === i ? 0 : -1}
-      onfocus={() => doc.selectSlide(i)}
+      aria-pressed={doc.selection.kind === 'slide' && selected.includes(i)}
+      onpointerdown={() => pointerSelecting = true}
+      onfocus={() => { if (!pointerSelecting && (doc.selection.kind !== 'slide' || !selected.includes(i))) doc.selectSlide(i); }}
       ondragstart={(event) => {
         dragIndex = i;
-        doc.selectSlide(i);
+        if (doc.selection.kind !== 'slide' || !selected.includes(i)) doc.selectSlide(i);
         if (event.dataTransfer) {
           event.dataTransfer.effectAllowed = 'move';
           event.dataTransfer.setData('text/plain', String(i));
         }
       }}
-      ondragend={() => dragIndex = null}
+      ondragend={() => { dragIndex = null; pointerSelecting = false; }}
       ondragover={(e) => e.preventDefault()}
       ondrop={(event) => {
         event.preventDefault();
@@ -114,10 +138,13 @@
       }}
       oncontextmenu={(event) => {
         event.preventDefault();
-        doc.selectSlide(i);
+        if (doc.selection.kind !== 'slide' || !selected.includes(i)) doc.selectSlide(i);
         editor.openContextMenu(event.clientX, event.clientY);
       }}
-      onclick={() => doc.selectSlide(i)}
+      onclick={(event) => {
+        doc.selectSlide(i, { additive: event.ctrlKey || event.metaKey, range: event.shiftKey });
+        void focusSlide(doc.selection.slideIndex, false, true);
+      }}
       onkeydown={(event) => onKeydown(event, i)}
     >
       <span class="num">{i + 1}{#if skippedSlides[i]}<span class="skip-mark" aria-label={t('Skipped during presentation')}>⊘</span>{/if}</span>
@@ -129,6 +156,7 @@
 </div>
 
 <style>
+  .selection-count { padding: 6px 4px; font-size: 11px; color: var(--ok-muted); }
   .skipped .num { text-decoration: line-through; }
   .skip-mark { display: block; text-decoration: none; }
   .skipped .thumb { opacity: .6; }

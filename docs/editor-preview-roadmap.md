@@ -110,7 +110,10 @@ that a user can complete the corresponding editing workflow.
   independent snapshots, retain source layouts/themes, charts and notes, and
   insert after the active slide. Browser coverage checks menus, shortcuts,
   Japanese/English labels, undo/redo and pasting after replacing the document.
-  Multi-slide selection still needs a complete UI workflow.
+  The navigator supports Shift ranges, Ctrl/Command toggles, Select All, and
+  batch copy/cut/paste, duplicate, delete and reorder (keys, buttons and drag).
+  Selection is restored with undo/redo; browser tests cover persisted order and
+  both languages. Other slide property controls still target the active slide.
 
 - The Arrange pane aligns objects to the selection (or slide for a single object)
   and distributes equal horizontal/vertical gaps. Group/ungroup bind selected

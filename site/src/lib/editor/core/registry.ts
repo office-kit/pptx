@@ -15,7 +15,12 @@ import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pp
 import { capabilities, capabilityById } from '../manifest/index.ts';
 import type { ResolvedCapability } from '../manifest/types.ts';
 import type { Selection } from './selection.ts';
-import { availableOperands, selectedShapeId, topLevelShapes } from './selection.ts';
+import {
+  availableOperands,
+  selectedSlideIndices,
+  selectedShapeId,
+  topLevelShapes,
+} from './selection.ts';
 
 /** A dynamic view of the library so we can dispatch by capability id. */
 const lib = pptx as unknown as Record<string, (...args: unknown[]) => unknown>;
@@ -183,6 +188,10 @@ class SlideCommand extends ManifestCommand {
     const index = doc.selection.slideIndex;
     const slide = doc.slideAt(index);
     const id = this.capability.id;
+    const indices = selectedSlideIndices(doc.selection);
+    const selected = indices
+      .map((i) => doc.slideAt(i))
+      .filter((item): item is SlideData => item !== null);
     if (id !== 'addBlankSlide' && !slide) throw new CommandError('No slide selected.');
     return doc.transact(this.capability.labelEn, () => {
       switch (id) {
@@ -194,23 +203,47 @@ class SlideCommand extends ManifestCommand {
         }
         case 'duplicateSlide':
         case 'duplicateSlideAt': {
-          const at = id === 'duplicateSlide' ? index + 1 : args.atIndex;
+          const at = id === 'duplicateSlide' ? indices[indices.length - 1]! + 1 : args.atIndex;
           if (typeof at !== 'number' || !Number.isInteger(at))
             throw new CommandError('Slide position must be an integer.');
-          const duplicate = pptx.duplicateSlideAt(doc.pres, at, slide!);
-          doc.selectSlide(pptx.getSlides(doc.pres).indexOf(duplicate));
-          return duplicate;
+          const start = Math.max(0, Math.min(at, doc.slides.length));
+          const duplicates = selected.map((source, offset) =>
+            pptx.duplicateSlideAt(doc.pres, start + offset, source),
+          );
+          doc.select({
+            kind: 'slide',
+            slideIndex: start,
+            slideIndices: duplicates.map((_, offset) => start + offset),
+            anchorIndex: start,
+          });
+          return duplicates[0];
         }
         case 'removeSlide':
-          pptx.removeSlide(doc.pres, slide!);
-          doc.selectSlide(index);
+          for (const source of [...selected].reverse()) pptx.removeSlide(doc.pres, source);
+          doc.selectSlide(indices[0]!);
           return;
         case 'moveSlide': {
           const at = args.toIndex;
           if (typeof at !== 'number' || !Number.isInteger(at))
             throw new CommandError('Slide position must be an integer.');
-          pptx.moveSlide(doc.pres, slide!, at);
-          doc.selectSlide(at);
+          const start = Math.max(0, Math.min(at, doc.slides.length - selected.length));
+          const names = selected.map(pptx.getSlidePartName);
+          const remaining = doc.slides
+            .map(pptx.getSlidePartName)
+            .filter((name) => !names.includes(name));
+          remaining.splice(start, 0, ...names);
+          for (let i = 0; i < remaining.length; i++) {
+            const source = pptx
+              .getSlides(doc.pres)
+              .find((item) => pptx.getSlidePartName(item) === remaining[i])!;
+            pptx.moveSlide(doc.pres, source, i);
+          }
+          doc.select({
+            kind: 'slide',
+            slideIndex: start,
+            slideIndices: selected.map((_, offset) => start + offset),
+            anchorIndex: start,
+          });
           return;
         }
         default:
