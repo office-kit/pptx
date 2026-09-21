@@ -143,5 +143,12 @@ advance runs only during presentation, stage clicks respect `advanceOnClick`, an
 explicit keyboard/control navigation remains available. Timers stop on exit and
 at the final slide, survive unchanged live refreshes, and support the full OOXML
 unsigned millisecond range. The browser playback test verifies these behaviors
-against a serialized deck. Visual transition effects and presenter notes display
-remain outstanding.
+against a serialized deck. Visual transition effects remain outstanding.
+
+A separate presenter window now displays the current and next slides, saved
+speaker notes, an elapsed timer with reset, and previous/next/exit controls.
+It follows the editor's English/Japanese locale and synchronizes navigation with
+the audience window. Notes render as plain text outside the audience surface.
+Browser checks cover multiline Japanese/English notes, literal HTML in notes,
+empty notes, saved note updates, last-slide navigation, popup reload, locale
+switching, and a closed opener. Animated transitions remain outstanding.
