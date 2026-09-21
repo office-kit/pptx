@@ -190,3 +190,61 @@ it('finishes automatic ticks when increments are below floating-point precision'
   expect(attrsOf(svg, 'line').length).toBeLessThan(2100);
   expect(svg).not.toMatch(/(?:NaN|Infinity)/);
 });
+
+describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s minor gridlines', (kind) => {
+  it('renders authored spacing, color and width without duplicating major gridlines', async () => {
+    const svg = await render({
+      ...chart(kind),
+      valueAxis: { min: 0, max: 100, majorUnit: 20, minorUnit: 4 },
+      valueAxisMajorGridlines: true,
+      valueAxisMinorGridlines: true,
+      valueAxisMinorGridlineColor: '#123456',
+      valueAxisMinorGridlineWidthEmu: 9525,
+    });
+    const minor = attrsOf(svg, 'line').filter((line) => line.stroke === '#123456');
+    expect(minor).toHaveLength(20);
+    minor.forEach((line, i) => {
+      const fraction = (Math.floor(i / 4) * 20 + ((i % 4) + 1) * 4) / 100;
+      expect(Number(line['stroke-width'])).toBe(1);
+      if (kind === 'bar') {
+        expect(line.x1).toBe(line.x2);
+        expect(Number(line.x1)).toBeCloseTo(frame.left + frame.width * fraction);
+      } else {
+        expect(line.y1).toBe(line.y2);
+        expect(Number(line.y1)).toBeCloseTo(frame.bottom - frame.height * fraction);
+      }
+    });
+    expect(attrsOf(svg, 'line').filter((line) => line.stroke === '#D9D9D9')).toHaveLength(6);
+  });
+});
+
+it.each([undefined, 1e-100])(
+  'uses bounded automatic minor spacing for interval %s',
+  async (minorUnit) => {
+    const svg = await render({
+      ...chart('column'),
+      valueAxis: {
+        min: 0,
+        max: 100,
+        majorUnit: 20,
+        ...(minorUnit === undefined ? {} : { minorUnit }),
+      },
+      valueAxisMinorGridlines: true,
+    });
+    expect(
+      attrsOf(svg, 'line').filter((line) => line['data-chart-gridline'] === 'minor'),
+    ).toHaveLength(20);
+  },
+);
+
+it.each([false, true])(
+  'does not draw minor gridlines when disabled or the axis is hidden (%s)',
+  async (hidden) => {
+    const svg = await render({
+      ...chart('column'),
+      valueAxisMinorGridlines: hidden,
+      valueAxisHidden: hidden,
+    });
+    expect(svg).not.toContain('data-chart-gridline="minor"');
+  },
+);

@@ -3559,6 +3559,10 @@ interface AxisSpec {
   /** percentStacked value axis: ticks are formatted as 0%..100%. */
   readonly percent?: boolean;
   readonly majorUnit?: number;
+  readonly minorUnit?: number;
+  readonly minorGridlines?: boolean;
+  readonly minorGridlineColor?: string;
+  readonly minorGridlineWidthEmu?: number;
   /** Excel-style number-format code from <c:numFmt formatCode=…>. */
   readonly numberFormat?: string;
   /** When `false`, gridlines aren't painted (only the tick labels). */
@@ -3666,6 +3670,38 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   // 'in' = stub inside the plot, 'cross' = both, 'none' = no stub.
   const tickMark = axis.majorTickMark ?? 'out';
   const tickLen = AXIS_TICK_LEN;
+  if (axis.minorGridlines) {
+    const automaticMinorUnit = (ticks.length > 1 ? ticks[1]! - ticks[0]! : range) / 5;
+    const authoredMinorTicks = axis.minorUnit
+      ? intervalTicks(axis.min, axis.max, axis.minorUnit)
+      : [];
+    const minorTicks =
+      authoredMinorTicks.length > 0
+        ? authoredMinorTicks
+        : intervalTicks(axis.min, axis.max, automaticMinorUnit);
+    // Compare normalized positions so decimal rounding does not paint a minor
+    // gridline over a major one. This also bounds lookup work for dense axes.
+    const positionKey = (value: number): string => ((value - axis.min) / range).toFixed(10);
+    const majorPositions = new Set(ticks.map(positionKey));
+    const stroke = axis.minorGridlineColor ?? DEFAULT_GRID_COLOR;
+    const width =
+      axis.minorGridlineWidthEmu === undefined ? 0.5 : axis.minorGridlineWidthEmu / EMU_PER_PX;
+    for (const t of minorTicks) {
+      if (majorPositions.has(positionKey(t))) continue;
+      const fraction = (t - axis.min) / range;
+      if (axis.orientation === 'vertical') {
+        const y = f.plotY + f.plotH - fraction * f.plotH;
+        out.push(
+          `<line data-chart-gridline="minor" x1="${px(f.plotX)}" y1="${px(y)}" x2="${px(f.plotX + f.plotW)}" y2="${px(y)}" stroke="${stroke}" stroke-width="${width}"/>`,
+        );
+      } else {
+        const x = f.plotX + fraction * f.plotW;
+        out.push(
+          `<line data-chart-gridline="minor" x1="${px(x)}" y1="${px(f.plotY)}" x2="${px(x)}" y2="${px(f.plotY + f.plotH)}" stroke="${stroke}" stroke-width="${width}"/>`,
+        );
+      }
+    }
+  }
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
@@ -5385,6 +5421,16 @@ const renderChart = (
         min: primaryScale.min,
         max: primaryScale.max,
         majorUnit: spec.valueAxis?.majorUnit ?? primaryScale.step,
+        ...(spec.valueAxis?.minorUnit !== undefined ? { minorUnit: spec.valueAxis.minorUnit } : {}),
+        ...(spec.valueAxisMinorGridlines !== undefined
+          ? { minorGridlines: spec.valueAxisMinorGridlines }
+          : {}),
+        ...(spec.valueAxisMinorGridlineColor !== undefined
+          ? { minorGridlineColor: spec.valueAxisMinorGridlineColor }
+          : {}),
+        ...(spec.valueAxisMinorGridlineWidthEmu !== undefined
+          ? { minorGridlineWidthEmu: spec.valueAxisMinorGridlineWidthEmu }
+          : {}),
         ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
         ...(spec.valueAxisLineColor !== undefined ? { lineColor: spec.valueAxisLineColor } : {}),
         ...(spec.valueAxisMajorTickMark !== undefined
@@ -5464,6 +5510,16 @@ const renderChart = (
     const majorUnit = spec.valueAxis?.majorUnit ?? step;
     const numberFormat = spec.valueAxis?.numberFormat;
     const axisExtras = {
+      ...(spec.valueAxis?.minorUnit !== undefined ? { minorUnit: spec.valueAxis.minorUnit } : {}),
+      ...(spec.valueAxisMinorGridlines !== undefined
+        ? { minorGridlines: spec.valueAxisMinorGridlines }
+        : {}),
+      ...(spec.valueAxisMinorGridlineColor !== undefined
+        ? { minorGridlineColor: spec.valueAxisMinorGridlineColor }
+        : {}),
+      ...(spec.valueAxisMinorGridlineWidthEmu !== undefined
+        ? { minorGridlineWidthEmu: spec.valueAxisMinorGridlineWidthEmu }
+        : {}),
       ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
       ...(majorUnit !== undefined ? { majorUnit } : {}),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
