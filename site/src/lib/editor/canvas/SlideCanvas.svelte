@@ -9,6 +9,12 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
   import {
+    getTableCells,
+    getTableCellText,
+    getTableCellParagraphs,
+    setTableCellText,
+    setTableCellTextFormat,
+    isTableShape,
     getShapeText,
     getShapeKind,
     getShapeParagraphCount,
@@ -19,8 +25,8 @@
     setShapeRotation,
     setShapeText,
   } from '@office-kit/pptx';
-  import { topLevelShapes } from '../core/selection.ts';
-  import { shapeBoxes, slideMetrics, type Box } from './geometry.ts';
+  import { selectedShapeIds, topLevelShapes } from '../core/selection.ts';
+  import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { snapMove, type Guide, type Rect } from './snapping.ts';
 
   const editor = getEditor();
@@ -51,8 +57,7 @@
   });
 
   const selectedIds = $derived.by<Set<number>>(() => {
-    const sel = doc.selection;
-    return sel.kind === 'shape' ? new Set(sel.shapeIds) : new Set<number>();
+    return new Set(selectedShapeIds(doc.selection));
   });
 
   // Compute a fit-to-area zoom and adopt it until the user zooms themselves.
@@ -115,7 +120,7 @@
   let guides = $state<readonly Guide[]>([]);
   let textArea = $state<HTMLTextAreaElement>();
   let textRange = $state({ start: 0, end: 0 });
-  let editing = $state<{ id: number; text: string; changes: { start: number; end: number; text: string }[] } | null>(null);
+  let editing = $state<{ id: number; cell?: { row: number; col: number }; text: string; changes: { start: number; end: number; text: string }[] } | null>(null);
 
   // Marquee (rubber-band) selection, in stage-local px.
   let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -141,6 +146,7 @@
   // does not fire for dynamically-inserted nodes). Places the caret at the end.
   function focusEdit(node: HTMLTextAreaElement) {
     requestAnimationFrame(() => {
+      if (!node.isConnected || document.activeElement === node) return;
       node.focus();
       const len = node.value.length;
       node.setSelectionRange(len, len);
@@ -324,7 +330,17 @@
   }
 
   // ---- Text editing ------------------------------------------------------
-  function startEditing(box: Box) {
+  function startEditing(box: Box, cell?: { row: number; col: number }) {
+    if (isTableShape(box.shape)) {
+      const position = cell ?? (doc.selection.kind === 'cell' ? doc.selection : { row: 0, col: 0 });
+      const target = getTableCells(box.shape)[position.row]?.[position.col];
+      if (!target) return;
+      const text = getTableCellText(target);
+      doc.selectCell(doc.selection.slideIndex, box.id, position.row, position.col);
+      textRange = { start: text.length, end: text.length };
+      editing = { id: box.id, cell: { row: position.row, col: position.col }, text, changes: [] };
+      return;
+    }
     if (getShapeKind(box.shape) !== 'shape') return;
     let text = '';
     try {
@@ -340,7 +356,7 @@
   // and simply typing a character enters edit mode replacing the text with it.
   function onTypeToEdit(e: KeyboardEvent) {
     if (editing || e.isComposing) return;
-    if (doc.selection.kind !== 'shape' || selectedIds.size !== 1) return;
+    if (selectedIds.size !== 1) return;
     const t = e.target as HTMLElement;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -374,13 +390,44 @@
     if (!box) return;
     if (!cur.changes.length) return;
     doc.transact(t('Edit text'), () => {
-      let value = getShapeText(box.shape);
-      for (const change of cur.changes) {
-        value = value.slice(0, change.start) + change.text + value.slice(change.end);
-        setShapeText(box.shape, value, { preserveFormatting: true });
-      }
+      replayEdits(box, cur);
     });
   }
+
+  function replayEdits(box: Box, cur: NonNullable<typeof editing>) {
+    const cell = cur.cell ? getTableCells(box.shape)[cur.cell.row]![cur.cell.col]! : undefined;
+    let value = cell ? getTableCellText(cell) : getShapeText(box.shape);
+    for (const change of cur.changes) {
+      value = value.slice(0, change.start) + change.text + value.slice(change.end);
+      if (cell) setTableCellText(cell, value, { preserveFormatting: true });
+      else setShapeText(box.shape, value, { preserveFormatting: true });
+    }
+  }
+
+  function editAtPointer(event: MouseEvent, box: Box) {
+    if (!isTableShape(box.shape) || !stageEl) { startEditing(box); return; }
+    const stage = stageEl.getBoundingClientRect();
+    const dx = event.clientX - stage.left - (box.left + box.width / 2) / 100 * stage.width;
+    const dy = event.clientY - stage.top - (box.top + box.height / 2) / 100 * stage.height;
+    const angle = box.rotation * Math.PI / 180;
+    const x = (dx * Math.cos(angle) + dy * Math.sin(angle)) / (box.width / 100 * stage.width) * 100 + 50;
+    const y = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / (box.height / 100 * stage.height) * 100 + 50;
+    const cell = tableCellBoxes(box.shape).find(c => x >= c.left && x <= c.left + c.width && y >= c.top && y <= c.top + c.height);
+    if (cell) startEditing(box, cell);
+  }
+
+  const editBox = $derived.by(() => {
+    const box = boxes.find(b => b.id === editing?.id);
+    if (!box || !editing?.cell) return box;
+    const cell = tableCellBoxes(box.shape).find(c => c.row === editing?.cell?.row && c.col === editing?.cell?.col);
+    if (!cell) return undefined;
+    const dx = ((cell.left + cell.width / 2) / 100 - 0.5) * box.width / 100 * stageW;
+    const dy = ((cell.top + cell.height / 2) / 100 - 0.5) * box.height / 100 * stageH;
+    const angle = box.rotation * Math.PI / 180;
+    const width = box.width * cell.width / 100;
+    const height = box.height * cell.height / 100;
+    return { ...box, width, height, left: box.left + box.width / 2 + (dx * Math.cos(angle) - dy * Math.sin(angle)) / stageW * 100 - width / 2, top: box.top + box.height / 2 + (dx * Math.sin(angle) + dy * Math.cos(angle)) / stageH * 100 - height / 2 };
+  });
 
   const rangeFormats = $derived.by(() => {
     doc.version;
@@ -388,8 +435,11 @@
     if (!box) return [];
     const formats: TextFormat[] = [];
     let offset = 0;
-    for (let i = 0; i < getShapeParagraphCount(box.shape); i++) {
-      for (const element of getShapeParagraphElements(box.shape, i)) {
+    const paragraphs = editing?.cell
+      ? getTableCellParagraphs(getTableCells(box.shape)[editing.cell.row]![editing.cell.col]!).map(p => p.elements)
+      : Array.from({ length: getShapeParagraphCount(box.shape) }, (_, i) => getShapeParagraphElements(box.shape, i));
+    for (const elements of paragraphs) {
+      for (const element of elements) {
         const length = element.kind === 'br' ? 1 : element.text.length;
         if (offset < textRange.end && offset + length > textRange.start) formats.push(element.format ?? {});
         offset += length;
@@ -405,12 +455,9 @@
     if (!box) return;
     const range = { ...textRange };
     doc.transact(t('Format selected text'), () => {
-      let value = getShapeText(box.shape);
-      for (const change of cur.changes) {
-        value = value.slice(0, change.start) + change.text + value.slice(change.end);
-        setShapeText(box.shape, value, { preserveFormatting: true });
-      }
-      setShapeTextFormat(box.shape, format, { range });
+      replayEdits(box, cur);
+      if (cur.cell) setTableCellTextFormat(getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!, format, { range });
+      else setShapeTextFormat(box.shape, format, { range });
     });
     cur.changes = [];
     requestAnimationFrame(() => {
@@ -419,7 +466,7 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.text-format-bar, .inline-edit')) return;
+    if (target instanceof Element && target.closest('.canvas-shell .text-format-bar, .inline-edit')) return;
     commitEditing();
   }
 
@@ -491,9 +538,16 @@
             onpointerdown={(e) => beginMove(e, box)}
             ondblclick={(e) => {
               e.stopPropagation();
-              startEditing(box);
+              editAtPointer(e, box);
             }}
           >
+            {#if isSel && doc.selection.kind === 'cell'}
+              {#each tableCellBoxes(box.shape) as cell}
+                {#if cell.row === doc.selection.row && cell.col === doc.selection.col}
+                  <div class="cell-selection" style="left:{cell.left}%; top:{cell.top}%; width:{cell.width}%; height:{cell.height}%;"></div>
+                {/if}
+              {/each}
+            {/if}
             {#if isSel && !editing && selectedIds.size === 1}
               <button class="rotate" aria-label="Rotate" onpointerdown={(e) => onRotateDown(e, box)}></button>
               {#each HANDLES as hd (hd.h)}
@@ -522,14 +576,14 @@
         {/if}
 
         {#if editing}
-          {@const eb = boxes.find((b) => b.id === editing?.id)}
+          {@const eb = editBox}
           {#if eb}
             <textarea
               class="inline-edit"
-              aria-label={t('Edit text')}
+              aria-label={t(editing.cell ? 'Cell text' : 'Edit text')}
               bind:this={textArea}
               onselect={(e) => { textRange = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; }}
-              style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%;"
+              style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%; transform: rotate({eb.rotation}deg);"
               value={editing.text}
               oninput={(e) => updateEditing(e.currentTarget.value)}
               use:focusEdit
@@ -606,6 +660,7 @@
   .hit.selected {
     outline: 1.5px solid var(--ok-selected-border);
   }
+  .cell-selection { position: absolute; pointer-events: none; outline: 2px solid var(--ok-selected-border); outline-offset: -2px; }
   .handle {
     position: absolute;
     width: 10px;

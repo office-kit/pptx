@@ -581,9 +581,47 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().click();
       const panel = editor.getByRole('region', { name: 'Table options', exact: true });
-      await panel.getByRole('button', { name: 'Cell 1, 1', exact: true }).click();
-      await panel.getByLabel('Cell text', { exact: true }).fill('Hello 日本語!');
-      await panel.getByLabel('Cell text', { exact: true }).press('Tab');
+      const tableBox = await editor.locator('.hit').first().boundingBox();
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: tableBox.width / 4, y: tableBox.height / 4 } });
+      await editor.locator('.inline-edit').fill('Hello 日本語!');
+      await editor.locator('.inline-edit').press('Control+Enter');
+      assert.equal(
+        await panel.getByLabel('Cell text', { exact: true }).inputValue(),
+        'Hello 日本語!',
+      );
+      assert.equal(await editor.locator('.cell-selection').count(), 1);
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: tableBox.width / 4, y: tableBox.height / 4 } });
+      await editor.locator('.inline-edit').evaluate((node) => {
+        node.focus();
+        node.setSelectionRange(6, 9);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      await editor
+        .locator('.canvas-shell .text-format-bar')
+        .getByRole('button', { name: 'Underline', exact: true })
+        .click();
+      await editor
+        .locator('.canvas-shell .text-format-bar')
+        .getByRole('button', { name: 'Done', exact: true })
+        .click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const rangeDeck = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      const rangeCell = getTableCells(getSlideShapes(getSlides(rangeDeck)[0])[0])[0][0];
+      const rangeRuns = getTableCellParagraphs(rangeCell)[0].elements;
+      assert.equal(rangeRuns[0].format.bold, true);
+      assert.equal(rangeRuns[0].format.underline, undefined);
+      assert.equal(rangeRuns.find((run) => run.text === '日本語').format.underline, true);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+
       await panel.getByLabel('Cell fill', { exact: true }).fill('#aabbcc');
       await panel.getByLabel('Horizontal alignment', { exact: true }).selectOption('ctr');
       assert.equal(
@@ -776,6 +814,35 @@ test(
       await editor.locator('.hit').first().click();
       await editor.locator('select').first().selectOption('ja');
       await editor.getByText('セルの罫線', { exact: true }).click();
+      const mergedBox = await editor.locator('.hit').first().boundingBox();
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: mergedBox.width * 0.8, y: mergedBox.height * 0.2 } });
+      const inlineCell = editor.locator('.inline-edit');
+      assert.equal(await inlineCell.getAttribute('aria-label'), 'セルのテキスト');
+      const mergedText = await inlineCell.inputValue();
+      assert.equal(mergedText, 'Hello 日本語!\nB\n追加');
+      await inlineCell.fill(mergedText + ' キャンバス');
+      await inlineCell.press('Control+Enter');
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(
+        getTableCellText(getTableCells(await readTable())[0][0]),
+        mergedText + ' キャンバス',
+      );
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(getTableCellText(getTableCells(await readTable())[0][0]), mergedText);
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: mergedBox.width * 0.8, y: mergedBox.height * 0.2 } });
+      await inlineCell.fill('取り消す編集');
+      await inlineCell.press('Escape');
+      assert.equal(
+        await editor.getByLabel('セルのテキスト', { exact: true }).inputValue(),
+        mergedText,
+      );
       await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {

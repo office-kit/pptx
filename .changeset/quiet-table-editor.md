@@ -22,3 +22,7 @@ color and underline. Display saved color and mixed sizes when selection changes.
 
 Edit table border colors, widths and styles, with all-cell and outside-border
 placement. Reset borders and undo the changes from the bilingual preview.
+
+Double-click table cells directly on the canvas to edit their text and format
+selected text, with merged-cell hit areas, visible cell selection, save and undo.
+Allow setTableCellTextFormat to accept an optional UTF-16 range.
