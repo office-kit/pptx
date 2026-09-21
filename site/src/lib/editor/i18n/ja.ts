@@ -347,6 +347,7 @@ export const ja: Record<string, string> = {
   'Square (1:1)': '正方形（1:1）',
   'The image frame will match this ratio and stay centered.':
     '画像の表示枠もこの縦横比になり、中心位置を保ちます。',
+  'Reset image adjustments': '画像の調整をリセット',
   'Crop image': '画像をトリミング',
   'Crop top left': '左上をトリミング',
   'Crop top edge': '上辺をトリミング',
