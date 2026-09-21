@@ -62,7 +62,8 @@ that a user can complete the corresponding editing workflow.
   supports 16:9, 4:3, 16:10 and custom dimensions in inches or centimeters.
   Browser tests verify live canvas ratios, saved dimensions, unit conversion,
   invalid input, cancellation, undo/redo and unchanged object geometry.
-  Content scaling and fuller layout/placeholder workflows remain outstanding.
+  Page setup also offers proportional content fitting with centered placement.
+  Fuller layout/placeholder workflows remain outstanding.
 
 - Bilingual chart dialogs create column, bar, line, area, pie, doughnut and radar
   charts, edit titles, category labels, series names, colors and numeric data,
@@ -250,4 +251,4 @@ Image outlines follow the cropped picture’s preset geometry, rotation, and fli
 
 Outline width-only updates preserve existing color XML, including theme references and opacity. Image width and dash controls retain these properties. Round-trip tests cover RGB and theme colors with alpha; browser coverage checks width edits preserve the chosen image border color.
 
-Page setup and the size API enforce the ST_SlideSizeCoordinate limits (1–56 inches / 2.54–142.24 cm). Invalid API requests leave the saved presentation unchanged. Unit tests exercise both axes, non-finite inputs, out-of-range values, and boundary round trips; browser coverage checks the corrected Japanese centimeter validation. Content rescaling during page-size changes remains outstanding.
+Page setup and the size API enforce the ST_SlideSizeCoordinate limits (1–56 inches / 2.54–142.24 cm). Invalid API requests leave the saved presentation unchanged. Unit tests exercise both axes, non-finite inputs, out-of-range values, and boundary round trips; browser coverage checks the corrected Japanese centimeter validation. Page fitting now scales physical object and text properties while retaining the original aspect ratio. Imported implicit font defaults, shared theme effects on notes, and advanced diagram/3D formatting still need fidelity coverage.

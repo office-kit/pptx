@@ -1328,6 +1328,78 @@ test(
         Number(await dialog.getByLabel('ページの高さ', { exact: true }).inputValue()),
         29.7,
       );
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      for (const language of ['ja', 'en']) {
+        await editor.locator('select').first().selectOption(language);
+        const ja = language === 'ja';
+        const targetInches = ja ? 10 : 12;
+        const target = targetInches * 914400;
+        const beforeFit = await read();
+        const beforeSize = getSlideSize(beforeFit);
+        const beforeBounds = getShapeBoundsResolved(
+          beforeFit,
+          getSlideShapes(getSlides(beforeFit)[0])[0],
+        );
+        await editor
+          .getByRole('button', { name: ja ? 'ページ設定' : 'Page setup', exact: true })
+          .click();
+        const fitDialog = editor.getByRole('dialog', {
+          name: ja ? 'ページ設定' : 'Page setup',
+          exact: true,
+        });
+        await fitDialog
+          .getByLabel(ja ? 'ページの幅' : 'Page width', { exact: true })
+          .fill(String(targetInches));
+        await fitDialog
+          .getByLabel(ja ? 'ページの高さ' : 'Page height', { exact: true })
+          .fill(String(targetInches));
+        await fitDialog
+          .getByLabel(ja ? 'サイズ変更時の処理' : 'When resizing', { exact: true })
+          .selectOption('fit');
+        if (ja) await page.screenshot({ path: '/tmp/pptx-pr287-page-fit-ja.png', fullPage: true });
+        await fitDialog.getByRole('button', { name: ja ? '適用' : 'Apply', exact: true }).click();
+        const waitSaved = () =>
+          editor
+            .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+            .waitFor();
+        await waitSaved();
+        const fitted = await read();
+        const scale = Math.min(target / beforeSize.width, target / beforeSize.height);
+        const authoredSizes = (deck) =>
+          [...getSlideXmlString(getSlides(deck)[0]).matchAll(/\bsz="(\d+)"/g)].map((match) =>
+            Number(match[1]),
+          );
+        assert.deepEqual(
+          authoredSizes(fitted),
+          authoredSizes(beforeFit).map((size) => Math.round(size * scale)),
+        );
+        const expected = {
+          x: Math.round(beforeBounds.x * scale + (target - beforeSize.width * scale) / 2),
+          y: Math.round(beforeBounds.y * scale + (target - beforeSize.height * scale) / 2),
+          w: Math.round(beforeBounds.w * scale),
+          h: Math.round(beforeBounds.h * scale),
+        };
+        assert.deepEqual(
+          getShapeBoundsResolved(fitted, getSlideShapes(getSlides(fitted)[0])[0]),
+          expected,
+        );
+        await editor
+          .getByTitle(ja ? '元に戻す (Ctrl+Z)' : 'Undo (Ctrl+Z)', { exact: true })
+          .click();
+        await waitSaved();
+        assert.deepEqual(getSlideSize(await read()), beforeSize);
+        await editor
+          .getByTitle(ja ? 'やり直し (Ctrl+Y)' : 'Redo (Ctrl+Y)', { exact: true })
+          .click();
+        await waitSaved();
+        await page.reload();
+        await waitSaved();
+        const reloaded = await read();
+        assert.deepEqual(
+          getShapeBoundsResolved(reloaded, getSlideShapes(getSlides(reloaded)[0])[0]),
+          expected,
+        );
+      }
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-page-setup-failure.png', fullPage: true });

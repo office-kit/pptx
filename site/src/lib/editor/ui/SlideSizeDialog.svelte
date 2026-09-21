@@ -19,6 +19,7 @@
   let width = $state<number | undefined>(initial.width / 914400);
   let height = $state<number | undefined>(initial.height / 914400);
   let error = $state('');
+  let content = $state<'keep' | 'fit'>('keep');
   const factor = $derived(unit === 'cm' ? 360000 : 914400);
   const maximum = $derived(56 * 914400 / factor);
   const valid = $derived(width !== undefined && height !== undefined && Number.isFinite(width) && Number.isFinite(height) && width * factor >= 914400 && height * factor >= 914400 && width <= maximum && height <= maximum);
@@ -40,7 +41,7 @@
     if (presentation !== doc.pres || version !== doc.version) { error = t('The presentation changed. Reopen page setup.'); return; }
     const size = presets.find(item => item.id === preset)?.size ?? { width: emu(width * factor), height: emu(height * factor) };
     try {
-      doc.transact(t('Page setup'), () => setSlideSize(presentation, size));
+      doc.transact(t('Page setup'), () => setSlideSize(presentation, size, { content }));
       editor.closeDialog();
     } catch (cause) { error = `${t('Slide update failed')}: ${cause instanceof Error ? cause.message : String(cause)}`; }
   }
@@ -57,7 +58,8 @@
       <label>{t('Page width')}<input class="ok-input" type="number" min={914400 / factor} max={maximum} step="any" required bind:value={width} oninput={() => preset = 'custom'} /></label>
       <label>{t('Page height')}<input class="ok-input" type="number" min={914400 / factor} max={maximum} step="any" required bind:value={height} oninput={() => preset = 'custom'} /></label>
     </div>
-    <p>{t('Applies to every slide. Objects keep their positions and sizes.')}</p>
+    <label>{t('When resizing')}<select class="ok-input" aria-label={t('When resizing')} bind:value={content}><option value="keep">{t('Keep object positions and sizes')}</option><option value="fit">{t('Fit content to page')}</option></select></label>
+    <p>{t(content === 'fit' ? 'Applies to every slide. Content scales proportionally and is centered on the page.' : 'Applies to every slide. Objects keep their positions and sizes.')}</p>
     {#if !valid}<p role="alert">{t(unit === 'cm' ? 'Enter a width and height between 2.54 and 142.24 cm.' : 'Enter a width and height between 1 and 56 inches.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!valid}>{t('Apply')}</button></footer>
