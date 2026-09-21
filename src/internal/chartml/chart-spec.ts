@@ -438,9 +438,9 @@ const SINGLE_SERIES_VARIANTS: ReadonlySet<ChartVariant> = new Set([
 ]);
 
 const seriesFits = (spec: ReadChartSpec, variant: ChartVariant): boolean => {
-  if (SINGLE_SERIES_VARIANTS.has(variant)) return spec.series.length === 1;
-  if (variant === 'stock') return spec.series.length === STOCK_SERIES_WITHOUT_OPEN;
-  if (variant === 'candlestick') return spec.series.length === STOCK_SERIES_WITH_OPEN;
+  if (SINGLE_SERIES_VARIANTS.has(variant) && spec.series.length !== 1) return false;
+  if (variant === 'stock' && spec.series.length !== STOCK_SERIES_WITHOUT_OPEN) return false;
+  if (variant === 'candlestick' && spec.series.length !== STOCK_SERIES_WITH_OPEN) return false;
   const wantsX = variant === 'scatter' || variant === 'bubble';
   return spec.series.every(
     (series) =>

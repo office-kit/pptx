@@ -63,6 +63,40 @@ describe('isChartSpec', () => {
     expect(isChartSpec(spec satisfies ReadChartSpec)).toBe(false);
   });
 
+  it.each([
+    ['pie', { ...PIE }],
+    ['ofPie', { ...PIE, ofPie: { type: 'pie' as const } }],
+    ['pie3D', { ...PIE, view3D: {} }],
+    ['doughnut', { ...PIE, kind: 'doughnut' as const }],
+    [
+      'stock',
+      { ...PIE, kind: 'stock' as const, series: Array.from({ length: 3 }, () => PIE.series[0]) },
+    ],
+    [
+      'candlestick',
+      { ...PIE, kind: 'stock' as const, series: Array.from({ length: 4 }, () => PIE.series[0]) },
+    ],
+  ])('checks every %s series even when its count is valid', (_label, spec) => {
+    expect(isChartSpec(spec)).toBe(true);
+    for (const field of [
+      { xValues: [1] },
+      { bubbleSizes: [1] },
+      { chartKind: 'line' as const },
+      { secondaryAxis: true },
+      { secondaryAxis: false },
+    ]) {
+      expect(
+        isChartSpec({
+          ...spec,
+          series: spec.series.map((series, i) =>
+            i === spec.series.length - 1 ? { ...series, ...field } : series,
+          ),
+        }),
+        JSON.stringify(field),
+      ).toBe(false);
+    }
+  });
+
   it('keeps a numeric horizontal axis scalable', () => {
     const scatter: ReadChartSpec = {
       kind: 'scatter',
