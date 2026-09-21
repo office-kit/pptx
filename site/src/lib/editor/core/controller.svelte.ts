@@ -70,6 +70,7 @@ export class EditorController {
 
   /** Command whose argument dialog is currently open (null = none). */
   activeDialog = $state<string | null>(null);
+  linkTextRange = $state<{ start: number; end: number } | null>(null);
   paletteOpen = $state<boolean>(false);
   toasts = $state<Toast[]>([]);
 
@@ -176,6 +177,7 @@ export class EditorController {
 
   closeDialog(): void {
     this.activeDialog = null;
+    this.linkTextRange = null;
     this.pendingPreset = {};
   }
 

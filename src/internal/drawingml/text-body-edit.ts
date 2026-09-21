@@ -157,11 +157,18 @@ export function formatTextBodyRange(
   format: TextFormat,
   range: { start: number; end: number },
 ): void {
-  const value = textBodyText(txBody);
-  validateTextRange(value, range, 'setShapeTextFormat');
-  const { start, end } = range;
-  // Validate all format values before touching the document, including empty ranges.
   applyRunFormat(elem(name('rPr')), format);
+  mutateTextBodyRangeProperties(txBody, range, (properties) => applyRunFormat(properties, format));
+}
+
+/** Split boundary runs and mutate only the selected characters' properties. */
+export function mutateTextBodyRangeProperties(
+  txBody: XmlElement,
+  range: { start: number; end: number },
+  mutate: (properties: XmlElement) => void,
+): void {
+  validateTextRange(textBodyText(txBody), range, 'text range');
+  const { start, end } = range;
   if (start === end) return;
   const updated = copy(txBody);
   let offset = 0;
@@ -203,7 +210,7 @@ export function formatTextBodyRange(
         properties = elem(name('rPr'));
         selected.children.unshift(properties);
       }
-      applyRunFormat(properties, format);
+      mutate(properties);
       children.push(selected);
       if (to < content.length) children.push(fragment(to, content.length));
     }
@@ -213,7 +220,7 @@ export function formatTextBodyRange(
   txBody.children = updated.children;
 }
 
-function validateTextRange(
+export function validateTextRange(
   value: string,
   range: { start: number; end: number },
   caller: string,

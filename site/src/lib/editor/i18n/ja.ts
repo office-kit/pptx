@@ -13,6 +13,7 @@ export const ja: Record<string, string> = {
   'Slide in this presentation': 'このプレゼンテーション内のスライド',
   'Untitled slide': '無題のスライド',
   'Target slide': '移動先のスライド',
+  'Applies to the selected text.': '選択したテキストに適用します。',
   'Applies to the selected objects.': '選択したオブジェクトに適用します。',
   'Select objects to edit their links.': 'リンクを編集するオブジェクトを選択してください。',
   'Link address': 'リンク先',

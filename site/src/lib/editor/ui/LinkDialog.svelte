@@ -1,18 +1,37 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
+  import { getShapeParagraphCount, getShapeParagraphElements, getShapeRunHyperlink, getShapeRunHyperlinkTooltip, getShapeClickAction, getSlideIndex, getSlideTitle, setShapeClickAction, getShapeHyperlink, getShapeHyperlinkTooltip, getShapeKind, getShapeText, setShapeHyperlink } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
   const doc = editor.doc;
+  const range = untrack(() => editor.linkTextRange);
   const selection = untrack(() => doc.selection);
   const version = untrack(() => doc.version);
   const shapes = selectedShapeIds(selection).map(id => doc.shapeById(selection.slideIndex, id));
   const slides = untrack(() => doc.slides);
   const supported = selection.kind === 'shape' && shapes.length > 0 && shapes.every(shape => shape && ['shape', 'picture', 'connector', 'graphicFrame'].includes(getShapeKind(shape)));
   const textOnly = shapes.every(shape => shape && getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0);
-  const actions = shapes.map(shape => {
+  const selectedRuns = shapes.flatMap(shape => {
+    if (!shape || !range) return [];
+    const runs: { url: string | null; tip: string | null }[] = [];
+    let offset = 0;
+    for (let p = 0; p < getShapeParagraphCount(shape); p++) {
+      let r = 0;
+      for (const element of getShapeParagraphElements(shape, p)) {
+        const length = element.kind === 'br' ? 1 : element.text.length;
+        if (offset < range.end && offset + length > range.start) {
+          runs.push(element.kind === 'r' ? { url: getShapeRunHyperlink(shape, p, r), tip: getShapeRunHyperlinkTooltip(shape, p, r) } : { url: null, tip: null });
+        }
+        if (element.kind === 'r') r++;
+        offset += length;
+      }
+      offset++;
+    }
+    return runs;
+  });
+  const actions = range ? selectedRuns.map(run => run.url ? { kind: 'url' as const, url: run.url } : null) : shapes.map(shape => {
     if (!shape) return null;
     const url = getShapeHyperlink(shape);
     return url ? { kind: 'url' as const, url } : getShapeClickAction(shape);
@@ -24,7 +43,7 @@
   let destination = $state(initial?.kind ?? 'url');
   let slideIndex = $state(initial?.kind === 'slide' ? getSlideIndex(doc.pres, initial.slide) : selection.slideIndex);
   let url = $state(initial?.kind === 'url' ? initial.url : '');
-  const tips = shapes.map(shape => shape ? getShapeHyperlinkTooltip(shape) : null);
+  const tips = range ? selectedRuns.map(run => run.tip) : shapes.map(shape => shape ? getShapeHyperlinkTooltip(shape) : null);
   let tooltip = $state(tips.every(tip => tip === tips[0]) ? tips[0] ?? '' : '');
   const valid = $derived(destination === 'slide' ? !!slides[slideIndex] : destination === 'url' ? !!url.trim() : presets.some(kind => kind === destination));
   let error = $state('');
@@ -36,6 +55,10 @@
     try {
       doc.transact(t(remove ? 'Remove link' : 'Edit link'), () => {
         for (const shape of shapes) if (shape) {
+          if (range) {
+            setShapeHyperlink(shape, remove ? null : url.trim(), tooltip.trim() || undefined, { range });
+            continue;
+          }
           const hasText = getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0;
           if (hasText) setShapeHyperlink(shape, null);
           setShapeClickAction(shape, null);
@@ -56,8 +79,8 @@
   <form onsubmit={(event) => { event.preventDefault(); apply(); }}>
     <header><strong>{t('Edit link')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     {#if supported}
-      <p>{t('Applies to the selected objects.')}</p>
-      <label>{t('Link destination')}<select class="ok-input" bind:value={destination} aria-label={t('Link destination')}><option value="url">{t('Web address')}</option><option value="slide">{t('Slide in this presentation')}</option><option value="nextSlide">{t('Next slide')}</option><option value="prevSlide">{t('Previous slide')}</option><option value="firstSlide">{t('First slide')}</option><option value="lastSlide">{t('Last slide')}</option></select></label>
+      <p>{t(range ? 'Applies to the selected text.' : 'Applies to the selected objects.')}</p>
+      <label>{t('Link destination')}<select class="ok-input" bind:value={destination} aria-label={t('Link destination')}><option value="url">{t('Web address')}</option>{#if !range}<option value="slide">{t('Slide in this presentation')}</option><option value="nextSlide">{t('Next slide')}</option><option value="prevSlide">{t('Previous slide')}</option><option value="firstSlide">{t('First slide')}</option><option value="lastSlide">{t('Last slide')}</option>{/if}</select></label>
       {#if destination === 'url'}
       <label>{t('Link address')}<input class="ok-input" type="url" required bind:value={url} placeholder="https://example.com" aria-label={t('Link address')} /></label>
       {:else if destination === 'slide'}

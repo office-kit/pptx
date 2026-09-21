@@ -1,3 +1,9 @@
+import {
+  mutateTextBodyRangeProperties,
+  validateTextRange,
+} from '../../internal/drawingml/text-body-edit.ts';
+import { textBodyText } from '../../internal/drawingml/text-body.ts';
+import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
 // rPr and pPr cascade resolution.
 
 import {
@@ -687,17 +693,31 @@ export const getShapeHyperlink = (shape: SlideShapeData): string | null => {
 /**
  * Sets an external hyperlink on every run in the shape's text. Allocates
  * (or reuses) a `hyperlink` relationship on the slide's `.rels`. Pass
- * `null` to clear.
+ * `null` to clear. Optional `range` limits the change to UTF-16 offsets in
+ * getShapeText, preserving text and formatting outside the selection.
  */
 export const setShapeHyperlink = (
   shape: SlideShapeData,
   url: string | null,
   tooltip?: string,
+  options?: { range?: { start: number; end: number } },
 ): void => {
   const slide = shape[SHAPE_SLIDE];
   const txBody = requireTxBody(shape);
+  const range = options?.range;
+  if (range) {
+    validateTextRange(textBodyText(txBody), range, 'setShapeHyperlink');
+    if (range.start === range.end) return;
+  }
+  const apply = (rId: string | null) => {
+    if (range)
+      mutateTextBodyRangeProperties(txBody, range, (properties) =>
+        applyHyperlinkToProperties(properties, rId, tooltip),
+      );
+    else applyHyperlinkToAllRuns(txBody, rId, tooltip);
+  };
   if (url === null) {
-    applyHyperlinkToAllRuns(txBody, null);
+    apply(null);
   } else {
     const pkg = slide[INTERNAL_PACKAGE];
     const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
@@ -717,7 +737,7 @@ export const setShapeHyperlink = (
         pkg.setRels(slide[SLIDE_PART_NAME], rels);
         return nextId;
       })();
-    applyHyperlinkToAllRuns(txBody, rId, tooltip);
+    apply(rId);
   }
   commitAndRefresh(shape);
 };

@@ -609,6 +609,15 @@
       textArea?.setSelectionRange(range.start, range.end);
     });
   }
+  function editSelectedTextLink() {
+    if (!editing || editing.cell || textRange.start === textRange.end) return;
+    const range = { ...textRange };
+    const id = editing.id;
+    commitEditing();
+    doc.selectShape(doc.selection.slideIndex, id);
+    editor.linkTextRange = range;
+    editor.runOrPrompt('setShapeHyperlink');
+  }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
     if (target instanceof Element && target.closest('.canvas-shell .text-format-bar, .inline-edit')) return;
@@ -667,7 +676,7 @@
 
 <div class="canvas-shell" onfocusout={onTextFocusOut}>
 {#if editing}
-  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ondone={commitEditing} />
+  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} onlink={editing.cell ? undefined : editSelectedTextLink} ondone={commitEditing} />
 {/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
@@ -762,7 +771,8 @@
                 }
                 e.stopPropagation();
                 if (e.isComposing) return;
-                if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
+                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
+                else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
                 else if (e.key === 'Escape') editing = null;
                 else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();
               }}

@@ -35,26 +35,34 @@ export const applyHyperlinkToAllRuns = (
         rPr = elem(NAME_RPR);
         r.children.unshift(rPr);
       }
-      // Drop any existing hlinkClick.
-      rPr.children = rPr.children.filter(
-        (c) =>
-          !(
-            c.kind === 'element' &&
-            c.name.namespaceURI === NS.dml &&
-            c.name.localName === 'hlinkClick'
-          ),
-      );
-      if (rId !== null) {
-        const attrs = [attr(ATTR_R_ID, rId)];
-        if (tooltip !== undefined) {
-          attrs.push(attr(qname('', 'tooltip', ''), tooltip));
-        }
-        // Per the schema, hlinkClick is one of the last children of rPr —
-        // it follows the fill/typeface children. Append.
-        rPr.children.push(elem(NAME_HLINK_CLICK, { attrs }));
-      }
+      applyHyperlinkToProperties(rPr, rId, tooltip);
     }
   }
   // Force-touch NAME_R so it isn't elided as unused.
   void NAME_R;
+};
+
+export const applyHyperlinkToProperties = (
+  rPr: XmlElement,
+  rId: string | null,
+  tooltip?: string,
+): void => {
+  // Drop any existing hlinkClick.
+  rPr.children = rPr.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === 'hlinkClick'
+      ),
+  );
+  if (rId !== null) {
+    const attrs = [attr(ATTR_R_ID, rId)];
+    if (tooltip !== undefined) {
+      attrs.push(attr(qname('', 'tooltip', ''), tooltip));
+    }
+    // Per the schema, hlinkClick is one of the last children of rPr —
+    // it follows the fill/typeface children. Append.
+    rPr.children.push(elem(NAME_HLINK_CLICK, { attrs }));
+  }
 };

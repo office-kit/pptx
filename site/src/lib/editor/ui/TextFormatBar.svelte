@@ -2,11 +2,12 @@
   import type { TextFormat } from '@office-kit/pptx';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, onformat, ondone, context = 'text' }: {
+  let { formats, selected, onformat, ondone, onlink, context = 'text' }: {
     formats: TextFormat[];
     selected: boolean;
     onformat: (format: TextFormat) => void;
     ondone?: () => void;
+    onlink?: () => void;
     context?: 'text' | 'cells';
   } = $props();
   const bold = $derived(formats.length > 0 && formats.every((f) => f.bold === true));
@@ -25,6 +26,7 @@
   <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!selected} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
   <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!selected} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
   <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!selected} onchange={(e) => onformat({color:e.currentTarget.value})} /></label>
+  {#if onlink}<button class="ok-btn" disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={onlink}>{t('Edit link')}</button>{/if}
   {#if ondone}<button class="ok-btn" onclick={ondone}>{t('Done')}</button>{/if}
 </div>
 

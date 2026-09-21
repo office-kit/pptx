@@ -1474,6 +1474,12 @@
           "type": "string",
           "kind": "string",
           "optional": true
+        },
+        {
+          "name": "options",
+          "type": "{ range?: { start: number; end: number } }",
+          "kind": "object",
+          "optional": true
         }
       ]
     },
