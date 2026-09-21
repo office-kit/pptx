@@ -14,6 +14,9 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { INTERNAL_PACKAGE, SLIDE_PART_NAME } from '../src/api/_internal-symbols.ts';
+import { partName } from '../src/internal/opc/index.ts';
+import { REL_TYPES } from '../src/internal/presentationml/index.ts';
 import {
   addSlideComment,
   getCommentAuthor,
@@ -39,6 +42,51 @@ const partExists = async (presBytes: Uint8Array, partPath: string): Promise<bool
 };
 
 describe('fn API: comments', () => {
+  it('follows imported comment and author relationships and avoids part collisions', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const [first] = getSlides(pres);
+    addSlideComment(first!, { author: { name: 'Imported' }, text: 'Original' });
+    const pkg = pres[INTERNAL_PACKAGE];
+    for (const [source, type, oldPath, newPath, target] of [
+      [
+        first![SLIDE_PART_NAME],
+        REL_TYPES.comments,
+        '/ppt/comments/comment1.xml',
+        '/ppt/comments/comment2.xml',
+        '../comments/comment2.xml',
+      ],
+      [
+        partName('/ppt/presentation.xml'),
+        REL_TYPES.commentAuthors,
+        '/ppt/commentAuthors.xml',
+        '/review/authors.xml',
+        '../review/authors.xml',
+      ],
+    ] as const) {
+      const old = pkg.getPart(partName(oldPath))!;
+      pkg.addPart(partName(newPath), old.contentType, old.data);
+      pkg.removePart(partName(oldPath));
+      const rels = pkg.getRels(source)!;
+      rels.items.find((rel) => rel.type === type)!.target = target;
+      pkg.setRels(source, rels);
+    }
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const [one, two] = getSlides(loaded);
+    const comment = getSlideComments(one!)[0]!;
+    expect(getCommentAuthor(comment).name).toBe('Imported');
+    setCommentText(comment, '編集済み');
+    addSlideComment(two!, { author: { name: 'Imported' }, text: 'Second slide' });
+    expect(getCommentAuthors(loaded)).toHaveLength(1);
+    expect(getSlideComments(one!).map(getCommentText)).toEqual(['編集済み']);
+    const saved = await loadPresentation(await savePresentation(loaded));
+    const [savedOne, savedTwo] = getSlides(saved);
+    expect(getSlideComments(savedTwo!).map(getCommentText)).toEqual(['Second slide']);
+    removeSlideComment(getSlideComments(savedOne!)[0]!);
+    expect(getSlideComments(savedOne!)).toHaveLength(0);
+    expect(getSlideComments(savedTwo!).map(getCommentText)).toEqual(['Second slide']);
+    expect(listPackageParts(saved).some((part) => part.name === '/review/authors.xml')).toBe(true);
+  });
+
   it('edits text without changing comment metadata and rejects a deleted handle', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
