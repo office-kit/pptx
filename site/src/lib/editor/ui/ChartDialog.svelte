@@ -56,7 +56,9 @@
   ));
   let categories = $state([...(original?.categories ?? [t('Category') + ' 1', t('Category') + ' 2', t('Category') + ' 3'])]);
   type SeriesDraft = { base: ChartSeries; name: string; color?: string; values: (number | undefined)[] };
-  const initialSeries = original?.series ?? [{ name: t('Series') + ' 1', values: [10, 20, 15], color: '#4472C4' }];
+  // Match the default series colors emitted by the ChartML writer.
+  const defaultSeriesColors = ['#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47'];
+  const initialSeries = original?.series ?? [{ name: t('Series') + ' 1', values: [10, 20, 15], color: defaultSeriesColors[0] }];
   let series = $state<SeriesDraft[]>(initialSeries.map(base => ({ base, name: base.name, color: base.color, values: base.values.map(value => value ?? undefined) })));
   let error = $state('');
   const supported = $derived(!edit || (original && kinds.some(item => item.value === original.kind)));
@@ -179,7 +181,7 @@
         <table aria-label={t('Chart data')}>
           <thead><tr><th>{t('Category')}</th>{#each series as entry, s}<th>
             <input class="ok-input" aria-label={`${t('Series name')} ${s + 1}`} bind:value={entry.name} />
-            <div class="series-tools"><input type="color" aria-label={`${t('Series color')} ${s + 1}`} value={/^#[0-9a-f]{6}$/i.test(entry.color ?? '') ? entry.color : '#4472c4'} onchange={e => entry.color = e.currentTarget.value} />
+            <div class="series-tools"><input type="color" aria-label={`${t('Series color')} ${s + 1}`} value={/^#[0-9a-f]{6}$/i.test(entry.color ?? '') ? entry.color : defaultSeriesColors[s % defaultSeriesColors.length]} onchange={e => entry.color = e.currentTarget.value} />
             <button type="button" class="ok-btn" disabled={series.length <= 1} aria-label={`${t('Remove series')} ${s + 1}`} onclick={() => series.splice(s, 1)}>×</button></div>
           </th>{/each}<th></th></tr></thead>
           <tbody>{#each categories as _, r}<tr>

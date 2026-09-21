@@ -48,6 +48,7 @@ test(
       await editor.locator('button[title$="— addSlideChart"]').click();
       const dialog = editor.getByRole('dialog');
       await dialog.getByRole('button', { name: '系列を追加', exact: true }).click();
+      assert.equal(await dialog.getByLabel('系列の色 2', { exact: true }).inputValue(), '#ed7d31');
       for (let i = 1; i <= 3; i++)
         await dialog.getByLabel(`値 ${i}, 2`, { exact: true }).fill('20');
       await dialog.getByLabel('系列の積み上げ', { exact: true }).selectOption('stacked');
@@ -56,12 +57,17 @@ test(
       await saved();
       assert.equal((await read()).grouping, 'stacked');
       assert.equal((await read()).overlapPct, 100);
+      assert.equal((await read()).series[1].color.toLowerCase(), '#ed7d31');
       await editor.locator('select').first().selectOption('en');
       ja = false;
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       assert.equal(
         await dialog.getByLabel('Series stacking', { exact: true }).inputValue(),
         'stacked',
+      );
+      assert.equal(
+        await dialog.getByLabel('Series color 2', { exact: true }).inputValue(),
+        '#ed7d31',
       );
       await dialog.getByLabel('Series stacking', { exact: true }).selectOption('none');
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
