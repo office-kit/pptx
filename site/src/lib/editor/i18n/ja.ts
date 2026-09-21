@@ -3,6 +3,19 @@
 
 export const ja: Record<string, string> = {
   'Applies to all text in the selected cells.': '選択したセル内のすべての文字に適用します。',
+  Automatic: '自動',
+  'Chart axes': 'グラフの軸',
+  'Category axis title': '項目軸のタイトル',
+  'Value axis title': '数値軸のタイトル',
+  'Axis minimum': '軸の最小値',
+  'Axis maximum': '軸の最大値',
+  'Major tick interval': '主目盛りの間隔',
+  'Minor tick interval': '補助目盛りの間隔',
+  'Axis number format': '軸の数値書式',
+  'Leave values blank for automatic axis scaling.':
+    '空欄にすると、軸の範囲と目盛りを自動設定します。',
+  'Axis minimum must be below maximum, tick intervals must be positive, and logarithmic bounds must be positive.':
+    '最小値は最大値より小さく、目盛りの間隔は正の数にしてください。対数軸の範囲には正の数を指定してください。',
   'Edit link': 'リンクを編集',
   'The selected text contains different links.':
     '選択したテキストには異なるリンクが設定されています。',
