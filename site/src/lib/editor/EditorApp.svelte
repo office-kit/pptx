@@ -1,5 +1,7 @@
 <script lang="ts">
   import './ui/tokens.css';
+  import { parseTableClipboard } from './core/table-clipboard.ts';
+  import { t } from './i18n/i18n.svelte.ts';
   import { untrack, type Snippet } from 'svelte';
   import { EditorController } from './core/controller.svelte.ts';
   import { setEditor } from './core/context.ts';
@@ -81,11 +83,11 @@
       const command = e.shiftKey ? 'ungroupShapes' : 'groupShapes';
       if (editor.canRun(command)) editor.invoke(command);
     } else if (mod && e.key.toLowerCase() === 'c') {
-      editor.copySelection();
+      if (doc.selection.kind !== 'cell') editor.copySelection();
     } else if (mod && e.key.toLowerCase() === 'x') {
-      editor.cutSelection();
+      if (doc.selection.kind !== 'cell') editor.cutSelection();
     } else if (mod && e.key.toLowerCase() === 'v') {
-      editor.paste();
+      if (doc.selection.kind !== 'cell') editor.paste();
     } else if (mod && e.key === '=') {
       e.preventDefault();
       editor.zoomIn();
@@ -118,9 +120,27 @@
       else doc.clearShapeSelection();
     }
   }
+  function onCellClipboard(event: ClipboardEvent) {
+    const target = event.target as HTMLElement;
+    if (event.defaultPrevented || editor.activeDialog || doc.selection.kind !== 'cell' ||
+      target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '') || !event.clipboardData) return;
+    if (event.type === 'paste') {
+      if (!event.clipboardData.types.includes('text/plain')) return;
+      event.preventDefault();
+      const values = parseTableClipboard(event.clipboardData.getData('text/plain'));
+      if (values) editor.pasteCellValues(values);
+      else editor.toast('error', t('The clipboard table text is malformed'));
+    } else {
+      const text = event.type === 'cut' ? editor.cutSelection() : editor.copySelection();
+      if (text === undefined) return;
+      event.preventDefault();
+      event.clipboardData.setData('text/plain', text);
+    }
+  }
+
 </script>
 
-<svelte:window on:keydown={onKeydown} />
+<svelte:window on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
 <div class="ok-editor ok-shell">
   <TopBar {onsave} />
