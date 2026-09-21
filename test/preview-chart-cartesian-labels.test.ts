@@ -156,3 +156,54 @@ describe.each(['stacked', 'percentStacked'] as const)('%s label placement', (gro
     );
   });
 });
+
+describe.each(['column', 'bar', 'line', 'area'] as const)('%s percent-stacked values', (kind) => {
+  it('formats original values with chart, series and point formats', async () => {
+    const visible = {
+      showValue: true,
+      showCategory: false,
+      showSeriesName: false,
+      showPercent: false,
+    };
+    const svg = await render({
+      kind,
+      grouping: 'percentStacked',
+      categories: ['A', 'B'],
+      categoryAxisHidden: true,
+      valueAxisHidden: true,
+      dataLabels: { ...visible, numberFormat: '0.00' },
+      series: [
+        { name: 'First', values: [10, 20] },
+        {
+          name: 'Second',
+          values: [30, 40],
+          dataLabels: { ...visible, numberFormat: '0.0' },
+          pointDataLabels: [{ ...visible, numberFormat: '0.000' }],
+        },
+      ],
+    });
+    for (const label of ['10.00', '20.00', '30.000', '40.0'])
+      expect(svg).toContain(`>${label}</text>`);
+  });
+  it('shows original values when no label format is specified', async () => {
+    const svg = await render({
+      kind,
+      grouping: 'percentStacked',
+      categories: ['A'],
+      categoryAxisHidden: true,
+      valueAxisHidden: true,
+      dataLabels: {
+        showValue: true,
+        showCategory: false,
+        showSeriesName: false,
+        showPercent: false,
+      },
+      series: [
+        { name: 'First', values: [10] },
+        { name: 'Second', values: [30] },
+      ],
+    });
+    expect(svg).toContain('>10</text>');
+    expect(svg).toContain('>30</text>');
+  });
+});

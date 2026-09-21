@@ -300,3 +300,5 @@ Pie and doughnut previews render series-name labels and honor series/point label
 Column, bar, line and area previews now honor category/series label toggles and per-point label visibility, literal text, number format and text style, including stacked charts. Regression coverage checks all four chart types across standard, stacked and percent-stacked grouping; browser checks cover series-name-only labels while switching chart types.
 
 Stacked column and bar previews honor center, inside-end, outside-end and inside-base label placement relative to each segment. Regression tests cover positive and negative segments and percentage stacks; browser checks verify that changing placement moves labels in both orientations and stacking modes.
+
+Percentage-stacked columns and bars display original data values when value labels are enabled, consistently with lines and areas. Chart, series and point numeric formats now apply to those labels; percentages on the value axis remain independent. Unit coverage checks format inheritance and unformatted values, and browser coverage checks formatted values while switching among all four chart types.
