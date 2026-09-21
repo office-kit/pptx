@@ -1,13 +1,17 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { getSlideTransition, getSlides, setSlideTransition, clearSlideTransition, type TransitionOptions } from '@office-kit/pptx';
+  import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
   const doc = editor.doc;
   const slide = untrack(() => doc.currentSlide);
+  const selection = untrack(() => doc.selection);
+  const targets = untrack(() => { const slides = getSlides(doc.pres); return selectedSlideIndices(selection).flatMap(index => slides[index] ? [slides[index]!] : []); });
   const version = untrack(() => doc.version);
   const original = slide ? getSlideTransition(slide) : null;
+  const mixed = targets.some(target => JSON.stringify(getSlideTransition(target)) !== JSON.stringify(original));
   const effects = [['none', 'None'], ['fade', 'Fade'], ['push', 'Push'], ['wipe', 'Wipe'], ['cover', 'Cover'], ['pull', 'Uncover'], ['split', 'Split'], ['cut', 'Cut transition'], ['dissolve', 'Dissolve'], ['checker', 'Checkerboard'], ['blinds', 'Blinds'], ['comb', 'Comb'], ['randomBar', 'Random bars'], ['zoom', 'Zoom'], ['circle', 'Circle'], ['diamond', 'Diamond'], ['plus', 'Plus'], ['wedge', 'Wedge'], ['newsflash', 'Newsflash'], ['strips', 'Strips'], ['wheel', 'Wheel'], ['random', 'Random']];
   const directionLabels: Record<string, string> = { l: 'Left', r: 'Right', u: 'Up', d: 'Down', lu: 'Upper left', ru: 'Upper right', ld: 'Lower left', rd: 'Lower right', horz: 'Horizontal', vert: 'Vertical', in: 'Inward', out: 'Outward' };
   let effect = $state(original?.effect ?? 'none');
@@ -27,7 +31,7 @@
   function submit(event: SubmitEvent) {
     event.preventDefault();
     if (!slide || !valid) return;
-    if (doc.version !== version || doc.currentSlide !== slide) { error = t('The slide changed. Reopen this dialog.'); return; }
+    if (doc.version !== version || doc.selection !== selection) { error = t('The slide changed. Reopen this dialog.'); return; }
     const options: TransitionOptions = {
       effect, ...(effect !== 'none' ? { speed } : {}), advanceOnClick: onClick,
       ...(auto && seconds !== undefined ? { advanceAfterMs: Math.round(seconds * 1000) } : {}),
@@ -37,7 +41,7 @@
     };
     try {
       doc.transact(t('Slide transition'), () => {
-        for (const target of allSlides ? getSlides(doc.pres) : [slide]) {
+        for (const target of allSlides ? getSlides(doc.pres) : targets) {
           if (effect === 'none' && !auto && onClick) clearSlideTransition(target);
           else setSlideTransition(target, options);
         }
@@ -50,6 +54,8 @@
 <dialog bind:this={dialog} aria-label={t('Slide transition')} onclose={() => editor.closeDialog()}>
   <form onsubmit={submit}>
     <header><strong>{t('Slide transition')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
+    {#if targets.length > 1}<p>{t('Apply to selected slides')}: {targets.length}</p>{/if}
+    {#if mixed}<p>{t('Slide transition')}: {t('Mixed')}</p>{/if}
     <label>{t('Transition effect')}<select class="ok-input" aria-label={t('Transition effect')} bind:value={effect} onchange={() => direction = ''}>
       {#if !effects.some(item => item[0] === effect)}<option value={effect}>{effect}</option>{/if}
       {#each effects as item}<option value={item[0]}>{t(item[1]!)}</option>{/each}
