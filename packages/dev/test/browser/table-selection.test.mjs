@@ -58,6 +58,37 @@ test(
       const bounds = getShapeBounds(await table());
       await editor.locator('.hit').first().click();
       await cell(1, 1).click();
+      const tableBox = await editor.locator('.hit').first().boundingBox();
+      const point = (row, col) => ({
+        x: tableBox.x + (tableBox.width * (col + 0.5)) / 3,
+        y: tableBox.y + (tableBox.height * (row + 0.5)) / 3,
+      });
+      const last = point(2, 2);
+      await page.keyboard.down('Shift');
+      await page.mouse.click(last.x, last.y);
+      await page.keyboard.up('Shift');
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
+      assert.equal(await editor.locator('.cell-selection').count(), 9);
+      const first = point(0, 0),
+        middle = point(1, 1);
+      await page.mouse.move(first.x, first.y);
+      await page.mouse.down();
+      await page.mouse.move(middle.x, middle.y, { steps: 8 });
+      await page.mouse.up();
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
+      assert.equal(await editor.locator('.cell-selection').count(), 4);
+      assert.deepEqual(getShapeBounds(await table()), bounds);
+      await page.screenshot({ path: '/tmp/pptx-pr287-table-canvas-range.png', fullPage: true });
+      await page.keyboard.press('Delete');
+      await saved();
+      assert.deepEqual(await values(), [
+        ['', '', 'C'],
+        ['', '', 'F'],
+        ['G', 'H', 'I'],
+      ]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await cell(1, 1).click();
       await cell(1, 1).press('ArrowRight');
       await focused(1, 2);
       await cell(1, 2).press('ArrowDown');
@@ -91,6 +122,7 @@ test(
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).evaluate((node) => node.focus());
       await page.keyboard.press('Shift+ArrowRight');
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 6);
+      assert.equal(await editor.locator('.cell-selection').count(), 6);
       await page.keyboard.press('Shift+ArrowLeft');
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
       await page.keyboard.press('Delete');
@@ -158,6 +190,7 @@ test(
       await cell(1, 1).click({ button: 'right' });
       await editor.getByRole('menuitem', { name: 'すべてのセルを選択', exact: false }).click();
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 6);
+      assert.equal(await editor.locator('.cell-selection').count(), 6);
       await cell(3, 3).click({ button: 'right' });
       assert.equal(
         await editor.getByRole('menu').evaluate((node) => {
