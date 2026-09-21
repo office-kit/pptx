@@ -5,11 +5,14 @@
   // double-click to edit text. Gestures mutate the real model on every frame
   // (so the shape moves for real, not a ghost) via `applyLive`, then commit a
   // single undo step on release. Zoom + right-click menu round out the feel.
+  import { tick } from 'svelte';
+  import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
   import {
     getTableCells,
+    insertTableRow,
     getTableCellText,
     getTableCellParagraphs,
     setTableCellText,
@@ -360,7 +363,7 @@
   // Google-Slides parity: with a single shape selected, Enter/F2 edits its text,
   // and simply typing a character enters edit mode replacing the text with it.
   function onTypeToEdit(e: KeyboardEvent) {
-    if (editing || e.isComposing) return;
+    if (editing || e.isComposing || editor.activeDialog) return;
     if (selectedIds.size !== 1) return;
     const t = e.target as HTMLElement;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -397,6 +400,65 @@
     doc.transact(t('Edit text'), () => {
       replayEdits(box, cur);
     });
+  }
+
+  async function navigateCell(backward: boolean) {
+    const cur = editing;
+    if (!cur?.cell) return;
+    const box = boxes.find(b => b.id === cur.id);
+    if (!box) return;
+    const cells = tableCellBoxes(box.shape);
+    const index = cells.findIndex(cell => cell.row === cur.cell!.row && cell.col === cur.cell!.col);
+    let next: { row: number; col: number } | undefined = cells[index + (backward ? -1 : 1)];
+    if (!next && backward) return;
+    if (!next && tableHasMergedCells(box.shape)) {
+      editor.toast('error', t('Split merged cells before adding a row'));
+      return;
+    }
+    if (cur.changes.length || !next) doc.transact(t('Edit table'), () => {
+      replayEdits(box, cur);
+      if (!next) {
+        const row = getTableCells(box.shape).length;
+        insertTableRow(box.shape);
+        next = { row, col: 0 };
+      }
+    });
+    if (next) startEditing(box, next);
+    await tick();
+    textArea?.focus();
+    textArea?.select();
+  }
+
+  function pasteCells(event: ClipboardEvent) {
+    const cur = editing;
+    if (!cur?.cell || !event.clipboardData) return;
+    const text = event.clipboardData.getData('text/plain');
+    const html = event.clipboardData.getData('text/html');
+    if (!text.includes('\t') && !/<table[\s>]/i.test(html)) return;
+    const values = parseTableClipboard(text);
+    if (!values) return;
+    if (values.length === 1 && values[0]!.length === 1) {
+      const value = values[0]![0]!;
+      if (value === text) return;
+      event.preventDefault();
+      const start = textArea?.selectionStart ?? cur.text.length;
+      const end = textArea?.selectionEnd ?? start;
+      updateEditing(cur.text.slice(0, start) + value + cur.text.slice(end));
+      void tick().then(() => textArea?.setSelectionRange(start + value.length, start + value.length));
+      return;
+    }
+    event.preventDefault();
+    const box = boxes.find(b => b.id === cur.id);
+    if (!box) return;
+    if (!canPasteTableCells(box.shape, cur.cell.row, cur.cell.col, values)) {
+      editor.toast('error', t('Split merged cells before pasting multiple cells'));
+      return;
+    }
+    doc.transact(t('Paste table cells'), () => {
+      pasteTableCells(box.shape, cur.cell!.row, cur.cell!.col, values);
+    });
+    // The spreadsheet replaces the starting cell, including its pending text.
+    startEditing(box, cur.cell);
   }
 
   function replayEdits(box: Box, cur: NonNullable<typeof editing>) {
@@ -591,6 +653,7 @@
               style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%; transform: rotate({eb.rotation}deg);"
               value={editing.text}
               oninput={(e) => updateEditing(e.currentTarget.value)}
+              onpaste={pasteCells}
               use:focusEdit
               onpointerdown={(e) => e.stopPropagation()}
               onpointerup={(e) => e.stopPropagation()}
@@ -602,7 +665,8 @@
                 }
                 e.stopPropagation();
                 if (e.isComposing) return;
-                if (e.key === 'Escape') editing = null;
+                if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
+                else if (e.key === 'Escape') editing = null;
                 else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();
               }}
             ></textarea>
