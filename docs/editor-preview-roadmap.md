@@ -134,7 +134,12 @@ that a user can complete the corresponding editing workflow.
   crop, opacity, brightness, contrast and alternative text. Browser tests verify
   insertion, replacement, undo, crop reset and persisted output after reload.
   Preview contrast treats zero as neutral and scales colors around mid-gray.
-  Interactive crop handles still need a dedicated workflow.
+  The visual crop dialog opens from a picture double-click or image controls,
+  supports eight drag handles and selection movement, keyboard fine/coarse
+  adjustment, a result preview, reset and cancel, and commits one undo step.
+  Browser coverage verifies drag bounds, English/Japanese controls, unchanged
+  original image bytes/geometry, and save/load/history. Crop aspect-ratio
+  presets and shape masks remain to be assessed.
 
 - A bilingual table pane exposes a cell grid, text, fill, alignment, row heights,
   column widths and row/column insertion and deletion. Browser tests verify mixed

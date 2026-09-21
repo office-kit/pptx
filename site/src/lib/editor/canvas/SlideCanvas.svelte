@@ -331,6 +331,11 @@
 
   // ---- Text editing ------------------------------------------------------
   function startEditing(box: Box, cell?: { row: number; col: number }) {
+    if (getShapeKind(box.shape) === 'picture') {
+      doc.selectShape(doc.selection.slideIndex, box.id);
+      editor.runOrPrompt('setShapeImageCrop');
+      return;
+    }
     if (isTableShape(box.shape)) {
       const position = cell ?? (doc.selection.kind === 'cell' ? doc.selection : { row: 0, col: 0 });
       const target = getTableCells(box.shape)[position.row]?.[position.col];
