@@ -84,8 +84,10 @@ that a user can complete the corresponding editing workflow.
   Cell ranges support fill, horizontal/vertical alignment, bold and italic in a
   single undo step, including covered cells in merged regions. Browser tests
   verify saved formatting, unaffected cells, mixed-format undo and both languages.
-  Borders, additional text formatting and direct canvas cell editing still require
-  complete workflows.
+  The shared text toolbar also applies font families, fractional point sizes,
+  color and underline to cell ranges. Browser tests verify mixed values, saved
+  formats after reload, and restoring mixed sizes with undo in Japanese.
+  Borders and direct canvas cell editing still require complete workflows.
 
 ## Outstanding work
 

@@ -2,28 +2,30 @@
   import type { TextFormat } from '@office-kit/pptx';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, onformat, ondone }: {
+  let { formats, selected, onformat, ondone, context = 'text' }: {
     formats: TextFormat[];
     selected: boolean;
     onformat: (format: TextFormat) => void;
-    ondone: () => void;
+    ondone?: () => void;
+    context?: 'text' | 'cells';
   } = $props();
   const bold = $derived(formats.length > 0 && formats.every((f) => f.bold === true));
   const italic = $derived(formats.length > 0 && formats.every((f) => f.italic === true));
   const underline = $derived(formats.length > 0 && formats.every((f) => f.underline === true || (typeof f.underline === 'string' && f.underline !== 'none')));
   const font = $derived(formats.length && formats.every((f) => f.font === formats[0]?.font) ? formats[0]?.font ?? '' : '');
   const size = $derived(formats.length && formats.every((f) => f.size === formats[0]?.size) ? formats[0]?.size : undefined);
+  const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) && /^#[0-9a-f]{6}$/i.test(formats[0]?.color ?? '') ? formats[0]!.color! : null);
 </script>
 
-<div class="text-format-bar" role="group" aria-label={t('Selected text formatting')}>
-  <span>{t(selected ? 'Selected text' : 'Select text to format')}</span>
+<div class="text-format-bar" role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : 'Selected text formatting')}>
+  <span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : selected ? 'Selected text' : 'Select text to format')}</span>
   <button class="ok-btn" aria-label={t('Bold')} aria-pressed={bold} disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={() => onformat({bold: !bold})}><b>B</b></button>
   <button class="ok-btn" aria-label={t('Italic')} aria-pressed={italic} disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={() => onformat({italic: !italic})}><i>I</i></button>
   <button class="ok-btn" aria-label={t('Underline')} aria-pressed={underline} disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={() => onformat({underline: !underline})}><u>U</u></button>
   <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!selected} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
   <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!selected} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
-  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" disabled={!selected} onchange={(e) => onformat({color:e.currentTarget.value})} /></label>
-  <button class="ok-btn" onclick={ondone}>{t('Done')}</button>
+  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!selected} onchange={(e) => onformat({color:e.currentTarget.value})} /></label>
+  {#if ondone}<button class="ok-btn" onclick={ondone}>{t('Done')}</button>{/if}
 </div>
 
 <style>

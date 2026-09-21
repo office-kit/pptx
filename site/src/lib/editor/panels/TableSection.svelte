@@ -1,4 +1,5 @@
 <script lang="ts">
+  import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -43,8 +44,6 @@
     return result;
   });
   const textRuns = $derived([...selectedCells].flatMap(cell => getTableCellParagraphs(cell).flatMap(paragraph => paragraph.elements.filter(element => element.kind !== 'br'))));
-  const allBold = $derived(textRuns.length > 0 && textRuns.every(run => run.format?.bold === true));
-  const allItalic = $derived(textRuns.length > 0 && textRuns.every(run => run.format?.italic === true));
   function applyToCells(label: string, edit: (cell: TableCellData) => void) {
     const cells = [...selectedCells];
     if (cells.length) doc.transact(label, () => { for (const cell of cells) edit(cell); });
@@ -118,11 +117,7 @@
         <button class="ok-btn" disabled={getTableCellSpan(tableState.cell).gridSpan === 1 && getTableCellSpan(tableState.cell).rowSpan === 1} onclick={split}>{t('Split cell')}</button>
       </div>
       <label>{t('Cell text')}<textarea class="ok-input" rows="3" value={getTableCellText(tableState.cell)} onchange={(e) => { const s = tableState; if (s?.cell) doc.transact(t('Edit cell text'), () => setTableCellText(s.cell!, e.currentTarget.value, { preserveFormatting: true })); }}></textarea></label>
-      <small>{t('Formatting applies to all selected cells')}</small>
-      <div class="actions">
-        <button class="ok-btn" aria-pressed={allBold} onclick={() => formatCells({ bold: !allBold })}>{t('Bold')}</button>
-        <button class="ok-btn" aria-pressed={allItalic} onclick={() => formatCells({ italic: !allItalic })}>{t('Italic')}</button>
-      </div>
+      <TextFormatBar formats={textRuns.map(run => run.format ?? {})} selected={selectedCells.size > 0} onformat={formatCells} context="cells" />
       <label>{t('Cell fill')}<input type="color" value={getTableCellFill(tableState.cell) ?? '#ffffff'} onchange={(e) => { const value = e.currentTarget.value; applyToCells(t('Cell fill'), cell => setTableCellFill(cell, value)); }} /></label>
       <label>{t('Horizontal alignment')}<select aria-label={t('Horizontal alignment')} class="ok-input" value={getTableCellAlignment(tableState.cell) ?? 'l'} onchange={(e) => { const v = e.currentTarget.value; if (v === 'l' || v === 'ctr' || v === 'r') applyToCells(t('Horizontal alignment'), cell => setTableCellAlignment(cell, v)); }}>
         <option value="l">{t('Left')}</option><option value="ctr">{t('Center')}</option><option value="r">{t('Right')}</option>

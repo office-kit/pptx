@@ -682,7 +682,56 @@ test(
         for (const paragraph of getTableCellParagraphs(cell))
           for (const run of paragraph.elements) assert.equal(run.format?.italic, true);
       assert.notEqual(getTableCellParagraphs(cells[2][0])[0].elements[0].format?.italic, true);
+      const fontPanel = editor.getByRole('region', { name: 'Table options', exact: true });
+      await fontPanel.getByLabel('Font', { exact: true }).fill('Arial');
+      await fontPanel.getByLabel('Font', { exact: true }).press('Tab');
+      await fontPanel.getByLabel('Font size', { exact: true }).fill('18.5');
+      await fontPanel.getByLabel('Font size', { exact: true }).press('Tab');
+      await fontPanel.getByLabel('Text color', { exact: true }).fill('#ffffff');
+      await fontPanel.getByRole('button', { name: 'Underline', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      for (const cell of cells.slice(0, 2).flat())
+        for (const paragraph of getTableCellParagraphs(cell))
+          for (const run of paragraph.elements) {
+            assert.equal(run.format.font, 'Arial');
+            assert.equal(run.format.fontEastAsian, 'Arial');
+            assert.equal(run.format.fontComplexScript, 'Arial');
+            assert.equal(run.format.size, 18.5);
+            assert.equal(run.format.color, '#FFFFFF');
+            assert.equal(run.format.underline, true);
+          }
+      assert.notEqual(getTableCellParagraphs(cells[2][0])[0].elements[0].format?.size, 18.5);
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      assert.equal(await fontPanel.getByLabel('Font size', { exact: true }).inputValue(), '18.5');
+      assert.equal(
+        await fontPanel.getByLabel('Text color', { exact: true }).inputValue(),
+        '#ffffff',
+      );
+
+      await fontPanel
+        .getByRole('button', { name: 'Cell 3, 2', exact: true })
+        .click({ modifiers: ['Shift'] });
+      assert.equal(await fontPanel.getByLabel('Font size', { exact: true }).inputValue(), '');
+      assert.equal(await fontPanel.getByLabel('Font', { exact: true }).inputValue(), '');
       await editor.locator('select').first().selectOption('ja');
+      const japaneseFontPanel = editor.getByRole('region', { name: '表の設定', exact: true });
+      await japaneseFontPanel.getByLabel('文字サイズ', { exact: true }).fill('20');
+      await japaneseFontPanel.getByLabel('文字サイズ', { exact: true }).press('Tab');
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      assert.equal(getTableCellParagraphs(cells[2][1])[0].elements[0].format.size, 20);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      assert.equal(getTableCellParagraphs(cells[0][0])[0].elements[0].format.size, 18.5);
+      assert.notEqual(getTableCellParagraphs(cells[2][1])[0].elements[0].format?.size, 20);
+      assert.equal(
+        await japaneseFontPanel.getByLabel('文字サイズ', { exact: true }).inputValue(),
+        '',
+      );
       await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {

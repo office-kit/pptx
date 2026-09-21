@@ -16,3 +16,6 @@ mergeTableCells; preserve text and reject malformed merges before mutation.
 
 Apply fill, alignment, bold and italic to selected cell ranges in a single undo
 step, including merged cells, from the English and Japanese preview.
+
+Use the shared text toolbar for table ranges, including font families, size,
+color and underline. Display saved color and mixed sizes when selection changes.
