@@ -8,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   getShapeKind,
+  getShapeImageCrop,
+  setShapeRotation,
   getSlideShapes,
   getSlideXmlString,
   getSlides,
@@ -66,6 +68,22 @@ describe('fn API: setShapeImageCrop', () => {
     const slide = getSlides(pres)[0]!;
     const textShape = getSlideShapes(slide).find((s) => getShapeKind(s) === 'shape')!;
     expect(() => setShapeImageCrop(textShape, { left: 0.1 })).toThrow(/picture/);
+  });
+
+  it('preserves the existing crop after invalid input and a subsequent edit', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const picture = getSlideShapes(slide).find((s) => getShapeKind(s) === 'picture')!;
+    setShapeImageCrop(picture, { left: 0.2, bottom: 0.1 });
+    const before = getShapeImageCrop(picture);
+    expect(() => setShapeImageCrop(picture, { left: 0.3, bottom: Number.NaN })).toThrow();
+    expect(getShapeImageCrop(picture)).toEqual(before);
+    setShapeRotation(picture, 10);
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const restored = getSlideShapes(getSlides(reloaded)[0]!).find(
+      (s) => getShapeKind(s) === 'picture',
+    )!;
+    expect(getShapeImageCrop(restored)).toEqual(before);
   });
 
   it('rejects out-of-range fractions', async () => {

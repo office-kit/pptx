@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   findSlidePlaceholder,
+  copyShape,
+  addSlideImage,
+  getShapeImageBytes,
+  inches,
   getMediaParts,
   getShapeKind,
   getSlideShapes,
@@ -58,6 +62,36 @@ describe('L2: image replacement', () => {
     expect(jpg?.data.subarray(0, 3)).toEqual(FAKE_JPEG.subarray(0, 3));
     expect(jpg?.contentType).toBe('image/jpeg');
   });
+
+  for (const sameSlide of [true, false]) {
+    for (const replacement of [ALT_PNG, FAKE_JPEG]) {
+      it(`replaces only the copied picture (${sameSlide ? 'same' : 'other'} slide, ${detectImageFormat(replacement)})`, async () => {
+        const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+        const [sourceSlide, otherSlide] = getSlides(pres);
+        const original = ALT_PNG.slice();
+        original[45] = 0x62;
+        const picture = addSlideImage(sourceSlide!, original, {
+          x: inches(1),
+          y: inches(1),
+          w: inches(2),
+          h: inches(1),
+        });
+        const targetSlide = sameSlide ? sourceSlide! : otherSlide!;
+        const copied = copyShape(targetSlide, picture);
+        setShapeImage(copied, replacement);
+        expect(getShapeImageBytes(picture)).toEqual(original);
+        expect(getShapeImageBytes(copied)).toEqual(replacement);
+        const reloaded = await loadPresentation(await savePresentation(pres));
+        const pictures = getSlides(reloaded)
+          .flatMap(getSlideShapes)
+          .filter((s) => getShapeKind(s) === 'picture');
+        expect(pictures.map(getShapeImageBytes)).toEqual([original, replacement]);
+        const mediaCount = getMediaParts(pres).length;
+        setShapeImage(copied, replacement);
+        expect(getMediaParts(pres)).toHaveLength(mediaCount);
+      });
+    }
+  }
 
   it('rejects setShapeImage on non-picture shapes', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));

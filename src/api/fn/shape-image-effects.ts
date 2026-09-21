@@ -694,26 +694,28 @@ export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null)
   const blipFill = firstChildElement(pic, NAME_BLIP_FILL_FN);
   if (!blipFill) throw new Error('picture has no <p:blipFill>');
 
-  // Remove any existing srcRect first.
+  // Validate all sides before touching the live tree, so a rejected edit
+  // cannot erase a crop that a later successful edit would then save.
+  const attrs: Array<ReturnType<typeof attr>> = [];
+  if (crop !== null) {
+    const l = fractionToST(crop.left);
+    const t = fractionToST(crop.top);
+    const r = fractionToST(crop.right);
+    const b = fractionToST(crop.bottom);
+    if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
+    if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
+    if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
+    if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
+  }
+
   blipFill.children = blipFill.children.filter(
     (c) =>
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'srcRect'),
   );
-
   if (crop === null) {
     commitAndRefresh(shape);
     return;
   }
-
-  const attrs: Array<ReturnType<typeof attr>> = [];
-  const l = fractionToST(crop.left);
-  const t = fractionToST(crop.top);
-  const r = fractionToST(crop.right);
-  const b = fractionToST(crop.bottom);
-  if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
-  if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
-  if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
-  if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
 
   // <a:srcRect> sits between <a:blip> and <a:stretch> per the schema.
   const srcRect = elem(NAME_SRC_RECT_FN, { attrs });
