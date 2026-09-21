@@ -21,7 +21,7 @@
   let error = $state('');
   const factor = $derived(unit === 'cm' ? 360000 : 914400);
   const maximum = $derived(56 * 914400 / factor);
-  const valid = $derived(width !== undefined && height !== undefined && Number.isFinite(width) && Number.isFinite(height) && width * factor >= 9144 && height * factor >= 9144 && width <= maximum && height <= maximum);
+  const valid = $derived(width !== undefined && height !== undefined && Number.isFinite(width) && Number.isFinite(height) && width * factor >= 914400 && height * factor >= 914400 && width <= maximum && height <= maximum);
   onMount(() => dialog.showModal());
   function choosePreset(id: string) {
     preset = id;
@@ -54,11 +54,11 @@
     </select></label>
     <label>{t('Units')}<select class="ok-input" aria-label={t('Units')} value={unit} onchange={event => changeUnit(event.currentTarget.value)}><option value="in">{t('Inches')}</option><option value="cm">{t('Centimeters')}</option></select></label>
     <div class="dimensions">
-      <label>{t('Page width')}<input class="ok-input" type="number" min={9144 / factor} max={maximum} step="any" required bind:value={width} oninput={() => preset = 'custom'} /></label>
-      <label>{t('Page height')}<input class="ok-input" type="number" min={9144 / factor} max={maximum} step="any" required bind:value={height} oninput={() => preset = 'custom'} /></label>
+      <label>{t('Page width')}<input class="ok-input" type="number" min={914400 / factor} max={maximum} step="any" required bind:value={width} oninput={() => preset = 'custom'} /></label>
+      <label>{t('Page height')}<input class="ok-input" type="number" min={914400 / factor} max={maximum} step="any" required bind:value={height} oninput={() => preset = 'custom'} /></label>
     </div>
     <p>{t('Applies to every slide. Objects keep their positions and sizes.')}</p>
-    {#if !valid}<p role="alert">{t(unit === 'cm' ? 'Enter a width and height between 0.0254 and 142.24 cm.' : 'Enter a width and height between 0.01 and 56 inches.')}</p>{/if}
+    {#if !valid}<p role="alert">{t(unit === 'cm' ? 'Enter a width and height between 2.54 and 142.24 cm.' : 'Enter a width and height between 1 and 56 inches.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!valid}>{t('Apply')}</button></footer>
   </form>

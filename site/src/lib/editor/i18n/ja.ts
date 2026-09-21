@@ -116,10 +116,9 @@ export const ja: Record<string, string> = {
     '選択中のスライドのノートです。書き出したプレゼンテーションにも保存されます。',
   'Notes content': 'ノートの内容',
   'Speaker notes': '発表者ノート',
-  'Enter a width and height between 0.0254 and 142.24 cm.':
-    '幅と高さは0.0254〜142.24 cmで入力してください。',
-  'Enter a width and height between 0.01 and 56 inches.':
-    '幅と高さは0.01〜56インチで入力してください。',
+  'Enter a width and height between 2.54 and 142.24 cm.':
+    '幅と高さは2.54〜142.24 cmで入力してください。',
+  'Enter a width and height between 1 and 56 inches.': '幅と高さは1〜56インチで入力してください。',
   'The presentation changed. Reopen page setup.':
     'プレゼンテーションが変更されました。ページ設定を開き直してください。',
   'Applies to every slide. Objects keep their positions and sizes.':

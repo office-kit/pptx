@@ -59,3 +59,27 @@ describe('fn API: slide size', () => {
     expect(SLIDE_SIZE_16_9).toEqual({ width: 12192000, height: 6858000, type: 'screen16x9' });
   });
 });
+
+it.each([NaN, Infinity, -Infinity, -1, 0, 914399, 51206401])(
+  'rejects invalid slide dimension %s without changing the presentation',
+  async (value) => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const before = await savePresentation(pres);
+    for (const axis of ['width', 'height'] as const) {
+      expect(() => setSlideSize(pres, { ...SLIDE_SIZE_16_9, [axis]: emu(value) })).toThrow(
+        RangeError,
+      );
+      expect(await savePresentation(pres)).toEqual(before);
+    }
+  },
+);
+
+it.each([914400, 51206400])(
+  'round-trips the inclusive slide dimension boundary %s',
+  async (value) => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    setSlideSize(pres, { width: emu(value), height: emu(value) });
+    const restored = await loadPresentation(await savePresentation(pres));
+    expect(getSlideSize(restored)).toEqual({ width: value, height: value });
+  },
+);

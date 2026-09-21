@@ -19,6 +19,7 @@ const RANGES = {
   positiveCoordinate: [0, 27273042316900], // ST_PositiveCoordinate
   coordinate32: [-2147483648, 2147483647], // ST_Coordinate32 (xsd:int)
   positiveCoordinate32: [0, 2147483647], // ST_PositiveCoordinate32
+  slideSize: [914400, 51206400], // ST_SlideSizeCoordinate (1..56 inches)
   lineWidth: [0, 20116800], // ST_LineWidth
   angle: [-2147483648, 2147483647], // ST_Angle (1/60000 degree, xsd:int)
   fontSize: [100, 400000], // ST_TextFontSize (1/100 pt → 1..4000 pt)
