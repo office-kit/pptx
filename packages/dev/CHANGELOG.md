@@ -1,5 +1,11 @@
 # @office-kit/pptx-dev
 
+## 0.7.0
+
+### Minor Changes
+
+- 758df05: Edit selected slide regions through a chosen coding agent, directly save uniquely identifiable text literals with guarded undo, and automatically provide screenshots of changed slides for bounded AI design review.
+
 ## 0.6.0
 
 ### Minor Changes
