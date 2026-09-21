@@ -1,6 +1,6 @@
 {
   "name": "@office-kit/pptx-dsl",
-  "version": "1.0.0",
+  "version": "0.7.0",
   "description": "Typed TSX authoring for editable PowerPoint presentations",
   "license": "MIT",
   "repository": {

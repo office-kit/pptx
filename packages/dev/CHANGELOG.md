@@ -7,8 +7,8 @@
 - 98273a7: Submit selected-area instructions and save in-place text with Shift+Enter. Remove the separate text editing dialog, reveal saved previews before visual review finishes, and use compact Undo/Redo icon buttons.
 - Updated dependencies [28731c2]
   - @office-kit/pptx@0.21.0
-  - @office-kit/pptx-dsl@1.0.0
-  - @office-kit/pptx-preview@1.0.0
+  - @office-kit/pptx-dsl@0.7.0
+  - @office-kit/pptx-preview@0.11.0
 
 ## 0.8.2
 
