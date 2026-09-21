@@ -40,6 +40,10 @@
   let minorUnit = $state<number | null | undefined>(original?.valueAxis?.minorUnit);
   let numberFormat = $state(original?.valueAxis?.numberFormat ?? '');
   let axesChanged = $state(false);
+  let showCategoryAxis = $state(!(original?.categoryAxisHidden ?? false));
+  let showValueAxis = $state(!(original?.valueAxisHidden ?? false));
+  let showMajorGridlines = $state(original?.valueAxisMajorGridlines ?? false);
+  let axisVisibilityChanged = $state(false);
   const hasAxes = $derived(['column', 'bar', 'line', 'area'].includes(kind));
   const validAxes = $derived(!hasAxes || !axesChanged || (
     [axisMin, axisMax, majorUnit, minorUnit].every(value => value == null || Number.isFinite(value)) &&
@@ -88,6 +92,11 @@
         valueAxisTitle: valueAxisTitle || undefined,
         valueAxis: { ...original?.valueAxis, min: axisMin ?? undefined, max: axisMax ?? undefined, majorUnit: majorUnit ?? undefined, minorUnit: minorUnit ?? undefined, numberFormat: numberFormat || undefined },
       } : {}),
+      ...(hasAxes && axisVisibilityChanged ? {
+        categoryAxisHidden: !showCategoryAxis,
+        valueAxisHidden: !showValueAxis,
+        valueAxisMajorGridlines: showMajorGridlines,
+      } : {}),
       kind, title: title || undefined, categories: [...categories],
       legend: legendChanged ? { ...original?.legend, position: legendPosition, layout: undefined } : original?.legend,
       dataLabels: labelsChanged ? { ...original?.dataLabels, showValue, showCategory, showSeriesName, showPercent } : original?.dataLabels,
@@ -134,6 +143,12 @@
       </div>
       {#if hasAxes}
         <details class="axis-settings"><summary>{t('Chart axes')}</summary>
+          <fieldset class="axis-visibility" onchange={() => axisVisibilityChanged = true}>
+            <legend>{t('Axis visibility')}</legend>
+            <label><input type="checkbox" bind:checked={showCategoryAxis} />{t('Show category axis')}</label>
+            <label><input type="checkbox" bind:checked={showValueAxis} />{t('Show value axis')}</label>
+            <label><input type="checkbox" bind:checked={showMajorGridlines} />{t('Show major gridlines')}</label>
+          </fieldset>
           <div class="axis-grid" oninput={() => axesChanged = true}>
             <label>{t('Category axis title')}<input class="ok-input" bind:value={categoryAxisTitle} /></label>
             <label>{t('Value axis title')}<input class="ok-input" bind:value={valueAxisTitle} /></label>
@@ -181,6 +196,7 @@
   .chart-format { display: grid; grid-template-columns: 140px 1fr; gap: 12px; align-items: start; }
   fieldset { display: flex; flex-wrap: wrap; gap: 8px 16px; border: 1px solid var(--ok-border); }
   fieldset label { display: flex; align-items: center; gap: 4px; }
+  .axis-visibility { margin-top: 12px; }
   .axis-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
   summary { cursor: pointer; }
   .axis-settings p { font-size: 12px; opacity: 0.8; }
