@@ -284,3 +284,101 @@ test(
     }
   },
 );
+
+test(
+  'selected text links preserve surrounding text with Japanese undo and reload',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-range-links-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1} bold>Before 日本語 After</Text></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () =>
+        getSlideShapes(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        )[0];
+      const open = async (keyboard = false) => {
+        await editor.locator('.hit').first().dblclick();
+        const input = editor.locator('textarea.inline-edit');
+        await input.evaluate((el) => {
+          el.focus();
+          el.setSelectionRange(7, 10);
+          el.dispatchEvent(new Event('select', { bubbles: true }));
+        });
+        if (keyboard) await input.press('Control+k');
+        else
+          await editor
+            .locator('.text-format-bar')
+            .getByRole('button', { name: ja ? 'リンクを編集' : 'Edit link', exact: true })
+            .click();
+        return editor.getByRole('dialog', { name: ja ? 'リンクを編集' : 'Edit link', exact: true });
+      };
+      await saved();
+      let dialog = await open();
+      await dialog.getByText('Applies to the selected text.', { exact: true }).waitFor();
+      await dialog.getByLabel('Link address', { exact: true }).fill('https://example.com/japanese');
+      await dialog.getByLabel('Link description', { exact: true }).fill('日本語の資料');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      const { getShapeRunHyperlink, getShapeRunHyperlinkTooltip } =
+        await import('@office-kit/pptx');
+      let shape = await read();
+      assert.deepEqual(
+        getShapeParagraphElements(shape, 0).map((e) => e.text),
+        ['Before ', '日本語', ' After'],
+      );
+      assert.deepEqual(
+        [0, 1, 2].map((r) => getShapeRunHyperlink(shape, 0, r)),
+        [null, 'https://example.com/japanese', null],
+      );
+      assert.ok(getShapeParagraphElements(shape, 0).every((e) => e.format.bold));
+      await editor.locator('select').first().selectOption('ja');
+      ja = true;
+      dialog = await open(true);
+      assert.equal(
+        await dialog.getByLabel('リンク先', { exact: true }).inputValue(),
+        'https://example.com/japanese',
+      );
+      await dialog.getByLabel('リンク先', { exact: true }).fill('https://example.com/cancelled');
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      assert.equal(getShapeRunHyperlink(await read(), 0, 1), 'https://example.com/japanese');
+      dialog = await open();
+      await dialog.getByRole('button', { name: 'リンクを解除', exact: true }).click();
+      await saved();
+      assert.equal(getShapeRunHyperlink(await read(), 0, 1), null);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      shape = await read();
+      assert.equal(getShapeRunHyperlink(shape, 0, 1), 'https://example.com/japanese');
+      assert.equal(getShapeRunHyperlinkTooltip(shape, 0, 1), '日本語の資料');
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
