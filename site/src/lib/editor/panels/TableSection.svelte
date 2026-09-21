@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { neighboringTableCell } from '../core/table-selection.ts';
+  import { neighboringTableCell, tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
@@ -22,29 +22,8 @@
     const cell = cells[row]?.[col];
     return { table, id, cells, row, col, cell, widths: getTableColumnWidths(table), heights: getTableRowHeights(table), merged: cells.some((r) => r.some((c) => { const s = getTableCellSpan(c); return s.gridSpan > 1 || s.rowSpan > 1 || s.hMerge || s.vMerge; })) };
   });
-  let rangeEnd = $state<{ id: number; slide: number; anchorRow: number; anchorCol: number; row: number; col: number } | null>(null);
-  const block = $derived.by(() => {
-    if (!tableState) return null;
-    const end = rangeEnd?.id === tableState.id && rangeEnd.slide === doc.selection.slideIndex && rangeEnd.anchorRow === tableState.row && rangeEnd.anchorCol === tableState.col ? rangeEnd : tableState;
-    const row = Math.min(tableState.row, end.row);
-    const col = Math.min(tableState.col, end.col);
-    return { row, col, rowSpan: Math.abs(tableState.row - end.row) + 1, colSpan: Math.abs(tableState.col - end.col) + 1 };
-  });
-  const selectedCells = $derived.by(() => {
-    const result = new Set<TableCellData>();
-    if (!tableState || !block || block.row + block.rowSpan > tableState.cells.length || block.col + block.colSpan > tableState.widths.length) return result;
-    for (let r = 0; r < tableState.cells.length; r++) {
-      for (let c = 0; c < tableState.widths.length; c++) {
-        const cell = tableState.cells[r]![c]!;
-        const span = getTableCellSpan(cell);
-        if (span.hMerge || span.vMerge || r >= block.row + block.rowSpan || r + span.rowSpan <= block.row || c >= block.col + block.colSpan || c + span.gridSpan <= block.col) continue;
-        for (let y = r; y < Math.min(r + span.rowSpan, tableState.cells.length); y++)
-          for (let x = c; x < Math.min(c + span.gridSpan, tableState.widths.length); x++)
-            result.add(tableState.cells[y]![x]!);
-      }
-    }
-    return result;
-  });
+  const block = $derived(tableState ? tableSelectionBlock(doc.selection.kind === 'cell' ? doc.selection : tableState) : null);
+  const selectedCells = $derived(tableState && block ? tableCellsInRange(tableState.cells, block) : new Set<TableCellData>());
   const textRuns = $derived([...selectedCells].flatMap(cell => getTableCellParagraphs(cell).flatMap(paragraph => paragraph.elements.filter(element => element.kind !== 'br'))));
   function applyToCells(label: string, edit: (cell: TableCellData) => void) {
     const cells = [...selectedCells];
@@ -105,8 +84,7 @@
   });
   function select(row: number, col: number, extend: boolean) {
     if (!tableState) return;
-    if (extend) rangeEnd = { id: tableState.id, slide: doc.selection.slideIndex, anchorRow: tableState.row, anchorCol: tableState.col, row, col };
-    else { rangeEnd = null; doc.selectCell(doc.selection.slideIndex, tableState.id, row, col); }
+    doc.selectCell(doc.selection.slideIndex, tableState.id, row, col, extend);
   }
   async function onCellKeydown(event: KeyboardEvent, row: number, col: number) {
     if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || !tableState) return;
@@ -114,8 +92,7 @@
       if (doc.selection.kind !== 'cell') return;
       event.preventDefault();
       event.stopPropagation();
-      if ([...selectedCells].some(cell => getTableCellText(cell)))
-        applyToCells(t('Clear cell text'), cell => setTableCellText(cell, '', { preserveFormatting: true }));
+      editor.clearCellText();
       return;
     }
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
@@ -138,15 +115,12 @@
       mergeTableCells(s.table, b, { coveredText: 'append' });
       doc.selectCell(doc.selection.slideIndex, s.id, b.row, b.col);
     });
-    rangeEnd = null;
   }
   function split() {
     const cell = tableState?.cell;
     if (cell) doc.transact(t('Split cell'), () => splitTableCell(cell));
-    rangeEnd = null;
   }
   function structure(axis: 'row' | 'column', remove: boolean) {
-    rangeEnd = null;
     if (!tableState) return;
     const s = tableState;
     doc.transact(t(remove ? 'Delete table row or column' : 'Insert table row or column'), () => {

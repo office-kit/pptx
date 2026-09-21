@@ -217,3 +217,7 @@ presentation.
   per-side defaults and a full reset. The controls preserve other authored sides
   and reject negative input. Browser checks cover exact saved EMU values, range
   updates, untouched cells, undo/redo, reset and Japanese reload.
+
+Table cell ranges now live in document selection, including their active end.
+Panel and global Delete share the same merged-cell-aware range resolution;
+Shift+Arrow outside the grid extends the range, and undo restores it.

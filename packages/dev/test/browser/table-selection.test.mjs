@@ -87,6 +87,23 @@ test(
       ]);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
+      // A toolbar focus must keep the same range for global cell shortcuts.
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).evaluate((node) => node.focus());
+      await page.keyboard.press('Shift+ArrowRight');
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 6);
+      await page.keyboard.press('Shift+ArrowLeft');
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
+      await page.keyboard.press('Delete');
+      await saved();
+      assert.deepEqual(await values(), [
+        ['', '', 'C'],
+        ['', '', 'F'],
+        ['G', 'H', 'I'],
+      ]);
+      assert.deepEqual(getShapeBounds(await table()), bounds);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
       await editor.getByRole('button', { name: 'Merge cells', exact: true }).click();
       await saved();
       await cell(1, 1).click();

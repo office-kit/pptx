@@ -39,6 +39,7 @@ export interface CellSelection {
   readonly shapeId: number;
   readonly row: number;
   readonly col: number;
+  readonly end?: { readonly row: number; readonly col: number };
 }
 
 export interface NoneSelection {

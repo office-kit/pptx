@@ -227,7 +227,17 @@ export class EditorDocument {
     }
   }
 
-  selectCell(slideIndex: number, shapeId: number, row: number, col: number): void {
+  selectCell(slideIndex: number, shapeId: number, row: number, col: number, extend = false): void {
+    const current = this.selection;
+    if (
+      extend &&
+      current.kind === 'cell' &&
+      current.slideIndex === slideIndex &&
+      current.shapeId === shapeId
+    ) {
+      this.selection = { ...current, end: { row, col } };
+      return;
+    }
     this.selection = { kind: 'cell', slideIndex, shapeId, row, col };
   }
 
