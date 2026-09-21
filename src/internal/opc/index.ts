@@ -34,3 +34,11 @@ export {
   extensionForFormat,
   readImagePixelSize,
 } from './image-format.ts';
+
+export type { AudioFormat, VideoFormat } from './media-format.ts';
+export {
+  contentTypeForAudioFormat,
+  contentTypeForVideoFormat,
+  detectAudioFormat,
+  detectVideoFormat,
+} from './media-format.ts';

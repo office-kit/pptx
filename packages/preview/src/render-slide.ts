@@ -38,6 +38,7 @@ import {
   getShapeBoundsResolved,
   getShapeEffectsEffective,
   getShapeFillEffective,
+  getShapeFillOpacity,
   getShapeFillColorResolved,
   getShapeFlip,
   getShapeGradientFill,
@@ -86,6 +87,7 @@ import {
   getShapeStrokeCompound,
   getShapeStrokeDash,
   getShapeStrokeJoin,
+  getShapeStrokeOpacity,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
   getShapeTextMargins,
@@ -127,6 +129,7 @@ import {
   isTableShape,
   type PresentationData,
   type PresentationTheme,
+  type ChartKind,
   type ChartSeries,
   type ChartSpec,
   type ChartTextStyle,
@@ -139,6 +142,7 @@ import {
   type TableCellParagraph,
   type TextFormat,
 } from '@office-kit/pptx';
+import { renderEmfToSvg } from './emf.ts';
 import {
   defaultMeasurer,
   layoutTextSvg,
@@ -162,6 +166,12 @@ export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from '
 interface LayoutCtx {
   readonly mode: TextLayoutMode;
   readonly measure: TextMeasurer;
+  // Product of the scale factors of every enclosing group (`<a:ext>` over
+  // `<a:chExt>`). Geometry scales with the group; text does not — PowerPoint
+  // and LibreOffice both keep a group child's glyphs at their authored size
+  // and aspect when the group is resized, so the text path renders into the
+  // group-scaled rect and cancels the scale back out (see `renderShape`).
+  readonly groupScale: { readonly sx: number; readonly sy: number };
 }
 
 // Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
@@ -175,7 +185,7 @@ const DEFAULT_SIZE = { width: 12_192_000, height: 6_858_000 };
 // Real browsers refuse to render text when CSS font-size grows into
 // the hundreds of thousands of pixels (which is what happens if you
 // keep EMU as the SVG user unit).
-const EMU_PER_PX = 9525;
+export const EMU_PER_PX = 9525;
 
 // CSS px per typographic point.
 const PX_PER_PT = 96 / 72;
@@ -258,10 +268,8 @@ const mimeFromPartName = (name: string | null): string | null => {
   return EXT_TO_MIME[ext] ?? null;
 };
 
-// Render the picture if @office-kit/pptx handed us bytes; fall back to a
-// labelled placeholder describing why nothing is drawn. EMF / WMF
-// pictures still won't display (no browser can decode them) but the
-// label tells the user what's there.
+// Unsupported image formats retain a labelled placeholder so users can
+// identify artwork that the preview cannot render.
 const renderPicture = (
   shape: SlideShapeData,
   pres: PresentationData,
@@ -277,6 +285,13 @@ const renderPicture = (
   let mime: string | null = null;
   if (bytes && format) {
     mime = imageMime[format] ?? null;
+  }
+  if (bytes && !mime) {
+    const svg = renderEmfToSvg(bytes);
+    if (svg !== null) {
+      bytes = new TextEncoder().encode(svg);
+      mime = 'image/svg+xml';
+    }
   }
   if (bytes && !mime) {
     // Format detection failed (likely EMF/WMF/HEIC). Try the part
@@ -543,7 +558,8 @@ const gradientDef = (
   theme: PresentationTheme | null,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
-  const stops = grad.stops
+  const orderedStops = [...grad.stops].sort((a, b) => a.offset - b.offset);
+  const stops = orderedStops
     .map(
       (s) =>
         `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
@@ -559,7 +575,7 @@ const gradientDef = (
     // ECMA-376 stops paint outward from the focus center; SVG's radial
     // gradient paints from cx/cy out to r. Reverse the stops so the
     // first-stop color sits at the center, matching PowerPoint.
-    const reversed = grad.stops
+    const reversed = orderedStops
       .slice()
       .reverse()
       .map(
@@ -731,6 +747,8 @@ const patternDef = (pat: {
 
 interface PaintResult {
   fill: string;
+  /** Pre-built `fill-opacity` attribute for a translucent solid fill, else ''. */
+  fillAttrs: string;
   stroke: string;
   strokeWidth: number;
   /** Extra SVG `<defs>` the caller should emit before the shape. */
@@ -804,6 +822,7 @@ const paint = (
   pres?: PresentationData,
 ): PaintResult => {
   let fillColor: string;
+  let fillAttrs = '';
   let defs = '';
   if (fill.kind === 'solid') {
     // Prefer the transform-aware reader when we have a presentation
@@ -814,6 +833,10 @@ const paint = (
     let resolved: string | null = null;
     if (shape && pres) resolved = getShapeFillColorResolved(pres, shape);
     fillColor = resolved ?? resolveColor(fill.color, theme, '#E5E7EB');
+    // `<a:alpha>` lives beside the color, not in it — a 27% "veil" over
+    // layout artwork must not paint as an opaque block.
+    const opacity = shape ? getShapeFillOpacity(shape) : null;
+    if (opacity !== null && opacity < 1) fillAttrs = ` fill-opacity="${opacity.toFixed(3)}"`;
   } else if (fill.kind === 'none') {
     fillColor = 'none';
   } else if (fill.kind === 'gradient') {
@@ -871,6 +894,10 @@ const paint = (
     strokeColor = resolved ?? resolveColor(stroke.color, theme, '#9CA3AF');
     strokeWidth = stroke.widthEmu ?? 9_525; // 1pt
     if (shape) {
+      const opacity = getShapeStrokeOpacity(shape);
+      if (opacity !== null && opacity < 1) {
+        strokeAttrParts.push(`stroke-opacity="${opacity.toFixed(3)}"`);
+      }
       const dash = getShapeStrokeDash(shape);
       if (dash && dash !== 'solid') {
         const pattern = DASH_PATTERNS[dash];
@@ -920,6 +947,7 @@ const paint = (
   }
   return {
     fill: fillColor,
+    fillAttrs,
     stroke: strokeColor,
     strokeWidth,
     defs,
@@ -2147,13 +2175,6 @@ const renderRun = (
 // `line-height` declaration in renderRun.
 const LINE_HEIGHT = 1.05;
 
-// Rough mean glyph width as a fraction of font-size in a typical
-// sans-serif. 0.55 is what PowerPoint's auto-fit estimator uses for
-// Calibri at body sizes. Used to estimate when text wraps so the
-// renderer can shrink the font to keep wrapped placeholders from
-// overflowing.
-const AVG_GLYPH_W_RATIO = 0.55;
-
 // `<a:normAutofit/>` shrink-to-fit search bounds. PowerPoint reduces the font
 // in discrete steps until the body fits its box; we sweep from 1.0 down to the
 // floor in fixed decrements. The floor stops a pathologically small box from
@@ -2200,7 +2221,7 @@ const hasStrikeFmt = (fmt: TextFormat | null): boolean => {
   return s !== undefined && s !== false && s !== 'noStrike';
 };
 
-interface SvgTextArgs {
+export interface SvgTextArgs {
   readonly pres: PresentationData;
   readonly shape: SlideShapeData;
   readonly theme: PresentationTheme | null;
@@ -2220,6 +2241,13 @@ interface SvgTextArgs {
   readonly measure: TextMeasurer;
   readonly vert: VerticalLayout;
   readonly columns: ColumnLayout | null;
+  /** Maps an authored font name onto the family the measurer keys off.
+   *  The render paths leave this unset (= `substituteFamily`, whose output
+   *  must match the bundled TTFs' internal names for resvg). The audit path
+   *  passes the authored name through so a fontkit measurer with
+   *  user-registered fonts can resolve it before falling back to the
+   *  substitution map. */
+  readonly resolveFamily?: (family: string | null) => string;
 }
 
 const alignOf = (a: string): ParaInput['align'] =>
@@ -2239,7 +2267,9 @@ const alignOf = (a: string): ParaInput['align'] =>
 // agree for text that fits; they differ only past the box, where the deck is
 // already out of spec. Faithful multi-column upright wrapping in the SVG engine
 // is disproportionate to that edge case, so we accept the clip.
-const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): VerticalLayout => {
+export const verticalLayoutOf = (
+  vert: ReturnType<typeof getShapeTextDirection>,
+): VerticalLayout => {
   switch (vert) {
     case 'vert':
     case 'eaVert':
@@ -2256,7 +2286,7 @@ const verticalLayoutOf = (vert: ReturnType<typeof getShapeTextDirection>): Verti
 };
 
 // Build the px-native engine input from the resolved paraData (at a.autoFitScale).
-const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
+export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
   const scale = a.autoFitScale;
   const paragraphs: ParaInput[] = a.paraData.map((para, pi): ParaInput => {
     const pieces: PieceInput[] = [];
@@ -2278,7 +2308,7 @@ const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
           underline: fmt?.underline ?? true,
         };
       }
-      const family = substituteFamily(fmt?.font ?? a.themeFace);
+      const family = (a.resolveFamily ?? substituteFamily)(fmt?.font ?? a.themeFace);
       const sizePx = run.sizePt * scale * PX_PER_PT;
       const fillHex =
         fmt?.color !== undefined && fmt.color !== null
@@ -2421,16 +2451,32 @@ const buildBullet = (a: SvgTextArgs, para: ParaData, pi: number): BulletInput | 
       : para.bulletDetail.sizePts !== null
         ? para.bulletDetail.sizePts * PX_PER_PT * a.autoFitScale
         : baseSizePx;
-  const fillHex = para.bulletDetail.color
-    ? resolveColor(para.bulletDetail.color, a.theme, '#000000')
-    : a.defaultColor;
+  const fillHex = bulletFillOf(para, a.theme, a.defaultColor);
   return {
     text: char,
-    family: substituteFamily(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
+    family: (a.resolveFamily ?? substituteFamily)(para.bulletDetail.font ?? DEFAULT_BULLET_FONT),
     sizePx,
     fillHex,
     ...(para.bulletImageHref ? { imageHref: para.bulletImageHref } : {}),
   };
+};
+
+// A bullet with no `<a:buClr>` anywhere in the cascade takes the colour of the
+// paragraph's FIRST RUN, the same rule an un-sized bullet already follows for
+// its size. Falling back to the body default instead paints the marker black on
+// a deck whose runs carry their own light colour, which is what a dark-themed
+// agenda slide with `<a:buAutoNum>` looks like when the numbers go missing.
+const bulletFillOf = (
+  para: ParaData,
+  theme: PresentationTheme | null,
+  defaultColor: string,
+): string => {
+  if (para.bulletDetail.color) return resolveColor(para.bulletDetail.color, theme, '#000000');
+  const firstRun = para.runs.find((r) => r.text !== '\n' && r.text !== '');
+  const runColor = firstRun?.fmt?.color;
+  return runColor === undefined || runColor === null
+    ? defaultColor
+    : resolveColor(runColor, theme, defaultColor);
 };
 
 // Preset geometry text rectangle (ECMA-376 `<a:rect>`), as fractions of w/h.
@@ -2462,21 +2508,52 @@ const presetTextRect = (
   }
 };
 
-const renderTextBody = (
+// The render-path-independent half of a shape's text body: the resolved
+// paragraph/run model, the effective bodyPr cascade, the inner text rect, and
+// the final autofit factor. Extracted from renderTextBody so the audit API
+// (`auditTextLayout`) measures with EXACTLY the pipeline the renderer draws
+// with — any drift between the two would make the audit lie about the preview.
+export interface TextBodyModel {
+  readonly paraData: readonly ParaData[];
+  readonly numberLabels: ReadonlyArray<string | null>;
+  readonly authoredAutofit: ReturnType<typeof getShapeTextAutoFitParams>;
+  /** Final autofit factor: the baked `fontScale`, the bare-normAutofit shrink
+   *  search result, or the foreignObject-only heuristic. SVG-semantics callers
+   *  (the fidelity path, the audit) must apply it only when `authoredAutofit`
+   *  is set — see the render path's `svgScale`. */
+  readonly autoFitScale: number;
+  readonly lineHeightScale: number;
+  readonly defaultPt: number;
+  readonly themeFace: string | null;
+  readonly effectiveDefaultFont: string;
+  readonly effectiveBody: ReturnType<typeof getShapeBodyPrEffective>;
+  readonly anchor: 'top' | 'center' | 'bottom';
+  /** Inner text rect in EMU (preset-geometry text rect + insets applied). */
+  readonly innerX: number;
+  readonly innerY: number;
+  readonly innerW: number;
+  readonly innerH: number;
+  readonly svgTextRect: (v: VerticalLayout) => { x: number; y: number; w: number; h: number };
+}
+
+// Returns null when the shape has no text body worth laying out (no
+// paragraphs, no run text, or a degenerate inner rect).
+export const resolveTextBodyModel = (
   pres: PresentationData,
   shape: SlideShapeData,
   bounds: { x: number; y: number; w: number; h: number },
   theme: PresentationTheme | null,
   phType: string | null,
-  ctx: LayoutCtx,
-): string => {
+  measure: TextMeasurer,
+  defaultColor: string,
+): TextBodyModel | null => {
   let paragraphCount: number;
   try {
     paragraphCount = getShapeParagraphCount(shape);
   } catch {
-    return '';
+    return null;
   }
-  if (paragraphCount === 0) return '';
+  if (paragraphCount === 0) return null;
 
   const defaultPt = placeholderDefaultPt(phType);
   // Theme font stack — `<a:fontScheme><a:majorFont>` is the title face,
@@ -2540,7 +2617,7 @@ const renderTextBody = (
     innerW = rectW;
     innerH = rectH;
   }
-  if (innerW <= 0 || innerH <= 0) return '';
+  if (innerW <= 0 || innerH <= 0) return null;
 
   // The rect the pure-SVG path lays text into for a given vertical layout.
   // Horizontal and `upright` (wordArtVert) text use the shared inner rect; the
@@ -2708,87 +2785,54 @@ const renderTextBody = (
       indent,
     });
   }
-  if (!hasAnyText) return '';
+  if (!hasAnyText) return null;
 
   // Prefer the *authored* autofit factor when PowerPoint already
   // computed one (`<a:normAutofit fontScale=…/>`). That's the same
   // multiplier PowerPoint applies on-screen, so honouring it is what
   // brings the rendered size into 1:1 agreement with the deck.
+  //
+  // No estimation happens for shapes WITHOUT `<a:normAutofit>`: PowerPoint
+  // never shrinks those — `<a:noAutofit>` (and no autofit at all) simply
+  // overflows the box, and `<a:spAutoFit>` grows the box instead of the text.
+  // An earlier heuristic shrank such shapes to fit their authored box, which
+  // rendered template placeholders (size inherited from layout/master, box
+  // sized by the template author) at up to 0.4× of their PowerPoint size.
   const authoredAutofit = getShapeTextAutoFitParams(shape);
   let autoFitScale = authoredAutofit?.fontScale ?? 1;
-  let lineHeightScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
+  const lineHeightScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
 
-  // Only fall back to the heuristic estimator when no authored
-  // autofit ran. CJK glyphs are ~1em wide vs the ~0.55em Latin
-  // average, so detect a leading CJK character per paragraph and
-  // widen the per-line estimate accordingly — keeps Japanese titles
-  // from over-shrinking on placeholders that already fit.
-  if (!authoredAutofit) {
-    const innerWPx = innerW / EMU_PER_PX;
-    const innerHPx = innerH / EMU_PER_PX;
-    let totalH = 0;
-    for (const para of paraData) {
-      let maxSize = defaultPt;
-      let totalChars = 0;
-      let cjkChars = 0;
-      for (const run of para.runs) {
-        if (run.sizePt > maxSize) maxSize = run.sizePt;
-        totalChars += run.text.length;
-        for (let i = 0; i < run.text.length; i++) {
-          const c = run.text.charCodeAt(i);
-          // CJK Unified Ideographs, Hiragana, Katakana, Hangul.
-          if (
-            (c >= 0x3040 && c <= 0x309f) ||
-            (c >= 0x30a0 && c <= 0x30ff) ||
-            (c >= 0x4e00 && c <= 0x9fff) ||
-            (c >= 0xac00 && c <= 0xd7af)
-          )
-            cjkChars++;
-        }
-      }
-      if (totalChars === 0) totalChars = 1;
-      const cjkRatio = cjkChars / totalChars;
-      // Weighted average: CJK glyphs ≈ 1.0em wide, Latin ≈ 0.55em.
-      const glyphRatio = cjkRatio * 1.0 + (1 - cjkRatio) * AVG_GLYPH_W_RATIO;
-      const sizePx = maxSize * PX_PER_PT;
-      const charsPerLine = Math.max(1, Math.floor(innerWPx / Math.max(1, sizePx * glyphRatio)));
-      const lineCount = Math.max(1, Math.ceil(totalChars / charsPerLine));
-      totalH += sizePx * LINE_HEIGHT * lineCount;
-    }
-    if (totalH > innerHPx) {
-      autoFitScale = Math.max(0.4, innerHPx / totalH);
-    }
-  }
   // Apply line-height reduction by tightening per-line spacing. We
   // pass it through to renderRun via a closed-over factor.
   const effectiveLineHeight = LINE_HEIGHT * lineHeightScale;
   void effectiveLineHeight; // currently unused — kept for forward compat
 
-  // Numbering pre-pass — assign an autonum index per paragraph for
-  // consecutive numbered paragraphs at the same level. Resets on a
-  // non-numbered paragraph or a level change.
+  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
+  // keeps one counter per indent level: a nested list (level 1) between two
+  // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
+  // renders as such. A paragraph resets the counters of every deeper level;
+  // a non-numbered paragraph also resets its own level, and a different
+  // numbering scheme at the same level starts over at 1.
   const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
   {
-    let counter = 0;
-    let activeLevel = -1;
-    let activeType: string | null = null;
+    const counters: number[] = [];
+    const types: Array<string | null> = [];
     for (let i = 0; i < paraData.length; i++) {
       const para = paraData[i]!;
       const num = bulletAutoNumType(para.bulletStyle);
-      if (num === null) {
-        counter = 0;
-        activeLevel = -1;
-        activeType = null;
-        continue;
+      const level = Math.max(0, para.level);
+      for (let l = num === null ? level : level + 1; l < counters.length; l++) {
+        counters[l] = 0;
+        types[l] = null;
       }
-      if (para.level !== activeLevel || num !== activeType) {
-        counter = 1;
-        activeLevel = para.level;
-        activeType = num;
+      if (num === null) continue;
+      if (types[level] !== num) {
+        counters[level] = 1;
+        types[level] = num;
       } else {
-        counter += 1;
+        counters[level] = (counters[level] ?? 0) + 1;
       }
-      numberLabels[i] = formatAutoNum(num, counter);
+      numberLabels[i] = formatAutoNum(num, counters[level]!);
     }
   }
 
@@ -2827,30 +2871,87 @@ const renderTextBody = (
       lineHeightScale,
       defaultPt,
       themeFace,
-      defaultColor: activeDeckTextColor,
+      defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
       wrap: effectiveBody.wrap !== 'none',
       innerX: fitRect.x,
       innerY: fitRect.y,
       innerW: fitRect.w,
       innerH: fitRect.h,
-      measure: ctx.measure,
+      measure,
       vert: fitVert,
       columns: fitColumns,
     };
     let s = 1;
     while (s > AUTOFIT_FLOOR) {
       if (
-        measureTextBodyHeight(
-          buildSvgTextInput({ ...fitArgsBase, autoFitScale: s }),
-          ctx.measure,
-        ) <= fitBoxPx
+        measureTextBodyHeight(buildSvgTextInput({ ...fitArgsBase, autoFitScale: s }), measure) <=
+        fitBoxPx
       )
         break;
       s -= AUTOFIT_STEP;
     }
     autoFitScale = Math.max(AUTOFIT_FLOOR, s);
   }
+
+  return {
+    paraData,
+    numberLabels,
+    authoredAutofit,
+    autoFitScale,
+    lineHeightScale,
+    defaultPt,
+    themeFace,
+    effectiveDefaultFont,
+    effectiveBody,
+    anchor,
+    innerX,
+    innerY,
+    innerW,
+    innerH,
+    svgTextRect,
+  };
+};
+
+const renderTextBody = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  bounds: { x: number; y: number; w: number; h: number },
+  theme: PresentationTheme | null,
+  phType: string | null,
+  ctx: LayoutCtx,
+): string => {
+  const model = resolveTextBodyModel(
+    pres,
+    shape,
+    bounds,
+    theme,
+    phType,
+    ctx.measure,
+    activeDeckTextColor,
+  );
+  if (model === null) return '';
+  const {
+    paraData,
+    numberLabels,
+    authoredAutofit,
+    autoFitScale,
+    defaultPt,
+    themeFace,
+    effectiveDefaultFont,
+    effectiveBody,
+    anchor,
+    innerX,
+    innerY,
+    innerW,
+    innerH,
+    svgTextRect,
+  } = model;
+
+  // Fallback color for runs with no authored color — the deck's body-text color
+  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
+  // Bullets fall back through it too, so it has to be in hand before the loop.
+  const defaultColor = activeDeckTextColor;
 
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
@@ -2974,9 +3075,7 @@ const renderTextBody = (
       const bulletStyles: string[] = [
         `margin-right:${(0.4 * defaultPt * PX_PER_PT * autoFitScale).toFixed(2)}px`,
       ];
-      if (para.bulletDetail.color) {
-        bulletStyles.push(`color:${resolveColor(para.bulletDetail.color, theme, '#000000')}`);
-      }
+      bulletStyles.push(`color:${bulletFillOf(para, theme, defaultColor)}`);
       if (para.bulletDetail.sizePct !== null) {
         bulletStyles.push(`font-size:${(para.bulletDetail.sizePct * 100).toFixed(1)}%`);
       } else if (para.bulletDetail.sizePts !== null) {
@@ -3000,9 +3099,6 @@ const renderTextBody = (
   }
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
-  // Fallback color for runs with no authored color — the deck's body-text color
-  // (master bodyStyle), not the `tx1` token, which an inverted map paints white.
-  const defaultColor = activeDeckTextColor;
 
   // Pure-SVG text path (browser-free rasterization). Rebuild the px-native
   // layout model from the already-resolved paraData and hand it to the engine,
@@ -3203,6 +3299,7 @@ const layoutChart = (
   legendOverlay = false,
   hasLegend = true,
   titlePx = DEFAULT_CHART_TITLE_PT * PX_PER_PT,
+  plotAreaLayout?: ChartSpec['plotAreaLayout'],
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3219,15 +3316,23 @@ const layoutChart = (
   const padding = 8;
   const yAxisGutter = hasAxes ? 32 : 0;
   const xAxisGutter = hasAxes ? 18 : 0;
+  // Outer layouts include axis labels and titles, so their gutters still need automatic layout.
+  const inner = plotAreaLayout?.target === 'inner' ? plotAreaLayout : undefined;
+  const plotX = inner ? x + Math.max(0, Math.min(1, inner.x)) * w : x + padding + yAxisGutter;
+  const plotY = inner ? y + Math.max(0, Math.min(1, inner.y)) * h : y + titleStrip + padding;
   return {
     x,
     y,
     w,
     h,
-    plotX: x + padding + yAxisGutter,
-    plotY: y + titleStrip + padding,
-    plotW: Math.max(0, w - 2 * padding - yAxisGutter),
-    plotH: Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
+    plotX,
+    plotY,
+    plotW: inner
+      ? Math.max(0, Math.min(x + w, x + (inner.x + inner.w) * w) - plotX)
+      : Math.max(0, w - 2 * padding - yAxisGutter),
+    plotH: inner
+      ? Math.max(0, Math.min(y + h, y + (inner.y + inner.h) * h) - plotY)
+      : Math.max(0, h - titleStrip - legendStrip - xAxisGutter - 2 * padding),
     // The title sits near the TOP of its (now taller) strip, not its bottom —
     // dominant-baseline:middle, so center it ~0.7 of the title px below the top
     // edge to match where LibreOffice paints the title line.
@@ -3330,6 +3435,12 @@ interface AxisSpec {
   readonly orientation: 'vertical' | 'horizontal';
   readonly min: number;
   readonly max: number;
+  /**
+   * Which plot edge a vertical value axis hugs. `right` is the combo
+   * chart's secondary axis; ticks and labels flip to the plot's right
+   * edge. Defaults to `left`.
+   */
+  readonly side?: 'left' | 'right';
   /** percentStacked value axis: ticks are formatted as 0%..100%. */
   readonly percent?: boolean;
   readonly majorUnit?: number;
@@ -3345,6 +3456,7 @@ interface AxisSpec {
   readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Authored axis-line stroke color from `<c:valAx><c:spPr><a:ln>`. */
   readonly lineColor?: string;
+  readonly lineHidden?: boolean;
   /** Authored tick-label rotation, in degrees. */
   readonly labelRotationDeg?: number;
   /** Authored `<c:dispUnits>` value-axis scale token. */
@@ -3394,6 +3506,7 @@ const DEFAULT_AXIS_COLOR = '#000000';
 const DEFAULT_GRID_COLOR = '#D9D9D9';
 // Major tick marks read at ~5px against the 1280px-wide reference raster.
 const AXIS_TICK_LEN = 5;
+const AXIS_MINOR_TICK_LEN = 3;
 
 // Chart text carries `sizePt` in typographic points, but the SVG canvas is
 // 96px/in — emit the converted px size so labels don't render ~25% too small
@@ -3447,31 +3560,31 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
   for (const t of ticks) {
     if (axis.orientation === 'vertical') {
       const yp = f.plotY + f.plotH - ((t - axis.min) / range) * f.plotH;
+      const onRight = axis.side === 'right';
+      const edgeX = onRight ? f.plotX + f.plotW : f.plotX;
       if (showGrid) {
         out.push(
           `<line x1="${px(f.plotX)}" y1="${px(yp)}" x2="${px(f.plotX + f.plotW)}" y2="${px(yp)}" stroke="${gridStroke}" stroke-width="0.5"/>`,
         );
       }
       if (tickMark !== 'none') {
-        const tx1 = tickMark === 'in' ? f.plotX : f.plotX - tickLen;
-        const tx2 =
-          tickMark === 'out'
-            ? f.plotX
-            : tickMark === 'cross'
-              ? f.plotX + tickLen
-              : f.plotX + tickLen;
+        const outward = onRight ? tickLen : -tickLen;
+        const inward = onRight ? -tickLen : tickLen;
+        const tx1 = tickMark === 'in' ? edgeX : edgeX + outward;
+        const tx2 = tickMark === 'out' ? edgeX : edgeX + inward;
         out.push(
           `<line x1="${px(tx1)}" y1="${px(yp)}" x2="${px(tx2)}" y2="${px(yp)}" stroke="${axisColor}" stroke-width="1"/>`,
         );
       }
-      // Numeric label, right-aligned to the plot's left edge.
+      // Numeric label — right-aligned to the plot's left edge, or
+      // left-aligned to the right edge for a secondary (right) axis.
       // Authored <c:txPr><a:bodyPr rot="N"/> rotates around the
       // label anchor.
-      const labelX = f.plotX - 4;
+      const labelX = onRight ? edgeX + 4 : edgeX - 4;
       const rot = axis.labelRotationDeg ?? 0;
       const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
-        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(fmtTick(t))}</text>`,
+        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="${onRight ? 'start' : 'end'}" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(fmtTick(t))}</text>`,
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -3517,22 +3630,20 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       );
     }
   }
-  // The value-axis spine. PowerPoint always draws it for a non-deleted
-  // axis (a deleted axis never reaches this function), authored color or
-  // not — so the spine is unconditional, falling back to the default
-  // axis color when `<c:valAx><c:spPr><a:ln>` is absent.
-  if (axis.orientation === 'vertical') {
-    out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
-    );
-  } else {
-    // Horizontal value axis (bar chart) sits at the category baseline,
-    // which is value 0 when the range straddles it, else the bottom edge.
-    const zeroY = f.plotY + f.plotH - ((0 - axis.min) / range) * f.plotH;
-    const spineY = axis.min <= 0 && axis.max >= 0 ? zeroY : f.plotY + f.plotH;
-    out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(spineY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(spineY)}" stroke="${axisColor}" stroke-width="1"/>`,
-    );
+  if (!axis.lineHidden) {
+    if (axis.orientation === 'vertical') {
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
+      );
+    } else {
+      // Horizontal value axis (bar chart) sits at the category baseline,
+      // which is value 0 when the range straddles it, else the bottom edge.
+      const zeroY = f.plotY + f.plotH - ((0 - axis.min) / range) * f.plotH;
+      const spineY = axis.min <= 0 && axis.max >= 0 ? zeroY : f.plotY + f.plotH;
+      out.push(
+        `<line x1="${px(f.plotX)}" y1="${px(spineY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(spineY)}" stroke="${axisColor}" stroke-width="1"/>`,
+      );
+    }
   }
   return out.join('');
 };
@@ -3548,6 +3659,9 @@ const renderCategoryAxis = (
   labelRotationDeg?: number,
   labelAlign?: 'ctr' | 'l' | 'r',
   lineColor?: string,
+  lineHidden = false,
+  majorTickMark: ChartSpec['categoryAxisMajorTickMark'] = 'out',
+  minorTickMark: ChartSpec['categoryAxisMinorTickMark'] = 'none',
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -3619,37 +3733,39 @@ const renderCategoryAxis = (
       );
     }
   }
-  // The category-axis spine plus its major tick marks. PowerPoint draws
-  // both for every non-deleted axis (default tick mark = 'out'), with the
-  // ticks sitting at the category boundaries — N+1 of them. The spine sits
-  // at the bottom edge for horizontal (column / line / area) and the left
-  // edge for vertical (bar chart); both fall back to the default axis color
-  // when `<c:catAx><c:spPr><a:ln>` is absent.
   const axisColor = lineColor ?? DEFAULT_AXIS_COLOR;
-  if (orientation === 'horizontal') {
-    const baseY = f.plotY + f.plotH;
+  const horizontal = orientation === 'horizontal';
+  const edge = horizontal ? f.plotY + f.plotH : f.plotX;
+  const start = horizontal ? f.plotX : f.plotY;
+  const span = horizontal ? f.plotW : f.plotH;
+  if (!lineHidden) {
     out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="${axisColor}" stroke-width="1"/>`,
+      horizontal
+        ? `<line x1="${px(start)}" y1="${px(edge)}" x2="${px(start + span)}" y2="${px(edge)}" stroke="${axisColor}" stroke-width="1"/>`
+        : `<line x1="${px(edge)}" y1="${px(start)}" x2="${px(edge)}" y2="${px(start + span)}" stroke="${axisColor}" stroke-width="1"/>`,
     );
-    const stepB = pointCount > 0 ? f.plotW / pointCount : 0;
-    for (let i = 0; i <= pointCount; i++) {
-      const bx = f.plotX + i * stepB;
-      out.push(
-        `<line x1="${px(bx)}" y1="${px(baseY)}" x2="${px(bx)}" y2="${px(baseY + AXIS_TICK_LEN)}" stroke="${axisColor}" stroke-width="1"/>`,
-      );
-    }
-  } else {
-    out.push(
-      `<line x1="${px(f.plotX)}" y1="${px(f.plotY)}" x2="${px(f.plotX)}" y2="${px(f.plotY + f.plotH)}" stroke="${axisColor}" stroke-width="1"/>`,
-    );
-    const stepB = pointCount > 0 ? f.plotH / pointCount : 0;
-    for (let i = 0; i <= pointCount; i++) {
-      const by = f.plotY + i * stepB;
-      out.push(
-        `<line x1="${px(f.plotX - AXIS_TICK_LEN)}" y1="${px(by)}" x2="${px(f.plotX)}" y2="${px(by)}" stroke="${axisColor}" stroke-width="1"/>`,
-      );
-    }
   }
+  const step = pointCount > 0 ? span / pointCount : 0;
+  // Major ticks bound category slots; minor ticks sit halfway between them.
+  const ticks = (
+    mark: NonNullable<ChartSpec['categoryAxisMajorTickMark']>,
+    length: number,
+    offset: number,
+  ): void => {
+    if (mark === 'none') return;
+    const outward = mark === 'in' ? 0 : length;
+    const inward = mark === 'out' ? 0 : -length;
+    for (let i = offset; i <= pointCount; i++) {
+      const pos = start + i * step;
+      out.push(
+        horizontal
+          ? `<line x1="${px(pos)}" y1="${px(edge + outward)}" x2="${px(pos)}" y2="${px(edge + inward)}" stroke="${axisColor}" stroke-width="1"/>`
+          : `<line x1="${px(edge - outward)}" y1="${px(pos)}" x2="${px(edge - inward)}" y2="${px(pos)}" stroke="${axisColor}" stroke-width="1"/>`,
+      );
+    }
+  };
+  ticks(majorTickMark, AXIS_TICK_LEN, 0);
+  ticks(minorTickMark, AXIS_MINOR_TICK_LEN, 0.5);
   return out.join('');
 };
 
@@ -3727,13 +3843,26 @@ const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle):
   return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}" font-weight="${weight}"${fontStyleAttr}>${escapeXml(title)}</text>`;
 };
 
+// Legend text is drawn in `sans-serif` without a text measurer, so pack the
+// items with a char-class width estimate (fullwidth/CJK ≈ 1em, everything else
+// ≈ 0.55em). Fixed per-item slots overlap as soon as a CJK series name exceeds
+// the slot (e.g. 「平均品質スコア（点）」), which this estimate avoids.
+const FULLWIDTH_CHAR_PATTERN =
+  /[\u1100-\u115F\u2E80-\u303E\u3041-\u33FF\u3400-\u4DBF\u4E00-\u9FFF\uA000-\uA4CF\uAC00-\uD7A3\uF900-\uFAFF\uFE30-\uFE4F\uFF00-\uFF60\uFFE0-\uFFE6]/u;
+
+const approxLegendTextPx = (text: string, fontPx: number): number => {
+  let units = 0;
+  for (const ch of text) units += FULLWIDTH_CHAR_PATTERN.test(ch) ? 1 : 0.55;
+  return units * fontPx;
+};
+
 const renderChartLegend = (
   f: ChartFrame,
   names: ReadonlyArray<string>,
   colors: ReadonlyArray<string>,
   position: 'r' | 't' | 'b' | 'l' | 'tr' = 'b',
   textStyle?: ChartTextStyle,
-  markerSymbols?: ReadonlyArray<ChartSeries['markerSymbol']>,
+  markers?: ReadonlyArray<Pick<ChartSeries, 'markerSymbol' | 'markerColor' | 'markerLineColor'>>,
 ): string => {
   if (names.length === 0) return '';
   // Authored <c:txPr> font / weight / color overrides the 11pt #374151 default.
@@ -3747,56 +3876,65 @@ const renderChartLegend = (
   // back to the 9×9 color rect.
   const swatch = (i: number, swatchX: number, swatchY: number): string => {
     const color = colors[i % colors.length]!;
-    // `markerSymbols` is supplied only for line / area charts. In that
+    // `markers` is supplied only for line / area charts. In that
     // context an absent / `auto` symbol still plots a glyph (via the
     // automatic rotation), so the legend must show the matching glyph
     // rather than the bar/pie color rect.
-    const sym = markerSymbols?.[i];
-    if (markerSymbols !== undefined && sym !== 'none') {
+    const marker = markers?.[i];
+    if (marker !== undefined && marker.markerSymbol !== 'none') {
       const r = 4.5;
-      return seriesMarker(autoMarkerSymbol(sym, i), swatchX + r, swatchY + r, r, color);
+      return seriesMarker(
+        autoMarkerSymbol(marker.markerSymbol, i),
+        swatchX + r,
+        swatchY + r,
+        r,
+        ...markerColors(marker, color),
+      );
     }
     return `<rect x="${px(swatchX)}" y="${px(swatchY)}" width="9" height="9" fill="${color}"/>`;
   };
   const out: string[] = [];
-  if (position === 'b') {
-    // Default: horizontal row centered at the bottom.
-    const itemPx = Math.min(140, f.w / names.length);
-    const totalW = itemPx * names.length;
-    const startX = f.x + (f.w - totalW) / 2;
+  if (position === 'b' || position === 't') {
+    // Horizontal row centered along the chosen edge. Items are packed by the
+    // estimated label width — fixed per-item slots make long (especially CJK)
+    // series names spill into the neighbouring slot and overlap. When the row
+    // is wider than the frame, shrink the text instead of overlapping.
+    const swatchGapPx = 14;
+    const itemGapPx = 12;
+    const labelWidths = names.map((name, i) =>
+      approxLegendTextPx(name ?? `Series ${i + 1}`, sz * PX_PER_PT),
+    );
+    const naturalTotal =
+      labelWidths.reduce((sum, w) => sum + swatchGapPx + w, 0) + itemGapPx * (names.length - 1);
+    const scale = Math.min(1, f.w / Math.max(1, naturalTotal));
+    const effAttrs =
+      scale < 1
+        ? `font-family="sans-serif" font-size="${chartFontPx(sz * scale)}" fill="${fill}"${weight}${italic}`
+        : textAttrs;
+    const rowY = position === 'b' ? f.legendY : f.y + 12;
+    let cursor = f.x + Math.max(0, (f.w - naturalTotal * scale) / 2);
     for (let i = 0; i < names.length; i++) {
-      const cx = startX + i * itemPx;
-      const swatchX = cx + 4;
-      const swatchY = f.legendY - 4;
-      const labelX = swatchX + 14;
       out.push(
-        swatch(i, swatchX, swatchY),
-        `<text x="${px(labelX)}" y="${px(f.legendY)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+        swatch(i, cursor, rowY - 4),
+        `<text x="${px(cursor + swatchGapPx * scale)}" y="${px(rowY)}" dominant-baseline="middle" ${effAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
       );
-    }
-    return out.join('');
-  }
-  if (position === 't') {
-    const itemPx = Math.min(140, f.w / names.length);
-    const totalW = itemPx * names.length;
-    const startX = f.x + (f.w - totalW) / 2;
-    const yTop = f.y + 4;
-    for (let i = 0; i < names.length; i++) {
-      const cx = startX + i * itemPx;
-      out.push(
-        swatch(i, cx + 4, yTop),
-        `<text x="${px(cx + 18)}" y="${px(yTop + 8)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
-      );
+      cursor += (swatchGapPx + (labelWidths[i] ?? 0) + itemGapPx) * scale;
     }
     return out.join('');
   }
   // Right / Top-Right / Left — vertical stack along the chosen edge.
   // 'r' / 'l' center the stack vertically; 'tr' pins it to the top.
+  // The right-edge column is sized to the widest label (capped at 45% of the
+  // frame) so long CJK names don't run past the chart's right edge.
   const lineH = 14;
   const totalH = names.length * lineH;
   const yStart = position === 'tr' ? f.y + 12 : Math.max(f.y + 12, f.y + (f.h - totalH) / 2);
-  const xCol =
-    position === 'l' ? f.x + 6 : position === 'tr' ? f.x + f.w - 100 : /* 'r' */ f.x + f.w - 100;
+  const maxLabelPx = Math.max(
+    0,
+    ...names.map((name, i) => approxLegendTextPx(name ?? `Series ${i + 1}`, sz * PX_PER_PT)),
+  );
+  const rightColW = Math.min(f.w * 0.45, 14 + maxLabelPx + 4);
+  const xCol = position === 'l' ? f.x + 6 : /* 'r' / 'tr' */ f.x + f.w - rightColW;
   for (let i = 0; i < names.length; i++) {
     const yp = yStart + i * lineH;
     out.push(
@@ -3817,6 +3955,21 @@ const pointCount = (spec: ChartSpec): number => {
   for (const s of spec.series) if (s.values.length > n) n = s.values.length;
   return n;
 };
+
+const chartFillOpacityAttr = (opacity = 1): string =>
+  opacity === 1 ? '' : ` fill-opacity="${opacity.toFixed(3)}"`;
+
+// Stacked inversion is unsupported in the preview, so negative-color inversion stays with clustered callers.
+const chartPointBaseColor = (
+  spec: ChartSpec,
+  colors: ReadonlyArray<string>,
+  seriesIndex: number,
+  pointIndex: number,
+): string =>
+  spec.series[seriesIndex]?.pointColors?.[pointIndex] ??
+  (spec.varyColors && spec.series.length === 1
+    ? colors[pointIndex % colors.length]!
+    : (spec.series[seriesIndex]?.color ?? colors[seriesIndex % colors.length]!));
 
 const renderColumnChart = (
   f: ChartFrame,
@@ -3875,7 +4028,7 @@ const renderColumnChart = (
           f.plotY + f.plotH - ((Math.min(stackedTop, stackedBase) - min) / range) * f.plotH;
         const h = Math.abs(y1 - y0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelFor(s) && Math.abs(v) > 0) {
           const labelY = (y0 + y1) / 2 + 3;
@@ -3904,17 +4057,15 @@ const renderColumnChart = (
         // invertIfNegative paints the negative bars in the inverted shade
         // of the series color (typically a darker / muted variant).
         // varyColors (single-series): each data point gets a distinct
-        // accent color, mirroring PowerPoint's "Vary colors by point".
-        const baseColor =
-          spec.varyColors && spec.series.length === 1
-            ? colors[c % colors.length]!
-            : (spec.series[s]?.color ?? colors[s % colors.length]!);
+        // accent color, mirroring PowerPoint's "Vary colors by point". A
+        // per-point `<c:dPt>` color beats both, as it does in PowerPoint.
+        const baseColor = chartPointBaseColor(spec, colors, s, c);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
             : baseColor;
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelFor(s)) {
           // dLblPos: ctr (center) / inEnd (just inside the bar tip) /
@@ -3943,9 +4094,11 @@ const renderColumnChart = (
     }
   }
   // Zero baseline for visual reference.
-  out.push(
-    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
-  );
+  if (!(spec.categoryAxisHidden || spec.categoryAxisLineHidden)) {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+    );
+  }
   // Trendlines per series — overlay after bars so they sit on top.
   for (let s = 0; s < spec.series.length; s++) {
     const series = spec.series[s];
@@ -4133,21 +4286,27 @@ const autoMarkerSymbol = (
     : AUTO_MARKER_SYMBOLS[seriesIdx % AUTO_MARKER_SYMBOLS.length]!;
 
 // Per-series data-point marker glyph. `symbol` mirrors ECMA-376's
-// ST_MarkerStyle (subset).
+// ST_MarkerStyle (subset). `color` fills the glyph; `lineColor` strokes the
+// line-only glyphs and outlines the filled ones when it differs from the fill.
 const seriesMarker = (
   symbol: NonNullable<ChartSeries['markerSymbol']>,
   cx: number,
   cy: number,
   r: number,
   color: string,
+  lineColor: string = color,
 ): string => {
+  const paint =
+    lineColor === color
+      ? `fill="${color}"`
+      : `fill="${color}" stroke="${lineColor}" stroke-width="1"`;
   switch (symbol) {
     case 'square':
-      return `<rect x="${px(cx - r)}" y="${px(cy - r)}" width="${px(r * 2)}" height="${px(r * 2)}" fill="${color}"/>`;
+      return `<rect x="${px(cx - r)}" y="${px(cy - r)}" width="${px(r * 2)}" height="${px(r * 2)}" ${paint}/>`;
     case 'diamond':
-      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy)} ${px(cx)},${px(cy + r)} ${px(cx - r)},${px(cy)}" fill="${color}"/>`;
+      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy)} ${px(cx)},${px(cy + r)} ${px(cx - r)},${px(cy)}" ${paint}/>`;
     case 'triangle':
-      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy + r)} ${px(cx - r)},${px(cy + r)}" fill="${color}"/>`;
+      return `<polygon points="${px(cx)},${px(cy - r)} ${px(cx + r)},${px(cy + r)} ${px(cx - r)},${px(cy + r)}" ${paint}/>`;
     case 'star':
       // 5-point star, rough; good enough at marker scale.
       return `<polygon points="${(() => {
@@ -4158,22 +4317,32 @@ const seriesMarker = (
           pts.push(`${px(cx + rr * Math.cos(ang))},${px(cy + rr * Math.sin(ang))}`);
         }
         return pts.join(' ');
-      })()}" fill="${color}"/>`;
+      })()}" ${paint}/>`;
     case 'x':
-      return `<g stroke="${color}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy - r)}" x2="${px(cx + r)}" y2="${px(cy + r)}"/><line x1="${px(cx - r)}" y1="${px(cy + r)}" x2="${px(cx + r)}" y2="${px(cy - r)}"/></g>`;
+      return `<g stroke="${lineColor}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy - r)}" x2="${px(cx + r)}" y2="${px(cy + r)}"/><line x1="${px(cx - r)}" y1="${px(cy + r)}" x2="${px(cx + r)}" y2="${px(cy - r)}"/></g>`;
     case 'plus':
-      return `<g stroke="${color}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}"/><line x1="${px(cx)}" y1="${px(cy - r)}" x2="${px(cx)}" y2="${px(cy + r)}"/></g>`;
+      return `<g stroke="${lineColor}" stroke-width="1.2" stroke-linecap="round"><line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}"/><line x1="${px(cx)}" y1="${px(cy - r)}" x2="${px(cx)}" y2="${px(cy + r)}"/></g>`;
     case 'dash':
-      return `<line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}" stroke="${color}" stroke-width="${Math.max(1.5, r * 0.6).toFixed(2)}" stroke-linecap="round"/>`;
+      return `<line x1="${px(cx - r)}" y1="${px(cy)}" x2="${px(cx + r)}" y2="${px(cy)}" stroke="${lineColor}" stroke-width="${Math.max(1.5, r * 0.6).toFixed(2)}" stroke-linecap="round"/>`;
     case 'dot':
-      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${(r * 0.6).toFixed(2)}" fill="${color}"/>`;
+      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${(r * 0.6).toFixed(2)}" ${paint}/>`;
     case 'picture':
     case 'auto':
     case 'circle':
     case 'none':
     default:
-      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${px(r)}" fill="${color}"/>`;
+      return `<circle cx="${px(cx)}" cy="${px(cy)}" r="${px(r)}" ${paint}/>`;
   }
+};
+
+// Marker fill / outline the way the builder writes them: the fill falls back
+// to the series color, the outline to the fill.
+const markerColors = (
+  series: Pick<ChartSeries, 'markerColor' | 'markerLineColor'>,
+  seriesColor: string,
+): [fill: string, line: string] => {
+  const fill = series.markerColor ?? seriesColor;
+  return [fill, series.markerLineColor ?? fill];
 };
 
 // Trim long decimals; large numbers keep their integer form.
@@ -4256,7 +4425,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const x1 = f.plotX + ((Math.max(base, stackedTop) - min) / range) * f.plotW;
         const w = Math.abs(x1 - x0);
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${spec.series[s]?.color ?? colors[s % colors.length]}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelForBar(s) && Math.abs(v) > 0) {
           const labelX = (x0 + x1) / 2;
@@ -4283,16 +4452,13 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         const tip = f.plotX + ((v - min) / range) * f.plotW;
         const x0 = Math.min(tip, baseX);
         const w = Math.abs(tip - baseX);
-        const baseColor =
-          spec.varyColors && spec.series.length === 1
-            ? colors[c % colors.length]!
-            : (spec.series[s]?.color ?? colors[s % colors.length]!);
+        const baseColor = chartPointBaseColor(spec, colors, s, c);
         const fillColor =
           v < 0 && spec.series[s]?.invertIfNegative
             ? mixHex(baseColor, '#000000', 0.55)
             : baseColor;
         out.push(
-          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"/>`,
+          `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
         if (showLabelForBar(s)) {
           // dLblPos for horizontal bars uses the same enum as columns
@@ -4324,9 +4490,11 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
       }
     }
   }
-  out.push(
-    `<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
-  );
+  if (!(spec.categoryAxisHidden || spec.categoryAxisLineHidden)) {
+    out.push(
+      `<line x1="${px(baseX)}" y1="${px(f.plotY)}" x2="${px(baseX)}" y2="${px(f.plotY + f.plotH)}" stroke="#9CA3AF" stroke-width="0.5"/>`,
+    );
+  }
   return out.join('');
 };
 
@@ -4359,9 +4527,11 @@ const renderLineChart = (
   const xAt = (c: number): number => (fill ? f.plotX + c * band : f.plotX + (c + 0.5) * band);
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
   const out: string[] = [];
-  out.push(
-    `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
-  );
+  if (!(spec.categoryAxisHidden || spec.categoryAxisLineHidden)) {
+    out.push(
+      `<line x1="${px(f.plotX)}" y1="${px(baseY)}" x2="${px(f.plotX + f.plotW)}" y2="${px(baseY)}" stroke="#E5E7EB" stroke-width="0.5"/>`,
+    );
+  }
   // Track cumulative values per category for stacked rendering. Each
   // series's projected y is the cumulative sum's y.
   const accumulated: number[] = Array.from({ length: N }, () => 0);
@@ -4476,7 +4646,7 @@ const renderLineChart = (
         })()
       : '';
     out.push(
-      `<path d="${dPath}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
+      `<path d="${dPath}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
     );
     if (!isStacked) {
       // Markers show only on the "Line with Markers" subtype
@@ -4497,7 +4667,7 @@ const renderLineChart = (
         const size = series.markerSizePt ?? 5;
         const r = Math.max(1, size * 0.5);
         for (const [xp, yp] of pts) {
-          out.push(seriesMarker(symbol, xp, yp, r, color));
+          out.push(seriesMarker(symbol, xp, yp, r, ...markerColors(series, color)));
         }
       }
     }
@@ -4746,12 +4916,23 @@ const renderScatterAxes = (
     orientation: 'vertical',
     min: yB.min,
     max: yB.max,
+    ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
     ...(spec.valueAxis?.numberFormat !== undefined
       ? { numberFormat: spec.valueAxis.numberFormat }
       : {}),
   };
-  const xAxis: AxisSpec = { orientation: 'horizontal', min: xB.min, max: xB.max };
-  return renderValueAxis(f, yAxis) + renderValueAxis(f, xAxis);
+  const xAxis: AxisSpec = {
+    orientation: 'horizontal',
+    min: xB.min,
+    max: xB.max,
+    ...(spec.categoryAxisLineHidden !== undefined
+      ? { lineHidden: spec.categoryAxisLineHidden }
+      : {}),
+  };
+  return (
+    (spec.valueAxisHidden ? '' : renderValueAxis(f, yAxis)) +
+    (spec.categoryAxisHidden ? '' : renderValueAxis(f, xAxis))
+  );
 };
 
 const renderScatterChart = (
@@ -4771,6 +4952,8 @@ const renderScatterChart = (
   if (allX.length === 0) return '';
   const xB = scatterAxisBounds(allX);
   const yB = scatterAxisBounds(allY);
+  if (spec.categoryAxisScaling?.min !== undefined) xB.min = spec.categoryAxisScaling.min;
+  if (spec.categoryAxisScaling?.max !== undefined) xB.max = spec.categoryAxisScaling.max;
   if (spec.valueAxis?.min !== undefined) yB.min = spec.valueAxis.min;
   if (spec.valueAxis?.max !== undefined) yB.max = spec.valueAxis.max;
   const xRange = xB.max - xB.min || 1;
@@ -4799,7 +4982,7 @@ const renderScatterChart = (
           : proj.map(([xp, yp], i) => `${i === 0 ? 'M' : 'L'}${px(xp)},${px(yp)}`).join(' ');
       const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.5;
       out.push(
-        `<path d="${d}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"/>`,
+        `<path d="${d}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"/>`,
       );
     }
     // markerSymbol='none' always hides; an explicit symbol always shows
@@ -4809,7 +4992,10 @@ const renderScatterChart = (
     if (drawMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
       const glyph = autoMarkerSymbol(sym, s);
-      for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
+      const [markerFill, markerLine] = markerColors(series, color);
+      for (const [xp, yp] of proj) {
+        out.push(seriesMarker(glyph, xp, yp, r, markerFill, markerLine));
+      }
     }
   }
   return out.join('');
@@ -4834,6 +5020,8 @@ const renderBubbleChart = (
   if (allX.length === 0) return '';
   const xB = scatterAxisBounds(allX);
   const yB = scatterAxisBounds(allY);
+  if (spec.categoryAxisScaling?.min !== undefined) xB.min = spec.categoryAxisScaling.min;
+  if (spec.categoryAxisScaling?.max !== undefined) xB.max = spec.categoryAxisScaling.max;
   if (spec.valueAxis?.min !== undefined) yB.min = spec.valueAxis.min;
   if (spec.valueAxis?.max !== undefined) yB.max = spec.valueAxis.max;
   const xRange = xB.max - xB.min || 1;
@@ -4949,13 +5137,16 @@ const renderRadarChart = (
     const lineWPx = series.lineWidthEmu ? Math.max(0.3, series.lineWidthEmu / EMU_PER_PX) : 1.8;
     out.push(
       filled
-        ? `<polygon points="${ptsStr}" fill="${color}" fill-opacity="0.3" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`
-        : `<polygon points="${ptsStr}" fill="none" stroke="${color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`,
+        ? `<polygon points="${ptsStr}" fill="${color}" fill-opacity="0.3" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`
+        : `<polygon points="${ptsStr}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round"/>`,
     );
     if (showMarker) {
       const r = Math.max(1.5, (series.markerSizePt ?? 5) * 0.5);
       const glyph = autoMarkerSymbol(series.markerSymbol, s);
-      for (const [xp, yp] of proj) out.push(seriesMarker(glyph, xp, yp, r, color));
+      const [markerFill, markerLine] = markerColors(series, color);
+      for (const [xp, yp] of proj) {
+        out.push(seriesMarker(glyph, xp, yp, r, markerFill, markerLine));
+      }
     }
   }
   return out.join('');
@@ -4977,6 +5168,11 @@ const renderChart = (
     return null;
   }
   if (!spec) return null;
+  // There is no candlestick or surface plotter: a stock chart draws as its
+  // [open,] high / low / close lines and a surface as columns, which keeps
+  // the data legible instead of dropping the chart.
+  if (spec.kind === 'stock') spec = { ...spec, kind: 'line' };
+  else if (spec.kind === 'surface') spec = { ...spec, kind: 'column' };
   const colors = accentSequence(theme);
   const isCartesian =
     spec.kind === 'column' || spec.kind === 'bar' || spec.kind === 'line' || spec.kind === 'area';
@@ -5000,6 +5196,7 @@ const renderChart = (
     spec.legend?.overlay ?? false,
     hasLegend,
     (spec.titleStyle?.sizePt ?? DEFAULT_CHART_TITLE_PT) * PX_PER_PT,
+    spec.plotAreaLayout,
   );
   const allNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
@@ -5030,8 +5227,8 @@ const renderChart = (
   const showsMarkers =
     spec.kind === 'line' &&
     (spec.lineMarkers === true || spec.series.some((s) => explicitMarker(s.markerSymbol)));
-  const markerSymbolsForLegend = showsMarkers
-    ? spec.series.map((s) => s.markerSymbol).filter((_, i) => !hiddenSet.has(i))
+  const markersForLegend = showsMarkers
+    ? spec.series.filter((_, i) => !hiddenSet.has(i))
     : undefined;
 
   // Count finite values across all series — when zero, draw a hint
@@ -5044,12 +5241,121 @@ const renderChart = (
 
   let plot = '';
   let axes = '';
-  if (isCartesian) {
+  // Combo chart: per-series kind overrides and/or a secondary value
+  // axis. Split the series into plot groups, bake palette colors by
+  // original index (filtered specs would otherwise re-index), scale
+  // each axis from its own series, and paint bars below lines. The
+  // horizontal `bar` base kind is excluded — its value axis is
+  // horizontal and a line overlay has no meaningful geometry.
+  const isCombo =
+    isCartesian &&
+    spec.kind !== 'bar' &&
+    spec.series.some(
+      (s) => (s.chartKind !== undefined && s.chartKind !== spec.kind) || s.secondaryAxis === true,
+    );
+  if (isCombo) {
+    const baked = spec.series.map((s, i) => ({
+      ...s,
+      color: s.color ?? colors[i % colors.length] ?? '#888',
+    }));
+    const primarySeries = baked.filter((s) => s.secondaryAxis !== true);
+    const secondarySeries = baked.filter((s) => s.secondaryAxis === true);
+    const primaryScale = seriesMinMax({ ...spec, series: primarySeries });
+    // The authored valueAxis min/max targets the PRIMARY axis; the
+    // secondary axis always auto-scales from its own series.
+    const { valueAxis: _primaryOnlyAxis, ...specWithoutAxis } = spec;
+    const secondaryScale =
+      secondarySeries.length > 0
+        ? seriesMinMax({ ...specWithoutAxis, series: secondarySeries })
+        : null;
+
+    const N = pointCount(spec);
+    if (!spec.valueAxisHidden) {
+      axes = renderValueAxis(f, {
+        orientation: 'vertical',
+        min: primaryScale.min,
+        max: primaryScale.max,
+        majorUnit: spec.valueAxis?.majorUnit ?? primaryScale.step,
+        ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
+        ...(spec.valueAxisLineColor !== undefined ? { lineColor: spec.valueAxisLineColor } : {}),
+        ...(spec.valueAxisMajorTickMark !== undefined
+          ? { majorTickMark: spec.valueAxisMajorTickMark }
+          : {}),
+        ...(spec.valueAxis?.numberFormat !== undefined
+          ? { numberFormat: spec.valueAxis.numberFormat }
+          : {}),
+        ...(spec.valueAxisMajorGridlines !== undefined
+          ? { majorGridlines: spec.valueAxisMajorGridlines }
+          : {}),
+        ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
+      });
+    }
+    if (secondaryScale) {
+      axes += renderValueAxis(f, {
+        orientation: 'vertical',
+        side: 'right',
+        min: secondaryScale.min,
+        max: secondaryScale.max,
+        majorUnit: secondaryScale.step,
+        // Gridlines stay on the primary axis only — a second lattice
+        // with a different pitch reads as noise.
+        majorGridlines: false,
+        ...(spec.valueAxisLabelStyle !== undefined ? { labelStyle: spec.valueAxisLabelStyle } : {}),
+      });
+    }
+    if (N > 0 && !(spec.categoryAxisHidden || spec.categoryAxisTickLabelPos === 'none')) {
+      axes += renderCategoryAxis(
+        f,
+        'horizontal',
+        spec.categories,
+        N,
+        spec.categoryAxisTickLabelSkip ?? 1,
+        spec.categoryAxisLabelStyle,
+        spec.categoryAxisLabelRotationDeg,
+        spec.categoryAxisLabelAlign,
+        spec.categoryAxisLineColor,
+        spec.categoryAxisLineHidden,
+        spec.categoryAxisMajorTickMark,
+        spec.categoryAxisMinorTickMark,
+      );
+    }
+
+    // Group by (effective kind, axis); bars first, then line/area overlays.
+    const groups = new Map<
+      string,
+      { kind: ChartKind; secondary: boolean; series: ChartSeries[] }
+    >();
+    for (const s of baked) {
+      const kind = s.chartKind ?? spec.kind;
+      const secondary = s.secondaryAxis === true;
+      const key = `${kind}|${secondary ? '1' : '0'}`;
+      const group = groups.get(key);
+      if (group) group.series.push(s);
+      else groups.set(key, { kind, secondary, series: [s] });
+    }
+    const paintOrder = (g: { kind: ChartKind; secondary: boolean }): number =>
+      (g.secondary ? 2 : 0) + (g.kind === 'line' || g.kind === 'area' ? 1 : 0);
+    for (const group of [...groups.values()].sort((a, b) => paintOrder(a) - paintOrder(b))) {
+      const scale = group.secondary && secondaryScale ? secondaryScale : primaryScale;
+      const groupSpec: ChartSpec = {
+        ...spec,
+        series: group.series,
+        valueAxis: { min: scale.min, max: scale.max },
+      };
+      if (group.kind === 'line' || group.kind === 'area') {
+        plot += renderLineChart(f, groupSpec, colors, group.kind === 'area');
+      } else {
+        plot += renderColumnChart(f, groupSpec, colors);
+      }
+    }
+  }
+  if (!isCombo && isCartesian) {
     const { min, max, step } = seriesMinMax(spec);
     const N = pointCount(spec);
     const majorUnit = spec.valueAxis?.majorUnit ?? step;
     const numberFormat = spec.valueAxis?.numberFormat;
     const axisExtras = {
+      ...(spec.valueAxisLineHidden !== undefined ? { lineHidden: spec.valueAxisLineHidden } : {}),
       ...(majorUnit !== undefined ? { majorUnit } : {}),
       ...(numberFormat !== undefined ? { numberFormat } : {}),
       ...(spec.valueAxisMajorGridlines !== undefined
@@ -5091,45 +5397,50 @@ const renderChart = (
         spec.categoryAxisLabelRotationDeg,
         spec.categoryAxisLabelAlign,
         spec.categoryAxisLineColor,
+        spec.categoryAxisLineHidden,
+        spec.categoryAxisMajorTickMark,
+        spec.categoryAxisMinorTickMark,
       );
     }
   }
-  switch (spec.kind) {
-    case 'column':
-    case 'bar':
-      // @office-kit/pptx reports both as `bar` / `column` via separate `kind`;
-      // legacy `barDir` distinction. We branch on `kind`.
-      plot =
-        spec.kind === 'column'
-          ? renderColumnChart(f, spec, colors)
-          : renderBarChart(f, spec, colors);
-      break;
-    case 'line':
-      plot = renderLineChart(f, spec, colors, false);
-      break;
-    case 'area':
-      plot = renderLineChart(f, spec, colors, true);
-      break;
-    case 'pie':
-      plot = renderPieChart(f, spec, colors, false);
-      break;
-    case 'doughnut':
-      plot = renderPieChart(f, spec, colors, true);
-      break;
-    case 'scatter':
-      plot = renderScatterChart(f, spec, colors);
-      break;
-    case 'radar':
-      plot = renderRadarChart(f, spec, colors);
-      break;
-    case 'bubble':
-      plot = renderBubbleChart(f, spec, colors);
-      break;
-    default:
-      // stock / surface / 3D variants the reader still folds into a
-      // modeled kind never reach here; truly unmodeled kinds (resolved
-      // to `null` spec) are handled earlier. Anything left falls back.
-      return null;
+  if (!isCombo) {
+    switch (spec.kind) {
+      case 'column':
+      case 'bar':
+        // @office-kit/pptx reports both as `bar` / `column` via separate `kind`;
+        // legacy `barDir` distinction. We branch on `kind`.
+        plot =
+          spec.kind === 'column'
+            ? renderColumnChart(f, spec, colors)
+            : renderBarChart(f, spec, colors);
+        break;
+      case 'line':
+        plot = renderLineChart(f, spec, colors, false);
+        break;
+      case 'area':
+        plot = renderLineChart(f, spec, colors, true);
+        break;
+      case 'pie':
+        plot = renderPieChart(f, spec, colors, false);
+        break;
+      case 'doughnut':
+        plot = renderPieChart(f, spec, colors, true);
+        break;
+      case 'scatter':
+        plot = renderScatterChart(f, spec, colors);
+        break;
+      case 'radar':
+        plot = renderRadarChart(f, spec, colors);
+        break;
+      case 'bubble':
+        plot = renderBubbleChart(f, spec, colors);
+        break;
+      default:
+        // stock / surface were mapped to a drawable kind above, and 3-D
+        // variants read as their flat kind; truly unmodeled kinds (resolved
+        // to `null` spec) are handled earlier. Anything left falls back.
+        return null;
+    }
   }
 
   const emptyHint =
@@ -5196,7 +5507,7 @@ const renderChart = (
           spec.legend?.textStyle,
           // Marker glyphs only carry visual meaning for line / area
           // charts; bar / column / pie use the swatch rect.
-          markerSymbolsForLegend,
+          markersForLegend,
         )
       : '',
     '</g>',
@@ -5625,6 +5936,7 @@ const customGeometryToSvg = (
   w: number,
   h: number,
   fill: string,
+  fillExtra: string,
   stroke: string,
   strokeWidthEmu: number,
   strokeExtra: string,
@@ -5694,10 +6006,13 @@ const customGeometryToSvg = (
     }
     if (d.length === 0) continue;
     const pathFill = path.fill === 'none' ? 'none' : fill;
+    const fillAttrs = path.fill === 'none' ? '' : fillExtra;
     const strokeAttrs = path.stroke
       ? ` stroke="${stroke}" stroke-width="${E(strokeWidthEmu)}"${strokeExtra}${markerExtra}`
       : ' stroke="none"';
-    out.push(`<path d="${d.join(' ')}" fill="${pathFill}"${strokeAttrs} fill-rule="evenodd"/>`);
+    out.push(
+      `<path d="${d.join(' ')}" fill="${pathFill}"${fillAttrs}${strokeAttrs} fill-rule="evenodd"/>`,
+    );
   }
   return out.join('');
 };
@@ -5752,10 +6067,26 @@ const renderShape = (
   const textTransform =
     textRotation !== 0 ? ` transform="rotate(${textRotation} ${E(cx)} ${E(cy)})"` : '';
 
-  const textOverlay =
+  // A group's scale moves and resizes its children but leaves their text at the
+  // authored point size — resizing a group in PowerPoint never reflows the type,
+  // and LibreOffice renders it the same way. Laying the text out inside the
+  // group-scaled rect and cancelling the scale back out keeps the box where the
+  // geometry is while the glyphs stay undistorted; a non-uniform group scale
+  // would otherwise squash them (`<a:ext cy>` far under `<a:chExt cy>` is what
+  // Google Slides writes for a hand-resized group).
+  const { sx: gsx, sy: gsy } = ctx.groupScale;
+  const groupScaled = gsx !== 1 || gsy !== 1;
+  const textBounds = groupScaled
+    ? { x: x * gsx, y: y * gsy, w: w * gsx, h: h * gsy }
+    : { x, y, w, h };
+  const rawTextOverlay =
     kind === 'shape' || kind === 'graphicFrame'
-      ? renderTextBody(pres, shape, { x, y, w, h }, theme, phType, ctx)
+      ? renderTextBody(pres, shape, textBounds, theme, phType, ctx)
       : '';
+  const textOverlay =
+    rawTextOverlay !== '' && groupScaled
+      ? `<g transform="scale(${(1 / gsx).toFixed(6)} ${(1 / gsy).toFixed(6)})">${rawTextOverlay}</g>`
+      : rawTextOverlay;
 
   if (kind === 'picture') {
     return renderPicture(
@@ -5884,6 +6215,8 @@ const renderShape = (
     const children = getGroupChildren(shape);
     if (children.length === 0) return '';
     const tParts: string[] = [];
+    let groupScaleX = 1;
+    let groupScaleY = 1;
     // B7 — group-level rotation / flip. The group's <a:xfrm rot=…
     // flipH=… flipV=…> applies to the whole subtree, around the group's
     // outer-rect center. Compose those transforms first, then the
@@ -5921,8 +6254,10 @@ const renderShape = (
       const iy = xform.inner.y as number;
       const iw = (xform.inner.w as number) || 1;
       const ih = (xform.inner.h as number) || 1;
-      const sx = (ow / iw).toFixed(6);
-      const sy = (oh / ih).toFixed(6);
+      groupScaleX = ow / iw;
+      groupScaleY = oh / ih;
+      const sx = groupScaleX.toFixed(6);
+      const sy = groupScaleY.toFixed(6);
       // translate first, then scale, so the child's natural coords
       // (px) project: ox/EMU_PER_PX + (cx - ix) * sx / EMU_PER_PX,
       // which factors as translate(ox/EMU - ix*sx/EMU) scale(sx).
@@ -5931,7 +6266,17 @@ const renderShape = (
       tParts.push(`translate(${tx} ${ty})`, `scale(${sx} ${sy})`);
     }
     const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
-    const childrenSvg = children.map((c) => renderShape(c, pres, theme, ctx)).join('');
+    const childCtx: LayoutCtx =
+      groupScaleX === 1 && groupScaleY === 1
+        ? ctx
+        : {
+            ...ctx,
+            groupScale: {
+              sx: ctx.groupScale.sx * groupScaleX,
+              sy: ctx.groupScale.sy * groupScaleY,
+            },
+          };
+    const childrenSvg = children.map((c) => renderShape(c, pres, theme, childCtx)).join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
@@ -5972,6 +6317,7 @@ const renderShape = (
   const rawPreset = getShapePreset(shape);
   const preset = rawPreset ?? 'rect';
 
+  const fa = p.fillAttrs;
   const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
   const ma = p.markerAttrs ?? '';
   // Custom geometry (<a:custGeom>) overrides the preset path entirely.
@@ -5979,7 +6325,7 @@ const renderShape = (
   const customGeom = rawPreset === null ? getShapeCustomGeometry(shape) : null;
   let geomSvg =
     customGeom !== null
-      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, p.stroke, p.strokeWidth, sa, ma)
+      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, fa, p.stroke, p.strokeWidth, sa, ma)
       : '';
   // No preset and no rendered custom geometry means either a custGeom that
   // failed to evaluate (a true fallback — marked) or no geometry at all
@@ -5993,7 +6339,7 @@ const renderShape = (
   if (geomSvg !== '') {
     // geomSvg already holds the rendered custom geometry.
   } else if (preset === 'rect') {
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'roundRect') {
     // A6 — adjust-handle aware corner radius. <a:gd name="adj"
     // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
@@ -6002,28 +6348,28 @@ const renderShape = (
     const adjVal = adjusts.adj ?? 16667;
     const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
     const r = E(Math.min(w, h) * ratio);
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else if (preset === 'ellipse' || preset === 'oval') {
-    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
   } else {
     const pathFn = PRESET_PATHS[preset];
     if (pathFn) {
       // The path generators output CSS-px coords directly (post-E).
       const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
-      geomSvg = `<path d="${d}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
+      geomSvg = `<path d="${d}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
     } else {
       const pointsFn = PRESET_POINTS[preset];
       if (pointsFn) {
         const points = pointsFn(w / EMU_PER_PX, h / EMU_PER_PX)
           .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
           .join(' ');
-        geomSvg = `<polygon points="${points}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+        geomSvg = `<polygon points="${points}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
       } else {
         // Unrecognised preset — fall back to a rectangle, but tag it
         // with the preset name so users (and future-us) can see which
         // shape needs a renderer. The `<title>` shows on hover; the
         // `data-pptx-preset` attribute is for DevTools inspection.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}" stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
       }
     }
   }
@@ -6290,6 +6636,47 @@ const buildEffectsFilter = (
 // ---------------------------------------------------------------------------
 // Slide composition.
 
+// getSlideShapes / getSlideLayoutShapes / getSlideMasterShapes flatten group
+// descendants into the returned list (document order: each group is followed
+// immediately by its descendants), while renderShape already recurses into
+// groups and draws every child with the group transform applied. Rendering
+// the flat list verbatim would therefore paint each group child a second
+// time, untransformed — visibly offset whenever the group's chOff differs
+// from its off. Walk the flat list and skip each group's descendants.
+//
+// The decoration readers (layout / master) additionally drop placeholder
+// shapes from their flat list, so placeholder descendants must not be
+// counted when skipping.
+const flattenedDescendantCount = (group: SlideShapeData, dropPlaceholders: boolean): number => {
+  let count = 0;
+  for (const child of getGroupChildren(group)) {
+    if (!dropPlaceholders || !isShapePlaceholder(child)) count += 1;
+    if (getShapeKind(child) === 'group') {
+      count += flattenedDescendantCount(child, dropPlaceholders);
+    }
+  }
+  return count;
+};
+
+const topLevelShapes = (
+  shapes: ReadonlyArray<SlideShapeData>,
+  opts: { dropPlaceholders: boolean },
+): SlideShapeData[] => {
+  const out: SlideShapeData[] = [];
+  let skip = 0;
+  for (const shape of shapes) {
+    if (skip > 0) {
+      skip -= 1;
+      continue;
+    }
+    out.push(shape);
+    if (getShapeKind(shape) === 'group') {
+      skip = flattenedDescendantCount(shape, opts.dropPlaceholders);
+    }
+  }
+  return out;
+};
+
 export const renderSlideSvg = (
   pres: PresentationData,
   slide: SlideData,
@@ -6302,6 +6689,7 @@ export const renderSlideSvg = (
   activeColorMap = getEffectiveColorMap(slide);
   activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
   const ctx: LayoutCtx = {
+    groupScale: { sx: 1, sy: 1 },
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
   };
@@ -6395,8 +6783,12 @@ export const renderSlideSvg = (
   const layoutForBg = getSlideLayout(slide);
   if (layoutForBg) {
     try {
-      const masterShapes = getSlideMasterShapes(pres, layoutForBg);
-      const layoutShapes = getSlideLayoutShapes(pres, layoutForBg);
+      const masterShapes = topLevelShapes(getSlideMasterShapes(pres, layoutForBg), {
+        dropPlaceholders: true,
+      });
+      const layoutShapes = topLevelShapes(getSlideLayoutShapes(pres, layoutForBg), {
+        dropPlaceholders: true,
+      });
       layoutBgShapes = [...masterShapes, ...layoutShapes]
         .map((s) => renderShape(s, pres, theme, ctx))
         .join('');
@@ -6405,7 +6797,7 @@ export const renderSlideSvg = (
     }
   }
 
-  const shapesSvg = getSlideShapes(slide)
+  const shapesSvg = topLevelShapes(getSlideShapes(slide), { dropPlaceholders: false })
     .map((s) => renderShape(s, pres, theme, ctx))
     .join('');
 

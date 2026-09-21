@@ -62,8 +62,8 @@
 
   type PackagePart = { name: string; contentType: string; byteLength: number };
 
-  let fileName = $state<string>('(drop a .pptx here, or pick one)');
-  let status = $state<string>('Ready.');
+  let fileName = $state<string>('');
+  let status = $state<string>('');
   let busy = $state<boolean>(false);
   let dropping = $state<boolean>(false);
   let slideCount = $state<number>(0);
@@ -146,14 +146,31 @@
       // Re-save so the round-trip button has something to offer.
       lastBytes = await savePresentation(pres);
       fileName = source;
-      status = `Parsed ${list.length} slide(s) · ${parts.length} OPC parts.`;
+      status = `Parsed ${list.length} ${list.length === 1 ? 'slide' : 'slides'} and ${parts.length} package parts.`;
     } catch (err) {
-      status = `Failed: ${err instanceof Error ? err.message : String(err)}`;
+      status = `This file could not be parsed: ${err instanceof Error ? err.message : String(err)}`;
       slides = [];
       parts = [];
     } finally {
       busy = false;
     }
+  }
+
+  const deckFlags = $derived.by(() => {
+    if (!summary) return [];
+    const flags: string[] = [];
+    if (summary.hiddenSlideCount > 0) flags.push(`${summary.hiddenSlideCount} hidden`);
+    if (summary.hasCharts) flags.push('charts');
+    if (summary.hasComments) flags.push('comments');
+    if (summary.hasAnimations) flags.push('animations');
+    return flags;
+  });
+
+  // Gives a visitor with no .pptx at hand something real to inspect: the deck
+  // from the landing page, built in this tab.
+  async function loadDemoDeck() {
+    const { buildHeroDeck } = await import('$lib/examples/hero-deck');
+    await inspect(await savePresentation(buildHeroDeck()), 'office-kit-demo.pptx');
   }
 
   async function onFileChosen(file: File) {
@@ -189,28 +206,18 @@
 </svelte:head>
 
 <section class="content">
-  <p class="eyebrow">§ 03 · Playground</p>
-  <h1>Inspect a <code>.pptx</code> in the browser.</h1>
+  <h1>Inspect a .pptx in your browser</h1>
   <p class="lede">
-    Drop a file below. The page parses it with the real <code>@office-kit/pptx</code> source from this
-    repo, renders each slide's shapes as approximate SVG (preset geometry, fills, strokes,
-    rotation, embedded images), and dumps the OPC parts list. No bytes leave your machine — the
-    whole pipeline runs in this tab. For loading via fetch / fs see
-    <a href="{base}/docs/getting-started">Getting started</a>.
-  </p>
-  <p class="caveat">
-    <strong>High-fidelity preview.</strong> Preset and custom geometry, theme / placeholder
-    inheritance, gradient / pattern / picture fills, effects, charts, and tables render;
-    SmartArt, animations, and 3D show as labelled fallbacks. PowerPoint or LibreOffice
-    remains the pixel-authoritative renderer.
+    Drop a file and this page parses it with the real <code>@office-kit/pptx</code> source, draws
+    every slide with <code>@office-kit/pptx-preview</code>, validates the package, and lists its
+    parts. Nothing is uploaded: the whole pipeline runs in this tab.
   </p>
 
   <div
     class="drop"
     class:dropping
-    role="button"
-    tabindex="0"
-    aria-label="Drop a .pptx here"
+    role="group"
+    aria-label="Choose a .pptx file"
     ondragover={(e) => {
       e.preventDefault();
       dropping = true;
@@ -218,105 +225,107 @@
     ondragleave={() => (dropping = false)}
     ondrop={onDrop}
   >
-    <span class="drop-coord">▸</span>
-    <span class="drop-text">{fileName}</span>
-    <label class="drop-pick">
-      <input
-        type="file"
-        accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
-        onchange={(e) => {
-          const f = (e.currentTarget as HTMLInputElement).files?.[0];
-          if (f) onFileChosen(f);
-        }}
-      />
-      <span>Pick a file</span>
-    </label>
-    {#if lastBytes}
-      <button class="drop-roundtrip" onclick={downloadRoundtrip}>
-        Download round-trip
+    <p class="drop-text">{fileName || 'Drop a .pptx file here'}</p>
+    <div class="drop-actions">
+      <label class="btn primary drop-pick">
+        <input
+          type="file"
+          accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation"
+          onchange={(e) => {
+            const f = (e.currentTarget as HTMLInputElement).files?.[0];
+            if (f) onFileChosen(f);
+          }}
+        />
+        Choose a file
+      </label>
+      <button type="button" class="btn" onclick={loadDemoDeck} disabled={busy}>
+        Load the demo deck
       </button>
-    {/if}
+      {#if lastBytes}
+        <button type="button" class="btn" onclick={downloadRoundtrip}>
+          Download the re-saved file
+        </button>
+      {/if}
+    </div>
   </div>
+
+  <p class="caveat">
+    The preview renders preset and custom geometry, theme and placeholder inheritance, gradient,
+    pattern, and picture fills, effects, charts, and tables. SmartArt, animations, and 3D show as
+    labelled placeholders. PowerPoint and LibreOffice remain the pixel-exact renderers.
+  </p>
 
   <p class="status" class:busy aria-live="polite">{status}</p>
 
   {#if slideCount > 0}
-    <div class="meta">
+    <div class="meta-clip"><div class="meta">
       <div class="cell">
-        <span class="label">slides</span>
+        <span class="label">Slides</span>
         <span class="value">{slideCount}</span>
       </div>
       <div class="cell">
-        <span class="label">parts</span>
+        <span class="label">Package parts</span>
         <span class="value">{parts.length}</span>
       </div>
       <div class="cell">
-        <span class="label">core / title</span>
-        <span class="value">{coreTitle || '—'}</span>
+        <span class="label">Title</span>
+        <span class="value">{coreTitle || 'Not set'}</span>
       </div>
       <div class="cell">
-        <span class="label">core / creator</span>
-        <span class="value">{coreCreator || '—'}</span>
+        <span class="label">Creator</span>
+        <span class="value">{coreCreator || 'Not set'}</span>
       </div>
       {#if summary}
         <div class="cell">
-          <span class="label">theme</span>
-          <span class="value">{summary.themeName ?? '—'}</span>
+          <span class="label">Theme</span>
+          <span class="value">{summary.themeName ?? 'Not set'}</span>
         </div>
         <div class="cell">
-          <span class="label">masters · layouts · sections</span>
-          <span class="value">{masterCount} · {summary.layoutCount} · {summary.sectionCount}</span>
+          <span class="label">Masters, layouts, sections</span>
+          <span class="value">{masterCount}, {summary.layoutCount}, {summary.sectionCount}</span>
         </div>
         <div class="cell">
-          <span class="label">shapes (total)</span>
+          <span class="label">Shapes</span>
           <span class="value">{summary.totalShapes}</span>
         </div>
         <div class="cell">
-          <span class="label">deck flags</span>
-          <span class="value">
-            {summary.hiddenSlideCount > 0 ? `${summary.hiddenSlideCount} hidden · ` : ''}{summary.hasCharts
-              ? 'charts · '
-              : ''}{summary.hasComments ? 'comments · ' : ''}{summary.hasAnimations
-              ? 'animations'
-              : ''}{!summary.hasCharts && !summary.hasComments && !summary.hasAnimations && summary.hiddenSlideCount === 0
-              ? '—'
-              : ''}
-          </span>
+          <span class="label">Also contains</span>
+          <span class="value">{deckFlags.length > 0 ? deckFlags.join(', ') : 'Nothing else'}</span>
         </div>
         {#if chartKindCounts && Object.values(chartKindCounts).some((n) => n > 0)}
           <div class="cell">
-            <span class="label">chart kinds</span>
+            <span class="label">Chart kinds</span>
             <span class="value">
               {Object.entries(chartKindCounts)
                 .filter(([, n]) => n > 0)
                 .map(([k, n]) => `${n} ${k}`)
-                .join(' · ')}
+                .join(', ')}
             </span>
           </div>
         {/if}
         {#if layoutTypeCounts && Object.keys(layoutTypeCounts).length > 0}
           <div class="cell">
-            <span class="label">layout types in use</span>
+            <span class="label">Layout types in use</span>
             <span class="value">
               {Object.entries(layoutTypeCounts)
                 .map(([k, n]) => `${n} ${k}`)
-                .join(' · ')}
+                .join(', ')}
             </span>
           </div>
         {/if}
         {#if commentAuthorCounts && Object.keys(commentAuthorCounts).length > 0}
           <div class="cell">
-            <span class="label">comment authors</span>
+            <span class="label">Comment authors</span>
             <span class="value">
               {Object.entries(commentAuthorCounts)
                 .sort(([, a], [, b]) => b - a)
                 .map(([k, n]) => `${k} (${n})`)
-                .join(' · ')}
+                .join(', ')}
             </span>
           </div>
         {/if}
       {/if}
-    </div>
+    </div></div>
 
     {#if issues.length > 0}
       <h2>Validation</h2>
@@ -341,7 +350,7 @@
         {/if}
         <li id={`slide-${s.index}`}>
           <div class="s-head">
-            <a class="s-num" href={`#slide-${s.index}`} title="copy link to this slide">{String(s.index).padStart(2, '0')}</a>
+            <a class="s-num" href={`#slide-${s.index}`} title="Link to this slide">Slide {s.index}</a>
             <span class="s-title">{s.title || '(untitled)'}</span>
             {#if s.layoutType}<span class="s-badge" title={s.layoutName ? `layout: ${s.layoutName} (type: ${s.layoutType})` : `slide layout type: ${s.layoutType}`}>{s.layoutType}</span>{/if}
             {#if s.hidden}<span class="s-badge s-badge-hidden" title='show="0" — hidden from slideshow'>hidden</span>{/if}
@@ -353,7 +362,7 @@
             {#if s.hyperlinkCount > 0}<span class="s-badge" title="shapes whose text body carries an <a:hlinkClick>">{s.hyperlinkCount} link</span>{/if}
             {#if s.mediaCount > 0}<span class="s-badge" title="number of media parts (images / audio / video) the slide references">{s.mediaCount} media</span>{/if}
             {#if s.notes && s.notes.length > 0}<span class="s-badge" title="speaker notes character count">{s.notes.length} notes</span>{/if}
-            <span class="s-len">{s.textLength} chars · {s.shapeKinds.length} shapes</span>
+            <span class="s-len">{s.textLength} characters, {s.shapeKinds.length} shapes</span>
           </div>
           <div class="s-canvas">
             {@html s.svg}
@@ -375,10 +384,11 @@
       {/each}
     </ol>
 
-    <h2>OPC parts</h2>
+    <h2>Package parts</h2>
+    <div class="table-scroll">
     <table class="parts">
       <thead>
-        <tr><th>part</th><th>content-type</th><th>bytes</th></tr>
+        <tr><th>Part</th><th>Content type</th><th>Bytes</th></tr>
       </thead>
       <tbody>
         {#each parts as p (p.name)}
@@ -390,189 +400,173 @@
         {/each}
       </tbody>
     </table>
+    </div>
   {/if}
 </section>
 
 <style>
   .content {
-    max-width: var(--max-content);
+    max-width: 1000px;
     margin: 0 auto;
-    padding: 2.25rem 1.5rem 5rem;
-  }
-
-  .eyebrow {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--fg-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    margin: 0 0 0.85rem;
-  }
-
-  h1 {
-    font-family: var(--display);
-    font-weight: 460;
-    font-size: clamp(2rem, 4.6vw, 2.95rem);
-    line-height: 1.05;
-    letter-spacing: -0.026em;
-    margin: 0 0 1rem;
-    border: none;
-    padding: 0;
-    font-variation-settings: 'opsz' 144, 'SOFT' 30;
-    max-width: 22ch;
-  }
-
-  h2 {
-    font-family: var(--display);
-    font-weight: 500;
-    font-size: 1.45rem;
-    letter-spacing: -0.015em;
-    margin: 2.25rem 0 0.75rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid var(--border);
-    font-variation-settings: 'opsz' 96, 'SOFT' 25;
+    padding: 2.75rem var(--gutter) 5rem;
   }
 
   .lede {
-    color: var(--fg-soft);
-    font-size: 1.05rem;
-    line-height: 1.55;
-    max-width: 64ch;
-    margin: 0 0 0.6rem;
-  }
-
-  .caveat {
-    color: var(--fg-muted);
-    font-size: 0.88rem;
-    max-width: 64ch;
-    margin: 0 0 1.75rem;
-    line-height: 1.55;
-  }
-
-  .caveat strong {
-    color: var(--fg-soft);
+    max-width: 66ch;
+    color: var(--ink-2);
+    font-size: 1.08rem;
   }
 
   .drop {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 1rem;
-    padding: 1.1rem 1.25rem;
-    border: 1px dashed var(--border-strong);
-    border-radius: var(--radius);
-    background: var(--bg-elev);
+    gap: 1.1rem;
+    margin: 2rem 0 0;
+    padding: 2.25rem 1.25rem;
+    border: 1.5px dashed var(--line-strong);
+    border-radius: 12px;
+    background: var(--wash);
+    text-align: center;
     transition:
-      background 150ms ease,
-      border-color 150ms ease;
-    flex-wrap: wrap;
+      border-color 120ms ease,
+      background 120ms ease;
   }
 
   .drop.dropping {
-    background: var(--accent-soft);
     border-color: var(--accent);
-  }
-
-  .drop-coord {
-    color: var(--accent);
-    font-family: var(--mono);
-    font-weight: 600;
+    background: var(--accent-wash);
   }
 
   .drop-text {
-    font-family: var(--mono);
-    font-size: 0.92rem;
-    color: var(--fg);
-    flex: 1;
-    min-width: 12ch;
+    margin: 0;
+    font-family: var(--display);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    overflow-wrap: anywhere;
   }
 
-  .drop-pick {
-    display: inline-flex;
-    cursor: pointer;
+  .drop-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.6rem;
   }
 
   .drop-pick input {
-    display: none;
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
   }
 
-  .drop-pick span {
-    padding: 0.55rem 0.95rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--bg);
-    color: var(--fg);
-    font-family: var(--sans);
-    font-size: 0.92rem;
+  .drop-pick:focus-within {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
-  .drop-pick span:hover {
-    border-color: var(--border-strong);
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: progress;
   }
 
-  .drop-roundtrip {
-    padding: 0.55rem 0.95rem;
-    border: 1px solid var(--accent);
-    background: var(--accent);
-    color: var(--bg);
-    border-radius: var(--radius-sm);
-    font-family: var(--sans);
-    font-size: 0.92rem;
-    font-weight: 540;
-    cursor: pointer;
-  }
-
-  .drop-roundtrip:hover {
-    background: var(--accent-hot);
-    border-color: var(--accent-hot);
+  .caveat {
+    max-width: 72ch;
+    margin: 1rem 0 0;
+    color: var(--ink-3);
+    font-size: 0.88rem;
   }
 
   .status {
-    margin: 1rem 0 0;
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    color: var(--fg-muted);
+    min-height: 1.6em;
+    margin: 1.5rem 0 0;
+    color: var(--ink-2);
+    font-size: 0.95rem;
   }
 
   .status.busy {
-    color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  h2 {
+    margin: 3rem 0 1rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid var(--line);
+    font-size: 1.4rem;
+  }
+
+  /* Each cell draws its own right and bottom rule and the grid is pulled 1px
+   * past the clipping box, so the outer edge never doubles up and a short last
+   * row leaves plain paper rather than a filled gap. */
+  .meta-clip {
+    margin-top: 1rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
   }
 
   .meta {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    overflow: hidden;
-    margin: 1.5rem 0 0;
-    background: var(--bg-paper);
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    margin: 0 -1px -1px 0;
   }
 
   .cell {
     display: flex;
     flex-direction: column;
-    gap: 0.2rem;
-    padding: 0.9rem 1rem;
-    border-right: 1px solid var(--border);
-  }
-
-  .cell:last-child {
-    border-right: none;
+    gap: 0.15rem;
+    padding: 0.8rem 1rem;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
   }
 
   .label {
-    font-family: var(--mono);
-    font-size: 10.5px;
-    font-weight: 500;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--fg-muted);
+    color: var(--ink-3);
+    font-size: 0.8rem;
   }
 
   .value {
-    font-family: var(--display);
-    font-size: 1.05rem;
-    color: var(--fg);
-    font-variation-settings: 'opsz' 32, 'SOFT' 25;
+    font-weight: 600;
+    font-size: 0.97rem;
+    overflow-wrap: anywhere;
+  }
+
+  .issues {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .issue {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.4rem 0.75rem;
+    margin: 0;
+    padding: 0.7rem 0;
+    border-bottom: 1px solid var(--line);
+    font-size: 0.93rem;
+  }
+
+  .issue-sev {
+    flex: none;
+    padding: 0.05rem 0.5rem;
+    border-radius: 999px;
+    background: var(--wash);
+    border: 1px solid var(--line-strong);
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .issue-error .issue-sev {
+    background: var(--accent-wash);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .issue-msg {
+    flex: 1 1 16rem;
   }
 
   .slides {
@@ -581,200 +575,142 @@
     padding: 0;
   }
 
-  .slides li {
-    padding: 1.1rem 0 1.6rem;
-    border-bottom: 1px solid var(--rule);
+  .slides > li {
+    margin: 0 0 2.5rem;
+    scroll-margin-top: calc(var(--header-h) + 1rem);
+  }
+
+  .section-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 2.5rem 0 1.25rem !important;
+    color: var(--ink-2);
+    font-weight: 600;
+  }
+
+  .section-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--line);
   }
 
   .s-head {
     display: flex;
-    align-items: baseline;
-    gap: 0.8rem;
     flex-wrap: wrap;
-    margin-bottom: 0.55rem;
+    align-items: baseline;
+    gap: 0.35rem 0.6rem;
+    margin-bottom: 0.6rem;
   }
 
   .s-num {
     font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--accent);
-    font-weight: 500;
-    text-decoration: none;
-  }
-
-  .s-num:hover {
-    text-decoration: underline;
+    font-size: 0.85rem;
+    font-weight: 550;
   }
 
   .s-title {
-    font-family: var(--display);
-    font-weight: 540;
-    font-size: 1.05rem;
-    flex: 1;
-    min-width: 18ch;
+    font-weight: 600;
+  }
+
+  .s-badge {
+    padding: 0.02rem 0.45rem;
+    border: 1px solid var(--line-strong);
+    border-radius: 999px;
+    color: var(--ink-2);
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+
+  .s-badge-hidden {
+    border-color: var(--accent);
+    color: var(--accent-ink);
   }
 
   .s-len {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--fg-muted);
+    margin-left: auto;
+    color: var(--ink-3);
+    font-size: 0.82rem;
   }
 
+  /* Slides are always drawn on white: that is the page colour of the deck,
+   * not of this site, so it must not follow the dark theme. */
   .s-canvas {
-    aspect-ratio: 16 / 9;
-    background: #ffffff;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
+    border: 1px solid var(--line-strong);
+    border-radius: 4px;
+    background: #fff;
     overflow: hidden;
-    box-shadow: 0 4px 18px -10px rgba(0, 0, 0, 0.45);
+    box-shadow: var(--shadow-pop);
   }
 
   .s-canvas :global(svg) {
     display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
   }
 
   .s-kinds {
-    margin: 0.55rem 0 0;
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
+    gap: 0.3rem;
+    margin: 0.6rem 0 0;
   }
 
   .s-kinds code {
-    font-size: 11px;
-    padding: 0.1em 0.45em;
-  }
-
-  .section-divider {
-    list-style: none;
-    margin: 1.5rem 0 0.5rem;
-    padding: 0.5rem 0;
-    border-bottom: 1px dashed var(--border, #cbd5e1);
-    font-family: var(--mono, monospace);
-    font-size: 0.85rem;
-    color: var(--muted, #4b5563);
-  }
-
-  .section-divider .section-name {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .s-badge {
-    display: inline-block;
-    padding: 0.05em 0.45em;
-    font-size: 10px;
-    font-family: var(--mono, monospace);
-    color: var(--muted, #4b5563);
-    background: var(--panel, #f1f5f9);
-    border-radius: 3px;
-    margin-left: 0.25em;
-  }
-
-  .s-badge-hidden {
-    color: #92400e;
-    background: #fef3c7;
-  }
-
-  .issues {
-    list-style: none;
-    margin: 0.5rem 0 1.5rem;
-    padding: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.35rem;
-    font-size: 0.88rem;
-  }
-
-  .issue {
-    display: flex;
-    gap: 0.5rem;
-    padding: 0.35rem 0.55rem;
-    border-radius: 4px;
-    background: var(--panel, #f8fafc);
-  }
-
-  .issue-error {
-    color: #b91c1c;
-    background: #fee2e2;
-  }
-
-  .issue-warning {
-    color: #92400e;
-    background: #fef3c7;
-  }
-
-  .issue-sev {
-    font-family: var(--mono, monospace);
-    font-size: 11px;
-    text-transform: uppercase;
-    align-self: center;
-  }
-
-  .issue-msg {
-    flex: 1;
-  }
-
-  .issue-part {
-    font-family: var(--mono, monospace);
-    font-size: 11px;
-    opacity: 0.7;
+    font-size: 0.76rem;
   }
 
   .s-notes {
-    margin: 0.55rem 0 0;
-    font-size: 0.85rem;
-    color: var(--muted, #4b5563);
+    margin-top: 0.6rem;
+    font-size: 0.9rem;
   }
 
   .s-notes summary {
     cursor: pointer;
-    user-select: none;
+    color: var(--ink-2);
   }
 
   .s-notes pre {
-    margin: 0.4rem 0 0;
-    padding: 0.5rem 0.7rem;
-    background: var(--panel, #f8fafc);
-    border-radius: 4px;
     white-space: pre-wrap;
-    word-break: break-word;
-    font-family: inherit;
-    font-size: inherit;
   }
 
   .parts {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.88rem;
-    font-family: var(--mono);
+    min-width: 560px;
+    margin: 0;
+    font-size: 0.85rem;
   }
 
-  .parts th,
-  .parts td {
-    text-align: left;
-    border-bottom: 1px solid var(--rule);
-    padding: 0.4rem 0.6rem;
-    vertical-align: top;
+  .parts code {
+    padding: 0;
+    border: none;
+    background: none;
+    overflow-wrap: anywhere;
   }
 
-  .parts th {
-    color: var(--fg-muted);
-    font-weight: 500;
-    font-size: 11px;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
+  .ct {
+    color: var(--ink-2);
+    overflow-wrap: anywhere;
   }
 
-  .parts .ct {
-    color: var(--fg-muted);
-    font-size: 11.5px;
-  }
-
-  .parts .num {
+  .num {
     text-align: right;
-    color: var(--fg-soft);
+    font-family: var(--mono);
+    white-space: nowrap;
+  }
+
+  .parts th:last-child {
+    text-align: right;
+  }
+
+  @media (max-width: 560px) {
+    .drop-actions .btn {
+      flex: 1 1 100%;
+    }
+
+    .s-len {
+      margin-left: 0;
+      flex-basis: 100%;
+    }
   }
 </style>

@@ -27,13 +27,24 @@ export type { ImageFormat } from '../internal/opc/index.ts';
 export type {
   ChartAxisScaling,
   ChartDataLabels,
+  ChartDataTable,
+  ChartDateAxis,
+  ChartErrorBarAmount,
+  ChartErrorBars,
+  ChartSecondaryValueAxis,
   ChartGrouping,
   ChartKind,
   ChartDataLabelPosition,
+  ChartManualLayout,
+  ChartOfPie,
   ChartSeries,
+  ChartSeriesAxis,
   ChartSpec,
   ChartTextStyle,
+  ChartTimeUnit,
   ChartTrendline,
+  ChartUpDownBars,
+  ChartView3D,
 } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
@@ -41,6 +52,13 @@ export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type { AnimationEffect, AnimationOptions } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type { ImageFit } from './fn.ts';
+export type {
+  AudioFormat,
+  ShapeMedia,
+  SlideMediaOptions,
+  SlideMediaSource,
+  VideoFormat,
+} from './fn.ts';
 export type {
   ArrowOptions,
   GlowOptions,
@@ -106,6 +124,7 @@ export {
   addSlideComment,
   addSlideImage,
   addSlideLine,
+  addSlideMedia,
   addSlideShape,
   addSlideTable,
   addSlideTextBox,
@@ -152,6 +171,7 @@ export {
   findShapesInRect,
   findShapesWithAnimation,
   findShapesWithHyperlinks,
+  findShapesWithMedia,
   findSlidesWithChartKind,
   findSlidesWithChartTrendlines,
   findShapesByKind,
@@ -204,6 +224,7 @@ export {
   getParagraphBullet,
   getParagraphBulletStyle,
   getParagraphBulletImageBytes,
+  getParagraphEndFormat,
   getParagraphIndent,
   getParagraphLevel,
   getParagraphLineSpacing,
@@ -234,6 +255,7 @@ export {
   getShapeGradientFillEffective,
   getShapeFillColor,
   getShapeFillColorResolved,
+  getShapeFillOpacity,
   getShapeFlip,
   getShapeHyperlink,
   getShapeHyperlinkTooltip,
@@ -251,6 +273,7 @@ export {
   getShapeImagePartName,
   getShapeIndex,
   getShapeKind,
+  getShapeMedia,
   getShapeName,
   getShapePatternFill,
   getShapeParagraphCount,
@@ -305,6 +328,7 @@ export {
   getShapeStrokeCompound,
   getShapeStrokeDash,
   getShapeStrokeJoin,
+  getShapeStrokeOpacity,
   getShapeStrokeWidth,
   getShapeText,
   getShapeTextAnchor,
@@ -432,6 +456,7 @@ export {
   replaceHyperlink,
   resolveDeckBodyTextColor,
   resolveDrawingColor,
+  resolveDrawingColorOpacity,
   replaceTextInNotes,
   replaceTextInPresentation,
   replaceTextInSlide,
@@ -471,6 +496,7 @@ export {
   setShapeNoFill,
   setShapeNoStroke,
   setShapePatternFill,
+  setShapeParagraphs,
   setParagraphAlignment,
   setParagraphBullet,
   setParagraphLevel,
@@ -516,6 +542,7 @@ export {
   setTableCellBorders,
   setTableCellFill,
   setTableCellMargins,
+  setTableCellParagraphs,
   setTableCellText,
   setTableCellTextDirection,
   setTableCellTextFormat,
@@ -535,7 +562,14 @@ export {
   validatePresentation,
 } from './fn.ts';
 
-export type { BulletStyle, ParagraphAlignment, TextFormat } from '../internal/drawingml/index.ts';
+export type {
+  BulletStyle,
+  ParagraphAlignment,
+  ParagraphAlignmentToken,
+  ParagraphSpec,
+  RunSpec,
+  TextFormat,
+} from '../internal/drawingml/index.ts';
 export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type {

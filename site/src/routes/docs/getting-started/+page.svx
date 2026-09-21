@@ -6,7 +6,11 @@
   const ex = data.examples;
 </script>
 
-# Getting started
+# Core library workflows
+
+To create slides by editing TSX with an AI agent and a live preview, start with
+<a href="{base}/docs/authoring">Create slides with AI</a>. This page covers
+the underlying function API.
 
 This page walks the canonical @office-kit/pptx workflows: **fill a template**, **build a deck from scratch**, **edit images in place**. Every snippet below is a real `.ts` file in this repo — `svelte-check` compiles them against the live `@office-kit/pptx` types on every build, so when this page renders, it's already proven that the code typechecks.
 
@@ -18,9 +22,9 @@ The most common @office-kit/pptx use case: take a designer-authored template, sw
 
 `loadPresentation` accepts a `Uint8Array`, `ArrayBuffer`, or `Blob` — anything you can `fetch` or `readFile`. `replaceTokensInPresentation` walks every text run in every slide (and the speaker notes) replacing exact-match `{{name}}` tokens.
 
-## Build a deck from a blank template
+## Build a deck from scratch
 
-For authoring from scratch you still need at least one master + layout — the simplest path is to ship a small `blank.pptx` alongside your app. Then add slides on its layouts and fill them in with the typed `addSlide*` helpers:
+`createPresentation()` returns an empty deck that already carries a slide master, the Office theme, and three layouts (`Blank`, `Title Slide`, `Title and Content`), so there is no template file to ship. Add slides with `addTitleSlide` / `addContentSlide` / `addBlankSlide`, then fill them in with the typed `addSlide*` helpers:
 
 <CodeBlock html={ex.buildDeck.html} title={ex.buildDeck.path} />
 

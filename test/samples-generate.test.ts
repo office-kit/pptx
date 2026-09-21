@@ -15,10 +15,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, it } from 'vitest';
 import {
+  type ChartSpec,
   addSlide,
   addSlideChart,
   addSlideComment,
   addSlideImage,
+  addSlideMedia,
   addSlideLine,
   addSlideShape,
   addSlideTable,
@@ -1234,10 +1236,8 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
   it('28 — multilevel bullets and autonumbered indent levels', async () => {
     const pres = await loadBlank();
 
-    // Slide 1: a 3-deep nested bulleted list. The `lvl` attribute (via
-    // setParagraphLevel) pulls each deeper level in using the deck's
-    // defaultTextStyle indents; per-level bullet chars keep the nesting
-    // legible (•, ◦, – are all covered by the bundled faces).
+    // Per-level bullet chars reinforce the nesting shown by explicit paragraph
+    // indents (•, ◦, – are all covered by the bundled faces).
     const s1 = freshSlide(pres);
     setSlideTitle(s1, 'Nested bullets');
     const nested = addSlideTextBox(s1, {
@@ -2572,5 +2572,255 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
 
     const bytes = await savePresentation(pres);
     await writeSample('41-marketing-one-pager.pptx', bytes);
+  });
+
+  it('42 — media (generated WAV tone, online video, embedded video container)', async () => {
+    const pres = await loadBlank();
+
+    // One second of a 440 Hz sine as 8-bit mono PCM: a real, playable clip
+    // without checking a binary asset into the repo.
+    const sampleRate = 8000;
+    const wav = new Uint8Array(44 + sampleRate);
+    const view = new DataView(wav.buffer);
+    const ascii = (at: number, text: string): void => {
+      for (let i = 0; i < text.length; i++) wav[at + i] = text.charCodeAt(i);
+    };
+    ascii(0, 'RIFF');
+    view.setUint32(4, 36 + sampleRate, true);
+    ascii(8, 'WAVEfmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM
+    view.setUint16(22, 1, true); // mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate, true); // byte rate
+    view.setUint16(32, 1, true); // block align
+    view.setUint16(34, 8, true); // bits per sample
+    ascii(36, 'data');
+    view.setUint32(40, sampleRate, true);
+    for (let i = 0; i < sampleRate; i++) {
+      wav[44 + i] = 128 + Math.round(100 * Math.sin((2 * Math.PI * 440 * i) / sampleRate));
+    }
+
+    const audioSlide = freshSlide(pres, 'Title Only');
+    setSlideTitle(audioSlide, 'Audio: generated 440 Hz tone (default poster)');
+    addSlideMedia(audioSlide, {
+      kind: 'audio',
+      data: wav,
+      x: inches(4.5),
+      y: inches(3),
+      w: inches(1),
+      h: inches(1),
+    });
+
+    const onlineSlide = freshSlide(pres, 'Title Only');
+    setSlideTitle(onlineSlide, 'Online video (custom poster)');
+    addSlideMedia(onlineSlide, {
+      kind: 'online',
+      url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+      poster: buildPng(320, 180, [30, 64, 120]),
+      x: inches(1.5),
+      y: inches(1.8),
+      w: inches(7),
+      h: inches(3.94),
+    });
+
+    // Container header only, so this exercises the embedded-video package
+    // shape for the validators; it is not expected to play.
+    const videoSlide = freshSlide(pres, 'Title Only');
+    setSlideTitle(videoSlide, 'Embedded video part (header-only placeholder, not playable)');
+    const header = [0, 0, 0, 0x18, ...Array.from('ftypmp42', (c) => c.charCodeAt(0)), 0, 0, 0, 0];
+    addSlideMedia(videoSlide, {
+      kind: 'video',
+      data: new Uint8Array([...header, ...Array.from('mp42isom', (c) => c.charCodeAt(0))]),
+      x: inches(1.5),
+      y: inches(1.8),
+      w: inches(7),
+      h: inches(3.94),
+    });
+
+    await writeSample('42-media.pptx', await savePresentation(pres));
+  });
+
+  it('43 — every chart plot type (xy, radar, stock, surface, 3-D, pie-of-pie)', async () => {
+    const pres = await loadBlank();
+    const quarters = ['Q1', 'Q2', 'Q3', 'Q4'];
+    const regions = [
+      { name: 'North', values: [10, 20, 15, 30] },
+      { name: 'South', values: [12, 18, 22, 25] },
+    ];
+    const grid = [
+      { name: 'Row 1', values: [1, 2, 3, 4] },
+      { name: 'Row 2', values: [2, 4, 6, 8] },
+      { name: 'Row 3', values: [3, 6, 9, 12] },
+    ];
+    const valueLabels = {
+      showValue: true,
+      showCategory: false,
+      showSeriesName: false,
+      showPercent: false,
+    };
+    // One slide per plot-group element the builder can emit, so the Open XML
+    // SDK validator in CI sees each of them at least once.
+    const specs: ReadonlyArray<readonly [string, ChartSpec]> = [
+      [
+        'Scatter: line + markers, error bars, trendline, named point',
+        {
+          kind: 'scatter',
+          categories: [],
+          scatterStyle: 'lineMarker',
+          series: [
+            {
+              name: 'Trial A',
+              xValues: [1, 2, 3, 4],
+              values: [2.5, 4.1, 6.2, 7.9],
+              errorBars: { barType: 'both', amount: { type: 'fixedVal', value: 0.5 } },
+              xErrorBars: { barType: 'both', amount: { type: 'percentage', value: 5 } },
+              trendline: { type: 'linear', displayEquation: true },
+              dataLabels: valueLabels,
+              pointDataLabels: [null, null, { ...valueLabels, text: 'peak dose' }],
+            },
+          ],
+          categoryAxisTitle: 'Dose',
+          valueAxisTitle: 'Response',
+          categoryAxisScaling: { min: 0, max: 5 },
+        },
+      ],
+      [
+        'Bubble: 3-D shading, translucent fill',
+        {
+          kind: 'bubble',
+          categories: [],
+          bubble3D: true,
+          bubbleScale: 80,
+          series: [
+            {
+              name: 'Markets',
+              xValues: [10, 20, 30, 40],
+              values: [5, 9, 4, 7],
+              bubbleSizes: [100, 250, 60, 180],
+              fillOpacity: 0.6,
+            },
+          ],
+          legend: { position: 'r' },
+        },
+      ],
+      [
+        'Radar: filled',
+        {
+          kind: 'radar',
+          radarStyle: 'filled',
+          categories: ['Speed', 'Range', 'Comfort', 'Price', 'Safety'],
+          series: [
+            { name: 'Model X', values: [4, 3, 5, 2, 5], fillOpacity: 0.4 },
+            { name: 'Model Y', values: [3, 5, 3, 4, 4], fillOpacity: 0.4 },
+          ],
+          legend: { position: 'b' },
+        },
+      ],
+      [
+        'Stock: open-high-low-close candlesticks',
+        {
+          kind: 'stock',
+          categories: ['Mon', 'Tue', 'Wed', 'Thu'],
+          series: [
+            { name: 'Open', values: [10, 12, 11, 12] },
+            { name: 'High', values: [14, 15, 13, 16] },
+            { name: 'Low', values: [9, 11, 8, 11] },
+            { name: 'Close', values: [12, 11, 12, 15] },
+          ],
+          upDownBars: { upColor: '#2E7D32', downColor: '#C62828' },
+        },
+      ],
+      ['Surface: 3-D', { kind: 'surface', categories: ['0', '10', '20', '30'], series: grid }],
+      [
+        'Surface: wireframe contour',
+        {
+          kind: 'surface',
+          categories: ['0', '10', '20', '30'],
+          series: grid,
+          surfaceContour: true,
+          surfaceWireframe: true,
+        },
+      ],
+      [
+        '3-D column: cylinders',
+        {
+          kind: 'column',
+          categories: quarters,
+          series: regions,
+          view3D: { rotX: 20, rotY: 30 },
+          bar3DShape: 'cylinder',
+          legend: { position: 'b' },
+        },
+      ],
+      [
+        '3-D bar: series in depth',
+        { kind: 'bar', categories: quarters, series: regions, grouping: 'standard', view3D: {} },
+      ],
+      ['3-D line', { kind: 'line', categories: quarters, series: regions, view3D: {} }],
+      [
+        '3-D area: stacked',
+        { kind: 'area', categories: quarters, series: regions, grouping: 'stacked', view3D: {} },
+      ],
+      [
+        '3-D pie: exploded slice',
+        {
+          kind: 'pie',
+          categories: quarters,
+          series: [{ name: 'North', values: [10, 20, 15, 30], pointExplosions: [20] }],
+          view3D: { rotX: 40, rotY: 60 },
+          dataLabels: { ...valueLabels, showValue: false, showPercent: true },
+        },
+      ],
+      [
+        'Bar of pie',
+        {
+          kind: 'pie',
+          categories: ['A', 'B', 'C', 'D', 'E', 'F'],
+          series: [{ name: 'Share', values: [40, 25, 15, 10, 6, 4] }],
+          ofPie: { type: 'bar', splitType: 'pos', splitPos: 3, seriesLines: true },
+          legend: { position: 'r' },
+        },
+      ],
+      [
+        'Column: data table, multi-level categories, display units',
+        {
+          kind: 'column',
+          categories: ['H1', 'H2', 'H1', 'H2'],
+          categoryGroupLevels: [['2024', '', '2025', '']],
+          series: regions,
+          dataTable: { showKeys: true },
+          valueAxis: { displayUnits: 'hundreds', displayUnitsLabel: true },
+          valueAxisLineHidden: true,
+        },
+      ],
+      [
+        'Line: date axis, up/down bars, manual layout',
+        {
+          kind: 'line',
+          // 2024-01-01 … 2024-04-01 as date serials.
+          categories: ['45292', '45323', '45352', '45383'],
+          series: [
+            {
+              name: 'Plan',
+              values: [100, 140, 180, 210],
+              errorBars: { barType: 'both', amount: { type: 'stdErr' } },
+            },
+            { name: 'Actual', values: [90, 150, 170, 230] },
+          ],
+          categoryAxisDate: { baseTimeUnit: 'months', majorUnit: 1, majorTimeUnit: 'months' },
+          categoryAxisNumberFormat: 'yyyy-mm',
+          upDownBars: {},
+          plotAreaLayout: { x: 0.1, y: 0.2, w: 0.72, h: 0.6, target: 'inner' },
+          legend: { position: 'r', layout: { x: 0.86, y: 0.4, w: 0.13, h: 0.2 } },
+        },
+      ],
+    ];
+    for (const [title, spec] of specs) {
+      const slide = freshSlide(pres, 'Title Only');
+      setSlideTitle(slide, title);
+      addSlideChart(slide, { x: inches(0.8), y: inches(1.6), w: inches(8.4), h: inches(5), spec });
+    }
+    await writeSample('43-chart-plot-types.pptx', await savePresentation(pres));
   });
 });

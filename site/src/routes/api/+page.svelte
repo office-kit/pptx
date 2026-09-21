@@ -7,6 +7,9 @@
     exports: ReadonlyArray<{ name: string; signature?: string }>;
   };
 
+  // eslint-disable-next-line prefer-const -- reassigned by `bind:value` in template
+  let filter = $state('');
+
   const REPO = 'https://github.com/office-kit/pptx/blob/main/src/api/fn.ts';
 
   const groups: ReadonlyArray<Group> = [
@@ -201,6 +204,7 @@
         { name: 'setShapeNoFill' },
         { name: 'clearShapeFill' },
         { name: 'getShapeFillColor' },
+        { name: 'getShapeFillOpacity' },
         { name: 'getShapeStroke' },
         { name: 'setShapeStroke' },
         { name: 'setShapeStrokeDash' },
@@ -208,6 +212,7 @@
         { name: 'setShapeNoStroke' },
         { name: 'clearShapeStroke' },
         { name: 'getShapeStrokeColor' },
+        { name: 'getShapeStrokeOpacity' },
         { name: 'getShapeStrokeWidth' },
         { name: 'getShapeStrokeDash' },
         { name: 'getShapeStrokeArrow' },
@@ -235,6 +240,15 @@
         { name: 'setShapeImageContrast' },
         { name: 'getShapeImageContrast' },
         { name: 'getShapeImageFillBytes' },
+      ],
+    },
+    {
+      title: 'Media',
+      description: 'Embedded video / audio and online (URL) video — add and read back.',
+      exports: [
+        { name: 'addSlideMedia' },
+        { name: 'getShapeMedia' },
+        { name: 'findShapesWithMedia' },
       ],
     },
     {
@@ -381,167 +395,261 @@
   ];
 
   const total = groups.reduce((n, g) => n + g.exports.length, 0);
+
+  const slug = (title: string): string => title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+  const visible = $derived.by(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) return groups;
+    return groups
+      .map((g) => ({ ...g, exports: g.exports.filter((e) => e.name.toLowerCase().includes(q)) }))
+      .filter((g) => g.exports.length > 0);
+  });
+
+  const visibleCount = $derived(visible.reduce((n, g) => n + g.exports.length, 0));
 </script>
 
 <svelte:head>
-  <title>API reference — @office-kit/pptx</title>
+  <title>API reference · @office-kit/pptx</title>
 </svelte:head>
 
-<div class="content">
-  <p class="eyebrow">Reference</p>
-  <h1>API reference</h1>
-  <p class="lede">
-    Every public export of <code>@office-kit/pptx</code> and <code>@office-kit/pptx/node</code>, organized
-    by category. The library is fn-only — no classes — so this list is the entire
-    callable surface. {total} exports across {groups.length} groups.
-  </p>
-  <p class="lede">
-    For the conceptual map and migration notes see the
-    <a href="{base}/docs/api">API overview</a>. For copy-pasteable code see the
-    <a href="{base}/docs/cheatsheet">Cheatsheet</a> and <a href="{base}/docs/recipes">Recipes</a>.
-  </p>
-
-  {#each groups as group, i (group.title)}
-    <section class="group" id={group.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}>
-      <header class="g-head">
-        <span class="g-num">{String(i + 1).padStart(2, '0')}</span>
-        <div>
-          <h2>{group.title}</h2>
-          <p>{group.description}</p>
-        </div>
-        <span class="g-count">{group.exports.length}</span>
-      </header>
-      <ul class="exports">
-        {#each group.exports as ex (ex.name)}
-          <li>
-            <a href={REPO} rel="noopener" target="_blank">
-              <code class="ex-name">{ex.name}</code>
-            </a>
-            {#if ex.signature}<span class="sig">{ex.signature}</span>{/if}
-          </li>
+<div class="api frame">
+  <aside class="toc" data-pagefind-ignore>
+    <nav aria-label="API groups">
+      <h2>Groups</h2>
+      <ul>
+        {#each groups as group (group.title)}
+          <li><a href="#{slug(group.title)}">{group.title}</a></li>
         {/each}
       </ul>
-    </section>
-  {/each}
+    </nav>
+  </aside>
+
+  <div class="content">
+    <h1>API reference</h1>
+    <p class="lede">
+      Every public export of <code>@office-kit/pptx</code> and <code>@office-kit/pptx/node</code>,
+      by category. The library is functions only, with no classes. This page covers the {total}
+      exports people reach for most, in {groups.length} groups; the package's type declarations
+      list every one.
+    </p>
+    <p class="lede">
+      For the conceptual map see the <a href="{base}/docs/api">API overview</a>. For code you can
+      paste, see the <a href="{base}/docs/cheatsheet">cheatsheet</a> and
+      <a href="{base}/docs/recipes">recipes</a>.
+    </p>
+
+    <div class="filter" data-pagefind-ignore>
+      <label for="api-filter">Filter by function name</label>
+      <input
+        id="api-filter"
+        type="search"
+        bind:value={filter}
+        placeholder="setShape, Table, Notes…"
+        autocomplete="off"
+        spellcheck="false"
+      />
+      <p aria-live="polite">
+        {#if filter.trim()}
+          {visibleCount === 0
+            ? `No function name contains “${filter.trim()}”.`
+            : `${visibleCount} of ${total} exports`}
+        {/if}
+      </p>
+    </div>
+
+    {#each visible as group (group.title)}
+      <section class="group" id={slug(group.title)}>
+        <h2>{group.title}</h2>
+        <p class="g-desc">{group.description}</p>
+        <ul class="exports">
+          {#each group.exports as ex (ex.name)}
+            <li>
+              <a href={REPO} rel="noopener" target="_blank"><code>{ex.name}</code></a>
+              {#if ex.signature}<span class="sig">{ex.signature}</span>{/if}
+            </li>
+          {/each}
+        </ul>
+      </section>
+    {/each}
+  </div>
 </div>
 
 <style>
-  .content {
-    max-width: var(--max-wide);
-    margin: 0 auto;
-    padding: 2.25rem 1.5rem 5rem;
+  .api {
+    display: flex;
+    align-items: stretch;
   }
 
-  .eyebrow {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--fg-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    margin: 0 0 0.85rem;
+  .toc {
+    flex: 0 0 var(--sidebar-w);
+    width: var(--sidebar-w);
+    border-right: 1px solid var(--line);
   }
 
-  h1 {
-    margin: 0 0 0.6rem;
-    font-family: var(--display);
-    font-weight: 460;
-    font-size: clamp(2rem, 4.6vw, 2.95rem);
-    line-height: 1.05;
-    letter-spacing: -0.026em;
-    font-variation-settings: 'opsz' 144, 'SOFT' 30;
-    border: none;
+  .toc nav {
+    position: sticky;
+    top: var(--header-h);
+    max-height: calc(100vh - var(--header-h));
+    overflow-y: auto;
+    padding: 2.25rem 1rem 3rem var(--gutter);
+  }
+
+  .toc h2 {
+    margin: 0 0 0.5rem;
+    font-family: var(--sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--ink-3);
+  }
+
+  .toc ul {
+    list-style: none;
+    margin: 0;
     padding: 0;
+    border-left: 1px solid var(--line);
   }
 
-  .lede {
-    color: var(--fg-soft);
-    font-size: 1.05rem;
-    margin: 0 0 1rem;
-    max-width: 72ch;
-  }
-
-  .group {
-    margin-top: 2.75rem;
-    scroll-margin-top: calc(var(--header-h) + 1rem);
-  }
-
-  .g-head {
-    display: grid;
-    grid-template-columns: 4ch 1fr auto;
-    gap: 1rem;
-    align-items: baseline;
-    border-bottom: 1px solid var(--border);
-    padding-bottom: 0.65rem;
-    margin-bottom: 1rem;
-  }
-
-  .g-num {
-    font-family: var(--mono);
-    font-size: 11.5px;
-    color: var(--accent);
-    font-weight: 500;
-    letter-spacing: 0.06em;
-  }
-
-  .g-head h2 {
-    font-family: var(--display);
-    font-weight: 500;
-    font-size: 1.45rem;
-    letter-spacing: -0.015em;
-    margin: 0 0 0.25rem;
-    border: none;
-    padding: 0;
-    font-variation-settings: 'opsz' 96, 'SOFT' 25;
-  }
-
-  .g-head p {
-    color: var(--fg-muted);
-    font-size: 0.9rem;
+  .toc li {
     margin: 0;
   }
 
-  .g-count {
+  .toc a {
+    display: block;
+    padding: 0.28rem 0 0.28rem 0.95rem;
+    color: var(--ink-2);
+    font-size: 0.9rem;
+  }
+
+  .toc a:hover {
+    color: var(--accent-ink);
+    text-decoration: none;
+  }
+
+  .content {
+    flex: 1;
+    min-width: 0;
+    padding: 2.75rem clamp(1.25rem, 4vw, 3.5rem) 5rem;
+  }
+
+  .lede {
+    max-width: 68ch;
+    color: var(--ink-2);
+    font-size: 1.05rem;
+  }
+
+  .filter {
+    position: sticky;
+    top: var(--header-h);
+    z-index: 5;
+    display: grid;
+    grid-template-columns: minmax(0, 24rem) 1fr;
+    gap: 0.35rem 1rem;
+    align-items: center;
+    margin: 2rem 0 0;
+    padding: 0.85rem 0;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .filter label {
+    grid-column: 1 / -1;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--ink-2);
+  }
+
+  .filter input {
+    width: 100%;
+    height: 42px;
+    padding: 0 0.85rem;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius);
+    background: var(--paper);
+    color: var(--ink);
     font-family: var(--mono);
-    font-size: 10.5px;
-    color: var(--fg-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.12em;
+    /* 16px keeps iOS Safari from zooming the page when the field takes focus. */
+    font-size: 1rem;
+  }
+
+  .filter input:focus-visible {
+    outline-offset: 0;
+    border-color: var(--accent);
+  }
+
+  .filter p {
+    margin: 0;
+    color: var(--ink-2);
+    font-size: 0.9rem;
+  }
+
+  .group {
+    margin-top: 3rem;
+    scroll-margin-top: calc(var(--header-h) + 7rem);
+  }
+
+  .group h2 {
+    margin: 0;
+    font-size: 1.4rem;
+  }
+
+  .g-desc {
+    max-width: 68ch;
+    margin: 0.35rem 0 1rem;
+    color: var(--ink-2);
+    font-size: 0.97rem;
   }
 
   .exports {
     list-style: none;
     margin: 0;
     padding: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 0.45rem 1.2rem;
+    border-top: 1px solid var(--line);
+    columns: 2;
+    column-gap: 2.5rem;
   }
 
   .exports li {
-    padding: 0.25rem 0;
-    line-height: 1.45;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--line);
+    break-inside: avoid;
   }
 
-  .ex-name {
-    font-family: var(--mono);
-    font-size: 0.85rem;
-    color: var(--fg);
-    background: transparent;
-    border: none;
+  .exports code {
     padding: 0;
-  }
-
-  .exports a:hover .ex-name {
-    color: var(--accent);
-    text-decoration: underline;
+    border: none;
+    background: none;
+    color: var(--accent-ink);
+    font-size: 0.9rem;
+    font-weight: 500;
   }
 
   .sig {
-    display: block;
+    color: var(--ink-2);
     font-family: var(--mono);
-    font-size: 11px;
-    color: var(--fg-muted);
-    margin-top: 0.15rem;
-    word-break: break-word;
+    font-size: 0.78rem;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
+  @media (max-width: 1000px) {
+    .toc {
+      display: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .exports {
+      columns: 1;
+    }
+
+    .filter {
+      grid-template-columns: 1fr;
+    }
   }
 </style>

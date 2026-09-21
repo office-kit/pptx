@@ -62,6 +62,19 @@ jobs:
       - name: Build preview package
         run: pnpm --filter @office-kit/pptx-preview build
 
+      - name: Build DSL package
+        run: pnpm --filter @office-kit/pptx-dsl build
+
+      # Examples import the package's public exports, including its JSX runtime.
+      - name: Type check DSL package
+        run: pnpm --filter @office-kit/pptx-dsl typecheck
+
+      - name: Type check authoring tools
+        run: pnpm --filter @office-kit/pptx-dev typecheck
+
+      - name: Build authoring tools
+        run: pnpm --filter @office-kit/pptx-dev build
+
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
   # supports. Drop versions that are past their EOL date.
   test:
@@ -75,6 +88,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Fetch ECMA-376 schemas for enum domain tests
+        run: git submodule update --init --depth 1 references/ecma-376-5th
+
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -83,6 +99,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm test
+      - name: Build authoring packages
+        run: pnpm --filter @office-kit/pptx-dev... build
+      - name: Test TSX authoring and live preview
+        run: pnpm --filter @office-kit/pptx-dev test
+      - name: Install preview test browser
+        if: matrix.node-version == '24'
+        run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium
+      - name: Test live preview in Chromium
+        if: matrix.node-version == '24'
+        run: pnpm --filter @office-kit/pptx-dev test:browser
 
   # Measures how closely @office-kit/pptx-preview's SVG renderer matches LibreOffice's
   # output for each generated sample slide, and gates on a committed baseline.
@@ -144,8 +170,9 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Secondary OOXML oracle. xmllint + the ECMA-376 XSDs (run in the test job)
-  # only check structural schema conformance; they can't express the semantic
+  # Secondary OOXML oracle. The test job compares enum domains against XSDs;
+  # full XSD validation also requires xmllint, which this workflow doesn't install.
+  # Even full XSD validation can't express the semantic
   # OOXML rules PowerPoint enforces before it calls a file corrupt. This job
   # runs Microsoft's own OpenXmlValidator over the generated decks as an
   # independent check. It GATES — CLAUDE.md treats invalid output as a bug, so a

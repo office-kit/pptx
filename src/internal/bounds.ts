@@ -34,6 +34,14 @@ const RANGES = {
   gapAmount: [0, 500], // ST_GapAmountUShort (bar/column gap width %)
   holeSize: [1, 90], // ST_HoleSizeUByte (doughnut hole %)
   firstSliceAng: [0, 360], // ST_FirstSliceAng (pie/doughnut start angle, degrees)
+  rotX: [-90, 90], // ST_RotX (3-D elevation, degrees)
+  rotY: [0, 360], // ST_RotY (3-D rotation, degrees)
+  perspective: [0, 240], // ST_Perspective
+  depthPercent: [20, 2000], // ST_DepthPercentUShort
+  heightPercent: [5, 500], // ST_HPercentUShort
+  secondPieSize: [5, 200], // ST_SecondPieSizeUShort
+  bubbleScale: [0, 300], // ST_BubbleScaleUInt
+  percent100000: [0, 100000], // ST_PositiveFixedPercentage (<a:alpha>, 1/1000 %)
 } as const;
 
 type RangeKey = keyof typeof RANGES;

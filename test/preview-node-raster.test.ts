@@ -17,7 +17,7 @@ import {
   loadPresentation,
   setShapeFill,
 } from '../src/api/index.ts';
-import { renderSlideToImage, renderSlideToRgba } from '../packages/preview/src/node.ts';
+import { FONT_DIR, renderSlideToImage, renderSlideToRgba } from '../packages/preview/src/node.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
 
@@ -113,5 +113,36 @@ describe('renderSlideToImage (Node)', () => {
     const fromImage = renderSlideToImage(pres, slide, opts);
     const { png: fromRgba } = renderSlideToRgba(pres, slide, opts);
     expect(Buffer.from(fromImage).toString('hex')).toBe(Buffer.from(fromRgba).toString('hex'));
+  });
+});
+
+describe('renderSlideToImage — rasterizer font options', () => {
+  it('accepts extra fontFiles without changing an all-Latin render', async () => {
+    // The strongest deterministic assertion available without shipping a CJK
+    // fixture font: an extra face that adds no new glyph coverage must not
+    // perturb the output, proving the option is plumbed through resvg rather
+    // than replacing the bundled set.
+    const { pres, slide } = await buildTestSlide();
+    const baseline = renderSlideToImage(pres, slide, { width: 320 });
+    const withExtra = renderSlideToImage(pres, slide, {
+      width: 320,
+      fontFiles: [`${FONT_DIR}Carlito-Regular.ttf`],
+    });
+    expect(Buffer.from(withExtra).toString('hex')).toBe(Buffer.from(baseline).toString('hex'));
+  });
+
+  it('tolerates a fontFiles path that does not exist (resvg skips it)', async () => {
+    const { pres, slide } = await buildTestSlide();
+    const png = renderSlideToImage(pres, slide, {
+      width: 320,
+      fontFiles: ['/nonexistent/no-such-font.ttf'],
+    });
+    expect(isPng(png)).toBe(true);
+  });
+
+  it('loadSystemFonts: true still produces a valid PNG', async () => {
+    const { pres, slide } = await buildTestSlide();
+    const png = renderSlideToImage(pres, slide, { width: 320, loadSystemFonts: true });
+    expect(isPng(png)).toBe(true);
   });
 });

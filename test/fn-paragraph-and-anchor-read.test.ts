@@ -4,19 +4,25 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  _internalPackageOf,
   addSlideTextBox,
   getParagraphAlignment,
   getParagraphLevel,
+  getShapeName,
   getShapeTextAnchor,
   getShapeTextMargins,
+  getSlidePartName,
+  getSlideShapes,
   getSlides,
   inches,
   loadPresentation,
+  savePresentation,
   setParagraphAlignment,
   setParagraphLevel,
   setShapeTextAnchor,
   setShapeTextMargins,
 } from '../src/api/index.ts';
+import { partName } from '../src/internal/opc/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -39,6 +45,49 @@ describe('fn API: getParagraphAlignment / getParagraphLevel', () => {
     setParagraphLevel(tb, 1, 2);
     expect(getParagraphAlignment(tb, 1)).toBe('ctr');
     expect(getParagraphLevel(tb, 1)).toBe(2);
+  });
+
+  it('types the result as a spec token, so comparing with a friendly name does not compile', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tb = addSlideTextBox(getSlides(pres)[0]!, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(1),
+      text: 'A',
+    });
+    setParagraphAlignment(tb, 0, 'center');
+    const align = getParagraphAlignment(tb, 0);
+    // @ts-expect-error -- 'center' is what you set; 'ctr' is what you read.
+    expect(align === 'center').toBe(false);
+    expect(align === 'ctr').toBe(true);
+  });
+
+  it('reads an algn value outside ST_TextAlignType as unset', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const tb = addSlideTextBox(slide, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(1),
+      text: 'A',
+      name: 'aligned',
+    });
+    setParagraphAlignment(tb, 0, 'center');
+
+    // Corrupt the attribute the way a hand-edited or third-party file could.
+    const saved = await loadPresentation(await savePresentation(pres));
+    const part = _internalPackageOf(saved).getPart(partName(getSlidePartName(slide)))!;
+    const xml = new TextDecoder().decode(part.data);
+    expect(xml).toContain('algn="ctr"');
+    part.data = new TextEncoder().encode(xml.replace('algn="ctr"', 'algn="bogus"'));
+
+    const reloaded = await loadPresentation(await savePresentation(saved));
+    const shape = getSlideShapes(getSlides(reloaded)[0]!).find(
+      (s) => getShapeName(s) === 'aligned',
+    )!;
+    expect(getParagraphAlignment(shape, 0)).toBeNull();
   });
 });
 

@@ -1,0 +1,57 @@
+{
+  "name": "@office-kit/pptx-dev",
+  "version": "0.5.0",
+  "description": "Build and preview PowerPoint TSX presentations locally",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/office-kit/pptx.git",
+    "directory": "packages/dev"
+  },
+  "bin": {
+    "office-pptx": "dist/cli.mjs"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "tsdown && node build-terminal.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.mjs",
+    "prepublishOnly": "tsdown && node build-terminal.mjs",
+    "test:browser": "node --test test/browser/*.test.mjs"
+  },
+  "dependencies": {
+    "@office-kit/pptx": "workspace:^",
+    "@office-kit/pptx-dsl": "workspace:^",
+    "@office-kit/pptx-preview": "workspace:^",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "esbuild": "^0.28.1",
+    "fflate": "^0.8.3",
+    "markdown-it": "^15.0.2",
+    "node-pty": "^1.1.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.2.0",
+    "@types/node": "^24.13.2",
+    "playwright": "^1.63.0",
+    "tsdown": "^0.22.2",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">=22.18.0"
+  }
+}

@@ -15,7 +15,9 @@
 //   - DOCTYPE declarations and DTDs — OOXML doesn't use them. We skip past a
 //     leading DOCTYPE if present, but its internal subset is rejected.
 //   - General entity references beyond the five predefined names.
-//   - XML 1.1 line-end normalization differences.
+//   - XML 1.1 line-end normalization (NEL / LS). XML 1.0 §2.11 end-of-line
+//     handling is applied: CR LF and a lone CR read as LF, while `&#13;`
+//     still yields a CR.
 //
 // The parser throws `XmlParseError` with a position on the first malformed
 // construct. It is intentionally strict: a silent recovery here would mask
@@ -428,7 +430,11 @@ const parseElement = (cur: Cursor, parentScope: NamespaceScope): XmlElement => {
 export const parseXml = (src: string): XmlDocument => {
   // Strip a leading BOM if present — common in OOXML files written by .NET.
   const stripped = src.charCodeAt(0) === 0xfeff ? src.slice(1) : src;
-  const cur: Cursor = { src: stripped, pos: 0 };
+  // XML 1.0 §2.11: normalize line ends before tokenizing so a raw CR LF
+  // (pptxgenjs writes one inside <a:t>) reads as the LF a conforming
+  // parser hands the application. Character references are decoded later,
+  // so `&#13;` is untouched and still yields a CR.
+  const cur: Cursor = { src: stripped.replace(/\r\n?/g, '\n'), pos: 0 };
   const decl = parseDeclaration(cur);
   skipWhitespace(cur);
 

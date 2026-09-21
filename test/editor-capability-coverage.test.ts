@@ -113,3 +113,15 @@ describe('editor capability coverage', () => {
     expect(bad.map((c) => c.id)).toEqual([]);
   });
 });
+
+describe('editor command localization', () => {
+  it('provides English and Japanese labels for every command', async () => {
+    const { capabilities } = await import('../site/src/lib/editor/manifest/index.ts');
+    for (const command of capabilities) {
+      expect(command.labelEn.trim(), command.id).not.toBe('');
+      expect(command.labelJa, command.id).toMatch(
+        /[\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Han}]/u,
+      );
+    }
+  });
+});

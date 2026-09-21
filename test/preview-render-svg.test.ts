@@ -19,6 +19,7 @@ import {
   findSlideLayout,
   findSlidePlaceholder,
   getSlides,
+  groupShapes,
   inches,
   loadPresentation,
   type PatternPreset,
@@ -657,6 +658,65 @@ describe('chart chrome fidelity', () => {
     // Data max 300 with a 50-step axis → top tick 350, ticks still every 50.
     expect(text).toContain('350');
     expect(text).toContain('50');
+  });
+});
+
+describe('grouped shapes', () => {
+  // getSlideShapes flattens group descendants into the top-level list while
+  // renderShape recurses into groups itself — before the top-level skip,
+  // every group child rendered twice (the second copy untransformed, so it
+  // sat at the group's internal coordinates).
+  it('renders each group child exactly once', async () => {
+    const { pres, slide } = await blankSlide();
+    const a = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'group-child-a',
+    });
+    const b = addSlideTextBox(slide, {
+      x: inches(3),
+      y: inches(2.5),
+      w: inches(2),
+      h: inches(1),
+      text: 'group-child-b',
+    });
+    groupShapes([a, b]);
+    const svg = renderSlideToSvg(pres, slide);
+    expect(svg.split('group-child-a').length - 1).toBe(1);
+    expect(svg.split('group-child-b').length - 1).toBe(1);
+  });
+
+  it('renders nested group descendants exactly once', async () => {
+    const { pres, slide } = await blankSlide();
+    const a = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'nested-child-a',
+    });
+    const b = addSlideTextBox(slide, {
+      x: inches(3),
+      y: inches(2.5),
+      w: inches(2),
+      h: inches(1),
+      text: 'nested-child-b',
+    });
+    const inner = groupShapes([a, b]);
+    const c = addSlideTextBox(slide, {
+      x: inches(6),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'outer-child-c',
+    });
+    groupShapes([inner, c]);
+    const svg = renderSlideToSvg(pres, slide);
+    expect(svg.split('nested-child-a').length - 1).toBe(1);
+    expect(svg.split('nested-child-b').length - 1).toBe(1);
+    expect(svg.split('outer-child-c').length - 1).toBe(1);
   });
 });
 

@@ -2,3 +2,9 @@ packages:
   - '.'
   - 'site'
   - 'packages/*'
+
+# esbuild links its prebuilt binary here; node-pty compiles the terminal
+# bridge the dev preview uses. Both are build-time only and never ship.
+allowBuilds:
+  esbuild: true
+  node-pty: true

@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 147,
+  "count": 150,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -155,6 +155,23 @@
         {
           "name": "opts",
           "type": "{ from: { x: Emu; y: Emu }; to: { x: Emu; y: Emu }; color?: string; widthEmu?: number; name?: string; }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlideMedia",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/media.ts",
+      "returns": "SlideShapeData",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opts",
+          "type": "SlideMediaOptions",
           "kind": "object",
           "optional": false
         }
@@ -638,6 +655,12 @@
           "type": "{ readonly row: number; readonly col: number; readonly rowSpan: number; readonly colSpan: number; }",
           "kind": "object",
           "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ readonly coveredText?: 'keep' | 'drop' }",
+          "kind": "object",
+          "optional": true
         }
       ]
     },
@@ -1568,6 +1591,23 @@
       "params": []
     },
     {
+      "id": "setShapeParagraphs",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphs",
+          "type": "ReadonlyArray<ParagraphSpec>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setShapePatternFill",
       "operand": "shape",
       "takesOperand": true,
@@ -2322,6 +2362,23 @@
         {
           "name": "margins",
           "type": "{ left?: number | null; right?: number | null; top?: number | null; bottom?: number | null; } | null",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setTableCellParagraphs",
+      "operand": "cell",
+      "takesOperand": true,
+      "category": "table",
+      "file": "api/fn/tables.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphs",
+          "type": "ReadonlyArray<ParagraphSpec>",
           "kind": "object",
           "optional": false
         }

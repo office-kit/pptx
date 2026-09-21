@@ -9,11 +9,15 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
   ARIAL,
+  AVG_GLYPH_W_RATIO,
+  isCjk,
   MONO,
   SANS,
   SERIF,
+  substituteFamily,
   TIMES,
   type FontSpec,
+  type MeasureResult,
   type TextMeasurer,
 } from './text-layout.ts';
 
@@ -46,14 +50,47 @@ const openFont = (path: string): fontkit.Font => {
   return font;
 };
 
-const styleSuffix = (spec: FontSpec): (typeof STYLES)[number] => {
+const styleSuffix = (spec: { bold: boolean; italic: boolean }): (typeof STYLES)[number] => {
   if (spec.bold && spec.italic) return 'BoldItalic';
   if (spec.bold) return 'Bold';
   if (spec.italic) return 'Italic';
   return 'Regular';
 };
 
-export const buildFontkitMeasurer = (): TextMeasurer => {
+/** A font the caller supplies for measurement, keyed by the AUTHORED family
+ *  name (`<a:latin typeface>` / `<a:ea typeface>` — e.g. "游ゴシック",
+ *  "Montserrat"), which routinely differs from the file's internal name. */
+export interface RegisteredFont {
+  readonly family: string;
+  /** Path to a ttf/otf file, or its bytes. */
+  readonly source: string | Uint8Array;
+  readonly bold?: boolean;
+  readonly italic?: boolean;
+}
+
+export interface FontkitMeasurerOptions {
+  /** Fonts the deck actually uses. A run whose family matches a registered
+   *  font measures with it; any registered font also serves as a fallback
+   *  for glyphs the resolved font lacks (the bundled faces are Latin-only,
+   *  so this is how CJK text gets real metrics). */
+  readonly fonts?: ReadonlyArray<RegisteredFont>;
+}
+
+const openFontSource = (source: string | Uint8Array): fontkit.Font => {
+  if (typeof source === 'string') return openFont(source);
+  const font = fontkit.create(Buffer.from(source));
+  if (!('layout' in font)) {
+    throw new Error('Expected a single font, got a collection');
+  }
+  return font;
+};
+
+// Per-character width estimate for glyphs no available font covers — the same
+// ratios as the heuristic measurer, so estimates and defaultMeasurer agree.
+const estimateCharWidth = (ch: string, sizePx: number): number =>
+  sizePx * (isCjk(ch.codePointAt(0) ?? 0) ? 1 : AVG_GLYPH_W_RATIO);
+
+export const buildFontkitMeasurer = (options: FontkitMeasurerOptions = {}): TextMeasurer => {
   const cache = new Map<string, fontkit.Font>();
   // Load + verify every face up front. The familyName assertion guarantees the
   // emit-side family === resvg match === the face we measure, which is the load-
@@ -73,9 +110,28 @@ export const buildFontkitMeasurer = (): TextMeasurer => {
     }
   }
 
+  // Registered fonts, keyed by lowercased authored family + style. No
+  // familyName assertion here: the registration key is the DECK's name for
+  // the font, which legitimately differs from the file's internal name.
+  const registered = new Map<string, fontkit.Font>();
+  const fallbackFonts: fontkit.Font[] = [];
+  for (const reg of options.fonts ?? []) {
+    const font = openFontSource(reg.source);
+    const style = styleSuffix({ bold: reg.bold ?? false, italic: reg.italic ?? false });
+    registered.set(`${reg.family.toLowerCase()}-${style}`, font);
+    fallbackFonts.push(font);
+  }
+
   const pick = (spec: FontSpec): fontkit.Font => {
-    const prefix = FAMILY_TO_PREFIX[spec.family] ?? 'Carlito';
     const style = styleSuffix(spec);
+    const regKey = spec.family.toLowerCase();
+    const reg = registered.get(`${regKey}-${style}`) ?? registered.get(`${regKey}-Regular`);
+    if (reg) return reg;
+    // The render path pre-substitutes families (spec.family is a bundled
+    // internal name); the audit path passes the authored name through, so
+    // resolve it with the same map before keying the bundled faces.
+    const prefix =
+      FAMILY_TO_PREFIX[spec.family] ?? FAMILY_TO_PREFIX[substituteFamily(spec.family)]!;
     return (
       cache.get(`${prefix}-${style}`) ??
       cache.get(`${prefix}-Regular`) ??
@@ -83,20 +139,56 @@ export const buildFontkitMeasurer = (): TextMeasurer => {
     );
   };
 
-  return (text, spec) => {
-    const font = pick(spec);
-    const scale = spec.sizePx / font.unitsPerEm;
-    const run = font.layout(text); // applies the font's kerning / GPOS
+  // Splits `text` into maximal segments coverable by one font: the resolved
+  // font first, then each registered font in registration order. Characters
+  // no font covers fall back to the per-character estimate (approximate).
+  const measureWithFallback = (
+    text: string,
+    spec: FontSpec,
+    primary: fontkit.Font,
+  ): MeasureResult => {
+    const chain = [primary, ...fallbackFonts.filter((f) => f !== primary)];
+    let widthPx = 0;
+    let approximate = false;
+    let metricsFont: fontkit.Font | null = null;
+    let segment = '';
+    let segmentFont: fontkit.Font | null = null;
+    const flush = (): void => {
+      if (segment === '' || segmentFont === null) return;
+      const scale = spec.sizePx / segmentFont.unitsPerEm;
+      widthPx += segmentFont.layout(segment).advanceWidth * scale;
+      metricsFont ??= segmentFont;
+      segment = '';
+    };
+    for (const ch of text) {
+      const cp = ch.codePointAt(0) ?? 0;
+      const font = chain.find((f) => f.hasGlyphForCodePoint(cp)) ?? null;
+      if (font !== segmentFont) {
+        flush();
+        segmentFont = font;
+      }
+      if (font === null) {
+        widthPx += estimateCharWidth(ch, spec.sizePx);
+        approximate = true;
+      } else {
+        segment += ch;
+      }
+    }
+    flush();
+    const vm = verticalMetrics(metricsFont ?? primary);
+    const vmScale = spec.sizePx / (metricsFont ?? primary).unitsPerEm;
     const glyphCount = [...text].length;
     const tracking = glyphCount > 1 ? spec.letterSpacingPx * (glyphCount - 1) : 0;
-    const vm = verticalMetrics(font);
     return {
-      widthPx: run.advanceWidth * scale + tracking,
-      ascentPx: vm.ascent * scale,
-      descentPx: vm.descent * scale,
-      lineGapPx: vm.lineGap * scale,
+      widthPx: widthPx + tracking,
+      ascentPx: vm.ascent * vmScale,
+      descentPx: vm.descent * vmScale,
+      lineGapPx: vm.lineGap * vmScale,
+      ...(approximate ? { approximate } : {}),
     };
   };
+
+  return (text, spec) => measureWithFallback(text, spec, pick(spec));
 };
 
 // Which vertical-metric set a renderer uses depends on the OS/2 fsSelection

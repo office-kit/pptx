@@ -12,6 +12,11 @@
 
 export { renderSlideSvg as renderSlideToSvg } from './render-slide.ts';
 
+// Text-layout audit — overflow (はみ出し) and soft-wrap (段落ち) detection,
+// measured with the same layout engine the preview renders with.
+export { auditTextLayout } from './audit.ts';
+export type { AuditTextLayoutOptions, TextAuditIssue } from './audit.ts';
+
 export type {
   RenderSlideOptions,
   TextLayoutMode,

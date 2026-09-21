@@ -1,4 +1,203 @@
-# pptx-kit
+# @office-kit/pptx
+
+## 0.18.2
+
+### Patch Changes
+
+- 78ee67f: fix: theme readers and the preview picked the first theme part by name instead of the slide master's theme
+
+  `getPresentationTheme`, `getPresentationFonts`, `setPresentationTheme`, `setPresentationFonts` and every color resolver built on them (slide backgrounds, `scheme:*` fills, the deck body text color, the preview renderer) read `/ppt/theme/theme1.xml` whenever a package carried more than one theme. Notes and handout masters carry their own theme, and Google Slides exports write the notes theme as `theme1.xml` and the slide theme as `theme2.xml`, so a dark deck rendered on white with black text.
+
+  The deck theme is now the one the first slide master (in `<p:sldMasterIdLst>` order) relates to, then the presentation part's own theme relationship, and only then the first theme part by name.
+
+## 0.18.1
+
+### Patch Changes
+
+- c8bf75d: fix: `getParagraphAlignment` and `getTableCellAlignment` returned an invalid `algn` value from a file as if it were a valid alignment
+
+  Both getters cast the attribute straight to `ParagraphAlignment`, so a hand-edited or third-party deck with `algn="bogus"` handed `'bogus'` to typed code. They now parse the value, and anything outside `ST_TextAlignType` reads as `null` (unset), like the other alignment readers already did.
+
+  Their return type is now the new `ParagraphAlignmentToken` (`'l' | 'ctr' | 'r' | 'just' | 'dist' | 'justLow' | 'thaiDist'`) instead of the wider `ParagraphAlignment`. Runtime values are unchanged — these two getters have always returned the spec token, so `setParagraphAlignment(shape, 0, 'center')` reads back as `'ctr'` — but the old type also listed `'center'`, which let `getParagraphAlignment(…) === 'center'` compile although it can never be true. That comparison is now a type error; compare with `'ctr'`, or read the plain-English name from `getParagraphPropertiesEffective` / `getTableCellParagraphs`.
+
+## 0.18.0
+
+### Minor Changes
+
+- 7e89e62: Validate enum inputs at authoring boundaries and throw a descriptive `RangeError`
+  instead of writing invalid PowerPoint XML or silently selecting another mode.
+
+  Affected APIs:
+
+  - Shapes: `addSlideShape` preset and text anchor, including calls through the TSX DSL.
+  - Strokes and fills: `setShapeStrokeDash`, `setShapeStrokeCap`, `setShapeStrokeJoin`,
+    `setShapeStrokeCompound`, `setShapeStrokeArrow` (end, type, width, length), and
+    `setShapeGradientFill` path.
+  - Text: `setShapeAlignment`, `setParagraphAlignment`, `setShapeTextAnchor`,
+    `setShapeTextAutoFit`, `setShapeTextWrap`, `setShapeTextDirection`, `setShapeBullets`,
+    `setParagraphBullet`, and `setShapeText` bullets; `setShapeTextFormat`,
+    `setShapeRunFormat`, and `setShapeParagraphs` formatting and alignment.
+  - Tables: `setTableCellAlignment`, `setTableCellTextFormat`, `setTableCellParagraphs`,
+    `setTableCellTextDirection`, `setTableCellAnchor`, and `setTableCellBorders` dash.
+  - Charts: `addSlideChart` and `setChartSpec` kind, grouping, axes, legend, layout,
+    data labels, series markers, line dash, trendlines, error bars, and chart styles.
+  - Slides: `setSlideSize` type, `setSlideTransition` speed and split orientation,
+    and `setShapeAnimation` effect.
+
+  Previously accepted inputs such as preset `'rounded-rect'`, alignment `'middle'`,
+  stroke dash `'dotted'`, text auto-fit `'shrink'`, and auto-numbering `'bogus'` now
+  throw `RangeError`. Underline and strike strings must be exact XSD tokens:
+  use `'sng'` / `'sngStrike'` (or `true`), not `'single'`. Existing JavaScript
+  `null` values for underline, strike, and cap still remove the corresponding
+  attributes; their TypeScript types are unchanged.
+
+  Unknown chart kinds now throw `RangeError: addSlideChart: kind: … is not one of: …`
+  instead of `Error: unsupported chart kind: …`; `setChartSpec` uses its own API name
+  in the new message. Code that checks the exception class or message should adapt.
+
+  Valid ECMA-376 shape presets remain supported, including presets outside the
+  TypeScript autocomplete list. Rejected bullets and transitions preserve existing
+  content, and rejected table-cell alignment or text-format enums do not create a
+  text body.
+
+### Patch Changes
+
+- 7e89e62: fix: Preserve valid table XML when setting alignment on a covered merged cell whose text was dropped. Recreated text bodies now include the required paragraph, so the alignment is applied and survives saving and reloading.
+- 64fa3c7: Fix nested list indentation when changing a paragraph's level after applying bullets or numbering, including after copying or reloading a presentation. Indentation that differs from the previous level's default pair is preserved.
+
+## 0.17.0
+
+### Minor Changes
+
+- 71deec5: feat: author every chart type — scatter, bubble, radar, stock, surface, the 3-D variants and pie-of-pie
+
+  `addSlideChart` / `setChartSpec` now write all sixteen plot types of ECMA-376, and `getShapeChartSpec` reads every one of them back.
+
+  - `kind: 'scatter' | 'bubble' | 'radar'` are authorable (they used to throw "read-only"). Scatter and bubble series carry their own `xValues` (and `bubbleSizes`); the embedded workbook lays them out per series so "Edit data" opens onto the right cells.
+  - New kinds `'stock'` (3 series: high, low, close; or 4 with open first, drawn as candlesticks) and `'surface'` (`surfaceContour` for the top-down contour plot, `surfaceWireframe` for the mesh).
+  - 3-D is a modifier: `view3D: { rotX, rotY, rightAngleAxes, perspective, depthPercent, heightPercent }` on `bar` / `column` / `line` / `area` / `pie` selects the 3-D element, with `bar3DShape` (cylinder, cone, pyramid, …), `gapDepthPct` and `seriesAxis`. `bubble3D` shades bubbles as spheres.
+  - `ofPie` turns a pie into a pie-of-pie / bar-of-pie chart.
+  - Per series: `errorBars` / `xErrorBars` (fixed, percentage, standard deviation, standard error, custom), `fillOpacity`.
+  - Per chart: `dataTable`, `upDownBars`, `categoryAxisDate` (date axis with time units), `categoryGroupLevels` (multi-level category labels), `categoryAxisScaling` (the x axis of scatter / bubble charts, or a date axis' range), `plotAreaLayout` / `titleLayout` / `legend.layout` (manual placement), `valueAxisLineHidden` / `categoryAxisLineHidden`, `valueAxis.displayUnitsLabel`.
+  - Data labels gain `showBubbleSize`, `showLegendKey`, `fillColor`, and per-point `text` (a literal label, e.g. naming one scatter point).
+  - A spec whose fields contradict each other (`view3D` on a scatter chart, error bars on a pie, a date axis with non-numeric categories, …) throws with a message naming the field, instead of writing a chart PowerPoint would repair.
+
+  Behavior changes when reading existing decks:
+
+  - A stock chart now reads as `kind: 'stock'` (was `'line'`) and a surface chart as `kind: 'surface'` (was `'column'`). `getPresentationChartKindCounts` has the two new keys.
+  - 3-D charts still read as their flat kind, now with `view3D` set, so `setChartSpec(chart, getShapeChartSpec(shape))` no longer flattens a 3-D chart.
+  - fix: for scatter / bubble charts `valueAxis` (and the other `valueAxis*` fields) described the **x** axis. They now describe the y axis; the x axis reads into `categoryAxis*` and `categoryAxisScaling`.
+  - fix: charts with more than 25 series wrote workbook references past column `Z` as invalid cell addresses.
+
+  `@office-kit/pptx-preview` draws stock charts as lines and surface charts as columns (as before), and honors `categoryAxisScaling` on scatter / bubble charts.
+
+- 71deec5: feat: embed video, audio and online video with `addSlideMedia`, and read them back with `getShapeMedia`
+
+  - `addSlideMedia(slide, { kind: 'video' | 'audio', data, ... })` embeds a clip from bytes; `{ kind: 'online', url }` links an online video. YouTube watch / `youtu.be` / shorts URLs are rewritten to the embed URL; any other `http(s)` URL is stored as given, and anything else throws.
+  - The container is detected from the bytes (mp4, m4v, mov, webm, avi, wmv, mp3, wav, m4a, ogg, wma); pass `format` to override. An undetectable clip, an unreadable `poster`, or a bad URL throws before anything is added to the package.
+  - The new shape is a picture showing the poster frame: `setShapeImage` / `getShapeImageBytes` replace and read it. Without `poster`, a small built-in play-button image is used.
+  - The slide gets the `<p:video>` / `<p:audio>` time node PowerPoint writes itself, which is what makes the play controls appear in the slide show. Identical clip bytes are stored once per deck.
+  - `getShapeMedia(shape)` returns `{ kind: 'video' | 'audio', partName, contentType, bytes }` or `{ kind: 'online', url }`, also for media authored by PowerPoint, PptxGenJS or python-pptx. `findShapesWithMedia(slide)` lists a slide's clips.
+  - `@office-kit/pptx-dsl` gains a `Media` element with the same `kind` / `data` / `url` / `poster` props. It now requires `@office-kit/pptx` >= 0.17.0.
+  - `copyShape` gives the copied clip its own time node, `removeShape` / `clearSlideShapes` remove it, and `importSlide` now carries video / audio parts (copied once per clip) and online-video links across decks — previously an imported slide with media was left with dangling relationships.
+  - `setShapeAnimation` now works on a slide that holds a clip but no animation yet (it used to throw), and `clearSlideAnimations` keeps clips' time nodes instead of removing their play controls.
+  - fix: `duplicateSlide` copied a slide's video / audio bytes for every duplicate, because the library's video / audio / media relationship-type constants did not match the URIs PowerPoint writes. Clips are now shared between the original and the duplicate, as documented.
+  - `validatePresentation` reports a video / audio relationship whose part is missing, and a media time node whose shape is no longer on the slide.
+
+## 0.16.1
+
+### Patch Changes
+
+- b8adc13: Duplicated slides now have independent charts, embedded workbooks and notes.
+  Editing a duplicate no longer changes the original's chart or notes. Unknown
+  owned dependency parts are copied too, including cyclic relationships. Layouts,
+  masters, themes and media remain shared. Invalid missing dependencies fail before
+  parts are added.
+
+## 0.16.0
+
+### Minor Changes
+
+- 22f1f30: feat: author and read the complex-script typeface (`<a:cs>`), and align the blank deck's font scheme with Office's
+
+  - `TextFormat.fontComplexScript` sets and reads `<a:cs typeface="…"/>`, the third typeface slot next to `font` (`<a:latin>`) and `fontEastAsian` (`<a:ea>`). It works everywhere the other two already did: `setShapeRunFormat` / `setShapeTextFormat`, `setShapeParagraphs` and `setTableCellParagraphs` (runs and `endFormat`), and it comes back from `getShapeRunFormat`, `getShapeRunFormatEffective` (including `+mj-cs` / `+mn-cs` and the theme's complex-script fallback), `getShapeParagraphElements`, `getParagraphEndFormat` and `getTableCellParagraphs`.
+  - `ChartTextStyle.fontComplexScript` writes `<a:cs>` on a chart title / axis / data-label / legend style, and the chart reader returns it. `font` keeps filling the Latin and East Asian slots only, so a chart can name a complex-script face on the legend alone.
+  - The three slots stay independent: setting one never changes the other two. Rewriting a slot writes its `typeface` attribute alone, so a `pitchFamily` / `charset` the source file carried on that element is dropped — as was already the case for `<a:latin>` and `<a:ea>`.
+  - `createPresentation`'s blank deck now carries the standard per-script font list (`<a:font script="Thai" typeface="Cordia New"/>` and its 46 siblings) in both `majorFont` and `minorFont`, the same list Office's own default theme ships. It is what resolves a face for text in a script no run names one for. Every deck `createPresentation()` produces therefore has a larger `theme1.xml` than before — its bytes change — and text in a script with no explicit typeface now resolves through that list.
+  - Chart titles and axis titles no longer carry a `lang="en-US"` language tag on their run. The chart-level tag is still `ChartSpec.language` (`<c:lang>`).
+
+## 0.15.1
+
+### Patch Changes
+
+- d6036a5: Reject U+FFFE, U+FFFF, and unpaired surrogates in authored XML text and attributes, preventing malformed PPTX parts and silent replacement with U+FFFD. Valid supplementary characters, including emoji, remain unchanged.
+
+## 0.15.0
+
+### Minor Changes
+
+- 96a37b5: feat: author and read the paragraph-end format, and merge table cells without keeping the covered cells' text
+
+  - `setShapeParagraphs` / `setTableCellParagraphs` accept `endFormat` on each paragraph, written as `<a:endParaRPr>` after the runs. It is the place to give a paragraph with no runs a font size. Omitting `endFormat` writes nothing, as before.
+  - `getParagraphEndFormat(shape, paragraphIndex)` reads a paragraph's end-mark format (`null` when absent), and every paragraph returned by `getTableCellParagraphs` now carries `endFormat`.
+  - `mergeTableCells(table, block, { coveredText: 'drop' })` removes `<a:txBody>` from the cells the merge covers, the shape PptxGenJS writes. The default (`'keep'`) still leaves the covered cells' text in the XML. Covered cells without `<a:txBody>` read back as no paragraphs and can be written to again.
+  - `setTableCellText` / `setTableCellParagraphs` on a cell that has no `<a:txBody>` now always insert it as the cell's first child, so a cell that carries only `<a:extLst>` stays schema-valid.
+  - `setShapeParagraphs` / `setTableCellParagraphs` now validate every paragraph before they replace anything: a rejected format (for example a font size out of range) throws and leaves the existing text as it was.
+
+## 0.14.0
+
+### Minor Changes
+
+- f7a710f: feat: format the secondary value axis, author per-point data labels, and write mixed-format paragraphs
+
+  - `ChartSpec.secondaryValueAxis` sets scaling, number format, title, label style, gridlines, line color, tick marks, `tickLabelPos` and `crossBetween` on the right-hand axis that `secondaryAxis` series use; `getShapeChartSpec` reads it back. Its colors are validated like the primary axis colors, and its unset label / title colors take the deck's body-text color like the primary axes do, on `setChartSpec` as well as `addSlideChart` (the two now bake unset text colors identically). A chart whose every series is `secondaryAxis` is rejected: at least one series must plot on the primary axis.
+  - `ChartSeries.pointDataLabels` authors per-point `<c:dLbl>` overrides (content, format, font) the way pie / doughnut exporters do, and the reader surfaces them. A `<c:dLbls>` holding only per-point overrides no longer reads back as an all-false series-level `dataLabels`. On read, toggles a point override leaves out inherit the series-level values, a deleted point label reads as an override with every toggle off, and overrides past the series' point count are dropped.
+  - `setShapeParagraphs(shape, paragraphs)` and `setTableCellParagraphs(cell, paragraphs)` replace a shape's or cell's text with paragraphs that each carry their own alignment and several differently formatted runs; run text is written verbatim. An empty paragraph list is rejected (use `[{ runs: [] }]` for an empty body).
+  - `ChartSpec.valueAxisTickLabelPos` positions the primary value-axis tick labels (`none` / `low` / `high` / `nextTo`), mirroring `categoryAxisTickLabelPos`.
+  - `ChartSeries.lineColor` sets the series outline / line color separately from its fill (a doughnut's slice borders, for example), and the reader returns the `<a:ln>` color of every series.
+  - `ChartSeries.markerColor` / `markerLineColor` set the marker fill and outline colors of a line / scatter / radar series, and the reader returns both. The builder now always writes them (the fill defaults to the series color, the outline to the fill), because PowerPoint paints a marker without `<c:spPr>` in the theme's automatic color rather than the series color.
+  - `@office-kit/pptx-preview` paints chart markers (data points and legend swatches) in `markerColor` / `markerLineColor` and strokes line / scatter / radar series in `lineColor`, instead of always using the series color.
+  - Axis lines and gridlines carry a width next to their color: `valueAxisLineWidthEmu` / `categoryAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` / `valueAxisMinorGridlineWidthEmu`, `categoryAxisMajorGridlineWidthEmu` / `categoryAxisMinorGridlineWidthEmu`, and `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu` (EMU, 12700 = 1 pt). The reader returns them, and a width of 0 — valid in the schema — now reads back on these and on a series' `lineWidthEmu` instead of turning into `undefined`. Without a width PowerPoint draws these lines at 0.75 pt, so a 1 pt line from another writer used to come back thinner.
+  - `ChartDataLabels.showLeaderLines` writes and reads `<c:showLeaderLines>` on series- and chart-level labels (per-point overrides have no such setting).
+  - Chart, axis and secondary-axis titles no longer force a 14 pt default size or a horizontal layout: without `sizePt` the application default applies, and a title without a rotation writes neither `rot` nor `vert="horz"` (PowerPoint reads a lone `vert="horz"` as "not rotated"), so a value-axis title takes PowerPoint's default (vertical) — pass `0` to keep it horizontal. The reader merges a title's paragraph defaults under its run style.
+  - Combo series are shaped by their own `chartKind`: a line series in a column chart keeps its markers and `smooth`, and line / area plot groups write a schema-valid `<c:grouping>` (`standard` instead of the bar-only `clustered`).
+  - Horizontal bar charts (`kind: 'bar'`) now put the category axis on the left and the value axis at the bottom, matching PowerPoint; the hidden companion category axis of a secondary axis follows the primary one.
+  - The chart reader honors `<c:ptCount>` (including on multi-level category caches), so series with empty trailing points keep their full length on read-back; cache points past the authored count are dropped.
+  - The chart reader identifies the secondary value axis by which plot groups reference it, not by its position, so a scatter chart's X axis at the top no longer reads as secondary and decks that list the secondary axis pair first read back correctly.
+  - The XML parser applies XML 1.0 end-of-line handling: a raw CR LF or CR in a part reads as LF, while a `&#13;` character reference still yields a CR.
+
+## 0.13.0
+
+### Minor Changes
+
+- 104f7d2: Read and render the transparency of solid fills and outlines.
+
+  `@office-kit/pptx` adds `getShapeFillOpacity`, `getShapeStrokeOpacity`, and
+  `resolveDrawingColorOpacity`, which resolve `<a:alpha>` / `<a:alphaMod>` /
+  `<a:alphaOff>` on a color to a 0–1 opacity. `getShapeFillColorResolved` and
+  `getShapeStrokeColorResolved` keep returning the plain `#RRGGBB`.
+
+  `@office-kit/pptx-preview` now emits `fill-opacity` / `stroke-opacity` for
+  translucent solid fills and outlines, including artwork inherited from slide
+  layouts and masters. A semi-transparent shape layered over a gradient or the
+  slide background previously rendered as an opaque block that hid whatever sat
+  beneath it.
+
+## 0.12.0
+
+### Minor Changes
+
+- 6294c52: Combo charts: per-series `chartKind` overrides and a secondary value axis.
+
+  `ChartSeries` gains `chartKind` (`'bar' | 'column' | 'line' | 'area'`) to
+  overlay e.g. a line series on a column chart, and `secondaryAxis: true` to
+  plot a series against a right-hand secondary value axis — the standard
+  PowerPoint combo layout for series with mixed units (counts vs. rates).
+  The builder splits series into plot groups (`<c:barChart>` + `<c:lineChart>`
+  …) and emits the secondary `<c:valAx>`/`<c:catAx>` pair on demand;
+  `getShapeChartSpec` round-trips both fields. The preview renderer paints
+  bars below line/area overlays, scales each axis from its own series, and
+  draws the secondary ticks on the plot's right edge.
 
 ## 0.11.1
 

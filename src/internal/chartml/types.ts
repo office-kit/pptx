@@ -1,15 +1,30 @@
 // Chart authoring types.
 //
 // One or more named series of numeric values plotted against shared
-// string categories (bar / column / line / pie / doughnut / area), plus
-// the xy(z)-tuple kinds (scatter / radar / bubble) the reader and preview
-// model. Authoring is supported for the category kinds only; the xy(z)
-// kinds are read + render only (see `chart-builder.ts`).
+// string categories (bar / column / line / pie / doughnut / area / radar /
+// stock / surface), plus the xy(z)-tuple kinds (scatter / bubble). Every
+// kind is both authorable and readable; together with the modifiers on
+// `ChartSpec` (`view3D`, `ofPie`, `surfaceContour`) they cover all sixteen
+// plot-group elements of CT_PlotArea (ECMA-376 §21.2.2.145).
 
 /**
- * Chart type tokens. `bar` / `column` / `line` / `pie` / `doughnut` /
- * `area` are authorable; `scatter` / `radar` / `bubble` are read +
- * render only — the builder rejects them (see `buildChartSpaceDoc`).
+ * Chart type tokens. The kind names the data shape; the 3-D and
+ * pie-of-pie variants are modifiers on `ChartSpec` rather than kinds of
+ * their own:
+ *
+ *   | kind       | element              | modifier → element                        |
+ *   | ---------- | -------------------- | ----------------------------------------- |
+ *   | `bar`      | `<c:barChart>`       | `view3D` → `<c:bar3DChart>`               |
+ *   | `column`   | `<c:barChart>`       | `view3D` → `<c:bar3DChart>`               |
+ *   | `line`     | `<c:lineChart>`      | `view3D` → `<c:line3DChart>`              |
+ *   | `area`     | `<c:areaChart>`      | `view3D` → `<c:area3DChart>`              |
+ *   | `pie`      | `<c:pieChart>`       | `view3D` → `<c:pie3DChart>`, `ofPie` → `<c:ofPieChart>` |
+ *   | `doughnut` | `<c:doughnutChart>`  |                                           |
+ *   | `scatter`  | `<c:scatterChart>`   |                                           |
+ *   | `bubble`   | `<c:bubbleChart>`    | `bubble3D` shades the bubbles             |
+ *   | `radar`    | `<c:radarChart>`     |                                           |
+ *   | `stock`    | `<c:stockChart>`     |                                           |
+ *   | `surface`  | `<c:surface3DChart>` | `surfaceContour` → `<c:surfaceChart>`     |
  */
 export type ChartKind =
   | 'bar'
@@ -20,7 +35,9 @@ export type ChartKind =
   | 'area'
   | 'scatter'
   | 'radar'
-  | 'bubble';
+  | 'bubble'
+  | 'stock'
+  | 'surface';
 
 /** One labelled series of numeric values. */
 export interface ChartSeries {
@@ -34,6 +51,11 @@ export interface ChartSeries {
    * For `scatter` / `bubble` kinds there are no categories: `values`
    * holds the series' y-channel (`<c:yVal>`), paired positionally with
    * `xValues`. For `radar` it behaves like `line` (values per category).
+   *
+   * A `stock` chart reads its series by position, not by name: three
+   * series are high, low, close; four are open, high, low, close
+   * (CT_StockChart allows exactly 3 or 4). A `surface` chart is a grid:
+   * each series is one row of depth, each category one column.
    */
   readonly values: ReadonlyArray<number | null>;
   /**
@@ -52,11 +74,36 @@ export interface ChartSeries {
   /** Optional `#RRGGBB` fill override. Defaults to the theme's accent palette. */
   readonly color?: string;
   /**
+   * Per-series chart-kind override for combo charts (e.g. a `line`
+   * series overlaid on a `column` chart). Series sharing an effective
+   * kind are grouped into one plot group (`<c:barChart>` /
+   * `<c:lineChart>` / `<c:areaChart>`); the groups share the category
+   * axis. Only the category kinds can mix — `bar` / `column` / `line` /
+   * `area`. Absent = plotted with the chart's own `kind`.
+   */
+  readonly chartKind?: 'bar' | 'column' | 'line' | 'area';
+  /**
+   * Plot this series against the secondary value axis — the right-hand
+   * axis PowerPoint shows for combo charts with mixed units
+   * (`<c:valAx>` pair with `axPos="r"` plus a deleted companion
+   * `<c:catAx>`). The builder emits the secondary axis pair on demand.
+   * Only meaningful for the category kinds; rejected for pie / doughnut.
+   * At least one series must stay on the primary axis — a chart whose
+   * every series is secondary is rejected at authoring time.
+   */
+  readonly secondaryAxis?: boolean;
+  /**
    * Optional line stroke width in EMU (`<c:ser><c:spPr><a:ln w="…"/>`).
    * Only meaningful for line / area / scatter series. Default falls
    * back to the renderer's own pick.
    */
   readonly lineWidthEmu?: number;
+  /**
+   * Optional stroke color of the series outline / line
+   * (`<c:ser><c:spPr><a:ln><a:solidFill>`), as an sRGB hex. Defaults to
+   * `color`; on a pie / doughnut series it is the border between slices.
+   */
+  readonly lineColor?: string;
   /**
    * Optional line dash style token (`<c:ser><c:spPr><a:ln><a:prstDash
    * val="…"/>`), e.g. `'dash'`, `'dot'`, `'sysDash'`. Only
@@ -88,6 +135,18 @@ export interface ChartSeries {
    */
   readonly markerSizePt?: number;
   /**
+   * Optional marker fill + outline color (`<c:marker><c:spPr>`), as an sRGB
+   * hex. Defaults to `color`. The builder always writes it for line /
+   * scatter / radar series, because PowerPoint paints a marker without
+   * `<c:spPr>` in the theme's automatic color instead of the series color.
+   */
+  readonly markerColor?: string;
+  /**
+   * Optional marker outline color (`<c:marker><c:spPr><a:ln>`), as an sRGB
+   * hex. Defaults to `markerColor`, then `color`.
+   */
+  readonly markerLineColor?: string;
+  /**
    * Invert the series color for negative values (bar / column charts).
    * Mirrors `<c:ser><c:invertIfNegative val="1"/>`. Renderers typically
    * paint the negative bars in the inverted shade of the series color.
@@ -109,6 +168,14 @@ export interface ChartSeries {
    */
   readonly pointExplosions?: ReadonlyArray<number | null>;
   /**
+   * Optional per-data-point data-label overrides
+   * (`<c:dLbls><c:dLbl><c:idx val="N"/>…`). Sparse — `null` slots fall back
+   * to the series-level `dataLabels`. PowerPoint draws the per-point element
+   * over the series defaults, which is how pie / doughnut exporters give each
+   * slice its own label content and font.
+   */
+  readonly pointDataLabels?: ReadonlyArray<ChartDataLabels | null>;
+  /**
    * Line-smoothing toggle (`<c:smooth val="1"/>`) — only meaningful for
    * line / scatter / area series. When `true`, the renderer interpolates
    * a smooth curve through the data points instead of straight segments.
@@ -126,6 +193,53 @@ export interface ChartSeries {
    * `<c:ser><c:dLbls>`.
    */
   readonly dataLabels?: ChartDataLabels;
+  /**
+   * Opacity of the series fill, `0` (transparent) to `1` (opaque) —
+   * `<a:srgbClr><a:alpha val="…"/>` on the series' `<a:solidFill>`. Applies
+   * to `color` and to every `pointColors` override. Overlapping area,
+   * radar and bubble series are the usual reason to set it.
+   */
+  readonly fillOpacity?: number;
+  /**
+   * Error bars along the value direction (`<c:errBars>`; `<c:errDir
+   * val="y"/>` on scatter / bubble). Valid on bar / column / line / area /
+   * scatter / bubble series; rejected elsewhere, where CT_*Ser has no
+   * `errBars` child.
+   */
+  readonly errorBars?: ChartErrorBars;
+  /**
+   * Error bars along the x direction (`<c:errDir val="x"/>`). Only scatter
+   * and bubble series have an x channel to attach them to.
+   */
+  readonly xErrorBars?: ChartErrorBars;
+}
+
+/**
+ * How far an error bar reaches (`<c:errValType>` plus its operand).
+ * `stdErr` takes no operand; `cust` carries per-point literal amounts.
+ */
+export type ChartErrorBarAmount =
+  | { readonly type: 'fixedVal' | 'percentage' | 'stdDev'; readonly value: number }
+  | { readonly type: 'stdErr' }
+  | {
+      readonly type: 'cust';
+      /** Per-point positive amounts (`<c:plus><c:numLit>`). */
+      readonly plus?: ReadonlyArray<number | null>;
+      /** Per-point negative amounts (`<c:minus><c:numLit>`). */
+      readonly minus?: ReadonlyArray<number | null>;
+    };
+
+/** Error bars of one series in one direction (ECMA-376 §21.2.2.55). */
+export interface ChartErrorBars {
+  /** Which side of the point gets a bar (`<c:errBarType>`). */
+  readonly barType: 'both' | 'plus' | 'minus';
+  readonly amount: ChartErrorBarAmount;
+  /** Drop the T-shaped end caps (`<c:noEndCap val="1"/>`). */
+  readonly noEndCap?: boolean;
+  /** Bar stroke color as `#RRGGBB`. */
+  readonly color?: string;
+  /** Bar stroke width in EMU. */
+  readonly lineWidthEmu?: number;
 }
 
 /** A single trendline overlay for a series. */
@@ -235,6 +349,27 @@ export interface ChartDataLabels {
    * the chart-title style and the axis-label style.
    */
   readonly textStyle?: ChartTextStyle;
+  /**
+   * Leader lines between a label and its data point
+   * (`<c:dLbls><c:showLeaderLines val="…"/>`). Omitted = the
+   * application default (shown). Series- and chart-level only: a
+   * per-point `<c:dLbl>` has no such element, so `pointDataLabels`
+   * ignores it on write and never reads it.
+   */
+  readonly showLeaderLines?: boolean;
+  /** Bubble size of each data point (`<c:showBubbleSize>`); bubble charts only. */
+  readonly showBubbleSize?: boolean;
+  /** Legend key swatch next to each label (`<c:showLegendKey>`). */
+  readonly showLegendKey?: boolean;
+  /** Label background fill as `#RRGGBB` (`<c:spPr><a:solidFill>`). */
+  readonly fillColor?: string;
+  /**
+   * Literal label text replacing the generated one (`<c:dLbl><c:tx>
+   * <c:rich>`) — how a scatter point gets a name. Per-point only: the
+   * series- and chart-level `<c:dLbls>` have no `<c:tx>`, so it is ignored
+   * there on write and never read.
+   */
+  readonly text?: string;
 }
 
 /**
@@ -284,6 +419,134 @@ export interface ChartAxisScaling {
     | 'hundredMillions'
     | 'billions'
     | 'trillions';
+  /**
+   * Show the display-units caption next to the axis ("Thousands",
+   * "Millions", …) — an empty `<c:dispUnitsLbl/>` under `<c:dispUnits>`.
+   * Only meaningful together with `displayUnits`.
+   */
+  readonly displayUnitsLabel?: boolean;
+}
+
+/**
+ * 3-D view of a chart (`<c:view3D>`, ECMA-376 §21.2.2.228). Every field is
+ * optional; an empty object still selects the 3-D plot-group element and
+ * leaves the camera to the application's defaults.
+ */
+export interface ChartView3D {
+  /** Elevation in degrees, -90..90 (`<c:rotX>`). */
+  readonly rotX?: number;
+  /** Rotation about the vertical axis in degrees, 0..360 (`<c:rotY>`). */
+  readonly rotY?: number;
+  /**
+   * Right-angle axes (`<c:rAngAx>`): an oblique projection that ignores
+   * `perspective`. PowerPoint's default for bar / column / line / area.
+   */
+  readonly rightAngleAxes?: boolean;
+  /** Field of view, 0..240 (`<c:perspective>`); PowerPoint's default is 30. */
+  readonly perspective?: number;
+  /** Depth as a percent of the chart width, 20..2000 (`<c:depthPercent>`). */
+  readonly depthPercent?: number;
+  /** Height as a percent of the chart width, 5..500 (`<c:hPercent>`). */
+  readonly heightPercent?: number;
+}
+
+/**
+ * Pie-of-pie / bar-of-pie settings (`<c:ofPieChart>`, ECMA-376
+ * §21.2.2.126): the trailing points of a pie move into a second plot.
+ */
+export interface ChartOfPie {
+  /** Shape of the second plot (`<c:ofPieType>`). */
+  readonly type: 'pie' | 'bar';
+  /**
+   * What decides which points move (`<c:splitType>`): `pos` — the last
+   * `splitPos` points; `val` — points below `splitPos`; `percent` — points
+   * below `splitPos` percent of the total; `cust` — the `customSplit`
+   * indices; `auto` — the application's choice.
+   */
+  readonly splitType?: 'auto' | 'cust' | 'percent' | 'pos' | 'val';
+  /** Threshold for `splitType` `pos` / `val` / `percent` (`<c:splitPos>`). */
+  readonly splitPos?: number;
+  /** Point indices in the second plot for `splitType: 'cust'` (`<c:custSplit>`). */
+  readonly customSplit?: ReadonlyArray<number>;
+  /** Second plot size as a percent of the first, 5..200 (`<c:secondPieSize>`). */
+  readonly secondPieSizePct?: number;
+  /** Gap between the two plots, 0..500 percent (`<c:gapWidth>`). */
+  readonly gapWidthPct?: number;
+  /** Connector lines between the two plots (`<c:serLines>`). */
+  readonly seriesLines?: boolean;
+}
+
+/** Up / down bars between the first and last line series (`<c:upDownBars>`). */
+export interface ChartUpDownBars {
+  /** Bar width gap, 0..500 percent (`<c:gapWidth>`); PowerPoint's default is 150. */
+  readonly gapWidthPct?: number;
+  /** Fill of the rising bars as `#RRGGBB` (`<c:upBars>`). */
+  readonly upColor?: string;
+  /** Fill of the falling bars as `#RRGGBB` (`<c:downBars>`). */
+  readonly downColor?: string;
+}
+
+/** Data table under the plot area (`<c:dTable>`, ECMA-376 §21.2.2.54). */
+export interface ChartDataTable {
+  readonly showHorizontalBorder?: boolean;
+  readonly showVerticalBorder?: boolean;
+  readonly showOutline?: boolean;
+  /** Legend keys next to the series names. */
+  readonly showKeys?: boolean;
+  readonly textStyle?: ChartTextStyle;
+}
+
+/** Calendar unit of a date axis (ST_TimeUnit). */
+export type ChartTimeUnit = 'days' | 'months' | 'years';
+
+/**
+ * Date-axis settings. Its presence turns the category axis into a
+ * `<c:dateAx>`: `ChartSpec.categories` must then hold date serial numbers
+ * (days since the workbook epoch, see `ChartSpec.date1904`) as strings,
+ * and they are written as a numeric channel so the axis can space points
+ * by date. Pair it with `categoryAxisNumberFormat` (e.g. `"yyyy-mm"`).
+ */
+export interface ChartDateAxis {
+  readonly baseTimeUnit?: ChartTimeUnit;
+  readonly majorUnit?: number;
+  readonly majorTimeUnit?: ChartTimeUnit;
+  readonly minorUnit?: number;
+  readonly minorTimeUnit?: ChartTimeUnit;
+}
+
+/**
+ * Series (depth) axis of a 3-D chart (`<c:serAx>`). The builder emits the
+ * axis whenever the plot-group element requires it; this object only
+ * formats it.
+ */
+export interface ChartSeriesAxis {
+  readonly hidden?: boolean;
+  readonly title?: string;
+  readonly titleStyle?: ChartTextStyle;
+  readonly labelStyle?: ChartTextStyle;
+  readonly majorGridlines?: boolean;
+  readonly orientation?: 'minMax' | 'maxMin';
+  readonly tickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
+  readonly tickLabelSkip?: number;
+  readonly lineColor?: string;
+}
+
+/**
+ * Manual position of a chart element, as fractions (0..1) of the chart
+ * space: `x` / `y` measured from its top-left corner, `w` / `h` as a
+ * share of its size (`<c:layout><c:manualLayout>` with `xMode` / `yMode`
+ * set to `edge`).
+ */
+export interface ChartManualLayout {
+  readonly x: number;
+  readonly y: number;
+  readonly w: number;
+  readonly h: number;
+  /**
+   * Plot area only: whether the box bounds the plot alone (`inner`) or the
+   * plot plus its tick labels and axis titles (`outer`, the default).
+   */
+  readonly target?: 'inner' | 'outer';
 }
 
 /**
@@ -313,6 +576,13 @@ export interface ChartTextStyle {
    * Mirrors the latin/ea pairing PowerPoint emits for CJK chart fonts.
    */
   readonly font?: string;
+  /**
+   * Complex-script font face — `<a:rPr><a:cs typeface="…"/>`. Written only
+   * when set: `font` fills the latin and east-asian slots and never the
+   * complex-script one, so a chart that mixes Arabic / Hebrew / Thai labels
+   * has to name the face here as well.
+   */
+  readonly fontComplexScript?: string;
   /** Font size in points. From `<a:rPr sz="N"/>` where N is in 100ths of a pt. */
   readonly sizePt?: number;
   /** Bold flag from `<a:rPr b="1"/>`. */
@@ -321,6 +591,32 @@ export interface ChartTextStyle {
   readonly italic?: boolean;
   /** Fill color as `#RRGGBB` from `<a:rPr><a:solidFill><a:srgbClr/></a:solidFill>`. */
   readonly color?: string;
+}
+
+/**
+ * Formatting for the secondary value axis (`<c:valAx>` with `axPos="r"`)
+ * that `ChartSeries.secondaryAxis` series plot against. The fields mirror
+ * the primary `valueAxis*` fields of `ChartSpec` without the prefix, limited
+ * to what a right-hand axis needs; the axis position (`r`) and crossing
+ * (`max`) stay fixed. Omit the whole object for PowerPoint's defaults.
+ */
+export interface ChartSecondaryValueAxis {
+  readonly scaling?: ChartAxisScaling;
+  readonly title?: string;
+  readonly titleStyle?: ChartTextStyle;
+  readonly labelStyle?: ChartTextStyle;
+  readonly majorGridlines?: boolean;
+  readonly majorGridlineColor?: string;
+  /** Major gridline width in EMU, the mirror of `ChartSpec.valueAxisMajorGridlineWidthEmu`. */
+  readonly majorGridlineWidthEmu?: number;
+  readonly lineColor?: string;
+  /** Axis line width in EMU, the mirror of `ChartSpec.valueAxisLineWidthEmu`. */
+  readonly lineWidthEmu?: number;
+  readonly majorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  readonly minorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /** Tick-label position, the mirror of `ChartSpec.valueAxisTickLabelPos`. */
+  readonly tickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
+  readonly crossBetween?: 'between' | 'midCat';
 }
 
 /** Full chart specification. */
@@ -337,6 +633,11 @@ export interface ChartSpec {
   readonly dataLabels?: ChartDataLabels;
   /** Optional value-axis scaling override (min / max). */
   readonly valueAxis?: ChartAxisScaling;
+  /**
+   * Formatting for the secondary value axis. Only meaningful when at least
+   * one series sets `secondaryAxis: true`; ignored otherwise.
+   */
+  readonly secondaryValueAxis?: ChartSecondaryValueAxis;
   /**
    * Plot-area background fill — `<c:plotArea><c:spPr><a:solidFill>
    * <a:srgbClr val="…"/>`. `null` for no fill / unsupported fill kind.
@@ -416,6 +717,13 @@ export interface ChartSpec {
   readonly categoryAxisMajorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /** Minor-tick mark mode on the value axis (`<c:valAx><c:minorTickMark>`). */
   readonly valueAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
+  /**
+   * Value-axis tick label position (`<c:valAx><c:tickLblPos val="…"/>`),
+   * the same choices as `categoryAxisTickLabelPos`: `none` hides the
+   * labels, `low` / `high` puts them at the plot's start / end, `nextTo`
+   * (default) next to the axis. Primary axis only.
+   */
+  readonly valueAxisTickLabelPos?: 'none' | 'low' | 'high' | 'nextTo';
   /** Minor-tick mark mode on the category axis (`<c:catAx><c:minorTickMark>`). */
   readonly categoryAxisMinorTickMark?: 'in' | 'out' | 'cross' | 'none';
   /**
@@ -432,6 +740,18 @@ export interface ChartSpec {
   /** Authored color on the category-axis minor gridlines. */
   readonly categoryAxisMinorGridlineColor?: string;
   /**
+   * Authored width of the value-axis major gridlines in EMU — the `w` of
+   * the same `<a:ln>` as `valueAxisMajorGridlineColor` (12700 = 1 pt).
+   * `undefined` leaves the width to the application (PowerPoint: 0.75 pt).
+   */
+  readonly valueAxisMajorGridlineWidthEmu?: number;
+  /** Companion width of the value-axis minor gridlines. */
+  readonly valueAxisMinorGridlineWidthEmu?: number;
+  /** Width of the category-axis major gridlines (same shape as `valueAxisMajorGridlineWidthEmu`). */
+  readonly categoryAxisMajorGridlineWidthEmu?: number;
+  /** Width of the category-axis minor gridlines. */
+  readonly categoryAxisMinorGridlineWidthEmu?: number;
+  /**
    * Authored color on the value-axis line itself — `<c:valAx><c:spPr>
    * <a:ln><a:solidFill><a:srgbClr val="…"/>`. Returned as `#RRGGBB`.
    * `undefined` falls back to the renderer's default axis stroke.
@@ -439,6 +759,13 @@ export interface ChartSpec {
   readonly valueAxisLineColor?: string;
   /** Authored color on the category-axis line (same shape as `valueAxisLineColor`). */
   readonly categoryAxisLineColor?: string;
+  /**
+   * Authored width of the value-axis line in EMU — the `w` of the same
+   * `<a:ln>` as `valueAxisLineColor`. `undefined` leaves it to the application.
+   */
+  readonly valueAxisLineWidthEmu?: number;
+  /** Width of the category-axis line (same shape as `valueAxisLineWidthEmu`). */
+  readonly categoryAxisLineWidthEmu?: number;
   /** When the value-axis emits `<c:minorGridlines/>` — minor gridlines are visible. */
   readonly valueAxisMinorGridlines?: boolean;
   /**
@@ -604,6 +931,8 @@ export interface ChartSpec {
     position: 'r' | 't' | 'b' | 'l' | 'tr' | null;
     /** When `true`, legend overlays the plot area instead of taking a strip. */
     readonly overlay?: boolean;
+    /** Manual position of the legend box; `target` does not apply. */
+    readonly layout?: ChartManualLayout;
     /**
      * Authored font / color on the legend's text. From `<c:legend><c:txPr>`'s
      * first `<a:p><a:pPr><a:defRPr>` (or `<a:r><a:rPr>` as fallback). Same
@@ -680,4 +1009,79 @@ export interface ChartSpec {
    * `'width'` scales radius linearly with size.
    */
   readonly bubbleSizeRepresents?: 'area' | 'width';
+  /**
+   * Shade bubbles as spheres — `<c:bubble3D val="1"/>` on each series of the
+   * bubble chart (PowerPoint's "3-D Bubble" subtype). Unlike the
+   * other 3-D variants it has no camera, so `view3D` does not apply.
+   */
+  readonly bubble3D?: boolean;
+  /** Plot bubbles with a negative size (`<c:showNegBubbles>`). */
+  readonly showNegativeBubbles?: boolean;
+  /**
+   * 3-D view. Its presence selects the 3-D plot-group element for `bar` /
+   * `column` / `line` / `area` / `pie`; for `surface` it only positions the
+   * camera. Rejected for every other kind, and for combo charts (a 3-D
+   * group cannot share a plot area with another group in PowerPoint).
+   */
+  readonly view3D?: ChartView3D;
+  /** Shape of 3-D bars / columns (`<c:bar3DChart><c:shape>`). Requires `view3D`. */
+  readonly bar3DShape?: 'box' | 'cone' | 'coneToMax' | 'cylinder' | 'pyramid' | 'pyramidToMax';
+  /**
+   * Depth gap between the series rows of a 3-D bar / column / line / area
+   * chart, 0..500 percent (`<c:gapDepth>`). Requires `view3D`.
+   */
+  readonly gapDepthPct?: number;
+  /** Series (depth) axis formatting for 3-D charts and `surface`. */
+  readonly seriesAxis?: ChartSeriesAxis;
+  /** Turns a `pie` into a pie-of-pie / bar-of-pie chart. */
+  readonly ofPie?: ChartOfPie;
+  /**
+   * Surface charts: `true` draws the top-down contour plot
+   * (`<c:surfaceChart>`), absent / `false` the 3-D surface
+   * (`<c:surface3DChart>`).
+   */
+  readonly surfaceContour?: boolean;
+  /** Surface charts: draw the mesh only, without color bands (`<c:wireframe>`). */
+  readonly surfaceWireframe?: boolean;
+  /**
+   * Up / down bars. Valid on `line` charts (between the first and last
+   * series) and on `stock` charts with an open series, where they are the
+   * candlestick bodies.
+   */
+  readonly upDownBars?: ChartUpDownBars;
+  /** Data table under the plot area. Rejected for the axis-less kinds. */
+  readonly dataTable?: ChartDataTable;
+  /** Turns the category axis into a date axis — see `ChartDateAxis`. */
+  readonly categoryAxisDate?: ChartDateAxis;
+  /**
+   * Scaling of the horizontal axis where it is numeric: the x value axis
+   * of `scatter` / `bubble` charts (every field applies) and a date axis
+   * (`min` / `max` only, as date serials). Rejected on a text category
+   * axis, which has no scale to set.
+   */
+  readonly categoryAxisScaling?: ChartAxisScaling;
+  /**
+   * Outer levels of a multi-level category axis (`<c:multiLvlStrRef>`),
+   * ordered from the level next to `categories` outward. Each level has
+   * one entry per category; an empty string continues the previous
+   * group, so `['2024', '', '', '', '2025', '', '', '']` groups eight
+   * quarters into two years.
+   */
+  readonly categoryGroupLevels?: ReadonlyArray<ReadonlyArray<string>>;
+  /** Manual position of the plot area. */
+  readonly plotAreaLayout?: ChartManualLayout;
+  /**
+   * Manual position of the chart title's top-left corner, as fractions of
+   * the chart space. A title sizes itself to its text, so there is no
+   * width / height to set.
+   */
+  readonly titleLayout?: { readonly x: number; readonly y: number };
+  /**
+   * Hide the value-axis line while keeping its tick labels
+   * (`<c:valAx><c:spPr><a:ln><a:noFill/>`). `valueAxisHidden` removes the
+   * labels too; this does not.
+   */
+  readonly valueAxisLineHidden?: boolean;
+  /** Hide the category-axis line while keeping its labels. */
+  readonly categoryAxisLineHidden?: boolean;
 }

@@ -4,6 +4,7 @@ import {
   type AnimationEffect,
   type AnimationOptions,
   buildSingleEffectTiming,
+  buildTimingRoot,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -23,6 +24,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
+import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
 // Animations (single-effect, click-triggered).
 //
@@ -70,20 +72,6 @@ const findDescendant = (el: XmlElement, pred: (e: XmlElement) => boolean): XmlEl
 const isPml = (el: XmlElement, local: string): boolean =>
   el.name.namespaceURI === NS.pml && el.name.localName === local;
 
-// Largest numeric `<p:cTn id="N">` anywhere in the tree (0 when none).
-const maxCTnId = (el: XmlElement): number => {
-  let max = 0;
-  const walk = (e: XmlElement): void => {
-    if (isPml(e, 'cTn')) {
-      const n = Number.parseInt(getAttrValue(e, ATTR_ID_FN) ?? '', 10);
-      if (Number.isFinite(n) && n > max) max = n;
-    }
-    for (const c of e.children) if (c.kind === 'element') walk(c);
-  };
-  walk(el);
-  return max;
-};
-
 const shiftCTnIds = (el: XmlElement, offset: number): void => {
   const walk = (e: XmlElement): void => {
     if (isPml(e, 'cTn')) {
@@ -125,27 +113,16 @@ const setGrpId = (el: XmlElement, grpId: string): void => {
   );
 };
 
+const isMainSeqCTn = (e: XmlElement): boolean =>
+  isPml(e, 'cTn') && getAttrValue(e, qname('', 'nodeType', '')) === 'mainSeq';
+
 // Merges a freshly-built single-effect timing into an existing `<p:timing>`,
 // renumbering the new effect's cTn ids so they stay unique. Returns false when
-// the existing tree lacks the mainSeq structure we know how to extend (so the
-// caller can avoid destroying it). This is what lets a second shape animate
-// without wiping a template's pre-existing animations.
+// the existing tree has no structure we know how to extend (so the caller can
+// avoid destroying it). This is what lets a second shape animate without wiping
+// a template's pre-existing animations.
 const mergeEffectInto = (existing: XmlElement, fresh: XmlElement): boolean => {
-  const existingMainSeqChildTnLst = (() => {
-    const mainSeq = findDescendant(
-      existing,
-      (e) => isPml(e, 'cTn') && getAttrValue(e, qname('', 'nodeType', '')) === 'mainSeq',
-    );
-    return mainSeq ? firstChildElement(mainSeq, qname('p', 'childTnLst', NS.pml)) : null;
-  })();
-  if (!existingMainSeqChildTnLst) return false;
-
-  // The fresh tree's click-effect wrapper is the <p:par> under its own mainSeq
-  // childTnLst. Lift it out and renumber its cTn ids past the existing max.
-  const freshMainSeq = findDescendant(
-    fresh,
-    (e) => isPml(e, 'cTn') && getAttrValue(e, qname('', 'nodeType', '')) === 'mainSeq',
-  );
+  const freshMainSeq = findDescendant(fresh, isMainSeqCTn);
   const freshChildTnLst = freshMainSeq
     ? firstChildElement(freshMainSeq, qname('p', 'childTnLst', NS.pml))
     : null;
@@ -154,9 +131,6 @@ const mergeEffectInto = (existing: XmlElement, fresh: XmlElement): boolean => {
     : null;
   const freshBldP = findDescendant(fresh, (e) => isPml(e, 'bldP'));
   if (!newPar || !freshBldP) return false;
-
-  const offset = maxCTnId(existing) - 2; // fresh effect ids start at 3
-  if (offset > 0) shiftCTnIds(newPar, offset);
 
   // Group the build with its effect under a fresh grpId so PowerPoint renders
   // each shape's effect independently. Use max-existing-grpId + 1 (not a count)
@@ -168,14 +142,45 @@ const mergeEffectInto = (existing: XmlElement, fresh: XmlElement): boolean => {
     newPar,
     (e) => getAttrValue(e, qname('', 'presetID', '')) !== null,
   );
+
+  const existingMainSeq = findDescendant(existing, isMainSeqCTn);
+  const existingMainSeqChildTnLst = existingMainSeq
+    ? firstChildElement(existingMainSeq, qname('p', 'childTnLst', NS.pml))
+    : null;
+  if (existingMainSeqChildTnLst) {
+    // The fresh tree's click-effect wrapper is the <p:par> under its own mainSeq
+    // childTnLst. Lift it out and renumber its cTn ids past the existing max.
+    const offset = maxCTnId(existing) - 2; // fresh effect ids start at 3
+    if (offset > 0) shiftCTnIds(newPar, offset);
+    existingMainSeqChildTnLst.children.push(newPar);
+  } else {
+    // A slide that holds a video / audio clip but no animation yet has a root
+    // with media nodes (and possibly interactive sequences) but no mainSeq.
+    // Adopt the fresh tree's whole main sequence; PowerPoint keeps it first,
+    // ahead of the interactive sequences and media nodes.
+    const rootList = rootChildTnLst(existing);
+    const freshRootList = rootChildTnLst(fresh);
+    const freshSeq = freshRootList?.children.find(
+      (c): c is XmlElement => c.kind === 'element' && isPml(c, 'seq'),
+    );
+    if (!rootList || !freshSeq) return false;
+    shiftCTnIds(freshSeq, maxCTnId(existing) - 1); // fresh mainSeq ids start at 2
+    rootList.children.unshift(freshSeq);
+  }
+
   if (effectCTn) setGrpId(effectCTn, newGrpId);
   setGrpId(freshBldP, newGrpId);
-
-  existingMainSeqChildTnLst.children.push(newPar);
   const existingBldLst = findDescendant(existing, (e) => isPml(e, 'bldLst'));
   if (existingBldLst) existingBldLst.children.push(freshBldP);
-  else existing.children.push(elem(qname('p', 'bldLst', NS.pml), { children: [freshBldP] }));
+  else insertBldLst(existing, elem(qname('p', 'bldLst', NS.pml), { children: [freshBldP] }));
   return true;
+};
+
+// CT_SlideTiming orders its children tnLst, bldLst, extLst.
+const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
+  const extLst = firstChildElement(timing, qname('p', 'extLst', NS.pml));
+  if (extLst === null) timing.children.push(bldLst);
+  else timing.children.splice(timing.children.indexOf(extLst), 0, bldLst);
 };
 
 /**
@@ -305,7 +310,17 @@ export const findShapesWithAnimation = (slide: SlideData): ReadonlyArray<SlideSh
 };
 
 export const clearSlideAnimations = (slide: SlideData): void => {
-  removeExistingTiming(slide);
+  // Media time nodes are what give a video / audio clip its play controls,
+  // not animations — dropping them with the rest would silently break the
+  // slide's clips.
+  const existing = findTiming(slide);
+  const mediaNodes = existing ? mediaTimingNodes(existing) : [];
+  if (existing !== null && mediaNodes.length > 0) {
+    const root = slide[SLIDE_DOCUMENT].root;
+    root.children[root.children.indexOf(existing)] = buildTimingRoot(mediaNodes);
+  } else {
+    removeExistingTiming(slide);
+  }
   commitSlideData(slide);
   refreshSlideData(slide);
 };

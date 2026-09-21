@@ -189,8 +189,8 @@ const applyColorTransforms = (hex: string, transforms: readonly ColorTransformOp
         [r, g, b] = hslToRgb(newH, s, l);
         break;
       }
-      // alpha / alphaMod / alphaOff intentionally don't touch RGB — they
-      // surface as `fill-opacity`, not as a tinted color.
+      // alpha / alphaMod / alphaOff intentionally don't touch RGB —
+      // `resolveDrawingColorOpacity` surfaces them as an opacity instead.
     }
   }
   return rgb01ToHex(r, g, b);
@@ -278,6 +278,29 @@ export const resolveDrawingColor = (
   }
   if (!baseHex) return null;
   return applyColorTransforms(baseHex, parseColorTransforms(colorEl));
+};
+
+/**
+ * Resolves the opacity a DrawingML color element carries through its
+ * `<a:alpha>` / `<a:alphaMod>` / `<a:alphaOff>` children (ECMA-376
+ * §20.1.2.3.1–3) to a `0`–`1` fraction, applied in document order from a
+ * fully opaque base. Returns `null` when the element has no alpha
+ * transform — PowerPoint paints that opaque, but callers can still tell
+ * "unspecified" apart from an explicit `1`.
+ *
+ * Kept separate from `resolveDrawingColor` because alpha never changes the
+ * `#RRGGBB`; OOXML encodes the two independently and renderers emit the
+ * opacity next to the color (`fill-opacity` / `stroke-opacity`).
+ */
+export const resolveDrawingColorOpacity = (colorEl: XmlElement): number | null => {
+  if (colorEl.name.namespaceURI !== NS.dml) return null;
+  let opacity: number | null = null;
+  for (const t of parseColorTransforms(colorEl)) {
+    if (t.kind === 'alpha') opacity = t.val;
+    else if (t.kind === 'alphaMod') opacity = (opacity ?? 1) * t.val;
+    else if (t.kind === 'alphaOff') opacity = (opacity ?? 1) + t.val;
+  }
+  return opacity === null ? null : Math.max(0, Math.min(1, opacity));
 };
 
 // Reads any element shaped like `CT_TextCharacterProperties` (the schema
@@ -402,6 +425,11 @@ export const parseRPrLikeElement = (
   if (ea !== null) {
     const t = getAttrValue(ea, qname('', 'typeface', ''));
     if (t !== null) out.fontEastAsian = t;
+  }
+  const cs = firstChildElement(rPr, qname('a', 'cs', NS.dml));
+  if (cs !== null) {
+    const t = getAttrValue(cs, qname('', 'typeface', ''));
+    if (t !== null) out.fontComplexScript = t;
   }
   return out;
 };

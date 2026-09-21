@@ -6,7 +6,8 @@
 // color, noFill, preset dash, join, and head/tail arrowheads — each inserted at
 // its CT_LineProperties slot via LN_CHILD_RANK below.
 
-import { lineWidthEmu } from '../bounds.ts';
+import { LINE_DASHES } from '../enum-values.ts';
+import { oneOf, lineWidthEmu } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, insertChildByRank, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
 
@@ -128,6 +129,7 @@ const ATTR_VAL = qname('', 'val', '');
  * `<a:ln>` if absent. Replacing the dash choice on subsequent calls.
  */
 export const setStrokeDash = (spPr: XmlElement, dash: LineDash): void => {
+  oneOf(dash, LINE_DASHES, 'setShapeStrokeDash: dash');
   const ln = ensureLn(spPr);
   ln.children = ln.children.filter(
     (c) =>
@@ -166,8 +168,18 @@ export const setStrokeArrow = (
   end: 'head' | 'tail',
   options: ArrowOptions,
 ): void => {
+  oneOf(end, ['head', 'tail'], 'setShapeStrokeArrow: end');
+  oneOf(
+    options.type,
+    ['none', 'triangle', 'stealth', 'diamond', 'oval', 'arrow'],
+    'setShapeStrokeArrow: type',
+  );
+  if (options.width !== undefined)
+    oneOf(options.width, ['sm', 'med', 'lg'], 'setShapeStrokeArrow: width');
+  if (options.length !== undefined)
+    oneOf(options.length, ['sm', 'med', 'lg'], 'setShapeStrokeArrow: length');
   const ln = ensureLn(spPr);
-  const localName = end === 'head' ? 'headEnd' : 'tailEnd';
+  const localName = { head: 'headEnd', tail: 'tailEnd' }[end];
   ln.children = ln.children.filter(
     (c) =>
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === localName),
@@ -183,6 +195,7 @@ export type LineCap = 'rnd' | 'sq' | 'flat';
 
 /** Sets `<a:ln cap="…"/>`. Pass `null` to clear the attribute. */
 export const setStrokeCap = (spPr: XmlElement, cap: LineCap | null): void => {
+  if (cap !== null) oneOf(cap, ['rnd', 'sq', 'flat'], 'setShapeStrokeCap: cap');
   const ln = ensureLn(spPr);
   ln.attrs = ln.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === 'cap'));
   if (cap !== null) ln.attrs.push(attr(qname('', 'cap', ''), cap));
@@ -194,6 +207,7 @@ const JOIN_LOCALS = new Set(['round', 'bevel', 'miter']);
 
 /** Replaces the join child of `<a:ln>`. Pass `null` to remove it. */
 export const setStrokeJoin = (spPr: XmlElement, join: LineJoin | null): void => {
+  if (join !== null) oneOf(join, ['round', 'bevel', 'miter'], 'setShapeStrokeJoin: join');
   const ln = ensureLn(spPr);
   removeChildrenIn(ln, JOIN_LOCALS);
   if (join !== null) {
@@ -207,6 +221,8 @@ export type LineCompound = 'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri';
 
 /** Sets `<a:ln cmpd="…"/>`. Pass `null` to clear the attribute. */
 export const setStrokeCompound = (spPr: XmlElement, cmpd: LineCompound | null): void => {
+  if (cmpd !== null)
+    oneOf(cmpd, ['sng', 'dbl', 'thickThin', 'thinThick', 'tri'], 'setShapeStrokeCompound: cmpd');
   const ln = ensureLn(spPr);
   ln.attrs = ln.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === 'cmpd'));
   if (cmpd !== null) ln.attrs.push(attr(qname('', 'cmpd', ''), cmpd));

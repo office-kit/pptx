@@ -11,13 +11,13 @@ coverage** rather than leaving it to diligence.
 
 The library exposes ~440 public functions. The ones a UI must surface as an
 **operation** are the _mutating_ (state-changing) exports — every `add*`,
-`set*`, `clear*`, `remove*`, `insert*`, … There are **147** of them today.
+`set*`, `clear*`, `remove*`, `insert*`, … There are **150** of them today.
 
 That set is the coverage target, and it is enforced end-to-end:
 
 1. **`manifest/generate.mjs`** reads the library source, enumerates the mutating
    exports by verb prefix, parses each signature into an operand + parameter
-   schema, and writes **`manifest/capabilities.generated.json`** — 147 entries.
+   schema, and writes **`manifest/capabilities.generated.json`** — 150 entries.
 2. **`core/registry.ts`** turns _every_ manifest entry into a runnable Command
    that dispatches to the real library function by name (`pptx[id](operand,
 …args)`). No stubs: a command is bound to an actual callable or it fails.
@@ -37,7 +37,7 @@ same `pnpm test` that guards the library.
 
 Every capability is reachable by at least one path, in increasing ergonomics:
 
-- **Command palette** (`Ctrl/Cmd+K`) — searchable list of all 147, always
+- **Command palette** (`Ctrl/Cmd+K`) — searchable list of all 150, always
   available. The guaranteed floor.
 - **Properties panel** — auto-generated from the manifest: given the current
   selection it lists _every_ capability that can act on it, grouped by category.
@@ -102,3 +102,10 @@ node site/src/lib/editor/manifest/generate.mjs
 
 Run this whenever the library's authoring surface changes; the coverage test
 tells you when it is needed.
+
+## Development preview integration
+
+The editor is currently a separate site route. The completion requirements and
+remaining integration work are tracked in [the editor preview roadmap](../../../../docs/editor-preview-roadmap.md).
+Command discovery is not proof of complete editing workflows; browser interaction
+and persistence checks are required for each supported workflow.

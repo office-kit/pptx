@@ -77,6 +77,9 @@ const mergeRPrLayer = (base: Partial<TextFormat>, layer: Partial<TextFormat>): v
   if (base.fontEastAsian === undefined && layer.fontEastAsian !== undefined) {
     base.fontEastAsian = layer.fontEastAsian;
   }
+  if (base.fontComplexScript === undefined && layer.fontComplexScript !== undefined) {
+    base.fontComplexScript = layer.fontComplexScript;
+  }
   if (base.size === undefined && layer.size !== undefined) base.size = layer.size;
   if (base.color === undefined && layer.color !== undefined) base.color = layer.color;
   if (base.bold === undefined && layer.bold !== undefined) base.bold = layer.bold;
@@ -343,6 +346,15 @@ export const getShapeRunFormatEffective = (
       const useMajor = phType === 'title' || phType === 'ctrTitle';
       const fallback = useMajor ? fonts.majorEastAsian : fonts.minorEastAsian;
       if (fallback) result.fontEastAsian = fallback;
+    }
+    if (typeof result.fontComplexScript === 'string' && result.fontComplexScript.startsWith('+')) {
+      const resolved = resolveThemeToken(result.fontComplexScript);
+      if (resolved) result.fontComplexScript = resolved;
+    }
+    if (result.fontComplexScript === undefined) {
+      const useMajor = phType === 'title' || phType === 'ctrTitle';
+      const fallback = useMajor ? fonts.majorComplexScript : fonts.minorComplexScript;
+      if (fallback) result.fontComplexScript = fallback;
     }
   }
 

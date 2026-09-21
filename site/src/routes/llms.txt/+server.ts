@@ -2,12 +2,12 @@
 //
 // The llmstxt.org proposal suggests a short index. We extend that: the file
 // keeps the index shape (H1 title, blockquote summary, link sections at the
-// end) but inlines enough API guidance that an agent can use every feature
-// of @office-kit/pptx without having to fetch additional pages. For the long-form
+// end) but also inlines common core API guidance. For TSX and the long-form
 // prose docs an agent can still follow the links at the bottom, append
 // `.md` to any docs URL for raw Markdown, or fetch `/llms-full.txt` for
 // the whole site concatenated into a single document.
 
+import { base } from '$app/paths';
 import { docSections } from '$lib/docs-nav';
 import type { RequestHandler } from './$types';
 
@@ -16,19 +16,44 @@ export const prerender = true;
 const HEADER = `# @office-kit/pptx
 
 > Generate and edit PowerPoint \`.pptx\` (OOXML PresentationML) files from
-> Node 20+ and modern browsers, with no PowerPoint, no Python, and no
+> Node 22.18+ and modern browsers, with no PowerPoint, no Python, and no
 > native runtime dependencies. Round-trip safety is the design center —
 > unknown extensions are preserved verbatim on save.
 
-This file is written for AI assistants. It is self-contained: an agent can
-use every documented feature of @office-kit/pptx from this page alone. The link
+This file is written for AI assistants. It contains a core API quick reference.
+For the TSX authoring workflow, follow the authoring and TSX guides. The link
 index at the bottom points at canonical docs — append \`.md\` to any docs
 URL for raw Markdown (e.g. \`/docs/install.md\`), or fetch \`/llms-full.txt\`
 for every page concatenated into a single document.
 
+## TSX authoring and preview
+
+The companion packages \`@office-kit/pptx-dsl\` and \`@office-kit/pptx-dev\`
+provide typed TSX, project initialization, a view-only slide viewer, and export.
+They are published on npm. For Claude Code, install the plugin with:
+
+\`\`\`sh
+claude plugin marketplace add office-kit/skills
+claude plugin install pptx@office-kit
+\`\`\`
+
+Invoke \`/pptx:office-kit-pptx\` with the presentation brief. The skill handles setup,
+authoring, preview and export. Enable auto-update once in /plugin → Marketplaces
+→ office-kit. Reload plugins or restart to load updates. Existing project npm
+dependencies are not automatically upgraded. To initialize manually, run
+\`npx --yes @office-kit/pptx-dev@latest init my-slides\`, then run
+\`npm install\` inside the generated directory.
+
+In an initialized project, edit the relevant \`slides/*.tsx\` file (read \`CLAUDE.md\` first).
+Use \`deck.tsx\` for slide order and \`theme.ts\` for shared design values,
+keep \`npm run dev\` running, and use \`npm run check\` plus \`npm run build\`
+before delivery. The output is \`deck.pptx\`. The viewer has vertical thumbnails,
+zoom and presentation mode; all content changes happen in TSX. The TSX guide
+covers native elements, template references, and Raw callbacks for core APIs.
+
 ## Runtime
 
-- Node \`>= 20\` (uses built-in Web Streams, Blob, fetch).
+- Node \`>= 22.18\` (uses built-in Web Streams, Blob, fetch).
 - Modern browsers, Bun, Deno, Cloudflare Workers, edge runtimes — anywhere
   with \`fetch\` + Uint8Array.
 - ESM-only. \`"sideEffects": false\` — fully tree-shakable.
@@ -84,8 +109,9 @@ const pres = await loadPresentation(bytes); // Uint8Array | ArrayBuffer | Blob
 const out: Uint8Array = await savePresentation(pres);
 \`\`\`
 
-\`createPresentation()\` returns an empty package — but it has no layouts,
-so any authoring needs at least one layout from a loaded template.
+\`createPresentation()\` returns an empty deck with a slide master, the Office
+theme, and three layouts (Blank, Title Slide, Title and Content). No template
+file is needed to author a new deck.
 
 ## Template fill
 
@@ -195,7 +221,9 @@ import { addSlideChart, inches } from '@office-kit/pptx';
 addSlideChart(slide, {
   x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5),
   spec: {
-    kind: 'column', // bar | column | line | pie | doughnut | area
+    // bar | column | line | area | pie | doughnut | radar | stock | surface
+    // (scatter | bubble take per-series xValues instead of categories)
+    kind: 'column',
     categories: ['Q1', 'Q2', 'Q3', 'Q4'],
     series: [
       { name: 'Revenue', values: [120, 180, 240, 300] },
@@ -208,6 +236,35 @@ addSlideChart(slide, {
 
 \`addSlideChart\` generates the chart XML, the drawing rels, **and** the
 embedded xlsx that PowerPoint needs for "Edit data".
+
+Every ECMA-376 plot type is authorable. The kind names the data shape; modifiers
+on the spec pick the variant:
+
+\`\`\`ts
+// Scatter / bubble: each series carries its own x channel.
+{ kind: 'scatter', categories: [], scatterStyle: 'lineMarker',
+  series: [{ name: 'Trial', xValues: [1, 2, 3], values: [2.5, 4.1, 6.2] }] }
+{ kind: 'bubble', categories: [],
+  series: [{ name: 'Markets', xValues: [10, 20], values: [5, 9], bubbleSizes: [100, 250] }] }
+
+// 3-D bar / column / line / area / pie: add view3D.
+{ kind: 'column', categories, series, view3D: { rotX: 20, rotY: 30 }, bar3DShape: 'cylinder' }
+
+// Pie-of-pie / bar-of-pie.
+{ kind: 'pie', categories, series: [one], ofPie: { type: 'bar', splitType: 'pos', splitPos: 3 } }
+
+// Stock: series by position — high, low, close, or open first for candlesticks.
+{ kind: 'stock', categories: days, series: [open, high, low, close] }
+
+// Surface (surfaceContour: true for the top-down contour plot).
+{ kind: 'surface', categories: xs, series: rows }
+\`\`\`
+
+Also on the spec: per-series \`errorBars\` / \`trendline\` / \`fillOpacity\`,
+\`dataTable\`, \`categoryAxisDate\` (date axis), \`categoryGroupLevels\`
+(multi-level categories), \`upDownBars\`, \`plotAreaLayout\`, combo charts via
+per-series \`chartKind\` / \`secondaryAxis\`. A spec whose fields contradict
+each other throws instead of writing a chart PowerPoint would repair.
 
 ## Images
 
@@ -224,6 +281,30 @@ setShapeImage(pictureShape, newBytes);
 
 Formats: PNG, JPEG, GIF, SVG, BMP, TIFF — detected from magic bytes; pass
 \`options.format\` to override.
+
+## Video, audio, online video
+
+\`\`\`ts
+import { addSlideMedia, getShapeMedia, inches } from '@office-kit/pptx';
+
+const box = { x: inches(1), y: inches(1.5), w: inches(8), h: inches(4.5) };
+
+// Embedded video / audio, from bytes. The container is detected from the bytes.
+const clip = addSlideMedia(slide, { kind: 'video', data: mp4Bytes, poster: posterPngBytes, ...box });
+addSlideMedia(slide, { kind: 'audio', data: mp3Bytes, x: inches(0.5), y: inches(6.5), w: inches(0.6), h: inches(0.6) });
+
+// Online video. YouTube watch / youtu.be / shorts URLs become the embed URL.
+addSlideMedia(slide2, { kind: 'online', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', ...box });
+
+const media = getShapeMedia(clip);
+// { kind: 'video', partName: '/ppt/media/media1.mp4', contentType: 'video/mp4', bytes }
+// an online video reads back as { kind: 'online', url }
+\`\`\`
+
+The shape is a picture showing the poster frame (\`setShapeImage\` replaces it;
+a play-button poster is used when \`poster\` is omitted). Containers detected
+from magic bytes: mp4, m4v, mov, webm, avi, wmv, mp3, wav, m4a, ogg, wma; pass
+\`format\` to override. Identical clip bytes are stored once per deck.
 
 ## Notes, comments, transitions, animations
 
@@ -322,12 +403,12 @@ URL. The same content powers this index, the long-form docs, and the
 - [npm package](https://www.npmjs.com/package/@office-kit/pptx)
 `;
 
-function buildBody(origin: string): string {
+function buildBody(siteBase: string): string {
   const sections = docSections
     .map((section) => {
       const lines = [
         `### ${section.title}`,
-        ...section.links.map((l) => `- [${l.title}](${origin}${l.href}.md): ${l.description}`),
+        ...section.links.map((l) => `- [${l.title}](${siteBase}${l.href}.md): ${l.description}`),
       ];
       return lines.join('\n');
     })
@@ -335,8 +416,8 @@ function buildBody(origin: string): string {
   return `${HEADER}\n${sections}${FOOTER}`;
 }
 
-export const GET: RequestHandler = ({ url }) => {
-  return new Response(buildBody(url.origin), {
+export const GET: RequestHandler = () => {
+  return new Response(buildBody(base), {
     headers: {
       'Content-Type': 'text/plain; charset=utf-8',
       'Cache-Control': 'public, max-age=300',

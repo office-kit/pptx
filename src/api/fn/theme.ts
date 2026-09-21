@@ -12,9 +12,11 @@ import {
   serializeXml,
 } from '../../internal/xml/index.ts';
 import { parseSrgbHex } from '../../internal/drawingml/index.ts';
-import type { OpcPackage } from '../../internal/parts/index.ts';
+import { type PartName, partName, resolveTarget } from '../../internal/opc/index.ts';
+import type { OpcPackage, Part } from '../../internal/parts/index.ts';
+import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import { INTERNAL_PACKAGE, type PresentationData } from '../_internal-symbols.ts';
-import { decode, encode } from './_helpers.ts';
+import { ATTR_R_ID, NAME_SLD_MASTER_ID_LST, PRES_PART_NAME, decode, encode } from './_helpers.ts';
 
 // ---------------------------------------------------------------------------
 // Theme.
@@ -86,27 +88,66 @@ const readSchemeSlot = (parent: XmlElement, local: string): string => {
 };
 
 /**
- * Returns the first theme's color scheme as `#RRGGBB` strings, or
- * `null` if the package carries no theme. Each accent slot maps
- * directly to the `accent1`–`accent6` chart palette defaults.
+ * Returns the deck's color scheme as `#RRGGBB` strings, or `null` if
+ * the package carries no theme. Each accent slot maps directly to the
+ * `accent1`–`accent6` chart palette defaults.
  *
- * Multi-master decks may carry several themes — v1 surfaces only the
- * first one found (alphabetical by part name). Per-master theme
- * lookup will land if a concrete user need shows up.
+ * The deck's theme is the one its first slide master references. A
+ * package usually holds more themes than that — notes and handout
+ * masters carry their own, and Google Slides exports name the notes
+ * theme `theme1.xml` ahead of the slide theme `theme2.xml` — so the
+ * slide master relationship decides, not the part name. Multi-master
+ * decks surface the first master's theme only; per-master theme lookup
+ * will land if a concrete user need shows up.
  */
 export const getPresentationTheme = (pres: PresentationData): PresentationTheme | null =>
   themeFromPackage(pres[INTERNAL_PACKAGE]);
 
+const resolveRelTarget = (from: PartName, target: string): PartName =>
+  target.startsWith('/') ? partName(target) : resolveTarget(from, target);
+
+/** The theme part `from` relates to, or `null` when it has no theme rel. */
+const themePartRelatedTo = (pkg: OpcPackage, from: PartName): Part | null => {
+  const rel = pkg
+    .getRels(from)
+    ?.items.find((r) => r.type === REL_TYPES.theme && r.targetMode === 'Internal');
+  if (!rel) return null;
+  const part = pkg.getPart(resolveRelTarget(from, rel.target));
+  return part !== null && part.contentType === THEME_CONTENT_TYPE ? part : null;
+};
+
+/** The first slide master's part name, in `<p:sldMasterIdLst>` order. */
+const firstSlideMasterPartName = (pkg: OpcPackage): PartName | null => {
+  const presPart = pkg.getPart(PRES_PART_NAME);
+  const presRels = pkg.getRels(PRES_PART_NAME);
+  if (presPart === null || presRels === null) return null;
+  const masterLst = firstChildElement(parseXml(decode(presPart.data)).root, NAME_SLD_MASTER_ID_LST);
+  const firstId = masterLst?.children.find((c) => c.kind === 'element');
+  const rId = firstId?.kind === 'element' ? getAttrValue(firstId, ATTR_R_ID) : null;
+  const rel =
+    presRels.items.find(
+      (r) => r.type === REL_TYPES.slideMaster && (rId === null || r.id === rId),
+    ) ?? presRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  return rel ? resolveRelTarget(PRES_PART_NAME, rel.target) : null;
+};
+
 /**
- * Returns the package's first theme part (by part name, alphabetical),
- * matching the "first theme wins" v1 semantics documented on
- * {@link getPresentationTheme}. Shared by every theme reader/writer so
- * they agree on which theme a multi-master deck exposes.
+ * The theme part the slides render with — see {@link getPresentationTheme}
+ * for why the slide master's relationship decides. Falls back to the
+ * presentation part's own theme rel, then to the first theme part by
+ * name for hand-built packages that wire neither. Shared by every theme
+ * reader/writer so they agree on which theme a deck exposes.
  */
-const firstThemePart = (pkg: OpcPackage) =>
-  pkg.parts
+const deckThemePart = (pkg: OpcPackage): Part | undefined => {
+  const masterName = firstSlideMasterPartName(pkg);
+  const viaMaster = masterName === null ? null : themePartRelatedTo(pkg, masterName);
+  if (viaMaster) return viaMaster;
+  const viaPresentation = themePartRelatedTo(pkg, PRES_PART_NAME);
+  if (viaPresentation) return viaPresentation;
+  return pkg.parts
     .filter((p) => p.contentType === THEME_CONTENT_TYPE)
     .sort((a, b) => a.name.localeCompare(b.name))[0];
+};
 
 /**
  * Package-level theme reader behind {@link getPresentationTheme}. Exposed so
@@ -116,7 +157,7 @@ const firstThemePart = (pkg: OpcPackage) =>
  * @internal
  */
 export const themeFromPackage = (pkg: OpcPackage): PresentationTheme | null => {
-  const themePart = firstThemePart(pkg);
+  const themePart = deckThemePart(pkg);
   if (!themePart) return null;
   const root = parseXml(decode(themePart.data)).root;
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
@@ -168,14 +209,13 @@ const readTypeface = (parent: XmlElement | null, local: string): string | null =
 };
 
 /**
- * Returns the first theme's font scheme, or `null` when the package
- * carries no theme. As with `getPresentationTheme`, multi-master
- * decks surface only the first theme found (alphabetical by part
- * name); per-master font lookup will land if needed.
+ * Returns the deck theme's font scheme, or `null` when the package
+ * carries no theme. As with `getPresentationTheme`, the deck theme is
+ * the first slide master's; per-master font lookup will land if needed.
  */
 export const getPresentationFonts = (pres: PresentationData): PresentationFonts | null => {
   const pkg = pres[INTERNAL_PACKAGE];
-  const themePart = firstThemePart(pkg);
+  const themePart = deckThemePart(pkg);
   if (!themePart) return null;
   const root = parseXml(decode(themePart.data)).root;
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
@@ -195,15 +235,14 @@ export const getPresentationFonts = (pres: PresentationData): PresentationFonts 
 };
 
 /**
- * Overwrites the named slots of the package's first theme's color
+ * Overwrites the named slots of the deck theme's color
  * scheme (`<a:clrScheme>`), leaving every other slot untouched. Slot
  * values are `#RRGGBB` (or 3-digit `#RGB`) strings; every branded
  * `srgbClr`/`sysClr` slot is normalized to a plain `<a:srgbClr>` on
  * write, since a theme slot is never a scheme-color reference.
  *
  * As with `getPresentationTheme`, multi-master decks are branded via
- * their first theme part only — call this once per theme part if a
- * deck's masters carry different themes.
+ * their first slide master's theme only.
  *
  * Throws if the presentation has no theme part, or if a provided color
  * isn't a valid `#RRGGBB` string.
@@ -213,7 +252,7 @@ export const setPresentationTheme = (
   theme: Partial<Omit<PresentationTheme, 'name'>> & { name?: string },
 ): void => {
   const pkg = pres[INTERNAL_PACKAGE];
-  const themePart = firstThemePart(pkg);
+  const themePart = deckThemePart(pkg);
   if (!themePart) throw new Error('setPresentationTheme: presentation has no theme part');
   const doc = parseXml(decode(themePart.data));
   const themeElements = firstChildElement(doc.root, NAME_THEME_ELEMENTS);
@@ -274,10 +313,10 @@ const setTypeface = (fontCollection: XmlElement, local: string, typeface: string
 };
 
 /**
- * Overwrites the named typefaces of the package's first theme's font
- * scheme (major = headings, minor = body), leaving unset fields
- * untouched. As with `setPresentationTheme`, only the first theme part
- * is branded.
+ * Overwrites the named typefaces of the deck theme's font scheme
+ * (major = headings, minor = body), leaving unset fields untouched. As
+ * with `setPresentationTheme`, only the first slide master's theme is
+ * branded.
  *
  * Throws if the presentation has no theme part.
  */
@@ -286,7 +325,7 @@ export const setPresentationFonts = (
   fonts: PresentationFontsInput,
 ): void => {
   const pkg = pres[INTERNAL_PACKAGE];
-  const themePart = firstThemePart(pkg);
+  const themePart = deckThemePart(pkg);
   if (!themePart) throw new Error('setPresentationFonts: presentation has no theme part');
   const doc = parseXml(decode(themePart.data));
   const themeElements = firstChildElement(doc.root, NAME_THEME_ELEMENTS);

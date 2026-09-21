@@ -1,19 +1,19 @@
-// Build a deck on top of a blank template: add a title slide and a content
-// slide, then save.
+// Build a deck from scratch: the deck createPresentation() returns already
+// has 'Title Slide', 'Title and Content' and 'Blank' layouts to add slides on.
 
-import { readFile, writeFile } from 'node:fs/promises';
+import { writeFile } from 'node:fs/promises';
 import {
   addSlide,
   addSlideTextBox,
+  createPresentation,
   findSlideLayout,
   findSlidePlaceholder,
   inches,
-  loadPresentation,
   savePresentation,
   setShapeText,
 } from '@office-kit/pptx';
 
-const pres = await loadPresentation(await readFile('blank.pptx'));
+const pres = createPresentation();
 
 const titleLayout = findSlideLayout(pres, 'Title Slide');
 if (titleLayout) {

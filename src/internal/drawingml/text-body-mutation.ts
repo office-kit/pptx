@@ -6,6 +6,9 @@
 // Keeping them separate keeps `text-body.ts` small and clearly side-effect-
 // free.
 
+import { oneOf } from '../bounds.ts';
+import { AUTO_NUMBER_SCHEMES } from '../enum-values.ts';
+
 import {
   NS,
   type XmlAttr,
@@ -18,6 +21,7 @@ import {
   text,
   walkElements,
 } from '../xml/index.ts';
+import { type TextFormat, applyRunFormat } from './text-format.ts';
 
 const NAME_BU_CHAR = qname('a', 'buChar', NS.dml);
 const NAME_BU_AUTO_NUM = qname('a', 'buAutoNum', NS.dml);
@@ -33,6 +37,7 @@ const NAME_R = qname('a', 'r', NS.dml);
 const NAME_T = qname('a', 't', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
 const NAME_PPR = qname('a', 'pPr', NS.dml);
+const NAME_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
 const ATTR_XML_SPACE = qname('xml', 'space', NS.xml);
 
 const cloneAttrs = (attrs: ReadonlyArray<XmlAttr>): XmlAttr[] =>
@@ -182,16 +187,22 @@ export type BulletStyle = 'bullet' | 'number' | 'none' | { char: string } | { au
 
 const normalizeBulletStyle = (
   s: BulletStyle,
+  caller: string,
 ): { kind: 'char'; char: string } | { kind: 'autoNum'; type: string } | { kind: 'none' } => {
+  if (typeof s === 'string') oneOf(s, ['bullet', 'number', 'none'], `${caller}: bullets`);
   if (s === 'bullet') return { kind: 'char', char: '•' };
   if (s === 'number') return { kind: 'autoNum', type: 'arabicPeriod' };
   if (s === 'none') return { kind: 'none' };
   if ('char' in s) return { kind: 'char', char: s.char };
-  return { kind: 'autoNum', type: s.autoNum };
+  return {
+    kind: 'autoNum',
+    type: oneOf(s.autoNum, AUTO_NUMBER_SCHEMES, `${caller}: bullets.autoNum`),
+  };
 };
 
-const buildBulletElement = (style: BulletStyle): XmlElement => {
-  const n = normalizeBulletStyle(style);
+type NormalizedBullet = ReturnType<typeof normalizeBulletStyle>;
+
+const buildBulletElement = (n: NormalizedBullet): XmlElement => {
   switch (n.kind) {
     case 'char':
       return elem(NAME_BU_CHAR, { attrs: [attr(ATTR_CHAR, n.char)] });
@@ -220,15 +231,44 @@ export type ParagraphAlignment =
   | 'right'
   | 'justify'
   | 'distribute'
-  | 'l'
-  | 'ctr'
-  | 'r'
-  | 'just'
-  | 'dist'
-  | 'justLow'
-  | 'thaiDist';
+  | ParagraphAlignmentToken;
 
-const alignToken = (a: ParagraphAlignment): string => {
+const ALIGNMENT_TOKENS = ['l', 'ctr', 'r', 'just', 'dist', 'justLow', 'thaiDist'] as const;
+
+/**
+ * The `ST_TextAlignType` tokens themselves — what a literal `algn` read
+ * returns. Setters take the wider `ParagraphAlignment`; reads never produce a
+ * plain-English name, because `justLow` and `thaiDist` have none and a read
+ * must not lose them.
+ */
+export type ParagraphAlignmentToken = (typeof ALIGNMENT_TOKENS)[number];
+
+/**
+ * Parses an `algn` attribute value from a file. A value outside
+ * `ST_TextAlignType` is malformed input and reads as unset.
+ */
+export const parseAlignmentToken = (value: string | null): ParagraphAlignmentToken | null =>
+  ALIGNMENT_TOKENS.find((token) => token === value) ?? null;
+
+export const alignToken = (a: ParagraphAlignment, caller: string): string => {
+  oneOf(
+    a,
+    [
+      'left',
+      'center',
+      'right',
+      'justify',
+      'distribute',
+      'l',
+      'ctr',
+      'r',
+      'just',
+      'dist',
+      'justLow',
+      'thaiDist',
+    ],
+    `${caller}: align`,
+  );
   switch (a) {
     case 'left':
     case 'l':
@@ -259,8 +299,12 @@ const ATTR_ALGN = qname('', 'algn', '');
 export const applyAlignmentToAllParagraphs = (
   txBody: XmlElement,
   align: ParagraphAlignment,
+  caller = 'setShapeAlignment',
 ): void => {
-  const token = alignToken(align);
+  applyAlignmentTokenToAllParagraphs(txBody, alignToken(align, caller));
+};
+
+export const applyAlignmentTokenToAllParagraphs = (txBody: XmlElement, token: string): void => {
   for (const p of txBody.children) {
     if (
       p.kind !== 'element' ||
@@ -302,10 +346,29 @@ const bulletIndentForLevel = (lvl: number): { marL: number; indent: number } =>
 const ATTR_MAR_L = qname('', 'marL', '');
 const ATTR_INDENT = qname('', 'indent', '');
 
+export const updateBulletIndentForLevel = (
+  pPr: XmlElement,
+  previousLevel: number,
+  level: number,
+): void => {
+  const previous = bulletIndentForLevel(previousLevel);
+  const marL = pPr.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'marL');
+  const indent = pPr.attrs.find((a) => a.name.namespaceURI === '' && a.name.localName === 'indent');
+  if (marL?.value !== String(previous.marL) || indent?.value !== String(previous.indent)) return;
+  const next = bulletIndentForLevel(level);
+  pPr.attrs = pPr.attrs.map((a) =>
+    a === marL
+      ? attr(a.name, String(next.marL))
+      : a === indent
+        ? attr(a.name, String(next.indent))
+        : a,
+  );
+};
+
 const hasAttr = (el: XmlElement, local: string): boolean =>
   el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === local);
 
-export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle): void => {
+const applyNormalizedBullet = (paragraph: XmlElement, style: NormalizedBullet): void => {
   let pPr = firstChildElement(paragraph, NAME_PPR_FOR_BULLET);
   if (pPr === null) {
     pPr = elem(NAME_PPR_FOR_BULLET);
@@ -329,7 +392,7 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
   // Only fill it in when the caller hasn't set their own marL / indent, and
   // never for `none` (which removes the bullet). marL / indent are pPr
   // ATTRIBUTES, so they must come before the bullet child element.
-  if (style !== 'none') {
+  if (style.kind !== 'none') {
     const lvl = Number.parseInt(
       pPr.attrs.find((a) => a.name.localName === 'lvl')?.value ?? '0',
       10,
@@ -344,18 +407,18 @@ export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle
   // major font) ahead of `<a:buAutoNum>`. A character bullet carries its glyph
   // directly and needs none. `<a:buFont>` precedes the bullet child per the
   // CT_TextParagraphProperties element order.
-  if (normalizeBulletStyle(style).kind === 'autoNum') {
+  if (style.kind === 'autoNum') {
     pPr.children.push(elem(NAME_BU_FONT, { attrs: [attr(ATTR_TYPEFACE, '+mj-lt')] }));
   }
   pPr.children.push(buildBulletElement(style));
 };
 
-/**
- * Sets the bullet style on every paragraph in `txBody`. Drops any
- * existing bullet child element (`a:buChar`, `a:buAutoNum`, `a:buNone`)
- * before inserting the new one. Creates `<a:pPr>` if absent.
- */
+export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle): void => {
+  applyNormalizedBullet(paragraph, normalizeBulletStyle(style, 'setParagraphBullet'));
+};
+
 export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyle): void => {
+  const normalized = normalizeBulletStyle(style, 'setShapeBullets');
   for (const p of txBody.children) {
     if (
       p.kind !== 'element' ||
@@ -364,7 +427,7 @@ export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyl
     ) {
       continue;
     }
-    applyBulletToParagraph(p, style);
+    applyNormalizedBullet(p, normalized);
   }
 };
 
@@ -381,7 +444,9 @@ export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyl
  *
  * The `bodyPr` and `lstStyle` children (if any) are preserved untouched.
  */
-export const setTextBody = (txBody: XmlElement, value: string): void => {
+export const setTextBody = (txBody: XmlElement, value: string, bullets?: BulletStyle): void => {
+  const normalized =
+    bullets === undefined ? undefined : normalizeBulletStyle(bullets, 'setShapeText');
   const rPrTemplate = findFirstRunProperties(txBody);
   const pPrTemplate = findFirstParagraphProperties(txBody);
 
@@ -402,7 +467,89 @@ export const setTextBody = (txBody: XmlElement, value: string): void => {
     const p = elem(NAME_P, {
       children: pPrTemplate !== null ? [cloneElement(pPrTemplate), r] : [r],
     });
+    if (normalized !== undefined) applyNormalizedBullet(p, normalized);
     txBody.children.push(p);
   }
   void ATTR_XML_SPACE;
+};
+
+/** One run of a `ParagraphSpec`: text plus the format applied to its `<a:rPr>`. */
+export interface RunSpec {
+  /**
+   * Run text, written verbatim — unlike `setShapeText`, newlines are not
+   * split into paragraphs (PowerPoint shows a CR LF inside a run as a line
+   * break, which some exporters rely on).
+   */
+  readonly text: string;
+  readonly format?: TextFormat;
+}
+
+/** One paragraph for `setTextBodyParagraphs`: optional alignment plus its runs. */
+export interface ParagraphSpec {
+  readonly align?: ParagraphAlignment;
+  readonly runs: ReadonlyArray<RunSpec>;
+  /**
+   * Format of the paragraph-end mark (`<a:endParaRPr>`), the place to give a
+   * paragraph with no runs a font size. Omit to write no `<a:endParaRPr>`.
+   */
+  readonly endFormat?: TextFormat;
+}
+
+/**
+ * Builds the `<a:p>` elements for `paragraphs`. Every format is validated
+ * here, so a caller that builds before it touches the tree leaves the
+ * existing text intact when a value is rejected.
+ */
+export const buildTextBodyParagraphs = (
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+  caller = 'setShapeParagraphs',
+): ReadonlyArray<XmlElement> => {
+  // CT_TextBody requires at least one <a:p>; `[{ runs: [] }]` is the empty body.
+  if (paragraphs.length === 0) {
+    throw new Error('setTextBodyParagraphs: at least one paragraph is required');
+  }
+  const built: XmlElement[] = [];
+  // for...of, not map: map skips the holes of a sparse array and would hand
+  // them on as undefined children.
+  for (const para of paragraphs) {
+    const children: XmlElement[] = [];
+    if (para.align !== undefined) {
+      children.push(elem(NAME_PPR, { attrs: [attr(ATTR_ALGN, alignToken(para.align, caller))] }));
+    }
+    for (const run of para.runs) {
+      const rPr = elem(NAME_RPR);
+      if (run.format !== undefined) applyRunFormat(rPr, run.format, caller);
+      const t = elem(NAME_T, { children: run.text.length > 0 ? [text(run.text)] : [] });
+      children.push(elem(NAME_R, { children: [rPr, t] }));
+    }
+    // CT_TextParagraph is a sequence: <a:endParaRPr> comes after every run.
+    if (para.endFormat !== undefined) {
+      const endParaRPr = elem(NAME_END_PARA_RPR);
+      applyRunFormat(endParaRPr, para.endFormat, caller);
+      children.push(endParaRPr);
+    }
+    built.push(elem(NAME_P, { children }));
+  }
+  return built;
+};
+
+export const replaceTextBodyParagraphs = (
+  txBody: XmlElement,
+  built: ReadonlyArray<XmlElement>,
+): void => {
+  removeAllParagraphs(txBody);
+  txBody.children.push(...built);
+};
+
+/**
+ * Replaces every paragraph of `txBody` with explicitly structured ones.
+ * Unlike `setTextBody`, nothing is inherited from the existing runs: each
+ * run gets a fresh `<a:rPr>` carrying only its own `format`. A rejected
+ * format throws before `txBody` changes.
+ */
+export const setTextBodyParagraphs = (
+  txBody: XmlElement,
+  paragraphs: ReadonlyArray<ParagraphSpec>,
+): void => {
+  replaceTextBodyParagraphs(txBody, buildTextBodyParagraphs(paragraphs));
 };

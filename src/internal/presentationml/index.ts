@@ -30,6 +30,15 @@ export type { GroupOptions } from './group-builder.ts';
 export { buildGroup } from './group-builder.ts';
 export type { PictureOptions } from './picture-builder.ts';
 export { buildPicture } from './picture-builder.ts';
+export type { MediaFileKind, MediaPictureOptions, PictureMediaRef } from './media-builder.ts';
+export {
+  buildMediaPicture,
+  buildMediaTimingNode,
+  buildTimingRoot,
+  isMediaTimingNode,
+  mediaTimingNodeTarget,
+  readPictureMediaRef,
+} from './media-builder.ts';
 export type { TableOptions } from './table-builder.ts';
 export { buildTable, buildTableCell, buildTableRow } from './table-builder.ts';
 export { buildEmptyNotesSlide } from './notes-slide-builder.ts';

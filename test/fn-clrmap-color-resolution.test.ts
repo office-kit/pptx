@@ -27,6 +27,7 @@ import {
   createPresentation,
   findSlideLayout,
   getEffectiveColorMap,
+  getSlideCharts,
   getSlides,
   getSlideXmlString,
   getTableCell,
@@ -35,6 +36,7 @@ import {
   resolveDeckBodyTextColor,
   resolveDrawingColor,
   savePresentation,
+  setChartSpec,
   setTableCellTextFormat,
 } from '../src/api/index.ts';
 import { parseXml } from '../src/internal/xml/index.ts';
@@ -378,6 +380,70 @@ describe('fn API: inverted clrMap end-to-end', () => {
     const chartXml = decode(pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml')!.data);
     // The baked color should be FFFFFF, not 000000
     expect(chartXml).toContain('FFFFFF');
+    expect(chartXml).not.toContain('val="000000"');
+  });
+
+  it('addSlideChart bakes FFFFFF on the secondary value axis when tx1 maps to lt1', async () => {
+    const pres = await buildInvertedDeck();
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('expected Blank layout');
+    const slide = addSlide(pres, { layout });
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: {
+        kind: 'column',
+        categories: ['Jan', 'Feb'],
+        series: [
+          { name: 'Sales', values: [100, 200] },
+          { name: 'Rate', values: [1, 2], chartKind: 'line', secondaryAxis: true },
+        ],
+        secondaryValueAxis: { title: 'Rate' },
+      },
+    });
+    const bytes = await savePresentation(pres);
+    const pkg = _internalPackageOf(await loadPresentation(bytes));
+    const chartXml = decode(pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml')!.data);
+    const secondaryXml = chartXml.slice(chartXml.indexOf('<c:axId val="444444444"/>'));
+    // Both the tick labels (<c:txPr>) and the title carry the light body color.
+    expect(secondaryXml).toContain(
+      '<c:txPr><a:bodyPr vert="horz"/><a:lstStyle/><a:p><a:pPr><a:defRPr><a:solidFill><a:srgbClr val="FFFFFF"/>',
+    );
+    expect(secondaryXml).toContain('<a:rPr><a:solidFill><a:srgbClr val="FFFFFF"/>');
+    expect(chartXml).not.toContain('val="000000"');
+  });
+
+  it('setChartSpec bakes the same FFFFFF as addSlideChart when tx1 maps to lt1', async () => {
+    const pres = await buildInvertedDeck();
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('expected Blank layout');
+    const slide = addSlide(pres, { layout });
+    addSlideChart(slide, {
+      x: inches(0.5),
+      y: inches(0.5),
+      w: inches(6),
+      h: inches(4),
+      spec: { kind: 'column', categories: ['Jan'], series: [{ name: 'Sales', values: [1] }] },
+    });
+    setChartSpec(getSlideCharts(slide)[0]!, {
+      kind: 'column',
+      categories: ['Jan', 'Feb'],
+      series: [
+        { name: 'Sales', values: [100, 200] },
+        { name: 'Rate', values: [1, 2], chartKind: 'line', secondaryAxis: true },
+      ],
+      legend: { position: 'r' },
+    });
+    const bytes = await savePresentation(pres);
+    const pkg = _internalPackageOf(await loadPresentation(bytes));
+    const chartXml = decode(pkg.parts.find((p) => p.name === '/ppt/charts/chart1.xml')!.data);
+    const baked =
+      '<c:txPr><a:bodyPr vert="horz"/><a:lstStyle/><a:p><a:pPr><a:defRPr><a:solidFill><a:srgbClr val="FFFFFF"/>';
+    // Category, value and secondary value axis labels plus the legend.
+    expect(chartXml.split(baked)).toHaveLength(5);
+    expect(chartXml.slice(chartXml.indexOf('<c:legend>'))).toContain('val="FFFFFF"');
     expect(chartXml).not.toContain('val="000000"');
   });
 

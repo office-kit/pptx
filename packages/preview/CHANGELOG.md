@@ -1,5 +1,224 @@
 # pptx-kit-preview
 
+## 0.9.10
+
+### Patch Changes
+
+- a51fa10: fix: highlighted points lost their colors in stacked chart previews (#350)
+
+  Stacked and percent-stacked column and bar previews now preserve per-point highlight colors. They use the same point-color, single-series varying-color, series-color, and palette fallbacks as clustered charts.
+
+## 0.9.9
+
+### Patch Changes
+
+- bb5a337: fix: transparent column and bar series appeared opaque in previews (#349)
+
+  Column and bar previews now respect series fill opacity in clustered, stacked, and percent-stacked charts. Transparent bases remain part of the stack, preserving the position of visible segments in waterfall-style charts.
+
+- 3c9850f: fix: chart previews ignored axis visibility and category tick settings (#351)
+
+  Hiding an axis line now preserves its labels and tick marks, and category axes use the requested major and minor tick marks. Hiding the category axis or its line also removes the zero baseline in column, bar, line, and area charts. Scatter and bubble previews now hide the entire corresponding axis, including its labels and ticks, when the value-axis or category-axis visibility setting requests it.
+
+- 55fc76b: fix: chart previews ignored manually positioned inner plot areas (#348)
+
+  Plotted data now uses the authored inner plot position and size. Negative sizes collapse to zero, and plot rectangles are clipped to the chart frame so malformed layouts cannot produce negative SVG dimensions or extend the plot over neighboring shapes. Outer layouts retain automatic axis gutters.
+
+## 0.9.8
+
+### Patch Changes
+
+- 8a8ac43: Paint an unstyled bullet in its paragraph's first-run colour. Without `<a:buClr>` anywhere in the cascade the renderer fell back to the deck's body-text colour, so a numbered agenda whose runs carry their own light colour drew its `1.` / `a.` markers in the default black and they sank into a dark background. PowerPoint and LibreOffice take the first run's colour, which is the same rule an un-sized bullet already followed for its size.
+- 8a8ac43: Keep a resized group's text at its authored size in the preview. A group whose `<a:ext>` differs from its `<a:chExt>` scales its children, and the renderer was applying that scale to their glyphs as well, so a group squashed vertically (what Google Slides writes for a hand-resized group) drew stretched, half-height letters. PowerPoint and LibreOffice resize only the geometry, so the text now lays out inside the group-scaled rect at its authored point size and aspect.
+
+## 0.9.7
+
+### Patch Changes
+
+- 978c317: fix: auto-numbered lists restarted at 1 after a nested list
+
+  The preview kept a single numbering counter and reset it on every indent-level change, so a top-level list with nested items between its entries rendered as `1. / a. / b. / 1. / 1.`. PowerPoint keeps one counter per level: the outer list continues (`2.`, `3.`) and only deeper levels reset when a shallower paragraph starts. A non-numbered paragraph still restarts its own level, and a different numbering scheme at the same level starts over.
+
+## 0.9.6
+
+### Patch Changes
+
+- 71deec5: feat: author every chart type — scatter, bubble, radar, stock, surface, the 3-D variants and pie-of-pie
+
+  `addSlideChart` / `setChartSpec` now write all sixteen plot types of ECMA-376, and `getShapeChartSpec` reads every one of them back.
+
+  - `kind: 'scatter' | 'bubble' | 'radar'` are authorable (they used to throw "read-only"). Scatter and bubble series carry their own `xValues` (and `bubbleSizes`); the embedded workbook lays them out per series so "Edit data" opens onto the right cells.
+  - New kinds `'stock'` (3 series: high, low, close; or 4 with open first, drawn as candlesticks) and `'surface'` (`surfaceContour` for the top-down contour plot, `surfaceWireframe` for the mesh).
+  - 3-D is a modifier: `view3D: { rotX, rotY, rightAngleAxes, perspective, depthPercent, heightPercent }` on `bar` / `column` / `line` / `area` / `pie` selects the 3-D element, with `bar3DShape` (cylinder, cone, pyramid, …), `gapDepthPct` and `seriesAxis`. `bubble3D` shades bubbles as spheres.
+  - `ofPie` turns a pie into a pie-of-pie / bar-of-pie chart.
+  - Per series: `errorBars` / `xErrorBars` (fixed, percentage, standard deviation, standard error, custom), `fillOpacity`.
+  - Per chart: `dataTable`, `upDownBars`, `categoryAxisDate` (date axis with time units), `categoryGroupLevels` (multi-level category labels), `categoryAxisScaling` (the x axis of scatter / bubble charts, or a date axis' range), `plotAreaLayout` / `titleLayout` / `legend.layout` (manual placement), `valueAxisLineHidden` / `categoryAxisLineHidden`, `valueAxis.displayUnitsLabel`.
+  - Data labels gain `showBubbleSize`, `showLegendKey`, `fillColor`, and per-point `text` (a literal label, e.g. naming one scatter point).
+  - A spec whose fields contradict each other (`view3D` on a scatter chart, error bars on a pie, a date axis with non-numeric categories, …) throws with a message naming the field, instead of writing a chart PowerPoint would repair.
+
+  Behavior changes when reading existing decks:
+
+  - A stock chart now reads as `kind: 'stock'` (was `'line'`) and a surface chart as `kind: 'surface'` (was `'column'`). `getPresentationChartKindCounts` has the two new keys.
+  - 3-D charts still read as their flat kind, now with `view3D` set, so `setChartSpec(chart, getShapeChartSpec(shape))` no longer flattens a 3-D chart.
+  - fix: for scatter / bubble charts `valueAxis` (and the other `valueAxis*` fields) described the **x** axis. They now describe the y axis; the x axis reads into `categoryAxis*` and `categoryAxisScaling`.
+  - fix: charts with more than 25 series wrote workbook references past column `Z` as invalid cell addresses.
+
+  `@office-kit/pptx-preview` draws stock charts as lines and surface charts as columns (as before), and honors `categoryAxisScaling` on scatter / bubble charts.
+
+## 0.9.5
+
+### Patch Changes
+
+- a13afc2: fix: bar and column charts ignored per-point colors (`pointColors` / `<c:dPt>`), so a "one bar highlighted, the rest grey" chart rendered in a single color. The preview now paints them, as PowerPoint does.
+
+## 0.9.4
+
+### Patch Changes
+
+- f7a710f: feat: format the secondary value axis, author per-point data labels, and write mixed-format paragraphs
+
+  - `ChartSpec.secondaryValueAxis` sets scaling, number format, title, label style, gridlines, line color, tick marks, `tickLabelPos` and `crossBetween` on the right-hand axis that `secondaryAxis` series use; `getShapeChartSpec` reads it back. Its colors are validated like the primary axis colors, and its unset label / title colors take the deck's body-text color like the primary axes do, on `setChartSpec` as well as `addSlideChart` (the two now bake unset text colors identically). A chart whose every series is `secondaryAxis` is rejected: at least one series must plot on the primary axis.
+  - `ChartSeries.pointDataLabels` authors per-point `<c:dLbl>` overrides (content, format, font) the way pie / doughnut exporters do, and the reader surfaces them. A `<c:dLbls>` holding only per-point overrides no longer reads back as an all-false series-level `dataLabels`. On read, toggles a point override leaves out inherit the series-level values, a deleted point label reads as an override with every toggle off, and overrides past the series' point count are dropped.
+  - `setShapeParagraphs(shape, paragraphs)` and `setTableCellParagraphs(cell, paragraphs)` replace a shape's or cell's text with paragraphs that each carry their own alignment and several differently formatted runs; run text is written verbatim. An empty paragraph list is rejected (use `[{ runs: [] }]` for an empty body).
+  - `ChartSpec.valueAxisTickLabelPos` positions the primary value-axis tick labels (`none` / `low` / `high` / `nextTo`), mirroring `categoryAxisTickLabelPos`.
+  - `ChartSeries.lineColor` sets the series outline / line color separately from its fill (a doughnut's slice borders, for example), and the reader returns the `<a:ln>` color of every series.
+  - `ChartSeries.markerColor` / `markerLineColor` set the marker fill and outline colors of a line / scatter / radar series, and the reader returns both. The builder now always writes them (the fill defaults to the series color, the outline to the fill), because PowerPoint paints a marker without `<c:spPr>` in the theme's automatic color rather than the series color.
+  - `@office-kit/pptx-preview` paints chart markers (data points and legend swatches) in `markerColor` / `markerLineColor` and strokes line / scatter / radar series in `lineColor`, instead of always using the series color.
+  - Axis lines and gridlines carry a width next to their color: `valueAxisLineWidthEmu` / `categoryAxisLineWidthEmu`, `valueAxisMajorGridlineWidthEmu` / `valueAxisMinorGridlineWidthEmu`, `categoryAxisMajorGridlineWidthEmu` / `categoryAxisMinorGridlineWidthEmu`, and `secondaryValueAxis.lineWidthEmu` / `majorGridlineWidthEmu` (EMU, 12700 = 1 pt). The reader returns them, and a width of 0 — valid in the schema — now reads back on these and on a series' `lineWidthEmu` instead of turning into `undefined`. Without a width PowerPoint draws these lines at 0.75 pt, so a 1 pt line from another writer used to come back thinner.
+  - `ChartDataLabels.showLeaderLines` writes and reads `<c:showLeaderLines>` on series- and chart-level labels (per-point overrides have no such setting).
+  - Chart, axis and secondary-axis titles no longer force a 14 pt default size or a horizontal layout: without `sizePt` the application default applies, and a title without a rotation writes neither `rot` nor `vert="horz"` (PowerPoint reads a lone `vert="horz"` as "not rotated"), so a value-axis title takes PowerPoint's default (vertical) — pass `0` to keep it horizontal. The reader merges a title's paragraph defaults under its run style.
+  - Combo series are shaped by their own `chartKind`: a line series in a column chart keeps its markers and `smooth`, and line / area plot groups write a schema-valid `<c:grouping>` (`standard` instead of the bar-only `clustered`).
+  - Horizontal bar charts (`kind: 'bar'`) now put the category axis on the left and the value axis at the bottom, matching PowerPoint; the hidden companion category axis of a secondary axis follows the primary one.
+  - The chart reader honors `<c:ptCount>` (including on multi-level category caches), so series with empty trailing points keep their full length on read-back; cache points past the authored count are dropped.
+  - The chart reader identifies the secondary value axis by which plot groups reference it, not by its position, so a scatter chart's X axis at the top no longer reads as secondary and decks that list the secondary axis pair first read back correctly.
+  - The XML parser applies XML 1.0 end-of-line handling: a raw CR LF or CR in a part reads as LF, while a `&#13;` character reference still yields a CR.
+
+## 0.9.3
+
+### Patch Changes
+
+- 104f7d2: Read and render the transparency of solid fills and outlines.
+
+  `@office-kit/pptx` adds `getShapeFillOpacity`, `getShapeStrokeOpacity`, and
+  `resolveDrawingColorOpacity`, which resolve `<a:alpha>` / `<a:alphaMod>` /
+  `<a:alphaOff>` on a color to a 0–1 opacity. `getShapeFillColorResolved` and
+  `getShapeStrokeColorResolved` keep returning the plain `#RRGGBB`.
+
+  `@office-kit/pptx-preview` now emits `fill-opacity` / `stroke-opacity` for
+  translucent solid fills and outlines, including artwork inherited from slide
+  layouts and masters. A semi-transparent shape layered over a gradient or the
+  slide background previously rendered as an opaque block that hid whatever sat
+  beneath it.
+
+## 0.9.2
+
+### Patch Changes
+
+- f89ac2b: Fix missing EMF artwork and abrupt background color changes in imported slide previews.
+
+  EMF pictures made of solid-filled line and Bézier paths now render as transparent
+  vector images, including artwork inherited from slide layouts. Images with
+  unsupported drawing commands retain their placeholder instead of rendering only
+  part of the artwork. Gradient colors are ordered by their positions before
+  rendering, so out-of-order stops no longer introduce flat bands or color jumps.
+
+## 0.9.1
+
+### Patch Changes
+
+- 1020b9a: East Asian line breaking and measured legend packing.
+
+  The text layout engine tokenized wrapped text by whitespace only, so a
+  space-free CJK clause travelled as one unbreakable "word" — the greedy
+  wrapper pushed the whole clause to the next line, leaving artifacts like a
+  lone bullet glyph on its own line. CJK runs now break between any two
+  characters with simple kinsoku (closing punctuation glued to its
+  predecessor, opening brackets to their successor), matching PowerPoint's
+  East Asian line breaking.
+
+  Chart legends previously packed items into fixed-width slots
+  (`min(140px, frameW / n)`), so long CJK series names overflowed into the
+  neighbouring item. Horizontal legends ('b'/'t') now pack items by an
+  estimated per-label width and shrink the font when the row exceeds the
+  frame; vertical legends ('r'/'tr') size the right column to the widest
+  label instead of a fixed 100px.
+
+## 0.9.0
+
+### Minor Changes
+
+- 6294c52: Combo charts: per-series `chartKind` overrides and a secondary value axis.
+
+  `ChartSeries` gains `chartKind` (`'bar' | 'column' | 'line' | 'area'`) to
+  overlay e.g. a line series on a column chart, and `secondaryAxis: true` to
+  plot a series against a right-hand secondary value axis — the standard
+  PowerPoint combo layout for series with mixed units (counts vs. rates).
+  The builder splits series into plot groups (`<c:barChart>` + `<c:lineChart>`
+  …) and emits the secondary `<c:valAx>`/`<c:catAx>` pair on demand;
+  `getShapeChartSpec` round-trips both fields. The preview renderer paints
+  bars below line/area overlays, scales each axis from its own series, and
+  draws the secondary ticks on the plot's right edge.
+
+## 0.8.1
+
+### Patch Changes
+
+- 553e3d9: fix(preview): stop shrinking text in shapes without `<a:normAutofit>`
+
+  PowerPoint never shrinks text in shapes that lack `<a:normAutofit>`:
+  `<a:noAutofit>` (or no autofit element) simply overflows the box, and
+  `<a:spAutoFit>` grows the box to fit the text. The preview applied a
+  heuristic shrink-to-fit to such shapes, which rendered template
+  placeholders (font size inherited from the layout/master, box authored
+  tightly around the sample text) at down to 0.4× of their PowerPoint
+  size. The heuristic estimator is removed; only an authored
+  `<a:normAutofit>` (with or without a baked `fontScale`) shrinks text,
+  matching PowerPoint.
+
+## 0.8.0
+
+### Minor Changes
+
+- a4f03a4: feat: let `renderSlideToImage` / `renderSlideToRgba` load extra rasterizer fonts
+
+  `RenderImageOptions` gains `fontFiles` (extra ttf / otf / ttc paths handed to
+  resvg alongside the bundled Latin faces) and `loadSystemFonts` (opt-in OS font
+  fallback, default `false` to keep output deterministic). The bundled set has
+  no CJK coverage, so decks with Japanese / Chinese / Korean text previously
+  rasterized as missing-glyph boxes with no way to fix it — now callers can
+  supply a CJK face, pairing it with `buildFontkitMeasurer({ fonts })` so wrap
+  math and painted glyphs use the same metrics.
+
+### Patch Changes
+
+- dc6b2eb: fix: render group children exactly once
+
+  `getSlideShapes` / `getSlideLayoutShapes` / `getSlideMasterShapes` flatten
+  group descendants into their result, while `renderSlideToSvg` already recurses
+  into groups and draws every child with the group transform applied. Rendering
+  the flat list verbatim painted each group child a second time, untransformed —
+  visibly offset whenever the group's `chOff` differs from its `off` (common in
+  Google Slides exports, e.g. shape-built charts showing doubled axis labels).
+
+  `auditTextLayout` had the same double-enumeration and reported each group
+  child's issues twice; it now audits every shape exactly once.
+
+## 0.7.0
+
+### Minor Changes
+
+- 2715289: feat: add `auditTextLayout` — detect text overflowing its box (はみ出し) and unintended soft wraps (段落ち)
+
+  `auditTextLayout(pres, options)` measures every shape's text with the same
+  layout engine the preview renders with and reports `overflow-x` / `overflow-y`
+  issues (plus opt-in `soft-wrap` reports via `reportSoftWraps`). Results carry
+  an `approximate` flag when widths were estimated rather than measured.
+
+  `buildFontkitMeasurer` (the `/node` entry) now accepts `{ fonts }` to register
+  the deck's actual font files by their authored family names; registered fonts
+  also serve as glyph fallbacks, and glyphs no font covers are estimated
+  per-character (CJK ≈ 1em) instead of measured against missing-glyph advances.
+
 ## 0.6.2
 
 ### Patch Changes

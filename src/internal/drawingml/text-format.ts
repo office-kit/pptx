@@ -25,7 +25,8 @@ import {
   insertChildByRank,
   qname,
 } from '../xml/index.ts';
-import { fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
+import { UNDERLINES, STRIKES } from '../enum-values.ts';
+import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
 import { parseColor } from './color.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
@@ -89,6 +90,12 @@ export interface TextFormat {
    * and CJK text and needs a consistent look across the whole run.
    */
   fontEastAsian?: string;
+  /**
+   * Complex-script font family. Sets `<a:cs>`, the typeface renderers pick
+   * for complex scripts such as Arabic, Hebrew and Thai — independently of
+   * `font` (Latin) and `fontEastAsian` (CJK).
+   */
+  fontComplexScript?: string;
   /** Font size in points; fractional values allowed (`12`, `12.5`). */
   size?: number;
   /**
@@ -183,6 +190,14 @@ const setEastAsian = (rPr: XmlElement, font: string | null): void => {
   insertChildByRank(rPr, elem(NAME_EA, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
 };
 
+const setComplexScript = (rPr: XmlElement, font: string | null): void => {
+  rPr.children = rPr.children.filter(
+    (c) => !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'cs'),
+  );
+  if (font === null) return;
+  insertChildByRank(rPr, elem(NAME_CS, { attrs: [attr(ATTR_TYPEFACE, font)] }), rprChildRank);
+};
+
 const setHighlight = (rPr: XmlElement, value: string | null): void => {
   rPr.children = rPr.children.filter(
     (c) =>
@@ -198,8 +213,25 @@ const setHighlight = (rPr: XmlElement, value: string | null): void => {
   insertChildByRank(rPr, elem(NAME_HIGHLIGHT, { children: [inner] }), rprChildRank);
 };
 
+export const validateFormatEnums = (format: TextFormat, caller: string): void => {
+  if (format.underline != null && typeof format.underline !== 'boolean')
+    oneOf(format.underline, UNDERLINES, `${caller}: underline`);
+  if (format.strike != null && typeof format.strike !== 'boolean')
+    oneOf(format.strike, STRIKES, `${caller}: strike`);
+  if (format.cap != null) oneOf(format.cap, ['none', 'small', 'all'], `${caller}: cap`);
+};
+
 /** Mutates `rPr` in place per `format`. */
-export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
+export const applyRunFormat = (
+  rPr: XmlElement,
+  format: TextFormat,
+  caller = 'setShapeRunFormat',
+): void => {
+  validateFormatEnums(format, caller);
+  applyValidatedRunFormat(rPr, format);
+};
+
+const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   let attrs = rPr.attrs;
   if (format.size !== undefined) {
     // Hundredths of a point per the schema (ST_TextFontSize: 1..4000 pt).
@@ -242,10 +274,9 @@ export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
 
   if (format.font !== undefined) setLatin(rPr, format.font);
   if (format.fontEastAsian !== undefined) setEastAsian(rPr, format.fontEastAsian);
+  if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
   if (format.color !== undefined) setSolidFill(rPr, format.color);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
-
-  void NAME_CS;
 };
 
 /**
@@ -253,7 +284,16 @@ export const applyRunFormat = (rPr: XmlElement, format: TextFormat): void => {
  * supplied format. Existing run-property attributes not addressed by
  * `format` are preserved.
  */
-export const applyFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
+export const applyFormatToAllRuns = (
+  txBody: XmlElement,
+  format: TextFormat,
+  caller = 'setShapeTextFormat',
+): void => {
+  validateFormatEnums(format, caller);
+  applyValidatedFormatToAllRuns(txBody, format);
+};
+
+export const applyValidatedFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
   // Walk depth-first; runs live two levels deep (txBody > p > r).
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
@@ -269,7 +309,7 @@ export const applyFormatToAllRuns = (txBody: XmlElement, format: TextFormat): vo
         // rPr must be the first child of the run per the schema.
         r.children.unshift(rPr);
       }
-      applyRunFormat(rPr, format);
+      applyValidatedRunFormat(rPr, format);
     }
   }
   // Force-touch a NAME_R reference so it isn't elided as unused.

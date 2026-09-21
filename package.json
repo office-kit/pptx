@@ -1,6 +1,6 @@
 {
   "name": "@office-kit/pptx",
-  "version": "0.11.1",
+  "version": "0.18.2",
   "description": "Generate and edit .pptx (OOXML PresentationML) files from TypeScript, in Node and the browser.",
   "keywords": [
     "drawingml",
@@ -83,5 +83,5 @@
   "engines": {
     "node": ">=22.18.0"
   },
-  "packageManager": "pnpm@10.34.4"
+  "packageManager": "pnpm@12.5.1"
 }

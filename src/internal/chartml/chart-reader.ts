@@ -18,12 +18,22 @@ import type {
   ChartAxisScaling,
   ChartDataLabelPosition,
   ChartDataLabels,
+  ChartDataTable,
+  ChartDateAxis,
+  ChartErrorBarAmount,
+  ChartErrorBars,
   ChartGrouping,
   ChartKind,
+  ChartManualLayout,
+  ChartOfPie,
+  ChartSecondaryValueAxis,
   ChartSeries,
+  ChartSeriesAxis,
   ChartSpec,
   ChartTextStyle,
   ChartTrendline,
+  ChartUpDownBars,
+  ChartView3D,
 } from './types.ts';
 
 const NS_C = NS.chart;
@@ -46,7 +56,13 @@ const NAME_MULTI_LVL_STR_REF = qname('c', 'multiLvlStrRef', NS_C);
 const NAME_MULTI_LVL_STR_CACHE = qname('c', 'multiLvlStrCache', NS_C);
 const NAME_LVL = qname('c', 'lvl', NS_C);
 const NAME_PT = qname('c', 'pt', NS_C);
+const NAME_PT_COUNT = qname('c', 'ptCount', NS_C);
+// Excel's row limit — the most points a chart cache can legitimately hold.
+const MAX_PT_COUNT = 1_048_576;
 const NAME_V = qname('c', 'v', NS_C);
+const NAME_D_LBLS = qname('c', 'dLbls', NS_C);
+const NAME_D_LBL = qname('c', 'dLbl', NS_C);
+const NAME_VAL_AX = qname('c', 'valAx', NS_C);
 const NAME_TITLE = qname('c', 'title', NS_C);
 const NAME_RICH = qname('c', 'rich', NS_C);
 const NAME_T = qname('a', 't', NS_A);
@@ -64,13 +80,16 @@ interface PlottedKindMap {
   readonly kind: ChartKind;
 }
 
+/** Kinds a combo plot group can carry (mirrors `ChartSeries.chartKind`). */
+const isComboSeriesKind = (kind: ChartKind): kind is 'bar' | 'column' | 'line' | 'area' =>
+  kind === 'bar' || kind === 'column' || kind === 'line' || kind === 'area';
+
 const KIND_MAP: ReadonlyArray<PlottedKindMap> = [
   // `barChart` is overloaded; `<c:barDir val="bar"/>` vs `"col"` decides.
   { localName: 'barChart', kind: 'column' },
   // The 3D variants share the same `<c:ser>` schema as their flat
-  // counterparts; we degrade to the flat kind so renderers don't have
-  // to special-case them. PowerPoint's own embedded data view does the
-  // same flattening when "Edit data" is opened.
+  // counterparts, so they read as the flat kind; `ChartSpec.view3D` (read
+  // from `<c:view3D>`) is what marks the chart as 3-D.
   { localName: 'bar3DChart', kind: 'column' },
   { localName: 'lineChart', kind: 'line' },
   { localName: 'line3DChart', kind: 'line' },
@@ -82,17 +101,15 @@ const KIND_MAP: ReadonlyArray<PlottedKindMap> = [
   { localName: 'area3DChart', kind: 'area' },
   // Scatter / bubble carry xy / xyz tuples per series (`<c:xVal>` /
   // `<c:yVal>` / `<c:bubbleSize>`) rather than numeric channels against
-  // shared categories; radar uses cat+val like line. All three are
-  // modeled as their own kind (read + render only — the builder rejects
-  // them, see chart-builder.ts).
+  // shared categories; radar uses cat+val like line.
   { localName: 'scatterChart', kind: 'scatter' },
   { localName: 'bubbleChart', kind: 'bubble' },
   { localName: 'radarChart', kind: 'radar' },
-  // Stock charts: open / high / low / close as a four-line plot.
-  { localName: 'stockChart', kind: 'line' },
-  // Surface degrades to a column chart so the data table is visible.
-  { localName: 'surfaceChart', kind: 'column' },
-  { localName: 'surface3DChart', kind: 'column' },
+  // Stock series are read by position: [open,] high, low, close.
+  { localName: 'stockChart', kind: 'stock' },
+  // `surfaceChart` is the top-down contour view (`surfaceContour`).
+  { localName: 'surfaceChart', kind: 'surface' },
+  { localName: 'surface3DChart', kind: 'surface' },
 ];
 
 const findFirst = (parent: XmlElement, names: ReadonlyArray<string>): XmlElement | null => {
@@ -103,13 +120,44 @@ const findFirst = (parent: XmlElement, names: ReadonlyArray<string>): XmlElement
   return null;
 };
 
-const readPtArray = (cache: XmlElement): string[] => {
+// `<c:ptCount val>` of a cache / literal; NaN when absent or malformed.
+const readPtCount = (host: XmlElement): number => {
+  const ptCountEl = firstChildElement(host, NAME_PT_COUNT);
+  const raw = ptCountEl !== null ? getAttrValue(ptCountEl, ATTR_VAL) : null;
+  return raw !== null ? Number.parseInt(raw, 10) : Number.NaN;
+};
+
+// CT_Boolean: an absent `val` means true (schema default); PowerPoint writes
+// "0" / "1", other writers spell "true" / "false".
+const readXmlBool = (el: XmlElement): boolean => {
+  const v = getAttrValue(el, ATTR_VAL);
+  return v === null || v === '1' || v === 'true';
+};
+
+// A point index (`idx`) from untrusted input: an unsigned integer below
+// `limit`, else null, so a huge idx never allocates a huge sparse array.
+const parsePointIndex = (raw: string | null, limit: number): number | null => {
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const idx = Number.parseInt(raw, 10);
+  return idx < limit ? idx : null;
+};
+
+// `<c:idx val>` of a `<c:dPt>` / `<c:dLbl>`, bounded by the series' point count.
+const readPointIndex = (host: XmlElement, pointCount: number): number | null => {
+  const idxEl = firstChildElement(host, qname('c', 'idx', NS_C));
+  return parsePointIndex(idxEl !== null ? getAttrValue(idxEl, ATTR_VAL) : null, pointCount);
+};
+
+// `countHost` holds the `<c:ptCount>` when it is not `cache` itself: a
+// `<c:multiLvlStrCache>` counts once for every `<c:lvl>` under it.
+const readPtArray = (cache: XmlElement, countHost: XmlElement = cache): string[] => {
   const out: string[] = [];
+  const ptCount = readPtCount(countHost);
+  // `<c:pt idx>` past the authored count (or the hard cap) is dropped.
+  const idxLimit = Number.isFinite(ptCount) ? Math.min(ptCount, MAX_PT_COUNT) : MAX_PT_COUNT;
   for (const pt of allChildElements(cache, NAME_PT)) {
-    const idxRaw = getAttrValue(pt, ATTR_IDX);
-    if (idxRaw === null) continue;
-    const idx = Number.parseInt(idxRaw, 10);
-    if (!Number.isFinite(idx) || idx < 0) continue;
+    const idx = parsePointIndex(getAttrValue(pt, ATTR_IDX), idxLimit);
+    if (idx === null) continue;
     const v = firstChildElement(pt, NAME_V);
     if (v === null) continue;
     let text = '';
@@ -117,6 +165,14 @@ const readPtArray = (cache: XmlElement): string[] => {
       if (child.kind === 'text' || child.kind === 'cdata') text += child.data;
     }
     out[idx] = text;
+  }
+  // Writers (this builder included) omit `<c:pt>` for empty cells, so the
+  // authored point count — not the last present idx — is the array length.
+  // Untrusted input: a huge ptCount must not allocate a huge array.
+  if (Number.isFinite(ptCount) && ptCount <= MAX_PT_COUNT) {
+    for (let i = 0; i < ptCount; i++) {
+      if (out[i] === undefined) out[i] = '';
+    }
   }
   return out;
 };
@@ -144,7 +200,7 @@ const readStringChannel = (parent: XmlElement): string[] | null => {
   if (multi) {
     const cache = firstChildElement(multi, NAME_MULTI_LVL_STR_CACHE);
     const lvl = cache ? firstChildElement(cache, NAME_LVL) : null;
-    if (lvl) return readPtArray(lvl);
+    if (lvl && cache) return readPtArray(lvl, cache);
   }
   return null;
 };
@@ -189,6 +245,7 @@ const readSeriesName = (ser: XmlElement): string => {
 // dPt authors the corresponding attribute.
 const readDataPointOverrides = (
   ser: XmlElement,
+  pointCount: number,
 ): {
   readonly colors: ReadonlyArray<string | null> | undefined;
   readonly explosions: ReadonlyArray<number | null> | undefined;
@@ -200,12 +257,8 @@ const readDataPointOverrides = (
   for (const c of ser.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS_C || c.name.localName !== 'dPt')
       continue;
-    const idxEl = firstChildElement(c, qname('c', 'idx', NS_C));
-    if (!idxEl) continue;
-    const idxRaw = getAttrValue(idxEl, ATTR_VAL);
-    if (idxRaw === null) continue;
-    const idx = Number.parseInt(idxRaw, 10);
-    if (!Number.isFinite(idx) || idx < 0) continue;
+    const idx = readPointIndex(c, pointCount);
+    if (idx === null) continue;
     const spPr = firstChildElement(c, NAME_SP_PR_C);
     if (spPr) {
       const solidFill = firstChildElement(spPr, NAME_SOLID_FILL);
@@ -353,13 +406,37 @@ const readSeriesColor = (ser: XmlElement): string | undefined => {
   return v !== null ? `#${v.toUpperCase()}` : undefined;
 };
 
-// Per-series marker symbol + size from <c:ser><c:marker>.
+const readSolidSrgb = (host: XmlElement | null): string | undefined => {
+  const fill = host !== null ? firstChildElement(host, NAME_SOLID_FILL) : null;
+  const srgb = fill !== null ? firstChildElement(fill, NAME_SRGB_CLR) : null;
+  const color = srgb !== null ? getAttrValue(srgb, ATTR_VAL) : null;
+  return color !== null ? `#${color.toUpperCase()}` : undefined;
+};
+
+// Per-series marker symbol, size + fill / outline color from <c:ser><c:marker>.
 const readSeriesMarker = (
   ser: XmlElement,
-): { markerSymbol?: ChartSeries['markerSymbol']; markerSizePt?: number } => {
+): {
+  markerSymbol?: ChartSeries['markerSymbol'];
+  markerSizePt?: number;
+  markerColor?: string;
+  markerLineColor?: string;
+} => {
   const m = firstChildElement(ser, qname('c', 'marker', NS_C));
   if (!m) return {};
-  const out: { markerSymbol?: ChartSeries['markerSymbol']; markerSizePt?: number } = {};
+  const out: {
+    markerSymbol?: ChartSeries['markerSymbol'];
+    markerSizePt?: number;
+    markerColor?: string;
+    markerLineColor?: string;
+  } = {};
+  const spPr = firstChildElement(m, NAME_SP_PR_C);
+  const color = readSolidSrgb(spPr);
+  if (color !== undefined) out.markerColor = color;
+  const lineColor = readSolidSrgb(
+    spPr !== null ? firstChildElement(spPr, qname('a', 'ln', NS_A)) : null,
+  );
+  if (lineColor !== undefined) out.markerLineColor = lineColor;
   const symEl = firstChildElement(m, qname('c', 'symbol', NS_C));
   if (symEl) {
     const v = getAttrValue(symEl, ATTR_VAL);
@@ -391,17 +468,24 @@ const readSeriesMarker = (
   return out;
 };
 
-// Per-series line stroke width + dash from <c:ser><c:spPr><a:ln>.
-const readSeriesLineProps = (ser: XmlElement): { lineWidthEmu?: number; lineDash?: string } => {
+// Per-series line stroke width, color + dash from <c:ser><c:spPr><a:ln>.
+const readSeriesLineProps = (
+  ser: XmlElement,
+): { lineWidthEmu?: number; lineColor?: string; lineDash?: string } => {
   const spPr = firstChildElement(ser, NAME_SP_PR_C);
   if (!spPr) return {};
   const ln = firstChildElement(spPr, qname('a', 'ln', NS_A));
   if (!ln) return {};
-  const out: { lineWidthEmu?: number; lineDash?: string } = {};
+  const out: { lineWidthEmu?: number; lineColor?: string; lineDash?: string } = {};
+  const lnFill = firstChildElement(ln, NAME_SOLID_FILL);
+  const lnSrgb = lnFill !== null ? firstChildElement(lnFill, NAME_SRGB_CLR) : null;
+  const lnColor = lnSrgb !== null ? getAttrValue(lnSrgb, ATTR_VAL) : null;
+  if (lnColor !== null) out.lineColor = `#${lnColor.toUpperCase()}`;
   const w = getAttrValue(ln, qname('', 'w', ''));
   if (w !== null) {
     const n = Number.parseInt(w, 10);
-    if (Number.isFinite(n) && n > 0) out.lineWidthEmu = n;
+    // 0 is a valid ST_LineWidth and the builder writes it, so it reads back.
+    if (Number.isFinite(n) && n >= 0) out.lineWidthEmu = n;
   }
   const prstDash = firstChildElement(ln, qname('a', 'prstDash', NS_A));
   if (prstDash) {
@@ -447,6 +531,7 @@ const NAME_A_DEF_RPR = qname('a', 'defRPr', NS_A);
 const NAME_A_PPR = qname('a', 'pPr', NS_A);
 const NAME_A_SRGB = qname('a', 'srgbClr', NS_A);
 const NAME_A_LATIN = qname('a', 'latin', NS_A);
+const NAME_A_CS = qname('a', 'cs', NS_A);
 const ATTR_TYPEFACE = qname('', 'typeface', '');
 
 // Reads `<a:rPr>` / `<a:defRPr>` attributes (size in 100ths of a pt,
@@ -455,6 +540,7 @@ const ATTR_TYPEFACE = qname('', 'typeface', '');
 // the style entirely in that case.
 const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
   let font: string | undefined;
+  let fontComplexScript: string | undefined;
   let sizePt: number | undefined;
   let bold: boolean | undefined;
   let italic: boolean | undefined;
@@ -484,8 +570,14 @@ const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
     const tf = getAttrValue(latin, ATTR_TYPEFACE);
     if (tf !== null && tf !== '') font = tf;
   }
+  const cs = firstChildElement(rPr, NAME_A_CS);
+  if (cs) {
+    const tf = getAttrValue(cs, ATTR_TYPEFACE);
+    if (tf !== null && tf !== '') fontComplexScript = tf;
+  }
   if (
     font === undefined &&
+    fontComplexScript === undefined &&
     sizePt === undefined &&
     bold === undefined &&
     italic === undefined &&
@@ -495,6 +587,7 @@ const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
   }
   return {
     ...(font !== undefined ? { font } : {}),
+    ...(fontComplexScript !== undefined ? { fontComplexScript } : {}),
     ...(sizePt !== undefined ? { sizePt } : {}),
     ...(bold !== undefined ? { bold } : {}),
     ...(italic !== undefined ? { italic } : {}),
@@ -502,26 +595,23 @@ const readRunStyle = (rPr: XmlElement): ChartTextStyle | undefined => {
   };
 };
 
-// Reads the first authored `<a:rPr>` (or `<a:pPr><a:defRPr>`) inside a
-// chart label's `<c:rich>` block. Used for the chart title (and reusable
-// for axis labels later). Returns `undefined` when nothing is authored.
+// Reads the authored text style of a chart label's `<c:rich>` / `<c:txPr>`
+// block: the first styled run's `<a:rPr>` over the paragraph's `<a:defRPr>`
+// (a run attribute wins, the rest falls back to the paragraph defaults, as
+// renderers resolve it). Returns `undefined` when nothing is authored.
 const readLabelStyle = (richHost: XmlElement): ChartTextStyle | undefined => {
   for (const p of allChildElements(richHost, NAME_P_DML)) {
+    let runStyle: ChartTextStyle | undefined;
     for (const r of allChildElements(p, NAME_R_DML)) {
       const rPr = firstChildElement(r, NAME_A_RPR);
-      if (rPr) {
-        const s = readRunStyle(rPr);
-        if (s) return s;
-      }
+      runStyle = rPr !== null ? readRunStyle(rPr) : undefined;
+      if (runStyle !== undefined) break;
     }
     const pPr = firstChildElement(p, NAME_A_PPR);
-    if (pPr) {
-      const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
-      if (defRPr) {
-        const s = readRunStyle(defRPr);
-        if (s) return s;
-      }
-    }
+    const defRPr = pPr !== null ? firstChildElement(pPr, NAME_A_DEF_RPR) : null;
+    const defStyle = defRPr !== null ? readRunStyle(defRPr) : undefined;
+    if (runStyle === undefined && defStyle === undefined) continue;
+    return { ...defStyle, ...runStyle };
   }
   return undefined;
 };
@@ -595,6 +685,526 @@ const readDataLabelSeparator = (dLbls: XmlElement): string | undefined => {
   return acc.length > 0 ? acc : undefined;
 };
 
+// The shared tail of CT_DLbls / CT_DLbl (Group_DLbls / Group_DLbl): the
+// show* toggles plus optional numFmt, position, separator, txPr.
+// A toggle the host leaves out takes the `inherited` group's value (a
+// per-point `<c:dLbl>` inherits from its series `<c:dLbls>`), else false.
+const readDataLabelsGroup = (
+  host: XmlElement,
+  inherited: ChartDataLabels | undefined,
+): ChartDataLabels => {
+  const readToggle = (local: string, fallback: boolean): boolean => {
+    const el = firstChildElement(host, qname('c', local, NS_C));
+    return el !== null ? readXmlBool(el) : fallback;
+  };
+  const nfEl = firstChildElement(host, qname('c', 'numFmt', NS_C));
+  let numberFormat: string | undefined;
+  if (nfEl) {
+    const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
+    if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
+  }
+  const position = readDataLabelPosition(host);
+  const separator = readDataLabelSeparator(host);
+  const txPrEl = firstChildElement(host, qname('c', 'txPr', NS_C));
+  const textStyle = txPrEl ? readLabelStyle(txPrEl) : undefined;
+  // The two optional toggles surface only when on, so a chart that never
+  // used them reads back without the extra keys.
+  const showBubbleSize = readToggle('showBubbleSize', inherited?.showBubbleSize ?? false);
+  const showLegendKey = readToggle('showLegendKey', inherited?.showLegendKey ?? false);
+  const spPr = firstChildElement(host, NAME_SP_PR_C);
+  const fillColor = spPr !== null ? readSolidSrgb(spPr) : undefined;
+  return {
+    showValue: readToggle('showVal', inherited?.showValue ?? false),
+    showCategory: readToggle('showCatName', inherited?.showCategory ?? false),
+    showSeriesName: readToggle('showSerName', inherited?.showSeriesName ?? false),
+    showPercent: readToggle('showPercent', inherited?.showPercent ?? false),
+    ...(numberFormat !== undefined ? { numberFormat } : {}),
+    ...(position !== undefined ? { position } : {}),
+    ...(separator !== undefined ? { separator } : {}),
+    ...(textStyle !== undefined ? { textStyle } : {}),
+    ...(showBubbleSize ? { showBubbleSize } : {}),
+    ...(showLegendKey ? { showLegendKey } : {}),
+    ...(fillColor !== undefined ? { fillColor } : {}),
+  };
+};
+
+// Literal text of a `<c:tx><c:rich>` — every run of every paragraph, with
+// paragraphs joined by a newline.
+const readRichText = (host: XmlElement): string | undefined => {
+  const tx = firstChildElement(host, NAME_TX);
+  const rich = tx !== null ? firstChildElement(tx, NAME_RICH) : null;
+  if (rich === null) return undefined;
+  const paragraphs: string[] = [];
+  for (const p of allChildElements(rich, NAME_P_DML)) {
+    let line = '';
+    for (const r of allChildElements(p, NAME_R_DML)) {
+      const t = firstChildElement(r, NAME_T);
+      if (t === null) continue;
+      for (const child of t.children) {
+        if (child.kind === 'text' || child.kind === 'cdata') line += child.data;
+      }
+    }
+    paragraphs.push(line);
+  }
+  return paragraphs.join('\n');
+};
+
+// Series- / chart-level `<c:dLbls>`: the shared group plus
+// `<c:showLeaderLines>`, which Group_DLbl (a per-point `<c:dLbl>`) lacks.
+const readSeriesLevelDataLabels = (dLbls: XmlElement): ChartDataLabels => {
+  const group = readDataLabelsGroup(dLbls, undefined);
+  const leaderEl = firstChildElement(dLbls, qname('c', 'showLeaderLines', NS_C));
+  return leaderEl !== null ? { ...group, showLeaderLines: readXmlBool(leaderEl) } : group;
+};
+
+// True when `<c:dLbls>` carries series-level settings (anything besides the
+// per-point `<c:dLbl>` overrides and the extension list).
+const hasDataLabelGroupChild = (dLbls: XmlElement): boolean =>
+  dLbls.children.some(
+    (ch) =>
+      ch.kind === 'element' &&
+      ch.name.namespaceURI === NS_C &&
+      ch.name.localName !== 'dLbl' &&
+      ch.name.localName !== 'extLst',
+  );
+
+// A deleted point label reads as an override with every toggle off — the
+// same shape the builder writes back for it, so it round-trips stably.
+const DELETED_POINT_LABEL: ChartDataLabels = {
+  showValue: false,
+  showCategory: false,
+  showSeriesName: false,
+  showPercent: false,
+};
+
+// `<c:dLbls><c:dLbl><c:idx val="N"/>…` per-point overrides, as a sparse
+// array indexed by point (`null` where no override is authored). Toggles a
+// point leaves out inherit the series-level group (`seriesLabels`).
+const readPointDataLabels = (
+  dLbls: XmlElement,
+  pointCount: number,
+  seriesLabels: ChartDataLabels | undefined,
+): ReadonlyArray<ChartDataLabels | null> | undefined => {
+  const out: Array<ChartDataLabels | null> = [];
+  let any = false;
+  for (const dLbl of allChildElements(dLbls, NAME_D_LBL)) {
+    const idx = readPointIndex(dLbl, pointCount);
+    if (idx === null) continue;
+    const deleteEl = firstChildElement(dLbl, qname('c', 'delete', NS_C));
+    if (deleteEl !== null && readXmlBool(deleteEl)) {
+      out[idx] = DELETED_POINT_LABEL;
+    } else {
+      const group = readDataLabelsGroup(dLbl, seriesLabels);
+      const literal = readRichText(dLbl);
+      out[idx] = literal !== undefined ? { ...group, text: literal } : group;
+    }
+    any = true;
+  }
+  if (!any) return undefined;
+  for (let i = 0; i < out.length; i++) out[i] ??= null;
+  return out;
+};
+
+// `<c:valAx>` scaling: <c:scaling><c:min/>/<c:max/> as the authored axis
+// range, plus optional <c:majorUnit> / <c:minorUnit> tick spacing,
+// <c:numFmt>, <c:dispUnits>. Shared by the primary and secondary axes.
+const readValueAxisScaling = (valAx: XmlElement): ChartAxisScaling | undefined => {
+  let min: number | undefined;
+  let max: number | undefined;
+  let majorUnit: number | undefined;
+  let minorUnit: number | undefined;
+  let logBase: number | undefined;
+  let displayUnits: ChartAxisScaling['displayUnits'];
+  let displayUnitsLabel = false;
+  const scaling = firstChildElement(valAx, qname('c', 'scaling', NS_C));
+  const readNumOn = (parent: XmlElement, local: string): number | undefined => {
+    const el = firstChildElement(parent, qname('c', local, NS_C));
+    if (!el) return undefined;
+    const v = getAttrValue(el, ATTR_VAL);
+    if (v === null) return undefined;
+    const n = Number.parseFloat(v);
+    return Number.isFinite(n) ? n : undefined;
+  };
+  if (scaling) {
+    min = readNumOn(scaling, 'min');
+    max = readNumOn(scaling, 'max');
+    // <c:logBase val="N"/> — PowerPoint requires N in [2, 1000].
+    const lb = readNumOn(scaling, 'logBase');
+    if (lb !== undefined && lb >= 2 && lb <= 1000) logBase = lb;
+  }
+  majorUnit = readNumOn(valAx, 'majorUnit');
+  minorUnit = readNumOn(valAx, 'minorUnit');
+  // <c:dispUnits><c:builtInUnit val="hundreds|thousands|…"/>
+  const dispUnits = firstChildElement(valAx, qname('c', 'dispUnits', NS_C));
+  if (dispUnits) {
+    const builtIn = firstChildElement(dispUnits, qname('c', 'builtInUnit', NS_C));
+    if (builtIn) {
+      const v = getAttrValue(builtIn, ATTR_VAL);
+      switch (v) {
+        case 'hundreds':
+        case 'thousands':
+        case 'tenThousands':
+        case 'hundredThousands':
+        case 'millions':
+        case 'tenMillions':
+        case 'hundredMillions':
+        case 'billions':
+        case 'trillions':
+          displayUnits = v;
+          break;
+      }
+    }
+    displayUnitsLabel = firstChildElement(dispUnits, qname('c', 'dispUnitsLbl', NS_C)) !== null;
+  }
+  // <c:numFmt formatCode="…" sourceLinked="0|1"/> sits directly under
+  // <c:valAx>. We surface the formatCode for renderers; sourceLinked
+  // (whether to inherit Excel cell format) isn't useful at our layer.
+  let numberFormat: string | undefined;
+  const nfEl = firstChildElement(valAx, qname('c', 'numFmt', NS_C));
+  if (nfEl) {
+    const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
+    if (fc !== null && fc.length > 0 && fc !== 'General') {
+      numberFormat = fc;
+    }
+  }
+  if (
+    min !== undefined ||
+    max !== undefined ||
+    majorUnit !== undefined ||
+    minorUnit !== undefined ||
+    numberFormat !== undefined ||
+    logBase !== undefined ||
+    displayUnits !== undefined
+  ) {
+    return {
+      ...(min !== undefined ? { min } : {}),
+      ...(max !== undefined ? { max } : {}),
+      ...(majorUnit !== undefined ? { majorUnit } : {}),
+      ...(minorUnit !== undefined ? { minorUnit } : {}),
+      ...(numberFormat !== undefined ? { numberFormat } : {}),
+      ...(logBase !== undefined ? { logBase } : {}),
+      ...(displayUnits !== undefined ? { displayUnits } : {}),
+      ...(displayUnits !== undefined && displayUnitsLabel ? { displayUnitsLabel } : {}),
+    };
+  }
+  return undefined;
+};
+
+// Small typed accessors for `<c:child val="…"/>` leaves ----------------------
+
+const childVal = (parent: XmlElement, local: string): string | null => {
+  const el = firstChildElement(parent, qname('c', local, NS_C));
+  return el !== null ? getAttrValue(el, ATTR_VAL) : null;
+};
+
+const childNumber = (parent: XmlElement, local: string): number | undefined => {
+  const raw = childVal(parent, local);
+  if (raw === null) return undefined;
+  const n = Number.parseFloat(raw);
+  return Number.isFinite(n) ? n : undefined;
+};
+
+const childBool = (parent: XmlElement, local: string): boolean | undefined => {
+  const el = firstChildElement(parent, qname('c', local, NS_C));
+  return el !== null ? readXmlBool(el) : undefined;
+};
+
+// A `val` token, kept only when it is one of `allowed` — untrusted input
+// must not widen a union type.
+const childToken = <T extends string>(
+  parent: XmlElement,
+  local: string,
+  allowed: ReadonlyArray<T>,
+): T | undefined => {
+  const raw = childVal(parent, local);
+  return allowed.find((token) => token === raw);
+};
+
+// `<a:alpha val>` of the series' fill, as 0..1. The wire unit is 1/1000 %.
+const ALPHA_OPAQUE = 100000;
+const readSeriesFillOpacity = (ser: XmlElement): number | undefined => {
+  const spPr = firstChildElement(ser, NAME_SP_PR_C);
+  const fill = spPr !== null ? firstChildElement(spPr, NAME_SOLID_FILL) : null;
+  const srgb = fill !== null ? firstChildElement(fill, NAME_SRGB_CLR) : null;
+  const alpha = srgb !== null ? firstChildElement(srgb, qname('a', 'alpha', NS_A)) : null;
+  const raw = alpha !== null ? getAttrValue(alpha, ATTR_VAL) : null;
+  if (raw === null || !/^\d+$/.test(raw)) return undefined;
+  const n = Number.parseInt(raw, 10);
+  return n <= ALPHA_OPAQUE ? n / ALPHA_OPAQUE : undefined;
+};
+
+const readErrorBarAmount = (errBars: XmlElement): ChartErrorBarAmount | undefined => {
+  const type = childToken(errBars, 'errValType', [
+    'cust',
+    'fixedVal',
+    'percentage',
+    'stdDev',
+    'stdErr',
+  ]);
+  if (type === undefined) return undefined;
+  if (type === 'stdErr') return { type };
+  if (type === 'cust') {
+    const side = (local: 'plus' | 'minus'): Array<number | null> | undefined => {
+      const el = firstChildElement(errBars, qname('c', local, NS_C));
+      return el !== null ? (readNumChannel(el) ?? undefined) : undefined;
+    };
+    const plus = side('plus');
+    const minus = side('minus');
+    return {
+      type,
+      ...(plus !== undefined ? { plus } : {}),
+      ...(minus !== undefined ? { minus } : {}),
+    };
+  }
+  const value = childNumber(errBars, 'val');
+  return value !== undefined ? { type, value } : undefined;
+};
+
+// `<c:ser><c:errBars>` — up to two, told apart by `<c:errDir>`. A series of a
+// category chart has one value direction and usually omits the element.
+const readErrorBars = (
+  ser: XmlElement,
+): { readonly errorBars?: ChartErrorBars; readonly xErrorBars?: ChartErrorBars } => {
+  const out: { errorBars?: ChartErrorBars; xErrorBars?: ChartErrorBars } = {};
+  for (const el of allChildElements(ser, qname('c', 'errBars', NS_C))) {
+    const barType = childToken(el, 'errBarType', ['both', 'minus', 'plus']);
+    const amount = readErrorBarAmount(el);
+    if (barType === undefined || amount === undefined) continue;
+    const noEndCap = childBool(el, 'noEndCap');
+    const spPr = firstChildElement(el, NAME_SP_PR_C);
+    const ln = spPr !== null ? firstChildElement(spPr, qname('a', 'ln', NS_A)) : null;
+    const color = readSolidSrgb(ln);
+    const w = ln !== null ? getAttrValue(ln, qname('', 'w', '')) : null;
+    const bars: ChartErrorBars = {
+      barType,
+      amount,
+      ...(noEndCap !== undefined ? { noEndCap } : {}),
+      ...(color !== undefined ? { color } : {}),
+      ...(w !== null && /^\d+$/.test(w) ? { lineWidthEmu: Number.parseInt(w, 10) } : {}),
+    };
+    if (childVal(el, 'errDir') === 'x') out.xErrorBars ??= bars;
+    else out.errorBars ??= bars;
+  }
+  return out;
+};
+
+// `<c:chart><c:view3D>`; an element with no readable child still reads as
+// `{}` because its presence alone is what marks the chart as 3-D.
+const readView3D = (chart: XmlElement): ChartView3D | undefined => {
+  const el = firstChildElement(chart, qname('c', 'view3D', NS_C));
+  if (el === null) return undefined;
+  const rotX = childNumber(el, 'rotX');
+  const rotY = childNumber(el, 'rotY');
+  const rightAngleAxes = childBool(el, 'rAngAx');
+  const perspective = childNumber(el, 'perspective');
+  const depthPercent = childNumber(el, 'depthPercent');
+  const heightPercent = childNumber(el, 'hPercent');
+  return {
+    ...(rotX !== undefined ? { rotX } : {}),
+    ...(rotY !== undefined ? { rotY } : {}),
+    ...(rightAngleAxes !== undefined ? { rightAngleAxes } : {}),
+    ...(perspective !== undefined ? { perspective } : {}),
+    ...(depthPercent !== undefined ? { depthPercent } : {}),
+    ...(heightPercent !== undefined ? { heightPercent } : {}),
+  };
+};
+
+const readOfPie = (group: XmlElement): ChartOfPie | undefined => {
+  const type = childToken(group, 'ofPieType', ['pie', 'bar']);
+  if (type === undefined) return undefined;
+  const splitType = childToken(group, 'splitType', ['auto', 'cust', 'percent', 'pos', 'val']);
+  const splitPos = childNumber(group, 'splitPos');
+  const secondPieSizePct = childNumber(group, 'secondPieSize');
+  const gapWidthPct = childNumber(group, 'gapWidth');
+  const custSplit = firstChildElement(group, qname('c', 'custSplit', NS_C));
+  const customSplit: number[] = [];
+  if (custSplit !== null) {
+    for (const pt of allChildElements(custSplit, qname('c', 'secondPiePt', NS_C))) {
+      const idx = parsePointIndex(getAttrValue(pt, ATTR_VAL), MAX_PT_COUNT);
+      if (idx !== null) customSplit.push(idx);
+    }
+  }
+  const seriesLines = firstChildElement(group, qname('c', 'serLines', NS_C)) !== null;
+  return {
+    type,
+    ...(splitType !== undefined ? { splitType } : {}),
+    ...(splitPos !== undefined ? { splitPos } : {}),
+    ...(custSplit !== null ? { customSplit } : {}),
+    ...(secondPieSizePct !== undefined ? { secondPieSizePct } : {}),
+    ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
+    ...(seriesLines ? { seriesLines } : {}),
+  };
+};
+
+const readUpDownBars = (group: XmlElement): ChartUpDownBars | undefined => {
+  const el = firstChildElement(group, qname('c', 'upDownBars', NS_C));
+  if (el === null) return undefined;
+  const barColor = (local: 'upBars' | 'downBars'): string | undefined => {
+    const bar = firstChildElement(el, qname('c', local, NS_C));
+    return readSolidSrgb(bar !== null ? firstChildElement(bar, NAME_SP_PR_C) : null);
+  };
+  const gapWidthPct = childNumber(el, 'gapWidth');
+  const upColor = barColor('upBars');
+  const downColor = barColor('downBars');
+  return {
+    ...(gapWidthPct !== undefined ? { gapWidthPct } : {}),
+    ...(upColor !== undefined ? { upColor } : {}),
+    ...(downColor !== undefined ? { downColor } : {}),
+  };
+};
+
+const readDataTable = (plotArea: XmlElement): ChartDataTable | undefined => {
+  const el = firstChildElement(plotArea, qname('c', 'dTable', NS_C));
+  if (el === null) return undefined;
+  const showHorizontalBorder = childBool(el, 'showHorzBorder');
+  const showVerticalBorder = childBool(el, 'showVertBorder');
+  const showOutline = childBool(el, 'showOutline');
+  const showKeys = childBool(el, 'showKeys');
+  const txPr = firstChildElement(el, qname('c', 'txPr', NS_C));
+  const textStyle = txPr !== null ? readLabelStyle(txPr) : undefined;
+  return {
+    ...(showHorizontalBorder !== undefined ? { showHorizontalBorder } : {}),
+    ...(showVerticalBorder !== undefined ? { showVerticalBorder } : {}),
+    ...(showOutline !== undefined ? { showOutline } : {}),
+    ...(showKeys !== undefined ? { showKeys } : {}),
+    ...(textStyle !== undefined ? { textStyle } : {}),
+  };
+};
+
+const TIME_UNITS = ['days', 'months', 'years'] as const;
+
+const readDateAxis = (dateAx: XmlElement): ChartDateAxis => {
+  const baseTimeUnit = childToken(dateAx, 'baseTimeUnit', TIME_UNITS);
+  const majorUnit = childNumber(dateAx, 'majorUnit');
+  const majorTimeUnit = childToken(dateAx, 'majorTimeUnit', TIME_UNITS);
+  const minorUnit = childNumber(dateAx, 'minorUnit');
+  const minorTimeUnit = childToken(dateAx, 'minorTimeUnit', TIME_UNITS);
+  return {
+    ...(baseTimeUnit !== undefined ? { baseTimeUnit } : {}),
+    ...(majorUnit !== undefined ? { majorUnit } : {}),
+    ...(majorTimeUnit !== undefined ? { majorTimeUnit } : {}),
+    ...(minorUnit !== undefined ? { minorUnit } : {}),
+    ...(minorTimeUnit !== undefined ? { minorTimeUnit } : {}),
+  };
+};
+
+// The horizontal axis' number format already surfaces as
+// `categoryAxisNumberFormat`; keep it out of `categoryAxisScaling`.
+const withoutNumberFormat = (
+  scaling: ChartAxisScaling | undefined,
+): ChartAxisScaling | undefined => {
+  if (scaling === undefined) return undefined;
+  const { numberFormat: _numberFormat, ...rest } = scaling;
+  return Object.keys(rest).length > 0 ? rest : undefined;
+};
+
+const minMaxOnly = (scaling: ChartAxisScaling | undefined): ChartAxisScaling | undefined => {
+  if (scaling?.min === undefined && scaling?.max === undefined) return undefined;
+  return {
+    ...(scaling.min !== undefined ? { min: scaling.min } : {}),
+    ...(scaling.max !== undefined ? { max: scaling.max } : {}),
+  };
+};
+
+// `<a:ln><a:noFill/>` directly under an axis' `<c:spPr>`: the axis line is
+// switched off while the axis (and its labels) stays.
+const isAxisLineHidden = (axis: XmlElement): boolean => {
+  const spPr = firstChildElement(axis, NAME_SP_PR_C);
+  const ln = spPr !== null ? firstChildElement(spPr, qname('a', 'ln', NS_A)) : null;
+  return ln !== null && firstChildElement(ln, qname('a', 'noFill', NS_A)) !== null;
+};
+
+// Formatting of `<c:serAx>`; `undefined` when the axis carries nothing beyond
+// what the builder writes for an unformatted one.
+const readSeriesAxis = (plotArea: XmlElement): ChartSeriesAxis | undefined => {
+  const el = firstChildElement(plotArea, qname('c', 'serAx', NS_C));
+  if (el === null) return undefined;
+  const hidden = childBool(el, 'delete');
+  const title = readTitle(el);
+  const titleEl = firstChildElement(el, NAME_TITLE);
+  const titleStyle = titleEl !== null ? readTitleStyleOf(titleEl) : undefined;
+  const txPr = firstChildElement(el, qname('c', 'txPr', NS_C));
+  const labelStyle = txPr !== null ? readLabelStyle(txPr) : undefined;
+  const majorGridlines = firstChildElement(el, qname('c', 'majorGridlines', NS_C)) !== null;
+  const scaling = firstChildElement(el, qname('c', 'scaling', NS_C));
+  const orientation =
+    scaling !== null ? childToken(scaling, 'orientation', ['minMax', 'maxMin']) : undefined;
+  const tickLabelPos = childToken(el, 'tickLblPos', ['none', 'low', 'high', 'nextTo']);
+  const tickLabelSkip = childNumber(el, 'tickLblSkip');
+  const spPr = firstChildElement(el, NAME_SP_PR_C);
+  const lineColor = readSolidSrgb(
+    spPr !== null ? firstChildElement(spPr, qname('a', 'ln', NS_A)) : null,
+  );
+  const fields: ChartSeriesAxis = {
+    ...(hidden === true ? { hidden } : {}),
+    ...(title !== undefined ? { title } : {}),
+    ...(titleStyle !== undefined ? { titleStyle } : {}),
+    ...(labelStyle !== undefined ? { labelStyle } : {}),
+    ...(majorGridlines ? { majorGridlines } : {}),
+    ...(orientation === 'maxMin' ? { orientation } : {}),
+    ...(tickLabelPos !== undefined ? { tickLabelPos } : {}),
+    ...(tickLabelSkip !== undefined ? { tickLabelSkip } : {}),
+    ...(lineColor !== undefined ? { lineColor } : {}),
+  };
+  return Object.keys(fields).length > 0 ? fields : undefined;
+};
+
+// `<c:layout><c:manualLayout>` of `host`, in the `edge` / `factor` shape the
+// builder writes. Other mode combinations position relative to the default
+// layout, which this model cannot express, so they read as "not authored".
+const readManualLayout = (
+  host: XmlElement,
+): { x: number; y: number; w?: number; h?: number; target?: 'inner' | 'outer' } | undefined => {
+  const layout = firstChildElement(host, qname('c', 'layout', NS_C));
+  const manual =
+    layout !== null ? firstChildElement(layout, qname('c', 'manualLayout', NS_C)) : null;
+  if (manual === null) return undefined;
+  if (childVal(manual, 'xMode') !== 'edge' || childVal(manual, 'yMode') !== 'edge')
+    return undefined;
+  const sizeMode = (local: 'wMode' | 'hMode'): boolean =>
+    (childVal(manual, local) ?? 'factor') === 'factor';
+  if (!sizeMode('wMode') || !sizeMode('hMode')) return undefined;
+  const x = childNumber(manual, 'x');
+  const y = childNumber(manual, 'y');
+  if (x === undefined || y === undefined) return undefined;
+  const w = childNumber(manual, 'w');
+  const h = childNumber(manual, 'h');
+  const target = childToken(manual, 'layoutTarget', ['inner', 'outer']);
+  return {
+    x,
+    y,
+    ...(w !== undefined ? { w } : {}),
+    ...(h !== undefined ? { h } : {}),
+    ...(target !== undefined ? { target } : {}),
+  };
+};
+
+// A box layout needs all four numbers; a partial one reads as "not authored".
+const readBoxLayout = (host: XmlElement): ChartManualLayout | undefined => {
+  const layout = readManualLayout(host);
+  if (layout === undefined || layout.w === undefined || layout.h === undefined) return undefined;
+  return {
+    x: layout.x,
+    y: layout.y,
+    w: layout.w,
+    h: layout.h,
+    ...(layout.target !== undefined ? { target: layout.target } : {}),
+  };
+};
+
+// Outer levels of a `<c:multiLvlStrRef>` category channel, ordered like
+// `ChartSpec.categoryGroupLevels` (the level next to the categories first).
+// `<c:lvl>` children come innermost-first, so level 0 is the categories.
+const readCategoryGroupLevels = (cat: XmlElement): string[][] | undefined => {
+  const multi = firstChildElement(cat, NAME_MULTI_LVL_STR_REF);
+  const cache = multi !== null ? firstChildElement(multi, NAME_MULTI_LVL_STR_CACHE) : null;
+  if (cache === null) return undefined;
+  const outer = allChildElements(cache, NAME_LVL)
+    .slice(1)
+    .map((lvl) => readPtArray(lvl, cache));
+  return outer.length > 0 ? outer : undefined;
+};
+
 /**
  * Parses a `<c:chartSpace>` element into a typed `ChartSpec`. Throws if
  * the root or any required child is missing. Returns `null` only when
@@ -613,29 +1223,76 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   const plotArea = firstChildElement(chart, NAME_PLOT_AREA);
   if (!plotArea) throw new Error('<c:chart> has no <c:plotArea>');
 
-  // Find which "plotted" element the plotArea carries.
-  let plotted: XmlElement | null = null;
-  let kind: ChartKind | null = null;
-  for (const candidate of KIND_MAP) {
-    const found = findFirst(plotArea, [candidate.localName]);
-    if (found) {
-      plotted = found;
-      kind = candidate.kind;
-      // Resolve bar vs column on a `barChart` / `bar3DChart`.
-      if (candidate.localName === 'barChart' || candidate.localName === 'bar3DChart') {
-        const barDir = firstChildElement(found, qname('c', 'barDir', NS_C));
-        const v = barDir !== null ? getAttrValue(barDir, ATTR_VAL) : null;
-        kind = v === 'bar' ? 'bar' : 'column';
-      }
-      break;
+  // Collect every "plotted" plot-group element the plotArea carries, in
+  // document order. Combo charts emit several (`<c:barChart>` +
+  // `<c:lineChart>` …); single-kind charts emit one.
+  interface PlotGroup {
+    readonly element: XmlElement;
+    readonly kind: ChartKind;
+  }
+  const kindByLocalName = new Map(KIND_MAP.map((entry) => [entry.localName, entry] as const));
+  const plotGroups: PlotGroup[] = [];
+  for (const child of plotArea.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS_C) continue;
+    const mapped = kindByLocalName.get(child.name.localName);
+    if (!mapped) continue;
+    let groupKind: ChartKind = mapped.kind;
+    // Resolve bar vs column on a `barChart` / `bar3DChart`.
+    if (mapped.localName === 'barChart' || mapped.localName === 'bar3DChart') {
+      const barDir = firstChildElement(child, qname('c', 'barDir', NS_C));
+      const v = barDir !== null ? getAttrValue(barDir, ATTR_VAL) : null;
+      groupKind = v === 'bar' ? 'bar' : 'column';
+    }
+    plotGroups.push({ element: child, kind: groupKind });
+  }
+  const firstGroup = plotGroups[0];
+  if (!firstGroup) return null;
+  const plotted = firstGroup.element;
+  const kind = firstGroup.kind;
+
+  // Secondary-axis detection: the axes the first plot group references are
+  // the primary set; a `<c:valAx>` only later groups reference is the
+  // secondary value axis. Axis position can't tell them apart — a scatter
+  // group references two primary valAx (X at the bottom or top, Y at the
+  // left), while pptxgenjs puts a secondary axis at `r` or `t`.
+  const groupAxisIds = (group: XmlElement): string[] => {
+    const ids: string[] = [];
+    for (const axIdEl of allChildElements(group, qname('c', 'axId', NS_C))) {
+      const id = getAttrValue(axIdEl, ATTR_VAL);
+      if (id !== null) ids.push(id);
+    }
+    return ids;
+  };
+  const valAxisIds = new Set<string>();
+  for (const el of allChildElements(plotArea, NAME_VAL_AX)) {
+    const axIdEl = firstChildElement(el, qname('c', 'axId', NS_C));
+    const id = axIdEl !== null ? getAttrValue(axIdEl, ATTR_VAL) : null;
+    if (id !== null) valAxisIds.add(id);
+  }
+  const primaryAxisIds = new Set(groupAxisIds(plotted));
+  const secondaryValAxisIds = new Set<string>();
+  for (const group of plotGroups.slice(1)) {
+    for (const id of groupAxisIds(group.element)) {
+      if (valAxisIds.has(id) && !primaryAxisIds.has(id)) secondaryValAxisIds.add(id);
     }
   }
-  if (!plotted || !kind) return null;
+  const groupUsesSecondaryAxis = (group: XmlElement): boolean =>
+    groupAxisIds(group).some((id) => secondaryValAxisIds.has(id));
 
-  // Read every <c:ser> in order.
+  // Read every <c:ser> from every plot group, tagging series from
+  // non-first groups with their group's kind / axis so the round-trip
+  // preserves the combo layout.
   const series: ChartSeries[] = [];
   let categoriesFromFirst: string[] | null = null;
-  for (const ser of allChildElements(plotted, NAME_SER)) {
+  let categoryGroupLevels: string[][] | undefined;
+  const serEntries: { ser: XmlElement; groupKind: ChartKind; secondary: boolean }[] = [];
+  for (const group of plotGroups) {
+    const secondary = groupUsesSecondaryAxis(group.element);
+    for (const ser of allChildElements(group.element, NAME_SER)) {
+      serEntries.push({ ser, groupKind: group.kind, secondary });
+    }
+  }
+  for (const { ser, groupKind, secondary } of serEntries) {
     const name = readSeriesName(ser);
     const cat = firstChildElement(ser, NAME_CAT);
     if (cat !== null && categoriesFromFirst === null) {
@@ -644,6 +1301,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
       // numeric channel formatted as a string so date / number cats
       // still appear on the axis instead of disappearing entirely.
       categoriesFromFirst = readStringRef(cat) ?? null;
+      categoryGroupLevels = readCategoryGroupLevels(cat);
       if (categoriesFromFirst === null) {
         const nums = readNumRef(cat);
         if (nums !== null) {
@@ -666,65 +1324,60 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const bubbleSizeEl = firstChildElement(ser, qname('c', 'bubbleSize', NS_C));
     const bubbleSizes = bubbleSizeEl !== null ? readNumRef(bubbleSizeEl) : null;
     const color = readSeriesColor(ser);
-    const { lineWidthEmu, lineDash } = readSeriesLineProps(ser);
-    const { markerSymbol, markerSizePt } = readSeriesMarker(ser);
+    const { lineWidthEmu, lineColor, lineDash } = readSeriesLineProps(ser);
+    const { markerSymbol, markerSizePt, markerColor, markerLineColor } = readSeriesMarker(ser);
     const invertEl = firstChildElement(ser, qname('c', 'invertIfNegative', NS_C));
-    const invertIfNegative =
-      invertEl !== null && getAttrValue(invertEl, ATTR_VAL) !== '0' ? true : undefined;
+    const invertIfNegative = invertEl !== null && readXmlBool(invertEl) ? true : undefined;
+    // Per-point overrides address points of the value channel; anything
+    // past its end has nothing to override.
+    const pointCount = values !== null ? values.length : 0;
     // <c:dPt> data-point overrides — sparse maps idx → color / explosion.
-    const { colors: pointColors, explosions: pointExplosions } = readDataPointOverrides(ser);
+    const { colors: pointColors, explosions: pointExplosions } = readDataPointOverrides(
+      ser,
+      pointCount,
+    );
     // <c:smooth val="1"/> — line / area / scatter only.
     const smoothEl = firstChildElement(ser, qname('c', 'smooth', NS_C));
-    const smooth = smoothEl !== null && getAttrValue(smoothEl, ATTR_VAL) !== '0';
+    const smooth = smoothEl !== null && readXmlBool(smoothEl);
     const trendline = readTrendline(ser);
+    const fillOpacity = readSeriesFillOpacity(ser);
+    const { errorBars, xErrorBars } = readErrorBars(ser);
     // Per-series <c:dLbls> overrides the chart-level toggles for this
     // one series.
-    const serDLblsEl = firstChildElement(ser, qname('c', 'dLbls', NS_C));
-    let serDataLabels: ChartDataLabels | undefined;
-    if (serDLblsEl) {
-      const readToggle = (local: string): boolean => {
-        const el = firstChildElement(serDLblsEl, qname('c', local, NS_C));
-        if (!el) return false;
-        const v = getAttrValue(el, ATTR_VAL);
-        return v === null || v === '1' || v === 'true';
-      };
-      const nfEl = firstChildElement(serDLblsEl, qname('c', 'numFmt', NS_C));
-      let numberFormat: string | undefined;
-      if (nfEl) {
-        const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
-        if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
-      }
-      const position = readDataLabelPosition(serDLblsEl);
-      const separator = readDataLabelSeparator(serDLblsEl);
-      const txPrEl = firstChildElement(serDLblsEl, qname('c', 'txPr', NS_C));
-      const textStyle = txPrEl ? readLabelStyle(txPrEl) : undefined;
-      serDataLabels = {
-        showValue: readToggle('showVal'),
-        showCategory: readToggle('showCatName'),
-        showSeriesName: readToggle('showSerName'),
-        showPercent: readToggle('showPercent'),
-        ...(numberFormat !== undefined ? { numberFormat } : {}),
-        ...(position !== undefined ? { position } : {}),
-        ...(separator !== undefined ? { separator } : {}),
-        ...(textStyle !== undefined ? { textStyle } : {}),
-      };
-    }
+    // A <c:dLbls> holding only per-point <c:dLbl> overrides carries no
+    // series-level defaults, so `dataLabels` stays absent in that case.
+    const serDLblsEl = firstChildElement(ser, NAME_D_LBLS);
+    const serDataLabels =
+      serDLblsEl !== null && hasDataLabelGroupChild(serDLblsEl)
+        ? readSeriesLevelDataLabels(serDLblsEl)
+        : undefined;
+    const pointDataLabels =
+      serDLblsEl !== null ? readPointDataLabels(serDLblsEl, pointCount, serDataLabels) : undefined;
     series.push({
       name,
       values: values ?? [],
+      ...(groupKind !== kind && isComboSeriesKind(groupKind) ? { chartKind: groupKind } : {}),
+      ...(secondary ? { secondaryAxis: true } : {}),
       ...(xValues !== null ? { xValues } : {}),
       ...(bubbleSizes !== null ? { bubbleSizes } : {}),
       ...(color !== undefined ? { color } : {}),
       ...(lineWidthEmu !== undefined ? { lineWidthEmu } : {}),
+      ...(lineColor !== undefined ? { lineColor } : {}),
       ...(lineDash !== undefined ? { lineDash } : {}),
       ...(markerSymbol !== undefined ? { markerSymbol } : {}),
       ...(markerSizePt !== undefined ? { markerSizePt } : {}),
+      ...(markerColor !== undefined ? { markerColor } : {}),
+      ...(markerLineColor !== undefined ? { markerLineColor } : {}),
       ...(invertIfNegative !== undefined ? { invertIfNegative } : {}),
       ...(pointColors !== undefined ? { pointColors } : {}),
       ...(pointExplosions !== undefined ? { pointExplosions } : {}),
+      ...(pointDataLabels !== undefined ? { pointDataLabels } : {}),
       ...(smoothEl !== null ? { smooth } : {}),
       ...(trendline !== undefined ? { trendline } : {}),
       ...(serDataLabels !== undefined ? { dataLabels: serDataLabels } : {}),
+      ...(fillOpacity !== undefined ? { fillOpacity } : {}),
+      ...(errorBars !== undefined ? { errorBars } : {}),
+      ...(xErrorBars !== undefined ? { xErrorBars } : {}),
     });
   }
 
@@ -736,120 +1389,45 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // `lineChart`, …) for chart-level defaults or on each `<c:ser>` for
   // per-series overrides. Surface the plotted-kind defaults; per-series
   // toggles are deferred until renderers care.
-  const dLbls = firstChildElement(plotted, qname('c', 'dLbls', NS_C));
-  let dataLabels: ChartDataLabels | undefined;
-  if (dLbls) {
-    const readToggle = (local: string): boolean => {
-      const el = firstChildElement(dLbls, qname('c', local, NS_C));
-      if (!el) return false;
-      const v = getAttrValue(el, ATTR_VAL);
-      // Absent val attribute defaults to true per the schema's CT_Boolean.
-      return v === null || v === '1' || v === 'true';
-    };
-    const nfEl = firstChildElement(dLbls, qname('c', 'numFmt', NS_C));
-    let numberFormat: string | undefined;
-    if (nfEl) {
-      const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
-      if (fc !== null && fc.length > 0 && fc !== 'General') numberFormat = fc;
-    }
-    const position = readDataLabelPosition(dLbls);
-    const separator = readDataLabelSeparator(dLbls);
-    const txPrEl = firstChildElement(dLbls, qname('c', 'txPr', NS_C));
-    const textStyle = txPrEl ? readLabelStyle(txPrEl) : undefined;
-    dataLabels = {
-      showValue: readToggle('showVal'),
-      showCategory: readToggle('showCatName'),
-      showSeriesName: readToggle('showSerName'),
-      showPercent: readToggle('showPercent'),
-      ...(numberFormat !== undefined ? { numberFormat } : {}),
-      ...(position !== undefined ? { position } : {}),
-      ...(separator !== undefined ? { separator } : {}),
-      ...(textStyle !== undefined ? { textStyle } : {}),
-    };
-  }
+  const dLbls = firstChildElement(plotted, NAME_D_LBLS);
+  const dataLabels = dLbls !== null ? readSeriesLevelDataLabels(dLbls) : undefined;
 
-  // <c:valAx> lives on the plotArea (not on the plotted-kind element).
-  // Pull its <c:scaling><c:min/>/<c:max/> as the authored axis range,
-  // plus optional <c:majorUnit> / <c:minorUnit> tick spacing.
-  let valueAxis: ChartAxisScaling | undefined;
-  const valAx = findFirst(plotArea, ['valAx']);
-  if (valAx) {
-    let min: number | undefined;
-    let max: number | undefined;
-    let majorUnit: number | undefined;
-    let minorUnit: number | undefined;
-    let logBase: number | undefined;
-    let displayUnits: ChartAxisScaling['displayUnits'];
-    const scaling = firstChildElement(valAx, qname('c', 'scaling', NS_C));
-    const readNumOn = (parent: XmlElement, local: string): number | undefined => {
-      const el = firstChildElement(parent, qname('c', local, NS_C));
-      if (!el) return undefined;
-      const v = getAttrValue(el, ATTR_VAL);
-      if (v === null) return undefined;
-      const n = Number.parseFloat(v);
-      return Number.isFinite(n) ? n : undefined;
-    };
-    if (scaling) {
-      min = readNumOn(scaling, 'min');
-      max = readNumOn(scaling, 'max');
-      // <c:logBase val="N"/> — PowerPoint requires N in [2, 1000].
-      const lb = readNumOn(scaling, 'logBase');
-      if (lb !== undefined && lb >= 2 && lb <= 1000) logBase = lb;
+  // <c:valAx> lives on the plotArea (not on the plotted-kind element). The
+  // primary axis is the first one no secondary group references — writers
+  // may list the secondary pair first.
+  let valAx: XmlElement | null = null;
+  let secValAx: XmlElement | null = null;
+  for (const el of allChildElements(plotArea, NAME_VAL_AX)) {
+    const axIdEl = firstChildElement(el, qname('c', 'axId', NS_C));
+    const id = axIdEl !== null ? getAttrValue(axIdEl, ATTR_VAL) : null;
+    if (id !== null && secondaryValAxisIds.has(id)) secValAx ??= el;
+    else valAx ??= el;
+  }
+  if (valAx === null) {
+    valAx = secValAx;
+    secValAx = null;
+  }
+  // Both axes of a scatter / bubble chart are <c:valAx>. The plot group
+  // lists the x axis' id first (CT_ScatterChart / CT_BubbleChart), so that
+  // one stands in for the category axis and the other is the value axis;
+  // document order cannot tell them apart, since PowerPoint writes x first.
+  const isXyKind = kind === 'scatter' || kind === 'bubble';
+  let xValAx: XmlElement | null = null;
+  if (isXyKind) {
+    const [xId, yId] = groupAxisIds(plotted);
+    const valAxById = new Map<string, XmlElement>();
+    for (const el of allChildElements(plotArea, NAME_VAL_AX)) {
+      const id = childVal(el, 'axId');
+      if (id !== null) valAxById.set(id, el);
     }
-    majorUnit = readNumOn(valAx, 'majorUnit');
-    minorUnit = readNumOn(valAx, 'minorUnit');
-    // <c:dispUnits><c:builtInUnit val="hundreds|thousands|…"/>
-    const dispUnits = firstChildElement(valAx, qname('c', 'dispUnits', NS_C));
-    if (dispUnits) {
-      const builtIn = firstChildElement(dispUnits, qname('c', 'builtInUnit', NS_C));
-      if (builtIn) {
-        const v = getAttrValue(builtIn, ATTR_VAL);
-        switch (v) {
-          case 'hundreds':
-          case 'thousands':
-          case 'tenThousands':
-          case 'hundredThousands':
-          case 'millions':
-          case 'tenMillions':
-          case 'hundredMillions':
-          case 'billions':
-          case 'trillions':
-            displayUnits = v;
-            break;
-        }
-      }
-    }
-    // <c:numFmt formatCode="…" sourceLinked="0|1"/> sits directly under
-    // <c:valAx>. We surface the formatCode for renderers; sourceLinked
-    // (whether to inherit Excel cell format) isn't useful at our layer.
-    let numberFormat: string | undefined;
-    const nfEl = firstChildElement(valAx, qname('c', 'numFmt', NS_C));
-    if (nfEl) {
-      const fc = getAttrValue(nfEl, qname('', 'formatCode', ''));
-      if (fc !== null && fc.length > 0 && fc !== 'General') {
-        numberFormat = fc;
-      }
-    }
-    if (
-      min !== undefined ||
-      max !== undefined ||
-      majorUnit !== undefined ||
-      minorUnit !== undefined ||
-      numberFormat !== undefined ||
-      logBase !== undefined ||
-      displayUnits !== undefined
-    ) {
-      valueAxis = {
-        ...(min !== undefined ? { min } : {}),
-        ...(max !== undefined ? { max } : {}),
-        ...(majorUnit !== undefined ? { majorUnit } : {}),
-        ...(minorUnit !== undefined ? { minorUnit } : {}),
-        ...(numberFormat !== undefined ? { numberFormat } : {}),
-        ...(logBase !== undefined ? { logBase } : {}),
-        ...(displayUnits !== undefined ? { displayUnits } : {}),
-      };
+    const x = xId !== undefined ? valAxById.get(xId) : undefined;
+    const y = yId !== undefined ? valAxById.get(yId) : undefined;
+    if (x !== undefined && y !== undefined) {
+      xValAx = x;
+      valAx = y;
     }
   }
+  const valueAxis = valAx !== null ? readValueAxisScaling(valAx) : undefined;
 
   // <c:grouping val="clustered|stacked|percentStacked|standard"/>
   // sits as a direct child of the plotted-kind element. Pie and line
@@ -959,6 +1537,12 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisMajorGridlineColor: string | undefined;
   let categoryAxisMinorGridlineColor: string | undefined;
   let valueAxisMinorGridlineColor: string | undefined;
+  let categoryAxisLineWidthEmu: number | undefined;
+  let valueAxisLineWidthEmu: number | undefined;
+  let categoryAxisMajorGridlineWidthEmu: number | undefined;
+  let categoryAxisMinorGridlineWidthEmu: number | undefined;
+  let valueAxisMajorGridlineWidthEmu: number | undefined;
+  let valueAxisMinorGridlineWidthEmu: number | undefined;
   // <c:majorGridlines|minorGridlines><c:spPr><a:ln><a:solidFill><a:srgbClr val=…/>.
   const readGridlineColor = (gl: XmlElement): string | undefined => {
     const spPr = firstChildElement(gl, NAME_SP_PR_C);
@@ -971,6 +1555,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     if (!srgb) return undefined;
     const v = getAttrValue(srgb, ATTR_VAL);
     return v !== null ? `#${v.toUpperCase()}` : undefined;
+  };
+  // `w` of the <c:spPr><a:ln> directly under a gridlines or axis element.
+  const readLineWidthEmu = (host: XmlElement): number | undefined => {
+    const spPr = firstChildElement(host, NAME_SP_PR_C);
+    const ln = spPr !== null ? firstChildElement(spPr, qname('a', 'ln', NS_A)) : null;
+    const w = ln !== null ? getAttrValue(ln, qname('', 'w', '')) : null;
+    if (w === null || !/^\d+$/.test(w)) return undefined;
+    // `\d+` already excludes negatives; 0 is a valid ST_LineWidth.
+    return Number.parseInt(w, 10);
   };
   // <c:catAx|valAx><c:spPr><a:ln><a:solidFill><a:srgbClr val=…/>.
   const readAxisLineColor = (axis: XmlElement): string | undefined => {
@@ -985,7 +1578,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     const v = getAttrValue(srgb, ATTR_VAL);
     return v !== null ? `#${v.toUpperCase()}` : undefined;
   };
-  const catAx = findFirst(plotArea, ['catAx', 'dateAx', 'serAx']);
+  const catAx = xValAx ?? findFirst(plotArea, ['catAx', 'dateAx']);
   const isHidden = (axis: XmlElement): boolean | undefined => {
     const d = firstChildElement(axis, qname('c', 'delete', NS_C));
     if (!d) return undefined;
@@ -996,6 +1589,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let valueAxisOrientation: 'minMax' | 'maxMin' | undefined;
   let valueAxisCrosses: ChartSpec['valueAxisCrosses'];
   let valueAxisCrossBetween: ChartSpec['valueAxisCrossBetween'];
+  let valueAxisTickLabelPos: ChartSpec['valueAxisTickLabelPos'];
   const readAxisOrientation = (axis: XmlElement): 'minMax' | 'maxMin' | undefined => {
     const scaling = firstChildElement(axis, qname('c', 'scaling', NS_C));
     if (!scaling) return undefined;
@@ -1028,12 +1622,19 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     categoryAxisHidden = isHidden(catAx);
     categoryAxisLineColor = readAxisLineColor(catAx);
+    categoryAxisLineWidthEmu = readLineWidthEmu(catAx);
     const catMajorGl = firstChildElement(catAx, qname('c', 'majorGridlines', NS_C));
     categoryAxisMajorGridlines = catMajorGl !== null;
-    if (catMajorGl) categoryAxisMajorGridlineColor = readGridlineColor(catMajorGl);
+    if (catMajorGl) {
+      categoryAxisMajorGridlineColor = readGridlineColor(catMajorGl);
+      categoryAxisMajorGridlineWidthEmu = readLineWidthEmu(catMajorGl);
+    }
     const catMinorGl = firstChildElement(catAx, qname('c', 'minorGridlines', NS_C));
     categoryAxisMinorGridlines = catMinorGl !== null;
-    if (catMinorGl) categoryAxisMinorGridlineColor = readGridlineColor(catMinorGl);
+    if (catMinorGl) {
+      categoryAxisMinorGridlineColor = readGridlineColor(catMinorGl);
+      categoryAxisMinorGridlineWidthEmu = readLineWidthEmu(catMinorGl);
+    }
     categoryAxisOrientation = readAxisOrientation(catAx);
     categoryAxisMajorTickMark = readTickMark(catAx);
     categoryAxisMinorTickMark = readTickMarkLocal(catAx, 'minorTickMark');
@@ -1112,9 +1713,17 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     valueAxisHidden = isHidden(valAx);
     valueAxisLineColor = readAxisLineColor(valAx);
+    valueAxisLineWidthEmu = readLineWidthEmu(valAx);
     valueAxisOrientation = readAxisOrientation(valAx);
     valueAxisMajorTickMark = readTickMark(valAx);
     valueAxisMinorTickMark = readTickMarkLocal(valAx, 'minorTickMark');
+    const valPosEl = firstChildElement(valAx, qname('c', 'tickLblPos', NS_C));
+    if (valPosEl) {
+      const v = getAttrValue(valPosEl, ATTR_VAL);
+      if (v === 'none' || v === 'low' || v === 'high' || v === 'nextTo') {
+        valueAxisTickLabelPos = v;
+      }
+    }
     // <c:crosses val> and <c:crossesAt val> are mutually exclusive per
     // the schema; crossesAt wins when both are emitted (matches the
     // PowerPoint priority).
@@ -1139,10 +1748,60 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     const majorGl = firstChildElement(valAx, qname('c', 'majorGridlines', NS_C));
     valueAxisMajorGridlines = majorGl !== null;
-    if (majorGl) valueAxisMajorGridlineColor = readGridlineColor(majorGl);
+    if (majorGl) {
+      valueAxisMajorGridlineColor = readGridlineColor(majorGl);
+      valueAxisMajorGridlineWidthEmu = readLineWidthEmu(majorGl);
+    }
     const minorGl = firstChildElement(valAx, qname('c', 'minorGridlines', NS_C));
     valueAxisMinorGridlines = minorGl !== null;
-    if (minorGl) valueAxisMinorGridlineColor = readGridlineColor(minorGl);
+    if (minorGl) {
+      valueAxisMinorGridlineColor = readGridlineColor(minorGl);
+      valueAxisMinorGridlineWidthEmu = readLineWidthEmu(minorGl);
+    }
+  }
+
+  // The secondary value axis is the one only the later plot groups
+  // reference; read it with the same helpers as the primary.
+  let secondaryValueAxis: ChartSecondaryValueAxis | undefined;
+  if (secValAx !== null) {
+    const scaling = readValueAxisScaling(secValAx);
+    const title = readTitle(secValAx);
+    const titleEl = firstChildElement(secValAx, NAME_TITLE);
+    const titleStyle = titleEl !== null ? readTitleStyleOf(titleEl) : undefined;
+    const txPr = firstChildElement(secValAx, qname('c', 'txPr', NS_C));
+    const labelStyle = txPr !== null ? readLabelStyle(txPr) : undefined;
+    const majorGl = firstChildElement(secValAx, qname('c', 'majorGridlines', NS_C));
+    const majorGridlineColor = majorGl !== null ? readGridlineColor(majorGl) : undefined;
+    const majorGridlineWidthEmu = majorGl !== null ? readLineWidthEmu(majorGl) : undefined;
+    const lineColor = readAxisLineColor(secValAx);
+    const lineWidthEmu = readLineWidthEmu(secValAx);
+    const majorTickMark = readTickMark(secValAx);
+    const minorTickMark = readTickMarkLocal(secValAx, 'minorTickMark');
+    const secPosEl = firstChildElement(secValAx, qname('c', 'tickLblPos', NS_C));
+    const secPos = secPosEl !== null ? getAttrValue(secPosEl, ATTR_VAL) : null;
+    const tickLabelPos =
+      secPos === 'none' || secPos === 'low' || secPos === 'high' || secPos === 'nextTo'
+        ? secPos
+        : undefined;
+    const crossBetweenEl = firstChildElement(secValAx, qname('c', 'crossBetween', NS_C));
+    const cb = crossBetweenEl !== null ? getAttrValue(crossBetweenEl, ATTR_VAL) : null;
+    const crossBetween = cb === 'between' || cb === 'midCat' ? cb : undefined;
+    const fields: ChartSecondaryValueAxis = {
+      ...(scaling !== undefined ? { scaling } : {}),
+      ...(title !== undefined ? { title } : {}),
+      ...(titleStyle !== undefined ? { titleStyle } : {}),
+      ...(labelStyle !== undefined ? { labelStyle } : {}),
+      ...(majorGl !== null ? { majorGridlines: true } : {}),
+      ...(majorGridlineColor !== undefined ? { majorGridlineColor } : {}),
+      ...(majorGridlineWidthEmu !== undefined ? { majorGridlineWidthEmu } : {}),
+      ...(lineColor !== undefined ? { lineColor } : {}),
+      ...(lineWidthEmu !== undefined ? { lineWidthEmu } : {}),
+      ...(majorTickMark !== undefined ? { majorTickMark } : {}),
+      ...(minorTickMark !== undefined ? { minorTickMark } : {}),
+      ...(tickLabelPos !== undefined ? { tickLabelPos } : {}),
+      ...(crossBetween !== undefined ? { crossBetween } : {}),
+    };
+    if (Object.keys(fields).length > 0) secondaryValueAxis = fields;
   }
 
   // Plot area + chart area fills (`<c:spPr><a:solidFill><a:srgbClr/>`).
@@ -1262,9 +1921,11 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
     const position: 'r' | 't' | 'b' | 'l' | 'tr' =
       tok === 'r' || tok === 't' || tok === 'b' || tok === 'l' || tok === 'tr' ? tok : 'r';
+    const legendLayout = readBoxLayout(legendEl);
     legend = {
       position,
       ...(overlay ? { overlay } : {}),
+      ...(legendLayout !== undefined ? { layout: legendLayout } : {}),
       ...(textStyle !== undefined ? { textStyle } : {}),
       ...(hiddenIndices.length > 0 ? { hiddenIndices } : {}),
     };
@@ -1359,6 +2020,56 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     }
   }
 
+  // The modifiers and features below hang off the first plot group, the
+  // chart element, or the plot area; each helper returns `undefined` when its
+  // element is absent.
+  const plottedName = plotted.name.localName;
+  const view3DEl = readView3D(chart);
+  // A 3-D camera on a flat plot group means nothing; PowerPoint leaves a
+  // stale <c:view3D> behind when a chart is switched from 3-D back to 2-D.
+  const view3D = plottedName.endsWith('3DChart') || kind === 'surface' ? view3DEl : undefined;
+  const bar3DShape =
+    plottedName === 'bar3DChart'
+      ? childToken(plotted, 'shape', [
+          'box',
+          'cone',
+          'coneToMax',
+          'cylinder',
+          'pyramid',
+          'pyramidToMax',
+        ])
+      : undefined;
+  const gapDepthPct = view3D !== undefined ? childNumber(plotted, 'gapDepth') : undefined;
+  // The flag lives on each series: PowerPoint repairs a deck whose
+  // `<c:bubbleChart>` carries its own `<c:bubble3D>`, so nothing writes that one.
+  const bubble3D =
+    kind === 'bubble' &&
+    allChildElements(plotted, NAME_SER).some((ser) => childBool(ser, 'bubble3D') === true);
+  const showNegativeBubbles = kind === 'bubble' ? childBool(plotted, 'showNegBubbles') : undefined;
+  const ofPie = plottedName === 'ofPieChart' ? readOfPie(plotted) : undefined;
+  const surfaceContour = plottedName === 'surfaceChart';
+  const surfaceWireframe = kind === 'surface' ? childBool(plotted, 'wireframe') : undefined;
+  const upDownBars = readUpDownBars(plotted);
+  const dataTable = readDataTable(plotArea);
+  const seriesAxis = readSeriesAxis(plotArea);
+  const plotAreaLayout = readBoxLayout(plotArea);
+  const chartTitleEl = firstChildElement(chart, NAME_TITLE);
+  const titlePosition = chartTitleEl !== null ? readManualLayout(chartTitleEl) : undefined;
+  const titleLayout =
+    titlePosition !== undefined ? { x: titlePosition.x, y: titlePosition.y } : undefined;
+  const categoryAxisDate =
+    catAx !== null && catAx.name.localName === 'dateAx' ? readDateAxis(catAx) : undefined;
+  // Only a numeric horizontal axis has a scale: the x value axis of an xy
+  // chart, or a date axis (whose range is its only scaling field).
+  const horizontalScaling = catAx !== null ? readValueAxisScaling(catAx) : undefined;
+  const categoryAxisScaling = isXyKind
+    ? withoutNumberFormat(horizontalScaling)
+    : categoryAxisDate !== undefined
+      ? minMaxOnly(horizontalScaling)
+      : undefined;
+  const valueAxisLineHidden = valAx !== null && isAxisLineHidden(valAx);
+  const categoryAxisLineHidden = catAx !== null && isAxisLineHidden(catAx);
+
   return {
     kind,
     categories,
@@ -1367,6 +2078,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(titleStyle !== undefined ? { titleStyle } : {}),
     ...(dataLabels !== undefined ? { dataLabels } : {}),
     ...(valueAxis !== undefined ? { valueAxis } : {}),
+    ...(secondaryValueAxis !== undefined ? { secondaryValueAxis } : {}),
     ...(grouping !== undefined ? { grouping } : {}),
     ...(dropLines !== undefined ? { dropLines } : {}),
     ...(hiLowLines !== undefined ? { hiLowLines } : {}),
@@ -1399,8 +2111,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(valueAxisHidden !== undefined ? { valueAxisHidden } : {}),
     ...(valueAxisMajorGridlines !== undefined ? { valueAxisMajorGridlines } : {}),
     ...(valueAxisMajorGridlineColor !== undefined ? { valueAxisMajorGridlineColor } : {}),
+    ...(valueAxisMajorGridlineWidthEmu !== undefined ? { valueAxisMajorGridlineWidthEmu } : {}),
     ...(valueAxisMajorTickMark !== undefined ? { valueAxisMajorTickMark } : {}),
     ...(valueAxisMinorTickMark !== undefined ? { valueAxisMinorTickMark } : {}),
+    ...(valueAxisTickLabelPos !== undefined ? { valueAxisTickLabelPos } : {}),
     ...(valueAxisLabelRotationDeg !== undefined ? { valueAxisLabelRotationDeg } : {}),
     ...(categoryAxisMajorTickMark !== undefined ? { categoryAxisMajorTickMark } : {}),
     ...(categoryAxisMinorTickMark !== undefined ? { categoryAxisMinorTickMark } : {}),
@@ -1419,6 +2133,15 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(categoryAxisMajorGridlineColor !== undefined ? { categoryAxisMajorGridlineColor } : {}),
     ...(categoryAxisMinorGridlineColor !== undefined ? { categoryAxisMinorGridlineColor } : {}),
     ...(valueAxisMinorGridlineColor !== undefined ? { valueAxisMinorGridlineColor } : {}),
+    ...(categoryAxisLineWidthEmu !== undefined ? { categoryAxisLineWidthEmu } : {}),
+    ...(valueAxisLineWidthEmu !== undefined ? { valueAxisLineWidthEmu } : {}),
+    ...(categoryAxisMajorGridlineWidthEmu !== undefined
+      ? { categoryAxisMajorGridlineWidthEmu }
+      : {}),
+    ...(categoryAxisMinorGridlineWidthEmu !== undefined
+      ? { categoryAxisMinorGridlineWidthEmu }
+      : {}),
+    ...(valueAxisMinorGridlineWidthEmu !== undefined ? { valueAxisMinorGridlineWidthEmu } : {}),
     ...(categoryAxisOrientation !== undefined ? { categoryAxisOrientation } : {}),
     ...(valueAxisOrientation !== undefined ? { valueAxisOrientation } : {}),
     ...(valueAxisCrosses !== undefined ? { valueAxisCrosses } : {}),
@@ -1429,5 +2152,23 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
     ...(radarStyle !== undefined ? { radarStyle } : {}),
     ...(bubbleScale !== undefined ? { bubbleScale } : {}),
     ...(bubbleSizeRepresents !== undefined ? { bubbleSizeRepresents } : {}),
+    ...(bubble3D === true ? { bubble3D } : {}),
+    ...(showNegativeBubbles !== undefined ? { showNegativeBubbles } : {}),
+    ...(view3D !== undefined ? { view3D } : {}),
+    ...(bar3DShape !== undefined ? { bar3DShape } : {}),
+    ...(gapDepthPct !== undefined ? { gapDepthPct } : {}),
+    ...(seriesAxis !== undefined ? { seriesAxis } : {}),
+    ...(ofPie !== undefined ? { ofPie } : {}),
+    ...(surfaceContour ? { surfaceContour } : {}),
+    ...(surfaceWireframe !== undefined ? { surfaceWireframe } : {}),
+    ...(upDownBars !== undefined ? { upDownBars } : {}),
+    ...(dataTable !== undefined ? { dataTable } : {}),
+    ...(categoryAxisDate !== undefined ? { categoryAxisDate } : {}),
+    ...(categoryAxisScaling !== undefined ? { categoryAxisScaling } : {}),
+    ...(categoryGroupLevels !== undefined ? { categoryGroupLevels } : {}),
+    ...(plotAreaLayout !== undefined ? { plotAreaLayout } : {}),
+    ...(titleLayout !== undefined ? { titleLayout } : {}),
+    ...(valueAxisLineHidden ? { valueAxisLineHidden } : {}),
+    ...(categoryAxisLineHidden ? { categoryAxisLineHidden } : {}),
   };
 };

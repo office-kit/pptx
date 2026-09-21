@@ -1,5 +1,7 @@
 // Slide size.
 
+import { oneOf } from '../../internal/bounds.ts';
+import { SLIDE_SIZE_TYPES } from '../../internal/enum-values.ts';
 import type { Emu } from '../units.ts';
 import {
   NS,
@@ -56,6 +58,7 @@ const NAME_SLD_ID_LST_FN = qname('p', 'sldIdLst', NS.pml);
  * §19.2.1.26; we insert at the correct position when bootstrapping.
  */
 export const setSlideSize = (pres: PresentationData, opts: SlideSize): void => {
+  if (opts.type !== undefined) oneOf(opts.type, SLIDE_SIZE_TYPES, 'setSlideSize: type');
   const pkg = pres[INTERNAL_PACKAGE];
   const presPart = pkg.getPart(PRES_PART_NAME);
   if (!presPart) throw new Error('presentation.xml is missing');

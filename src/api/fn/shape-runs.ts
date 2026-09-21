@@ -2,10 +2,14 @@
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
 import {
+  alignToken,
   type BulletStyle,
   type ParagraphAlignment,
+  type ParagraphAlignmentToken,
   type TextFormat,
   applyBulletToParagraph,
+  parseAlignmentToken,
+  updateBulletIndentForLevel,
 } from '../../internal/drawingml/index.ts';
 import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
@@ -46,6 +50,7 @@ const NAME_A_P = qname('a', 'p', NS.dml);
 const NAME_A_R = qname('a', 'r', NS.dml);
 export const NAME_A_RPR = qname('a', 'rPr', NS.dml);
 const NAME_A_T = qname('a', 't', NS.dml);
+const NAME_A_END_PARA_RPR = qname('a', 'endParaRPr', NS.dml);
 
 const paragraphsOf = (txBody: XmlElement): XmlElement[] =>
   txBody.children.filter(
@@ -160,6 +165,26 @@ export const getShapeParagraphElements = (
   paragraphIndex: number,
 ): ReadonlyArray<ShapeParagraphElement> =>
   readParagraphElements(requireParagraph(shape, paragraphIndex));
+
+/**
+ * Reads the literal format of a paragraph's end mark (`<a:endParaRPr>`), or
+ * `null` when the paragraph carries none. It is the only format a paragraph
+ * with no runs carries. The write side is `setShapeParagraphs`' `endFormat`.
+ */
+export const getParagraphEndFormat = (
+  shape: SlideShapeData,
+  paragraphIndex: number,
+): TextFormat | null => readParagraphEndFormat(requireParagraph(shape, paragraphIndex));
+
+/**
+ * Shared by the shape reader above and the table-cell paragraph reader.
+ *
+ * @internal
+ */
+export const readParagraphEndFormat = (paragraph: XmlElement): TextFormat | null => {
+  const endParaRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
+  return endParaRPr === null ? null : parseRPrLikeElement(endParaRPr);
+};
 
 /**
  * Walks a single `<a:p>` element and returns its inline children in
@@ -425,28 +450,6 @@ const ensurePPr = (paragraph: XmlElement): XmlElement => {
   return fresh;
 };
 
-const alignTokenForFn = (a: ParagraphAlignment): string => {
-  switch (a) {
-    case 'left':
-    case 'l':
-      return 'l';
-    case 'center':
-    case 'ctr':
-      return 'ctr';
-    case 'right':
-    case 'r':
-      return 'r';
-    case 'justify':
-    case 'just':
-      return 'just';
-    case 'distribute':
-    case 'dist':
-      return 'dist';
-    default:
-      return a;
-  }
-};
-
 /**
  * Sets the horizontal alignment of a single paragraph. Same token set
  * as `setShapeAlignment`. Other paragraphs are untouched.
@@ -456,10 +459,11 @@ export const setParagraphAlignment = (
   paragraphIndex: number,
   align: ParagraphAlignment,
 ): void => {
+  const token = alignToken(align, 'setParagraphAlignment');
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = ensurePPr(paragraph);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'algn');
-  pPr.attrs.push(attr(ATTR_ALGN_FN, alignTokenForFn(align)));
+  pPr.attrs.push(attr(ATTR_ALGN_FN, token));
   commitAndRefresh(shape);
 };
 
@@ -467,6 +471,8 @@ export const setParagraphAlignment = (
  * Sets the paragraph's nesting level (`<a:pPr lvl="N"/>`). Levels are
  * 0-indexed; PowerPoint accepts 0 through 8. Pass `0` to clear an
  * existing level — `<a:pPr lvl="0"/>` is the same as omitting the attr.
+ * Indents matching the previous level's default bullet pair follow the level;
+ * other indent values are preserved.
  *
  * Used in tandem with bullets to author nested lists:
  *
@@ -484,24 +490,29 @@ export const setParagraphLevel = (
   }
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = ensurePPr(paragraph);
+  const previousLevel = Number.parseInt(getAttrValue(pPr, ATTR_LVL) ?? '0', 10);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
   if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
+  updateBulletIndentForLevel(pPr, Number.isFinite(previousLevel) ? previousLevel : 0, level);
   commitAndRefresh(shape);
 };
 
 /**
- * Reads the paragraph's horizontal alignment. Returns `null` when no
- * `algn` attribute is present (inherits from layout / master).
+ * Reads the paragraph's own `algn` as its spec token (`l`, `ctr`, `r`,
+ * `just`, `dist`, `justLow`, `thaiDist`) — so `setParagraphAlignment(…,
+ * 'center')` reads back as `'ctr'`. Returns `null` when the attribute is
+ * absent (the paragraph inherits from its layout / master) or is not a
+ * valid token. For the inherited value under a plain-English name, use
+ * `getParagraphPropertiesEffective`.
  */
 export const getParagraphAlignment = (
   shape: SlideShapeData,
   paragraphIndex: number,
-): ParagraphAlignment | null => {
+): ParagraphAlignmentToken | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (pPr === null) return null;
-  const v = getAttrValue(pPr, ATTR_ALGN_FN);
-  return (v as ParagraphAlignment | null) ?? null;
+  return parseAlignmentToken(getAttrValue(pPr, ATTR_ALGN_FN));
 };
 
 /**
