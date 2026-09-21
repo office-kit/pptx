@@ -2,6 +2,22 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Find and replace': '検索と置換',
+  'Find text': '検索する文字列',
+  'Replace with': '置換後の文字列',
+  'Match case': '大文字と小文字を区別',
+  'Only the starting slide': '開始時のスライドのみ',
+  Match: '一致',
+  'No matches': '一致する文字列はありません',
+  'Enter text to search': '検索する文字列を入力してください',
+  'Previous match': '前の一致箇所',
+  'Next match': '次の一致箇所',
+  'Current match': '現在の一致箇所',
+  'Replace match': 'この箇所を置換',
+  'Replace all': 'すべて置換',
+  Replaced: '置換した件数',
+  'No text changed': '変更された文字列はありません',
+  'Text could not be replaced': '文字列を置換できませんでした',
   'Skip during presentation': 'プレゼンテーションでスキップ',
   'Skipped during presentation': 'プレゼンテーションでスキップされます',
   'Cut transition': 'カット',

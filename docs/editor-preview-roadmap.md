@@ -27,8 +27,12 @@ that a user can complete the corresponding editing workflow.
   surrounding run formats and assigning replacements the first matched run’s
   formatting. Tests cover Japanese/English, emoji, regular-expression captures,
   replacement tokens, deletion, no-op edits, paragraph/line-break boundaries and
-  save/load preservation. A dedicated bilingual find/replace dialog and match
-  navigation still need implementation and browser verification.
+  save/load preservation. A bilingual find/replace dialog navigates matches in
+  shapes and table cells, replaces individual matches or all matches, and offers
+  case-sensitive and starting-slide-only search with Ctrl/Cmd+F and Ctrl/Cmd+H.
+  Exact UTF-16 replacement ranges preserve formatting when adjacent characters
+  are identical. Browser verification covers navigation, scope, literal dollar
+  signs, Japanese text, cell edits, undo/redo and saved document contents.
 
 - Bilingual speaker-note dialogs load and edit multiline notes for the selected
   slide. Notes readers/writers target the body placeholder, preserve unrelated

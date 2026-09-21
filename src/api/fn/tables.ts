@@ -484,14 +484,16 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
  * Replaces a cell's text. `\n` starts a new paragraph. The paragraph-end
  * format (`<a:endParaRPr>`) is not kept unless `preserveFormatting` is enabled.
  * That option preserves unaffected runs and paragraph properties during editing.
+ * With `range`, `text` replaces exactly that UTF-16 selection, always preserving
+ * the formatting of unaffected text.
  */
 export const setTableCellText = (
   cell: TableCellData,
   text: string,
-  options?: { preserveFormatting?: boolean },
+  options?: { preserveFormatting?: boolean; range?: { start: number; end: number } },
 ): void => {
   const txBody = ensureCellTxBody(cell);
-  if (options?.preserveFormatting) editTextBody(txBody, text);
+  if (options?.preserveFormatting || options?.range) editTextBody(txBody, text, options.range);
   else setTextBody(txBody, text);
   commitTableCell(cell);
 };

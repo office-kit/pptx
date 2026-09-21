@@ -69,9 +69,14 @@ function propertiesAt(paragraph: XmlElement, at: number, insertion: boolean): Xm
 }
 
 /** Preserve the unchanged prefix/suffix, including their original paragraph XML. */
-export function editTextBody(txBody: XmlElement, value: string): void {
+export function editTextBody(
+  txBody: XmlElement,
+  value: string,
+  range?: { start: number; end: number },
+): void {
   const before = textBodyText(txBody);
-  if (before === value) return;
+  if (range) validateTextRange(before, range, 'setText');
+  if (range ? before.slice(range.start, range.end) === value : before === value) return;
   // Code points prevent splitting surrogate pairs when two emoji share a high surrogate.
   const oldChars = Array.from(before);
   const newChars = Array.from(value);
@@ -89,9 +94,10 @@ export function editTextBody(txBody: XmlElement, value: string): void {
     oldChars[oldChars.length - 1 - suffix] === newChars[newChars.length - 1 - suffix]
   )
     suffix++;
-  const start = oldChars.slice(0, prefix).join('').length;
-  const end = before.length - oldChars.slice(oldChars.length - suffix).join('').length;
-  const replacement = newChars.slice(prefix, newChars.length - suffix).join('');
+  const start = range?.start ?? oldChars.slice(0, prefix).join('').length;
+  const end =
+    range?.end ?? before.length - oldChars.slice(oldChars.length - suffix).join('').length;
+  const replacement = range ? value : newChars.slice(prefix, newChars.length - suffix).join('');
   const paragraphs = paragraphsOf(txBody);
   const spans = paragraphs.map((paragraph) => ({
     paragraph,
@@ -152,25 +158,8 @@ export function formatTextBodyRange(
   range: { start: number; end: number },
 ): void {
   const value = textBodyText(txBody);
+  validateTextRange(value, range, 'setShapeTextFormat');
   const { start, end } = range;
-  const splitsSurrogate = (at: number) =>
-    at > 0 &&
-    at < value.length &&
-    /[\uD800-\uDBFF]/.test(value[at - 1]!) &&
-    /[\uDC00-\uDFFF]/.test(value[at]!);
-  if (
-    !Number.isInteger(start) ||
-    !Number.isInteger(end) ||
-    start < 0 ||
-    end < start ||
-    end > value.length ||
-    splitsSurrogate(start) ||
-    splitsSurrogate(end)
-  ) {
-    throw new RangeError(
-      'setShapeTextFormat: range must contain valid UTF-16 boundaries within the text',
-    );
-  }
   // Validate all format values before touching the document, including empty ranges.
   applyRunFormat(elem(name('rPr')), format);
   if (start === end) return;
@@ -222,4 +211,28 @@ export function formatTextBodyRange(
     offset++; // The visible paragraph separator occupies one UTF-16 position.
   }
   txBody.children = updated.children;
+}
+
+function validateTextRange(
+  value: string,
+  range: { start: number; end: number },
+  caller: string,
+): void {
+  const { start, end } = range;
+  const splitsSurrogate = (at: number) =>
+    at > 0 &&
+    at < value.length &&
+    /[\uD800-\uDBFF]/.test(value[at - 1]!) &&
+    /[\uDC00-\uDFFF]/.test(value[at]!);
+  if (
+    !Number.isInteger(start) ||
+    !Number.isInteger(end) ||
+    start < 0 ||
+    end < start ||
+    end > value.length ||
+    splitsSurrogate(start) ||
+    splitsSurrogate(end)
+  ) {
+    throw new RangeError(`${caller}: range must contain valid UTF-16 boundaries within the text`);
+  }
 }

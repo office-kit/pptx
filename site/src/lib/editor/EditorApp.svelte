@@ -13,6 +13,7 @@
   import CommandDialog from './ui/CommandDialog.svelte';
   import ImageDialog from './ui/ImageDialog.svelte';
   import ChartDialog from './ui/ChartDialog.svelte';
+  import FindReplaceDialog from './ui/FindReplaceDialog.svelte';
   import NotesDialog from './ui/NotesDialog.svelte';
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
@@ -51,6 +52,11 @@
     if (mod && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       editor.togglePalette();
+      return;
+    }
+    if (mod && ['f', 'h'].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+      editor.runOrPrompt('replaceTextInPresentation');
       return;
     }
     if (typing || e.defaultPrevented) return;
@@ -128,6 +134,8 @@
       {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
     {:else if editor.activeDialog === 'addSlideChart' || editor.activeDialog === 'setChartSpec'}
       {#key editor.activeDialog}<ChartDialog edit={editor.activeDialog === 'setChartSpec'} />{/key}
+    {:else if editor.activeDialog === 'replaceTextInPresentation'}
+      <FindReplaceDialog />
     {:else if editor.activeDialog === 'setSlideNotes'}
       <NotesDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
