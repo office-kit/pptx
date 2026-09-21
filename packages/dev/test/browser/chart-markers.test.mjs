@@ -70,6 +70,23 @@ test(
         await editor.locator('.paint path[stroke="#4472C4"]').first().getAttribute('d'),
         /C/,
       );
+      await editor.getByRole('button', { name: 'グラフを編集', exact: true }).click();
+      await dialog.getByRole('button', { name: '項目を追加', exact: true }).click();
+      await dialog.getByLabel('値 4, 1', { exact: true }).fill('25');
+      await dialog.getByLabel('値 2, 1', { exact: true }).fill('');
+      await dialog.getByRole('button', { name: '変更を適用', exact: true }).click();
+      await saved();
+      assert.equal((await read()).series[0].values[1], null);
+      const gapPath = await editor
+        .locator('.paint path[stroke="#4472C4"]')
+        .first()
+        .getAttribute('d');
+      assert.equal(gapPath.match(/M/g)?.length, 2);
+      assert.doesNotMatch(gapPath, /C/);
+      assert.equal(await editor.locator('.paint circle[r="6.00"]').count(), 3);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await read()).series[0].values[1], 20);
       await editor.locator('select').first().selectOption('en');
       ja = false;
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
