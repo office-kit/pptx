@@ -15,20 +15,6 @@ const DROP = { x: IN(2), y: IN(1.5), w: IN(4), h: IN(2) };
 const PRESET = {
   shape: { opts: { preset: 'rect', x: DROP.x, y: DROP.y, w: DROP.w, h: DROP.h } },
   textBox: { opts: { x: DROP.x, y: DROP.y, w: DROP.w, h: IN(1), text: 'Text' } },
-  table: {
-    opts: {
-      x: DROP.x,
-      y: DROP.y,
-      w: IN(5),
-      h: IN(2),
-      rows: [
-        ['', '', ''],
-        ['', '', ''],
-        ['', '', ''],
-      ],
-      firstRow: true,
-    },
-  },
   line: { opts: { from: { x: IN(2), y: IN(3) }, to: { x: IN(7), y: IN(3) } } },
 } as const;
 
@@ -118,7 +104,7 @@ export const RIBBON: readonly RibbonTab[] = [
     groups: [
       {
         title: 'Tables',
-        items: [{ id: 'addSlideTable', icon: 'table', preset: PRESET.table }],
+        items: [{ id: 'addSlideTable', icon: 'table' }],
       },
       {
         title: 'Illustrations',

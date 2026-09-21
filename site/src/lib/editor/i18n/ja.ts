@@ -2,6 +2,16 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Insert table': '表を挿入',
+  'Number of rows': '行数',
+  'Number of columns': '列数',
+  'Header row': '見出し行',
+  'Alternating row colors': '交互の行色',
+  'Table preview': '表のプレビュー',
+  'The table is centered on the slide. Edit its cells after inserting it.':
+    '表はスライドの中央に配置されます。挿入後にセルを編集できます。',
+  'The table could not be inserted': '表を挿入できませんでした',
+
   'Shift-click another cell to select a range':
     'Shiftキーを押しながら別のセルを選ぶと範囲を選択できます',
   'Merge cells': 'セルを結合',

@@ -93,6 +93,10 @@ that a user can complete the corresponding editing workflow.
   Double-clicking cells on the canvas opens an inline editor at the cell's
   bounds, including merged regions and unequal column widths. Cell selection
   remains visible on the canvas and synchronizes with the properties pane.
+  A bilingual insertion dialog creates tables with chosen dimensions, header
+  rows and alternating row colors, then selects the first cell. Browser tests
+  start from an empty slide and verify cancellation, dimensions/style flags,
+  undo/redo, editing the inserted table and reload.
   Text edits preserve existing runs; the shared toolbar formats selected text
   through the optional UTF-16 range in setTableCellTextFormat. Browser tests
   cover English/Japanese editing, merged-cell hit areas, cancellation and undo.
