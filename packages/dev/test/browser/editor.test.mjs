@@ -6,6 +6,10 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import { unzipSync, strFromU8 } from 'fflate';
 import {
+  getSlideBackground,
+  getSlideBackgroundImageBytes,
+  getSlideLayout,
+  getSlideLayoutName,
   getShapeChartSpec,
   readPackagePart,
   listPackageParts,
@@ -1095,6 +1099,97 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-chart-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'slide options edit layouts and backgrounds in both languages with saved history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-slide-options-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Keep this text</Text></Slide><Slide /></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const slides = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        );
+      await saved();
+      assert.equal(getSlideText((await slides())[0]), 'Keep this text');
+      const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
+      await pane
+        .getByLabel('Slide layout', { exact: true })
+        .selectOption({ label: 'Title and Content' });
+      await saved();
+      assert.equal(getSlideLayoutName(getSlideLayout((await slides())[0])), 'Title and Content');
+      await pane.getByLabel('Background color', { exact: true }).fill('#d8ebff');
+      await saved();
+      assert.deepEqual(getSlideBackground((await slides())[0]), {
+        kind: 'solid',
+        color: '#D8EBFF',
+      });
+      assert.equal(getSlideBackground((await slides())[1]).kind, 'inherit');
+      await pane.getByRole('button', { name: 'Reset background', exact: true }).click();
+      await saved();
+      assert.equal(getSlideBackground((await slides())[0]).kind, 'inherit');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getSlideBackground((await slides())[0]).kind, 'solid');
+      await editor.locator('select').first().selectOption('ja');
+      const jp = editor.getByRole('region', { name: 'スライドの設定', exact: true });
+      const bytes = Buffer.from(
+        await page.evaluate(() => {
+          const canvas = document.createElement('canvas');
+          canvas.width = 20;
+          canvas.height = 20;
+          const ctx = canvas.getContext('2d');
+          ctx.fillStyle = '#d04030';
+          ctx.fillRect(0, 0, 20, 20);
+          return canvas.toDataURL('image/png').split(',')[1];
+        }),
+        'base64',
+      );
+      await jp
+        .getByLabel('背景画像', { exact: true })
+        .setInputFiles({ name: 'background.png', mimeType: 'image/png', buffer: bytes });
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.deepEqual(Buffer.from(getSlideBackgroundImageBytes((await slides())[0])), bytes);
+      await jp
+        .getByLabel('スライドのレイアウト', { exact: true })
+        .selectOption({ label: 'タイトルスライド' });
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await page.screenshot({ path: '/tmp/pptx-pr287-slide-options-ja.png', fullPage: true });
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      const result = await slides();
+      assert.equal(getSlideLayoutName(getSlideLayout(result[0])), 'Title Slide');
+      assert.deepEqual(Buffer.from(getSlideBackgroundImageBytes(result[0])), bytes);
+      assert.equal(getSlideText(result[0]), 'Keep this text');
+      assert.equal(getSlideBackground(result[1]).kind, 'inherit');
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-slide-options-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();

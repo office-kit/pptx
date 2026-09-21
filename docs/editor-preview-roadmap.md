@@ -23,6 +23,12 @@ that a user can complete the corresponding editing workflow.
 
 ## Verified so far
 
+- A bilingual slide options pane selects layouts already in the document, sets
+  background colors or uploaded images, and resets to the inherited background.
+  Browser tests verify layout relationships, untouched text and neighboring
+  slides, embedded image bytes, reset, undo and reload. Slide dimensions and
+  fuller layout/placeholder workflows still need dedicated editing controls.
+
 - Bilingual chart dialogs create column, bar, line, area, pie, doughnut and radar
   charts, edit titles, category labels, series names, colors and numeric data,
   and add or remove categories and series. Browser tests verify all seven kinds,
