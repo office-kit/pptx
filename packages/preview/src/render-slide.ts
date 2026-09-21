@@ -2409,6 +2409,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         strike: hasStrikeFmt(fmt),
         superSub,
         href: run.href ?? null,
+        ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),
       };
       // A run's text can carry embedded '\n' only via <a:br>, already split
       // out above; still split defensively so any stray newline becomes a break.
@@ -5636,6 +5637,7 @@ const cellParaData = (
   paragraphs: ReadonlyArray<TableCellParagraph>,
   cell: Parameters<typeof getTableCellParagraphs>[0],
   pres: PresentationData,
+  shape: SlideShapeData,
 ): { paraData: ParaData[]; hasText: boolean } => {
   let hasText = false;
   const paraData = paragraphs.map((para, index): ParaData => {
@@ -5649,7 +5651,13 @@ const cellParaData = (
         continue;
       }
       if (el.text.trim()) hasText = true;
-      runs.push({ text: el.text, fmt: el.format, sizePt: el.format?.size ?? DEFAULT_BODY_PT });
+      const href = el.clickAction ? clickActionHref(pres, shape, el.clickAction) : null;
+      runs.push({
+        text: el.text,
+        fmt: el.format,
+        sizePt: el.format?.size ?? DEFAULT_BODY_PT,
+        ...(href ? { href, ...(el.tooltip !== undefined ? { hrefTip: el.tooltip } : {}) } : {}),
+      });
     }
     return {
       align: properties.align ?? 'left',
@@ -5693,7 +5701,7 @@ const renderTableCellText = (
     bottom: number | null;
   },
 ): string => {
-  const { paraData, hasText } = cellParaData(paragraphs, cell, pres);
+  const { paraData, hasText } = cellParaData(paragraphs, cell, pres, shape);
   if (!hasText) return '';
   const numberLabels = paragraphNumberLabels(paraData);
   // CT_TableCellProperties defaults: 0.1 inch horizontally, 0.05 vertically.

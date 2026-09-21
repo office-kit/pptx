@@ -1,7 +1,14 @@
 // Table cell access.
 
+import { buildClickAction, readClickAction, type ShapeClickAction } from './shape-click-action.ts';
+import { replaceClickHyperlink } from '../../internal/drawingml/hyperlink.ts';
 import { textBodyText } from '../../internal/drawingml/text-body.ts';
-import { editTextBody, formatTextBodyRange } from '../../internal/drawingml/text-body-edit.ts';
+import {
+  editTextBody,
+  formatTextBodyRange,
+  mutateTextBodyRangeProperties,
+  validateTextRange,
+} from '../../internal/drawingml/text-body-edit.ts';
 import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
@@ -1112,7 +1119,12 @@ export interface TableCellParagraph {
    */
   readonly align: ParagraphAlignment | null;
   /** Runs / fields / breaks in document order, with their literal `<a:rPr>` format. */
-  readonly elements: ReadonlyArray<ShapeParagraphElement>;
+  readonly elements: ReadonlyArray<
+    ShapeParagraphElement & {
+      readonly clickAction?: ShapeClickAction;
+      readonly tooltip?: string;
+    }
+  >;
   /**
    * Literal format of the paragraph-end mark (`<a:endParaRPr>`), or `null`
    * when absent — the only format a paragraph with no `elements` carries.
@@ -1147,7 +1159,27 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
     // rest of the API uses, mirroring the shape-text alignment cascade. A
     // token outside the map is malformed input and reads as unset.
     const align: ParagraphAlignment | null = algn !== null ? (ALIGN_TOKEN_MAP[algn] ?? null) : null;
-    out.push({ align, elements: readParagraphElements(p), endFormat: readParagraphEndFormat(p) });
+    const inline = p.children.filter(
+      (child): child is XmlElement =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['r', 'fld', 'br'].includes(child.name.localName),
+    );
+    const elements = readParagraphElements(p).map((element, index) => {
+      const properties = firstChildElement(inline[index]!, qname('a', 'rPr', NS.dml));
+      const link = properties
+        ? firstChildElement(properties, qname('a', 'hlinkClick', NS.dml))
+        : null;
+      if (!link) return element;
+      const clickAction = readClickAction(cell[CELL_TABLE][SHAPE_SLIDE], link);
+      const tooltip = getAttrValue(link, qname('', 'tooltip', ''));
+      return {
+        ...element,
+        ...(clickAction ? { clickAction } : {}),
+        ...(tooltip !== null ? { tooltip } : {}),
+      };
+    });
+    out.push({ align, elements, endFormat: readParagraphEndFormat(p) });
   }
   return out;
 };
@@ -1202,6 +1234,30 @@ export const setTableCellTextFormat = (
   const txBody = ensureCellTxBody(cell);
   if (options?.range) formatTextBodyRange(txBody, format, options.range);
   else applyValidatedFormatToAllRuns(txBody, format);
+  commitTableCell(cell);
+};
+
+/**
+ * Sets or removes a click link on cell text. Omitting range covers the whole
+ * cell; otherwise offsets are UTF-16 positions in getTableCellText, with an
+ * exclusive end. Formatting and links outside the range are preserved.
+ * Omitting tooltip clears the selected link's previous description.
+ */
+export const setTableCellClickAction = (
+  cell: TableCellData,
+  action: ShapeClickAction | null,
+  options?: { range?: { start: number; end: number }; tooltip?: string },
+): void => {
+  const value = getTableCellText(cell);
+  const range = options?.range ?? { start: 0, end: value.length };
+  validateTextRange(value, range, 'setTableCellClickAction');
+  if (range.start === range.end) return;
+  const link = action ? buildClickAction(cell[CELL_TABLE][SHAPE_SLIDE], action) : null;
+  if (link && options?.tooltip !== undefined)
+    link.attrs.push(attr(qname('', 'tooltip', ''), options.tooltip));
+  mutateTextBodyRangeProperties(ensureCellTxBody(cell), range, (properties) => {
+    replaceClickHyperlink(properties, link ? structuredClone(link) : null);
+  });
   commitTableCell(cell);
 };
 

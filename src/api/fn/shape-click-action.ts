@@ -93,6 +93,11 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
   if (!cNvPr) return null;
   const hlink = firstChildElement(cNvPr, NAME_HLINK_CLICK_FN);
   if (!hlink) return null;
+  return readClickAction(shape[SHAPE_SLIDE], hlink);
+};
+
+/** Resolve a DrawingML click link using its owning slide's relationships. */
+export const readClickAction = (slide: SlideData, hlink: XmlElement): ShapeClickAction | null => {
   const action = getAttrValue(hlink, qname('', 'action', ''));
   const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
 
@@ -102,7 +107,6 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
   if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
 
   if (rId !== null && rId !== '') {
-    const slide = shape[SHAPE_SLIDE];
     const pkg = slide[INTERNAL_PACKAGE];
     const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
     if (!rels) return null;
@@ -167,7 +171,7 @@ export const setShapeClickAction = (
     );
   }
 
-  const hlink = action ? buildClickAction(shape, action) : null;
+  const hlink = action ? buildClickAction(shape[SHAPE_SLIDE], action) : null;
   if (hlink && options?.tooltip !== undefined) {
     hlink.attrs.push(attr(qname('', 'tooltip', ''), options.tooltip));
   }
@@ -179,8 +183,7 @@ export const setShapeClickAction = (
   commitAndRefresh(shape);
 };
 
-const buildClickAction = (shape: SlideShapeData, action: ShapeClickAction): XmlElement => {
-  const slide = shape[SHAPE_SLIDE];
+export const buildClickAction = (slide: SlideData, action: ShapeClickAction): XmlElement => {
   const pkg = slide[INTERNAL_PACKAGE];
 
   let rId: string | null = null;
