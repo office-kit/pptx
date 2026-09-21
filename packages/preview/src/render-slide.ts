@@ -4142,10 +4142,6 @@ const renderColumnChart = (
   const clusterUnitsC = isStacked ? 1 : 1 + (Sc - 1) * (1 - overlapPctC);
   const barW = groupW / Math.max(0.5, clusterUnitsC + gapPctC);
   const baseY = f.plotY + f.plotH - ((0 - min) / range) * f.plotH;
-  // Per-series <c:dLbls> overrides the chart-level toggles for that
-  // one series.
-  const showLabelFor = (s: number): boolean =>
-    spec.series[s]?.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
     if (isStacked) {
@@ -4175,13 +4171,17 @@ const renderColumnChart = (
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
-        if (showLabelFor(s) && Math.abs(v) > 0) {
+        const labelText = cartesianDataLabelText(
+          spec,
+          s,
+          c,
+          v,
+          isPercent ? `${Math.round(v * 100)}%` : undefined,
+        );
+        if (labelText) {
           const labelY = (y0 + y1) / 2 + 3;
-          const labelText = isPercent
-            ? `${Math.round(v * 100)}%`
-            : formatDataLabelValue(spec, s, v);
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#FFFFFF" font-weight="600">${labelText}</text>`,
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, '#FFFFFF', 9, true, c)}>${escapeXml(labelText)}</text>`,
           );
         }
         if (v >= 0) posAcc = stackedTop;
@@ -4212,11 +4212,12 @@ const renderColumnChart = (
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${fillColor}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
-        if (showLabelFor(s)) {
+        const labelText = cartesianDataLabelText(spec, s, c, v);
+        if (labelText) {
           // dLblPos: ctr (center) / inEnd (just inside the bar tip) /
           // outEnd (outside the bar — default) / inBase (just inside the
           // bar base).
-          const pos = spec.series[s]?.dataLabels?.position ?? spec.dataLabels?.position;
+          const pos = chartPointLabelOptions(spec, s, c).position;
           let labelY: number;
           let fill = '#374151';
           if (pos === 'ctr') {
@@ -4232,7 +4233,7 @@ const renderColumnChart = (
             labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
           }
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill)}>${formatDataLabelValue(spec, s, v)}</text>`,
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}>${escapeXml(labelText)}</text>`,
           );
         }
       }
@@ -4500,6 +4501,31 @@ const formatChartValue = (v: number): string => {
   return v.toFixed(2).replace(/\.?0+$/, '');
 };
 
+const chartPointLabelOptions = (spec: ChartSpec, seriesIdx: number, pointIdx: number) => ({
+  ...spec.dataLabels,
+  ...spec.series[seriesIdx]?.dataLabels,
+  ...spec.series[seriesIdx]?.pointDataLabels?.[pointIdx],
+});
+
+const cartesianDataLabelText = (
+  spec: ChartSpec,
+  seriesIdx: number,
+  pointIdx: number,
+  value: number,
+  valueText?: string,
+): string => {
+  const options = chartPointLabelOptions(spec, seriesIdx, pointIdx);
+  if (options.text !== undefined) return options.text;
+  const parts: string[] = [];
+  const name = spec.series[seriesIdx]?.name;
+  const category = spec.categories[pointIdx];
+  if (options.showSeriesName && name) parts.push(name);
+  if (options.showCategory && category) parts.push(category);
+  if (options.showValue)
+    parts.push(valueText ?? formatDataLabelValue(spec, seriesIdx, value, pointIdx));
+  return parts.join(options.separator ?? ' ');
+};
+
 // Resolves the data-label number format (`<c:dLbls><c:numFmt>`) with the
 // point override winning over the series and chart defaults, and projects
 // `v` through it. Falls back to `formatChartValue` when neither layer
@@ -4559,9 +4585,6 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
   const clusterUnitsB = isStacked ? 1 : 1 + (Sb - 1) * (1 - overlapPctB);
   const barH = groupH / Math.max(0.5, clusterUnitsB + gapPctB);
   const baseX = f.plotX + ((0 - min) / range) * f.plotW;
-  // Per-series <c:dLbls> overrides chart-level toggles for that series.
-  const showLabelForBar = (s: number): boolean =>
-    spec.series[s]?.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
   const out: string[] = [];
   for (let c = 0; c < N; c++) {
     if (isStacked) {
@@ -4586,13 +4609,17 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
-        if (showLabelForBar(s) && Math.abs(v) > 0) {
+        const labelText = cartesianDataLabelText(
+          spec,
+          s,
+          c,
+          v,
+          isPercent ? `${Math.round(v * 100)}%` : undefined,
+        );
+        if (labelText) {
           const labelX = (x0 + x1) / 2;
-          const labelText = isPercent
-            ? `${Math.round(v * 100)}%`
-            : formatDataLabelValue(spec, s, v);
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#FFFFFF" font-weight="600">${labelText}</text>`,
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, '#FFFFFF', 9, true, c)}>${escapeXml(labelText)}</text>`,
           );
         }
         if (v >= 0) posAcc = stackedTop;
@@ -4619,10 +4646,11 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${fillColor}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
-        if (showLabelForBar(s)) {
+        const labelText = cartesianDataLabelText(spec, s, c, v);
+        if (labelText) {
           // dLblPos for horizontal bars uses the same enum as columns
           // but maps to X positions.
-          const pos = spec.series[s]?.dataLabels?.position ?? spec.dataLabels?.position;
+          const pos = chartPointLabelOptions(spec, s, c).position;
           let labelX: number;
           let anchor: string;
           let fill = '#374151';
@@ -4643,7 +4671,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
             anchor = v >= 0 ? 'start' : 'end';
           }
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill)}>${formatDataLabelValue(spec, s, v)}</text>`,
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}>${escapeXml(labelText)}</text>`,
           );
         }
       }
@@ -4818,39 +4846,24 @@ const renderLineChart = (
         out.push(seriesMarker(symbol, xp, yp, r, ...markerColors(series, color)));
       }
     }
-    // Per-point value labels for line / area charts. Sits above the
-    // marker so the line / fill stays unobscured. Honors the same
-    // per-series → chart-level cascade as bar / pie.
-    const showLineLabel = series.dataLabels?.showValue ?? spec.dataLabels?.showValue ?? false;
-    if (showLineLabel) {
-      // dLblPos for line / area: ctr (on marker) / t / b / l / r.
-      // Default = t (above marker), matching PowerPoint's stock layout.
-      const lblPos = series.dataLabels?.position ?? spec.dataLabels?.position;
-      const computeAttrs = (xp: number, yp: number): { x: number; y: number; anchor: string } => {
-        switch (lblPos) {
-          case 'ctr':
-            return { x: xp, y: yp + 3, anchor: 'middle' };
-          case 'b':
-            return { x: xp, y: yp + 13, anchor: 'middle' };
-          case 'l':
-            return { x: xp - 6, y: yp + 3, anchor: 'end' };
-          case 'r':
-            return { x: xp + 6, y: yp + 3, anchor: 'start' };
-          default:
-            return { x: xp, y: yp - 5, anchor: 'middle' };
-        }
-      };
-      for (let c = 0; c < N; c++) {
-        const p = ptsRaw[c];
-        if (p == null) continue;
-        const v = series.values[c];
-        if (v === null || v === undefined || !Number.isFinite(v)) continue;
-        const [xp, yp] = p;
-        const { x: lx, y: ly, anchor } = computeAttrs(xp, yp);
-        out.push(
-          `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151')}>${formatDataLabelValue(spec, s, v as number)}</text>`,
-        );
-      }
+    // Resolve each point independently so imported point labels can override
+    // the series visibility, text and placement.
+    for (let c = 0; c < N; c++) {
+      const p = ptsRaw[c];
+      if (p == null) continue;
+      const v = series.values[c];
+      if (v == null || !Number.isFinite(v)) continue;
+      const labelText = cartesianDataLabelText(spec, s, c, v);
+      if (!labelText) continue;
+      const [xp, yp] = p;
+      const pos = chartPointLabelOptions(spec, s, c).position;
+      const lx = pos === 'l' ? xp - 6 : pos === 'r' ? xp + 6 : xp;
+      const ly =
+        pos === 'b' ? yp + 13 : pos === 'ctr' || pos === 'l' || pos === 'r' ? yp + 3 : yp - 5;
+      const anchor = pos === 'l' ? 'end' : pos === 'r' ? 'start' : 'middle';
+      out.push(
+        `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151', 9, false, c)}>${escapeXml(labelText)}</text>`,
+      );
     }
     // Trendline overlay per series (only meaningful on the clustered
     // layout — stacked already shows the cumulative shape).
@@ -4969,11 +4982,7 @@ const renderPieChart = (
     //   - outEnd: outside the slice (with a darker fill so it shows on
     //     the chart-area background)
     const labelMid = (start + end) / 2;
-    const labelOptions = {
-      ...spec.dataLabels,
-      ...series.dataLabels,
-      ...series.pointDataLabels?.[i],
-    };
+    const labelOptions = chartPointLabelOptions(spec, 0, i);
     const pos = labelOptions.position;
     let labelR: number;
     let labelFill = '#FFFFFF';

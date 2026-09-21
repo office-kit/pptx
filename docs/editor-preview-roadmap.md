@@ -296,3 +296,5 @@ Pie and doughnut charts support per-slice colors, a one-click color palette, and
 Data label formatting exposes chart-appropriate placement and numeric format codes in Japanese and English. Blank settings restore automatic defaults; edits update existing series and point overrides without changing unrelated label properties. Browser coverage verifies formatted text, placement, cancellation, undo/redo and reload.
 
 Pie and doughnut previews render series-name labels and honor series/point label overrides for visibility, literal text, placement, numeric formatting and text style. Regression tests cover inheritance and XML escaping; the browser verifies series-name-only labels.
+
+Column, bar, line and area previews now honor category/series label toggles and per-point label visibility, literal text, number format and text style, including stacked charts. Regression coverage checks all four chart types across standard, stacked and percent-stacked grouping; browser checks cover series-name-only labels while switching chart types.

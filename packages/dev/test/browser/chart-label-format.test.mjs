@@ -130,6 +130,17 @@ test(
       await saved();
       const seriesName = (await read()).series[0].name;
       assert.equal(await editor.locator('.paint text').filter({ hasText: seriesName }).count(), 3);
+      for (const kind of ['column', 'bar', 'line', 'area']) {
+        await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+        await dialog.getByLabel('Chart type', { exact: true }).selectOption(kind);
+        await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+        await saved();
+        assert.equal((await read()).kind, kind);
+        assert.equal(
+          await editor.locator('.paint text').filter({ hasText: seriesName }).count(),
+          3,
+        );
+      }
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({
