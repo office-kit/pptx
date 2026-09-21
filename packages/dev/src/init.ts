@@ -144,7 +144,11 @@ export async function initProject(directory: string): Promise<string> {
     'deck.tsx': starter,
     'theme.ts': theme,
     'slides/cover.tsx': cover,
+    // Same text under both names on purpose: Claude Code loads CLAUDE.md,
+    // Codex loads AGENTS.md, and an agent that starts without the guide
+    // reaches for its own slide tooling instead of editing the TSX.
     'CLAUDE.md': guide,
+    'AGENTS.md': guide,
     'README.md':
       '# Your slides\n\nInstall once with `npm install`, then run `npm run dev` (or `npx office-pptx dev deck.tsx`). Open the printed URL.\n\nEdit `slides/cover.tsx`, select an area for an AI instruction, or choose Edit text in the preview. Start Claude Code in an agent pane before sending instructions. An installed Chrome enables automatic screenshot review.\n\nRun `npm run check` and `npm run build` to check and export `deck.pptx`.\n',
     '.gitignore': 'node_modules/\ndeck.pptx\n.office-kit/\n',

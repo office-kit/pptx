@@ -59,6 +59,17 @@ export default <Presentation source={source} mode="edit"><Slide target={{index:0
   await assert.rejects(initProject(project), /EEXIST/);
 });
 
+test('the project guide is written under every name an agent loads', async (t) => {
+  const directory = await fixture(t);
+  const project = await initProject(join(directory, 'slides'));
+  // An agent that starts without the guide reaches for its own slide tooling
+  // instead of editing the TSX, so each one has to find it under its own name.
+  const claude = await readFile(join(project, 'CLAUDE.md'), 'utf8');
+  const agents = await readFile(join(project, 'AGENTS.md'), 'utf8');
+  assert.equal(agents, claude);
+  assert.match(agents, /@office-kit\/pptx-dsl/);
+});
+
 test('builds are isolated and recover from compile and runtime errors', async (t) => {
   const directory = await fixture(t);
   const deck = join(directory, 'deck.tsx');
