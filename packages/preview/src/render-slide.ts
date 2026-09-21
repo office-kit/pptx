@@ -5663,12 +5663,11 @@ const renderTableCellText = (
   const { paraData, hasText } = cellParaData(paragraphs, cell, pres);
   if (!hasText) return '';
   const numberLabels = paragraphNumberLabels(paraData);
-  // PowerPoint stores margins in EMU; fall back to ~4px when unset.
-  const defaultPadPx = 4;
-  const padL = margins.left !== null ? margins.left / EMU_PER_PX : defaultPadPx;
-  const padR = margins.right !== null ? margins.right / EMU_PER_PX : defaultPadPx;
-  const padT = margins.top !== null ? margins.top / EMU_PER_PX : defaultPadPx;
-  const padB = margins.bottom !== null ? margins.bottom / EMU_PER_PX : defaultPadPx;
+  // CT_TableCellProperties defaults: 0.1 inch horizontally, 0.05 vertically.
+  const padL = (margins.left ?? 91440) / EMU_PER_PX;
+  const padR = (margins.right ?? 91440) / EMU_PER_PX;
+  const padT = (margins.top ?? 45720) / EMU_PER_PX;
+  const padB = (margins.bottom ?? 45720) / EMU_PER_PX;
   const innerX = cx + padL;
   const innerY = cy + padT;
   const innerW = Math.max(0, cw - padL - padR);

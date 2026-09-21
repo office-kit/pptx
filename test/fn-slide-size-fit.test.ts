@@ -9,6 +9,8 @@ import {
   getSlides,
   getSlideShapes,
   getShapeBounds,
+  getShapeBoundsResolved,
+  getShapeBodyPrEffective,
   getShapeImageBytes,
   getShapeImageCrop,
   getShapeTextMargins,
@@ -147,4 +149,33 @@ it('rejects a fit that would produce invalid font sizes without writing any part
     setSlideSize(pres, { width: inches(20), height: inches(15) }, { content: 'fit' }),
   ).toThrow(RangeError);
   expect(unzipSync(await savePresentation(pres))).toEqual(before);
+});
+
+it('fits inherited placeholder bounds and margins through save and reload', async () => {
+  const pres = await load();
+  setSlideSize(pres, SLIDE_SIZE_4_3);
+  const title = getSlideShapes(getSlides(pres)[0]!)[0]!;
+  expect(getShapeBounds(title)).toBeNull();
+  const bounds = getShapeBoundsResolved(pres, title)!;
+  expect(bounds).not.toBeNull();
+  const margins = getShapeBodyPrEffective(pres, title).margins;
+  setSlideSize(pres, { width: inches(20), height: inches(20) }, { content: 'fit' });
+  const expectedBounds = {
+    x: bounds.x * 2,
+    y: bounds.y * 2 + inches(2.5),
+    w: bounds.w * 2,
+    h: bounds.h * 2,
+  };
+  const expectedMargins = {
+    left: (margins.left ?? 91440) * 2,
+    right: (margins.right ?? 91440) * 2,
+    top: (margins.top ?? 45720) * 2,
+    bottom: (margins.bottom ?? 45720) * 2,
+  };
+  expect(getShapeBoundsResolved(pres, title)).toEqual(expectedBounds);
+  expect(getShapeBodyPrEffective(pres, title).margins).toEqual(expectedMargins);
+  const restored = await loadPresentation(await savePresentation(pres));
+  const restoredTitle = getSlideShapes(getSlides(restored)[0]!)[0]!;
+  expect(getShapeBoundsResolved(restored, restoredTitle)).toEqual(expectedBounds);
+  expect(getShapeBodyPrEffective(restored, restoredTitle).margins).toEqual(expectedMargins);
 });
