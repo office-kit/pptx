@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  getTableStyleFlags,
   getTableCells,
   getTableCellSpan,
   getTableCellBorders,
@@ -847,6 +848,105 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-table-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'table insertion chooses dimensions and styles with bilingual dialogs, undo and saved cell editing',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-table-insert-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide /></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const readShapes = async () =>
+        getSlideShapes(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        );
+      await editor.locator('select').first().selectOption('ja');
+      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.locator('button[title$="— addSlideTable"]').click();
+      const jpDialog = editor.getByRole('dialog', { name: '表を挿入', exact: true });
+      await jpDialog.getByLabel('行数', { exact: true }).fill('0');
+      assert.equal(
+        await jpDialog.getByRole('button', { name: '表を挿入', exact: true }).isDisabled(),
+        true,
+      );
+      await jpDialog.getByLabel('行数', { exact: true }).press('Escape');
+      assert.equal(await editor.locator('.hit').count(), 0);
+      await editor.locator('button[title$="— addSlideTable"]').click();
+      await jpDialog.getByLabel('行数', { exact: true }).fill('3');
+      await jpDialog.getByLabel('列数', { exact: true }).fill('2');
+      await jpDialog.getByLabel('見出し行', { exact: true }).uncheck();
+      await jpDialog.getByLabel('交互の行色', { exact: true }).uncheck();
+      await page.screenshot({ path: '/tmp/pptx-pr287-table-insert-ja.png', fullPage: true });
+      await jpDialog.getByRole('button', { name: '表を挿入', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      let shapes = await readShapes();
+      assert.equal(shapes.length, 1);
+      assert.equal(getTableCells(shapes[0]).length, 3);
+      assert.equal(getTableCells(shapes[0])[0].length, 2);
+      assert.equal(getTableStyleFlags(shapes[0]).firstRow, false);
+      assert.equal(getTableStyleFlags(shapes[0]).bandRow, false);
+      assert.equal(
+        await editor
+          .getByRole('button', { name: 'セル 1, 1', exact: true })
+          .getAttribute('aria-pressed'),
+        'true',
+      );
+      await editor.locator('select').first().selectOption('en');
+      await editor.locator('button[title$="— addSlideTable"]').click();
+      const dialog = editor.getByRole('dialog', { name: 'Insert table', exact: true });
+      await dialog.getByLabel('Number of rows', { exact: true }).fill('4');
+      await dialog.getByLabel('Number of columns', { exact: true }).fill('3');
+      await dialog.getByRole('button', { name: 'Insert table', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      shapes = await readShapes();
+      assert.equal(shapes.length, 2);
+      assert.equal(getTableCells(shapes[1]).length, 4);
+      assert.equal(getTableCells(shapes[1])[0].length, 3);
+      assert.equal(getTableStyleFlags(shapes[1]).firstRow, true);
+      assert.equal(getTableStyleFlags(shapes[1]).bandRow, true);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal((await readShapes()).length, 1);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.getByRole('button', { name: 'Cell 4, 3', exact: true }).click();
+      await editor.getByLabel('Cell text', { exact: true }).fill('新しい表 / New table');
+      await editor.getByLabel('Cell text', { exact: true }).press('Tab');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      shapes = await readShapes();
+      assert.equal(shapes.length, 2);
+      assert.equal(getTableCellText(getTableCells(shapes[1])[3][2]), '新しい表 / New table');
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-table-insert-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();

@@ -12,6 +12,7 @@
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
   import ImageDialog from './ui/ImageDialog.svelte';
+  import TableDialog from './ui/TableDialog.svelte';
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
@@ -121,6 +122,8 @@
   {#if editor.activeDialog}
     {#if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
       {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
+    {:else if editor.activeDialog === 'addSlideTable'}
+      <TableDialog />
     {:else}
       <CommandDialog id={editor.activeDialog} />
     {/if}

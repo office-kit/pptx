@@ -26,3 +26,7 @@ placement. Reset borders and undo the changes from the bilingual preview.
 Double-click table cells directly on the canvas to edit their text and format
 selected text, with merged-cell hit areas, visible cell selection, save and undo.
 Allow setTableCellTextFormat to accept an optional UTF-16 range.
+
+Insert tables with a bilingual dialog for row and column counts, header rows
+and alternating row colors. Center new tables and select the first cell for
+immediate editing; preserve insertion and cell edits through history and reload.
