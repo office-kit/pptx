@@ -11,6 +11,7 @@
   import StatusBar from './ui/StatusBar.svelte';
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
+  import ImageDialog from './ui/ImageDialog.svelte';
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
@@ -28,6 +29,10 @@
 
   function onKeydown(e: KeyboardEvent) {
     if (e.isComposing) return;
+    if (editor.activeDialog) {
+      if (e.key === 'Escape') { e.preventDefault(); editor.closeDialog(); }
+      return;
+    }
     const mod = e.ctrlKey || e.metaKey;
     const target = e.target as HTMLElement;
     const typing =
@@ -114,7 +119,11 @@
     <CommandPalette />
   {/if}
   {#if editor.activeDialog}
-    <CommandDialog id={editor.activeDialog} />
+    {#if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
+      {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
+    {:else}
+      <CommandDialog id={editor.activeDialog} />
+    {/if}
   {/if}
   {#if editor.contextMenu}
     <ContextMenu />
