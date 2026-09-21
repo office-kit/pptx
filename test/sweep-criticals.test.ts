@@ -201,7 +201,7 @@ describe('sweep: scheme-color round-trip', () => {
   });
 });
 
-describe('sweep: importSlide drops charts without a dangling relationship', () => {
+describe('sweep: importSlide preserves charts without a dangling relationship', () => {
   it('produces a valid package when the source slide has a chart', async () => {
     const source = createPresentation();
     addSlideChart(addBlankSlide(source), {
