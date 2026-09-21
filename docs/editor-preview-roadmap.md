@@ -237,3 +237,5 @@ unmerged tables when needed. Source formatting is not transferred by this path.
   move or delete underlying objects or cells. Browser checks cover EN/JA.
 
 Image cropping now offers original, square, landscape, and portrait aspect presets. Resizing keeps the chosen ratio, and Apply fits the image frame around its existing center in the same undo transaction. Browser coverage checks all presets, constrained dragging, cancel, undo/redo, and saved crop/frame persistence in the bilingual editor.
+
+Canvas right-click targets the clicked object or table cell and preserves existing multi-shape/cell ranges when clicked within them. Empty-space menus clear shape selection; right-button gestures cannot move, resize, or rotate content. Native text context menus remain available during inline editing. Browser regression coverage verifies targeting, geometry preservation, bilingual cell actions, undo, and persisted edits.

@@ -6,6 +6,7 @@
   // (so the shape moves for real, not a ghost) via `applyLive`, then commit a
   // single undo step on release. Zoom + right-click menu round out the feel.
   import { tick } from 'svelte';
+  import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -158,7 +159,7 @@
 
   // ---- Selection + gesture start ----------------------------------------
   function beginMove(e: PointerEvent, box: Box) {
-    if (editing) return;
+    if (editing || e.button !== 0) return;
     e.stopPropagation();
     const already = selectedIds.has(box.id);
     if (e.shiftKey) {
@@ -171,6 +172,7 @@
   }
 
   function startDrag(mode: Drag['mode'], handle: Handle | undefined, ids: number[], e: PointerEvent) {
+    if (e.button !== 0) return;
     const startRects = new Map<number, Rect>();
     for (const id of ids) {
       const r = resolvedRect(id);
@@ -322,11 +324,13 @@
 
   // ---- Handles / rotate --------------------------------------------------
   function onHandleDown(e: PointerEvent, box: Box, handle: Handle) {
+    if (e.button !== 0) return;
     e.stopPropagation();
     doc.selectShape(doc.selection.slideIndex, box.id);
     startDrag('resize', handle, [box.id], e);
   }
   function onRotateDown(e: PointerEvent, box: Box) {
+    if (e.button !== 0) return;
     e.stopPropagation();
     doc.selectShape(doc.selection.slideIndex, box.id);
     startDrag('rotate', undefined, [box.id], e);
@@ -471,15 +475,20 @@
     }
   }
 
-  function editAtPointer(event: MouseEvent, box: Box) {
-    if (!isTableShape(box.shape) || !stageEl) { startEditing(box); return; }
+  function cellAtPointer(event: MouseEvent, box: Box) {
+    if (!isTableShape(box.shape) || !stageEl) return undefined;
     const stage = stageEl.getBoundingClientRect();
     const dx = event.clientX - stage.left - (box.left + box.width / 2) / 100 * stage.width;
     const dy = event.clientY - stage.top - (box.top + box.height / 2) / 100 * stage.height;
     const angle = box.rotation * Math.PI / 180;
     const x = (dx * Math.cos(angle) + dy * Math.sin(angle)) / (box.width / 100 * stage.width) * 100 + 50;
     const y = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / (box.height / 100 * stage.height) * 100 + 50;
-    const cell = tableCellBoxes(box.shape).find(c => x >= c.left && x <= c.left + c.width && y >= c.top && y <= c.top + c.height);
+    return tableCellBoxes(box.shape).find(c => x >= c.left && x <= c.left + c.width && y >= c.top && y <= c.top + c.height);
+  }
+
+  function editAtPointer(event: MouseEvent, box: Box) {
+    if (!isTableShape(box.shape)) { startEditing(box); return; }
+    const cell = cellAtPointer(event, box);
     if (cell) startEditing(box, cell);
   }
 
@@ -537,8 +546,26 @@
     commitEditing();
   }
 
-  function onContext(e: MouseEvent) {
+  function onContext(e: MouseEvent, box?: Box) {
+    // Keep the browser's native text-selection menu while typing.
+    if (e.target instanceof Element && e.target.closest('textarea, input, [contenteditable="true"]')) return;
     e.preventDefault();
+    e.stopPropagation();
+    commitEditing();
+    const selection = doc.selection;
+    if (!box) doc.clearShapeSelection();
+    else if (!(selection.kind === 'shape' && selection.shapeIds.length > 1 && selection.shapeIds.includes(box.id))) {
+      const cell = cellAtPointer(e, box);
+      if (cell) {
+        const cells = getTableCells(box.shape);
+        const keepRange = selection.kind === 'cell' && selection.shapeId === box.id &&
+          tableCellsInRange(cells, tableSelectionBlock(selection)).has(cells[cell.row]![cell.col]!);
+        if (!keepRange) doc.selectCell(selection.slideIndex, box.id, cell.row, cell.col);
+      } else if (selection.kind !== 'shape' || !selection.shapeIds.includes(box.id)) {
+        doc.selectShape(selection.slideIndex, box.id);
+      }
+    }
+    if (e.currentTarget instanceof HTMLElement) e.currentTarget.focus({ preventScroll: true });
     editor.openContextMenu(e.clientX, e.clientY);
   }
 
@@ -586,7 +613,7 @@
       class="stage"
       style="width:{stageW}px; height:{stageH}px;"
       onpointerdown={onStagePointerDown}
-      oncontextmenu={onContext}
+      oncontextmenu={e => onContext(e)}
       role="presentation"
     >
       {#key doc.selection.slideIndex}
@@ -603,6 +630,7 @@
             role="button"
             tabindex="-1"
             onpointerdown={(e) => beginMove(e, box)}
+            oncontextmenu={e => onContext(e, box)}
             ondblclick={(e) => {
               e.stopPropagation();
               editAtPointer(e, box);
