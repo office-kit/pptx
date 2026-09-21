@@ -463,17 +463,17 @@ describe('media shapes through shape / slide operations', () => {
     const imported = importSlide(targetPres, slide, getSlideLayouts(targetPres)[0]!);
 
     const media = findShapesWithMedia(imported).map((s) => getShapeMedia(s));
-    expect(media[0]).toMatchObject({ kind: 'audio', partName: '/ppt/media/media1.mp3' });
+    expect(media[0]).toMatchObject({ kind: 'audio', partName: '/ppt/media/media1-copy1.mp3' });
     expect(media[1]).toEqual({ kind: 'online', url: 'https://example.com/v' });
     const rels = readRels(targetPres, SLIDE1_RELS);
     expect(rels.filter((r) => r.type === REL_MEDIA).map((r) => r.target)).toEqual([
-      '../media/media1.mp3',
+      '/ppt/media/media1-copy1.mp3',
     ]);
     expect(rels.filter((r) => r.type === REL_AUDIO).map((r) => r.target)).toEqual([
-      '../media/media1.mp3',
+      '/ppt/media/media1-copy1.mp3',
     ]);
     expect(getMediaParts(targetPres).filter((p) => p.name.endsWith('.mp3'))).toHaveLength(1);
-    expect(contentTypesXml(targetPres)).toContain('Extension="mp3"');
+    expect(contentTypesXml(targetPres)).toContain('ContentType="audio/mpeg"');
 
     const reloaded = await loadPresentation(await savePresentation(targetPres));
     expect(validatePresentation(reloaded).filter((i) => i.severity === 'error')).toEqual([]);

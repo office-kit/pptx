@@ -5,6 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   _internalPackageOf,
+  addSlideChart,
+  getShapeChartSpec,
+  setSlideNotes,
+  getSlideNotes,
   addSlide,
   addSlideImage,
   findSlideLayout,
@@ -115,6 +119,84 @@ describe('fn API: importSlide', () => {
     );
     expect(ids.length).toBeGreaterThanOrEqual(2);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('preserves charts, workbooks and Japanese/English speaker notes across save/load', async () => {
+    const source = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(source)[0]!;
+    addSlideChart(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(5),
+      h: inches(3),
+      spec: {
+        kind: 'column',
+        categories: ['日本語', 'English'],
+        series: [{ name: 'Sales', values: [3, 7] }],
+      },
+    });
+    setSlideNotes(slide, '発表メモ\nSpeaker notes');
+    const target = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const imported = importSlide(target, slide, findSlideLayout(target, 'Blank')!);
+    expect(getSlideNotes(imported)).toBe('発表メモ\nSpeaker notes');
+    const reloaded = await loadPresentation(await savePresentation(target));
+    const result = getSlides(reloaded)[0]!;
+    const chart = getSlideShapes(result).find((shape) => getShapeChartSpec(shape) !== null)!;
+    expect(getShapeChartSpec(chart)?.categories).toEqual(['日本語', 'English']);
+    expect(getShapeChartSpec(chart)?.series[0]?.values).toEqual([3, 7]);
+    expect(getSlideNotes(result)).toBe('発表メモ\nSpeaker notes');
+    expect(
+      _internalPackageOf(reloaded).parts.some((part) =>
+        part.contentType.includes('spreadsheetml.sheet'),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps repeated imports independent, including notes and their slide back-references', async () => {
+    const source = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const sourceSlide = getSlides(source)[0]!;
+    setSlideNotes(sourceSlide, 'Original notes');
+    const target = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const layout = findSlideLayout(target, 'Blank')!;
+    const first = importSlide(target, sourceSlide, layout);
+    const second = importSlide(target, sourceSlide, layout);
+    setSlideNotes(first, 'Changed notes');
+    expect(getSlideNotes(second)).toBe('Original notes');
+    expect(getSlideNotes(sourceSlide)).toBe('Original notes');
+    const reloaded = await loadPresentation(await savePresentation(target));
+    expect(getSlides(reloaded).map(getSlideNotes)).toEqual(['Changed notes', 'Original notes']);
+    const pkg = _internalPackageOf(reloaded);
+    const notes = pkg.parts.filter((part) => part.contentType.endsWith('notesSlide+xml'));
+    expect(notes).toHaveLength(2);
+    const destinations = notes.map(
+      (part) => pkg.getRels(part.name)!.items.find((rel) => rel.type.endsWith('/slide'))!.target,
+    );
+    expect(new Set(destinations)).toEqual(
+      new Set(['/ppt/slides/slide1.xml', '/ppt/slides/slide2.xml']),
+    );
+  });
+
+  it('does not change the target when an imported dependency is missing', async () => {
+    const source = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const sourceSlide = getSlides(source)[0]!;
+    addSlideImage(sourceSlide, tinyPng(), {
+      x: inches(1),
+      y: inches(1),
+      w: inches(1),
+      h: inches(1),
+    });
+    const sourcePkg = _internalPackageOf(source);
+    sourcePkg.removePart(partName(getMediaParts(source)[0]!.name));
+    const target = await loadPresentation(await readFile(fixture('blank.pptx')));
+    const before = _internalPackageOf(target).parts.map((part) => ({
+      ...part,
+      data: new Uint8Array(part.data),
+    }));
+    expect(() => importSlide(target, sourceSlide, findSlideLayout(target, 'Blank')!)).toThrow(
+      /missing dependency/,
+    );
+    expect(_internalPackageOf(target).parts).toEqual(before);
+    expect(getSlides(target)).toHaveLength(0);
   });
 
   it('binds the imported slide to the supplied layout', async () => {
