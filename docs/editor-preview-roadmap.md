@@ -47,6 +47,12 @@ that a user can complete the corresponding editing workflow.
   dependencies, including cycles. Nested group IDs remain unique after repeated
   copies and subsequent shape creation.
 
+- Slide commands bind the active slide rather than asking for internal objects.
+  Navigator buttons, context menus and keyboard navigation cover insertion,
+  duplication, deletion and reordering. Browser tests verify Japanese labels,
+  undo selection, persisted order and reload. Slide clipboard, layout selection
+  and multi-slide selection still need complete UI workflows.
+
 ## Outstanding work
 
 Complete workflow coverage, remaining UI translations, accessibility and draft

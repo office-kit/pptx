@@ -34,6 +34,14 @@
         { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: doc.selection.kind !== 'shape' || doc.selection.shapeIds.length < 2 },
         { label: 'Ungroup', run: () => editor.invoke('ungroupShapes') },
       );
+    } else if (doc.selection.kind === 'slide') {
+      list.push(
+        { label: 'New slide', run: () => editor.invoke('addBlankSlide') },
+        { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
+        { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
+        { label: 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: doc.selection.slideIndex - 1 }), disabled: doc.selection.slideIndex === 0 },
+        { label: 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: doc.selection.slideIndex + 1 }), disabled: doc.selection.slideIndex >= doc.slides.length - 1 },
+      );
     } else {
       list.push(
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
