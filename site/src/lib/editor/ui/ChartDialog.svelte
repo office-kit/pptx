@@ -37,6 +37,15 @@
   let blanks = $state<NonNullable<ChartSpec['dispBlanksAs']>>(original?.dispBlanksAs ?? 'gap');
   let blanksChanged = $state(false);
   const supportsBlanks = $derived(kind === 'line' || kind === 'area');
+  let sliceAngle = $state<number | null | undefined>(original?.firstSliceAngleDeg);
+  let holeSize = $state<number | null | undefined>(original?.holeSizePct);
+  let sliceAngleChanged = $state(false);
+  let holeSizeChanged = $state(false);
+  const supportsSliceAngle = $derived((kind === 'pie' && !original?.view3D && !original?.ofPie) || kind === 'doughnut');
+  const validPieOptions = $derived(
+    (!supportsSliceAngle || !sliceAngleChanged || sliceAngle == null || (Number.isInteger(sliceAngle) && sliceAngle >= 0 && sliceAngle <= 360)) &&
+    (kind !== 'doughnut' || !holeSizeChanged || holeSize == null || (Number.isInteger(holeSize) && holeSize >= 10 && holeSize <= 90))
+  );
   let legendPosition = $state<NonNullable<ChartSpec['legend']>['position']>(original?.legend?.position ?? null);
   let legendChanged = $state(false);
   let showValue = $state(original?.dataLabels?.showValue ?? false);
@@ -99,10 +108,12 @@
   }
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!supported || !validSeries || !validAxes || !validMarkers || !doc.currentSlide) return;
+    if (!supported || !validSeries || !validAxes || !validMarkers || !validPieOptions || !doc.currentSlide) return;
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
     const spec: ChartSpec = {
       ...original,
+      ...(supportsSliceAngle && sliceAngleChanged ? { firstSliceAngleDeg: sliceAngle ?? undefined } : {}),
+      ...(kind === 'doughnut' && holeSizeChanged ? { holeSizePct: holeSize ?? undefined } : {}),
       ...(supportsBlanks && blanksChanged ? { dispBlanksAs: blanks } : {}),
       ...(hasAxes && stackingChanged ? {
         grouping: stacking === 'none' ? (kind === 'column' || kind === 'bar' ? 'clustered' : 'standard') : stacking,
@@ -160,6 +171,12 @@
           <label>{t('Blank values')}<select class="ok-input" aria-label={t('Blank values')} bind:value={blanks} onchange={() => blanksChanged = true}>
             <option value="gap">{t('Leave gaps')}</option><option value="zero">{t('Treat as zero')}</option><option value="span">{t('Connect data points')}</option>
           </select></label>
+        {/if}
+        {#if supportsSliceAngle}
+          <label>{t('First slice angle (°)')}<input class="ok-input" type="number" min="0" max="360" step="1" placeholder={t('Automatic')} bind:value={sliceAngle} oninput={() => sliceAngleChanged = true} /></label>
+        {/if}
+        {#if kind === 'doughnut'}
+          <label>{t('Doughnut hole size (%)')}<input class="ok-input" type="number" min="10" max="90" step="1" placeholder={t('Automatic')} bind:value={holeSize} oninput={() => holeSizeChanged = true} /></label>
         {/if}
       </div>
       <div class="chart-format">
@@ -223,8 +240,9 @@
     {#if !validSeries}<p role="alert">{t('Pie and doughnut charts require one series. Remove extra series or choose another chart type.')}</p>{/if}
     {#if !validAxes}<p role="alert">{t('Axis minimum must be below maximum, tick intervals must be positive, and logarithmic bounds must be positive.')}</p>{/if}
     {#if !validMarkers}<p role="alert">{t('Marker size must be a whole number from 2 to 72 points.')}</p>{/if}
+    {#if !validPieOptions}<p role="alert">{t('Use whole numbers: slice angle 0–360°, hole size 10–90%.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
-    <footer><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!supported || !validSeries || !validAxes || !validMarkers}>{t(edit ? 'Apply changes' : 'Insert chart')}</button></footer>
+    <footer><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!supported || !validSeries || !validAxes || !validMarkers || !validPieOptions}>{t(edit ? 'Apply changes' : 'Insert chart')}</button></footer>
   </form>
 </dialog>
 
