@@ -157,7 +157,7 @@ export class EditorDocument {
     this.#requestedCursor = this.#cursor;
   }
 
-  async #restore(index: number): Promise<void> {
+  async #restore(index: number, selection?: Selection): Promise<void> {
     const snap = this.#history[index];
     if (!snap) return;
     const operation = ++this.#operation;
@@ -167,7 +167,8 @@ export class EditorDocument {
       // New/Open, another restore, or an edit takes precedence over stale work.
       if (operation !== this.#operation) return;
       this.pres = pres;
-      this.selection = snap.selection;
+      this.selection = selection ?? snap.selection;
+      this.liveEditing = false;
       this.#cursor = index;
       this.version++;
       this.committedVersion = this.version;
@@ -176,6 +177,11 @@ export class EditorDocument {
       if (operation === this.#operation) this.#requestedCursor = this.#cursor;
       throw error;
     }
+  }
+
+  /** Discard the current gesture without adding an undo step or dropping redo. */
+  async cancelLive(): Promise<void> {
+    if (this.liveEditing) await this.#restore(this.#cursor, this.selection);
   }
 
   async undo(): Promise<void> {

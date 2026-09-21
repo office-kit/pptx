@@ -74,6 +74,14 @@ test(
       await page.mouse.move(first.x, first.y);
       await page.mouse.down();
       await page.mouse.move(middle.x, middle.y, { steps: 8 });
+      assert.equal(await editor.locator('.cell-selection').count(), 4);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 9);
+      assert.equal(await editor.locator('.cell-selection').count(), 9);
+      await page.mouse.move(first.x, first.y);
+      await page.mouse.down();
+      await page.mouse.move(middle.x, middle.y, { steps: 8 });
       await page.mouse.up();
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
       assert.equal(await editor.locator('.cell-selection').count(), 4);
