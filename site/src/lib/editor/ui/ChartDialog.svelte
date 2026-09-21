@@ -22,6 +22,13 @@
     { value: 'pie', label: 'Pie chart' }, { value: 'doughnut', label: 'Doughnut chart' },
     { value: 'radar', label: 'Radar chart' },
   ];
+  const markerSymbols: { value: NonNullable<ChartSeries['markerSymbol']>; label: string }[] = [
+    { value: 'auto', label: 'Automatic' }, { value: 'none', label: 'None' },
+    { value: 'circle', label: 'Circle' }, { value: 'square', label: 'Square' },
+    { value: 'diamond', label: 'Diamond' }, { value: 'triangle', label: 'Triangle' },
+    { value: 'star', label: 'Star' }, { value: 'x', label: 'Cross' },
+    { value: 'plus', label: 'Plus' }, { value: 'dash', label: 'Dash' }, { value: 'dot', label: 'Dot' },
+  ];
   let dialog: HTMLDialogElement;
   let kind = $state<ChartKind>(original?.kind ?? 'column');
   let title = $state(original?.title ?? '');
@@ -60,6 +67,7 @@
   const defaultSeriesColors = ['#4472C4', '#ED7D31', '#A5A5A5', '#FFC000', '#5B9BD5', '#70AD47'];
   const initialSeries = original?.series ?? [{ name: t('Series') + ' 1', values: [10, 20, 15], color: defaultSeriesColors[0] }];
   let series = $state<SeriesDraft[]>(initialSeries.map(base => ({ base, name: base.name, color: base.color, values: base.values.map(value => value ?? undefined) })));
+  const validMarkers = $derived(kind !== 'line' || series.every(entry => entry.base.markerSizePt == null || (Number.isInteger(entry.base.markerSizePt) && entry.base.markerSizePt >= 2 && entry.base.markerSizePt <= 72)));
   let error = $state('');
   const supported = $derived(!edit || (original && kinds.some(item => item.value === original.kind)));
   const singleSeries = $derived(kind === 'pie' || kind === 'doughnut');
@@ -88,7 +96,7 @@
   }
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    if (!supported || !validSeries || !validAxes || !doc.currentSlide) return;
+    if (!supported || !validSeries || !validAxes || !validMarkers || !doc.currentSlide) return;
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
     const spec: ChartSpec = {
       ...original,
@@ -183,6 +191,16 @@
             <input class="ok-input" aria-label={`${t('Series name')} ${s + 1}`} bind:value={entry.name} />
             <div class="series-tools"><input type="color" aria-label={`${t('Series color')} ${s + 1}`} value={/^#[0-9a-f]{6}$/i.test(entry.color ?? '') ? entry.color : defaultSeriesColors[s % defaultSeriesColors.length]} onchange={e => entry.color = e.currentTarget.value} />
             <button type="button" class="ok-btn" disabled={series.length <= 1} aria-label={`${t('Remove series')} ${s + 1}`} onclick={() => series.splice(s, 1)}>×</button></div>
+            {#if kind === 'line'}
+              <details class="series-format"><summary>{t('Line and markers')}</summary>
+                <label>{t('Marker shape')}<select class="ok-input" aria-label={`${t('Marker shape')} ${s + 1}`} value={entry.base.markerSymbol ?? 'auto'} onchange={e => entry.base = { ...entry.base, markerSymbol: e.currentTarget.value as ChartSeries['markerSymbol'] }}>
+                  {#each markerSymbols as marker}<option value={marker.value}>{t(marker.label)}</option>{/each}
+                  {#if entry.base.markerSymbol === 'picture'}<option value="picture">{t('Picture')}</option>{/if}
+                </select></label>
+                <label>{t('Marker size (pt)')}<input class="ok-input" type="number" min="2" max="72" step="1" placeholder={t('Automatic')} aria-label={`${t('Marker size (pt)')} ${s + 1}`} value={entry.base.markerSizePt ?? ''} oninput={e => entry.base = { ...entry.base, markerSizePt: e.currentTarget.value === '' ? undefined : e.currentTarget.valueAsNumber }} /></label>
+                <label><input type="checkbox" aria-label={`${t('Smooth line')} ${s + 1}`} checked={entry.base.smooth ?? false} onchange={e => entry.base = { ...entry.base, smooth: e.currentTarget.checked }} />{t('Smooth line')}</label>
+              </details>
+            {/if}
           </th>{/each}<th></th></tr></thead>
           <tbody>{#each categories as _, r}<tr>
             <th><input class="ok-input" aria-label={`${t('Category')} ${r + 1}`} bind:value={categories[r]} /></th>
@@ -195,8 +213,9 @@
     {:else}<p role="alert">{t('Select a supported chart to edit its data.')}</p>{/if}
     {#if !validSeries}<p role="alert">{t('Pie and doughnut charts require one series. Remove extra series or choose another chart type.')}</p>{/if}
     {#if !validAxes}<p role="alert">{t('Axis minimum must be below maximum, tick intervals must be positive, and logarithmic bounds must be positive.')}</p>{/if}
+    {#if !validMarkers}<p role="alert">{t('Marker size must be a whole number from 2 to 72 points.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
-    <footer><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!supported || !validSeries || !validAxes}>{t(edit ? 'Apply changes' : 'Insert chart')}</button></footer>
+    <footer><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!supported || !validSeries || !validAxes || !validMarkers}>{t(edit ? 'Apply changes' : 'Insert chart')}</button></footer>
   </form>
 </dialog>
 
@@ -220,6 +239,9 @@
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid var(--ok-border); padding: 5px; font-weight: normal; }
   td input, th input { width: 130px; }
+  .series-format { text-align: left; font-weight: normal; margin-top: 8px; }
+  .series-format label { display: block; margin-top: 8px; }
+  .data-grid .series-format input[type="checkbox"] { width: auto; margin-right: 6px; }
   .series-tools { margin-top: 6px; }
   input[type='color'] { width: 32px; height: 24px; }
   [role='alert'] { color: #bf3131; }

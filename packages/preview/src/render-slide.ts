@@ -4793,27 +4793,21 @@ const renderLineChart = (
     out.push(
       `<path d="${dPath}" fill="none" stroke="${series.lineColor ?? color}" stroke-width="${lineWPx.toFixed(2)}" stroke-linejoin="round" stroke-linecap="round"${dashAttr}/>`,
     );
-    if (!isStacked) {
-      // Markers show only on the "Line with Markers" subtype
-      // (<c:lineChart><c:marker val="1"/> → spec.lineMarkers) or when the
-      // series authors an explicit symbol. Area charts (`fill`) never show
-      // them by default, and `markerSymbol='none'` always hides. This keeps
-      // plain imported line charts marker-free, matching PowerPoint.
-      const explicitSymbol =
-        series.markerSymbol !== undefined &&
-        series.markerSymbol !== 'auto' &&
-        series.markerSymbol !== 'none';
-      if (
-        series.markerSymbol !== 'none' &&
-        !fill &&
-        (spec.lineMarkers === true || explicitSymbol)
-      ) {
-        const symbol = autoMarkerSymbol(series.markerSymbol, s);
-        const size = series.markerSizePt ?? 5;
-        const r = Math.max(1, size * 0.5);
-        for (const [xp, yp] of pts) {
-          out.push(seriesMarker(symbol, xp, yp, r, ...markerColors(series, color)));
-        }
+    // Markers show only on the "Line with Markers" subtype
+    // (<c:lineChart><c:marker val="1"/> → spec.lineMarkers) or when the
+    // series authors an explicit symbol. Area charts (`fill`) never show
+    // them by default, and `markerSymbol='none'` always hides. This keeps
+    // plain imported line charts marker-free, matching PowerPoint.
+    const explicitSymbol =
+      series.markerSymbol !== undefined &&
+      series.markerSymbol !== 'auto' &&
+      series.markerSymbol !== 'none';
+    if (series.markerSymbol !== 'none' && !fill && (spec.lineMarkers === true || explicitSymbol)) {
+      const symbol = autoMarkerSymbol(series.markerSymbol, s);
+      const size = series.markerSizePt ?? 5;
+      const r = Math.max(1, size * 0.5);
+      for (const [xp, yp] of pts) {
+        out.push(seriesMarker(symbol, xp, yp, r, ...markerColors(series, color)));
       }
     }
     // Per-point value labels for line / area charts. Sits above the
