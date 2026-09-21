@@ -52,7 +52,6 @@ import {
   isSlideHidden,
   getShapeAltTitle,
   getShapeDescription,
-  getShapeHyperlink,
   getShapeHyperlinkTooltip,
   getShapeName,
   getShapeTextColumns,
@@ -6117,7 +6116,7 @@ const customGeometryToSvg = (
   return out.join('');
 };
 
-const renderShape = (
+const renderShapeContent = (
   shape: SlideShapeData,
   pres: PresentationData,
   theme: PresentationTheme | null,
@@ -6497,13 +6496,6 @@ const renderShape = (
     fxDefs += reflection.defs;
   }
 
-  // B6 — Shape-level hyperlinks + slide-jump click actions. Wrap the
-  // rendered shape in an SVG <a href> so the playground preview is
-  // clickable, matching the PowerPoint slideshow's behavior. Per-run
-  // hyperlinks live on the text body and are handled by renderRun
-  // separately.
-  const url = getShapeHyperlink(shape);
-  const tooltip = getShapeHyperlinkTooltip(shape);
   // Expose the shape's authored name as a data attribute so DevTools /
   // Selenium / a11y inspections can identify a shape without having to
   // parse SVG geometry. The PowerPoint alt-title / alt-description feed
@@ -6538,22 +6530,25 @@ const renderShape = (
   const placedText = textOverlay ? `<g${textTransform}>${textOverlay}</g>` : '';
   const custGeomAttr = isCustGeom ? ' data-pptx-fallback="custGeom"' : '';
   const inner = `${p.defs}${fxDefs}<g${nameAttr}${ariaAttr}${custGeomAttr}><g${transform}>${geomSvg}</g>${placedText}</g>`;
-  const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
-  if (url) {
-    return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
-  }
-  // Slide-jump click actions resolve to a hash anchor — the playground
-  // gives each <li> an id="slide-N" so the browser jumps in-page.
-  const action = getShapeClickAction(shape);
-  if (action) {
-    const href = clickActionHref(pres, shape, action);
-    if (href !== undefined) {
-      const isInPage = href.startsWith('#');
-      const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
-      return `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;
-    }
-  }
   return inner;
+};
+
+// All object kinds use the same link wrapper, including pictures, connectors,
+// charts and tables. Run links remain scoped to their rendered text.
+const renderShape = (
+  shape: SlideShapeData,
+  pres: PresentationData,
+  theme: PresentationTheme | null,
+  ctx: LayoutCtx,
+): string => {
+  const inner = renderShapeContent(shape, pres, theme, ctx);
+  if (!inner) return inner;
+  const href = clickActionHref(pres, shape, getShapeClickAction(shape));
+  if (href === undefined) return inner;
+  const tooltip = getShapeHyperlinkTooltip(shape);
+  const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
+  const targetAttrs = href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
+  return `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;
 };
 
 // ---------------------------------------------------------------------------
