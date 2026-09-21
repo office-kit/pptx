@@ -102,7 +102,7 @@
     } else if (e.key.startsWith('Arrow') && hasShapes) {
       e.preventDefault();
       if (doc.selection.kind === 'cell') {
-        editor.moveCellSelection(e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0, e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0);
+        editor.moveCellSelection(e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0, e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0, e.shiftKey);
         return;
       }
       const d = e.shiftKey ? NUDGE_BIG : NUDGE;

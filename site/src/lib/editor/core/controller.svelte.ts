@@ -30,7 +30,7 @@ import {
   type SlideShapeData,
   type ShapeBounds,
 } from '@office-kit/pptx';
-import { neighboringTableCell } from './table-selection.ts';
+import { neighboringTableCell, tableCellsInRange, tableSelectionBlock } from './table-selection.ts';
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
@@ -231,13 +231,15 @@ export class EditorController {
       .filter((s): s is SlideShapeData => s != null);
   }
 
-  moveCellSelection(dr: number, dc: number): void {
+  moveCellSelection(dr: number, dc: number, extend = false): void {
     const selection = this.doc.selection;
     if (selection.kind !== 'cell') return;
     const table = this.doc.shapeById(selection.slideIndex, selection.shapeId);
     if (!table) return;
-    const next = neighboringTableCell(table, selection.row, selection.col, dr, dc);
-    if (next) this.doc.selectCell(selection.slideIndex, selection.shapeId, next.row, next.col);
+    const current = selection.end ?? selection;
+    const next = neighboringTableCell(table, current.row, current.col, dr, dc);
+    if (next)
+      this.doc.selectCell(selection.slideIndex, selection.shapeId, next.row, next.col, extend);
   }
 
   clearCellText(): void {
@@ -245,11 +247,13 @@ export class EditorController {
     if (selection.kind !== 'cell') return;
     const table = this.doc.shapeById(selection.slideIndex, selection.shapeId);
     if (!table) return;
-    const cell = getTableCells(table)[selection.row]?.[selection.col];
-    if (!cell || !getTableCellText(cell)) return;
-    this.doc.transact(t('Clear cell text'), () =>
-      setTableCellText(cell, '', { preserveFormatting: true }),
-    );
+    const cells = [
+      ...tableCellsInRange(getTableCells(table), tableSelectionBlock(selection)),
+    ].filter((cell) => getTableCellText(cell));
+    if (!cells.length) return;
+    this.doc.transact(t('Clear cell text'), () => {
+      for (const cell of cells) setTableCellText(cell, '', { preserveFormatting: true });
+    });
   }
 
   private selectedGeometry(): { shape: SlideShapeData; bounds: ShapeBounds }[] {
