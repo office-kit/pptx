@@ -42,7 +42,11 @@ import { getSlideTitle } from './embedded.ts';
 // Build a SlideData handle from a part's bytes. Used by `getSlides` on
 // cold load; deck mutators that change the shape count rebuild via
 // `_helpers.rebuildShapesFromDocument` instead.
-const buildSlideData = (pkg: OpcPackage, partNameValue: PartName, bytes: Uint8Array): SlideData => {
+export const buildSlideData = (
+  pkg: OpcPackage,
+  partNameValue: PartName,
+  bytes: Uint8Array,
+): SlideData => {
   const doc = parseXml(decode(bytes));
   const part = readSlidePart(doc.root);
   const shapes: SlideShapeData[] = [];
@@ -133,8 +137,9 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
   const presModel = readPresentationPart(presRoot);
 
   const out: SlideData[] = [];
+  const relsById = new Map(presRels.items.map((rel) => [rel.id, rel]));
   for (const sld of presModel.slides) {
-    const rel = presRels.items.find((r) => r.id === sld.rId);
+    const rel = relsById.get(sld.rId);
     if (!rel) throw new Error(`presentation.xml.rels missing entry for ${sld.rId}`);
     const target = rel.target;
     const slideName = partName(target.startsWith('/') ? target : `/ppt/${target}`);

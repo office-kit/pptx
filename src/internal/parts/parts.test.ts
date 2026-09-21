@@ -11,6 +11,23 @@ import { OpcPackage } from './index.ts';
 const decode = (b: Uint8Array): string => new TextDecoder().decode(b);
 
 describe('OpcPackage.load', () => {
+  it('returns independent relationship snapshots and observes replaced bytes', () => {
+    const pkg = OpcPackage.load(buildSyntheticPackageBytes());
+    const name = partName('/ppt/presentation.xml');
+    const initial = pkg.getRels(name)!;
+    const target = initial.items[0]!.target;
+    initial.items[0]!.target = 'changed.xml';
+    expect(pkg.getRels(name)!.items[0]!.target).toBe(target);
+    pkg.setRels(name, initial);
+    expect(pkg.getRels(name)!.items[0]!.target).toBe('changed.xml');
+    const root = pkg.rootRels()!;
+    const rootTarget = root.items[0]!.target;
+    root.items[0]!.target = 'root.xml';
+    expect(pkg.rootRels()!.items[0]!.target).toBe(rootTarget);
+    pkg.setRootRels(root);
+    expect(pkg.rootRels()!.items[0]!.target).toBe('root.xml');
+  });
+
   it('loads a synthetic package and resolves every content type', () => {
     const bytes = buildSyntheticPackageBytes();
     const pkg = OpcPackage.load(bytes);

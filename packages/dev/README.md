@@ -75,6 +75,20 @@ CLI. Navigation while Claude is replying does not change that turn's context.
 Stale input is rejected with a retry message. If your Claude settings or managed
 policy disable hooks, automatic context attachment is unavailable; enable the
 preview hook in Claude Code to use it. No project settings file is rewritten.
+
+Use **Shift+Enter** to insert a newline in the embedded Claude prompt. On completion,
+the preview checks the actual deck build. Build errors are returned to Claude's
+Stop hook or to the Codex conversation for up to three repair attempts per user
+request. If repair fails, the error stays visible and the last successful preview
+is retained. Stopping the agent cancels further repair attempts.
+
+Both agents receive guidance to check text against its actual background, including
+inherited theme colors, and to use native `Text` paragraphs or mapped rows for lists
+and agendas. `Bullets` and `TableOfContents` are not built-in DSL components; define
+or import project helpers if using those names. See the
+[TSX authoring reference](../../skill/references/tsx.md#lists-and-tables-of-contents)
+for a complete agenda example. Contrast guidance still requires visual review;
+a successful build is not a visual accessibility check.
 Dependency paths are source candidates, not an exact slide-to-file mapping.
 “This slide” requests a focused patch; requests about another slide or the
 whole deck can edit other files or shared styling.

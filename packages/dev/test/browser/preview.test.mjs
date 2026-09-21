@@ -15,10 +15,18 @@ test(
     await writeFile(
       dir + '/codex',
       `#!${process.execPath}
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 let input='';for await(const chunk of process.stdin)input+=chunk;
 writeFileSync('chat-prompt.txt',input);
-writeFileSync('deck.tsx',readFileSync('deck.tsx','utf8').replace("i===2?'':","i===2?'ChatEdited':"));
+let source=readFileSync('deck.tsx','utf8');
+if(!existsSync('repair-started')) {
+ writeFileSync('repair-started','1');
+ source=source.replace('</Slide>', '<Bullets /></Slide>');
+} else {
+ source=source.replace('<Bullets />','').replace("i===2?'':","i===2?'ChatEdited':");
+ if(input.includes('Bullets is not defined'))writeFileSync('repair-observed','1');
+}
+writeFileSync('deck.tsx',source);
 console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'Updated the focused slide. **Verified**'}}));
 console.log(JSON.stringify({type:'turn.completed'}));
 `,
@@ -34,7 +42,7 @@ process.stdin.on('data',async data=>{
  const hook=JSON.parse(process.argv[3]).hooks.UserPromptSubmit[0].hooks[0];
  const response=await fetch(hook.url,{method:'POST',headers:hook.headers,body:'{}'});
  writeFileSync('terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
- console.log('Model menu: '+data.trim());
+ console.log('Model menu: '+data.replaceAll('\\x1b[13;2u','').trim());
 });
 `,
       { mode: 0o755 },
@@ -121,6 +129,16 @@ process.stdin.on('data',async data=>{
       await resizer.press('ArrowRight');
       await assertTerminalFits(agent);
       await page.screenshot({ path: '/tmp/office-kit-studio.png' });
+      const inputs = [];
+      page.on('request', (request) => {
+        if (request.url().endsWith('/terminal/input')) inputs.push(request.postDataJSON().data);
+      });
+      const newlineRequest = page.waitForRequest((request) =>
+        request.url().endsWith('/terminal/input'),
+      );
+      await agent.locator('.xterm-helper-textarea').press('Shift+Enter');
+      await newlineRequest;
+      assert.deepEqual(inputs, ['\x1b[13;2u']);
       await agent.locator('.xterm-helper-textarea').pressSequentially('/model');
       await agent.locator('.xterm-helper-textarea').press('Enter');
       await agent.waitForFunction(() =>
@@ -189,6 +207,7 @@ process.stdin.on('data',async data=>{
         (await (await page.request.get(url + agentPath + '/chat')).json()).messages.length,
         0,
       );
+      assert.equal(await readFile(dir + '/repair-observed', 'utf8'), '1');
       await third.locator('#chat-input').fill('independent draft');
       await page.getByRole('button', { name: 'Split down', exact: true }).nth(2).click();
       assert.equal(await third.locator('#chat-input').inputValue(), 'independent draft');

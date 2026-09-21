@@ -32,7 +32,13 @@ process.stdin.on('data',async data=>{
       { mode: 0o755 },
     );
     let busy = true;
-    const terminal = createTerminal(join(directory, 'deck.tsx'), () => busy);
+    let buildError = 'ReferenceError: Bullets is not defined';
+    const terminal = createTerminal(
+      join(directory, 'deck.tsx'),
+      () => busy,
+      '',
+      async () => buildError,
+    );
     const server = createServer(
       (req, res) =>
         void terminal.handle(req, res, (slide, revision) => {
@@ -109,6 +115,24 @@ process.stdin.on('data',async data=>{
       value.hookSpecificOutput.additionalContext.includes('"slide":6'),
     );
     assert.match(context.hookSpecificOutput.additionalContext, /NOT a restriction/);
+    const hook = JSON.parse(args[1]).hooks.Stop[0].hooks[0];
+    const verify = async () =>
+      (
+        await fetch(hook.url, {
+          method: 'POST',
+          headers: hook.headers,
+          body: '{}',
+        })
+      ).json();
+    assert.equal((await post('verify', {})).status, 403);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const feedback = await verify();
+      assert.equal(feedback.decision, 'block');
+      assert.match(feedback.reason, /Bullets is not defined/);
+    }
+    assert.equal((await verify()).decision, undefined);
+    buildError = null;
+    assert.equal((await verify()).decision, undefined);
     assert.equal((await post('resize', { cols: 12, rows: 3 })).status, 200);
     assert.equal((await post('resize', { cols: 1, rows: 0 })).status, 400);
     assert.equal((await post('resize', { cols: 100, rows: 30 })).status, 200);

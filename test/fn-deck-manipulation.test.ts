@@ -26,6 +26,20 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: deck manipulation', () => {
+  it('keeps existing slide handles live when appending and duplicating slides', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const first = getSlides(pres)[0]!;
+    const shape = getSlideShapes(first)[0]!;
+    addSlide(pres, { layout: getSlideLayouts(pres)[0]! });
+    duplicateSlide(pres, first);
+    expect(getSlides(pres)[0]).toBe(first);
+    setShapeText(shape, 'Edited after appending');
+    expect(getSlideText(getSlides(pres)[0]!)).toContain('Edited after appending');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideText(getSlides(reloaded)[0]!)).toContain('Edited after appending');
+    expect(getSlideText(getSlides(reloaded)[3]!)).not.toContain('Edited after appending');
+  });
+
   it('getSlides + getSlideText read existing slides', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slides = getSlides(pres);

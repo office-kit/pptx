@@ -1,3 +1,4 @@
+import { authoringGuidance } from './authoring-guidance.ts';
 import MarkdownIt from 'markdown-it';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
@@ -24,7 +25,12 @@ interface Message {
 }
 
 /** One shared conversation and one editing process per dev server. */
-export function createChat(entry: string, notify: () => void, busy = () => false) {
+export function createChat(
+  entry: string,
+  notify: () => void,
+  busy = () => false,
+  verify: () => Promise<string | null> = async () => null,
+) {
   let messages: Message[] = [];
   let provider: Provider = 'codex';
   let child: ChildProcess | undefined;
@@ -46,6 +52,12 @@ export function createChat(entry: string, notify: () => void, busy = () => false
     stopping = true;
     status = 'Stopping…';
     const processToStop = child;
+    // During verification the child has exited, but the turn still owns the
+    // conversation. Cancel repair without signalling a potentially reused PID.
+    if (processToStop.exitCode !== null || processToStop.signalCode !== null) {
+      notify();
+      return;
+    }
     const kill = (signal: NodeJS.Signals) => {
       try {
         if (process.platform !== 'win32' && processToStop.pid)
@@ -59,7 +71,7 @@ export function createChat(entry: string, notify: () => void, busy = () => false
     killTimer = setTimeout(() => kill('SIGKILL'), 2000);
     notify();
   }
-  function start(text: string, selected: Provider, context: FocusContext) {
+  function start(text: string, selected: Provider, context: FocusContext, repairs = 0) {
     provider = selected;
     const user: Message = { role: 'user', text, context };
     // Keep recent conversational intent, including each turn's original focus.
@@ -70,6 +82,7 @@ export function createChat(entry: string, notify: () => void, busy = () => false
     const prompt = `You are editing a local PowerPoint TSX project in ${dirname(resolve(entry))}.
 Read the project's authoring instructions. Make focused patches to the TSX source, preserving unrelated work.
 The preview rebuilds automatically on save; do not start another dev server.
+${authoringGuidance}
 The attached focus is context, NOT a restriction: use it for references such as "this slide". For other slides or deck-wide requests, find the relevant source or shared theme instead. Do not rewrite the whole deck for a local edit.
 Slide numbers are 1-based and refer to the last successful preview at send time. Source may have changed since then; verify it before editing. Files are dependency candidates, not an exact slide-to-source mapping.
 Respond in the user's language, briefly describing edits or answering their question. If permissions prevent an action, explain that instead of claiming success.
@@ -139,7 +152,7 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
       running.on('error', (error) => {
         failure = `Could not run ${selected}. Install it and log in from your terminal first. ${error.message}`;
       });
-      running.on('close', (code) => {
+      running.on('close', async (code) => {
         if (buffer.trim()) consume(buffer);
         clearTimeout(killTimer);
         status = stopping
@@ -150,6 +163,33 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
               : !sawResult
                 ? 'CLI exited without a completed result.'
                 : 'Done');
+        if (status === 'Done') {
+          status = 'Verifying preview…';
+          notify();
+          let buildError: string | null;
+          try {
+            buildError = await verify();
+          } catch (cause) {
+            buildError = cause instanceof Error ? cause.message : String(cause);
+          }
+          if (!stopping && buildError && repairs < 3) {
+            child = undefined;
+            start(
+              `The actual preview build failed. Repair the source and preserve unrelated work (attempt ${repairs + 1}/3). Do not remove requested content or hide the error.\n${buildError.slice(0, 16000)}`,
+              selected,
+              { ...context, buildError },
+              repairs + 1,
+            );
+            await completion;
+            done();
+            return;
+          }
+          status = stopping
+            ? 'Stopped. Saved edits remain in the preview.'
+            : buildError
+              ? 'Preview still has errors after 3 repair attempts.\n' + buildError.slice(0, 16000)
+              : 'Done';
+        }
         if (status !== 'Done') append(status);
         child = undefined;
         notify();
