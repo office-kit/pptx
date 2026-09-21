@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
+  import { setShapeImageOpacity, setShapeImageBrightness, setShapeImageContrast, getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -46,6 +46,15 @@
     { id: 'setShapeImageBrightness', label: 'Brightness (%)', param: 'value', value: (getShapeImageBrightness(picture) ?? 0) * 100, min: -100 },
     { id: 'setShapeImageContrast', label: 'Contrast (%)', param: 'value', value: (getShapeImageContrast(picture) ?? 0) * 100, min: -100 },
   ] : []; });
+  const hasAdjustments = $derived(effects.some(effect => effect.value !== (effect.param === 'opacity' ? 100 : 0)));
+  function resetAdjustments() {
+    if (!picture || !hasAdjustments) return;
+    doc.transact(t('Reset image adjustments'), () => {
+      setShapeImageOpacity(picture!, null);
+      setShapeImageBrightness(picture!, null);
+      setShapeImageContrast(picture!, null);
+    });
+  }
   function setCrop(side: 'left' | 'top' | 'right' | 'bottom', input: HTMLInputElement) {
     const next = { ...crop, [side]: input.valueAsNumber / 100 };
     if (!input.reportValidity() || (next.left ?? 0) + (next.right ?? 0) >= 1 || (next.top ?? 0) + (next.bottom ?? 0) >= 1) {
@@ -86,6 +95,7 @@
         else e.currentTarget.value = String(Math.round(effect.value));
       }} /></label>
     {/each}
+    <button class="ok-btn" disabled={!hasAdjustments} onclick={resetAdjustments}>{t('Reset image adjustments')}</button>
     <label>{t('Alternative text')}<textarea class="ok-input" rows="3" value={description} onchange={(e) => editor.invoke('setShapeDescription', { description: e.currentTarget.value })}></textarea></label>
   </section>
 {/if}

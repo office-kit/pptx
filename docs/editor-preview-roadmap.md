@@ -302,3 +302,5 @@ Column, bar, line and area previews now honor category/series label toggles and 
 Stacked column and bar previews honor center, inside-end, outside-end and inside-base label placement relative to each segment. Regression tests cover positive and negative segments and percentage stacks; browser checks verify that changing placement moves labels in both orientations and stacking modes.
 
 Percentage-stacked columns and bars display original data values when value labels are enabled, consistently with lines and areas. Chart, series and point numeric formats now apply to those labels; percentages on the value axis remain independent. Unit coverage checks format inheritance and unformatted values, and browser coverage checks formatted values while switching among all four chart types.
+
+Image options include a bilingual reset for opacity, brightness and contrast in one undo step. The action is disabled when adjustments are already neutral. Browser coverage checks reset, undo/redo and reload in both languages while preserving image bytes, crop, shape and bounds.
