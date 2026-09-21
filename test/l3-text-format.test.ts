@@ -8,6 +8,8 @@ import {
   addSlideTextBox,
   findSlideLayout,
   getSlideText,
+  getSlideShapes,
+  getShapeParagraphElements,
   getSlideXmlString,
   getSlides,
   inches,
@@ -104,4 +106,27 @@ describe('L3: setShapeTextFormat', () => {
     expect(xml).toContain('val="00AA00"');
     expect(xml).toContain('Replaced text');
   });
+});
+
+it('round-trips selected text formatting through the public API', async () => {
+  const { pres, box } = await newBox('English 日本語🌎');
+  setShapeTextFormat(box, { italic: true });
+  setShapeTextFormat(
+    box,
+    { bold: true, size: 28, fontEastAsian: 'Yu Gothic' },
+    { range: { start: 8, end: 11 } },
+  );
+  const reopened = await loadPresentation(await savePresentation(pres));
+  const slide = getSlides(reopened).at(-1)!;
+  const shape = getSlideShapes(slide).at(-1)!;
+  expect(getShapeParagraphElements(shape, 0)).toEqual([
+    { kind: 'r', text: 'English ', format: { italic: true } },
+    {
+      kind: 'r',
+      text: '日本語',
+      format: { italic: true, bold: true, size: 28, fontEastAsian: 'Yu Gothic' },
+    },
+    { kind: 'r', text: '🌎', format: { italic: true } },
+  ]);
+  if (isSchemaValidationAvailable()) expectSchemaValid(getSlideXmlString(slide), 'pml');
 });

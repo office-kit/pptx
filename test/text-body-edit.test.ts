@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { editTextBody } from '../src/internal/drawingml/text-body-edit.ts';
+import { editTextBody, formatTextBodyRange } from '../src/internal/drawingml/text-body-edit.ts';
 import { textBodyText } from '../src/internal/drawingml/text-body.ts';
 import { parseXml, serializeXml } from '../src/internal/xml/index.ts';
 
@@ -65,5 +65,59 @@ describe('incremental text replacement', () => {
     editTextBody(doc.root, '1\nsuffix!');
     expect(serializeXml(doc)).toContain('<a:fld id="{id}" type="slidenum">');
     expect(serializeXml(doc)).toContain('<a:br/>');
+  });
+});
+
+describe('text range formatting', () => {
+  it('splits boundary runs and retains mixed formats, paragraph properties and end marks', () => {
+    const doc = body(rich);
+    formatTextBodyRange(doc.root, { color: '#FF0000' }, { start: 4, end: 12 });
+    const xml = serializeXml(doc);
+    expect(textBodyText(doc.root)).toBe('Hello 世界🌎\nTail');
+    expect(xml).toContain('<a:rPr b="1"/><a:t>Hell</a:t>');
+    expect(xml).toContain('<a:rPr u="sng"/><a:t>ail</a:t>');
+    expect(xml).toContain('<a:pPr algn="ctr"/>');
+    expect(xml).toContain('<a:pPr lvl="2"/>');
+    expect(xml).toContain('<a:endParaRPr sz="1800"/>');
+    expect(xml).toMatch(/b="1"[^]*?val="FF0000"[^]*?<a:t>o <\/a:t>/);
+    expect(xml).toMatch(/i="1"[^]*?val="FF0000"[^]*?<a:t>世界🌎<\/a:t>/);
+    expect(xml).toMatch(/u="sng"[^]*?val="FF0000"[^]*?<a:t>T<\/a:t>/);
+  });
+  it('retains fields and breaks when fully selected, and materializes a partially selected field', () => {
+    const content =
+      '<a:p><a:fld id="{id}" type="datetime"><a:rPr i="1"/><a:t>2026</a:t></a:fld><a:br/><a:r><a:t>tail</a:t></a:r></a:p>';
+    const doc = body(content);
+    formatTextBodyRange(doc.root, { bold: true }, { start: 0, end: 5 });
+    expect(serializeXml(doc)).toContain('<a:fld id="{id}" type="datetime">');
+    expect(serializeXml(doc)).toContain('<a:br><a:rPr b="1"/></a:br>');
+    expect(serializeXml(doc)).toContain('<a:r><a:t>tail</a:t></a:r>');
+    const partial = body(content);
+    formatTextBodyRange(partial.root, { bold: true }, { start: 1, end: 3 });
+    expect(serializeXml(partial)).not.toContain('<a:fld');
+    expect(serializeXml(partial)).toContain('<a:rPr i="1" b="1"/><a:t>02</a:t>');
+    expect(textBodyText(partial.root)).toBe('2026\ntail');
+  });
+  it.each([
+    { start: -1, end: 2 },
+    { start: 2, end: 1 },
+    { start: 0, end: 99 },
+    { start: 0.5, end: 2 },
+    { start: 0, end: 9 },
+    { start: NaN, end: 2 },
+  ])('rejects invalid boundaries without mutation: %j', (range) => {
+    const doc = body(rich);
+    const original = serializeXml(doc);
+    expect(() => formatTextBodyRange(doc.root, { bold: true }, range)).toThrow(RangeError);
+    expect(serializeXml(doc)).toBe(original);
+  });
+  it('preserves the document for empty ranges and rejected formats', () => {
+    const doc = body(rich);
+    const original = serializeXml(doc);
+    formatTextBodyRange(doc.root, { bold: true }, { start: 2, end: 2 });
+    expect(serializeXml(doc)).toBe(original);
+    expect(() =>
+      formatTextBodyRange(doc.root, { bold: true, color: 'invalid' }, { start: 2, end: 5 }),
+    ).toThrow();
+    expect(serializeXml(doc)).toBe(original);
   });
 });

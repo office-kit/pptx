@@ -38,6 +38,7 @@
   }
 
   const bounds = $derived.by(() => {
+    doc.version;
     const s = shape;
     if (!s) return null;
     try {
@@ -55,6 +56,7 @@
   });
 
   const rotation = $derived.by(() => {
+    doc.version;
     const s = shape;
     if (!s) return 0;
     try {
@@ -65,6 +67,7 @@
   });
 
   const text = $derived.by(() => {
+    doc.version;
     const s = shape;
     if (!s) return '';
     try {
@@ -106,7 +109,7 @@
   function applyText(value: string) {
     const s = shape;
     if (!s) return;
-    doc.transact('Edit text', () => setShapeText(s, value));
+    doc.transact(t('Edit text'), () => setShapeText(s, value, { preserveFormatting: true }));
   }
 </script>
 
@@ -161,7 +164,7 @@
 
     <div class="sec">
       <div class="sec-title">{t('Text')}</div>
-      <textarea class="ok-input" rows="2" value={text}
+      <textarea class="ok-input" aria-label={t('Text')} rows="2" value={text}
         onchange={(e) => applyText(e.currentTarget.value)}></textarea>
     </div>
   </div>

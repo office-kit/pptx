@@ -1,6 +1,6 @@
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
-import { editTextBody } from '../../internal/drawingml/text-body-edit.ts';
+import { editTextBody, formatTextBodyRange } from '../../internal/drawingml/text-body-edit.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
 import {
   getShapePlaceholderIdx,
@@ -661,10 +661,19 @@ export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignme
 /**
  * Applies `format` to every run in the shape's text. Run-property
  * attributes not addressed by `format` are preserved, so partial
- * updates compose.
+ * updates compose. Optional `range` selects UTF-16 offsets in `getShapeText`,
+ * with an exclusive end. Paragraph separators and line breaks each count as one
+ * character. Empty ranges do nothing; invalid or split-surrogate boundaries throw.
+ * Partially selected fields become literal runs; fully selected fields stay fields.
  */
-export const setShapeTextFormat = (shape: SlideShapeData, format: TextFormat): void => {
-  applyFormatToAllRuns(requireTxBody(shape), format, 'setShapeTextFormat');
+export const setShapeTextFormat = (
+  shape: SlideShapeData,
+  format: TextFormat,
+  options?: { range?: { start: number; end: number } },
+): void => {
+  const body = requireTxBody(shape);
+  if (options?.range) formatTextBodyRange(body, format, options.range);
+  else applyFormatToAllRuns(body, format, 'setShapeTextFormat');
   commitAndRefresh(shape);
 };
 

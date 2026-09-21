@@ -37,7 +37,11 @@ that a user can complete the corresponding editing workflow.
   reload, locale persistence and source conflict resolution.
 - Inline text changes retain unchanged run and paragraph XML, and browser tests
   verify mixed bold/italic formatting in saved PPTX files. Selection formatting
-  still needs a dedicated editing workflow.
+  now has an inline formatting bar for selected characters (bold, italic,
+  underline, font, size and color). Selection formatting preserves surrounding
+  runs, paragraph properties and complete fields; partial fields become literal
+  text. Caret formatting for newly typed text and rich styling within the editing
+  overlay still need refinement.
 - History tests cover rapid edits, rapid undo/redo, edits during restore,
   new/open invalidation, gesture boundaries and version-aware save completion.
 

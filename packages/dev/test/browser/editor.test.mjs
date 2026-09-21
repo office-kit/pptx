@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import {
   getShapeBoundsResolved,
   getShapeKind,
+  getShapeParagraphElements,
   getShapeImageBytes,
   getShapeImageCrop,
   getShapeImageOpacity,
@@ -408,6 +409,137 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-image-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'selected text formatting preserves surrounding runs and persists from the bilingual preview',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-text-format-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1} paragraphs={[{runs:[{text:'Hello ',format:{bold:true}},{text:'日本語 🌎',format:{italic:true}}]}]} /></Slide></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.getByRole('textbox', { name: 'Edit text', exact: true });
+      await input.fill('Hello 日本語 🌎!');
+      await input.evaluate((node) => {
+        node.setSelectionRange(6, 9);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      const bar = editor.getByRole('group', { name: 'Selected text formatting' });
+      await bar.getByRole('button', { name: 'Bold', exact: true }).click();
+      assert.equal(
+        await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
+        'true',
+      );
+      await bar.getByRole('button', { name: 'Underline', exact: true }).click();
+      await bar.getByRole('textbox', { name: 'Font', exact: true }).fill('Yu Gothic');
+      await bar.getByRole('textbox', { name: 'Font', exact: true }).press('Tab');
+      const sizeInput = bar.getByRole('spinbutton', { name: 'Font size', exact: true });
+      await sizeInput
+        .evaluate(
+          (node) =>
+            new Promise((resolve) =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve(node === document.activeElement)),
+              ),
+            ),
+        )
+        .then((focused) => assert.equal(focused, true));
+      await sizeInput.fill('28');
+      await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).press('Tab');
+      await bar.getByLabel('Text color', { exact: true }).fill('#ff0000');
+      await page.screenshot({ path: '/tmp/pptx-pr287-text-format-toolbar.png', fullPage: true });
+      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal(await editor.locator('.bespoke textarea').inputValue(), 'Hello 日本語 🌎!');
+      const runs = async () => {
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getShapeParagraphElements(getSlideShapes(getSlides(pres)[0])[0], 0);
+      };
+      let result = await runs();
+      assert.deepEqual(
+        result.map((r) => r.text),
+        ['Hello ', '日本語', ' 🌎', '!'],
+      );
+      assert.equal(result[0].format.bold, true);
+      assert.equal(result[0].format.color, undefined);
+      assert.deepEqual(result[1].format, {
+        italic: true,
+        bold: true,
+        underline: true,
+        font: 'Yu Gothic',
+        fontEastAsian: 'Yu Gothic',
+        fontComplexScript: 'Yu Gothic',
+        size: 28,
+        color: '#FF0000',
+      });
+      assert.equal(result[2].format.italic, true);
+      assert.equal(result[2].format.bold, undefined);
+      await editor.locator('select').first().selectOption('ja');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal((await runs())[1].format.color, undefined);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await editor.locator('.hit').first().dblclick();
+      await editor
+        .getByRole('textbox', { name: 'テキストを編集', exact: true })
+        .evaluate((node) => {
+          node.setSelectionRange(6, 9);
+          node.dispatchEvent(new Event('select', { bubbles: true }));
+        });
+      const japanese = editor.getByRole('group', { name: '選択した文字の書式' });
+      assert.equal(
+        await japanese
+          .getByRole('button', { name: '太字', exact: true })
+          .getAttribute('aria-pressed'),
+        'true',
+      );
+      await japanese.getByRole('button', { name: '太字', exact: true }).click();
+      await japanese.getByRole('button', { name: '完了', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      result = await runs();
+      assert.equal(result[1].format.bold, false);
+      assert.equal(result[1].format.color, '#FF0000');
+      assert.equal(result[0].format.bold, true);
+      // Editing through the properties pane must keep the same mixed formatting.
+      await editor.locator('.bespoke textarea').fill('Hello 日本語 🌎!?');
+      await editor.locator('.bespoke textarea').press('Tab');
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      result = await runs();
+      assert.equal(result.map((r) => r.text).join(''), 'Hello 日本語 🌎!?');
+      assert.equal(result[1].format.color, '#FF0000');
+      assert.equal(result[1].format.bold, false);
+      assert.equal(result[0].format.bold, true);
+      await page.screenshot({ path: '/tmp/pptx-pr287-text-format-ja.png', fullPage: true });
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-text-format-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();

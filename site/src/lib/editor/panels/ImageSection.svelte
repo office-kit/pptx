@@ -12,13 +12,14 @@
     const shape = doc.shapeById(sel.slideIndex, sel.shapeIds[0]!);
     return shape && getShapeKind(shape) === 'picture' ? shape : null;
   });
-  const crop = $derived(picture ? getShapeImageCrop(picture) : null);
+  const crop = $derived.by(() => { doc.version; return picture ? getShapeImageCrop(picture) : null; });
+  const description = $derived.by(() => { doc.version; return picture ? getShapeDescription(picture) ?? '' : ''; });
   const sides = [['left', 'Crop left (%)'], ['top', 'Crop top (%)'], ['right', 'Crop right (%)'], ['bottom', 'Crop bottom (%)']] as const;
-  const effects = $derived(picture ? [
+  const effects = $derived.by(() => { doc.version; return picture ? [
     { id: 'setShapeImageOpacity', label: 'Opacity (%)', param: 'opacity', value: (getShapeImageOpacity(picture) ?? 1) * 100, min: 0 },
     { id: 'setShapeImageBrightness', label: 'Brightness (%)', param: 'value', value: (getShapeImageBrightness(picture) ?? 0) * 100, min: -100 },
     { id: 'setShapeImageContrast', label: 'Contrast (%)', param: 'value', value: (getShapeImageContrast(picture) ?? 0) * 100, min: -100 },
-  ] : []);
+  ] : []; });
   function setCrop(side: 'left' | 'top' | 'right' | 'bottom', input: HTMLInputElement) {
     const next = { ...crop, [side]: input.valueAsNumber / 100 };
     if (!input.reportValidity() || (next.left ?? 0) + (next.right ?? 0) >= 1 || (next.top ?? 0) + (next.bottom ?? 0) >= 1) {
@@ -46,7 +47,7 @@
         else e.currentTarget.value = String(Math.round(effect.value));
       }} /></label>
     {/each}
-    <label>{t('Alternative text')}<textarea class="ok-input" rows="3" value={getShapeDescription(picture) ?? ''} onchange={(e) => editor.invoke('setShapeDescription', { description: e.currentTarget.value })}></textarea></label>
+    <label>{t('Alternative text')}<textarea class="ok-input" rows="3" value={description} onchange={(e) => editor.invoke('setShapeDescription', { description: e.currentTarget.value })}></textarea></label>
   </section>
 {/if}
 
