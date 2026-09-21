@@ -4213,13 +4213,7 @@ const renderColumnChart = (
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(barW)}" height="${px(h)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
-        const labelText = cartesianDataLabelText(
-          spec,
-          s,
-          c,
-          v,
-          isPercent ? `${Math.round(v * 100)}%` : undefined,
-        );
+        const labelText = cartesianDataLabelText(spec, s, c, spec.series[s]?.values[c] ?? 0);
         if (labelText) {
           const { coordinate: labelY, fill } = columnLabelLayout(
             y0,
@@ -4547,7 +4541,6 @@ const cartesianDataLabelText = (
   seriesIdx: number,
   pointIdx: number,
   value: number,
-  valueText?: string,
 ): string => {
   const options = chartPointLabelOptions(spec, seriesIdx, pointIdx);
   if (options.text !== undefined) return options.text;
@@ -4556,8 +4549,7 @@ const cartesianDataLabelText = (
   const category = spec.categories[pointIdx];
   if (options.showSeriesName && name) parts.push(name);
   if (options.showCategory && category) parts.push(category);
-  if (options.showValue)
-    parts.push(valueText ?? formatDataLabelValue(spec, seriesIdx, value, pointIdx));
+  if (options.showValue) parts.push(formatDataLabelValue(spec, seriesIdx, value, pointIdx));
   return parts.join(options.separator ?? ' ');
 };
 
@@ -4644,13 +4636,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         out.push(
           `<rect x="${px(x0)}" y="${px(y0)}" width="${px(w)}" height="${px(barH)}" fill="${chartPointBaseColor(spec, colors, s, c)}"${chartFillOpacityAttr(spec.series[s]?.fillOpacity)}/>`,
         );
-        const labelText = cartesianDataLabelText(
-          spec,
-          s,
-          c,
-          v,
-          isPercent ? `${Math.round(v * 100)}%` : undefined,
-        );
+        const labelText = cartesianDataLabelText(spec, s, c, spec.series[s]?.values[c] ?? 0);
         if (labelText) {
           const {
             coordinate: labelX,

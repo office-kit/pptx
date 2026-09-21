@@ -164,6 +164,21 @@ test(
           }
         }
       }
+      for (const kind of ['column', 'bar', 'line', 'area']) {
+        await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+        await dialog.getByLabel('Chart type', { exact: true }).selectOption(kind);
+        await dialog.getByLabel('Series stacking', { exact: true }).selectOption('percentStacked');
+        await dialog.getByLabel('Show series names', { exact: true }).uncheck();
+        await dialog.getByLabel('Show values', { exact: true }).check();
+        await dialog.getByText('Data label format', { exact: true }).click();
+        await dialog.getByLabel('Label number format', { exact: true }).fill('0.00');
+        await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+        await saved();
+        const spec = await read();
+        assert.equal(spec.dataLabels.numberFormat, '0.00');
+        assert.equal(spec.series[0].values[0], 10);
+        assert.equal(await label.count(), 1);
+      }
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({
