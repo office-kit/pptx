@@ -8,6 +8,7 @@
   import { onMount, tick } from 'svelte';
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
+  import { projectTextEdits, replayTextEdits } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -23,7 +24,6 @@
     insertTableRow,
     getTableCellText,
     getTableCellParagraphs,
-    setTableCellText,
     setTableCellTextFormat,
     isTableShape,
     getShapeText,
@@ -34,7 +34,6 @@
     type TextFormat,
     setShapeBounds,
     setShapeRotation,
-    setShapeText,
   } from '@office-kit/pptx';
   import { selectedShapeIds, topLevelShapes, type Selection } from '../core/selection.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
@@ -542,13 +541,7 @@
   }
 
   function replayEdits(box: Box, cur: NonNullable<typeof editing>) {
-    const cell = cur.cell ? getTableCells(box.shape)[cur.cell.row]![cur.cell.col]! : undefined;
-    let value = cell ? getTableCellText(cell) : getShapeText(box.shape);
-    for (const change of cur.changes) {
-      value = value.slice(0, change.start) + change.text + value.slice(change.end);
-      if (cell) setTableCellText(cell, value, { preserveFormatting: true });
-      else setShapeText(box.shape, value, { preserveFormatting: true });
-    }
+    replayTextEdits(box.shape, cur.changes, cur.cell);
   }
 
   function cellAtPointer(event: MouseEvent, box: Box) {
@@ -581,14 +574,18 @@
     return { ...box, width, height, left: box.left + box.width / 2 + (dx * Math.cos(angle) - dy * Math.sin(angle)) / stageW * 100 - width / 2, top: box.top + box.height / 2 + (dx * Math.sin(angle) + dy * Math.cos(angle)) / stageH * 100 - height / 2 };
   });
 
-  function selectedTextFormats() {
-    const box = boxes.find((b) => b.id === editing?.id);
-    if (!box) return [];
+  const pendingTextShape = $derived.by(() => {
+    doc.version;
+    const box = boxes.find(b => b.id === editing?.id);
+    return box && editing ? projectTextEdits(box.shape, editing.changes, editing.cell) : null;
+  });
+  function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
+    if (!shape) return [];
     const formats: TextFormat[] = [];
     let offset = 0;
     const paragraphs = editing?.cell
-      ? getTableCellParagraphs(getTableCells(box.shape)[editing.cell.row]![editing.cell.col]!).map(p => p.elements)
-      : Array.from({ length: getShapeParagraphCount(box.shape) }, (_, i) => getShapeParagraphElements(box.shape, i));
+      ? getTableCellParagraphs(getTableCells(shape)[editing.cell.row]![editing.cell.col]!).map(p => p.elements)
+      : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => getShapeParagraphElements(shape, i));
     for (const elements of paragraphs) {
       for (const element of elements) {
         const length = element.kind === 'br' ? 1 : element.text.length;
@@ -601,7 +598,7 @@
   }
   const rangeFormats = $derived.by(() => {
     doc.version;
-    return selectedTextFormats();
+    return pendingTextShape ? selectedTextFormats(pendingTextShape) : [];
   });
   function inlineParagraphTarget() {
     const box = boxes.find(b => b.id === editing?.id);

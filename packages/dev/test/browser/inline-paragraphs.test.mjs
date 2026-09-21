@@ -403,6 +403,14 @@ for (const control of ['keyboard', 'toolbar'])
               .getByRole('button', { name: label, exact: true })
               .click();
         };
+        assert.equal(
+          await editor
+            .locator('.text-format-bar')
+            .getByRole('button', { name: 'Bold', exact: true })
+            .getAttribute('aria-pressed'),
+          'true',
+        );
+        assert.equal(getShapeText(await shape()), 'English\n日本語\nThird paragraph');
         await toggle('Control+b', 'Bold');
         await saved();
         let text = await shape();
