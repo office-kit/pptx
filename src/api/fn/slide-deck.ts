@@ -56,7 +56,7 @@ import {
   getSlideLayouts,
   getSlideLayoutPlaceholders,
 } from './layouts.ts';
-import { getSlides } from './slide-query.ts';
+import { getSlides, refreshSlideOrder } from './slide-query.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
 
 // ---------------------------------------------------------------------------
@@ -266,7 +266,7 @@ export const addSlide = (
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
   const slides = getSlides(pres);
   const last = slides[slides.length - 1];
   if (!last) throw new Error('addSlide: post-condition failed; slide not in cache');
@@ -315,7 +315,7 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
 
   pkg.removePart(relsPartNameFor(slidePartName));
   pkg.removePart(slidePartName);
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
 };
 
 /**
@@ -380,7 +380,7 @@ export const sortSlides = (
   );
   sldIdLst.children = [...nonSldIdChildren, ...newOrder];
   presPart.data = encode(serializeXml(doc));
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
 };
 
 /**
@@ -456,7 +456,7 @@ export const moveSlide = (pres: PresentationData, slide: SlideData, toIndex: num
   }
   sldIdLst.children = remaining;
   presPart.data = encode(serializeXml(presDoc));
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
 };
 
 /**
@@ -517,7 +517,7 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
   const slides = getSlides(pres);
   const dup = slides[slides.length - 1];
   if (!dup) throw new Error('duplicateSlide: post-condition failed');
@@ -660,7 +660,7 @@ export const importSlide = (
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  targetPres._slidesCache = null;
+  refreshSlideOrder(targetPres);
   const slides = getSlides(targetPres);
   const last = slides[slides.length - 1];
   if (!last) throw new Error('importSlide: post-condition failed');

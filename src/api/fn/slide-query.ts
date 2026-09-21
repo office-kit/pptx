@@ -114,7 +114,15 @@ export const getSlideLayoutCount = (pres: PresentationData): number => {
 export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
   const cached = pres._slidesCache;
   if (cached !== null) return cached as ReadonlyArray<SlideData>;
+  return refreshSlideOrder(pres);
+};
 
+// Deck changes leave surviving slide XML untouched. Reuse its handles so edits
+// through references retained by callers stay visible to readers and save.
+export const refreshSlideOrder = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const previous = new Map(
+    ((pres._slidesCache ?? []) as SlideData[]).map((slide) => [slide[SLIDE_PART_NAME], slide]),
+  );
   const pkg = pres[INTERNAL_PACKAGE];
   const presPart = pkg.getPart(PRES_PART_NAME);
   if (presPart === null) {
@@ -140,7 +148,7 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
     const slideName = partName(target.startsWith('/') ? target : `/ppt/${target}`);
     const slidePart = pkg.getPart(slideName);
     if (slidePart === null) throw new Error(`slide part ${slideName} not found`);
-    out.push(buildSlideData(pkg, slideName, slidePart.data));
+    out.push(previous.get(slideName) ?? buildSlideData(pkg, slideName, slidePart.data));
   }
   pres._slidesCache = out;
   return out;
