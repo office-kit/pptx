@@ -137,3 +137,11 @@ editing, image operations, slide operations and presentation tools require
 workflow-level verification before claiming coverage of common Google Slides
 editing tasks. Persisted saves survive reload; uncommitted inline drafts do not
 currently have recovery storage.
+
+Presentation view now reads the saved per-slide transition timing: automatic
+advance runs only during presentation, stage clicks respect `advanceOnClick`, and
+explicit keyboard/control navigation remains available. Timers stop on exit and
+at the final slide, survive unchanged live refreshes, and support the full OOXML
+unsigned millisecond range. The browser playback test verifies these behaviors
+against a serialized deck. Visual transition effects and presenter notes display
+remain outstanding.
