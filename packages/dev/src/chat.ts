@@ -1,3 +1,4 @@
+import type { VisualReview } from './visual-review.ts';
 import { authoringGuidance } from './authoring-guidance.ts';
 import MarkdownIt from 'markdown-it';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -30,6 +31,8 @@ export function createChat(
   notify: () => void,
   busy = () => false,
   verify: () => Promise<string | null> = async () => null,
+  review?: { begin(): void; next(): Promise<VisualReview | undefined> },
+  reviewImages: (prompt: string) => string[] = () => [],
 ) {
   let messages: Message[] = [];
   let provider: Provider = 'codex';
@@ -71,7 +74,15 @@ export function createChat(
     killTimer = setTimeout(() => kill('SIGKILL'), 2000);
     notify();
   }
-  function start(text: string, selected: Provider, context: FocusContext, repairs = 0) {
+  function start(
+    text: string,
+    selected: Provider,
+    context: FocusContext,
+    repairs = 0,
+    images: string[] = [],
+    reviewing = false,
+  ) {
+    if (!repairs && !reviewing) review?.begin();
     provider = selected;
     const user: Message = { role: 'user', text, context };
     // Keep recent conversational intent, including each turn's original focus.
@@ -95,6 +106,7 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
     status = 'Working…';
     stopping = false;
     const args = ['exec', '--json', '--sandbox', 'workspace-write', '--skip-git-repo-check', '-'];
+    for (const image of images) args.splice(args.length - 1, 0, '--image', image);
     child = spawn(selected, args, {
       cwd: dirname(resolve(entry)),
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -179,16 +191,33 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
               selected,
               { ...context, buildError },
               repairs + 1,
+              [],
+              reviewing,
             );
             await completion;
             done();
             return;
           }
+          let reviewFailure = '';
+          if (!stopping && !buildError && review) {
+            try {
+              const visual = await review.next();
+              if (!stopping && visual) {
+                child = undefined;
+                start(visual.prompt, selected, context, 0, visual.images, true);
+                await completion;
+                done();
+                return;
+              }
+            } catch (error) {
+              reviewFailure = error instanceof Error ? error.message : String(error);
+            }
+          }
           status = stopping
             ? 'Stopped. Saved edits remain in the preview.'
             : buildError
               ? 'Preview still has errors after 3 repair attempts.\n' + buildError.slice(0, 16000)
-              : 'Done';
+              : reviewFailure || 'Done';
         }
         if (status !== 'Done') append(status);
         child = undefined;
@@ -270,7 +299,7 @@ Current request and preview context (JSON): ${JSON.stringify(user)}`;
         return;
       }
       const context = focus(value.slide, value.revision);
-      start(value.message.trim(), value.provider, context);
+      start(value.message.trim(), value.provider, context, 0, reviewImages(value.message.trim()));
       json(202, snapshot());
     } catch (cause) {
       json(400, { error: cause instanceof Error ? cause.message : 'Invalid request' });

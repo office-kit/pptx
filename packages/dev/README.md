@@ -16,11 +16,24 @@ npm install
 npm run dev
 ```
 
+For a single-command first launch (macOS/Linux):
+
+```sh
+npx --yes @office-kit/pptx-dev@latest init my-slides && cd my-slides && npm install && npm run dev
+```
+
+The built-in `init` is the starter generator: no separate `degit` checkout is
+needed, and it selects compatible package versions. For an existing project,
+start development with `npm run dev` or `npx office-pptx dev deck.tsx`.
+If you prefer the bare `office-pptx dev deck.tsx` command, install the CLI once
+with `npm install --global @office-kit/pptx-dev@latest`. The local npm script
+continues to use the project's installed version.
+
 Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
 has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
-exit) are viewing controls; the canvas has no editing, dragging or resize handles.
-Changes are made only in TSX, including when an AI agent edits the presentation.
+exit) are viewing controls. Select an area for an AI instruction or use **Edit text**
+to save a literal directly. All edits are persisted in TSX.
 Keep the server running throughout the edit/review loop. Saving updates only the
 changed thumbnails and slide view, preserving zoom, scroll position and presentation
 mode. The previous slide stays visible until its replacement is ready. Rapid edits
@@ -139,6 +152,40 @@ install script (`pnpm approve-builds`) if your project blocks dependency scripts
 References: [Claude Code commands](https://code.claude.com/docs/en/commands),
 [Claude Code hooks](https://code.claude.com/docs/en/hooks), and
 [Codex non-interactive mode](https://developers.openai.com/codex/noninteractive).
+
+## Edit from the slide
+
+Use **Select area** and drag a rectangle, then enter an instruction such as
+“Move this down a little.” Choose an agent pane and click **Apply with AI**.
+The request includes the slide, preview revision, relative bounds and intersecting
+text. Start Claude Code in that pane first; Codex starts when you send.
+Selection is cleared when the preview or selected slide changes. Shift+Enter
+inserts a newline; Cmd/Ctrl+Enter sends the request.
+
+Use **Edit text**, click a paragraph, and **Save text** to update its TSX source
+without waiting for an agent. Direct saves require a unique source literal within
+the entry directory and verify that other slides did not change. Computed text,
+shared values and ambiguous matches use **Apply with AI** instead. **Undo text**
+restores the last direct edit only if its file has not changed since. **Undo with
+AI** asks the agent to reverse its previous selection edit while preserving newer
+work; it is not a source snapshot restore.
+
+After each successful agent edit or direct text save/undo, the dev server captures
+all changed slides, including slides offscreen. Codex receives PNG attachments;
+Claude Code receives local PNG paths through its Stop hook and is instructed to
+read them. The agent checks overlap, clipping, alignment, spacing and contrast,
+and can make up to two correction passes followed by a final inspection. This is
+AI-assisted review, not a guarantee of pixel-perfect rendering. The preview updates
+as soon as the build finishes, independently of screenshot review.
+
+Screenshot capture uses an installed Chrome, or falls back to Playwright Chromium.
+Set `PLAYWRIGHT_CHANNEL` to use another installed Chromium channel. If neither is
+available, install Chrome and restart the dev server. Capture failures are shown
+explicitly; saved edits remain available. If the chosen agent is busy or not started,
+use **Retry visual review** after making it available. Screenshots and review prompts
+are stored locally under `.office-kit/reviews/`; new projects ignore this directory.
+Add `.office-kit/` to `.gitignore` in existing projects. Images are provided to the
+selected AI agent using its existing login and provider settings.
 
 ## Edit only what changed
 

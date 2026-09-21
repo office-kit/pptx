@@ -1,3 +1,4 @@
+import type { VisualReview } from './visual-review.ts';
 import { authoringGuidance } from './authoring-guidance.ts';
 import { randomBytes } from 'node:crypto';
 import { dirname, resolve, join } from 'node:path';
@@ -16,8 +17,10 @@ export function createTerminal(
   busy = () => false,
   base = '',
   verify: () => Promise<string | null> = async () => null,
+  review?: { begin(): void; next(): Promise<VisualReview | undefined> },
 ) {
   let repairs = 0;
+  let working = false;
   let process: IPty | undefined;
   let owner = '';
   let output = '';
@@ -89,15 +92,33 @@ export function createTerminal(
             reason: `The actual preview build failed. Repair the source before finishing (attempt ${repairs}/3). Preserve unrelated edits, inspect the installed DSL exports and local components before changing imports. Do not hide the error or remove requested content. No Raw is needed for lists or an agenda: use Text paragraphs/bullets or mapped Text rows. Build error:\n${error.slice(0, 16000)}`,
           });
         } else {
-          status = error
-            ? 'Preview still has errors after 3 repair attempts.'
-            : 'Preview build verified';
+          if (!error && review) {
+            try {
+              const visual = await review.next();
+              if (closing || stopping || !process) {
+                json(200, {});
+                return;
+              }
+              if (visual) {
+                status = 'Reviewing slide screenshots…';
+                json(200, { decision: 'block', reason: visual.prompt });
+                emit('state', snapshot());
+                return;
+              }
+            } catch (cause) {
+              error = cause instanceof Error ? cause.message : String(cause);
+            }
+          }
+          working = false;
+          status = error ? 'Preview verification incomplete: ' + error : 'Preview build verified';
           json(200, {});
         }
         emit('state', snapshot());
         return;
       }
       repairs = 0;
+      working = true;
+      review?.begin();
       json(200, {
         hookSpecificOutput: {
           hookEventName: 'UserPromptSubmit',
@@ -208,7 +229,7 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
                         type: 'http',
                         url: `${origin}${base}/terminal/verify`,
                         headers: { Authorization: `Bearer ${token}` },
-                        timeout: 40,
+                        timeout: 120,
                       },
                     ],
                   },
@@ -251,6 +272,7 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
           completion = new Promise<void>((done) =>
             process!.onExit(({ exitCode }) => {
               process = undefined;
+              working = false;
               stopping = false;
               status = `Claude Code exited (${exitCode}). Start to open a new session.`;
               emit('state', snapshot());
@@ -258,11 +280,32 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
             }),
           );
         }
+      } else if (request.url === '/terminal/prompt') {
+        if (!process) throw new Error('Start Claude Code in the selected agent pane first.');
+        if (working)
+          throw new Error('Claude Code is working. Wait for the current turn to finish.');
+        if (
+          typeof value.message !== 'string' ||
+          !value.message.trim() ||
+          value.message.length > 16000 ||
+          [...value.message].some((character: string) => {
+            const code = character.charCodeAt(0);
+            return (code < 32 && code !== 9 && code !== 10) || code === 127;
+          })
+        )
+          throw new Error('Invalid inline prompt');
+        updateFocus();
+        working = true;
+        process.write('\x1b[200~' + value.message + '\x1b[201~');
+        await new Promise((done) => setTimeout(done, 100));
+        if (!process || stopping) throw new Error('Claude Code stopped before submitting.');
+        process.write('\r');
       } else if (request.url === '/terminal/input') {
         if (!process) throw new Error('Start Claude Code first');
         if (typeof value.data !== 'string' || value.data.length > 32000)
           throw new Error('Invalid terminal input');
         updateFocus();
+        if (value.data.includes('\x03')) working = false;
         process.write(value.data);
       } else if (request.url === '/terminal/resize') {
         size();

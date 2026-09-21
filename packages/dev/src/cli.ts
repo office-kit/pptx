@@ -21,7 +21,9 @@ try {
     }
     if (command === 'init') {
       const directory = await initProject(entry);
-      console.log(`Created ${directory}\nRun npm install, then npm run dev inside that directory.`);
+      console.log(
+        `Created ${directory}\nInside that directory, run npm install once.\nStart development: npm run dev (or npx office-pptx dev deck.tsx).`,
+      );
     } else if (command === 'inspect') {
       console.log(JSON.stringify(await inspectTemplate(entry), null, 2));
     } else if (command === 'build') {

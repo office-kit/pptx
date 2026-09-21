@@ -1,3 +1,4 @@
+import { mountEditor } from './editor-client.ts';
 const MAX_PANES = 4;
 type Layout =
   | { id: string }
@@ -263,4 +264,5 @@ export function mountWorkspace() {
     save();
   }
   render();
+  mountEditor(frames);
 }

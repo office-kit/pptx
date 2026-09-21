@@ -32,12 +32,22 @@ process.stdin.on('data',async data=>{
       { mode: 0o755 },
     );
     let busy = true;
+    let visual = false;
+    const review = {
+      begin() {},
+      async next() {
+        if (!visual) return;
+        visual = false;
+        return { prompt: 'Inspect changed slides: /tmp/slide-3.png', images: ['/tmp/slide-3.png'] };
+      },
+    };
     let buildError = 'ReferenceError: Bullets is not defined';
     const terminal = createTerminal(
       join(directory, 'deck.tsx'),
       () => busy,
       '',
       async () => buildError,
+      review,
     );
     const server = createServer(
       (req, res) =>
@@ -132,6 +142,27 @@ process.stdin.on('data',async data=>{
     }
     assert.equal((await verify()).decision, undefined);
     buildError = null;
+    visual = true;
+    const visualFeedback = await verify();
+    assert.equal(visualFeedback.decision, 'block');
+    assert.match(visualFeedback.reason, /slide-3\.png/);
+    assert.equal((await verify()).decision, undefined);
+    assert.equal(
+      (await post('prompt', { message: 'bad\x1b[2J', slide: 2, revision: 7 })).status,
+      400,
+    );
+    assert.equal(
+      (await post('prompt', { message: 'Move down', slide: 2, revision: 6 })).status,
+      400,
+    );
+    assert.equal(
+      (await post('prompt', { message: 'Move down\nslightly', slide: 2, revision: 7 })).status,
+      200,
+    );
+    assert.equal(
+      (await post('prompt', { message: 'Another edit', slide: 2, revision: 7 })).status,
+      400,
+    );
     assert.equal((await verify()).decision, undefined);
     assert.equal((await post('resize', { cols: 12, rows: 3 })).status, 200);
     assert.equal((await post('resize', { cols: 1, rows: 0 })).status, 400);
