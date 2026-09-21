@@ -103,6 +103,14 @@
       };
     }
   }
+  function setSliceColor(entry: SeriesDraft, index: number, color: string | null) {
+    const pointColors = categories.map((_, i) => entry.base.pointColors?.[i] ?? null);
+    pointColors[index] = color;
+    entry.base = { ...entry.base, pointColors };
+  }
+  function applySlicePalette() {
+    for (const entry of series) entry.base = { ...entry.base, pointColors: categories.map((_, i) => defaultSeriesColors[i % defaultSeriesColors.length]) };
+  }
   function addSeries() {
     series.push({ base: { name: '', values: [] }, name: t('Series') + ' ' + (series.length + 1), values: categories.map(() => 0) });
   }
@@ -230,12 +238,19 @@
           </th>{/each}<th></th></tr></thead>
           <tbody>{#each categories as _, r}<tr>
             <th><input class="ok-input" aria-label={`${t('Category')} ${r + 1}`} bind:value={categories[r]} /></th>
-            {#each series as entry, s}<td><input class="ok-input" type="number" step="any" aria-label={`${t('Value')} ${r + 1}, ${s + 1}`} bind:value={entry.values[r]} /></td>{/each}
+            {#each series as entry, s}<td><input class="ok-input" type="number" step="any" aria-label={`${t('Value')} ${r + 1}, ${s + 1}`} bind:value={entry.values[r]} />
+              {#if singleSeries}
+                <div class="series-tools">
+                  <input type="color" aria-label={`${t('Slice color')} ${r + 1}`} value={entry.base.pointColors?.[r] ?? entry.color ?? defaultSeriesColors[s % defaultSeriesColors.length]} onchange={e => setSliceColor(entry, r, e.currentTarget.value)} />
+                  <button class="ok-btn" type="button" aria-label={`${t('Use series color')} ${r + 1}`} disabled={entry.base.pointColors?.[r] == null} onclick={() => setSliceColor(entry, r, null)}>{t('Use series color')}</button>
+                </div>
+              {/if}
+            </td>{/each}
             <td><button type="button" class="ok-btn" disabled={categories.length <= 1} aria-label={`${t('Remove category')} ${r + 1}`} onclick={() => removeCategory(r)}>×</button></td>
           </tr>{/each}</tbody>
         </table>
       </div>
-      <div class="add"><button class="ok-btn" type="button" onclick={addCategory}>{t('Add category')}</button><button class="ok-btn" type="button" disabled={singleSeries} onclick={addSeries}>{t('Add series')}</button></div>
+      <div class="add"><button class="ok-btn" type="button" onclick={addCategory}>{t('Add category')}</button><button class="ok-btn" type="button" disabled={singleSeries} onclick={addSeries}>{t('Add series')}</button>{#if singleSeries}<button class="ok-btn" type="button" onclick={applySlicePalette}>{t('Apply slice palette')}</button>{/if}</div>
     {:else}<p role="alert">{t('Select a supported chart to edit its data.')}</p>{/if}
     {#if !validSeries}<p role="alert">{t('Pie and doughnut charts require one series. Remove extra series or choose another chart type.')}</p>{/if}
     {#if !validAxes}<p role="alert">{t('Axis minimum must be below maximum, tick intervals must be positive, and logarithmic bounds must be positive.')}</p>{/if}

@@ -55,6 +55,8 @@ test(
         true,
       );
       await dialog.getByLabel('ドーナツの穴の大きさ (%)', { exact: true }).fill('70');
+      await dialog.getByRole('button', { name: '扇形を色分け', exact: true }).click();
+      await dialog.getByLabel('扇形の色 2', { exact: true }).fill('#cc2299');
       await page.screenshot({ path: '/tmp/pptx-pr287-chart-pie-options-ja.png', fullPage: true });
       await dialog.getByRole('button', { name: 'グラフを挿入', exact: true }).click();
       await saved();
@@ -65,6 +67,11 @@ test(
           .locator('.paint path[stroke="#FFFFFF"][stroke-width="0.6"]')
           .first()
           .getAttribute('d');
+      assert.deepEqual((await read()).series[0].pointColors, ['#4472C4', '#CC2299', '#A5A5A5']);
+      assert.equal(
+        await editor.locator('.paint path[fill="#CC2299"][stroke="#FFFFFF"]').count(),
+        1,
+      );
       const initialPath = await arcs();
       const radii = [...initialPath.matchAll(/A([\d.]+),/g)].map((match) => Number(match[1]));
       assert.equal(radii.length, 2);
@@ -79,6 +86,10 @@ test(
       assert.equal(
         await dialog.getByLabel('Doughnut hole size (%)', { exact: true }).inputValue(),
         '70',
+      );
+      assert.equal(
+        await dialog.getByLabel('Slice color 2', { exact: true }).inputValue(),
+        '#cc2299',
       );
       await dialog.getByLabel('First slice angle (°)', { exact: true }).fill('180');
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -115,6 +126,34 @@ test(
       assert.equal((await read()).kind, 'pie');
       assert.equal((await read()).firstSliceAngleDeg, 180);
       assert.equal([...(await arcs()).matchAll(/A/g)].length, 1);
+      await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Use series color 2', exact: true }).click();
+      assert.equal(
+        await dialog.getByLabel('Slice color 2', { exact: true }).inputValue(),
+        '#4472c4',
+      );
+      await dialog.getByRole('button', { name: 'Remove category 1', exact: true }).click();
+      assert.equal(
+        await dialog.getByLabel('Slice color 2', { exact: true }).inputValue(),
+        '#a5a5a5',
+      );
+      await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+      await saved();
+      assert.deepEqual(
+        Array.from((await read()).series[0].pointColors, (color) => color ?? null),
+        [null, '#A5A5A5'],
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual((await read()).series[0].pointColors, ['#4472C4', '#CC2299', '#A5A5A5']);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(
+        Array.from((await read()).series[0].pointColors, (color) => color ?? null),
+        [null, '#A5A5A5'],
+      );
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({

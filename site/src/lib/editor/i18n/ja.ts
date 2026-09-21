@@ -226,6 +226,9 @@ export const ja: Record<string, string> = {
   'Radar chart': 'レーダーチャート',
   'Series name': '系列名',
   'Series color': '系列の色',
+  'Slice color': '扇形の色',
+  'Use series color': '系列の色に戻す',
+  'Apply slice palette': '扇形を色分け',
   'First slice angle (°)': '最初の扇形の角度 (°)',
   'Doughnut hole size (%)': 'ドーナツの穴の大きさ (%)',
   'Use whole numbers: slice angle 0–360°, hole size 10–90%.':
