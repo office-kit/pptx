@@ -78,9 +78,8 @@ test(
       const originalBounds = getShapeBounds(await picture());
       await editor.locator('.hit').dblclick();
       dialog = editor.getByRole('dialog', { name: 'Crop image', exact: true });
-      const surface = dialog.locator('.crop-surface');
       const drag = async (name, xFraction, yFraction) => {
-        const box = await surface.boundingBox();
+        const box = await dialog.locator('.crop-surface').boundingBox();
         const handle = await dialog.getByRole('button', { name, exact: true }).boundingBox();
         const x = handle.x + handle.width / 2,
           y = handle.y + handle.height / 2;
@@ -170,6 +169,75 @@ test(
       assert.ok(Math.abs((await rect()).left - 11) < 0.01);
       await page.keyboard.press('Escape');
       await dialog.waitFor({ state: 'hidden' });
+      await editor.getByRole('button', { name: '画像をトリミング', exact: true }).click();
+      const ratioControl = dialog.getByLabel('トリミングの縦横比', { exact: true });
+      for (const [preset, ratio] of [
+        ['1:1', 1],
+        ['16:9', 16 / 9],
+        ['4:3', 4 / 3],
+        ['3:2', 1.5],
+        ['9:16', 9 / 16],
+        ['3:4', 0.75],
+        ['2:3', 2 / 3],
+        ['source', 2],
+      ]) {
+        await dialog.getByRole('button', { name: 'トリミングをリセット', exact: true }).click();
+        await ratioControl.selectOption(preset);
+        const cropRect = await rect();
+        assert.ok(Math.abs((cropRect.width * 2) / cropRect.height - ratio) < 1e-6);
+        const result = await dialog.locator('.preview').boundingBox();
+        assert.ok(Math.abs(result.width / result.height - ratio) < 0.01);
+      }
+      await ratioControl.selectOption('1:1');
+      await dialog
+        .getByRole('button', { name: '右下をトリミング', exact: true })
+        .press('Shift+ArrowLeft');
+      let locked = await rect();
+      assert.ok(Math.abs((locked.width * 2) / locked.height - 1) < 1e-6);
+      await drag('右辺をトリミング', 2, 0);
+      locked = await rect();
+      assert.ok(Math.abs((locked.width * 2) / locked.height - 1) < 1e-6);
+      assert.ok(
+        locked.left >= 0 &&
+          locked.top >= 0 &&
+          locked.left + locked.width <= 100.001 &&
+          locked.top + locked.height <= 100.001,
+      );
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      assert.deepEqual(getShapeImageCrop(await picture()), expected);
+      assert.deepEqual(getShapeBounds(await picture()), originalBounds);
+      await editor.getByRole('button', { name: '画像をトリミング', exact: true }).click();
+      await ratioControl.selectOption('1:1');
+      await page.screenshot({ path: '/tmp/pptx-pr287-crop-ratio-ja.png', fullPage: true });
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      const squareBounds = getShapeBounds(await picture());
+      const squareCrop = getShapeImageCrop(await picture());
+      assert.ok(Math.abs(squareBounds.w / squareBounds.h - 1) < 1e-6);
+      assert.ok(
+        Math.abs(squareBounds.x + squareBounds.w / 2 - originalBounds.x - originalBounds.w / 2) < 2,
+      );
+      assert.ok(
+        Math.abs(squareBounds.y + squareBounds.h / 2 - originalBounds.y - originalBounds.h / 2) < 2,
+      );
+      assert.ok(
+        Math.abs(
+          ((1 - squareCrop.left - squareCrop.right) * 2) /
+            (1 - squareCrop.top - squareCrop.bottom) -
+            1,
+        ) < 1e-5,
+      );
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(getShapeBounds(await picture()), originalBounds);
+      assert.deepEqual(getShapeImageCrop(await picture()), expected);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(getShapeBounds(await picture()), squareBounds);
+      assert.deepEqual(getShapeImageCrop(await picture()), squareCrop);
+      assert.deepEqual(Buffer.from(getShapeImageBytes(await picture())), png);
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-crop-failure.png', fullPage: true });

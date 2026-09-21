@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getShapeKind, getShapeImageBytes, getShapeImageFormat, getShapeImageCrop, getShapeBounds, setShapeImageCrop } from '@office-kit/pptx';
+  import { emu, getShapeKind, getShapeImageBytes, getShapeImageFormat, getShapeImageCrop, getShapeBounds, setShapeBounds, setShapeImageCrop } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -37,7 +37,25 @@
   const valid = $derived(rect.left >= 0 && rect.top >= 0 && rect.right <= 1 && rect.bottom <= 1 && rect.right > rect.left && rect.bottom > rect.top);
   const width = $derived(rect.right - rect.left);
   const height = $derived(rect.bottom - rect.top);
-  const aspect = bounds && bounds.w > 0 && bounds.h > 0 ? bounds.w / bounds.h : 1;
+  let ratioKey = $state('free');
+  const presets = [
+    { value: 'free', label: 'Free crop', ratio: 0 },
+    { value: 'source', label: 'Original image ratio', ratio: 0 },
+    { value: '1:1', label: 'Square (1:1)', ratio: 1 },
+    ...[[16, 9], [4, 3], [3, 2], [9, 16], [3, 4], [2, 3]].map(([w, h]) => ({ value: `${w}:${h}`, label: `${w}:${h}`, ratio: w! / h! })),
+  ];
+  const ratio = $derived(ratioKey === 'source' ? dimensions.width / dimensions.height : presets.find(preset => preset.value === ratioKey)?.ratio ?? 0);
+  const sourceRatio = $derived(ratio * dimensions.height / dimensions.width);
+  const originalAspect = bounds && bounds.w > 0 && bounds.h > 0 ? bounds.w / bounds.h : 1;
+  const aspect = $derived(ratio || originalAspect);
+  function chooseRatio() {
+    if (!ratio) return;
+    const start = valid ? rect : full;
+    const w = Math.min(start.right - start.left, (start.bottom - start.top) * sourceRatio);
+    const h = w / sourceRatio;
+    const cx = (start.left + start.right) / 2, cy = (start.top + start.bottom) / 2;
+    rect = { left: cx - w / 2, right: cx + w / 2, top: cy - h / 2, bottom: cy + h / 2 };
+  }
   onMount(() => {
     dialog.showModal();
     if (!picture) { error = t('Select one image to crop.'); return; }
@@ -52,13 +70,30 @@
       dx = Math.max(-start.left, Math.min(1 - start.right, dx));
       dy = Math.max(-start.top, Math.min(1 - start.bottom, dy));
       next.left += dx; next.right += dx; next.top += dy; next.bottom += dy;
+    } else if (ratio) {
+      const horizontal = handle.includes('w') ? -1 : handle.includes('e') ? 1 : 0;
+      const vertical = handle.includes('n') ? -1 : handle.includes('s') ? 1 : 0;
+      // Opposite corners stay fixed; edge handles grow symmetrically on the other axis.
+      const ax = horizontal < 0 ? start.right : horizontal > 0 ? start.left : (start.left + start.right) / 2;
+      const ay = vertical < 0 ? start.bottom : vertical > 0 ? start.top : (start.top + start.bottom) / 2;
+      const maxW = horizontal < 0 ? ax : horizontal > 0 ? 1 - ax : 2 * Math.min(ax, 1 - ax);
+      const maxH = vertical < 0 ? ay : vertical > 0 ? 1 - ay : 2 * Math.min(ay, 1 - ay);
+      const dw = dx * horizontal, dh = dy * vertical * sourceRatio;
+      const delta = Math.abs(dw) >= Math.abs(dh) ? dw : dh;
+      const limit = Math.min(maxW, maxH * sourceRatio);
+      const w = Math.min(limit, Math.max(Math.min(limit, minimum * Math.max(1, sourceRatio)), start.right - start.left + delta));
+      const h = w / sourceRatio;
+      next.left = horizontal < 0 ? ax - w : horizontal > 0 ? ax : ax - w / 2;
+      next.right = next.left + w;
+      next.top = vertical < 0 ? ay - h : vertical > 0 ? ay : ay - h / 2;
+      next.bottom = next.top + h;
     } else {
       if (handle.includes('w')) next.left = Math.max(0, Math.min(start.right - minimum, start.left + dx));
       if (handle.includes('e')) next.right = Math.min(1, Math.max(start.left + minimum, start.right + dx));
       if (handle.includes('n')) next.top = Math.max(0, Math.min(start.bottom - minimum, start.top + dy));
       if (handle.includes('s')) next.bottom = Math.min(1, Math.max(start.top + minimum, start.bottom + dy));
     }
-    rect = next;
+    rect = { left: Math.max(0, next.left), top: Math.max(0, next.top), right: Math.min(1, next.right), bottom: Math.min(1, next.bottom) };
   }
   function begin(event: PointerEvent, handle: Handle) {
     if (event.button !== 0 || !valid) return;
@@ -89,7 +124,13 @@
     if (doc.version !== version || doc.selection !== selection) { error = t('The document changed. Select the image again.'); return; }
     try {
       const crop = { left: rect.left, top: rect.top, right: 1 - rect.right, bottom: 1 - rect.bottom };
-      doc.transact(t('Crop image'), () => setShapeImageCrop(picture, Object.values(crop).every(value => value === 0) ? null : crop));
+      doc.transact(t('Crop image'), () => {
+        setShapeImageCrop(picture, Object.values(crop).every(value => value === 0) ? null : crop);
+        if (ratio && bounds) {
+          const w = Math.min(bounds.w, bounds.h * ratio), h = w / ratio;
+          setShapeBounds(picture, { ...bounds, x: emu(Math.round(bounds.x + (bounds.w - w) / 2)), y: emu(Math.round(bounds.y + (bounds.h - h) / 2)), w: emu(Math.max(1, Math.round(w))), h: emu(Math.max(1, Math.round(h))) });
+        }
+      });
       editor.closeDialog();
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
   }
@@ -99,6 +140,8 @@
   <form onsubmit={submit}>
     <header><strong>{t('Crop image')}</strong><button class="ok-btn" type="button" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     <p>{t('Drag the edges to crop or drag the selection to move it. Arrow keys adjust by 1%; hold Shift for 10%.')}</p>
+    <label class="ratio">{t('Crop aspect ratio')}<select aria-label={t('Crop aspect ratio')} value={ratioKey} onchange={event => { ratioKey = event.currentTarget.value; chooseRatio(); }} disabled={!loaded}>{#each presets as preset}<option value={preset.value}>{t(preset.label)}</option>{/each}</select></label>
+    {#if ratio}<p>{t('The image frame will match this ratio and stay centered.')}</p>{/if}
     {#if url}
       <div class="workspace">
         <div bind:this={surface} class="crop-surface" style:aspect-ratio={`${dimensions.width} / ${dimensions.height}`} style:width={`min(100%, ${380 * dimensions.width / dimensions.height}px)`}>
@@ -116,7 +159,7 @@
     {/if}
     {#if !valid}<p role="alert">{t('Reset crop to adjust this image visually.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
-    <footer><button class="ok-btn" type="button" onclick={() => rect = { ...full }}>{t('Reset crop')}</button><span></span><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!loaded || !valid}>{t('Apply')}</button></footer>
+    <footer><button class="ok-btn" type="button" onclick={() => { ratioKey = 'free'; rect = { ...full }; }}>{t('Reset crop')}</button><span></span><button class="ok-btn" type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button class="ok-btn primary" type="submit" disabled={!loaded || !valid}>{t('Apply')}</button></footer>
   </form>
 </dialog>
 
@@ -128,6 +171,8 @@
   header { justify-content: space-between; }
   footer span { flex: 1; }
   p, .result { font-size: 12px; margin: 0; }
+  .ratio { display: flex; align-items: center; gap: 12px; font-size: 12px; }
+  .ratio select { padding: 5px 8px; background: var(--ok-panel); color: var(--ok-text); border: 1px solid var(--ok-border); border-radius: 4px; }
   .workspace { display: flex; justify-content: center; padding: 12px; background: var(--ok-bg); }
   .crop-surface { position: relative; }
   .source { display: block; width: 100%; height: 100%; user-select: none; }

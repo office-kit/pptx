@@ -235,3 +235,5 @@ unmerged tables when needed. Source formatting is not transferred by this path.
 - Context menus support Shift+F10, arrow/Home/End navigation that skips disabled
   items, Enter activation and Escape focus return. Menu keyboard events do not
   move or delete underlying objects or cells. Browser checks cover EN/JA.
+
+Image cropping now offers original, square, landscape, and portrait aspect presets. Resizing keeps the chosen ratio, and Apply fits the image frame around its existing center in the same undo transaction. Browser coverage checks all presets, constrained dragging, cancel, undo/redo, and saved crop/frame persistence in the bilingual editor.

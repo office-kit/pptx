@@ -246,6 +246,12 @@ export const ja: Record<string, string> = {
   'Crop bottom (%)': '下のトリミング (%)',
   'Crop must leave part of the image visible': '画像が見える範囲を残してトリミングしてください',
   'Select one image to crop.': 'トリミングする画像を1つ選択してください。',
+  'Crop aspect ratio': 'トリミングの縦横比',
+  'Free crop': '自由にトリミング',
+  'Original image ratio': '元の画像の縦横比',
+  'Square (1:1)': '正方形（1:1）',
+  'The image frame will match this ratio and stay centered.':
+    '画像の表示枠もこの縦横比になり、中心位置を保ちます。',
   'Crop image': '画像をトリミング',
   'Crop top left': '左上をトリミング',
   'Crop top edge': '上辺をトリミング',
