@@ -18,6 +18,7 @@
   import ChartDialog from './ui/ChartDialog.svelte';
   import FindReplaceDialog from './ui/FindReplaceDialog.svelte';
   import LinkDialog from './ui/LinkDialog.svelte';
+  import CommentsDialog from './ui/CommentsDialog.svelte';
   import NotesDialog from './ui/NotesDialog.svelte';
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
@@ -173,6 +174,8 @@
       <FindReplaceDialog />
     {:else if editor.activeDialog === 'setShapeHyperlink'}
       <LinkDialog />
+    {:else if ['addSlideComment', 'setCommentText', 'removeSlideComment'].includes(editor.activeDialog ?? '')}
+      <CommentsDialog />
     {:else if editor.activeDialog === 'setSlideNotes'}
       <NotesDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}

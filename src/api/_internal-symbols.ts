@@ -78,7 +78,7 @@ export interface SlideLayoutData {
  */
 export interface SlideCommentData {
   readonly [COMMENT_SLIDE]: SlideData;
-  readonly [COMMENT_SNAPSHOT]: SlideComment;
+  [COMMENT_SNAPSHOT]: SlideComment;
   readonly author: CommentAuthor;
 }
 

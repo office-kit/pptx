@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 152,
+  "count": 153,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -557,7 +557,7 @@
           "name": "targetLayout",
           "type": "SlideLayoutData",
           "kind": "object",
-          "optional": false
+          "optional": true
         }
       ]
     },
@@ -1000,6 +1000,29 @@
           "name": "spec",
           "type": "ChartSpec",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setCommentText",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "comment",
+      "file": "api/fn/comments.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "comment",
+          "type": "SlideCommentData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "kind": "string",
           "optional": false
         }
       ]
@@ -1944,7 +1967,7 @@
         },
         {
           "name": "options",
-          "type": "{ bullets?: BulletStyle; preserveFormatting?: boolean }",
+          "type": "{ bullets?: BulletStyle; preserveFormatting?: boolean; range?: { start: number; end: number }; }",
           "kind": "object",
           "optional": false,
           "default": "{}"
@@ -2431,7 +2454,7 @@
         },
         {
           "name": "options",
-          "type": "{ preserveFormatting?: boolean }",
+          "type": "{ preserveFormatting?: boolean; range?: { start: number; end: number } }",
           "kind": "object",
           "optional": true
         }
@@ -2468,6 +2491,12 @@
           "type": "TextFormat",
           "kind": "object",
           "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ range?: { start: number; end: number } }",
+          "kind": "object",
+          "optional": true
         }
       ]
     },
