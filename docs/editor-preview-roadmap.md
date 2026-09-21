@@ -53,6 +53,13 @@ that a user can complete the corresponding editing workflow.
   undo selection, persisted order and reload. Slide clipboard, layout selection
   and multi-slide selection still need complete UI workflows.
 
+- The Arrange pane aligns objects to the selection (or slide for a single object)
+  and distributes equal horizontal/vertical gaps. Group/ungroup bind selected
+  top-level objects and preserve stacking order and undo selection. Canvas and
+  Select All treat nested groups as one object. Browser tests cover bilingual
+  controls, moving a group, ungrouping, undo, saved geometry and reload.
+  Rotated-group transforms and group-child editing still need workflow verification.
+
 ## Outstanding work
 
 Complete workflow coverage, remaining UI translations, accessibility and draft

@@ -8,11 +8,11 @@
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
-    getSlideShapes,
     setShapeBounds,
     setShapeRotation,
     setShapeText,
   } from '@office-kit/pptx';
+  import { topLevelShapes } from '../core/selection.ts';
   import { shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { snapMove, type Guide, type Rect } from './snapping.ts';
 
@@ -40,7 +40,7 @@
     doc.version;
     const slide = doc.currentSlide;
     if (!slide) return [];
-    return shapeBoxes(doc.pres, slide, getSlideShapes(slide));
+    return shapeBoxes(doc.pres, slide, topLevelShapes(slide));
   });
 
   const selectedIds = $derived.by<Set<number>>(() => {

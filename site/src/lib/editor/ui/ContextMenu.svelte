@@ -31,8 +31,8 @@
         { label: 'Bring forward', run: () => editor.invoke('bringShapeForward') },
         { label: 'Send backward', run: () => editor.invoke('sendShapeBackward') },
         { label: 'Send to back', run: () => editor.invoke('sendShapeToBack'), sep: true },
-        { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: doc.selection.kind !== 'shape' || doc.selection.shapeIds.length < 2 },
-        { label: 'Ungroup', run: () => editor.invoke('ungroupShapes') },
+        { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
+        { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
       );
     } else if (doc.selection.kind === 'slide') {
       list.push(

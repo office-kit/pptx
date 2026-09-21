@@ -59,6 +59,10 @@
     } else if (mod && e.key.toLowerCase() === 'd') {
       e.preventDefault();
       editor.duplicateSelection();
+    } else if (mod && e.key.toLowerCase() === 'g') {
+      e.preventDefault();
+      const command = e.shiftKey ? 'ungroupShapes' : 'groupShapes';
+      if (editor.canRun(command)) editor.invoke(command);
     } else if (mod && e.key.toLowerCase() === 'c') {
       editor.copySelection();
     } else if (mod && e.key.toLowerCase() === 'x') {

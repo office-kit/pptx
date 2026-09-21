@@ -209,3 +209,89 @@ test(
     }
   },
 );
+
+test(
+  'arrange controls align, distribute, group and ungroup selected objects and persist geometry',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-arrange-browser-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={1} height={0.5}>A</Text><Text x={4} y={2} width={2} height={0.5}>B</Text><Text x={9} y={3} width={3} height={0.5}>C</Text></Slide></Presentation>`,
+    );
+    let preview;
+    let browser;
+    let page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await page.keyboard.press('Control+a');
+      const arrange = editor.getByRole('region', { name: 'Arrange', exact: true });
+      await arrange.getByRole('button', { name: 'Align top', exact: true }).click();
+      await arrange.getByRole('button', { name: 'Distribute horizontally', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const readDeck = async () =>
+        loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+      const deck = await readDeck();
+      const boxes = getSlideShapes(getSlides(deck)[0]).map((shape) =>
+        getShapeBoundsResolved(deck, shape),
+      );
+      assert.deepEqual(
+        boxes.map((b) => b.x / 914400),
+        [1, 4.5, 9],
+      );
+      assert.deepEqual(
+        boxes.map((b) => b.y / 914400),
+        [1, 1, 1],
+      );
+      await arrange.getByRole('button', { name: 'Group', exact: true }).click();
+      await editor.locator('.hit').nth(1).waitFor({ state: 'detached' });
+      assert.equal(await editor.locator('.hit.selected').count(), 1);
+      await page.keyboard.press('ArrowDown');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const groupedDeck = await readDeck();
+      assert.match(getSlideXmlString(getSlides(groupedDeck)[0]), /<p:grpSp>/);
+      await editor.locator('.lang select').selectOption('ja');
+      await editor
+        .getByRole('region', { name: '配置', exact: true })
+        .getByRole('button', { name: 'グループ解除', exact: true })
+        .click();
+      await editor.locator('.hit.selected').nth(2).waitFor();
+      await page.keyboard.press('Control+z');
+      await editor.locator('.hit').nth(1).waitFor({ state: 'detached' });
+      await page.keyboard.press('Control+Shift+g');
+      await editor.locator('.hit.selected').nth(2).waitFor();
+      await page.screenshot({ path: '/tmp/pptx-pr287-arrange-ja.png', fullPage: true });
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(await editor.locator('.hit').count(), 3);
+      const restored = await readDeck();
+      assert.deepEqual(
+        getSlideShapes(getSlides(restored)[0]).map((shape) =>
+          getShapeBoundsResolved(restored, shape),
+        ),
+        boxes.map((b) => ({ ...b, y: b.y + 18288 })),
+      );
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-arrange-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

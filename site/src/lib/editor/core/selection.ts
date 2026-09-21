@@ -9,6 +9,13 @@
 // coordinates), never by object reference, so they survive re-renders, undo
 // snapshots, and structural clones.
 
+import {
+  getSlideShapes,
+  getGroupChildren,
+  getShapeId,
+  type SlideData,
+  type SlideShapeData,
+} from '@office-kit/pptx';
 import type { Operand } from '../manifest/types.ts';
 
 export interface SlideSelection {
@@ -74,4 +81,11 @@ export function availableOperands(sel: Selection): ReadonlySet<Operand> {
 
 export function isOperandAvailable(sel: Selection, operand: Operand): boolean {
   return availableOperands(sel).has(operand);
+}
+
+/** The library flattens groups; the canvas selects and transforms their outer frame. */
+export function topLevelShapes(slide: SlideData): SlideShapeData[] {
+  const shapes = getSlideShapes(slide);
+  const nestedIds = new Set(shapes.flatMap((shape) => getGroupChildren(shape).map(getShapeId)));
+  return shapes.filter((shape) => !nestedIds.has(getShapeId(shape)));
 }

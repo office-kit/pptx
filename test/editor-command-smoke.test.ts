@@ -39,6 +39,9 @@ class FakeDoc {
     const slide = this.slideAt(slideIndex);
     return slide ? findShapeById(slide, id) : null;
   }
+  select(selection: Selection): void {
+    this.selection = selection;
+  }
   selectShape(slideIndex: number, id: number): void {
     this.selection = { kind: 'shape', slideIndex, shapeIds: [id] };
   }
