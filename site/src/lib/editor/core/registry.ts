@@ -7,11 +7,8 @@
 //     undoable transaction, and post-processes the result (e.g. selecting a
 //     newly created shape).
 //
-// Because the registry is built by iterating the manifest, coverage is
-// structural: if a capability is manifested (and the coverage test guarantees
-// all 147 are), it has a runnable command here — reachable at minimum through
-// the command palette. Bespoke ribbon UIs supply nicer argument collection but
-// dispatch through this same execution path.
+// Manifest coverage proves command discovery. Selection bindings and browser
+// tests separately verify that a user can execute an editing workflow.
 
 import * as pptx from '@office-kit/pptx';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
@@ -277,6 +274,31 @@ class GroupCommand extends ManifestCommand {
   }
 }
 
+function selectedChart(doc: CommandDoc): pptx.SlideChartData | undefined {
+  const selection = doc.selection;
+  if (selection.kind !== 'shape' || selection.shapeIds.length !== 1) return undefined;
+  const slide = doc.slideAt(selection.slideIndex);
+  return slide
+    ? pptx
+        .getSlideCharts(slide)
+        .find((chart) => pptx.getShapeId(chart.shape) === selection.shapeIds[0])
+    : undefined;
+}
+
+class ChartCommand extends ManifestCommand {
+  override get params(): ResolvedCapability['params'] {
+    return super.params.filter((param) => param.name !== 'chart');
+  }
+  override canRun({ doc }: CommandContext): boolean {
+    return selectedChart(doc)?.spec != null;
+  }
+  override run({ doc }: CommandContext, args: Record<string, unknown>): unknown {
+    const chart = selectedChart(doc);
+    if (!chart?.spec) throw new CommandError('Select one chart to edit.');
+    return doc.transact(this.capability.labelEn, () => lib.setChartSpec!(chart, args.spec));
+  }
+}
+
 const registry = new Map<string, Command>(
   capabilities.map((cap) => [
     cap.id,
@@ -284,7 +306,9 @@ const registry = new Map<string, Command>(
       ? new SlideCommand(cap)
       : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
         ? new GroupCommand(cap)
-        : new ManifestCommand(cap),
+        : cap.id === 'setChartSpec'
+          ? new ChartCommand(cap)
+          : new ManifestCommand(cap),
   ]),
 );
 

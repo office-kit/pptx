@@ -2,6 +2,14 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  None: 'なし',
+  'Top right': '右上',
+  'Show percentages': '割合を表示',
+  'Show series names': '系列名を表示',
+  'Show categories': '項目名を表示',
+  'Show values': '値を表示',
+  'Data labels': 'データラベル',
+  Legend: '凡例',
   Category: '項目',
   Series: '系列',
   Value: '値',

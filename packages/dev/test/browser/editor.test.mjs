@@ -992,6 +992,9 @@ test(
       await editor.locator('button[title$="— addSlideChart"]').click();
       const jp = editor.getByRole('dialog', { name: 'グラフを挿入', exact: true });
       await jp.getByLabel('グラフのタイトル', { exact: true }).fill('売上 / Revenue');
+      await jp.getByLabel('凡例', { exact: true }).selectOption('b');
+      await jp.getByLabel('値を表示', { exact: true }).check();
+      await jp.getByLabel('項目名を表示', { exact: true }).check();
       await jp.getByLabel('系列名 1', { exact: true }).fill('日本');
       await jp.getByLabel('項目 1', { exact: true }).fill('春');
       await jp.getByLabel('値 1, 1', { exact: true }).fill('0');
@@ -1008,6 +1011,9 @@ test(
       let pres = await download();
       assert.equal(chart(pres).kind, 'column');
       assert.equal(chart(pres).title, '売上 / Revenue');
+      assert.equal(chart(pres).legend.position, 'b');
+      assert.equal(chart(pres).dataLabels.showValue, true);
+      assert.equal(chart(pres).dataLabels.showCategory, true);
       assert.deepEqual(chart(pres).series[0].values, [0, -2.5, null, 0]);
       assert.deepEqual(chart(pres).series[1].values, [0, 0, 0, 42.5]);
       const bounds = getShapeBoundsResolved(pres, getSlideShapes(getSlides(pres)[0])[0]);
@@ -1023,6 +1029,9 @@ test(
       assert.equal(chart(await download()).kind, 'column');
       await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
       await dialog.getByLabel('Chart type', { exact: true }).selectOption('line');
+      await dialog.getByLabel('Legend', { exact: true }).selectOption('r');
+      await dialog.getByLabel('Show categories', { exact: true }).uncheck();
+      await dialog.getByLabel('Show series names', { exact: true }).check();
       await dialog.getByLabel('Category 1', { exact: true }).fill('Spring');
       await dialog.getByLabel('Value 1, 1', { exact: true }).fill('123.75');
       await dialog.getByRole('button', { name: 'Remove category 2', exact: true }).click();
@@ -1032,6 +1041,9 @@ test(
       await saved();
       pres = await download();
       assert.equal(chart(pres).kind, 'line');
+      assert.equal(chart(pres).legend.position, 'r');
+      assert.equal(chart(pres).dataLabels.showCategory, false);
+      assert.equal(chart(pres).dataLabels.showSeriesName, true);
       assert.deepEqual(chart(pres).categories, ['Spring', '項目 3', '冬']);
       assert.deepEqual(chart(pres).series[0].values, [123.75, null, 0]);
       assert.equal(chart(pres).series.length, 1);
@@ -1056,15 +1068,29 @@ test(
       for (const kind of ['bar', 'area', 'pie', 'doughnut', 'radar']) {
         await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
         await dialog.getByLabel('Chart type', { exact: true }).selectOption(kind);
+        if (kind === 'pie') await dialog.getByLabel('Show percentages', { exact: true }).check();
+        if (kind === 'radar') {
+          await dialog.getByLabel('Show percentages', { exact: true }).uncheck();
+          await dialog.getByLabel('Legend', { exact: true }).selectOption({ label: 'None' });
+        }
         await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
         await saved();
-        assert.equal(chart(await download()).kind, kind);
+        const current = chart(await download());
+        assert.equal(current.kind, kind);
+        if (kind === 'pie') assert.equal(current.dataLabels.showPercent, true);
+        if (kind === 'radar') {
+          assert.equal(current.legend?.position ?? null, null);
+          assert.equal(current.dataLabels.showPercent, false);
+        }
         assert.match(await editor.locator('.paint').textContent(), /売上/);
       }
       await page.reload();
       await saved();
       pres = await download();
       assert.equal(chart(pres).kind, 'radar');
+      assert.equal(chart(pres).legend?.position ?? null, null);
+      assert.equal(chart(pres).dataLabels.showValue, true);
+      assert.equal(chart(pres).dataLabels.showSeriesName, true);
       assert.deepEqual(chart(pres).series[0].values, [123.75, null, 0]);
       assert.deepEqual(errors, []);
     } catch (error) {

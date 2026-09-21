@@ -27,7 +27,9 @@ that a user can complete the corresponding editing workflow.
   charts, edit titles, category labels, series names, colors and numeric data,
   and add or remove categories and series. Browser tests verify all seven kinds,
   blanks/zero/negative values, geometry preservation, cancel, undo/redo, reload
-  and actual embedded workbook contents. Other chart kinds and advanced chart
+  and actual embedded workbook contents. Legend positions and data label toggles
+  are editable in both languages. Chart commands require exactly one selected
+  chart and resolve it from the current slide. Other chart kinds and advanced chart
   formatting still need dedicated controls and workflow verification.
 
 - The editor branch incorporates main's development-tool source and current API.
