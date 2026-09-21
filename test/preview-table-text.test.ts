@@ -65,6 +65,32 @@ describe('table cell text rendering', () => {
     );
   }
 
+  it.each(['svg', 'foreignObject'] as const)(
+    'page fitting scales unsized cell text and preserves wrapping (%s)',
+    async (textLayout) => {
+      const { pres, slide } = await blankSlide();
+      addSlideTable(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(3),
+        rows: [['Default table text wraps over several lines']],
+      });
+      const before = renderSlideToSvg(pres, slide, { textLayout });
+      const size = getSlideSize(pres)!;
+      setSlideSize(
+        pres,
+        { width: emu(size.width * 2), height: emu(size.height * 2) },
+        { content: 'fit' },
+      );
+      const after = renderSlideToSvg(pres, slide, { textLayout });
+      if (textLayout === 'svg') {
+        expect(after).toContain('font-size="48"');
+        expect(countTags(after, 'text')).toBe(countTags(before, 'text'));
+      } else expect(after).toContain('font-size:48.00px');
+    },
+  );
+
   it('page fitting scales the default cell text box proportionally', async () => {
     const { pres, slide } = await blankSlide();
     const table = addSlideTable(slide, {

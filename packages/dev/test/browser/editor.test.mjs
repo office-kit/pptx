@@ -1210,7 +1210,7 @@ test(
     const file = join(dir, 'deck.tsx');
     await writeFile(
       file,
-      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Size test</Text></Slide><Slide /></Presentation>`,
+      `import {Presentation,Slide,Text,Table} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Size test</Text></Slide><Slide><Table x={1} y={1} width={4} height={2} rows={[["Default table text"]]} /></Slide></Presentation>`,
     );
     let preview, browser, page;
     try {
@@ -1227,7 +1227,11 @@ test(
         loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
+      const tableFontSize = (deck) =>
+        getTableCellParagraphs(getTableCells(getSlideShapes(getSlides(deck)[1])[0])[0][0])[0]
+          .elements[0].format?.size;
       await saved();
+      assert.equal(tableFontSize(await read()), undefined);
       const original = await read();
       const bounds = getShapeBoundsResolved(original, getSlideShapes(getSlides(original)[0])[0]);
       await editor.getByRole('button', { name: 'Page setup', exact: true }).click();
@@ -1373,6 +1377,8 @@ test(
           authoredSizes(fitted),
           authoredSizes(beforeFit).map((size) => Math.round(size * scale)),
         );
+        const expectedTableSize = Math.round((tableFontSize(beforeFit) ?? 18) * 100 * scale) / 100;
+        assert.equal(tableFontSize(fitted), expectedTableSize);
         const expected = {
           x: Math.round(beforeBounds.x * scale + (target - beforeSize.width * scale) / 2),
           y: Math.round(beforeBounds.y * scale + (target - beforeSize.height * scale) / 2),
@@ -1388,6 +1394,7 @@ test(
           .click();
         await waitSaved();
         assert.deepEqual(getSlideSize(await read()), beforeSize);
+        assert.equal(tableFontSize(await read()), tableFontSize(beforeFit));
         await editor
           .getByTitle(ja ? 'やり直し (Ctrl+Y)' : 'Redo (Ctrl+Y)', { exact: true })
           .click();
@@ -1395,6 +1402,7 @@ test(
         await page.reload();
         await waitSaved();
         const reloaded = await read();
+        assert.equal(tableFontSize(reloaded), expectedTableSize);
         assert.deepEqual(
           getShapeBoundsResolved(reloaded, getSlideShapes(getSlides(reloaded)[0])[0]),
           expected,
