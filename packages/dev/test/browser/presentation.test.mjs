@@ -7,6 +7,8 @@ import { chromium } from 'playwright';
 import { compile, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
 import {
   getSlides,
+  getSlideShapes,
+  setShapeClickAction,
   savePresentation,
   setSlideNotes,
   setSlideHidden,
@@ -319,6 +321,75 @@ test(
       );
       assert.equal(await page.locator('#present').isDisabled(), true);
       assert.equal(await page.locator('.thumbnail').count(), 5);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'slide links navigate in preview and presentation without also advancing',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-slide-links-'));
+    let preview;
+    let browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: ['Jump to third', 'Second', 'Back to first', 'Last'].map((title) =>
+            Slide({ children: Text({ x: 1, y: 1, width: 5, height: 1, children: title }) }),
+          ),
+        }),
+      );
+      const slides = getSlides(deck);
+      setShapeClickAction(getSlideShapes(slides[0])[0], { kind: 'slide', slide: slides[2] });
+      setShapeClickAction(getSlideShapes(slides[2])[0], { kind: 'slide', slide: slides[0] });
+      setShapeClickAction(getSlideShapes(slides[1])[0], {
+        kind: 'url',
+        url: 'https://example.com/link-test',
+      });
+      await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(join(dir, 'source.pptx'))})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+      await context.route('https://example.com/**', (route) =>
+        route.fulfill({ body: 'External destination' }),
+      );
+      const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.locator('#slide a').click();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
+      await page.locator('#slide a').focus();
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
+      assert.equal(new URL(page.url()).hash, '');
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      await page.locator('#slide a').click();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 4');
+      await page.locator('#slide a').click();
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 4');
+      await page.locator('#stage').click({ position: { x: 15, y: 15 } });
+      assert.equal(await page.locator('#count').textContent(), 'Slide 2 of 4');
+      const opened = page.waitForEvent('popup');
+      await page.locator('#slide a').click();
+      const external = await opened;
+      await external.waitForLoadState();
+      assert.equal(external.url(), 'https://example.com/link-test');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 2 of 4');
+      await external.close();
+      await page.keyboard.press('Escape');
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
