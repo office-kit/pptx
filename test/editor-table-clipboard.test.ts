@@ -13,6 +13,8 @@ import {
 } from '../src/api/index.ts';
 import {
   parseTableClipboard,
+  serializeTableClipboard,
+  copyTableCellValues,
   canPasteTableCells,
   pasteTableCells,
 } from '../site/src/lib/editor/core/table-clipboard.ts';
@@ -44,6 +46,20 @@ describe('spreadsheet clipboard', () => {
     expect(parseTableClipboard('A\n\n')).toEqual([['A'], ['']]);
     expect(parseTableClipboard('"broken')).toBeNull();
     expect(parseTableClipboard('"closed"extra')).toBeNull();
+  });
+  it('round-trips copied strings without confusing field delimiters', () => {
+    const values = [
+      ['日本語\nEnglish', 'a\tb', 'say "Hi"'],
+      ['', '', ''],
+    ];
+    expect(parseTableClipboard(serializeTableClipboard(values))).toEqual(values);
+  });
+  it('copies complete merged anchors and blanks their covered cells', async () => {
+    const target = await table();
+    mergeTableCells(target, { row: 0, col: 0, rowSpan: 1, colSpan: 2 });
+    expect(
+      copyTableCellValues(target, { kind: 'cell', slideIndex: 0, shapeId: 1, row: 0, col: 0 }),
+    ).toEqual([['A', '']]);
   });
   it('expands rows and columns and preserves cells outside a ragged paste', async () => {
     const target = await table();

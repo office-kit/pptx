@@ -221,3 +221,8 @@ presentation.
 Table cell ranges now live in document selection, including their active end.
 Panel and global Delete share the same merged-cell-aware range resolution;
 Shift+Arrow outside the grid extends the range, and undo restores it.
+
+Cell selection supports native copy/cut/paste of plain-text ranges, including
+spreadsheet quoting for tabs, newlines and quotes. Cut clears cell text rather
+than deleting the table; paste retains destination formatting and expands
+unmerged tables when needed. Source formatting is not transferred by this path.

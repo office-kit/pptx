@@ -30,6 +30,12 @@ import {
   type SlideShapeData,
   type ShapeBounds,
 } from '@office-kit/pptx';
+import {
+  copyTableCellValues,
+  serializeTableClipboard,
+  canPasteTableCells,
+  pasteTableCells,
+} from './table-clipboard.ts';
 import { neighboringTableCell, tableCellsInRange, tableSelectionBlock } from './table-selection.ts';
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
@@ -220,7 +226,7 @@ export class EditorController {
   }
 
   // --- Clipboard & shape actions -----------------------------------------
-  #clipboard = $state.raw<Clipboard | null>(null);
+  #clipboard = $state.raw<Clipboard | { values: string[][] } | null>(null);
 
   /** Resolve the currently selected shapes to live objects. */
   selectedShapes(): SlideShapeData[] {
@@ -378,8 +384,16 @@ export class EditorController {
     });
   }
 
-  copySelection(): void {
+  copySelection(): string | undefined {
     const sel = this.doc.selection;
+    if (sel.kind === 'cell') {
+      const table = this.doc.shapeById(sel.slideIndex, sel.shapeId);
+      if (!table) return;
+      const values = copyTableCellValues(table, sel);
+      if (!values.length) return;
+      this.#clipboard = { values };
+      return serializeTableClipboard(values);
+    }
     const ids = selectedShapeIds(sel);
     if (sel.kind !== 'slide' && !ids.length) return;
     if (!this.doc.slideAt(sel.slideIndex)) return;
@@ -395,15 +409,21 @@ export class EditorController {
     void this.#clipboard.presentation.catch((error: Error) => this.toast('error', error.message));
   }
 
-  cutSelection(): void {
+  cutSelection(): string | undefined {
     if (this.doc.selection.kind !== 'slide' && !this.selectedShapes().length) return;
-    this.copySelection();
-    this.deleteSelection();
+    const text = this.copySelection();
+    if (this.doc.selection.kind === 'cell') this.clearCellText();
+    else this.deleteSelection();
+    return text;
   }
 
   async paste(): Promise<void> {
     const clip = this.#clipboard;
     if (!clip) return;
+    if ('values' in clip) {
+      this.pasteCellValues(clip.values);
+      return;
+    }
     const targetPresentation = this.doc.pres;
     const targetSlide = this.doc.slideAt(this.doc.selection.slideIndex);
     if (!targetSlide && clip.content.kind !== 'slide') return;
@@ -445,6 +465,29 @@ export class EditorController {
         `${t('Paste')}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
+  }
+
+  pasteCellValues(values: string[][]): void {
+    const selection = this.doc.selection;
+    if (selection.kind !== 'cell' || !values.length) return;
+    const table = this.doc.shapeById(selection.slideIndex, selection.shapeId);
+    if (!table) return;
+    const block = tableSelectionBlock(selection);
+    if (!canPasteTableCells(table, block.row, block.col, values)) {
+      this.toast('error', t('Split merged cells before pasting multiple cells'));
+      return;
+    }
+    this.doc.transact(t('Paste table cells'), () => {
+      pasteTableCells(table, block.row, block.col, values);
+      this.doc.selectCell(selection.slideIndex, selection.shapeId, block.row, block.col);
+      this.doc.selectCell(
+        selection.slideIndex,
+        selection.shapeId,
+        block.row + values.length - 1,
+        block.col + values.reduce((width, row) => Math.max(width, row.length), 0) - 1,
+        true,
+      );
+    });
   }
 
   hasClipboard(): boolean {

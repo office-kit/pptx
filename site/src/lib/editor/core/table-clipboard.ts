@@ -1,11 +1,15 @@
 import {
   getTableCells,
+  getTableCellText,
+  getTableCellPosition,
   getTableCellSpan,
   insertTableColumn,
   insertTableRow,
   setTableCellText,
   type SlideShapeData,
 } from '@office-kit/pptx';
+import { tableCellsInRange, tableSelectionBlock } from './table-selection.ts';
+import type { CellSelection } from './selection.ts';
 
 /** Spreadsheet text uses quoted fields for embedded tabs, newlines and quotes. */
 export function parseTableClipboard(text: string): string[][] | null {
@@ -99,4 +103,37 @@ export function pasteTableCells(
       setTableCellText(targets[row + r]![col + c]!, value, { preserveFormatting: true });
     }),
   );
+}
+
+export function copyTableCellValues(table: SlideShapeData, selection: CellSelection): string[][] {
+  const cells = getTableCells(table);
+  const selected = tableCellsInRange(cells, tableSelectionBlock(selection));
+  if (!selected.size) return [];
+  let top = cells.length,
+    left = cells[0]!.length,
+    bottom = 0,
+    right = 0;
+  for (const cell of selected) {
+    const { row, col } = getTableCellPosition(cell);
+    top = Math.min(top, row);
+    left = Math.min(left, col);
+    bottom = Math.max(bottom, row);
+    right = Math.max(right, col);
+  }
+  return cells.slice(top, bottom + 1).map((row) =>
+    row.slice(left, right + 1).map((cell) => {
+      const span = getTableCellSpan(cell);
+      return span.hMerge || span.vMerge ? '' : getTableCellText(cell);
+    }),
+  );
+}
+
+export function serializeTableClipboard(values: readonly (readonly string[])[]): string {
+  return values
+    .map((row) =>
+      row
+        .map((value) => (/[\t\r\n"]/.test(value) ? `"${value.replaceAll('"', '""')}"` : value))
+        .join('\t'),
+    )
+    .join('\n');
 }
