@@ -1,5 +1,6 @@
 // Slide-level shape authoring.
 
+import type { Color } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
   contentTypeForFormat,
@@ -98,7 +99,7 @@ export const addSlideLine = (
   opts: {
     from: { x: Emu; y: Emu };
     to: { x: Emu; y: Emu };
-    color?: string;
+    color?: Color;
     widthEmu?: number;
     name?: string;
   },

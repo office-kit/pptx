@@ -9,6 +9,7 @@
 // previous fill choice (`noFill`/`solidFill`/`gradFill`/`blipFill`/
 // `pattFill`/`grpFill`) before inserting the new `solidFill`.
 
+import type { Color } from './color.ts';
 import { oneOf } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
@@ -94,8 +95,8 @@ export const clearFill = (host: XmlElement): void => {
 export interface GradientStop {
   /** Position on the gradient axis, 0-1. */
   readonly offset: number;
-  /** `#RRGGBB`, bare `RRGGBB`, or a scheme color token. */
-  readonly color: string;
+  /** `#RRGGBB`, the `#RGB` shorthand, or a theme color token. */
+  readonly color: Color;
 }
 
 export interface GradientFillOptions {
@@ -127,6 +128,16 @@ export interface GradientFillOptions {
     readonly bottom: number;
   };
 }
+
+/**
+ * A gradient read back from a deck. Stop colors widen to `string`: the
+ * readers surface a scheme token verbatim, including one outside the theme,
+ * rather than dropping it.
+ */
+export type ReadGradientStop = Omit<GradientStop, 'color'> & { readonly color: string };
+export type ReadGradientFill = Omit<GradientFillOptions, 'stops'> & {
+  readonly stops: ReadonlyArray<ReadGradientStop>;
+};
 
 /** Every `ST_PresetPatternVal` token (ECMA-376 dml-main.xsd). */
 export const PATTERN_PRESETS = [

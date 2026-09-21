@@ -562,11 +562,18 @@ export {
   validatePresentation,
 } from './fn.ts';
 
+export { asColor } from '../internal/drawingml/index.ts';
 export type {
   BulletStyle,
+  Color,
+  HexColor,
   ParagraphAlignment,
   ParagraphAlignmentToken,
   ParagraphSpec,
+  SchemeColorToken,
+  ReadGradientFill,
+  ReadGradientStop,
+  ReadTextFormat,
   RunSpec,
   TextFormat,
 } from '../internal/drawingml/index.ts';

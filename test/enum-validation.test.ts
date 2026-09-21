@@ -287,8 +287,8 @@ it('setShapeGradientFill validates path', () => {
       // @ts-expect-error Exercise the JavaScript boundary.
       path: 'bogus',
       stops: [
-        { offset: 0, color: 'FF0000' },
-        { offset: 1, color: 'FFFFFF' },
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#FFFFFF' },
       ],
     });
   }).toThrow(/setShapeGradientFill: .*is not one of:/);
@@ -296,8 +296,8 @@ it('setShapeGradientFill validates path', () => {
     api.setShapeGradientFill(shape, {
       path: 'circle',
       stops: [
-        { offset: 0, color: 'FF0000' },
-        { offset: 1, color: 'FFFFFF' },
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#FFFFFF' },
       ],
     }),
   ).not.toThrow();
@@ -443,7 +443,7 @@ it.each(['alignment', 'textFormat'] as const)(
     const table = api.addSlideTable(slide, { ...box, rows: [['a', 'b']] });
     api.mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'drop' });
     const cell = api.getTableCell(table, 0, 1);
-    api.setTableCellFill(cell, 'FF0000');
+    api.setTableCellFill(cell, '#FF0000');
     const before = api.getSlideXmlString(slide);
     expect(() => {
       if (setter === 'alignment') {
@@ -454,7 +454,7 @@ it.each(['alignment', 'textFormat'] as const)(
       }
     }).toThrow(RangeError);
     // A later successful setter must not commit a rejected setter's mutations.
-    api.setTableCellFill(cell, 'FF0000');
+    api.setTableCellFill(cell, '#FF0000');
     expect(api.getSlideXmlString(slide)).toBe(before);
   },
 );

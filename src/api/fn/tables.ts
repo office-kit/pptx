@@ -1,5 +1,6 @@
 // Table cell access.
 
+import type { Color, ReadTextFormat } from '../../internal/drawingml/index.ts';
 import { oneOf } from '../../internal/bounds.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-values.ts';
 import { resolveChartPartName } from './charts.ts';
@@ -1050,7 +1051,7 @@ export interface TableCellParagraph {
    * Literal format of the paragraph-end mark (`<a:endParaRPr>`), or `null`
    * when absent — the only format a paragraph with no `elements` carries.
    */
-  readonly endFormat: TextFormat | null;
+  readonly endFormat: ReadTextFormat | null;
 }
 
 /**
@@ -1086,7 +1087,7 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
 };
 
 /** Sets a solid background color on a cell (`<a:tcPr><a:solidFill>`). */
-export const setTableCellFill = (cell: TableCellData, color: string): void => {
+export const setTableCellFill = (cell: TableCellData, color: Color): void => {
   const tcPr = ensureCellTcPr(cell);
   setSolidFill(tcPr, color);
   commitTableCell(cell);

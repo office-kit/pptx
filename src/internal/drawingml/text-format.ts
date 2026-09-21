@@ -15,6 +15,7 @@
 // then set the relevant attributes / child elements. Existing properties
 // not addressed by the format object are preserved.
 
+import type { Color } from './color.ts';
 import {
   NS,
   type XmlAttr,
@@ -102,7 +103,7 @@ export interface TextFormat {
    * Color. Accepts `#RRGGBB`, `RRGGBB`, an ECMA-376 scheme color token
    * (`tx1`, `accent1`, ...), or `null` to clear.
    */
-  color?: string | null;
+  color?: Color | null;
   bold?: boolean;
   italic?: boolean;
   /**
@@ -143,8 +144,18 @@ export interface TextFormat {
    * Highlight color (cell-fill style background per run). Same color
    * format as `color`. Mirrors `<a:rPr><a:highlight>…</a:highlight></a:rPr>`.
    */
-  highlight?: string | null;
+  highlight?: Color | null;
 }
+
+/**
+ * A run format read back from a deck. `color` and `highlight` widen to
+ * `string`: when no theme is supplied, or a token is not in the scheme, the
+ * readers surface the raw `<a:schemeClr val>` token as-is.
+ */
+export type ReadTextFormat = Omit<TextFormat, 'color' | 'highlight'> & {
+  color?: string | null;
+  highlight?: string | null;
+};
 
 const setOrRemoveAttr = (
   attrs: XmlAttr[],

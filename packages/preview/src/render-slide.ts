@@ -134,13 +134,13 @@ import {
   type ChartSpec,
   type ChartTextStyle,
   type CustomGeometry,
-  type GradientFillOptions,
+  type ReadGradientFill,
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
   type SlideShapeData,
   type TableCellParagraph,
-  type TextFormat,
+  type ReadTextFormat,
 } from '@office-kit/pptx';
 import { renderEmfToSvg } from './emf.ts';
 import {
@@ -554,7 +554,7 @@ let activeDeckTextColor = '#000000';
 // objectBoundingBox unit cube. ECMA-376 measures `angleDeg` clockwise
 // from 3 o'clock, which matches the trig below (0° = +x, 90° = +y).
 const gradientDef = (
-  grad: GradientFillOptions,
+  grad: ReadGradientFill,
   theme: PresentationTheme | null,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
@@ -2096,7 +2096,7 @@ const formatAutoNum = (token: string, n: number): string => {
 // autofit factor, or the placeholder default scaled the same way.
 const renderRun = (
   text: string,
-  format: TextFormat | null,
+  format: ReadTextFormat | null,
   theme: PresentationTheme | null,
   effectivePt: number,
   /* unused but kept for forward compatibility */ _wasDefault = false,
@@ -2184,7 +2184,7 @@ const AUTOFIT_STEP = 0.05;
 
 type RunData = {
   text: string;
-  fmt: TextFormat | null;
+  fmt: ReadTextFormat | null;
   sizePt: number;
   href?: string;
   hrefTip?: string;
@@ -2210,13 +2210,13 @@ interface ParaData {
 // (wavy/wavyDbl/wavyHeavy) needs a hand-drawn path since SVG has no
 // text-decoration-style, so it can't share a bucket with plain/dashed/dotted
 // styles, which all render fine as a single line.
-const underlineStyleOf = (fmt: TextFormat | null): 'none' | 'single' | 'wavy' => {
+const underlineStyleOf = (fmt: ReadTextFormat | null): 'none' | 'single' | 'wavy' => {
   const u = fmt?.underline;
   if (u === undefined || u === false || u === 'none') return 'none';
   if (typeof u === 'string' && u.startsWith('wavy')) return 'wavy';
   return 'single';
 };
-const hasStrikeFmt = (fmt: TextFormat | null): boolean => {
+const hasStrikeFmt = (fmt: ReadTextFormat | null): boolean => {
   const s = fmt?.strike;
   return s !== undefined && s !== false && s !== 'noStrike';
 };
@@ -2729,7 +2729,7 @@ export const resolveTextBodyModel = (
         continue;
       }
       const txt = el.text;
-      let fmt: TextFormat | null = el.format;
+      let fmt: ReadTextFormat | null = el.format;
       let href: string | undefined;
       let hrefTip: string | undefined;
       if (el.kind === 'r') {

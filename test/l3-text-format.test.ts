@@ -79,7 +79,10 @@ describe('L3: setShapeTextFormat', () => {
 
   it('rejects unrecognized color values', async () => {
     const { box } = await newBox('t');
-    expect(() => setShapeTextFormat(box, { color: 'pumpkin spice' })).toThrow(/color/);
+    expect(() =>
+      // @ts-expect-error Exercise the JavaScript boundary.
+      setShapeTextFormat(box, { color: 'pumpkin spice' }),
+    ).toThrow(/color/);
   });
 
   skipIfNoXmllint('formatted output validates against pml.xsd', async () => {

@@ -5,6 +5,7 @@ import {
   Slide,
   Table,
   compile,
+  type TableCell,
   type TableCellInfo,
   type TableProps,
 } from '../packages/dsl/src/index.ts';
@@ -46,7 +47,7 @@ describe('Table rich cells', () => {
   // Replacing the runs after the table-wide format was applied lost size and
   // color, so the merged format is the base every run is built on.
   it('formats rich runs on top of cellStyle, headerStyle and styleCell', async () => {
-    const rich = (text: string) => ({
+    const rich = (text: string): TableCell => ({
       paragraphs: [{ runs: [{ text }, { text: '!', format: { bold: true, color: '#C00000' } }] }],
     });
     const { cell } = await compileTable({

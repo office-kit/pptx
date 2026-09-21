@@ -1,5 +1,6 @@
 // Shape mutation: geometry, fill, stroke.
 
+import type { Color } from '../../internal/drawingml/index.ts';
 import { resolveDrawingColor } from './shape-color.ts';
 import {
   type ArrowOptions,
@@ -118,7 +119,7 @@ export const setShapeFlip = (
 // Shape mutation — fill / stroke.
 
 /** Sets a solid fill on the shape (color in `#RRGGBB` or scheme token). */
-export const setShapeFill = (shape: SlideShapeData, color: string): void => {
+export const setShapeFill = (shape: SlideShapeData, color: Color): void => {
   setSolidFill(requireSpPr(shape), color);
   commitAndRefresh(shape);
 };
@@ -306,7 +307,7 @@ export const clearShapeFill = (shape: SlideShapeData): void => {
 /** Sets a solid-color outline on the shape. */
 export const setShapeStroke = (
   shape: SlideShapeData,
-  options: { color?: string; widthEmu?: number },
+  options: { color?: Color; widthEmu?: number },
 ): void => {
   setSolidStroke(requireSpPr(shape), options as StrokeOptions);
   commitAndRefresh(shape);

@@ -11,7 +11,7 @@ const NAME_SRGB_CLR = qname('a', 'srgbClr', NS.dml);
 const NAME_SCHEME_CLR = qname('a', 'schemeClr', NS.dml);
 const ATTR_VAL = qname('', 'val', '');
 
-const SCHEME_TOKENS = new Set([
+const SCHEME_COLOR_TOKENS = [
   'bg1',
   'tx1',
   'bg2',
@@ -29,7 +29,29 @@ const SCHEME_TOKENS = new Set([
   'dk1',
   'lt2',
   'dk2',
-]);
+] as const;
+
+const SCHEME_TOKENS: ReadonlySet<string> = new Set(SCHEME_COLOR_TOKENS);
+
+/** A theme color slot (`<a:schemeClr val="..."/>`). */
+export type SchemeColorToken = (typeof SCHEME_COLOR_TOKENS)[number];
+
+/**
+ * An sRGB color, `#RRGGBB` or the 3-digit `#RGB` shorthand.
+ *
+ * TypeScript cannot spell "six hex digits", so a malformed body such as
+ * `'#zzzzzz'` still type-checks and is rejected at run time. Requiring the
+ * `#` is what stops the union collapsing to `string` and taking every other
+ * color mistake down with it.
+ */
+export type HexColor = `#${string}`;
+
+/**
+ * Any color an authoring call accepts. Contexts that cannot resolve a theme
+ * slot — chart series fills, which must carry a concrete sRGB value — take
+ * `HexColor` instead.
+ */
+export type Color = HexColor | SchemeColorToken | `scheme:${SchemeColorToken}`;
 
 export type ParsedColor = { kind: 'srgb'; hex: string } | { kind: 'scheme'; token: string };
 
@@ -90,3 +112,15 @@ export const buildColorElement = (value: string): XmlElement => {
     ? elem(NAME_SRGB_CLR, { attrs: [attr(ATTR_VAL, parsed.hex)] })
     : elem(NAME_SCHEME_CLR, { attrs: [attr(ATTR_VAL, parsed.token)] });
 };
+
+/**
+ * Narrows a color read back from a deck to one that can be written again,
+ * or `null` when it is not a color this library can emit.
+ *
+ * The readers surface `<a:schemeClr val>` verbatim, so a round-trip
+ * (`setX(getX(...))`) has to pass through a check somewhere; doing it here
+ * keeps that single `Color` assertion backed by the same parser that
+ * `buildColorElement` uses.
+ */
+export const asColor = (value: string): Color | null =>
+  parseColor(value) === null ? null : (value as Color);

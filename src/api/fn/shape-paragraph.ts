@@ -19,6 +19,7 @@ import { getSlideLayout } from './shape-slide-read.ts';
 import {
   type BulletStyle,
   type ParagraphAlignment,
+  type ReadTextFormat,
   type TextFormat,
   applyHyperlinkToAllRuns,
   applyRunFormat as applyRunFormatInternal,
@@ -72,7 +73,7 @@ const NAME_P_TITLE_STYLE = qname('p', 'titleStyle', NS.pml);
 const NAME_P_BODY_STYLE = qname('p', 'bodyStyle', NS.pml);
 const NAME_P_OTHER_STYLE = qname('p', 'otherStyle', NS.pml);
 
-const mergeRPrLayer = (base: Partial<TextFormat>, layer: Partial<TextFormat>): void => {
+const mergeRPrLayer = (base: Partial<ReadTextFormat>, layer: Partial<ReadTextFormat>): void => {
   if (base.font === undefined && layer.font !== undefined) base.font = layer.font;
   if (base.fontEastAsian === undefined && layer.fontEastAsian !== undefined) {
     base.fontEastAsian = layer.fontEastAsian;
@@ -205,10 +206,10 @@ export const getShapeRunFormatEffective = (
   shape: SlideShapeData,
   paragraphIndex: number,
   runIndex: number,
-): TextFormat => {
+): ReadTextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const run = requireRun(shape, paragraphIndex, runIndex);
-  const result: Partial<TextFormat> = {};
+  const result: Partial<ReadTextFormat> = {};
 
   // Theme is consulted (a) at each layer to resolve scheme tokens and
   // color transforms eagerly, so the cascade can pick the innermost layer
