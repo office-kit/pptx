@@ -60,6 +60,12 @@ that a user can complete the corresponding editing workflow.
   controls, moving a group, ungrouping, undo, saved geometry and reload.
   Rotated-group transforms and group-child editing still need workflow verification.
 
+- Image replacement detaches shared media and relationships so copied pictures
+  remain independent. Tests cover same-slide and cross-slide copies, same-format
+  and cross-format replacement, repeated edits and saved PPTX reloads. Rejected
+  crop edits retain the previous crop through a later successful edit and save.
+  Direct upload/replacement/crop controls still need workflow verification.
+
 ## Outstanding work
 
 Complete workflow coverage, remaining UI translations, accessibility and draft
