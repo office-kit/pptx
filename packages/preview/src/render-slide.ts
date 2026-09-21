@@ -3455,14 +3455,31 @@ const niceStep = (range: number, target = 5): number => {
   return stepMultiplier * base;
 };
 
+// Imported files and the editor can author intervals far below a screen pixel.
+// Bound preview work without changing the interval stored in the presentation.
+const MAX_AXIS_TICKS = 1000;
+
+const intervalTicks = (min: number, max: number, step: number): number[] => {
+  if (!(step > 0) || !Number.isFinite(step)) return [];
+  const start = Math.ceil(min / step) * step;
+  const count = Math.floor((max - start) / step + 1e-9) + 1;
+  if (!Number.isFinite(count) || count <= 0 || count > MAX_AXIS_TICKS) return [];
+  const ticks: number[] = [];
+  for (let i = 0; i < count; i++) {
+    // Multiplication avoids cumulative rounding drift and an addition loop that
+    // never advances when the step is smaller than the value's precision.
+    const value = start + i * step;
+    if (Number.isFinite(value) && value !== ticks.at(-1)) ticks.push(value);
+  }
+  return ticks;
+};
+
 const niceTicks = (min: number, max: number, target = 5): number[] => {
   const range = max - min;
   if (range <= 0) return [min];
   const step = niceStep(range, target);
-  const start = Math.ceil(min / step) * step;
-  const ticks: number[] = [];
-  for (let v = start; v <= max + step / 2; v += step) ticks.push(v);
-  return ticks;
+  const ticks = intervalTicks(min, max + step / 2, step);
+  return ticks.length > 0 ? ticks : [min, max];
 };
 
 const formatTick = (v: number): string => {
@@ -3624,16 +3641,10 @@ const axisTickAttrs = (style: ChartTextStyle | undefined): string => {
 };
 
 const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
-  // Honour the authored majorUnit when present; otherwise let niceTicks
-  // pick. Renders one tick at each multiple of majorUnit within the range.
-  const ticks: number[] = axis.majorUnit
-    ? (() => {
-        const out: number[] = [];
-        const start = Math.ceil(axis.min / axis.majorUnit) * axis.majorUnit;
-        for (let t = start; t <= axis.max + 1e-9; t += axis.majorUnit) out.push(t);
-        return out.length > 0 ? out : niceTicks(axis.min, axis.max);
-      })()
-    : niceTicks(axis.min, axis.max);
+  // Dense intervals use automatic ticks in the preview; the authored setting
+  // remains intact for export. Normal intervals retain every authored tick.
+  const authoredTicks = axis.majorUnit ? intervalTicks(axis.min, axis.max, axis.majorUnit) : [];
+  const ticks = authoredTicks.length > 0 ? authoredTicks : niceTicks(axis.min, axis.max);
   const out: string[] = [];
   const range = axis.max - axis.min || 1;
   // percentStacked ticks read as 0%..100%; otherwise honor displayUnits +

@@ -155,3 +155,38 @@ describe.each(['scatter', 'bubble'] as const)('%s numeric axis spines', (kind) =
     expect(hidden).not.toContain('>100</text>');
   });
 });
+
+it.each([0.01, 1e-100, Number.MIN_VALUE])(
+  'keeps dense value-axis interval %s responsive',
+  async (majorUnit) => {
+    const svg = await render({
+      ...chart('column'),
+      valueAxis: { min: 0, max: 100, majorUnit },
+      valueAxisMajorGridlines: true,
+    });
+    expect(attrsOf(svg, 'line').length).toBeLessThan(2100);
+    expect(svg).toContain('>0</text>');
+    expect(svg).toContain('>100</text>');
+  },
+);
+
+it('renders fractional authored ticks without accumulation drift', async () => {
+  const svg = await render({
+    ...chart('bar'),
+    valueAxis: { min: -0.3, max: 0.3, majorUnit: 0.1, numberFormat: '0.0' },
+    valueAxisMajorGridlines: true,
+  });
+  const grid = attrsOf(svg, 'line').filter((line) => line['stroke-width'] === '0.5');
+  expect(grid).toHaveLength(7);
+  expect(svg).toContain('>0.0</text>');
+});
+
+it('finishes automatic ticks when increments are below floating-point precision', async () => {
+  const svg = await render({
+    ...chart('column'),
+    valueAxis: { min: 1e16, max: 1e16 + 2 },
+    series: [{ name: 'Large values', values: [1e16, 1e16 + 2] }],
+  });
+  expect(attrsOf(svg, 'line').length).toBeLessThan(2100);
+  expect(svg).not.toMatch(/(?:NaN|Infinity)/);
+});
