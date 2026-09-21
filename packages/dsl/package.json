@@ -1,6 +1,6 @@
 {
   "name": "@office-kit/pptx-dsl",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "Typed TSX authoring for editable PowerPoint presentations",
   "license": "MIT",
   "repository": {
@@ -44,7 +44,7 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@office-kit/pptx": "^0.20.0"
+    "@office-kit/pptx": "^0.21.0"
   },
   "engines": {
     "node": ">=22.18.0"
