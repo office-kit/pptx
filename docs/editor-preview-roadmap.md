@@ -212,3 +212,8 @@ presentation.
   selected cells in one undo step. Canvas cell selection clears only cell text;
   Escape selects the whole table before subsequent object operations. Browser
   checks cover table geometry, range history, Japanese controls and reload.
+
+- Table cell margins are editable on each side in points, including mixed ranges,
+  per-side defaults and a full reset. The controls preserve other authored sides
+  and reject negative input. Browser checks cover exact saved EMU values, range
+  updates, untouched cells, undo/redo, reset and Japanese reload.

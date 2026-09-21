@@ -5,7 +5,7 @@
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getTableCellPosition, setTableCellBorders, type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
+  import { getTableCellMargins, setTableCellMargins, getTableCellPosition, setTableCellBorders, type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -54,6 +54,27 @@
     applyToCells(t('Format selected cells'), cell => setTableCellTextFormat(cell, format));
   }
   const EMU_PER_POINT = 12700;
+  // OOXML cell margins use signed 32-bit EMU coordinates.
+  const MAX_MARGIN_POINTS = 2147483647 / EMU_PER_POINT;
+  const marginSides = [
+    { key: 'left', label: 'Left margin (points)', reset: 'Reset left margin' },
+    { key: 'right', label: 'Right margin (points)', reset: 'Reset right margin' },
+    { key: 'top', label: 'Top margin (points)', reset: 'Reset top margin' },
+    { key: 'bottom', label: 'Bottom margin (points)', reset: 'Reset bottom margin' },
+  ] as const;
+  const cellMargins = $derived([...selectedCells].filter(cell => {
+    const span = getTableCellSpan(cell);
+    return !span.hMerge && !span.vMerge;
+  }).map(getTableCellMargins));
+  function marginValue(side: typeof marginSides[number]['key']): number | null | undefined {
+    const first = cellMargins[0]?.[side];
+    return cellMargins.every(margins => margins[side] === first) ? first : undefined;
+  }
+  function changeMargin(input: HTMLInputElement, side: typeof marginSides[number]['key']) {
+    if (!input.reportValidity()) return;
+    const value = input.value === '' ? null : Math.round(input.valueAsNumber * EMU_PER_POINT);
+    applyToCells(t('Cell margins'), cell => setTableCellMargins(cell, { ...getTableCellMargins(cell), [side]: value }));
+  }
   let borderColor = $state('#000000');
   let borderWidth = $state(1);
   let borderDash = $state('solid');
@@ -173,6 +194,18 @@
         <option value="top">{t('Top')}</option><option value="center">{t('Center')}</option><option value="bottom">{t('Bottom')}</option>
       </select></label>
       <details>
+        <summary>{t('Cell margins')}</summary>
+        <div class="margin-fields">
+          {#each marginSides as side}
+            {@const value = marginValue(side.key)}
+            <div class="margin-side"><label>{t(side.label)}<input class="ok-input" type="number" min="0" max={MAX_MARGIN_POINTS} step="any" value={value == null ? '' : value / EMU_PER_POINT} placeholder={t(value === undefined ? 'Mixed' : 'Default')} onchange={(e) => changeMargin(e.currentTarget, side.key)} /></label>
+            <button class="ok-btn" aria-label={t(side.reset)} disabled={cellMargins.every(margins => margins[side.key] === null)} onclick={() => applyToCells(t(side.reset), cell => setTableCellMargins(cell, { ...getTableCellMargins(cell), [side.key]: null }))}>{t('Default')}</button></div>
+          {/each}
+          <small>{t('Leave a margin blank to use the default')}</small>
+          <button class="ok-btn" disabled={!cellMargins.some(margins => Object.values(margins).some(value => value !== null))} onclick={() => applyToCells(t('Reset cell margins'), cell => setTableCellMargins(cell, null))}>{t('Reset cell margins')}</button>
+        </div>
+      </details>
+      <details>
         <summary>{t('Cell borders')}</summary>
         <form onsubmit={(e) => { e.preventDefault(); applyBorders(); }}>
           <label>{t('Border color')}<input type="color" bind:value={borderColor} /></label>
@@ -197,11 +230,12 @@
 
 <style>
   .table-controls { padding: 12px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--ok-border); }
-  form { display: grid; gap: 8px; margin-top: 8px; }
+  form, .margin-fields { display: grid; gap: 8px; margin-top: 8px; }
   summary { cursor: pointer; font-size: 12px; }
   strong { font-size: 12px; }
   label { display: grid; gap: 4px; font-size: 11px; }
   textarea, input, select { width: 100%; box-sizing: border-box; }
+  .margin-side { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
   .cell-grid { overflow: auto; max-height: 220px; }
   table { border-collapse: collapse; width: 100%; }
   td { border: 1px solid var(--ok-border); padding: 1px; }

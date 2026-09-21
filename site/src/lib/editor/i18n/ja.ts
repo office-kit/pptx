@@ -4,6 +4,17 @@
 export const ja: Record<string, string> = {
   'Arrow keys move between cells. Shift+Arrow extends the range. Delete clears text.':
     '矢印キーでセルを移動、Shift＋矢印で範囲を選択、Deleteで文字列を消去できます。',
+  'Reset left margin': '左余白を標準に戻す',
+  'Reset right margin': '右余白を標準に戻す',
+  'Reset top margin': '上余白を標準に戻す',
+  'Reset bottom margin': '下余白を標準に戻す',
+  'Cell margins': 'セル内の余白',
+  'Left margin (points)': '左余白（pt）',
+  'Right margin (points)': '右余白（pt）',
+  'Top margin (points)': '上余白（pt）',
+  'Bottom margin (points)': '下余白（pt）',
+  'Leave a margin blank to use the default': '空欄にすると標準の余白を使用します',
+  'Reset cell margins': 'セル内の余白をリセット',
   'Clear cell text': 'セルの文字列を消去',
   'Edit table': '表を編集',
   'Paste table cells': '表のセルを貼り付け',
