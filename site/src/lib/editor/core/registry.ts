@@ -18,7 +18,7 @@ import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pp
 import { capabilities, capabilityById } from '../manifest/index.ts';
 import type { ResolvedCapability } from '../manifest/types.ts';
 import type { Selection } from './selection.ts';
-import { availableOperands, selectedShapeId } from './selection.ts';
+import { availableOperands, selectedShapeId, topLevelShapes } from './selection.ts';
 
 /** A dynamic view of the library so we can dispatch by capability id. */
 const lib = pptx as unknown as Record<string, (...args: unknown[]) => unknown>;
@@ -35,6 +35,7 @@ export interface CommandDoc {
   readonly slides: ReadonlyArray<SlideData>;
   slideAt(index: number): SlideData | null;
   shapeById(slideIndex: number, id: number): SlideShapeData | null;
+  select(selection: Selection): void;
   selectShape(slideIndex: number, id: number): void;
   selectSlide(index: number): void;
   transact<T>(label: string, fn: () => T): T;
@@ -222,12 +223,68 @@ class SlideCommand extends ManifestCommand {
   }
 }
 
+/** Group commands consume the selection, never a JSON representation of shapes. */
+class GroupCommand extends ManifestCommand {
+  override get params(): ResolvedCapability['params'] {
+    return super.params.filter((param) => param.name !== 'shapes');
+  }
+
+  private shapes(doc: CommandDoc): SlideShapeData[] {
+    const selection = doc.selection;
+    const slide = doc.slideAt(selection.slideIndex);
+    if (!slide || selection.kind !== 'shape') return [];
+    const ids = new Set(selection.shapeIds);
+    // A user can select front to back. Keep the existing stacking order.
+    return topLevelShapes(slide).filter((shape) => ids.has(pptx.getShapeId(shape)));
+  }
+
+  override canRun({ doc }: CommandContext): boolean {
+    const shapes = this.shapes(doc);
+    return this.capability.id === 'groupShapes'
+      ? shapes.length >= 2
+      : shapes.some((shape) => pptx.getShapeKind(shape) === 'group');
+  }
+
+  override run({ doc }: CommandContext, args: Record<string, unknown>): unknown {
+    if (!this.canRun({ doc }))
+      throw new CommandError('Select shapes to group or a group to ungroup.');
+    const shapes = this.shapes(doc);
+    let name: string | undefined;
+    if (args.opts !== undefined) {
+      if (typeof args.opts !== 'object' || args.opts === null)
+        throw new CommandError('Group options must be an object.');
+      if ('name' in args.opts) {
+        if (typeof args.opts.name !== 'string') throw new CommandError('Group name must be text.');
+        name = args.opts.name;
+      }
+    }
+    return doc.transact(this.capability.labelEn, () => {
+      if (this.capability.id === 'groupShapes') {
+        const group = pptx.groupShapes(shapes, name === undefined ? {} : { name });
+        doc.selectShape(doc.selection.slideIndex, pptx.getShapeId(group));
+        return group;
+      }
+      const children = shapes.flatMap((shape) =>
+        pptx.getShapeKind(shape) === 'group' ? [...pptx.ungroupShapes(shape)] : [shape],
+      );
+      doc.select({
+        kind: 'shape',
+        slideIndex: doc.selection.slideIndex,
+        shapeIds: children.map(pptx.getShapeId),
+      });
+      return children;
+    });
+  }
+}
+
 const registry = new Map<string, Command>(
   capabilities.map((cap) => [
     cap.id,
     activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide'
       ? new SlideCommand(cap)
-      : new ManifestCommand(cap),
+      : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
+        ? new GroupCommand(cap)
+        : new ManifestCommand(cap),
   ]),
 );
 

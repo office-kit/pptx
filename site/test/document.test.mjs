@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,12 @@ const result = await build({
   ],
 });
 const {
+  getSlideSize,
+  addSlideShape,
+  getShapeKind,
+  getGroupChildren,
+  getShapeBoundsResolved,
+  emu,
   EditorDocument,
   EditorController,
   getSlideShapes,
@@ -250,4 +256,131 @@ test('deleting the final slide leaves an empty deck that can accept a new slide'
   assert.equal(editor.doc.selection.slideIndex, 0);
   await editor.doc.undo();
   assert.equal(editor.doc.slides.length, 0);
+});
+
+function arrangedShapes(editor) {
+  editor.invoke('addBlankSlide');
+  const slide = editor.doc.slideAt(editor.doc.selection.slideIndex);
+  const shapes = editor.doc.transact('Shapes', () => [
+    addSlideShape(slide, { preset: 'rect', x: emu(100), y: emu(100), w: emu(100), h: emu(100) }),
+    addSlideShape(slide, { preset: 'rect', x: emu(400), y: emu(300), w: emu(200), h: emu(200) }),
+    addSlideShape(slide, { preset: 'rect', x: emu(900), y: emu(800), w: emu(300), h: emu(300) }),
+  ]);
+  editor.doc.select({
+    kind: 'shape',
+    slideIndex: editor.doc.selection.slideIndex,
+    shapeIds: shapes.map(getShapeId).reverse(),
+  });
+  return shapes;
+}
+
+test('group and ungroup bind the live selection in stacking order and restore selection on undo', async () => {
+  const editor = new EditorController();
+  assert.equal(editor.canRun('groupShapes'), false);
+  assert.equal(editor.canRun('ungroupShapes'), false);
+  const shapes = arrangedShapes(editor);
+  const ids = shapes.map(getShapeId);
+  const selected = editor.doc.selection;
+  assert.equal(
+    editor.command('groupShapes').params.some((p) => p.name === 'shapes'),
+    false,
+  );
+  editor.runOrPrompt('groupShapes');
+  assert.equal(editor.activeDialog, null);
+  const group = editor.selectedShapes()[0];
+  assert.equal(getShapeKind(group), 'group');
+  editor.selectAllShapes();
+  assert.deepEqual(editor.doc.selection.shapeIds, [getShapeId(group)]);
+  assert.deepEqual(getGroupChildren(group).map(getShapeId), ids);
+  assert.equal(editor.canRun('groupShapes'), false);
+  assert.equal(editor.canRun('ungroupShapes'), true);
+  await editor.doc.undo();
+  assert.deepEqual(editor.doc.selection, selected);
+  await editor.doc.redo();
+  editor.invoke('ungroupShapes');
+  assert.deepEqual(editor.doc.selection.shapeIds, ids);
+  assert.equal(editor.canRun('ungroupShapes'), false);
+  await editor.doc.undo();
+  assert.equal(getShapeKind(editor.selectedShapes()[0]), 'group');
+  await editor.doc.redo();
+  assert.deepEqual(editor.doc.selection.shapeIds, ids);
+});
+
+test('alignment and equal gaps preserve dimensions and undo as one operation', async () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const before = shapes.map((s) => getShapeBoundsResolved(editor.doc.pres, s));
+  editor.alignSelection('left');
+  assert.deepEqual(
+    shapes.map((s) => getShapeBoundsResolved(editor.doc.pres, s).x),
+    [100, 100, 100],
+  );
+  await editor.doc.undo();
+  const live = editor.selectedShapes().reverse();
+  assert.deepEqual(
+    live.map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+    before,
+  );
+  editor.distributeSelection('horizontal');
+  assert.deepEqual(
+    live.map((s) => getShapeBoundsResolved(editor.doc.pres, s).x),
+    [100, 450, 900],
+  );
+  assert.deepEqual(
+    live.map((s) => getShapeBoundsResolved(editor.doc.pres, s).w),
+    [100, 200, 300],
+  );
+  await editor.doc.undo();
+  assert.deepEqual(
+    editor
+      .selectedShapes()
+      .reverse()
+      .map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+    before,
+  );
+  editor.alignSelection('bottom');
+  assert.deepEqual(
+    editor.selectedShapes().map((s) => {
+      const b = getShapeBoundsResolved(editor.doc.pres, s);
+      return b.y + b.h;
+    }),
+    [1100, 1100, 1100],
+  );
+});
+
+test('single-object alignment uses slide bounds and vertical distribution keeps the endpoints', async () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  editor.distributeSelection('vertical');
+  assert.deepEqual(
+    shapes.map((s) => getShapeBoundsResolved(editor.doc.pres, s).y),
+    [100, 400, 800],
+  );
+  editor.doc.selectShape(editor.doc.selection.slideIndex, getShapeId(shapes[1]));
+  editor.alignSelection('center');
+  editor.alignSelection('middle');
+  const b = getShapeBoundsResolved(editor.doc.pres, shapes[1]);
+  const size = getSlideSize(editor.doc.pres);
+  assert.equal(b.x + b.w / 2, size.width / 2);
+  assert.equal(b.y + b.h / 2, size.height / 2);
+  assert.equal(editor.canRun('groupShapes'), false);
+});
+
+test('nested groups remain a single selectable object and ungroup one level at a time', () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const slideIndex = editor.doc.selection.slideIndex;
+  editor.doc.select({ kind: 'shape', slideIndex, shapeIds: shapes.slice(0, 2).map(getShapeId) });
+  editor.invoke('groupShapes');
+  const inner = editor.selectedShapes()[0];
+  editor.selectAllShapes();
+  assert.deepEqual(editor.doc.selection.shapeIds, [getShapeId(inner), getShapeId(shapes[2])]);
+  editor.invoke('groupShapes');
+  const outer = editor.selectedShapes()[0];
+  editor.selectAllShapes();
+  assert.deepEqual(editor.doc.selection.shapeIds, [getShapeId(outer)]);
+  editor.invoke('ungroupShapes');
+  assert.deepEqual(editor.selectedShapes().map(getShapeKind), ['group', 'shape']);
+  editor.invoke('ungroupShapes');
+  assert.deepEqual(editor.doc.selection.shapeIds, shapes.map(getShapeId));
 });
