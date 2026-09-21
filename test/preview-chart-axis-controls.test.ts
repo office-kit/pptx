@@ -7,6 +7,7 @@ import {
   inches,
   loadPresentation,
   type ChartSpec,
+  type ReadChartSpec,
 } from '../src/api/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import { attrsOf } from './lib/svg-query.ts';
@@ -22,15 +23,34 @@ async function render(spec: ChartSpec) {
   addSlideChart(slide, { x: inches(1), y: inches(1), w: inches(8), h: inches(5), spec });
   return renderSlideToSvg(pres, slide);
 }
-function chart(kind: ChartSpec['kind'] | 'combo'): ChartSpec {
-  return {
-    kind: kind === 'combo' ? 'column' : kind,
+type AxisOverrides = Pick<
+  ReadChartSpec,
+  | 'valueAxisHidden'
+  | 'valueAxisLineHidden'
+  | 'categoryAxisHidden'
+  | 'categoryAxisLineHidden'
+  | 'categoryAxisMajorTickMark'
+  | 'categoryAxisMinorTickMark'
+>;
+function chart(
+  kind: 'column' | 'bar' | 'line' | 'area' | 'combo' | 'scatter' | 'bubble',
+  overrides: AxisOverrides = {},
+): ChartSpec {
+  const common = {
     categories: ['Alpha', 'Beta'],
     valueAxis: { min: 0, max: 100, majorUnit: 20 },
     valueAxisLineColor: VALUE_COLOR,
     categoryAxisLineColor: CATEGORY_COLOR,
+    ...overrides,
+  };
+  const xy = { name: 'S', values: [20, 60], xValues: [1, 2] };
+  if (kind === 'scatter') return { ...common, kind, series: [xy] };
+  if (kind === 'bubble') return { ...common, kind, series: [{ ...xy, bubbleSizes: [5, 10] }] };
+  return {
+    ...common,
+    kind: kind === 'combo' ? 'column' : kind,
     series: [
-      { name: 'S', values: [20, 60], xValues: [1, 2], bubbleSizes: [5, 10] },
+      { name: 'S', values: [20, 60] },
       ...(kind === 'combo' ? [{ name: 'Line', values: [30, 40], chartKind: 'line' as const }] : []),
     ],
   };
@@ -42,22 +62,21 @@ const spines = (svg: string) =>
 
 describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s axis visibility', (kind) => {
   it('hides only the spines, retaining labels and ticks', async () => {
-    const svg = await render({
-      ...chart(kind),
-      valueAxisLineHidden: true,
-      categoryAxisLineHidden: true,
-    });
+    const svg = await render(
+      chart(kind, { valueAxisLineHidden: true, categoryAxisLineHidden: true }),
+    );
     expect(spines(svg)).toHaveLength(0);
     expect(svg).toContain('>Alpha</text>');
     expect(svg).toContain('>100</text>');
     expect(attrsOf(svg, 'line')).toHaveLength(9);
   });
   it.each(['value', 'category'] as const)('hides only the %s axis spine', async (axis) => {
-    const svg = await render({
-      ...chart(kind),
-      valueAxisLineHidden: axis === 'value',
-      categoryAxisLineHidden: axis === 'category',
-    });
+    const svg = await render(
+      chart(kind, {
+        valueAxisLineHidden: axis === 'value',
+        categoryAxisLineHidden: axis === 'category',
+      }),
+    );
     const coloredSpines = spines(svg).filter(
       (l) => l.stroke === CATEGORY_COLOR || l.stroke === VALUE_COLOR,
     );
@@ -67,17 +86,15 @@ describe.each(['column', 'bar', 'line', 'area', 'combo'] as const)('%s axis visi
     expect(svg).toContain('>100</text>');
   });
   it('keeps explicitly visible spines', async () => {
-    const svg = await render({
-      ...chart(kind),
-      valueAxisLineHidden: false,
-      categoryAxisLineHidden: false,
-    });
+    const svg = await render(
+      chart(kind, { valueAxisLineHidden: false, categoryAxisLineHidden: false }),
+    );
     expect(
       spines(svg).filter((l) => l.stroke === CATEGORY_COLOR || l.stroke === VALUE_COLOR),
     ).toHaveLength(2);
   });
   it('still removes the entire axis when AxisHidden is set', async () => {
-    const svg = await render({ ...chart(kind), valueAxisHidden: true, categoryAxisHidden: true });
+    const svg = await render(chart(kind, { valueAxisHidden: true, categoryAxisHidden: true }));
     expect(spines(svg)).toHaveLength(0);
     expect(svg).not.toContain('>Alpha</text>');
     expect(svg).not.toContain('>100</text>');
@@ -89,13 +106,14 @@ describe.each(['column', 'bar', 'combo'] as const)('%s category ticks', (kind) =
     it.each(['none', 'in', 'out', 'cross'] as const)(
       'renders %s marks at the correct positions',
       async (mark) => {
-        const svg = await render({
-          ...chart(kind),
-          valueAxisHidden: true,
-          categoryAxisLineHidden: true,
-          categoryAxisMajorTickMark: level === 'major' ? mark : 'none',
-          categoryAxisMinorTickMark: level === 'minor' ? mark : 'none',
-        });
+        const svg = await render(
+          chart(kind, {
+            valueAxisHidden: true,
+            categoryAxisLineHidden: true,
+            categoryAxisMajorTickMark: level === 'major' ? mark : 'none',
+            categoryAxisMinorTickMark: level === 'minor' ? mark : 'none',
+          }),
+        );
         const ticks = attrsOf(svg, 'line');
         const count = level === 'major' ? 3 : 2;
         expect(ticks).toHaveLength(mark === 'none' ? 0 : count);
@@ -121,11 +139,7 @@ describe.each(['column', 'bar', 'combo'] as const)('%s category ticks', (kind) =
     );
   });
   it('keeps the default outward major ticks and no minor ticks', async () => {
-    const svg = await render({
-      ...chart(kind),
-      valueAxisHidden: true,
-      categoryAxisLineHidden: true,
-    });
+    const svg = await render(chart(kind, { valueAxisHidden: true, categoryAxisLineHidden: true }));
     const ticks = attrsOf(svg, 'line');
     expect(ticks).toHaveLength(3);
     expect(
@@ -138,19 +152,13 @@ describe.each(['column', 'bar', 'combo'] as const)('%s category ticks', (kind) =
 
 describe.each(['scatter', 'bubble'] as const)('%s numeric axis spines', (kind) => {
   it('honors line-only visibility independently of whole-axis visibility', async () => {
-    const svg = await render({
-      ...chart(kind),
-      valueAxisLineHidden: true,
-      categoryAxisLineHidden: true,
-    });
+    const svg = await render(
+      chart(kind, { valueAxisLineHidden: true, categoryAxisLineHidden: true }),
+    );
     expect(spines(svg)).toHaveLength(0);
     expect(svg).toContain('>100</text>');
     expect(attrsOf(svg, 'line').length).toBeGreaterThan(0);
-    const hidden = await render({
-      ...chart(kind),
-      valueAxisHidden: true,
-      categoryAxisHidden: true,
-    });
+    const hidden = await render(chart(kind, { valueAxisHidden: true, categoryAxisHidden: true }));
     expect(attrsOf(hidden, 'line')).toHaveLength(0);
     expect(hidden).not.toContain('>100</text>');
   });

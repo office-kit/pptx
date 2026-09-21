@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  type ChartSpec,
   addSlideChart,
   getSlideCharts,
   getSlides,
@@ -1001,22 +1002,16 @@ describe('fn API: getSlideCharts', () => {
   });
 
   it('reads pie and doughnut kinds', async () => {
-    for (const kind of ['pie', 'doughnut'] as const) {
+    const specs = [
+      { kind: 'pie', categories: ['X', 'Y', 'Z'], series: [{ name: 'S', values: [1, 2, 3] }] },
+      { kind: 'doughnut', categories: ['X', 'Y', 'Z'], series: [{ name: 'S', values: [1, 2, 3] }] },
+    ] satisfies ReadonlyArray<ChartSpec>;
+    for (const spec of specs) {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0]!;
-      addSlideChart(slide, {
-        x: inches(0),
-        y: inches(0),
-        w: inches(4),
-        h: inches(3),
-        spec: {
-          kind,
-          categories: ['X', 'Y', 'Z'],
-          series: [{ name: 'S', values: [1, 2, 3] }],
-        },
-      });
+      addSlideChart(slide, { x: inches(0), y: inches(0), w: inches(4), h: inches(3), spec });
       const reloaded = await loadPresentation(await savePresentation(pres));
-      expect(getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!.kind).toBe(kind);
+      expect(getSlideCharts(getSlides(reloaded)[0]!)[0]!.spec!.kind).toBe(spec.kind);
     }
   });
 

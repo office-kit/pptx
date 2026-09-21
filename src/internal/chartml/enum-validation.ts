@@ -1,6 +1,6 @@
 import { oneOf } from '../bounds.ts';
 import { LINE_DASHES } from '../enum-values.ts';
-import type { ChartSpec, ChartDataLabels, ChartAxisScaling } from './types.ts';
+import type { ReadChartSpec, ChartDataLabels, ChartAxisScaling } from './types.ts';
 
 export const LABEL_POSITIONS = [
   'ctr',
@@ -83,7 +83,7 @@ const validateScaling = (scaling: ChartAxisScaling | undefined, field: string): 
 };
 
 /** Validate before chart XML or its embedded workbook is changed. */
-export const validateChartSpecEnums = (spec: ChartSpec, caller: string): void => {
+export const validateChartSpecEnums = (spec: ReadChartSpec, caller: string): void => {
   oneOf(
     spec.kind,
     [

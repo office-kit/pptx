@@ -40,12 +40,32 @@ export type {
   ChartSeries,
   ChartSeriesAxis,
   ChartSpec,
+  ReadChartSpec,
   ChartTextStyle,
   ChartTimeUnit,
   ChartTrendline,
   ChartUpDownBars,
   ChartView3D,
+  BubbleChartSeries,
+  BubbleChartSpec,
+  Bar3DChartSpec,
+  CandlestickChartSpec,
+  ChartVariant,
+  ComboChartSeries,
+  ComboChartSpec,
+  DoughnutChartSpec,
+  LineArea3DChartSpec,
+  OfPieChartSpec,
+  Pie3DChartSpec,
+  PieChartSpec,
+  PlainChartSeries,
+  RadarChartSpec,
+  ScatterChartSeries,
+  ScatterChartSpec,
+  StockChartSpec,
+  SurfaceChartSpec,
 } from '../internal/chartml/index.ts';
+export { isChartSpec } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';

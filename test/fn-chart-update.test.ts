@@ -117,6 +117,7 @@ describe('fn API: setChartSpec', () => {
           y: inches(0),
           w: inches(4),
           h: inches(3),
+          // @ts-expect-error an xy series must carry its x channel
           spec: { kind, categories: [], series: [{ name: 'S', values: [1] }] },
         }),
       ).toThrow(/needs xValues/);

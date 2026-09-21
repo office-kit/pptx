@@ -1,4 +1,4 @@
-// Chart spec reader — parses `<c:chartSpace>` back into a `ChartSpec`.
+// Chart spec reader — parses `<c:chartSpace>` back into a `ReadChartSpec`.
 //
 // Companion to `chart-builder.ts`. Lets callers introspect or edit
 // chart data on existing templates without dropping to XML. The reader
@@ -29,7 +29,7 @@ import type {
   ChartSecondaryValueAxis,
   ChartSeries,
   ChartSeriesAxis,
-  ChartSpec,
+  ReadChartSpec,
   ChartTextStyle,
   ChartTrendline,
   ChartUpDownBars,
@@ -88,7 +88,7 @@ const KIND_MAP: ReadonlyArray<PlottedKindMap> = [
   // `barChart` is overloaded; `<c:barDir val="bar"/>` vs `"col"` decides.
   { localName: 'barChart', kind: 'column' },
   // The 3D variants share the same `<c:ser>` schema as their flat
-  // counterparts, so they read as the flat kind; `ChartSpec.view3D` (read
+  // counterparts, so they read as the flat kind; `ReadChartSpec.view3D` (read
   // from `<c:view3D>`) is what marks the chart as 3-D.
   { localName: 'bar3DChart', kind: 'column' },
   { localName: 'lineChart', kind: 'line' },
@@ -1193,7 +1193,7 @@ const readBoxLayout = (host: XmlElement): ChartManualLayout | undefined => {
 };
 
 // Outer levels of a `<c:multiLvlStrRef>` category channel, ordered like
-// `ChartSpec.categoryGroupLevels` (the level next to the categories first).
+// `ReadChartSpec.categoryGroupLevels` (the level next to the categories first).
 // `<c:lvl>` children come innermost-first, so level 0 is the categories.
 const readCategoryGroupLevels = (cat: XmlElement): string[][] | undefined => {
   const multi = firstChildElement(cat, NAME_MULTI_LVL_STR_REF);
@@ -1206,12 +1206,12 @@ const readCategoryGroupLevels = (cat: XmlElement): string[][] | undefined => {
 };
 
 /**
- * Parses a `<c:chartSpace>` element into a typed `ChartSpec`. Throws if
+ * Parses a `<c:chartSpace>` element into a typed `ReadChartSpec`. Throws if
  * the root or any required child is missing. Returns `null` only when
  * the chart is structurally well-formed but uses a kind we don't model
  * (so callers can fall through to pass-through).
  */
-export const readChartSpec = (root: XmlElement): ChartSpec | null => {
+export const readChartSpec = (root: XmlElement): ReadChartSpec | null => {
   if (root.name.namespaceURI !== NS_C || root.name.localName !== 'chartSpace') {
     throw new Error(
       `expected <c:chartSpace> root, got <${root.name.prefix}:${root.name.localName}>`,
@@ -1456,9 +1456,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // <c:lineChart><c:marker val="1"/> toggles point markers for the whole
   // line chart: present (the "Line with Markers" subtype) shows them, absent
   // (the plain "Line" subtype) hides them. An empty <c:marker/> defaults to
-  // true per CT_Boolean. Only meaningful for line charts.
+  // true per CT_Boolean. CT_Line3DChart has no <c:marker> at all, so a 3-D
+  // line chart reports nothing rather than a meaningless `false`.
   let lineMarkers: boolean | undefined;
-  if (kind === 'line') {
+  if (plotted.name.localName === 'lineChart') {
     const markerEl = firstChildElement(plotted, qname('c', 'marker', NS_C));
     if (markerEl === null) {
       lineMarkers = false;
@@ -1501,10 +1502,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let categoryAxisLabelStyle: ChartTextStyle | undefined;
   let categoryAxisLabelRotationDeg: number | undefined;
   let valueAxisLabelRotationDeg: number | undefined;
-  let valueAxisMajorTickMark: ChartSpec['valueAxisMajorTickMark'];
-  let categoryAxisMajorTickMark: ChartSpec['categoryAxisMajorTickMark'];
-  let valueAxisMinorTickMark: ChartSpec['valueAxisMinorTickMark'];
-  let categoryAxisMinorTickMark: ChartSpec['categoryAxisMinorTickMark'];
+  let valueAxisMajorTickMark: ReadChartSpec['valueAxisMajorTickMark'];
+  let categoryAxisMajorTickMark: ReadChartSpec['categoryAxisMajorTickMark'];
+  let valueAxisMinorTickMark: ReadChartSpec['valueAxisMinorTickMark'];
+  let categoryAxisMinorTickMark: ReadChartSpec['categoryAxisMinorTickMark'];
   const readTickMarkLocal = (
     axis: XmlElement,
     local: 'majorTickMark' | 'minorTickMark',
@@ -1525,9 +1526,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   let valueAxisHidden: boolean | undefined;
   let categoryAxisTickLabelSkip: number | undefined;
   let categoryAxisTickMarkSkip: number | undefined;
-  let categoryAxisTickLabelPos: ChartSpec['categoryAxisTickLabelPos'];
+  let categoryAxisTickLabelPos: ReadChartSpec['categoryAxisTickLabelPos'];
   let categoryAxisLabelOffset: number | undefined;
-  let categoryAxisLabelAlign: ChartSpec['categoryAxisLabelAlign'];
+  let categoryAxisLabelAlign: ReadChartSpec['categoryAxisLabelAlign'];
   let categoryAxisNumberFormat: string | undefined;
   let categoryAxisNoMultiLevelLabel: boolean | undefined;
   let categoryAxisLineColor: string | undefined;
@@ -1587,9 +1588,9 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   };
   let categoryAxisOrientation: 'minMax' | 'maxMin' | undefined;
   let valueAxisOrientation: 'minMax' | 'maxMin' | undefined;
-  let valueAxisCrosses: ChartSpec['valueAxisCrosses'];
-  let valueAxisCrossBetween: ChartSpec['valueAxisCrossBetween'];
-  let valueAxisTickLabelPos: ChartSpec['valueAxisTickLabelPos'];
+  let valueAxisCrosses: ReadChartSpec['valueAxisCrosses'];
+  let valueAxisCrossBetween: ReadChartSpec['valueAxisCrossBetween'];
+  let valueAxisTickLabelPos: ReadChartSpec['valueAxisTickLabelPos'];
   const readAxisOrientation = (axis: XmlElement): 'minMax' | 'maxMin' | undefined => {
     const scaling = firstChildElement(axis, qname('c', 'scaling', NS_C));
     if (!scaling) return undefined;
@@ -1836,7 +1837,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // <c:dispBlanksAs val="…"/> sits on the chart element. Controls how
   // null gaps in line / area series render: 'gap' (default), 'zero', or
   // 'span'.
-  let dispBlanksAs: ChartSpec['dispBlanksAs'];
+  let dispBlanksAs: ReadChartSpec['dispBlanksAs'];
   const dbaEl = firstChildElement(chart, qname('c', 'dispBlanksAs', NS_C));
   if (dbaEl) {
     const v = getAttrValue(dbaEl, ATTR_VAL);
@@ -1889,7 +1890,7 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
   // position; PowerPoint defaults to 'r' (right) when the element is
   // present but has no legendPos. Absent legend element means renderers
   // fall back to whatever they show by default.
-  let legend: ChartSpec['legend'];
+  let legend: ReadChartSpec['legend'];
   const legendEl = firstChildElement(chart, qname('c', 'legend', NS_C));
   if (legendEl) {
     const posEl = firstChildElement(legendEl, qname('c', 'legendPos', NS_C));
@@ -1976,10 +1977,10 @@ export const readChartSpec = (root: XmlElement): ChartSpec | null => {
 
   // Scatter / radar / bubble sub-type + bubble sizing, all read from the
   // plotted-kind element.
-  let scatterStyle: ChartSpec['scatterStyle'];
-  let radarStyle: ChartSpec['radarStyle'];
+  let scatterStyle: ReadChartSpec['scatterStyle'];
+  let radarStyle: ReadChartSpec['radarStyle'];
   let bubbleScale: number | undefined;
-  let bubbleSizeRepresents: ChartSpec['bubbleSizeRepresents'];
+  let bubbleSizeRepresents: ReadChartSpec['bubbleSizeRepresents'];
   if (kind === 'scatter') {
     const el = firstChildElement(plotted, qname('c', 'scatterStyle', NS_C));
     if (el) {

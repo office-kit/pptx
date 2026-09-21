@@ -120,6 +120,7 @@ describe('fn API: combo charts', () => {
         spec: {
           kind: 'pie',
           categories: ['A', 'B'],
+          // @ts-expect-error only a bar / column / line / area series has a chartKind
           series: [{ name: 's', values: [1, 2], chartKind: 'line' }],
         },
       }),
