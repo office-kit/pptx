@@ -1,7 +1,13 @@
 // Slide comments.
 import { getSlides } from './slide-query.ts';
 
-import { type PartName, emptyRels, nextRelId, partName } from '../../internal/opc/index.ts';
+import {
+  type PartName,
+  emptyRels,
+  nextRelId,
+  partName,
+  resolveTarget,
+} from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
 import {
   REL_TYPES,
@@ -30,34 +36,39 @@ import { PRES_PART_NAME, decode, encode } from './_helpers.ts';
 // Legacy schema (ECMA-376 Part 1 §19.4):
 //   * One package-level `/ppt/commentAuthors.xml` holds every author.
 //   * One `/ppt/comments/comment{N}.xml` per slide that has comments;
-//     N matches the slide's part name.
+//     Newly created parts use the slide number when available. Imported
+//     part names are resolved through relationships.
 //   * Slide rels reference the slide's comments part; presentation rels
 //     reference the author list.
 //
 // Authors are deduped by (name, initials). `idx` allocation is per-author
 // monotonic; we read each author's `lastIdx` and bump it on add.
 
-const COMMENT_AUTHORS_PART_NAME = partName('/ppt/commentAuthors.xml');
 const COMMENT_AUTHORS_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.commentAuthors+xml';
 const COMMENTS_CONTENT_TYPE =
   'application/vnd.openxmlformats-officedocument.presentationml.comments+xml';
 
-const slideNumberFromPartName = (name: PartName): number => {
-  const m = name.match(/^\/ppt\/slides\/slide(\d+)\.xml$/);
-  if (!m?.[1]) {
-    throw new Error(`comments: cannot derive slide number from ${name}`);
-  }
-  return Number.parseInt(m[1], 10);
+const relatedPart = (pkg: OpcPackage, source: PartName, type: string): PartName | null => {
+  const rel = pkg
+    .getRels(source)
+    ?.items.find((r) => r.type === type && r.targetMode !== 'External');
+  return rel ? resolveTarget(source, rel.target) : null;
 };
 
-const commentsPartNameForSlide = (slide: SlideData): PartName => {
-  const slideN = slideNumberFromPartName(slide[SLIDE_PART_NAME]);
-  return partName(`/ppt/comments/comment${slideN}.xml`);
+const commentsPartNameForSlide = (slide: SlideData): PartName | null =>
+  relatedPart(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], REL_TYPES.comments);
+
+const unusedPartName = (pkg: OpcPackage, base: string): PartName => {
+  let candidate = partName(`${base}.xml`);
+  let suffix = 1;
+  while (pkg.getPart(candidate)) candidate = partName(`${base}-${suffix++}.xml`);
+  return candidate;
 };
 
 const loadAuthorList = (pkg: OpcPackage): CommentAuthor[] => {
-  const part = pkg.getPart(COMMENT_AUTHORS_PART_NAME);
+  const name = relatedPart(pkg, PRES_PART_NAME, REL_TYPES.commentAuthors);
+  const part = name ? pkg.getPart(name) : null;
   if (part === null) return [];
   const list = readCommentAuthorList(parseXml(decode(part.data)).root);
   return list.authors.slice();
@@ -66,22 +77,25 @@ const loadAuthorList = (pkg: OpcPackage): CommentAuthor[] => {
 const writeAuthorList = (pkg: OpcPackage, authors: ReadonlyArray<CommentAuthor>): void => {
   const doc = buildCommentAuthorListDoc(authors);
   const bytes = encode(serializeXml(doc));
-  const existing = pkg.getPart(COMMENT_AUTHORS_PART_NAME);
+  const name =
+    relatedPart(pkg, PRES_PART_NAME, REL_TYPES.commentAuthors) ??
+    unusedPartName(pkg, '/ppt/commentAuthors');
+  const existing = pkg.getPart(name);
   if (existing !== null) {
     existing.data = bytes;
     return;
   }
-  pkg.addPart(COMMENT_AUTHORS_PART_NAME, COMMENT_AUTHORS_CONTENT_TYPE, bytes);
+  pkg.addPart(name, COMMENT_AUTHORS_CONTENT_TYPE, bytes);
   // presentation → commentAuthors rel.
   const presRels = pkg.getRels(PRES_PART_NAME) ?? emptyRels();
   const exists = presRels.items.some(
-    (r) => r.type === REL_TYPES.commentAuthors && r.target.endsWith('commentAuthors.xml'),
+    (r) => r.type === REL_TYPES.commentAuthors && r.targetMode !== 'External',
   );
   if (!exists) {
     presRels.items.push({
       id: nextRelId(presRels.items.map((r) => r.id)),
       type: REL_TYPES.commentAuthors,
-      target: 'commentAuthors.xml',
+      target: name,
       targetMode: 'Internal',
     });
     pkg.setRels(PRES_PART_NAME, presRels);
@@ -91,7 +105,7 @@ const writeAuthorList = (pkg: OpcPackage, authors: ReadonlyArray<CommentAuthor>)
 const loadCommentsForSlide = (slide: SlideData): SlideComment[] => {
   const pkg = slide[INTERNAL_PACKAGE];
   const partNameValue = commentsPartNameForSlide(slide);
-  const part = pkg.getPart(partNameValue);
+  const part = partNameValue ? pkg.getPart(partNameValue) : null;
   if (part === null) return [];
   const list = readCommentList(parseXml(decode(part.data)).root);
   return list.comments.slice();
@@ -99,7 +113,9 @@ const loadCommentsForSlide = (slide: SlideData): SlideComment[] => {
 
 const writeCommentsForSlide = (slide: SlideData, comments: ReadonlyArray<SlideComment>): void => {
   const pkg = slide[INTERNAL_PACKAGE];
-  const commentsName = commentsPartNameForSlide(slide);
+  const relatedName = commentsPartNameForSlide(slide);
+  const slideN = slide[SLIDE_PART_NAME].match(/slide(\d+)\.xml$/)?.[1] ?? '1';
+  const commentsName = relatedName ?? unusedPartName(pkg, `/ppt/comments/comment${slideN}`);
 
   if (comments.length === 0) {
     // Drop the comments part + slide → comments rel when no comments
@@ -128,13 +144,14 @@ const writeCommentsForSlide = (slide: SlideData, comments: ReadonlyArray<SlideCo
   pkg.addPart(commentsName, COMMENTS_CONTENT_TYPE, bytes);
 
   const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
-  const hasRel = slideRels.items.some((r) => r.type === REL_TYPES.comments);
+  const hasRel = slideRels.items.some(
+    (r) => r.type === REL_TYPES.comments && r.targetMode !== 'External',
+  );
   if (!hasRel) {
-    const slideN = slideNumberFromPartName(slide[SLIDE_PART_NAME]);
     slideRels.items.push({
       id: nextRelId(slideRels.items.map((r) => r.id)),
       type: REL_TYPES.comments,
-      target: `../comments/comment${slideN}.xml`,
+      target: commentsName,
       targetMode: 'Internal',
     });
     pkg.setRels(slide[SLIDE_PART_NAME], slideRels);
@@ -486,7 +503,8 @@ export const addSlideComment = (
 export const setCommentText = (comment: SlideCommentData, text: string): void => {
   const slide = comment[COMMENT_SLIDE];
   const snapshot = comment[COMMENT_SNAPSHOT];
-  const part = slide[INTERNAL_PACKAGE].getPart(commentsPartNameForSlide(slide));
+  const name = commentsPartNameForSlide(slide);
+  const part = name ? slide[INTERNAL_PACKAGE].getPart(name) : null;
   if (!part) throw new Error('setCommentText: comment no longer exists');
   const doc = parseXml(decode(part.data));
   const element = doc.root.children.find(
@@ -531,7 +549,7 @@ export const removeSlideComment = (comment: SlideCommentData): void => {
 /**
  * Strips every comment from every slide in the deck. Returns the
  * number of comments removed. Built on `writeCommentsForSlide`,
- * so each slide's modern comment part is rewritten with an empty
+ * so each slide's legacy comment part is rewritten with an empty
  * list. The `commentAuthors.xml` registry is left intact for any
  * caller that still needs author identity.
  *
