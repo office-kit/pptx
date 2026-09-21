@@ -1,5 +1,12 @@
 # @office-kit/pptx-dev
 
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies [04eda82]
+  - @office-kit/pptx@0.20.0
+
 ## 0.8.0
 
 ### Minor Changes
