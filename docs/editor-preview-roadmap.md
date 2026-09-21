@@ -311,3 +311,5 @@ The inline text toolbar exposes paragraph alignment and list style for the caret
 The inline paragraph toolbar also exposes all nine list levels in Japanese and English. It reports mixed levels across a selection and changes only touched paragraphs, including within table cells. Browser coverage checks boundary levels, selection isolation, undo/redo and persisted levels after reload.
 
 Inline paragraph spacing supports inherited, proportional and fixed line spacing plus before/after points. Mixed selections remain explicit; blank paragraph spacing restores inheritance and zero remains an explicit value. Browser coverage checks caret/range boundaries, table-cell isolation, rich-run preservation, undo/redo, Japanese controls and reload.
+
+Selected inline text supports Ctrl/Cmd+B, I and U to toggle bold, italic and underline in shapes and table cells. Toggle decisions read the selected runs after replaying pending text edits, preserving selection offsets after inserted paragraphs. Browser coverage verifies both modifier keys, Japanese/English labels, surrounding formatting, undo/redo and reload. Caret-only typing-format controls remain outstanding.
