@@ -8,8 +8,9 @@ import { compileModule } from 'svelte/compiler';
 // Compile the actual rune-backed model, using the same client runtime as the UI.
 const result = await build({
   stdin: {
-    contents: `export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation }
+    contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
+      export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
+      export { addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +34,11 @@ const result = await build({
 });
 const {
   EditorDocument,
+  EditorController,
+  getSlideShapes,
+  getShapeId,
+  getShapeText,
+  setShapeText,
   addTitleSlide,
   createPresentation,
   getSlides,
@@ -157,4 +163,43 @@ test('new and open end an unfinished live gesture', async () => {
   await doc.loadBytes(bytes, 'replacement.pptx');
   assert.equal(doc.liveEditing, false);
   assert.equal(doc.canUndo, false);
+});
+
+function selectedTitle(editor) {
+  const shape = getSlideShapes(editor.doc.slideAt(0))[0];
+  editor.doc.selectShape(0, getShapeId(shape));
+  return shape;
+}
+
+test('cut retains a fixed copy and paste restores it with redo selection', async () => {
+  const editor = new EditorController();
+  const source = selectedTitle(editor);
+  const text = getShapeText(source);
+  const count = getSlideShapes(editor.doc.slideAt(0)).length;
+  editor.cutSelection();
+  assert.equal(getSlideShapes(editor.doc.slideAt(0)).length, count - 1);
+  await editor.paste();
+  assert.equal(getShapeText(editor.selectedShapes()[0]), text);
+  const selection = editor.doc.selection;
+  await editor.doc.undo();
+  assert.equal(getSlideShapes(editor.doc.slideAt(0)).length, count - 1);
+  await editor.doc.redo();
+  assert.deepEqual(editor.doc.selection, selection);
+  assert.equal(getShapeText(editor.selectedShapes()[0]), text);
+});
+
+test('copy is unaffected by source edits, undo, slide changes or a new document', async () => {
+  const editor = new EditorController();
+  const source = selectedTitle(editor);
+  const text = getShapeText(source);
+  editor.copySelection();
+  editor.doc.transact('Edit original', () => setShapeText(source, 'Changed'));
+  await editor.paste();
+  assert.equal(getShapeText(editor.selectedShapes()[0]), text);
+  await editor.doc.undo();
+  editor.doc.resetBlank();
+  const count = getSlideShapes(editor.doc.slideAt(0)).length;
+  await editor.paste();
+  assert.equal(getShapeText(editor.selectedShapes()[0]), text);
+  assert.equal(getSlideShapes(editor.doc.slideAt(0)).length, count + 1);
 });

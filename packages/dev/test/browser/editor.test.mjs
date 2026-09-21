@@ -100,6 +100,21 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.match(await editor.locator('.paint').textContent(), /日本語の編集/);
 
+      // Clipboard snapshots must outlive deletion, editing and history restores.
+      await editor.locator('.hit').first().click();
+      await page.keyboard.press('Control+x');
+      await editor.locator('.hit').waitFor({ state: 'detached' });
+      await page.keyboard.press('Control+v');
+      await editor.locator('.hit').waitFor();
+      assert.match(await editor.locator('.paint').textContent(), /日本語の編集/);
+      await page.keyboard.press('Control+z');
+      await editor.locator('.hit').waitFor({ state: 'detached' });
+      await page.keyboard.press('Control+Shift+z');
+      await editor.locator('.hit').waitFor();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      presentation = await download();
+      assert.equal(getSlideText(getSlides(presentation)[0]), '日本語の編集 / Edited title');
+
       await editor.locator('.lang select').selectOption('ja');
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       await writeFile(file, source('Changed source'));

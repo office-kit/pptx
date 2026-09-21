@@ -1,6 +1,7 @@
 // Shape removal and z-order.
 
-import { emptyRels, nextRelId } from '../../internal/opc/index.ts';
+import { emptyRels, nextRelId, resolveTarget, type PartName } from '../../internal/opc/index.ts';
+import { copyPartGraphs } from '../../internal/parts/duplicate-graph.ts';
 import { readPictureMediaRef } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -30,70 +31,100 @@ import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
 // Shape mutation — removal.
 
 /**
- * Copies a shape into `targetSlide`. The source XML is cloned and
- * appended to the target's `<p:spTree>`. Image rels on the source
- * shape are followed: the linked media part is referenced from the
- * target slide via a freshly allocated rId (no media bytes are
- * copied — both slides share the underlying part).
- *
- * v1 requires source and target to live in the same package
- * (`sourceShape`'s slide and `targetSlide` must share the same
- * `OpcPackage`). Cross-package copy is `importSlide` territory.
- *
- * Returns the new `SlideShapeData` on `targetSlide`.
+ * Copies a shape into `targetSlide`, including nested shapes and relationships.
+ * Within a presentation, media and other referenced parts remain shared.
+ * Across presentations, dependencies are cloned with collision-free part names,
+ * retaining embedded workbooks, unknown parts and external links.
+ * Returns the new shape on the target slide.
  */
 export const copyShape = (targetSlide: SlideData, sourceShape: SlideShapeData): SlideShapeData => {
   const sourceSlide = sourceShape[SHAPE_SLIDE];
-  if (sourceSlide[INTERNAL_PACKAGE] !== targetSlide[INTERNAL_PACKAGE]) {
-    throw new Error(
-      'copyShape: source and target must be in the same package. Use importSlide for cross-deck copies.',
-    );
-  }
+  const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
   const pkg = targetSlide[INTERNAL_PACKAGE];
   const sourceEl = sourceShape[SHAPE_ELEMENT];
 
-  // Deep-clone the XML by serializing + re-parsing one element.
-  // We wrap in a temporary parent so we can extract the cloned element
-  // back out without ambient namespaces leaking from the slide root.
   const cloned = cloneXmlElement(sourceEl);
-
-  // Allocate a fresh shape id on the target slide and overwrite the
-  // cNvPr/cNvPr id attribute.
   const newId = nextShapeId(targetSlide);
-  rewriteCNvPrId(cloned, newId);
+  rewriteShapeIds(cloned, newId);
 
-  // Walk the cloned element for r:embed / r:link references. For each
-  // referenced rId in the source slide's rels, copy the rel onto the
-  // target slide's rels (allocating a fresh rId) and update the cloned
-  // attribute. This covers picture blips + media references.
-  const sourceRels = pkg.getRels(sourceSlide[SLIDE_PART_NAME]);
-  if (sourceRels) {
-    const targetRels = pkg.getRels(targetSlide[SLIDE_PART_NAME]) ?? emptyRels();
-    const usedIds = new Set(targetRels.items.map((r) => r.id));
-    rewriteRIdReferences(cloned, (oldRId) => {
-      const sourceRel = sourceRels.items.find((r) => r.id === oldRId);
-      if (!sourceRel) return oldRId;
-      // Look for an existing rel on target with the same type+target;
-      // reuse if found to avoid duplicates.
-      const existing = targetRels.items.find(
-        (r) =>
-          r.type === sourceRel.type &&
-          r.target === sourceRel.target &&
-          r.targetMode === sourceRel.targetMode,
-      );
-      if (existing) return existing.id;
-      const newRId = nextRelId([...usedIds]);
-      usedIds.add(newRId);
-      targetRels.items.push({ ...sourceRel, id: newRId });
-      return newRId;
-    });
-    pkg.setRels(targetSlide[SLIDE_PART_NAME], targetRels);
+  const sourceRels = sourcePkg.getRels(sourceSlide[SLIDE_PART_NAME]);
+  const relsById = new Map(sourceRels?.items.map((rel) => [rel.id, rel]));
+  const referencedIds = new Set<string>();
+  rewriteRIdReferences(cloned, (id) => {
+    referencedIds.add(id);
+    return id;
+  });
+  const roots = new Map<PartName, null>();
+  for (const id of referencedIds) {
+    const rel = relsById.get(id);
+    if (!rel) throw new Error(`copyShape: missing relationship ${id}`);
+    if (rel.targetMode !== 'External')
+      roots.set(resolveTarget(sourceSlide[SLIDE_PART_NAME], rel.target), null);
   }
+  const copies =
+    sourcePkg === pkg
+      ? null
+      : copyPartGraphs(
+          sourcePkg,
+          pkg,
+          roots,
+          new Set(),
+          new Map([[sourceSlide[SLIDE_PART_NAME], targetSlide[SLIDE_PART_NAME]]]),
+        );
+  const targetRels = pkg.getRels(targetSlide[SLIDE_PART_NAME]) ?? emptyRels();
+  const relIds = new Map<string, string>();
+  const usedIds = targetRels.items.map((rel) => rel.id);
+  const relationshipKey = (type: string, target: string, mode: string): string =>
+    JSON.stringify([type, target, mode]);
+  const existingRels = new Map(
+    targetRels.items.map((rel) => [
+      relationshipKey(
+        rel.type,
+        rel.targetMode === 'External'
+          ? rel.target
+          : resolveTarget(targetSlide[SLIDE_PART_NAME], rel.target),
+        rel.targetMode,
+      ),
+      rel.id,
+    ]),
+  );
+  for (const id of referencedIds) {
+    const rel = relsById.get(id)!;
+    const resolved =
+      rel.targetMode === 'External'
+        ? rel.target
+        : resolveTarget(sourceSlide[SLIDE_PART_NAME], rel.target);
+    const target = copies?.get(resolved.toLowerCase()) ?? resolved;
+    const key = relationshipKey(rel.type, target, rel.targetMode);
+    const existing = existingRels.get(key);
+    const newRId = existing ?? nextRelId(usedIds);
+    if (!existing) {
+      usedIds.push(newRId);
+      targetRels.items.push({ ...rel, target, id: newRId });
+      existingRels.set(key, newRId);
+    }
+    relIds.set(id, newRId);
+  }
+  rewriteRIdReferences(cloned, (id) => relIds.get(id)!);
+  pkg.setRels(targetSlide[SLIDE_PART_NAME], targetRels);
 
   // A clip's play controls come from a media time node keyed by shape id, so
   // the copy needs its own node under the id it was just given.
-  const media = cloned.name.localName === 'pic' ? readPictureMediaRef(cloned) : null;
-  if (media !== null) addMediaTimingNode(targetSlide, media.kind, newId);
+  const addMediaControls = (el: XmlElement): void => {
+    if (el.name.namespaceURI === NS.pml && el.name.localName === 'pic') {
+      const media = readPictureMediaRef(el);
+      const nv = firstChildElement(el, qname('p', 'nvPicPr', NS.pml));
+      const props = nv && firstChildElement(nv, qname('p', 'cNvPr', NS.pml));
+      if (media && props)
+        addMediaTimingNode(
+          targetSlide,
+          media.kind,
+          Number(getAttrValue(props, qname('', 'id', ''))),
+        );
+    }
+    for (const child of el.children) if (child.kind === 'element') addMediaControls(child);
+  };
+  addMediaControls(cloned);
 
   return appendAndReturnNewShape(targetSlide, cloned);
 };
@@ -110,32 +141,35 @@ const cloneXmlElement = (el: XmlElement): XmlElement => ({
   }),
 });
 
-const rewriteCNvPrId = (root: XmlElement, newId: number): void => {
-  const walk = (el: XmlElement): boolean => {
+const rewriteShapeIds = (root: XmlElement, firstId: number): void => {
+  const ids = new Map<string, string>();
+  let nextId = firstId;
+  const walk = (el: XmlElement, rewriteReferences: boolean): void => {
     if (
-      el.name.namespaceURI === NS.pml &&
-      el.name.localName === 'cNvPr' &&
-      el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === 'id')
+      el.name.namespaceURI === (rewriteReferences ? NS.dml : NS.pml) &&
+      (rewriteReferences
+        ? ['stCxn', 'endCxn'].includes(el.name.localName)
+        : el.name.localName === 'cNvPr')
     ) {
-      el.attrs = el.attrs.map((a) =>
-        a.name.namespaceURI === '' && a.name.localName === 'id'
-          ? { name: a.name, value: String(newId) }
-          : a,
-      );
-      return true;
+      el.attrs = el.attrs.map((a) => {
+        if (a.name.namespaceURI !== '' || a.name.localName !== 'id') return a;
+        if (rewriteReferences) return { ...a, value: ids.get(a.value) ?? a.value };
+        const value = String(nextId++);
+        ids.set(a.value, value);
+        return { ...a, value };
+      });
     }
-    for (const c of el.children) {
-      if (c.kind === 'element' && walk(c)) return true;
-    }
-    return false;
+    for (const child of el.children) if (child.kind === 'element') walk(child, rewriteReferences);
   };
-  walk(root);
+  walk(root, false);
+  walk(root, true);
 };
 
 const rewriteRIdReferences = (root: XmlElement, map: (oldRId: string) => string): void => {
   const walk = (el: XmlElement): void => {
     el.attrs = el.attrs.map((a) => {
       if (
+        a.value !== '' &&
         a.name.namespaceURI === NS.officeDocRels &&
         (a.name.localName === 'id' || a.name.localName === 'embed' || a.name.localName === 'link')
       ) {
