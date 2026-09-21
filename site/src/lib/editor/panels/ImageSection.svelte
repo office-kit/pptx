@@ -35,6 +35,7 @@
   <section class="image-controls" aria-label={t('Image options')}>
     <strong>{t('Image options')}</strong>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setShapeImage')}>{t('Replace image')}</button>
+    <button class="ok-btn" onclick={() => editor.runOrPrompt('setShapeImageCrop')}>{t('Crop image')}</button>
     <div class="fields">
       {#each sides as [side, label]}
         <label>{t(label)}<input class="ok-input" type="number" min="0" max="99.9" step="0.1" required value={Math.round((crop?.[side] ?? 0) * 1000) / 10} onchange={(e) => setCrop(side, e.currentTarget)} /></label>

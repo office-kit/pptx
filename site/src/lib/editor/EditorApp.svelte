@@ -11,6 +11,7 @@
   import StatusBar from './ui/StatusBar.svelte';
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
+  import CropDialog from './ui/CropDialog.svelte';
   import ImageDialog from './ui/ImageDialog.svelte';
   import ChartDialog from './ui/ChartDialog.svelte';
   import FindReplaceDialog from './ui/FindReplaceDialog.svelte';
@@ -132,6 +133,8 @@
   {#if editor.activeDialog}
     {#if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
       {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
+    {:else if editor.activeDialog === 'setShapeImageCrop'}
+      <CropDialog />
     {:else if editor.activeDialog === 'addSlideChart' || editor.activeDialog === 'setChartSpec'}
       {#key editor.activeDialog}<ChartDialog edit={editor.activeDialog === 'setChartSpec'} />{/key}
     {:else if editor.activeDialog === 'replaceTextInPresentation'}
