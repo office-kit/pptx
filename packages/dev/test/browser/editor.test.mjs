@@ -6,6 +6,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import { unzipSync, strFromU8 } from 'fflate';
 import {
+  getSlideSize,
   getSlideBackground,
   getSlideBackgroundImageBytes,
   getSlideLayout,
@@ -1190,6 +1191,132 @@ test(
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-slide-options-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'page setup saves standard and custom slide sizes in both languages with undo',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-page-setup-'));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>Size test</Text></Slide><Slide /></Presentation>`,
+    );
+    let preview, browser, page;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const read = async () =>
+        loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+      await saved();
+      const original = await read();
+      const bounds = getShapeBoundsResolved(original, getSlideShapes(getSlides(original)[0])[0]);
+      await editor.getByRole('button', { name: 'Page setup', exact: true }).click();
+      let dialog = editor.getByRole('dialog', { name: 'Page setup', exact: true });
+      await dialog.getByLabel('Slide size', { exact: true }).selectOption('standard');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(getSlideSize(await read()), {
+        width: 9144000,
+        height: 6858000,
+        type: 'screen4x3',
+      });
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(getSlideSize(await read()), getSlideSize(original));
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.equal(getSlideSize(await read()).width, 9144000);
+      await editor.getByRole('button', { name: 'Page setup', exact: true }).click();
+      await dialog.getByLabel('Slide size', { exact: true }).selectOption('wide10');
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(getSlideSize(await read()).width, 9144000);
+      for (const [id, expected] of [
+        ['wide10', { width: 12192000, height: 7620000, type: 'screen16x10' }],
+        ['wide', { width: 12192000, height: 6858000, type: 'screen16x9' }],
+        ['standard', { width: 9144000, height: 6858000, type: 'screen4x3' }],
+      ]) {
+        await editor.getByRole('button', { name: 'Page setup', exact: true }).click();
+        await dialog.getByLabel('Slide size', { exact: true }).selectOption(id);
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+        await saved();
+        assert.deepEqual(getSlideSize(await read()), expected);
+        const stage = await editor.locator('.stage').boundingBox();
+        assert.ok(Math.abs(stage.width / stage.height - expected.width / expected.height) < 0.001);
+      }
+      await editor.locator('select').first().selectOption('ja');
+      await editor.getByRole('button', { name: 'ページ設定', exact: true }).click();
+      dialog = editor.getByRole('dialog', { name: 'ページ設定', exact: true });
+      await dialog.getByLabel('単位', { exact: true }).selectOption('cm');
+      assert.equal(
+        Number(await dialog.getByLabel('ページの幅', { exact: true }).inputValue()),
+        25.4,
+      );
+      await dialog.getByLabel('ページの幅', { exact: true }).fill('0');
+      assert.equal(
+        await dialog.getByRole('button', { name: '適用', exact: true }).isDisabled(),
+        true,
+      );
+      assert.equal(
+        await dialog.getByRole('alert').textContent(),
+        '幅と高さは0.0254〜142.24 cmで入力してください。',
+      );
+      await dialog.getByLabel('ページの幅', { exact: true }).fill('200');
+      assert.equal(
+        await dialog.getByRole('button', { name: '適用', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog.getByLabel('ページの幅', { exact: true }).fill('');
+      assert.equal(
+        await dialog.getByRole('button', { name: '適用', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog.getByLabel('ページの幅', { exact: true }).fill('21');
+      await dialog.getByLabel('ページの高さ', { exact: true }).fill('29.7');
+      assert.equal(
+        await dialog.getByLabel('スライドのサイズ', { exact: true }).inputValue(),
+        'custom',
+      );
+      await page.screenshot({ path: '/tmp/pptx-pr287-page-setup-ja.png', fullPage: true });
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await page.reload();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      const result = await read();
+      assert.deepEqual(getSlideSize(result), { width: 7560000, height: 10692000 });
+      assert.equal(getSlides(result).length, 2);
+      assert.equal(getSlideText(getSlides(result)[0]), 'Size test');
+      assert.deepEqual(
+        getShapeBoundsResolved(result, getSlideShapes(getSlides(result)[0])[0]),
+        bounds,
+      );
+      await editor.getByRole('button', { name: 'ページ設定', exact: true }).click();
+      await dialog.getByLabel('単位', { exact: true }).selectOption('cm');
+      assert.equal(Number(await dialog.getByLabel('ページの幅', { exact: true }).inputValue()), 21);
+      assert.equal(
+        Number(await dialog.getByLabel('ページの高さ', { exact: true }).inputValue()),
+        29.7,
+      );
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-page-setup-failure.png', fullPage: true });
       throw error;
     } finally {
       await browser?.close();

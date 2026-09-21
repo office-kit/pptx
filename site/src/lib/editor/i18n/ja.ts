@@ -2,6 +2,25 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Enter a width and height between 0.0254 and 142.24 cm.':
+    '幅と高さは0.0254〜142.24 cmで入力してください。',
+  'Enter a width and height between 0.01 and 56 inches.':
+    '幅と高さは0.01〜56インチで入力してください。',
+  'The presentation changed. Reopen page setup.':
+    'プレゼンテーションが変更されました。ページ設定を開き直してください。',
+  'Applies to every slide. Objects keep their positions and sizes.':
+    'すべてのスライドに適用します。オブジェクトの位置と大きさは保持されます。',
+  'Page height': 'ページの高さ',
+  'Page width': 'ページの幅',
+  Centimeters: 'センチメートル',
+  Inches: 'インチ',
+  Units: '単位',
+  'Custom size': '任意のサイズ',
+  'Widescreen (16:10)': 'ワイドスクリーン（16:10）',
+  'Standard (4:3)': '標準（4:3）',
+  'Widescreen (16:9)': 'ワイドスクリーン（16:9）',
+  'Slide size': 'スライドのサイズ',
+  'Page setup': 'ページ設定',
   'Choose background image': '背景画像を選択',
   'Title and Content': 'タイトルとコンテンツ',
   'Title Slide': 'タイトルスライド',
