@@ -581,8 +581,7 @@
     return { ...box, width, height, left: box.left + box.width / 2 + (dx * Math.cos(angle) - dy * Math.sin(angle)) / stageW * 100 - width / 2, top: box.top + box.height / 2 + (dx * Math.sin(angle) + dy * Math.cos(angle)) / stageH * 100 - height / 2 };
   });
 
-  const rangeFormats = $derived.by(() => {
-    doc.version;
+  function selectedTextFormats() {
     const box = boxes.find((b) => b.id === editing?.id);
     if (!box) return [];
     const formats: TextFormat[] = [];
@@ -599,6 +598,10 @@
       offset++;
     }
     return formats;
+  }
+  const rangeFormats = $derived.by(() => {
+    doc.version;
+    return selectedTextFormats();
   });
   function inlineParagraphTarget() {
     const box = boxes.find(b => b.id === editing?.id);
@@ -650,7 +653,7 @@
     cur.changes = [];
     requestAnimationFrame(() => textArea?.setSelectionRange(range.start, range.end));
   }
-  function applyInlineFormat(format: TextFormat) {
+  function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat)) {
     if (!editing || textRange.start === textRange.end) return;
     const cur = editing;
     const box = boxes.find((b) => b.id === cur.id);
@@ -658,12 +661,23 @@
     const range = { ...textRange };
     doc.transact(t('Format selected text'), () => {
       replayEdits(box, cur);
-      if (cur.cell) setTableCellTextFormat(getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!, format, { range });
-      else setShapeTextFormat(box.shape, format, { range });
+      const resolved = typeof format === 'function' ? format(selectedTextFormats()) : format;
+      if (cur.cell) setTableCellTextFormat(getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!, resolved, { range });
+      else setShapeTextFormat(box.shape, resolved, { range });
     });
     cur.changes = [];
     requestAnimationFrame(() => {
       textArea?.setSelectionRange(range.start, range.end);
+    });
+  }
+  function toggleInlineFormat(key: 'b' | 'i' | 'u') {
+    applyInlineFormat(formats => {
+      const property = key === 'b' ? 'bold' : key === 'i' ? 'italic' : 'underline';
+      const active = formats.length > 0 && formats.every(format => {
+        const value = format[property];
+        return value === true || (property === 'underline' && typeof value === 'string' && value !== 'none');
+      });
+      return { [property]: !active };
     });
   }
   function editSelectedTextLink() {
@@ -830,7 +844,9 @@
                 }
                 e.stopPropagation();
                 if (e.isComposing) return;
-                if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
+                const formatKey = e.key.toLowerCase();
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u') && textRange.start !== textRange.end) { e.preventDefault(); toggleInlineFormat(formatKey); }
+                else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
                 else if (e.key === 'Escape') editing = null;
                 else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();

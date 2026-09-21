@@ -614,10 +614,7 @@ test(
         node.setSelectionRange(6, 9);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
-      await editor
-        .locator('.canvas-shell .text-format-bar')
-        .getByRole('button', { name: 'Underline', exact: true })
-        .click();
+      await editor.locator('.inline-edit').press('Control+u');
       await editor
         .locator('.canvas-shell .text-format-bar')
         .getByRole('button', { name: 'Done', exact: true })
@@ -762,6 +759,7 @@ test(
         '#ffffff',
       );
 
+      await fontPanel.getByRole('button', { name: 'Cell 1, 1', exact: true }).click();
       await fontPanel
         .getByRole('button', { name: 'Cell 3, 2', exact: true })
         .click({ modifiers: ['Shift'] });
