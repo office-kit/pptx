@@ -231,3 +231,7 @@ unmerged tables when needed. Source formatting is not transferred by this path.
 - Table cell context menus keep deletion scoped to cell text, preserve ranges on
   right-click, and offer Select All Cells and Select Table in English and Japanese.
   Ctrl/Cmd+A selects all cells while a cell is selected, including merged tables.
+
+- Context menus support Shift+F10, arrow/Home/End navigation that skips disabled
+  items, Enter activation and Escape focus return. Menu keyboard events do not
+  move or delete underlying objects or cells. Browser checks cover EN/JA.
