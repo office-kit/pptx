@@ -1,6 +1,6 @@
 // Slide size.
 
-import { oneOf } from '../../internal/bounds.ts';
+import { boundedInt, oneOf } from '../../internal/bounds.ts';
 import { SLIDE_SIZE_TYPES } from '../../internal/enum-values.ts';
 import type { Emu } from '../units.ts';
 import {
@@ -52,12 +52,16 @@ const NAME_SLD_ID_LST_FN = qname('p', 'sldIdLst', NS.pml);
 
 /**
  * Sets the slide canvas size. Creates `<p:sldSz>` when absent, replaces
- * its attributes when present. The `type` hint is preserved as given.
+ * its attributes when present. Dimensions must be 1–56 inches in EMU;
+ * invalid dimensions throw before changing the presentation.
+ * The `type` hint is preserved as given.
  *
  * Schema ordering: `<p:sldSz>` follows `<p:sldIdLst>` per ECMA-376
  * §19.2.1.26; we insert at the correct position when bootstrapping.
  */
 export const setSlideSize = (pres: PresentationData, opts: SlideSize): void => {
+  const width = boundedInt(opts.width, 'slideSize', 'setSlideSize: width');
+  const height = boundedInt(opts.height, 'slideSize', 'setSlideSize: height');
   if (opts.type !== undefined) oneOf(opts.type, SLIDE_SIZE_TYPES, 'setSlideSize: type');
   const pkg = pres[INTERNAL_PACKAGE];
   const presPart = pkg.getPart(PRES_PART_NAME);
@@ -76,7 +80,7 @@ export const setSlideSize = (pres: PresentationData, opts: SlideSize): void => {
     }
   }
 
-  sldSz.attrs = [attr(ATTR_CX, String(opts.width)), attr(ATTR_CY, String(opts.height))];
+  sldSz.attrs = [attr(ATTR_CX, String(width)), attr(ATTR_CY, String(height))];
   if (opts.type !== undefined) sldSz.attrs.push(attr(ATTR_TYPE, opts.type));
 
   presPart.data = encode(serializeXml(doc));

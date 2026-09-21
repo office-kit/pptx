@@ -249,3 +249,5 @@ Image options include eight non-rectangular preset masks and rectangle reset in 
 Image outlines follow the cropped picture’s preset geometry, rotation, and flips without clipping the line at the image boundary. EN/JA controls set color, width in points, solid/dashed/dotted lines, or no outline. Browser coverage verifies saved borders, undo/redo, reload, and preserved source bytes; renderer coverage checks rotated elliptical outlines and removal.
 
 Outline width-only updates preserve existing color XML, including theme references and opacity. Image width and dash controls retain these properties. Round-trip tests cover RGB and theme colors with alpha; browser coverage checks width edits preserve the chosen image border color.
+
+Page setup and the size API enforce the ST_SlideSizeCoordinate limits (1–56 inches / 2.54–142.24 cm). Invalid API requests leave the saved presentation unchanged. Unit tests exercise both axes, non-finite inputs, out-of-range values, and boundary round trips; browser coverage checks the corrected Japanese centimeter validation. Content rescaling during page-size changes remains outstanding.

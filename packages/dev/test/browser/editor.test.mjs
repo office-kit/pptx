@@ -1278,7 +1278,19 @@ test(
       );
       assert.equal(
         await dialog.getByRole('alert').textContent(),
-        '幅と高さは0.0254〜142.24 cmで入力してください。',
+        '幅と高さは2.54〜142.24 cmで入力してください。',
+      );
+      for (const value of ['0.1', '2.53']) {
+        await dialog.getByLabel('ページの幅', { exact: true }).fill(value);
+        assert.equal(
+          await dialog.getByRole('button', { name: '適用', exact: true }).isDisabled(),
+          true,
+        );
+      }
+      await dialog.getByLabel('ページの幅', { exact: true }).fill('2.54');
+      assert.equal(
+        await dialog.getByRole('button', { name: '適用', exact: true }).isDisabled(),
+        false,
       );
       await dialog.getByLabel('ページの幅', { exact: true }).fill('200');
       assert.equal(
