@@ -8,8 +8,8 @@
     onformat: (format: TextFormat) => void;
     ondone?: () => void;
     onlink?: () => void;
-    paragraph?: { align: string; bullet: string; level: string };
-    onparagraph?: (kind: 'align' | 'bullet' | 'level', value: string) => void;
+    paragraph?: { align: string; bullet: string; level: string; lineKind: string; lineValue: string; before: string; after: string };
+    onparagraph?: (kind: 'align' | 'bullet' | 'level' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) => void;
     context?: 'text' | 'cells';
   } = $props();
   const bold = $derived(formats.length > 0 && formats.every((f) => f.bold === true));
@@ -40,6 +40,14 @@
       <option value="" disabled>{t('Mixed')}</option>
       {#each Array.from({ length: 9 }, (_, i) => i) as value}<option value={value}>{value + 1}</option>{/each}
     </select></label>
+    <label>{t('Line spacing mode')}<select aria-label={t('Line spacing mode')} value={paragraph.lineKind} onchange={e => onparagraph?.('lineKind', e.currentTarget.value)}>
+      <option value="" disabled>{t('Mixed')}</option><option value="inherit">{t('Inherit')}</option><option value="pct">{t('Multiple')}</option><option value="pts">{t('Points')}</option>
+    </select></label>
+    {#if paragraph.lineKind === 'pct' || paragraph.lineKind === 'pts'}
+      <label>{t('Line spacing value')}<input class="ok-input size" aria-label={t('Line spacing value')} type="number" min="0" step="0.01" required value={paragraph.lineValue} placeholder={t('Mixed')} onchange={e => { if (e.currentTarget.reportValidity()) onparagraph?.('lineValue', e.currentTarget.value); }} /></label>
+    {/if}
+    <label>{t('Before paragraph (pt)')}<input class="ok-input size" aria-label={t('Before paragraph (pt)')} type="number" min="0" step="0.01" value={paragraph.before} placeholder={t('Mixed or inherited')} onchange={e => { if (e.currentTarget.reportValidity()) onparagraph?.('before', e.currentTarget.value); }} /></label>
+    <label>{t('After paragraph (pt)')}<input class="ok-input size" aria-label={t('After paragraph (pt)')} type="number" min="0" step="0.01" value={paragraph.after} placeholder={t('Mixed or inherited')} onchange={e => { if (e.currentTarget.reportValidity()) onparagraph?.('after', e.currentTarget.value); }} /></label>
   {/if}
   {#if onlink}<button class="ok-btn" disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={onlink}>{t('Edit link')}</button>{/if}
   {#if ondone}<button class="ok-btn" onclick={ondone}>{t('Done')}</button>{/if}

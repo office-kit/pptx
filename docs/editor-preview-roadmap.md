@@ -32,7 +32,8 @@ that a user can complete the corresponding editing workflow.
   typing; first input and added paragraphs retain the chosen settings, including
   through undo/redo. The same controls support individual paragraphs or all paragraphs in a selected
   table-cell range, with bullets and spacing reflected in both preview renderers.
-  Inline caret-based paragraph targeting remains separate work.
+  The inline toolbar also targets the caret paragraph or selected paragraphs for
+  alignment, list style/level, line spacing and before/after spacing.
 
 - Slide text replacement now matches across adjacent formatting runs, preserving
   surrounding run formats and assigning replacements the first matched run’s
@@ -308,3 +309,5 @@ Image options include a bilingual reset for opacity, brightness and contrast in 
 The inline text toolbar exposes paragraph alignment and list style for the caret paragraph or all paragraphs touched by a text selection, including table-cell text. Pending text edits are committed with formatting in a single undo step, preserving rich runs. Selection boundaries exclude a paragraph whose start equals the selection end. Browser coverage verifies English/Japanese editing, added paragraphs, range boundaries, table-cell isolation, history and reload.
 
 The inline paragraph toolbar also exposes all nine list levels in Japanese and English. It reports mixed levels across a selection and changes only touched paragraphs, including within table cells. Browser coverage checks boundary levels, selection isolation, undo/redo and persisted levels after reload.
+
+Inline paragraph spacing supports inherited, proportional and fixed line spacing plus before/after points. Mixed selections remain explicit; blank paragraph spacing restores inheritance and zero remains an explicit value. Browser coverage checks caret/range boundaries, table-cell isolation, rich-run preservation, undo/redo, Japanese controls and reload.

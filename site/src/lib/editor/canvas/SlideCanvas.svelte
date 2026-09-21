@@ -16,6 +16,8 @@
     getParagraphPropertiesEffective,
     setParagraphAlignment,
     setParagraphLevel,
+    setParagraphLineSpacing,
+    setParagraphSpacing,
     setParagraphBullet,
     getTableCells,
     insertTableRow,
@@ -611,22 +613,36 @@
     doc.version;
     const target = inlineParagraphTarget();
     const properties = target?.indices.map(index => getParagraphPropertiesEffective(doc.pres, target.shape, index)) ?? [];
-    const alignments = properties.map(p => p.align ?? 'left');
-    const bullets = properties.map(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : '');
-    const levels = properties.map(p => String(p.level));
-    return { level: levels.every(value => value === levels[0]) ? levels[0] ?? '' : '', align: alignments.every(value => value === alignments[0]) ? alignments[0] ?? '' : '', bullet: bullets.every(value => value === bullets[0]) ? bullets[0] ?? '' : '' };
+    function common(read: (p: typeof properties[number]) => string) {
+      const values = properties.map(read);
+      return values.every(value => value === values[0]) ? values[0] ?? '' : '';
+    }
+    return {
+      align: common(p => p.align ?? 'left'),
+      bullet: common(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : ''),
+      level: common(p => String(p.level)),
+      lineKind: common(p => p.lineSpacing?.kind ?? 'inherit'),
+      lineValue: common(p => p.lineSpacing ? String(p.lineSpacing.value) : ''),
+      before: common(p => p.spcBefPts === null ? '' : String(p.spcBefPts)),
+      after: common(p => p.spcAftPts === null ? '' : String(p.spcAftPts)),
+    };
   });
-  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level', value: string) {
+  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
     if (!cur || !box) return;
     const range = { ...textRange };
+    const lineKind = inlineParagraph.lineKind;
     doc.transact(t('Format paragraphs'), () => {
       replayEdits(box, cur);
       const target = inlineParagraphTarget();
       if (!target) return;
       for (const index of target.indices) {
         if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify')) setParagraphAlignment(target.shape, index, value);
+        if (kind === 'lineKind' && value === 'inherit') setParagraphLineSpacing(target.shape, index, null);
+        if (kind === 'lineKind' && (value === 'pct' || value === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: value, value: value === 'pct' ? 1 : 18 });
+        if (kind === 'lineValue' && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && (lineKind === 'pct' || lineKind === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: lineKind, value: Number(value) });
+        if ((kind === 'before' || kind === 'after') && (value === '' || (Number.isFinite(Number(value)) && Number(value) >= 0))) setParagraphSpacing(target.shape, index, { [kind === 'before' ? 'beforePts' : 'afterPts']: value === '' ? null : Number(value) });
         if (kind === 'level' && /^[0-8]$/.test(value)) setParagraphLevel(target.shape, index, Number(value));
         if (kind === 'bullet' && (value === 'none' || value === 'bullet' || value === 'number')) setParagraphBullet(target.shape, index, value);
       }
