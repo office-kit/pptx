@@ -4116,6 +4116,48 @@ const chartPointBaseColor = (
     ? colors[pointIndex % colors.length]!
     : (spec.series[seriesIndex]?.color ?? colors[seriesIndex % colors.length]!));
 
+// Position labels relative to the signed bar segment, including stacked segments.
+const columnLabelLayout = (y: number, h: number, v: number, pos: string | undefined) => {
+  let coordinate: number;
+  let fill = '#374151';
+  if (pos === 'ctr') {
+    coordinate = y + h / 2 + 3;
+    fill = '#FFFFFF';
+  } else if (pos === 'inEnd') {
+    coordinate = v >= 0 ? y + 9 : y + h - 3;
+    fill = '#FFFFFF';
+  } else if (pos === 'inBase') {
+    coordinate = v >= 0 ? y + h - 3 : y + 9;
+    fill = '#FFFFFF';
+  } else {
+    coordinate = v >= 0 ? y - 2 : y + h + 9;
+  }
+  return { coordinate, fill };
+};
+
+const barLabelLayout = (x: number, w: number, v: number, pos: string | undefined) => {
+  let coordinate: number;
+  let anchor: string;
+  let fill = '#374151';
+  if (pos === 'ctr') {
+    coordinate = x + w / 2;
+    anchor = 'middle';
+    fill = '#FFFFFF';
+  } else if (pos === 'inEnd') {
+    coordinate = v >= 0 ? x + w - 4 : x + 4;
+    anchor = v >= 0 ? 'end' : 'start';
+    fill = '#FFFFFF';
+  } else if (pos === 'inBase') {
+    coordinate = v >= 0 ? x + 4 : x + w - 4;
+    anchor = v >= 0 ? 'start' : 'end';
+    fill = '#FFFFFF';
+  } else {
+    coordinate = v >= 0 ? x + w + 2 : x - 2;
+    anchor = v >= 0 ? 'start' : 'end';
+  }
+  return { coordinate, anchor, fill };
+};
+
 const renderColumnChart = (
   f: ChartFrame,
   spec: ChartSpec,
@@ -4179,9 +4221,14 @@ const renderColumnChart = (
           isPercent ? `${Math.round(v * 100)}%` : undefined,
         );
         if (labelText) {
-          const labelY = (y0 + y1) / 2 + 3;
+          const { coordinate: labelY, fill } = columnLabelLayout(
+            y0,
+            h,
+            v,
+            chartPointLabelOptions(spec, s, c).position ?? 'ctr',
+          );
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, '#FFFFFF', 9, true, c)}>${escapeXml(labelText)}</text>`,
+            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, true, c)}>${escapeXml(labelText)}</text>`,
           );
         }
         if (v >= 0) posAcc = stackedTop;
@@ -4214,24 +4261,12 @@ const renderColumnChart = (
         );
         const labelText = cartesianDataLabelText(spec, s, c, v);
         if (labelText) {
-          // dLblPos: ctr (center) / inEnd (just inside the bar tip) /
-          // outEnd (outside the bar — default) / inBase (just inside the
-          // bar base).
-          const pos = chartPointLabelOptions(spec, s, c).position;
-          let labelY: number;
-          let fill = '#374151';
-          if (pos === 'ctr') {
-            labelY = y0 + h / 2 + 3;
-            fill = '#FFFFFF';
-          } else if (pos === 'inEnd') {
-            labelY = v >= 0 ? y0 + 9 : y0 + h - 3;
-            fill = '#FFFFFF';
-          } else if (pos === 'inBase') {
-            labelY = v >= 0 ? y0 + h - 3 : y0 + 9;
-            fill = '#FFFFFF';
-          } else {
-            labelY = v >= 0 ? y0 - 2 : y0 + h + 9;
-          }
+          const { coordinate: labelY, fill } = columnLabelLayout(
+            y0,
+            h,
+            v,
+            chartPointLabelOptions(spec, s, c).position,
+          );
           out.push(
             `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}>${escapeXml(labelText)}</text>`,
           );
@@ -4617,9 +4652,13 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
           isPercent ? `${Math.round(v * 100)}%` : undefined,
         );
         if (labelText) {
-          const labelX = (x0 + x1) / 2;
+          const {
+            coordinate: labelX,
+            anchor,
+            fill,
+          } = barLabelLayout(x0, w, v, chartPointLabelOptions(spec, s, c).position ?? 'ctr');
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, '#FFFFFF', 9, true, c)}>${escapeXml(labelText)}</text>`,
+            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, true, c)}>${escapeXml(labelText)}</text>`,
           );
         }
         if (v >= 0) posAcc = stackedTop;
@@ -4648,28 +4687,11 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
         );
         const labelText = cartesianDataLabelText(spec, s, c, v);
         if (labelText) {
-          // dLblPos for horizontal bars uses the same enum as columns
-          // but maps to X positions.
-          const pos = chartPointLabelOptions(spec, s, c).position;
-          let labelX: number;
-          let anchor: string;
-          let fill = '#374151';
-          if (pos === 'ctr') {
-            labelX = x0 + w / 2;
-            anchor = 'middle';
-            fill = '#FFFFFF';
-          } else if (pos === 'inEnd') {
-            labelX = v >= 0 ? x0 + w - 4 : x0 + 4;
-            anchor = v >= 0 ? 'end' : 'start';
-            fill = '#FFFFFF';
-          } else if (pos === 'inBase') {
-            labelX = v >= 0 ? x0 + 4 : x0 + w - 4;
-            anchor = v >= 0 ? 'start' : 'end';
-            fill = '#FFFFFF';
-          } else {
-            labelX = v >= 0 ? x0 + w + 2 : x0 - 2;
-            anchor = v >= 0 ? 'start' : 'end';
-          }
+          const {
+            coordinate: labelX,
+            anchor,
+            fill,
+          } = barLabelLayout(x0, w, v, chartPointLabelOptions(spec, s, c).position);
           out.push(
             `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}>${escapeXml(labelText)}</text>`,
           );

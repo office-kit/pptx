@@ -80,3 +80,79 @@ describe.each(['column', 'bar', 'line', 'area'] as const)('%s labels', (kind) =>
     },
   );
 });
+
+describe.each(['stacked', 'percentStacked'] as const)('%s label placement', (grouping) => {
+  describe.each(['column', 'bar'] as const)('%s stacked label placement', (kind) => {
+    it.each(['ctr', 'inEnd', 'outEnd', 'inBase'] as const)(
+      'places %s labels relative to each signed segment',
+      async (position) => {
+        const svg = await render({
+          kind,
+          grouping,
+          categories: ['Positive', 'Negative'],
+          categoryAxisHidden: true,
+          valueAxisHidden: true,
+          dataLabels: {
+            showValue: true,
+            showCategory: false,
+            showSeriesName: false,
+            showPercent: false,
+            position,
+            textStyle: { color: '#123456' },
+          },
+          series: [
+            { name: 'First', values: [10, grouping === 'stacked' ? -10 : 10], color: '#ABCDEF' },
+            { name: 'Second', values: [20, grouping === 'stacked' ? -20 : 20], color: '#FEDCBA' },
+          ],
+        });
+        const bars = attrsOf(svg, 'rect').filter(
+          (rect) => rect.fill === '#ABCDEF' || rect.fill === '#FEDCBA',
+        );
+        const labels = attrsOf(svg, 'text').filter((label) => label.fill === '#123456');
+        expect(labels).toHaveLength(4);
+        for (let i = 0; i < 4; i++) {
+          const bar = bars[i]!;
+          const label = labels[i]!;
+          const positive = grouping === 'percentStacked' || i < 2;
+          if (kind === 'column') {
+            const y = Number(bar.y),
+              h = Number(bar.height);
+            const expected =
+              position === 'ctr'
+                ? y + h / 2 + 3
+                : position === 'inEnd'
+                  ? positive
+                    ? y + 9
+                    : y + h - 3
+                  : position === 'inBase'
+                    ? positive
+                      ? y + h - 3
+                      : y + 9
+                    : positive
+                      ? y - 2
+                      : y + h + 9;
+            expect(Number(label.y)).toBeCloseTo(expected, 1);
+          } else {
+            const x = Number(bar.x),
+              w = Number(bar.width);
+            const expected =
+              position === 'ctr'
+                ? x + w / 2
+                : position === 'inEnd'
+                  ? positive
+                    ? x + w - 4
+                    : x + 4
+                  : position === 'inBase'
+                    ? positive
+                      ? x + 4
+                      : x + w - 4
+                    : positive
+                      ? x + w + 2
+                      : x - 2;
+            expect(Number(label.x)).toBeCloseTo(expected, 1);
+          }
+        }
+      },
+    );
+  });
+});

@@ -141,6 +141,29 @@ test(
           3,
         );
       }
+      for (const kind of ['column', 'bar']) {
+        const axis = kind === 'column' ? 'y' : 'x';
+        for (const grouping of ['stacked', 'percentStacked']) {
+          let center;
+          for (const position of ['ctr', 'inEnd']) {
+            await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+            await dialog.getByLabel('Chart type', { exact: true }).selectOption(kind);
+            await dialog.getByLabel('Series stacking', { exact: true }).selectOption(grouping);
+            await dialog.getByText('Data label format', { exact: true }).click();
+            await dialog.getByLabel('Label position', { exact: true }).selectOption(position);
+            await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+            await saved();
+            assert.equal((await read()).dataLabels.position, position);
+            const coordinate = await editor
+              .locator('.paint text')
+              .filter({ hasText: seriesName })
+              .first()
+              .getAttribute(axis);
+            if (position === 'ctr') center = coordinate;
+            else assert.notEqual(coordinate, center);
+          }
+        }
+      }
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({
