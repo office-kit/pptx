@@ -9,6 +9,7 @@ import {
   getSlides,
   getSlideShapes,
   getSlideText,
+  getSlideXmlString,
   loadPresentation,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
@@ -20,7 +21,7 @@ test(
     const dir = await mkdtemp(join(tmpdir(), 'office-editor-browser-'));
     const file = join(dir, 'deck.tsx');
     const source = (title) =>
-      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1}>${title}</Text></Slide></Presentation>`;
+      `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={6} height={1} paragraphs={[{runs:[{text:${JSON.stringify(title.slice(0, 7))},format:{bold:true}},{text:${JSON.stringify(title.slice(7))},format:{italic:true}}]}]} /></Slide></Presentation>`;
     await writeFile(file, source('Source title'));
     let preview;
     let browser;
@@ -36,6 +37,17 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
+      await editor.locator('.inline-edit').fill('Source headline');
+      await editor.locator('.inline-edit').press('Control+Enter');
+      await waitForState(preview.url, (state) => state.hasEdits);
+      const richDeck = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      const richXml = getSlideXmlString(getSlides(richDeck)[0]);
+      assert.match(richXml, /<a:rPr[^>]*b="1"[^>]*>[\s\S]*?<a:t>Source /);
+      assert.match(richXml, /<a:rPr[^>]*i="1"/);
+      const savedRevision = (await waitForState(preview.url, () => true)).revision;
+      await editor.locator('.hit').first().dblclick();
       await editor.locator('.inline-edit').fill('日本語の編集 / Edited title');
       await page.route('**/editor/document', async (route) => {
         if (route.request().method() === 'PUT') {
@@ -44,11 +56,11 @@ test(
       });
       await editor.locator('.inline-edit').press('Control+s');
       await editor.getByRole('button', { name: 'Retry', exact: true }).waitFor();
-      assert.equal((await waitForState(preview.url, () => true)).hasEdits, false);
+      assert.equal((await waitForState(preview.url, () => true)).revision, savedRevision);
       assert.match(await editor.locator('.paint').textContent(), /日本語の編集/);
       await page.unroute('**/editor/document');
       await editor.getByRole('button', { name: 'Retry', exact: true }).click();
-      await waitForState(preview.url, (state) => state.hasEdits);
+      await waitForState(preview.url, (state) => state.revision !== savedRevision);
       const download = async () =>
         loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),

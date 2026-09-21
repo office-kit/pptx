@@ -35,6 +35,9 @@ that a user can complete the corresponding editing workflow.
   writes and explicit resolution of source conflicts.
 - Browser tests cover Japanese/English inline text, movement, autosave, undo,
   reload, locale persistence and source conflict resolution.
+- Inline text changes retain unchanged run and paragraph XML, and browser tests
+  verify mixed bold/italic formatting in saved PPTX files. Selection formatting
+  still needs a dedicated editing workflow.
 - History tests cover rapid edits, rapid undo/redo, edits during restore,
   new/open invalidation, gesture boundaries and version-aware save completion.
 

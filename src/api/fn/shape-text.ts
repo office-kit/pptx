@@ -1,5 +1,6 @@
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
+import { editTextBody } from '../../internal/drawingml/text-body-edit.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
 import {
   getShapePlaceholderIdx,
@@ -55,17 +56,24 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 /**
  * Replaces the shape's visible text with `value`. Newlines start a new
- * paragraph. Existing run/paragraph properties are preserved so font,
- * color, size, alignment, and bullet style stay intact. The paragraph-end
- * format (`<a:endParaRPr>`) is not kept; author it with `setShapeParagraphs`.
+ * paragraph. By default, new paragraphs inherit the first existing run and
+ * paragraph properties (font, color, size, alignment and bullets). The paragraph-end
+ * format (`<a:endParaRPr>`) is not kept by default; author it with `setShapeParagraphs`.
+ * Set `preserveFormatting` for incremental editing: unchanged prefix/suffix runs
+ * and paragraphs retain their XML; inserted text inherits the insertion point's
+ * format. Multiple disjoint changes should be applied separately to retain the
+ * formatting between them.
  */
 export const setShapeText = (
   shape: SlideShapeData,
   value: string,
-  options: { bullets?: BulletStyle } = {},
+  options: { bullets?: BulletStyle; preserveFormatting?: boolean } = {},
 ): void => {
   const txBody = ensureTxBody(shape);
-  setTextBody(txBody, value, options.bullets);
+  if (options.preserveFormatting) {
+    editTextBody(txBody, value);
+    if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
+  } else setTextBody(txBody, value, options.bullets);
   commitAndRefresh(shape);
 };
 
