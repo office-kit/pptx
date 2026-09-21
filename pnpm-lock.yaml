@@ -237,6 +237,9 @@ importers:
       playwright:
         specifier: ^1.63.0
         version: 1.63.0
+      svelte:
+        specifier: ^5.56.3
+        version: 5.56.3
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)

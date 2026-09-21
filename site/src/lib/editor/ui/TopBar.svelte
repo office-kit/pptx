@@ -2,6 +2,7 @@
   import { getEditor } from '../core/context.ts';
   import { t, getLocale, setLocale, LOCALES, type Locale } from '../i18n/i18n.svelte.ts';
 
+  let { onsave }: { onsave?: () => Promise<void> } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   let fileInput = $state<HTMLInputElement>();
@@ -13,6 +14,7 @@
     try {
       const buf = new Uint8Array(await file.arrayBuffer());
       await doc.loadBytes(buf, file.name);
+      if (onsave) doc.dirty = true;
       editor.toast('info', `${t('Opened')} ${file.name}`);
     } catch (err) {
       editor.toast('error', `${t('Open failed')}: ${(err as Error).message}`);
@@ -22,6 +24,7 @@
 
   async function onSave() {
     try {
+      const version = doc.version;
       const bytes = await doc.toBytes();
       const blob = new Blob([bytes as BlobPart], {
         type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
@@ -32,7 +35,7 @@
       a.download = doc.fileName.endsWith('.pptx') ? doc.fileName : `${doc.fileName}.pptx`;
       a.click();
       URL.revokeObjectURL(url);
-      doc.dirty = false;
+      if (!onsave) doc.markSaved(version);
       editor.toast('info', t('Saved .pptx'));
     } catch (err) {
       editor.toast('error', `${t('Save failed')}: ${(err as Error).message}`);
@@ -48,9 +51,10 @@
   </div>
 
   <div class="quick">
-    <button class="ok-btn" title={t('New')} onclick={() => doc.resetBlank()}>{t('New')}</button>
+    <button class="ok-btn" title={t('New')} onclick={() => { doc.resetBlank(); if (onsave) doc.dirty = true; }}>{t('New')}</button>
     <button class="ok-btn" title={t('Open .pptx')} onclick={() => fileInput?.click()}>{t('Open')}</button>
-    <button class="ok-btn" title={t('Save as .pptx')} onclick={onSave}>{t('Save')}</button>
+    <button class="ok-btn" title={t('Save as .pptx')} onclick={onsave ?? onSave}>{t('Save')}</button>
+    {#if onsave}<button class="ok-btn" onclick={onSave}>{t('Download')}</button>{/if}
     <span class="sep"></span>
     <button class="ok-btn" title={t('Undo (Ctrl+Z)')} disabled={!doc.canUndo} onclick={() => doc.undo()}>↶</button>
     <button class="ok-btn" title={t('Redo (Ctrl+Y)')} disabled={!doc.canRedo} onclick={() => doc.redo()}>↷</button>
@@ -87,8 +91,9 @@
     display: flex;
     align-items: center;
     gap: 16px;
-    height: 40px;
-    padding: 0 12px;
+    min-height: 40px;
+    flex-wrap: wrap;
+    padding: 5px 12px;
     background: var(--ok-accent);
     color: #fff;
   }
@@ -131,6 +136,10 @@
   }
   .filename {
     flex: 1;
+    min-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     text-align: center;
     font-size: 12px;
     opacity: 0.95;
@@ -139,6 +148,7 @@
     color: #ffd7c9;
   }
   .right {
+    margin-left: auto;
     display: flex;
     align-items: center;
     gap: 8px;

@@ -16,18 +16,31 @@ npm install
 npm run dev
 ```
 
-Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
-has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
-arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
-exit) are viewing controls; the canvas has no editing, dragging or resize handles.
-Changes are made only in TSX, including when an AI agent edits the presentation.
-Keep the server running throughout the edit/review loop. Saving updates only the
-changed thumbnails and slide view, preserving zoom, scroll position and presentation
-mode. The previous slide stays visible until its replacement is ready. Rapid edits
-cancel obsolete evaluations; only the latest successful result is published.
-Download PPTX exports the last successful build.
-A syntax or runtime error is shown without discarding the last successful preview.
-DSL evaluation errors include the TSX element's source file and line number.
+Open the local URL printed by the server. The default editor lets you edit text,
+move and resize objects, and use the slide, insert and formatting tools directly
+in the preview. Switch between English and Japanese from the editor header.
+Committed edits save automatically; **Save** or Ctrl/Cmd+S saves immediately.
+**Download** exports the edited PPTX. **Preview** switches to the presentation
+viewer with thumbnails, zoom and presentation mode.
+
+Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
+for example, `.office-kit/deck.tsx.editor.zip`. Keep this file with your project:
+it contains the edited presentation and its source fingerprint. Canvas edits do
+not rewrite TSX. CLI `build`, `buildDeck` and `exportDeck` use the saved edited
+presentation, including after restarting the server.
+
+Saving a slide file, `theme.ts` or `deck.tsx` rebuilds the source. If its generated
+presentation changes while canvas edits exist, the editor asks you to choose
+**Keep my edits** or **Use source**. Keeping edits preserves the entire edited
+deck; it does not merge changes from TSX. Using source discards the saved canvas
+version. You can download the source version before choosing. CLI export refuses
+an unresolved conflict so that it cannot silently export the wrong version.
+
+Keep the server running throughout the edit/review loop. In Preview mode, saving
+updates changed thumbnails and slides while preserving zoom, scroll and
+presentation mode. Rapid source edits cancel obsolete evaluations. Syntax and
+runtime errors remain visible alongside the last successful preview; DSL errors
+include the TSX element's source file and line number.
 
 ```sh
 npm run check

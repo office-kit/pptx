@@ -2,6 +2,23 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Download: 'ダウンロード',
+  'Preview unavailable': 'プレビューに接続できません',
+  'Replace editor changes with the current source?':
+    'エディターでの変更を現在のソースで置き換えますか？',
+  'Preview changed. Try again.': 'プレビューが更新されました。もう一度お試しください。',
+  'Reconnecting…': '再接続中…',
+  'Saving…': '保存中…',
+  'Loading presentation…': 'プレゼンテーションを読み込み中…',
+  'Saved to this project': 'このプロジェクトに保存済み',
+  'Building source…': 'ソースをビルド中…',
+  'Use source': 'ソースを使用',
+  'The source or saved deck changed. Your edits are still here.':
+    'ソースまたは保存済み文書が変更されました。現在の編集内容は保持されています。',
+  'Keep my edits': '現在の編集を維持',
+  'Download source': 'ソースのPPTXをダウンロード',
+  Retry: '再試行',
+
   // TopBar / file
   New: '新規',
   Open: '開く',

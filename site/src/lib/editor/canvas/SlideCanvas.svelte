@@ -328,7 +328,7 @@
   // Google-Slides parity: with a single shape selected, Enter/F2 edits its text,
   // and simply typing a character enters edit mode replacing the text with it.
   function onTypeToEdit(e: KeyboardEvent) {
-    if (editing) return;
+    if (editing || e.isComposing) return;
     if (doc.selection.kind !== 'shape' || selectedIds.size !== 1) return;
     const t = e.target as HTMLElement;
     if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
@@ -459,7 +459,12 @@
               ondblclick={(e) => e.stopPropagation()}
               onblur={commitEditing}
               onkeydown={(e) => {
+                if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                  commitEditing();
+                  return;
+                }
                 e.stopPropagation();
+                if (e.isComposing) return;
                 if (e.key === 'Escape') editing = null;
                 else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();
               }}
@@ -481,6 +486,8 @@
     place-items: center;
     padding: 28px;
     min-height: 0;
+    min-width: 0;
+    overflow: auto;
   }
   .stage-wrap {
     position: relative;

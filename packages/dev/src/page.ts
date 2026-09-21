@@ -7,11 +7,18 @@ export const page = `<!doctype html>
 <style>
 ${previewStyles}
 #agent-workspace{position:relative;flex:1;min-height:0;min-width:0;display:flex;overflow:auto}.agent-pane{position:absolute;padding:3px 5px;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0;overflow:hidden}.agent-pane iframe{border:0;width:100%;flex:1;min-height:0;border-radius:0 0 9px 9px}.agent-tools{display:flex;gap:4px;align-items:center;flex-wrap:wrap;padding:6px;background:#20253a;border:1px solid #34334e;border-radius:9px 9px 0 0}.agent-tools span{flex:1;font-size:10px;letter-spacing:.04em;color:#b3abc9}.agent-tools svg{width:14px;height:14px}.agent-pane:focus-within .agent-tools{border-color:#8b6ed577;background:#29243e}.agent-tools button{font-size:11px;padding:5px;background:transparent;border:0;display:grid;place-items:center}.agent-divider{position:absolute;z-index:2;background:#101422;cursor:col-resize;touch-action:none}.agent-divider.vertical{cursor:row-resize}.agent-divider:hover,.agent-divider:focus-visible{background:#9b87ff}.splitting-agents iframe,.resizing-chat iframe{pointer-events:none}
+#editor-frame{display:none;border:0;width:100%;height:100%;flex:1;min-height:0}
+body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
+.editing:not(.presenting) .workspace{--filmstrip-width:0px;grid-template-columns:minmax(0,1fr) clamp(280px,var(--chat-width),calc(100vw - 500px))}
+.editing.chat-hidden:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}
+.editing:not(.presenting) .filmstrip,.editing:not(.presenting) footer,.editing:not(.presenting) #stage,.editing:not(.presenting) #present,.editing:not(.presenting) .download{display:none}
+.editing:not(.presenting) #editor-frame{display:block}
+@media(max-width:900px){.editing:not(.presenting) .workspace{grid-template-columns:minmax(0,1fr)}.editing:not(.presenting) #chat{display:none}}
 </style>
-<header><span class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="brand-gradient" x2="1" y2="1"><stop stop-color="#c39aff"/><stop offset="1" stop-color="#7165f4"/></linearGradient></defs><rect x="2" y="2" width="32" height="32" rx="10" fill="url(#brand-gradient)"/><path d="M11 10h9l6 6v10H11z" fill="none" stroke="white" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 10v7h6M15 21h7M15 25h4" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="m28 3 1.2 3.8L33 8l-3.8 1.2L28 13l-1.2-3.8L23 8l3.8-1.2z" fill="#e7dbff"/></svg>Office <em>Kit</em></span><span class="badge">Studio</span><span id="status" role="status">Building…</span><button id="toggle-chat" aria-expanded="true" aria-controls="chat">✦ Agents</button><button id="present" disabled>Present</button><a class="download" href="/deck.pptx">Download PPTX</a></header>
+<body class="editing"><header><span class="brand"><svg viewBox="0 0 36 36" aria-hidden="true"><defs><linearGradient id="brand-gradient" x2="1" y2="1"><stop stop-color="#c39aff"/><stop offset="1" stop-color="#7165f4"/></linearGradient></defs><rect x="2" y="2" width="32" height="32" rx="10" fill="url(#brand-gradient)"/><path d="M11 10h9l6 6v10H11z" fill="none" stroke="white" stroke-width="1.8" stroke-linejoin="round"/><path d="M20 10v7h6M15 21h7M15 25h4" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round"/><path d="m28 3 1.2 3.8L33 8l-3.8 1.2L28 13l-1.2-3.8L23 8l3.8-1.2z" fill="#e7dbff"/></svg>Office <em>Kit</em></span><span class="badge">Studio</span><span id="status" role="status">Building…</span><button id="toggle-editor" aria-pressed="true">Preview</button><button id="toggle-chat" aria-expanded="true" aria-controls="chat">✦ Agents</button><button id="present" disabled>Present</button><a class="download" href="/deck.pptx">Download PPTX</a></header>
 <div class="workspace">
 <nav class="filmstrip" aria-label="Slides"><h2>Slides</h2><ol id="thumbnails"></ol></nav>
-<main aria-label="Slide viewer"><pre id="error" role="alert" hidden></pre><div id="stage" tabindex="-1"><div id="empty">Waiting for slides…</div><div id="slide" hidden></div></div></main>
+<main aria-label="Slide viewer"><iframe id="editor-frame" title="Presentation editor"></iframe><pre id="error" role="alert" hidden></pre><div id="stage" tabindex="-1"><div id="empty">Waiting for slides…</div><div id="slide" hidden></div></div></main>
 <aside id="chat" aria-label="Slide chat">
 <div id="chat-resizer" role="separator" tabindex="0" aria-label="Chat width" aria-orientation="vertical" aria-controls="chat" title="Drag to resize · Double-click to reset"></div>
 <div class="workspace-heading"><span>✦ AI WORKSPACE</span><b>LOCAL</b></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
@@ -74,6 +81,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   byId('chat-context').textContent=state.slides.length?count:'Whole project';
   byId('chat-context').dataset.focus=JSON.stringify({slide:state.slides.length?index:null,revision:state.revision??0});
   window.dispatchEvent(new Event('agent-focus'));
+  if(document.body.classList.contains('editing')&&editorFocus)applyEditorFocus();
   byId('count').textContent=count;byId('present-count').textContent=count;
   for(const id of ['prev','present-prev'])byId(id).disabled=index===0;
   for(const id of ['next','present-next'])byId(id).disabled=index>=state.slides.length-1;
@@ -165,5 +173,33 @@ async function refresh(){
   catch{if(id===refreshId)byId('status').textContent='Reconnecting…';}
 }
 byId('toggle-chat').onclick=()=>{const hidden=document.body.classList.toggle('chat-hidden');byId('toggle-chat').setAttribute('aria-expanded',String(!hidden));resize();};
+const editorFrame=byId('editor-frame');
+let editorFocus;
+function setEditorMode(editing){
+ document.body.classList.toggle('editing',editing);
+ if(editing&&!editorFrame.getAttribute('src'))editorFrame.src='/editor';
+ byId('toggle-editor').setAttribute('aria-pressed',String(editing));
+ byId('toggle-editor').textContent=editorFocus?.locale==='ja'?(editing?'プレビュー':'編集'):(editing?'Preview':'Edit');
+ if(editing&&editorFocus)applyEditorFocus();else selectSlide(index);
+ resize();
+}
+byId('toggle-editor').onclick=()=>{
+ const editing=!document.body.classList.contains('editing');setEditorMode(editing);
+ try{sessionStorage.setItem('office-kit-view',editing?'editor':'preview');}catch(error){console.warn('Could not save view preference',error);}
+};
+try{setEditorMode(sessionStorage.getItem('office-kit-view')!=='preview');}catch(error){console.warn('Could not restore view preference',error);setEditorMode(true);}
+function applyEditorFocus(){
+ if(!editorFocus)return;
+ index=Math.max(0,editorFocus.slide);
+ byId('chat-context').textContent=(editorFocus.locale==='ja'?'スライド ':'Slide ')+(index+1)+' / '+editorFocus.count+(editorFocus.dirty?' · '+(editorFocus.locale==='ja'?'未保存':'Unsaved'):'');
+ byId('chat-context').dataset.focus=JSON.stringify({slide:editorFocus.count?index:null,revision:editorFocus.dirty?-1:editorFocus.revision});
+ window.dispatchEvent(new Event('agent-focus'));
+}
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-focus')return;
+ editorFocus=event.data;
+ if(document.body.classList.contains('editing'))applyEditorFocus();
+ byId('toggle-editor').textContent=editorFocus.locale==='ja'?(document.body.classList.contains('editing')?'プレビュー':'編集'):(document.body.classList.contains('editing')?'Preview':'Edit');
+});
 const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='chat'){window.dispatchEvent(new Event('agent-chat'));return;}if(event.data==='ready'){delete state.revision;}void refresh();};events.onerror=()=>{byId('status').textContent='Reconnecting…'};refresh();
 </script><script type="module" src="/terminal.js"></script></html>`;

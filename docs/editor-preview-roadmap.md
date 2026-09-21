@@ -30,10 +30,19 @@ that a user can complete the corresponding editing workflow.
 - Shape text creation and main's bullet-preservation behavior coexist; targeted
   text and registry tests pass.
 
+- The development tool bundles the shared editor, persists committed edits to a
+  project sidecar, and uses them for CLI exports. API tests cover restart, stale
+  writes and explicit resolution of source conflicts.
+- Browser tests cover Japanese/English inline text, movement, autosave, undo,
+  reload, locale persistence and source conflict resolution.
+- History tests cover rapid edits, rapid undo/redo, edits during restore,
+  new/open invalidation, gesture boundaries and version-aware save completion.
+
 ## Outstanding work
 
-The editor is still a separate site route. Development-preview integration,
-persistence, complete workflow coverage, remaining UI translations, and browser
-verification are not complete. In particular, current document history coalesces
-snapshots while serialization is running and must be audited for rapid edits and
-new/open races before relying on it for persistent preview editing.
+Complete workflow coverage, remaining UI translations, accessibility and draft
+recovery are still being audited. Mixed-format text editing, table and chart
+editing, image operations, slide operations and presentation tools require
+workflow-level verification before claiming coverage of common Google Slides
+editing tasks. Persisted saves survive reload; uncommitted inline drafts do not
+currently have recovery storage.

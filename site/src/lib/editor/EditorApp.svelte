@@ -1,5 +1,6 @@
 <script lang="ts">
   import './ui/tokens.css';
+  import { untrack, type Snippet } from 'svelte';
   import { EditorController } from './core/controller.svelte.ts';
   import { setEditor } from './core/context.ts';
   import TopBar from './ui/TopBar.svelte';
@@ -13,7 +14,12 @@
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
-  const editor = new EditorController();
+  let { editor: initialEditor = new EditorController(), onsave, status }: {
+    editor?: EditorController;
+    onsave?: () => Promise<void>;
+    status?: Snippet;
+  } = $props();
+  const editor = untrack(() => initialEditor);
   setEditor(editor);
   const doc = editor.doc;
 
@@ -26,6 +32,11 @@
     const typing =
       target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '');
 
+    if (mod && e.key.toLowerCase() === 's' && onsave) {
+      e.preventDefault();
+      void onsave();
+      return;
+    }
     if (mod && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       editor.togglePalette();
@@ -84,7 +95,8 @@
 <svelte:window on:keydown={onKeydown} />
 
 <div class="ok-editor ok-shell">
-  <TopBar />
+  <TopBar {onsave} />
+  {#if status}<div class="host-status">{@render status()}</div>{/if}
   <Ribbon />
   <div class="ok-body">
     <SlideNavigator />
@@ -111,13 +123,20 @@
     inset: 0;
     z-index: 50;
     display: grid;
-    grid-template-rows: auto auto 1fr auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
     background: var(--ok-bg);
     overflow: hidden;
   }
+  .ok-shell > :global(*) { min-width: 0; }
+  @media (max-width: 1100px) {
+    .ok-shell { --ok-nav-w: 120px; --ok-panel-w: 230px; }
+  }
+  .ok-shell:has(.host-status) {
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  }
   .ok-body {
     display: grid;
-    grid-template-columns: var(--ok-nav-w) 1fr var(--ok-panel-w);
+    grid-template-columns: var(--ok-nav-w) minmax(0, 1fr) var(--ok-panel-w);
     min-height: 0;
     overflow: hidden;
   }

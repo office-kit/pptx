@@ -75,6 +75,9 @@ jobs:
       - name: Build authoring tools
         run: pnpm --filter @office-kit/pptx-dev build
 
+      - name: Type check shared editor
+        run: pnpm --filter @office-kit/pptx-site check
+
   # Multi-version test matrix. Adapt the matrix to the runtimes the project
   # supports. Drop versions that are past their EOL date.
   test:
@@ -103,6 +106,8 @@ jobs:
         run: pnpm --filter @office-kit/pptx-dev... build
       - name: Test TSX authoring and live preview
         run: pnpm --filter @office-kit/pptx-dev test
+      - name: Test shared editor history
+        run: pnpm --filter @office-kit/pptx-site test
       - name: Install preview test browser
         if: matrix.node-version == '24'
         run: pnpm --filter @office-kit/pptx-dev exec playwright install --with-deps chromium

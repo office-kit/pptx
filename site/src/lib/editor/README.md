@@ -1,19 +1,22 @@
 # @office-kit/pptx — Editor
 
 A PowerPoint-style editing UI built **entirely on the `@office-kit/pptx` public
-API**, in Svelte 5 + SvelteKit. It lives at the `/editor` route.
+API**, in Svelte 5. SvelteKit serves it at `/editor`; `@office-kit/pptx-dev`
+bundles the same components into its local development preview. The development
+host persists edits and resolves source conflicts; see
+[the development-tool README](../../../../../packages/dev/README.md).
 
 The design goal is _MS Office-like operation covering every pptx expression the
-library can author_ — and, crucially, a **mechanism that guarantees that
-coverage** rather than leaving it to diligence.
+library can author_. Generated registry checks track API dispatch coverage;
+browser tests must separately establish usable editing workflows.
 
-## The coverage guarantee (why this can't silently miss a feature)
+## API dispatch coverage
 
 The library exposes ~440 public functions. The ones a UI must surface as an
 **operation** are the _mutating_ (state-changing) exports — every `add*`,
 `set*`, `clear*`, `remove*`, `insert*`, … There are **150** of them today.
 
-That set is the coverage target, and it is enforced end-to-end:
+That set is the registry coverage target:
 
 1. **`manifest/generate.mjs`** reads the library source, enumerates the mutating
    exports by verb prefix, parses each signature into an operand + parameter
@@ -30,8 +33,10 @@ test` fails** until it is manifested — and therefore wired into the editor.
    (author a shape → fill → move → save → reload) to prove the wiring executes,
    not just type-checks.
 
-So implementation effort can never quietly drop a capability: the gate is the
-same `pnpm test` that guards the library.
+These checks detect missing registry entries. They do not prove that every
+operation has a complete, accessible user interface. `site/test` tests the
+rune-backed history model, and `packages/dev/test/browser` exercises the bundled
+editor and saved PPTX content.
 
 ## How a capability reaches the user
 

@@ -68,6 +68,7 @@ process.stdin.on('data',async data=>{
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
       await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
       const slideSvg = (label) => {
         const svg = document.querySelector('#slide').shadowRoot.querySelector('svg');
@@ -141,10 +142,12 @@ process.stdin.on('data',async data=>{
       assert.equal(blocked.status(), 409);
       // Split without interrupting the running first terminal; start an independent second.
       await page.getByRole('button', { name: 'Split down', exact: true }).first().click();
-      await page.locator('iframe').nth(1).waitFor();
-      const secondPath = await page.locator('iframe').nth(1).getAttribute('src');
+      await page.locator('.agent-pane iframe').nth(1).waitFor();
+      const secondPath = await page.locator('.agent-pane iframe').nth(1).getAttribute('src');
       await page.waitForFunction(() =>
-        document.querySelectorAll('iframe')[1].contentDocument?.querySelector('#terminal-start'),
+        document
+          .querySelectorAll('.agent-pane iframe')[1]
+          .contentDocument?.querySelector('#terminal-start'),
       );
       const second = page.frames().find((frame) => frame.url().endsWith(secondPath));
       await second.locator('#terminal-start').click();
@@ -172,9 +175,11 @@ process.stdin.on('data',async data=>{
       // A third Codex pane can work while both Claude sessions are running.
       await page.getByRole('button', { name: 'Split right', exact: true }).nth(1).click();
       await page.waitForFunction(() =>
-        document.querySelectorAll('iframe')[2]?.contentDocument?.querySelector('#chat-provider'),
+        document
+          .querySelectorAll('.agent-pane iframe')[2]
+          ?.contentDocument?.querySelector('#chat-provider'),
       );
-      const thirdPath = await page.locator('iframe').nth(2).getAttribute('src');
+      const thirdPath = await page.locator('.agent-pane iframe').nth(2).getAttribute('src');
       const third = page.frames().find((frame) => frame.url().endsWith(thirdPath));
       await assertTerminalFits(second);
       await third.selectOption('#chat-provider', 'codex');
@@ -202,7 +207,9 @@ process.stdin.on('data',async data=>{
       await divider.press('ArrowUp');
       assert.equal(await divider.getAttribute('aria-valuenow'), '45');
       await page.reload();
-      await page.waitForFunction(() => document.querySelectorAll('iframe').length === 4);
+      await page.waitForFunction(
+        () => document.querySelectorAll('.agent-pane iframe').length === 4,
+      );
       agent = page.frames().find((frame) => frame.url().endsWith(agentPath));
       await agent.waitForFunction(() =>
         document.querySelector('#terminal').textContent.includes('Model menu: /model'),
