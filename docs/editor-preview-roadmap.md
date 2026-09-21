@@ -81,7 +81,10 @@ that a user can complete the corresponding editing workflow.
   Shift-click selects a cell range for merging; the merged cell can be split.
   Merging keeps formatted paragraphs in the anchor cell. Browser tests verify
   merge, split, saved content, undo and reload in Japanese.
-  Borders, cell-range formatting and direct canvas cell editing still require
+  Cell ranges support fill, horizontal/vertical alignment, bold and italic in a
+  single undo step, including covered cells in merged regions. Browser tests
+  verify saved formatting, unaffected cells, mixed-format undo and both languages.
+  Borders, additional text formatting and direct canvas cell editing still require
   complete workflows.
 
 ## Outstanding work

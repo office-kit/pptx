@@ -13,3 +13,6 @@ field text in getTableCellText so editing does not silently drop visible content
 Merge selected table cells in the preview while retaining their formatted text,
 and split merged cells. Expose splitTableCell and an append text policy for
 mergeTableCells; preserve text and reject malformed merges before mutation.
+
+Apply fill, alignment, bold and italic to selected cell ranges in a single undo
+step, including merged cells, from the English and Japanese preview.

@@ -2,7 +2,7 @@
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
+  import { type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -27,6 +27,31 @@
     const col = Math.min(tableState.col, end.col);
     return { row, col, rowSpan: Math.abs(tableState.row - end.row) + 1, colSpan: Math.abs(tableState.col - end.col) + 1 };
   });
+  const selectedCells = $derived.by(() => {
+    const result = new Set<TableCellData>();
+    if (!tableState || !block || block.row + block.rowSpan > tableState.cells.length || block.col + block.colSpan > tableState.widths.length) return result;
+    for (let r = 0; r < tableState.cells.length; r++) {
+      for (let c = 0; c < tableState.widths.length; c++) {
+        const cell = tableState.cells[r]![c]!;
+        const span = getTableCellSpan(cell);
+        if (span.hMerge || span.vMerge || r >= block.row + block.rowSpan || r + span.rowSpan <= block.row || c >= block.col + block.colSpan || c + span.gridSpan <= block.col) continue;
+        for (let y = r; y < Math.min(r + span.rowSpan, tableState.cells.length); y++)
+          for (let x = c; x < Math.min(c + span.gridSpan, tableState.widths.length); x++)
+            result.add(tableState.cells[y]![x]!);
+      }
+    }
+    return result;
+  });
+  const textRuns = $derived([...selectedCells].flatMap(cell => getTableCellParagraphs(cell).flatMap(paragraph => paragraph.elements.filter(element => element.kind !== 'br'))));
+  const allBold = $derived(textRuns.length > 0 && textRuns.every(run => run.format?.bold === true));
+  const allItalic = $derived(textRuns.length > 0 && textRuns.every(run => run.format?.italic === true));
+  function applyToCells(label: string, edit: (cell: TableCellData) => void) {
+    const cells = [...selectedCells];
+    if (cells.length) doc.transact(label, () => { for (const cell of cells) edit(cell); });
+  }
+  function formatCells(format: TextFormat) {
+    applyToCells(t('Format selected cells'), cell => setTableCellTextFormat(cell, format));
+  }
   const canMerge = $derived.by(() => {
     if (!tableState || !block || block.rowSpan * block.colSpan < 2 || block.row + block.rowSpan > tableState.cells.length || block.col + block.colSpan > tableState.widths.length) return false;
     return tableState.cells.slice(block.row, block.row + block.rowSpan).every(row => row.slice(block.col, block.col + block.colSpan).every(cell => {
@@ -80,7 +105,7 @@
           {#each row as cell, c}
             {@const span = getTableCellSpan(cell)}
             {#if !span.hMerge && !span.vMerge}
-              <td rowspan={span.rowSpan} colspan={span.gridSpan}><button class="ok-btn" aria-label={`${t('Cell')} ${r + 1}, ${c + 1}`} aria-pressed={!!block && r >= block.row && r < block.row + block.rowSpan && c >= block.col && c < block.col + block.colSpan} onclick={(e) => select(r, c, e.shiftKey)}>{getTableCellText(cell) || '—'}</button></td>
+              <td rowspan={span.rowSpan} colspan={span.gridSpan}><button class="ok-btn" aria-label={`${t('Cell')} ${r + 1}, ${c + 1}`} aria-pressed={selectedCells.has(cell)} onclick={(e) => select(r, c, e.shiftKey)}>{getTableCellText(cell) || '—'}</button></td>
             {/if}
           {/each}
         </tr>{/each}
@@ -93,11 +118,16 @@
         <button class="ok-btn" disabled={getTableCellSpan(tableState.cell).gridSpan === 1 && getTableCellSpan(tableState.cell).rowSpan === 1} onclick={split}>{t('Split cell')}</button>
       </div>
       <label>{t('Cell text')}<textarea class="ok-input" rows="3" value={getTableCellText(tableState.cell)} onchange={(e) => { const s = tableState; if (s?.cell) doc.transact(t('Edit cell text'), () => setTableCellText(s.cell!, e.currentTarget.value, { preserveFormatting: true })); }}></textarea></label>
-      <label>{t('Cell fill')}<input type="color" value={getTableCellFill(tableState.cell) ?? '#ffffff'} onchange={(e) => { const cell = tableState?.cell; if (cell) doc.transact(t('Cell fill'), () => setTableCellFill(cell, e.currentTarget.value)); }} /></label>
-      <label>{t('Horizontal alignment')}<select aria-label={t('Horizontal alignment')} class="ok-input" value={getTableCellAlignment(tableState.cell) ?? 'l'} onchange={(e) => { const cell = tableState?.cell; const v = e.currentTarget.value; if (cell && (v === 'l' || v === 'ctr' || v === 'r')) doc.transact(t('Horizontal alignment'), () => setTableCellAlignment(cell, v)); }}>
+      <small>{t('Formatting applies to all selected cells')}</small>
+      <div class="actions">
+        <button class="ok-btn" aria-pressed={allBold} onclick={() => formatCells({ bold: !allBold })}>{t('Bold')}</button>
+        <button class="ok-btn" aria-pressed={allItalic} onclick={() => formatCells({ italic: !allItalic })}>{t('Italic')}</button>
+      </div>
+      <label>{t('Cell fill')}<input type="color" value={getTableCellFill(tableState.cell) ?? '#ffffff'} onchange={(e) => { const value = e.currentTarget.value; applyToCells(t('Cell fill'), cell => setTableCellFill(cell, value)); }} /></label>
+      <label>{t('Horizontal alignment')}<select aria-label={t('Horizontal alignment')} class="ok-input" value={getTableCellAlignment(tableState.cell) ?? 'l'} onchange={(e) => { const v = e.currentTarget.value; if (v === 'l' || v === 'ctr' || v === 'r') applyToCells(t('Horizontal alignment'), cell => setTableCellAlignment(cell, v)); }}>
         <option value="l">{t('Left')}</option><option value="ctr">{t('Center')}</option><option value="r">{t('Right')}</option>
       </select></label>
-      <label>{t('Vertical alignment')}<select aria-label={t('Vertical alignment')} class="ok-input" value={getTableCellAnchor(tableState.cell) ?? 'top'} onchange={(e) => { const cell = tableState?.cell; const v = e.currentTarget.value; if (cell && (v === 'top' || v === 'center' || v === 'bottom')) doc.transact(t('Vertical alignment'), () => setTableCellAnchor(cell, v)); }}>
+      <label>{t('Vertical alignment')}<select aria-label={t('Vertical alignment')} class="ok-input" value={getTableCellAnchor(tableState.cell) ?? 'top'} onchange={(e) => { const v = e.currentTarget.value; if (v === 'top' || v === 'center' || v === 'bottom') applyToCells(t('Vertical alignment'), cell => setTableCellAnchor(cell, v)); }}>
         <option value="top">{t('Top')}</option><option value="center">{t('Center')}</option><option value="bottom">{t('Bottom')}</option>
       </select></label>
       <label>{t('Row height (inches)')}<input class="ok-input" type="number" min="0.01" step="0.01" required value={tableState.heights[tableState.row]! / inches(1)} onchange={(e) => { const s = tableState; if (s && e.currentTarget.reportValidity()) doc.transact(t('Resize table row'), () => setTableRowHeight(s.table, s.row, inches(e.currentTarget.valueAsNumber))); }} /></label>

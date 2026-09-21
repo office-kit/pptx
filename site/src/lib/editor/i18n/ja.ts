@@ -211,6 +211,8 @@ export const ja: Record<string, string> = {
   'Select text to format': '書式を変える文字を選択',
   'Format selected text': '選択した文字の書式を変更',
   'Edit text': 'テキストを編集',
+  'Format selected cells': '選択セルの書式設定',
+  'Formatting applies to all selected cells': '書式は選択したすべてのセルに適用されます',
   Bold: '太字',
   Italic: '斜体',
   Underline: '下線',
