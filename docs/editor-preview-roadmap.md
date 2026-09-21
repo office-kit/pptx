@@ -23,6 +23,13 @@ that a user can complete the corresponding editing workflow.
 
 ## Verified so far
 
+- Slide text replacement now matches across adjacent formatting runs, preserving
+  surrounding run formats and assigning replacements the first matched run’s
+  formatting. Tests cover Japanese/English, emoji, regular-expression captures,
+  replacement tokens, deletion, no-op edits, paragraph/line-break boundaries and
+  save/load preservation. A dedicated bilingual find/replace dialog and match
+  navigation still need implementation and browser verification.
+
 - Bilingual speaker-note dialogs load and edit multiline notes for the selected
   slide. Notes readers/writers target the body placeholder, preserve unrelated
   footer placeholders, and read soft breaks and field text. Browser tests verify
