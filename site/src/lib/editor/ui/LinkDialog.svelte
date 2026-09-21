@@ -12,7 +12,6 @@
   const shapes = selectedShapeIds(selection).map(id => doc.shapeById(selection.slideIndex, id));
   const slides = untrack(() => doc.slides);
   const supported = selection.kind === 'shape' && shapes.length > 0 && shapes.every(shape => shape && ['shape', 'picture', 'connector', 'graphicFrame'].includes(getShapeKind(shape)));
-  const textOnly = shapes.every(shape => shape && getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0);
   const selectedRuns = shapes.flatMap(shape => {
     if (!shape || !range) return [];
     const runs: { action: ShapeClickAction | null; tip: string | null }[] = [];
@@ -58,17 +57,17 @@
           if (range) {
             if (remove) setShapeClickAction(shape, null, { range });
             else if (destination === 'url') setShapeHyperlink(shape, url.trim(), tooltip.trim() || undefined, { range });
-            else setShapeClickAction(shape, destination === 'slide' ? { kind: 'slide', slide: slides[slideIndex]! } : { kind: destination }, { range });
+            else setShapeClickAction(shape, destination === 'slide' ? { kind: 'slide', slide: slides[slideIndex]! } : { kind: destination }, { range, tooltip: tooltip.trim() || undefined });
             continue;
           }
           const hasText = getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0;
           if (hasText) setShapeHyperlink(shape, null);
           setShapeClickAction(shape, null);
           if (!remove) {
-            if (destination === 'slide') setShapeClickAction(shape, { kind: 'slide', slide: slides[slideIndex]! });
-            else if (destination !== 'url') setShapeClickAction(shape, { kind: destination });
-            else if (hasText) setShapeHyperlink(shape, url.trim(), textOnly ? tooltip.trim() || undefined : undefined);
-            else setShapeClickAction(shape, { kind: 'url', url: url.trim() });
+            if (destination === 'slide') setShapeClickAction(shape, { kind: 'slide', slide: slides[slideIndex]! }, { tooltip: tooltip.trim() || undefined });
+            else if (destination !== 'url') setShapeClickAction(shape, { kind: destination }, { tooltip: tooltip.trim() || undefined });
+            else if (hasText) setShapeHyperlink(shape, url.trim(), tooltip.trim() || undefined);
+            else setShapeClickAction(shape, { kind: 'url', url: url.trim() }, { tooltip: tooltip.trim() || undefined });
           }
         }
       });
@@ -89,7 +88,7 @@
         <label>{t('Target slide')}<select class="ok-input" bind:value={slideIndex} aria-label={t('Target slide')}>{#each slides as slide, i}<option value={i}>{i + 1}. {getSlideTitle(slide) || t('Untitled slide')}</option>{/each}</select></label>
       {/if}
       {#if mixed}<p>{t(range ? 'The selected text contains different links.' : 'The selected shapes have different links.')}</p>{/if}
-      {#if textOnly && destination === 'url'}<label>{t('Link description')}<input class="ok-input" bind:value={tooltip} aria-label={t('Link description')} /></label>{/if}
+      <label>{t('Link description')}<input class="ok-input" bind:value={tooltip} aria-label={t('Link description')} /></label>
     {:else}<p role="alert">{t('Select objects to edit their links.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" disabled={!supported || !actions.some(Boolean)} onclick={() => apply(true)}>{t('Remove link')}</button><span></span><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!supported || !valid}>{t('Apply')}</button></footer>

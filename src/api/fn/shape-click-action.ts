@@ -144,6 +144,7 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
  *
  * Optional `range` applies the action to selected UTF-16 text offsets instead
  * of the whole shape, preserving links and formatting outside the range.
+ * Optional `tooltip` sets the link description; omission clears an old description.
  *
  * The shape must be one of `shape | picture | connector | graphicFrame`.
  * Groups don't carry their own click action in our model.
@@ -151,7 +152,7 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
 export const setShapeClickAction = (
   shape: SlideShapeData,
   action: ShapeClickAction | null,
-  options?: { range?: { start: number; end: number } },
+  options?: { range?: { start: number; end: number }; tooltip?: string },
 ): void => {
   const range = options?.range;
   const body = range ? requireTxBody(shape) : null;
@@ -167,6 +168,9 @@ export const setShapeClickAction = (
   }
 
   const hlink = action ? buildClickAction(shape, action) : null;
+  if (hlink && options?.tooltip !== undefined) {
+    hlink.attrs.push(attr(qname('', 'tooltip', ''), options.tooltip));
+  }
   const apply = (parent: XmlElement) => {
     replaceClickHyperlink(parent, hlink ? structuredClone(hlink) : null);
   };

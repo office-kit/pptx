@@ -223,6 +223,42 @@ describe('renderSlideToSvg', () => {
     expect(svg).toMatch(/fill="#[Cc][Cc]0+0+"/);
   });
 
+  it('keeps a selected text link off the surrounding object', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'Before link after',
+    });
+    setShapeHyperlink(shape, 'https://selected.example', undefined, {
+      range: { start: 7, end: 11 },
+    });
+    const svg = renderSlideToSvg(pres, slide);
+    const links = attrsOf(svg, 'a').filter((a) => a.href === 'https://selected.example');
+    expect(links).toHaveLength(1);
+  });
+
+  it('renders escaped picture link descriptions after saved reload', async () => {
+    const { pres, slide } = await blankSlide();
+    const picture = addSlideImage(slide, buildPng(2, 2, [40, 80, 120]), {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    setShapeClickAction(
+      picture,
+      { kind: 'url', url: 'https://example.com' },
+      { tooltip: '資料 <日本語> & English' },
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const svg = renderSlideToSvg(loaded, getSlides(loaded)[0]!);
+    expect(svg).toContain('<title>資料 &lt;日本語&gt; &amp; English</title>');
+    expect(svg).toContain('href="https://example.com"');
+  });
+
   it('addSlideImage: emits <image> element with a data: URL href', async () => {
     const { pres, slide } = await blankSlide();
     const pngBytes = buildPng(4, 4, [255, 128, 0]);

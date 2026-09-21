@@ -134,6 +134,7 @@ test(
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-object-links-'));
     let preview, browser, page;
+    const errors = [];
     try {
       const file = join(dir, 'deck.tsx');
       await writeFile(
@@ -143,6 +144,7 @@ test(
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      page.on('pageerror', (error) => errors.push(error.message));
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -183,6 +185,7 @@ test(
       await saved();
       dialog = await open();
       await dialog.getByLabel('Link address', { exact: true }).fill('https://example.com/image');
+      await dialog.getByLabel('Link description', { exact: true }).fill('Image reference');
       await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
       await saved();
       let pres = await read();
@@ -199,6 +202,11 @@ test(
         await dialog.getByLabel('リンク先', { exact: true }).inputValue(),
         'https://example.com/image',
       );
+      assert.equal(
+        await dialog.getByLabel('リンクの説明', { exact: true }).inputValue(),
+        'Image reference',
+      );
+      await dialog.getByLabel('リンクの説明', { exact: true }).fill('画像の参考資料');
       await dialog.getByLabel('リンク先の種類', { exact: true }).selectOption('slide');
       await dialog.getByLabel('移動先のスライド', { exact: true }).selectOption('1');
       await page.screenshot({ path: '/tmp/pptx-pr287-object-link-ja.png', fullPage: true });
@@ -206,9 +214,20 @@ test(
       await saved();
       pres = await read();
       assert.equal(getSlideIndex(pres, getShapeClickAction(picture(pres)).slide), 1);
+      const viewer = await browser.newPage();
+      viewer.on('pageerror', (error) => errors.push(error.message));
+      await viewer.goto(preview.url);
+      await viewer.getByRole('button', { name: 'Preview', exact: true }).click();
+      const imageLink = viewer.locator('#slide a').filter({ has: viewer.locator('image') });
+      assert.equal(await imageLink.locator('title').textContent(), '画像の参考資料');
+      await imageLink.click();
+      assert.equal(await viewer.locator('#count').textContent(), 'Slide 2 of 2');
+      await viewer.close();
+
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal(getShapeClickAction(picture(await read())).url, 'https://example.com/image');
+      assert.equal(getShapeHyperlinkTooltip(picture(await read())), 'Image reference');
       await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
       await saved();
       await page.reload();
@@ -220,6 +239,15 @@ test(
         'slide',
       );
       assert.equal(await dialog.getByLabel('移動先のスライド', { exact: true }).inputValue(), '1');
+      assert.equal(
+        await dialog.getByLabel('リンクの説明', { exact: true }).inputValue(),
+        '画像の参考資料',
+      );
+      await dialog.getByLabel('リンクの説明', { exact: true }).fill('');
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      assert.equal(getShapeHyperlinkTooltip(picture(await read())), null);
+      dialog = await open();
       await dialog.getByRole('button', { name: 'リンクを解除', exact: true }).click();
       await saved();
       assert.equal(getShapeClickAction(picture(await read())), null);
@@ -274,6 +302,7 @@ test(
         getShapeClickAction(getSlideShapes(getSlides(await read())[0])[0]).kind,
         'lastSlide',
       );
+      assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-object-link-failure.png', fullPage: true });
       throw error;
