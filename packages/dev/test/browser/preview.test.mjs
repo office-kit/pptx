@@ -195,16 +195,42 @@ process.stdin.on('data',async data=>{
       const thirdPath = await page.locator('iframe').nth(2).getAttribute('src');
       const third = page.frames().find((frame) => frame.url().endsWith(thirdPath));
       await assertTerminalFits(second);
+      // A new pane renders its initial chat snapshot asynchronously. Wait for that
+      // render and the selected-slide context before scrolling to the Send button.
+      await third.waitForFunction(() => {
+        const context = document.querySelector('#chat-context');
+        return (
+          context.textContent === 'Slide 3 of 50' &&
+          JSON.parse(context.dataset.focus).revision > 0 &&
+          document
+            .querySelector('#messages .chat-intro')
+            ?.textContent.startsWith('Ask for a focused slide edit')
+        );
+      });
       await third.selectOption('#chat-provider', 'codex');
       await third.locator('#chat-input').fill('Parallel edit');
-      await third.locator('#chat-send').click();
+      const [submitted] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url() === url + thirdPath + '/chat' && response.request().method() === 'POST',
+        ),
+        third.locator('#chat-send').click(),
+      ]);
+      const submission = await submitted.json();
+      assert.equal(submitted.status(), 202, JSON.stringify(submission));
+      assert.equal(submission.messages[0].text, 'Parallel edit');
+      assert.equal(submission.messages[0].context.slide, 3);
       try {
         await third.waitForFunction(
           () => document.querySelector('#chat-status').textContent === 'Done',
         );
       } catch (cause) {
         const chat = await (await page.request.get(url + thirdPath + '/chat')).json();
-        throw new Error('Parallel agent did not finish: ' + JSON.stringify(chat), { cause });
+        throw new Error(
+          'Parallel agent did not finish: ' +
+            JSON.stringify({ chat, status: await third.locator('#chat-status').textContent() }),
+          { cause },
+        );
       }
       assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
       assert.equal(await second.locator('#terminal-stop').isVisible(), true);
