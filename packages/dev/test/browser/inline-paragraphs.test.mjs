@@ -193,6 +193,10 @@ test(
       await saved();
       await bar.getByLabel('List level', { exact: true }).selectOption({ value: '3' });
       await saved();
+      await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
+      await bar.getByLabel('Line spacing value', { exact: true }).fill('2');
+      await bar.getByLabel('Line spacing value', { exact: true }).press('Tab');
+      await saved();
       let cells = getTableCells(await shape());
       assert.equal(getParagraphAlignment(cells[0][0], 1), 'r');
       assert.equal(getParagraphBullet(cells[0][0], 1), 'number');
@@ -200,6 +204,18 @@ test(
         new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
       );
       assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][0], 1).level, 3);
+      assert.deepEqual(getParagraphPropertiesEffective(presForLevels, cells[0][0], 1).lineSpacing, {
+        kind: 'pct',
+        value: 2,
+      });
+      assert.notDeepEqual(
+        getParagraphPropertiesEffective(presForLevels, cells[0][0], 0).lineSpacing,
+        { kind: 'pct', value: 2 },
+      );
+      assert.notDeepEqual(
+        getParagraphPropertiesEffective(presForLevels, cells[0][1], 0).lineSpacing,
+        { kind: 'pct', value: 2 },
+      );
       assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][0], 0).level, 0);
       assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][1], 0).level, 0);
       assert.notEqual(getParagraphAlignment(cells[0][0], 0), 'r');
@@ -210,6 +226,122 @@ test(
       cells = getTableCells(await shape());
       assert.equal(getParagraphAlignment(cells[0][0], 1), 'r');
       assert.equal(getParagraphBullet(cells[0][0], 1), 'number');
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'inline paragraph spacing supports mixed selections, inheritance and history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inline-paragraph-'));
+    let preview, browser, page;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4} paragraphs={[{runs:[{text:'English',format:{bold:true}}]},{runs:[{text:'日本語',format:{italic:true}}]},{runs:[{text:'Third paragraph'}]}]} /></Slide><Slide><Text x={1} y={1} width={7} height={3} /></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let locale = 'en';
+      const saved = () =>
+        editor
+          .getByText(locale === 'en' ? 'Saved to this project' : 'このプロジェクトに保存済み', {
+            exact: true,
+          })
+          .waitFor();
+      const shape = async () =>
+        getSlideShapes(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        )[0];
+      const properties = async () => {
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const text = getSlideShapes(getSlides(pres)[0])[0];
+        return Array.from({ length: getShapeParagraphCount(text) }, (_, i) =>
+          getParagraphPropertiesEffective(pres, text, i),
+        );
+      };
+      await saved();
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.locator('.inline-edit');
+      const select = async (start, end = start) => {
+        await input.focus();
+        await input.evaluate(
+          (node, range) => {
+            node.setSelectionRange(range.start, range.end);
+            node.dispatchEvent(new Event('select', { bubbles: true }));
+          },
+          { start, end },
+        );
+      };
+      const bar = editor.locator('.text-format-bar');
+      const change = async (name, value) => {
+        const control = bar.getByLabel(name, { exact: true });
+        await control.fill(value);
+        await control.press('Tab');
+        await saved();
+      };
+      await select(9);
+      await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
+      await change('Line spacing value', '1.5');
+      await change('Before paragraph (pt)', '6');
+      await change('After paragraph (pt)', '12');
+      let props = await properties();
+      assert.deepEqual(props[1].lineSpacing, { kind: 'pct', value: 1.5 });
+      assert.equal(props[1].spcBefPts, 6);
+      assert.equal(props[1].spcAftPts, 12);
+      assert.notDeepEqual(props[0].lineSpacing, props[1].lineSpacing);
+      assert.notEqual(props[2].spcAftPts, 12);
+      await select(0, 12);
+      assert.equal(await bar.getByLabel('Line spacing mode', { exact: true }).inputValue(), '');
+      assert.equal(await bar.getByLabel('Before paragraph (pt)', { exact: true }).inputValue(), '');
+      await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pts');
+      await change('Line spacing value', '24');
+      props = await properties();
+      assert.deepEqual(props[0].lineSpacing, { kind: 'pts', value: 24 });
+      assert.deepEqual(props[1].lineSpacing, props[0].lineSpacing);
+      assert.notDeepEqual(props[2].lineSpacing, props[0].lineSpacing);
+      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual((await properties())[0].lineSpacing, { kind: 'pts', value: 18 });
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.locator('.lang select').selectOption('ja');
+      locale = 'ja';
+      await editor.locator('.hit').first().dblclick();
+      await select(9);
+      await bar.getByLabel('行間の指定方法', { exact: true }).selectOption('inherit');
+      await change('段落前（pt）', '');
+      await change('段落後（pt）', '0');
+      await page.reload();
+      await saved();
+      props = await properties();
+      assert.deepEqual(props[0].lineSpacing, { kind: 'pts', value: 24 });
+      assert.notDeepEqual(props[1].lineSpacing, props[0].lineSpacing);
+      assert.notEqual(props[1].spcBefPts, 6);
+      assert.equal(props[1].spcAftPts, 0);
+      assert.notEqual(props[2].spcAftPts, 12);
+      assert.equal(getShapeParagraphElements(await shape(), 0)[0].format.bold, true);
+      assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, true);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
