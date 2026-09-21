@@ -62,16 +62,21 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
  * Set `preserveFormatting` for incremental editing: unchanged prefix/suffix runs
  * and paragraphs retain their XML; inserted text inherits the insertion point's
  * format. Multiple disjoint changes should be applied separately to retain the
- * formatting between them.
+ * formatting between them. With `range`, `value` replaces exactly that UTF-16
+ * selection and unaffected formatting is always preserved.
  */
 export const setShapeText = (
   shape: SlideShapeData,
   value: string,
-  options: { bullets?: BulletStyle; preserveFormatting?: boolean } = {},
+  options: {
+    bullets?: BulletStyle;
+    preserveFormatting?: boolean;
+    range?: { start: number; end: number };
+  } = {},
 ): void => {
   const txBody = ensureTxBody(shape);
-  if (options.preserveFormatting) {
-    editTextBody(txBody, value);
+  if (options.preserveFormatting || options.range) {
+    editTextBody(txBody, value, options.range);
     if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
   } else setTextBody(txBody, value, options.bullets);
   commitAndRefresh(shape);
