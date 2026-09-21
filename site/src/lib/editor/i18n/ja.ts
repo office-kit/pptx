@@ -2,6 +2,11 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Edit table': '表を編集',
+  'Paste table cells': '表のセルを貼り付け',
+  'Split merged cells before adding a row': '行を追加する前に結合セルを分割してください',
+  'Split merged cells before pasting multiple cells':
+    '複数セルを貼り付ける前に結合セルを分割してください',
   Mixed: '混在',
   Custom: 'カスタム',
   Inherit: '継承',

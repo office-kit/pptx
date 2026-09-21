@@ -199,3 +199,10 @@ presenter window's next slide. Editing still includes the entire deck. The
 browser test covers leading, middle, trailing, and all-skipped slides; undo/redo;
 Japanese controls; and reload of saved visibility. All-skipped decks cannot start
 presentation.
+
+- Inline table editing supports Tab / Shift+Tab across visible cells and appends
+  a row at the end of an unmerged table. Spreadsheet TSV paste preserves quoted
+  tabs, newlines and quotes, expands the table, and commits as one undo step.
+  Pasting across merged cells or expanding a merged table requires splitting
+  those cells first. Browser coverage checks navigation, Japanese multiline
+  paste, saved round trips, undo/redo and rejected merged-cell paste.
