@@ -19,3 +19,6 @@ step, including merged cells, from the English and Japanese preview.
 
 Use the shared text toolbar for table ranges, including font families, size,
 color and underline. Display saved color and mixed sizes when selection changes.
+
+Edit table border colors, widths and styles, with all-cell and outside-border
+placement. Reset borders and undo the changes from the bilingual preview.
