@@ -2,10 +2,13 @@
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
+  import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
+  const selected = $derived(selectedSlideIndices(doc.selection));
+  const firstSelected = $derived(selected[0] ?? 0);
   const menu = $derived(editor.contextMenu!);
 
   interface Item {
@@ -42,8 +45,8 @@
         { label: 'New slide', run: () => editor.invoke('addBlankSlide') },
         { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
         { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
-        { label: 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: doc.selection.slideIndex - 1 }), disabled: doc.selection.slideIndex === 0 },
-        { label: 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: doc.selection.slideIndex + 1 }), disabled: doc.selection.slideIndex >= doc.slides.length - 1 },
+        { label: 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
+        { label: 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
       );
     } else {
       list.push(

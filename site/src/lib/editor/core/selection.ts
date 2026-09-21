@@ -21,6 +21,8 @@ import type { Operand } from '../manifest/types.ts';
 export interface SlideSelection {
   readonly kind: 'slide';
   readonly slideIndex: number;
+  readonly slideIndices?: readonly number[];
+  readonly anchorIndex?: number;
 }
 
 export interface ShapeSelection {
@@ -49,6 +51,13 @@ export type Selection = SlideSelection | ShapeSelection | CellSelection | NoneSe
 
 export function selectionSlideIndex(sel: Selection): number {
   return sel.slideIndex;
+}
+
+/** Ordered slide selection; older single-slide snapshots remain compatible. */
+export function selectedSlideIndices(sel: Selection): number[] {
+  return sel.kind === 'slide'
+    ? [...new Set(sel.slideIndices ?? [sel.slideIndex])].sort((a, b) => a - b)
+    : [sel.slideIndex];
 }
 
 /** The primary (first) selected shape id, if any. */

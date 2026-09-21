@@ -29,7 +29,7 @@ import {
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
-import type { Selection } from './selection.ts';
+import { selectedSlideIndices, type Selection } from './selection.ts';
 
 interface Snapshot {
   readonly bytes: Promise<Uint8Array>;
@@ -192,9 +192,28 @@ export class EditorDocument {
     this.selection = sel;
   }
 
-  selectSlide(index: number): void {
+  selectSlide(index: number, options: { additive?: boolean; range?: boolean } = {}): void {
     const clamped = Math.max(0, Math.min(index, getSlides(this.pres).length - 1));
-    this.selection = { kind: 'slide', slideIndex: clamped };
+    const current = this.selection;
+    const anchor = current.kind === 'slide' ? (current.anchorIndex ?? current.slideIndex) : clamped;
+    let indices = [clamped];
+    if (options.range) {
+      indices = Array.from(
+        { length: Math.abs(clamped - anchor) + 1 },
+        (_, i) => Math.min(clamped, anchor) + i,
+      );
+    } else if (options.additive && current.kind === 'slide') {
+      const selected = new Set(selectedSlideIndices(current));
+      if (selected.has(clamped) && selected.size > 1) selected.delete(clamped);
+      else selected.add(clamped);
+      indices = [...selected].sort((a, b) => a - b);
+    }
+    this.selection = {
+      kind: 'slide',
+      slideIndex: indices.includes(clamped) ? clamped : indices[indices.length - 1]!,
+      slideIndices: indices,
+      anchorIndex: options.range ? anchor : clamped,
+    };
   }
 
   selectShape(slideIndex: number, shapeId: number, additive = false): void {
