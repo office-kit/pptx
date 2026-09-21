@@ -144,6 +144,22 @@ test(
       assert.equal((await read()).valueAxisHidden, true);
       assert.equal((await read()).categoryAxisHidden, true);
       assert.equal((await read()).valueAxisMajorGridlines, false);
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('button', { name: 'Edit chart', exact: true }).click();
+      await dialog.getByText('Chart axes', { exact: true }).click();
+      await dialog.getByLabel('Show value axis', { exact: true }).check();
+      await dialog.getByLabel('Show major gridlines', { exact: true }).check();
+      await dialog.getByLabel('Axis minimum', { exact: true }).fill('0');
+      await dialog.getByLabel('Axis maximum', { exact: true }).fill('100');
+      await dialog.getByLabel('Major tick interval', { exact: true }).fill('0.000001');
+      await dialog.getByRole('button', { name: 'Apply changes', exact: true }).click();
+      await saved();
+      assert.equal((await read()).valueAxis.majorUnit, 0.000001);
+      const gridCount = await editor.locator('.paint line[stroke-width="0.5"]').count();
+      assert.ok(gridCount > 0 && gridCount <= 1000);
+      await page.reload();
+      await saved();
+      assert.equal((await read()).valueAxis.majorUnit, 0.000001);
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-chart-axes-failure.png', fullPage: true });
