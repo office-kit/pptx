@@ -451,7 +451,11 @@ test(
         [2, 'prevSlide'],
         [3, 'firstSlide'],
       ])
-        setShapeClickAction(getSlideShapes(slides[index])[0], { kind });
+        setShapeClickAction(
+          getSlideShapes(slides[index])[0],
+          { kind },
+          { range: { start: 0, end: 4 } },
+        );
       await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
       const file = join(dir, 'deck.tsx');
       await writeFile(

@@ -1349,6 +1349,12 @@
           "type": "ShapeClickAction | null",
           "kind": "object",
           "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ range?: { start: number; end: number } }",
+          "kind": "object",
+          "optional": true
         }
       ]
     },

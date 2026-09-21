@@ -3,6 +3,8 @@
 
 export const ja: Record<string, string> = {
   'Edit link': 'リンクを編集',
+  'The selected text contains different links.':
+    '選択したテキストには異なるリンクが設定されています。',
   'Remove link': 'リンクを解除',
   'Next slide': '次のスライド',
   'Previous slide': '前のスライド',
