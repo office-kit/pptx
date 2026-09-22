@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -45,6 +45,23 @@ function renderSlide(svg,options){
   }else if(effect==='wipe'){
     const clips={l:'inset(0 0 0 100%)',r:'inset(0 100% 0 0)',u:'inset(100% 0 0 0)',d:'inset(0 0 100% 0)'};
     animate(incoming,[{clipPath:clips[options.direction]??clips.l},{clipPath:'inset(0 0 0 0)'}]);
+  }else if(effect==='blinds'||effect==='comb'){
+    const vertical=options.direction==='vert';
+    const bands=(progress)=>{
+      const points=[];
+      for(let band=0;band<8;band++){
+        const start=band*12.5,end=start+12.5;
+        const left=effect==='comb'&&band%2?100*(1-progress):0;
+        const right=effect==='comb'&&band%2?100:100*progress;
+        const rect=effect==='blinds'
+          ?[[start,0],[start+12.5*progress,0],[start+12.5*progress,100],[start,100]]
+          :[[left,start],[right,start],[right,end],[left,end]];
+        // Return along the same bridge so disconnected bands share one clip polygon.
+        points.push([0,0],...rect,rect[0],[0,0]);
+      }
+      return 'polygon('+points.map(([x,y])=>vertical?y+'% '+x+'%':x+'% '+y+'%').join(',')+')';
+    };
+    animate(incoming,[{clipPath:bands(0)},{clipPath:bands(1)}]);
   }else if(effect==='split'){
     const collapsed=options.orientation==='vert'?'inset(0 50%)':'inset(50% 0)';
     const expanded='inset(0 0)';
