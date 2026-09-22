@@ -246,6 +246,8 @@ Shape appearance commands apply fills, outlines, shadows, glow and text formatti
 
 Quick fill and outline controls read authored solid colors from the current selection, resolving theme color transforms. They refresh after selection changes, history navigation and saved reloads, and label mixed colors, non-solid paint and inherited states in English/Japanese. Inherited paint is identified as inherited rather than presented as an authored solid color.
 
+The quick appearance panel also exposes No fill and No outline in English/Japanese. Browser checks verify explicit no-paint states on every selected shape, unchanged unselected shapes, undo/redo and persistence after reload.
+
 While a table cell is selected, canvas clicks select cells, Shift-click extends the range, and dragging selects a rectangle without moving the table. All selected visible cells are highlighted using the same merged-cell-aware range as formatting and clipboard actions. Browser coverage checks nine-cell selection, four-cell dragging, geometry preservation, undo, and merged-cell range highlights.
 
 Canvas moves, resizes, and rotations can be canceled with Escape, pointer interruption, or window blur. Cancellation restores committed geometry and retains redo history. Escape also restores the selection before a marquee or cell-range gesture; small click jitter does not mutate geometry. Browser coverage verifies geometry restoration, interrupted gestures, marquee cancellation, redo, and saved reloads.

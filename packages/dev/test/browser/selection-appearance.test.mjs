@@ -6,6 +6,8 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getShapeFillColor,
+  getShapeFill,
+  getShapeStroke,
   getShapeStrokeColor,
   getSlides,
   getSlideShapes,
@@ -133,6 +135,61 @@ test(
       );
       assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
       assert.deepEqual(await colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', initialStroke[2]]);
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      const originalFillKinds = await colors((shape) => getShapeFill(shape).kind);
+      const originalStrokeKinds = await colors((shape) => getShapeStroke(shape).kind);
+      await editor
+        .locator('.bespoke')
+        .getByRole('button', { name: '塗りつぶしなし', exact: true })
+        .click();
+      await saved();
+      assert.deepEqual(await colors((shape) => getShapeFill(shape).kind), [
+        'none',
+        'none',
+        originalFillKinds[2],
+      ]);
+      assert.equal(await editor.locator('[data-paint-state=fill]').textContent(), 'なし');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
+      await editor.locator('.lang select').selectOption('en');
+      ja = false;
+      await editor
+        .locator('.bespoke')
+        .getByRole('button', { name: 'No fill', exact: true })
+        .click();
+      await saved();
+      await editor
+        .locator('.bespoke')
+        .getByRole('button', { name: 'No outline', exact: true })
+        .click();
+      await saved();
+      assert.deepEqual(await colors((shape) => getShapeStroke(shape).kind), [
+        'none',
+        'none',
+        originalStrokeKinds[2],
+      ]);
+      assert.equal(await editor.locator('[data-paint-state=stroke]').textContent(), 'None');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', initialStroke[2]]);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await colors((shape) => getShapeFill(shape).kind), [
+        'none',
+        'none',
+        originalFillKinds[2],
+      ]);
+      assert.deepEqual(await colors((shape) => getShapeStroke(shape).kind), [
+        'none',
+        'none',
+        originalStrokeKinds[2],
+      ]);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

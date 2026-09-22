@@ -356,6 +356,7 @@ export const ja: Record<string, string> = {
   'Image border width (points)': '画像の枠線の太さ（ポイント）',
   'Image border style': '画像の枠線の種類',
   'No outline': '枠線なし',
+  'No fill': '塗りつぶしなし',
   'Custom line': 'カスタム線',
   'Image options': '画像の設定',
   'Selected image preview': '選択した画像のプレビュー',
