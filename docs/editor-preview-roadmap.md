@@ -455,3 +455,7 @@ Numeric position and size controls resolve placeholder geometry inherited from l
 Shape properties expose horizontal and vertical flip checkboxes in English and Japanese, including indeterminate values for mixed selections. Flip commands apply the selected axis to each selected object without changing the other axis or unselected objects. Model and browser tests cover mixed-state history, bulk flags and saved reloads.
 
 The numeric rotation field displays mixed values for multi-selection and applies an entered angle to each selected object about its own center. Model and bilingual browser tests verify negative/fractional angle normalization, empty input, unchanged bounds and unselected objects, undo to mixed angles, redo and saved reloads. Selected shape lookup builds one ID map rather than repeatedly scanning the slide.
+
+### Multiple-selection numeric position and size
+
+The property panel shows common position and size values or localized mixed-value placeholders. Entered values apply to each selected object, as explained beside the controls. Aspect-ratio locking preserves each object's own ratio; paired dimensions are validated for the entire selection before mutation. Browser coverage verifies English and Japanese edits, unchanged unselected objects, proportional-overflow rejection, one-step undo/redo, and unlocked width changes preserved through saved reloads.
