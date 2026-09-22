@@ -222,3 +222,83 @@ test(
     }
   },
 );
+
+test(
+  'multiple selected rotations show mixed values and apply together in both languages',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-mixed-rotation-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={2} height={1} rotation={20}>日本語</Text><Text x={4} y={1} width={2} height={1}>English</Text><Text x={7} y={1} width={2} height={1}>Untouched</Text></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getSlideShapes(getSlides(deck)[0]).map((shape) => ({
+          rotation: getShapeRotation(shape),
+          bounds: getShapeBounds(shape),
+        }));
+      };
+      await saved();
+      const before = await read();
+      await editor.locator('.hit').nth(0).click();
+      const rotation = () =>
+        editor
+          .locator('.bespoke')
+          .getByRole('spinbutton', { name: ja ? '回転' : 'Rotation', exact: true });
+      assert.equal(await rotation().inputValue(), '20');
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(await rotation().inputValue(), '');
+      assert.equal(await rotation().getAttribute('placeholder'), 'Mixed');
+      await rotation().fill('');
+      await rotation().press('Tab');
+      assert.deepEqual(await read(), before);
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      assert.equal(await rotation().inputValue(), '');
+      await rotation().fill('-30.5');
+      await rotation().press('Tab');
+      await saved();
+      const expected = before.map((value, index) =>
+        index < 2 ? { ...value, rotation: 329.5 } : value,
+      );
+      assert.deepEqual(await read(), expected);
+      assert.equal(await rotation().inputValue(), '329.5');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), before);
+      assert.equal(await rotation().inputValue(), '');
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(), expected);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,8 @@ const result = await build({
   ],
 });
 const {
+  getShapeRotation,
+  setShapeRotation,
   getShapeFlip,
   setShapeFlip,
   getShapeParagraphElements,
@@ -542,4 +544,30 @@ test('flip commands preserve the other axis and update only selected objects wit
       .map((value) => value.horizontal),
     [true, true],
   );
+});
+
+test('rotation commands update selected objects together and restore mixed angles', async () => {
+  const editor = new EditorController();
+  arrangedShapes(editor);
+  const doc = editor.doc;
+  const slideIndex = doc.selection.slideIndex;
+  const shapes = editor.selectedShapes();
+  const ids = shapes.map(getShapeId);
+  doc.transact('Seed mixed angles', () => setShapeRotation(shapes[0], 20));
+  const state = () =>
+    ids.map((id) => ({
+      rotation: getShapeRotation(doc.shapeById(slideIndex, id)),
+      bounds: getShapeBoundsResolved(doc.pres, doc.shapeById(slideIndex, id)),
+    }));
+  const before = state();
+  doc.select({ kind: 'shape', slideIndex, shapeIds: ids.slice(0, 2) });
+  editor.invoke('setShapeRotation', { degrees: -30.5 });
+  const expected = before.map((value, index) =>
+    index < 2 ? { ...value, rotation: 329.5 } : value,
+  );
+  assert.deepEqual(state(), expected);
+  await doc.undo();
+  assert.deepEqual(state(), before);
+  await doc.redo();
+  assert.deepEqual(state(), expected);
 });
