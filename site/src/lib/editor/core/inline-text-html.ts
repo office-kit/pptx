@@ -5,6 +5,8 @@ import {
   getShapeRunFormatEffective,
   getTableCellParagraphs,
   getTableCells,
+  isShapePlaceholder,
+  isShapeTextBox,
   type PresentationData,
   type SlideShapeData,
 } from '@office-kit/pptx';
@@ -71,7 +73,11 @@ export function inlineTextHtml(
           ? bullet.char
           : null);
     if (marker) paragraph.setAttribute('data-list-marker', marker);
-    style.textAlign = props.align === 'distribute' ? 'justify' : (props.align ?? 'left');
+    style.textAlign =
+      props.align === 'distribute'
+        ? 'justify'
+        : (props.align ??
+          (!tableCell && !isShapePlaceholder(shape) && !isShapeTextBox(shape) ? 'center' : 'left'));
     if (props.align === 'distribute') style.textAlignLast = 'justify';
     if (props.lineSpacing)
       style.lineHeight =

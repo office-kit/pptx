@@ -40,3 +40,5 @@ export {
 } from './text-layout.ts';
 
 export { paragraphNumberLabels } from './paragraph-number-labels.ts';
+
+export { resolveTextBodyRect } from './text-body-rect.ts';
