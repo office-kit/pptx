@@ -2,6 +2,12 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Choose a slide layout.': 'スライドのレイアウトを選択してください。',
+  'New slide from layout': 'レイアウトからスライドを追加',
+  'Choose a layout to insert a slide after the current slide.':
+    'レイアウトを選び、現在のスライドの直後に追加します。',
+  'Insert slide': 'スライドを挿入',
+  'No slide layouts are available.': '利用できるスライドレイアウトがありません。',
   'Applies to all text in the selected cells.': '選択したセル内のすべての文字に適用します。',
   'Axis visibility': '軸の表示',
   'Show category axis': '項目軸を表示',

@@ -7,6 +7,10 @@
 import { describe, expect, it } from 'vitest';
 import {
   createPresentation,
+  findSlideLayout,
+  getSlideLayout,
+  getSlideLayoutName,
+  isShapePlaceholder,
   getShapeChartSpec,
   addBlankSlide,
   findShapeById,
@@ -62,6 +66,23 @@ function run(doc: FakeDoc, id: string, args: Record<string, unknown> = {}) {
 }
 
 describe('editor command registry drives the library', () => {
+  it('inserts a chosen layout after the active slide and selects the inserted slide', async () => {
+    const pres = createPresentation();
+    const first = addBlankSlide(pres);
+    const last = addBlankSlide(pres);
+    const doc = new FakeDoc(pres);
+    const layout = findSlideLayout(pres, 'Title and Content')!;
+    run(doc, 'addSlide', { options: { layout } });
+    expect(doc.selection.slideIndex).toBe(1);
+    expect(doc.slides[0]).toBe(first);
+    expect(doc.slides[2]).toBe(last);
+    const inserted = doc.slides[1]!;
+    expect(getSlideLayoutName(getSlideLayout(inserted)!)).toBe('Title and Content');
+    expect(getSlideShapes(inserted).filter(isShapePlaceholder).length).toBeGreaterThan(0);
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideLayoutName(getSlideLayout(getSlides(loaded)[1]!)!)).toBe('Title and Content');
+  });
+
   it('binds chart updates to exactly one selected chart', () => {
     const pres = createPresentation();
     addBlankSlide(pres);

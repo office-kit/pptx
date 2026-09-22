@@ -95,6 +95,7 @@
 <div class="nav ok-scroll" bind:this={rail}>
   <div class="nav-actions">
     <button class="ok-btn add" onclick={() => editor.invoke('addBlankSlide')} title={t('New slide')}>＋ {t('Slide')}</button>
+    <button class="ok-btn add from-layout" onclick={() => editor.runOrPrompt('addSlide')} title={t('New slide from layout')}>{t('New slide from layout')}</button>
     <div class="slide-actions">
       <button class="ok-btn" title={t('Duplicate slide')} aria-label={t('Duplicate slide')} disabled={!doc.slides.length} onclick={() => editor.invoke('duplicateSlide')}>⧉</button>
       <button class="ok-btn" title={t('Delete slide')} aria-label={t('Delete slide')} disabled={!doc.slides.length} onclick={() => editor.invoke('removeSlide')}>×</button>
@@ -169,6 +170,7 @@
   .nav-actions {
     margin-bottom: 8px;
   }
+  .from-layout { margin-top: 6px; white-space: normal; }
   .slide-actions { display: flex; gap: 2px; margin-top: 6px; }
   .slide-actions button { flex: 1; justify-content: center; }
   .render-error { font-size: 11px; color: var(--ok-text-2); }

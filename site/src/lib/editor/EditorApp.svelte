@@ -19,6 +19,7 @@
   import FindReplaceDialog from './ui/FindReplaceDialog.svelte';
   import LinkDialog from './ui/LinkDialog.svelte';
   import CommentsDialog from './ui/CommentsDialog.svelte';
+  import NewSlideDialog from './ui/NewSlideDialog.svelte';
   import NotesDialog from './ui/NotesDialog.svelte';
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
@@ -176,6 +177,8 @@
       <LinkDialog />
     {:else if ['addSlideComment', 'setCommentText', 'removeSlideComment'].includes(editor.activeDialog ?? '')}
       <CommentsDialog />
+    {:else if editor.activeDialog === 'addSlide'}
+      <NewSlideDialog />
     {:else if editor.activeDialog === 'setSlideNotes'}
       <NotesDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
