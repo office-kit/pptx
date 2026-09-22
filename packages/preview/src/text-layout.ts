@@ -631,9 +631,30 @@ const placeColumns = (
   };
 };
 
+/**
+ * Draws the placed lines, with each paragraph's own lines — its bullet
+ * included — inside a `<g data-pptx-paragraph>`.
+ *
+ * The index is the one `<p:bldP build="p">` counts in, so a player revealing a
+ * text body one paragraph at a time has a single element to show or hide. A
+ * paragraph that wraps into the next column appears as a second group under
+ * the same index, because its lines are drawn where that column is.
+ */
 const emitPlacements = (placements: Placement[]): string => {
-  const parts: string[] = [];
+  const paragraphs: string[] = [];
+  let parts: string[] = [];
+  let paraIndex: number | null = null;
+  const close = (): void => {
+    if (paraIndex !== null && parts.length > 0) {
+      paragraphs.push(`<g data-pptx-paragraph="${paraIndex}">${parts.join('')}</g>`);
+    }
+    parts = [];
+  };
   for (const { line, baselineY, dx } of placements) {
+    if (line.paraIndex !== paraIndex) {
+      close();
+      paraIndex = line.paraIndex;
+    }
     if (line.bullet) {
       const b = line.bullet.b;
       if (b.imageHref) {
@@ -650,7 +671,8 @@ const emitPlacements = (placements: Placement[]): string => {
     }
     parts.push(emitLine(line, baselineY, dx));
   }
-  return parts.join('');
+  close();
+  return paragraphs.join('');
 };
 
 const topPad = (line: Line): number => {
