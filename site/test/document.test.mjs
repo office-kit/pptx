@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,8 @@ const result = await build({
   ],
 });
 const {
+  getShapeFlip,
+  setShapeFlip,
   getShapeParagraphElements,
   getShapeFillColor,
   getShapeStrokeColor,
@@ -512,4 +514,32 @@ test('multiple objects can align to slide edges and centers in one undo step', a
       before,
     );
   }
+});
+
+test('flip commands preserve the other axis and update only selected objects with history', async () => {
+  const editor = new EditorController();
+  arrangedShapes(editor);
+  const doc = editor.doc;
+  const slideIndex = doc.selection.slideIndex;
+  const shapes = editor.selectedShapes();
+  const ids = shapes.map(getShapeId);
+  doc.transact('Seed mixed flips', () => setShapeFlip(shapes[0], { vertical: true }));
+  const state = () => ids.map((id) => getShapeFlip(doc.shapeById(slideIndex, id)));
+  const before = state();
+  doc.select({ kind: 'shape', slideIndex, shapeIds: ids.slice(0, 2) });
+  editor.invoke('setShapeFlip', { options: { horizontal: true } });
+  assert.deepEqual(state().slice(0, 2), [
+    { horizontal: true, vertical: true },
+    { horizontal: true, vertical: false },
+  ]);
+  assert.deepEqual(state()[2], before[2]);
+  await doc.undo();
+  assert.deepEqual(state(), before);
+  await doc.redo();
+  assert.deepEqual(
+    state()
+      .slice(0, 2)
+      .map((value) => value.horizontal),
+    [true, true],
+  );
 });
