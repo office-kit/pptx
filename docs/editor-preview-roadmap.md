@@ -479,3 +479,10 @@ The quick text content editor is available only when one text-capable shape is s
 ### Comments across slides
 
 The comment dialog offers a bilingual slide selector with slide titles and draft comment counts. Each slide retains its own drafts as reviewers navigate. Apply saves all slides in one undoable transaction; Cancel discards the entire draft. Validation includes unfinished comments on other slides, while untouched new rows are ignored and unchanged dialogs cannot create no-op edits. Browser coverage checks bilingual cross-slide add/edit/delete, draft retention, validation outside the visible slide, blank rows, cancel, one-step undo/redo and saved reload. Reply threads and resolution remain separate outstanding work.
+
+### Comment replies
+
+- The comments dialog can reply to existing comments and unsaved drafts, including replies to replies. Parent author and text are visible in English and Japanese.
+- Apply commits all drafts in one undo step; Cancel discards them. Deleting a parent removes its descendants and is labeled “Delete thread”.
+- Replies persist using the PowerPoint p15 threading extension in legacy comment parts. Core and browser tests cover save/reload, editing, alternate XML prefixes, unknown extension preservation, sibling retention, and undo/redo.
+- Resolved status and editing modern p188 comment parts remain unfinished; this reply support does not provide those capabilities.

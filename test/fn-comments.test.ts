@@ -19,6 +19,7 @@ import { partName } from '../src/internal/opc/index.ts';
 import { REL_TYPES } from '../src/internal/presentationml/index.ts';
 import {
   addSlideComment,
+  getCommentParent,
   getCommentAuthor,
   getCommentAuthors,
   getCommentDate,
@@ -275,4 +276,74 @@ describe('fn API: comments', () => {
     expect(getSlideComments(getSlides(reloaded)[0]!)).toHaveLength(1);
     expect(getSlideComments(getSlides(reloaded)[1]!)).toHaveLength(0);
   });
+});
+
+it('preserves reply parents through save and removes a whole thread', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const [slide, other] = getSlides(pres);
+  const root = addSlideComment(slide!, { author: { name: 'Reviewer' }, text: 'Question' });
+  const reply = addSlideComment(slide!, { author: { name: '山田' }, text: '返信', replyTo: root });
+  addSlideComment(slide!, { author: { name: 'Reviewer' }, text: 'Follow up', replyTo: reply });
+  addSlideComment(slide!, { author: { name: 'Reviewer' }, text: 'Independent' });
+  const before = await savePresentation(pres);
+  expect(() =>
+    addSlideComment(other!, { author: { name: 'Wrong slide' }, text: 'Invalid', replyTo: root }),
+  ).toThrow();
+  expect(await savePresentation(pres)).toEqual(before);
+  const reopened = await loadPresentation(before);
+  const comments = getSlideComments(getSlides(reopened)[0]!);
+  expect(getCommentParent(comments[1]!)).toBe(comments[0]);
+  expect(getCommentParent(comments[2]!)).toBe(comments[1]);
+  expect(getCommentParent(comments[0]!)).toBeNull();
+  expect(getCommentParent(comments[3]!)).toBeNull();
+  setCommentText(comments[1]!, '修正済み');
+  const updated = getSlideComments(getSlides(reopened)[0]!);
+  expect(getCommentParent(updated[1]!)).toBe(updated[0]);
+  removeSlideComment(updated[0]!);
+  expect(getSlideComments(getSlides(reopened)[0]!).map(getCommentText)).toEqual(['Independent']);
+  const after = await savePresentation(reopened);
+  expect(() =>
+    addSlideComment(getSlides(reopened)[0]!, {
+      author: { name: 'Late' },
+      text: 'Invalid',
+      replyTo: updated[0]!,
+    }),
+  ).toThrow();
+  expect(await savePresentation(reopened)).toEqual(after);
+});
+
+it('reads threading with different prefixes and keeps sibling replies and extension XML', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const slide = getSlides(pres)[0]!;
+  const root = addSlideComment(slide, { author: { name: 'A' }, text: 'Root' });
+  const reply = addSlideComment(slide, { author: { name: 'B' }, text: 'Reply', replyTo: root });
+  addSlideComment(slide, { author: { name: 'A' }, text: 'Nested', replyTo: reply });
+  addSlideComment(slide, { author: { name: 'B' }, text: 'Sibling', replyTo: root });
+  const part = pres[INTERNAL_PACKAGE].getPart(partName('/ppt/comments/comment1.xml'))!;
+  let xml = new TextDecoder().decode(part.data);
+  expect(xml).toContain('uri="{C676402C-5697-4E1C-873F-D02D1690AC5C}"');
+  expect(xml).toContain('xmlns:p15="http://schemas.microsoft.com/office/powerpoint/2012/main"');
+  expect(xml).toContain('<p15:parentCm authorId="0" idx="1"');
+  xml = xml.replaceAll('p15:', 'thread:').replaceAll('xmlns:p15=', 'xmlns:thread=');
+  xml = xml.replaceAll(
+    '</p:extLst>',
+    '<p:ext uri="unknown"><x:keep xmlns:x="urn:test"/></p:ext></p:extLst>',
+  );
+  part.data = new TextEncoder().encode(xml);
+  const reopened = await loadPresentation(await savePresentation(pres));
+  const reopenedSlide = getSlides(reopened)[0]!;
+  const comments = getSlideComments(reopenedSlide);
+  expect(getCommentParent(comments[1]!)).toBe(comments[0]);
+  expect(getCommentParent(comments[3]!)).toBe(comments[0]);
+  removeSlideComment(comments[1]!);
+  setCommentText(comments[3]!, 'Surviving reply');
+  const final = await loadPresentation(await savePresentation(reopened));
+  const remaining = getSlideComments(getSlides(final)[0]!);
+  expect(remaining.map(getCommentText)).toEqual(['Root', 'Surviving reply']);
+  expect(getCommentParent(remaining[1]!)).toBe(remaining[0]);
+  expect(
+    new TextDecoder().decode(
+      final[INTERNAL_PACKAGE].getPart(partName('/ppt/comments/comment1.xml'))!.data,
+    ),
+  ).toContain('uri="unknown"');
 });

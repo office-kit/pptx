@@ -32,6 +32,7 @@ export const SHAPE_ELEMENT = Symbol.for('@office-kit/pptx.shape.element');
 export const SHAPE_SNAPSHOT = Symbol.for('@office-kit/pptx.shape.snapshot');
 export const LAYOUT_PART_NAME = Symbol.for('@office-kit/pptx.layout.partName');
 export const LAYOUT_PART = Symbol.for('@office-kit/pptx.layout.part');
+export const COMMENT_PARENT = Symbol.for('@office-kit/pptx.comment.parent');
 export const COMMENT_SLIDE = Symbol.for('@office-kit/pptx.comment.slide');
 export const COMMENT_SNAPSHOT = Symbol.for('@office-kit/pptx.comment.snapshot');
 export const CELL_TABLE = Symbol.for('@office-kit/pptx.cell.table');
@@ -77,6 +78,7 @@ export interface SlideLayoutData {
  * on read against the package-level `commentAuthors.xml`.
  */
 export interface SlideCommentData {
+  [COMMENT_PARENT]: SlideCommentData | null;
   readonly [COMMENT_SLIDE]: SlideData;
   [COMMENT_SNAPSHOT]: SlideComment;
   readonly author: CommentAuthor;

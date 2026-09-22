@@ -511,6 +511,10 @@ export const ja: Record<string, string> = {
   'Select one text shape to edit its content.':
     '文章を編集するには、文字を入力できる図形を1つ選択してください。',
   Comment: 'コメント',
+  'Delete thread': 'スレッドを削除',
+  Reply: '返信',
+  'Reply to': '返信先',
+  'Reply parent is missing.': '返信先のコメントが見つかりません。',
   'Add comment': 'コメントを追加',
   'Delete comment': 'コメントを削除',
   'Author name': '作成者名',

@@ -30,6 +30,7 @@ import {
   type XmlElement,
 } from '../../internal/xml/index.ts';
 import {
+  COMMENT_PARENT,
   COMMENT_SLIDE,
   COMMENT_SNAPSHOT,
   INTERNAL_PACKAGE,
@@ -232,11 +233,15 @@ const writeCommentsForSlide = (slide: SlideData, comments: ReadonlyArray<SlideCo
   }
 };
 
+const commentKey = (comment: { authorId: number; idx: number }): string =>
+  `${comment.authorId}:${comment.idx}`;
+
 const asCommentData = (
   slide: SlideData,
   snap: SlideComment,
   author: CommentAuthor,
 ): SlideCommentData => ({
+  [COMMENT_PARENT]: null,
   [COMMENT_SLIDE]: slide,
   [COMMENT_SNAPSHOT]: snap,
   author,
@@ -510,6 +515,11 @@ export const getSlideComments = (slide: SlideData): ReadonlyArray<SlideCommentDa
     }
     out.push(asCommentData(slide, snap, author));
   }
+  const byId = new Map(out.map((comment) => [commentKey(comment[COMMENT_SNAPSHOT]), comment]));
+  for (const comment of out) {
+    const parent = comment[COMMENT_SNAPSHOT].parent;
+    comment[COMMENT_PARENT] = parent ? (byId.get(commentKey(parent)) ?? null) : null;
+  }
   return out;
 };
 
@@ -531,8 +541,20 @@ export const addSlideComment = (
     text: string;
     position?: CommentPosition | null;
     date?: Date;
+    /** Existing comment on this slide to reply to. */
+    replyTo?: SlideCommentData;
   },
 ): SlideCommentData => {
+  const comments = loadCommentsForSlide(slide);
+  const parent = opts.replyTo?.[COMMENT_SNAPSHOT];
+  if (
+    opts.replyTo &&
+    (opts.replyTo[COMMENT_SLIDE] !== slide ||
+      !comments.some((comment) => commentKey(comment) === commentKey(parent!)))
+  ) {
+    throw new Error('addSlideComment: reply parent must exist on this slide');
+  }
+  const dt = (opts.date ?? new Date()).toISOString();
   const pkg = slide[INTERNAL_PACKAGE];
   const initials =
     opts.author.initials ?? (opts.author.name.length > 0 ? opts.author.name.charAt(0) : '?');
@@ -557,8 +579,8 @@ export const addSlideComment = (
   const persistedAuthors = authors.map((a) => (a.id === author!.id ? updatedAuthor : a));
   writeAuthorList(pkg, persistedAuthors);
 
-  const dt = (opts.date ?? new Date()).toISOString();
   const snap: SlideComment = {
+    ...(parent ? { parent: { authorId: parent.authorId, idx: parent.idx } } : {}),
     authorId: updatedAuthor.id,
     idx: newIdx,
     dt,
@@ -566,11 +588,12 @@ export const addSlideComment = (
     position: opts.position ?? null,
   };
 
-  const comments = loadCommentsForSlide(slide);
   comments.push(snap);
   writeCommentsForSlide(slide, comments);
 
-  return asCommentData(slide, snap, updatedAuthor);
+  const handle = asCommentData(slide, snap, updatedAuthor);
+  handle[COMMENT_PARENT] = opts.replyTo ?? null;
+  return handle;
 };
 
 /** Updates comment text while retaining author, date, position, and extension XML. */
@@ -605,7 +628,7 @@ export const setCommentText = (comment: SlideCommentData, text: string): void =>
 };
 
 /**
- * Removes the comment from its slide's comments part. If the comment
+ * Removes the comment and all its replies from its slide's comments part. If the comment
  * was the last one on the slide, the comments part and the
  * slide → comments rel are also removed. The author entry in
  * `commentAuthors.xml` is left intact (an author may have comments on
@@ -614,9 +637,24 @@ export const setCommentText = (comment: SlideCommentData, text: string): void =>
 export const removeSlideComment = (comment: SlideCommentData): void => {
   const slide = comment[COMMENT_SLIDE];
   const target = comment[COMMENT_SNAPSHOT];
-  const remaining = loadCommentsForSlide(slide).filter(
-    (c) => !(c.authorId === target.authorId && c.idx === target.idx),
-  );
+  const comments = loadCommentsForSlide(slide);
+  const children = new Map<string, string[]>();
+  for (const item of comments)
+    if (item.parent) {
+      const key = commentKey(item.parent);
+      const siblings = children.get(key) ?? [];
+      siblings.push(commentKey(item));
+      children.set(key, siblings);
+    }
+  const removed = new Set<string>();
+  const queue = [commentKey(target)];
+  while (queue.length) {
+    const key = queue.pop()!;
+    if (removed.has(key)) continue;
+    removed.add(key);
+    for (const child of children.get(key) ?? []) queue.push(child);
+  }
+  const remaining = comments.filter((item) => !removed.has(commentKey(item)));
   writeCommentsForSlide(slide, remaining);
 };
 
@@ -663,3 +701,7 @@ export const getCommentPosition = (comment: SlideCommentData): CommentPosition |
  * slide each hit came from.
  */
 export const getCommentSlide = (comment: SlideCommentData): SlideData => comment[COMMENT_SLIDE];
+
+/** Parent handle from the same read, or null for roots and missing parents. */
+export const getCommentParent = (comment: SlideCommentData): SlideCommentData | null =>
+  comment[COMMENT_PARENT];
