@@ -14,7 +14,6 @@ import {
   INTERNAL_PACKAGE,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
-  SLIDE_DOCUMENT,
   SLIDE_PART_NAME,
   type SlideData,
   type SlideShapeData,
@@ -25,6 +24,7 @@ import {
   nextShapeId,
   rebuildShapesFromDocument,
   requireSpTree,
+  findShapeParent,
 } from './_helpers.ts';
 import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
@@ -35,15 +35,52 @@ import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
  * Within a presentation, media and other referenced parts remain shared.
  * Across presentations, dependencies are cloned with collision-free part names,
  * retaining embedded workbooks, unknown parts and external links.
- * Returns the new shape on the target slide.
+ * With `preserveGroupTransform`, a nested source retains its ancestor group
+ * transforms as wrappers, excluding sibling objects. Returns the outermost
+ * copied shape on the target slide.
  */
-export const copyShape = (targetSlide: SlideData, sourceShape: SlideShapeData): SlideShapeData => {
+export const copyShape = (
+  targetSlide: SlideData,
+  sourceShape: SlideShapeData,
+  opts: { readonly preserveGroupTransform?: boolean } = {},
+): SlideShapeData => {
   const sourceSlide = sourceShape[SHAPE_SLIDE];
   const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
   const pkg = targetSlide[INTERNAL_PACKAGE];
   const sourceEl = sourceShape[SHAPE_ELEMENT];
 
-  const cloned = cloneXmlElement(sourceEl);
+  let cloned = cloneXmlElement(sourceEl);
+  if (opts.preserveGroupTransform) {
+    // Keep only the copied branch inside its ancestor groups. Retaining their
+    // transforms also preserves shear from rotated, nonuniformly scaled groups,
+    // which cannot be represented by a standalone shape's xfrm.
+    const root = requireSpTree(sourceSlide);
+    const parents = new Map<XmlElement, XmlElement>();
+    const stack = [root];
+    while (stack.length) {
+      const parent = stack.pop()!;
+      for (const child of parent.children) {
+        if (child.kind !== 'element' || !isShapeChild(child)) continue;
+        parents.set(child, parent);
+        if (child.name.localName === 'grpSp') stack.push(child);
+      }
+    }
+    let branch = sourceEl;
+    let parent = parents.get(branch);
+    while (parent && parent !== root) {
+      const wrapper = cloneXmlElement({
+        ...parent,
+        children: parent.children.filter((child) => !isShapeChild(child)),
+      });
+      const insertion = parent.children
+        .slice(0, parent.children.indexOf(branch))
+        .filter((child) => !isShapeChild(child)).length;
+      wrapper.children.splice(insertion, 0, cloned);
+      cloned = wrapper;
+      branch = parent;
+      parent = parents.get(branch);
+    }
+  }
   const newId = nextShapeId(targetSlide);
   rewriteShapeIds(cloned, newId);
 
@@ -185,7 +222,7 @@ const rewriteRIdReferences = (root: XmlElement, map: (oldRId: string) => string)
 };
 
 // ---------------------------------------------------------------------------
-// Z-order — move shapes forward / backward inside the slide's spTree.
+// Z-order — move shapes forward / backward inside the slide or group container.
 //
 // OOXML shape z-order is just the document order of children of
 // `<p:spTree>`: the first child renders behind, the last in front.
@@ -206,28 +243,38 @@ const isShapeChild = (node: {
   node.name?.namespaceURI === NS.pml &&
   SHAPE_CHILD_LOCALS.has(node.name.localName);
 
-/** Move `shape` to the end of its spTree (render in front of all others). */
+const lastShapeIndex = (parent: XmlElement): number => {
+  for (let i = parent.children.length - 1; i >= 0; i--) {
+    if (isShapeChild(parent.children[i]!)) return i;
+  }
+  return -1;
+};
+
+/** Move `shape` in front of all sibling shapes in its parent container. */
 export const bringShapeToFront = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return;
   const target = shape[SHAPE_ELEMENT];
   const idx = spTree.children.indexOf(target);
   if (idx < 0) return;
-  if (idx === spTree.children.length - 1) return; // already at front
+  const last = lastShapeIndex(spTree);
+  if (idx === last) return;
   spTree.children.splice(idx, 1);
-  spTree.children.push(target);
+  spTree.children.splice(last, 0, target);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
 };
 
 /**
- * Move `shape` behind every other shape on the slide. The
+ * Move `shape` behind every other sibling shape. The
  * `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface — required by the schema —
  * stays at the top.
  */
 export const sendShapeToBack = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return;
   const target = shape[SHAPE_ELEMENT];
   const idx = spTree.children.indexOf(target);
   if (idx < 0) return;
@@ -251,7 +298,8 @@ export const sendShapeToBack = (shape: SlideShapeData): void => {
 /** Swap `shape` with the next shape sibling (move one step forward). */
 export const bringShapeForward = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return;
   const target = shape[SHAPE_ELEMENT];
   const idx = spTree.children.indexOf(target);
   if (idx < 0) return;
@@ -270,14 +318,14 @@ export const bringShapeForward = (shape: SlideShapeData): void => {
 };
 
 /**
- * Returns the shape's z-index among the slide's "real" shape children
+ * Returns the shape's z-index among its parent container's "real" shape children
  * (`<p:sp>` / `<p:pic>` / `<p:cxnSp>` / `<p:graphicFrame>` / `<p:grpSp>`),
  * skipping the required `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface.
  * Higher numbers render in front.
  */
 export const getShapeZIndex = (shape: SlideShapeData): number => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return -1;
   let i = 0;
   for (const c of spTree.children) {
     if (!isShapeChild(c)) continue;
@@ -288,15 +336,17 @@ export const getShapeZIndex = (shape: SlideShapeData): number => {
 };
 
 /**
- * Moves the shape to a specific z-index among the slide's "real"
+ * Moves the shape to a specific z-index among its parent container's "real"
  * shape children. Index is clamped to the available range. Higher
  * numbers render in front. The required preface elements stay at the
  * top of `<p:spTree>`.
  */
 export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => {
   const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return;
   const target = shape[SHAPE_ELEMENT];
+  const originalIndex = spTree.children.indexOf(target);
   const allShapeChildren = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
   const clamped = Math.max(0, Math.min(toIndex, allShapeChildren.length - 1));
 
@@ -305,7 +355,8 @@ export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => 
   spTree.children = spTree.children.filter((c) => c !== target);
   const remainingShapes = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
   if (clamped >= remainingShapes.length) {
-    spTree.children.push(target);
+    const last = lastShapeIndex(spTree);
+    spTree.children.splice(last < 0 ? originalIndex : last + 1, 0, target);
   } else {
     const anchor = remainingShapes[clamped]!;
     const anchorIdx = spTree.children.indexOf(anchor);
@@ -318,7 +369,8 @@ export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => 
 /** Swap `shape` with the previous shape sibling (move one step backward). */
 export const sendShapeBackward = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return;
   const target = shape[SHAPE_ELEMENT];
   const idx = spTree.children.indexOf(target);
   if (idx < 0) return;
@@ -368,10 +420,7 @@ export const clearSlideShapes = (slide: SlideData): void => {
 
 export const removeShape = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const doc = slide[SLIDE_DOCUMENT];
-  const cSld = firstChildElement(doc.root, qname('p', 'cSld', NS.pml));
-  if (!cSld) return;
-  const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+  const spTree = findShapeParent(shape);
   if (!spTree) return;
   const idx = spTree.children.indexOf(shape[SHAPE_ELEMENT]);
   if (idx < 0) return;

@@ -198,3 +198,22 @@ export const setOpcDefault = (pkg: OpcPackage, extension: string, contentType: s
   const has = pkg.contentTypes.defaults.some((d) => d.extension.toLowerCase() === extension);
   if (!has) pkg.contentTypes.defaults.push({ extension, contentType });
 };
+
+/** Locate the owning slide/group container without descending into shape content. */
+export const findShapeParent = (shape: SlideShapeData): XmlElement | null => {
+  const stack = [requireSpTree(shape[SHAPE_SLIDE])];
+  const target = shape[SHAPE_ELEMENT];
+  while (stack.length) {
+    const parent = stack.pop()!;
+    for (const child of parent.children) {
+      if (child === target) return parent;
+      if (
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'grpSp'
+      )
+        stack.push(child);
+    }
+  }
+  return null;
+};
