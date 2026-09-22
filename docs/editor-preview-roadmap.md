@@ -376,3 +376,9 @@ positions, rotations and reflections produced by ungrouping.
 - Table cell text now cancels reflections from the table and enclosing groups around each cell center; cell fills, borders, and transformed cell placement remain governed by the table transform.
 - Both foreignObject and pure-SVG text paths are covered by 32 rotation/flip cases with Japanese and English text, after PPTX save/reload. Tests require positive glyph orientation and matching text coordinates after ungrouping.
 - Chart label reflections and anisotropic group scaling remain separate fidelity checks.
+
+### Chart label reflection follow-up
+
+- Chart labels now share reflection compensation, including existing label rotations and start/end anchoring. The plot geometry continues to follow the chart and ancestor group transforms.
+- Regression coverage exercises all chart/group flip combinations across column, bar, line, area, pie, doughnut, scatter, bubble, and radar charts (144 cases), with Japanese/English labels and save/reload. Every emitted label must retain positive glyph orientation and match its coordinates after ungrouping; reflected legends retain their side of the anchor.
+- Nonuniform scaling of rotated descendants still requires fidelity work; these cases use unscaled groups.

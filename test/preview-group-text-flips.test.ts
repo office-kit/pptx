@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addBlankSlide,
   addSlideShape,
+  addSlideChart,
   addSlideTable,
   createPresentation,
   getGroupChildren,
@@ -15,6 +16,7 @@ import {
   setShapeRotation,
   ungroupShapes,
 } from '../src/api/index.ts';
+import { attrsOf } from './lib/svg-query.ts';
 import { renderSlideSvg } from '../packages/preview/src/render-slide.ts';
 
 type Matrix = [number, number, number, number, number, number];
@@ -30,7 +32,8 @@ const multiply = (a: Matrix, b: Matrix): Matrix => [
 const translation = (x: number, y: number): Matrix => [1, 0, 0, 1, x, y];
 
 // Evaluate the SVG transforms at the text box, independently of the renderer.
-const textCorners = (svg: string): number[] => {
+const allTextCorners = (svg: string): number[][] => {
+  const corners: number[][] = [];
   const stack: Matrix[] = [identity()];
   for (const [tag] of svg.matchAll(/<\/?g\b[^>]*>|<(?:foreignObject|text)\b[^>]*>/g)) {
     if (tag.startsWith('</g')) {
@@ -61,17 +64,21 @@ const textCorners = (svg: string): number[] => {
       y = attr('y'),
       w = tag.startsWith('<text') ? 1 : attr('width'),
       h = tag.startsWith('<text') ? 1 : attr('height');
-    return [
-      [x, y],
-      [x + w, y],
-      [x, y + h],
-    ].flatMap(([px, py]) => [
-      matrix[0] * px! + matrix[2] * py! + matrix[4],
-      matrix[1] * px! + matrix[3] * py! + matrix[5],
-    ]);
+    corners.push(
+      [
+        [x, y],
+        [x + w, y],
+        [x, y + h],
+      ].flatMap(([px, py]) => [
+        matrix[0] * px! + matrix[2] * py! + matrix[4],
+        matrix[1] * px! + matrix[3] * py! + matrix[5],
+      ]),
+    );
   }
-  throw new Error('No text box rendered');
+  if (corners.length === 0) throw new Error('No text box rendered');
+  return corners;
 };
+const textCorners = (svg: string): number[] => allTextCorners(svg)[0]!;
 
 const flips = [
   { horizontal: false, vertical: false },
@@ -165,6 +172,87 @@ describe('table text orientation in flipped groups', () => {
           const ungrouped = textCorners(renderSlideSvg(loaded, loadedSlide, { textLayout }));
           grouped.forEach((coordinate, index) =>
             expect(Math.abs(coordinate - ungrouped[index]!)).toBeLessThan(0.03),
+          );
+        });
+      }
+});
+
+describe('chart label orientation in flipped groups', () => {
+  for (const kind of [
+    'column',
+    'bar',
+    'line',
+    'area',
+    'pie',
+    'doughnut',
+    'scatter',
+    'bubble',
+    'radar',
+  ] as const)
+    for (const groupFlip of flips)
+      for (const chartFlip of flips) {
+        it(`${kind}: group ${JSON.stringify(groupFlip)}, chart ${JSON.stringify(chartFlip)}`, async () => {
+          const pres = createPresentation();
+          const slide = addBlankSlide(pres);
+          const chart = addSlideChart(slide, {
+            x: inches(1),
+            y: inches(1),
+            w: inches(5),
+            h: inches(4),
+            spec: {
+              kind,
+              title: '日本語 English',
+              categories: ['A', 'B'],
+              series: [
+                { name: '系列 Series', values: [2, 4], xValues: [1, 2], bubbleSizes: [3, 4] },
+              ],
+              legend: { position: 'r' },
+              valueAxisTitle: '値 Value',
+              categoryAxisTitle: '分類 Category',
+              categoryAxisLabelRotationDeg: 30,
+            },
+          });
+          setShapeRotation(chart, 31);
+          setShapeFlip(chart, chartFlip);
+          const sibling = addSlideShape(slide, {
+            preset: 'rect',
+            x: inches(7),
+            y: inches(1),
+            w: inches(1),
+            h: inches(1),
+          });
+          const group = groupShapes([chart, sibling]);
+          setShapeRotation(group, 47);
+          setShapeFlip(group, groupFlip);
+          const loaded = await loadPresentation(await savePresentation(pres));
+          const loadedSlide = getSlides(loaded)[0]!;
+          const groupedSvg = renderSlideSvg(loaded, loadedSlide);
+          const reflected =
+            (groupFlip.horizontal !== groupFlip.vertical) !==
+            (chartFlip.horizontal !== chartFlip.vertical);
+          expect(attrsOf(groupedSvg, 'text').at(-1)?.['text-anchor'] ?? 'start').toBe(
+            reflected ? 'end' : 'start',
+          );
+          const grouped = allTextCorners(groupedSvg);
+          expect(grouped.length).toBeGreaterThan(1);
+          for (const coords of grouped) {
+            const [x, y, rx, ry, bx, by] = coords as [
+              number,
+              number,
+              number,
+              number,
+              number,
+              number,
+            ];
+            expect((rx - x) * (by - y) - (ry - y) * (bx - x)).toBeGreaterThan(0);
+          }
+          ungroupShapes(getSlideShapes(loadedSlide)[0]!);
+          const ungrouped = allTextCorners(renderSlideSvg(loaded, loadedSlide));
+          expect(ungrouped).toHaveLength(grouped.length);
+          grouped.forEach((coords, i) =>
+            coords.forEach((coordinate, j) =>
+              expect(Math.abs(coordinate - ungrouped[i]![j]!)).toBeLessThan(0.03),
+            ),
           );
         });
       }
