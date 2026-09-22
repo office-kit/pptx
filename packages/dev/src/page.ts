@@ -1,3 +1,4 @@
+import { previewI18nScript } from './preview-i18n.ts';
 import { transitionScript } from './transition-script.ts';
 import { previewStyles } from './styles.ts';
 export const page = `<!doctype html>
@@ -32,6 +33,7 @@ body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
 let displayedSvg;
 let presenterWindow;
+${previewI18nScript}
 function findSlide(start,step,skipHidden=presenting){
  for(let i=start;i>=0&&i<state.slides.length;i+=step)if(!skipHidden||!state.hiddenSlides?.[i])return i;
  return -1;
@@ -65,7 +67,7 @@ function updateChatWidthAria(){
   const {min,max}=chatWidthLimits();
   chatResizer.setAttribute('aria-valuemin',String(min));chatResizer.setAttribute('aria-valuemax',String(Math.round(max)));
   const width=Math.round(byId('chat').getBoundingClientRect().width);
-  chatResizer.setAttribute('aria-valuenow',String(width));chatResizer.setAttribute('aria-valuetext',width+' pixels');
+  chatResizer.setAttribute('aria-valuenow',String(width));chatResizer.setAttribute('aria-valuetext',width+(previewLocale==='ja'?' ピクセル':' pixels'));
 }
 function setChatWidth(width){const {min,max}=chatWidthLimits();workspace.style.setProperty('--chat-width',Math.min(max,Math.max(min,width))+'px');}
 function saveChatWidth(){try{const width=workspace.style.getPropertyValue('--chat-width');if(width)localStorage.setItem(chatWidthKey,String(parseFloat(width)));else localStorage.removeItem(chatWidthKey);}catch(error){console.warn('Could not save chat width',error);}}
@@ -110,8 +112,8 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   if(presenting&&state.hiddenSlides?.[index]){
     const forward=findSlide(index,1);index=forward>=0?forward:Math.max(0,findSlide(index,-1));
   }
-  const count=state.slides.length?'Slide '+(index+1)+' of '+state.slides.length:'No slides';
-  byId('chat-context').textContent=state.slides.length?count:'Whole project';
+  const count=slideCount();
+  byId('chat-context').textContent=state.slides.length?count:pt('Whole project');
   byId('chat-context').dataset.focus=JSON.stringify({slide:state.slides.length?index:null,revision:state.revision??0});
   window.dispatchEvent(new Event('agent-focus'));
   if(document.body.classList.contains('editing')&&editorFocus)applyEditorFocus();
@@ -126,12 +128,12 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   if(svg!==displayedSvg||previousIndex!==index){
     renderSlide(svg,presenting&&previousIndex!==index?state.transitions?.[index]:null);
   }
-  slide.setAttribute('aria-label','Slide '+(index+1));
+  slide.setAttribute('aria-label',slideLabel(index));
   for(const [position,item] of Array.from(thumbnails.children).entries()){
     const button=item.firstElementChild,selected=position===index;
     button.setAttribute('aria-current',String(selected));button.tabIndex=selected?0:-1;
     button.dataset.skipped=String(!!state.hiddenSlides?.[position]);
-    button.title=state.hiddenSlides?.[position]?(editorFocus?.locale==='ja'?'プレゼンテーションでスキップされます':'Skipped during presentation'):'';
+    button.title=state.hiddenSlides?.[position]?pt('Skipped during presentation'):'';
     if(selected){if(reveal)button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
   }
   resize();
@@ -142,7 +144,7 @@ function update(updated){
   const focusedThumbnail=thumbnails.contains(document.activeElement);
   const previous=state;
   state=updated;
-  byId('status').textContent=state.error?'Build failed · showing last successful output':state.building?'Updating…':state.slides.length+' slides · Live';
+  connectionLost=false;updatePreviewStatus();
   byId('error').textContent=state.error||'';byId('error').hidden=!state.error;
   document.documentElement.style.setProperty('--slide-ratio',String(state.aspectRatio));
   for(let i=state.slides.length;i<urls.length;i++){
@@ -157,7 +159,7 @@ function update(updated){
     if(!item){
       item=document.createElement('li');
       const button=document.createElement('button'),number=document.createElement('span'),image=document.createElement('img');
-      button.className='thumbnail';button.setAttribute('aria-label','Slide '+(i+1));button.onclick=()=>selectSlide(i,true);
+      button.className='thumbnail';button.setAttribute('aria-label',slideLabel(i));button.onclick=()=>selectSlide(i,true);
       number.className='slide-number';number.textContent=String(i+1);
       image.alt='';image.draggable=false;image.loading='lazy';
       button.append(number,image);item.append(button);thumbnails.append(item);
@@ -183,17 +185,17 @@ async function exitPresentation(){
 byId('present').onclick=async()=>{
   setPresenting(true);
   try{await document.documentElement.requestFullscreen();}
-  catch{byId('exit-present').textContent='Exit view · Esc';}
+  catch{byId('exit-present').textContent=pt('Exit view · Esc');}
 };
 function updatePresenter(){
  if(!presenterWindow||presenterWindow.closed)return;
- presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,current:state.slides[index]??null,next:state.slides[findSlide(index+1,1,true)]??null,hasPrevious:findSlide(index-1,-1,true)>=0,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:editorFocus?.locale??'en',presenting},location.origin);
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,current:state.slides[index]??null,next:state.slides[findSlide(index+1,1,true)]??null,hasPrevious:findSlide(index-1,-1,true)>=0,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
 }
 byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
  presenterWindow=window.open('/presenter','office-kit-presenter','popup,width=1100,height=800');
  if(presenterWindow)setPresenting(true);
- else byId('status').textContent=editorFocus?.locale==='ja'?'発表者ビューを開くにはポップアップを許可してください。':'Allow popups to open presenter view.';
+ else byId('status').textContent=pt('Allow popups to open presenter view.');
 };
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==presenterWindow||event.data?.type!=='presenter-command')return;
@@ -238,7 +240,7 @@ let refreshId=0;
 async function refresh(){
   const id=++refreshId;
   try{const response=await fetch('/state'+(state.revision===undefined?'':'?since='+state.revision));if(!response.ok)throw new Error('Preview unavailable');const updated=await response.json();if(id===refreshId){if(updated.changes){updated.slides=state.slides.slice(0,updated.count);updated.slides.length=updated.count;for(const [position,svg] of Object.entries(updated.changes))updated.slides[Number(position)]=svg;}update(updated);}}
-  catch{if(id===refreshId)byId('status').textContent='Reconnecting…';}
+  catch{if(id===refreshId){connectionLost=true;updatePreviewStatus();}}
 }
 byId('toggle-chat').onclick=()=>{const hidden=document.body.classList.toggle('chat-hidden');byId('toggle-chat').setAttribute('aria-expanded',String(!hidden));resize();};
 const editorFrame=byId('editor-frame');
@@ -247,7 +249,7 @@ function setEditorMode(editing){
  document.body.classList.toggle('editing',editing);
  if(editing&&!editorFrame.getAttribute('src'))editorFrame.src='/editor';
  byId('toggle-editor').setAttribute('aria-pressed',String(editing));
- byId('toggle-editor').textContent=editorFocus?.locale==='ja'?(editing?'プレビュー':'編集'):(editing?'Preview':'Edit');
+ byId('toggle-editor').textContent=pt(editing?'Preview':'Edit');
  if(editing&&editorFocus)applyEditorFocus();else selectSlide(index);
  resize();
 }
@@ -266,10 +268,11 @@ function applyEditorFocus(){
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==editorFrame.contentWindow||event.data?.type!=='editor-focus')return;
  editorFocus=event.data;
- byId('presenter').textContent=editorFocus.locale==='ja'?'発表者ビュー':'Presenter view';
+ if(previewLocale!==editorFocus.locale&&(editorFocus.locale==='ja'||editorFocus.locale==='en')){previewLocale=editorFocus.locale;updatePreviewLabels();}
  updatePresenter();
  if(document.body.classList.contains('editing'))applyEditorFocus();
- byId('toggle-editor').textContent=editorFocus.locale==='ja'?(document.body.classList.contains('editing')?'プレビュー':'編集'):(document.body.classList.contains('editing')?'Preview':'Edit');
+ byId('toggle-editor').textContent=pt(document.body.classList.contains('editing')?'Preview':'Edit');
 });
-const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='chat'){window.dispatchEvent(new Event('agent-chat'));return;}if(event.data==='ready'){delete state.revision;}void refresh();};events.onerror=()=>{byId('status').textContent='Reconnecting…'};refresh();
+updatePreviewLabels();
+const events=new EventSource('/events');events.onmessage=event=>{if(event.data==='chat'){window.dispatchEvent(new Event('agent-chat'));return;}if(event.data==='ready'){delete state.revision;}void refresh();};events.onerror=()=>{connectionLost=true;updatePreviewStatus()};refresh();
 </script><script type="module" src="/terminal.js"></script></html>`;
