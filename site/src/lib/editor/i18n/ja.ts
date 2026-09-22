@@ -516,6 +516,11 @@ export const ja: Record<string, string> = {
   'Author name': '作成者名',
   'Comment text': 'コメントの内容',
   'Comment update failed': 'コメントを更新できませんでした',
+  'Review slide': '確認するスライド',
+  'Review comments across slides. Apply saves all your changes; Cancel discards them.':
+    'スライドを切り替えてコメントを確認できます。「適用」ですべての変更を保存し、「キャンセル」で破棄します。',
+  'Complete or delete unfinished comments on all slides before applying.':
+    '適用する前に、各スライドの未入力のコメントを完成させるか削除してください。',
   'No comments on this slide.': 'このスライドにコメントはありません。',
   'Comments are saved with this slide. Apply to save your changes.':
     'コメントはこのスライドに保存されます。「適用」で変更を保存します。',

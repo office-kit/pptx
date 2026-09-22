@@ -121,3 +121,106 @@ test(
     }
   },
 );
+
+test(
+  'review comments across slides without losing drafts, with atomic history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-comments-review-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide/><Slide/></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        ).map((slide) => getSlideComments(slide).map(getCommentText));
+      const open = async () => {
+        await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.locator('button[title$="— addSlideComment"]').click();
+        return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
+      };
+      await saved();
+      let dialog = await open();
+      await dialog.getByLabel('Author name', { exact: true }).fill('Reviewer');
+      await dialog.getByLabel('Comment text', { exact: true }).fill('Slide one draft');
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('1');
+      await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+      await dialog.getByLabel('Author name', { exact: true }).fill('山田');
+      await dialog.getByLabel('Comment text', { exact: true }).fill('スライド2の下書き');
+      await dialog.getByLabel('Author name', { exact: true }).fill('');
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('0');
+      assert.equal(
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog
+        .getByRole('status')
+        .getByText('Complete or delete unfinished comments on all slides before applying.', {
+          exact: true,
+        })
+        .waitFor();
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('1');
+      await dialog.getByLabel('Author name', { exact: true }).fill('山田');
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('0');
+      assert.equal(
+        await dialog.getByLabel('Comment text', { exact: true }).inputValue(),
+        'Slide one draft',
+      );
+      assert.deepEqual(await read(), [[], []]);
+      await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), [['Slide one draft'], ['スライド2の下書き']]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), [[], []]);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      dialog = await open();
+      await dialog.getByLabel('コメントの内容', { exact: true }).fill('破棄する変更');
+      await dialog
+        .getByRole('combobox', { name: '確認するスライド', exact: true })
+        .selectOption('1');
+      await dialog.getByRole('button', { name: 'コメントを削除', exact: true }).click();
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      assert.deepEqual(await read(), [['Slide one draft'], ['スライド2の下書き']]);
+      dialog = await open();
+      await dialog.getByLabel('コメントの内容', { exact: true }).fill('更新済み');
+      await dialog
+        .getByRole('combobox', { name: '確認するスライド', exact: true })
+        .selectOption('1');
+      await dialog.getByRole('button', { name: 'コメントを削除', exact: true }).click();
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(), [['更新済み'], []]);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
