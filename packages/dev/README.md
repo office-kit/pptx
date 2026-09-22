@@ -26,6 +26,10 @@ each project and editing tab, and stay in this browser at the same preview URL
 (including its port). A restored copy still requires conflict resolution if the
 source or saved deck changed. Text still being typed must be committed first.
 
+Resize handles follow each object's rotation and keep the opposite corner or edge
+fixed. Hold Shift while resizing to preserve the starting aspect ratio. Undo/Redo
+restores the complete gesture; Escape cancels it.
+
 The text input displays explicit character formatting while editing shapes and
 table cells, and resolves inherited run styles for shapes. Text follows the canvas
 zoom while saved font sizes remain unchanged. Ctrl/Cmd+Z and Ctrl/Cmd+Y undo and
