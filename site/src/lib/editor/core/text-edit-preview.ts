@@ -23,6 +23,7 @@ export type TextEdit = {
   end: number;
   text: string;
   typing?: { format: TextFormat; reset: boolean };
+  formats?: { start: number; end: number; format: TextFormat }[];
 };
 type CellPosition = { row: number; col: number };
 
@@ -37,6 +38,14 @@ export function replayTextEdits(
     const range = { start: change.start, end: change.end };
     if (cell) setTableCellText(cell, change.text, { range });
     else setShapeText(shape, change.text, { range });
+    for (const span of change.formats ?? []) {
+      const options = {
+        range: { start: change.start + span.start, end: change.start + span.end },
+        reset: true,
+      };
+      if (cell) setTableCellTextFormat(cell, span.format, options);
+      else setShapeTextFormat(shape, span.format, options);
+    }
     if (change.typing && change.text.length) {
       const options = {
         range: { start: change.start, end: change.start + change.text.length },

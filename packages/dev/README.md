@@ -26,6 +26,12 @@ each project and editing tab, and stay in this browser at the same preview URL
 (including its port). A restored copy still requires conflict resolution if the
 source or saved deck changed. Text still being typed must be committed first.
 
+Selected text copied or cut within the editor keeps its character formatting
+when pasted into another shape or table cell, including text still being edited.
+Ctrl/Cmd+Shift+V pastes plain text (the browser may request clipboard access).
+Other applications receive plain text;
+paragraph styles, hyperlinks and external HTML formatting are not transferred.
+
 **Download** exports the edited PPTX. **Preview** switches to the presentation
 viewer with thumbnails, zoom and presentation mode. Presentation playback animates
 fade, push, wipe, cover, uncover, and zoom using the saved speed and direction.
