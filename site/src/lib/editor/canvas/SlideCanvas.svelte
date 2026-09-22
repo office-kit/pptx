@@ -457,6 +457,10 @@
   let editingUndo: EditCheckpoint[] = [];
   let editingRedo: EditCheckpoint[] = [];
   let historyOwner: typeof editing;
+  // Pending text redo belongs to the document state where typing began.
+  let editingHistoryDepth = 0;
+  let restoringEditing = $state(false);
+  let editingHistoryQueue = Promise.resolve();
   let composingText = false;
   let compositionRecorded = false;
   function checkpointEditing() {
@@ -466,20 +470,54 @@
     historyOwner = editing;
     editingUndo.push({ text: editing.text, changes: editing.changes, changeCount: editing.changes.length, range: { ...textRange } });
     editingRedo = [];
+    editingHistoryDepth = 0;
   }
   function editingHistory(backward: boolean) {
-    if (!editing) return;
-    if (historyOwner !== editing) { editingUndo = []; editingRedo = []; historyOwner = editing; }
+    const owner = editing;
+    editingHistoryQueue = editingHistoryQueue.then(async () => {
+      if (!owner || editing !== owner) return;
+      await restoreEditingHistory(backward);
+    }).catch(cause => editor.toast('error', cause instanceof Error ? cause.message : String(cause)));
+  }
+  async function restoreEditingHistory(backward: boolean) {
+    const cur = editing;
+    if (!cur) return;
+    if (historyOwner !== cur) { editingUndo = []; editingRedo = []; editingHistoryDepth = 0; historyOwner = cur; }
     const source = backward ? editingUndo : editingRedo;
     const destination = backward ? editingRedo : editingUndo;
-    const next = source.pop();
-    if (!next) return;
-    destination.push({ text: editing.text, changes: editing.changes, changeCount: editing.changes.length, range: { ...textRange } });
-    editing.text = next.text;
-    editing.changes = next.changes.slice(0, next.changeCount);
-    delete editing.typing;
-    textRange = next.range;
-    void tick().then(() => textInput?.setSelectionRange(next.range.start, next.range.end));
+    const next = editingHistoryDepth === 0 ? source.pop() : undefined;
+    if (next) {
+      destination.push({ text: cur.text, changes: cur.changes, changeCount: cur.changes.length, range: { ...textRange } });
+      cur.text = next.text;
+      cur.changes = next.changes.slice(0, next.changeCount);
+      delete cur.typing;
+      textRange = next.range;
+    } else {
+      if (cur.changes.length || !(backward ? doc.canUndo : doc.canRedo)) return;
+      const slideIndex = doc.selection.slideIndex;
+      const range = { ...textRange };
+      const pres = doc.pres;
+      restoringEditing = true;
+      try {
+        await (backward ? doc.undo() : doc.redo());
+        if (editing !== cur || doc.pres === pres) return;
+        const shape = doc.shapeById(slideIndex, cur.id);
+        if (!shape || doc.selection.slideIndex !== slideIndex) { editing = null; return; }
+        const cell = cur.cell && isTableShape(shape) ? getTableCells(shape)[cur.cell.row]?.[cur.cell.col] : undefined;
+        if (cur.cell && !cell) { editing = null; return; }
+        cur.text = cell ? getTableCellText(cell) : getShapeText(shape);
+        cur.changes = [];
+        delete cur.typing;
+        editingHistoryDepth = Math.max(0, editingHistoryDepth + (backward ? 1 : -1));
+        textRange = { start: Math.min(range.start, cur.text.length), end: Math.min(range.end, cur.text.length) };
+        if (cur.cell) doc.selectCell(slideIndex, cur.id, cur.cell.row, cur.cell.col);
+        else doc.selectShape(slideIndex, cur.id);
+      } finally {
+        restoringEditing = false;
+      }
+    }
+    await tick();
+    if (editing === cur) textInput?.setSelectionRange(textRange.start, textRange.end);
   }
   function updateEditing(value: string) {
     if (!editing) return;
@@ -721,7 +759,7 @@
   function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'levelDelta' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
-    if (!cur || !box) return;
+    if (!cur || !box || restoringEditing) return;
     const range = { ...textRange };
     const lineKind = inlineParagraph.lineKind;
     doc.transact(t('Format paragraphs'), () => {
@@ -740,7 +778,7 @@
       }
     });
     cur.changes = [];
-    editingUndo = []; editingRedo = [];
+    editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
     void tick().then(() => textInput?.setSelectionRange(range.start, range.end));
   }
   function changeInlineListLevel(delta: number, listsOnly: boolean): boolean {
@@ -753,7 +791,7 @@
     return true;
   }
   function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat), reset = false) {
-    if (!editing) return;
+    if (!editing || restoringEditing) return;
     if (textRange.start === textRange.end) {
       const resolved = typeof format === 'function' ? format(rangeFormats) : format;
       editing.typing = { format: { ...(reset ? {} : editing.typing?.format), ...resolved }, reset: reset || editing.typing?.reset || false };
@@ -770,7 +808,7 @@
       else setShapeTextFormat(box.shape, resolved, { range, reset });
     });
     cur.changes = [];
-    editingUndo = []; editingRedo = [];
+    editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
     void tick().then(() => {
       if (editing === cur) textInput?.setSelectionRange(range.start, range.end);
     });
@@ -941,6 +979,7 @@
               value={editing.text}
               html={pendingTextHtml}
               zoom={editor.zoom}
+              busy={restoringEditing}
               onbeforeinput={(range) => { textRange = range; }}
               oninput={updateEditing}
               onhistory={editingHistory}

@@ -248,6 +248,18 @@ test(
       assert.equal(await input.textContent(), 'First\nSecond');
       await input.press('Control+BracketRight');
       await saved();
+      await input.press('Control+z');
+      await bar
+        .getByLabel('List level', { exact: true })
+        .locator('option:checked[value="2"]')
+        .waitFor({ state: 'attached' });
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '2');
+      assert.equal(await input.textContent(), 'First\nSecond');
+      await input.press('Control+y');
+      await bar
+        .getByLabel('List level', { exact: true })
+        .locator('option:checked[value="3"]')
+        .waitFor({ state: 'attached' });
       await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
       await bar.getByLabel('Line spacing value', { exact: true }).fill('2');
       await bar.getByLabel('Line spacing value', { exact: true }).press('Tab');
@@ -789,6 +801,121 @@ test(
       await input.press('Meta+BracketLeft');
       await expectLabels(['•', '1.', '1.', '2.']);
       await page.screenshot({ path: join(tmpdir(), 'pptx-pr287-inline-lists.png') });
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'inline undo crosses formatting boundaries without losing pending redo',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inline-history-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4}>English 日本語</Text></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.locator('.inline-edit');
+      const select = async (start, end = start) => {
+        await input.focus();
+        await input.evaluate(
+          (node, range) => {
+            window.selectEditorText(node, ...range);
+            node.dispatchEvent(new Event('select', { bubbles: true }));
+          },
+          [start, end],
+        );
+      };
+      const bold = async (expected) => {
+        await input
+          .locator('span[style*="font-weight: bold"]')
+          .first()
+          .waitFor({ state: expected ? 'visible' : 'hidden', timeout: 5000 });
+      };
+      await select(0, 11);
+      await input.press('Control+b');
+      await bold(true);
+      await input.press('Control+z');
+      await bold(false);
+      assert.equal(await input.evaluate((node) => document.activeElement === node), true);
+      await input.press('Control+Shift+z');
+      await bold(true);
+      await select(11);
+      await page.keyboard.insertText('です');
+      assert.equal(await input.textContent(), 'English 日本語です');
+      await input.press('Control+z');
+      assert.equal(await input.textContent(), 'English 日本語');
+      await input.press('Control+z');
+      await bold(false);
+      await input.press('Control+y');
+      await bold(true);
+      await input.press('Control+y');
+      assert.equal(await input.textContent(), 'English 日本語です');
+      // A new edit after undo branches history and cannot replay old text offsets.
+      await input.press('Control+z');
+      await input.press('Control+z');
+      await bold(false);
+      await select(11);
+      await page.keyboard.insertText('!');
+      await input.press('Control+y');
+      assert.equal(await input.textContent(), 'English 日本語!');
+      await select(0, 12);
+      await input.press('Control+b');
+      await bold(true);
+      await input.press('Meta+z');
+      await bold(false);
+      assert.equal(await input.textContent(), 'English 日本語');
+      await input.press('Meta+Shift+z');
+      await bold(true);
+      assert.equal(await input.textContent(), 'English 日本語!');
+      // Native history events and rapid keyboard requests share the same ordering.
+      await input.evaluate((node) => {
+        node.dispatchEvent(
+          new InputEvent('beforeinput', {
+            inputType: 'historyUndo',
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        node.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'z',
+            ctrlKey: true,
+            shiftKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+        node.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'z',
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      });
+      await bold(false);
+      await editor.locator('.inline-edit[aria-busy="false"]').waitFor();
+      await bold(false);
+      assert.equal(await input.textContent(), 'English 日本語');
+      assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
       await preview?.close();

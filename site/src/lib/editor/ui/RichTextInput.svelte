@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, zoom, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
-    value: string; html: string; label: string; style: string; zoom: number;
+  let { value, html, label, style, zoom, busy = false, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+    value: string; html: string; label: string; style: string; zoom: number; busy?: boolean;
     oninput: (value: string) => void;
     onselect: (range: TextSelection) => void;
     onbeforeinput: (range: TextSelection) => void;
@@ -74,22 +74,25 @@
   });
 </script>
 
-<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-label={label} style={`${style}; --text-zoom: ${zoom};`}
+<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${zoom};`}
   onfocus={() => { if (element) selectRichText(element, selection.start, selection.end); }}
   onbeforeinput={event => {
+    if (!composing && (event.inputType === 'historyUndo' || event.inputType === 'historyRedo')) {
+      event.preventDefault();
+      onhistory(event.inputType === 'historyUndo');
+      return;
+    }
+    if (busy) { event.preventDefault(); return; }
     capture();
     if (!composing && (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak')) {
       event.preventDefault();
       onnewline();
-    } else if (!composing && (event.inputType === 'historyUndo' || event.inputType === 'historyRedo')) {
-      event.preventDefault();
-      onhistory(event.inputType === 'historyUndo');
     }
   }}
   oninput={changed}
   oncompositionstart={() => { capture(); composing = true; oncomposition(true); }}
   oncompositionend={() => { composing = false; changed(); oncomposition(false); }}
-  oncopy={oncopy} oncut={oncut} onpaste={onpaste}
+  oncopy={oncopy} oncut={event => { if (busy) event.preventDefault(); else oncut(event); }} onpaste={event => { if (busy) event.preventDefault(); else onpaste(event); }}
   onpointerdown={event => event.stopPropagation()} onpointerup={event => event.stopPropagation()} ondblclick={event => event.stopPropagation()}
   onkeydown={event => {
     if (!event.isComposing && (event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) {
@@ -97,6 +100,7 @@
       onhistory(event.key.toLowerCase() === 'z' && !event.shiftKey);
       return;
     }
+    if (busy) { event.preventDefault(); event.stopPropagation(); return; }
     onkeydown(event);
   }}
 ></div>
