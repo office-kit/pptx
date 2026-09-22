@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -76,6 +76,24 @@ function renderSlide(svg,options){
       return 'polygon('+points.map(([x,y])=>x+'% '+y+'%').join(',')+')';
     };
     animate(incoming,[{clipPath:cells(0)},{clipPath:cells(.5)},{clipPath:cells(1)}]);
+  }else if(effect==='randomBar'){
+    const bands=16,vertical=options.direction==='vert';
+    const ranks=Array.from({length:bands},(_,i)=>i);
+    for(let i=bands-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [ranks[i],ranks[j]]=[ranks[j],ranks[i]];
+    }
+    const bars=(step)=>{
+      const points=[];
+      for(let band=0;band<bands;band++){
+        const top=100*band/bands,bottom=top+100/bands*Math.max(0,Math.min(1,step-ranks[band]));
+        // Retrace the edge bridge so disconnected bars do not clip diagonal slivers.
+        for(const [x,y] of [[0,0],[0,top],[100,top],[100,bottom],[0,bottom],[0,top],[0,0]])
+          points.push((vertical?y:x)+'% '+(vertical?x:y)+'%');
+      }
+      return 'polygon('+points.join(',')+')';
+    };
+    animate(incoming,Array.from({length:bands+1},(_,step)=>({clipPath:bars(step),offset:step/bands})));
   }else if(effect==='strips'){
     const direction=options.direction??'lu';
     const strips=(progress)=>{
