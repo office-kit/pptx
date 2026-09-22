@@ -364,3 +364,9 @@ Imported shape/group flip flags now accept both XML boolean spellings (`true`/`f
 and `1`/`0`), including surrounding whitespace. Round-trip tests compare 36 flag
 combinations against numeric equivalents, including preview SVG output and the
 positions, rotations and reflections produced by ungrouping.
+
+### Group text reflection follow-up
+
+- Preview shape text now cancels inherited reflection in its local axes, preserving the transformed center and baseline through rotated, nested groups.
+- Regression coverage compares text-box corners before and after ungrouping for all 16 combinations of two ancestor groups' horizontal/vertical flips, after a PPTX save/reload, using Japanese and English text.
+- This covers shape text overlays. Table/chart internals and anisotropic group scaling with rotated descendants still need separate fidelity verification.
