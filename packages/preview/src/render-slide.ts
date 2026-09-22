@@ -55,6 +55,7 @@ import {
   getShapeAltTitle,
   getShapeDescription,
   getShapeHyperlinkTooltip,
+  getShapeId,
   getShapeName,
   getShapeTextColumns,
   getShapeTextBodyRotationDeg,
@@ -178,6 +179,11 @@ interface LayoutCtx {
   readonly groupScale: { readonly sx: number; readonly sy: number };
   // An odd number of ancestor reflections reverses glyph handedness.
   readonly groupReflected: boolean;
+  // Whether the shapes being drawn are the slide's own. Only those carry
+  // `data-pptx-shape-id`: a slide's `<p:spTgt spid>` names shape ids on the
+  // slide, and the layout and master have their own id spaces where the same
+  // number means a different shape.
+  readonly ownShapes: boolean;
 }
 
 const clickActionHref = (
@@ -2981,8 +2987,11 @@ const renderHtmlParagraphs = (
       );
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
+    // The index is the one `<p:bldP build="p">` counts in: a paragraph build
+    // reveals `<a:p>` number N, and a player needs to find it in either text
+    // path without re-reading the deck.
     paragraphs.push(
-      `<p style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
+      `<p data-pptx-paragraph="${pi}" style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
     );
   }
 
@@ -6647,11 +6656,38 @@ const renderShape = (
   const inner = renderShapeContent(shape, pres, theme, ctx);
   if (!inner) return inner;
   const href = clickActionHref(pres, shape, getShapeClickAction(shape));
-  if (href === undefined) return inner;
-  const tooltip = getShapeHyperlinkTooltip(shape);
+  const tooltip = href === undefined ? null : getShapeHyperlinkTooltip(shape);
   const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
-  const targetAttrs = href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
-  return `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;
+  const targetAttrs =
+    href === undefined || href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
+  const linked =
+    href === undefined
+      ? inner
+      : `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;
+  return wrapWithShapeId(shape, linked, ctx);
+};
+
+/**
+ * Names the object the slide's animation timing would target, so a player can
+ * find it without knowing how the shape was drawn. One wrapper per object,
+ * whatever its kind — a group carries its own id and its children theirs, so a
+ * build on a group child is reachable inside a group that is animated itself.
+ *
+ * The id is the shape's `<p:cNvPr id>`, which is what `<p:spTgt spid>` names.
+ * A deck may repeat one (nothing in the schema forbids it), and the attribute
+ * repeats with it rather than inventing a unique number the timing could not
+ * refer to.
+ */
+const wrapWithShapeId = (shape: SlideShapeData, svg: string, ctx: LayoutCtx): string => {
+  if (!ctx.ownShapes) return svg;
+  const id = (() => {
+    try {
+      return getShapeId(shape);
+    } catch {
+      return null;
+    }
+  })();
+  return id === null ? svg : `<g data-pptx-shape-id="${id}">${svg}</g>`;
 };
 
 // ---------------------------------------------------------------------------
@@ -6887,6 +6923,7 @@ export const renderSlideSvg = (
     groupReflected: false,
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
+    ownShapes: true,
   };
 
   let bg = getSlideBackground(slide);
@@ -6984,8 +7021,11 @@ export const renderSlideSvg = (
       const layoutShapes = topLevelShapes(getSlideLayoutShapes(pres, layoutForBg), {
         dropPlaceholders: true,
       });
+      // Drawn as background: these come from the layout and the master, whose
+      // shape ids mean nothing to this slide's timing.
+      const bgCtx: LayoutCtx = { ...ctx, ownShapes: false };
       layoutBgShapes = [...masterShapes, ...layoutShapes]
-        .map((s) => renderShape(s, pres, theme, ctx))
+        .map((s) => renderShape(s, pres, theme, bgCtx))
         .join('');
     } catch {
       layoutBgShapes = '';
