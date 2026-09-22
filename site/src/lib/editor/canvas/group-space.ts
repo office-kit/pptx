@@ -80,6 +80,7 @@ export interface ShapeScope {
   readonly shapes: readonly SlideShapeData[];
   /** Scope-local coordinates → slide coordinates, including all ancestors. */
   readonly matrix: Matrix;
+  readonly textScale: { readonly x: number; readonly y: number };
 }
 
 /** Select siblings in their original stacking order, with an iterative ancestor walk. */
@@ -95,13 +96,21 @@ export function shapeScope(slide: SlideData, selectedId: number | null): ShapeSc
   }
   const parent = selectedId === null ? null : (parents.get(selectedId) ?? null);
   let matrix = IDENTITY;
+  let scaleX = 1,
+    scaleY = 1;
   let ancestor = parent;
   while (ancestor) {
+    const transform = getGroupTransform(ancestor);
+    if (transform) {
+      scaleX *= transform.outer.w / (transform.inner.w || 1);
+      scaleY *= transform.outer.h / (transform.inner.h || 1);
+    }
     matrix = compose(groupMatrix(ancestor), matrix);
     ancestor = parents.get(getShapeId(ancestor)) ?? null;
   }
   return {
     parent,
+    textScale: { x: scaleX, y: scaleY },
     shapes: parent
       ? children.get(getShapeId(parent))!
       : shapes.filter((shape) => !parents.has(getShapeId(shape))),
