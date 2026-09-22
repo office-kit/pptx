@@ -3,7 +3,7 @@
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, paragraph, onparagraph, context = 'text' }: {
+  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text' }: {
     formats: TextFormat[];
     selected: boolean;
     typing?: boolean;
@@ -11,6 +11,10 @@
     ontoggle?: (property: TextFormatToggle) => void;
     ondone?: () => void;
     onlink?: () => void;
+    /** The format painter; both handlers travel together. */
+    oncopyformat?: () => void;
+    onpasteformat?: () => void;
+    canPasteFormat?: boolean;
     paragraph?: { align: string; bullet: string; level: string; lineKind: string; lineValue: string; before: string; after: string };
     onparagraph?: (kind: 'align' | 'bullet' | 'level' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) => void;
     context?: 'text' | 'cells' | 'objects';
@@ -66,6 +70,10 @@
     {/if}
     <label>{t('Before paragraph (pt)')}<input class="ok-input size" aria-label={t('Before paragraph (pt)')} type="number" min="0" step="0.01" value={paragraph.before} placeholder={t('Mixed or inherited')} onchange={e => { if (e.currentTarget.reportValidity()) onparagraph?.('before', e.currentTarget.value); }} /></label>
     <label>{t('After paragraph (pt)')}<input class="ok-input size" aria-label={t('After paragraph (pt)')} type="number" min="0" step="0.01" value={paragraph.after} placeholder={t('Mixed or inherited')} onchange={e => { if (e.currentTarget.reportValidity()) onparagraph?.('after', e.currentTarget.value); }} /></label>
+  {/if}
+  {#if oncopyformat}
+    <button class="ok-btn" aria-label={t('Copy formatting')} title={t('Copy formatting')} onmousedown={e => e.preventDefault()} onclick={oncopyformat}>{t('Copy formatting')}</button>
+    <button class="ok-btn" aria-label={t('Paste formatting')} title={t('Paste formatting')} disabled={!canPasteFormat} onmousedown={e => e.preventDefault()} onclick={onpasteformat}>{t('Paste formatting')}</button>
   {/if}
   {#if onlink}<button class="ok-btn" disabled={!selected} onmousedown={(e) => e.preventDefault()} onclick={onlink}>{t('Edit link')}</button>{/if}
   {#if ondone}<button class="ok-btn" onclick={ondone}>{t('Done')}</button>{/if}

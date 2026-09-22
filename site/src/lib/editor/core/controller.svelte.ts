@@ -39,6 +39,13 @@ import {
   pasteTableCells,
 } from './table-clipboard.ts';
 import { neighboringTableCell, tableCellsInRange, tableSelectionBlock } from './table-selection.ts';
+import {
+  applyShapeFormat,
+  copiedFormatLimits,
+  readShapeFormat,
+  type CopiedFormat,
+} from './format-clipboard.ts';
+import { textFormatsInRange } from './text-format-selection.ts';
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
@@ -78,6 +85,8 @@ export class EditorController {
   linkTableCell = $state<{ row: number; col: number } | null>(null);
   linkTextRange = $state<{ start: number; end: number } | null>(null);
   paletteOpen = $state<boolean>(false);
+  /** The format painter's pickup, shared by the canvas and the panels. */
+  formatClipboard = $state<CopiedFormat | null>(null);
   toasts = $state<Toast[]>([]);
 
   get ctx(): CommandContext {
@@ -396,6 +405,41 @@ export class EditorController {
       getShapeId(s),
     );
     if (ids.length) this.doc.select({ kind: 'shape', slideIndex, shapeIds: ids });
+  }
+
+  /**
+   * Copies the formatting of one selected object — paint, and the character
+   * and paragraph formatting its text starts with. Text editing has its own
+   * path in the canvas, which samples the selected range instead.
+   */
+  copyObjectFormat(): void {
+    const shape = this.selectedShapes()[0];
+    if (!shape) return;
+    // The first run's effective format stands for the object's text, the way
+    // PowerPoint's own format painter treats a whole-object pickup.
+    const character =
+      textFormatsInRange(shape, { start: 0, end: Number.MAX_SAFE_INTEGER }, undefined, {
+        pres: this.doc.pres,
+        source: shape,
+      })[0] ?? null;
+    this.formatClipboard = readShapeFormat(this.doc.pres, shape, character);
+    const limits = copiedFormatLimits(this.doc.pres, shape);
+    this.toast(
+      'info',
+      limits.length
+        ? `${t('Formatting copied')} — ${t('not copied')}: ${limits.map((limit) => t(limit)).join(', ')}`
+        : t('Formatting copied'),
+    );
+  }
+
+  /** Pastes the copied formatting onto every selected object. */
+  pasteObjectFormat(): void {
+    const format = this.formatClipboard;
+    const shapes = this.selectedShapes();
+    if (!format || !shapes.length) return;
+    this.doc.transact(t('Paste formatting'), () => {
+      for (const shape of shapes) applyShapeFormat(shape, format);
+    });
   }
 
   deleteSelection(): void {

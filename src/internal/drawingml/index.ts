@@ -37,7 +37,14 @@ export type {
   PatternFillOptions,
   PatternPreset,
 } from './fill.ts';
-export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
+export {
+  clearFill,
+  PATTERN_PRESETS,
+  setGradientFill,
+  setNoFill,
+  setPatternFill,
+  setSolidFill,
+} from './fill.ts';
 export type { GlowOptions, ShadowOptions } from './effects.ts';
 export { clearEffects, setGlow, setShadow } from './effects.ts';
 export type {

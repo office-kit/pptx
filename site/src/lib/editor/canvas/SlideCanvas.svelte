@@ -11,6 +11,7 @@
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
+  import { applyTextFormat, readTextFormat } from '../core/format-clipboard.ts';
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
@@ -967,6 +968,30 @@
   function toggleInlineFormat(property: TextFormatToggle) {
     applyInlineFormat(formats => toggleTextFormat(formats, property));
   }
+  /** Picks up the format at the caret or selection, paragraph included. */
+  function copyInlineFormat() {
+    const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
+    if (!target) return;
+    const character = (textRange.start === textRange.end ? rangeFormats : selectedTextFormats())[0] ?? {};
+    editor.formatClipboard = readTextFormat(doc.pres, target.shape, target.indices[0] ?? 0, character);
+    editor.toast('info', t('Formatting copied'));
+  }
+  /** Repaints the selected range, and every paragraph it touches. */
+  function pasteInlineFormat() {
+    const format = editor.formatClipboard;
+    const cur = editing;
+    const box = boxes.find(b => b.id === cur?.id);
+    if (!format || !cur || !box || restoringEditing) return;
+    const range = { ...textRange };
+    doc.transact(t('Paste formatting'), () => {
+      replayEdits(box, cur);
+      const target = inlineParagraphTarget();
+      if (target) applyTextFormat(target.shape, range, target.indices, format, cur.cell !== undefined);
+    });
+    cur.changes = [];
+    editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
+    void tick().then(() => { if (editing === cur) textInput?.setSelectionRange(range.start, range.end); });
+  }
   function editSelectedTextLink() {
     if (!editing || textRange.start === textRange.end) return;
     const range = { ...textRange };
@@ -1050,7 +1075,7 @@
   </div>
 {/if}
 {#if editing}
-  <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
+  <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
 {/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
@@ -1172,6 +1197,13 @@
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();
+                // Ctrl/Cmd+Alt+C / V, as PowerPoint and Google Slides paint
+                // formatting. `code` because Alt rewrites `key` on macOS.
+                if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
+                  e.preventDefault();
+                  if (e.code === 'KeyC') copyInlineFormat(); else pasteInlineFormat();
+                  return;
+                }
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === '\\') { e.preventDefault(); applyInlineFormat({}, true); }
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u')) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
                 else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }

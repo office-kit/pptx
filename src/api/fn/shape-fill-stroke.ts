@@ -25,6 +25,8 @@ import {
   setStrokeCompound,
   setStrokeJoin,
   setStrokeDash,
+  PATTERN_PRESETS,
+  type PatternPreset,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
@@ -185,24 +187,32 @@ export const setShapePatternFill = (shape: SlideShapeData, options: PatternFillO
   commitAndRefresh(shape);
 };
 
+// The file's `prst` is untrusted text; narrowing it here is what lets the
+// result be handed straight back to `setShapePatternFill`.
+const isPatternPreset = (token: string | null): token is PatternPreset =>
+  token !== null && (PATTERN_PRESETS as readonly string[]).includes(token);
+
 /**
  * Reads back the pattern fill on a shape: returns the preset token
  * plus the foreground / background colors resolved against the theme.
  * Returns `null` when the shape has no `<a:pattFill>`.
  *
- * The preset string is the literal `ST_PresetPatternVal` token from
- * §20.1.10.49 — e.g. `'pct50'`, `'dkUpDiag'`, `'cross'`, `'wave'`.
- * Renderers can map it onto an SVG `<pattern>` definition.
+ * The preset is the literal `ST_PresetPatternVal` token from §20.1.10.49 —
+ * e.g. `'pct50'`, `'dkUpDiag'`, `'cross'`, `'wave'`. Renderers can map it onto
+ * an SVG `<pattern>` definition, and the result can be handed straight back to
+ * `setShapePatternFill`. A missing or unrecognised `prst` reads as `'pct50'`,
+ * which is what PowerPoint paints when the attribute is absent.
  */
 export const getShapePatternFill = (
   pres: PresentationData,
   shape: SlideShapeData,
-): { preset: string; foreground: string; background: string } | null => {
+): { preset: PatternPreset; foreground: string; background: string } | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const pattFill = firstChildElement(spPr, qname('a', 'pattFill', NS.dml));
   if (!pattFill) return null;
-  const preset = getAttrValue(pattFill, qname('', 'prst', '')) ?? 'pct50';
+  const token = getAttrValue(pattFill, qname('', 'prst', ''));
+  const preset: PatternPreset = isPatternPreset(token) ? token : 'pct50';
   const theme = getPresentationTheme(pres);
   const colorFrom = (parentName: string, fallback: string): string => {
     const parent = firstChildElement(pattFill, qname('a', parentName, NS.dml));
