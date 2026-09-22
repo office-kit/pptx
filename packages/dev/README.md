@@ -28,7 +28,9 @@ source or saved deck changed. Text still being typed must be committed first.
 
 Resize handles follow each object's rotation and keep the opposite corner or edge
 fixed. Hold Shift while resizing to preserve the starting aspect ratio. Undo/Redo
-restores the complete gesture; Escape cancels it.
+restores the complete gesture; Escape cancels it. Multiple selected objects share
+a rotation handle that turns the selection around its centre while preserving
+spacing and relative angles. Hold Shift to rotate in 15-degree steps.
 
 The text input displays explicit character formatting while editing shapes and
 table cells, and resolves inherited run styles for shapes. Text follows the canvas

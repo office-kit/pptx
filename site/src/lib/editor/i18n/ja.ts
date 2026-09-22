@@ -301,6 +301,8 @@ export const ja: Record<string, string> = {
   'Insert column right': '右に列を挿入',
   'Insert row below': '下に行を挿入',
   Rotate: '回転',
+  'Rotate selected objects': '選択したオブジェクトを回転',
+  'Hold Shift to rotate in 15° steps': 'Shiftを押しながらドラッグすると15°ずつ回転',
   'Hold Shift to preserve aspect ratio': 'Shiftを押しながらドラッグすると縦横比を維持',
   'Resize nw': 'サイズ変更（左上）',
   'Resize n': 'サイズ変更（上）',
