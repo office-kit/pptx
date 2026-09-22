@@ -18,6 +18,7 @@ import {
 import { parseXml, serializeXml } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_DOCUMENT,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
@@ -96,10 +97,12 @@ export const getSlideLayout = (slide: SlideData): SlideLayoutData | null => {
     : resolveTarget(slide[SLIDE_PART_NAME], layoutRel.target);
   const layoutPart = pkg.getPart(layoutName);
   if (layoutPart === null) return null;
-  const root = parseXml(decode(layoutPart.data)).root;
+  const doc = parseXml(decode(layoutPart.data));
   return {
+    [INTERNAL_PACKAGE]: pkg,
     [LAYOUT_PART_NAME]: layoutName,
-    [LAYOUT_PART]: readSlideLayoutPart(root),
+    [LAYOUT_DOCUMENT]: doc,
+    [LAYOUT_PART]: readSlideLayoutPart(doc.root),
   };
 };
 

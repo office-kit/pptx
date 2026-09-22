@@ -682,9 +682,12 @@ this table is about the everyday paths, and about what is not there at all.
    (`setShapeTextField(shape, 'datetime1' | 'ftr')`), but a preview cannot
    invent a locale for `datetime1`…`datetime13`, so nothing substitutes them
    live.
-5. **Layout and master editing.** The library can apply a layout and reset a
-   slide to it, but not author one. "Edit theme" is therefore out of reach
-   entirely. The largest of these by far, and the one to design before building.
+5. **Layout and master editing.** Partly done — see below. A layout can now be
+   renamed, repainted and have its placeholder slots moved, which is what
+   Google Slides' theme builder is used for most. What is still out of reach:
+   adding or deleting a layout, adding a placeholder slot to one, editing the
+   master itself, and editing a layout's decoration on the canvas rather than
+   through the panel.
 
 Out of scope on purpose: real-time collaboration, version history, sharing and
 publishing, spell check, and Explore-style suggestions — none of them are
@@ -720,3 +723,11 @@ properties of a `.pptx` file.
 - Both refuse what the file cannot state: `fullScreen` on an audio clip throws instead of writing an attribute `CT_TLMediaNodeAudio` does not have, and a volume outside 0–1 throws before anything changes. A shape with no media time node reads as `null` and refuses to be written — that is also what a clip pasted in without its node looks like, and such a clip shows no controls in the slide show.
 - Trimming is not covered: `p14:trim` is a 2010 extension, and a reader that does not know it plays the whole clip. The preview does not play media either; these settings travel in the file rather than being previewed.
 - Reachable in the editor through the properties panel and the command palette, in English and Japanese. Library tests cover the defaults a freshly added clip carries, each property, the refusals, the round trip and the XSD validity of the written timing tree.
+
+### Layout editing
+
+- A layout handle used to be a snapshot — `{ partName, parsed part }` with no package and no document — so nothing written through it could go anywhere. It now carries the package and its own parsed document, and `commitLayoutData` writes it back into the layout part and re-reads the typed view, the same shape `commitSlideData` / `refreshSlideData` have for slides. That is what made the rest possible; the three places that construct a layout handle were updated together.
+- `setSlideLayoutName`, `setSlideLayoutBackground`, `clearSlideLayoutBackground` and `setSlideLayoutPlaceholderBounds` are the first edits on top of it. A layout is a `<p:cSld>` like a slide is, so the background writer and the geometry writers are the slide ones — this added no second implementation of either. Moving a slot uses the same index the read API already hands out, and a slide that carries its own `<a:xfrm>` keeps it, exactly as PowerPoint behaves when a layout changes under slides that were already nudged.
+- The dedup that came with it: `getSlideBackground`, `getSlideLayoutBackground` and `getSlideMasterBackground` were three copies of one parser. They now share `backgroundOfCSld`, which projects the `<p:bg>` of any `<p:cSld>` — slide, layout or master.
+- In the editor the layout is bound from the current slide rather than picked from a list, so there is no separate "master view" to enter and leave; the panel says how many slides share the layout, because that is the surprise. Reachable from the properties panel and Design ▸ Layout in the ribbon, in English and Japanese, and one edit is one undo step (undo restores the whole package, layout parts included).
+- Library tests cover the rename, the background, the inheritance rule for moved slots, the refusal for a slot that does not exist, the save/load round trip and the XSD validity of the edited layout part. Browser tests drive the panel in both languages and assert against the layout part inside the saved `.pptx`.

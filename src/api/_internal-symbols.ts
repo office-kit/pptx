@@ -33,6 +33,7 @@ export const SHAPE_ELEMENT = Symbol.for('@office-kit/pptx.shape.element');
 export const SHAPE_SNAPSHOT = Symbol.for('@office-kit/pptx.shape.snapshot');
 export const LAYOUT_PART_NAME = Symbol.for('@office-kit/pptx.layout.partName');
 export const LAYOUT_PART = Symbol.for('@office-kit/pptx.layout.part');
+export const LAYOUT_DOCUMENT = Symbol.for('@office-kit/pptx.layout.document');
 export const COMMENT_PARENT = Symbol.for('@office-kit/pptx.comment.parent');
 export const COMMENT_SLIDE = Symbol.for('@office-kit/pptx.comment.slide');
 export const COMMENT_SNAPSHOT = Symbol.for('@office-kit/pptx.comment.snapshot');
@@ -69,10 +70,16 @@ export interface SlideShapeData {
   [SHAPE_SNAPSHOT]: SlidePart['shapes'][number];
 }
 
-/** Data shape backing every `SlideLayout` value. */
+/**
+ * Data shape backing every `SlideLayout` value. Carries the parsed
+ * document, not just the typed view, so a layout handle can be edited
+ * and written back the way a slide handle can.
+ */
 export interface SlideLayoutData {
+  readonly [INTERNAL_PACKAGE]: OpcPackage;
   readonly [LAYOUT_PART_NAME]: PartName;
-  readonly [LAYOUT_PART]: SlideLayoutPart;
+  [LAYOUT_DOCUMENT]: XmlDocument;
+  [LAYOUT_PART]: SlideLayoutPart;
 }
 
 /** Where a modern comment handle points: its thread, and itself within it. */

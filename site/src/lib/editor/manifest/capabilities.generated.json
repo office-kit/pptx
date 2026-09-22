@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 165,
+  "count": 169,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -425,6 +425,23 @@
       "returns": "number",
       "canvas": true,
       "params": []
+    },
+    {
+      "id": "clearSlideLayoutBackground",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/layout-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
     },
     {
       "id": "clearSlideShapes",
@@ -2400,6 +2417,81 @@
         {
           "name": "layout",
           "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideLayoutBackground",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/layout-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "color",
+          "type": "string",
+          "kind": "color",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideLayoutName",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/layout-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideLayoutPlaceholderBounds",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "slide",
+      "file": "api/fn/layout-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "SlideLayoutData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "index",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "bounds",
+          "type": "ShapeBounds",
           "kind": "object",
           "optional": false
         }
