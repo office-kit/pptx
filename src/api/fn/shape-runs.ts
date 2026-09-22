@@ -139,9 +139,12 @@ const writeRunText = (run: XmlElement, value: string): void => {
   tEl.children = [{ kind: 'text', data: value }];
 };
 
-/** Number of paragraphs in the shape's text body. Throws for non-text shapes. */
-export const getShapeParagraphCount = (shape: SlideShapeData): number =>
-  paragraphsOf(requireTxBody(shape)).length;
+/** Number of paragraphs; zero for an autoshape without a text body. Throws for non-text shapes. */
+export const getShapeParagraphCount = (shape: SlideShapeData): number => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') requireTxBody(shape);
+  const body = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'txBody', NS.pml));
+  return body ? paragraphsOf(body).length : 0;
+};
 
 /**
  * One inline element in a paragraph as ordered: a literal text run

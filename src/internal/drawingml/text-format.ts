@@ -373,6 +373,11 @@ export const applyValidatedFormatToAllRuns = (
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
       continue;
     }
+    // The paragraph end mark supplies the format for typing into an empty paragraph.
+    const existingEnd = firstChildElement(p, qname('a', 'endParaRPr', NS.dml));
+    const end = existingEnd ?? elem(qname('a', 'endParaRPr', NS.dml));
+    applyValidatedRunFormat(end, format);
+    if (!existingEnd && (end.attrs.length || end.children.length)) p.children.push(end);
     for (const r of p.children) {
       if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
         continue;

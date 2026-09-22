@@ -48,7 +48,7 @@ import {
   SHAPE_SNAPSHOT,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, decode, ensureTxBody, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, createTxBody, decode, ensureTxBody, requireTxBody } from './_helpers.ts';
 const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 // ---------------------------------------------------------------------------
@@ -673,15 +673,22 @@ export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignme
  * With `reset`, clears direct visual run properties before applying `format`,
  * restoring inherited fonts and appearance while keeping links and language.
  * Without a range, also clears text-body and paragraph run-format defaults.
+ * Blank autoshapes receive a text body and paragraph-end formatting for future input.
  */
 export const setShapeTextFormat = (
   shape: SlideShapeData,
   format: TextFormat,
   options?: { range?: { start: number; end: number }; reset?: boolean },
 ): void => {
-  const body = requireTxBody(shape);
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') requireTxBody(shape);
+  const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  const body = existing ?? createTxBody();
   if (options?.range) formatTextBodyRange(body, format, options.range, options.reset);
   else applyFormatToAllRuns(body, format, 'setShapeTextFormat', options?.reset);
+  if (!existing) {
+    if (options?.range) return;
+    shape[SHAPE_ELEMENT].children.push(body);
+  }
   commitAndRefresh(shape);
 };
 
