@@ -92,6 +92,15 @@ test(
       await saved();
       assert.equal(getParagraphBullet(await shape(), 0), 'bullet');
       assert.notEqual(getParagraphBullet(await shape(), 1), 'bullet');
+      await input.fill('Prefix\nEnglish\n日本語\nThird paragraph');
+      await select(16);
+      assert.equal(
+        await bar.getByLabel('Paragraph alignment', { exact: true }).inputValue(),
+        'center',
+      );
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '8');
+      assert.equal(getShapeText(await shape()), 'English\n日本語\nThird paragraph');
+      await input.fill('English\n日本語\nThird paragraph');
       await input.fill('English\n日本語\nThird paragraph\nNew paragraph');
       await select(30);
       await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('right');
@@ -109,6 +118,11 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       locale = 'ja';
       await editor.locator('.hit').first().dblclick();
+      await input.fill('\n日本語\nThird paragraph\nNew paragraph');
+      await select(2);
+      assert.equal(await bar.getByLabel('段落の配置', { exact: true }).inputValue(), 'center');
+      assert.equal(await bar.getByLabel('リストの階層', { exact: true }).inputValue(), '8');
+      await input.fill('English\n日本語\nThird paragraph\nNew paragraph');
       await select(8, 28);
       assert.equal(await bar.getByLabel('リストの階層', { exact: true }).inputValue(), '');
       await bar.getByLabel('リストの階層', { exact: true }).selectOption({ value: '2' });
@@ -221,6 +235,19 @@ test(
       assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][1], 0).level, 0);
       assert.notEqual(getParagraphAlignment(cells[0][0], 0), 'r');
       assert.notEqual(getParagraphAlignment(cells[0][1], 0), 'r');
+      await input.fill('Prefix\nFirst\nSecond');
+      await input.evaluate((node) => {
+        node.setSelectionRange(15, 15);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      assert.equal(
+        await bar.getByLabel('Paragraph alignment', { exact: true }).inputValue(),
+        'right',
+      );
+      assert.equal(await bar.getByLabel('List style', { exact: true }).inputValue(), 'number');
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '3');
+      assert.equal(await bar.getByLabel('Line spacing value', { exact: true }).inputValue(), '2');
+      await input.fill('First\nSecond');
       await input.focus();
       await input.evaluate((node) => {
         node.setSelectionRange(6, 12);

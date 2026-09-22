@@ -54,7 +54,7 @@
     </select></label>
     <label>{t('List level')}<select aria-label={t('List level')} value={paragraph.level} onchange={e => onparagraph?.('level', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed')}</option>
-      {#each Array.from({ length: 9 }, (_, i) => i) as value}<option value={value}>{value + 1}</option>{/each}
+      {#each Array.from({ length: 9 }, (_, i) => i) as value}<option value={String(value)}>{value + 1}</option>{/each}
     </select></label>
     <label>{t('Line spacing mode')}<select aria-label={t('Line spacing mode')} value={paragraph.lineKind} onchange={e => onparagraph?.('lineKind', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed')}</option><option value="inherit">{t('Inherit')}</option><option value="pct">{t('Multiple')}</option><option value="pts">{t('Points')}</option>

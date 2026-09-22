@@ -3,6 +3,13 @@ import {
   copyShape,
   createPresentation,
   getShapeText,
+  getShapeParagraphCount,
+  getParagraphPropertiesEffective,
+  setParagraphAlignment,
+  setParagraphBullet,
+  setParagraphLineSpacing,
+  setParagraphSpacing,
+  type PresentationData,
   getTableCells,
   getTableCellText,
   setShapeText,
@@ -28,14 +35,26 @@ export function replayTextEdits(
   }
 }
 
-/** A disposable model for reading pending run formats without touching history. */
+/** A disposable model for reading pending toolbar formats without touching history. */
 export function projectTextEdits(
   shape: SlideShapeData,
   changes: readonly TextEdit[],
   position?: CellPosition,
+  pres?: PresentationData,
 ): SlideShapeData {
   if (!changes.length) return shape;
   const copy = copyShape(addBlankSlide(createPresentation()), shape);
+  // copyShape has no source layout/master. Preserve the effective paragraph
+  // controls before edits split or merge paragraphs in the disposable shape.
+  if (pres && !position) {
+    for (let i = 0; i < getShapeParagraphCount(shape); i++) {
+      const props = getParagraphPropertiesEffective(pres, shape, i);
+      if (props.align !== null) setParagraphAlignment(copy, i, props.align);
+      if (props.bullet !== null) setParagraphBullet(copy, i, props.bullet);
+      if (props.lineSpacing !== null) setParagraphLineSpacing(copy, i, props.lineSpacing);
+      setParagraphSpacing(copy, i, { beforePts: props.spcBefPts, afterPts: props.spcAftPts });
+    }
+  }
   replayTextEdits(copy, changes, position);
   return copy;
 }
