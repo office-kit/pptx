@@ -53,8 +53,8 @@ that a user can complete the corresponding editing workflow.
   Transition dialogs configure effects, effect-specific directions, speed,
   through-black fades, click/automatic advance and optional application to all
   slides in one undo step. Browser tests verify push, fade, split, no-effect
-  timing, reset, isolation of other slides and persisted settings. Animated
-  playback of the configured effects remains to be verified.
+  timing, reset, isolation of other slides and persisted settings. Visual
+  playback coverage and remaining effects are listed below.
 
 - A bilingual slide options pane selects layouts already in the document, sets
   background colors or uploaded images, and resets to the inherited background.
@@ -185,7 +185,7 @@ advance runs only during presentation, stage clicks respect `advanceOnClick`, an
 explicit keyboard/control navigation remains available. Timers stop on exit and
 at the final slide, survive unchanged live refreshes, and support the full OOXML
 unsigned millisecond range. The browser playback test verifies these behaviors
-against a serialized deck. Visual transition effects remain outstanding.
+against a serialized deck. Visual playback coverage is listed below.
 
 A separate presenter window now displays the current and next slides, saved
 speaker notes, an elapsed timer with reset, and previous/next/exit controls.
@@ -193,7 +193,7 @@ It follows the editor's English/Japanese locale and synchronizes navigation with
 the audience window. Notes render as plain text outside the audience surface.
 Browser checks cover multiline Japanese/English notes, literal HTML in notes,
 empty notes, saved note updates, last-slide navigation, popup reload, locale
-switching, and a closed opener. Animated transitions remain outstanding.
+switching, and a closed opener. Visual playback coverage is listed below.
 
 Skipped slides have a bilingual checkbox in slide options and a marked thumbnail
 in both editing and preview views. Playback omits skipped slides when starting,
@@ -413,3 +413,9 @@ positions, rotations and reflections produced by ungrouping.
 
 - New slides preserve the chosen layout's placeholder orientation and size category alongside type/index. Layout prompt text remains excluded, and geometry/formatting continue to inherit.
 - Regression tests cover all three size categories, vertical orientation, omitted defaults, source isolation and Japanese/English text through public add/edit/save/load operations. This verifies placeholder metadata preservation, not complete vertical-text rendering.
+
+### Visual transition playback
+
+- Presentation mode plays fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond and plus. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
+- Browser tests load saved decks and verify intermediate animation frames, interrupted-layer cleanup, completion, reduced-motion behavior and automatic advancement after animation. The shape-transition test includes Japanese/English text and visual inspection of the midpoint plus mask.
+- Other selectable effects (including dissolve, checkerboard, blinds, comb, random bars, strips, wheel and random) still need visual playback; they currently switch immediately. Object-animation playback remains a separate requirement.

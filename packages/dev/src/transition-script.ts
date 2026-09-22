@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||!['fade','push','wipe','cover','pull','zoom'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||!['fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -42,6 +42,20 @@ function renderSlide(svg,options){
   }else if(effect==='wipe'){
     const clips={l:'inset(0 0 0 100%)',r:'inset(0 100% 0 0)',u:'inset(100% 0 0 0)',d:'inset(0 0 100% 0)'};
     animate(incoming,[{clipPath:clips[options.direction]??clips.l},{clipPath:'inset(0 0 0 0)'}]);
+  }else if(effect==='split'){
+    const collapsed=options.orientation==='vert'?'inset(0 50%)':'inset(50% 0)';
+    const expanded='inset(0 0)';
+    if(options.direction==='in'){
+      canvas.append(outgoing);
+      animate(outgoing,[{clipPath:expanded},{clipPath:collapsed}]);
+    }else animate(incoming,[{clipPath:collapsed},{clipPath:expanded}]);
+  }else if(effect==='circle'){
+    animate(incoming,[{clipPath:'circle(0% at 50% 50%)'},{clipPath:'circle(100% at 50% 50%)'}]);
+  }else if(effect==='diamond'){
+    animate(incoming,[{clipPath:'polygon(50% 50%,50% 50%,50% 50%,50% 50%)'},{clipPath:'polygon(50% -50%,150% 50%,50% 150%,-50% 50%)'}]);
+  }else if(effect==='plus'){
+    const cross=(low,high)=>'polygon('+low+'% 0%,'+high+'% 0%,'+high+'% '+low+'%,100% '+low+'%,100% '+high+'%,'+high+'% '+high+'%,'+high+'% 100%,'+low+'% 100%,'+low+'% '+high+'%,0% '+high+'%,0% '+low+'%,'+low+'% '+low+'%)';
+    animate(incoming,[{clipPath:cross(50,50)},{clipPath:cross(0,100)}]);
   }else if(effect==='zoom'){
     animate(incoming,[{transform:options.direction==='out'?'scale(2)':'scale(0.1)',opacity:0},{transform:'scale(1)',opacity:1}]);
   }
