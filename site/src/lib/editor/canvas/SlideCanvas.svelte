@@ -43,6 +43,7 @@
   } from '@office-kit/pptx';
   import { selectedShapeIds, topLevelShapes, type Selection } from '../core/selection.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
+  import { resizeRect, type ResizeHandle } from './resize.ts';
   import { snapMove, type Guide, type Rect } from './snapping.ts';
 
   const editor = getEditor();
@@ -119,7 +120,7 @@
   }
 
   // ---- Interaction state -------------------------------------------------
-  type Handle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+  type Handle = ResizeHandle;
   interface Drag {
     mode: 'move' | 'resize' | 'rotate';
     handle?: Handle;
@@ -316,14 +317,8 @@
     } else if (drag.mode === 'resize') {
       const id = drag.ids[0]!;
       const r = drag.startRects.get(id)!;
-      let { x, y, w, h } = r;
-      const hd = drag.handle!;
-      if (hd.includes('e')) w = r.w + dxEmu;
-      if (hd.includes('s')) h = r.h + dyEmu;
-      if (hd.includes('w')) { x = r.x + dxEmu; w = r.w - dxEmu; }
-      if (hd.includes('n')) { y = r.y + dyEmu; h = r.h - dyEmu; }
-      w = Math.max(w, metrics.widthEmu * 0.01);
-      h = Math.max(h, metrics.heightEmu * 0.01);
+      const { x, y, w, h } = resizeRect(r, drag.handle!, { x: dxEmu, y: dyEmu }, drag.startRot,
+        { w: metrics.widthEmu * 0.01, h: metrics.heightEmu * 0.01 }, drag.shift);
       guides = [];
       doc.applyLive(() => {
         const s = doc.shapeById(doc.selection.slideIndex, id);
@@ -939,11 +934,12 @@
               {/each}
             {/if}
             {#if isSel && !editing && selectedIds.size === 1}
-              <button class="rotate" aria-label="Rotate" onpointerdown={(e) => onRotateDown(e, box)}></button>
+              <button class="rotate" aria-label={t('Rotate')} onpointerdown={(e) => onRotateDown(e, box)}></button>
               {#each HANDLES as hd (hd.h)}
                 <button
                   class="handle"
-                  aria-label={`Resize ${hd.h}`}
+                  aria-label={t(`Resize ${hd.h}`)}
+                  title={t('Hold Shift to preserve aspect ratio')}
                   style="left:{hd.cx}%; top:{hd.cy}%; cursor:{hd.cur};"
                   onpointerdown={(e) => onHandleDown(e, box, hd.h)}
                 ></button>

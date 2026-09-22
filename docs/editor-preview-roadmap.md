@@ -329,3 +329,11 @@ Pending paragraph controls now follow the projected text after insertions and de
 List-level option values now use the same string type as the current paragraph value, so the selected level is displayed instead of becoming blank. Table-cell coverage also checks pending insertion before a formatted paragraph, including list style, level and line spacing.
 
 Clear text formatting is available in the inline toolbar and selected-cell toolbar in English and Japanese, with Ctrl/Command+Backslash for inline selections. It resets direct font, color, highlight, decorations and other run appearance while preserving text, hyperlinks, language metadata and paragraph formatting. The existing shape/cell text-format setters accept `reset: true`; whole-body resets also remove run-format defaults, and range resets leave surrounding characters intact. Tests cover round-trip preservation, table ranges and whole cells, pending input, keyboard/button paths and Undo/Redo.
+
+Canvas resize handles now operate in the selected object's rotated axes, keeping
+the opposite corner or edge midpoint fixed, including when shrinking to the
+minimum size. Shift preserves the starting aspect ratio for corner and edge
+handles. Unit coverage checks all eight handles across five rotations, aspect
+constraints, minimum size and zero-height lines. Browser coverage verifies
+English/Japanese labels, pointer movement on a rotated shape, saved geometry,
+Undo/Redo, reload and cancellation without losing redo history.

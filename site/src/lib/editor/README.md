@@ -58,7 +58,8 @@ Every capability is reachable by at least one path, in increasing ergonomics:
     shapes and the slide, drawing pink guide lines;
   - **multi-select** via marquee (rubber-band on empty canvas) and Shift-click,
     with group move;
-  - handles to resize, a top handle to rotate (Shift = 15° steps), double-click
+  - handles to resize in the object’s rotated axes (Shift preserves aspect ratio),
+    a top handle to rotate (Shift = 15° steps), double-click
     to edit text;
   - **keyboard**: arrow-nudge (Shift = coarse), Ctrl+D duplicate, Ctrl+C/X/V
     copy·cut·paste, Ctrl+A select-all, Delete, Ctrl+±/0 zoom;
@@ -107,3 +108,10 @@ node site/src/lib/editor/manifest/generate.mjs
 
 Run this whenever the library's authoring surface changes; the coverage test
 tells you when it is needed.
+
+## Development preview integration
+
+The same editor is available as a site route and bundled in the development
+preview. Completion requirements and remaining work are tracked in [the editor preview roadmap](../../../../docs/editor-preview-roadmap.md).
+Command discovery is not proof of complete editing workflows; browser interaction
+and persistence checks are required for each supported workflow.
