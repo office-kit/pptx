@@ -515,3 +515,10 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Reset layout restores missing slots, layout geometry and inherited shape/text appearance in one command, available in English and Japanese in the slide panel and Home ribbon. All selected slides share one undo step.
 - Text, hyperlinks, image content and crops, relationship targets, shape IDs and unknown extension metadata survive. Non-placeholder objects remain unchanged; grouped placeholders retain their group-relative state.
 - Core tests verify idempotence, imported picture placeholders and saved round trips. Browser tests cover selected-slide scope, formatting and deleted slots, undo/redo, both languages and saved reload. Grouped layout reset and the other outstanding workflows above remain unfinished.
+
+### Editing objects inside groups
+
+- Double-click a group to select its children in place; the bilingual group navigation button or Escape returns to the parent. Select All stays within the current group. Nested coordinate transforms include rotation, reflection and nonuniform scaling for selection overlays, pointer movement and screen-direction keyboard nudges.
+- Delete and z-order commands now operate on the owning group, retaining unrelated siblings and trailing extension metadata. Copy and duplicate use `copyShape` with `preserveGroupTransform` to retain ancestor transforms without copying siblings, including transforms that cannot be flattened to a standalone shape.
+- Core tests verify nested ordering, deletion, copied ancestor geometry and save/reload. Browser coverage verifies rotated-child drag, keyboard movement, duplicate/delete, Undo/Redo, English/Japanese navigation and saved reload. Matrix tests cover nested reflection and nonuniform scaling.
+- Remaining: text-input overlay fidelity under reflected/scaled ancestors, group-relative snapping and alignment, nested regroup/ungroup, and broader resize/rotation gesture coverage. These are not claimed complete by the movement tests.

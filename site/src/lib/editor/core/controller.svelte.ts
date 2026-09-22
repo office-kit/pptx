@@ -42,7 +42,8 @@ import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
 import { t } from '../i18n/i18n.svelte.ts';
-import { selectedSlideIndices, selectedShapeIds, topLevelShapes } from './selection.ts';
+import { shapeScope, invert, project } from '../canvas/group-space.ts';
+import { selectedSlideIndices, selectedShapeId, selectedShapeIds } from './selection.ts';
 
 export interface Toast {
   readonly id: number;
@@ -363,7 +364,9 @@ export class EditorController {
     const slideIndex = this.doc.selection.slideIndex;
     const slide = this.doc.slideAt(slideIndex);
     if (!slide) return;
-    const ids = topLevelShapes(slide).map((s) => getShapeId(s));
+    const ids = shapeScope(slide, selectedShapeId(this.doc.selection)).shapes.map((s) =>
+      getShapeId(s),
+    );
     if (ids.length) this.doc.select({ kind: 'shape', slideIndex, shapeIds: ids });
   }
 
@@ -390,7 +393,7 @@ export class EditorController {
     if (!slide) return [];
     const newIds: number[] = [];
     for (const src of shapes) {
-      const copy = copyShape(slide, src);
+      const copy = copyShape(slide, src, { preserveGroupTransform: true });
       const b = getShapeBoundsResolved(this.doc.pres, copy);
       if (b) {
         setShapeBounds(copy, {
@@ -528,10 +531,26 @@ export class EditorController {
     return this.#clipboard != null;
   }
 
-  /** Move all selected shapes by an EMU delta as one undo step. */
+  exitGroup(): boolean {
+    const slide = this.doc.currentSlide;
+    const parent = slide && shapeScope(slide, selectedShapeId(this.doc.selection)).parent;
+    if (!parent) return false;
+    this.doc.selectShape(this.doc.selection.slideIndex, getShapeId(parent));
+    return true;
+  }
+
+  /** Move all selected shapes by a slide-space EMU delta as one undo step. */
   nudge(dxEmu: number, dyEmu: number): void {
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
+    const slide = this.doc.currentSlide;
+    if (!slide) return;
+    const inverse = invert(shapeScope(slide, selectedShapeId(this.doc.selection)).matrix);
+    if (!inverse) return;
+    const origin = project(inverse, { x: 0, y: 0 });
+    const end = project(inverse, { x: dxEmu, y: dyEmu });
+    dxEmu = end.x - origin.x;
+    dyEmu = end.y - origin.y;
     this.doc.transact(t('Move'), () => {
       for (const s of shapes) {
         const b = getShapeBoundsResolved(this.doc.pres, s);

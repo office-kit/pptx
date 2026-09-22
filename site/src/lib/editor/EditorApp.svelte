@@ -125,7 +125,7 @@
       else if (editor.paletteOpen) editor.togglePalette(false);
       else if (editor.activeDialog) editor.closeDialog();
       else if (doc.selection.kind === 'cell') doc.selectShape(doc.selection.slideIndex, doc.selection.shapeId);
-      else doc.clearShapeSelection();
+      else if (!editor.exitGroup()) doc.clearShapeSelection();
     }
   }
   function onCellClipboard(event: ClipboardEvent) {

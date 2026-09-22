@@ -34,6 +34,8 @@
     setTableCellTextFormat,
     isTableShape,
     getShapeText,
+    getGroupChildren,
+    getShapeId,
     getShapeKind,
     getShapeParagraphCount,
     getShapeParagraphElements,
@@ -42,7 +44,8 @@
     setShapeBounds,
     setShapeRotation,
   } from '@office-kit/pptx';
-  import { selectedShapeIds, topLevelShapes, type Selection } from '../core/selection.ts';
+  import { selectedShapeIds, selectedShapeId, type Selection } from '../core/selection.ts';
+  import { shapeScope, invert, project } from './group-space.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
   import { rotateRect, selectionBounds } from './rotation.ts';
@@ -68,11 +71,35 @@
   const stageW = $derived(slidePx.w * editor.zoom);
   const stageH = $derived(slidePx.h * editor.zoom);
 
+  const scope = $derived.by(() => {
+    doc.version;
+    return doc.currentSlide ? shapeScope(doc.currentSlide, selectedShapeId(doc.selection)) : null;
+  });
+  const inverseScope = $derived(scope ? invert(scope.matrix) : null);
+  const scopeStyle = $derived.by(() => {
+    if (!scope) return '';
+    const [a, b, c, d, e, f] = scope.matrix;
+    return `transform:matrix(${a},${b * pxPerEmuY() / pxPerEmuX()},${c * pxPerEmuX() / pxPerEmuY()},${d},${e * pxPerEmuX()},${f * pxPerEmuY()});transform-origin:0 0;`;
+  });
+  function localPoint(client: { x: number; y: number }) {
+    const rect = stageEl!.getBoundingClientRect();
+    const point = {
+      x: (client.x - rect.left) / pxPerEmuX(),
+      y: (client.y - rect.top) / pxPerEmuY(),
+    };
+    return inverseScope ? project(inverseScope, point) : point;
+  }
+  function exitGroup() {
+    if (!scope?.parent) return;
+    commitEditing();
+    doc.selectShape(doc.selection.slideIndex, getShapeId(scope.parent));
+  }
+
   const boxes = $derived.by<Box[]>(() => {
     doc.version;
     const slide = doc.currentSlide;
     if (!slide) return [];
-    return shapeBoxes(doc.pres, slide, topLevelShapes(slide));
+    return shapeBoxes(doc.pres, slide, scope?.shapes ?? []);
   });
 
   const boxesById = $derived(new Map(boxes.map(box => [box.id, box])));
@@ -246,7 +273,7 @@
   }
 
   function startDrag(mode: Drag['mode'], handle: Handle | undefined, ids: number[], e: PointerEvent) {
-    if (e.button !== 0 || cancelling) return;
+    if (e.button !== 0 || cancelling || !inverseScope) return;
     gestureSelection = doc.selection;
     const startRects = new Map<number, Rect>();
     for (const id of ids) {
@@ -258,8 +285,8 @@
       ? selectionBounds([...startRects].map(([id, rect]) => ({ ...rect, rotation: startRotations.get(id)! })))
       : startRects.get(ids[0]!)!;
     const center = { x: selectionRect.x + selectionRect.w / 2, y: selectionRect.y + selectionRect.h / 2 };
-    const stage = stageEl!.getBoundingClientRect();
-    const startAngle = Math.atan2(e.clientY - stage.top - center.y * pxPerEmuY(), e.clientX - stage.left - center.x * pxPerEmuX()) * 180 / Math.PI;
+    const pointer = localPoint({ x: e.clientX, y: e.clientY });
+    const startAngle = Math.atan2(pointer.y - center.y, pointer.x - center.x) * 180 / Math.PI;
     drag = {
       mode,
       handle,
@@ -284,11 +311,11 @@
     gestureSelection = doc.selection;
     // Empty-area press → marquee select.
     if (!stageEl) return;
-    const rect = stageEl.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const pointer = localPoint({ x: e.clientX, y: e.clientY });
+    const x = pointer.x * pxPerEmuX();
+    const y = pointer.y * pxPerEmuY();
     marquee = { x0: x, y0: y, x1: x, y1: y };
-    if (!e.shiftKey) doc.clearShapeSelection();
+    if (!e.shiftKey && !scope?.parent) doc.clearShapeSelection();
     capture(e);
   }
 
@@ -301,8 +328,8 @@
       return;
     }
     if (marquee) {
-      const rect = stageEl!.getBoundingClientRect();
-      marquee = { ...marquee, x1: e.clientX - rect.left, y1: e.clientY - rect.top };
+      const pointer = localPoint({ x: e.clientX, y: e.clientY });
+      marquee = { ...marquee, x1: pointer.x * pxPerEmuX(), y1: pointer.y * pxPerEmuY() };
       return;
     }
     if (!drag) return;
@@ -316,8 +343,9 @@
 
   function applyDragFrame() {
     if (!drag) return;
-    const dxEmu = (drag.last.x - drag.startClient.x) / pxPerEmuX();
-    const dyEmu = (drag.last.y - drag.startClient.y) / pxPerEmuY();
+    const start = localPoint(drag.startClient), last = localPoint(drag.last);
+    const dxEmu = last.x - start.x;
+    const dyEmu = last.y - start.y;
 
     if (drag.mode === 'move') {
       // Snap the group's bounding box, then move every shape by the same delta.
@@ -354,10 +382,7 @@
         });
       });
     } else {
-      const rect = stageEl!.getBoundingClientRect();
-      const cx = rect.left + drag.center.x * pxPerEmuX();
-      const cy = rect.top + drag.center.y * pxPerEmuY();
-      const angle = Math.atan2(drag.last.y - cy, drag.last.x - cx) * 180 / Math.PI;
+      const angle = Math.atan2(last.y - drag.center.y, last.x - drag.center.x) * 180 / Math.PI;
       const delta = ((angle - drag.startAngle + 540) % 360) - 180;
       const step = drag.shift ? 15 : 1;
       const base = drag.ids.length === 1 ? drag.startRot : 0;
@@ -703,9 +728,10 @@
 
   function cellAtPointer(event: MouseEvent, box: Box) {
     if (!isTableShape(box.shape) || !stageEl) return undefined;
-    const stage = stageEl.getBoundingClientRect();
-    const dx = event.clientX - stage.left - (box.left + box.width / 2) / 100 * stage.width;
-    const dy = event.clientY - stage.top - (box.top + box.height / 2) / 100 * stage.height;
+    const pointer = localPoint({ x: event.clientX, y: event.clientY });
+    const stage = { width: stageW, height: stageH };
+    const dx = pointer.x * pxPerEmuX() - (box.left + box.width / 2) / 100 * stage.width;
+    const dy = pointer.y * pxPerEmuY() - (box.top + box.height / 2) / 100 * stage.height;
     const angle = box.rotation * Math.PI / 180;
     const x = (dx * Math.cos(angle) + dy * Math.sin(angle)) / (box.width / 100 * stage.width) * 100 + 50;
     const y = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / (box.height / 100 * stage.height) * 100 + 50;
@@ -713,6 +739,11 @@
   }
 
   function editAtPointer(event: MouseEvent, box: Box) {
+    if (getShapeKind(box.shape) === 'group') {
+      const first = getGroupChildren(box.shape)[0];
+      if (first) doc.selectShape(doc.selection.slideIndex, getShapeId(first));
+      return;
+    }
     if (!isTableShape(box.shape)) { startEditing(box); return; }
     const cell = cellAtPointer(event, box);
     if (cell) startEditing(box, cell);
@@ -916,6 +947,12 @@
 <svelte:window onkeydown={onTypeToEdit} />
 
 <div class="canvas-shell" onfocusout={onTextFocusOut}>
+{#if scope?.parent}
+  <div class="group-navigation">
+    <span>{t('Editing group')}</span>
+    <button class="ok-btn" onclick={exitGroup}>{t('Exit group')}</button>
+  </div>
+{/if}
 {#if editing}
   <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
 {/if}
@@ -941,7 +978,7 @@
         <div class="paint">{@html doc.currentSvg}</div>
       {/key}
 
-      <div class="overlay">
+      <div class="overlay" style={scopeStyle}>
         {#each boxes as box (box.id)}
           {@const isSel = selectedIds.has(box.id)}
           <div
@@ -1057,6 +1094,7 @@
 </div>
 
 <style>
+  .group-navigation { display: flex; align-items: center; gap: 12px; padding: 4px 12px; background: var(--ok-panel); }
   .canvas-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .canvas-area {
     flex: 1;
