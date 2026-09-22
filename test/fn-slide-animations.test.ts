@@ -12,6 +12,7 @@ import { partName } from '../src/internal/opc/index.ts';
 import {
   type PresentationData,
   type SlideData,
+  type SlideShapeData,
   _internalPackageOf,
   addBlankSlide,
   addSlideMedia,
@@ -584,5 +585,256 @@ describe('fn API: setShapeAnimation — start conditions and delay', () => {
     const shape = addSlideShape(slide, { preset: 'rect', ...box });
     setShapeAnimation(shape, { effect: 'fadeIn', delayMs: 1.5 });
     expect(getSlideAnimations(slide)[0]!.delayMs).toBe(2);
+  });
+});
+
+// A `<p:cBhvr>` on `spid`, with `attrs` going on its `<p:cTn>`.
+const behaviour = (id: number, spid: number | string, attrs: string): string =>
+  `<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">` +
+  `<p:cTn id="${id}"${attrs}/><p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+  `<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst></p:cBhvr>` +
+  `<p:tavLst/></p:anim>`;
+
+/** A click stop holding one preset effect, with `body` as its behaviours. */
+const stopWith = (body: string, effectStCondLst = '<p:cond delay="0"/>'): string =>
+  `<p:par><p:cTn id="3" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>` +
+  `<p:childTnLst><p:par><p:cTn id="4" fill="hold">` +
+  `<p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>` +
+  `<p:par><p:cTn id="5" presetID="10" presetClass="entr" presetSubtype="0" fill="hold" ` +
+  `grpId="0" nodeType="clickEffect"><p:stCondLst>${effectStCondLst}</p:stCondLst>` +
+  `<p:childTnLst>${body}</p:childTnLst></p:cTn></p:par>` +
+  `</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
+
+/**
+ * Start offsets of the wrapper time nodes — the click stops and the groups
+ * inside them — in document order. Effect nodes carry `presetID` and are
+ * dropped, so what is left is the timeline the wrappers impose.
+ *
+ * Reading these back out of the saved XML is the point: `start: 'afterPrevious'`
+ * is only honoured if the group really is placed after the one before it, and
+ * the `nodeType` attribute alone does not place it there.
+ */
+const wrapperDelays = (xml: string): string[] =>
+  [...xml.matchAll(/<p:par><p:cTn\b([^>]*)><p:stCondLst><p:cond delay="([^"]*)"\/>/g)]
+    .filter((m) => !m[1]!.includes('presetID'))
+    .map((m) => m[2]!);
+
+describe('fn API: setShapeAnimation — when an "after previous" effect actually starts', () => {
+  const deck = (): { pres: PresentationData; slide: SlideData } => {
+    const pres = createPresentation();
+    return { pres, slide: addBlankSlide(pres) };
+  };
+  const slideXml = (pres: PresentationData): string =>
+    decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
+  const shape = (slide: SlideData): SlideShapeData =>
+    addSlideShape(slide, { preset: 'rect', ...box });
+
+  // Sibling `<p:par>` nodes are parallel: they all begin when their stop does.
+  // A group left at delay 0 would run *with* the effect it is meant to follow,
+  // whatever its `nodeType` says, so the offset is the whole dependency.
+  it('offsets the group to where the longest effect before it finishes', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 800 });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 400, start: 'withPrevious' });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 300, start: 'afterPrevious' });
+    // The stop, its first group, and the group waiting on the 800ms effect.
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '800']);
+    expect(getSlideAnimations(slide).map((s) => s.start)).toEqual([
+      'click',
+      'withPrevious',
+      'afterPrevious',
+    ]);
+  });
+
+  // A delayed "with previous" pushes the end of its whole group out, so what
+  // follows the group has to wait that much longer.
+  it('counts a delayed with-previous effect when measuring the group', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 500 });
+    setShapeAnimation(shape(slide), {
+      effect: 'fadeIn',
+      durationMs: 200,
+      start: 'withPrevious',
+      delayMs: 1000,
+    });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', start: 'afterPrevious' });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '1200']);
+  });
+
+  // Two "with previous" effects run together, each measured from the click
+  // that started their group — not from one another.
+  it('keeps two with-previous effects on the same trigger', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 500 });
+    setShapeAnimation(shape(slide), {
+      effect: 'fadeIn',
+      durationMs: 500,
+      start: 'withPrevious',
+      delayMs: 200,
+    });
+    setShapeAnimation(shape(slide), {
+      effect: 'fadeIn',
+      durationMs: 500,
+      start: 'withPrevious',
+      delayMs: 400,
+    });
+    // One stop, one group: no wrapper waits on anything.
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0']);
+    expect(getSlideAnimations(slide).map((s) => s.delayMs)).toEqual([0, 200, 400]);
+  });
+
+  // `appear` writes only the 1ms visibility kick, so that is its whole length.
+  it('measures an instant effect by its visibility kick', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'appear' });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', start: 'afterPrevious' });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '1']);
+  });
+
+  it('adds the caller delay on top of the wait, without double-counting it', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 600 });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', start: 'afterPrevious', delayMs: 150 });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '600']);
+    // The caller's 150ms stays on the effect, counted from the group's start.
+    expect(getSlideAnimations(slide).map((s) => s.delayMs)).toEqual([0, 150]);
+  });
+
+  it('chains a second after-previous effect past the first', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 400 });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 300, start: 'afterPrevious' });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 100, start: 'afterPrevious' });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '400', '700']);
+  });
+
+  skipIfNoXmllint('emits a schema-valid tree for a chained sequence', () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 800 });
+    setShapeAnimation(shape(slide), { effect: 'appear', start: 'withPrevious', delayMs: 100 });
+    setShapeAnimation(shape(slide), { effect: 'fadeOut', start: 'afterPrevious', delayMs: 50 });
+    expectSchemaValid(slideXml(pres), 'pml');
+  });
+
+  it('keeps the computed offsets through save and reload', async () => {
+    const { pres, slide } = deck();
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 800 });
+    setShapeAnimation(shape(slide), { effect: 'fadeIn', durationMs: 300, start: 'afterPrevious' });
+    const before = slideXml(pres);
+    const steps = getSlideAnimations(slide);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(slideXml(reloaded)).toBe(before);
+    expect(getSlideAnimations(getSlides(reloaded)[0]!)).toEqual(steps);
+  });
+});
+
+/**
+ * An authored slide can time an effect in ways this library does not model.
+ * Guessing an end for one of those would place the next effect at a moment
+ * PowerPoint never plays it, so the call is refused and the tree left alone.
+ */
+describe('fn API: setShapeAnimation — timing an after-previous effect cannot measure', () => {
+  const slideXml = (pres: PresentationData): string =>
+    decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
+
+  const refuses = async (body: string, effectStCondLst?: string): Promise<void> => {
+    const spid = await firstShapeId();
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(stopWith(body.replaceAll('{spid}', String(spid)), effectStCondLst)),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    const before = slideXml(pres);
+    expect(() =>
+      setShapeAnimation(getSlideShapes(slide)[0]!, { effect: 'fadeIn', start: 'afterPrevious' }),
+    ).toThrow(/cannot start an effect after one whose length this library cannot measure/);
+    // Refusing has to leave the authored timing exactly as it was.
+    expect(slideXml(pres)).toBe(before);
+    expect(getSlideAnimations(slide)).toHaveLength(1);
+  };
+
+  // The case that matters most: one readable behaviour beside an unreadable
+  // one. Taking the readable maximum would report 500ms for an effect that
+  // never ends.
+  it('refuses when one behaviour is timed and another runs indefinitely', async () => {
+    await refuses(
+      behaviour(6, '{spid}', ' dur="500" fill="hold"') +
+        behaviour(7, '{spid}', ' dur="indefinite" fill="hold"'),
+    );
+  });
+
+  it('refuses when one behaviour states no duration at all', async () => {
+    await refuses(
+      behaviour(6, '{spid}', ' dur="500" fill="hold"') + behaviour(7, '{spid}', ' fill="hold"'),
+    );
+  });
+
+  it('refuses when a behaviour repeats', async () => {
+    await refuses(behaviour(6, '{spid}', ' dur="500" repeatCount="3000" fill="hold"'));
+  });
+
+  it('refuses when a behaviour is rescaled by speed or auto-reverse', async () => {
+    await refuses(behaviour(6, '{spid}', ' dur="500" spd="50%" fill="hold"'));
+    await refuses(behaviour(6, '{spid}', ' dur="500" autoRev="1" fill="hold"'));
+  });
+
+  // `accel` and `decel` are shares of `dur`, so they leave the total alone.
+  it('still follows an effect that only eases in and out', async () => {
+    const spid = await firstShapeId();
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(stopWith(behaviour(6, spid, ' dur="500" accel="20%" decel="20%" fill="hold"'))),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    setShapeAnimation(getSlideShapes(slide)[0]!, { effect: 'fadeIn', start: 'afterPrevious' });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '500']);
+  });
+
+  // `evt` ties the start to another node's lifetime. The `delay` beside it is
+  // counted from that event, not from the group, so it is not an offset.
+  it('refuses when the effect starts from another node rather than an offset', async () => {
+    await refuses(
+      behaviour(6, '{spid}', ' dur="500" fill="hold"'),
+      '<p:cond evt="onEnd" delay="0"><p:tn val="2"/></p:cond>',
+    );
+  });
+
+  it('refuses when the effect has more than one start condition', async () => {
+    await refuses(
+      behaviour(6, '{spid}', ' dur="500" fill="hold"'),
+      '<p:cond delay="0"/><p:cond delay="900"/>',
+    );
+  });
+
+  // A nested `<p:par>` runs on its own clock: its behaviours start when it
+  // does, not when the effect does.
+  it('refuses when the effect nests a timeline of its own', async () => {
+    await refuses(
+      `<p:par><p:cTn id="6" fill="hold"><p:stCondLst><p:cond delay="200"/></p:stCondLst>` +
+        `<p:childTnLst>${behaviour(7, '{spid}', ' dur="500" fill="hold"')}</p:childTnLst>` +
+        `</p:cTn></p:par>`,
+    );
+  });
+
+  // Refusal is about measuring, not about who authored the effect: two plain
+  // behaviours are measurable whoever wrote them.
+  it('follows an authored effect whose behaviours are all timed', async () => {
+    const spid = await firstShapeId();
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(
+          stopWith(
+            behaviour(6, spid, ' dur="500" fill="hold"') +
+              behaviour(7, spid, ' dur="900" fill="hold"'),
+          ),
+        ),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    setShapeAnimation(getSlideShapes(slide)[0]!, { effect: 'fadeIn', start: 'afterPrevious' });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '900']);
   });
 });

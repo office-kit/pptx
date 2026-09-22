@@ -128,6 +128,7 @@ const isMainSeqCTn = (e: XmlElement): boolean =>
   isPml(e, 'cTn') && getAttrValue(e, qname('', 'nodeType', '')) === 'mainSeq';
 
 const NAME_CHILD_TN_LST = qname('p', 'childTnLst', NS.pml);
+const NAME_CTN = qname('p', 'cTn', NS.pml);
 
 const childPars = (el: XmlElement): XmlElement[] => {
   const childTnLst = firstChildElement(el, NAME_CHILD_TN_LST);
@@ -140,16 +141,160 @@ const childPars = (el: XmlElement): XmlElement[] => {
 // The `<p:par>` wrappers nest click stop > group > effect, so one level down
 // is `par > cTn > childTnLst > par`.
 const innerPars = (par: XmlElement): XmlElement[] => {
-  const cTn = firstChildElement(par, qname('p', 'cTn', NS.pml));
+  const cTn = firstChildElement(par, NAME_CTN);
   return cTn === null ? [] : childPars(cTn);
 };
 
 const appendPar = (par: XmlElement, child: XmlElement): boolean => {
-  const cTn = firstChildElement(par, qname('p', 'cTn', NS.pml));
+  const cTn = firstChildElement(par, NAME_CTN);
   const childTnLst = cTn === null ? null : firstChildElement(cTn, NAME_CHILD_TN_LST);
   if (childTnLst === null) return false;
   childTnLst.children.push(child);
   return true;
+};
+
+const NAME_ST_COND_LST = qname('p', 'stCondLst', NS.pml);
+const ATTR_DELAY = qname('', 'delay', '');
+const ATTR_DUR = qname('', 'dur', '');
+
+// Whole milliseconds only. `indefinite`, a missing value or anything that is
+// not a plain integer means we cannot place a node on the timeline.
+const wholeMs = (raw: string | null): number | null => {
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
+};
+
+/**
+ * The single `<p:cond>` that fixes when a node starts, or `null` when the node
+ * does not start at a plain offset at all.
+ *
+ * Several conditions mean several triggers, and `evt` or a `<p:tn>` / `<p:rtn>`
+ * / `<p:tgtEl>` child ties the start to another node's lifetime — neither is a
+ * number of milliseconds, and treating one as the delay attribute alone would
+ * place the node at a time PowerPoint never plays it.
+ */
+const offsetCond = (cTn: XmlElement): XmlElement | null => {
+  const stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
+  if (stCondLst === null) return null;
+  const conds = stCondLst.children.filter(
+    (c): c is XmlElement => c.kind === 'element' && isPml(c, 'cond'),
+  );
+  if (conds.length !== 1) return null;
+  const cond = conds[0]!;
+  if (getAttrValue(cond, qname('', 'evt', '')) !== null) return null;
+  if (cond.children.some((c) => c.kind === 'element')) return null;
+  return cond;
+};
+
+// A node with no start condition begins with its parent, which is offset 0.
+const startOffsetMs = (cTn: XmlElement): number | null => {
+  if (firstChildElement(cTn, NAME_ST_COND_LST) === null) return 0;
+  const cond = offsetCond(cTn);
+  return cond === null ? null : wholeMs(getAttrValue(cond, ATTR_DELAY));
+};
+
+const setStartOffset = (par: XmlElement, delayMs: number): boolean => {
+  const cTn = firstChildElement(par, NAME_CTN);
+  const cond = cTn === null ? null : offsetCond(cTn);
+  if (cond === null) return false;
+  cond.attrs = cond.attrs.map((a) =>
+    a.name.namespaceURI === '' && a.name.localName === 'delay'
+      ? { ...a, value: String(delayMs) }
+      : a,
+  );
+  return true;
+};
+
+/**
+ * Attributes that repeat or rescale a time node (CT_TLCommonTimeNodeData).
+ * We measure a node by its `dur`, so any of these means the number we computed
+ * is not how long PowerPoint runs it. `accel` / `decel` are shares of `dur`
+ * and leave the total alone, so they are not here.
+ */
+const RESCALING_ATTRS = new Set(['repeatCount', 'repeatDur', 'spd', 'autoRev']);
+
+const isRescaled = (cTn: XmlElement): boolean =>
+  cTn.attrs.some((a) => a.name.namespaceURI === '' && RESCALING_ATTRS.has(a.name.localName));
+
+/**
+ * Time nodes nested inside an effect. Their children start when *they* do
+ * rather than when the effect does, and `<p:iterate>` staggers them further
+ * per letter or paragraph, so measuring the behaviours underneath as if they
+ * were the effect's own would misplace every one of them.
+ */
+const NESTED_TIMELINES = new Set(['par', 'seq', 'excl', 'iterate']);
+
+/**
+ * How long after its own start an effect is still running, or `null` when the
+ * tree does not say. The 1ms visibility kick counts — for `appear` it is the
+ * whole effect.
+ *
+ * Every behaviour has to be measurable. One that runs indefinitely, states no
+ * length, repeats, or hangs off a nested timeline decides the answer on its
+ * own: falling back to the readable siblings' maximum would report an effect
+ * as shorter than it plays, and everything placed after it would start early.
+ */
+const effectSpanMs = (effectPar: XmlElement): number | null => {
+  const effectCTn = firstChildElement(effectPar, NAME_CTN);
+  if (effectCTn === null || isRescaled(effectCTn)) return null;
+  const start = startOffsetMs(effectCTn);
+  if (start === null) return null;
+
+  let longest: number | null = null;
+  const walk = (el: XmlElement): boolean => {
+    if (isPml(el, 'cBhvr')) {
+      const cTn = firstChildElement(el, NAME_CTN);
+      if (cTn === null || isRescaled(cTn)) return false;
+      const dur = wholeMs(getAttrValue(cTn, ATTR_DUR));
+      const delay = startOffsetMs(cTn);
+      if (dur === null || delay === null) return false;
+      longest = Math.max(longest ?? 0, delay + dur);
+      return true;
+    }
+    for (const child of el.children) {
+      if (child.kind !== 'element') continue;
+      if (child.name.namespaceURI === NS.pml && NESTED_TIMELINES.has(child.name.localName)) {
+        return false;
+      }
+      if (!walk(child)) return false;
+    }
+    return true;
+  };
+  if (!walk(effectCTn) || longest === null) return null;
+  return start + longest;
+};
+
+/**
+ * When every effect in `groupPar` has finished, measured from the start of the
+ * click stop that holds it. `null` when any of them runs for a length this
+ * library cannot measure, which is what makes "after this one" unanswerable.
+ *
+ * Sibling `<p:par>` nodes are parallel — they all begin when their parent
+ * does — so `nodeType="afterEffect"` is a label for PowerPoint's UI, not a
+ * dependency a player could honour. Placing the following group at this offset
+ * is what actually makes it run afterwards.
+ */
+const groupEndMs = (groupPar: XmlElement): number | null => {
+  const groupCTn = firstChildElement(groupPar, NAME_CTN);
+  if (groupCTn === null || isRescaled(groupCTn)) return null;
+  const start = startOffsetMs(groupCTn);
+  if (start === null) return null;
+
+  // Anything in the group that is not a plain `<p:par>` effect is a structure
+  // we have not measured, so the group's end is not ours to state.
+  const childTnLst = firstChildElement(groupCTn, NAME_CHILD_TN_LST);
+  if (childTnLst === null) return null;
+  const effectPars = childTnLst.children.filter((c): c is XmlElement => c.kind === 'element');
+  if (!effectPars.every((c) => isPml(c, 'par'))) return null;
+
+  let longest: number | null = null;
+  for (const effectPar of effectPars) {
+    const span = effectSpanMs(effectPar);
+    if (span === null) return null;
+    longest = Math.max(longest ?? 0, span);
+  }
+  return longest === null ? null : start + longest;
 };
 
 // Merges a freshly-built single-effect timing into an existing `<p:timing>`,
@@ -208,7 +353,21 @@ const mergeEffectInto = (
       existingMainSeqChildTnLst.children.push(newPar);
     } else if (start === 'afterPrevious') {
       const group = innerPars(newPar)[0];
-      if (group === undefined || !appendPar(lastStop, group)) return false;
+      if (group === undefined || lastGroup === undefined) return false;
+      // The group is a sibling of the one before it, so it would otherwise
+      // start at the same moment. Offsetting it to where that group finishes
+      // is what makes "after previous" mean it; the caller's own delay stays
+      // on the effect, counted from there.
+      const previousEnd = groupEndMs(lastGroup);
+      if (previousEnd === null) {
+        throw new Error(
+          'setShapeAnimation: cannot start an effect after one whose length this library cannot ' +
+            'measure. The effect before it runs indefinitely, states no duration, repeats, or ' +
+            'starts from another node rather than at a fixed offset. Use start: "click" or ' +
+            '"withPrevious".',
+        );
+      }
+      if (!setStartOffset(group, previousEnd) || !appendPar(lastStop, group)) return false;
     } else {
       const effectPar = innerPars(innerPars(newPar)[0] ?? newPar)[0];
       if (effectPar === undefined || lastGroup === undefined) return false;
@@ -269,6 +428,11 @@ const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
  * running alongside it or once it has finished — both off the same click. As
  * the slide's first effect neither has a predecessor, so both run when the
  * slide appears. `delayMs` waits that long once the start condition is met.
+ *
+ * `'afterPrevious'` throws when the slide's timing does not say when the effect
+ * before it ends — it runs indefinitely, states no duration, repeats, or starts
+ * from another node rather than at a fixed offset. The slide is left untouched;
+ * `'click'` and `'withPrevious'` need no such measurement.
  *
  * Reading the result back, including the order and start condition of every
  * effect on the slide, is `getSlideAnimations`.
