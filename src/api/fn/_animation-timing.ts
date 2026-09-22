@@ -50,6 +50,10 @@ const ATTR_BUILD = qname('', 'build', '');
 const ATTR_BLD_LVL = qname('', 'bldLvl', '');
 const ATTR_ST = qname('', 'st', '');
 const ATTR_END = qname('', 'end', '');
+const ATTR_FILL = qname('', 'fill', '');
+
+/** `fill` values that leave a timing node's value in place after it has run. */
+const HOLDING_FILLS = new Set(['hold', 'freeze']);
 
 // The `<p:set>` that flips `style.visibility` is scaffolding around every
 // preset, not the effect's own timing, so it never supplies the duration.
@@ -73,6 +77,14 @@ const STEP_NODE_TYPES = new Set(['clickEffect', 'withEffect', 'afterEffect']);
 
 /** When a step runs relative to the one before it. */
 export type AnimationStart = 'click' | 'withPrevious' | 'afterPrevious' | 'unknown';
+
+/**
+ * What becomes of the value an effect animates once it has run, from the
+ * `fill` on its behaviours (ST_TLTimeNodeFillType: `remove | freeze | hold |
+ * transition`). `'unstated'` is not `'held'`: the schema gives the attribute
+ * no default, so a tree that omits it has not said.
+ */
+export type AnimationValueAfterEnd = 'held' | 'removed' | 'unstated';
 
 /**
  * What an effect animates. `unsupported` covers targets this library does not
@@ -116,6 +128,15 @@ export interface SlideAnimationStep {
   readonly durationMs: number | null;
   /** `null` when the tree does not state one, or the delay is indefinite. */
   readonly delayMs: number | null;
+  /**
+   * What the tree says becomes of the value this effect animates once it has
+   * run. It decides nothing on its own — `playable` already requires that the
+   * behaviour saying whether the shape is on the slide keeps its value — but
+   * it is what two effects animating one object at the same time turn on: the
+   * one that ends first either stays above the other or gives way to it. A
+   * player that finds `'unstated'` there must not choose for the file.
+   */
+  readonly valueAfterEnd: AnimationValueAfterEnd;
   /** `<p:bldP build="p">` — the text body is revealed paragraph by paragraph. */
   readonly buildByParagraph: boolean;
   readonly buildLevel: number | null;
@@ -300,21 +321,79 @@ const readStartDelay = (step: XmlElement): number | null => {
   return cond === null ? null : intAttr(cond, ATTR_DELAY);
 };
 
+// The `<p:set>` that flips visibility is scaffolding around every preset, not
+// the effect's own length, so it is not what a duration change should touch.
+const isVisibilityKick = (cBhvr: XmlElement): boolean => {
+  const attrNameLst = firstChildElement(cBhvr, NAME_ATTR_NAME_LST);
+  const attrName = attrNameLst === null ? null : firstChildElement(attrNameLst, NAME_ATTR_NAME);
+  return (attrName?.children.find((c) => c.kind === 'text')?.data ?? '') === VISIBILITY_ATTR_NAME;
+};
+
 // The duration lives on the behaviour's own cTn, not on the effect node, so we
 // read the first behaviour that is not the visibility kick.
 const readDuration = (step: XmlElement): number | null => {
   const own = intAttr(step, ATTR_DUR);
   if (own !== null) return own;
   for (const cBhvr of behavioursOf(step)) {
-    const attrNameLst = firstChildElement(cBhvr, NAME_ATTR_NAME_LST);
-    const attrName = attrNameLst === null ? null : firstChildElement(attrNameLst, NAME_ATTR_NAME);
-    const text = attrName?.children.find((c) => c.kind === 'text')?.data ?? '';
-    if (text === VISIBILITY_ATTR_NAME) continue;
+    if (isVisibilityKick(cBhvr)) continue;
     const cTn = firstChildElement(cBhvr, NAME_C_TN);
     const dur = cTn === null ? null : intAttr(cTn, ATTR_DUR);
     if (dur !== null) return dur;
   }
   return null;
+};
+
+/**
+ * Whether the shape is left where the effect put it once the effect has run.
+ *
+ * `fill` says what becomes of a timing node's value when its active duration
+ * ends: ST_TLTimeNodeFillType is `remove | freeze | hold | transition`, and
+ * CT_TLCommonTimeNodeData makes the attribute optional with no default, so a
+ * node that carries none does not state that its value stands either.
+ *
+ * The effect node is asked first: its fill covers everything beneath it. Then
+ * the behaviour that says where the effect leaves the shape. When the effect
+ * flips `style.visibility` that is the `<p:set>`: on or off the slide is what
+ * this library models, and it does not depend on the opacity underneath. An
+ * effect that only fades has no such node, and then the opacity *is* the
+ * answer: taken away at the end, it would put the shape back at the opacity it
+ * started from, which is the opposite of what an exit states.
+ *
+ * What a fade leaves behind still matters where two effects animate one object
+ * at the same time, but that is not a fact about either effect on its own: it
+ * needs the moment each of them runs and the elements each of them reaches.
+ * This reports it as `valueAfterEnd` and leaves the question to whoever plays
+ * the slide.
+ */
+const holdsValue = (step: XmlElement): boolean => {
+  if (!HOLDING_FILLS.has(getAttrValue(step, ATTR_FILL) ?? '')) return false;
+  const behaviours = behavioursOf(step);
+  const visibility = behaviours.filter(isVisibilityKick);
+  for (const cBhvr of visibility.length > 0 ? visibility : behaviours) {
+    const cTn = firstChildElement(cBhvr, NAME_C_TN);
+    if (cTn === null || !HOLDING_FILLS.has(getAttrValue(cTn, ATTR_FILL) ?? '')) return false;
+  }
+  return true;
+};
+
+/**
+ * What the tree says becomes of the value an effect animates once it has run.
+ *
+ * `fill` is asked of every behaviour that animates something — the `<p:set>`
+ * that flips visibility is scaffolding, and `holdsValue` above asks it
+ * separately. An absent `fill` is not read as `hold`: the schema gives it no
+ * default, so the tree has not said.
+ */
+const readValueAfterEnd = (step: XmlElement): AnimationValueAfterEnd => {
+  let stated = true;
+  for (const cBhvr of behavioursOf(step)) {
+    if (isVisibilityKick(cBhvr)) continue;
+    const cTn = firstChildElement(cBhvr, NAME_C_TN);
+    const fill = cTn === null ? null : getAttrValue(cTn, ATTR_FILL);
+    if (fill === null) stated = false;
+    else if (!HOLDING_FILLS.has(fill)) return 'removed';
+  }
+  return stated ? 'held' : 'unstated';
 };
 
 const PRESET_EFFECTS: ReadonlyArray<readonly [string, number, AnimationEffect]> = [
@@ -373,7 +452,8 @@ const toStep = (
     sequence === 'mainSeq' &&
     start !== 'unknown' &&
     target.kind !== 'unsupported' &&
-    effect !== null;
+    effect !== null &&
+    holdsValue(node);
 
   return {
     id,
@@ -385,12 +465,16 @@ const toStep = (
     start,
     durationMs: readDuration(node),
     delayMs: readStartDelay(node),
+    valueAfterEnd: readValueAfterEnd(node),
     buildByParagraph: bldP !== undefined && getAttrValue(bldP, ATTR_BUILD) === 'p',
     buildLevel: bldP === undefined ? null : intAttr(bldP, ATTR_BLD_LVL),
     sequence,
     // A preset we cannot name may animate anything at all, and a step outside
     // the main sequence is triggered by something other than the slide's own
-    // clicks, so neither may join the normal progression.
+    // clicks, so neither may join the normal progression. Nor may one whose
+    // `fill` does not say its value stands once it has run: an entrance that
+    // is taken away again afterwards leaves the shape somewhere we do not
+    // model, and playing it as a plain entrance would show what the deck hides.
     playable,
     // A preset we cannot name may also hang extra timing references off
     // behaviours we have never seen, so rewriting it is not demonstrably safe.
@@ -432,6 +516,7 @@ export const readTimingSteps = (timing: XmlElement): AnimationStepNode[] => {
       });
     }
   }
+
   return out;
 };
 
@@ -589,14 +674,6 @@ export const setGroupStartOffset = (groupPar: XmlElement, delayMs: number): bool
       : a,
   );
   return true;
-};
-
-// The `<p:set>` that flips visibility is scaffolding around every preset, not
-// the effect's own length, so it is not what a duration change should touch.
-const isVisibilityKick = (cBhvr: XmlElement): boolean => {
-  const attrNameLst = firstChildElement(cBhvr, NAME_ATTR_NAME_LST);
-  const attrName = attrNameLst === null ? null : firstChildElement(attrNameLst, NAME_ATTR_NAME);
-  return (attrName?.children.find((c) => c.kind === 'text')?.data ?? '') === VISIBILITY_ATTR_NAME;
 };
 
 const setTimeAttr = (el: XmlElement, name: string, value: string): void => {

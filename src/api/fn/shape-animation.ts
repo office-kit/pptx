@@ -38,6 +38,7 @@ import {
 import {
   type AnimationSequenceKind,
   type AnimationStart,
+  type AnimationValueAfterEnd,
   type AnimationTarget,
   type SlideAnimationStep,
   findSlideTimingElement,
@@ -60,6 +61,7 @@ import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 
 export type { AnimationEffect, AnimationOptions, AnimationStartCondition };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
+export type { AnimationValueAfterEnd };
 
 const ATTR_ID_FN = qname('', 'id', '');
 
