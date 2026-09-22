@@ -27,17 +27,44 @@ const presetTextRect = (
 };
 
 /**
+ * The text rectangle a custom-geometry shape states for itself, as fractions
+ * of its own extent, or `null` for a preset shape and for a custom one that
+ * states none. `<a:rect>` is written in EMU against the shape's extents, so
+ * dividing by them here is what lets the result travel with a shape that a
+ * group has scaled.
+ */
+export function shapeCustomTextRect(
+  custom: { textRect: { l: number; t: number; r: number; b: number } | null } | null,
+  extent: { w: number; h: number } | null,
+): { l: number; t: number; r: number; b: number } | null {
+  const rect = custom?.textRect;
+  if (!rect || extent === null || extent.w <= 0 || extent.h <= 0) return null;
+  return {
+    l: rect.l / extent.w,
+    t: rect.t / extent.h,
+    r: rect.r / extent.w,
+    b: rect.b / extent.h,
+  };
+}
+
+/**
  * Text layout rectangle used by the preview, including preset geometry and body
  * insets. All coordinates and margins must use the same unit (normally EMU).
  * Preset regions follow the preview's current geometry approximations. When
  * margins collapse a preset region, retain that region without margins.
+ *
+ * A custom-geometry shape states its own rectangle in `<a:custGeom><a:rect>`.
+ * Pass it as `custom`, as fractions of the shape's extent so that it scales
+ * with `bounds` the way a preset region does, and it wins: unlike the table
+ * above it is not an approximation of anything — it is what the file says.
  */
 export function resolveTextBodyRect(
   preset: string | null,
   bounds: { x: number; y: number; w: number; h: number },
   margins: { left: number; top: number; right: number; bottom: number },
+  custom?: { l: number; t: number; r: number; b: number } | null,
 ): { x: number; y: number; w: number; h: number } {
-  const region = presetTextRect(preset);
+  const region = custom ?? presetTextRect(preset);
   const x = bounds.x + (region?.l ?? 0) * bounds.w;
   const y = bounds.y + (region?.t ?? 0) * bounds.h;
   const w = ((region?.r ?? 1) - (region?.l ?? 0)) * bounds.w;

@@ -41,4 +41,4 @@ export {
 
 export { paragraphNumberLabels } from './paragraph-number-labels.ts';
 
-export { resolveTextBodyRect } from './text-body-rect.ts';
+export { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
