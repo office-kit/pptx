@@ -9,6 +9,7 @@
     getShapeRotation,
     getShapeFlip,
     getShapeText,
+    hasShapeText,
     inches,
     emu,
     setShapeBounds,
@@ -23,6 +24,8 @@
     getSlideShapes,
     setShapeText,
   } from '@office-kit/pptx';
+  import TextFormatBar from '../ui/TextFormatBar.svelte';
+  import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -91,6 +94,13 @@
     } catch {
       return '';
     }
+  });
+
+  const objectFormats = $derived.by(() => {
+    doc.version;
+    const shapes = editor.selectedShapes();
+    if (!shapes.length || !shapes.every(hasShapeText)) return null;
+    return shapes.flatMap(target => textFormatsInRange(target, { start: 0, end: getShapeText(target).length }, undefined, { pres: doc.pres }));
   });
 
   const paint = $derived.by(() => {
@@ -290,6 +300,11 @@
         </label>
       {/each}
     </div>
+
+    {#if objectFormats}
+      <TextFormatBar formats={objectFormats} selected context="objects"
+        onformat={(format, reset) => editor.invoke('setShapeTextFormat', { format, options: { reset } })} />
+    {/if}
 
     <div class="sec">
       <div class="sec-title">{t('Text')}</div>

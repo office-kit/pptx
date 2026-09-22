@@ -13,6 +13,38 @@ import type { CapabilityOverride } from './types.ts';
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
+  setShapeTextFormat: {
+    params: [
+      ...generatedOverrides.setShapeTextFormat!.params!,
+      {
+        name: 'options',
+        type: '{ range?: { start: number; end: number }; reset?: boolean }',
+        kind: 'object',
+        optional: true,
+        label: 'Options',
+        fields: [
+          {
+            name: 'reset',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Clear text formatting',
+          },
+          {
+            name: 'range',
+            type: '{ start: number; end: number }',
+            kind: 'object',
+            optional: true,
+            label: 'Text range',
+            fields: [
+              { name: 'start', type: 'number', kind: 'number', optional: false, label: 'Start' },
+              { name: 'end', type: 'number', kind: 'number', optional: false, label: 'End' },
+            ],
+          },
+        ],
+      },
+    ],
+  },
   setCommentText: { labelEn: 'Edit Comments', labelJa: 'コメントを編集' },
   splitTableCell: { labelJa: '結合セルを分割' },
   addSectionHeaderSlide: { labelJa: 'セクション見出しスライドの追加' },

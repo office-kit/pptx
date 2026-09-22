@@ -490,6 +490,13 @@ export const ja: Record<string, string> = {
   'Align to slide': 'スライドを基準に整列',
   'Flip horizontally': '左右反転',
   'Flip vertically': '上下反転',
+  Options: 'オプション',
+  'Text range': '文字範囲',
+  Start: '開始',
+  End: '終了',
+  'Format selected objects': '選択したオブジェクトの書式',
+  'Formatting applies to all text in selected objects':
+    '選択したオブジェクト内のすべての文字に適用されます',
   'Set bounds': '位置とサイズを設定',
   'Values apply to each selected object': '入力値は選択した各オブジェクトに適用されます',
   'Alignment reference': '整列の基準',
