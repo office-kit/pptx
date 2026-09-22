@@ -653,3 +653,98 @@ for (const control of ['keyboard', 'toolbar'])
       }
     },
   );
+
+test(
+  'inline list markers preserve text offsets and nested numbering in both languages',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inline-list-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={4} size={24}>{'English\\n日本語\\nThird'}</Text></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await installRichTextSelection(page);
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.locator('.inline-edit');
+      const bar = editor.locator('.text-format-bar');
+      const select = async (start, end = start) => {
+        await input.focus();
+        await input.evaluate(
+          (node, range) => {
+            window.selectEditorText(node, range.start, range.end);
+            node.dispatchEvent(new Event('select', { bubbles: true }));
+          },
+          { start, end },
+        );
+      };
+      const labels = () =>
+        input
+          .locator('[data-text-paragraph]')
+          .evaluateAll((nodes) => nodes.map((n) => n.getAttribute('data-list-marker')));
+      const expectLabels = async (expected) => {
+        for (const [index, label] of expected.entries()) {
+          await input
+            .locator(`[data-text-paragraph]:nth-of-type(${index + 1})[data-list-marker="${label}"]`)
+            .waitFor();
+        }
+        assert.deepEqual(await labels(), expected);
+      };
+      await select(0, 17);
+      await bar.getByLabel('List style', { exact: true }).selectOption('number');
+      await expectLabels(['1.', '2.', '3.']);
+      await select(8);
+      await bar.getByLabel('List level', { exact: true }).selectOption({ value: '1' });
+      await expectLabels(['1.', '1.', '2.']);
+      assert.equal(await input.textContent(), 'English\n日本語\nThird');
+      const marker = await input
+        .locator('[data-text-paragraph]')
+        .first()
+        .evaluate((n) => {
+          const css = getComputedStyle(n, '::before');
+          return {
+            content: css.content,
+            size: css.fontSize,
+            textSize: getComputedStyle(n.querySelector('span')).fontSize,
+          };
+        });
+      assert.equal(marker.content, '"1."');
+      assert.equal(marker.size, marker.textSize);
+      await select(8, 11);
+      const copied = await input.evaluate((n) => {
+        const clipboardData = new DataTransfer();
+        n.dispatchEvent(
+          new ClipboardEvent('copy', { clipboardData, bubbles: true, cancelable: true }),
+        );
+        return clipboardData.getData('text/plain');
+      });
+      assert.equal(copied, '日本語');
+      await input.press('ArrowRight');
+      await input.press('Enter');
+      await input.pressSequentially('Nested');
+      await expectLabels(['1.', '1.', '2.', '2.']);
+      assert.equal(await input.textContent(), 'English\n日本語\nNested\nThird');
+      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.lang select').selectOption('ja');
+      await editor.locator('.hit').first().dblclick();
+      await expectLabels(['1.', '1.', '2.', '2.']);
+      await select(0, 7);
+      await bar.getByLabel('リストの種類', { exact: true }).selectOption('bullet');
+      await expectLabels(['•', '1.', '2.', '1.']);
+      await page.screenshot({ path: join(tmpdir(), 'pptx-pr287-inline-lists.png') });
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

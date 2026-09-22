@@ -38,3 +38,5 @@ export {
   TIMES,
   MONO,
 } from './text-layout.ts';
+
+export { paragraphNumberLabels } from './paragraph-number-labels.ts';
