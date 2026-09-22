@@ -13,11 +13,19 @@ import {
   getTableCells,
   getTableCellText,
   setShapeText,
+  setShapeTextFormat,
+  setTableCellTextFormat,
+  type TextFormat,
   setTableCellText,
   type SlideShapeData,
 } from '@office-kit/pptx';
 
-type TextEdit = { start: number; end: number; text: string };
+export type TextEdit = {
+  start: number;
+  end: number;
+  text: string;
+  typing?: { format: TextFormat; reset: boolean };
+};
 type CellPosition = { row: number; col: number };
 
 /** Use the same formatting-preserving edits for preview and commit. */
@@ -32,6 +40,14 @@ export function replayTextEdits(
     value = value.slice(0, change.start) + change.text + value.slice(change.end);
     if (cell) setTableCellText(cell, value, { preserveFormatting: true });
     else setShapeText(shape, value, { preserveFormatting: true });
+    if (change.typing && change.text.length) {
+      const options = {
+        range: { start: change.start, end: change.start + change.text.length },
+        reset: change.typing.reset,
+      };
+      if (cell) setTableCellTextFormat(cell, change.typing.format, options);
+      else setShapeTextFormat(shape, change.typing.format, options);
+    }
   }
 }
 

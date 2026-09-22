@@ -3,9 +3,10 @@
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, onformat, ontoggle, ondone, onlink, paragraph, onparagraph, context = 'text' }: {
+  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, paragraph, onparagraph, context = 'text' }: {
     formats: TextFormat[];
     selected: boolean;
+    typing?: boolean;
     onformat: (format: TextFormat, reset?: boolean) => void;
     ontoggle?: (property: TextFormatToggle) => void;
     ondone?: () => void;
@@ -25,7 +26,7 @@
 </script>
 
 <div class="text-format-bar" role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : 'Selected text formatting')}>
-  <span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : selected ? 'Selected text' : onparagraph ? 'Current paragraph' : 'Select text to format')}</span>
+  <span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : selected ? 'Selected text' : typing ? 'Text to type' : onparagraph ? 'Current paragraph' : 'Select text to format')}</span>
   {#each [
     { property: 'bold', label: 'Bold' },
     { property: 'italic', label: 'Italic' },
@@ -34,17 +35,17 @@
     { property: 'superscript', label: 'Superscript' },
     { property: 'subscript', label: 'Subscript' },
   ] as const as item}
-    <button class="ok-btn" aria-label={t(item.label)} title={t(item.label)} aria-pressed={textFormatActive(formats, item.property)} disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => toggle(item.property)}>
+    <button class="ok-btn" aria-label={t(item.label)} title={t(item.label)} aria-pressed={textFormatActive(formats, item.property)} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => toggle(item.property)}>
       {#if item.property === 'bold'}<b>B</b>{:else if item.property === 'italic'}<i>I</i>{:else if item.property === 'underline'}<u>U</u>{:else if item.property === 'strike'}<s>S</s>{:else if item.property === 'superscript'}x<sup>2</sup>{:else}x<sub>2</sub>{/if}
     </button>
   {/each}
-  <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!selected} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
-  <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!selected} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
-  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!selected} onchange={(e) => onformat({color:e.currentTarget.value})} /></label>
-  <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!selected} onchange={e => onformat({ highlight: e.currentTarget.value })} /></label>
-  <button class="ok-btn" disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
-  <button class="ok-btn" disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
-  <button class="ok-btn" disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{t('Clear text formatting')}</button>
+  <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
+  <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
+  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={(e) => onformat({color:e.currentTarget.value})} /></label>
+  <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => onformat({ highlight: e.currentTarget.value })} /></label>
+  <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
+  <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
+  <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{t('Clear text formatting')}</button>
   {#if onparagraph && paragraph}
     <label>{t('Paragraph alignment')}<select aria-label={t('Paragraph alignment')} value={paragraph.align} onchange={e => onparagraph?.('align', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option>

@@ -113,4 +113,33 @@ describe('pending text formatting preview', () => {
     expect(getTableCellText(cells[0]![1]!)).toBe('Other');
     expect(getTableCellText(getTableCells(shape)[0]![0]!)).toBe('English');
   });
+  it('applies typing snapshots only to inserted characters, including composition replacements', () => {
+    const slide = addBlankSlide(createPresentation());
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+      text: 'AB',
+    });
+    const projected = projectTextEdits(shape, [
+      { start: 1, end: 1, text: 'に', typing: { format: { bold: true, size: 32 }, reset: false } },
+      {
+        start: 1,
+        end: 2,
+        text: '日本語',
+        typing: { format: { bold: true, size: 32 }, reset: false },
+      },
+      { start: 4, end: 4, text: '😀', typing: { format: {}, reset: true } },
+    ]);
+    const runs = getShapeParagraphElements(projected, 0).filter((r) => r.kind !== 'br');
+    expect(runs.map((r) => r.text).join('')).toBe('A日本語😀B');
+    expect(runs.find((r) => r.text.includes('日本語'))?.format).toMatchObject({
+      bold: true,
+      size: 32,
+    });
+    expect(runs.find((r) => r.text.includes('😀'))?.format?.bold).toBeUndefined();
+    expect(runs.find((r) => r.text.includes('B'))?.format?.bold).toBeUndefined();
+    expect(getShapeText(shape)).toBe('AB');
+  });
 });
