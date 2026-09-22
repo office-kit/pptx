@@ -56,6 +56,7 @@
       // Clipboard sizes remain in points; only the editing view follows canvas zoom.
       for (const span of root.querySelectorAll('span')) {
         if (span.style.fontSize) span.style.fontSize = `calc(${span.style.fontSize} * var(--text-zoom))`;
+        if (span.style.fontFamily) span.style.fontFamily += ', var(--ok-font)';
       }
       if (!value || value.endsWith('\n')) {
         const end = document.createElement('br');

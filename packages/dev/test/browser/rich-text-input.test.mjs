@@ -1,9 +1,19 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import {
+  addTitleSlide,
+  findSlidePlaceholder,
+  getSlides,
+  getShapeRunFormatEffective,
+  getShapeParagraphElements,
+  loadPresentation,
+  removeSlide,
+  savePresentation,
+} from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
@@ -150,6 +160,85 @@ test(
       await input.press('Control+z');
       assert.equal(await input.textContent(), 'ab\n日本語c\n\n終わり');
       await input.press('Escape');
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'inline editing preserves inherited title styles across pending edits and save',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inherited-input-'));
+    let preview, browser;
+    try {
+      const pres = await loadPresentation(
+        await readFile(new URL('../../../../test/fixtures/minimal/blank.pptx', import.meta.url)),
+      );
+      const originals = [...getSlides(pres)];
+      const slide = addTitleSlide(pres, 'Theme title');
+      for (const original of originals) removeSlide(pres, original);
+      const title = findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle');
+      const expected = getShapeRunFormatEffective(pres, title, 0, 0);
+      assert.ok(expected.size > 28);
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(pres));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByTitle('Reset to 100%', { exact: true }).click();
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: 30, y: 20 } });
+      const input = editor.locator('.inline-edit');
+      const checkStyle = async () => {
+        const actual = await input
+          .locator('span')
+          .last()
+          .evaluate((n) => ({
+            size: parseFloat(getComputedStyle(n).fontSize),
+            font: getComputedStyle(n).fontFamily,
+          }));
+        assert.ok(Math.abs(actual.size - (expected.size * 4) / 3) < 0.01);
+        assert.ok(actual.font.includes(expected.font));
+        assert.ok(actual.font.includes('sans-serif'));
+      };
+      await checkStyle();
+      await input.press('Enter');
+      await page.keyboard.insertText('日本語');
+      assert.equal(await input.textContent(), 'Theme title\n日本語');
+      await checkStyle();
+      await input.press('Control+Enter');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const saved = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      const savedTitle =
+        findSlidePlaceholder(getSlides(saved)[0], 'title') ??
+        findSlidePlaceholder(getSlides(saved)[0], 'ctrTitle');
+      assert.equal(getShapeParagraphElements(savedTitle, 1)[0].format?.size, undefined);
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: 30, y: 20 } });
+      await checkStyle();
+      await page.screenshot({ path: '/tmp/pptx-pr287-inherited-text-input.png', fullPage: true });
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

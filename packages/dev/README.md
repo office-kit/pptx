@@ -27,9 +27,10 @@ each project and editing tab, and stay in this browser at the same preview URL
 source or saved deck changed. Text still being typed must be committed first.
 
 The text input displays explicit character formatting while editing shapes and
-table cells. Ctrl/Cmd+Z and Ctrl/Cmd+Y undo and redo pending text edits; Escape
-cancels them. Japanese composition is kept together as one undo step. Paragraph
-layout and inherited theme styles still use the presentation renderer after
+table cells, and resolves inherited run styles for shapes. Text follows the canvas
+zoom while saved font sizes remain unchanged. Ctrl/Cmd+Z and Ctrl/Cmd+Y undo and
+redo pending text edits; Escape cancels them. Japanese composition is kept together as one undo step. Paragraph
+layout and inherited table styles still use the presentation renderer after
 committing the edit.
 
 Selected text copied or cut within the editor keeps its character formatting

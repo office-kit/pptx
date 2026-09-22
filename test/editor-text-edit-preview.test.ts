@@ -7,6 +7,8 @@ import {
   createPresentation,
   inches,
   getShapeText,
+  getShapeRunFormatEffective,
+  getShapeXmlString,
   getShapeParagraphElements,
   getTableCells,
   getTableCellText,
@@ -24,6 +26,7 @@ import {
   setParagraphLevel,
   setParagraphLineSpacing,
 } from '../src/api/index.ts';
+import { copyTextRange } from '../site/src/lib/editor/core/text-clipboard.ts';
 import { projectTextEdits } from '../site/src/lib/editor/core/text-edit-preview.ts';
 
 describe('pending text formatting preview', () => {
@@ -92,6 +95,33 @@ describe('pending text formatting preview', () => {
     }
     expect(getParagraphBullet(shape, 0)).toBeNull();
     expect(getShapeText(shape)).toBe('English');
+  });
+  it('resolves inherited display styles after detached edits without baking them into text', async () => {
+    const pres = await loadPresentation(
+      await readFile(new URL('./fixtures/minimal/blank.pptx', import.meta.url)),
+    );
+    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content')! });
+    const shape = findSlidePlaceholder(slide, 'body')!;
+    setShapeText(shape, 'English');
+    const xml = getShapeXmlString(shape);
+    const inherited = getShapeRunFormatEffective(pres, shape, 0, 0);
+    expect(inherited.size).toBeGreaterThan(18);
+    const projected = projectTextEdits(
+      shape,
+      [{ start: 7, end: 7, text: '\n日本語', typing: { format: { italic: true }, reset: true } }],
+      undefined,
+      pres,
+    );
+    const literal = copyTextRange(projected, 0, 11);
+    expect(literal.formats.every((span) => span.format.size === undefined)).toBe(true);
+    const display = copyTextRange(projected, 0, 11, undefined, (paragraph, run) =>
+      getShapeRunFormatEffective(pres, projected, paragraph, run, { inheritanceSource: shape }),
+    );
+    expect(display.text).toBe('English\n日本語');
+    expect(display.formats[0]!.format).toMatchObject(inherited);
+    expect(display.formats.at(-1)!.format).toMatchObject({ ...inherited, italic: true });
+    expect(getShapeXmlString(shape)).toBe(xml);
+    expect(copyTextRange(projected, 0, 11)).toEqual(literal);
   });
   it('projects only the edited table cell and leaves the live table unchanged', () => {
     const slide = addBlankSlide(createPresentation());
