@@ -1,9 +1,11 @@
-// Reading a slide's `<p:timing>` animation tree.
+// Reading a slide's `<p:timing>` animation tree, and measuring its clock.
 //
 // Every animation read path goes through here, so the library cannot disagree
 // with itself about what a timing tree contains. Callers get the effect nodes
 // in document order together with the elements behind them, which is what the
-// editing paths need.
+// editing paths need. The write paths share the clock at the end of the file
+// for the same reason: adding an effect, retiming one and reordering a click
+// stop all have to agree about where a group starts.
 //
 // The parser is deliberately tolerant: a node it does not understand is
 // reported as read-only rather than dropped, and one unknown node never hides
@@ -38,6 +40,7 @@ const NAME_P_RG = qname('p', 'pRg', NS.pml);
 const ATTR_ID = qname('', 'id', '');
 const ATTR_DUR = qname('', 'dur', '');
 const ATTR_DELAY = qname('', 'delay', '');
+const ATTR_EVT = qname('', 'evt', '');
 const ATTR_NODE_TYPE = qname('', 'nodeType', '');
 const ATTR_PRESET_ID = qname('', 'presetID', '');
 const ATTR_PRESET_CLASS = qname('', 'presetClass', '');
@@ -423,4 +426,160 @@ export const readSlideTiming = (slide: SlideData): AnimationStepNode[] => {
     }
   }
   return out;
+};
+
+// ---------------------------------------------------------------------------
+// The click stop's clock.
+//
+// Sibling `<p:par>` nodes are parallel — they all begin when their parent
+// does — so `nodeType="afterEffect"` is a label for PowerPoint's UI, not a
+// dependency a player could honour. What actually makes one group run after
+// another is the start offset on the later group. Writing an effect, changing
+// its duration or delay, and reordering a stop all have to agree about where
+// that offset falls, so they all measure through here.
+//
+// Measuring is deliberately narrow: an authored slide can time an effect in
+// ways this library does not model, and a guessed end would place the next
+// effect at a moment PowerPoint never plays it. Anything outside the modelled
+// shapes reports `null`, and the caller refuses rather than guessing.
+
+// Whole milliseconds only. `indefinite`, a missing value or anything that is
+// not a plain non-negative integer means we cannot place a node on the
+// timeline.
+const wholeMs = (raw: string | null): number | null => {
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
+};
+
+/**
+ * The single `<p:cond>` that fixes when a node starts, or `null` when the node
+ * does not start at a plain offset at all.
+ *
+ * Several conditions mean several triggers, and `evt` or a `<p:tn>` / `<p:rtn>`
+ * / `<p:tgtEl>` child ties the start to another node's lifetime — neither is a
+ * number of milliseconds, and reading the `delay` attribute beside one as if it
+ * were the offset would place the node at a time PowerPoint never plays it.
+ */
+const offsetCond = (cTn: XmlElement): XmlElement | null => {
+  const stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
+  if (stCondLst === null) return null;
+  const conds = stCondLst.children.filter(
+    (c): c is XmlElement => c.kind === 'element' && isPml(c, 'cond'),
+  );
+  if (conds.length !== 1) return null;
+  const cond = conds[0]!;
+  if (getAttrValue(cond, ATTR_EVT) !== null) return null;
+  if (cond.children.some((c) => c.kind === 'element')) return null;
+  return cond;
+};
+
+/** How long after its parent a node starts. A node with no condition starts with it. */
+const startOffsetMs = (cTn: XmlElement): number | null => {
+  if (firstChildElement(cTn, NAME_ST_COND_LST) === null) return 0;
+  const cond = offsetCond(cTn);
+  return cond === null ? null : wholeMs(getAttrValue(cond, ATTR_DELAY));
+};
+
+/**
+ * Attributes that repeat or rescale a time node (CT_TLCommonTimeNodeData).
+ * We measure a node by its `dur`, so any of these means the number we computed
+ * is not how long PowerPoint runs it. `accel` / `decel` are shares of `dur`
+ * and leave the total alone, so they are not here.
+ */
+const RESCALING_ATTRS = new Set(['repeatCount', 'repeatDur', 'spd', 'autoRev']);
+
+const isRescaled = (cTn: XmlElement): boolean =>
+  cTn.attrs.some((a) => a.name.namespaceURI === '' && RESCALING_ATTRS.has(a.name.localName));
+
+/**
+ * Time nodes nested inside an effect. Their children start when *they* do
+ * rather than when the effect does, and `<p:iterate>` staggers them further
+ * per letter or paragraph, so measuring the behaviours underneath as if they
+ * were the effect's own would misplace every one of them.
+ */
+const NESTED_TIMELINES = new Set(['par', 'seq', 'excl', 'iterate']);
+
+/**
+ * How long after its own start an effect is still running, or `null` when the
+ * tree does not say. The 1ms visibility kick counts — for `appear` it is the
+ * whole effect.
+ *
+ * Every behaviour has to be measurable. One that runs indefinitely, states no
+ * length, repeats, or hangs off a nested timeline decides the answer on its
+ * own: falling back to the readable siblings' maximum would report an effect
+ * as shorter than it plays, and everything placed after it would start early.
+ */
+const effectSpanMs = (effectPar: XmlElement): number | null => {
+  const effectCTn = firstChildElement(effectPar, NAME_C_TN);
+  if (effectCTn === null || isRescaled(effectCTn)) return null;
+  const start = startOffsetMs(effectCTn);
+  if (start === null) return null;
+
+  let longest: number | null = null;
+  const walk = (el: XmlElement): boolean => {
+    if (isPml(el, 'cBhvr')) {
+      const cTn = firstChildElement(el, NAME_C_TN);
+      if (cTn === null || isRescaled(cTn)) return false;
+      const dur = wholeMs(getAttrValue(cTn, ATTR_DUR));
+      const delay = startOffsetMs(cTn);
+      if (dur === null || delay === null) return false;
+      longest = Math.max(longest ?? 0, delay + dur);
+      return true;
+    }
+    for (const child of el.children) {
+      if (child.kind !== 'element') continue;
+      if (child.name.namespaceURI === NS.pml && NESTED_TIMELINES.has(child.name.localName)) {
+        return false;
+      }
+      if (!walk(child)) return false;
+    }
+    return true;
+  };
+  if (!walk(effectCTn) || longest === null) return null;
+  return start + longest;
+};
+
+/**
+ * When every effect in `groupPar` has finished, measured from the start of the
+ * click stop that holds it. `null` when any of them runs for a length this
+ * library cannot measure, which is what makes "after this one" unanswerable.
+ */
+export const groupEndMs = (groupPar: XmlElement): number | null => {
+  const groupCTn = firstChildElement(groupPar, NAME_C_TN);
+  if (groupCTn === null || isRescaled(groupCTn)) return null;
+  const start = startOffsetMs(groupCTn);
+  if (start === null) return null;
+
+  // Anything in the group that is not a plain `<p:par>` effect is a structure
+  // we have not measured, so the group's end is not ours to state.
+  const childTnLst = firstChildElement(groupCTn, NAME_CHILD_TN_LST);
+  if (childTnLst === null) return null;
+  const effectPars = childTnLst.children.filter((c): c is XmlElement => c.kind === 'element');
+  if (!effectPars.every((c) => isPml(c, 'par'))) return null;
+
+  let longest: number | null = null;
+  for (const effectPar of effectPars) {
+    const span = effectSpanMs(effectPar);
+    if (span === null) return null;
+    longest = Math.max(longest ?? 0, span);
+  }
+  return longest === null ? null : start + longest;
+};
+
+/**
+ * Moves `groupPar` to start `delayMs` after its click stop. Returns false when
+ * the group does not start at a plain offset, so the caller leaves it alone
+ * rather than overwriting a condition it does not understand.
+ */
+export const setGroupStartOffset = (groupPar: XmlElement, delayMs: number): boolean => {
+  const cTn = firstChildElement(groupPar, NAME_C_TN);
+  const cond = cTn === null ? null : offsetCond(cTn);
+  if (cond === null) return false;
+  cond.attrs = cond.attrs.map((a) =>
+    a.name.namespaceURI === '' && a.name.localName === 'delay'
+      ? { ...a, value: String(delayMs) }
+      : a,
+  );
+  return true;
 };
