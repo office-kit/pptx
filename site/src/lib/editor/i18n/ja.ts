@@ -564,6 +564,8 @@ export const ja: Record<string, string> = {
 
   // Bespoke property controls
   'Fill & outline': '塗りつぶしと枠線',
+  'Lock aspect ratio': '縦横比を固定',
+  'The proportional size is too large': '縦横比を維持したサイズが上限を超えています',
   'Position & size (in)': '位置とサイズ（インチ）',
   Rotation: '回転',
 
