@@ -9,11 +9,15 @@
 // slide-space coordinates, so no rescale is needed. If the group *was*
 // subsequently moved or resized (its `off`/`ext` diverged from its
 // `chOff`/`chExt`), ungrouping rescales each child's own transform so it
-// keeps its on-slide position and size.
+// keeps its on-slide position and size, including the group rotation and flips.
 
 import {
   readPosition,
   readSize,
+  readRotation,
+  readFlip,
+  setRotation as writeRotation,
+  setFlip as writeFlip,
   setPosition as writePosition,
   setSize as writeSize,
 } from '../../internal/drawingml/index.ts';
@@ -134,6 +138,9 @@ export const groupShapes = (
  * and size (matters when the group was moved/resized after creation, so
  * its `off`/`ext` diverged from its `chOff`/`chExt`). Returns the
  * children as fresh `SlideShapeData` handles, in their original order.
+ * Group rotation and flips are composed with each child transform. Exact
+ * preservation of rotated children requires uniform group scaling; anisotropic
+ * scaling can introduce shear, which a child shape transform cannot represent.
  *
  * Throws if `group` isn't a group shape, or its `<p:grpSpPr>` carries no
  * `<a:xfrm>` (malformed — every authored group has one).
@@ -150,6 +157,14 @@ export const ungroupShapes = (group: SlideShapeData): ReadonlyArray<SlideShapeDa
   const scaleX = inner.w === 0 ? 1 : outer.w / inner.w;
   const scaleY = inner.h === 0 ? 1 : outer.h / inner.h;
 
+  const rotation = readRotation(group[SHAPE_ELEMENT], 'group');
+  const flip = readFlip(group[SHAPE_ELEMENT], 'group')!;
+  const angle = (rotation * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const centerX = outer.x + outer.w / 2;
+  const centerY = outer.y + outer.h / 2;
+
   const slide = group[SHAPE_SLIDE];
   const spTree = requireSpTree(slide);
   const groupEl = group[SHAPE_ELEMENT];
@@ -161,15 +176,33 @@ export const ungroupShapes = (group: SlideShapeData): ReadonlyArray<SlideShapeDa
     const pos = readPosition(child.element, child.kind);
     const size = readSize(child.element, child.kind);
     if (pos !== null && size !== null) {
-      const newX = Math.round(outer.x + (pos.x - inner.x) * scaleX);
-      const newY = Math.round(outer.y + (pos.y - inner.y) * scaleY);
-      writePosition(child.element, child.kind, newX, newY);
-      writeSize(
+      const width = size.w * scaleX;
+      const height = size.h * scaleY;
+      const dx =
+        (outer.x + (pos.x + size.w / 2 - inner.x) * scaleX - centerX) * (flip.horizontal ? -1 : 1);
+      const dy =
+        (outer.y + (pos.y + size.h / 2 - inner.y) * scaleY - centerY) * (flip.vertical ? -1 : 1);
+      writePosition(
         child.element,
         child.kind,
-        Math.round(size.w * scaleX),
-        Math.round(size.h * scaleY),
+        Math.round(centerX + dx * cos - dy * sin - width / 2),
+        Math.round(centerY + dx * sin + dy * cos - height / 2),
       );
+      writeSize(child.element, child.kind, Math.round(width), Math.round(height));
+      if (rotation !== 0 || flip.horizontal || flip.vertical) {
+        // A reflection reverses the child's rotation before the parent turn.
+        const childRotation = readRotation(child.element, child.kind);
+        const childFlip = readFlip(child.element, child.kind)!;
+        writeRotation(
+          child.element,
+          child.kind,
+          rotation + (flip.horizontal !== flip.vertical ? -childRotation : childRotation),
+        );
+        writeFlip(child.element, child.kind, {
+          horizontal: flip.horizontal !== childFlip.horizontal,
+          vertical: flip.vertical !== childFlip.vertical,
+        });
+      }
     }
     return child.element;
   });
