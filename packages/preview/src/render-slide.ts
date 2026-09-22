@@ -2403,6 +2403,9 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         fillHex,
         underline: underlineStyleOf(fmt),
         strike: hasStrikeFmt(fmt),
+        ...(fmt?.highlight
+          ? { highlightHex: resolveColor(fmt.highlight, a.theme, '#FFFF00') }
+          : {}),
         superSub,
         href: run.href ?? null,
         ...(run.hrefTip !== undefined ? { hrefTip: run.hrefTip } : {}),

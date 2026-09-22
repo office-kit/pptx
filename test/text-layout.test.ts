@@ -111,6 +111,58 @@ const body = (paragraphs: ParaInput[], over: Partial<TextBodyInput> = {}): TextB
 const countText = (svg: string): number => (svg.match(/<text /g) ?? []).length;
 
 describe('layoutTextSvg', () => {
+  it.each(['left', 'center', 'right'] as const)(
+    'positions run highlights behind %s-aligned text',
+    (align) => {
+      const svg = layoutTextSvg(
+        body([para([piece('A'), piece('B', { highlightHex: '#ffff00' }), piece('C')], { align })], {
+          boxWpx: 100,
+        }),
+        stubMeasurer,
+      );
+      const rect =
+        /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#ffff00"\/>/.exec(
+          svg,
+        )!;
+      expect(rect).not.toBeNull();
+      expect(Number(rect[1])).toBeCloseTo(
+        (align === 'left' ? 10 : align === 'center' ? 45 : 80) - 0.75,
+        1,
+      );
+      expect(Number(rect[3])).toBe(10);
+      expect(Number(rect[4])).toBe(10);
+      expect(svg.indexOf('<rect')).toBeLessThan(svg.indexOf('<text'));
+      expect(svg).toContain('>A</tspan>');
+      expect(svg).toContain('>B</tspan>');
+    },
+  );
+  it.each([1, -1] as const)('measures highlighted script %s at its rendered size', (superSub) => {
+    const svg = layoutTextSvg(
+      body(
+        [
+          para([piece('A'), piece('B', { highlightHex: '#ffff00', superSub }), piece('C')], {
+            align: 'center',
+          }),
+        ],
+        { boxWpx: 100 },
+      ),
+      stubMeasurer,
+    );
+    const rect =
+      /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#ffff00"/.exec(svg)!;
+    expect(Number(rect[1])).toBe(46);
+    expect(Number(rect[3])).toBe(6.5);
+    expect(Number(rect[4])).toBe(6.5);
+  });
+  it('splits highlights across wrapped lines and leaves plain text without backgrounds', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('ABCD', { highlightHex: '#00ff00' })])], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    expect((svg.match(/fill="#00ff00"/g) ?? []).length).toBe(2);
+    expect(layoutTextSvg(body([para([piece('plain')])]), stubMeasurer)).not.toContain('<rect');
+  });
+
   it('emits one <text> for a single line, left-anchored at the box edge', () => {
     const svg = layoutTextSvg(body([para([piece('Hello')])]), stubMeasurer);
     expect(countText(svg)).toBe(1);

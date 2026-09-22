@@ -442,6 +442,15 @@ for (const control of ['keyboard', 'toolbar'])
         await saved();
         assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, false);
         if (control === 'toolbar') {
+          await bar.getByRole('button', { name: 'Apply highlight', exact: true }).click();
+          await saved();
+          assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.highlight, '#FFFF00');
+          await bar.getByLabel('Highlight color', { exact: true }).evaluate((node) => {
+            node.value = '#ffcc00';
+            node.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+          await saved();
+          assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.highlight, '#FFCC00');
           await bar.getByRole('button', { name: 'Strikethrough', exact: true }).click();
           await saved();
           assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.strike, true);
@@ -482,6 +491,8 @@ for (const control of ['keyboard', 'toolbar'])
           'false',
         );
         if (control === 'toolbar') {
+          await bar.getByRole('button', { name: 'ハイライトを解除', exact: true }).click();
+          await saved();
           await bar.getByRole('button', { name: '取り消し線', exact: true }).click();
           await saved();
           await bar.getByRole('button', { name: '下付き', exact: true }).click();
@@ -491,6 +502,7 @@ for (const control of ['keyboard', 'toolbar'])
         await saved();
         text = await shape();
         if (control === 'toolbar') {
+          assert.equal(getShapeParagraphElements(text, 1)[0].format.highlight, undefined);
           assert.equal(getShapeParagraphElements(text, 1)[0].format.strike, false);
           assert.equal(getShapeParagraphElements(text, 1)[0].format.baseline, 0);
           assert.equal(getShapeParagraphElements(text, 2)[0].format.baseline, undefined);

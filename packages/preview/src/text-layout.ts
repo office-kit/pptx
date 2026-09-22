@@ -142,6 +142,7 @@ export interface PieceInput {
   readonly italic: boolean;
   readonly letterSpacingPx: number;
   readonly fillHex: string;
+  readonly highlightHex?: string;
   /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
    *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
    *  support, so the engine draws it as an explicit path (see `wavyPath`). */
@@ -214,6 +215,7 @@ export interface Token {
   readonly isSpace: boolean;
   readonly isBreak: boolean;
   width: number;
+  highlightMetrics?: { a: number; d: number };
 }
 
 export interface Line {
@@ -394,10 +396,11 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
           continue;
         }
+        const widthSpec = { ...specOf(piece), sizePx: renderedSizePxOf(piece) };
         for (const word of piece.text.match(/\s+|\S+/g) ?? []) {
           const isSpace = /^\s+$/.test(word);
           for (const seg of isSpace ? [word] : splitEastAsianBreakables(word)) {
-            const w = mWidth(seg, specOf(piece));
+            const w = mWidth(seg, widthSpec);
             if (input.wrap && !isSpace && w > avail - bulletLead && [...seg].length > 1) {
               for (const ch of seg) {
                 tokens.push({
@@ -405,7 +408,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
                   piece,
                   isSpace: false,
                   isBreak: false,
-                  width: mWidth(ch, specOf(piece)),
+                  width: mWidth(ch, widthSpec),
                 });
               }
             } else {
@@ -415,6 +418,9 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         }
       }
 
+      for (const token of tokens) {
+        if (token.piece.highlightHex) token.highlightMetrics = mMetrics(token.piece);
+      }
       const wrapped = wrapTokens(tokens, input.wrap, wrapRight - firstLeft - bulletLead, avail);
       const paraLines: Token[][] = wrapped.length > 0 ? wrapped : [[]];
 
@@ -690,10 +696,15 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
-  return text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
+  return (
+    emitHighlights(groups, line.textAnchor, x0, baselineY) +
+    text +
+    emitWavyUnderlines(groups, line.textAnchor, x0, baselineY)
+  );
 };
 
 interface Group {
+  highlightMetrics?: { a: number; d: number };
   text: string;
   piece: PieceInput;
   width: number;
@@ -708,7 +719,12 @@ const groupTokens = (toks: Token[]): Group[] => {
       last.text += t.text;
       last.width += t.width;
     } else {
-      groups.push({ text: t.text, piece: t.piece, width: t.width });
+      groups.push({
+        text: t.text,
+        piece: t.piece,
+        width: t.width,
+        ...(t.highlightMetrics ? { highlightMetrics: t.highlightMetrics } : {}),
+      });
     }
   }
   return groups;
@@ -768,6 +784,29 @@ const emitWavyUnderlines = (
   return parts.join('');
 };
 
+const emitHighlights = (
+  groups: readonly Group[],
+  anchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+): string => {
+  const width = groups.reduce((sum, group) => sum + group.width, 0);
+  let x = x0 - (anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0);
+  const backgrounds: string[] = [];
+  for (const group of groups) {
+    const metrics = group.highlightMetrics;
+    if (group.piece.highlightHex && metrics && group.width > 0) {
+      const scale = group.piece.superSub === 0 ? 1 : SUPER_SUB_SIZE_RATIO;
+      const y = baselineY - baselineShiftPxOf(group.piece) - metrics.a * scale;
+      backgrounds.push(
+        `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(group.width)}" height="${fmt((metrics.a + metrics.d) * scale)}" fill="${escapeXml(group.piece.highlightHex)}"/>`,
+      );
+    }
+    x += group.width;
+  }
+  return backgrounds.join('');
+};
+
 // Calibrated purely for legibility at typical body-text sizes (no ground-truth
 // wavy-underline spec to match — OOXML doesn't define the wave's geometry,
 // only that it must render as one): amplitude and period scale with the
@@ -808,6 +847,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.italic === b.italic &&
   a.letterSpacingPx === b.letterSpacingPx &&
   a.fillHex === b.fillHex &&
+  a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
   a.strike === b.strike &&
   a.superSub === b.superSub &&
