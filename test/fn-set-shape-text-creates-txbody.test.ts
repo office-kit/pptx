@@ -15,6 +15,12 @@ import {
   loadPresentation,
   savePresentation,
   setShapeText,
+  setShapeTextFormat,
+  getParagraphEndFormat,
+  getShapeParagraphCount,
+  getShapeRunFormat,
+  getSlideShapes,
+  getSlideXmlString,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -62,4 +68,40 @@ describe('fn API: setShapeText creates a missing txBody', () => {
     const texts = (await import('../src/api/index.ts')).getSlideShapes(shapes).map(getShapeText);
     expect(texts).toContain('title\nsubtitle');
   });
+});
+
+it('formats a blank autoshape before typing and retains the format after reload', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const shape = addBareRect(getSlides(pres)[0]!);
+  expect(getShapeParagraphCount(shape)).toBe(0);
+  setShapeTextFormat(shape, { bold: true, size: 32, font: 'Arial', color: '#123456' });
+  expect(getShapeText(shape)).toBe('');
+  expect(getParagraphEndFormat(shape, 0)).toMatchObject({
+    bold: true,
+    size: 32,
+    font: 'Arial',
+    color: '#123456',
+  });
+  const reopened = await loadPresentation(await savePresentation(pres));
+  const restored = getSlideShapes(getSlides(reopened)[0]!).at(-1)!;
+  setShapeText(restored, '日本語 English', { preserveFormatting: true });
+  expect(getShapeRunFormat(restored, 0, 0)).toMatchObject({
+    bold: true,
+    size: 32,
+    font: 'Arial',
+    color: '#123456',
+  });
+});
+
+it('does not create a text body for invalid formatting or an empty range', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const slide = getSlides(pres)[0]!;
+  const shape = addBareRect(slide);
+  const before = getSlideXmlString(slide);
+  expect(() => setShapeTextFormat(shape, { size: -1 })).toThrow();
+  expect(getShapeParagraphCount(shape)).toBe(0);
+  expect(getSlideXmlString(slide)).toBe(before);
+  setShapeTextFormat(shape, { bold: true }, { range: { start: 0, end: 0 } });
+  expect(getShapeParagraphCount(shape)).toBe(0);
+  expect(getSlideXmlString(slide)).toBe(before);
 });

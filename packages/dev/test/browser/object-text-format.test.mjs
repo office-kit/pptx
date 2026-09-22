@@ -130,3 +130,62 @@ test(
     }
   },
 );
+
+test('blank shapes retain their chosen text format before typing', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-blank-text-format-'));
+  let preview, browser;
+  try {
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide,Shape} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Shape preset="rect" x={1} y={1} width={3} height={2} /></Slide></Presentation>`,
+    );
+    preview = await startPreview(file);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+    const errors = [];
+    page.on('pageerror', (error) => errors.push(error.message));
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+    const editor = page.frameLocator('#editor-frame');
+    const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+    const read = async () => {
+      const deck = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      return getSlideShapes(getSlides(deck)[0])[0];
+    };
+    await saved();
+    await editor.locator('.hit').first().click();
+    const bar = editor.locator('.bespoke .text-format-bar');
+    await bar.getByRole('button', { name: 'Bold', exact: true }).click();
+    await saved();
+    assert.equal(getShapeText(await read()), '');
+    await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('30');
+    await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).press('Tab');
+    await saved();
+    await page.reload();
+    await saved();
+    await editor.locator('.hit').first().click();
+    assert.equal(
+      await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(
+      await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).inputValue(),
+      '30',
+    );
+    const text = editor.locator('.bespoke').getByRole('textbox', { name: 'Text', exact: true });
+    await text.fill('日本語 English');
+    await text.press('Tab');
+    await saved();
+    assert.equal(getShapeText(await read()), '日本語 English');
+    assert.equal(getShapeRunFormat(await read(), 0, 0).bold, true);
+    assert.equal(getShapeRunFormat(await read(), 0, 0).size, 30);
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

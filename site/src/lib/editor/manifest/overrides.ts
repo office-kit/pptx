@@ -14,6 +14,8 @@ import type { CapabilityOverride } from './types.ts';
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
   setShapeTextFormat: {
+    labelEn: 'Set Shape Text Format',
+    labelJa: '図形テキストの書式を設定',
     params: [
       ...generatedOverrides.setShapeTextFormat!.params!,
       {

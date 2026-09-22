@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,7 @@ const result = await build({
   ],
 });
 const {
+  addSlideLine,
   getShapeRotation,
   setShapeRotation,
   getShapeFlip,
@@ -492,6 +493,18 @@ test('selected text formatting preserves content and rejects non-text targets be
   await doc.undo();
   assert.deepEqual(bold(), [undefined, undefined]);
   doc.select({ kind: 'shape', slideIndex: 0, shapeIds: ids });
+  editor.invoke('setShapeTextFormat', { format: { bold: true } });
+  assert.deepEqual(bold(), [true, true]);
+  await doc.undo();
+  const lineId = doc.transact('Add non-text line', () =>
+    getShapeId(
+      addSlideLine(getSlides(doc.pres)[0], {
+        from: { x: emu(0), y: emu(0) },
+        to: { x: emu(100000), y: emu(100000) },
+      }),
+    ),
+  );
+  doc.select({ kind: 'shape', slideIndex: 0, shapeIds: [...ids.slice(0, 2), lineId] });
   editor.invoke('setShapeTextFormat', { format: { bold: true } });
   assert.deepEqual(bold(), [undefined, undefined]);
 });

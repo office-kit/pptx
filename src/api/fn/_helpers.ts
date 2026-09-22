@@ -129,6 +129,11 @@ const NAME_BODY_PR = qname('a', 'bodyPr', NS.dml);
 const NAME_LST_STYLE = qname('a', 'lstStyle', NS.dml);
 const NAME_A_P = qname('a', 'p', NS.dml);
 
+export const createTxBody = (): XmlElement =>
+  elem(NAME_TX_BODY, {
+    children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), elem(NAME_A_P)],
+  });
+
 /**
  * Returns the shape's `<p:txBody>`, creating an empty one if absent.
  *
@@ -147,9 +152,7 @@ export const ensureTxBody = (shape: SlideShapeData): XmlElement => {
   }
   const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
   if (existing !== null) return existing;
-  const txBody = elem(NAME_TX_BODY, {
-    children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), elem(NAME_A_P)],
-  });
+  const txBody = createTxBody();
   // txBody is the last child of <p:sp>, after spPr / style.
   shape[SHAPE_ELEMENT].children.push(txBody);
   return txBody;

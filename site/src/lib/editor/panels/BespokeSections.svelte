@@ -9,7 +9,7 @@
     getShapeRotation,
     getShapeFlip,
     getShapeText,
-    hasShapeText,
+    getShapeKind,
     inches,
     emu,
     setShapeBounds,
@@ -99,8 +99,11 @@
   const objectFormats = $derived.by(() => {
     doc.version;
     const shapes = editor.selectedShapes();
-    if (!shapes.length || !shapes.every(hasShapeText)) return null;
-    return shapes.flatMap(target => textFormatsInRange(target, { start: 0, end: getShapeText(target).length }, undefined, { pres: doc.pres }));
+    if (!shapes.length || !shapes.every(target => getShapeKind(target) === 'shape')) return null;
+    return shapes.flatMap(target => {
+      const formats = textFormatsInRange(target, { start: 0, end: getShapeText(target).length }, undefined, { pres: doc.pres });
+      return formats.length ? formats : [{}];
+    });
   });
 
   const paint = $derived.by(() => {
