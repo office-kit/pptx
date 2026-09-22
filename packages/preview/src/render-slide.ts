@@ -51,6 +51,7 @@ import {
   getShapeChartSpec,
   getShapeClickAction,
   getShapeSlide,
+  getPresentationFirstSlideNumber,
   getSlides,
   isSlideHidden,
   getShapeAltTitle,
@@ -635,6 +636,12 @@ let activeColorMap: Readonly<Record<string, string>> | null = null;
 // (white-on-white, an invisible slide). renderSlideSvg sets this from
 // `resolveDeckBodyTextColor`; overwritten on every entry, so no reset needed.
 let activeDeckTextColor = '#000000';
+
+// The number a `slidenum` field shows on the slide being rendered: the deck's
+// `firstSlideNum` plus the slide's position. Set on every renderSlideSvg entry
+// alongside the color map, for the same reason — the text path is several
+// calls deep and the slide is not one of its arguments.
+let activeSlideNumber = '1';
 
 // `<linearGradient>` definition + `fill="url(#…)"` reference, projected
 // from @office-kit/pptx's `{ stops, angleDeg }` shape onto SVG's
@@ -2691,7 +2698,12 @@ export const resolveTextBodyModel = (
         runs.push({ text: '\n', fmt: null, sizePt: defaultPt });
         continue;
       }
-      const txt = el.text;
+      // A `slidenum` field shows the slide's own number, which PowerPoint
+      // recomputes on open; the cached `<a:t>` is whatever it last wrote, and
+      // is empty for a field the deck just gained. Every other field type
+      // keeps its cached text — `datetime` in particular has thirteen
+      // locale-dependent variants that a preview should not guess at.
+      const txt = el.kind === 'fld' && el.type === 'slidenum' ? activeSlideNumber : el.text;
       let fmt: TextFormat | null = el.format;
       let href: string | undefined;
       let hrefTip: string | undefined;
@@ -6911,6 +6923,8 @@ export const renderSlideSvg = (
   const theme = getPresentationTheme(pres);
   activeColorMap = getEffectiveColorMap(slide);
   activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
+  const position = getSlides(pres).indexOf(slide);
+  activeSlideNumber = String(getPresentationFirstSlideNumber(pres) + (position < 0 ? 0 : position));
   const ctx: LayoutCtx = {
     groupScale: { sx: 1, sy: 1 },
     groupReflected: false,

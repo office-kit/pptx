@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 162,
+  "count": 164,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -183,6 +183,23 @@
           "name": "opts",
           "type": "SlideMediaOptions",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "addSlidePlaceholder",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-placeholder-geometry.ts",
+      "returns": "SlideShapeData | null",
+      "canvas": true,
+      "params": [
+        {
+          "name": "type",
+          "type": "string",
+          "kind": "string",
           "optional": false
         }
       ]
@@ -2178,6 +2195,30 @@
           "type": "| 'horz' | 'vert' | 'vert270' | 'wordArtVert' | 'eaVert' | 'mongolianVert' | 'wordArtVertRtl' | null",
           "kind": "object",
           "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeTextField",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "text",
+      "file": "api/fn/shape-text.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "type",
+          "type": "string",
+          "kind": "string",
+          "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ text?: string }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
         }
       ]
     },

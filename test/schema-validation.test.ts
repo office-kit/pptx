@@ -364,6 +364,24 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(comments!.data), 'pml');
   });
 
+  // `CT_TextField` requires `id` (ST_Guid) and orders rPr before t; a field
+  // written with either wrong makes PowerPoint offer to repair the file.
+  skipIfNoXmllint('a slide-number field validates', async () => {
+    const { getSlides, getSlideShapes, setShapeTextField, setShapeTextFormat } =
+      await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = getSlideShapes(slide)[0];
+    if (!shape) throw new Error('expected shape');
+    setShapeTextFormat(shape, { bold: true, size: 12 });
+    setShapeTextField(shape, 'slidenum', { text: '1' });
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(pres)));
+    const sld = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(sld).not.toBeUndefined();
+    expectSchemaValid(decode(sld!.data), 'pml');
+  });
+
   skipIfNoXmllint(
     'every emitted slide / presentation in the end-to-end deck validates',
     async () => {

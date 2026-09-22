@@ -13,6 +13,59 @@ import type { CapabilityOverride } from './types.ts';
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
+  addSlidePlaceholder: {
+    labelEn: 'Add placeholder',
+    labelJa: 'プレースホルダーを追加',
+    params: [
+      {
+        name: 'type',
+        type: 'string',
+        kind: 'enum',
+        optional: false,
+        label: 'Placeholder',
+        // `ST_PlaceholderType`. Only slots a layout actually reserves can be
+        // added, so an unused token here simply reports nothing to add.
+        enumValues: ['title', 'body', 'sldNum', 'dt', 'ftr', 'pic', 'chart', 'tbl'],
+        default: 'sldNum',
+      },
+    ],
+  },
+  setShapeTextField: {
+    labelEn: 'Insert field',
+    labelJa: 'フィールドを挿入',
+    ribbonGroup: 'text',
+    params: [
+      {
+        name: 'type',
+        type: 'string',
+        kind: 'enum',
+        optional: false,
+        label: 'Field',
+        // `ST_TextFieldType` is an open string; these are the tokens
+        // PowerPoint itself writes and every reader substitutes. The thirteen
+        // `datetime` variants differ only in format, so the dialog offers the
+        // two PowerPoint's own Insert menu does.
+        enumValues: ['slidenum', 'datetime1', 'datetime2', 'footer', 'headerfooter'],
+        default: 'slidenum',
+      },
+      {
+        name: 'options',
+        type: '{ text?: string }',
+        kind: 'object',
+        optional: true,
+        label: 'Options',
+        fields: [
+          {
+            name: 'text',
+            type: 'string',
+            kind: 'string',
+            optional: true,
+            label: 'Cached text',
+          },
+        ],
+      },
+    ],
+  },
   setShapeTextFormat: {
     labelEn: 'Set Shape Text Format',
     labelJa: '図形テキストの書式を設定',

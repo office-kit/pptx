@@ -142,6 +142,10 @@ export const RIBBON: readonly RibbonTab[] = [
         title: 'Text',
         items: [
           { id: 'addSlideTextBox', icon: 'textbox', preset: PRESET.textBox },
+          // Turns the selected box into a field PowerPoint keeps up to date.
+          // The deck-wide slide-number switch lives in the slide panel, since
+          // it is one setting for the whole file rather than a shape operation.
+          { id: 'setShapeTextField', icon: 'text-format', label: 'Insert field' },
           { id: 'setShapeHyperlink', icon: 'link' },
         ],
       },

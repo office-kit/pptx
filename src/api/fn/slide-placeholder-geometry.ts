@@ -32,6 +32,7 @@ import {
   SHAPE_SNAPSHOT,
   SLIDE_DOCUMENT,
   type SlideData,
+  type SlideShapeData,
 } from '../_internal-symbols.ts';
 import {
   commitSlideData,
@@ -41,7 +42,7 @@ import {
   requireSpTree,
   rebuildShapesFromDocument,
 } from './_helpers.ts';
-import { getSlideLayout, getSlideShapes } from './shape-slide-read.ts';
+import { findSlidePlaceholder, getSlideLayout, getSlideShapes } from './shape-slide-read.ts';
 
 const nvNames = {
   shape: 'nvSpPr',
@@ -174,6 +175,11 @@ export const addMissingSlidePlaceholders = (slide: SlideData): number => {
     present.add(index);
   }
   if (!additions.length) return 0;
+  insertShapes(slide, additions);
+  return additions.length;
+};
+
+function insertShapes(slide: SlideData, additions: XmlElement[]): void {
   const tree = requireSpTree(slide);
   // Shape-tree extensions must remain after all shape children.
   const extension = tree.children.findIndex(
@@ -185,7 +191,34 @@ export const addMissingSlidePlaceholders = (slide: SlideData): number => {
   tree.children.splice(extension < 0 ? tree.children.length : extension, 0, ...additions);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
-  return additions.length;
+}
+
+/**
+ * Adds the single placeholder of `type` that the layout defines and the slide
+ * is missing — how an editor inserts a slide number, date or footer into a
+ * slide without also restoring every other slot the author deleted.
+ *
+ * `type` is an ECMA-376 `ST_PlaceholderType` token (`sldNum`, `dt`, `ftr`,
+ * `title`, `body`, …), matched as `findSlidePlaceholder` matches it. Returns
+ * the slide's placeholder of that type — the one just added or the one already
+ * there — or `null` when the layout reserves no such slot. Like the added slots
+ * of `addMissingSlidePlaceholders`, it starts empty and inherits its geometry
+ * and text style from the layout and master.
+ */
+export const addSlidePlaceholder = (slide: SlideData, type: string): SlideShapeData | null => {
+  const existing = findSlidePlaceholder(slide, type);
+  if (existing) return existing;
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+  const elements = topLevelElements(layout[LAYOUT_PART].root);
+  for (const slot of layout[LAYOUT_PART].shapes) {
+    if (!elements.has(slot.element) || slot.placeholderType !== type) continue;
+    const ph = placeholderElement(slot);
+    if (!ph) continue;
+    insertShapes(slide, [buildPlaceholderStub(nextShapeId(slide), ph)]);
+    return findSlidePlaceholder(slide, type);
+  }
+  return null;
 };
 
 /**

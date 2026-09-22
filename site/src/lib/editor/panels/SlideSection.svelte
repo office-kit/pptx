@@ -8,6 +8,8 @@
   const slide = $derived.by(() => { doc.version; return doc.currentSlide; });
   const slides = $derived.by(() => { doc.version; const all = getSlides(doc.pres); return selectedSlideIndices(doc.selection).flatMap(index => all[index] ? [all[index]!] : []); });
   const skipped = $derived(slides.length > 0 && slides.every(isSlideHidden));
+  // Deck-wide, unlike everything else here, so it does not read from `slides`.
+  const slideNumbers = $derived.by(() => { doc.version; return editor.slideNumbersOn(); });
   const mixedSkipped = $derived(!skipped && slides.some(isSlideHidden));
   const background = $derived.by(() => { doc.version; return slide ? getSlideBackground(slide) : null; });
   const layouts = $derived.by(() => { doc.version; return getSlideLayouts(doc.pres); });
@@ -54,7 +56,8 @@
   <section aria-label={t('Slide options')}>
     <strong>{t('Slide options')}</strong>
     {#if slides.length > 1}<span class="selection">{t('Selected slides')}: {slides.length}</span>{/if}
-    <label class="skip"><input type="checkbox" checked={skipped} indeterminate={mixedSkipped} onchange={event => { const hidden = event.currentTarget.checked; apply('Skip during presentation', target => setSlideHidden(target, hidden)); }} />{t('Skip during presentation')}</label>
+    <label class="check"><input type="checkbox" checked={skipped} indeterminate={mixedSkipped} onchange={event => { const hidden = event.currentTarget.checked; apply('Skip during presentation', target => setSlideHidden(target, hidden)); }} />{t('Skip during presentation')}</label>
+    <label class="check"><input type="checkbox" checked={slideNumbers} onchange={event => editor.setSlideNumbers(event.currentTarget.checked)} />{t('Slide numbers')}</label>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideNotes')}>{t(slides.length > 1 ? 'Speaker notes (current slide)' : 'Speaker notes')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideTransition')}>{t('Slide transition')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideSize')}>{t('Page setup')}</button>
@@ -81,7 +84,7 @@
   .selection { font-size: 11px; color: var(--ok-muted); }
   strong { font-size: 12px; }
   label { display: grid; gap: 6px; font-size: 11px; }
-  .skip { display: flex; align-items: center; }
+  .check { display: flex; align-items: center; }
   input[type='file'] { width: 100%; font-size: 11px; }
   input[type='color'] { width: 100%; height: 26px; }
   [role='alert'] { color: #bf3131; font-size: 11px; }

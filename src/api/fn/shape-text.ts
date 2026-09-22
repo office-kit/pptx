@@ -21,6 +21,7 @@ import {
   setTextBodyParagraphs,
 } from '../../internal/drawingml/index.ts';
 import {
+  newGuid,
   oneOf,
   angle60000,
   emuCoordinate32,
@@ -33,11 +34,13 @@ import {
   NS,
   type XmlElement,
   attr,
+  cloneElement,
   elem,
   firstChildElement,
   getAttrValue,
   parseXml,
   qname,
+  text,
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
@@ -81,6 +84,72 @@ export const setShapeText = (
     if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
   } else setTextBody(txBody, value, options.bullets);
   commitAndRefresh(shape);
+};
+
+/**
+ * Replaces the shape's text with a single field — text PowerPoint fills in
+ * when it opens the deck, rather than text the file states. `type` is an
+ * ECMA-376 `ST_TextFieldType` token: `'slidenum'` for the slide's number,
+ * `'datetime'` (and its `datetime1`…`datetime13` variants) for the current
+ * date, `'footer'`, `'headerfooter'`, … Unrecognised tokens are written
+ * through, since the list is open and renderers differ on what they honour.
+ *
+ * `options.text` is the cached value stored in `<a:t>`, which is what a reader
+ * that does not evaluate fields shows — PowerPoint overwrites it on open, so
+ * it matters only for other consumers. The shape's first run's formatting is
+ * carried onto the field, the way PowerPoint keeps a placeholder's look when
+ * it inserts one.
+ *
+ * This replaces the whole text body: a field placeholder holds the field and
+ * nothing else, which is how PowerPoint writes slide numbers and dates.
+ */
+export const setShapeTextField = (
+  shape: SlideShapeData,
+  type: string,
+  options: { text?: string } = {},
+): void => {
+  if (type.length === 0) throw new Error('setShapeTextField: type must not be empty');
+  const txBody = ensureTxBody(shape);
+  // The look of the text being replaced, so inserting a field into a styled
+  // placeholder does not reset it to the theme default.
+  const firstRunPr = firstRunProperties(txBody);
+  const field = elem(qname('a', 'fld', NS.dml), {
+    attrs: [attr(qname('', 'id', ''), newGuid()), attr(qname('', 'type', ''), type)],
+    // CT_TextField is a sequence: rPr?, pPr?, t?.
+    children: [
+      ...(firstRunPr ? [cloneElement(firstRunPr)] : []),
+      elem(qname('a', 't', NS.dml), { children: [text(options.text ?? '')] }),
+    ],
+  });
+  const paragraph = elem(qname('a', 'p', NS.dml), { children: [field] });
+  const keep = txBody.children.filter(
+    (node) =>
+      node.kind === 'element' &&
+      node.name.namespaceURI === NS.dml &&
+      (node.name.localName === 'bodyPr' || node.name.localName === 'lstStyle'),
+  );
+  txBody.children = [...keep, paragraph];
+  commitAndRefresh(shape);
+};
+
+// The `<a:rPr>` of the first run or field in the body, or null when the body
+// has none to carry over.
+const firstRunProperties = (txBody: XmlElement): XmlElement | null => {
+  for (const paragraph of txBody.children) {
+    if (
+      paragraph.kind !== 'element' ||
+      paragraph.name.namespaceURI !== NS.dml ||
+      paragraph.name.localName !== 'p'
+    )
+      continue;
+    for (const inline of paragraph.children) {
+      if (inline.kind !== 'element' || inline.name.namespaceURI !== NS.dml) continue;
+      if (inline.name.localName !== 'r' && inline.name.localName !== 'fld') continue;
+      const rPr = firstChildElement(inline, qname('a', 'rPr', NS.dml));
+      if (rPr) return rPr;
+    }
+  }
+  return null;
 };
 
 /**
