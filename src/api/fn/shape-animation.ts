@@ -655,6 +655,7 @@ interface CopiedEffect {
  */
 const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedEffect[] => {
   const { parOf, parentOf } = ancestryOf(source);
+  const checked = new Map<XmlElement, ReadonlySet<XmlElement> | null>();
   const out: CopiedEffect[] = [];
   for (const node of readTimingSteps(source)) {
     const spids = node.step.targetShapeIds.map(String);
@@ -679,20 +680,55 @@ const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedE
           'so the copy could not be given the same one. Remove it from the original first.',
       );
     }
-    assertWrappersAreOurs(par, parentOf);
+    assertWrappersAreOurs(par, parentOf, checked);
     out.push({ par, start, spids, grpId: getAttrValue(node.cTn, ATTR_GRP_ID_FN) });
   }
   return out;
 };
 
 /**
- * Refuses an effect whose click stop or group says more than when it starts.
+ * The groups of one click stop that this library could have written, or `null`
+ * when the stop itself could not be.
  *
  * The copy is given the stop and group this library writes, with the start
  * read off the effect's own `nodeType` and the offset recomputed against the
  * target slide. Anything else those wrappers carried — a repeat, an event
  * condition, an extension, or a wait this library would not have written —
- * would be dropped on the way, so the copy is refused instead.
+ * would be dropped on the way, so such an effect is refused instead.
+ *
+ * Read once per stop, walking its groups in order: the delay this library
+ * would give a group is the end of the group before it, so checking them one
+ * at a time from the front costs a single pass, where asking the question per
+ * effect would re-measure the same stop once per paragraph of a build.
+ */
+const ourGroupsIn = (stop: XmlElement): ReadonlySet<XmlElement> | null => {
+  if (!isPlainWrapper(stop)) return null;
+  const groups = innerPars(stop);
+
+  // A stop waits for the viewer when the first effect in it is a click
+  // effect, and opens with the slide when that effect runs with or after a
+  // predecessor it does not have. Copying one written the other way round
+  // would turn an automatic start into a click, or a click into one.
+  const first = groups[0];
+  const firstEffect = first === undefined ? undefined : innerPars(first)[0];
+  const firstCTn = firstEffect === undefined ? null : firstChildElement(firstEffect, NAME_CTN);
+  const firstStart = firstCTn === null ? null : startOfEffect(firstCTn);
+  if (firstStart === null) return null;
+  if (delayOf(stop) !== (firstStart === 'click' ? 'indefinite' : '0')) return null;
+
+  const ours = new Set<XmlElement>();
+  let expected: number | null = 0;
+  for (const group of groups) {
+    if (expected !== null && isPlainWrapper(group) && delayOf(group) === String(expected)) {
+      ours.add(group);
+    }
+    expected = groupEndMs(group);
+  }
+  return ours;
+};
+
+/**
+ * Refuses an effect whose click stop or group says more than when it starts.
  *
  * Only the ancestors of the effects being copied are read. An effect on some
  * other shape may be wrapped however its author liked without standing in the
@@ -701,20 +737,17 @@ const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedE
 const assertWrappersAreOurs = (
   effectPar: XmlElement,
   parentOf: ReadonlyMap<XmlElement, XmlElement>,
+  checked: Map<XmlElement, ReadonlySet<XmlElement> | null>,
 ): void => {
   const group = parentOf.get(effectPar);
   const stop = group === undefined ? undefined : parentOf.get(group);
   if (group === undefined || stop === undefined) throw wrapperRefusal();
-  if (!isPlainWrapper(group) || !isPlainWrapper(stop)) throw wrapperRefusal();
-
-  // A stop either waits for the viewer or opens with the slide; a group either
-  // opens with its stop or, for `afterPrevious`, when the one before it ends.
-  const stopDelay = delayOf(stop);
-  if (stopDelay !== 'indefinite' && stopDelay !== '0') throw wrapperRefusal();
-  const groups = innerPars(stop);
-  const previous = groups[groups.indexOf(group) - 1];
-  const expected = previous === undefined ? 0 : groupEndMs(previous);
-  if (expected === null || delayOf(group) !== String(expected)) throw wrapperRefusal();
+  let ours = checked.get(stop);
+  if (ours === undefined) {
+    ours = ourGroupsIn(stop);
+    checked.set(stop, ours);
+  }
+  if (ours === null || !ours.has(group)) throw wrapperRefusal();
 };
 
 const wrapperRefusal = (): Error =>

@@ -957,6 +957,30 @@ describe('fn API: copying a shape copies its animations', () => {
     expect(getSlideShapes(slide)).toHaveLength(1);
   });
 
+  it('refuses a click effect whose stop starts with the slide', async () => {
+    // The stop opens automatically although the effect in it is a click
+    // effect. Re-deriving the start from the effect's node type would give the
+    // copy a stop that waits for a click — a different slide show.
+    const { pres, slide } = await withTiming(timingRoot(mainSeq(stop({ stopDelay: '0' })), BLD));
+    const before = slideXml(pres);
+    expect(() => copyShape(slide, getSlideShapes(slide)[0]!)).toThrow(/does more than say when/);
+    expect(slideXml(pres)).toBe(before);
+    expect(getSlideShapes(slide)).toHaveLength(1);
+  });
+
+  it('copies a stop that opens with the slide as one that opens with the slide', () => {
+    const { pres, slide } = deck();
+    const shape = rect(slide);
+    setShapeAnimation(shape, { effect: 'fadeIn', start: 'withPrevious' });
+    const copy = copyShape(slide, shape);
+
+    expect(getSlideAnimations(slide).map((s) => s.start)).toEqual(['withPrevious', 'withPrevious']);
+    // `withPrevious` joins the stop already there, and that stop still opens
+    // with the slide rather than having been turned into one that waits.
+    expect(wrapperDelays(slideXml(pres))).toEqual(['0', '0']);
+    expect(getShapeId(copy)).not.toBe(getShapeId(shape));
+  });
+
   it('copies one shape although another shape’s effect is laid out differently', async () => {
     const pres = createPresentation();
     const slide = addBlankSlide(pres);
