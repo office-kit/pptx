@@ -27,7 +27,10 @@ each project and editing tab, and stay in this browser at the same preview URL
 source or saved deck changed. Text still being typed must be committed first.
 
 **Download** exports the edited PPTX. **Preview** switches to the presentation
-viewer with thumbnails, zoom and presentation mode.
+viewer with thumbnails, zoom and presentation mode. Presentation playback animates
+fade, push, wipe, cover, uncover, and zoom using the saved speed and direction.
+Other effects currently switch immediately. Reduced-motion preferences disable
+these animations; automatic slide timing starts after each animation completes.
 
 Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
 for example, `.office-kit/deck.tsx.editor.zip`. Keep this file with your project:
