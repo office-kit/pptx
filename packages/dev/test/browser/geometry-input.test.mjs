@@ -3,8 +3,14 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { chromium } from 'playwright';
 import {
+  addSlide,
+  createPresentation,
+  findSlideLayout,
+  getShapeBoundsResolved,
+  savePresentation,
   getSlides,
   getSlideShapes,
   getShapeBounds,
@@ -127,6 +133,87 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(await read(), resized);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'inherited placeholder geometry remains editable in the numeric panel',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inherited-geometry-'));
+    let preview, browser;
+    try {
+      const pres = createPresentation();
+      addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content') });
+      const parts = unzipSync(await savePresentation(pres));
+      const path = 'ppt/slides/slide1.xml';
+      parts[path] = strToU8(
+        strFromU8(parts[path]).replace(/<a:xfrm\b[^>]*>[\s\S]*?<\/a:xfrm>/g, ''),
+      );
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, zipSync(parts));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const shape = getSlideShapes(getSlides(deck)[0])[0];
+        return { raw: getShapeBounds(shape), resolved: getShapeBoundsResolved(deck, shape) };
+      };
+      await saved();
+      const original = await read();
+      assert.equal(original.raw, null);
+      assert.ok(original.resolved);
+      await editor.locator('.hit').first().click();
+      const field = (name) =>
+        editor.locator('.bespoke').getByRole('spinbutton', { name, exact: true });
+      assert.equal(await field('X').count(), 1);
+      await field('X').fill('2.125');
+      await field('X').press('Tab');
+      await saved();
+      const moved = { ...original.resolved, x: inches(2.125) };
+      assert.deepEqual((await read()).resolved, moved);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), original);
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      await editor.getByRole('checkbox', { name: '縦横比を固定', exact: true }).check();
+      await field('W').fill('6');
+      await field('W').press('Tab');
+      await saved();
+      const resized = {
+        ...original.resolved,
+        w: inches(6),
+        h: Math.round((original.resolved.h * inches(6)) / original.resolved.w),
+      };
+      assert.deepEqual((await read()).resolved, resized);
+      await page.reload();
+      await saved();
+      assert.deepEqual((await read()).resolved, resized);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

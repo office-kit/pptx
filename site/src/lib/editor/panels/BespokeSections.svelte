@@ -5,7 +5,7 @@
   // here is the *only* path to a capability.
   import { getEditor } from '../core/context.ts';
   import {
-    getShapeBounds,
+    getShapeBoundsResolved,
     getShapeRotation,
     getShapeText,
     inches,
@@ -40,7 +40,7 @@
   let lockAspectRatio = $state(false);
   const canLockAspectRatio = $derived.by(() => {
     doc.version;
-    const current = shape ? getShapeBounds(shape) : null;
+    const current = shape ? getShapeBoundsResolved(doc.pres, shape) : null;
     return current !== null && current.w > 0 && current.h > 0;
   });
   const emuPerInch = inches(1);
@@ -56,7 +56,7 @@
     const s = shape;
     if (!s) return null;
     try {
-      const b = getShapeBounds(s);
+      const b = getShapeBoundsResolved(doc.pres, s);
       if (!b) return null;
       return {
         x: emuToIn(b.x),
@@ -168,7 +168,7 @@
       input.value = String(bounds[field]);
       return;
     }
-    const current = getShapeBounds(s);
+    const current = getShapeBoundsResolved(doc.pres, s);
     if (!current) return;
     const next = { ...current, [field]: inches(input.valueAsNumber) };
     if (lockAspectRatio && current.w > 0 && current.h > 0) {
