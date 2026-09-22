@@ -66,6 +66,7 @@ export const ja: Record<string, string> = {
   'Select table': '表全体を選択',
   'Clear cell text': 'セルの文字列を消去',
   'Edit table': '表を編集',
+  'Clipboard access was denied': 'クリップボードへのアクセスが拒否されました',
   'The clipboard table text is malformed': 'クリップボードの表データを読み取れませんでした',
   'Paste table cells': '表のセルを貼り付け',
   'Split merged cells before adding a row': '行を追加する前に結合セルを分割してください',

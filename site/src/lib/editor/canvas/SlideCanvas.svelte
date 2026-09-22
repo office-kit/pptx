@@ -10,6 +10,7 @@
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
+  import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
@@ -507,6 +508,49 @@
     textArea?.select();
   }
 
+  function replaceSelectedText(text: string, formats?: TextEdit['formats']) {
+    if (!editing) return;
+    const start = textArea?.selectionStart ?? editing.text.length;
+    const end = textArea?.selectionEnd ?? start;
+    editing.changes.push({ start, end, text, ...(formats ? { formats } : editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
+    if (formats) delete editing.typing;
+    editing.text = editing.text.slice(0, start) + text + editing.text.slice(end);
+    textRange = { start: start + text.length, end: start + text.length };
+    const current = editing;
+    void tick().then(() => { if (editing === current) textArea?.setSelectionRange(start + text.length, start + text.length); });
+  }
+  function copyEditingText(event: ClipboardEvent, cut = false) {
+    if (!editing || !pendingTextShape || !textArea || !event.clipboardData) return;
+    const { selectionStart: start, selectionEnd: end } = textArea;
+    if (start === end) return;
+    const copied = copyTextRange(pendingTextShape, start, end, editing.cell);
+    event.clipboardData.setData('text/plain', copied.text);
+    event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify(copied));
+    event.preventDefault();
+    event.stopPropagation();
+    if (cut) replaceSelectedText('');
+  }
+  async function pasteWithoutFormatting() {
+    const current = editing;
+    const start = textArea?.selectionStart;
+    const end = textArea?.selectionEnd;
+    let text: string;
+    try { text = await navigator.clipboard.readText(); }
+    catch { editor.toast('error', t('Clipboard access was denied')); return; }
+    if (editing === current && textArea?.selectionStart === start && textArea?.selectionEnd === end) replaceSelectedText(text);
+  }
+  function pasteEditingText(event: ClipboardEvent) {
+    if (!editing || !event.clipboardData) return;
+    const copied = parseTextClipboard(event.clipboardData.getData(TEXT_CLIPBOARD_TYPE), event.clipboardData.getData('text/plain'));
+    if (copied) {
+      event.preventDefault();
+      event.stopPropagation();
+      replaceSelectedText(copied.text, copied.formats);
+      return;
+    }
+    pasteCells(event);
+  }
+
   function pasteCells(event: ClipboardEvent) {
     const cur = editing;
     if (!cur?.cell || !event.clipboardData) return;
@@ -519,10 +563,7 @@
       const value = values[0]![0]!;
       if (value === text) return;
       event.preventDefault();
-      const start = textArea?.selectionStart ?? cur.text.length;
-      const end = textArea?.selectionEnd ?? start;
-      updateEditing(cur.text.slice(0, start) + value + cur.text.slice(end));
-      void tick().then(() => textArea?.setSelectionRange(start + value.length, start + value.length));
+      replaceSelectedText(value);
       return;
     }
     event.preventDefault();
@@ -836,12 +877,20 @@
               value={editing.text}
               onbeforeinput={(e) => { textRange = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; }}
               oninput={(e) => updateEditing(e.currentTarget.value)}
-              onpaste={pasteCells}
+              oncopy={(event) => copyEditingText(event)}
+              oncut={(event) => copyEditingText(event, true)}
+              onpaste={pasteEditingText}
               use:focusEdit
               onpointerdown={(e) => e.stopPropagation()}
               onpointerup={(e) => e.stopPropagation()}
               ondblclick={(e) => e.stopPropagation()}
               onkeydown={(e) => {
+                if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'v' || e.code === 'KeyV')) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void pasteWithoutFormatting();
+                  return;
+                }
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
                   commitEditing();
                   return;
