@@ -1,3 +1,4 @@
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -36,6 +37,7 @@ for (const kind of ['shape', 'cell'])
         const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
         const errors = [];
         page.on('pageerror', (e) => errors.push(e.message));
+        await installRichTextSelection(page);
         await page.goto(preview.url);
         await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
@@ -64,7 +66,7 @@ for (const kind of ['shape', 'cell'])
           await input.focus();
           await input.evaluate(
             (node, range) => {
-              node.setSelectionRange(...range);
+              window.selectEditorText(node, ...range);
               node.dispatchEvent(new Event('select', { bubbles: true }));
             },
             [start, end],

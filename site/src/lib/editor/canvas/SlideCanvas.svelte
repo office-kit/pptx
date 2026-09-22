@@ -14,6 +14,7 @@
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
+  import RichTextInput from '../ui/RichTextInput.svelte';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
   import { getEditor } from '../core/context.ts';
@@ -132,7 +133,7 @@
   }
   let drag = $state<Drag | null>(null);
   let guides = $state<readonly Guide[]>([]);
-  let textArea = $state<HTMLTextAreaElement>();
+  let textInput = $state<RichTextInput>();
   let textRange = $state({ start: 0, end: 0 });
   let editing = $state<{ id: number; cell?: { row: number; col: number }; text: string; changes: TextEdit[]; typing?: { format: TextFormat; reset: boolean } } | null>(null);
 
@@ -196,17 +197,6 @@
     } catch {
       /* ignore */
     }
-  }
-
-  // Reliably focus the inline editor when it mounts (the `autofocus` attribute
-  // does not fire for dynamically-inserted nodes). Places the caret at the end.
-  function focusEdit(node: HTMLTextAreaElement) {
-    requestAnimationFrame(() => {
-      if (!node.isConnected || document.activeElement === node) return;
-      node.focus();
-      const len = node.value.length;
-      node.setSelectionRange(len, len);
-    });
   }
 
   // ---- Selection + gesture start ----------------------------------------
@@ -462,13 +452,42 @@
       updateEditing(e.key);
     }
   }
+  type EditCheckpoint = { text: string; changes: TextEdit[]; changeCount: number; range: { start: number; end: number } };
+  let editingUndo: EditCheckpoint[] = [];
+  let editingRedo: EditCheckpoint[] = [];
+  let historyOwner: typeof editing;
+  let composingText = false;
+  let compositionRecorded = false;
+  function checkpointEditing() {
+    if (!editing || (composingText && compositionRecorded)) return;
+    if (composingText) compositionRecorded = true;
+    if (historyOwner !== editing || !editing.changes.length) editingUndo = [];
+    historyOwner = editing;
+    editingUndo.push({ text: editing.text, changes: editing.changes, changeCount: editing.changes.length, range: { ...textRange } });
+    editingRedo = [];
+  }
+  function editingHistory(backward: boolean) {
+    if (!editing) return;
+    if (historyOwner !== editing) { editingUndo = []; editingRedo = []; historyOwner = editing; }
+    const source = backward ? editingUndo : editingRedo;
+    const destination = backward ? editingRedo : editingUndo;
+    const next = source.pop();
+    if (!next) return;
+    destination.push({ text: editing.text, changes: editing.changes, changeCount: editing.changes.length, range: { ...textRange } });
+    editing.text = next.text;
+    editing.changes = next.changes.slice(0, next.changeCount);
+    delete editing.typing;
+    textRange = next.range;
+    void tick().then(() => textInput?.setSelectionRange(next.range.start, next.range.end));
+  }
   function updateEditing(value: string) {
     if (!editing) return;
-    const caretAfter = textArea?.selectionStart ?? value.length;
+    const caretAfter = textInput?.getSelection().start ?? value.length;
     const change = textEditDiff(editing.text, value, textRange, caretAfter);
+    if (change) checkpointEditing();
     if (change) editing.changes.push({ ...change, ...(editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
     editing.text = value;
-    textRange = { start: caretAfter, end: textArea?.selectionEnd ?? caretAfter };
+    textRange = { start: caretAfter, end: textInput?.getSelection().end ?? caretAfter };
   }
   function commitEditing() {
     if (!editing) return;
@@ -505,24 +524,25 @@
     });
     if (next) startEditing(box, next);
     await tick();
-    textArea?.focus();
-    textArea?.select();
+    textInput?.focus();
+    textInput?.select();
   }
 
   function replaceSelectedText(text: string, formats?: TextEdit['formats']) {
     if (!editing) return;
-    const start = textArea?.selectionStart ?? editing.text.length;
-    const end = textArea?.selectionEnd ?? start;
+    const start = textInput?.getSelection().start ?? editing.text.length;
+    const end = textInput?.getSelection().end ?? start;
+    checkpointEditing();
     editing.changes.push({ start, end, text, ...(formats ? { formats } : editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
     if (formats) delete editing.typing;
     editing.text = editing.text.slice(0, start) + text + editing.text.slice(end);
     textRange = { start: start + text.length, end: start + text.length };
     const current = editing;
-    void tick().then(() => { if (editing === current) textArea?.setSelectionRange(start + text.length, start + text.length); });
+    void tick().then(() => { if (editing === current) textInput?.setSelectionRange(start + text.length, start + text.length); });
   }
   function copyEditingText(event: ClipboardEvent, cut = false) {
-    if (!editing || !pendingTextShape || !textArea || !event.clipboardData) return;
-    const { selectionStart: start, selectionEnd: end } = textArea;
+    if (!editing || !pendingTextShape || !textInput || !event.clipboardData) return;
+    const { start, end } = textInput.getSelection();
     if (start === end) return;
     const copied = copyTextRange(pendingTextShape, start, end, editing.cell);
     event.clipboardData.setData('text/plain', copied.text);
@@ -534,12 +554,12 @@
   }
   async function pasteWithoutFormatting() {
     const current = editing;
-    const start = textArea?.selectionStart;
-    const end = textArea?.selectionEnd;
+    const start = textInput?.getSelection().start;
+    const end = textInput?.getSelection().end;
     let text: string;
     try { text = await navigator.clipboard.readText(); }
     catch { editor.toast('error', t('Clipboard access was denied')); return; }
-    if (editing === current && textArea?.selectionStart === start && textArea?.selectionEnd === end) replaceSelectedText(text);
+    if (editing === current && textInput?.getSelection().start === start && textInput?.getSelection().end === end) replaceSelectedText(text);
   }
   function pasteEditingText(event: ClipboardEvent) {
     if (!editing || !event.clipboardData) return;
@@ -561,6 +581,10 @@
       }
     }
     pasteCells(event);
+    if (!event.defaultPrevented) {
+      event.preventDefault();
+      replaceSelectedText(text);
+    }
   }
 
   function pasteCells(event: ClipboardEvent) {
@@ -630,6 +654,11 @@
     doc.version;
     const box = boxes.find(b => b.id === editing?.id);
     return box && editing ? projectTextEdits(box.shape, editing.changes, editing.cell, doc.pres) : null;
+  });
+  const pendingTextHtml = $derived.by(() => {
+    // Formatting mutates OOXML in place, so shape identity alone cannot invalidate this.
+    doc.version;
+    return pendingTextShape && editing ? textClipboardHtml(copyTextRange(pendingTextShape, 0, editing.text.length, editing.cell)) : '';
   });
   function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape) return [];
@@ -705,7 +734,8 @@
       }
     });
     cur.changes = [];
-    requestAnimationFrame(() => textArea?.setSelectionRange(range.start, range.end));
+    editingUndo = []; editingRedo = [];
+    void tick().then(() => textInput?.setSelectionRange(range.start, range.end));
   }
   function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat), reset = false) {
     if (!editing) return;
@@ -725,8 +755,9 @@
       else setShapeTextFormat(box.shape, resolved, { range, reset });
     });
     cur.changes = [];
-    requestAnimationFrame(() => {
-      textArea?.setSelectionRange(range.start, range.end);
+    editingUndo = []; editingRedo = [];
+    void tick().then(() => {
+      if (editing === cur) textInput?.setSelectionRange(range.start, range.end);
     });
   }
   function toggleInlineFormat(property: TextFormatToggle) {
@@ -746,6 +777,14 @@
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
     if (target instanceof Element && target.closest('.canvas-shell .text-format-bar, .inline-edit')) return;
+    if (target === null) {
+      // Some focus transfers briefly report no related target; inspect the settled focus.
+      const current = editing;
+      queueMicrotask(() => {
+        if (editing === current && !document.activeElement?.closest('.canvas-shell .text-format-bar, .inline-edit')) commitEditing();
+      });
+      return;
+    }
     commitEditing();
   }
 
@@ -876,26 +915,24 @@
         {#if editing}
           {@const eb = editBox}
           {#if eb}
-            <textarea
-              class="inline-edit"
-              aria-label={t(editing.cell ? 'Cell text' : 'Edit text')}
-              bind:this={textArea}
-              onselect={(e) => {
-                const range = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd };
+            <RichTextInput
+              label={t(editing.cell ? 'Cell text' : 'Edit text')}
+              bind:this={textInput}
+              onselect={(range) => {
                 if (editing && (range.start !== textRange.start || range.end !== textRange.end)) delete editing.typing;
                 textRange = range;
               }}
               style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%; transform: rotate({eb.rotation}deg);"
               value={editing.text}
-              onbeforeinput={(e) => { textRange = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; }}
-              oninput={(e) => updateEditing(e.currentTarget.value)}
+              html={pendingTextHtml}
+              onbeforeinput={(range) => { textRange = range; }}
+              oninput={updateEditing}
+              onhistory={editingHistory}
+              oncomposition={(active) => { composingText = active; compositionRecorded = false; }}
+              onnewline={() => replaceSelectedText('\n')}
               oncopy={(event) => copyEditingText(event)}
               oncut={(event) => copyEditingText(event, true)}
               onpaste={pasteEditingText}
-              use:focusEdit
-              onpointerdown={(e) => e.stopPropagation()}
-              onpointerup={(e) => e.stopPropagation()}
-              ondblclick={(e) => e.stopPropagation()}
               onkeydown={(e) => {
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'v' || e.code === 'KeyV')) {
                   e.preventDefault();
@@ -917,7 +954,7 @@
                 else if (e.key === 'Escape') editing = null;
                 else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();
               }}
-            ></textarea>
+            />
           {/if}
         {/if}
       </div>
@@ -1025,15 +1062,5 @@
     background: rgba(43, 108, 176, 0.12);
     pointer-events: none;
   }
-  .inline-edit {
-    position: absolute;
-    pointer-events: auto;
-    border: 1px solid var(--ok-selected-border);
-    background: rgba(255, 255, 255, 0.96);
-    font-family: var(--ok-font);
-    font-size: 14px;
-    padding: 4px;
-    resize: none;
-    z-index: 7;
-  }
+
 </style>

@@ -1,3 +1,4 @@
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -31,6 +32,7 @@ test(
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -40,7 +42,7 @@ test(
         await input.focus();
         await input.evaluate(
           (node, range) => {
-            node.setSelectionRange(...range);
+            window.selectEditorText(node, ...range);
             node.dispatchEvent(new Event('select', { bubbles: true }));
           },
           [start, end],
@@ -86,7 +88,7 @@ test(
           }),
         ),
       );
-      assert.equal(await input.inputValue(), 'English日本語');
+      assert.equal(await input.textContent(), 'English日本語');
       await input.press('Control+Enter');
       await saved();
       await editor
@@ -103,7 +105,7 @@ test(
           );
         }, copied);
       await input.press('ControlOrMeta+v');
-      assert.equal(await input.inputValue(), 'English日本語です');
+      assert.equal(await input.textContent(), 'English日本語です');
       await input.press('Control+Enter');
       await saved();
       let result = await snapshot();
@@ -120,10 +122,10 @@ test(
       await select(0, 3);
       await input.press('ControlOrMeta+Shift+v');
       await input.evaluate(async (node) => {
-        for (let i = 0; i < 50 && node.value === 'old'; i++)
+        for (let i = 0; i < 50 && node.textContent === 'old'; i++)
           await new Promise((resolve) => setTimeout(resolve, 20));
       });
-      assert.equal(await input.inputValue(), 'English日本語です');
+      assert.equal(await input.textContent(), 'English日本語です');
       await input.press('Control+Enter');
       await saved();
       assert.ok((await snapshot()).cell.every((r) => r.format?.bold !== true));

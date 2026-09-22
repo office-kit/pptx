@@ -1,3 +1,4 @@
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -60,13 +61,14 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
       await editor.locator('.inline-edit').focus();
-      await editor.locator('.inline-edit').evaluate((node) => node.setSelectionRange(7, 12));
+      await editor.locator('.inline-edit').evaluate((node) => window.selectEditorText(node, 7, 12));
       await page.keyboard.insertText('headline');
       await editor.locator('.inline-edit').press('Control+Enter');
       await waitForState(preview.url, (state) => state.hasEdits);
@@ -186,6 +188,7 @@ test(
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
@@ -259,6 +262,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -343,6 +347,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -458,6 +463,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -465,10 +471,16 @@ test(
       await editor.locator('.hit').first().dblclick();
       const input = editor.getByRole('textbox', { name: 'Edit text', exact: true });
       await input.focus();
-      await input.evaluate((node) => node.setSelectionRange(node.value.length, node.value.length));
+      await input.evaluate((node) =>
+        window.selectEditorText(
+          node,
+          (node.textContent ?? node.value).length,
+          (node.textContent ?? node.value).length,
+        ),
+      );
       await page.keyboard.insertText('!');
       await input.evaluate((node) => {
-        node.setSelectionRange(6, 9);
+        window.selectEditorText(node, 6, 9);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       const bar = editor.getByRole('group', { name: 'Selected text formatting' });
@@ -535,7 +547,7 @@ test(
       await editor
         .getByRole('textbox', { name: 'テキストを編集', exact: true })
         .evaluate((node) => {
-          node.setSelectionRange(6, 9);
+          window.selectEditorText(node, 6, 9);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
       const japanese = editor.getByRole('group', { name: '選択した文字の書式' });
@@ -591,6 +603,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -605,7 +618,13 @@ test(
       await editor.locator('.inline-edit').focus();
       await editor
         .locator('.inline-edit')
-        .evaluate((node) => node.setSelectionRange(node.value.length, node.value.length));
+        .evaluate((node) =>
+          window.selectEditorText(
+            node,
+            (node.textContent ?? node.value).length,
+            (node.textContent ?? node.value).length,
+          ),
+        );
       await page.keyboard.insertText('!');
       await editor.locator('.inline-edit').press('Control+Enter');
       assert.equal(
@@ -619,7 +638,7 @@ test(
         .dblclick({ position: { x: tableBox.width / 4, y: tableBox.height / 4 } });
       await editor.locator('.inline-edit').evaluate((node) => {
         node.focus();
-        node.setSelectionRange(6, 9);
+        window.selectEditorText(node, 6, 9);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       await editor.locator('.inline-edit').press('Control+u');
@@ -839,7 +858,7 @@ test(
         .dblclick({ position: { x: mergedBox.width * 0.8, y: mergedBox.height * 0.2 } });
       const inlineCell = editor.locator('.inline-edit');
       assert.equal(await inlineCell.getAttribute('aria-label'), 'セルのテキスト');
-      const mergedText = await inlineCell.inputValue();
+      const mergedText = await inlineCell.textContent();
       assert.equal(mergedText, 'Hello 日本語!\nB\n追加');
       await inlineCell.fill(mergedText + ' キャンバス');
       await inlineCell.press('Control+Enter');
@@ -891,6 +910,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -990,6 +1010,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -1134,6 +1155,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -1225,6 +1247,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -1443,6 +1466,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
