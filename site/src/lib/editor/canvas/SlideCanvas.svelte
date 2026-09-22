@@ -718,7 +718,7 @@
       after: common(p => p.spcAftPts === null ? '' : String(p.spcAftPts)),
     };
   });
-  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
+  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'levelDelta' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
     if (!cur || !box) return;
@@ -734,6 +734,7 @@
         if (kind === 'lineKind' && (value === 'pct' || value === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: value, value: value === 'pct' ? 1 : 18 });
         if (kind === 'lineValue' && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && (lineKind === 'pct' || lineKind === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: lineKind, value: Number(value) });
         if ((kind === 'before' || kind === 'after') && (value === '' || (Number.isFinite(Number(value)) && Number(value) >= 0))) setParagraphSpacing(target.shape, index, { [kind === 'before' ? 'beforePts' : 'afterPts']: value === '' ? null : Number(value) });
+        if (kind === 'levelDelta') setParagraphLevel(target.shape, index, Math.max(0, Math.min(8, getParagraphPropertiesEffective(doc.pres, target.shape, index).level + Number(value))));
         if (kind === 'level' && /^[0-8]$/.test(value)) setParagraphLevel(target.shape, index, Number(value));
         if (kind === 'bullet' && (value === 'none' || value === 'bullet' || value === 'number')) setParagraphBullet(target.shape, index, value);
       }
@@ -741,6 +742,15 @@
     cur.changes = [];
     editingUndo = []; editingRedo = [];
     void tick().then(() => textInput?.setSelectionRange(range.start, range.end));
+  }
+  function changeInlineListLevel(delta: number, listsOnly: boolean): boolean {
+    const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
+    if (!target || !target.indices.length) return false;
+    const props = target.indices.map(index => getParagraphPropertiesEffective(doc.pres, target.shape, index));
+    // Plain-text Tab remains focus navigation; table Tab moves between cells.
+    if (listsOnly && props.some(p => p.bullet === null || p.bullet === 'none')) return false;
+    if (props.some(p => delta > 0 ? p.level < 8 : p.level > 0)) applyInlineParagraph('levelDelta', String(delta));
+    return true;
   }
   function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat), reset = false) {
     if (!editing) return;
@@ -956,6 +966,8 @@
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === '\\') { e.preventDefault(); applyInlineFormat({}, true); }
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u')) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
                 else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
+                else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { e.preventDefault(); changeInlineListLevel(e.code === 'BracketRight' ? 1 : -1, false); }
+                else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey && !editing?.cell && changeInlineListLevel(e.shiftKey ? -1 : 1, true)) e.preventDefault();
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
                 else if (e.key === 'Escape') editing = null;
                 else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();

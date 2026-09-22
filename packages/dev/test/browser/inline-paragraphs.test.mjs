@@ -241,6 +241,13 @@ test(
       await saved();
       await bar.getByLabel('List level', { exact: true }).selectOption({ value: '3' });
       await saved();
+      await input.focus();
+      await input.press('Control+BracketLeft');
+      await saved();
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '2');
+      assert.equal(await input.textContent(), 'First\nSecond');
+      await input.press('Control+BracketRight');
+      await saved();
       await bar.getByLabel('Line spacing mode', { exact: true }).selectOption('pct');
       await bar.getByLabel('Line spacing value', { exact: true }).fill('2');
       await bar.getByLabel('Line spacing value', { exact: true }).press('Tab');
@@ -702,8 +709,42 @@ test(
       await bar.getByLabel('List style', { exact: true }).selectOption('number');
       await expectLabels(['1.', '2.', '3.']);
       await select(8);
-      await bar.getByLabel('List level', { exact: true }).selectOption({ value: '1' });
+      await input.press('Tab');
       await expectLabels(['1.', '1.', '2.']);
+      assert.equal(await input.evaluate((n) => n === document.activeElement), true);
+      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().dblclick();
+      await expectLabels(['1.', '2.', '3.']);
+      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().dblclick();
+      await expectLabels(['1.', '1.', '2.']);
+      await select(8, 17);
+      await input.press('Control+BracketRight');
+      await expectLabels(['1.', '1.', '1.']);
+      await input.press('Shift+Tab');
+      await expectLabels(['1.', '1.', '2.']);
+      await select(8);
+      await bar.getByLabel('List level', { exact: true }).selectOption({ value: '8' });
+      await input.focus();
+      await input.press('Tab');
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '8');
+      await bar.getByLabel('List level', { exact: true }).selectOption({ value: '1' });
+      await input.focus();
+      await input.evaluate((n) =>
+        n.dispatchEvent(
+          new KeyboardEvent('keydown', {
+            key: 'Tab',
+            isComposing: true,
+            bubbles: true,
+            cancelable: true,
+          }),
+        ),
+      );
+      assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '1');
       assert.equal(await input.textContent(), 'English\n日本語\nThird');
       const marker = await input
         .locator('[data-text-paragraph]')
@@ -740,6 +781,13 @@ test(
       await select(0, 7);
       await bar.getByLabel('リストの種類', { exact: true }).selectOption('bullet');
       await expectLabels(['•', '1.', '2.', '1.']);
+      await input.focus();
+      await input.press('Shift+Tab');
+      assert.equal(await bar.getByLabel('リストの階層', { exact: true }).inputValue(), '0');
+      assert.equal(await input.evaluate((n) => n === document.activeElement), true);
+      await select(8);
+      await input.press('Meta+BracketLeft');
+      await expectLabels(['•', '1.', '1.', '2.']);
       await page.screenshot({ path: join(tmpdir(), 'pptx-pr287-inline-lists.png') });
     } finally {
       await browser?.close();

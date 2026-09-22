@@ -33,7 +33,10 @@ redo pending text edits; Escape cancels them. Japanese composition is kept toget
 as one undo step. Paragraph alignment, line spacing, spacing before and after,
 indentation and text direction are visible while editing. Bullets and numbered
 lists show their markers without adding characters to the editable text; nested
-numbered lists keep separate counters by level. Picture bullets, custom bullet
+numbered lists keep separate counters by level. Tab / Shift+Tab changes the
+selected list paragraphs' levels; Ctrl/Cmd+[ / ] also changes paragraph levels,
+including inside table cells. Tab in tables still moves to the next cell.
+Picture bullets, custom bullet
 font/size overrides, vertical text placement and inherited table character styles
 still use the presentation renderer after committing the edit.
 

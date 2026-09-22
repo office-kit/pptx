@@ -54,7 +54,7 @@
     <label>{t('List style')}<select aria-label={t('List style')} value={paragraph.bullet} onchange={e => onparagraph?.('bullet', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option><option value="none">{t('No list')}</option><option value="bullet">{t('Bulleted list')}</option><option value="number">{t('Numbered list')}</option>
     </select></label>
-    <label>{t('List level')}<select aria-label={t('List level')} value={paragraph.level} onchange={e => onparagraph?.('level', e.currentTarget.value)}>
+    <label>{t('List level')}<select aria-label={t('List level')} title={t('Tab / Shift+Tab in lists; Ctrl/Cmd+[ / ] changes level')} value={paragraph.level} onchange={e => onparagraph?.('level', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed')}</option>
       {#each Array.from({ length: 9 }, (_, i) => i) as value}<option value={String(value)}>{value + 1}</option>{/each}
     </select></label>
