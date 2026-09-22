@@ -36,8 +36,23 @@ import {
   type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { appendAndReturnNewShape, nextShapeId, setOpcDefault } from './_helpers.ts';
-import { addMediaTimingNode } from './_media-timing.ts';
+import {
+  appendAndReturnNewShape,
+  commitSlideData,
+  nextShapeId,
+  refreshSlideData,
+  setOpcDefault,
+} from './_helpers.ts';
+import { addMediaTimingNode, findMediaTimingNode } from './_media-timing.ts';
+import {
+  NS,
+  type XmlElement,
+  attr,
+  elem,
+  firstChildElement,
+  getAttrValue,
+  qname,
+} from '../../internal/xml/index.ts';
 
 export type { AudioFormat, VideoFormat };
 
@@ -334,3 +349,142 @@ export const getShapeMedia = (shape: SlideShapeData): ShapeMedia | null => {
 /** Every shape on the slide that `getShapeMedia` reports a clip for. */
 export const findShapesWithMedia = (slide: SlideData): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((shape) => getShapeMedia(shape) !== null);
+
+/**
+ * How a clip plays in the slide show — the attributes of its
+ * `<p:cMediaNode>` and the start condition of its time node.
+ *
+ * Trimming (`p14:trim`) is not part of this: PowerPoint stores it in a 2010
+ * extension rather than in the core schema, and a reader that does not know
+ * the extension plays the whole clip.
+ */
+export interface MediaPlayback {
+  /** Starts with the slide instead of waiting for a click. */
+  readonly autoplay: boolean;
+  /** Plays again from the beginning until the slide moves on. */
+  readonly loop: boolean;
+  /** Playback volume, 0–1. PowerPoint's own default is 0.8. */
+  readonly volume: number;
+  readonly muted: boolean;
+  /** Video only: plays filling the screen. */
+  readonly fullScreen: boolean;
+  /** Hides the clip once it has played (`showWhenStopped="0"`). */
+  readonly hideWhenStopped: boolean;
+}
+
+const NAME_C_MEDIA_NODE = qname('p', 'cMediaNode', NS.pml);
+const NAME_C_TN = qname('p', 'cTn', NS.pml);
+const NAME_ST_COND_LST = qname('p', 'stCondLst', NS.pml);
+const NAME_COND = qname('p', 'cond', NS.pml);
+const ATTR_VOL = qname('', 'vol', '');
+const ATTR_MUTE = qname('', 'mute', '');
+const ATTR_FULL_SCRN = qname('', 'fullScrn', '');
+const ATTR_SHOW_WHEN_STOPPED = qname('', 'showWhenStopped', '');
+const ATTR_REPEAT_COUNT = qname('', 'repeatCount', '');
+const ATTR_DELAY = qname('', 'delay', '');
+
+// ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
+// the integer form, and the schema's own default is spelled `50%`.
+const percentFraction = (raw: string | null, fallback: number): number => {
+  if (raw === null) return fallback;
+  const value = Number.parseFloat(raw.endsWith('%') ? raw.slice(0, -1) : raw);
+  if (!Number.isFinite(value)) return fallback;
+  return raw.endsWith('%') ? value / 100 : value / 100000;
+};
+
+const xsdBoolean = (raw: string | null, fallback: boolean): boolean =>
+  raw === null ? fallback : raw === '1' || raw === 'true';
+
+const setOrRemove = (
+  el: XmlElement,
+  name: ReturnType<typeof qname>,
+  value: string | null,
+): void => {
+  el.attrs = el.attrs.filter((a) => a.name.localName !== name.localName);
+  if (value !== null) el.attrs.push(attr(name, value));
+};
+
+const mediaNodeOf = (shape: SlideShapeData): { node: XmlElement; media: XmlElement } | null => {
+  const node = findMediaTimingNode(shape[SHAPE_SLIDE], shape[SHAPE_SNAPSHOT].id);
+  const media = node === null ? null : firstChildElement(node, NAME_C_MEDIA_NODE);
+  return node !== null && media !== null ? { node, media } : null;
+};
+
+/**
+ * Reads how the shape's clip plays, or `null` when the shape carries no media
+ * time node — which is what a picture that is not a clip looks like, and also
+ * what a clip pasted in without its node looks like (it shows no controls).
+ */
+export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | null => {
+  const found = mediaNodeOf(shape);
+  if (found === null) return null;
+  const { node, media } = found;
+  const cTn = firstChildElement(media, NAME_C_TN);
+  const stCondLst = cTn && firstChildElement(cTn, NAME_ST_COND_LST);
+  const start = stCondLst && firstChildElement(stCondLst, NAME_COND);
+  return {
+    // `indefinite` is "wait to be started"; every other delay starts on its own.
+    autoplay: start !== null && getAttrValue(start, ATTR_DELAY) !== 'indefinite',
+    loop: cTn !== null && getAttrValue(cTn, ATTR_REPEAT_COUNT) === 'indefinite',
+    volume: percentFraction(getAttrValue(media, ATTR_VOL), 0.5),
+    muted: xsdBoolean(getAttrValue(media, ATTR_MUTE), false),
+    fullScreen: xsdBoolean(getAttrValue(node, ATTR_FULL_SCRN), false),
+    hideWhenStopped: !xsdBoolean(getAttrValue(media, ATTR_SHOW_WHEN_STOPPED), true),
+  };
+};
+
+/**
+ * Updates how the shape's clip plays. Omitted properties keep their current
+ * value. Throws when the shape has no media time node — `addSlideMedia` writes
+ * one, and a picture that is not a clip never plays.
+ *
+ * `fullScreen` is a video attribute (`CT_TLMediaNodeVideo`); asking for it on
+ * an audio clip throws rather than writing an attribute the schema rejects.
+ */
+export const setShapeMediaPlayback = (
+  shape: SlideShapeData,
+  options: Partial<MediaPlayback>,
+): void => {
+  const found = mediaNodeOf(shape);
+  if (found === null) throw new Error('setShapeMediaPlayback: the shape has no media time node');
+  const { node, media } = found;
+  if (options.volume !== undefined && (options.volume < 0 || options.volume > 1)) {
+    throw new Error('setShapeMediaPlayback: volume must be between 0 and 1');
+  }
+  if (options.fullScreen !== undefined && node.name.localName !== 'video') {
+    throw new Error('setShapeMediaPlayback: fullScreen applies to video only');
+  }
+
+  if (options.volume !== undefined) {
+    setOrRemove(media, ATTR_VOL, String(Math.round(options.volume * 100000)));
+  }
+  if (options.muted !== undefined) setOrRemove(media, ATTR_MUTE, options.muted ? '1' : '0');
+  if (options.hideWhenStopped !== undefined) {
+    setOrRemove(media, ATTR_SHOW_WHEN_STOPPED, options.hideWhenStopped ? '0' : '1');
+  }
+  if (options.fullScreen !== undefined) {
+    setOrRemove(node, ATTR_FULL_SCRN, options.fullScreen ? '1' : '0');
+  }
+
+  const cTn = firstChildElement(media, NAME_C_TN);
+  if (cTn !== null) {
+    if (options.loop !== undefined) {
+      setOrRemove(cTn, ATTR_REPEAT_COUNT, options.loop ? 'indefinite' : null);
+    }
+    if (options.autoplay !== undefined) {
+      // CT_TLCommonTimeNodeData is a sequence: `<p:stCondLst>` comes first.
+      let stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
+      if (stCondLst === null) {
+        stCondLst = elem(NAME_ST_COND_LST);
+        cTn.children.unshift(stCondLst);
+      }
+      stCondLst.children = [
+        elem(NAME_COND, {
+          attrs: [attr(ATTR_DELAY, options.autoplay ? '0' : 'indefinite')],
+        }),
+      ];
+    }
+  }
+  commitSlideData(shape[SHAPE_SLIDE]);
+  refreshSlideData(shape[SHAPE_SLIDE]);
+};

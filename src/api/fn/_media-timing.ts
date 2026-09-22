@@ -117,3 +117,13 @@ export const mediaTimingNodes = (timing: XmlElement): XmlElement[] => {
     (c): c is XmlElement => c.kind === 'element' && isMediaTimingNode(c),
   );
 };
+
+/** The media node targeting `spid`, or null when the slide has none. */
+export const findMediaTimingNode = (slide: SlideData, spid: number): XmlElement | null => {
+  const timing = findSlideTiming(slide);
+  if (timing === null) return null;
+  for (const node of mediaTimingNodes(timing)) {
+    if (mediaTimingNodeTarget(node) === spid) return node;
+  }
+  return null;
+};
