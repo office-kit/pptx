@@ -142,6 +142,8 @@ const selectionAppearanceCommands = new Set([
   'setShapeShadow',
   'setShapeGlow',
   'setShapeTextFormat',
+  'setShapeAlignment',
+  'setShapeTextAnchor',
 ]);
 
 class ManifestCommand implements Command {
@@ -179,7 +181,11 @@ class ManifestCommand implements Command {
           .getSlideShapes(slide)
           .filter((shape) => selected.has(pptx.getShapeId(shape)));
         // Check text eligibility before touching any object in a mixed selection.
-        if (cap.id === 'setShapeTextFormat') {
+        if (
+          cap.id === 'setShapeTextFormat' ||
+          cap.id === 'setShapeAlignment' ||
+          cap.id === 'setShapeTextAnchor'
+        ) {
           for (const shape of shapes) pptx.getShapeParagraphCount(shape);
         }
         for (const shape of shapes) fn(shape, ...positional);

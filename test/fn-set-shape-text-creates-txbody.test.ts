@@ -7,6 +7,10 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  setShapeAlignment,
+  setShapeTextAnchor,
+  getShapeTextAnchor,
+  getParagraphPropertiesEffective,
   addSlideShape,
   appendShapeText,
   getShapeText,
@@ -104,4 +108,25 @@ it('does not create a text body for invalid formatting or an empty range', async
   setShapeTextFormat(shape, { bold: true }, { range: { start: 0, end: 0 } });
   expect(getShapeParagraphCount(shape)).toBe(0);
   expect(getSlideXmlString(slide)).toBe(before);
+});
+
+it('sets alignment before typing in a bare shape and saves it', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const slide = getSlides(pres)[0]!;
+  const shape = addBareRect(slide);
+  const before = getSlideXmlString(slide);
+  // @ts-expect-error invalid runtime input
+  expect(() => setShapeAlignment(shape, 'invalid')).toThrow();
+  // @ts-expect-error invalid runtime input
+  expect(() => setShapeTextAnchor(shape, 'invalid')).toThrow();
+  expect(getSlideXmlString(slide)).toBe(before);
+  const anchorOnly = addBareRect(slide);
+  setShapeTextAnchor(anchorOnly, 'top');
+  expect(getShapeTextAnchor(anchorOnly)).toBe('top');
+  setShapeAlignment(shape, 'center');
+  setShapeTextAnchor(shape, 'bottom');
+  const reopened = await loadPresentation(await savePresentation(pres));
+  const restored = getSlideShapes(getSlides(reopened)[0]!).at(-2)!;
+  expect(getParagraphPropertiesEffective(reopened, restored, 0).align).toBe('center');
+  expect(getShapeTextAnchor(restored)).toBe('bottom');
 });

@@ -467,3 +467,7 @@ Selecting objects containing text now shows a property-panel formatting bar with
 ### Text formatting before typing
 
 Blank autoshapes now expose the same formatting controls, including shapes with no text body. Setting a format creates the body and stores paragraph-end character properties for future typing; reading the paragraph count returns zero before creation. Invalid format and empty range requests leave a missing body untouched. Core tests check round trips and subsequent bilingual text insertion; the browser checks blank-shape formatting, saved reload, toolbar readback and later text entry. Mixed selection preflight still rejects actual non-text objects before applying any change.
+
+### Selected-object text alignment
+
+The quick property panel includes paragraph and vertical alignment controls in English and Japanese. Horizontal state is read across every selected paragraph, with mixed or inherited values shown explicitly. Changes apply to every selected text shape in one undo step, including blank autoshapes without a text body. Non-text targets are checked before any mutation. Core, model and browser coverage checks invalid input, paragraph-wide application, blank-shape persistence, mixed readback, undo/redo, bilingual controls, saved reload and preservation of unselected objects.
