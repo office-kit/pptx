@@ -1,3 +1,4 @@
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -31,6 +32,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -54,18 +56,18 @@ test(
       await hit.dblclick({ position: { x: bounds.width / 4, y: bounds.height / 4 } });
       await inline.fill('日本語');
       await inline.press('Tab');
-      assert.equal(await inline.inputValue(), 'B');
+      assert.equal(await inline.textContent(), 'B');
       await inline.press('Shift+Tab');
-      assert.equal(await inline.inputValue(), '日本語');
+      assert.equal(await inline.textContent(), '日本語');
       await inline.press('Shift+Tab');
-      assert.equal(await inline.inputValue(), '日本語');
+      assert.equal(await inline.textContent(), '日本語');
       await inline.press('Tab');
       await inline.press('Tab');
-      assert.equal(await inline.inputValue(), 'C');
+      assert.equal(await inline.textContent(), 'C');
       await inline.press('Tab');
       await inline.fill('Last');
       await inline.press('Tab');
-      assert.equal(await inline.inputValue(), '');
+      assert.equal(await inline.textContent(), '');
       await inline.press('Escape');
       await saved();
       assert.deepEqual(await values(), [
@@ -86,8 +88,8 @@ test(
       await inline.press('Escape');
       await editor.getByRole('button', { name: 'Cell 2, 2', exact: true }).click();
       await editor.getByRole('button', { name: 'Cell 2, 2', exact: true }).press('Enter');
-      assert.equal(await inline.inputValue(), 'Last');
-      await inline.evaluate((node) => node.select());
+      assert.equal(await inline.textContent(), 'Last');
+      await inline.evaluate((node) => window.selectEditorText(node, 0, node.textContent.length));
       await inline.evaluate((node) => {
         const data = new DataTransfer();
         data.setData('text/plain', '"one\ttwo"');
@@ -95,7 +97,7 @@ test(
           new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
         );
       });
-      assert.equal(await inline.inputValue(), 'one\ttwo');
+      assert.equal(await inline.textContent(), 'one\ttwo');
       await inline.evaluate((node) => {
         const data = new DataTransfer();
         data.setData('text/plain', '"改行\nEnglish"\t"say ""Hi"""\r\n終わり\t42\r\n');
@@ -103,7 +105,7 @@ test(
           new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
         );
       });
-      assert.equal(await inline.inputValue(), '改行\nEnglish');
+      assert.equal(await inline.textContent(), '改行\nEnglish');
       await inline.press('Escape');
       await saved();
       const expected = [
@@ -136,14 +138,14 @@ test(
       await editor.getByRole('button', { name: 'セルを結合', exact: true }).click();
       await saved();
       await editor.getByRole('button', { name: 'セル 1, 1', exact: true }).press('Enter');
-      assert.equal(await inline.inputValue(), '日本語\nB');
+      assert.equal(await inline.textContent(), '日本語\nB');
       await inline.press('Tab');
-      assert.equal(await inline.inputValue(), '');
+      assert.equal(await inline.textContent(), '');
       await inline.press('Tab');
-      assert.equal(await inline.inputValue(), 'C');
+      assert.equal(await inline.textContent(), 'C');
       await inline.press('Shift+Tab');
       await inline.press('Shift+Tab');
-      assert.equal(await inline.inputValue(), '日本語\nB');
+      assert.equal(await inline.textContent(), '日本語\nB');
       await inline.evaluate((node) => {
         const data = new DataTransfer();
         data.setData('text/plain', 'X\tY');
@@ -154,7 +156,7 @@ test(
       await editor
         .getByText('複数セルを貼り付ける前に結合セルを分割してください', { exact: true })
         .waitFor();
-      assert.equal(await inline.inputValue(), '日本語\nB');
+      assert.equal(await inline.textContent(), '日本語\nB');
       await inline.press('Escape');
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();

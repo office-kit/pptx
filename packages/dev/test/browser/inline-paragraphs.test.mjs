@@ -1,3 +1,4 @@
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -21,7 +22,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 // Exercise an incremental edit, not textarea.fill's select-all replacement.
 async function fillPreservingText(input, value) {
-  const before = await input.inputValue();
+  const before = await input.textContent();
   let start = 0;
   while (start < before.length && start < value.length && before[start] === value[start]) start++;
   let end = before.length;
@@ -33,7 +34,7 @@ async function fillPreservingText(input, value) {
   await input.focus();
   await input.evaluate(
     (node, range) => {
-      node.setSelectionRange(...range);
+      window.selectEditorText(node, ...range);
       node.dispatchEvent(new Event('select', { bubbles: true }));
     },
     [start, end],
@@ -60,6 +61,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -95,7 +97,7 @@ test(
         await input.focus();
         await input.evaluate(
           (node, range) => {
-            node.setSelectionRange(range.start, range.end);
+            window.selectEditorText(node, range.start, range.end);
             node.dispatchEvent(new Event('select', { bubbles: true }));
           },
           { start, end },
@@ -198,6 +200,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -223,7 +226,7 @@ test(
       const input = editor.locator('.inline-edit');
       await fillPreservingText(input, 'First\nSecond');
       await input.evaluate((node) => {
-        node.setSelectionRange(8, 8);
+        window.selectEditorText(node, 8, 8);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
@@ -261,7 +264,7 @@ test(
       assert.notEqual(getParagraphAlignment(cells[0][1], 0), 'r');
       await fillPreservingText(input, 'Prefix\nFirst\nSecond');
       await input.evaluate((node) => {
-        node.setSelectionRange(15, 15);
+        window.selectEditorText(node, 15, 15);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       assert.equal(
@@ -274,7 +277,7 @@ test(
       await fillPreservingText(input, 'First\nSecond');
       await input.focus();
       await input.evaluate((node) => {
-        node.setSelectionRange(6, 12);
+        window.selectEditorText(node, 6, 12);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       await bar.getByRole('button', { name: 'Strikethrough', exact: true }).click();
@@ -294,7 +297,7 @@ test(
       await hit.dblclick({ position: { x: bounds.width / 4, y: bounds.height / 2 } });
       await input.focus();
       await input.evaluate((node) => {
-        node.setSelectionRange(6, 9);
+        window.selectEditorText(node, 6, 9);
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       await bar.getByRole('button', { name: 'Clear text formatting', exact: true }).click();
@@ -342,6 +345,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -376,7 +380,7 @@ test(
         await input.focus();
         await input.evaluate(
           (node, range) => {
-            node.setSelectionRange(range.start, range.end);
+            window.selectEditorText(node, range.start, range.end);
             node.dispatchEvent(new Event('select', { bubbles: true }));
           },
           { start, end },
@@ -459,6 +463,7 @@ for (const control of ['keyboard', 'toolbar'])
         page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
         const errors = [];
         page.on('pageerror', (e) => errors.push(e.message));
+        await installRichTextSelection(page);
         await page.goto(preview.url);
         await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
@@ -482,7 +487,7 @@ for (const control of ['keyboard', 'toolbar'])
         const input = editor.locator('.inline-edit');
         await fillPreservingText(input, 'Prefix\nEnglish\n日本語\nThird paragraph');
         await input.evaluate((node) => {
-          node.setSelectionRange(7, 14);
+          window.selectEditorText(node, 7, 14);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
         const toggle = async (key, label) => {
@@ -557,7 +562,7 @@ for (const control of ['keyboard', 'toolbar'])
         await editor.locator('.hit').first().dblclick();
         await input.focus();
         await input.evaluate((node) => {
-          node.setSelectionRange(7, 14);
+          window.selectEditorText(node, 7, 14);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
         await toggle('Control+u', '下線');
@@ -590,7 +595,7 @@ for (const control of ['keyboard', 'toolbar'])
         await editor.locator('.hit').first().dblclick();
         await input.focus();
         await input.evaluate((node) => {
-          node.setSelectionRange(7, 14);
+          window.selectEditorText(node, 7, 14);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
         await toggle('Control+Backslash', '文字の書式を解除');
@@ -608,7 +613,7 @@ for (const control of ['keyboard', 'toolbar'])
         await input.focus();
         await fillPreservingText(input, 'Prefix\nEnglish\n日本語です\nThird paragraph');
         await input.evaluate((node) => {
-          node.setSelectionRange(15, 20);
+          window.selectEditorText(node, 15, 20);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
         await toggle('Meta+Backslash', 'Clear text formatting');

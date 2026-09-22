@@ -129,7 +129,7 @@ test(
       assert.deepEqual((await shapes()).map(getShapeBounds), original);
       await hits.nth(0).dblclick();
       const nativeMenuAllowed = await editor
-        .locator('textarea.inline-edit')
+        .locator('.inline-edit')
         .evaluate((node) =>
           node.dispatchEvent(
             new MouseEvent('contextmenu', { bubbles: true, cancelable: true, button: 2 }),

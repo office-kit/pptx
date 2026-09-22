@@ -1,3 +1,4 @@
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import assert from 'node:assert/strict';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -34,6 +35,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -145,6 +147,7 @@ test(
       browser = await chromium.launch({ headless: true });
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       page.on('pageerror', (error) => errors.push(error.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -334,6 +337,7 @@ for (const target of ['shape', 'cell'])
         const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
         const errors = [];
         page.on('pageerror', (e) => errors.push(e.message));
+        await installRichTextSelection(page);
         await page.goto(preview.url);
         await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
@@ -356,10 +360,10 @@ for (const target of ['shape', 'cell'])
           await hit.dblclick(
             target === 'cell' ? { position: { x: bounds.width / 4, y: bounds.height / 2 } } : {},
           );
-          const input = editor.locator('textarea.inline-edit');
+          const input = editor.locator('.inline-edit');
           await input.evaluate((el) => {
             el.focus();
-            el.setSelectionRange(7, 10);
+            window.selectEditorText(el, 7, 10);
             el.dispatchEvent(new Event('select', { bubbles: true }));
           });
           if (keyboard) await input.press('Control+k');
@@ -512,6 +516,7 @@ test(
       page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
@@ -643,6 +648,7 @@ test(
       const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
+      await installRichTextSelection(page);
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
