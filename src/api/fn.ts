@@ -19,6 +19,7 @@ export * from './fn/thumbnail.ts';
 // Slide-level
 export * from './fn/slide-query.ts';
 export * from './fn/slide-deck.ts';
+export * from './fn/slide-placeholder-geometry.ts';
 
 // Shape
 export * from './fn/shape-slide-read.ts';

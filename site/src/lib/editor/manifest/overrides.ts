@@ -16,6 +16,10 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setCommentText: { labelEn: 'Edit Comments', labelJa: 'コメントを編集' },
   splitTableCell: { labelJa: '結合セルを分割' },
   addSectionHeaderSlide: { labelJa: 'セクション見出しスライドの追加' },
+  resetSlidePlaceholderGeometry: {
+    labelEn: 'Reset placeholder positions',
+    labelJa: 'プレースホルダーの配置を戻す',
+  },
   addSlide: { labelEn: 'New slide from layout', labelJa: 'レイアウトからスライドを追加' },
   addSlideAt: { labelJa: '指定位置にスライドを追加' },
   addSlideChart: { labelJa: 'グラフの挿入' },

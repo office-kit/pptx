@@ -170,6 +170,7 @@ const activeSlideCommands = new Set([
   'removeSlide',
   'moveSlide',
   'duplicateSlideAt',
+  'resetSlidePlaceholderGeometry',
 ]);
 class SlideCommand extends ManifestCommand {
   override get params(): ResolvedCapability['params'] {
@@ -221,6 +222,11 @@ class SlideCommand extends ManifestCommand {
           doc.selectSlide(Math.min(index + 1, pptx.getSlides(doc.pres).length - 1));
           return pptx.getSlides(doc.pres)[doc.selection.slideIndex];
         }
+        case 'resetSlidePlaceholderGeometry':
+          return selected.reduce(
+            (count, target) => count + pptx.resetSlidePlaceholderGeometry(target),
+            0,
+          );
         case 'duplicateSlide':
         case 'duplicateSlideAt': {
           const at = id === 'duplicateSlide' ? indices[indices.length - 1]! + 1 : args.atIndex;
