@@ -392,3 +392,8 @@ positions, rotations and reflections produced by ungrouping.
 
 - Caret and range controls resolve text-box character formats through the same layout/master/theme cascade as the rendered text, including detached pending edits. Toggle decisions therefore honor inherited bold rather than treating an absent run property as false.
 - Unit coverage checks master font size, paragraph-end bold, pending Japanese paragraph insertion and unchanged source XML. Browser coverage checks inherited title size in the toolbar before typing, during pending input and after saving/reopening.
+
+### Imported layout relationship targets
+
+- Switching layouts now retains the selected layout's actual package path, including nested and root-level imported parts and matching filenames in different directories.
+- Regression coverage verifies adding/replacing the relationship, stable relationship IDs, unchanged slide content and unrelated relationships, save/reload, and rejection of missing layout parts without mutation. This repairs the existing layout picker; broader placeholder creation/reset workflows remain outstanding.
