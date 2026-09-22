@@ -10,9 +10,14 @@
     getShapeText,
     inches,
     setShapeBounds,
-    setShapeFill,
+    getShapeFill,
+    getShapeFillColorResolved,
+    getShapeStroke,
+    getShapeStrokeColorResolved,
+    getShapeId,
+    getSlideShapes,
     setShapeRotation,
-    setShapeStroke,
+
     setShapeText,
   } from '@office-kit/pptx';
   import { selectedShapeId } from '../core/selection.ts';
@@ -77,15 +82,47 @@
     }
   });
 
-  let fill = $state('#3b6ea5');
-  let strokeColor = $state('#1f1f1f');
+  const paint = $derived.by(() => {
+    doc.version;
+    const sel = doc.selection;
+    if (sel.kind !== 'shape') return { fill: 'inherit', stroke: 'inherit' };
+    const slide = doc.slideAt(sel.slideIndex);
+    if (!slide) return { fill: 'inherit', stroke: 'inherit' };
+    const ids = new Set(sel.shapeIds);
+    const fills = new Set<string>();
+    const strokes = new Set<string>();
+    for (const target of getSlideShapes(slide)) {
+      if (!ids.has(getShapeId(target))) continue;
+      const fill = getShapeFill(target);
+      const stroke = getShapeStroke(target);
+      fills.add(fill.kind === 'solid' ? getShapeFillColorResolved(doc.pres, target) ?? fill.color : fill.kind);
+      strokes.add(stroke.kind === 'solid' ? getShapeStrokeColorResolved(doc.pres, target) ?? stroke.color : stroke.kind);
+    }
+    return {
+      fill: fills.size > 1 ? 'mixed' : [...fills][0] ?? 'inherit',
+      stroke: strokes.size > 1 ? 'mixed' : [...strokes][0] ?? 'inherit',
+    };
+  });
 
-  function applyFill() {
-    editor.invoke('setShapeFill', { color: fill.replace('#', '') });
+  function paintLabel(value: string): string {
+    switch (value) {
+      case 'mixed': return t('Mixed');
+      case 'none': return t('None');
+      case 'inherit': return t('Inherited');
+      case 'gradient': return t('Gradient');
+      case 'pattern': return t('Pattern');
+      case 'image': return t('Picture');
+      default: return value;
+    }
   }
-  function applyStroke() {
-    // setShapeStroke(shape, options: { color?, widthEmu? }) — pass the object.
-    editor.invoke('setShapeStroke', { options: { color: strokeColor.replace('#', '') } });
+  function colorValue(value: string): string {
+    return /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
+  }
+  function applyFill(value: string) {
+    editor.invoke('setShapeFill', { color: value.replace('#', '') });
+  }
+  function applyStroke(value: string) {
+    editor.invoke('setShapeStroke', { options: { color: value.replace('#', '') } });
   }
   function setBoundsField(field: 'x' | 'y' | 'w' | 'h', value: number) {
     const s = shape;
@@ -121,13 +158,15 @@
         <label class="mini">
           <span>{t('Fill')}</span>
           <span class="colorwrap">
-            <input type="color" bind:value={fill} onchange={applyFill} />
+            <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
+            <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
           </span>
         </label>
         <label class="mini">
           <span>{t('Outline')}</span>
           <span class="colorwrap">
-            <input type="color" bind:value={strokeColor} onchange={applyStroke} />
+            <input type="color" aria-label={t('Outline')} value={colorValue(paint.stroke)} onchange={(e) => applyStroke(e.currentTarget.value)} />
+            <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
           </span>
         </label>
       </div>
