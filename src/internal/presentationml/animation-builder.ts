@@ -1,14 +1,15 @@
 // Animation builder — emits a `<p:timing>` block carrying a single
-// click-triggered entrance / exit effect on one target shape.
+// click-triggered entrance / exit effect on one target shape. The caller
+// (`setShapeAnimation`) merges it into the slide's existing tree, so a slide
+// ends up with as many effects as there were calls.
 //
-// Scope (v1):
+// Scope:
 //
-//   - Exactly one effect per slide. Calling `setShapeAnimation` on a
-//     second shape replaces the first. The plan calls this out as the
-//     curated subset; full timing-tree authoring is post-1.0.
-//   - Click trigger only. After-previous / with-previous chaining lands
-//     when multi-effect support does.
-//   - Entrance + exit preset families. Emphasis presets are post-1.0.
+//   - Click trigger only. With-previous / after-previous chaining is not
+//     modelled yet.
+//   - Entrance + exit preset families. Emphasis presets are not modelled yet.
+//   - The whole shape is the target; per-paragraph builds
+//     (`<p:txEl><p:pRg>`, `<p:bldP build="p">`) are not modelled yet.
 //
 // The timing tree shape follows what PowerPoint itself emits for a
 // single "fade in on click" effect — the boilerplate scaffolding around
@@ -65,7 +66,7 @@ const ATTR_VALUE_TYPE = qname('', 'valueType', '');
 const ATTR_ADDITIVE = qname('', 'additive', '');
 const ATTR_TM = qname('', 'tm', '');
 
-/** What kind of effect to apply. v1 covers the four most-used presets. */
+/** What kind of effect to apply. Currently the four most-used presets. */
 export type AnimationEffect = 'fadeIn' | 'fadeOut' | 'appear' | 'disappear';
 
 interface PresetDescriptor {

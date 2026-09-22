@@ -9,7 +9,7 @@ import {
   readSlidePart,
   slideText,
 } from '../../internal/presentationml/index.ts';
-import { NS, attr, getAttrValue, parseXml, qname, serializeXml } from '../../internal/xml/index.ts';
+import { attr, getAttrValue, parseXml, qname, serializeXml } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
   LAYOUT_PART,
@@ -35,6 +35,7 @@ import {
   encode,
   refreshSlideData,
 } from './_helpers.ts';
+import { readSlideTiming } from './_animation-timing.ts';
 import { findSlidePlaceholder, getSlideLayout, getSlideShapes } from './shapes.ts';
 import { getSlideNotes, setSlideNotes } from './features.ts';
 import { getSlideTitle } from './embedded.ts';
@@ -563,16 +564,15 @@ export const isSlideHidden = (slide: SlideData): boolean => {
 };
 
 /**
- * Returns `true` when the slide carries a `<p:timing>` block — i.e.,
- * has at least one authored animation effect. Per-slide complement to
- * `getPresentationSummary().hasAnimations`, which only reports a
- * deck-wide flag.
+ * Returns `true` when the slide has at least one authored animation effect.
+ * Per-slide complement to `getPresentationSummary().hasAnimations`, which only
+ * reports a deck-wide flag.
+ *
+ * A slide holding only a video / audio clip also carries a `<p:timing>` block
+ * — that is where the clip's play controls live — so the element's presence
+ * alone is not an animation.
  */
-export const slideHasAnimations = (slide: SlideData): boolean => {
-  return slide[SLIDE_DOCUMENT].root.children.some(
-    (c) => c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
-  );
-};
+export const slideHasAnimations = (slide: SlideData): boolean => readSlideTiming(slide).length > 0;
 
 /**
  * Toggles the slide's visibility in the slideshow. Hiding adds
