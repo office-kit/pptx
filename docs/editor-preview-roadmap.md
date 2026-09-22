@@ -416,7 +416,7 @@ positions, rotations and reflections produced by ungrouping.
 
 ### Visual transition playback
 
-- Presentation mode plays cut through black, fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond, plus, blinds, comb, checkerboard, strips, random bars and dissolve. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
+- Presentation mode plays cut through black, fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond, plus, blinds, comb, checkerboard, strips, random bars, dissolve, wedge and newsflash. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
 - Browser tests load saved decks and verify intermediate animation frames, interrupted-layer cleanup, completion, reduced-motion behavior and automatic advancement after animation. The shape-transition test includes Japanese/English text and visual inspection of the midpoint plus mask.
 - Cut through black holds a black frame for the selected transition duration, then switches without fading. Plain cut remains immediate. Imported `true`/`false` and `1`/`0` XML booleans (including surrounding whitespace) preserve through-black and click-advance settings across save/reload.
 - Other selectable effects (including wheel and random) still need visual playback; they currently switch immediately. Object-animation playback remains a separate requirement.
@@ -430,3 +430,5 @@ positions, rotations and reflections produced by ungrouping.
 - Random-bar playback reveals shuffled horizontal/vertical bands using a single incoming layer. Saved-deck browser tests cover default and explicit directions, endpoints, midpoint geometry, interruption, completion and reduced motion with Japanese/English text.
 
 - Dissolve playback adds randomly ordered square cells with a mask sized to the slide aspect ratio. Saved-deck browser tests verify all three speeds, increasing coverage at five points, endpoints, interruption, completion and reduced motion with Japanese/English content.
+
+- Wedge playback opens two radial boundaries from top to bottom; newsflash spins the incoming slide counter-clockwise while enlarging it. Saved-deck tests verify endpoints, midpoint geometry, interruption, completion and reduced motion with Japanese/English content.
