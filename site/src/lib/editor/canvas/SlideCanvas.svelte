@@ -43,7 +43,7 @@
   } from '@office-kit/pptx';
   import { selectedShapeIds, topLevelShapes, type Selection } from '../core/selection.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
-  import { resizeRect, type ResizeHandle } from './resize.ts';
+  import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
   import { rotateRect, selectionBounds } from './rotation.ts';
   import { snapMove, type Guide, type Rect } from './snapping.ts';
 
@@ -338,14 +338,19 @@
         }
       });
     } else if (drag.mode === 'resize') {
-      const id = drag.ids[0]!;
-      const r = drag.startRects.get(id)!;
-      const { x, y, w, h } = resizeRect(r, drag.handle!, { x: dxEmu, y: dyEmu }, drag.startRot,
-        { w: metrics.widthEmu * 0.01, h: metrics.heightEmu * 0.01 }, drag.shift);
+      const entries = [...drag.startRects];
+      const delta = { x: dxEmu, y: dyEmu };
+      const minimum = { w: metrics.widthEmu * 0.01, h: metrics.heightEmu * 0.01 };
+      const resized = drag.ids.length > 1
+        ? resizeSelectionRects(entries.map(([, rect]) => rect), drag.selectionRect, drag.handle!, delta, minimum)
+        : [resizeRect(entries[0]![1], drag.handle!, delta, drag.startRot, minimum, drag.shift)];
       guides = [];
       doc.applyLive(() => {
-        const s = doc.shapeById(doc.selection.slideIndex, id);
-        if (s) setShapeBounds(s, { x: Math.round(x) as never, y: Math.round(y) as never, w: Math.round(w) as never, h: Math.round(h) as never });
+        entries.forEach(([id], index) => {
+          const s = doc.shapeById(doc.selection.slideIndex, id);
+          const { x, y, w, h } = resized[index]!;
+          if (s) setShapeBounds(s, { x: Math.round(x) as never, y: Math.round(y) as never, w: Math.round(w) as never, h: Math.round(h) as never });
+        });
       });
     } else {
       const rect = stageEl!.getBoundingClientRect();
@@ -428,6 +433,12 @@
     e.stopPropagation();
     doc.selectShape(doc.selection.slideIndex, box.id);
     startDrag('rotate', undefined, [box.id], e);
+  }
+
+  function onMultiResizeDown(e: PointerEvent, handle: Handle) {
+    if (e.button !== 0 || cancelling) return;
+    e.stopPropagation();
+    startDrag('resize', handle, [...selectedIds], e);
   }
 
   function onMultiRotateDown(e: PointerEvent) {
@@ -986,6 +997,10 @@
         {#if multiFrame && !editing}
           <div class="multi-selection" style="left:{multiFrame.x * pxPerEmuX()}px; top:{multiFrame.y * pxPerEmuY()}px; width:{multiFrame.w * pxPerEmuX()}px; height:{multiFrame.h * pxPerEmuY()}px; transform: rotate({multiFrame.rotation}deg);">
             <button class="rotate" aria-label={t('Rotate selected objects')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={onMultiRotateDown}></button>
+            {#each HANDLES.filter(handle => handle.h.length === 2) as hd (hd.h)}
+              <button class="handle" aria-label={t(`Scale selection ${hd.h}`)} title={t('Resize selection proportionally')}
+                style="left:{hd.cx}%; top:{hd.cy}%; cursor:{hd.cur};" onpointerdown={e => onMultiResizeDown(e, hd.h)}></button>
+            {/each}
           </div>
         {/if}
 

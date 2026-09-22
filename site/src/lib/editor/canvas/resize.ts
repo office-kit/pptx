@@ -45,3 +45,25 @@ export function resizeRect(
     h,
   };
 }
+
+/** Uniformly scale a selection without introducing shear into rotated objects. */
+export function resizeSelectionRects(
+  rects: readonly Rect[],
+  frame: Rect,
+  handle: ResizeHandle,
+  delta: { x: number; y: number },
+  minimum: { w: number; h: number },
+): Rect[] {
+  const target = resizeRect(frame, handle, delta, 0, minimum, true);
+  const scale = frame.w > 0 ? target.w / frame.w : frame.h > 0 ? target.h / frame.h : 1;
+  const anchor = {
+    x: frame.x + (handle.includes('w') ? frame.w : handle.includes('e') ? 0 : frame.w / 2),
+    y: frame.y + (handle.includes('n') ? frame.h : handle.includes('s') ? 0 : frame.h / 2),
+  };
+  return rects.map((rect) => ({
+    x: anchor.x + (rect.x - anchor.x) * scale,
+    y: anchor.y + (rect.y - anchor.y) * scale,
+    w: rect.w * scale,
+    h: rect.h * scale,
+  }));
+}
