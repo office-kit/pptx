@@ -58,7 +58,7 @@
         if (span.style.fontSize) span.style.fontSize = `calc(${span.style.fontSize} * var(--text-zoom))`;
         if (span.style.fontFamily) span.style.fontFamily += ', var(--ok-font)';
       }
-      if (!value || value.endsWith('\n')) {
+      if ((!value || value.endsWith('\n')) && !root.querySelector('[data-text-paragraph]')) {
         const end = document.createElement('br');
         end.setAttribute('data-caret-end', '');
         root.append(end);

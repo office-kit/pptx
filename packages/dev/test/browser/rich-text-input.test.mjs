@@ -218,6 +218,19 @@ test(
         assert.ok(Math.abs(actual.size - (expected.size * 4) / 3) < 0.01);
         assert.ok(actual.font.includes(expected.font));
         assert.ok(actual.font.includes('sans-serif'));
+        const alignment = await input
+          .locator('[data-text-paragraph]')
+          .last()
+          .evaluate((n) => {
+            const box = n.getBoundingClientRect();
+            const text = n.querySelector('span').getBoundingClientRect();
+            return {
+              align: getComputedStyle(n).textAlign,
+              centerOffset: Math.abs((text.left + text.right - box.left - box.right) / 2),
+            };
+          });
+        assert.equal(alignment.align, 'center');
+        assert.ok(alignment.centerOffset < 1);
       };
       await checkStyle();
       await input.press('Enter');

@@ -13,6 +13,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
+  import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import RichTextInput from '../ui/RichTextInput.svelte';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
@@ -20,7 +21,6 @@
   import { getEditor } from '../core/context.ts';
   import {
     getParagraphPropertiesEffective,
-    getShapeRunFormatEffective,
     setParagraphAlignment,
     setParagraphLevel,
     setParagraphLineSpacing,
@@ -663,9 +663,7 @@
     const active = editing;
     if (!shape || !active) return '';
     const source = boxes.find(b => b.id === active.id)?.shape;
-    return textClipboardHtml(copyTextRange(shape, 0, active.text.length, active.cell,
-      active.cell ? undefined : (paragraph, run) => getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source }),
-    ));
+    return inlineTextHtml(doc.pres, shape, source, active.cell);
   });
   function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape) return [];

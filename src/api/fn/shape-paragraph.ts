@@ -551,11 +551,14 @@ const mergePPrLayer = (
  * Companion to `getParagraphAlignment` / `getParagraphLineSpacing` /
  * `getParagraphIndent` / `getParagraphSpacing`, which only surface the
  * literal `<a:pPr>` and skip the layout / master cascade.
+ * `inheritanceSource` preserves the original placeholder and slide context
+ * when resolving a detached shape preview. Table cells use their own text body.
  */
 export const getParagraphPropertiesEffective = (
   pres: PresentationData,
   shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
+  options: { inheritanceSource?: SlideShapeData } = {},
 ): ParagraphProperties => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
@@ -583,10 +586,11 @@ export const getParagraphPropertiesEffective = (
   if (shapeLvlPPr) mergePPrLayer(result, parsePPrLikeElement(shapeLvlPPr));
 
   if (!(CELL_ELEMENT in shape)) {
-    const phIdx = getShapePlaceholderIdx(shape);
-    const phType = getShapePlaceholderType(shape);
-    const isPlaceholder = shapeIsPlaceholder(shape);
-    const slide = shape[SHAPE_SLIDE];
+    const inheritanceSource = options.inheritanceSource ?? shape;
+    const phIdx = getShapePlaceholderIdx(inheritanceSource);
+    const phType = getShapePlaceholderType(inheritanceSource);
+    const isPlaceholder = shapeIsPlaceholder(inheritanceSource);
+    const slide = inheritanceSource[SHAPE_SLIDE];
     const layout = getSlideLayout(slide);
 
     // Placeholder inheritance only: a plain text box does not read the master's
