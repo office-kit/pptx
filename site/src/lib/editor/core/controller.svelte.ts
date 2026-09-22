@@ -45,6 +45,7 @@ import {
   readShapeFormat,
   type CopiedFormat,
 } from './format-clipboard.ts';
+import { hideSlideNumber, showSlideNumber, slideNumberShape } from './slide-numbers.ts';
 import { textFormatsInRange } from './text-format-selection.ts';
 import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
@@ -440,6 +441,30 @@ export class EditorController {
     this.doc.transact(t('Paste formatting'), () => {
       for (const shape of shapes) applyShapeFormat(shape, format);
     });
+  }
+
+  /** True when every slide in the deck shows a live slide number. */
+  slideNumbersOn(): boolean {
+    const slides = getSlides(this.doc.pres);
+    return slides.length > 0 && slides.every((slide) => slideNumberShape(slide) !== null);
+  }
+
+  /**
+   * Turns slide numbers on or off for the whole deck, as one undo step —
+   * Google Slides' Insert ▸ Slide numbers, which is deck-wide rather than a
+   * field the author inserts slide by slide.
+   */
+  setSlideNumbers(on: boolean): void {
+    const slides = getSlides(this.doc.pres);
+    if (!slides.length) return;
+    let missed = 0;
+    this.doc.transact(t(on ? 'Show slide numbers' : 'Hide slide numbers'), () => {
+      for (const slide of slides) {
+        if (!on) hideSlideNumber(slide);
+        else if (showSlideNumber(this.doc.pres, slide) === null) missed += 1;
+      }
+    });
+    if (missed) this.toast('error', t('Slide size is unavailable'));
   }
 
   deleteSelection(): void {

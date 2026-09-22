@@ -677,9 +677,11 @@ this table is about the everyday paths, and about what is not there at all.
 3. **Media playback.** `addSlideMedia` embeds a clip and its poster, but nothing
    states autoplay, loop, volume or a trimmed range, so a deck with a video plays
    it the way PowerPoint defaults to. Library work first.
-4. **Slide number, date and footer.** The text is reachable through
-   `setSlidePlaceholders`, but there is no "insert slide number" path and no
-   deck-wide toggle, which is how Google Slides presents it.
+4. ~~**Slide number, date and footer.**~~ Slide numbers are done — see below.
+   Dates and footers stay literal text: the field types exist
+   (`setShapeTextField(shape, 'datetime1' | 'ftr')`), but a preview cannot
+   invent a locale for `datetime1`…`datetime13`, so nothing substitutes them
+   live.
 5. **Layout and master editing.** The library can apply a layout and reset a
    slide to it, but not author one. "Edit theme" is therefore out of reach
    entirely. The largest of these by far, and the one to design before building.
@@ -695,3 +697,11 @@ properties of a `.pptx` file.
 - Alignment and bullets that the source inherits rather than authors are left alone on the target: there is no writer for "inherit", and the target's own inheritance is the closest thing to what the source shows.
 - Reachable from the object right-click menu, the inline text toolbar, and Ctrl/Cmd+Alt+C / Ctrl/Cmd+Alt+V in both places (`code`, not `key`, because Alt rewrites the character on macOS). Site tests cover the clipboard's own rules including the save/load round trip; browser tests copy between objects in English and Japanese, undo in one step, and repaint one text selection from another, all verified against the saved `.pptx`.
 - This work also lifted a library limitation it ran into: `setShapeShadow` and `setShapeGlow` used to replace the whole `<a:effectLst>`, so a shape could never carry both. They now compose in the order `CT_EffectList` states.
+
+### Slide numbers
+
+- A slide number is a field (`<a:fld type="slidenum">`), not text: PowerPoint recomputes it on open, so the number a file carries is stale the moment a slide moves. The preview now counts instead of reading — the n-th slide shows `firstSlideNum + n − 1`, with `firstSlideNum` taken from `<p:presentation>` (1 when the deck does not say). Every other field type keeps its cached text; `datetime` alone has thirteen locale-dependent variants a preview has no business guessing at.
+- `setShapeTextField(shape, type, { text })` writes one, replacing the shape's whole text body — a field placeholder holds the field and nothing else, which is how PowerPoint writes slide numbers and dates. The formatting of the text it replaces is carried onto the field, so inserting one into a styled placeholder does not reset its look.
+- The editor presents it the way Google Slides does: one deck-wide switch in the slide panel rather than a per-slide insert. On, it fills the template's own `sldNum` placeholder — restoring the slot from the layout with `addSlidePlaceholder` when the author deleted it — so the number takes its position, font and colour from the design. Only a deck whose layout reserves no slot gets a plain bottom-right box. Off removes the number again, but never a box that merely mentions a number among other text.
+- `addSlidePlaceholder(slide, type)` is the new library piece: `addMissingSlidePlaceholders` restores every deleted slot at once, which is the wrong tool for inserting one. Both now share the same insertion.
+- Ribbon ▸ Insert ▸ Text ▸ "Insert field" is the per-shape path for the other field types, in English and Japanese. Browser tests toggle the switch in both languages and check the saved `.pptx` and the live canvas number; site tests cover which shape ends up carrying the number and what the switch is allowed to delete.

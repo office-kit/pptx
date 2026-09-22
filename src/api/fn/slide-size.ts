@@ -53,6 +53,26 @@ export const getSlideSize = (pres: PresentationData): SlideSize | null => {
   };
 };
 
+/**
+ * The number PowerPoint prints on the first slide — `<p:presentation
+ * firstSlideNum="N"/>`, or `1` when the deck does not say. A `slidenum` field
+ * on the n-th slide shows this plus n − 1, so a renderer that substitutes live
+ * field values has to start counting here rather than at one.
+ */
+export const getPresentationFirstSlideNumber = (pres: PresentationData): number => {
+  const presPart = pres[INTERNAL_PACKAGE].getPart(PRES_PART_NAME);
+  if (presPart === null) return 1;
+  const root = parseXml(decode(presPart.data)).root;
+  const raw = root.attrs.find(
+    (a) => a.name.namespaceURI === '' && a.name.localName === 'firstSlideNum',
+  )?.value;
+  if (raw === undefined) return 1;
+  const value = Number.parseInt(raw, 10);
+  // ST_SlideSizeCoordinate's sibling here is xsd:int with no useful bound, but
+  // a deck that writes nonsense should not renumber the whole preview.
+  return Number.isSafeInteger(value) ? value : 1;
+};
+
 const NAME_SLD_SZ_FN = qname('p', 'sldSz', NS.pml);
 const ATTR_CX = qname('', 'cx', '');
 const ATTR_CY = qname('', 'cy', '');
