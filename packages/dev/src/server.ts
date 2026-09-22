@@ -1,5 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
 import { basename, dirname, resolve, sep } from 'node:path';
 import { renderDeck, type BuildResult } from './build.ts';
@@ -20,6 +20,7 @@ export async function serveDeck(entry: string, port = 4173) {
   const store = editorStore(entry);
   let saved = await store.read();
   const serverId = randomUUID();
+  const projectId = createHash('sha256').update(resolve(entry)).digest('hex');
   let publishing = Promise.resolve();
   // Rebuilds and HTTP writes publish in order, including their atomic disk write.
   function publish<T>(fn: () => Promise<T>): Promise<T> {
@@ -64,6 +65,7 @@ export async function serveDeck(entry: string, port = 4173) {
   }
   function editorState() {
     return {
+      projectId,
       revision: `${serverId}:${revision}`,
       previewRevision: revision,
       documentHash,

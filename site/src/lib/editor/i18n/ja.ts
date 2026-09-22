@@ -382,6 +382,15 @@ export const ja: Record<string, string> = {
     'エディターでの変更を現在のソースで置き換えますか？',
   'Preview changed. Try again.': 'プレビューが更新されました。もう一度お試しください。',
   'Reconnecting…': '再接続中…',
+  'Could not access the recovery copy. Try again.':
+    '復元用コピーにアクセスできませんでした。もう一度お試しください。',
+  'Recover unsaved changes': '未保存の変更を復元',
+  'This browser has a recovery copy for this project. Restore it or discard it to continue.':
+    'このプロジェクトの復元用コピーがブラウザーに残っています。復元するか破棄して続行してください。',
+  'Restore changes': '変更を復元',
+  'Discard recovery copy': '復元用コピーを破棄',
+  'Could not save a recovery copy in this browser. Keep this tab open until the project is saved.':
+    'このブラウザーに復元用コピーを保存できませんでした。プロジェクトへの保存が完了するまで、このタブを開いたままにしてください。',
   'Saving…': '保存中…',
   'Loading presentation…': 'プレゼンテーションを読み込み中…',
   'Saved to this project': 'このプロジェクトに保存済み',
