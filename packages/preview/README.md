@@ -154,3 +154,13 @@ did not fully render.
 ## License
 
 MIT (code). Bundled fonts: OFL-1.1 / Apache-2.0 — see `fonts/LICENSES.md`.
+
+### List numbering in custom editing surfaces
+
+`paragraphNumberLabels(paragraphs)` accepts an array of `{ bulletStyle, level }`
+and returns a number label or `null` for each paragraph. It uses the same
+per-level counters as the slide renderer, including restarts after a non-numbered
+paragraph or a change of numbering scheme. Common Arabic, alphabetic and Roman
+schemes are supported; other schemes currently fall back to Arabic numbers
+followed by a period. Labels are display data and should not be inserted into
+the editable paragraph text.

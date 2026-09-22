@@ -104,4 +104,12 @@
 <style>
   .inline-edit { position: absolute; pointer-events: auto; border: 1px solid var(--ok-selected-border); background: #fff; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: none; }
 
+  .inline-edit :global([data-list-marker]::before) {
+    content: attr(data-list-marker);
+    font-size: var(--marker-size, inherit);
+    font-family: var(--marker-font, var(--ok-font));
+    color: var(--marker-color, inherit);
+    margin-inline-end: 0.4em;
+    user-select: none;
+  }
 </style>

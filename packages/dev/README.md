@@ -31,9 +31,11 @@ table cells, and resolves inherited run styles for shapes. Text follows the canv
 zoom while saved font sizes remain unchanged. Ctrl/Cmd+Z and Ctrl/Cmd+Y undo and
 redo pending text edits; Escape cancels them. Japanese composition is kept together
 as one undo step. Paragraph alignment, line spacing, spacing before and after,
-indentation and text direction are visible while editing. Bullet markers, vertical
-text placement and inherited table character styles still use the presentation
-renderer after committing the edit.
+indentation and text direction are visible while editing. Bullets and numbered
+lists show their markers without adding characters to the editable text; nested
+numbered lists keep separate counters by level. Picture bullets, custom bullet
+font/size overrides, vertical text placement and inherited table character styles
+still use the presentation renderer after committing the edit.
 
 Selected text copied or cut within the editor keeps its character formatting
 when pasted into another shape or table cell, including text still being edited.
