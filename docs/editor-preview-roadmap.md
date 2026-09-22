@@ -475,3 +475,7 @@ The quick property panel includes paragraph and vertical alignment controls in E
 ### Text content selection scope
 
 The quick text content editor is available only when one text-capable shape is selected. Multiple text shapes keep bulk formatting controls and show a localized instruction to select one shape for content editing. Non-text objects no longer expose an unusable text area. Browser regression coverage checks selection changes, bilingual guidance, multiline content replacement on the intended shape, undo/redo, saved reload and line selection.
+
+### Comments across slides
+
+The comment dialog offers a bilingual slide selector with slide titles and draft comment counts. Each slide retains its own drafts as reviewers navigate. Apply saves all slides in one undoable transaction; Cancel discards the entire draft. Validation includes unfinished comments on other slides, while untouched new rows are ignored and unchanged dialogs cannot create no-op edits. Browser coverage checks bilingual cross-slide add/edit/delete, draft retention, validation outside the visible slide, blank rows, cancel, one-step undo/redo and saved reload. Reply threads and resolution remain separate outstanding work.

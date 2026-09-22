@@ -1,33 +1,44 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { addSlideComment, getSlideComments, getCommentAuthor, getCommentText, removeSlideComment, setCommentText } from '@office-kit/pptx';
+  import { getSlides, getSlideTitle, addSlideComment, getSlideComments, getCommentAuthor, getCommentText, removeSlideComment, setCommentText } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
   const doc = editor.doc;
-  const slide = untrack(() => doc.currentSlide);
+  const openedSlide = untrack(() => doc.currentSlide);
   const version = untrack(() => doc.version);
-  const original = slide ? getSlideComments(slide) : [];
+  const slides = untrack(() => getSlides(doc.pres));
+  const original = slides.map(slide => getSlideComments(slide));
   type Draft = { comment: number | null; author: string; text: string };
-  let drafts = $state<Draft[]>(original.map((comment, index) => ({ comment: index, author: getCommentAuthor(comment).name, text: getCommentText(comment) })));
-  if (!drafts.length) drafts.push({ comment: null, author: '', text: '' });
+  const initialIndex = Math.max(0, slides.indexOf(openedSlide!));
+  let reviewIndex = $state(initialIndex);
+  let slideDrafts = $state<Draft[][]>(original.map(comments => comments.map((comment, index) => ({ comment: index, author: getCommentAuthor(comment).name, text: getCommentText(comment) }))));
+  if (slideDrafts[initialIndex]?.length === 0) slideDrafts[initialIndex]!.push({ comment: null, author: '', text: '' });
+  const drafts = $derived(slideDrafts[reviewIndex] ?? []);
+  // An untouched new row is a placeholder, not an unfinished comment.
+  const pending = $derived(slideDrafts.map(comments => comments.filter(draft => draft.comment !== null || draft.author.trim() || draft.text.trim())));
+  const complete = $derived(pending.every(comments => comments.every(draft => draft.text.trim() && (draft.comment !== null || draft.author.trim()))));
+  const changed = $derived(pending.some((comments, index) => comments.length !== original[index]!.length || comments.some(draft => draft.comment === null || draft.text !== getCommentText(original[index]![draft.comment]!))));
   let error = $state('');
   let dialog: HTMLDialogElement;
-  const valid = $derived(!!slide && drafts.every(draft => draft.text.trim() && (draft.comment !== null || draft.author.trim())));
+  const valid = $derived(slides.length > 0 && complete && changed);
   onMount(() => dialog.showModal());
   function apply(event: SubmitEvent) {
     event.preventDefault();
-    if (!slide || !valid) return;
-    if (doc.version !== version || doc.currentSlide !== slide) { error = t('The slide changed. Reopen this dialog.'); return; }
+    if (!valid) return;
+    if (doc.version !== version || doc.currentSlide !== openedSlide) { error = t('The slide changed. Reopen this dialog.'); return; }
     try {
       doc.transact(t('Comments'), () => {
-        const retained = new Set(drafts.map(draft => draft.comment));
-        for (const [index, comment] of original.entries()) if (!retained.has(index)) removeSlideComment(comment);
-        for (const draft of drafts) {
-          if (draft.comment !== null) {
-            const comment = original[draft.comment]!;
-            if (draft.text !== getCommentText(comment)) setCommentText(comment, draft.text);
-          } else addSlideComment(slide, { author: { name: draft.author.trim() }, text: draft.text });
+        for (const [slideIndex, comments] of pending.entries()) {
+          const retained = new Set(comments.map(draft => draft.comment));
+          const existing = original[slideIndex]!;
+          for (const [index, comment] of existing.entries()) if (!retained.has(index)) removeSlideComment(comment);
+          for (const draft of comments) {
+            if (draft.comment !== null) {
+              const comment = existing[draft.comment]!;
+              if (draft.text !== getCommentText(comment)) setCommentText(comment, draft.text);
+            } else addSlideComment(slides[slideIndex]!, { author: { name: draft.author.trim() }, text: draft.text });
+          }
         }
       });
       editor.closeDialog();
@@ -37,16 +48,24 @@
 <dialog bind:this={dialog} aria-label={t('Comments')} onclose={() => editor.closeDialog()}>
   <form onsubmit={apply}>
     <header><strong>{t('Comments')}</strong><button type="button" class="ok-btn" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
-    <p>{t('Comments are saved with this slide. Apply to save your changes.')}</p>
+    <p>{t('Review comments across slides. Apply saves all your changes; Cancel discards them.')}</p>
+    <label>{t('Review slide')}
+      <select class="ok-input" aria-label={t('Review slide')} bind:value={reviewIndex}>
+        {#each slides as slide, index}
+          <option value={index}>{index + 1}. {getSlideTitle(slide) || t('Untitled slide')} — {pending[index]!.length} {t('Comments')}</option>
+        {/each}
+      </select>
+    </label>
     <div class="comments">
       {#each drafts as draft, i}
         <section aria-label={`${t('Comment')} ${i + 1}`}>
-          <header>{#if draft.comment !== null}<strong>{draft.author}</strong>{:else}<label>{t('Author name')}<input class="ok-input" aria-label={t('Author name')} required bind:value={draft.author} /></label>{/if}<button type="button" class="ok-btn" onclick={() => drafts.splice(i, 1)}>{t('Delete comment')}</button></header>
-          <label>{t('Comment text')}<textarea class="ok-input" aria-label={t('Comment text')} rows="3" required bind:value={draft.text}></textarea></label>
+          <header>{#if draft.comment !== null}<strong>{draft.author}</strong>{:else}<label>{t('Author name')}<input class="ok-input" aria-label={t('Author name')} required={!!draft.text.trim()} bind:value={draft.author} /></label>{/if}<button type="button" class="ok-btn" onclick={() => drafts.splice(i, 1)}>{t('Delete comment')}</button></header>
+          <label>{t('Comment text')}<textarea class="ok-input" aria-label={t('Comment text')} rows="3" required={draft.comment !== null || !!draft.author.trim()} bind:value={draft.text}></textarea></label>
         </section>
       {:else}<p>{t('No comments on this slide.')}</p>{/each}
     </div>
     <button type="button" class="ok-btn" onclick={() => drafts.push({ comment: null, author: '', text: '' })}>{t('Add comment')}</button>
+    {#if !complete}<p role="status">{t('Complete or delete unfinished comments on all slides before applying.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!valid}>{t('Apply')}</button></footer>
   </form>
