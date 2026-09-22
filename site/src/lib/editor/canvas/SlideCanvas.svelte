@@ -194,7 +194,12 @@
     if (!box) return [];
     const cells = getTableCells(box.shape);
     const selected = tableCellsInRange(cells, tableSelectionBlock(selection));
-    return tableCellBoxes(box.shape).filter(cell => selected.has(cells[cell.row]![cell.col]!));
+    const flip = getShapeFlip(box.shape);
+    return tableCellBoxes(box.shape).filter(cell => selected.has(cells[cell.row]![cell.col]!)).map(cell => ({
+      ...cell,
+      left: flip?.horizontal ? 100 - cell.left - cell.width : cell.left,
+      top: flip?.vertical ? 100 - cell.top - cell.height : cell.top,
+    }));
   });
 
   let gestureSelection: Selection | null = null;
@@ -733,8 +738,9 @@
     const dx = pointer.x * pxPerEmuX() - (box.left + box.width / 2) / 100 * stage.width;
     const dy = pointer.y * pxPerEmuY() - (box.top + box.height / 2) / 100 * stage.height;
     const angle = box.rotation * Math.PI / 180;
-    const x = (dx * Math.cos(angle) + dy * Math.sin(angle)) / (box.width / 100 * stage.width) * 100 + 50;
-    const y = (-dx * Math.sin(angle) + dy * Math.cos(angle)) / (box.height / 100 * stage.height) * 100 + 50;
+    const flip = getShapeFlip(box.shape);
+    const x = (flip?.horizontal ? -1 : 1) * (dx * Math.cos(angle) + dy * Math.sin(angle)) / (box.width / 100 * stage.width) * 100 + 50;
+    const y = (flip?.vertical ? -1 : 1) * (-dx * Math.sin(angle) + dy * Math.cos(angle)) / (box.height / 100 * stage.height) * 100 + 50;
     return tableCellBoxes(box.shape).find(c => x >= c.left && x <= c.left + c.width && y >= c.top && y <= c.top + c.height);
   }
 
@@ -754,8 +760,9 @@
     if (!box || !editing?.cell) return box;
     const cell = tableCellBoxes(box.shape).find(c => c.row === editing?.cell?.row && c.col === editing?.cell?.col);
     if (!cell) return undefined;
-    const dx = ((cell.left + cell.width / 2) / 100 - 0.5) * box.width / 100 * stageW;
-    const dy = ((cell.top + cell.height / 2) / 100 - 0.5) * box.height / 100 * stageH;
+    const flip = getShapeFlip(box.shape);
+    const dx = (flip?.horizontal ? -1 : 1) * ((cell.left + cell.width / 2) / 100 - 0.5) * box.width / 100 * stageW;
+    const dy = (flip?.vertical ? -1 : 1) * ((cell.top + cell.height / 2) / 100 - 0.5) * box.height / 100 * stageH;
     const angle = box.rotation * Math.PI / 180;
     const width = box.width * cell.width / 100;
     const height = box.height * cell.height / 100;
@@ -766,12 +773,14 @@
     const box = editBox;
     if (!box || !scope) return '';
     const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation}deg);`;
-    if (editing?.cell) return base;
-    const { x: sx, y: sy } = scope.textScale;
-    if (!sx || !sy) return base;
+
     const [a, b, c, d] = scope.matrix;
     const reflected = a * d - b * c < 0;
     const rotation = box.rotation + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
+    // Table glyphs follow ancestor scaling; only their reflection is cancelled.
+    if (editing?.cell) return `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${rotation}deg) scale(${reflected ? -1 : 1},1); transform-origin:center;`;
+    const { x: sx, y: sy } = scope.textScale;
+    if (!sx || !sy) return base;
     // Match the preview's text layout: expand the layout box, cancel ancestor
     // scale on glyphs, and cancel reflection before the shape's text rotation.
     return `left:${box.left + box.width * (1 - sx) / 2}%; top:${box.top + box.height * (1 - sy) / 2}%; width:${box.width * sx}%; height:${box.height * sy}%; transform:rotate(${rotation}deg) scale(${(reflected ? -1 : 1) / sx},${1 / sy}); transform-origin:center;`;

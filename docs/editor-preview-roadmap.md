@@ -521,7 +521,7 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Double-click a group to select its children in place; the bilingual group navigation button or Escape returns to the parent. Select All stays within the current group. Nested coordinate transforms include rotation, reflection and nonuniform scaling for selection overlays, pointer movement and screen-direction keyboard nudges.
 - Delete and z-order commands now operate on the owning group, retaining unrelated siblings and trailing extension metadata. Copy and duplicate use `copyShape` with `preserveGroupTransform` to retain ancestor transforms without copying siblings, including transforms that cannot be flattened to a standalone shape.
 - Core tests verify nested ordering, deletion, copied ancestor geometry and save/reload. Browser coverage verifies rotated-child drag, keyboard movement, duplicate/delete, Undo/Redo, English/Japanese navigation and saved reload. Matrix tests cover nested reflection and nonuniform scaling.
-- Remaining: table-cell input fidelity under reflected/scaled ancestors and broader resize/rotation gesture coverage. These are not claimed complete by the movement tests.
+- Remaining: broader resize/rotation gesture coverage and paragraph/body layout parity. These are not claimed complete by the movement tests.
 
 ### Visible geometry for snapping and arrangement
 
@@ -533,10 +533,16 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - The shape text input now follows the preview's text-specific rotation, including a vertically flipped shape's half-turn, ancestor reflection compensation and group scale cancellation. Its expanded layout box stays centered on the selected shape while glyph transforms match the saved preview.
 - Browser regression coverage compares actual CSS/SVG glyph matrices and input/selection centers for all four ancestor flip combinations, with rotated text inside one or two rotated, nonuniformly scaled groups. The nested cases add a reflected outer group, covering both reflection cancellation and accumulation across ancestors. Each case edits Japanese/English content and checks persisted text and Japanese UI after reload. Existing rich-text input and inherited-format workflows remain covered.
-- Nested-group unit coverage verifies accumulated text scale. Table-cell input transforms, paragraph/body layout parity and the renderer's anisotropic-scaling fidelity remain separate checks.
+- Nested-group unit coverage verifies accumulated text scale. Paragraph/body layout parity and the renderer's anisotropic-scaling fidelity remain separate checks.
 
 ### Grouping within existing groups
 
 - Group and Ungroup operate within the selected objects' immediate parent, preserving all outer group transforms and unrelated siblings. Grouping keeps member stacking order even when selection arrives in reverse order, and rejects selections spanning different parents instead of acting on a subset.
 - The core round-trip test verifies nested grouping and release inside a rotated, reflected, nonuniformly scaled ancestor. Editor model coverage verifies selection restoration through Undo/Redo and mixed-parent rejection. Browser coverage exercises both keyboard commands, history and saved reload in English and Japanese.
 - Ungrouping a resized group still has the documented affine limitation: nonuniform scaling combined with rotated children can introduce shear that a standalone child transform cannot represent. Supporting nested ownership does not resolve that fidelity limitation.
+
+### Table cell input under transforms
+
+- Cell hit testing reverses table rotation and both flips after mapping the pointer through ancestor groups. Selected-cell highlights and input centers use the same reflected cell positions.
+- Cell text input follows the preview's table text rotation and reflection cancellation while retaining ancestor scaling. This differs from shape text, whose renderer cancels group scaling for glyphs.
+- Browser regression coverage clicks the rendered cell independently of editor geometry, verifies its text, selection/input centers and CSS/SVG glyph matrices, and checks saved cell contents and Japanese input after reload. It covers all four table flip combinations, with and without a rotated, reflected, nonuniformly scaled ancestor. Paragraph/body layout parity remains separate from these transform checks.
