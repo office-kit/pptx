@@ -343,5 +343,12 @@ from the visible bounds, including each object's existing rotation. Dragging
 rotates object centres and angles together, preserving sizes, distances and
 relative angles; Shift snaps the selection's turn to 15-degree increments. The
 handle and hints are bilingual. Browser coverage verifies saved geometry,
-unselected objects, Undo/Redo, Escape cancellation and reload. Multi-selection
-resizing remains pending.
+unselected objects, Undo/Redo, Escape cancellation and reload.
+
+Multiple selections now also have four bilingual corner resize handles. They scale
+positions and dimensions uniformly about the opposite corner, preserve rotations,
+and handle zero-width/height lines without introducing thickness. Unit coverage
+checks every corner with rotated objects and minimum-size limits; browser coverage
+checks expansion, contraction, fixed anchors, unselected objects, English/Japanese,
+Undo/Redo, Escape and saved reloads. Scaling font sizes, borders and other appearance
+attributes alongside geometry remains pending.

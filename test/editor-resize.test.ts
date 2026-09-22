@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { resizeRect, type ResizeHandle } from '../site/src/lib/editor/canvas/resize.ts';
+import {
+  resizeRect,
+  resizeSelectionRects,
+  type ResizeHandle,
+} from '../site/src/lib/editor/canvas/resize.ts';
+import { selectionBounds } from '../site/src/lib/editor/canvas/rotation.ts';
 import type { Rect } from '../site/src/lib/editor/canvas/snapping.ts';
 
 const handles: ResizeHandle[] = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
@@ -63,5 +68,102 @@ describe('canvas resize geometry', () => {
     expect(
       resizeRect({ x: 0, y: 0, w: 100, h: 0 }, 'e', { x: 20, y: 80 }, 0, { w: 10, h: 10 }, false),
     ).toEqual({ x: 0, y: 0, w: 120, h: 0 });
+  });
+});
+
+describe('proportional selection resize', () => {
+  for (const handle of ['nw', 'ne', 'se', 'sw'] as const) {
+    for (const rotation of [0, 45, 90, 315]) {
+      it(`scales ${handle} with a ${rotation}° object about the opposite corner`, () => {
+        const shapes = [
+          { x: 10, y: 20, w: 100, h: 40, rotation: 0 },
+          { x: 200, y: 100, w: 80, h: 20, rotation },
+        ];
+        const frame = selectionBounds(shapes);
+        const result = resizeSelectionRects(
+          shapes,
+          frame,
+          handle,
+          {
+            x: ((handle.includes('w') ? -1 : 1) * frame.w) / 2,
+            y: ((handle.includes('n') ? -1 : 1) * frame.h) / 2,
+          },
+          { w: 1, h: 1 },
+        );
+        const anchor = point(frame, handle, 0, true);
+        const resizedFrame = selectionBounds(
+          result.map((rect, i) => ({ ...rect, rotation: shapes[i]!.rotation })),
+        );
+        const after = point(resizedFrame, handle, 0, true);
+        expect(after.x).toBeCloseTo(anchor.x);
+        expect(after.y).toBeCloseTo(anchor.y);
+        expect(resizedFrame.w).toBeCloseTo(frame.w * 1.5);
+        expect(resizedFrame.h).toBeCloseTo(frame.h * 1.5);
+        result.forEach((rect, i) => {
+          const start = shapes[i]!;
+          expect(rect.w).toBeCloseTo(start.w * 1.5);
+          expect(rect.h).toBeCloseTo(start.h * 1.5);
+          expect(rect.x).toBeCloseTo(anchor.x + (start.x - anchor.x) * 1.5);
+          expect(rect.y).toBeCloseTo(anchor.y + (start.y - anchor.y) * 1.5);
+        });
+      });
+    }
+  }
+  it('keeps a fixed corner and relative layout when clamping a selection to minimum size', () => {
+    expect(
+      resizeSelectionRects(
+        [
+          { x: 0, y: 0, w: 100, h: 100 },
+          { x: 100, y: 0, w: 100, h: 100 },
+        ],
+        { x: 0, y: 0, w: 200, h: 100 },
+        'nw',
+        { x: 500, y: 500 },
+        { w: 20, h: 20 },
+      ),
+    ).toEqual([
+      { x: 160, y: 80, w: 20, h: 20 },
+      { x: 180, y: 80, w: 20, h: 20 },
+    ]);
+  });
+  it('scales zero-height lines without giving them thickness', () => {
+    expect(
+      resizeSelectionRects(
+        [
+          { x: 0, y: 10, w: 100, h: 0 },
+          { x: 150, y: 10, w: 50, h: 0 },
+        ],
+        { x: 0, y: 10, w: 200, h: 0 },
+        'se',
+        { x: 200, y: 60 },
+        { w: 10, h: 10 },
+      ),
+    ).toEqual([
+      { x: 0, y: 10, w: 200, h: 0 },
+      { x: 300, y: 10, w: 100, h: 0 },
+    ]);
+  });
+  it('scales zero-width lines using their height', () => {
+    expect(
+      resizeSelectionRects(
+        [
+          { x: 10, y: 0, w: 0, h: 100 },
+          { x: 10, y: 150, w: 0, h: 50 },
+        ],
+        { x: 10, y: 0, w: 0, h: 200 },
+        'nw',
+        { x: -60, y: -200 },
+        { w: 10, h: 10 },
+      ),
+    ).toEqual([
+      { x: 10, y: -200, w: 0, h: 200 },
+      { x: 10, y: 100, w: 0, h: 100 },
+    ]);
+  });
+  it('leaves a selection of coincident zero-size points finite', () => {
+    const point = { x: 10, y: 20, w: 0, h: 0 };
+    expect(
+      resizeSelectionRects([point, point], point, 'se', { x: 20, y: 30 }, { w: 10, h: 10 }),
+    ).toEqual([point, point]);
   });
 });
