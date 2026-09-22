@@ -468,3 +468,121 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     expect(steps[0]!.editable).toBe(false);
   });
 });
+
+describe('fn API: setShapeAnimation — start conditions and delay', () => {
+  const deck = (): { pres: PresentationData; slide: SlideData } => {
+    const pres = createPresentation();
+    return { pres, slide: addBlankSlide(pres) };
+  };
+  const slideXml = (pres: PresentationData): string =>
+    decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
+
+  it('defaults to a click effect with no delay, unchanged from before', () => {
+    const { pres, slide } = deck();
+    const shape = addSlideShape(slide, { preset: 'rect', ...box });
+    setShapeAnimation(shape, { effect: 'fadeIn' });
+    const explicit = deck();
+    const other = addSlideShape(explicit.slide, { preset: 'rect', ...box });
+    setShapeAnimation(other, { effect: 'fadeIn', start: 'click', delayMs: 0 });
+    expect(slideXml(explicit.pres)).toBe(slideXml(pres));
+  });
+
+  it('reads back each start condition it wrote', () => {
+    const { slide } = deck();
+    const a = addSlideShape(slide, { preset: 'rect', ...box });
+    const b = addSlideShape(slide, { preset: 'ellipse', ...box });
+    const c = addSlideShape(slide, { preset: 'triangle', ...box });
+    setShapeAnimation(a, { effect: 'fadeIn' });
+    setShapeAnimation(b, { effect: 'fadeIn', start: 'withPrevious' });
+    setShapeAnimation(c, { effect: 'fadeIn', start: 'afterPrevious', delayMs: 250 });
+
+    const steps = getSlideAnimations(slide);
+    expect(steps.map((s) => s.start)).toEqual(['click', 'withPrevious', 'afterPrevious']);
+    expect(steps.map((s) => s.delayMs)).toEqual([0, 0, 250]);
+    expect(steps.every((s) => s.playable)).toBe(true);
+    expect(steps.map((s) => s.target.shapeId)).toEqual([a, b, c].map(getShapeId));
+    expect(new Set(steps.map((s) => s.id)).size).toBe(3);
+  });
+
+  // The three effects belong to one click: a viewer clicks once and all of
+  // them run, the second alongside the first and the third after it.
+  it('folds with/after effects into the click stop already there', () => {
+    const { pres, slide } = deck();
+    const a = addSlideShape(slide, { preset: 'rect', ...box });
+    const b = addSlideShape(slide, { preset: 'ellipse', ...box });
+    const c = addSlideShape(slide, { preset: 'triangle', ...box });
+    setShapeAnimation(a, { effect: 'fadeIn' });
+    setShapeAnimation(b, { effect: 'fadeIn', start: 'withPrevious' });
+    setShapeAnimation(c, { effect: 'fadeIn', start: 'afterPrevious' });
+    const xml = slideXml(pres);
+    expect(xml.match(/delay="indefinite"/g)).toHaveLength(1);
+    expect(getSlideAnimations(slide)).toHaveLength(3);
+  });
+
+  // With nothing to follow, "with previous" and "after previous" mean "as the
+  // slide appears" — the stop must not wait for a click that would otherwise
+  // leave the effect stranded.
+  it('starts a leading with/after effect as the slide appears', () => {
+    for (const start of ['withPrevious', 'afterPrevious'] as const) {
+      const { pres, slide } = deck();
+      const shape = addSlideShape(slide, { preset: 'rect', ...box });
+      setShapeAnimation(shape, { effect: 'fadeIn', start });
+      expect(slideXml(pres)).not.toContain('delay="indefinite"');
+      expect(getSlideAnimations(slide)[0]!.start).toBe(start);
+    }
+  });
+
+  it('gives each click effect its own stop', () => {
+    const { pres, slide } = deck();
+    const a = addSlideShape(slide, { preset: 'rect', ...box });
+    const b = addSlideShape(slide, { preset: 'ellipse', ...box });
+    setShapeAnimation(a, { effect: 'fadeIn' });
+    setShapeAnimation(b, { effect: 'fadeOut' });
+    expect(slideXml(pres).match(/delay="indefinite"/g)).toHaveLength(2);
+  });
+
+  skipIfNoXmllint('emits a schema-valid tree for every start condition', () => {
+    const { pres, slide } = deck();
+    const a = addSlideShape(slide, { preset: 'rect', ...box });
+    const b = addSlideShape(slide, { preset: 'ellipse', ...box });
+    const c = addSlideShape(slide, { preset: 'triangle', ...box });
+    setShapeAnimation(a, { effect: 'fadeIn' });
+    setShapeAnimation(b, { effect: 'appear', start: 'withPrevious' });
+    setShapeAnimation(c, { effect: 'fadeOut', start: 'afterPrevious', delayMs: 750 });
+    expectSchemaValid(slideXml(pres), 'pml');
+  });
+
+  it('keeps start, delay and order through save and reload', async () => {
+    const { pres, slide } = deck();
+    const a = addSlideShape(slide, { preset: 'rect', ...box });
+    const b = addSlideShape(slide, { preset: 'ellipse', ...box });
+    setShapeAnimation(a, { effect: 'fadeIn', delayMs: 100 });
+    setShapeAnimation(b, { effect: 'fadeOut', start: 'afterPrevious', delayMs: 300 });
+    const before = getSlideAnimations(slide);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideAnimations(getSlides(reloaded)[0]!)).toEqual(before);
+  });
+
+  it('rejects a start condition and a delay it cannot write', () => {
+    const { slide } = deck();
+    const shape = addSlideShape(slide, { preset: 'rect', ...box });
+    // @ts-expect-error — the guard is for callers without type checking.
+    expect(() => setShapeAnimation(shape, { effect: 'fadeIn', start: 'onHover' })).toThrow(
+      /setShapeAnimation: start/,
+    );
+    expect(() => setShapeAnimation(shape, { effect: 'fadeIn', delayMs: -1 })).toThrow(
+      /setShapeAnimation: delayMs/,
+    );
+    expect(getSlideAnimations(slide)).toEqual([]);
+  });
+
+  // Every bounded integer in this library rounds rather than refusing; the
+  // delay is not the place to break with that.
+  it('rounds a fractional delay to whole milliseconds', () => {
+    const { slide } = deck();
+    const shape = addSlideShape(slide, { preset: 'rect', ...box });
+    setShapeAnimation(shape, { effect: 'fadeIn', delayMs: 1.5 });
+    expect(getSlideAnimations(slide)[0]!.delayMs).toBe(2);
+  });
+});

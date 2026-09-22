@@ -1,20 +1,19 @@
-// Animation builder — emits a `<p:timing>` block carrying a single
-// click-triggered entrance / exit effect on one target shape. The caller
-// (`setShapeAnimation`) merges it into the slide's existing tree, so a slide
-// ends up with as many effects as there were calls.
+// Animation builder — emits a `<p:timing>` block carrying a single entrance /
+// exit effect on one target shape. The caller (`setShapeAnimation`) merges it
+// into the slide's existing tree, so a slide ends up with as many effects as
+// there were calls.
 //
 // Scope:
 //
-//   - Click trigger only. With-previous / after-previous chaining is not
+//   - Entrance + exit preset families. Emphasis and motion presets are not
 //     modelled yet.
-//   - Entrance + exit preset families. Emphasis presets are not modelled yet.
 //   - The whole shape is the target; per-paragraph builds
 //     (`<p:txEl><p:pRg>`, `<p:bldP build="p">`) are not modelled yet.
 //
 // The timing tree shape follows what PowerPoint itself emits for a
 // single "fade in on click" effect — the boilerplate scaffolding around
 // the actual `<p:set>` / `<p:anim>` is fixed; we just swap presetID,
-// presetClass, and the target spid.
+// presetClass, the node type, the delay and the target spid.
 
 import { oneOf, unsignedIntMs } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
@@ -82,11 +81,31 @@ const PRESETS: Record<AnimationEffect, PresetDescriptor> = {
   fadeOut: { presetId: 10, presetClass: 'exit', presetSubtype: 0 },
 };
 
+/** When an effect runs relative to the one before it. */
+export type AnimationStartCondition = 'click' | 'withPrevious' | 'afterPrevious';
+
+// ST_TLTimeNodeType tokens for the three start conditions.
+const START_NODE_TYPES: Record<AnimationStartCondition, string> = {
+  click: 'clickEffect',
+  withPrevious: 'withEffect',
+  afterPrevious: 'afterEffect',
+};
+
 export interface AnimationOptions {
   /** Which preset effect to apply. */
   readonly effect: AnimationEffect;
   /** Animation length in milliseconds. Defaults to 500ms. */
   readonly durationMs?: number;
+  /**
+   * What starts the effect. Defaults to `'click'` — the effect waits for the
+   * viewer's next click. `'withPrevious'` runs it alongside the effect before
+   * it, `'afterPrevious'` once that effect has finished. When the effect is
+   * the slide's first, neither has a predecessor to follow, so both start as
+   * soon as the slide appears instead of waiting for a click.
+   */
+  readonly start?: AnimationStartCondition;
+  /** How long to wait once the start condition is met. Defaults to 0ms. */
+  readonly delayMs?: number;
 }
 
 const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
@@ -154,8 +173,10 @@ const buildOpacityAnim = (spid: number, durationMs: number, fadeIn: boolean): Xm
 };
 
 /**
- * Builds the complete `<p:timing>` element for a single click-effect on
- * the given shape id.
+ * Builds the complete `<p:timing>` element for a single effect on the given
+ * shape id. The result is a standalone tree whose outermost `<p:par>` is one
+ * click stop; merging it behind effects that already exist is the caller's
+ * job, and only the caller knows whether that stop survives.
  */
 export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): XmlElement => {
   const effect = oneOf(
@@ -164,12 +185,21 @@ export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): X
     'setShapeAnimation: effect',
   );
   const preset = PRESETS[effect];
-  // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"); reject
-  // fractional/negative/out-of-range so we never emit an invalid dur.
+  // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"). Bounds
+  // checking rounds to whole milliseconds and rejects anything outside the
+  // range, so we never emit an invalid dur.
   const duration =
     opts.durationMs === undefined
       ? 500
       : unsignedIntMs(opts.durationMs, 'setShapeAnimation: durationMs');
+
+  const start = oneOf(
+    opts.start ?? 'click',
+    ['click', 'withPrevious', 'afterPrevious'],
+    'setShapeAnimation: start',
+  );
+  const delay =
+    opts.delayMs === undefined ? 0 : unsignedIntMs(opts.delayMs, 'setShapeAnimation: delayMs');
 
   const isFade = opts.effect === 'fadeIn' || opts.effect === 'fadeOut';
   const isEntrance = preset.presetClass === 'entr';
@@ -190,11 +220,11 @@ export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): X
       attr(ATTR_PRESET_SUBTYPE, String(preset.presetSubtype)),
       attr(ATTR_FILL, 'hold'),
       attr(ATTR_GRP_ID, '0'),
-      attr(ATTR_NODE_TYPE, 'clickEffect'),
+      attr(ATTR_NODE_TYPE, START_NODE_TYPES[start]),
     ],
     children: [
       elem(NAME_ST_COND_LST, {
-        children: [elem(NAME_COND, { attrs: [attr(ATTR_DELAY, '0')] })],
+        children: [elem(NAME_COND, { attrs: [attr(ATTR_DELAY, String(delay))] })],
       }),
       elem(NAME_CHILD_TN_LST, { children: effectChildren }),
     ],
@@ -213,12 +243,18 @@ export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): X
   });
   const clickWrapperPar = elem(NAME_PAR, { children: [clickWrapperCTn] });
 
-  // cTn id=3 — the indefinite wrapper (waiting for click).
+  // cTn id=3 — the click stop. `indefinite` is what makes the group wait for
+  // the viewer. A with/after effect that has no predecessor on the slide is
+  // not waiting for anything, so its stop starts as the slide appears; when
+  // the caller merges it behind an existing effect this whole wrapper is
+  // discarded in favour of the one already there.
   const indefiniteCTn = elem(NAME_C_TN, {
     attrs: [attr(ATTR_ID, '3'), attr(ATTR_FILL, 'hold')],
     children: [
       elem(NAME_ST_COND_LST, {
-        children: [elem(NAME_COND, { attrs: [attr(ATTR_DELAY, 'indefinite')] })],
+        children: [
+          elem(NAME_COND, { attrs: [attr(ATTR_DELAY, start === 'click' ? 'indefinite' : '0')] }),
+        ],
       }),
       elem(NAME_CHILD_TN_LST, { children: [clickWrapperPar] }),
     ],
