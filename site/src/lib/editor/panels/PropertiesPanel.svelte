@@ -14,6 +14,7 @@
     type ResolvedCapability,
   } from '../manifest/index.ts';
   import SlideSection from './SlideSection.svelte';
+  import LayoutSection from './LayoutSection.svelte';
   import ChartSection from './ChartSection.svelte';
   import TableSection from './TableSection.svelte';
   import ImageSection from './ImageSection.svelte';
@@ -77,6 +78,7 @@
 
   <!-- Hand-tuned quick controls for the common properties. -->
   <SlideSection />
+  <LayoutSection />
   <ChartSection />
   <TableSection />
   <ImageSection />

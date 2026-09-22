@@ -4,7 +4,7 @@
 // referenced from two or more split files is centralized here.
 
 import type { OpcPackage } from '../../internal/parts/index.ts';
-import { REL_TYPES, readSlidePart } from '../../internal/presentationml/index.ts';
+import { readSlideLayoutPart, readSlidePart } from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
@@ -18,6 +18,9 @@ import {
 import { partName } from '../../internal/opc/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_DOCUMENT,
+  LAYOUT_PART,
+  LAYOUT_PART_NAME,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
@@ -26,6 +29,7 @@ import {
   SLIDE_PART_NAME,
   SLIDE_SHAPES,
   type SlideData,
+  type SlideLayoutData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 
@@ -75,6 +79,13 @@ export const refreshSlideData = (slide: SlideData): void => {
     existing[SHAPE_ELEMENT] = next.element;
     existing[SHAPE_SNAPSHOT] = next;
   }
+};
+
+export const commitLayoutData = (layout: SlideLayoutData): void => {
+  const part = layout[INTERNAL_PACKAGE].getPart(layout[LAYOUT_PART_NAME]);
+  if (!part) throw new Error(`slide layout part missing: ${layout[LAYOUT_PART_NAME]}`);
+  part.data = encode(serializeXml(layout[LAYOUT_DOCUMENT]));
+  layout[LAYOUT_PART] = readSlideLayoutPart(layout[LAYOUT_DOCUMENT].root);
 };
 
 // Rebuild shape handles entirely — used when the shape count changes

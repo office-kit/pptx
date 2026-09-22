@@ -311,6 +311,63 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setSlideBackgroundImage: { labelJa: '背景画像' },
   setSlideBody: { labelJa: 'スライド本文の編集' },
   setSlideLayout: { labelJa: 'スライドのレイアウト' },
+  // The layout operand is bound from the current slide by the registry's
+  // LayoutCommand; it stays in `params` because dispatch is positional by name.
+  setSlideLayoutName: {
+    labelEn: 'Rename this layout',
+    labelJa: 'レイアウトの名前を変更',
+    params: [
+      {
+        name: 'layout',
+        type: 'SlideLayoutData',
+        kind: 'object',
+        optional: false,
+        label: 'Layout',
+      },
+      { name: 'name', type: 'string', kind: 'string', optional: false, label: 'Layout name' },
+    ],
+  },
+  setSlideLayoutBackground: {
+    labelEn: 'Layout background color',
+    labelJa: 'レイアウトの背景色',
+  },
+  clearSlideLayoutBackground: {
+    labelEn: 'Reset layout background',
+    labelJa: 'レイアウトの背景をリセット',
+  },
+  setSlideLayoutPlaceholderBounds: {
+    labelEn: 'Move a layout placeholder',
+    labelJa: 'レイアウトのプレースホルダーを移動',
+    params: [
+      {
+        name: 'layout',
+        type: 'SlideLayoutData',
+        kind: 'object',
+        optional: false,
+        label: 'Layout',
+      },
+      {
+        name: 'index',
+        type: 'number',
+        kind: 'number',
+        optional: false,
+        label: 'Placeholder number',
+      },
+      {
+        name: 'bounds',
+        type: 'ShapeBounds',
+        kind: 'object',
+        optional: false,
+        label: 'Bounds',
+        fields: [
+          { name: 'x', type: 'Emu', kind: 'emu', optional: false, label: 'X' },
+          { name: 'y', type: 'Emu', kind: 'emu', optional: false, label: 'Y' },
+          { name: 'w', type: 'Emu', kind: 'emu', optional: false, label: 'Width' },
+          { name: 'h', type: 'Emu', kind: 'emu', optional: false, label: 'Height' },
+        ],
+      },
+    ],
+  },
   setSlideNotes: { labelJa: 'スピーカーノートの編集' },
   setSlideTitle: { labelJa: 'スライドタイトルの編集' },
   setTableCellClickAction: { labelEn: 'Set Table Cell Link', labelJa: '表セルのリンクを設定' },

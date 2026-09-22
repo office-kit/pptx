@@ -415,16 +415,51 @@ class ChartCommand extends ManifestCommand {
   }
 }
 
+// Layout edits act on the layout behind the current slide — PowerPoint's slide
+// master view, and Google Slides' theme builder, reached without leaving the
+// deck. Every slide on that layout sees the result, which is the point.
+const layoutCommands = new Set([
+  'setSlideLayoutName',
+  'setSlideLayoutBackground',
+  'clearSlideLayoutBackground',
+  'setSlideLayoutPlaceholderBounds',
+]);
+
+class LayoutCommand extends ManifestCommand {
+  override get params(): ResolvedCapability['params'] {
+    return super.params.filter((param) => param.name !== 'layout');
+  }
+
+  private layout(doc: CommandDoc): pptx.SlideLayoutData | null {
+    const slide = doc.slideAt(doc.selection.slideIndex);
+    return slide ? pptx.getSlideLayout(slide) : null;
+  }
+
+  override canRun({ doc }: CommandContext): boolean {
+    return this.layout(doc) !== null;
+  }
+
+  override run({ doc }: CommandContext, args: Record<string, unknown>): unknown {
+    const layout = this.layout(doc);
+    if (!layout) throw new CommandError('The slide is not bound to a layout.');
+    const fn = lib[this.capability.id]!;
+    const positional = this.params.map((param) => args[param.name]);
+    return doc.transact(this.capability.labelEn, () => fn(layout, ...positional));
+  }
+}
+
 const registry = new Map<string, Command>(
   capabilities.map((cap) => [
     cap.id,
     activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide' || cap.id === 'addSlide'
       ? new SlideCommand(cap)
-      : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
-        ? new GroupCommand(cap)
-        : cap.id === 'setChartSpec'
-          ? new ChartCommand(cap)
-          : new ManifestCommand(cap),
+      : layoutCommands.has(cap.id)
+        ? new LayoutCommand(cap)
+        : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
+          ? new GroupCommand(cap)
+          : cap.id === 'setChartSpec'
+            ? new ChartCommand(cap)
+            : new ManifestCommand(cap),
   ]),
 );
 

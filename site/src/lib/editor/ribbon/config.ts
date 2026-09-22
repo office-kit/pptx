@@ -178,6 +178,21 @@ export const RIBBON: readonly RibbonTab[] = [
           { id: 'setPresentationFonts', icon: 'font' },
         ],
       },
+      {
+        // Acts on the layout behind the current slide, so every slide sharing
+        // it follows — Google Slides' theme builder, without a separate view.
+        title: 'Layout',
+        items: [
+          { id: 'setSlideLayoutName', icon: 'slide-content', compactLabel: 'Rename layout' },
+          { id: 'setSlideLayoutBackground', icon: 'background', compactLabel: 'Layout background' },
+          { id: 'clearSlideLayoutBackground', icon: 'trash', compactLabel: 'Reset background' },
+          {
+            id: 'setSlideLayoutPlaceholderBounds',
+            icon: 'align',
+            compactLabel: 'Move placeholder',
+          },
+        ],
+      },
     ],
   },
   {
