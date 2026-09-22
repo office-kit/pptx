@@ -551,4 +551,10 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - Inline editing uses effective shape body margins and vertical alignment, including inherited shape settings and default autoshape centering. Table cells use their own margins and anchor. Insets follow canvas zoom, and the selection outline no longer consumes text layout space.
 - Browser regressions verify asymmetric margins and top/center/bottom placement in text boxes and table cells, with bilingual text editing and Japanese saved reload. Existing paragraph/selection and transformed-group editing checks guard the unchanged contenteditable DOM structure.
-- Nonrectangular preset text regions, autofit, vertical writing and complete renderer paragraph fidelity remain open.
+- Autofit, vertical writing and complete renderer paragraph fidelity remain open. Preset region coverage is described below.
+
+### Preset text regions while editing
+
+- The preview renderer and inline editor share the preset text rectangle calculation. Triangles, diamonds, pentagons, five-pointed stars and double arrows retain their constrained text regions and asymmetric body margins while editing. Autoshape paragraphs without authored or inherited alignment now use the preview's centered default.
+- Browser coverage compares the editing content rectangle against the rendered SVG foreignObject for six presets, a nonuniformly scaled group, and margins that collapse a star's region. It checks bilingual edits and Japanese saved reload. Renderer tests cover degenerate inset fallback and existing SVG/audit behavior.
+- This matches the preview's existing preset approximations. Custom-geometry text rectangles and adjustment-dependent geometry still require renderer work.

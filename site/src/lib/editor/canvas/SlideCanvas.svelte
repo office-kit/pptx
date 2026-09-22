@@ -14,6 +14,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
+  import { resolveTextBodyRect } from '@office-kit/pptx-preview';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import RichTextInput from '../ui/RichTextInput.svelte';
@@ -31,6 +32,7 @@
     getTableCellMargins,
     getTableCellAnchor,
     getShapeBodyPrEffective,
+    getShapePreset,
     isShapePlaceholder,
     isShapeTextBox,
     insertTableRow,
@@ -802,7 +804,14 @@
     const anchor = target
       ? getTableCellAnchor(target) ?? 'top'
       : body!.anchor ?? (!isShapePlaceholder(shape) && !isShapeTextBox(shape) ? 'center' : 'top');
-    const padding = [margins.top ?? 45720, margins.right ?? 91440, margins.bottom ?? 45720, margins.left ?? 91440]
+    let insets = { top: margins.top ?? 45720, right: margins.right ?? 91440, bottom: margins.bottom ?? 45720, left: margins.left ?? 91440 };
+    if (!target && editBox && scope) {
+      const w = editBox.width / 100 * metrics.widthEmu * scope.textScale.x;
+      const h = editBox.height / 100 * metrics.heightEmu * scope.textScale.y;
+      const rect = resolveTextBodyRect(getShapePreset(shape), { x: 0, y: 0, w, h }, insets);
+      insets = { left: rect.x, top: rect.y, right: w - rect.x - rect.w, bottom: h - rect.y - rect.h };
+    }
+    const padding = [insets.top, insets.right, insets.bottom, insets.left]
       .map(value => `${value / 9525 * editor.zoom}px`).join(' ');
     // Block alignment keeps literal paragraph separators and selection offsets intact.
     return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};`;

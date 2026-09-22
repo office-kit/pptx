@@ -1,3 +1,4 @@
+import { resolveTextBodyRect } from './text-body-rect.ts';
 import { paragraphNumberLabels } from './paragraph-number-labels.ts';
 // Per-slide SVG renderer for the playground.
 //
@@ -2467,34 +2468,6 @@ const bulletFillOf = (
 };
 
 // Preset geometry text rectangle (ECMA-376 `<a:rect>`), as fractions of w/h.
-// Non-rectangular autoshapes inscribe their text in a rect narrower than the
-// bounding box, so a label that fits the box still wraps inside the shape (a
-// triangle's text sits in its lower-middle, a diamond's in its center square,
-// etc.). Only shapes whose text rect is materially narrower than the box are
-// listed; everything else (rect / roundRect / ellipse / hexagon / octagon /
-// star8 / rightArrow …) keeps the full box. Values are fractions that track the
-// polygon PRESET_POINTS actually draws (so text stays inside the rendered ink).
-const presetTextRect = (
-  preset: string | null,
-): { l: number; t: number; r: number; b: number } | null => {
-  switch (preset) {
-    case 'triangle':
-      return { l: 0.25, t: 0.5, r: 0.75, b: 1.0 };
-    case 'diamond':
-      return { l: 0.25, t: 0.25, r: 0.75, b: 0.75 };
-    case 'pentagon':
-      return { l: 0.191, t: 0.236, r: 0.809, b: 1.0 };
-    case 'star5':
-      return { l: 0.309, t: 0.382, r: 0.691, b: 0.764 };
-    case 'leftRightArrow':
-      // Matches the fixed leftRightArrow polygon's central shaft (x 0.18..0.82,
-      // y 0.35..0.65), which is not size-aware like the cardinal arrows.
-      return { l: 0.18, t: 0.35, r: 0.82, b: 0.65 };
-    default:
-      return null;
-  }
-};
-
 // The render-path-independent half of a shape's text body: the resolved
 // paragraph/run model, the effective bodyPr cascade, the inner text rect, and
 // the final autofit factor. Extracted from renderTextBody so the audit API
@@ -2584,26 +2557,17 @@ export const resolveTextBodyModel = (
   const rIns = margins.right ?? DEFAULT_INSET_X;
   const bIns = margins.bottom ?? DEFAULT_INSET_Y;
 
-  // Non-rectangular autoshapes inscribe text in a rect narrower than the box;
-  // insets apply inside it. This is a layout constraint independent of render
-  // path, so both the SVG and foreignObject paths use it. If the insets would
-  // collapse the (already narrow) preset rect, keep the rect without insets so
-  // a small shape still shows its overflowing label instead of vanishing.
-  const pRect = presetTextRect(getShapePreset(shape));
-  const rectX = pRect ? bounds.x + pRect.l * bounds.w : bounds.x;
-  const rectY = pRect ? bounds.y + pRect.t * bounds.h : bounds.y;
-  const rectW = pRect ? (pRect.r - pRect.l) * bounds.w : bounds.w;
-  const rectH = pRect ? (pRect.b - pRect.t) * bounds.h : bounds.h;
-  let innerX = rectX + lIns;
-  let innerY = rectY + tIns;
-  let innerW = rectW - lIns - rIns;
-  let innerH = rectH - tIns - bIns;
-  if (pRect && (innerW <= 0 || innerH <= 0)) {
-    innerX = rectX;
-    innerY = rectY;
-    innerW = rectW;
-    innerH = rectH;
-  }
+  const {
+    x: innerX,
+    y: innerY,
+    w: innerW,
+    h: innerH,
+  } = resolveTextBodyRect(getShapePreset(shape), bounds, {
+    left: lIns,
+    top: tIns,
+    right: rIns,
+    bottom: bIns,
+  });
   if (innerW <= 0 || innerH <= 0) return null;
 
   // The rect the pure-SVG path lays text into for a given vertical layout.
