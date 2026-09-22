@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,8 @@ const result = await build({
   ],
 });
 const {
+  getShapeTextAnchor,
+  getParagraphPropertiesEffective,
   addSlideLine,
   getShapeRotation,
   setShapeRotation,
@@ -587,4 +589,70 @@ test('rotation commands update selected objects together and restore mixed angle
   assert.deepEqual(state(), before);
   await doc.redo();
   assert.deepEqual(state(), expected);
+});
+
+test('text alignment updates all selected paragraphs with one undo step', async () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  const ids = doc.transact('Add text', () =>
+    [0, 1, 2].map((i) => {
+      const shape = addSlideShape(getSlides(doc.pres)[0], {
+        preset: 'rect',
+        x: emu(i * 1000000),
+        y: emu(0),
+        w: emu(500000),
+        h: emu(500000),
+      });
+      setShapeText(shape, '日本語\nEnglish');
+      return getShapeId(shape);
+    }),
+  );
+  const state = () =>
+    ids.map((id) => {
+      const shape = doc.shapeById(0, id);
+      return {
+        align: [0, 1].map((i) => getParagraphPropertiesEffective(doc.pres, shape, i).align),
+        anchor: getShapeTextAnchor(shape),
+      };
+    });
+  const before = state();
+  doc.select({ kind: 'shape', slideIndex: 0, shapeIds: ids.slice(0, 2) });
+  editor.invoke('setShapeAlignment', { align: 'right' });
+  assert.deepEqual(
+    state()
+      .slice(0, 2)
+      .map((s) => s.align),
+    [
+      ['right', 'right'],
+      ['right', 'right'],
+    ],
+  );
+  assert.deepEqual(state()[2], before[2]);
+  await doc.undo();
+  assert.deepEqual(state(), before);
+  await doc.redo();
+  editor.invoke('setShapeTextAnchor', { anchor: 'bottom' });
+  assert.deepEqual(
+    state().map((s) => s.anchor),
+    ['bottom', 'bottom', before[2].anchor],
+  );
+  await doc.undo();
+  assert.deepEqual(
+    state().map((s) => s.anchor),
+    before.map((s) => s.anchor),
+  );
+  const unchanged = state();
+  const lineId = doc.transact('Add line', () =>
+    getShapeId(
+      addSlideLine(getSlides(doc.pres)[0], {
+        from: { x: emu(0), y: emu(0) },
+        to: { x: emu(100000), y: emu(100000) },
+      }),
+    ),
+  );
+  doc.select({ kind: 'shape', slideIndex: 0, shapeIds: [...ids.slice(0, 2), lineId] });
+  editor.invoke('setShapeAlignment', { align: 'left' });
+  assert.deepEqual(state(), unchanged);
+  editor.invoke('setShapeTextAnchor', { anchor: 'top' });
+  assert.deepEqual(state(), unchanged);
 });

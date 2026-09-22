@@ -13,7 +13,8 @@ import {
   type ParagraphAlignment,
   type ParagraphSpec,
   type TextFormat,
-  applyAlignmentToAllParagraphs,
+  alignToken,
+  applyAlignmentTokenToAllParagraphs,
   applyBulletToAllParagraphs,
   applyFormatToAllRuns,
   setTextBody,
@@ -600,7 +601,7 @@ export const getShapeBodyPrEffective = (
 
 export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
   oneOf(anchor, ['top', 'center', 'bottom'], 'setShapeTextAnchor: anchor');
-  const txBody = requireTxBody(shape);
+  const txBody = ensureTxBody(shape);
   let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
   if (bodyPr === null) {
     bodyPr = elem(NAME_A_BODY_PR);
@@ -662,7 +663,8 @@ export const setShapeBulletStyle = (shape: SlideShapeData, style: BulletStyle): 
 
 /** Sets the horizontal alignment of every paragraph in the shape's text. */
 export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignment): void => {
-  applyAlignmentToAllParagraphs(requireTxBody(shape), align);
+  const token = alignToken(align, 'setShapeAlignment');
+  applyAlignmentTokenToAllParagraphs(ensureTxBody(shape), token);
   commitAndRefresh(shape);
 };
 
