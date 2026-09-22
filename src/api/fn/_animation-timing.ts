@@ -118,7 +118,7 @@ export interface SlideAnimationStep {
   readonly buildLevel: number | null;
   /**
    * Which `<p:seq>` the step lives in, named after its `nodeType`. Only
-   * `'mainSeq'` advances on the slide's own clicks: an `'interactive'`
+   * `'mainSeq'` advances on the slide's own clicks: an `'interactiveSeq'`
    * sequence fires when the viewer clicks the shape it is bound to, so a
    * player that folded one into the click order would run it at the wrong
    * time — and swallow a click the slide owes its main sequence.
@@ -140,8 +140,12 @@ export interface SlideAnimationStep {
   readonly editable: boolean;
 }
 
-/** Which `<p:seq>` an effect belongs to, named after its `nodeType`. */
-export type AnimationSequenceKind = 'mainSeq' | 'interactive' | 'other';
+/**
+ * Which `<p:seq>` an effect belongs to, named after its `nodeType`. The two
+ * tokens are ST_TLTimeNodeType values; `'other'` covers a sequence whose node
+ * type is absent or something else again.
+ */
+export type AnimationSequenceKind = 'mainSeq' | 'interactiveSeq' | 'other';
 
 /** A parsed step plus the elements it came from, for the editing paths. */
 export interface AnimationStepNode {
@@ -186,7 +190,7 @@ const sequenceKind = (seq: XmlElement): AnimationSequenceKind => {
   const cTn = firstChildElement(seq, NAME_C_TN);
   const nodeType = cTn === null ? null : getAttrValue(cTn, ATTR_NODE_TYPE);
   if (nodeType === 'mainSeq') return 'mainSeq';
-  if (nodeType === 'interactive') return 'interactive';
+  if (nodeType === 'interactiveSeq') return 'interactiveSeq';
   return 'other';
 };
 
