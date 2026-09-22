@@ -199,7 +199,12 @@ export interface TextParagraph extends api.ParagraphSpec {
   bullet?: api.BulletStyle;
   level?: TextLevel;
 }
-export interface TextProps extends Bounds, ShapeStyle, api.TextFormat, Children {
+// `shadow` and `glow` on a `<Text>` have always meant the box's effects, and
+// `TextFormat` now carries the character-level pair of the same names. The box
+// keeps the short names; per-run effects go through `paragraphs`, where a run
+// states its own format.
+export interface TextProps
+  extends Bounds, ShapeStyle, Omit<api.TextFormat, 'shadow' | 'glow'>, Children {
   paragraphs?: readonly TextParagraph[];
   align?: api.ParagraphAlignment;
   anchor?: api.TextAnchor;

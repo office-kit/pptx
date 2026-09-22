@@ -382,6 +382,29 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(sld!.data), 'pml');
   });
 
+  // `<a:rPr>` is a sequence: `<a:ln>` first, the fill, then `<a:effectLst>`,
+  // and the fonts after them. A run that carries all of them is where a wrong
+  // order shows up.
+  skipIfNoXmllint('character-level outline, shadow and glow validate', async () => {
+    const { getSlides, getSlideShapes, setShapeTextFormat } = await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const shape = getSlideShapes(slide)[0];
+    if (!shape) throw new Error('expected shape');
+    setShapeTextFormat(shape, {
+      font: 'Arial',
+      color: '#000080',
+      outline: { color: '#FFFFFF', widthEmu: 9525 },
+      shadow: { color: '#000000', opacity: 0.5 },
+      glow: { color: '#FFFF00', radiusEmu: 63500, opacity: 0.4 },
+    });
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(pres)));
+    const sld = pkg.parts.find((p) => p.name === '/ppt/slides/slide1.xml');
+    expect(sld).not.toBeUndefined();
+    expectSchemaValid(decode(sld!.data), 'pml');
+  });
+
   skipIfNoXmllint(
     'every emitted slide / presentation in the end-to-end deck validates',
     async () => {

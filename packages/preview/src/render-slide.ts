@@ -2090,6 +2090,16 @@ const placeholderDefaultPt = (phType: string | null): number => {
 
 const bulletChar = (level: number): string => (level <= 0 ? '•' : level === 1 ? '◦' : '▪');
 
+// `text-shadow` takes one color per layer and no separate opacity, so an
+// effect's `<a:alpha>` has to travel inside the color.
+const cssColorWithOpacity = (hex: string, opacity: number | undefined): string => {
+  if (opacity === undefined || opacity >= 1) return hex;
+  const match = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex);
+  if (!match) return hex;
+  const [r, g, b] = [match[1]!, match[2]!, match[3]!].map((part) => Number.parseInt(part, 16));
+  return `rgba(${r},${g},${b},${Math.max(0, opacity).toFixed(3)})`;
+};
+
 // `effectivePt` is the post-autofit font size in points. Callers pass
 // `format.size` (the authored size, if any) scaled by the body's
 // autofit factor, or the placeholder default scaled the same way.
@@ -2157,6 +2167,39 @@ const renderRun = (
   if (format?.highlight !== undefined && format.highlight !== null) {
     styles.push(`background-color:${resolveColor(format.highlight, theme, '#FFFF00')}`);
   }
+  // Character-level `<a:ln>` and `<a:effectLst>`. The outline is drawn behind
+  // the glyph fill, the way PowerPoint draws it — `paint-order` is the SVG
+  // spelling and `-webkit-text-stroke` the HTML one, and only the latter has
+  // any effect inside a `<foreignObject>`.
+  const outline = format?.outline;
+  if (outline && outline.color) {
+    const widthPx = (outline.widthEmu ?? 9525) / EMU_PER_PX;
+    styles.push(
+      `-webkit-text-stroke:${widthPx.toFixed(2)}px ${resolveColor(outline.color, theme, '#000000')}`,
+    );
+    styles.push('paint-order:stroke fill');
+  }
+  const textShadows: string[] = [];
+  const glow = format?.glow;
+  if (glow?.color) {
+    const radiusPx = (glow.radiusEmu ?? 63500) / EMU_PER_PX;
+    const color = cssColorWithOpacity(resolveColor(glow.color, theme, '#FFFF00'), glow.opacity);
+    textShadows.push(`0 0 ${radiusPx.toFixed(2)}px ${color}`);
+  }
+  const shadow = format?.shadow;
+  if (shadow) {
+    const distancePx = (shadow.offsetEmu ?? 38100) / EMU_PER_PX;
+    const radians = ((shadow.angleDeg ?? 45) * Math.PI) / 180;
+    const blurPx = (shadow.blurEmu ?? 50800) / EMU_PER_PX;
+    const color = cssColorWithOpacity(
+      resolveColor(shadow.color ?? '#000000', theme, '#000000'),
+      shadow.opacity,
+    );
+    textShadows.push(
+      `${(Math.cos(radians) * distancePx).toFixed(2)}px ${(Math.sin(radians) * distancePx).toFixed(2)}px ${blurPx.toFixed(2)}px ${color}`,
+    );
+  }
+  if (textShadows.length) styles.push(`text-shadow:${textShadows.join(',')}`);
   // Explicit `\n` in the run text comes from <a:br> line breaks; project
   // each to an HTML <br/> so the foreignObject's CSS layout honours it.
   // Everything else is escaped as XML text.
@@ -2329,6 +2372,12 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         strike: hasStrikeFmt(fmt),
         ...(fmt?.highlight
           ? { highlightHex: resolveColor(fmt.highlight, a.theme, '#FFFF00') }
+          : {}),
+        ...(fmt?.outline?.color
+          ? {
+              outlineHex: resolveColor(fmt.outline.color, a.theme, '#000000'),
+              outlineWidthPx: (fmt.outline.widthEmu ?? 9525) / EMU_PER_PX,
+            }
           : {}),
         superSub,
         href: run.href ?? null,

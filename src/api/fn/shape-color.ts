@@ -2,6 +2,8 @@
 
 import { NAME_A_RPR, requireRun } from './shape-runs.ts';
 import { type TextFormat } from '../../internal/drawingml/index.ts';
+// Type-only: erased at compile time, so this does not make the modules cyclic.
+import type { ShapeEffectAny } from './shape-effects.ts';
 import {
   NS,
   type XmlElement,
@@ -303,6 +305,139 @@ export const resolveDrawingColorOpacity = (colorEl: XmlElement): number | null =
   return opacity === null ? null : Math.max(0, Math.min(1, opacity));
 };
 
+/**
+ * Parses an `<a:effectLst>` into the typed effect union. It lives here rather
+ * than beside the shape effect API because a run's `<a:rPr>` carries the same
+ * element, and this module is the one both sides can depend on.
+ */
+export const parseEffectList = (
+  effectLst: XmlElement,
+  theme: PresentationTheme | null,
+): ShapeEffectAny[] => {
+  const readEffectColor = (host: XmlElement): { color: string; opacity?: number } => {
+    let inner: XmlElement | null = null;
+    for (const c of host.children) {
+      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        c.name.localName === 'srgbClr' ||
+        c.name.localName === 'schemeClr' ||
+        c.name.localName === 'sysClr' ||
+        c.name.localName === 'prstClr'
+      ) {
+        inner = c;
+        break;
+      }
+    }
+    if (!inner) return { color: '' };
+    let opacity: number | undefined;
+    const alphaEl = firstChildElement(inner, qname('a', 'alpha', NS.dml));
+    if (alphaEl) {
+      const a = getAttrValue(alphaEl, qname('', 'val', ''));
+      if (a !== null) {
+        let n = Number.parseFloat(a);
+        if (Number.isFinite(n)) {
+          if (Math.abs(n) > 1) n = n / 100000;
+          opacity = n;
+        }
+      }
+    }
+    const hex = resolveDrawingColor(inner, theme);
+    return { color: hex ?? '', ...(opacity !== undefined ? { opacity } : {}) };
+  };
+
+  const out: ShapeEffectAny[] = [];
+  for (const child of effectLst.children) {
+    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+    const local = child.name.localName;
+    if (local === 'outerShdw' || local === 'innerShdw') {
+      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
+      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
+      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
+      const c = readEffectColor(child);
+      out.push({
+        kind: local,
+        color: c.color,
+        blurEmu: blur,
+        distEmu: dist,
+        angleDeg: dir / 60000,
+        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+      });
+    } else if (local === 'glow') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      const c = readEffectColor(child);
+      out.push({
+        kind: 'glow',
+        color: c.color,
+        radiusEmu: rad,
+        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
+      });
+    } else if (local === 'reflection') {
+      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
+      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
+      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
+      // `stA`/`endA` are ST_PositiveFixedPercentage (0..100000); `sy` is
+      // ST_Percentage and may be negative to encode the mirror flip.
+      const pctFraction = (name: string): number | undefined => {
+        const raw = getAttrValue(child, qname('', name, ''));
+        if (raw === null) return undefined;
+        let n = Number.parseFloat(raw);
+        if (!Number.isFinite(n)) return undefined;
+        if (Math.abs(n) > 1) n = n / 100000;
+        return n;
+      };
+      const opacity = pctFraction('endA');
+      const startOpacity = pctFraction('stA');
+      const scaleY = pctFraction('sy');
+      out.push({
+        kind: 'reflection',
+        blurEmu: blur,
+        distEmu: dist,
+        angleDeg: dir / 60000,
+        ...(opacity !== undefined ? { opacity } : {}),
+        ...(startOpacity !== undefined ? { startOpacity } : {}),
+        ...(scaleY !== undefined ? { scaleY } : {}),
+      });
+    } else if (local === 'softEdge') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      out.push({ kind: 'softEdge', radiusEmu: rad });
+    } else if (local === 'blur') {
+      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
+      out.push({ kind: 'blur', radiusEmu: rad });
+    }
+  }
+  return out;
+};
+
+// The color of an `<a:solidFill>`, as a run reports it. With a theme, scheme
+// tokens resolve to `#RRGGBB` and `<a:lumMod>` and friends are applied; without
+// one, tokens pass through verbatim, which is the legacy `getShapeRunFormat`
+// behavior callers round-trip against.
+const colorOfFill = (
+  solidFill: XmlElement,
+  ctx?: { readonly theme: PresentationTheme | null },
+): string | null => {
+  // CT_SolidColorFillProperties holds exactly one EG_ColorChoice child
+  // (srgbClr / schemeClr / sysClr / prstClr).
+  let colorChild: XmlElement | null = null;
+  for (const c of solidFill.children) {
+    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    colorChild = c;
+    break;
+  }
+  if (colorChild === null) return null;
+  const token = getAttrValue(colorChild, qname('', 'val', ''));
+  if (ctx) {
+    const hex = resolveDrawingColor(colorChild, ctx.theme);
+    if (hex !== null) return hex;
+    // Theme not provided / token not in scheme — surface the raw token.
+    return colorChild.name.localName === 'schemeClr' ? token : null;
+  }
+  if (colorChild.name.localName === 'srgbClr')
+    return token === null ? null : `#${token.toUpperCase()}`;
+  if (colorChild.name.localName === 'schemeClr') return token;
+  return null;
+};
+
 // Reads any element shaped like `CT_TextCharacterProperties` (the schema
 // shared by `<a:rPr>`, `<a:defRPr>`, and `<a:endParaRPr>`) into a partial
 // TextFormat. Used by both the literal-only `getShapeRunFormat` and the
@@ -385,36 +520,8 @@ export const parseRPrLikeElement = (
   }
   const solidFill = firstChildElement(rPr, qname('a', 'solidFill', NS.dml));
   if (solidFill !== null) {
-    // Find the inner color element (srgbClr / schemeClr / sysClr / prstClr).
-    // CT_SolidColorFillProperties holds exactly one EG_ColorChoice child.
-    let colorChild: XmlElement | null = null;
-    for (const c of solidFill.children) {
-      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-      colorChild = c;
-      break;
-    }
-    if (colorChild) {
-      if (ctx) {
-        // Apply transforms + resolve scheme tokens to hex.
-        const hex = resolveDrawingColor(colorChild, ctx.theme);
-        if (hex !== null) out.color = hex;
-        else if (colorChild.name.localName === 'schemeClr') {
-          // Theme not provided / token not in scheme — surface the raw token.
-          const v = getAttrValue(colorChild, qname('', 'val', ''));
-          if (v !== null) out.color = v;
-        }
-      } else {
-        // Legacy `getShapeRunFormat` path: no transforms, scheme tokens
-        // emitted as bare strings to match prior public behavior.
-        if (colorChild.name.localName === 'srgbClr') {
-          const v = getAttrValue(colorChild, qname('', 'val', ''));
-          if (v !== null) out.color = `#${v.toUpperCase()}`;
-        } else if (colorChild.name.localName === 'schemeClr') {
-          const v = getAttrValue(colorChild, qname('', 'val', ''));
-          if (v !== null) out.color = v;
-        }
-      }
-    }
+    const color = colorOfFill(solidFill, ctx);
+    if (color !== null) out.color = color;
   }
   const latin = firstChildElement(rPr, qname('a', 'latin', NS.dml));
   if (latin !== null) {
@@ -430,6 +537,43 @@ export const parseRPrLikeElement = (
   if (cs !== null) {
     const t = getAttrValue(cs, qname('', 'typeface', ''));
     if (t !== null) out.fontComplexScript = t;
+  }
+  const ln = firstChildElement(rPr, qname('a', 'ln', NS.dml));
+  if (ln !== null) {
+    const outline: { color?: string; widthEmu?: number } = {};
+    const w = getAttrValue(ln, qname('', 'w', ''));
+    if (w !== null) {
+      const n = Number.parseInt(w, 10);
+      if (Number.isFinite(n)) outline.widthEmu = n;
+    }
+    const lnFill = firstChildElement(ln, qname('a', 'solidFill', NS.dml));
+    const color = lnFill === null ? null : colorOfFill(lnFill, ctx);
+    if (color !== null) outline.color = color;
+    out.outline = outline;
+  }
+  // `<a:effectLst>` on a run holds the same effects as on a shape; a run that
+  // states one states it for its own glyphs. Only the two the library writes
+  // are surfaced here — the rest stay readable through `getShapeEffects`'
+  // union, which is not what a character format is.
+  const effects = firstChildElement(rPr, qname('a', 'effectLst', NS.dml));
+  if (effects !== null) {
+    for (const effect of parseEffectList(effects, ctx?.theme ?? null)) {
+      if (effect.kind === 'outerShdw') {
+        out.shadow = {
+          color: effect.color,
+          blurEmu: effect.blurEmu,
+          offsetEmu: effect.distEmu,
+          angleDeg: effect.angleDeg,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      } else if (effect.kind === 'glow') {
+        out.glow = {
+          color: effect.color,
+          radiusEmu: effect.radiusEmu,
+          ...(effect.opacity !== undefined ? { opacity: effect.opacity } : {}),
+        };
+      }
+    }
   }
   return out;
 };

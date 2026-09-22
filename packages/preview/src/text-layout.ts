@@ -143,6 +143,9 @@ export interface PieceInput {
   readonly letterSpacingPx: number;
   readonly fillHex: string;
   readonly highlightHex?: string;
+  /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
+  readonly outlineHex?: string;
+  readonly outlineWidthPx?: number;
   /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
    *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
    *  support, so the engine draws it as an explicit path (see `wavyPath`). */
@@ -886,6 +889,14 @@ const tspan = (g: Group): string => {
   ];
   if (p.bold) attrs.push('font-weight="700"');
   if (p.italic) attrs.push('font-style="italic"');
+  if (p.outlineHex !== undefined && (p.outlineWidthPx ?? 0) > 0) {
+    // PowerPoint centres a text outline on the glyph edge but draws the fill
+    // over it, which `paint-order` reproduces; without it the stroke would eat
+    // half the letterform.
+    attrs.push(`stroke="${p.outlineHex}"`);
+    attrs.push(`stroke-width="${fmt(p.outlineWidthPx!)}"`);
+    attrs.push('paint-order="stroke fill"');
+  }
   const deco: string[] = [];
   // 'wavy' is drawn as an explicit path by emitWavyUnderlines — resvg has no
   // text-decoration-style support to lean on here.

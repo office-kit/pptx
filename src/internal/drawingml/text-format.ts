@@ -28,9 +28,19 @@ import {
 import { UNDERLINES, STRIKES } from '../enum-values.ts';
 import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
 import { parseColor } from './color.ts';
+import {
+  type EffectPlacement,
+  type GlowOptions,
+  type ShadowOptions,
+  removeEffect,
+  setGlow,
+  setShadow,
+} from './effects.ts';
+import { applySolidStroke } from './stroke.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
+const NAME_LN = qname('a', 'ln', NS.dml);
 const NAME_LATIN = qname('a', 'latin', NS.dml);
 const NAME_EA = qname('a', 'ea', NS.dml);
 const NAME_CS = qname('a', 'cs', NS.dml);
@@ -144,6 +154,30 @@ export interface TextFormat {
    * format as `color`. Mirrors `<a:rPr><a:highlight>…</a:highlight></a:rPr>`.
    */
   highlight?: string | null;
+  /**
+   * Outline drawn around the glyphs — `<a:rPr><a:ln>`, the character-level
+   * twin of `setShapeStroke`. `null` removes it, which is not the same as
+   * an outline of width 0: removing restores what the run inherits.
+   */
+  outline?: TextOutline | null;
+  /**
+   * Drop shadow behind the glyphs — `<a:outerShdw>` in the run's own
+   * `<a:effectLst>`. `null` removes it.
+   */
+  shadow?: ShadowOptions | null;
+  /**
+   * Glow around the glyphs — `<a:glow>` in the run's own `<a:effectLst>`.
+   * `null` removes it.
+   */
+  glow?: GlowOptions | null;
+}
+
+/** A run's outline: `CT_LineProperties` as far as text uses it. */
+export interface TextOutline {
+  /** Same accepted forms as `TextFormat.color`. */
+  readonly color?: string;
+  /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
+  readonly widthEmu?: number;
 }
 
 const setOrRemoveAttr = (
@@ -277,6 +311,38 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
   if (format.color !== undefined) setSolidFill(rPr, format.color);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
+  if (format.outline !== undefined) setRunOutline(rPr, format.outline);
+  if (format.shadow !== undefined) {
+    if (format.shadow === null) removeEffect(rPr, 'outerShdw');
+    else setShadow(rPr, format.shadow, rPrEffectPlacement);
+  }
+  if (format.glow !== undefined) {
+    if (format.glow === null) removeEffect(rPr, 'glow');
+    else setGlow(rPr, format.glow, rPrEffectPlacement);
+  }
+};
+
+// `<a:effectLst>` is the third slot of CT_TextCharacterProperties, so it goes
+// ahead of the first child that outranks it rather than at the end the way it
+// does on `<p:spPr>`.
+const rPrEffectPlacement: EffectPlacement = (rPr) => {
+  const own = RPR_CHILD_RANK.effectLst!;
+  for (let i = 0; i < rPr.children.length; i++) {
+    const c = rPr.children[i];
+    if (c?.kind === 'element' && rprChildRank(c) > own) return i;
+  }
+  return rPr.children.length;
+};
+
+const setRunOutline = (rPr: XmlElement, outline: TextOutline | null): void => {
+  const existing = firstChildElement(rPr, NAME_LN);
+  if (outline === null) {
+    if (existing) rPr.children = rPr.children.filter((c) => c !== existing);
+    return;
+  }
+  const ln = existing ?? elem(NAME_LN);
+  applySolidStroke(ln, outline);
+  if (!existing) insertChildByRank(rPr, ln, rprChildRank);
 };
 
 const VISUAL_RUN_ATTRIBUTES = new Set([

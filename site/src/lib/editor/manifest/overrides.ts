@@ -8,7 +8,56 @@
 // generated defaults, which are still fully reachable via the command palette.
 
 import { generatedOverrides } from './overrides.generated.ts';
-import type { CapabilityOverride } from './types.ts';
+import type { CapabilityOverride, ParamSpec } from './types.ts';
+
+// A run's own outline, shadow and glow — `<a:ln>` and `<a:effectLst>` inside
+// `<a:rPr>`. They are part of `TextFormat` in the library; the generated
+// schema predates them, so the fields are added here rather than by hand-
+// writing the whole parameter again.
+const CHARACTER_EFFECT_FIELDS: readonly ParamSpec[] = [
+  {
+    name: 'outline',
+    type: 'TextOutline',
+    kind: 'object',
+    optional: true,
+    label: 'Text outline',
+    fields: [
+      { name: 'color', type: 'string', kind: 'color', optional: true, label: 'Color' },
+      { name: 'widthEmu', type: 'number', kind: 'emu', optional: true, label: 'Width' },
+    ],
+  },
+  {
+    name: 'shadow',
+    type: 'ShadowOptions',
+    kind: 'object',
+    optional: true,
+    label: 'Text shadow',
+    fields: [
+      { name: 'color', type: 'string', kind: 'color', optional: true, label: 'Color' },
+      { name: 'blurEmu', type: 'number', kind: 'emu', optional: true, label: 'Blur' },
+      { name: 'offsetEmu', type: 'number', kind: 'emu', optional: true, label: 'Distance' },
+      { name: 'angleDeg', type: 'number', kind: 'number', optional: true, label: 'Angle' },
+      { name: 'opacity', type: 'number', kind: 'number', optional: true, label: 'Opacity' },
+    ],
+  },
+  {
+    name: 'glow',
+    type: 'GlowOptions',
+    kind: 'object',
+    optional: true,
+    label: 'Text glow',
+    fields: [
+      { name: 'color', type: 'string', kind: 'color', optional: false, label: 'Color' },
+      { name: 'radiusEmu', type: 'number', kind: 'emu', optional: true, label: 'Radius' },
+      { name: 'opacity', type: 'number', kind: 'number', optional: true, label: 'Opacity' },
+    ],
+  },
+];
+
+const withCharacterEffects = (format: ParamSpec): ParamSpec => ({
+  ...format,
+  fields: [...(format.fields ?? []), ...CHARACTER_EFFECT_FIELDS],
+});
 
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
@@ -70,7 +119,8 @@ const handOverrides: Record<string, CapabilityOverride> = {
     labelEn: 'Set Shape Text Format',
     labelJa: '図形テキストの書式を設定',
     params: [
-      ...generatedOverrides.setShapeTextFormat!.params!,
+      withCharacterEffects(generatedOverrides.setShapeTextFormat!.params![0]!),
+      ...generatedOverrides.setShapeTextFormat!.params!.slice(1),
       {
         name: 'options',
         type: '{ range?: { start: number; end: number }; reset?: boolean }',

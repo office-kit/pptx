@@ -77,8 +77,14 @@ export interface StrokeOptions {
 }
 
 /** Updates the supplied outline properties, preserving omitted properties. */
-export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void => {
-  const ln = ensureLn(spPr);
+export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void =>
+  applySolidStroke(ensureLn(spPr), options);
+
+/**
+ * The same edit on an `<a:ln>` the caller located — a run's outline lives in
+ * `<a:rPr>`, whose child order is its own, so it cannot go through `ensureLn`.
+ */
+export const applySolidStroke = (ln: XmlElement, options: StrokeOptions): void => {
   if (options.widthEmu !== undefined) {
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
     ln.attrs.push(attr(ATTR_W, String(lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu'))));

@@ -22,7 +22,7 @@ export {
   setTextBodyParagraphs,
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
-export type { TextFormat } from './text-format.ts';
+export type { TextFormat, TextOutline } from './text-format.ts';
 export {
   applyFormatToAllRuns,
   applyRunFormat,

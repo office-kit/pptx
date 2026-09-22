@@ -206,3 +206,26 @@ test('a pasted format survives the save/load round trip', async () => {
   assert.equal(getShapeRunFormatEffective(reloaded, saved, 0, 0).size, 30);
   assert.equal(getParagraphPropertiesEffective(reloaded, saved, 0).align, 'right');
 });
+
+test('a character outline, shadow and glow travel with the text format', () => {
+  const { pres, slide } = deck();
+  const source = box(slide, 1, 'WordArt');
+  setShapeTextFormat(source, {
+    outline: { color: '#FF0000', widthEmu: 12700 },
+    shadow: { color: '#000000', blurEmu: 50800, offsetEmu: 38100, angleDeg: 45 },
+    glow: { color: '#00FF00', radiusEmu: 63500 },
+  });
+  const target = box(slide, 5, 'Plain');
+
+  applyTextFormat(
+    target,
+    { start: 0, end: 5 },
+    [0],
+    readTextFormat(pres, source, 0, characterOf(pres, source)),
+  );
+
+  const pasted = getShapeRunFormatEffective(pres, target, 0, 0);
+  assert.deepEqual(pasted.outline, { color: '#FF0000', widthEmu: 12700 });
+  assert.equal(pasted.glow?.color, '#00FF00');
+  assert.equal(pasted.shadow?.offsetEmu, 38100);
+});
