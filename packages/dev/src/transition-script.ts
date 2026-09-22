@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -76,6 +76,20 @@ function renderSlide(svg,options){
       return 'polygon('+points.map(([x,y])=>x+'% '+y+'%').join(',')+')';
     };
     animate(incoming,[{clipPath:cells(0)},{clipPath:cells(.5)},{clipPath:cells(1)}]);
+  }else if(effect==='newsflash'){
+    animate(incoming,[{transform:'rotate(720deg) scale(0)'},{transform:'rotate(0deg) scale(1)'}]);
+  }else if(effect==='wedge'){
+    const segments=32;
+    const wedge=(progress)=>{
+      const points=['50% 50%'];
+      for(let point=0;point<=segments;point++){
+        const angle=-Math.PI/2+Math.PI*progress*(2*point/segments-1);
+        points.push((50+100*Math.cos(angle))+'% '+(50+100*Math.sin(angle))+'%');
+      }
+      return 'polygon('+points.join(',')+')';
+    };
+    // Intermediate angles keep the radial boundaries rotating instead of shrinking across the slide.
+    animate(incoming,Array.from({length:segments+1},(_,step)=>({clipPath:wedge(step/segments),offset:step/segments})));
   }else if(effect==='dissolve'){
     const columns=32,stages=16,bounds=incoming.getBoundingClientRect();
     const rows=Math.max(1,Math.round(columns*bounds.height/bounds.width)),count=columns*rows;
