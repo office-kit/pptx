@@ -82,7 +82,7 @@ const elementChildren = (el: XmlElement | null): XmlElement[] =>
  */
 const WRAPPER_ATTRS = new Set(['id', 'fill']);
 
-const isPlainWrapper = (par: XmlElement): boolean => {
+export const isPlainWrapper = (par: XmlElement): boolean => {
   if (par.attrs.length > 0 || elementChildren(par).length !== 1) return false;
   const cTn = firstChildElement(par, NAME_C_TN);
   if (cTn === null) return false;
@@ -220,7 +220,7 @@ export const readMainSeqLayout = (timing: XmlElement): MainSeqLayout | null => {
   return { childTnLst, steps };
 };
 
-const delayOf = (par: XmlElement): string | null => {
+export const delayOf = (par: XmlElement): string | null => {
   const cTn = firstChildElement(par, NAME_C_TN);
   const stCondLst = cTn === null ? null : firstChildElement(cTn, NAME_ST_COND_LST);
   const cond = stCondLst === null ? null : firstChildElement(stCondLst, NAME_COND);
