@@ -5743,6 +5743,9 @@ const renderTable = (
   }
   if (dims.rows === 0 || dims.cols === 0) return null;
 
+  const flip = getShapeFlip(shape);
+  const textReflected = ctx.groupReflected !== Boolean(flip && flip.horizontal !== flip.vertical);
+
   const xPx = x / EMU_PER_PX;
   const yPx = y / EMU_PER_PX;
   const widthsPx = widths.map((w0) => w0 / EMU_PER_PX);
@@ -5909,23 +5912,29 @@ const renderTable = (
       // LibreOffice render when `<a:tcPr anchor>` is absent.
       const vAnchor = getTableCellAnchor(typedCell) ?? 'top';
       const cellMargins = getTableCellMargins(typedCell);
+      const cellText = renderTableCellText(
+        typedCell,
+        cellParagraphs,
+        cx,
+        cy,
+        cw,
+        ch,
+        cellTextColor,
+        pres,
+        shape,
+        theme,
+        tableThemeFace,
+        ctx,
+        vAnchor,
+        cellMargins,
+      );
+      // The table transform moves cells and their borders. Cancel reflection
+      // around each cell's center so glyphs retain their reading direction,
+      // including when a parent group contributes another reflection.
       out.push(
-        renderTableCellText(
-          typedCell,
-          cellParagraphs,
-          cx,
-          cy,
-          cw,
-          ch,
-          cellTextColor,
-          pres,
-          shape,
-          theme,
-          tableThemeFace,
-          ctx,
-          vAnchor,
-          cellMargins,
-        ),
+        textReflected && cellText
+          ? `<g transform="translate(${px(2 * cx + cw)} 0) scale(-1 1)">${cellText}</g>`
+          : cellText,
       );
     }
   }
