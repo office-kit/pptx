@@ -628,6 +628,7 @@ export type {
   ReadTextFormat,
   RunSpec,
   TextFormat,
+  TextOutline,
 } from '../internal/drawingml/index.ts';
 export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
 export type { TableCellParagraph } from './fn.ts';

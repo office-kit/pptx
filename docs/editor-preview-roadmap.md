@@ -671,9 +671,8 @@ this table is about the everyday paths, and about what is not there at all.
 ### Gaps, in the order they are worth closing
 
 1. ~~**Format painter** (書式のコピー/貼り付け).~~ Done — see below.
-2. **Character-level effects.** `setShapeGlow` / `setShapeShadow` apply to a
-   shape; a text run has no outline, shadow or glow, so WordArt-style text cannot
-   be authored or round-tripped as such. Library work first.
+2. ~~**Character-level effects.**~~ Done — see below. What a run still cannot
+   carry is a gradient or picture text fill; only a solid colour.
 3. **Media playback.** `addSlideMedia` embeds a clip and its poster, but nothing
    states autoplay, loop, volume or a trimmed range, so a deck with a video plays
    it the way PowerPoint defaults to. Library work first.
@@ -705,3 +704,11 @@ properties of a `.pptx` file.
 - The editor presents it the way Google Slides does: one deck-wide switch in the slide panel rather than a per-slide insert. On, it fills the template's own `sldNum` placeholder — restoring the slot from the layout with `addSlidePlaceholder` when the author deleted it — so the number takes its position, font and colour from the design. Only a deck whose layout reserves no slot gets a plain bottom-right box. Off removes the number again, but never a box that merely mentions a number among other text.
 - `addSlidePlaceholder(slide, type)` is the new library piece: `addMissingSlidePlaceholders` restores every deleted slot at once, which is the wrong tool for inserting one. Both now share the same insertion.
 - Ribbon ▸ Insert ▸ Text ▸ "Insert field" is the per-shape path for the other field types, in English and Japanese. Browser tests toggle the switch in both languages and check the saved `.pptx` and the live canvas number; site tests cover which shape ends up carrying the number and what the switch is allowed to delete.
+
+### Character-level effects
+
+- `TextFormat` gained `outline`, `shadow` and `glow`: `<a:ln>` and `<a:effectLst>` inside a run's `<a:rPr>`, the character-level twins of `setShapeStroke` / `setShapeShadow` / `setShapeGlow`. Every writer that takes a `TextFormat` — `setShapeTextFormat`, `setShapeRunFormat`, `setTableCellTextFormat` — therefore writes them, and `getShapeRunFormat` / `getShapeRunFormatEffective` read them back, inheritance included. `null` removes one; `reset` clears all three with the rest of the run's look.
+- One implementation, not two: the run setters reuse the shape effect and line builders, with the insertion point passed in because `CT_TextCharacterProperties` orders its children differently from `<p:spPr>`. Removing the last effect drops the `<a:effectLst>` with it, since an empty list states "no effects" instead of inheriting.
+- `parseEffectList` moved down into the module both the shape and run readers can depend on, so one parser decodes `<a:effectLst>` wherever it appears. `GlowOptions` gained the `opacity` its reader already reported — a glow with `<a:alpha>` now round-trips.
+- The preview paints all three: `-webkit-text-stroke` plus `paint-order` for the outline and layered `text-shadow` for the glow and shadow, with an effect's alpha folded into the colour because `text-shadow` has no opacity of its own. The pure-SVG text path (rasterised export) strokes the glyphs too; shadow and glow there are not implemented, so a PNG export shows the outline but not the halo.
+- Reachable in the editor through the text-format dialog and the properties panel, in English and Japanese, and they travel with the format painter. Browser tests check the painted canvas and the saved `.pptx` in both languages; library tests cover the child order, removal, the round trip and schema validity.
