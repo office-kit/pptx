@@ -54,6 +54,7 @@ export type {
   AnimationOptions,
   AnimationSequenceKind,
   AnimationStart,
+  AnimationStartCondition,
   AnimationTarget,
   SlideAnimationStep,
 } from './fn.ts';

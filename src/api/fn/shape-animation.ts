@@ -3,6 +3,7 @@
 import {
   type AnimationEffect,
   type AnimationOptions,
+  type AnimationStartCondition,
   buildSingleEffectTiming,
   buildTimingRoot,
 } from '../../internal/presentationml/index.ts';
@@ -34,15 +35,15 @@ import {
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
-// Animations (click-triggered, one effect per call).
+// Animations (one effect per call).
 //
-// Current scope: each call adds one click-triggered entrance or exit effect
-// and merges it into whatever timing tree the slide already has, so a slide
-// can carry several effects across several shapes. Start conditions other
-// than click (with / after previous), emphasis presets, per-effect editing
-// and reordering are not modelled yet.
+// Current scope: each call adds one entrance or exit effect and merges it into
+// whatever timing tree the slide already has, so a slide can carry several
+// effects across several shapes and click stops. Emphasis and motion presets,
+// per-paragraph builds, and editing or reordering an effect that is already
+// there are not modelled yet.
 
-export type { AnimationEffect, AnimationOptions };
+export type { AnimationEffect, AnimationOptions, AnimationStartCondition };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
 
 const ATTR_ID_FN = qname('', 'id', '');
@@ -126,12 +127,41 @@ const setGrpId = (el: XmlElement, grpId: string): void => {
 const isMainSeqCTn = (e: XmlElement): boolean =>
   isPml(e, 'cTn') && getAttrValue(e, qname('', 'nodeType', '')) === 'mainSeq';
 
+const NAME_CHILD_TN_LST = qname('p', 'childTnLst', NS.pml);
+
+const childPars = (el: XmlElement): XmlElement[] => {
+  const childTnLst = firstChildElement(el, NAME_CHILD_TN_LST);
+  if (childTnLst === null) return [];
+  return childTnLst.children.filter(
+    (c): c is XmlElement => c.kind === 'element' && isPml(c, 'par'),
+  );
+};
+
+// The `<p:par>` wrappers nest click stop > group > effect, so one level down
+// is `par > cTn > childTnLst > par`.
+const innerPars = (par: XmlElement): XmlElement[] => {
+  const cTn = firstChildElement(par, qname('p', 'cTn', NS.pml));
+  return cTn === null ? [] : childPars(cTn);
+};
+
+const appendPar = (par: XmlElement, child: XmlElement): boolean => {
+  const cTn = firstChildElement(par, qname('p', 'cTn', NS.pml));
+  const childTnLst = cTn === null ? null : firstChildElement(cTn, NAME_CHILD_TN_LST);
+  if (childTnLst === null) return false;
+  childTnLst.children.push(child);
+  return true;
+};
+
 // Merges a freshly-built single-effect timing into an existing `<p:timing>`,
 // renumbering the new effect's cTn ids so they stay unique. Returns false when
 // the existing tree has no structure we know how to extend (so the caller can
 // avoid destroying it). This is what lets a second shape animate without wiping
 // a template's pre-existing animations.
-const mergeEffectInto = (existing: XmlElement, fresh: XmlElement): boolean => {
+const mergeEffectInto = (
+  existing: XmlElement,
+  fresh: XmlElement,
+  start: AnimationStartCondition,
+): boolean => {
   const freshMainSeq = findDescendant(fresh, isMainSeqCTn);
   const freshChildTnLst = freshMainSeq
     ? firstChildElement(freshMainSeq, qname('p', 'childTnLst', NS.pml))
@@ -162,7 +192,28 @@ const mergeEffectInto = (existing: XmlElement, fresh: XmlElement): boolean => {
     // childTnLst. Lift it out and renumber its cTn ids past the existing max.
     const offset = maxCTnId(existing) - 2; // fresh effect ids start at 3
     if (offset > 0) shiftCTnIds(newPar, offset);
-    existingMainSeqChildTnLst.children.push(newPar);
+
+    // A click effect becomes its own stop. A with/after effect joins the stop
+    // already there: `withPrevious` alongside the effects that run together,
+    // `afterPrevious` as the next group inside the same stop, so both play off
+    // the click that started their predecessor. With no stop to join — the
+    // effect is the slide's first — the fresh wrapper is kept, and the builder
+    // has already given it a zero delay so it runs as the slide appears.
+    const stops = childPars(existingMainSeq!);
+    const lastStop = stops.at(-1);
+    const groups = lastStop === undefined ? [] : innerPars(lastStop);
+    const lastGroup = groups.at(-1);
+
+    if (start === 'click' || lastStop === undefined) {
+      existingMainSeqChildTnLst.children.push(newPar);
+    } else if (start === 'afterPrevious') {
+      const group = innerPars(newPar)[0];
+      if (group === undefined || !appendPar(lastStop, group)) return false;
+    } else {
+      const effectPar = innerPars(innerPars(newPar)[0] ?? newPar)[0];
+      if (effectPar === undefined || lastGroup === undefined) return false;
+      if (!appendPar(lastGroup, effectPar)) return false;
+    }
   } else {
     // A slide that holds a video / audio clip but no animation yet has a root
     // with media nodes (and possibly interactive sequences) but no mainSeq.
@@ -194,13 +245,13 @@ const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
 };
 
 /**
- * Sets a single click-triggered animation effect on the given shape.
+ * Adds a single animation effect to the given shape.
  *
  * The effect is *merged* into any existing `<p:timing>` on the slide rather
  * than replacing it: animating a second shape (or re-running on a template that
- * already has authored animations) preserves the existing effects and appends
- * this one as the next click stop, with cTn ids renumbered to stay unique. To
- * clear every animation first, call `clearSlideAnimations`.
+ * already has authored animations) preserves the existing effects, with cTn ids
+ * renumbered to stay unique. To clear every animation first, call
+ * `clearSlideAnimations`.
  *
  * Supported `effect` tokens:
  *
@@ -211,6 +262,16 @@ const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
  *
  * `durationMs` defaults to 500ms (fades only — `appear`/`disappear`
  * are instantaneous).
+ *
+ * `start` decides where the effect lands. The default `'click'` gives it a
+ * click stop of its own, so the viewer sees it on the next click.
+ * `'withPrevious'` and `'afterPrevious'` join the stop the last effect is in,
+ * running alongside it or once it has finished — both off the same click. As
+ * the slide's first effect neither has a predecessor, so both run when the
+ * slide appears. `delayMs` waits that long once the start condition is met.
+ *
+ * Reading the result back, including the order and start condition of every
+ * effect on the slide, is `getSlideAnimations`.
  */
 export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions): void => {
   const slide = shape[SHAPE_SLIDE];
@@ -219,7 +280,7 @@ export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions)
   const existing = findTiming(slide);
   if (existing === null) {
     insertTimingAtEnd(slide, fresh);
-  } else if (!mergeEffectInto(existing, fresh)) {
+  } else if (!mergeEffectInto(existing, fresh, opts.start ?? 'click')) {
     // A timing tree we don't know how to extend (no mainSeq). Leave it intact
     // rather than silently destroying authored animations.
     throw new Error(
