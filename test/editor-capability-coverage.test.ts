@@ -63,6 +63,7 @@ const MUTATING_VERBS = [
   'touch',
   'increment',
   'compact',
+  'reset',
 ];
 
 function isMutatingName(name: string): boolean {

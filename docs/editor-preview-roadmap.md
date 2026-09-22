@@ -64,7 +64,7 @@ that a user can complete the corresponding editing workflow.
   Browser tests verify live canvas ratios, saved dimensions, unit conversion,
   invalid input, cancellation, undo/redo and unchanged object geometry.
   Page setup also offers proportional content fitting with centered placement.
-  A dedicated new-slide layout picker now creates editable placeholders (see below); resetting/remapping existing placeholders remains outstanding.
+  A dedicated new-slide layout picker now creates editable placeholders (see below); resetting placeholder geometry is verified below; restoring deleted slots and resetting formatting/remapping remain outstanding.
 
 - Bilingual chart dialogs create column, bar, line, area, pie, doughnut and radar
   charts, edit titles, category labels, series names, colors and numeric data,
@@ -396,9 +396,15 @@ positions, rotations and reflections produced by ungrouping.
 ### Imported layout relationship targets
 
 - Switching layouts now retains the selected layout's actual package path, including nested and root-level imported parts and matching filenames in different directories.
-- Regression coverage verifies adding/replacing the relationship, stable relationship IDs, unchanged slide content and unrelated relationships, save/reload, and rejection of missing layout parts without mutation. This repairs the existing layout picker; resetting/remapping existing placeholders remains outstanding.
+- Regression coverage verifies adding/replacing the relationship, stable relationship IDs, unchanged slide content and unrelated relationships, save/reload, and rejection of missing layout parts without mutation. This repairs the existing layout picker; resetting placeholder geometry is verified below; restoring deleted slots and resetting formatting/remapping remain outstanding.
 
 ### New slides from document layouts
 
 - The navigator and Home ribbon open a dedicated English/Japanese layout picker. It inserts a slide immediately after the active slide and creates the chosen layout's editable placeholders. Cancel leaves the deck unchanged.
 - Browser verification covers both entry points, slide order/selection, placeholder editing with Japanese and English, undo/redo, saved layout relationships and reload persistence. Existing slide content remains intact.
+
+### Restore placeholder geometry
+
+- A bilingual action in the Home ribbon and slide options restores top-level placeholder position, size, rotation and flips from the current layout, with master fallback. It applies to all selected slides in one undoable transaction.
+- Unit tests cover same-type slots with different indices, master inheritance with unrelated indices, rotation/flips, retained text/formatting/hyperlinks, unaffected ordinary shapes and save/load. Unmatched and grouped placeholders are preserved.
+- Browser verification covers multiple-slide selection, undo/redo, English/Japanese entry points, saved geometry and reload persistence. This action does not recreate deleted slots or reset text formatting; those wider layout workflows remain outstanding.
