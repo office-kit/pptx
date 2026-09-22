@@ -17,7 +17,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={3}>abc</Text></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={3} size={24}>abc</Text></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -28,6 +28,7 @@ test(
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
+      await editor.getByTitle('Reset to 100%', { exact: true }).click();
       await editor
         .locator('.hit')
         .first()
@@ -41,6 +42,29 @@ test(
         );
       };
       await select(1, 2);
+      assert.equal(
+        await input
+          .locator('span')
+          .first()
+          .evaluate((n) => getComputedStyle(n).fontSize),
+        '32px',
+      );
+      // A keyboard/programmatic zoom leaves the input focused, including its selection.
+      await editor.getByTitle('Zoom in (Ctrl+=)', { exact: true }).evaluate((n) => n.click());
+      await page.waitForFunction(() => {
+        const root = document.querySelector('#editor-frame')?.contentDocument;
+        const span = root?.querySelector('.inline-edit span');
+        return span && Math.abs(parseFloat(getComputedStyle(span).fontSize) - 38.4) < 0.01;
+      });
+      assert.equal(await input.evaluate(() => window.getSelection().toString()), 'b');
+      const copiedHtml = await input.evaluate((node) => {
+        const data = new DataTransfer();
+        node.dispatchEvent(new ClipboardEvent('copy', { bubbles: true, clipboardData: data }));
+        return data.getData('text/html');
+      });
+      assert.match(copiedHtml, /font-size: 24pt/);
+      assert.doesNotMatch(copiedHtml, /--text-zoom/);
+      await editor.getByTitle('Zoom out (Ctrl+-)', { exact: true }).evaluate((n) => n.click());
       await input.press('Control+b');
       assert.equal(
         await input

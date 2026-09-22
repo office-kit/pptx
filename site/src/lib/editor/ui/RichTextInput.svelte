@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
-    value: string; html: string; label: string; style: string;
+  let { value, html, label, style, zoom, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+    value: string; html: string; label: string; style: string; zoom: number;
     oninput: (value: string) => void;
     onselect: (range: TextSelection) => void;
     onbeforeinput: (range: TextSelection) => void;
@@ -53,6 +53,10 @@
       root.innerHTML = markup;
       const wrapper = root.firstElementChild;
       if (wrapper?.tagName === 'DIV') wrapper.replaceWith(...wrapper.childNodes);
+      // Clipboard sizes remain in points; only the editing view follows canvas zoom.
+      for (const span of root.querySelectorAll('span')) {
+        if (span.style.fontSize) span.style.fontSize = `calc(${span.style.fontSize} * var(--text-zoom))`;
+      }
       if (!value || value.endsWith('\n')) {
         const end = document.createElement('br');
         end.setAttribute('data-caret-end', '');
@@ -69,7 +73,7 @@
   });
 </script>
 
-<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-label={label} {style}
+<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-label={label} style={`${style}; --text-zoom: ${zoom};`}
   onfocus={() => { if (element) selectRichText(element, selection.start, selection.end); }}
   onbeforeinput={event => {
     capture();
@@ -97,6 +101,6 @@
 ></div>
 
 <style>
-  .inline-edit { position: absolute; pointer-events: auto; border: 1px solid var(--ok-selected-border); background: #fff; font-family: var(--ok-font); font-size: 14px; padding: 4px; z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: none; }
+  .inline-edit { position: absolute; pointer-events: auto; border: 1px solid var(--ok-selected-border); background: #fff; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: none; }
 
 </style>

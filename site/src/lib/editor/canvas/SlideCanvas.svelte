@@ -925,6 +925,7 @@
               style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%; transform: rotate({eb.rotation}deg);"
               value={editing.text}
               html={pendingTextHtml}
+              zoom={editor.zoom}
               onbeforeinput={(range) => { textRange = range; }}
               oninput={updateEditing}
               onhistory={editingHistory}
