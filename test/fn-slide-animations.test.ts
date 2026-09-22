@@ -7,6 +7,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import { partName } from '../src/internal/opc/index.ts';
 import {
   type PresentationData,
@@ -36,16 +37,35 @@ const SLIDE1 = '/ppt/slides/slide1.xml';
 const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 
-/** Replaces slide 1's `<p:timing>` with `timing` and reloads the deck. */
+/**
+ * Replaces slide 1's `<p:timing>` with `timing` and reloads the deck. The
+ * spliced slide is schema-checked first: a fixture PowerPoint could never
+ * hand us would test the parser against nothing real. (`nodeType="interactive"`
+ * looked right and is not in ST_TLTimeNodeType — this is what caught it.)
+ * Pass `malformed` for the cases whose whole point is a tree that breaks the
+ * schema, and say in the test why.
+ */
 const withTiming = async (
   timing: string,
-  source?: Uint8Array,
+  opts: { source?: Uint8Array; malformed?: boolean } = {},
 ): Promise<{ pres: PresentationData; slide: SlideData }> => {
-  const pres = await loadPresentation(source ?? (await readFile(fixture('one-text-slide.pptx'))));
+  const pres = await loadPresentation(
+    opts.source ?? (await readFile(fixture('one-text-slide.pptx'))),
+  );
   const part = _internalPackageOf(pres).getPart(partName(SLIDE1));
   if (part === null) throw new Error('missing slide part');
   const xml = decoder.decode(part.data).replace(/<p:timing>[\s\S]*<\/p:timing>/, '');
-  part.data = encoder.encode(xml.replace('</p:sld>', `${timing}</p:sld>`));
+  const spliced = xml.replace('</p:sld>', `${timing}</p:sld>`);
+  if (isSchemaValidationAvailable()) {
+    // A fixture flagged malformed has to actually break the schema, or the
+    // flag is hiding a mistake in the fixture instead of exercising tolerance.
+    if (opts.malformed) {
+      expect(() => expectSchemaValid(spliced, 'pml')).toThrow(/schema validation failed/);
+    } else {
+      expectSchemaValid(spliced, 'pml');
+    }
+  }
+  part.data = encoder.encode(spliced);
   const reloaded = await loadPresentation(await savePresentation(pres));
   return { pres: reloaded, slide: getSlides(reloaded)[0]! };
 };
@@ -60,11 +80,15 @@ const timingRoot = (seqChildren: string, bldLst = ''): string =>
   `<p:timing><p:tnLst><p:par><p:cTn id="1" dur="indefinite" restart="never" nodeType="tmRoot">` +
   `<p:childTnLst>${seqChildren}</p:childTnLst></p:cTn></p:par></p:tnLst>${bldLst}</p:timing>`;
 
+// CT_TimeNodeList needs at least one child, so a main sequence with nothing
+// in it omits `<p:childTnLst>` rather than writing an empty one.
 const mainSeq = (childTnLst: string): string =>
   `<p:seq concurrent="1" nextAc="seek"><p:cTn id="2" dur="indefinite" nodeType="mainSeq">` +
-  `<p:childTnLst>${childTnLst}</p:childTnLst></p:cTn></p:seq>`;
+  (childTnLst === '' ? '' : `<p:childTnLst>${childTnLst}</p:childTnLst>`) +
+  `</p:cTn></p:seq>`;
 
 const box = { x: inches(1), y: inches(1), w: inches(2), h: inches(1) };
+const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 describe('fn API: getSlideAnimations', () => {
   it('lists click effects in the order they were added, with unique handles', async () => {
@@ -116,6 +140,18 @@ describe('fn API: getSlideAnimations', () => {
     expect(steps[0]!.id).not.toBe(steps[1]!.id);
     // The single-effect read stays on its documented contract: first one wins.
     expect(getShapeAnimation(shape)).toBe('fadeIn');
+  });
+
+  skipIfNoXmllint('emits a schema-valid timing tree for several stacked effects', () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const a = addSlideShape(slide, { preset: 'rect', ...box });
+    const b = addSlideShape(slide, { preset: 'ellipse', ...box });
+    setShapeAnimation(a, { effect: 'fadeIn', durationMs: 750 });
+    setShapeAnimation(b, { effect: 'disappear' });
+    setShapeAnimation(a, { effect: 'fadeOut' });
+    const part = _internalPackageOf(pres).getPart(partName(SLIDE1));
+    expectSchemaValid(decoder.decode(part!.data), 'pml');
   });
 
   it('survives a save / reload round trip unchanged', async () => {
@@ -223,6 +259,9 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     const spid = await firstShapeId();
     const { slide } = await withTiming(
       timingRoot(mainSeq(presetEffect(3, spid, { presetClass: '' }) + presetEffect(10, spid))),
+      // An empty presetClass is outside ST_TLPresetClassType: the tree is
+      // broken on purpose, and the parser must survive it.
+      { malformed: true },
     );
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(2);
@@ -278,6 +317,8 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
             presetEffect(20, spid).replace('id="20"', 'id="20abc"'),
         ),
       ),
+      // `id="20abc"` is not an ST_TLTimeNodeID; that is the case under test.
+      { malformed: true },
     );
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(3);
@@ -342,7 +383,7 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
       `<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst></p:cBhvr>` +
       `<p:tavLst/></p:anim></p:childTnLst></p:cTn></p:par>`;
     const bldLst = `<p:bldLst><p:bldP spid="${idA}" grpId="0"/><p:bldP spid="${idB}" grpId="0"/></p:bldLst>`;
-    const { slide } = await withTiming(timingRoot(mainSeq(composite), bldLst), bytes);
+    const { slide } = await withTiming(timingRoot(mainSeq(composite), bldLst), { source: bytes });
 
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(1);
@@ -400,13 +441,13 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     const spid = await firstShapeId();
     const interactive =
       `<p:seq concurrent="1" nextAc="seek"><p:cTn id="30" restart="whenNotActive" ` +
-      `fill="hold" evtFilter="cancelBubble" nodeType="interactive">` +
+      `fill="hold" evtFilter="cancelBubble" nodeType="interactiveSeq">` +
       `<p:childTnLst>${presetEffect(31, spid)}</p:childTnLst></p:cTn></p:seq>`;
     const { slide } = await withTiming(timingRoot(mainSeq(presetEffect(3, spid)) + interactive));
 
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(2);
-    expect(steps.map((s) => s.sequence)).toEqual(['mainSeq', 'interactive']);
+    expect(steps.map((s) => s.sequence)).toEqual(['mainSeq', 'interactiveSeq']);
     // Both read as a click effect; only the main-sequence one may be played.
     expect(steps.map((s) => s.start)).toEqual(['click', 'click']);
     expect(steps.map((s) => s.playable)).toEqual([true, false]);
@@ -418,6 +459,7 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     const spid = await firstShapeId();
     const { slide } = await withTiming(
       timingRoot(mainSeq(presetEffect(3, spid).replace('id="3"', 'id="3abc"'))),
+      { malformed: true },
     );
     const steps = getSlideAnimations(slide);
     expect(steps[0]!.sequence).toBe('mainSeq');
