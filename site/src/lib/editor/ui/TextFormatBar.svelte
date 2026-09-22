@@ -13,7 +13,7 @@
     onlink?: () => void;
     paragraph?: { align: string; bullet: string; level: string; lineKind: string; lineValue: string; before: string; after: string };
     onparagraph?: (kind: 'align' | 'bullet' | 'level' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) => void;
-    context?: 'text' | 'cells';
+    context?: 'text' | 'cells' | 'objects';
   } = $props();
   function toggle(property: TextFormatToggle) {
     if (ontoggle) ontoggle(property);
@@ -25,8 +25,8 @@
   const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) && /^#[0-9a-f]{6}$/i.test(formats[0]?.color ?? '') ? formats[0]!.color! : null);
 </script>
 
-<div class="text-format-bar" role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : 'Selected text formatting')}>
-  <span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : selected ? 'Selected text' : typing ? 'Text to type' : onparagraph ? 'Current paragraph' : 'Select text to format')}</span>
+<div class="text-format-bar" role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : context === 'objects' ? 'Format selected objects' : 'Selected text formatting')}>
+  <span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : context === 'objects' ? 'Formatting applies to all text in selected objects' : selected ? 'Selected text' : typing ? 'Text to type' : onparagraph ? 'Current paragraph' : 'Select text to format')}</span>
   {#each [
     { property: 'bold', label: 'Bold' },
     { property: 'italic', label: 'Italic' },

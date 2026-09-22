@@ -459,3 +459,7 @@ The numeric rotation field displays mixed values for multi-selection and applies
 ### Multiple-selection numeric position and size
 
 The property panel shows common position and size values or localized mixed-value placeholders. Entered values apply to each selected object, as explained beside the controls. Aspect-ratio locking preserves each object's own ratio; paired dimensions are validated for the entire selection before mutation. Browser coverage verifies English and Japanese edits, unchanged unselected objects, proportional-overflow rejection, one-step undo/redo, and unlocked width changes preserved through saved reloads.
+
+### Direct object text formatting
+
+Selecting objects containing text now shows a property-panel formatting bar with font, size, emphasis, text/highlight colors and clear-format controls. It reads effective formats across the selected text and applies changes to every selected object in one undoable transaction. Bilingual scope labels distinguish whole-object edits from character-range editing. Browser coverage verifies mixed bold state, bulk size and Japanese italic edits, clear-format undo, preservation of text and unselected objects, saved reloads, and existing caret-formatting behavior. Empty shapes and mixed text/non-text selections do not yet show this shortcut.

@@ -481,6 +481,10 @@ test('selected text formatting preserves content and rejects non-text targets be
     ids.slice(0, 2).map((id) => getShapeParagraphElements(doc.shapeById(0, id), 0)[0].format?.bold);
   editor.invoke('setShapeTextFormat', { format: { bold: true } });
   assert.deepEqual(bold(), [true, true]);
+  editor.invoke('setShapeTextFormat', { format: {}, options: { reset: true } });
+  assert.deepEqual(bold(), [undefined, undefined]);
+  await doc.undo();
+  assert.deepEqual(bold(), [true, true]);
   assert.deepEqual(
     ids.slice(0, 2).map((id) => getShapeText(doc.shapeById(0, id))),
     ['日本語', 'English'],
