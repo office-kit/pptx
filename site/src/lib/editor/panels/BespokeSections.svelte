@@ -36,12 +36,12 @@
     return id == null ? null : doc.shapeById(sel.slideIndex, id);
   });
 
-  function emuToIn(v: number | undefined): number {
-    const per = inches(1) as unknown as number;
-    return v == null ? 0 : Math.round((v / per) * 100) / 100;
-  }
-  function inToEmu(v: number): number {
-    return Math.round((inches(1) as unknown as number) * v);
+  const emuPerInch = inches(1);
+  // DrawingML ST_Coordinate limits, expressed in the panel's inches.
+  const minPosition = -27273042329600 / emuPerInch;
+  const maxDimension = 27273042316900 / emuPerInch;
+  function emuToIn(value: number): number {
+    return Math.round((value / emuPerInch) * 100) / 100;
   }
 
   const bounds = $derived.by(() => {
@@ -52,10 +52,10 @@
       const b = getShapeBounds(s);
       if (!b) return null;
       return {
-        x: emuToIn(b.x as unknown as number),
-        y: emuToIn(b.y as unknown as number),
-        w: emuToIn(b.w as unknown as number),
-        h: emuToIn(b.h as unknown as number),
+        x: emuToIn(b.x),
+        y: emuToIn(b.y),
+        w: emuToIn(b.w),
+        h: emuToIn(b.h),
       };
     } catch {
       return null;
@@ -154,24 +154,27 @@
     const dash = dashStyles.find(([key]) => key === value)?.[0];
     if (dash) editor.invoke('setShapeStrokeDash', { dash });
   }
-  function setBoundsField(field: 'x' | 'y' | 'w' | 'h', value: number) {
+  function setBoundsField(field: 'x' | 'y' | 'w' | 'h', input: HTMLInputElement) {
     const s = shape;
-    const b = bounds;
-    if (!s || !b) return;
-    const next = { ...b, [field]: value };
+    if (!s || !bounds) return;
+    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
+      input.value = String(bounds[field]);
+      return;
+    }
+    const current = getShapeBounds(s);
+    if (!current) return;
     doc.transact('Set bounds', () =>
-      setShapeBounds(s, {
-        x: inToEmu(next.x) as never,
-        y: inToEmu(next.y) as never,
-        w: inToEmu(next.w) as never,
-        h: inToEmu(next.h) as never,
-      }),
+      setShapeBounds(s, { ...current, [field]: inches(input.valueAsNumber) }),
     );
   }
-  function applyRotation(deg: number) {
+  function applyRotation(input: HTMLInputElement) {
     const s = shape;
     if (!s) return;
-    doc.transact('Rotate', () => setShapeRotation(s, deg));
+    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
+      input.value = String(rotation);
+      return;
+    }
+    doc.transact('Rotate', () => setShapeRotation(s, input.valueAsNumber));
   }
   function applyText(value: string) {
     const s = shape;
@@ -227,17 +230,17 @@
         <div class="sec-title">{t('Position & size (in)')}</div>
         <div class="grid4">
           <label class="mini"><span>X</span>
-            <input class="ok-input" type="number" step="0.01" value={bounds.x}
-              onchange={(e) => setBoundsField('x', Number(e.currentTarget.value))} /></label>
+            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.x}
+              onchange={(e) => setBoundsField('x', e.currentTarget)} /></label>
           <label class="mini"><span>Y</span>
-            <input class="ok-input" type="number" step="0.01" value={bounds.y}
-              onchange={(e) => setBoundsField('y', Number(e.currentTarget.value))} /></label>
+            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.y}
+              onchange={(e) => setBoundsField('y', e.currentTarget)} /></label>
           <label class="mini"><span>W</span>
-            <input class="ok-input" type="number" step="0.01" value={bounds.w}
-              onchange={(e) => setBoundsField('w', Number(e.currentTarget.value))} /></label>
+            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.w}
+              onchange={(e) => setBoundsField('w', e.currentTarget)} /></label>
           <label class="mini"><span>H</span>
-            <input class="ok-input" type="number" step="0.01" value={bounds.h}
-              onchange={(e) => setBoundsField('h', Number(e.currentTarget.value))} /></label>
+            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.h}
+              onchange={(e) => setBoundsField('h', e.currentTarget)} /></label>
         </div>
       </div>
     {/if}
@@ -245,8 +248,8 @@
     <div class="sec">
       <div class="sec-title">{t('Rotation')}</div>
       <div class="rotrow">
-        <input class="ok-input" type="number" step="1" value={rotation}
-          onchange={(e) => applyRotation(Number(e.currentTarget.value))} />
+        <input class="ok-input" type="number" aria-label={t('Rotation')} step="any" value={rotation}
+          onchange={(e) => applyRotation(e.currentTarget)} />
         <span class="deg">°</span>
       </div>
     </div>
