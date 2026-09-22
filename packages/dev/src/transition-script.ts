@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -62,6 +62,20 @@ function renderSlide(svg,options){
       return 'polygon('+points.map(([x,y])=>vertical?y+'% '+x+'%':x+'% '+y+'%').join(',')+')';
     };
     animate(incoming,[{clipPath:bands(0)},{clipPath:bands(1)}]);
+  }else if(effect==='checker'){
+    const cells=(progress)=>{
+      const points=[];
+      for(let row=0;row<6;row++)for(let col=0;col<8;col++){
+        const amount=Math.max(0,Math.min(1,2*progress-(row+col)%2));
+        const left=col*100/8,top=row*100/6;
+        const right=(col+(options.direction==='vert'?1:amount))*100/8;
+        const bottom=(row+(options.direction==='vert'?amount:1))*100/6;
+        // Keep zero-area bridges on cell boundaries to avoid diagonal antialiasing artifacts.
+        points.push([0,0],[left,0],[left,top],[right,top],[right,bottom],[left,bottom],[left,top],[left,0],[0,0]);
+      }
+      return 'polygon('+points.map(([x,y])=>x+'% '+y+'%').join(',')+')';
+    };
+    animate(incoming,[{clipPath:cells(0)},{clipPath:cells(.5)},{clipPath:cells(1)}]);
   }else if(effect==='split'){
     const collapsed=options.orientation==='vert'?'inset(0 50%)':'inset(50% 0)';
     const expanded='inset(0 0)';
