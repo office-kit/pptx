@@ -1,4 +1,4 @@
-import { resolveTextBodyRect } from './text-body-rect.ts';
+import { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
 import { paragraphNumberLabels } from './paragraph-number-labels.ts';
 // Per-slide SVG renderer for the playground.
 //
@@ -72,6 +72,7 @@ import {
   getShapeImagePartName,
   getShapeImageFormat,
   getShapeAdjustValues,
+  getShapeBounds,
   getShapeCustomGeometry,
   getShapeKind,
   getShapeParagraphCount,
@@ -2568,12 +2569,16 @@ export const resolveTextBodyModel = (
     y: innerY,
     w: innerW,
     h: innerH,
-  } = resolveTextBodyRect(getShapePreset(shape), bounds, {
-    left: lIns,
-    top: tIns,
-    right: rIns,
-    bottom: bIns,
-  });
+  } = resolveTextBodyRect(
+    getShapePreset(shape),
+    bounds,
+    { left: lIns, top: tIns, right: rIns, bottom: bIns },
+    // A custom shape states where its text goes; only a preset has to be
+    // approximated from a table. The rect is in the same EMU space as the
+    // shape's own `<a:ext>`, which is what turns it into fractions here —
+    // `bounds` carries a group's scale and would divide it away twice.
+    shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)),
+  );
   if (innerW <= 0 || innerH <= 0) return null;
 
   // The rect the pure-SVG path lays text into for a given vertical layout.

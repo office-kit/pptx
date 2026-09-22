@@ -621,7 +621,14 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - The preview renderer and inline editor share the preset text rectangle calculation. Triangles, diamonds, pentagons, five-pointed stars and double arrows retain their constrained text regions and asymmetric body margins while editing. Autoshape paragraphs without authored or inherited alignment now use the preview's centered default.
 - Browser coverage compares the editing content rectangle against the rendered SVG foreignObject for six presets, a nonuniformly scaled group, and margins that collapse a star's region. It checks bilingual edits and Japanese saved reload. Renderer tests cover degenerate inset fallback and existing SVG/audit behavior.
-- This matches the preview's existing preset approximations. Custom-geometry text rectangles and adjustment-dependent geometry still require renderer work.
+- This matches the preview's existing preset approximations. Adjustment-dependent geometry still requires renderer work; custom-geometry text rectangles are described below.
+
+### Custom-geometry text rectangles
+
+- `getShapeCustomGeometry` reports the optional `<a:rect>` as `textRect`, evaluated against the same guides as the path commands, so a custom shape's stated text rectangle is readable through the public API.
+- The preview renderer and the inline editor both lay text in that rectangle, through `shapeCustomTextRect` in `@office-kit/pptx-preview`. A custGeom shape that states no rectangle keeps its whole box: the preset table is an approximation of shapes we do not have the geometry for, and substituting it for a shape that describes itself would move text the file placed.
+- The rectangle is written in the shape's own `<a:ext>` space, which is what turns it into fractions. A group's scale reaches the text bounds but not that extent, so it is applied once, never twice.
+- Renderer tests pin the stated rectangle, the whole-box fallback and a group-squashed shape. Browser coverage compares the editing content rectangle against the rendered SVG foreignObject for a custGeom shape with and without a nonuniformly scaled group, and checks bilingual editing and Japanese saved reload.
 
 ### Default paragraph alignment readback
 

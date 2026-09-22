@@ -58,8 +58,25 @@ export interface GeomPath {
   readonly commands: readonly GeomCommand[];
 }
 
+/**
+ * `<a:rect>` (§20.1.9.22) — the rectangle a shape lays its text into,
+ * in EMU from the shape's own top-left corner.
+ *
+ * Unlike the path commands above, this is written in the guide coordinate
+ * space rather than a path's, so a value is either a literal EMU number or a
+ * guide name; both are already resolved here. Custom shapes that omit it lay
+ * text into the whole box, which is what `null` means.
+ */
+export interface GeomTextRect {
+  readonly l: number;
+  readonly t: number;
+  readonly r: number;
+  readonly b: number;
+}
+
 export interface CustomGeometry {
   readonly paths: readonly GeomPath[];
+  readonly textRect: GeomTextRect | null;
 }
 
 /**
@@ -84,9 +101,15 @@ const ATTR_SW_ANG = qname('', 'swAng', '');
 const ATTR_FILL = qname('', 'fill', '');
 const ATTR_STROKE = qname('', 'stroke', '');
 
+const ATTR_L = qname('', 'l', '');
+const ATTR_T = qname('', 't', '');
+const ATTR_R = qname('', 'r', '');
+const ATTR_B = qname('', 'b', '');
+
 const NAME_AV_LST = qname('a', 'avLst', NS.dml);
 const NAME_GD_LST = qname('a', 'gdLst', NS.dml);
 const NAME_PATH_LST = qname('a', 'pathLst', NS.dml);
+const NAME_RECT = qname('a', 'rect', NS.dml);
 
 // 60000ths-of-a-degree is OOXML's angular unit. A full turn is
 // 360 × 60000 = 21_600_000; the `cdN` built-in guides are that constant
@@ -280,6 +303,24 @@ const FILL_MODES: ReadonlySet<PathFillMode> = new Set([
 // this lets the guard narrow an arbitrary attribute value to the union.
 const isPathFillMode = (s: string): s is PathFillMode => (FILL_MODES as ReadonlySet<string>).has(s);
 
+const parseTextRect = (
+  rect: XmlElement | null,
+  guides: Map<string, number>,
+): GeomTextRect | null => {
+  if (rect === null) return null;
+  const side = (name: QName): number => resolveToken(getAttrValue(rect, name) ?? '0', guides);
+  const resolved = {
+    l: side(ATTR_L),
+    t: side(ATTR_T),
+    r: side(ATTR_R),
+    b: side(ATTR_B),
+  };
+  // All four sides are required, and a shape whose text rect has no room in it
+  // is describing something nobody can lay text into. Reading that as "no rect
+  // was given" would silently hand the text the whole box instead.
+  return resolved.r > resolved.l && resolved.b > resolved.t ? resolved : null;
+};
+
 const parsePath = (pathEl: XmlElement, guides: Map<string, number>): GeomPath => {
   const w = parseIntOrNull(getAttrValue(pathEl, ATTR_W));
   const h = parseIntOrNull(getAttrValue(pathEl, ATTR_H));
@@ -359,14 +400,16 @@ export const parseCustomGeometry = (
     evalGuideList(firstDmlChild(custGeom, NAME_AV_LST), guides);
     evalGuideList(firstDmlChild(custGeom, NAME_GD_LST), guides);
 
+    const textRect = parseTextRect(firstDmlChild(custGeom, NAME_RECT), guides);
+
     const pathLst = firstDmlChild(custGeom, NAME_PATH_LST);
-    if (pathLst === null) return { paths: [] };
+    if (pathLst === null) return { paths: [], textRect };
 
     const paths: GeomPath[] = [];
     for (const p of dmlChildren(pathLst, 'path')) {
       paths.push(parsePath(p, guides));
     }
-    return { paths };
+    return { paths, textRect };
   } catch (err) {
     if (err instanceof GeomEvalError) return null;
     throw err;

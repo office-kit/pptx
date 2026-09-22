@@ -14,7 +14,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
-  import { resolveTextBodyRect } from '@office-kit/pptx-preview';
+  import { resolveTextBodyRect, shapeCustomTextRect } from '@office-kit/pptx-preview';
   import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
@@ -33,6 +33,8 @@
     getTableCellMargins,
     getTableCellAnchor,
     getShapeBodyPrEffective,
+    getShapeBounds,
+    getShapeCustomGeometry,
     getShapePreset,
     insertTableRow,
     getTableCellText,
@@ -807,7 +809,11 @@
     if (!target && editBox && scope) {
       const w = editBox.width / 100 * metrics.widthEmu * scope.textScale.x;
       const h = editBox.height / 100 * metrics.heightEmu * scope.textScale.y;
-      const rect = resolveTextBodyRect(getShapePreset(shape), { x: 0, y: 0, w, h }, insets);
+      // Same rect the renderer lays text into, custom geometry included, so
+      // the caret sits where the glyphs will. A custom `<a:rect>` is in the
+      // shape's own `<a:ext>` space, so that — not the on-screen box, which
+      // carries the group and autofit scales — is what makes it a fraction.
+      const rect = resolveTextBodyRect(getShapePreset(shape), { x: 0, y: 0, w, h }, insets, shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)));
       insets = { left: rect.x, top: rect.y, right: w - rect.x - rect.w, bottom: h - rect.y - rect.h };
     }
     const padding = [insets.top, insets.right, insets.bottom, insets.left]
