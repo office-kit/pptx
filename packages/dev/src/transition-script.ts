@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||!['fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -23,11 +23,14 @@ function renderSlide(svg,options){
   canvas.innerHTML=style;canvas.append(outgoing,incoming);
   const duration=options.speed==='slow'?1000:options.speed==='fast'?300:600;
   const timing={duration,easing:'ease-in-out',fill:'both'};
-  const animate=(node,frames)=>transitionAnimations.push(node.animate(frames,timing));
+  const animate=(node,frames,easing=timing.easing)=>transitionAnimations.push(node.animate(frames,{...timing,easing}));
   const vectors={l:[-100,0],r:[100,0],u:[0,-100],d:[0,100],lu:[-100,-100],ru:[100,-100],ld:[-100,100],rd:[100,100]};
   const [x,y]=vectors[options.direction]??vectors.l;
   const shift=(a,b)=>'translate('+a+'%,'+b+'%)';
-  if(effect==='fade'){
+  if(effect==='cut'){
+    slide.style.background='black';outgoing.style.visibility='hidden';
+    animate(incoming,[{opacity:0},{opacity:1}],'steps(1,end)');
+  }else if(effect==='fade'){
     if(options.thruBlack){
       outgoing.style.background='black';incoming.style.background='black';slide.style.background='black';
       animate(outgoing,[{opacity:1,offset:0},{opacity:0,offset:.5},{opacity:0,offset:1}]);

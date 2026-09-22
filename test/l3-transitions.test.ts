@@ -3,6 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { INTERNAL_PACKAGE, SLIDE_PART_NAME } from '../src/api/_internal-symbols.ts';
 import {
   getSlideTransition,
   clearSlideTransition,
@@ -20,6 +21,38 @@ const fixture = (name: string): string =>
 const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 describe('L3: setSlideTransition', () => {
+  it.each(['1', '0', 'true', 'false', ' true ', ' false ', ' 1 ', ' 0 '])(
+    'reads imported XML boolean %j for fade/cut and click advance',
+    async (value) => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      for (const [index, slide] of getSlides(pres).entries()) {
+        setSlideTransition(slide, {
+          effect: index ? 'cut' : 'fade',
+          thruBlack: true,
+          advanceOnClick: false,
+        });
+        const part = pres[INTERNAL_PACKAGE].getPart(slide[SLIDE_PART_NAME])!;
+        part.data = new TextEncoder().encode(
+          new TextDecoder()
+            .decode(part.data)
+            .replace('thruBlk="1"', `thruBlk="${value}"`)
+            .replace('advClick="0"', `advClick="${value}"`),
+        );
+      }
+      const loaded = await loadPresentation(await savePresentation(pres));
+      const expected = ['1', 'true'].includes(value.trim());
+      for (const slide of getSlides(loaded))
+        expect(getSlideTransition(slide)).toMatchObject({
+          thruBlack: expected,
+          advanceOnClick: expected,
+        });
+      const reloaded = await loadPresentation(await savePresentation(loaded));
+      expect(getSlides(reloaded).map(getSlideTransition)).toEqual(
+        getSlides(loaded).map(getSlideTransition),
+      );
+    },
+  );
+
   it('emits <p:transition><p:fade/></p:transition>', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
