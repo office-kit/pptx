@@ -155,20 +155,22 @@
     <div class="sec">
       <div class="sec-title">{t('Fill & outline')}</div>
       <div class="row2">
-        <label class="mini">
+        <div class="mini">
           <span>{t('Fill')}</span>
           <span class="colorwrap">
             <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
             <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
           </span>
-        </label>
-        <label class="mini">
+          <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
+        </div>
+        <div class="mini">
           <span>{t('Outline')}</span>
           <span class="colorwrap">
             <input type="color" aria-label={t('Outline')} value={colorValue(paint.stroke)} onchange={(e) => applyStroke(e.currentTarget.value)} />
             <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
           </span>
-        </label>
+          <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
+        </div>
       </div>
     </div>
 
