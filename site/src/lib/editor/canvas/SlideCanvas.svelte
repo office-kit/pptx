@@ -15,6 +15,7 @@
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { resolveTextBodyRect } from '@office-kit/pptx-preview';
+  import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import RichTextInput from '../ui/RichTextInput.svelte';
@@ -33,8 +34,6 @@
     getTableCellAnchor,
     getShapeBodyPrEffective,
     getShapePreset,
-    isShapePlaceholder,
-    isShapeTextBox,
     insertTableRow,
     getTableCellText,
     getTableCellParagraphs,
@@ -803,7 +802,7 @@
     const margins = target ? getTableCellMargins(target) : body!.margins;
     const anchor = target
       ? getTableCellAnchor(target) ?? 'top'
-      : body!.anchor ?? (!isShapePlaceholder(shape) && !isShapeTextBox(shape) ? 'center' : 'top');
+      : body!.anchor ?? shapeTextDefaults(shape).anchor;
     let insets = { top: margins.top ?? 45720, right: margins.right ?? 91440, bottom: margins.bottom ?? 45720, left: margins.left ?? 91440 };
     if (!target && editBox && scope) {
       const w = editBox.width / 100 * metrics.widthEmu * scope.textScale.x;
@@ -852,12 +851,13 @@
     doc.version;
     const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
     const properties = target?.indices.map(index => getParagraphPropertiesEffective(doc.pres, target.shape, index)) ?? [];
+    const defaultAlign = pendingTextShape && !editing?.cell ? shapeTextDefaults(pendingTextShape).align : 'left';
     function common(read: (p: typeof properties[number]) => string) {
       const values = properties.map(read);
       return values.every(value => value === values[0]) ? values[0] ?? '' : '';
     }
     return {
-      align: common(p => p.align ?? 'left'),
+      align: common(p => p.align ?? defaultAlign),
       bullet: common(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : ''),
       level: common(p => String(p.level)),
       lineKind: common(p => p.lineSpacing?.kind ?? 'inherit'),

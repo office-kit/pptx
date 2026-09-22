@@ -80,7 +80,8 @@ for (const { preset, grouped = false, collapsed = false } of [
           const box = node.getBoundingClientRect(),
             style = getComputedStyle(node);
           const paragraph = node.querySelector('[data-text-paragraph]');
-          const rendered = document.querySelector('.paint foreignObject').getBoundingClientRect();
+          const region = document.querySelector('.paint foreignObject');
+          const rendered = region.getBoundingClientRect();
           return {
             actual: [
               box.x + parseFloat(style.paddingLeft),
@@ -90,12 +91,29 @@ for (const { preset, grouped = false, collapsed = false } of [
             ],
             expected: [rendered.x, rendered.y, rendered.width, rendered.height],
             align: getComputedStyle(paragraph).textAlign,
+            renderedAlign: getComputedStyle(region.querySelector('p')).textAlign,
           };
         });
         layout.actual.forEach((value, i) =>
           assert.ok(Math.abs(value - layout.expected[i]) < 1, JSON.stringify(layout)),
         );
+        // The editor's default must track the renderer's, not just a literal.
+        assert.equal(layout.align, layout.renderedAlign);
         assert.equal(layout.align, 'center');
+        assert.equal(
+          await editor
+            .locator('.canvas-shell > .text-format-bar')
+            .getByLabel('Paragraph alignment', { exact: true })
+            .inputValue(),
+          'center',
+        );
+        assert.equal(
+          await editor
+            .locator('.paragraphs')
+            .getByLabel('Paragraph alignment', { exact: true })
+            .inputValue(),
+          'center',
+        );
         await input.fill('編集済み Edited');
         await page.keyboard.press('ControlOrMeta+Enter');
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
@@ -105,6 +123,46 @@ for (const { preset, grouped = false, collapsed = false } of [
         if (grouped) await editor.locator('.hit').dblclick();
         await editor.locator('.hit').first().dblclick();
         assert.equal(await input.innerText(), '編集済み Edited');
+        assert.equal(
+          await editor
+            .locator('.canvas-shell > .text-format-bar')
+            .getByLabel('段落の配置', { exact: true })
+            .inputValue(),
+          'center',
+        );
+        assert.equal(
+          await editor
+            .locator('.paragraphs')
+            .getByLabel('段落の配置', { exact: true })
+            .inputValue(),
+          'center',
+        );
+        if (preset === 'rect') {
+          const alignment = editor
+            .locator('.canvas-shell > .text-format-bar')
+            .getByLabel('段落の配置', { exact: true });
+          await alignment.selectOption('right');
+          await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+          assert.equal(
+            await editor
+              .locator('.paragraphs')
+              .getByLabel('段落の配置', { exact: true })
+              .inputValue(),
+            'right',
+          );
+          assert.equal(
+            await input
+              .locator('[data-text-paragraph]')
+              .evaluate((node) => getComputedStyle(node).textAlign),
+            'right',
+          );
+          await input.press('ControlOrMeta+z');
+          await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+          assert.equal(await alignment.inputValue(), 'center');
+          await input.press('ControlOrMeta+Shift+z');
+          await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+          assert.equal(await alignment.inputValue(), 'right');
+        }
         await page.screenshot({ path: `/tmp/pptx-preset-${preset}.png` });
       } finally {
         await browser?.close();

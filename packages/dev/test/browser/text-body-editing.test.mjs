@@ -65,6 +65,20 @@ for (const table of [false, true])
           await editor.locator('.hit').dblclick();
           const input = editor.locator('.inline-edit');
           await input.waitFor();
+          assert.equal(
+            await editor
+              .locator('.canvas-shell > .text-format-bar')
+              .getByLabel('Paragraph alignment', { exact: true })
+              .inputValue(),
+            'left',
+          );
+          assert.equal(
+            await editor
+              .locator('.paragraphs')
+              .getByLabel('Paragraph alignment', { exact: true })
+              .inputValue(),
+            'left',
+          );
           const layout = await input.evaluate((node) => {
             const css = getComputedStyle(node),
               box = node.getBoundingClientRect();
