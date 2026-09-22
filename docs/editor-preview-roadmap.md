@@ -122,8 +122,11 @@ that a user can complete the corresponding editing workflow.
   explicitly target the current slide. Browser coverage verifies mixed state,
   unaffected slides, undo/redo and persisted background images/transitions.
 
-- The Arrange pane aligns objects to the selection (or slide for a single object)
-  and distributes equal horizontal/vertical gaps. Group/ungroup bind selected
+- The Arrange pane lets multiple objects align to either the selection or the
+  slide, and always uses the slide for a single object. It distributes equal
+  horizontal/vertical gaps. Six-direction slide alignment and one-step undo are
+  unit-tested; bilingual browser coverage checks centered/bottom alignment and
+  saved geometry. Group/ungroup bind selected
   top-level objects and preserve stacking order and undo selection. Canvas and
   Select All treat nested groups as one object. Browser tests cover bilingual
   controls, moving a group, ungrouping, undo, saved geometry and reload.

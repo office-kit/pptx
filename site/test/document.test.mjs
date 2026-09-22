@@ -487,3 +487,29 @@ test('selected text formatting preserves content and rejects non-text targets be
   editor.invoke('setShapeTextFormat', { format: { bold: true } });
   assert.deepEqual(bold(), [undefined, undefined]);
 });
+
+test('multiple objects can align to slide edges and centers in one undo step', async () => {
+  const editor = new EditorController();
+  arrangedShapes(editor);
+  const before = editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s));
+  const size = getSlideSize(editor.doc.pres);
+  for (const alignment of ['left', 'center', 'right', 'top', 'middle', 'bottom']) {
+    editor.alignSelection(alignment, 'slide');
+    const after = editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s));
+    after.forEach((b, i) => {
+      assert.equal(b.w, before[i].w);
+      assert.equal(b.h, before[i].h);
+      if (alignment === 'left') assert.equal(b.x, 0);
+      if (alignment === 'right') assert.equal(b.x + b.w, size.width);
+      if (alignment === 'center') assert.ok(Math.abs(b.x + b.w / 2 - size.width / 2) <= 0.5);
+      if (alignment === 'top') assert.equal(b.y, 0);
+      if (alignment === 'bottom') assert.equal(b.y + b.h, size.height);
+      if (alignment === 'middle') assert.ok(Math.abs(b.y + b.h / 2 - size.height / 2) <= 0.5);
+    });
+    await editor.doc.undo();
+    assert.deepEqual(
+      editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+      before,
+    );
+  }
+});

@@ -279,20 +279,24 @@ export class EditorController {
     return items;
   }
 
-  /** Align unrotated bounds within the selection; one object aligns to the slide. */
-  alignSelection(alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom'): void {
+  /** Align unrotated bounds to the chosen reference; one object always uses the slide. */
+  alignSelection(
+    alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom',
+    reference: 'selection' | 'slide' = 'selection',
+  ): void {
     const items = this.selectedGeometry();
     if (!items.length) return;
     const size = getSlideSize(this.doc.pres);
-    if (items.length === 1 && !size) {
+    const toSlide = items.length === 1 || reference === 'slide';
+    if (toSlide && !size) {
       this.toast('error', t('Slide size is unavailable'));
       return;
     }
     const boxes = items.map((item) => item.bounds);
-    const left = items.length === 1 ? 0 : Math.min(...boxes.map((b) => b.x));
-    const top = items.length === 1 ? 0 : Math.min(...boxes.map((b) => b.y));
-    const right = items.length === 1 ? size!.width : Math.max(...boxes.map((b) => b.x + b.w));
-    const bottom = items.length === 1 ? size!.height : Math.max(...boxes.map((b) => b.y + b.h));
+    const left = toSlide ? 0 : Math.min(...boxes.map((b) => b.x));
+    const top = toSlide ? 0 : Math.min(...boxes.map((b) => b.y));
+    const right = toSlide ? size!.width : Math.max(...boxes.map((b) => b.x + b.w));
+    const bottom = toSlide ? size!.height : Math.max(...boxes.map((b) => b.y + b.h));
     this.doc.transact(t('Align objects'), () => {
       for (const { shape, bounds } of items) {
         const b = bounds;

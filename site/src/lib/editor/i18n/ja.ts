@@ -488,6 +488,7 @@ export const ja: Record<string, string> = {
   'Distribute horizontally': '左右に均等配置',
   'Distribute vertically': '上下に均等配置',
   'Align to slide': 'スライドを基準に整列',
+  'Alignment reference': '整列の基準',
   'Align to selection': '選択範囲を基準に整列',
   'The selection contains an object without a position or size':
     '選択範囲に位置またはサイズを取得できないオブジェクトがあります',
