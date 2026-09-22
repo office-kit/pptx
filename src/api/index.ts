@@ -52,6 +52,7 @@ export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type {
   AnimationEffect,
   AnimationOptions,
+  AnimationSequenceKind,
   AnimationStart,
   AnimationTarget,
   SlideAnimationStep,

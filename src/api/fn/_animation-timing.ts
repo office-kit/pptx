@@ -117,21 +117,37 @@ export interface SlideAnimationStep {
   readonly buildByParagraph: boolean;
   readonly buildLevel: number | null;
   /**
-   * `true` when this library can safely move, remove or retime the step: it
-   * has a unique handle, sits in the main sequence, starts in a way we model,
-   * animates a single target we model, and uses a preset we recognise. A step
-   * built from a preset we cannot name is still listed, but read-only: we do
-   * not know what else its behaviours reference, so we must not rewrite it.
+   * Which `<p:seq>` the step lives in, named after its `nodeType`. Only
+   * `'mainSeq'` advances on the slide's own clicks: an `'interactive'`
+   * sequence fires when the viewer clicks the shape it is bound to, so a
+   * player that folded one into the click order would run it at the wrong
+   * time — and swallow a click the slide owes its main sequence.
+   */
+  readonly sequence: AnimationSequenceKind;
+  /**
+   * `true` when a player can run this step as part of the slide's click
+   * order: it is in the main sequence, starts in a way we model, animates a
+   * single target we model, and uses a preset we know how to render. A step
+   * that is not playable must be shown as such, never folded into the normal
+   * progression.
+   */
+  readonly playable: boolean;
+  /**
+   * `true` when this library can safely move, remove or retime the step:
+   * `playable`, plus a unique handle to address it by. Editability is not
+   * playability — a step can be one without the other as either side grows.
    */
   readonly editable: boolean;
 }
+
+/** Which `<p:seq>` an effect belongs to, named after its `nodeType`. */
+export type AnimationSequenceKind = 'mainSeq' | 'interactive' | 'other';
 
 /** A parsed step plus the elements it came from, for the editing paths. */
 export interface AnimationStepNode {
   readonly step: SlideAnimationStep;
   readonly cTn: XmlElement;
   readonly sequence: XmlElement;
-  readonly sequenceKind: 'mainSeq' | 'interactive' | 'other';
 }
 
 const isPml = (el: XmlElement, local: string): boolean =>
@@ -166,7 +182,7 @@ const readBuilds = (timing: XmlElement): Map<string, XmlElement> => {
   return out;
 };
 
-const sequenceKind = (seq: XmlElement): AnimationStepNode['sequenceKind'] => {
+const sequenceKind = (seq: XmlElement): AnimationSequenceKind => {
   const cTn = firstChildElement(seq, NAME_C_TN);
   const nodeType = cTn === null ? null : getAttrValue(cTn, ATTR_NODE_TYPE);
   if (nodeType === 'mainSeq') return 'mainSeq';
@@ -332,7 +348,7 @@ const countCTnIds = (timing: XmlElement): Map<number, number> => {
 const toStep = (
   node: XmlElement,
   builds: Map<string, XmlElement>,
-  sequence: AnimationStepNode['sequenceKind'],
+  sequence: AnimationSequenceKind,
   idCounts: Map<number, number>,
 ): SlideAnimationStep => {
   const presetClass = getAttrValue(node, ATTR_PRESET_CLASS);
@@ -346,6 +362,11 @@ const toStep = (
   const bldP = target.kind === 'unsupported' ? undefined : builds.get(`${target.shapeId}:${grpId}`);
   const effect =
     PRESET_EFFECTS.find(([cls, pid]) => cls === presetClass && pid === presetId)?.[2] ?? null;
+  const playable =
+    sequence === 'mainSeq' &&
+    start !== 'unknown' &&
+    target.kind !== 'unsupported' &&
+    effect !== null;
 
   return {
     id,
@@ -359,15 +380,14 @@ const toStep = (
     delayMs: readStartDelay(node),
     buildByParagraph: bldP !== undefined && getAttrValue(bldP, ATTR_BUILD) === 'p',
     buildLevel: bldP === undefined ? null : intAttr(bldP, ATTR_BLD_LVL),
-    // A preset we cannot name may hang extra timing references off behaviours
-    // we have never seen, so retiming or moving it is not demonstrably safe.
-    // It stays read-only; the recognised steps around it do not.
-    editable:
-      id !== null &&
-      sequence === 'mainSeq' &&
-      start !== 'unknown' &&
-      target.kind !== 'unsupported' &&
-      effect !== null,
+    sequence,
+    // A preset we cannot name may animate anything at all, and a step outside
+    // the main sequence is triggered by something other than the slide's own
+    // clicks, so neither may join the normal progression.
+    playable,
+    // A preset we cannot name may also hang extra timing references off
+    // behaviours we have never seen, so rewriting it is not demonstrably safe.
+    editable: playable && id !== null,
   };
 };
 
@@ -395,7 +415,6 @@ export const readSlideTiming = (slide: SlideData): AnimationStepNode[] => {
         step: toStep(node, builds, kind, idCounts),
         cTn: node,
         sequence: child,
-        sequenceKind: kind,
       });
     }
   }
