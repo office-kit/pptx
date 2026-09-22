@@ -615,7 +615,14 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - Inline editing uses effective shape body margins and vertical alignment, including inherited shape settings and default autoshape centering. Table cells use their own margins and anchor. Insets follow canvas zoom, and the selection outline no longer consumes text layout space.
 - Browser regressions verify asymmetric margins and top/center/bottom placement in text boxes and table cells, with bilingual text editing and Japanese saved reload. Existing paragraph/selection and transformed-group editing checks guard the unchanged contenteditable DOM structure.
-- Autofit, vertical writing and complete renderer paragraph fidelity remain open. Preset region coverage is described below.
+- Complete renderer paragraph fidelity remains open. Preset region coverage is described below; autofit and vertical writing have their own section.
+
+### Vertical writing and autofit while editing
+
+- `<a:bodyPr vert=…>` and `<a:bodyPr numCol=… spcCol=…>` become CSS through `verticalTextStyle` / `textColumnsStyle` in `@office-kit/pptx-preview`, which the renderer's `<foreignObject>` path and the inline editor both use. One mapping, so the caret reads in the same direction as the painted glyphs. The half turn `vert270` needs is reported apart from its writing mode, because the editor already rotates the editing box for shape rotation and has to compose the two.
+- `shapeAutoFitScale` reports the factor the preview shrinks a `<a:normAutofit/>` body by, for the box the caller lays it out in. Inline editing scales its text by it, so a shrunk title keeps its size when the caret appears. `<a:noAutofit>` and `<a:spAutoFit>` report `1`, since PowerPoint shrinks neither.
+- The factor is computed from the committed model, which is what the preview painted. Text typed into an autofit box therefore keeps the current factor until the edit commits, when both sides pick up the new one together. Live re-shrinking per keystroke is not implemented.
+- Browser coverage compares the editor against the rendered SVG for `vert`, `wordArtVert` and `vert270`, and compares the shrunk box against an unshrunk reference beside it so the two px scales are commensurable. Both halves check bilingual editing and Japanese saved reload. Table cells still edit horizontally; cell-level `vert` is not wired up.
 
 ### Preset text regions while editing
 
