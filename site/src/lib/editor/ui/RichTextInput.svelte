@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, zoom, busy = false, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
-    value: string; html: string; label: string; style: string; zoom: number; busy?: boolean;
+  let { value, html, label, style, textZoom, busy = false, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+    value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean;
     oninput: (value: string) => void;
     onselect: (range: TextSelection) => void;
     onbeforeinput: (range: TextSelection) => void;
@@ -74,7 +74,7 @@
   });
 </script>
 
-<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${zoom};`}
+<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${textZoom};`}
   onfocus={() => { if (element) selectRichText(element, selection.start, selection.end); }}
   onbeforeinput={event => {
     if (!composing && (event.inputType === 'historyUndo' || event.inputType === 'historyRedo')) {

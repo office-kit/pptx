@@ -14,7 +14,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
-  import { resolveTextBodyRect, shapeCustomTextRect } from '@office-kit/pptx-preview';
+  import { resolveTextBodyRect, shapeAutoFitScale, shapeCustomTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
   import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
@@ -36,6 +36,8 @@
     getShapeBounds,
     getShapeCustomGeometry,
     getShapePreset,
+    getShapeTextColumns,
+    getShapeTextDirection,
     insertTableRow,
     getTableCellText,
     getTableCellParagraphs,
@@ -780,11 +782,11 @@
   const textInputStyle = $derived.by(() => {
     const box = editBox;
     if (!box || !scope) return '';
-    const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation}deg);`;
+    const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation + textBodyTurn}deg);`;
 
     const [a, b, c, d] = scope.matrix;
     const reflected = a * d - b * c < 0;
-    const rotation = box.rotation + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
+    const rotation = box.rotation + textBodyTurn + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
     // Table glyphs follow ancestor scaling; only their reflection is cancelled.
     if (editing?.cell) return `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${rotation}deg) scale(${reflected ? -1 : 1},1); transform-origin:center;`;
     const { x: sx, y: sy } = scope.textScale;
@@ -818,8 +820,41 @@
     }
     const padding = [insets.top, insets.right, insets.bottom, insets.left]
       .map(value => `${value / 9525 * editor.zoom}px`).join(' ');
+    // Vertical writing and multi-column bodies are the renderer's own CSS, so
+    // the caret follows the same reading direction as the painted glyphs. The
+    // half turn `vert270` needs travels with the box transform instead, which
+    // already carries the shape's rotation.
+    const vertical = target ? '' : verticalTextStyle(body!.vert ?? getShapeTextDirection(shape)).declarations;
+    const columns = target ? '' : textColumnsStyle(getShapeTextColumns(shape));
     // Block alignment keeps literal paragraph separators and selection offsets intact.
-    return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};`;
+    return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};${vertical ? ` ${vertical};` : ''}${columns ? ` ${columns};` : ''}`;
+  });
+
+  // The half turn that `<a:bodyPr vert="vert270"/>` reads bottom-to-top with.
+  const textBodyTurn = $derived.by(() => {
+    doc.version;
+    const shape = editBox?.shape;
+    if (!shape || editing?.cell) return 0;
+    const body = getShapeBodyPrEffective(doc.pres, shape);
+    return verticalTextStyle(body.vert ?? getShapeTextDirection(shape)).transform ? 180 : 0;
+  });
+
+  // The preview shrinks `<a:normAutofit/>` text to fit its box; editing has to
+  // shrink by the same factor or the glyphs change size under the caret. The
+  // committed model is what the preview painted, so the factor holds for a
+  // typing burst and is recomputed when the edit commits.
+  const editAutoFit = $derived.by(() => {
+    doc.version;
+    const box = editBox;
+    if (!box || !scope || editing?.cell) return 1;
+    return shapeAutoFitScale(doc.pres, box.shape, {
+      bounds: {
+        x: 0,
+        y: 0,
+        w: box.width / 100 * metrics.widthEmu * scope.textScale.x,
+        h: box.height / 100 * metrics.heightEmu * scope.textScale.y,
+      },
+    });
   });
 
   const pendingTextShape = $derived.by(() => {
@@ -1113,7 +1148,7 @@
               style={`${textInputStyle} ${textBodyStyle}`}
               value={editing.text}
               html={pendingTextHtml}
-              zoom={editor.zoom}
+              textZoom={editor.zoom * editAutoFit}
               busy={restoringEditing}
               onbeforeinput={(range) => { textRange = range; }}
               oninput={updateEditing}

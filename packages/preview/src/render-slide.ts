@@ -1,4 +1,5 @@
 import { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
+import { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
 import { paragraphNumberLabels } from './paragraph-number-labels.ts';
 // Per-slide SVG renderer for the playground.
 //
@@ -3128,27 +3129,14 @@ const renderTextBody = (
   // wordArtVert / wordArtVertRtl stack characters without rotation
   // which writing-mode also covers via "vertical-lr".
   const vert = effectiveBody.vert ?? getShapeTextDirection(shape);
-  let writingMode = '';
-  let extraTransform = '';
-  if (vert === 'vert' || vert === 'eaVert') {
-    writingMode = 'writing-mode:vertical-rl';
-  } else if (vert === 'vert270' || vert === 'mongolianVert') {
-    writingMode = 'writing-mode:vertical-lr';
-    if (vert === 'vert270') extraTransform = ';transform:rotate(180deg)';
-  } else if (vert === 'wordArtVert') {
-    writingMode = 'writing-mode:vertical-rl;text-orientation:upright';
-  } else if (vert === 'wordArtVertRtl') {
-    writingMode = 'writing-mode:vertical-rl;text-orientation:upright;direction:rtl';
-  }
+  const vertical = verticalTextStyle(vert);
+  const writingMode = vertical.declarations;
+  const extraTransform = vertical.transform ? `;transform:${vertical.transform}` : '';
   // B4 — multi-column text bodies. `<a:bodyPr numCol="N" spcCol="EMU"/>`
   // splits the text body into N equal columns separated by `spcCol`.
   // CSS `column-count` / `column-gap` map directly.
-  const cols = getShapeTextColumns(shape);
-  let colStyles = '';
-  if (cols && cols.count >= 2) {
-    const gapPx = cols.gapEmu !== undefined ? (cols.gapEmu / EMU_PER_PX).toFixed(2) : '12';
-    colStyles = `;column-count:${cols.count};column-gap:${gapPx}px`;
-  }
+  const columns = textColumnsStyle(getShapeTextColumns(shape));
+  const colStyles = columns ? `;${columns}` : '';
   const vertStyles = (writingMode ? `;${writingMode}${extraTransform}` : '') + colStyles;
   // `<a:bodyPr wrap="none"/>` forces a single line (no word-wrap).
   // Default (`'square'` or absent) wraps on word boundaries via
