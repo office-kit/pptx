@@ -8,6 +8,8 @@ import {
   getShapeFillColor,
   getShapeFill,
   getShapeStroke,
+  getShapeStrokeWidth,
+  getShapeStrokeDash,
   getShapeStrokeColor,
   getSlides,
   getSlideShapes,
@@ -139,6 +141,63 @@ test(
         .locator('.hit')
         .nth(1)
         .click({ modifiers: ['Shift'] });
+      const originalWidths = await colors(getShapeStrokeWidth);
+      const originalDashes = await colors(getShapeStrokeDash);
+      const widthInput = editor.getByRole('spinbutton', {
+        name: '枠線の太さ（ポイント）',
+        exact: true,
+      });
+      await widthInput.fill('3.5');
+      await widthInput.press('Tab');
+      await saved();
+      assert.deepEqual(await colors(getShapeStrokeWidth), [44450, 44450, originalWidths[2]]);
+      assert.deepEqual(await colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', initialStroke[2]]);
+      await widthInput.fill('-1');
+      await widthInput.press('Tab');
+      assert.equal(await widthInput.inputValue(), '3.5');
+      await editor.getByRole('combobox', { name: '枠線の種類', exact: true }).selectOption('dash');
+      await saved();
+      assert.deepEqual(await colors(getShapeStrokeDash), ['dash', 'dash', originalDashes[2]]);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await colors(getShapeStrokeDash), originalDashes);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await colors(getShapeStrokeDash), ['dash', 'dash', originalDashes[2]]);
+      for (const dash of [
+        'solid',
+        'dot',
+        'lgDash',
+        'dashDot',
+        'lgDashDot',
+        'lgDashDotDot',
+        'sysDash',
+        'sysDot',
+        'sysDashDot',
+        'sysDashDotDot',
+        'dash',
+      ]) {
+        await editor.getByRole('combobox', { name: '枠線の種類', exact: true }).selectOption(dash);
+        await saved();
+        assert.deepEqual(await colors(getShapeStrokeDash), [dash, dash, originalDashes[2]]);
+      }
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(
+        await editor
+          .getByRole('spinbutton', { name: '枠線の太さ（ポイント）', exact: true })
+          .inputValue(),
+        '3.5',
+      );
+      assert.equal(
+        await editor.getByRole('combobox', { name: '枠線の種類', exact: true }).inputValue(),
+        'dash',
+      );
       const originalFillKinds = await colors((shape) => getShapeFill(shape).kind);
       const originalStrokeKinds = await colors((shape) => getShapeStroke(shape).kind);
       await editor
