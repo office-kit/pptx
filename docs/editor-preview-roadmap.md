@@ -670,10 +670,7 @@ this table is about the everyday paths, and about what is not there at all.
 
 ### Gaps, in the order they are worth closing
 
-1. **Format painter** (書式のコピー/貼り付け). Copying formatting from one object
-   or text range to another is a daily Google Slides and PowerPoint gesture, and
-   there is nothing like it in the editor — the formatting readers and writers it
-   needs are all public, so this is editor work only.
+1. ~~**Format painter** (書式のコピー/貼り付け).~~ Done — see below.
 2. **Character-level effects.** `setShapeGlow` / `setShapeShadow` apply to a
    shape; a text run has no outline, shadow or glow, so WordArt-style text cannot
    be authored or round-tripped as such. Library work first.
@@ -690,3 +687,11 @@ this table is about the everyday paths, and about what is not there at all.
 Out of scope on purpose: real-time collaboration, version history, sharing and
 publishing, spell check, and Explore-style suggestions — none of them are
 properties of a `.pptx` file.
+
+### Format painter
+
+- Copying formatting reads a whole object — fill (solid, gradient, pattern or an explicit none), outline with its dash, cap, join, compound and arrowheads, shadow, glow, and the character and paragraph formatting its text starts with — or, while editing text, the character format at the selection plus the properties of the paragraph it starts in. Pasting puts an object pickup on every selected object, and a text pickup on the selected range and the paragraphs it touches. The text itself never travels.
+- Everything goes through the library's own readers and writers, never a lift of the source's XML, so a pasted format is data an author could have set by hand. That is also the boundary: a picture fill, an inner shadow, and reflection / soft edge / blur have writers the library does not yet pair with a copyable reader, so they are named in the toast instead of being dropped quietly. A source with no text says nothing about text, and pasting it leaves the target's own text formatting alone rather than clearing it.
+- Alignment and bullets that the source inherits rather than authors are left alone on the target: there is no writer for "inherit", and the target's own inheritance is the closest thing to what the source shows.
+- Reachable from the object right-click menu, the inline text toolbar, and Ctrl/Cmd+Alt+C / Ctrl/Cmd+Alt+V in both places (`code`, not `key`, because Alt rewrites the character on macOS). Site tests cover the clipboard's own rules including the save/load round trip; browser tests copy between objects in English and Japanese, undo in one step, and repaint one text selection from another, all verified against the saved `.pptx`.
+- This work also lifted a library limitation it ran into: `setShapeShadow` and `setShapeGlow` used to replace the whole `<a:effectLst>`, so a shape could never carry both. They now compose in the order `CT_EffectList` states.

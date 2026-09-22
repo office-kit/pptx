@@ -91,6 +91,11 @@
       e.preventDefault();
       const command = e.shiftKey ? 'ungroupShapes' : 'groupShapes';
       if (editor.canRun(command)) editor.invoke(command);
+    } else if (mod && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
+      // Format painter. `code`, not `key`: Alt rewrites the character on macOS.
+      e.preventDefault();
+      if (e.code === 'KeyC') editor.copyObjectFormat();
+      else editor.pasteObjectFormat();
     } else if (mod && e.key.toLowerCase() === 'c') {
       if (doc.selection.kind !== 'cell') editor.copySelection();
     } else if (mod && e.key.toLowerCase() === 'x') {

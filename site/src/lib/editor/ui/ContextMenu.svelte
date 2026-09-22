@@ -41,6 +41,8 @@
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
         { label: 'Duplicate', accel: '⌘D', run: () => editor.duplicateSelection() },
+        { label: 'Copy formatting', accel: '⌘⌥C', run: () => editor.copyObjectFormat() },
+        { label: 'Paste formatting', accel: '⌘⌥V', run: () => editor.pasteObjectFormat(), disabled: !editor.formatClipboard },
         { label: 'Delete', accel: 'Del', run: () => editor.deleteSelection(), sep: true },
         { label: 'Bring to front', run: () => editor.invoke('bringShapeToFront') },
         { label: 'Bring forward', run: () => editor.invoke('bringShapeForward') },
