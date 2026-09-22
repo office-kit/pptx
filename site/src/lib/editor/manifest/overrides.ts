@@ -55,6 +55,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
     labelJa: '削除したプレースホルダーを復元',
     category: 'slide',
   },
+  resetSlidePlaceholderTextFormatting: {
+    labelEn: 'Reset placeholder text formatting',
+    labelJa: 'プレースホルダーの文字書式を戻す',
+    category: 'slide',
+  },
   resetSlidePlaceholderGeometry: {
     labelEn: 'Reset placeholder positions',
     labelJa: 'プレースホルダーの配置を戻す',

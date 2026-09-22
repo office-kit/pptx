@@ -1,3 +1,4 @@
+import { resetTextBodyFormatting } from '../../internal/drawingml/text-format.ts';
 import { buildPlaceholderStub } from '../../internal/presentationml/slide-builder.ts';
 import {
   readFlip,
@@ -177,4 +178,42 @@ export const addMissingSlidePlaceholders = (slide: SlideData): number => {
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
   return additions.length;
+};
+
+/**
+ * Restore inherited text formatting on top-level placeholders bound to the current
+ * layout. Clears direct run, paragraph and text-body appearance while preserving
+ * text, fields, hyperlinks, language, outline levels and unknown extensions.
+ * Geometry, shape appearance and grouped placeholders remain unchanged.
+ * Returns the number of matching text placeholders processed.
+ */
+export const resetSlidePlaceholderTextFormatting = (slide: SlideData): number => {
+  const layout = getSlideLayout(slide);
+  if (!layout) return 0;
+  const layoutElements = topLevelElements(layout[LAYOUT_PART].root);
+  const slots = new Set<number>();
+  for (const slot of layout[LAYOUT_PART].shapes) {
+    if (layoutElements.has(slot.element) && placeholderElement(slot))
+      slots.add(slot.placeholderIdx ?? 0);
+  }
+  const elements = topLevelElements(slide[SLIDE_DOCUMENT].root);
+  let count = 0;
+  for (const shape of getSlideShapes(slide)) {
+    const snapshot = shape[SHAPE_SNAPSHOT];
+    if (
+      !elements.has(shape[SHAPE_ELEMENT]) ||
+      !placeholderElement(snapshot) ||
+      !slots.has(snapshot.placeholderIdx ?? 0)
+    )
+      continue;
+    const body = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'txBody', NS.pml));
+    if (!body) continue;
+    resetTextBodyFormatting(body);
+    count++;
+  }
+  if (count) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
+  }
+  return count;
 };
