@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -76,6 +76,27 @@ function renderSlide(svg,options){
       return 'polygon('+points.map(([x,y])=>x+'% '+y+'%').join(',')+')';
     };
     animate(incoming,[{clipPath:cells(0)},{clipPath:cells(.5)},{clipPath:cells(1)}]);
+  }else if(effect==='dissolve'){
+    const columns=32,stages=16,bounds=incoming.getBoundingClientRect();
+    const rows=Math.max(1,Math.round(columns*bounds.height/bounds.width)),count=columns*rows;
+    const order=Array.from({length:count},(_,i)=>i);
+    for(let i=count-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [order[i],order[j]]=[order[j],order[i]];
+    }
+    const cells=(step)=>{
+      const points=['0% 0%'];
+      for(let i=0;i<Math.floor(count*step/stages);i++){
+        const cell=order[i],col=cell%columns,row=Math.floor(cell/columns);
+        const left=100*col/columns,right=100*(col+1)/columns,top=100*row/rows,bottom=100*(row+1)/rows;
+        // Retrace bridges along cell boundaries to avoid diagonal clipping artifacts.
+        for(const [x,y] of [[left,0],[left,top],[right,top],[right,bottom],[left,bottom],[left,top],[left,0],[0,0]])
+          points.push(x+'% '+y+'%');
+      }
+      return step===0?'polygon(0% 0%,0% 0%,0% 0%)':'polygon('+points.join(',')+')';
+    };
+    // Discrete masks add whole squares instead of morphing unrelated polygon vertices.
+    animate(incoming,Array.from({length:stages+1},(_,step)=>({clipPath:cells(step),offset:step/stages,easing:'steps(1,end)'})),'linear');
   }else if(effect==='randomBar'){
     const bands=16,vertical=options.direction==='vert';
     const ranks=Array.from({length:bands},(_,i)=>i);
