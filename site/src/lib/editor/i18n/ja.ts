@@ -6,6 +6,7 @@ export const ja: Record<string, string> = {
   'Restore deleted placeholders': '削除したプレースホルダーを復元',
   'Reset placeholder text formatting': 'プレースホルダーの文字書式を戻す',
   Layout: 'レイアウト',
+  'Reset layout': 'レイアウトをリセット',
   'Restore placeholders': '枠を復元',
   'Reset text styles': '文字書式を戻す',
   'Reset positions': '配置を戻す',
