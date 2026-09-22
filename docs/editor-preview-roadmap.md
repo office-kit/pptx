@@ -449,3 +449,5 @@ positions, rotations and reflections produced by ungrouping.
 - Wedge playback opens two radial boundaries from top to bottom; newsflash spins the incoming slide counter-clockwise while enlarging it. Saved-deck tests verify endpoints, midpoint geometry, interruption, completion and reduced motion with Japanese/English content.
 
 - Wheel spokes can be edited in Japanese/English, undone, and saved/reloaded without losing the count. Presentation mode reveals clockwise sectors (default four), using bounded-size gradient masks even for large unsigned counts; zero spokes uses a fade. Saved-deck pixel tests cover one, two, three, four and eight spokes, plus interruption, completion and reduced motion.
+
+Numeric position and size controls resolve placeholder geometry inherited from layouts or masters. Editing one coordinate preserves the remaining resolved bounds; aspect-ratio locking also works before local geometry exists. Browser regression coverage checks English/Japanese edits, undo back to inheritance and saved reloads.
