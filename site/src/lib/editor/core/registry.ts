@@ -122,6 +122,26 @@ function applyResultSelection(doc: CommandDoc, cap: ResolvedCapability, result: 
   }
 }
 
+// Appearance edits share arguments across a selection; content replacement and
+// structural commands keep their own operand/selection semantics.
+const selectionAppearanceCommands = new Set([
+  'setShapeFill',
+  'setShapeGradientFill',
+  'setShapePatternFill',
+  'setShapeImageFill',
+  'setShapeNoFill',
+  'setShapeStroke',
+  'setShapeNoStroke',
+  'setShapeStrokeDash',
+  'setShapeStrokeArrow',
+  'setShapeStrokeCap',
+  'setShapeStrokeJoin',
+  'setShapeStrokeCompound',
+  'setShapeShadow',
+  'setShapeGlow',
+  'setShapeTextFormat',
+]);
+
 class ManifestCommand implements Command {
   readonly capability: ResolvedCapability;
   constructor(cap: ResolvedCapability) {
@@ -148,6 +168,21 @@ class ManifestCommand implements Command {
     const positional = orderArgs(cap, args);
     return ctx.doc.transact(cap.labelEn, () => {
       let result: unknown;
+      const selection = ctx.doc.selection;
+      if (selection.kind === 'shape' && selectionAppearanceCommands.has(cap.id)) {
+        const slide = ctx.doc.slideAt(selection.slideIndex);
+        if (!slide) throw new CommandError('No slide selected.');
+        const selected = new Set(selection.shapeIds);
+        const shapes = pptx
+          .getSlideShapes(slide)
+          .filter((shape) => selected.has(pptx.getShapeId(shape)));
+        // Check text eligibility before touching any object in a mixed selection.
+        if (cap.id === 'setShapeTextFormat') {
+          for (const shape of shapes) pptx.getShapeParagraphCount(shape);
+        }
+        for (const shape of shapes) fn(shape, ...positional);
+        return;
+      }
       if (cap.takesOperand) {
         const operand = resolveOperand(ctx.doc, cap);
         if (operand == null && cap.operand !== 'presentation') {

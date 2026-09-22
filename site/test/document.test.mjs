@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,9 @@ const result = await build({
   ],
 });
 const {
+  getShapeParagraphElements,
+  getShapeFillColor,
+  getShapeStrokeColor,
   getShapeImageBytes,
   getShapeImageCrop,
   getShapeDescription,
@@ -418,4 +421,69 @@ test('image insertion preserves aspect ratio, selects the image and restores it 
   await editor.doc.undo();
   image = editor.doc.shapeById(selection.slideIndex, selection.shapeIds[0]);
   assert.deepEqual(getShapeImageBytes(image), bytes);
+});
+
+test('shape appearance commands format every selected object in one undo step', async () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  const slide = getSlides(doc.pres)[0];
+  const shapes = doc.transact('Add test shapes', () =>
+    [0, 1, 2].map((i) =>
+      addSlideShape(slide, {
+        preset: 'rect',
+        x: emu(i * 1000000),
+        y: emu(0),
+        w: emu(500000),
+        h: emu(500000),
+      }),
+    ),
+  );
+  const ids = shapes.map(getShapeId);
+  doc.select({ kind: 'shape', slideIndex: 0, shapeIds: ids.slice(0, 2) });
+  const colors = (reader) => ids.map((id) => reader(doc.shapeById(0, id)));
+  const original = colors(getShapeFillColor);
+  editor.invoke('setShapeFill', { color: '#123456' });
+  assert.deepEqual(colors(getShapeFillColor), ['#123456', '#123456', original[2]]);
+  await doc.undo();
+  assert.deepEqual(colors(getShapeFillColor), original);
+  await doc.redo();
+  assert.deepEqual(colors(getShapeFillColor), ['#123456', '#123456', original[2]]);
+  const outlines = colors(getShapeStrokeColor);
+  editor.invoke('setShapeStroke', { options: { color: '#ABCDEF' } });
+  assert.deepEqual(colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', outlines[2]]);
+  await doc.undo();
+  assert.deepEqual(colors(getShapeStrokeColor), outlines);
+  assert.deepEqual(doc.selection.shapeIds, ids.slice(0, 2));
+});
+
+test('selected text formatting preserves content and rejects non-text targets before mutation', async () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  const ids = doc.transact('Add test shapes', () =>
+    [0, 1, 2].map((i) => {
+      const shape = addSlideShape(getSlides(doc.pres)[0], {
+        preset: 'rect',
+        x: emu(i * 1000000),
+        y: emu(0),
+        w: emu(500000),
+        h: emu(500000),
+      });
+      if (i < 2) setShapeText(shape, ['日本語', 'English'][i]);
+      return getShapeId(shape);
+    }),
+  );
+  doc.select({ kind: 'shape', slideIndex: 0, shapeIds: ids.slice(0, 2) });
+  const bold = () =>
+    ids.slice(0, 2).map((id) => getShapeParagraphElements(doc.shapeById(0, id), 0)[0].format?.bold);
+  editor.invoke('setShapeTextFormat', { format: { bold: true } });
+  assert.deepEqual(bold(), [true, true]);
+  assert.deepEqual(
+    ids.slice(0, 2).map((id) => getShapeText(doc.shapeById(0, id))),
+    ['日本語', 'English'],
+  );
+  await doc.undo();
+  assert.deepEqual(bold(), [undefined, undefined]);
+  doc.select({ kind: 'shape', slideIndex: 0, shapeIds: ids });
+  editor.invoke('setShapeTextFormat', { format: { bold: true } });
+  assert.deepEqual(bold(), [undefined, undefined]);
 });
