@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -76,6 +76,19 @@ function renderSlide(svg,options){
       return 'polygon('+points.map(([x,y])=>x+'% '+y+'%').join(',')+')';
     };
     animate(incoming,[{clipPath:cells(0)},{clipPath:cells(.5)},{clipPath:cells(1)}]);
+  }else if(effect==='strips'){
+    const direction=options.direction??'lu';
+    const strips=(progress)=>{
+      const points=[];
+      for(let band=0;band<8;band++){
+        const top=band*12.5,bottom=(band+1)*12.5;
+        const right=100*Math.max(0,Math.min(1,(15*progress-band)/8));
+        points.push([0,0],[0,top],[right,top],[right,bottom],[0,bottom],[0,top],[0,0]);
+      }
+      return 'polygon('+points.map(([x,y])=>(direction.startsWith('l')?100-x:x)+'% '+(direction.endsWith('u')?100-y:y)+'%').join(',')+')';
+    };
+    // Include every band's start/end so interpolation preserves the staggered wipe.
+    animate(incoming,Array.from({length:16},(_,step)=>({clipPath:strips(step/15),offset:step/15})));
   }else if(effect==='split'){
     const collapsed=options.orientation==='vert'?'inset(0 50%)':'inset(50% 0)';
     const expanded='inset(0 0)';
