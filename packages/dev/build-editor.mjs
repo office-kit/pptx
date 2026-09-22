@@ -3,6 +3,23 @@ import { fileURLToPath } from 'node:url';
 import { build, transform } from 'esbuild';
 import { compile, compileModule } from 'svelte/compiler';
 
+// The animation player is shared by three surfaces: the preview's presentation
+// mode, the presenter window and the editor's animation panel. The panel gets
+// it through the editor bundle below; the two pages load this build of it over
+// HTTP, so all three run the same code.
+await build({
+  entryPoints: [
+    fileURLToPath(new URL('../../site/src/lib/editor/core/animation-player.ts', import.meta.url)),
+  ],
+  outfile: fileURLToPath(new URL('./dist/animation-player.js', import.meta.url)),
+  bundle: true,
+  minify: true,
+  format: 'esm',
+  platform: 'browser',
+  target: 'es2022',
+  conditions: ['browser'],
+});
+
 // Bundle the site's canonical editor into the published CLI; no site server is needed.
 await build({
   entryPoints: [fileURLToPath(new URL('../../site/src/lib/editor/dev/main.ts', import.meta.url))],

@@ -6,12 +6,22 @@ import { renderDeck, type BuildResult } from './build.ts';
 import { editorStore, sourceFingerprint } from './editor-store.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
-import { animationScript } from './animation-script.ts';
 import { presenterPage } from './presenter-page.ts';
 import { agentPage } from './agent-page.ts';
 import { readFile } from 'node:fs/promises';
 import { createTerminal } from './terminal.ts';
 import { createChat } from './chat.ts';
+
+// Files `build-editor.mjs` puts next to the CLI, served as they are. The
+// animation player is one build shared by the preview page, the presenter
+// window and the editor panel, so all three play a slide the same way.
+const BUNDLED_ASSETS: Record<string, string> = {
+  '/terminal.js': 'terminal-client.js',
+  '/terminal.css': 'terminal-client.css',
+  '/editor.js': 'editor.js',
+  '/editor.css': 'editor.css',
+  '/animation-player.js': 'animation-player.js',
+};
 
 export async function serveDeck(entry: string, port = 4173) {
   let latest: BuildResult | undefined;
@@ -263,13 +273,11 @@ export async function serveDeck(entry: string, port = 4173) {
       });
     } else if (
       request.method === 'GET' &&
-      ['/terminal.js', '/terminal.css', '/editor.js', '/editor.css'].includes(request.url ?? '')
+      // A retry asks for the player again with a query, so the browser fetches
+      // it rather than handing back the module load that failed.
+      BUNDLED_ASSETS[(request.url ?? '').split('?')[0]!] !== undefined
     ) {
-      const asset = request.url?.startsWith('/editor.')
-        ? request.url.slice(1)
-        : request.url === '/terminal.js'
-          ? 'terminal-client.js'
-          : 'terminal-client.css';
+      const asset = BUNDLED_ASSETS[(request.url ?? '').split('?')[0]!]!;
       void readFile(new URL(asset, import.meta.url)).then(
         (bytes) => {
           response.writeHead(200, {
@@ -341,13 +349,6 @@ export async function serveDeck(entry: string, port = 4173) {
       response.end(
         '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Office Kit Editor</title><link rel="stylesheet" href="/editor.css"><body><script type="module" src="/editor.js"></script></body></html>',
       );
-    } else if (request.url === '/animation-player.js') {
-      // The same player the preview runs, for the editor panel's Play button.
-      response.writeHead(200, {
-        'Content-Type': 'text/javascript; charset=utf-8',
-        'Cache-Control': 'no-store',
-      });
-      response.end(`${animationScript}\nexport{createAnimationPlayer,buildAnimationStops};`);
     } else if (request.url === '/presenter') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       response.end(presenterPage);

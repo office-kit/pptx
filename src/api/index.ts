@@ -57,6 +57,7 @@ export type {
   AnimationStart,
   AnimationStartCondition,
   AnimationTarget,
+  AnimationValueAfterEnd,
   SlideAnimationStep,
 } from './fn.ts';
 export type { ImageCrop } from './fn.ts';

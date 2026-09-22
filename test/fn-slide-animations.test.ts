@@ -286,6 +286,150 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     expect(steps[1]!.editable).toBe(true);
   });
 
+  // A preset effect written the way PowerPoint writes one: a `<p:set>` that
+  // puts the shape on the slide, then the fade itself. `fill` says what becomes
+  // of each node's value once it has run, and `null` leaves the attribute out —
+  // which CT_TLCommonTimeNodeData allows and gives no default for.
+  const heldEffect = (
+    id: number,
+    spid: number,
+    opts: {
+      effect?: string | null;
+      visibility?: string | null;
+      fade?: string | null;
+      /** False for an effect that only fades, with no visibility set at all. */
+      flipsVisibility?: boolean;
+      nodeType?: string;
+      /** A paragraph range, for a build rather than a whole-shape effect. */
+      paragraphs?: [number, number];
+      delayMs?: number;
+      durationMs?: number;
+    } = {},
+  ): string => {
+    const fill = (value: string | null | undefined, fallback: string | null): string => {
+      const use = value === undefined ? fallback : value;
+      return use === null ? '' : ` fill="${use}"`;
+    };
+    const target =
+      opts.paragraphs === undefined
+        ? `<p:spTgt spid="${spid}"/>`
+        : `<p:spTgt spid="${spid}"><p:txEl><p:pRg st="${opts.paragraphs[0]}" ` +
+          `end="${opts.paragraphs[1]}"/></p:txEl></p:spTgt>`;
+    const set =
+      opts.flipsVisibility === false
+        ? ''
+        : `<p:set><p:cBhvr><p:cTn id="${id + 1}" dur="1"${fill(opts.visibility, 'hold')}/>` +
+          `<p:tgtEl>${target}</p:tgtEl>` +
+          `<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+          `<p:to><p:strVal val="visible"/></p:to></p:set>`;
+    return (
+      `<p:par><p:cTn id="${id}" presetID="10" presetClass="entr" presetSubtype="0"` +
+      `${fill(opts.effect, 'hold')} grpId="0" nodeType="${opts.nodeType ?? 'clickEffect'}">` +
+      `<p:stCondLst><p:cond delay="${opts.delayMs ?? 0}"/></p:stCondLst><p:childTnLst>${set}` +
+      `<p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">` +
+      `<p:cTn id="${id + 2}" dur="${opts.durationMs ?? 500}"${fill(opts.fade, null)}/>` +
+      `<p:tgtEl>${target}</p:tgtEl>` +
+      `<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst></p:cBhvr>` +
+      `<p:tavLst/></p:anim></p:childTnLst></p:cTn></p:par>`
+    );
+  };
+
+  it('plays a preset whose visibility is held, whatever the fade says', async () => {
+    const spid = await firstShapeId();
+    // The fade carries no fill of its own. It ends on the opacity the
+    // visibility set already implies, so nothing about where the shape ends up
+    // is left unsaid — the ordinary shape of a PowerPoint entrance must not be
+    // read as something this library cannot play.
+    const { slide } = await withTiming(timingRoot(mainSeq(heldEffect(3, spid))));
+    const steps = getSlideAnimations(slide);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]!.effect).toBe('fadeIn');
+    expect(steps[0]!.playable).toBe(true);
+    expect(steps[0]!.editable).toBe(true);
+  });
+
+  it('keeps an effect the tree takes away again, as read-only', async () => {
+    const spid = await firstShapeId();
+    // `fill="remove"` on the effect node drops everything under it when the
+    // effect ends, so the shape does not stay where the entrance put it. What
+    // it does instead is not something this library models.
+    const { slide } = await withTiming(
+      timingRoot(mainSeq(heldEffect(3, spid, { effect: 'remove' }) + heldEffect(10, spid))),
+    );
+    const steps = getSlideAnimations(slide);
+    expect(steps).toHaveLength(2);
+    expect(steps[0]!.effect).toBe('fadeIn');
+    expect(steps[0]!.playable).toBe(false);
+    expect(steps[0]!.editable).toBe(false);
+    expect(steps[1]!.playable).toBe(true);
+  });
+
+  it('keeps an effect whose visibility is taken away again, as read-only', async () => {
+    const spid = await firstShapeId();
+    // The effect node holds, but the behaviour that puts the shape on the
+    // slide does not: reading only the node above it would play this as a
+    // plain entrance and show what the deck ends up hiding.
+    const { slide } = await withTiming(
+      timingRoot(mainSeq(heldEffect(3, spid, { visibility: 'remove' }))),
+    );
+    const steps = getSlideAnimations(slide);
+    expect(steps[0]!.effect).toBe('fadeIn');
+    expect(steps[0]!.playable).toBe(false);
+    expect(steps[0]!.editable).toBe(false);
+  });
+
+  it('asks the fade about its fill when nothing else says where the shape is', async () => {
+    const spid = await firstShapeId();
+    // No visibility set: the opacity the fade lands on is all there is to say
+    // whether the shape can be seen, and `remove` puts it back where it began.
+    // An effect that does flip visibility answers that question with the set,
+    // so its fade is asked about something else — see the overlap case below.
+    const { slide } = await withTiming(
+      timingRoot(mainSeq(heldEffect(3, spid, { flipsVisibility: false, fade: 'remove' }))),
+    );
+    expect(getSlideAnimations(slide)[0]!.effect).toBe('fadeIn');
+    expect(getSlideAnimations(slide)[0]!.playable).toBe(false);
+
+    const held = await withTiming(
+      timingRoot(mainSeq(heldEffect(3, spid, { flipsVisibility: false, fade: 'hold' }))),
+    );
+    expect(getSlideAnimations(held.slide)[0]!.playable).toBe(true);
+  });
+
+  it('reports what the tree says becomes of an effect\u2019s value when it ends', async () => {
+    const spid = await firstShapeId();
+    // `fill` on the behaviour that animates something. What turns on it is how
+    // two effects over one object settle when the first of them ends, which is
+    // the player's question, not this one's \u2014 so it is reported, not judged:
+    // every one of these still plays, alone.
+    const cases: [string | null, string][] = [
+      ['hold', 'held'],
+      ['freeze', 'held'],
+      ['remove', 'removed'],
+      ['transition', 'removed'],
+      [null, 'unstated'],
+    ];
+    for (const [fade, expected] of cases) {
+      const { slide } = await withTiming(timingRoot(mainSeq(heldEffect(3, spid, { fade }))));
+      const step = getSlideAnimations(slide)[0]!;
+      expect([fade, step.valueAfterEnd]).toEqual([fade, expected]);
+      expect(step.playable).toBe(true);
+    }
+
+    // An instantaneous preset animates nothing, so there is nothing to take
+    // away: its `<p:set>` is asked by `playable` instead.
+    const instant = await withTiming(
+      timingRoot(mainSeq(heldEffect(3, spid, { flipsVisibility: true, fade: null }))),
+    );
+    expect(getSlideAnimations(instant.slide)[0]!.valueAfterEnd).toBe('unstated');
+  });
+
+  it('keeps an effect that states no fill at all, as read-only', async () => {
+    const spid = await firstShapeId();
+    const { slide } = await withTiming(timingRoot(mainSeq(heldEffect(3, spid, { effect: null }))));
+    expect(getSlideAnimations(slide)[0]!.playable).toBe(false);
+  });
+
   it('refuses to claim a composite effect that drives two shapes', async () => {
     const spid = await firstShapeId();
     const composite =

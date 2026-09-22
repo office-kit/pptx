@@ -1,4 +1,3 @@
-import { animationScript } from './animation-script.ts';
 import { previewI18nScript } from './preview-i18n.ts';
 import { transitionScript } from './transition-script.ts';
 import { previewStyles } from './styles.ts';
@@ -29,7 +28,7 @@ body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 <div class="workspace-heading"><span>✦ AI WORKSPACE</span><b>LOCAL</b></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
 </div>
 <footer><span id="count" aria-live="polite">No slides</span><span class="hint">Changes appear automatically · Text can be selected and copied</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
-<div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
+<div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
 let displayedSvg;
@@ -40,6 +39,9 @@ function findSlide(start,step,skipHidden=presenting){
  return -1;
 }
 function moveSlide(step,skipHidden=presenting,focusThumbnail=false){
+ // The slide has effects and the player is still on its way: moving on now
+ // would skip them, so the click waits rather than costing the viewer content.
+ if(animationsWaiting())return;
  // A build comes before the slide: the click that would move on first plays
  // whatever the current slide still has to show, in either direction.
  if(animationPlayer&&(step>0?animationPlayer.advance():animationPlayer.back()))return;
@@ -54,7 +56,7 @@ function scheduleAdvance(){
   // A slide that still has effects to play — or one whose last click is still
   // playing out — is not finished, whatever its transition says about
   // advancing itself.
-  const settled=!animationPlayer||!(animationPlayer.pending||animationPlayer.running);
+  const settled=!animationsWaiting()&&(!animationPlayer||!(animationPlayer.pending||animationPlayer.running));
   const key=presenting&&settled&&findSlide(index+1,1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
   if(key===advanceKey)return;
   clearTimeout(advanceTimer);advanceKey=key;
@@ -72,7 +74,10 @@ const byId=id=>document.getElementById(id);
 // Next and previous move through the slide's own build before they move
 // through the deck, so the last slide's remaining effects are still reachable
 // and the first step back is the one inside this slide.
-function animationsPending(){return Boolean(animationPlayer&&animationPlayer.pending);}
+// True while this slide has effects but the player has not arrived yet. Its
+// clicks belong to the build, so they are held rather than spent on the deck.
+function animationsWaiting(){return animationLoad==='loading'&&presenting&&animationStepsAt(index).length>0;}
+function animationsPending(){return animationsWaiting()||Boolean(animationPlayer&&animationPlayer.pending);}
 function animationsBehind(){return Boolean(animationPlayer&&animationPlayer.cursor>0);}
 function updateNavigationButtons(){
   for(const id of ['prev','present-prev'])byId(id).disabled=findSlide(index-1,-1)<0&&!animationsBehind();
@@ -117,11 +122,33 @@ new ResizeObserver(updateChatWidthAria).observe(byId('chat'));
 // document, so arrow-key navigation keeps working after clicking into a slide.
 const canvas=slide.attachShadow({mode:'open'});
 ${transitionScript}
-${animationScript}
 // The slide's object animations. One player per slide, kept while the slide and
 // its timing stay as they are: an unrelated rebuild (new speaker notes, say)
 // must not throw away how far the viewer has clicked through a build.
-let animationPlayer,animationPlayerKey;
+//
+// The player is the editor's module, served as one build, so the show, the
+// presenter window and the editor panel cannot disagree about a timing tree.
+let animationPlayer,animationPlayerKey,createAnimationPlayer,pendingAnimationPosition;
+// 'loading' | 'ready' | 'failed'. A slide show holds its clicks while the
+// player is on its way; if it never arrives, the viewer is told so and can ask
+// for it again rather than watching a deck quietly skip its animations.
+let animationLoad='loading',animationLoadAttempt=0;
+function loadAnimationPlayer(){
+  if(animationLoad==='ready')return;
+  animationLoad='loading';updateAnimationNotice();
+  // A module that failed to load stays failed in the browser's module map, so
+  // asking again means asking for a different URL.
+  const url='/animation-player.js'+(animationLoadAttempt++?'?retry='+animationLoadAttempt:'');
+  import(url).then(module=>{
+    createAnimationPlayer=module.createAnimationPlayer;animationLoad='ready';
+    const position=pendingAnimationPosition;pendingAnimationPosition=undefined;
+    if(position!==undefined)syncAnimationPlayer(position);
+    updateNavigationButtons();updateAnimationNotice();scheduleAdvance();
+  },error=>{
+    animationLoad='failed';console.warn('Could not load the animation player',error);
+    updateNavigationButtons();updateAnimationNotice();scheduleAdvance();
+  });
+}
 const animationStepsAt=i=>state.animations?.[i]??[];
 const animationKeyAt=i=>i+'\u0000'+(state.slides[i]??'')+'\u0000'+JSON.stringify(animationStepsAt(i));
 // A transition draws the arriving slide into a layer of its own, beside a layer
@@ -129,7 +156,22 @@ const animationKeyAt=i=>i+'\u0000'+(state.slides[i]??'')+'\u0000'+JSON.stringify
 // different slide's id space. Only the arriving one is this slide.
 const slideRoot=()=>canvas.querySelector('.transition-layer:not(.transition-old)')??canvas;
 function updateAnimationNotice(){
-  const note=byId('present-note');
+  const note=byId('present-note'),retry=byId('animation-retry');
+  const slideHasEffects=presenting&&animationStepsAt(index).length>0;
+  retry.hidden=!(slideHasEffects&&animationLoad==='failed');
+  retry.textContent=previewLocale==='ja'?'再試行':'Try again';
+  if(slideHasEffects&&animationLoad==='failed'){
+    note.hidden=false;
+    note.textContent=previewLocale==='ja'
+      ?'アニメーションを読み込めませんでした。このスライドの効果は再生されません。'
+      :'The animations could not be loaded, so this slide’s effects are not played.';
+    return;
+  }
+  if(animationsWaiting()){
+    note.hidden=false;
+    note.textContent=previewLocale==='ja'?'アニメーションを準備中…':'Preparing animations…';
+    return;
+  }
   const skipped=animationPlayer?animationPlayer.unsupported:[];
   note.hidden=skipped.length===0;
   note.textContent=skipped.length===0?'':previewLocale==='ja'
@@ -144,6 +186,13 @@ function syncAnimationPlayer(position){
   const wanted=presenting&&animationStepsAt(index).length>0;
   if(!wanted){
     if(animationPlayer){animationPlayer.dispose();animationPlayer=undefined;animationPlayerKey=undefined;}
+    updateAnimationNotice();
+    return;
+  }
+  if(!createAnimationPlayer){
+    // Still on its way, or it never arrived. The slide keeps the picture the
+    // renderer drew; this position is applied the moment the player is there.
+    pendingAnimationPosition=position;
     updateAnimationNotice();
     return;
   }
@@ -281,6 +330,8 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='jump'&&Number.isInteger(event.data.index)&&event.data.index>=0&&event.data.index<state.slides.length)selectSlide(event.data.index);
 });
 byId('exit-present').onclick=exitPresentation;
+byId('animation-retry').onclick=()=>{loadAnimationPlayer();};
+loadAnimationPlayer();
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&presenting)setPresenting(false);});
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>moveSlide(-1);
 for(const id of ['next','present-next'])byId(id).onclick=()=>moveSlide(1);
