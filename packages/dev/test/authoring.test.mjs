@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, rm, symlink, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawn, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { setTimeout } from 'node:timers/promises';
@@ -10,6 +11,9 @@ import { buildDeck, initProject, inspectTemplate } from '../dist/index.mjs';
 
 const execute = promisify(execFile);
 const cli = new URL('../dist/cli.mjs', import.meta.url).pathname;
+// Anchored to this file, not the cwd: the suite runs both from the repo root
+// and from `packages/dev` (`pnpm --filter ... test`).
+const devModules = fileURLToPath(new URL('../node_modules', import.meta.url));
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), 'pptx-authoring-test-'));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -19,12 +23,8 @@ async function fixture(t) {
 test('initialized TSX typechecks, builds, and uses source-relative assets in imported modules', async (t) => {
   const directory = await fixture(t);
   const project = await initProject(join(directory, 'slides'));
-  await symlink(resolve('packages/dev/node_modules'), join(project, 'node_modules'), 'dir');
-  await execute(process.execPath, [
-    resolve('node_modules/typescript/bin/tsc'),
-    '--project',
-    project,
-  ]);
+  await symlink(devModules, join(project, 'node_modules'), 'dir');
+  await execute(process.execPath, [join(devModules, 'typescript/bin/tsc'), '--project', project]);
   const deck = join(project, 'deck.tsx');
   const result = await buildDeck(deck);
   assert.equal(result.slides.length, 1);

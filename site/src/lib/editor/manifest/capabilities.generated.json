@@ -1928,10 +1928,7 @@
           "type": "'head' | 'tail'",
           "kind": "enum",
           "optional": false,
-          "enumValues": [
-            "head",
-            "tail"
-          ]
+          "enumValues": ["head", "tail"]
         },
         {
           "name": "options",
@@ -1955,11 +1952,7 @@
           "type": "'rnd' | 'sq' | 'flat' | null",
           "kind": "enum",
           "optional": false,
-          "enumValues": [
-            "rnd",
-            "sq",
-            "flat"
-          ]
+          "enumValues": ["rnd", "sq", "flat"]
         }
       ]
     },
@@ -1977,13 +1970,7 @@
           "type": "'sng' | 'dbl' | 'thickThin' | 'thinThick' | 'tri' | null",
           "kind": "enum",
           "optional": false,
-          "enumValues": [
-            "sng",
-            "dbl",
-            "thickThin",
-            "thinThick",
-            "tri"
-          ]
+          "enumValues": ["sng", "dbl", "thickThin", "thinThick", "tri"]
         }
       ]
     },
@@ -2018,11 +2005,7 @@
           "type": "'round' | 'bevel' | 'miter' | null",
           "kind": "enum",
           "optional": false,
-          "enumValues": [
-            "round",
-            "bevel",
-            "miter"
-          ]
+          "enumValues": ["round", "bevel", "miter"]
         }
       ]
     },
@@ -2441,11 +2424,7 @@
           "type": "'top' | 'center' | 'bottom' | null",
           "kind": "enum",
           "optional": false,
-          "enumValues": [
-            "top",
-            "center",
-            "bottom"
-          ]
+          "enumValues": ["top", "center", "bottom"]
         }
       ]
     },
