@@ -19,6 +19,30 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
+// Exercise an incremental edit, not textarea.fill's select-all replacement.
+async function fillPreservingText(input, value) {
+  const before = await input.inputValue();
+  let start = 0;
+  while (start < before.length && start < value.length && before[start] === value[start]) start++;
+  let end = before.length;
+  let newEnd = value.length;
+  while (end > start && newEnd > start && before[end - 1] === value[newEnd - 1]) {
+    end--;
+    newEnd--;
+  }
+  await input.focus();
+  await input.evaluate(
+    (node, range) => {
+      node.setSelectionRange(...range);
+      node.dispatchEvent(new Event('select', { bubbles: true }));
+    },
+    [start, end],
+  );
+  if (start !== end && !value.slice(start, newEnd)) await input.press('Backspace');
+  if (value.slice(start, newEnd))
+    await input.page().keyboard.insertText(value.slice(start, newEnd));
+}
+
 test(
   'inline paragraph formatting follows caret and selection with pending text edits',
   { timeout: 60000 },
@@ -92,7 +116,7 @@ test(
       await saved();
       assert.equal(getParagraphBullet(await shape(), 0), 'bullet');
       assert.notEqual(getParagraphBullet(await shape(), 1), 'bullet');
-      await input.fill('Prefix\nEnglish\n日本語\nThird paragraph');
+      await fillPreservingText(input, 'Prefix\nEnglish\n日本語\nThird paragraph');
       await select(16);
       assert.equal(
         await bar.getByLabel('Paragraph alignment', { exact: true }).inputValue(),
@@ -100,8 +124,8 @@ test(
       );
       assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '8');
       assert.equal(getShapeText(await shape()), 'English\n日本語\nThird paragraph');
-      await input.fill('English\n日本語\nThird paragraph');
-      await input.fill('English\n日本語\nThird paragraph\nNew paragraph');
+      await fillPreservingText(input, 'English\n日本語\nThird paragraph');
+      await fillPreservingText(input, 'English\n日本語\nThird paragraph\nNew paragraph');
       await select(30);
       await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('right');
       await saved();
@@ -118,11 +142,11 @@ test(
       await editor.locator('.lang select').selectOption('ja');
       locale = 'ja';
       await editor.locator('.hit').first().dblclick();
-      await input.fill('\n日本語\nThird paragraph\nNew paragraph');
+      await fillPreservingText(input, '\n日本語\nThird paragraph\nNew paragraph');
       await select(2);
       assert.equal(await bar.getByLabel('段落の配置', { exact: true }).inputValue(), 'center');
       assert.equal(await bar.getByLabel('リストの階層', { exact: true }).inputValue(), '8');
-      await input.fill('English\n日本語\nThird paragraph\nNew paragraph');
+      await fillPreservingText(input, 'English\n日本語\nThird paragraph\nNew paragraph');
       await select(8, 28);
       assert.equal(await bar.getByLabel('リストの階層', { exact: true }).inputValue(), '');
       await bar.getByLabel('リストの階層', { exact: true }).selectOption({ value: '2' });
@@ -197,7 +221,7 @@ test(
       const bounds = await hit.boundingBox();
       await hit.dblclick({ position: { x: bounds.width / 4, y: bounds.height / 2 } });
       const input = editor.locator('.inline-edit');
-      await input.fill('First\nSecond');
+      await fillPreservingText(input, 'First\nSecond');
       await input.evaluate((node) => {
         node.setSelectionRange(8, 8);
         node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -235,7 +259,7 @@ test(
       assert.equal(getParagraphPropertiesEffective(presForLevels, cells[0][1], 0).level, 0);
       assert.notEqual(getParagraphAlignment(cells[0][0], 0), 'r');
       assert.notEqual(getParagraphAlignment(cells[0][1], 0), 'r');
-      await input.fill('Prefix\nFirst\nSecond');
+      await fillPreservingText(input, 'Prefix\nFirst\nSecond');
       await input.evaluate((node) => {
         node.setSelectionRange(15, 15);
         node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -247,7 +271,7 @@ test(
       assert.equal(await bar.getByLabel('List style', { exact: true }).inputValue(), 'number');
       assert.equal(await bar.getByLabel('List level', { exact: true }).inputValue(), '3');
       assert.equal(await bar.getByLabel('Line spacing value', { exact: true }).inputValue(), '2');
-      await input.fill('First\nSecond');
+      await fillPreservingText(input, 'First\nSecond');
       await input.focus();
       await input.evaluate((node) => {
         node.setSelectionRange(6, 12);
@@ -456,7 +480,7 @@ for (const control of ['keyboard', 'toolbar'])
         await saved();
         await editor.locator('.hit').first().dblclick();
         const input = editor.locator('.inline-edit');
-        await input.fill('Prefix\nEnglish\n日本語\nThird paragraph');
+        await fillPreservingText(input, 'Prefix\nEnglish\n日本語\nThird paragraph');
         await input.evaluate((node) => {
           node.setSelectionRange(7, 14);
           node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -582,7 +606,7 @@ for (const control of ['keyboard', 'toolbar'])
         locale = 'en';
         await editor.locator('.hit').first().dblclick();
         await input.focus();
-        await input.fill('Prefix\nEnglish\n日本語です\nThird paragraph');
+        await fillPreservingText(input, 'Prefix\nEnglish\n日本語です\nThird paragraph');
         await input.evaluate((node) => {
           node.setSelectionRange(15, 20);
           node.dispatchEvent(new Event('select', { bubbles: true }));

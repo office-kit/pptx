@@ -9,6 +9,7 @@
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
+  import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
@@ -461,15 +462,11 @@
   }
   function updateEditing(value: string) {
     if (!editing) return;
-    const before = editing.text;
-    let start = 0;
-    while (start < textRange.start && start < before.length && start < value.length && before[start] === value[start]) start++;
-    let end = before.length;
-    let newEnd = value.length;
-    while (end > start && newEnd > start && before[end - 1] === value[newEnd - 1]) { end--; newEnd--; }
-    if (start !== end || start !== newEnd) editing.changes.push({ start, end, text: value.slice(start, newEnd), ...(editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
+    const caretAfter = textArea?.selectionStart ?? value.length;
+    const change = textEditDiff(editing.text, value, textRange, caretAfter);
+    if (change) editing.changes.push({ ...change, ...(editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
     editing.text = value;
-    textRange = { start: textArea?.selectionStart ?? newEnd, end: textArea?.selectionEnd ?? newEnd };
+    textRange = { start: caretAfter, end: textArea?.selectionEnd ?? caretAfter };
   }
   function commitEditing() {
     if (!editing) return;

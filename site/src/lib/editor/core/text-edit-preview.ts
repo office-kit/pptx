@@ -2,7 +2,6 @@ import {
   addBlankSlide,
   copyShape,
   createPresentation,
-  getShapeText,
   getShapeParagraphCount,
   getParagraphPropertiesEffective,
   setParagraphAlignment,
@@ -11,7 +10,6 @@ import {
   setParagraphSpacing,
   type PresentationData,
   getTableCells,
-  getTableCellText,
   setShapeText,
   setShapeTextFormat,
   setTableCellTextFormat,
@@ -35,11 +33,10 @@ export function replayTextEdits(
   position?: CellPosition,
 ): void {
   const cell = position ? getTableCells(shape)[position.row]![position.col]! : undefined;
-  let value = cell ? getTableCellText(cell) : getShapeText(shape);
   for (const change of changes) {
-    value = value.slice(0, change.start) + change.text + value.slice(change.end);
-    if (cell) setTableCellText(cell, value, { preserveFormatting: true });
-    else setShapeText(shape, value, { preserveFormatting: true });
+    const range = { start: change.start, end: change.end };
+    if (cell) setTableCellText(cell, change.text, { range });
+    else setShapeText(shape, change.text, { range });
     if (change.typing && change.text.length) {
       const options = {
         range: { start: change.start, end: change.start + change.text.length },
