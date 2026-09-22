@@ -123,8 +123,6 @@ export const ja: Record<string, string> = {
   'Skip during presentation': 'プレゼンテーションでスキップ',
   'Skipped during presentation': 'プレゼンテーションでスキップされます',
   'Cut transition': 'カット',
-  'Choose a supported effect and enter a valid time in seconds.':
-    '対応する効果を選び、秒数を有効な値で入力してください。',
   Outward: '外側',
   Inward: '内側',
   Vertical: '縦',
@@ -141,6 +139,9 @@ export const ja: Record<string, string> = {
   Slow: '遅い',
   Random: 'ランダム',
   Wheel: 'ホイール',
+  'Wheel spokes': 'ホイールの本数',
+  'Choose a supported effect and enter valid transition settings.':
+    '対応する効果を選択し、有効な切り替え設定を入力してください。',
   Strips: 'ストリップ',
   Newsflash: 'ニュースフラッシュ',
   Wedge: 'くさび',

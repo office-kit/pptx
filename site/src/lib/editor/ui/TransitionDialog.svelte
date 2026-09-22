@@ -18,6 +18,7 @@
   let speed = $state<NonNullable<TransitionOptions['speed']>>(original?.speed ?? 'med');
   let direction = $state(original?.direction ?? '');
   let orientation = $state<NonNullable<TransitionOptions['orientation']>>(original?.orientation ?? 'horz');
+  let spokes = $state<number | undefined>(original?.spokes);
   let thruBlack = $state(original?.thruBlack ?? false);
   let onClick = $state(original?.advanceOnClick ?? true);
   let auto = $state(original?.advanceAfterMs !== undefined);
@@ -26,7 +27,7 @@
   let error = $state('');
   let dialog: HTMLDialogElement;
   const directions = $derived(['push', 'wipe'].includes(effect) ? ['l', 'r', 'u', 'd'] : ['cover', 'pull'].includes(effect) ? ['l', 'r', 'u', 'd', 'lu', 'ru', 'ld', 'rd'] : effect === 'strips' ? ['lu', 'ru', 'ld', 'rd'] : ['blinds', 'checker', 'comb', 'randomBar'].includes(effect) ? ['horz', 'vert'] : ['zoom', 'split'].includes(effect) ? ['in', 'out'] : []);
-  const valid = $derived(effects.some(item => item[0] === effect) && (!auto || (seconds !== undefined && Number.isFinite(seconds) && seconds >= 0 && seconds <= 4294967.295)));
+  const valid = $derived(effects.some(item => item[0] === effect) && (effect !== 'wheel' || spokes === undefined || (Number.isInteger(spokes) && spokes >= 0 && spokes <= 4294967295)) && (!auto || (seconds !== undefined && Number.isFinite(seconds) && seconds >= 0 && seconds <= 4294967.295)));
   onMount(() => dialog.showModal());
   function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -36,6 +37,7 @@
       effect, ...(effect !== 'none' ? { speed } : {}), advanceOnClick: onClick,
       ...(auto && seconds !== undefined ? { advanceAfterMs: Math.round(seconds * 1000) } : {}),
       ...(directions.includes(direction) ? { direction } : {}),
+      ...(effect === 'wheel' && spokes !== undefined ? { spokes } : {}),
       ...(effect === 'split' ? { orientation } : {}),
       ...(['fade', 'cut'].includes(effect) ? { thruBlack } : {}),
     };
@@ -62,12 +64,13 @@
     </select></label>
     {#if effect !== 'none'}<label>{t('Transition speed')}<select class="ok-input" aria-label={t('Transition speed')} bind:value={speed}><option value="slow">{t('Slow')}</option><option value="med">{t('Medium')}</option><option value="fast">{t('Fast')}</option></select></label>{/if}
     {#if directions.length}<label>{t('Transition direction')}<select class="ok-input" aria-label={t('Transition direction')} bind:value={direction}><option value="">{t('Default')}</option>{#each directions as item}<option value={item}>{t(directionLabels[item]!)}</option>{/each}</select></label>{/if}
+    {#if effect === 'wheel'}<label>{t('Wheel spokes')}<input class="ok-input" type="number" min="0" max="4294967295" step="1" placeholder="4" bind:value={spokes} /></label>{/if}
     {#if effect === 'split'}<label>{t('Split orientation')}<select class="ok-input" aria-label={t('Split orientation')} bind:value={orientation}><option value="horz">{t('Horizontal')}</option><option value="vert">{t('Vertical')}</option></select></label>{/if}
     {#if effect === 'fade' || effect === 'cut'}<label class="option"><input type="checkbox" bind:checked={thruBlack} />{t('Through black')}</label>{/if}
     <label class="option"><input type="checkbox" bind:checked={onClick} />{t('Advance on click')}</label>
     <label class="option"><input type="checkbox" bind:checked={auto} />{t('Advance automatically')}</label>
     {#if auto}<label>{t('Advance after (seconds)')}<input class="ok-input" type="number" min="0" max="4294967.295" step="0.001" required bind:value={seconds} /></label>{/if}
-    {#if !valid}<p role="alert">{t('Choose a supported effect and enter a valid time in seconds.')}</p>{/if}
+    {#if !valid}<p role="alert">{t('Choose a supported effect and enter valid transition settings.')}</p>{/if}
     <label class="option"><input type="checkbox" bind:checked={allSlides} />{t('Apply to all slides')}</label>
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!valid}>{t('Apply')}</button></footer>

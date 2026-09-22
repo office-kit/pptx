@@ -443,6 +443,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
               'circle',
               'diamond',
               'plus',
+              'wheel',
               'wedge',
               'newsflash',
             ],
@@ -462,6 +463,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
             optional: true,
             label: 'Direction (effect-specific, e.g. l/r/u/d)',
           },
+          { name: 'spokes', type: 'number', kind: 'number', optional: true, label: 'Wheel spokes' },
           {
             name: 'thruBlack',
             type: 'boolean',
