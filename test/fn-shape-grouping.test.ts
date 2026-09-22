@@ -52,6 +52,41 @@ const blankSlide = () => {
 };
 
 describe('fn API: groupShapes / ungroupShapes', () => {
+  it('regroups siblings inside a transformed ancestor in stacking order and round-trips', async () => {
+    const { pres, slide } = blankSlide();
+    const members = [0, 1, 2].map((i) =>
+      addSlideTextBox(slide, {
+        x: inches(i + 1),
+        y: inches(1),
+        w: inches(1),
+        h: inches(1),
+        text: String(i),
+      }),
+    );
+    const outer = groupShapes(members);
+    setShapeRotation(outer, 35);
+    setShapeFlip(outer, { horizontal: true, vertical: false });
+    setShapeSize(outer, inches(6), inches(3));
+    const before = getGroupTransform(outer);
+    const bounds = members.map(getShapeBounds);
+    const inner = groupShapes([members[1]!, members[0]!]);
+    expect(getGroupChildren(inner).map(getShapeId)).toEqual(members.slice(0, 2).map(getShapeId));
+    expect(getGroupChildren(outer).map(getShapeId)).toEqual([
+      getShapeId(inner),
+      getShapeId(members[2]!),
+    ]);
+    expect(getGroupTransform(outer)).toEqual(before);
+    const restored = ungroupShapes(inner);
+    expect(restored.map(getShapeBounds)).toEqual(bounds.slice(0, 2));
+    expect(getGroupChildren(outer).map(getShapeId)).toEqual(members.map(getShapeId));
+    const loaded = getSlides(await loadPresentation(await savePresentation(pres)))[0]!;
+    const loadedOuter = getSlideShapes(loaded)[0]!;
+    expect(getGroupTransform(loadedOuter)).toEqual(before);
+    expect(getShapeRotation(loadedOuter)).toBe(35);
+    expect(getShapeFlip(loadedOuter)).toEqual({ horizontal: true, vertical: false });
+    expect(getGroupChildren(loadedOuter).map(getShapeBounds)).toEqual(bounds);
+  });
+
   it('wraps two shapes in a <p:grpSp> whose bounds are the union of its members', () => {
     const { slide } = blankSlide();
     const box = addSlideShape(slide, {
@@ -138,7 +173,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
     expect(() => groupShapes([a, b, a])).toThrow(/was passed twice/);
   });
 
-  it('rejects a shape that is already nested inside a group', () => {
+  it('rejects grouping shapes from different immediate parents', () => {
     const { slide } = blankSlide();
     const a = addSlideShape(slide, {
       preset: 'rect',
@@ -162,8 +197,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       h: inches(1),
     });
     groupShapes([a, b]);
-    // `a` is now nested one level down; grouping it directly (rather than
-    // its enclosing group) must fail instead of silently doing nothing.
+    // `a` is nested while `c` is still at slide level; they cannot share a new group.
     expect(() => groupShapes([a, c])).toThrow(/not a direct child/);
   });
 

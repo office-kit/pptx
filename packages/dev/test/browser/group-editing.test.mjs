@@ -168,6 +168,43 @@ test(
       await editor.locator('.hit').dblclick();
       await editor.getByText('グループを編集中', { exact: true }).waitFor();
       assert.deepEqual((await state()).map(getShapeText).filter(Boolean), ['日本語', 'English']);
+      for (const language of ['en', 'ja']) {
+        await editor.locator('.lang select').selectOption(language);
+        ja = language === 'ja';
+        await editor.locator('.hit.selected').click();
+        await page.keyboard.press('ControlOrMeta+a');
+        assert.equal(await editor.locator('.hit.selected').count(), 2);
+        const beforeGroup = (await state()).map((shape) => [
+          getShapeId(shape),
+          getShapeBounds(shape),
+        ]);
+        await page.keyboard.press('ControlOrMeta+g');
+        await saved();
+        shapes = await state();
+        const outer = shapes.find((shape) => getShapeId(shape) === getShapeId(group));
+        const inner = getGroupChildren(outer)[0];
+        assert.equal(getGroupChildren(outer).length, 1);
+        assert.deepEqual(getGroupChildren(inner).map(getShapeId), [id, getShapeId(second)]);
+        assert.equal(getShapeRotation(outer), 90);
+        assert.equal(await editor.locator('.hit').count(), 1);
+        await page.keyboard.press('ControlOrMeta+Shift+g');
+        await saved();
+        assert.equal(await editor.locator('.hit.selected').count(), 2);
+        assert.deepEqual(
+          (await state()).map((shape) => [getShapeId(shape), getShapeBounds(shape)]),
+          beforeGroup,
+        );
+        await page.keyboard.press('ControlOrMeta+z');
+        await saved();
+        assert.equal(await editor.locator('.hit.selected').count(), 1);
+        await page.keyboard.press('ControlOrMeta+Shift+z');
+        await saved();
+        assert.equal(await editor.locator('.hit.selected').count(), 2);
+        await page.reload();
+        await saved();
+        await editor.locator('.hit').dblclick();
+        assert.equal(await editor.locator('.hit').count(), 2);
+      }
       await page.screenshot({ path: '/tmp/pptx-group-edit-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {
