@@ -81,6 +81,8 @@ describe('fn API: getSlideAnimations', () => {
     expect(steps.map((s) => s.effect)).toEqual(['fadeIn', 'appear', 'fadeOut']);
     expect(steps.map((s) => s.target.shapeId)).toEqual(shapes.map(getShapeId));
     expect(steps.map((s) => s.start)).toEqual(['click', 'click', 'click']);
+    expect(steps.map((s) => s.sequence)).toEqual(['mainSeq', 'mainSeq', 'mainSeq']);
+    expect(steps.every((s) => s.playable)).toBe(true);
     expect(steps.every((s) => s.editable)).toBe(true);
     expect(new Set(steps.map((s) => s.id)).size).toBe(3);
     expect(steps.every((s) => s.id !== null)).toBe(true);
@@ -391,7 +393,10 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
     expect(findShapesWithAnimation(slide)).toEqual([]);
   });
 
-  it('lists an interactive sequence effect but never as editable', async () => {
+  // A shape-triggered sequence looks exactly like a main-sequence click effect
+  // from `start` alone. A player that went by `start` would fire it on the
+  // wrong click, so the sequence it lives in has to travel with the step.
+  it('separates an interactive sequence effect from the slide click order', async () => {
     const spid = await firstShapeId();
     const interactive =
       `<p:seq concurrent="1" nextAc="seek"><p:cTn id="30" restart="whenNotActive" ` +
@@ -401,8 +406,23 @@ describe('fn API: getSlideAnimations — trees this library did not author', () 
 
     const steps = getSlideAnimations(slide);
     expect(steps).toHaveLength(2);
-    expect(steps[0]!.editable).toBe(true);
-    expect(steps[1]!.editable).toBe(false);
+    expect(steps.map((s) => s.sequence)).toEqual(['mainSeq', 'interactive']);
+    // Both read as a click effect; only the main-sequence one may be played.
+    expect(steps.map((s) => s.start)).toEqual(['click', 'click']);
+    expect(steps.map((s) => s.playable)).toEqual([true, false]);
+    expect(steps.map((s) => s.editable)).toEqual([true, false]);
     expect(slideHasAnimations(slide)).toBe(true);
+  });
+
+  it('marks a step playable but not editable when its handle is unusable', async () => {
+    const spid = await firstShapeId();
+    const { slide } = await withTiming(
+      timingRoot(mainSeq(presetEffect(3, spid).replace('id="3"', 'id="3abc"'))),
+    );
+    const steps = getSlideAnimations(slide);
+    expect(steps[0]!.sequence).toBe('mainSeq');
+    expect(steps[0]!.id).toBeNull();
+    expect(steps[0]!.playable).toBe(true);
+    expect(steps[0]!.editable).toBe(false);
   });
 });

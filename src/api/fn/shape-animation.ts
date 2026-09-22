@@ -24,6 +24,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import {
+  type AnimationSequenceKind,
   type AnimationStart,
   type AnimationTarget,
   type SlideAnimationStep,
@@ -42,7 +43,7 @@ import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 // and reordering are not modelled yet.
 
 export type { AnimationEffect, AnimationOptions };
-export type { AnimationStart, AnimationTarget, SlideAnimationStep };
+export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
 
 const ATTR_ID_FN = qname('', 'id', '');
 
