@@ -57,7 +57,7 @@ Every capability is reachable by at least one path, in increasing ergonomics:
   - **smart-guide snapping** (`canvas/snapping.ts`) — edges/centres snap to other
     shapes and the slide, drawing pink guide lines;
   - **multi-select** via marquee (rubber-band on empty canvas) and Shift-click,
-    with group move;
+    with group move and a shared rotation handle;
   - handles to resize in the object’s rotated axes (Shift preserves aspect ratio),
     a top handle to rotate (Shift = 15° steps), double-click
     to edit text;

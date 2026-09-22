@@ -44,6 +44,7 @@
   import { selectedShapeIds, topLevelShapes, type Selection } from '../core/selection.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { resizeRect, type ResizeHandle } from './resize.ts';
+  import { rotateRect, selectionBounds } from './rotation.ts';
   import { snapMove, type Guide, type Rect } from './snapping.ts';
 
   const editor = getEditor();
@@ -72,6 +73,8 @@
     if (!slide) return [];
     return shapeBoxes(doc.pres, slide, topLevelShapes(slide));
   });
+
+  const boxesById = $derived(new Map(boxes.map(box => [box.id, box])));
 
   const selectedIds = $derived.by<Set<number>>(() => {
     return new Set(selectedShapeIds(doc.selection));
@@ -109,7 +112,7 @@
     return stageH / metrics.heightEmu;
   }
   function resolvedRect(id: number): Rect | null {
-    const b = boxes.find((x) => x.id === id);
+    const b = boxesById.get(id);
     if (!b) return null;
     return {
       x: (b.left / 100) * metrics.widthEmu,
@@ -128,12 +131,22 @@
     startClient: { x: number; y: number };
     startRects: Map<number, Rect>;
     startRot: number;
+    startRotations: Map<number, number>;
+    selectionRect: Rect;
+    startAngle: number;
+    turn: number;
     center: { x: number; y: number }; // rotate center, EMU
     last: { x: number; y: number };
     shift: boolean;
     moved: boolean;
   }
   let drag = $state<Drag | null>(null);
+  const multiFrame = $derived.by(() => {
+    if (selectedIds.size < 2) return null;
+    if (drag?.mode === 'rotate' && drag.ids.length > 1) return { ...drag.selectionRect, rotation: drag.turn };
+    const rects = boxes.filter(box => selectedIds.has(box.id)).map(box => ({ ...resolvedRect(box.id)!, rotation: box.rotation }));
+    return rects.length > 1 ? { ...selectionBounds(rects), rotation: 0 } : null;
+  });
   let guides = $state<readonly Guide[]>([]);
   let textInput = $state<RichTextInput>();
   let textRange = $state({ start: 0, end: 0 });
@@ -239,15 +252,25 @@
       const r = resolvedRect(id);
       if (r) startRects.set(id, r);
     }
-    const first = startRects.get(ids[0]!);
+    const startRotations = new Map(boxes.map(box => [box.id, box.rotation]));
+    const selectionRect = ids.length > 1
+      ? selectionBounds([...startRects].map(([id, rect]) => ({ ...rect, rotation: startRotations.get(id)! })))
+      : startRects.get(ids[0]!)!;
+    const center = { x: selectionRect.x + selectionRect.w / 2, y: selectionRect.y + selectionRect.h / 2 };
+    const stage = stageEl!.getBoundingClientRect();
+    const startAngle = Math.atan2(e.clientY - stage.top - center.y * pxPerEmuY(), e.clientX - stage.left - center.x * pxPerEmuX()) * 180 / Math.PI;
     drag = {
       mode,
       handle,
       ids,
       startClient: { x: e.clientX, y: e.clientY },
       startRects,
-      startRot: boxes.find((b) => b.id === ids[0])?.rotation ?? 0,
-      center: first ? { x: first.x + first.w / 2, y: first.y + first.h / 2 } : { x: 0, y: 0 },
+      startRot: startRotations.get(ids[0]!) ?? 0,
+      startRotations,
+      selectionRect,
+      startAngle,
+      turn: 0,
+      center,
       last: { x: e.clientX, y: e.clientY },
       shift: e.shiftKey,
       moved: false,
@@ -325,16 +348,22 @@
         if (s) setShapeBounds(s, { x: Math.round(x) as never, y: Math.round(y) as never, w: Math.round(w) as never, h: Math.round(h) as never });
       });
     } else {
-      const id = drag.ids[0]!;
       const rect = stageEl!.getBoundingClientRect();
-      const cx = rect.left + (drag.center.x / metrics.widthEmu) * stageW;
-      const cy = rect.top + (drag.center.y / metrics.heightEmu) * stageH;
-      const ang = (Math.atan2(drag.last.y - cy, drag.last.x - cx) * 180) / Math.PI + 90;
+      const cx = rect.left + drag.center.x * pxPerEmuX();
+      const cy = rect.top + drag.center.y * pxPerEmuY();
+      const angle = Math.atan2(drag.last.y - cy, drag.last.x - cx) * 180 / Math.PI;
+      const delta = ((angle - drag.startAngle + 540) % 360) - 180;
       const step = drag.shift ? 15 : 1;
-      const snapped = (Math.round(((ang + 360) % 360) / step) * step) % 360;
+      const base = drag.ids.length === 1 ? drag.startRot : 0;
+      drag.turn = Math.round((base + delta) / step) * step - base;
       doc.applyLive(() => {
-        const s = doc.shapeById(doc.selection.slideIndex, id);
-        if (s) setShapeRotation(s, snapped);
+        for (const [id, bounds] of drag!.startRects) {
+          const s = doc.shapeById(doc.selection.slideIndex, id);
+          if (!s) continue;
+          const rotated = rotateRect({ ...bounds, rotation: drag!.startRotations.get(id)! }, drag!.center, drag!.turn);
+          if (drag!.ids.length > 1) setShapeBounds(s, { x: Math.round(rotated.x) as never, y: Math.round(rotated.y) as never, w: bounds.w as never, h: bounds.h as never });
+          setShapeRotation(s, rotated.rotation);
+        }
       });
     }
   }
@@ -399,6 +428,12 @@
     e.stopPropagation();
     doc.selectShape(doc.selection.slideIndex, box.id);
     startDrag('rotate', undefined, [box.id], e);
+  }
+
+  function onMultiRotateDown(e: PointerEvent) {
+    if (e.button !== 0 || cancelling) return;
+    e.stopPropagation();
+    startDrag('rotate', undefined, [...selectedIds], e);
   }
 
   // ---- Text editing ------------------------------------------------------
@@ -934,7 +969,7 @@
               {/each}
             {/if}
             {#if isSel && !editing && selectedIds.size === 1}
-              <button class="rotate" aria-label={t('Rotate')} onpointerdown={(e) => onRotateDown(e, box)}></button>
+              <button class="rotate" aria-label={t('Rotate')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={(e) => onRotateDown(e, box)}></button>
               {#each HANDLES as hd (hd.h)}
                 <button
                   class="handle"
@@ -947,6 +982,12 @@
             {/if}
           </div>
         {/each}
+
+        {#if multiFrame && !editing}
+          <div class="multi-selection" style="left:{multiFrame.x * pxPerEmuX()}px; top:{multiFrame.y * pxPerEmuY()}px; width:{multiFrame.w * pxPerEmuX()}px; height:{multiFrame.h * pxPerEmuY()}px; transform: rotate({multiFrame.rotation}deg);">
+            <button class="rotate" aria-label={t('Rotate selected objects')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={onMultiRotateDown}></button>
+          </div>
+        {/if}
 
         <!-- smart guides -->
         {#each guides as g, i (i)}
@@ -1068,6 +1109,7 @@
     outline: 1.5px solid var(--ok-selected-border);
   }
   .cell-selection { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--ok-selected-border) 16%, transparent); outline: 2px solid var(--ok-selected-border); outline-offset: -2px; }
+  .multi-selection { position: absolute; pointer-events: none; outline: 1px dashed var(--ok-selected-border); transform-origin: center; }
   .handle {
     position: absolute;
     width: 10px;

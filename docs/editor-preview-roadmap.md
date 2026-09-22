@@ -337,3 +337,11 @@ handles. Unit coverage checks all eight handles across five rotations, aspect
 constraints, minimum size and zero-height lines. Browser coverage verifies
 English/Japanese labels, pointer movement on a rotated shape, saved geometry,
 Undo/Redo, reload and cancellation without losing redo history.
+
+Multiple selected objects now expose a shared rotation handle. Its centre comes
+from the visible bounds, including each object's existing rotation. Dragging
+rotates object centres and angles together, preserving sizes, distances and
+relative angles; Shift snaps the selection's turn to 15-degree increments. The
+handle and hints are bilingual. Browser coverage verifies saved geometry,
+unselected objects, Undo/Redo, Escape cancellation and reload. Multi-selection
+resizing remains pending.
