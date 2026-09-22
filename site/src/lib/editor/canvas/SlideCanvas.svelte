@@ -8,6 +8,7 @@
   import { onMount, tick } from 'svelte';
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
+  import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
@@ -745,25 +746,7 @@
     return inlineTextHtml(doc.pres, shape, source, active.cell);
   });
   function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
-    if (!shape) return [];
-    const formats: TextFormat[] = [];
-    let offset = 0;
-    const paragraphs = editing?.cell
-      ? getTableCellParagraphs(getTableCells(shape)[editing.cell.row]![editing.cell.col]!).map(p => p.elements)
-      : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => getShapeParagraphElements(shape, i));
-    for (const elements of paragraphs) {
-      const paragraphStart = offset;
-      for (const element of elements) {
-        const length = element.kind === 'br' ? 1 : element.text.length;
-        if (textRange.start === textRange.end) {
-          const caret = textRange.start;
-          if (length && ((offset < caret && offset + length >= caret) || (caret === paragraphStart && offset === caret))) return [element.format ?? {}];
-        } else if (offset < textRange.end && offset + length > textRange.start) formats.push(element.format ?? {});
-        offset += length;
-      }
-      offset++;
-    }
-    return formats;
+    return shape ? textFormatsInRange(shape, textRange, editing?.cell) : [];
   }
   const rangeFormats = $derived.by(() => {
     doc.version;

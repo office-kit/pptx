@@ -312,7 +312,7 @@ The inline paragraph toolbar also exposes all nine list levels in Japanese and E
 
 Inline paragraph spacing supports inherited, proportional and fixed line spacing plus before/after points. Mixed selections remain explicit; blank paragraph spacing restores inheritance and zero remains an explicit value. Browser coverage checks caret/range boundaries, table-cell isolation, rich-run preservation, undo/redo, Japanese controls and reload.
 
-Selected inline text supports Ctrl/Cmd+B, I and U to toggle bold, italic and underline in shapes and table cells. Toggle decisions read the selected runs after replaying pending text edits, preserving selection offsets after inserted paragraphs. Browser coverage verifies both modifier keys, Japanese/English labels, surrounding formatting, undo/redo and reload. Caret-only typing-format controls remain outstanding.
+Selected inline text supports Ctrl/Cmd+B, I and U to toggle bold, italic and underline in shapes and table cells. Toggle decisions read the selected runs after replaying pending text edits, preserving selection offsets after inserted paragraphs. Browser coverage verifies both modifier keys, Japanese/English labels, surrounding formatting, undo/redo and reload. Caret-only typing-format controls are implemented; browser coverage in `caret-formatting.test.mjs` verifies surrounding-text isolation, Japanese input, clear formatting, history and reload.
 
 Inline toolbar bold/italic/underline toggles share the keyboard formatting path, so pending text edits are applied before deciding whether to enable or disable a style. A browser regression reproduces the previously incorrect bold toggle after inserting a leading paragraph and checks toolbar/keyboard parity, history and Japanese reload.
 
@@ -382,3 +382,8 @@ positions, rotations and reflections produced by ungrouping.
 - Chart labels now share reflection compensation, including existing label rotations and start/end anchoring. The plot geometry continues to follow the chart and ancestor group transforms.
 - Regression coverage exercises all chart/group flip combinations across column, bar, line, area, pie, doughnut, scatter, bubble, and radar charts (144 cases), with Japanese/English labels and save/reload. Every emitted label must retain positive glyph orientation and match its coordinates after ungrouping; reflected legends retain their side of the anchor.
 - Nonuniform scaling of rotated descendants still requires fidelity work; these cases use unscaled groups.
+
+### Empty paragraph caret formatting
+
+- Inline character-format indicators and toggle decisions now read the end mark of an empty paragraph in text shapes and table cells. This retains authored bold and size settings before typing, rather than reporting an unformatted caret.
+- Regression coverage verifies empty first/last paragraphs, neighboring nonempty text, save/reload and pending insertions that move the caret's paragraph.
