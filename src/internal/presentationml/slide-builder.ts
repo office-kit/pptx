@@ -14,6 +14,7 @@
 import {
   type XmlDocument,
   type XmlElement,
+  type XmlAttr,
   NS,
   attr,
   elem,
@@ -44,7 +45,7 @@ const NAME_SP_LOCKS = qname('a', 'spLocks', NS.dml);
 const ATTR_ID = qname('', 'id', '');
 const ATTR_NAME = qname('', 'name', '');
 const ATTR_TYPE = qname('', 'type', '');
-const ATTR_IDX = qname('', 'idx', '');
+const PLACEHOLDER_BINDING_ATTRIBUTES = new Set(['type', 'idx', 'orient', 'sz']);
 const ATTR_NO_GRP = qname('', 'noGrp', '');
 
 /**
@@ -52,13 +53,13 @@ const ATTR_NO_GRP = qname('', 'noGrp', '');
  * (id=1, name="") and one placeholder stub per `<p:ph>` found on
  * `layoutSpTree`.
  *
- * The stubs reuse the layout's `<p:ph>` idx/type attributes verbatim, and
+ * The stubs retain the layout's placeholder type, index, orientation and size, and
  * the names follow PowerPoint's `"Title 1"`, `"Content Placeholder 2"`
  * convention based on the placeholder type and an incrementing index.
  */
 export const buildSlideFromLayout = (layoutSpTree: XmlElement): XmlDocument => {
   // Walk the layout's shape tree to find placeholders.
-  const placeholders: Array<{ type: string | null; idx: string | null }> = [];
+  const placeholders: XmlElement[] = [];
   for (const child of layoutSpTree.children) {
     if (child.kind !== 'element') continue;
     if (child.name.namespaceURI !== NS.pml || child.name.localName !== 'sp') continue;
@@ -68,10 +69,7 @@ export const buildSlideFromLayout = (layoutSpTree: XmlElement): XmlDocument => {
     if (nvPr === null) continue;
     const ph = firstChildElement(nvPr, NAME_PH);
     if (ph === null) continue;
-    placeholders.push({
-      type: getAttrValue(ph, ATTR_TYPE),
-      idx: getAttrValue(ph, ATTR_IDX),
-    });
+    placeholders.push(ph);
   }
 
   // Shape-id allocator: id=1 is the slide-root group, id=2+ are the
@@ -81,7 +79,7 @@ export const buildSlideFromLayout = (layoutSpTree: XmlElement): XmlDocument => {
   let nextShapeId = 2;
   const stubs: XmlElement[] = [];
   for (const ph of placeholders) {
-    stubs.push(buildPlaceholderStub(nextShapeId, ph.type, ph.idx));
+    stubs.push(buildPlaceholderStub(nextShapeId, ph));
     nextShapeId++;
   }
 
@@ -124,14 +122,14 @@ const buildGrpSpPr = (): XmlElement => elem(NAME_GRP_SP_PR);
 // Returns a placeholder-shape stub: <p:sp> with cNvPr, nvSpPr, ph, empty
 // spPr, and an empty txBody. Geometry, fill, and default style all flow
 // from the corresponding layout placeholder via inheritance.
-const buildPlaceholderStub = (
-  id: number,
-  phType: string | null,
-  phIdx: string | null,
-): XmlElement => {
-  const phAttrs = [];
-  if (phType !== null) phAttrs.push(attr(ATTR_TYPE, phType));
-  if (phIdx !== null) phAttrs.push(attr(ATTR_IDX, phIdx));
+const buildPlaceholderStub = (id: number, layoutPlaceholder: XmlElement): XmlElement => {
+  const phType = getAttrValue(layoutPlaceholder, ATTR_TYPE);
+  // Prompt flags describe layout-only prompt content, not the empty slide body.
+  const phAttrs: XmlAttr[] = layoutPlaceholder.attrs
+    .filter(
+      (a) => a.name.namespaceURI === '' && PLACEHOLDER_BINDING_ATTRIBUTES.has(a.name.localName),
+    )
+    .map((a) => attr(a.name, a.value));
 
   const ph = elem(NAME_PH, { attrs: phAttrs });
   const nvPr = elem(NAME_NV_PR, { children: [ph] });

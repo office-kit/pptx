@@ -408,3 +408,8 @@ positions, rotations and reflections produced by ungrouping.
 - A bilingual action in the Home ribbon and slide options restores top-level placeholder position, size, rotation and flips from the current layout, with master fallback. It applies to all selected slides in one undoable transaction.
 - Unit tests cover same-type slots with different indices, master inheritance with unrelated indices, rotation/flips, retained text/formatting/hyperlinks, unaffected ordinary shapes and save/load. Unmatched and grouped placeholders are preserved.
 - Browser verification covers multiple-slide selection, undo/redo, English/Japanese entry points, saved geometry and reload persistence. This action does not recreate deleted slots or reset text formatting; those wider layout workflows remain outstanding.
+
+### New-slide placeholder metadata
+
+- New slides preserve the chosen layout's placeholder orientation and size category alongside type/index. Layout prompt text remains excluded, and geometry/formatting continue to inherit.
+- Regression tests cover all three size categories, vertical orientation, omitted defaults, source isolation and Japanese/English text through public add/edit/save/load operations. This verifies placeholder metadata preservation, not complete vertical-text rendering.
