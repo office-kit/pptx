@@ -323,3 +323,7 @@ The inline and selected-cell character-format bars now include strikethrough, su
 Inline/selected-cell text formatting includes highlight color and removal in English/Japanese. SVG text rendering now paints per-run backgrounds using measured font metrics and the same horizontal anchors as text, including wrapped lines and raised/lowered text. Renderer tests cover alignment, wrapping, plain text, shape/table colors and removal in both rendering modes; browser coverage verifies color persistence and Japanese removal.
 
 Visual QA also exposed that SVG script runs were measured at their original font size while drawn smaller. Width measurement now uses the rendered superscript/subscript size, keeping centered/right-aligned backgrounds and subsequent runs aligned; deterministic tests cover both script directions.
+
+Pending paragraph controls now follow the projected text after insertions and deletions, including caret-only selections. The disposable text model materializes inherited alignment, bullets, line spacing and paragraph spacing before replaying edits; this preserves placeholder defaults without changing the source presentation. Browser coverage checks English insertion and Japanese deletion before saving, alongside existing paragraph formatting, Undo/Redo and reload checks.
+
+List-level option values now use the same string type as the current paragraph value, so the selected level is displayed instead of becoming blank. Table-cell coverage also checks pending insertion before a formatted paragraph, including list style, level and line spacing.

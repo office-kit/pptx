@@ -578,7 +578,7 @@
   const pendingTextShape = $derived.by(() => {
     doc.version;
     const box = boxes.find(b => b.id === editing?.id);
-    return box && editing ? projectTextEdits(box.shape, editing.changes, editing.cell) : null;
+    return box && editing ? projectTextEdits(box.shape, editing.changes, editing.cell, doc.pres) : null;
   });
   function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape) return [];
@@ -601,18 +601,17 @@
     doc.version;
     return pendingTextShape ? selectedTextFormats(pendingTextShape) : [];
   });
-  function inlineParagraphTarget() {
-    const box = boxes.find(b => b.id === editing?.id);
-    if (!box || !editing) return null;
-    const cell = editing.cell ? getTableCells(box.shape)[editing.cell.row]![editing.cell.col]! : null;
+  function inlineParagraphTarget(shape = boxes.find(b => b.id === editing?.id)?.shape) {
+    if (!shape || !editing) return null;
+    const cell = editing.cell ? getTableCells(shape)[editing.cell.row]![editing.cell.col]! : null;
     const paragraphs = cell ? getTableCellParagraphs(cell).map(p => p.elements)
-      : Array.from({ length: getShapeParagraphCount(box.shape) }, (_, i) => getShapeParagraphElements(box.shape, i));
+      : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => getShapeParagraphElements(shape, i));
     const lengths = paragraphs.map(elements => elements.reduce((length, element) => length + (element.kind === 'br' ? 1 : element.text.length), 0));
-    return { shape: cell ?? box.shape, indices: paragraphsInTextRange(lengths, textRange) };
+    return { shape: cell ?? shape, indices: paragraphsInTextRange(lengths, textRange) };
   }
   const inlineParagraph = $derived.by(() => {
     doc.version;
-    const target = inlineParagraphTarget();
+    const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
     const properties = target?.indices.map(index => getParagraphPropertiesEffective(doc.pres, target.shape, index)) ?? [];
     function common(read: (p: typeof properties[number]) => string) {
       const values = properties.map(read);
