@@ -65,7 +65,9 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
-      await editor.locator('.inline-edit').fill('Source headline');
+      await editor.locator('.inline-edit').focus();
+      await editor.locator('.inline-edit').evaluate((node) => node.setSelectionRange(7, 12));
+      await page.keyboard.insertText('headline');
       await editor.locator('.inline-edit').press('Control+Enter');
       await waitForState(preview.url, (state) => state.hasEdits);
       const richDeck = await loadPresentation(
@@ -462,7 +464,9 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().dblclick();
       const input = editor.getByRole('textbox', { name: 'Edit text', exact: true });
-      await input.fill('Hello 日本語 🌎!');
+      await input.focus();
+      await input.evaluate((node) => node.setSelectionRange(node.value.length, node.value.length));
+      await page.keyboard.insertText('!');
       await input.evaluate((node) => {
         node.setSelectionRange(6, 9);
         node.dispatchEvent(new Event('select', { bubbles: true }));
@@ -598,7 +602,11 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: tableBox.width / 4, y: tableBox.height / 4 } });
-      await editor.locator('.inline-edit').fill('Hello 日本語!');
+      await editor.locator('.inline-edit').focus();
+      await editor
+        .locator('.inline-edit')
+        .evaluate((node) => node.setSelectionRange(node.value.length, node.value.length));
+      await page.keyboard.insertText('!');
       await editor.locator('.inline-edit').press('Control+Enter');
       assert.equal(
         await panel.getByLabel('Cell text', { exact: true }).inputValue(),

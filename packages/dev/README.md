@@ -20,6 +20,12 @@ Open the local URL printed by the server. The default editor lets you edit text,
 move and resize objects, and use the slide, insert and formatting tools directly
 in the preview. Switch between English and Japanese from the editor header.
 Committed edits save automatically; **Save** or Ctrl/Cmd+S saves immediately.
+The browser keeps recovery copies of committed, unsaved changes. After reloading,
+choose **Restore changes** or **Discard recovery copy**. Copies are separate for
+each project and editing tab, and stay in this browser at the same preview URL
+(including its port). A restored copy still requires conflict resolution if the
+source or saved deck changed. Text still being typed must be committed first.
+
 **Download** exports the edited PPTX. **Preview** switches to the presentation
 viewer with thumbnails, zoom and presentation mode.
 

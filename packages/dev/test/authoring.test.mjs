@@ -19,7 +19,7 @@ async function fixture(t) {
 test('initialized TSX typechecks, builds, and uses source-relative assets in imported modules', async (t) => {
   const directory = await fixture(t);
   const project = await initProject(join(directory, 'slides'));
-  await symlink(resolve('node_modules'), join(project, 'node_modules'), 'dir');
+  await symlink(resolve('packages/dev/node_modules'), join(project, 'node_modules'), 'dir');
   await execute(process.execPath, [
     resolve('node_modules/typescript/bin/tsc'),
     '--project',
