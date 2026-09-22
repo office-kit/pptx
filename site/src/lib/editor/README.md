@@ -14,13 +14,13 @@ browser tests must separately establish usable editing workflows.
 
 The library exposes ~440 public functions. The ones a UI must surface as an
 **operation** are the _mutating_ (state-changing) exports — every `add*`,
-`set*`, `clear*`, `remove*`, `insert*`, … There are **150** of them today.
+`set*`, `clear*`, `remove*`, `insert*`, … There are **162** of them today.
 
 That set is the registry coverage target:
 
 1. **`manifest/generate.mjs`** reads the library source, enumerates the mutating
    exports by verb prefix, parses each signature into an operand + parameter
-   schema, and writes **`manifest/capabilities.generated.json`** — 150 entries.
+   schema, and writes **`manifest/capabilities.generated.json`** — 162 entries.
 2. **`core/registry.ts`** turns _every_ manifest entry into a runnable Command
    that dispatches to the real library function by name (`pptx[id](operand,
 …args)`). No stubs: a command is bound to an actual callable or it fails.
@@ -42,7 +42,7 @@ editor and saved PPTX content.
 
 Every capability is reachable by at least one path, in increasing ergonomics:
 
-- **Command palette** (`Ctrl/Cmd+K`) — searchable list of all 150, always
+- **Command palette** (`Ctrl/Cmd+K`) — searchable list of all 162, always
   available. The guaranteed floor.
 - **Properties panel** — auto-generated from the manifest: given the current
   selection it lists _every_ capability that can act on it, grouped by category.
