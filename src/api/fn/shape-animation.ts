@@ -23,18 +23,27 @@ import {
   type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
+import {
+  type AnimationStart,
+  type AnimationTarget,
+  type SlideAnimationStep,
+  findSlideTimingElement,
+  readSlideTiming,
+} from './_animation-timing.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
-// Animations (single-effect, click-triggered).
+// Animations (click-triggered, one effect per call).
 //
-// v1 scope: exactly one effect per slide, click-triggered, entrance or
-// exit preset family. The plan calls this the curated subset; full
-// multi-effect timing-tree authoring is post-1.0.
+// Current scope: each call adds one click-triggered entrance or exit effect
+// and merges it into whatever timing tree the slide already has, so a slide
+// can carry several effects across several shapes. Start conditions other
+// than click (with / after previous), emphasis presets, per-effect editing
+// and reordering are not modelled yet.
 
 export type { AnimationEffect, AnimationOptions };
+export type { AnimationStart, AnimationTarget, SlideAnimationStep };
 
-const NAME_TIMING_FN = qname('p', 'timing', NS.pml);
 const ATTR_ID_FN = qname('', 'id', '');
 
 const removeExistingTiming = (slide: SlideData): void => {
@@ -223,77 +232,56 @@ export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions)
 
 /**
  * Returns the animation effect bound to this shape via the slide's
- * `<p:timing>` tree, or `null` if the shape has no animation in the
- * v1 single-effect schema we model. Unknown presets are reported as a
- * raw `null` rather than guessing.
+ * `<p:timing>` tree, or `null` when the shape has none. A shape carrying
+ * several effects reports the first one in document order. Presets outside
+ * the four `AnimationEffect` tokens are reported as `null` rather than
+ * guessed at.
  */
-export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null => {
-  const slide = shape[SHAPE_SLIDE];
-  const timing = slide[SLIDE_DOCUMENT].root.children.find(
-    (c): c is XmlElement =>
-      c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
-  );
-  if (!timing) return null;
+export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null =>
+  firstEffectByShape(shape[SHAPE_SLIDE]).get(shape[SHAPE_SNAPSHOT].id) ?? null;
 
-  // Confirm the shape's spid appears in <p:bldLst><p:bldP spid="..."/>.
-  const bldLst = firstChildElement(timing, qname('p', 'bldLst', NS.pml));
-  if (!bldLst) return null;
-  const spidStr = String(shape[SHAPE_SNAPSHOT].id);
-  const matched = allChildElements(bldLst, qname('p', 'bldP', NS.pml)).some(
-    (b) => getAttrValue(b, qname('', 'spid', '')) === spidStr,
-  );
-  if (!matched) return null;
-
-  // Walk the timing tree to find the effect cTn for this shape. Our
-  // builder emits `<p:cTn presetID="N" presetClass="entr|exit" ...
-  // nodeType="clickEffect">` with a `<p:spTgt spid="..."/>` inside. We
-  // accept any cTn carrying that combination.
-  let presetID: string | null = null;
-  let presetClass: string | null = null;
-  const walk = (el: XmlElement): boolean => {
-    if (el.name.namespaceURI === NS.pml && el.name.localName === 'cTn') {
-      const cls = getAttrValue(el, qname('', 'presetClass', ''));
-      const id = getAttrValue(el, qname('', 'presetID', ''));
-      if (cls && id) {
-        // Confirm this cTn targets our shape via a descendant spTgt.
-        const targetsShape = (sub: XmlElement): boolean => {
-          if (
-            sub.name.namespaceURI === NS.pml &&
-            sub.name.localName === 'spTgt' &&
-            getAttrValue(sub, qname('', 'spid', '')) === spidStr
-          ) {
-            return true;
-          }
-          for (const c of sub.children) {
-            if (c.kind === 'element' && targetsShape(c)) return true;
-          }
-          return false;
-        };
-        if (targetsShape(el)) {
-          presetClass = cls;
-          presetID = id;
-          return true;
-        }
-      }
-    }
-    for (const c of el.children) {
-      if (c.kind === 'element' && walk(c)) return true;
-    }
-    return false;
-  };
-  walk(timing);
-  if (!presetID || !presetClass) return null;
-
-  // Map back to AnimationEffect.
-  const id = Number.parseInt(presetID, 10);
-  if (presetClass === 'entr' && id === 1) return 'appear';
-  if (presetClass === 'entr' && id === 10) return 'fadeIn';
-  if (presetClass === 'exit' && id === 1) return 'disappear';
-  if (presetClass === 'exit' && id === 10) return 'fadeOut';
-  return null;
+// Only a time node that names a preset was ever a candidate for the
+// shape-level readers, so an effect written without `presetID` / `presetClass`
+// does not shadow the recognised effect behind it. `getSlideAnimations` lists
+// both; this narrower rule belongs to the two shape-level readers alone.
+const namesAPreset = (cTn: XmlElement): boolean => {
+  const presetId = getAttrValue(cTn, qname('', 'presetID', ''));
+  const presetClass = getAttrValue(cTn, qname('', 'presetClass', ''));
+  return presetId !== null && presetId !== '' && presetClass !== null && presetClass !== '';
 };
 
-/** Removes the slide's `<p:timing>` element entirely. */
+// PowerPoint needs a `<p:bldLst><p:bldP spid="...">` entry for an effect to
+// render, so a shape without one has no animation as far as the read API is
+// concerned. Built once per call and shared by the two shape-level readers,
+// which would otherwise re-walk the whole tree for every shape on the slide.
+const firstEffectByShape = (slide: SlideData): Map<number, AnimationEffect | null> => {
+  const out = new Map<number, AnimationEffect | null>();
+  const timing = findSlideTimingElement(slide);
+  if (timing === null) return out;
+  const bldLst = firstChildElement(timing, qname('p', 'bldLst', NS.pml));
+  if (bldLst === null) return out;
+  const built = new Set(
+    allChildElements(bldLst, qname('p', 'bldP', NS.pml)).map((b) =>
+      getAttrValue(b, qname('', 'spid', '')),
+    ),
+  );
+  for (const { step, cTn } of readSlideTiming(slide)) {
+    if (!namesAPreset(cTn)) continue;
+    for (const shapeId of step.targetShapeIds) {
+      if (!out.has(shapeId) && built.has(String(shapeId))) out.set(shapeId, step.effect);
+    }
+  }
+  return out;
+};
+
+/**
+ * Every animation effect on the slide, in document order — the click order a
+ * viewer sees. Effects this library cannot author are still listed, with
+ * `editable: false`, so a caller can show them instead of losing them.
+ */
+export const getSlideAnimations = (slide: SlideData): readonly SlideAnimationStep[] =>
+  readSlideTiming(slide).map((node) => node.step);
+
 /**
  * Returns every shape on the slide that has an authored animation
  * effect (i.e. `getShapeAnimation(shape)` is not `null`). Pair to
@@ -302,13 +290,11 @@ export const getShapeAnimation = (shape: SlideShapeData): AnimationEffect | null
  * that doesn't honor PowerPoint's timing tree.
  */
 export const findShapesWithAnimation = (slide: SlideData): ReadonlyArray<SlideShapeData> => {
-  const out: SlideShapeData[] = [];
-  for (const shape of slide[SLIDE_SHAPES]) {
-    if (getShapeAnimation(shape) !== null) out.push(shape);
-  }
-  return out;
+  const effects = firstEffectByShape(slide);
+  return slide[SLIDE_SHAPES].filter((shape) => effects.get(shape[SHAPE_SNAPSHOT].id) != null);
 };
 
+/** Removes every animation on the slide, keeping its media play controls. */
 export const clearSlideAnimations = (slide: SlideData): void => {
   // Media time nodes are what give a video / audio clip its play controls,
   // not animations — dropping them with the rest would silently break the
@@ -324,5 +310,3 @@ export const clearSlideAnimations = (slide: SlideData): void => {
   commitSlideData(slide);
   refreshSlideData(slide);
 };
-
-void NAME_TIMING_FN;

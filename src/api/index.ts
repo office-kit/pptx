@@ -69,7 +69,13 @@ export { isChartSpec } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
-export type { AnimationEffect, AnimationOptions } from './fn.ts';
+export type {
+  AnimationEffect,
+  AnimationOptions,
+  AnimationStart,
+  AnimationTarget,
+  SlideAnimationStep,
+} from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type {
@@ -362,6 +368,7 @@ export {
   getShapeTextWrap,
   getShapeXmlString,
   getShapeZIndex,
+  getSlideAnimations,
   getSlideAt,
   getSlideBackground,
   getSlideBackgroundGradientFill,
