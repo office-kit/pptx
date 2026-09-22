@@ -86,11 +86,14 @@ export const RIBBON: readonly RibbonTab[] = [
       {
         title: 'Paragraph',
         items: [
-          { id: 'setParagraphAlignment', icon: 'align' },
+          // The manifest labels these "Set paragraph …", which the ribbon
+          // truncates to four indistinguishable buttons. Use PowerPoint's own
+          // short names instead.
+          { id: 'setParagraphAlignment', icon: 'align', label: 'Align' },
           { id: 'setShapeBullets', icon: 'bullets', label: 'Bullets' },
-          { id: 'setParagraphLevel', icon: 'indent' },
-          { id: 'setParagraphLineSpacing', icon: 'line-spacing' },
-          { id: 'setParagraphSpacing', icon: 'space' },
+          { id: 'setParagraphLevel', icon: 'indent', label: 'Indent' },
+          { id: 'setParagraphLineSpacing', icon: 'line-spacing', label: 'Line spacing' },
+          { id: 'setParagraphSpacing', icon: 'space', label: 'Spacing' },
         ],
       },
       {

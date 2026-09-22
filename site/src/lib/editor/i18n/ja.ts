@@ -559,7 +559,11 @@ export const ja: Record<string, string> = {
   // Ribbon explicit item labels
   'Text format': '文字の書式',
   'Run format': 'ラン書式',
+  Align: '配置',
   Bullets: '箇条書き',
+  Indent: 'インデント',
+  'Line spacing': '行間',
+  Spacing: '段落間隔',
   Replace: '置換',
 
   // Context menu
