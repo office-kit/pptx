@@ -118,6 +118,13 @@ describe('pending text formatting preview', () => {
       getShapeRunFormatEffective(pres, projected, paragraph, run, { inheritanceSource: shape }),
     );
     expect(display.text).toBe('English\n日本語');
+    const originalParagraph = getParagraphPropertiesEffective(pres, shape, 0);
+    const previewParagraph = getParagraphPropertiesEffective(pres, projected, 1, {
+      inheritanceSource: shape,
+    });
+    expect(originalParagraph.marL).toBeGreaterThan(0);
+    expect(previewParagraph.marL).toBe(originalParagraph.marL);
+    expect(previewParagraph.indent).toBe(originalParagraph.indent);
     expect(display.formats[0]!.format).toMatchObject(inherited);
     expect(display.formats.at(-1)!.format).toMatchObject({ ...inherited, italic: true });
     expect(getShapeXmlString(shape)).toBe(xml);

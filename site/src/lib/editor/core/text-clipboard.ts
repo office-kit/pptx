@@ -36,10 +36,12 @@ export function copyTextRange(
     if (index) append('\n', {});
     let runIndex = 0;
     for (const element of elements) {
-      const format =
-        element.kind === 'r'
-          ? (resolveRunFormat?.(index, runIndex++) ?? element.format)
-          : element.format;
+      let format = element.format;
+      if (element.kind === 'r') {
+        if (resolveRunFormat && text.length < end && text.length + element.text.length > start)
+          format = resolveRunFormat(index, runIndex);
+        runIndex++;
+      }
       append(element.kind === 'br' ? '\n' : element.text, format ?? {});
     }
   });

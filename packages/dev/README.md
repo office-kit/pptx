@@ -29,9 +29,11 @@ source or saved deck changed. Text still being typed must be committed first.
 The text input displays explicit character formatting while editing shapes and
 table cells, and resolves inherited run styles for shapes. Text follows the canvas
 zoom while saved font sizes remain unchanged. Ctrl/Cmd+Z and Ctrl/Cmd+Y undo and
-redo pending text edits; Escape cancels them. Japanese composition is kept together as one undo step. Paragraph
-layout and inherited table styles still use the presentation renderer after
-committing the edit.
+redo pending text edits; Escape cancels them. Japanese composition is kept together
+as one undo step. Paragraph alignment, line spacing, spacing before and after,
+indentation and text direction are visible while editing. Bullet markers, vertical
+text placement and inherited table character styles still use the presentation
+renderer after committing the edit.
 
 Selected text copied or cut within the editor keeps its character formatting
 when pasted into another shape or table cell, including text still being edited.

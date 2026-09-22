@@ -108,6 +108,12 @@ test(
       await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('center');
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'ctr');
+      assert.deepEqual(
+        await input
+          .locator('[data-text-paragraph]')
+          .evaluateAll((nodes) => nodes.map((n) => getComputedStyle(n).textAlign)),
+        ['left', 'center', 'left'],
+      );
       assert.notEqual(getParagraphAlignment(await shape(), 0), 'ctr');
       assert.notEqual(getParagraphAlignment(await shape(), 2), 'ctr');
       await bar.getByLabel('List level', { exact: true }).selectOption({ value: '8' });
@@ -402,6 +408,21 @@ test(
       assert.deepEqual(props[1].lineSpacing, { kind: 'pct', value: 1.5 });
       assert.equal(props[1].spcBefPts, 6);
       assert.equal(props[1].spcAftPts, 12);
+      const spacing = await input
+        .locator('[data-text-paragraph]')
+        .nth(1)
+        .evaluate((n) => {
+          const css = getComputedStyle(n);
+          return {
+            line: parseFloat(css.lineHeight) / parseFloat(css.fontSize),
+            before: parseFloat(css.marginTop),
+            after: parseFloat(css.marginBottom),
+            zoom: Number(css.getPropertyValue('--text-zoom')),
+          };
+        });
+      assert.ok(Math.abs(spacing.line - 1.5) < 0.01);
+      assert.ok(Math.abs(spacing.before - 8 * spacing.zoom) < 0.01);
+      assert.ok(Math.abs(spacing.after - 16 * spacing.zoom) < 0.01);
       assert.notDeepEqual(props[0].lineSpacing, props[1].lineSpacing);
       assert.notEqual(props[2].spcAftPts, 12);
       await select(0, 12);
