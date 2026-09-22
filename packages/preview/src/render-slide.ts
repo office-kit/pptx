@@ -3236,6 +3236,7 @@ const DEFAULT_CHART_TITLE_PT = 13;
 // Project EMU bounds → CSS-px chart frame. Title and legend get fixed
 // vertical strips; the plot area takes whatever's left.
 interface ChartFrame {
+  readonly reflected?: boolean;
   readonly x: number;
   readonly y: number;
   readonly w: number;
@@ -3247,6 +3248,27 @@ interface ChartFrame {
   readonly titleY: number;
   readonly legendY: number;
 }
+
+// Chart labels share a local reflection correction. Attributes are generated
+// by the chart renderers below, never supplied as raw SVG by callers.
+const chartText = (f: ChartFrame, x: number, y: number, attrs: string, content: string): string => {
+  if (f.reflected) {
+    const reflection = `translate(${px(2 * x)} 0) scale(-1 1)`;
+    const rotation = /transform="([^"]*)"/.exec(attrs);
+    attrs = rotation
+      ? attrs.replace(rotation[0], `transform="${rotation[1]} ${reflection}"`)
+      : `${attrs} transform="${reflection}"`;
+    // Preserve the label's side of its anchor after reflecting its glyphs.
+    const anchor = /text-anchor="(start|middle|end)"/.exec(attrs);
+    attrs = anchor
+      ? attrs.replace(
+          anchor[0],
+          `text-anchor="${anchor[1] === 'start' ? 'end' : anchor[1] === 'end' ? 'start' : 'middle'}"`,
+        )
+      : `${attrs} text-anchor="end"`;
+  }
+  return `<text x="${px(x)}" y="${px(y)}" ${attrs}>${content}</text>`;
+};
 
 // Per-series projected geometry for a line/area chart, computed once and
 // shared between the fill pass and the stroke/marker/label/trendline pass —
@@ -3607,7 +3629,13 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rot = axis.labelRotationDeg ?? 0;
       const transform = rot ? ` transform="rotate(${rot} ${px(labelX)} ${px(yp)})"` : '';
       out.push(
-        `<text x="${px(labelX)}" y="${px(yp)}" text-anchor="${onRight ? 'start' : 'end'}" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}>${escapeXml(fmtTick(t))}</text>`,
+        chartText(
+          f,
+          labelX,
+          yp,
+          `text-anchor="${onRight ? 'start' : 'end'}" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transform}`,
+          `${escapeXml(fmtTick(t))}`,
+        ),
       );
     } else {
       const xp = f.plotX + ((t - axis.min) / range) * f.plotW;
@@ -3629,7 +3657,13 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const rotH = axis.labelRotationDeg ?? 0;
       const transformH = rotH ? ` transform="rotate(${rotH} ${px(xp)} ${px(horizLabelY)})"` : '';
       out.push(
-        `<text x="${px(xp)}" y="${px(horizLabelY)}" text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}>${escapeXml(fmtTick(t))}</text>`,
+        chartText(
+          f,
+          xp,
+          horizLabelY,
+          `text-anchor="middle" dominant-baseline="middle" ${axisTickAttrs(axis.labelStyle)}${transformH}`,
+          `${escapeXml(fmtTick(t))}`,
+        ),
       );
     }
   }
@@ -3643,13 +3677,25 @@ const renderValueAxis = (f: ChartFrame, axis: AxisSpec): string => {
       const lblX = f.plotX - 26;
       const lblY = f.plotY + f.plotH / 2;
       out.push(
-        `<text x="${px(lblX)}" y="${px(lblY)}" text-anchor="middle" font-family="sans-serif" font-size="9" fill="#6B7280" font-style="italic" transform="rotate(-90 ${px(lblX)} ${px(lblY)})">${escapeXml(lbl)}</text>`,
+        chartText(
+          f,
+          lblX,
+          lblY,
+          `text-anchor="middle" font-family="sans-serif" font-size="9" fill="#6B7280" font-style="italic" transform="rotate(-90 ${px(lblX)} ${px(lblY)})"`,
+          `${escapeXml(lbl)}`,
+        ),
       );
     } else {
       // Bar chart — value axis runs horizontally; label sits below
       // the rightmost tick.
       out.push(
-        `<text x="${px(f.plotX + f.plotW)}" y="${px(f.plotY + f.plotH + 22)}" text-anchor="end" font-family="sans-serif" font-size="9" fill="#6B7280" font-style="italic">${escapeXml(lbl)}</text>`,
+        chartText(
+          f,
+          f.plotX + f.plotW,
+          f.plotY + f.plotH + 22,
+          `text-anchor="end" font-family="sans-serif" font-size="9" fill="#6B7280" font-style="italic"`,
+          `${escapeXml(lbl)}`,
+        ),
       );
     }
   }
@@ -3731,7 +3777,13 @@ const renderCategoryAxis = (
                   ? 'start'
                   : 'middle';
       out.push(
-        `<text x="${px(cx)}" y="${px(cy)}" text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}>${escapeXml(truncated)}</text>`,
+        chartText(
+          f,
+          cx,
+          cy,
+          `text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}`,
+          `${escapeXml(truncated)}`,
+        ),
       );
     }
   } else {
@@ -3752,7 +3804,13 @@ const renderCategoryAxis = (
           ? ` transform="rotate(${labelRotationDeg} ${px(lx)} ${px(cy)})"`
           : '';
       out.push(
-        `<text x="${px(lx)}" y="${px(cy)}" text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}>${escapeXml(truncated)}</text>`,
+        chartText(
+          f,
+          lx,
+          cy,
+          `text-anchor="end" dominant-baseline="middle" ${axisTickAttrs(labelStyle)}${transform}`,
+          `${escapeXml(truncated)}`,
+        ),
       );
     }
   }
@@ -3863,7 +3921,13 @@ const renderChartTitle = (f: ChartFrame, title: string, style?: ChartTextStyle):
   const fill = style?.color ?? '#1F2937';
   const weight = style?.bold === false ? '400' : '600';
   const fontStyleAttr = style?.italic ? ' font-style="italic"' : '';
-  return `<text x="${px(f.x + f.w / 2)}" y="${px(f.titleY)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}" font-weight="${weight}"${fontStyleAttr}>${escapeXml(title)}</text>`;
+  return chartText(
+    f,
+    f.x + f.w / 2,
+    f.titleY,
+    `text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}" font-weight="${weight}"${fontStyleAttr}`,
+    `${escapeXml(title)}`,
+  );
 };
 
 // Legend text is drawn in `sans-serif` without a text measurer, so pack the
@@ -3939,7 +4003,13 @@ const renderChartLegend = (
     for (let i = 0; i < names.length; i++) {
       out.push(
         swatch(i, cursor, rowY - 4),
-        `<text x="${px(cursor + swatchGapPx * scale)}" y="${px(rowY)}" dominant-baseline="middle" ${effAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+        chartText(
+          f,
+          cursor + swatchGapPx * scale,
+          rowY,
+          `dominant-baseline="middle" ${effAttrs}`,
+          `${escapeXml(names[i] ?? `Series ${i + 1}`)}`,
+        ),
       );
       cursor += (swatchGapPx + (labelWidths[i] ?? 0) + itemGapPx) * scale;
     }
@@ -3962,7 +4032,13 @@ const renderChartLegend = (
     const yp = yStart + i * lineH;
     out.push(
       swatch(i, xCol, yp - 4),
-      `<text x="${px(xCol + 14)}" y="${px(yp + 4)}" dominant-baseline="middle" ${textAttrs}>${escapeXml(names[i] ?? `Series ${i + 1}`)}</text>`,
+      chartText(
+        f,
+        xCol + 14,
+        yp + 4,
+        `dominant-baseline="middle" ${textAttrs}`,
+        `${escapeXml(names[i] ?? `Series ${i + 1}`)}`,
+      ),
     );
   }
   return out.join('');
@@ -4100,7 +4176,13 @@ const renderColumnChart = (
             chartPointLabelOptions(spec, s, c).position ?? 'ctr',
           );
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, true, c)}>${escapeXml(labelText)}</text>`,
+            chartText(
+              f,
+              x0 + barW / 2,
+              labelY,
+              `text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, true, c)}`,
+              `${escapeXml(labelText)}`,
+            ),
           );
         }
         if (v >= 0) posAcc = stackedTop;
@@ -4140,7 +4222,13 @@ const renderColumnChart = (
             chartPointLabelOptions(spec, s, c).position,
           );
           out.push(
-            `<text x="${px(x0 + barW / 2)}" y="${px(labelY)}" text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}>${escapeXml(labelText)}</text>`,
+            chartText(
+              f,
+              x0 + barW / 2,
+              labelY,
+              `text-anchor="middle" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}`,
+              `${escapeXml(labelText)}`,
+            ),
           );
         }
       }
@@ -4169,7 +4257,7 @@ const renderColumnChart = (
       ys.push(cy);
     }
     if (xs.length < 2) continue;
-    out.push(trendlinePath(xs, ys, series.trendline, tlColor!));
+    out.push(trendlinePath(f, xs, ys, series.trendline, tlColor!));
   }
   return out.join('');
 };
@@ -4178,6 +4266,7 @@ const renderColumnChart = (
 // fitted regression; movingAvg interpolates the rolling mean; poly
 // fits a low-degree polynomial via least squares with a tiny matrix.
 const trendlinePath = (
+  f: ChartFrame,
   xs: ReadonlyArray<number>,
   ys: ReadonlyArray<number>,
   tl: {
@@ -4257,7 +4346,13 @@ const trendlinePath = (
   // default look stays unchanged.
   if (tl.name !== undefined && tl.name.length > 0) {
     const [lx, ly] = pts[pts.length - 1]!;
-    const label = `<text x="${px(lx + 4)}" y="${px(ly)}" dominant-baseline="middle" font-family="sans-serif" font-size="9" fill="${color}">${escapeXml(tl.name)}</text>`;
+    const label = chartText(
+      f,
+      lx + 4,
+      ly,
+      `dominant-baseline="middle" font-family="sans-serif" font-size="9" fill="${color}"`,
+      `${escapeXml(tl.name)}`,
+    );
     return path + label;
   }
   return path;
@@ -4522,7 +4617,13 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
             fill,
           } = barLabelLayout(x0, w, v, chartPointLabelOptions(spec, s, c).position ?? 'ctr');
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, true, c)}>${escapeXml(labelText)}</text>`,
+            chartText(
+              f,
+              labelX,
+              y0 + barH / 2 + 3,
+              `text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, true, c)}`,
+              `${escapeXml(labelText)}`,
+            ),
           );
         }
         if (v >= 0) posAcc = stackedTop;
@@ -4557,7 +4658,13 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
             fill,
           } = barLabelLayout(x0, w, v, chartPointLabelOptions(spec, s, c).position);
           out.push(
-            `<text x="${px(labelX)}" y="${px(y0 + barH / 2 + 3)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}>${escapeXml(labelText)}</text>`,
+            chartText(
+              f,
+              labelX,
+              y0 + barH / 2 + 3,
+              `text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, fill, 9, false, c)}`,
+              `${escapeXml(labelText)}`,
+            ),
           );
         }
       }
@@ -4748,7 +4855,13 @@ const renderLineChart = (
         pos === 'b' ? yp + 13 : pos === 'ctr' || pos === 'l' || pos === 'r' ? yp + 3 : yp - 5;
       const anchor = pos === 'l' ? 'end' : pos === 'r' ? 'start' : 'middle';
       out.push(
-        `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151', 9, false, c)}>${escapeXml(labelText)}</text>`,
+        chartText(
+          f,
+          lx,
+          ly,
+          `text-anchor="${anchor}" ${dataLabelTextAttrs(spec, s, '#374151', 9, false, c)}`,
+          `${escapeXml(labelText)}`,
+        ),
       );
     }
     // Trendline overlay per series (only meaningful on the clustered
@@ -4764,7 +4877,7 @@ const renderLineChart = (
       }
       if (finiteXs.length >= 2) {
         const tlColor = series.trendline.color ?? color;
-        out.push(trendlinePath(finiteXs, finiteYs, series.trendline, tlColor));
+        out.push(trendlinePath(f, finiteXs, finiteYs, series.trendline, tlColor));
       }
     }
   }
@@ -4896,7 +5009,13 @@ const renderPieChart = (
     const labelText = labelOptions.text ?? labels.join(labelOptions.separator ?? ' ');
     if (labelText) {
       out.push(
-        `<text x="${px(labelX)}" y="${px(labelY)}" text-anchor="middle" dominant-baseline="middle" ${dataLabelTextAttrs(spec, 0, labelFill, 10, true, i)}>${escapeXml(labelText)}</text>`,
+        chartText(
+          f,
+          labelX,
+          labelY,
+          `text-anchor="middle" dominant-baseline="middle" ${dataLabelTextAttrs(spec, 0, labelFill, 10, true, i)}`,
+          `${escapeXml(labelText)}`,
+        ),
       );
     }
   }
@@ -5147,7 +5266,13 @@ const renderRadarChart = (
       `<polygon points="${ring.join(' ')}" fill="none" stroke="#E5E7EB" stroke-width="0.5"/>`,
     );
     out.push(
-      `<text x="${px(cx + 3)}" y="${px(cy - rr)}" dominant-baseline="middle" font-family="sans-serif" font-size="8" fill="#9CA3AF">${escapeXml(formatTick(t))}</text>`,
+      chartText(
+        f,
+        cx + 3,
+        cy - rr,
+        `dominant-baseline="middle" font-family="sans-serif" font-size="8" fill="#9CA3AF"`,
+        `${escapeXml(formatTick(t))}`,
+      ),
     );
   }
   // Spokes + category labels.
@@ -5163,7 +5288,13 @@ const renderRadarChart = (
     const anchor = Math.abs(cosA) < 0.3 ? 'middle' : cosA > 0 ? 'start' : 'end';
     const label = cat.length > 12 ? `${cat.slice(0, 11)}…` : cat;
     out.push(
-      `<text x="${px(lx)}" y="${px(ly)}" text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(spec.categoryAxisLabelStyle)}>${escapeXml(label)}</text>`,
+      chartText(
+        f,
+        lx,
+        ly,
+        `text-anchor="${anchor}" dominant-baseline="middle" ${axisTickAttrs(spec.categoryAxisLabelStyle)}`,
+        `${escapeXml(label)}`,
+      ),
     );
   }
   // Series polygons (closed). 'filled' fills the polygon at reduced
@@ -5209,6 +5340,7 @@ const renderChart = (
   h: number,
   transform: string,
   theme: PresentationTheme | null,
+  groupReflected: boolean,
 ): string | null => {
   let spec: ChartSpec | null = null;
   try {
@@ -5234,19 +5366,23 @@ const renderChart = (
   // LibreOffice both render none. An authored legend with `position: null`
   // (`<c:delete/>`-style) is also hidden.
   const hasLegend = spec.legend !== undefined && spec.legend.position !== null;
-  const f = layoutChart(
-    x,
-    y,
-    w,
-    h,
-    !!spec.title,
-    hasAxes,
-    spec.titleOverlay ?? false,
-    spec.legend?.overlay ?? false,
-    hasLegend,
-    (spec.titleStyle?.sizePt ?? DEFAULT_CHART_TITLE_PT) * PX_PER_PT,
-    spec.plotAreaLayout,
-  );
+  const flip = getShapeFlip(shape);
+  const f: ChartFrame = {
+    reflected: groupReflected !== Boolean(flip && flip.horizontal !== flip.vertical),
+    ...layoutChart(
+      x,
+      y,
+      w,
+      h,
+      !!spec.title,
+      hasAxes,
+      spec.titleOverlay ?? false,
+      spec.legend?.overlay ?? false,
+      hasLegend,
+      (spec.titleStyle?.sizePt ?? DEFAULT_CHART_TITLE_PT) * PX_PER_PT,
+      spec.plotAreaLayout,
+    ),
+  };
   const allNamesForLegend: string[] =
     spec.kind === 'pie' || spec.kind === 'doughnut'
       ? Array.from(spec.categories)
@@ -5514,7 +5650,13 @@ const renderChart = (
 
   const emptyHint =
     finiteCount === 0
-      ? `<text x="${px(f.plotX + f.plotW / 2)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" fill="#9CA3AF">${escapeXml(`chart (${spec.kind}) — no data`)}</text>`
+      ? chartText(
+          f,
+          f.plotX + f.plotW / 2,
+          f.plotY + f.plotH / 2,
+          `text-anchor="middle" dominant-baseline="middle" font-family="sans-serif" font-size="12" fill="#9CA3AF"`,
+          `${escapeXml(`chart (${spec.kind}) — no data`)}`,
+        )
       : '';
 
   // Axis titles — value title is rotated -90° to read along the y-axis
@@ -5533,7 +5675,13 @@ const renderChart = (
   // hugs its axis.
   const valueAxisTitleRot = spec.valueAxisTitleRotationDeg ?? -90;
   const valueAxisTitleSvg = spec.valueAxisTitle
-    ? `<text x="${px(f.plotX - 26)}" y="${px(f.plotY + f.plotH / 2)}" text-anchor="middle" ${axisTitleAttrs(spec.valueAxisTitleStyle)} transform="rotate(${valueAxisTitleRot} ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})">${escapeXml(spec.valueAxisTitle)}</text>`
+    ? chartText(
+        f,
+        f.plotX - 26,
+        f.plotY + f.plotH / 2,
+        `text-anchor="middle" ${axisTitleAttrs(spec.valueAxisTitleStyle)} transform="rotate(${valueAxisTitleRot} ${px(f.plotX - 26)} ${px(f.plotY + f.plotH / 2)})"`,
+        `${escapeXml(spec.valueAxisTitle)}`,
+      )
     : '';
   const catTitleRot = spec.categoryAxisTitleRotationDeg ?? 0;
   const catTitleCx = f.plotX + f.plotW / 2;
@@ -5547,7 +5695,13 @@ const renderChart = (
       ? ` transform="rotate(${catTitleRot} ${px(catTitleCx)} ${px(catTitleCy)})"`
       : '';
   const categoryAxisTitleSvg = spec.categoryAxisTitle
-    ? `<text x="${px(catTitleCx)}" y="${px(catTitleCy)}" text-anchor="middle" ${axisTitleAttrs(spec.categoryAxisTitleStyle)}${catTitleTransform}>${escapeXml(spec.categoryAxisTitle)}</text>`
+    ? chartText(
+        f,
+        catTitleCx,
+        catTitleCy,
+        `text-anchor="middle" ${axisTitleAttrs(spec.categoryAxisTitleStyle)}${catTitleTransform}`,
+        `${escapeXml(spec.categoryAxisTitle)}`,
+      )
     : '';
   return [
     `<g${transform}>`,
@@ -6373,7 +6527,7 @@ const renderShapeContent = (
     // graphicFrame variants @office-kit/pptx doesn't model fall through to a
     // labelled placeholder.
     if (isChartShape(shape)) {
-      const chartSvg = renderChart(shape, x, y, w, h, transform, theme);
+      const chartSvg = renderChart(shape, x, y, w, h, transform, theme, ctx.groupReflected);
       if (chartSvg) return chartSvg;
     }
     if (isTableShape(shape)) {
