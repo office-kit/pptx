@@ -46,6 +46,7 @@ test('nested, anisotropically scaled and reflected groups project points and poi
   const loaded = getSlides(await loadPresentation(await savePresentation(pres)))[0];
   const scope = shapeScope(loaded, getShapeId(a));
   assert.equal(getShapeId(scope.parent), getShapeId(inner));
+  assert.deepEqual(scope.textScale, { x: 4, y: 1.5 });
   assert.deepEqual(scope.shapes.map(getShapeId), [getShapeId(a), getShapeId(b)]);
   // Child point (10,20): inner scale+flip+90° → (210,310).
   // Outer scale → (720,655), rotated 90° around (720,630) → (695,630).

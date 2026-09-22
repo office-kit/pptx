@@ -34,6 +34,7 @@
     setTableCellTextFormat,
     isTableShape,
     getShapeText,
+    getShapeFlip,
     getGroupChildren,
     getShapeId,
     getShapeKind,
@@ -761,6 +762,21 @@
     return { ...box, width, height, left: box.left + box.width / 2 + (dx * Math.cos(angle) - dy * Math.sin(angle)) / stageW * 100 - width / 2, top: box.top + box.height / 2 + (dx * Math.sin(angle) + dy * Math.cos(angle)) / stageH * 100 - height / 2 };
   });
 
+  const textInputStyle = $derived.by(() => {
+    const box = editBox;
+    if (!box || !scope) return '';
+    const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation}deg);`;
+    if (editing?.cell) return base;
+    const { x: sx, y: sy } = scope.textScale;
+    if (!sx || !sy) return base;
+    const [a, b, c, d] = scope.matrix;
+    const reflected = a * d - b * c < 0;
+    const rotation = box.rotation + (getShapeFlip(box.shape)?.vertical ? 180 : 0);
+    // Match the preview's text layout: expand the layout box, cancel ancestor
+    // scale on glyphs, and cancel reflection before the shape's text rotation.
+    return `left:${box.left + box.width * (1 - sx) / 2}%; top:${box.top + box.height * (1 - sy) / 2}%; width:${box.width * sx}%; height:${box.height * sy}%; transform:rotate(${rotation}deg) scale(${(reflected ? -1 : 1) / sx},${1 / sy}); transform-origin:center;`;
+  });
+
   const pendingTextShape = $derived.by(() => {
     doc.version;
     const box = boxes.find(b => b.id === editing?.id);
@@ -1048,7 +1064,7 @@
                 if (editing && (range.start !== textRange.start || range.end !== textRange.end)) delete editing.typing;
                 textRange = range;
               }}
-              style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%; transform: rotate({eb.rotation}deg);"
+              style={textInputStyle}
               value={editing.text}
               html={pendingTextHtml}
               zoom={editor.zoom}

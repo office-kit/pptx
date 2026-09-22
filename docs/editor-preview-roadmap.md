@@ -521,10 +521,16 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Double-click a group to select its children in place; the bilingual group navigation button or Escape returns to the parent. Select All stays within the current group. Nested coordinate transforms include rotation, reflection and nonuniform scaling for selection overlays, pointer movement and screen-direction keyboard nudges.
 - Delete and z-order commands now operate on the owning group, retaining unrelated siblings and trailing extension metadata. Copy and duplicate use `copyShape` with `preserveGroupTransform` to retain ancestor transforms without copying siblings, including transforms that cannot be flattened to a standalone shape.
 - Core tests verify nested ordering, deletion, copied ancestor geometry and save/reload. Browser coverage verifies rotated-child drag, keyboard movement, duplicate/delete, Undo/Redo, English/Japanese navigation and saved reload. Matrix tests cover nested reflection and nonuniform scaling.
-- Remaining: text-input overlay fidelity under reflected/scaled ancestors, nested regroup/ungroup, and broader resize/rotation gesture coverage. These are not claimed complete by the movement tests.
+- Remaining: table-cell input fidelity under reflected/scaled ancestors, nested regroup/ungroup, and broader resize/rotation gesture coverage. These are not claimed complete by the movement tests.
 
 ### Visible geometry for snapping and arrangement
 
 - Smart guides snap the visible rotated envelope in slide coordinates, including all ancestor group transforms. Snap tolerance remains tied to screen pixels, and guides stay in slide space. The resulting translation is converted back into group coordinates without changing size, rotation or reflection.
 - Align and distribute use visible edges rather than unrotated local rectangles. Slide alignment works for grouped children; equal-gap distribution keeps its visible endpoints fixed.
 - Regression tests cover six alignment directions and both distribution axes under combined rotation, reflection and nonuniform scaling, with Undo restoring original geometry. The previous controller fails the same test. Snap tests cover rotated children, reflected scaling and screen-distance thresholds; browser coverage checks the guide at the slide edge, saved snapped geometry, alignment and Undo.
+
+### Shape text input under group transforms
+
+- The shape text input now follows the preview's text-specific rotation, including a vertically flipped shape's half-turn, ancestor reflection compensation and group scale cancellation. Its expanded layout box stays centered on the selected shape while glyph transforms match the saved preview.
+- Browser regression coverage compares actual CSS/SVG glyph matrices and input/selection centers for all four ancestor flip combinations, with rotated text inside a rotated, nonuniformly scaled group. Each case edits Japanese/English content and checks persisted text and Japanese UI after reload. Existing rich-text input and inherited-format workflows remain covered.
+- Nested-group unit coverage verifies accumulated text scale. Additional nested-group browser coverage, table-cell input transforms, paragraph/body layout parity and the renderer's anisotropic-scaling fidelity remain separate checks.
