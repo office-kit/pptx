@@ -641,3 +641,52 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - The inline toolbar and paragraph panel now report centered alignment for autoshapes with no authored or inherited alignment, matching their rendered text. Text boxes, placeholders and table cells retain the left-aligned fallback. Editing layout and both controls share the editor's shape defaults.
 - Browser coverage checks English and Japanese readback for preset shapes, text-box/table defaults, explicit right alignment and Undo/Redo. Mixed or inherited object-level controls retain their existing distinction between local settings and effective paragraph values.
+
+## Google Slides feature inventory
+
+What a Google Slides user reaches for, and how the editor answers it today.
+Every mutating library export is already reachable through the command palette
+and the properties panel (see the [editor README](../site/src/lib/editor/README.md));
+this table is about the everyday paths, and about what is not there at all.
+
+| What a user does                               | Today                                                                                                                       |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Add / duplicate / delete / reorder slides      | Navigator, ribbon, keyboard, context menu                                                                                   |
+| Change a slide's layout, background, size      | Ribbon and slide panel; new-slide dialog picks a layout                                                                     |
+| Type and format text                           | Inline editing with IME, inline toolbar, paragraph panel; bold/italic/underline/strike, super/subscript, font, size, colour |
+| Lists, indentation, line and paragraph spacing | Paragraph panel and inline toolbar, Tab / Shift+Tab for levels                                                              |
+| Vertical writing, autofit                      | Inline editing follows the renderer (see above)                                                                             |
+| Insert / arrange objects                       | Ribbon insert, marquee and Shift multi-select, snapping, align, distribute, group, order, rotate, flip                      |
+| Images                                         | Insert, replace, crop, mask with a shape, brightness / contrast / opacity, alt text                                         |
+| Tables                                         | Cell editing and selection ranges, borders, fills, margins, row/column edits, merge / split                                 |
+| Charts                                         | Chart dialog creates and edits categories, series and formatting                                                            |
+| Links                                          | Link dialog, including links to another slide                                                                               |
+| Comments                                       | Thread dialog with replies, resolve / reopen, both comment formats                                                          |
+| Transitions and animations                     | Transition dialog, animation pane with playback                                                                             |
+| Speaker notes, presenter view                  | Notes dialog, presenter view                                                                                                |
+| Find and replace                               | Quick find and the find/replace dialog                                                                                      |
+| Undo / redo, zoom, copy / paste                | Throughout, one undo step per gesture                                                                                       |
+| Japanese / English                             | Live switch, persisted, in every dialog and label                                                                           |
+
+### Gaps, in the order they are worth closing
+
+1. **Format painter** (書式のコピー/貼り付け). Copying formatting from one object
+   or text range to another is a daily Google Slides and PowerPoint gesture, and
+   there is nothing like it in the editor — the formatting readers and writers it
+   needs are all public, so this is editor work only.
+2. **Character-level effects.** `setShapeGlow` / `setShapeShadow` apply to a
+   shape; a text run has no outline, shadow or glow, so WordArt-style text cannot
+   be authored or round-tripped as such. Library work first.
+3. **Media playback.** `addSlideMedia` embeds a clip and its poster, but nothing
+   states autoplay, loop, volume or a trimmed range, so a deck with a video plays
+   it the way PowerPoint defaults to. Library work first.
+4. **Slide number, date and footer.** The text is reachable through
+   `setSlidePlaceholders`, but there is no "insert slide number" path and no
+   deck-wide toggle, which is how Google Slides presents it.
+5. **Layout and master editing.** The library can apply a layout and reset a
+   slide to it, but not author one. "Edit theme" is therefore out of reach
+   entirely. The largest of these by far, and the one to design before building.
+
+Out of scope on purpose: real-time collaboration, version history, sharing and
+publishing, spell check, and Explore-style suggestions — none of them are
+properties of a `.pptx` file.
