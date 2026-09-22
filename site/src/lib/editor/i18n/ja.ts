@@ -80,6 +80,9 @@ export const ja: Record<string, string> = {
   'Split merged cells before pasting multiple cells':
     '複数セルを貼り付ける前に結合セルを分割してください',
   Mixed: '混在',
+  Inherited: '継承',
+  Gradient: 'グラデーション',
+  Pattern: 'パターン',
   Custom: 'カスタム',
   Inherit: '継承',
   Justify: '両端揃え',

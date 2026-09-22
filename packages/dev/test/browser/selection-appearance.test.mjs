@@ -66,14 +66,54 @@ test(
       };
       await changeColor(0, '#123456');
       assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
+      assert.equal(
+        await editor.locator('.bespoke input[type=color]').nth(0).inputValue(),
+        '#123456',
+      );
+      await editor.locator('.hit').nth(2).click();
+      assert.notEqual(
+        await editor.locator('.bespoke input[type=color]').nth(0).inputValue(),
+        '#123456',
+      );
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(await editor.locator('[data-paint-state=fill]').textContent(), 'Mixed');
+      await editor
+        .locator('.hit')
+        .nth(2)
+        .click({ modifiers: ['Shift'] });
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await colors(getShapeFillColor), initialFill);
+      assert.notEqual(
+        await editor.locator('.bespoke input[type=color]').nth(0).inputValue(),
+        '#123456',
+      );
       await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
       await saved();
       assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
+      await editor.locator('.hit').nth(2).click();
+      await editor
+        .locator('.hit')
+        .nth(0)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(await editor.locator('[data-paint-state=fill]').textContent(), '混在');
+      await editor
+        .locator('.hit')
+        .nth(2)
+        .click({ modifiers: ['Shift'] });
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
       await changeColor(1, '#abcdef');
       assert.deepEqual(await colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', initialStroke[2]]);
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
@@ -82,6 +122,15 @@ test(
       await changeColor(1, '#abcdef');
       await page.reload();
       await saved();
+      await editor.locator('.hit').nth(0).click();
+      assert.equal(
+        await editor.locator('.bespoke input[type=color]').nth(0).inputValue(),
+        '#123456',
+      );
+      assert.equal(
+        await editor.locator('.bespoke input[type=color]').nth(1).inputValue(),
+        '#abcdef',
+      );
       assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
       assert.deepEqual(await colors(getShapeStrokeColor), ['#ABCDEF', '#ABCDEF', initialStroke[2]]);
       assert.deepEqual(errors, []);
