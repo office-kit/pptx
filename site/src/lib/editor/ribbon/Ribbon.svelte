@@ -61,10 +61,11 @@
               class="cmd"
               disabled={!editor.canRun(item.id)}
               title={tip(item.id)}
+              aria-label={item.label ? t(item.label) : cap ? capLabel(cap) : item.id}
               onclick={() => editor.runOrPrompt(item.id, item.preset ?? {})}
             >
               <span class="icon"><Icon name={item.icon ?? 'dot'} /></span>
-              <span class="cmd-label">{item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
+              <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
           {/each}
         </div>
@@ -118,11 +119,12 @@
     display: flex;
     gap: 0;
     background: var(--ok-ribbon-active);
-    height: calc(var(--ok-ribbon-h) - 30px);
+    min-height: calc(var(--ok-ribbon-h) - 30px);
     padding: 4px 6px 2px;
     overflow-x: auto;
   }
   .group {
+    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     justify-content: space-between;

@@ -25,6 +25,8 @@ export interface RibbonItem {
   readonly preset?: Record<string, unknown>;
   /** Override label (else the manifest label). */
   readonly label?: string;
+  /** Short visible label; the full label stays available to assistive technology. */
+  readonly compactLabel?: string;
   readonly icon?: string;
 }
 
@@ -51,13 +53,26 @@ export const RIBBON: readonly RibbonTab[] = [
         items: [
           { id: 'addBlankSlide', icon: 'slide-blank' },
           { id: 'addSlide', icon: 'slide-content' },
-          { id: 'resetSlidePlaceholderTextFormatting', icon: 'slide-content' },
-          { id: 'resetSlidePlaceholderGeometry', icon: 'slide-content' },
-          { id: 'addMissingSlidePlaceholders', icon: 'slide-content' },
           { id: 'addTitleSlide', icon: 'slide-title' },
           { id: 'addContentSlide', icon: 'slide-content' },
           { id: 'duplicateSlide', icon: 'duplicate' },
           { id: 'removeSlide', icon: 'trash' },
+        ],
+      },
+      {
+        title: 'Layout',
+        items: [
+          {
+            id: 'addMissingSlidePlaceholders',
+            icon: 'slide-content',
+            compactLabel: 'Restore placeholders',
+          },
+          {
+            id: 'resetSlidePlaceholderTextFormatting',
+            icon: 'text-format',
+            compactLabel: 'Reset text styles',
+          },
+          { id: 'resetSlidePlaceholderGeometry', icon: 'align', compactLabel: 'Reset positions' },
         ],
       },
       {

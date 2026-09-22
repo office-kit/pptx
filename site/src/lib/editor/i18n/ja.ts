@@ -5,6 +5,10 @@ export const ja: Record<string, string> = {
   'Choose a slide layout.': 'スライドのレイアウトを選択してください。',
   'Restore deleted placeholders': '削除したプレースホルダーを復元',
   'Reset placeholder text formatting': 'プレースホルダーの文字書式を戻す',
+  Layout: 'レイアウト',
+  'Restore placeholders': '枠を復元',
+  'Reset text styles': '文字書式を戻す',
+  'Reset positions': '配置を戻す',
   'Reset placeholder positions': 'プレースホルダーの配置を戻す',
   'New slide from layout': 'レイアウトからスライドを追加',
   'Choose a layout to insert a slide after the current slide.':

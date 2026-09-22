@@ -504,3 +504,8 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - The slide panel and Home ribbon can reset placeholder text formatting to inherited layout defaults in English and Japanese, for every selected slide in one undo step.
 - Direct run styling, paragraph spacing/alignment/bullets and text-body alignment/margins/autofit are cleared. Text, fields, links, language, paragraph outline levels and unknown extensions survive. Shape geometry and non-placeholder content are preserved; grouped placeholders are left unchanged.
 - Core tests cover preserved content and metadata, idempotence, save/reload and grouped objects. Browser tests check selected-slide scope, bilingual controls, undo/redo, saved reload and retained geometry. A full combined layout reset including shape appearance and grouped placeholders remains outstanding.
+
+### Readable layout actions
+
+- Home separates layout restoration/reset actions into their own group with distinct compact English and Japanese labels, full accessible names and tooltips.
+- Ribbon groups retain their width and scroll horizontally instead of squeezing command labels as more actions are added. The ribbon can grow vertically to keep group titles below two-line labels visible. Existing bilingual layout-picker and reset browser workflows verify dispatch, history and persistence after the presentation change.
