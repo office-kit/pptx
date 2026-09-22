@@ -1,3 +1,4 @@
+import { transitionScript } from './transition-script.ts';
 import { previewStyles } from './styles.ts';
 export const page = `<!doctype html>
 <html lang="en">
@@ -92,6 +93,7 @@ new ResizeObserver(updateChatWidthAria).observe(byId('chat'));
 // SVG stays out of the viewer's own DOM and CSS. Keyboard events still reach the
 // document, so arrow-key navigation keeps working after clicking into a slide.
 const canvas=slide.attachShadow({mode:'open'});
+${transitionScript}
 function resize(){
   if(!state.slides.length)return;
   const style=getComputedStyle(stage);
@@ -103,6 +105,7 @@ function resize(){
   slide.style.width=slideWidth+'px';slide.style.height=slideWidth/ratio+'px';
 }
 function selectSlide(next,focusThumbnail=false,reveal=true){
+  const previousIndex=index;
   index=Math.max(0,Math.min(next,state.slides.length-1));
   if(presenting&&state.hiddenSlides?.[index]){
     const forward=findSlide(index,1);index=forward>=0?forward:Math.max(0,findSlide(index,-1));
@@ -120,9 +123,8 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
-  if(svg!==displayedSvg){
-    displayedSvg=svg;
-    canvas.innerHTML=svg?'<style>svg{display:block;width:100%;height:100%}</style>'+svg:'';
+  if(svg!==displayedSvg||previousIndex!==index){
+    renderSlide(svg,presenting&&previousIndex!==index?state.transitions?.[index]:null);
   }
   slide.setAttribute('aria-label','Slide '+(index+1));
   for(const [position,item] of Array.from(thumbnails.children).entries()){
@@ -133,7 +135,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
     if(selected){if(reveal)button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
   }
   resize();
-  scheduleAdvance();
+  if(!transitionCleanup)scheduleAdvance();
   updatePresenter();
 }
 function update(updated){
@@ -167,6 +169,7 @@ function update(updated){
   selectSlide(index,focusedThumbnail,false);
 }
 function setPresenting(value){
+  cancelTransition();
   presenting=value&&findSlide(0,1,true)>=0;document.body.classList.toggle('presenting',presenting);selectSlide(index);
   if(presenting)stage.focus();else{
     byId('present').focus();
