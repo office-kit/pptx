@@ -28,6 +28,11 @@
     setParagraphSpacing,
     setParagraphBullet,
     getTableCells,
+    getTableCellMargins,
+    getTableCellAnchor,
+    getShapeBodyPrEffective,
+    isShapePlaceholder,
+    isShapeTextBox,
     insertTableRow,
     getTableCellText,
     getTableCellParagraphs,
@@ -786,6 +791,23 @@
     return `left:${box.left + box.width * (1 - sx) / 2}%; top:${box.top + box.height * (1 - sy) / 2}%; width:${box.width * sx}%; height:${box.height * sy}%; transform:rotate(${rotation}deg) scale(${(reflected ? -1 : 1) / sx},${1 / sy}); transform-origin:center;`;
   });
 
+  const textBodyStyle = $derived.by(() => {
+    doc.version;
+    const shape = editBox?.shape;
+    if (!shape) return '';
+    const cell = editing?.cell;
+    const target = cell ? getTableCells(shape)[cell.row]![cell.col]! : null;
+    const body = target ? null : getShapeBodyPrEffective(doc.pres, shape);
+    const margins = target ? getTableCellMargins(target) : body!.margins;
+    const anchor = target
+      ? getTableCellAnchor(target) ?? 'top'
+      : body!.anchor ?? (!isShapePlaceholder(shape) && !isShapeTextBox(shape) ? 'center' : 'top');
+    const padding = [margins.top ?? 45720, margins.right ?? 91440, margins.bottom ?? 45720, margins.left ?? 91440]
+      .map(value => `${value / 9525 * editor.zoom}px`).join(' ');
+    // Block alignment keeps literal paragraph separators and selection offsets intact.
+    return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};`;
+  });
+
   const pendingTextShape = $derived.by(() => {
     doc.version;
     const box = boxes.find(b => b.id === editing?.id);
@@ -1073,7 +1095,7 @@
                 if (editing && (range.start !== textRange.start || range.end !== textRange.end)) delete editing.typing;
                 textRange = range;
               }}
-              style={textInputStyle}
+              style={`${textInputStyle} ${textBodyStyle}`}
               value={editing.text}
               html={pendingTextHtml}
               zoom={editor.zoom}

@@ -106,7 +106,7 @@
 ></div>
 
 <style>
-  .inline-edit { position: absolute; pointer-events: auto; border: 1px solid var(--ok-selected-border); background: #fff; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: none; }
+  .inline-edit { position: absolute; pointer-events: auto; border: 0; background: #fff; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: 1px solid var(--ok-selected-border); }
 
   .inline-edit :global([data-list-marker]::before) {
     content: attr(data-list-marker);
