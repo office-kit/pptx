@@ -344,6 +344,97 @@ const resetTextBodyRunFormats = (node: XmlElement): void => {
   }
 };
 
+// ECMA-376 CT_TextBodyProperties / CT_TextParagraphProperties. Keep paragraph
+// level (the outline structure), language, hyperlinks and unknown extensions.
+const BODY_FORMAT_ATTRIBUTES = new Set([
+  'rot',
+  'spcFirstLastPara',
+  'vertOverflow',
+  'horzOverflow',
+  'vert',
+  'wrap',
+  'lIns',
+  'tIns',
+  'rIns',
+  'bIns',
+  'numCol',
+  'spcCol',
+  'rtlCol',
+  'fromWordArt',
+  'anchor',
+  'anchorCtr',
+  'forceAA',
+  'upright',
+  'compatLnSpc',
+]);
+const BODY_FORMAT_CHILDREN = new Set([
+  'prstTxWarp',
+  'noAutofit',
+  'normAutofit',
+  'spAutoFit',
+  'scene3d',
+  'sp3d',
+  'flatTx',
+]);
+const PARAGRAPH_FORMAT_ATTRIBUTES = new Set([
+  'marL',
+  'marR',
+  'indent',
+  'algn',
+  'defTabSz',
+  'rtl',
+  'eaLnBrk',
+  'fontAlgn',
+  'latinLnBrk',
+  'hangingPunct',
+]);
+const PARAGRAPH_FORMAT_CHILDREN = new Set([
+  'lnSpc',
+  'spcBef',
+  'spcAft',
+  'buClrTx',
+  'buClr',
+  'buSzTx',
+  'buSzPct',
+  'buSzPts',
+  'buFontTx',
+  'buFont',
+  'buNone',
+  'buAutoNum',
+  'buChar',
+  'buBlip',
+  'tabLst',
+]);
+
+/** Clear direct text appearance so a placeholder can inherit its layout again. */
+export const resetTextBodyFormatting = (body: XmlElement): void => {
+  resetTextBodyRunFormats(body);
+  const visit = (node: XmlElement): void => {
+    const local = node.name.localName;
+    const isBody = local === 'bodyPr';
+    if (isBody || local === 'pPr' || local === 'defPPr' || /^lvl[1-9]pPr$/.test(local)) {
+      const attributes = isBody ? BODY_FORMAT_ATTRIBUTES : PARAGRAPH_FORMAT_ATTRIBUTES;
+      const children = isBody ? BODY_FORMAT_CHILDREN : PARAGRAPH_FORMAT_CHILDREN;
+      node.attrs = node.attrs.filter(
+        (a) => a.name.namespaceURI !== '' || !attributes.has(a.name.localName),
+      );
+      node.children = node.children.filter(
+        (c) =>
+          c.kind !== 'element' || c.name.namespaceURI !== NS.dml || !children.has(c.name.localName),
+      );
+    }
+    for (const child of node.children) {
+      if (
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        child.name.localName !== 'extLst'
+      )
+        visit(child);
+    }
+  };
+  visit(body);
+};
+
 /**
  * Walks `txBody`, ensuring every `<a:r>` has an `<a:rPr>` carrying the
  * supplied format. Existing run-property attributes not addressed by

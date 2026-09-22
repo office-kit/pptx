@@ -498,3 +498,9 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Restore missing title and content slots from the current layout through the slide panel or Home ribbon in English and Japanese. Selected slides are restored in one undoable transaction.
 - Existing text, geometry and formatting stay intact. Restored slots start empty and inherit layout styles and geometry; grouped placeholders are recognized and repeated restoration does not duplicate slots.
 - Core tests cover unique IDs, empty and blank slides, grouped placeholders and editable saved content. Browser tests verify multiple selected slides, undo/redo, both languages and saved reload. Clearing all formatting overrides for a complete layout reset remains outstanding.
+
+### Placeholder text formatting reset
+
+- The slide panel and Home ribbon can reset placeholder text formatting to inherited layout defaults in English and Japanese, for every selected slide in one undo step.
+- Direct run styling, paragraph spacing/alignment/bullets and text-body alignment/margins/autofit are cleared. Text, fields, links, language, paragraph outline levels and unknown extensions survive. Shape geometry and non-placeholder content are preserved; grouped placeholders are left unchanged.
+- Core tests cover preserved content and metadata, idempotence, save/reload and grouped objects. Browser tests check selected-slide scope, bilingual controls, undo/redo, saved reload and retained geometry. A full combined layout reset including shape appearance and grouped placeholders remains outstanding.

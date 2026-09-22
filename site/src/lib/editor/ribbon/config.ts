@@ -51,6 +51,7 @@ export const RIBBON: readonly RibbonTab[] = [
         items: [
           { id: 'addBlankSlide', icon: 'slide-blank' },
           { id: 'addSlide', icon: 'slide-content' },
+          { id: 'resetSlidePlaceholderTextFormatting', icon: 'slide-content' },
           { id: 'resetSlidePlaceholderGeometry', icon: 'slide-content' },
           { id: 'addMissingSlidePlaceholders', icon: 'slide-content' },
           { id: 'addTitleSlide', icon: 'slide-title' },

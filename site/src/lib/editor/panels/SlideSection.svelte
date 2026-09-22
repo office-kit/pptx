@@ -64,6 +64,7 @@
       {#each layouts as item}<option value={getSlideLayoutPartName(item)}>{t(getSlideLayoutName(item))}</option>{/each}
     </select></label>
     <button class="ok-btn" onclick={() => editor.invoke('addMissingSlidePlaceholders')}>{t('Restore deleted placeholders')}</button>
+    <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderTextFormatting')}>{t('Reset placeholder text formatting')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderGeometry')}>{t('Reset placeholder positions')}</button>
     <label>{t('Background color')}<input type="color" aria-label={t('Background color')} value={background?.kind === 'solid' && /^#[0-9a-f]{6}$/i.test(background.color) ? background.color : '#ffffff'} onchange={event => { const color = event.currentTarget.value; apply('Background color', target => setSlideBackground(target, color)); }} /></label>
     {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}

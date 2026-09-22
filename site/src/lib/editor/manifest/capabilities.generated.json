@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 156,
+  "count": 157,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -966,6 +966,16 @@
       "operand": "slide",
       "takesOperand": true,
       "category": "slide",
+      "file": "api/fn/slide-placeholder-geometry.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "resetSlidePlaceholderTextFormatting",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "text",
       "file": "api/fn/slide-placeholder-geometry.ts",
       "returns": "number",
       "canvas": true,
