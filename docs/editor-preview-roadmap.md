@@ -130,7 +130,17 @@ that a user can complete the corresponding editing workflow.
   top-level objects and preserve stacking order and undo selection. Canvas and
   Select All treat nested groups as one object. Browser tests cover bilingual
   controls, moving a group, ungrouping, undo, saved geometry and reload.
-  Group-child editing still needs workflow verification.
+  A child inside a group is also resized and rotated from its own handles, with
+  the group turned obliquely, scaled differently on each axis, reflected, and
+  nested inside a second such group, and with a child that carries a turn of its
+  own. Browser coverage drags the handles and checks — from the screen and from
+  the saved file, both worked out independently of the editor's own transform
+  code — that the dragged corner follows the pointer, the opposite corner and
+  the centre of rotation stay put on the slide, the stored angle matches the
+  angle swept in the child's own space, and every frame around the child keeps
+  its outer *and* inner transform and child order. Undo/redo, a reload and
+  Japanese controls are included; a corner driven past the one opposite it stops
+  at the editor's minimum size instead of inverting.
 
 - Image replacement detaches shared media and relationships so copied pictures
   remain independent. Tests cover same-slide and cross-slide copies, same-format
