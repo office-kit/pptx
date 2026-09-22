@@ -15,6 +15,7 @@ import {
   moveSlide,
   addSlideImage,
   getShapeKind,
+  getShapeRotation,
   setShapeImage,
   emu,
   loadPresentation,
@@ -42,7 +43,9 @@ import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
 import { t } from '../i18n/i18n.svelte.ts';
-import { shapeScope, invert, project } from '../canvas/group-space.ts';
+import { shapeScope, invert, project, type Matrix } from '../canvas/group-space.ts';
+import { projectedBounds } from '../canvas/transformed-snapping.ts';
+import type { Rect } from '../canvas/snapping.ts';
 import { selectedSlideIndices, selectedShapeId, selectedShapeIds } from './selection.ts';
 
 export interface Toast {
@@ -269,20 +272,31 @@ export class EditorController {
     });
   }
 
-  private selectedGeometry(): { shape: SlideShapeData; bounds: ShapeBounds }[] {
-    const items: { shape: SlideShapeData; bounds: ShapeBounds }[] = [];
+  private selectedGeometry() {
+    const items: { shape: SlideShapeData; bounds: ShapeBounds; visible: Rect; inverse: Matrix }[] =
+      [];
+    const slide = this.doc.currentSlide;
+    if (!slide) return items;
+    const scope = shapeScope(slide, selectedShapeId(this.doc.selection));
+    const inverse = invert(scope.matrix);
+    if (!inverse) return items;
     for (const shape of this.selectedShapes()) {
       const bounds = getShapeBoundsResolved(this.doc.pres, shape);
       if (!bounds) {
         this.toast('error', t('The selection contains an object without a position or size'));
         return [];
       }
-      items.push({ shape, bounds });
+      items.push({
+        shape,
+        bounds,
+        visible: projectedBounds({ ...bounds, rotation: getShapeRotation(shape) }, scope.matrix),
+        inverse,
+      });
     }
     return items;
   }
 
-  /** Align unrotated bounds to the chosen reference; one object always uses the slide. */
+  /** Align visible edges to the chosen reference; one object always uses the slide. */
   alignSelection(
     alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom',
     reference: 'selection' | 'slide' = 'selection',
@@ -295,14 +309,13 @@ export class EditorController {
       this.toast('error', t('Slide size is unavailable'));
       return;
     }
-    const boxes = items.map((item) => item.bounds);
+    const boxes = items.map((item) => item.visible);
     const left = toSlide ? 0 : Math.min(...boxes.map((b) => b.x));
     const top = toSlide ? 0 : Math.min(...boxes.map((b) => b.y));
     const right = toSlide ? size!.width : Math.max(...boxes.map((b) => b.x + b.w));
     const bottom = toSlide ? size!.height : Math.max(...boxes.map((b) => b.y + b.h));
     this.doc.transact(t('Align objects'), () => {
-      for (const { shape, bounds } of items) {
-        const b = bounds;
+      for (const { shape, bounds, visible: b, inverse } of items) {
         let x: number = b.x;
         let y: number = b.y;
         if (alignment === 'left') x = left;
@@ -311,7 +324,13 @@ export class EditorController {
         if (alignment === 'top') y = top;
         if (alignment === 'middle') y = (top + bottom - b.h) / 2;
         if (alignment === 'bottom') y = bottom - b.h;
-        setShapeBounds(shape, { ...b, x: emu(Math.round(x)), y: emu(Math.round(y)) });
+        const origin = project(inverse, { x: 0, y: 0 });
+        const delta = project(inverse, { x: x - b.x, y: y - b.y });
+        setShapeBounds(shape, {
+          ...bounds,
+          x: emu(Math.round(bounds.x + delta.x - origin.x)),
+          y: emu(Math.round(bounds.y + delta.y - origin.y)),
+        });
       }
     });
   }
@@ -322,18 +341,27 @@ export class EditorController {
     if (items.length < 3) return;
     const axis = direction === 'horizontal' ? 'x' : 'y';
     const extent = direction === 'horizontal' ? 'w' : 'h';
-    items.sort((a, b) => a.bounds[axis] - b.bounds[axis]);
-    const first = items[0]!.bounds;
-    const last = items[items.length - 1]!.bounds;
-    const total = items.reduce((sum, item) => sum + item.bounds[extent], 0);
+    items.sort((a, b) => a.visible[axis] - b.visible[axis]);
+    const first = items[0]!.visible;
+    const last = items[items.length - 1]!.visible;
+    const total = items.reduce((sum, item) => sum + item.visible[extent], 0);
     const gap = (last[axis] + last[extent] - first[axis] - total) / (items.length - 1);
     this.doc.transact(t('Distribute objects'), () => {
       let position: number = first[axis];
       for (let index = 0; index < items.length; index++) {
-        const { shape, bounds } = items[index]!;
-        const b = bounds;
-        if (index > 0 && index < items.length - 1)
-          setShapeBounds(shape, { ...b, [axis]: emu(Math.round(position)) });
+        const { shape, bounds, visible: b, inverse } = items[index]!;
+        if (index > 0 && index < items.length - 1) {
+          const origin = project(inverse, { x: 0, y: 0 });
+          const delta = project(inverse, {
+            x: axis === 'x' ? position - b.x : 0,
+            y: axis === 'y' ? position - b.y : 0,
+          });
+          setShapeBounds(shape, {
+            ...bounds,
+            x: emu(Math.round(bounds.x + delta.x - origin.x)),
+            y: emu(Math.round(bounds.y + delta.y - origin.y)),
+          });
+        }
         position += b[extent] + gap;
       }
     });

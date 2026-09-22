@@ -107,6 +107,37 @@ test(
       await page.keyboard.press('ArrowRight');
       await saved();
       assert.ok(getShapeBounds((await state()).find((s) => getShapeId(s) === id)).y < moved.y);
+      const beforeAlign = getShapeBounds((await state()).find((s) => getShapeId(s) === id));
+      const childBox = await editor.locator('.hit.selected').boundingBox();
+      const stageBox = await editor.locator('.stage').boundingBox();
+      await page.mouse.move(childBox.x + childBox.width / 2, childBox.y + childBox.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(stageBox.x + childBox.width / 2 + 4, childBox.y + childBox.height / 2, {
+        steps: 8,
+      });
+      const guide = editor.locator('.guide.v').first();
+      await guide.waitFor();
+      assert.ok(Math.abs((await guide.boundingBox()).x - stageBox.x) < 2);
+      await page.mouse.up();
+      await saved();
+      assert.ok(
+        Math.abs(getShapeBounds((await state()).find((s) => getShapeId(s) === id)).y - inches(6)) <
+          5,
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await editor.getByRole('button', { name: 'Align left', exact: true }).click();
+      await saved();
+      const aligned = getShapeBounds((await state()).find((s) => getShapeId(s) === id));
+      // The parent is rotated 90°: the visible left edge is 6 inches minus local y.
+      assert.ok(Math.abs(aligned.y - inches(6)) < 5);
+      assert.equal(aligned.x, beforeAlign.x);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(
+        getShapeBounds((await state()).find((s) => getShapeId(s) === id)),
+        beforeAlign,
+      );
       // Duplicating a child must retain its inherited rotation without copying its sibling.
       await page.keyboard.press('ControlOrMeta+d');
       await saved();
