@@ -7,7 +7,7 @@ import {
   textContent,
   type XmlElement,
 } from '../xml/index.ts';
-import { applyRunFormat, type TextFormat } from './text-format.ts';
+import { applyRunFormat, resetRunFormat, type TextFormat } from './text-format.ts';
 import { paragraphText, paragraphsOf, textBodyText } from './text-body.ts';
 
 const name = (local: string) => qname('a', local, NS.dml);
@@ -156,9 +156,13 @@ export function formatTextBodyRange(
   txBody: XmlElement,
   format: TextFormat,
   range: { start: number; end: number },
+  reset = false,
 ): void {
   applyRunFormat(elem(name('rPr')), format);
-  mutateTextBodyRangeProperties(txBody, range, (properties) => applyRunFormat(properties, format));
+  mutateTextBodyRangeProperties(txBody, range, (properties) => {
+    if (reset) resetRunFormat(properties);
+    applyRunFormat(properties, format);
+  });
 }
 
 /** Split boundary runs and mutate only the selected characters' properties. */

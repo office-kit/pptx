@@ -267,6 +267,31 @@ test(
       assert.equal(getTableCellParagraphs(cells[0][0])[1].elements[0].format.baseline, 0.3);
       assert.notEqual(getTableCellParagraphs(cells[0][0])[0].elements[0].format?.strike, true);
       assert.notEqual(getTableCellParagraphs(cells[0][1])[0].elements[0].format?.baseline, 0.3);
+      await hit.dblclick({ position: { x: bounds.width / 4, y: bounds.height / 2 } });
+      await input.focus();
+      await input.evaluate((node) => {
+        node.setSelectionRange(6, 9);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
+      await bar.getByRole('button', { name: 'Clear text formatting', exact: true }).click();
+      await saved();
+      cells = getTableCells(await shape());
+      assert.deepEqual(getTableCellParagraphs(cells[0][0])[1].elements[0].format ?? {}, {});
+      assert.equal(getTableCellParagraphs(cells[0][0])[1].elements[1].format.strike, true);
+      await bar.getByRole('button', { name: 'Done', exact: true }).click();
+      await editor.getByRole('button', { name: 'Cell 1, 1', exact: true }).click();
+      await editor
+        .getByRole('group', { name: 'Format selected cells', exact: true })
+        .getByRole('button', { name: 'Clear text formatting', exact: true })
+        .click();
+      await saved();
+      await page.reload();
+      await saved();
+      cells = getTableCells(await shape());
+      for (const element of getTableCellParagraphs(cells[0][0])[1].elements)
+        assert.deepEqual(element.format ?? {}, {});
+      assert.equal(getParagraphAlignment(cells[0][0], 1), 'r');
+      assert.equal(getParagraphBullet(cells[0][0], 1), 'number');
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
@@ -538,6 +563,38 @@ for (const control of ['keyboard', 'toolbar'])
         assert.equal(getShapeParagraphElements(text, 1)[0].format.underline, false);
         assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
         assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
+        await editor.locator('.hit').first().dblclick();
+        await input.focus();
+        await input.evaluate((node) => {
+          node.setSelectionRange(7, 14);
+          node.dispatchEvent(new Event('select', { bubbles: true }));
+        });
+        await toggle('Control+Backslash', '文字の書式を解除');
+        await saved();
+        assert.deepEqual(getShapeParagraphElements(await shape(), 1)[0].format ?? {}, {});
+        await bar.getByRole('button', { name: '完了', exact: true }).click();
+        await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.underline, false);
+        await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+        await saved();
+        await editor.locator('.lang select').selectOption('en');
+        locale = 'en';
+        await editor.locator('.hit').first().dblclick();
+        await input.focus();
+        await input.fill('Prefix\nEnglish\n日本語です\nThird paragraph');
+        await input.evaluate((node) => {
+          node.setSelectionRange(15, 20);
+          node.dispatchEvent(new Event('select', { bubbles: true }));
+        });
+        await toggle('Meta+Backslash', 'Clear text formatting');
+        await saved();
+        await page.reload();
+        await saved();
+        text = await shape();
+        assert.equal(getShapeText(text), 'Prefix\nEnglish\n日本語です\nThird paragraph');
+        assert.deepEqual(getShapeParagraphElements(text, 2)[0].format ?? {}, {});
+        assert.equal(getShapeParagraphElements(text, 0)[0].format.bold, true);
         assert.deepEqual(errors, []);
       } finally {
         await browser?.close();

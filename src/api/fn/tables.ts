@@ -1224,16 +1224,18 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
 
 /** Applies a TextFormat to the cell's text, optionally within UTF-16 offsets
  * in getTableCellText (exclusive end). Breaks count as one character; invalid
- * ranges and split-surrogate boundaries throw without changing the text. */
+ * ranges and split-surrogate boundaries throw without changing the text.
+ * `reset` restores inherited run appearance before applying `format`, retaining
+ * links and language. Without a range, run-format defaults are also cleared. */
 export const setTableCellTextFormat = (
   cell: TableCellData,
   format: TextFormat,
-  options?: { range?: { start: number; end: number } },
+  options?: { range?: { start: number; end: number }; reset?: boolean },
 ): void => {
   validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
-  if (options?.range) formatTextBodyRange(txBody, format, options.range);
-  else applyValidatedFormatToAllRuns(txBody, format);
+  if (options?.range) formatTextBodyRange(txBody, format, options.range, options.reset);
+  else applyValidatedFormatToAllRuns(txBody, format, options?.reset);
   commitTableCell(cell);
 };
 
