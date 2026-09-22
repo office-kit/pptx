@@ -179,6 +179,7 @@ class SlideCommand extends ManifestCommand {
   override canRun(ctx: CommandContext): boolean {
     return (
       this.capability.id === 'addBlankSlide' ||
+      this.capability.id === 'addSlide' ||
       ctx.doc.slideAt(ctx.doc.selection.slideIndex) !== null
     );
   }
@@ -192,11 +193,30 @@ class SlideCommand extends ManifestCommand {
     const selected = indices
       .map((i) => doc.slideAt(i))
       .filter((item): item is SlideData => item !== null);
-    if (id !== 'addBlankSlide' && !slide) throw new CommandError('No slide selected.');
+    if (id !== 'addBlankSlide' && id !== 'addSlide' && !slide)
+      throw new CommandError('No slide selected.');
     return doc.transact(this.capability.labelEn, () => {
       switch (id) {
+        case 'addSlide':
         case 'addBlankSlide': {
-          const added = pptx.addBlankSlide(doc.pres);
+          const options = args.options;
+          const layout =
+            id === 'addSlide' &&
+            options &&
+            typeof options === 'object' &&
+            'layout' in options &&
+            options.layout &&
+            typeof options.layout === 'object'
+              ? pptx
+                  .getSlideLayouts(doc.pres)
+                  .find(
+                    (item) =>
+                      pptx.getSlideLayoutPartName(item) ===
+                      pptx.getSlideLayoutPartName(options.layout as pptx.SlideLayoutData),
+                  )
+              : undefined;
+          if (id === 'addSlide' && !layout) throw new CommandError('Choose a slide layout.');
+          const added = layout ? pptx.addSlide(doc.pres, { layout }) : pptx.addBlankSlide(doc.pres);
           pptx.moveSlide(doc.pres, added, index + 1);
           doc.selectSlide(Math.min(index + 1, pptx.getSlides(doc.pres).length - 1));
           return pptx.getSlides(doc.pres)[doc.selection.slideIndex];
@@ -335,7 +355,7 @@ class ChartCommand extends ManifestCommand {
 const registry = new Map<string, Command>(
   capabilities.map((cap) => [
     cap.id,
-    activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide'
+    activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide' || cap.id === 'addSlide'
       ? new SlideCommand(cap)
       : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
         ? new GroupCommand(cap)
