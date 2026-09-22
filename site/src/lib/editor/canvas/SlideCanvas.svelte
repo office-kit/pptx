@@ -20,6 +20,7 @@
   import { getEditor } from '../core/context.ts';
   import {
     getParagraphPropertiesEffective,
+    getShapeRunFormatEffective,
     setParagraphAlignment,
     setParagraphLevel,
     setParagraphLineSpacing,
@@ -658,7 +659,13 @@
   const pendingTextHtml = $derived.by(() => {
     // Formatting mutates OOXML in place, so shape identity alone cannot invalidate this.
     doc.version;
-    return pendingTextShape && editing ? textClipboardHtml(copyTextRange(pendingTextShape, 0, editing.text.length, editing.cell)) : '';
+    const shape = pendingTextShape;
+    const active = editing;
+    if (!shape || !active) return '';
+    const source = boxes.find(b => b.id === active.id)?.shape;
+    return textClipboardHtml(copyTextRange(shape, 0, active.text.length, active.cell,
+      active.cell ? undefined : (paragraph, run) => getShapeRunFormatEffective(doc.pres, shape, paragraph, run, { inheritanceSource: source }),
+    ));
   });
   function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape) return [];

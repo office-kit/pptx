@@ -16,6 +16,7 @@ export function copyTextRange(
   start: number,
   end: number,
   cell?: { row: number; col: number },
+  resolveRunFormat?: (paragraphIndex: number, runIndex: number) => TextFormat,
 ): TextClipboard {
   const paragraphs = cell
     ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!).map((p) => p.elements)
@@ -33,8 +34,14 @@ export function copyTextRange(
   }
   paragraphs.forEach((elements, index) => {
     if (index) append('\n', {});
-    for (const element of elements)
-      append(element.kind === 'br' ? '\n' : element.text, element.format ?? {});
+    let runIndex = 0;
+    for (const element of elements) {
+      const format =
+        element.kind === 'r'
+          ? (resolveRunFormat?.(index, runIndex++) ?? element.format)
+          : element.format;
+      append(element.kind === 'br' ? '\n' : element.text, format ?? {});
+    }
   });
   return { version: 1, text: text.slice(start, end), formats };
 }

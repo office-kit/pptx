@@ -190,6 +190,8 @@ const masterTxStyleFor = (masterRoot: XmlElement, phType: string | null): XmlEle
   return firstChildElement(txStyles, NAME_P_OTHER_STYLE);
 };
 
+const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
+
 /**
  * Resolves a run's effective character properties by walking the
  * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr → endParaRPr →
@@ -205,15 +207,16 @@ const masterTxStyleFor = (masterRoot: XmlElement, phType: string | null): XmlEle
  * defaults).
  *
  * Use `getShapeRunFormat` if you only want the literal `<a:rPr>` on
- * the run without inheritance.
+ * the run without inheritance. `inheritanceSource` supplies the original
+ * placeholder and slide context when reading a detached editing preview;
+ * paragraph and run properties are still read from `shape`.
  */
-const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
-
 export const getShapeRunFormatEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
   paragraphIndex: number,
   runIndex: number,
+  options: { inheritanceSource?: SlideShapeData } = {},
 ): TextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const run = requireRun(shape, paragraphIndex, runIndex);
@@ -259,11 +262,12 @@ export const getShapeRunFormatEffective = (
   const shapeLvlDef = lstStyleLevelDefRPr(shapeLstStyle, level);
   if (shapeLvlDef) mergeRPrLayer(result, parseRPrLikeElement(shapeLvlDef, ctx));
 
-  const phIdx = getShapePlaceholderIdx(shape);
-  const phType = getShapePlaceholderType(shape);
-  const isPlaceholder = shapeIsPlaceholder(shape);
+  const inheritanceSource = options.inheritanceSource ?? shape;
+  const phIdx = getShapePlaceholderIdx(inheritanceSource);
+  const phType = getShapePlaceholderType(inheritanceSource);
+  const isPlaceholder = shapeIsPlaceholder(inheritanceSource);
 
-  const slide = shape[SHAPE_SLIDE];
+  const slide = inheritanceSource[SHAPE_SLIDE];
   const layout = getSlideLayout(slide);
 
   // Steps 5-6 are placeholder inheritance: skip them entirely for non-
