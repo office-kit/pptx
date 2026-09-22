@@ -914,6 +914,84 @@ describe('fn API: copying a shape copies its animations', () => {
     expect(getSlideAnimations(slide)[1]!.presetId).toBe(22);
   });
 
+  it('points a copied wait at the copied effect, not at the stop it was given', async () => {
+    // The first effect is cTn id 3 — the number this library gives a click
+    // stop — and the second waits for it to end. If the wrappers the copy is
+    // given were allowed into the renumbering map, the copied wait would land
+    // on one of them instead.
+    const waiting =
+      `<p:par><p:cTn id="10" fill="hold"><p:stCondLst><p:cond delay="indefinite"/>` +
+      `</p:stCondLst><p:childTnLst><p:par><p:cTn id="11" fill="hold"><p:stCondLst>` +
+      `<p:cond delay="0"/></p:stCondLst><p:childTnLst>` +
+      `<p:par><p:cTn id="13" presetID="10" presetClass="entr" presetSubtype="0" fill="hold" ` +
+      `grpId="0" nodeType="clickEffect"><p:stCondLst><p:cond evt="end" delay="0">` +
+      `<p:tn val="3"/></p:cond></p:stCondLst>` +
+      `<p:childTnLst><p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">` +
+      `<p:cTn id="12" dur="500" fill="hold"/><p:tgtEl><p:spTgt spid="{spid}"/></p:tgtEl>` +
+      `<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst></p:cBhvr>` +
+      `<p:tavLst/></p:anim></p:childTnLst></p:cTn></p:par>` +
+      `</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(stop({ firstId: 7, effectId: 3 }) + waiting),
+        `<p:bldLst><p:bldP spid="{spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    const copy = copyShape(slide, getSlideShapes(slide)[0]!);
+
+    const steps = getSlideAnimations(slide).filter((s) => s.target.shapeId === getShapeId(copy));
+    expect(steps).toHaveLength(2);
+    const xml = slideXml(pres);
+    // The copied wait names the copy of the effect it waited on, and that id
+    // belongs to an effect node rather than to a stop or group wrapper.
+    const waits = [...xml.matchAll(/<p:tn val="(\d+)"\/>/g)].map((m) => m[1]!);
+    expect(waits).toEqual(['3', String(steps[0]!.id)]);
+    expect(xml).toContain(`<p:cTn id="${steps[0]!.id}" presetID="10"`);
+  });
+
+  it('refuses an effect whose group waits longer than this library would write', async () => {
+    const { pres, slide } = await withTiming(timingRoot(mainSeq(stop({ groupDelay: '900' })), BLD));
+    const before = slideXml(pres);
+    expect(() => copyShape(slide, getSlideShapes(slide)[0]!)).toThrow(/does more than say when/);
+    expect(slideXml(pres)).toBe(before);
+    expect(getSlideShapes(slide)).toHaveLength(1);
+  });
+
+  it('copies one shape although another shape’s effect is laid out differently', async () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const [mine, theirs] = [rect(slide), rect(slide)];
+    const reloaded = await withSplicedTiming(
+      pres,
+      timingRoot(
+        mainSeq(
+          stopOn(getShapeId(mine)) +
+            stopOn(getShapeId(theirs), { firstId: 7, groupDelay: '900', grpId: '1' }),
+        ),
+        `<p:bldLst><p:bldP spid="${getShapeId(mine)}" grpId="0"/>` +
+          `<p:bldP spid="${getShapeId(theirs)}" grpId="1"/></p:bldLst>`,
+      ),
+    );
+    const only = getSlides(reloaded)[0]!;
+
+    const copy = copyShape(only, getSlideShapes(only)[0]!);
+    const steps = getSlideAnimations(only);
+    expect(steps.map((s) => s.target.shapeId)).toEqual([
+      getShapeId(mine),
+      getShapeId(theirs),
+      getShapeId(copy),
+    ]);
+    // The other shape's own wait is untouched.
+    expect(wrapperDelays(slideXml(reloaded))).toEqual([
+      'indefinite',
+      '0',
+      'indefinite',
+      '900',
+      'indefinite',
+      '0',
+    ]);
+  });
+
   it('adds nothing to the target when the animations cannot come along', async () => {
     const source = createPresentation();
     const sourceSlide = addBlankSlide(source);

@@ -29,6 +29,8 @@ import {
 import {
   buildEntryKey,
   cTnIdsUnder,
+  delayOf,
+  isPlainWrapper,
   readBuildEntries,
   remapSpids,
   startOfEffect,
@@ -116,19 +118,18 @@ const shiftCTnIds = (el: XmlElement, offset: number): void => {
 
 /**
  * Gives every `<p:cTn>` under `el` the next id the cursor has, in document
- * order, recording what each one was when the caller asks.
+ * order.
  *
  * A freshly built effect numbers its nodes from 3, so shifting them past the
  * tree would do; a copied subtree carries whatever ids the file it came from
  * used, and those can land anywhere — on top of an id already in the target
  * included. Renumbering outright is the one rule that holds for both.
  */
-const renumberCTnIds = (el: XmlElement, cursor: MergeCursor, into?: Map<string, string>): void => {
+const renumberCTnIds = (el: XmlElement, cursor: MergeCursor): void => {
   const walk = (e: XmlElement): void => {
     if (isPml(e, 'cTn')) {
       const previous = getAttrValue(e, ATTR_ID_FN);
       const id = String(++cursor.maxCTnId);
-      if (previous !== null) into?.set(previous, id);
       e.attrs =
         previous === null
           ? [attr(ATTR_ID_FN, id), ...e.attrs]
@@ -329,9 +330,8 @@ const mergeEffectInto = (
   effect: FreshEffect,
   start: AnimationStartCondition,
   group: BuildGroup,
-  renumbered?: Map<string, string>,
 ): boolean => {
-  renumberCTnIds(effect.par, cursor, renumbered);
+  renumberCTnIds(effect.par, cursor);
 
   // A click effect becomes its own stop. A with/after effect joins the stop
   // already there: `withPrevious` alongside the effects that run together,
@@ -609,18 +609,31 @@ const ATTR_GRP_ID_FN = qname('', 'grpId', '');
 const ATTR_VAL_FN = qname('', 'val', '');
 const ATTR_SPID_FN = qname('', 'spid', '');
 
-/** The `<p:par>` each time node hangs from, collected in one walk. */
-const parentPars = (timing: XmlElement): Map<XmlElement, XmlElement> => {
-  const out = new Map<XmlElement, XmlElement>();
-  const walk = (el: XmlElement): void => {
+/**
+ * The `<p:par>` each time node hangs from, and the `<p:par>` that one hangs
+ * from in turn — the ancestry a copied effect is checked against, collected in
+ * one walk rather than searched upwards per effect.
+ */
+interface Ancestry {
+  readonly parOf: ReadonlyMap<XmlElement, XmlElement>;
+  readonly parentOf: ReadonlyMap<XmlElement, XmlElement>;
+}
+
+const ancestryOf = (timing: XmlElement): Ancestry => {
+  const parOf = new Map<XmlElement, XmlElement>();
+  const parentOf = new Map<XmlElement, XmlElement>();
+  const walk = (el: XmlElement, enclosing: XmlElement | null): void => {
+    let par = enclosing;
     if (isPml(el, 'par')) {
       const cTn = firstChildElement(el, NAME_CTN);
-      if (cTn !== null) out.set(cTn, el);
+      if (cTn !== null) parOf.set(cTn, el);
+      if (enclosing !== null) parentOf.set(el, enclosing);
+      par = el;
     }
-    for (const c of el.children) if (c.kind === 'element') walk(c);
+    for (const c of el.children) if (c.kind === 'element') walk(c, par);
   };
-  walk(timing);
-  return out;
+  walk(timing, null);
+  return { parOf, parentOf };
 };
 
 /** One effect of the source slide, and what the copy needs to know about it. */
@@ -641,7 +654,7 @@ interface CopiedEffect {
  * root is not an effect.
  */
 const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedEffect[] => {
-  const pars = parentPars(source);
+  const { parOf, parentOf } = ancestryOf(source);
   const out: CopiedEffect[] = [];
   for (const node of readTimingSteps(source)) {
     const spids = node.step.targetShapeIds.map(String);
@@ -658,7 +671,7 @@ const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedE
           'that triggers it and cannot be reproduced for the copy. Remove that animation first.',
       );
     }
-    const par = pars.get(node.cTn);
+    const par = parOf.get(node.cTn);
     const start = startOfEffect(node.cTn);
     if (par === undefined || start === null) {
       throw new Error(
@@ -666,8 +679,59 @@ const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedE
           'so the copy could not be given the same one. Remove it from the original first.',
       );
     }
+    assertWrappersAreOurs(par, parentOf);
     out.push({ par, start, spids, grpId: getAttrValue(node.cTn, ATTR_GRP_ID_FN) });
   }
+  return out;
+};
+
+/**
+ * Refuses an effect whose click stop or group says more than when it starts.
+ *
+ * The copy is given the stop and group this library writes, with the start
+ * read off the effect's own `nodeType` and the offset recomputed against the
+ * target slide. Anything else those wrappers carried — a repeat, an event
+ * condition, an extension, or a wait this library would not have written —
+ * would be dropped on the way, so the copy is refused instead.
+ *
+ * Only the ancestors of the effects being copied are read. An effect on some
+ * other shape may be wrapped however its author liked without standing in the
+ * way of this copy.
+ */
+const assertWrappersAreOurs = (
+  effectPar: XmlElement,
+  parentOf: ReadonlyMap<XmlElement, XmlElement>,
+): void => {
+  const group = parentOf.get(effectPar);
+  const stop = group === undefined ? undefined : parentOf.get(group);
+  if (group === undefined || stop === undefined) throw wrapperRefusal();
+  if (!isPlainWrapper(group) || !isPlainWrapper(stop)) throw wrapperRefusal();
+
+  // A stop either waits for the viewer or opens with the slide; a group either
+  // opens with its stop or, for `afterPrevious`, when the one before it ends.
+  const stopDelay = delayOf(stop);
+  if (stopDelay !== 'indefinite' && stopDelay !== '0') throw wrapperRefusal();
+  const groups = innerPars(stop);
+  const previous = groups[groups.indexOf(group) - 1];
+  const expected = previous === undefined ? 0 : groupEndMs(previous);
+  if (expected === null || delayOf(group) !== String(expected)) throw wrapperRefusal();
+};
+
+const wrapperRefusal = (): Error =>
+  new Error(
+    `${COPY}this shape's animation is held in a click stop or group that does more than say when ` +
+      'it starts, and the copy would lose that. Remove it from the original first, or give the ' +
+      'copy an animation of its own with setShapeAnimation.',
+  );
+
+/** Every `<p:cTn id>` at or under `el`, in document order — renumbering's key. */
+const cTnIdsInOrder = (el: XmlElement): (string | null)[] => {
+  const out: (string | null)[] = [];
+  const walk = (e: XmlElement): void => {
+    if (isPml(e, 'cTn')) out.push(getAttrValue(e, ATTR_ID_FN));
+    for (const c of e.children) if (c.kind === 'element') walk(c);
+  };
+  walk(el);
   return out;
 };
 
@@ -835,6 +899,13 @@ export const planAnimationCopy = (
     const clone = cloneElement(effect.par);
     remapSpids(clone, idMap);
     clones.push(clone);
+    // Read before the merge renumbers them, and again after. Only the copied
+    // effect's own nodes go into the reference map: the click stop and group
+    // the copy is given are this library's own, numbered from the same
+    // counter, and a source effect that happened to use one of their numbers
+    // would otherwise take their new id and leave `<p:tn>` pointing at a
+    // wrapper — one that `withPrevious` does not even keep.
+    const wasNumbered = cTnIdsInOrder(clone);
 
     // One group per source group, so the paragraphs of one build still share a
     // single entry and animate as one build on the copy too.
@@ -851,18 +922,17 @@ export const planAnimationCopy = (
     );
     const merged =
       wrapped !== null &&
-      mergeEffectInto(
-        cursor,
-        wrapped,
-        effect.start,
-        { grpId, addBuild: known === undefined },
-        renumbered,
-      );
+      mergeEffectInto(cursor, wrapped, effect.start, { grpId, addBuild: known === undefined });
     if (!merged) {
       throw new Error(
         `${COPY}the target slide has an animation timing tree this library cannot safely extend, ` +
           "so the copy's animations have nowhere to go. Call clearSlideAnimations on it first.",
       );
+    }
+    const nowNumbered = cTnIdsInOrder(clone);
+    for (const [i, previous] of wasNumbered.entries()) {
+      const id = nowNumbered[i];
+      if (previous !== null && id != null) renumbered.set(previous, id);
     }
     // A composite effect drives more than one shape, and PowerPoint wants an
     // entry per shape under the group they share.
