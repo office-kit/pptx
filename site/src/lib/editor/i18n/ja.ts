@@ -82,6 +82,8 @@ export const ja: Record<string, string> = {
   Multiple: '倍率',
   'Line spacing value': '行間の値',
   'Line spacing mode': '行間の指定方法',
+  'Tab / Shift+Tab in lists; Ctrl/Cmd+[ / ] changes level':
+    'リスト内のTab／Shift+Tab、またはCtrl/Cmd+[／]で階層を変更',
   'List level': 'リストの階層',
   'Numbered list': '番号付きリスト',
   'Bulleted list': '箇条書き',
