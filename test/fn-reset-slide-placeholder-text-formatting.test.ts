@@ -80,7 +80,9 @@ describe('resetSlidePlaceholderTextFormatting', () => {
     ]);
   });
 
-  it('leaves grouped placeholders and non-placeholder text unchanged', () => {
+  // A group scales and turns what is inside it; it does not give the text a
+  // font. So a placeholder keeps its layout's formatting wherever it sits.
+  it('resets a placeholder inside a group, leaving its place in the group alone', () => {
     const pres = createPresentation();
     const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content')! });
     for (const shape of getSlideShapes(slide)) {
@@ -90,9 +92,28 @@ describe('resetSlidePlaceholderTextFormatting', () => {
       setShapePosition(shape, bounds.x, bounds.y);
       setShapeSize(shape, bounds.w, bounds.h);
     }
+    const decoration = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(4),
+      w: inches(2),
+      h: inches(1),
+      text: 'Decoration',
+    });
+    setShapeTextFormat(decoration, { bold: true });
     groupShapes([...getSlideShapes(slide)]);
-    const before = getSlideShapes(slide).map(getShapeXmlString);
-    expect(resetSlidePlaceholderTextFormatting(slide)).toBe(0);
-    expect(getSlideShapes(slide).map(getShapeXmlString)).toEqual(before);
+    const placed = getSlideShapes(slide).map((shape) => getShapeBoundsResolved(pres, shape));
+
+    expect(resetSlidePlaceholderTextFormatting(slide)).toBe(2);
+
+    const shapes = getSlideShapes(slide);
+    const [group, title, body, plain] = shapes;
+    expect(getShapeXmlString(title!)).not.toContain('b="1"');
+    expect(getShapeXmlString(body!)).not.toContain('b="1"');
+    // The text box beside them is not a placeholder and is not touched.
+    expect(getShapeXmlString(plain!)).toContain('b="1"');
+    expect(shapes.map(getShapeText)).toEqual(['', 'Keep', 'Keep', 'Decoration']);
+    // Nothing moved: the group's own frame, and every child's place in it.
+    expect(shapes.map((shape) => getShapeBoundsResolved(pres, shape))).toEqual(placed);
+    void group;
   });
 });

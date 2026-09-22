@@ -640,11 +640,77 @@ test(
   },
 );
 
+test('a slide holds its clicks while the player is on its way', { timeout: 120000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-animations-loading-'));
+  let session;
+  try {
+    const deck = await compile(
+      Presentation({
+        children: [
+          Slide({
+            children: [
+              Text({ x: 1, y: 1, width: 4, height: 1, children: 'a' }),
+              Text({ x: 1, y: 3, width: 4, height: 1, children: 'b' }),
+            ],
+          }),
+          Slide({ children: Text({ x: 1, y: 1, width: 8, height: 2, children: 'next' }) }),
+        ],
+      }),
+    );
+    const slides = getSlides(deck);
+    for (const shape of getSlideShapes(slides[0])) {
+      setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 100 });
+    }
+    // Short enough that a slide which ignored its unplayed effects would have
+    // moved on well before the player arrives.
+    setSlideTransition(slides[0], { effect: 'none', advanceAfterMs: 100 });
+
+    let held = true;
+    session = await openPreview(dir, deck, 2, (page) =>
+      page.route('**/animation-player.js', async (route) => {
+        while (held) await new Promise((resolve) => setTimeout(resolve, 20));
+        await route.continue();
+      }),
+    );
+    const { page } = session;
+    await page.getByRole('button', { name: 'Present', exact: true }).click();
+
+    // Clicks, keys and the button all reach a slide whose effects cannot run
+    // yet. None of them may spend the click on the deck.
+    await page.keyboard.press('ArrowRight');
+    await page.keyboard.press('Space');
+    await page.mouse.click(640, 400);
+    await page.locator('#present-next').click();
+    await page.waitForTimeout(400);
+    assert.equal(await page.evaluate(() => index), 0, 'the deck waited for the player');
+    assert.equal(await cursor(page), null);
+    assert.match(await page.locator('#present-note').textContent(), /Preparing animations/);
+
+    // Once it arrives the build is where it should be: at the top, with
+    // nothing played and nothing skipped.
+    held = false;
+    await page.waitForFunction(() => animationPlayer !== undefined, null, { timeout: 15000 });
+    assert.deepEqual(await cursor(page), { cursor: 0, stops: 2 });
+    assert.deepEqual(await visibilities(page), ['hidden', 'hidden']);
+    assert.equal(await page.locator('#present-note').isVisible(), false);
+    await page.keyboard.press('ArrowRight');
+    assert.deepEqual(await cursor(page), { cursor: 1, stops: 2 });
+  } finally {
+    await session?.browser.close();
+    await session?.preview.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+// A deck of its own, with no automatic advance: the slide above moves on by
+// itself after 100ms once its effects are known to be unplayable, which is
+// what "not held hostage" means — and it would walk out from under every
+// assertion about what this slide is showing.
 test(
-  'a slide holds its clicks while the player is on its way, and says so if it never comes',
+  'a slide says so when the player never comes, and can ask again',
   { timeout: 120000 },
   async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-animations-loading-'));
+    const dir = await mkdtemp(join(tmpdir(), 'office-animations-failed-'));
     let session;
     try {
       const deck = await compile(
@@ -664,54 +730,19 @@ test(
       for (const shape of getSlideShapes(slides[0])) {
         setShapeAnimation(shape, { effect: 'fadeIn', durationMs: 100 });
       }
-      // Short enough that a slide which ignored its unplayed effects would have
-      // moved on well before the player arrives.
-      setSlideTransition(slides[0], { effect: 'none', advanceAfterMs: 100 });
 
-      let held = true;
-      let refused = false;
+      let refused = true;
       session = await openPreview(dir, deck, 2, (page) =>
         page.route('**/animation-player.js', async (route) => {
-          if (refused) {
-            await route.abort();
-            return;
-          }
-          while (held) await new Promise((resolve) => setTimeout(resolve, 20));
-          await route.continue();
+          if (refused) await route.abort();
+          else await route.continue();
         }),
       );
       const { page } = session;
       await page.getByRole('button', { name: 'Present', exact: true }).click();
 
-      // Clicks, keys and the button all reach a slide whose effects cannot run
-      // yet. None of them may spend the click on the deck.
-      await page.keyboard.press('ArrowRight');
-      await page.keyboard.press('Space');
-      await page.mouse.click(640, 400);
-      await page.locator('#present-next').click();
-      await page.waitForTimeout(400);
-      assert.equal(await page.evaluate(() => index), 0, 'the deck waited for the player');
-      assert.equal(await cursor(page), null);
-      assert.match(await page.locator('#present-note').textContent(), /Preparing animations/);
-
-      // Once it arrives the build is where it should be: at the top, with
-      // nothing played and nothing skipped.
-      held = false;
-      await page.waitForFunction(() => animationPlayer !== undefined, null, { timeout: 15000 });
-      assert.deepEqual(await cursor(page), { cursor: 0, stops: 2 });
-      assert.deepEqual(await visibilities(page), ['hidden', 'hidden']);
-      assert.equal(await page.locator('#present-note').isVisible(), false);
-      await page.keyboard.press('ArrowRight');
-      assert.deepEqual(await cursor(page), { cursor: 1, stops: 2 });
-
       // A player that cannot be fetched is said out loud, in the viewer's
       // language, with a way to ask for it again.
-      refused = true;
-      // The reload keeps the preview view it was left in, so it needs no second
-      // trip through the editor toggle.
-      await page.reload();
-      await page.waitForFunction(() => state.slides.length === 2);
-      await page.getByRole('button', { name: 'Present', exact: true }).click();
       await page.waitForFunction(() => animationLoad === 'failed', null, { timeout: 15000 });
       assert.match(
         await page.locator('#present-note').textContent(),
@@ -719,11 +750,14 @@ test(
       );
       const retry = page.locator('#animation-retry');
       assert.equal(await retry.isVisible(), true);
-      // The deck is not held hostage by the failure.
+      // The deck is not held hostage by the failure, and the offer to try
+      // again is still there on the way back.
       await page.keyboard.press('ArrowRight');
       await page.waitForFunction(() => index === 1);
+      assert.equal(await retry.isVisible(), false);
       await page.keyboard.press('ArrowLeft');
       await page.waitForFunction(() => index === 0);
+      assert.equal(await retry.isVisible(), true);
       refused = false;
       await retry.click();
       await page.waitForFunction(() => animationPlayer !== undefined, null, { timeout: 15000 });
