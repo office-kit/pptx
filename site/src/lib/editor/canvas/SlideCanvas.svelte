@@ -746,7 +746,7 @@
     return inlineTextHtml(doc.pres, shape, source, active.cell);
   });
   function selectedTextFormats(shape = boxes.find(b => b.id === editing?.id)?.shape) {
-    return shape ? textFormatsInRange(shape, textRange, editing?.cell) : [];
+    return shape ? textFormatsInRange(shape, textRange, editing?.cell, { pres: doc.pres, source: boxes.find(b => b.id === editing?.id)?.shape ?? shape }) : [];
   }
   const rangeFormats = $derived.by(() => {
     doc.version;

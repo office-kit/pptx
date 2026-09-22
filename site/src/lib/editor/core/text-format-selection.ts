@@ -1,5 +1,7 @@
 import {
   getShapeParagraphCount,
+  getShapeRunFormatEffective,
+  type PresentationData,
   getParagraphEndFormat,
   getShapeParagraphElements,
   getTableCells,
@@ -13,6 +15,7 @@ export function textFormatsInRange(
   shape: SlideShapeData,
   range: { start: number; end: number },
   cell?: { row: number; col: number },
+  context?: { pres: PresentationData; source?: SlideShapeData },
 ): TextFormat[] {
   const formats: TextFormat[] = [];
   let offset = 0;
@@ -22,9 +25,18 @@ export function textFormatsInRange(
         elements: getShapeParagraphElements(shape, i),
         endFormat: getParagraphEndFormat(shape, i),
       }));
-  for (const { elements, endFormat } of paragraphs) {
+  for (const [paragraphIndex, { elements, endFormat }] of paragraphs.entries()) {
+    let runIndex = 0;
     const paragraphStart = offset;
     for (const element of elements) {
+      const currentRun = runIndex;
+      if (element.kind === 'r') runIndex++;
+      const format = () =>
+        context && !cell && element.kind === 'r'
+          ? getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
+              inheritanceSource: context.source ?? shape,
+            })
+          : (element.format ?? {});
       const length = element.kind === 'br' ? 1 : element.text.length;
       if (range.start === range.end) {
         const caret = range.start;
@@ -33,9 +45,8 @@ export function textFormatsInRange(
           ((offset < caret && offset + length >= caret) ||
             (caret === paragraphStart && offset === caret))
         )
-          return [element.format ?? {}];
-      } else if (offset < range.end && offset + length > range.start)
-        formats.push(element.format ?? {});
+          return [format()];
+      } else if (offset < range.end && offset + length > range.start) formats.push(format());
       offset += length;
     }
     // Empty paragraphs have no character to sample. Their end mark carries

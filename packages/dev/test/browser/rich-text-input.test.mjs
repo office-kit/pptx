@@ -208,6 +208,11 @@ test(
         .dblclick({ position: { x: 30, y: 20 } });
       const input = editor.locator('.inline-edit');
       const checkStyle = async () => {
+        const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
+        assert.equal(
+          await bar.getByLabel('Font size', { exact: true }).inputValue(),
+          String(expected.size),
+        );
         const actual = await input
           .locator('span')
           .last()
