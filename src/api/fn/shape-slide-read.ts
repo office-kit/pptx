@@ -9,13 +9,7 @@ import {
 import { setShapePosition } from './shape-fill-stroke.ts';
 import { replaceTokensInTree } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
-import {
-  basename,
-  emptyRels,
-  nextRelId,
-  partName,
-  resolveTarget,
-} from '../../internal/opc/index.ts';
+import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
 import {
   REL_TYPES,
   type ShapeKind,
@@ -67,8 +61,9 @@ export const setSlideLayout = (slide: SlideData, layout: SlideLayoutData): void 
     throw new Error(`setSlideLayout: layout ${layoutPartName} not in package`);
   }
   const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
-  const layoutBase = basename(layoutPartName);
-  const newTarget = `../slideLayouts/${layoutBase}`;
+  // Imported layouts need not live in /ppt/slideLayouts. A package-root
+  // reference preserves the target regardless of either part's directory.
+  const newTarget = layoutPartName;
 
   // Replace any existing slideLayout rel. Keep the same rId where
   // possible so other parts that already reference it stay valid.
