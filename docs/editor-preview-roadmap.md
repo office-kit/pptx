@@ -370,3 +370,9 @@ positions, rotations and reflections produced by ungrouping.
 - Preview shape text now cancels inherited reflection in its local axes, preserving the transformed center and baseline through rotated, nested groups.
 - Regression coverage compares text-box corners before and after ungrouping for all 16 combinations of two ancestor groups' horizontal/vertical flips, after a PPTX save/reload, using Japanese and English text.
 - This covers shape text overlays. Table/chart internals and anisotropic group scaling with rotated descendants still need separate fidelity verification.
+
+### Table text reflection follow-up
+
+- Table cell text now cancels reflections from the table and enclosing groups around each cell center; cell fills, borders, and transformed cell placement remain governed by the table transform.
+- Both foreignObject and pure-SVG text paths are covered by 32 rotation/flip cases with Japanese and English text, after PPTX save/reload. Tests require positive glyph orientation and matching text coordinates after ungrouping.
+- Chart label reflections and anisotropic group scaling remain separate fidelity checks.

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addBlankSlide,
   addSlideShape,
+  addSlideTable,
   createPresentation,
   getGroupChildren,
   getSlides,
@@ -31,7 +32,7 @@ const translation = (x: number, y: number): Matrix => [1, 0, 0, 1, x, y];
 // Evaluate the SVG transforms at the text box, independently of the renderer.
 const textCorners = (svg: string): number[] => {
   const stack: Matrix[] = [identity()];
-  for (const [tag] of svg.matchAll(/<\/?g\b[^>]*>|<foreignObject\b[^>]*>/g)) {
+  for (const [tag] of svg.matchAll(/<\/?g\b[^>]*>|<(?:foreignObject|text)\b[^>]*>/g)) {
     if (tag.startsWith('</g')) {
       stack.pop();
       continue;
@@ -58,8 +59,8 @@ const textCorners = (svg: string): number[] => {
     const attr = (name: string) => Number(new RegExp(`${name}="([^"]+)"`).exec(tag)![1]);
     const x = attr('x'),
       y = attr('y'),
-      w = attr('width'),
-      h = attr('height');
+      w = tag.startsWith('<text') ? 1 : attr('width'),
+      h = tag.startsWith('<text') ? 1 : attr('height');
     return [
       [x, y],
       [x + w, y],
@@ -116,4 +117,55 @@ describe('text orientation in flipped groups', () => {
         );
       });
     }
+});
+
+describe('table text orientation in flipped groups', () => {
+  for (const textLayout of ['foreignObject', 'svg'] as const)
+    for (const outerFlip of flips)
+      for (const tableFlip of flips) {
+        it(`${textLayout}: readable table text with group ${JSON.stringify(outerFlip)}, table ${JSON.stringify(tableFlip)}`, async () => {
+          const pres = createPresentation();
+          const slide = addBlankSlide(pres);
+          const table = addSlideTable(slide, {
+            x: inches(1),
+            y: inches(2),
+            w: inches(4),
+            h: inches(2),
+            rows: [
+              ['日本語 English', 'B'],
+              ['C', 'D'],
+            ],
+          });
+          setShapeRotation(table, 31);
+          setShapeFlip(table, tableFlip);
+          const sibling = addSlideShape(slide, {
+            preset: 'rect',
+            x: inches(7),
+            y: inches(2),
+            w: inches(1),
+            h: inches(1),
+          });
+          const group = groupShapes([table, sibling]);
+          setShapeRotation(group, 47);
+          setShapeFlip(group, outerFlip);
+          const loaded = await loadPresentation(await savePresentation(pres));
+          const loadedSlide = getSlides(loaded)[0]!;
+          const grouped = textCorners(renderSlideSvg(loaded, loadedSlide, { textLayout }));
+          const [x, y, rightX, rightY, bottomX, bottomY] = grouped as [
+            number,
+            number,
+            number,
+            number,
+            number,
+            number,
+          ];
+          // Positive signed area means the rendered glyph axes are not mirrored.
+          expect((rightX - x) * (bottomY - y) - (rightY - y) * (bottomX - x)).toBeGreaterThan(0);
+          ungroupShapes(getSlideShapes(loadedSlide)[0]!);
+          const ungrouped = textCorners(renderSlideSvg(loaded, loadedSlide, { textLayout }));
+          grouped.forEach((coordinate, index) =>
+            expect(Math.abs(coordinate - ungrouped[index]!)).toBeLessThan(0.03),
+          );
+        });
+      }
 });
