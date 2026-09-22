@@ -47,7 +47,7 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
   );
   if (!transition) return null;
   const speed = getAttrValue(transition, qname('', 'spd', '')) as 'slow' | 'med' | 'fast' | null;
-  const advClick = getAttrValue(transition, qname('', 'advClick', ''));
+  const advClick = getAttrValue(transition, qname('', 'advClick', ''))?.trim() ?? null;
   const advTm = getAttrValue(transition, qname('', 'advTm', ''));
   // First child element identifies the effect (`p:fade`, `p:wipe`, ...).
   let effect: string | null = null;
@@ -61,8 +61,8 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
     direction = getAttrValue(child, qname('', 'dir', ''));
     const o = getAttrValue(child, qname('', 'orient', ''));
     if (o === 'horz' || o === 'vert') orientation = o;
-    const tb = getAttrValue(child, qname('', 'thruBlk', ''));
-    if (tb !== null) thruBlack = tb === '1';
+    const tb = getAttrValue(child, qname('', 'thruBlk', ''))?.trim() ?? null;
+    if (tb !== null) thruBlack = tb === '1' || tb === 'true';
     break;
   }
   return {
@@ -71,7 +71,7 @@ export const getSlideTransition = (slide: SlideData): SlideTransition | null => 
     ...(direction !== null ? { direction } : {}),
     ...(orientation !== null ? { orientation } : {}),
     ...(thruBlack !== undefined ? { thruBlack } : {}),
-    ...(advClick !== null ? { advanceOnClick: advClick !== '0' } : {}),
+    ...(advClick !== null ? { advanceOnClick: advClick !== '0' && advClick !== 'false' } : {}),
     ...(advTm !== null ? { advanceAfterMs: Number.parseInt(advTm, 10) } : {}),
   };
 };
