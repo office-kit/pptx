@@ -175,6 +175,8 @@ interface LayoutCtx {
   // and aspect when the group is resized, so the text path renders into the
   // group-scaled rect and cancels the scale back out (see `renderShape`).
   readonly groupScale: { readonly sx: number; readonly sy: number };
+  // An odd number of ancestor reflections reverses glyph handedness.
+  readonly groupReflected: boolean;
 }
 
 const clickActionHref = (
@@ -6140,8 +6142,14 @@ const renderShapeContent = (
   // direction (and text-upright-ness) unchanged. Verified against real
   // LibreOffice output across rotation × {none, flipH, flipV, both}.
   const textRotation = (flip.vertical ? rotation + 180 : rotation) % 360;
-  const textTransform =
-    textRotation !== 0 ? ` transform="rotate(${textRotation} ${E(cx)} ${E(cy)})"` : '';
+  const textTransforms: string[] = [];
+  if (textRotation !== 0) textTransforms.push(`rotate(${textRotation} ${E(cx)} ${E(cy)})`);
+  // Cancel ancestor reflection in the text's local axes, before its rotation.
+  // This preserves the transformed center and baseline direction, including
+  // the half-turn introduced by a vertical group flip. Two reflections cancel
+  // naturally, even when intervening groups have their own rotations.
+  if (ctx.groupReflected) textTransforms.push(`translate(${E(2 * cx)} 0) scale(-1 1)`);
+  const textTransform = textTransforms.length > 0 ? ` transform="${textTransforms.join(' ')}"` : '';
 
   // A group's scale moves and resizes its children but leaves their text at the
   // authored point size — resizing a group in PowerPoint never reflows the type,
@@ -6299,17 +6307,6 @@ const renderShapeContent = (
     // flipH=… flipV=…> applies to the whole subtree, around the group's
     // outer-rect center. Compose those transforms first, then the
     // translate+scale that maps internal coords onto slide coords.
-    //
-    // KNOWN GAP: unlike the per-shape flip.vertical fix above, a group-level
-    // vertical flip has no text-upright compensation — `renderShape(child)`
-    // already emits each child's geometry AND text as one combined string, so
-    // the flip scale() below re-mirrors that child's already-correct text
-    // along with its geometry. Fixing this needs the group path to carry an
-    // ancestor flip-parity count down through the recursion so descendant
-    // text can add its own compensating rotation, mirroring how the per-shape
-    // fix works — out of scope here since there's no public API to author a
-    // flipped group (only getGroupChildren/getGroupTransform, read-only), so
-    // this only affects re-rendering a template that already has one.
     if (xform && rotation !== 0) {
       const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
       const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
@@ -6345,10 +6342,12 @@ const renderShapeContent = (
     }
     const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
     const childCtx: LayoutCtx =
-      groupScaleX === 1 && groupScaleY === 1
+      groupScaleX === 1 && groupScaleY === 1 && (!xform || flip.horizontal === flip.vertical)
         ? ctx
         : {
             ...ctx,
+            groupReflected:
+              ctx.groupReflected !== Boolean(xform && flip.horizontal !== flip.vertical),
             groupScale: {
               sx: ctx.groupScale.sx * groupScaleX,
               sy: ctx.groupScale.sy * groupScaleY,
@@ -6758,6 +6757,7 @@ export const renderSlideSvg = (
   activeDeckTextColor = resolveDeckBodyTextColor(slide) ?? '#000000';
   const ctx: LayoutCtx = {
     groupScale: { sx: 1, sy: 1 },
+    groupReflected: false,
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
   };
