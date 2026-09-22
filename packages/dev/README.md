@@ -29,8 +29,11 @@ source or saved deck changed. Text still being typed must be committed first.
 Selected text copied or cut within the editor keeps its character formatting
 when pasted into another shape or table cell, including text still being edited.
 Ctrl/Cmd+Shift+V pastes plain text (the browser may request clipboard access).
-Other applications receive plain text;
-paragraph styles, hyperlinks and external HTML formatting are not transferred.
+Copy also supplies HTML for other applications. Pasting external HTML imports
+inline bold, italic, underline, strike, font, size, color, highlight and baseline
+formatting when its text matches the plain-text clipboard. Unsupported markup
+falls back to plain text; spreadsheet tables keep their cell-aware paste behavior.
+Paragraph styles, hyperlinks, stylesheets and theme inheritance are not transferred.
 
 **Download** exports the edited PPTX. **Preview** switches to the presentation
 viewer with thumbnails, zoom and presentation mode. Presentation playback animates

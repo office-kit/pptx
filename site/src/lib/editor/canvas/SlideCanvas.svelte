@@ -10,6 +10,7 @@
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
+  import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
@@ -525,6 +526,7 @@
     if (start === end) return;
     const copied = copyTextRange(pendingTextShape, start, end, editing.cell);
     event.clipboardData.setData('text/plain', copied.text);
+    event.clipboardData.setData('text/html', textClipboardHtml(copied));
     event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify(copied));
     event.preventDefault();
     event.stopPropagation();
@@ -547,6 +549,16 @@
       event.stopPropagation();
       replaceSelectedText(copied.text, copied.formats);
       return;
+    }
+    const text = event.clipboardData.getData('text/plain');
+    if (!(editing.cell && text.includes('\t'))) {
+      const html = parseHtmlTextClipboard(event.clipboardData.getData('text/html'), text);
+      if (html) {
+        event.preventDefault();
+        event.stopPropagation();
+        replaceSelectedText(html.text, html.formats);
+        return;
+      }
     }
     pasteCells(event);
   }
