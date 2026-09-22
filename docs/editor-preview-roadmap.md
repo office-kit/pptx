@@ -416,11 +416,13 @@ positions, rotations and reflections produced by ungrouping.
 
 ### Visual transition playback
 
-- Presentation mode plays cut through black, fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond, plus, blinds, comb and checkerboard. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
+- Presentation mode plays cut through black, fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond, plus, blinds, comb, checkerboard and strips. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
 - Browser tests load saved decks and verify intermediate animation frames, interrupted-layer cleanup, completion, reduced-motion behavior and automatic advancement after animation. The shape-transition test includes Japanese/English text and visual inspection of the midpoint plus mask.
 - Cut through black holds a black frame for the selected transition duration, then switches without fading. Plain cut remains immediate. Imported `true`/`false` and `1`/`0` XML booleans (including surrounding whitespace) preserve through-black and click-advance settings across save/reload.
-- Other selectable effects (including dissolve, random bars, strips, wheel and random) still need visual playback; they currently switch immediately. Object-animation playback remains a separate requirement.
+- Other selectable effects (including dissolve, random bars, wheel and random) still need visual playback; they currently switch immediately. Object-animation playback remains a separate requirement.
 
 - Blinds and comb honor horizontal/vertical direction (horizontal by default), transition speed and reduced motion. Saved-deck browser tests check visible/hidden regions in every band at the midpoint, interrupt consecutive effects and verify final cleanup with Japanese/English text. One clipped incoming layer avoids duplicating a full slide per band.
 
 - Checkerboard playback reveals alternating cells in two stages and honors horizontal/vertical direction. Saved-deck browser tests sample all 48 cells at five animation times, including empty/full endpoints, and check interruption, reduced motion and completion. Midpoint screenshots verify the checker pattern with Japanese/English content.
+
+- Strips playback staggers eight bands toward the selected corner, including the default left-up direction. Saved-deck tests verify all four directions plus the omitted default, start/midpoint/end visibility, interrupted cleanup, reduced motion and Japanese/English content.
