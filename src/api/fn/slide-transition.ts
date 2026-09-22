@@ -50,11 +50,14 @@ export const getSlideTransition = (slide: SlideData): TransitionOptions | null =
   let direction: string | null = null;
   let orientation: 'horz' | 'vert' | null = null;
   let thruBlack: boolean | undefined;
+  let spokes: number | undefined;
   for (const child of transition.children) {
     if (child.kind !== 'element' || child.name.namespaceURI !== NS.pml) continue;
     if (child.name.localName === 'sndAc' || child.name.localName === 'extLst') continue;
     effect = child.name.localName;
     direction = getAttrValue(child, qname('', 'dir', ''));
+    const spokeCount = getAttrValue(child, qname('', 'spokes', ''));
+    if (effect === 'wheel' && spokeCount !== null) spokes = Number(spokeCount);
     const o = getAttrValue(child, qname('', 'orient', ''));
     if (o === 'horz' || o === 'vert') orientation = o;
     const tb = getAttrValue(child, qname('', 'thruBlk', ''))?.trim() ?? null;
@@ -66,6 +69,7 @@ export const getSlideTransition = (slide: SlideData): TransitionOptions | null =
     ...(speed !== null ? { speed } : {}),
     ...(direction !== null ? { direction } : {}),
     ...(orientation !== null ? { orientation } : {}),
+    ...(spokes !== undefined ? { spokes } : {}),
     ...(thruBlack !== undefined ? { thruBlack } : {}),
     ...(advClick !== null ? { advanceOnClick: advClick !== '0' && advClick !== 'false' } : {}),
     ...(advTm !== null ? { advanceAfterMs: Number.parseInt(advTm, 10) } : {}),

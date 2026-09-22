@@ -15,7 +15,7 @@ function renderSlide(svg,options){
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
   const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash'].includes(effect))return;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash','wheel'].includes(effect))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
@@ -78,6 +78,16 @@ function renderSlide(svg,options){
     animate(incoming,[{clipPath:cells(0)},{clipPath:cells(.5)},{clipPath:cells(1)}]);
   }else if(effect==='newsflash'){
     animate(incoming,[{transform:'rotate(720deg) scale(0)'},{transform:'rotate(0deg) scale(1)'}]);
+  }else if(effect==='wheel'){
+    const spokes=options.spokes??4;
+    if(spokes===0)animate(incoming,[{opacity:0},{opacity:1}]);
+    else{
+      const stages=64,sector=360/spokes;
+      // A repeating mask keeps memory bounded even for the schema's maximum unsigned integer.
+      const mask=(progress)=>'repeating-conic-gradient(#000 0deg '+sector*progress+'deg,transparent '+sector*progress+'deg '+sector+'deg)';
+      // Gradient images are discrete values; explicit stages avoid a halfway-only image swap.
+      animate(incoming,Array.from({length:stages+1},(_,step)=>({maskImage:mask(step/stages),offset:step/stages,easing:'steps(1,end)'})),'linear');
+    }
   }else if(effect==='wedge'){
     const segments=32;
     const wedge=(progress)=>{

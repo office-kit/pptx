@@ -416,10 +416,10 @@ positions, rotations and reflections produced by ungrouping.
 
 ### Visual transition playback
 
-- Presentation mode plays cut through black, fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond, plus, blinds, comb, checkerboard, strips, random bars, dissolve, wedge and newsflash. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
+- Presentation mode plays cut through black, fade (including through black), push, wipe, cover, uncover and zoom, plus split, circle, diamond, plus, blinds, comb, checkerboard, strips, random bars, dissolve, wedge, newsflash and wheel. Split supports horizontal/vertical and inward/outward variants. Normal preview remains immediate.
 - Browser tests load saved decks and verify intermediate animation frames, interrupted-layer cleanup, completion, reduced-motion behavior and automatic advancement after animation. The shape-transition test includes Japanese/English text and visual inspection of the midpoint plus mask.
 - Cut through black holds a black frame for the selected transition duration, then switches without fading. Plain cut remains immediate. Imported `true`/`false` and `1`/`0` XML booleans (including surrounding whitespace) preserve through-black and click-advance settings across save/reload.
-- Other selectable effects (including wheel and random) still need visual playback; they currently switch immediately. Object-animation playback remains a separate requirement.
+- The selectable random effect still needs visual playback; it currently switches immediately. Object-animation playback remains a separate requirement.
 
 - Blinds and comb honor horizontal/vertical direction (horizontal by default), transition speed and reduced motion. Saved-deck browser tests check visible/hidden regions in every band at the midpoint, interrupt consecutive effects and verify final cleanup with Japanese/English text. One clipped incoming layer avoids duplicating a full slide per band.
 
@@ -432,3 +432,5 @@ positions, rotations and reflections produced by ungrouping.
 - Dissolve playback adds randomly ordered square cells with a mask sized to the slide aspect ratio. Saved-deck browser tests verify all three speeds, increasing coverage at five points, endpoints, interruption, completion and reduced motion with Japanese/English content.
 
 - Wedge playback opens two radial boundaries from top to bottom; newsflash spins the incoming slide counter-clockwise while enlarging it. Saved-deck tests verify endpoints, midpoint geometry, interruption, completion and reduced motion with Japanese/English content.
+
+- Wheel spokes can be edited in Japanese/English, undone, and saved/reloaded without losing the count. Presentation mode reveals clockwise sectors (default four), using bounded-size gradient masks even for large unsigned counts; zero spokes uses a fade. Saved-deck pixel tests cover one, two, three, four and eight spokes, plus interruption, completion and reduced motion.

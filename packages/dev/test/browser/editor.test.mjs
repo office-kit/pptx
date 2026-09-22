@@ -1578,6 +1578,37 @@ test(
         advanceAfterMs: 2500,
       });
       await editor.getByRole('button', { name: 'Slide transition', exact: true }).click();
+      await dialog.getByLabel('Transition effect', { exact: true }).selectOption('wheel');
+      await dialog.getByLabel('Wheel spokes', { exact: true }).fill('1.5');
+      assert.equal(
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog.getByLabel('Wheel spokes', { exact: true }).fill('8');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.equal(getSlideTransition((await slides())[0]).spokes, 8);
+      await editor.locator('.lang select').selectOption('ja');
+      locale = 'ja';
+      await editor.getByRole('button', { name: 'スライドの画面切り替え', exact: true }).click();
+      const wheelDialog = editor.getByRole('dialog', {
+        name: 'スライドの画面切り替え',
+        exact: true,
+      });
+      assert.equal(
+        await wheelDialog.getByLabel('ホイールの本数', { exact: true }).inputValue(),
+        '8',
+      );
+      await wheelDialog.getByLabel('ホイールの本数', { exact: true }).fill('3');
+      await wheelDialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      assert.equal(getSlideTransition((await slides())[0]).spokes, 3);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getSlideTransition((await slides())[0]).spokes, 8);
+      await editor.locator('.lang select').selectOption('en');
+      locale = 'en';
+      await editor.getByRole('button', { name: 'Slide transition', exact: true }).click();
       await dialog.getByLabel('Transition effect', { exact: true }).selectOption('none');
       await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
       await saved();
