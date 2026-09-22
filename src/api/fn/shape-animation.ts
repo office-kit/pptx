@@ -11,6 +11,7 @@ import {
   NS,
   type XmlElement,
   allChildElements,
+  cloneElement,
   elem,
   firstChildElement,
   getAttrValue,
@@ -35,15 +36,16 @@ import {
   setGroupStartOffset,
 } from './_animation-timing.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
+import { getShapeParagraphCount } from './shape-runs.ts';
 import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
 // Animations (one effect per call).
 //
-// Current scope: each call adds one entrance or exit effect and merges it into
-// whatever timing tree the slide already has, so a slide can carry several
-// effects across several shapes and click stops. Emphasis and motion presets,
-// per-paragraph builds, and editing or reordering an effect that is already
-// there are not modelled yet.
+// Current scope: each call adds one entrance or exit effect — or, for a
+// by-paragraph build, one per paragraph — and merges it into whatever timing
+// tree the slide already has, so a slide can carry several effects across
+// several shapes and click stops. Emphasis and motion presets, and editing or
+// reordering an effect that is already there, are not modelled yet.
 
 export type { AnimationEffect, AnimationOptions, AnimationStartCondition };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
@@ -155,103 +157,49 @@ const appendPar = (par: XmlElement, child: XmlElement): boolean => {
   return true;
 };
 
-// Merges a freshly-built single-effect timing into an existing `<p:timing>`,
-// renumbering the new effect's cTn ids so they stay unique. Returns false when
-// the existing tree has no structure we know how to extend (so the caller can
-// avoid destroying it). This is what lets a second shape animate without wiping
-// a template's pre-existing animations.
-const mergeEffectInto = (
-  existing: XmlElement,
-  fresh: XmlElement,
-  start: AnimationStartCondition,
-): boolean => {
-  const freshMainSeq = findDescendant(fresh, isMainSeqCTn);
-  const freshChildTnLst = freshMainSeq
-    ? firstChildElement(freshMainSeq, qname('p', 'childTnLst', NS.pml))
-    : null;
-  const newPar = freshChildTnLst
-    ? freshChildTnLst.children.find((c): c is XmlElement => c.kind === 'element' && isPml(c, 'par'))
-    : null;
-  const freshBldP = findDescendant(fresh, (e) => isPml(e, 'bldP'));
-  if (!newPar || !freshBldP) return false;
+/**
+ * The build group a merged effect joins. PowerPoint ties an effect to its
+ * `<p:bldP>` through `grpId`, and a by-paragraph build is several effects
+ * sharing one entry, so only the first of them carries `addBuild`.
+ */
+interface BuildGroup {
+  readonly grpId: string;
+  readonly addBuild: boolean;
+}
 
-  // Group the build with its effect under a fresh grpId so PowerPoint renders
-  // each shape's effect independently. Use max-existing-grpId + 1 (not a count)
-  // because a template's authored build grpIds need not be the contiguous
-  // 0..n-1 sequence — PowerPoint can leave gaps after a delete/reorder, and a
-  // count would then collide with an existing group.
-  const newGrpId = String(maxGrpId(existing) + 1);
-  const effectCTn = findDescendant(
-    newPar,
-    (e) => getAttrValue(e, qname('', 'presetID', '')) !== null,
-  );
+/**
+ * Where the next effect goes, and the ids it must not collide with.
+ *
+ * One call can add several effects — a by-paragraph build adds one per
+ * paragraph — and each of them lands at the end of a tree the call before it
+ * just grew. Re-deriving the insertion point from the whole tree every time
+ * would make a build of n paragraphs cost O(n²), so it is derived once and
+ * moved forward as effects land.
+ */
+interface MergeCursor {
+  readonly timing: XmlElement;
+  readonly mainSeqChildTnLst: XmlElement;
+  /** Largest `<p:cTn id>` in the tree; a fresh effect is renumbered past it. */
+  maxCTnId: number;
+  /** The last click stop and the last group in it — what with/after join. */
+  lastStop: XmlElement | undefined;
+  lastGroup: XmlElement | undefined;
+  bldLst: XmlElement | null;
+}
 
-  const existingMainSeq = findDescendant(existing, isMainSeqCTn);
-  const existingMainSeqChildTnLst = existingMainSeq
-    ? firstChildElement(existingMainSeq, qname('p', 'childTnLst', NS.pml))
-    : null;
-  if (existingMainSeqChildTnLst) {
-    // The fresh tree's click-effect wrapper is the <p:par> under its own mainSeq
-    // childTnLst. Lift it out and renumber its cTn ids past the existing max.
-    const offset = maxCTnId(existing) - 2; // fresh effect ids start at 3
-    if (offset > 0) shiftCTnIds(newPar, offset);
-
-    // A click effect becomes its own stop. A with/after effect joins the stop
-    // already there: `withPrevious` alongside the effects that run together,
-    // `afterPrevious` as the next group inside the same stop, so both play off
-    // the click that started their predecessor. With no stop to join — the
-    // effect is the slide's first — the fresh wrapper is kept, and the builder
-    // has already given it a zero delay so it runs as the slide appears.
-    const stops = childPars(existingMainSeq!);
-    const lastStop = stops.at(-1);
-    const groups = lastStop === undefined ? [] : innerPars(lastStop);
-    const lastGroup = groups.at(-1);
-
-    if (start === 'click' || lastStop === undefined) {
-      existingMainSeqChildTnLst.children.push(newPar);
-    } else if (start === 'afterPrevious') {
-      const group = innerPars(newPar)[0];
-      if (group === undefined || lastGroup === undefined) return false;
-      // The group is a sibling of the one before it, so it would otherwise
-      // start at the same moment. Offsetting it to where that group finishes
-      // is what makes "after previous" mean it; the caller's own delay stays
-      // on the effect, counted from there.
-      const previousEnd = groupEndMs(lastGroup);
-      if (previousEnd === null) {
-        throw new Error(
-          'setShapeAnimation: cannot start an effect after one whose length this library cannot ' +
-            'measure. The effect before it runs indefinitely, states no duration, repeats, or ' +
-            'starts from another node rather than at a fixed offset. Use start: "click" or ' +
-            '"withPrevious".',
-        );
-      }
-      if (!setGroupStartOffset(group, previousEnd) || !appendPar(lastStop, group)) return false;
-    } else {
-      const effectPar = innerPars(innerPars(newPar)[0] ?? newPar)[0];
-      if (effectPar === undefined || lastGroup === undefined) return false;
-      if (!appendPar(lastGroup, effectPar)) return false;
-    }
-  } else {
-    // A slide that holds a video / audio clip but no animation yet has a root
-    // with media nodes (and possibly interactive sequences) but no mainSeq.
-    // Adopt the fresh tree's whole main sequence; PowerPoint keeps it first,
-    // ahead of the interactive sequences and media nodes.
-    const rootList = rootChildTnLst(existing);
-    const freshRootList = rootChildTnLst(fresh);
-    const freshSeq = freshRootList?.children.find(
-      (c): c is XmlElement => c.kind === 'element' && isPml(c, 'seq'),
-    );
-    if (!rootList || !freshSeq) return false;
-    shiftCTnIds(freshSeq, maxCTnId(existing) - 1); // fresh mainSeq ids start at 2
-    rootList.children.unshift(freshSeq);
-  }
-
-  if (effectCTn) setGrpId(effectCTn, newGrpId);
-  setGrpId(freshBldP, newGrpId);
-  const existingBldLst = findDescendant(existing, (e) => isPml(e, 'bldLst'));
-  if (existingBldLst) existingBldLst.children.push(freshBldP);
-  else insertBldLst(existing, elem(qname('p', 'bldLst', NS.pml), { children: [freshBldP] }));
-  return true;
+const openMergeCursor = (timing: XmlElement): MergeCursor | null => {
+  const mainSeq = findDescendant(timing, isMainSeqCTn);
+  const childTnLst = mainSeq === null ? null : firstChildElement(mainSeq, NAME_CHILD_TN_LST);
+  if (mainSeq === null || childTnLst === null) return null;
+  const lastStop = childPars(mainSeq).at(-1);
+  return {
+    timing,
+    mainSeqChildTnLst: childTnLst,
+    maxCTnId: maxCTnId(timing),
+    lastStop,
+    lastGroup: lastStop === undefined ? undefined : innerPars(lastStop).at(-1),
+    bldLst: findDescendant(timing, (e) => isPml(e, 'bldLst')),
+  };
 };
 
 // CT_SlideTiming orders its children tnLst, bldLst, extLst.
@@ -259,6 +207,209 @@ const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
   const extLst = firstChildElement(timing, qname('p', 'extLst', NS.pml));
   if (extLst === null) timing.children.push(bldLst);
   else timing.children.splice(timing.children.indexOf(extLst), 0, bldLst);
+};
+
+// PowerPoint renders an effect only when a `<p:bldP>` names its shape and
+// group, so every group that opens brings its entry with it.
+const addBuildEntry = (
+  timing: XmlElement,
+  bldP: XmlElement,
+  bldLst: XmlElement | null,
+): XmlElement => {
+  if (bldLst !== null) {
+    bldLst.children.push(bldP);
+    return bldLst;
+  }
+  const fresh = elem(qname('p', 'bldLst', NS.pml), { children: [bldP] });
+  insertBldLst(timing, fresh);
+  return fresh;
+};
+
+/** The pieces of a freshly-built single-effect tree the merge paths need. */
+interface FreshEffect {
+  readonly par: XmlElement;
+  readonly bldP: XmlElement;
+  readonly cTn: XmlElement | null;
+}
+
+const openFreshEffect = (fresh: XmlElement): FreshEffect | null => {
+  const mainSeq = findDescendant(fresh, isMainSeqCTn);
+  const childTnLst = mainSeq === null ? null : firstChildElement(mainSeq, NAME_CHILD_TN_LST);
+  const par = childTnLst?.children.find(
+    (c): c is XmlElement => c.kind === 'element' && isPml(c, 'par'),
+  );
+  const bldP = findDescendant(fresh, (e) => isPml(e, 'bldP'));
+  if (par === undefined || bldP === null) return null;
+  return {
+    par,
+    bldP,
+    cTn: findDescendant(par, (e) => getAttrValue(e, qname('', 'presetID', '')) !== null),
+  };
+};
+
+/**
+ * Adopts a fresh tree's whole main sequence into a timing that has none: a
+ * slide holding a video or audio clip has a root with media nodes, and
+ * possibly interactive sequences, but no `mainSeq`. PowerPoint keeps the main
+ * sequence first, ahead of both.
+ *
+ * Returns the cursor for the sequence it just added, so the effects after this
+ * one merge into it like they would on any other slide.
+ */
+const adoptMainSeq = (
+  timing: XmlElement,
+  fresh: XmlElement,
+  effect: FreshEffect,
+  group: BuildGroup,
+): MergeCursor | null => {
+  const rootList = rootChildTnLst(timing);
+  const freshSeq = rootChildTnLst(fresh)?.children.find(
+    (c): c is XmlElement => c.kind === 'element' && isPml(c, 'seq'),
+  );
+  if (!rootList || !freshSeq) return null;
+  shiftCTnIds(freshSeq, maxCTnId(timing) - 1); // fresh mainSeq ids start at 2
+  rootList.children.unshift(freshSeq);
+
+  if (effect.cTn) setGrpId(effect.cTn, group.grpId);
+  if (group.addBuild) {
+    setGrpId(effect.bldP, group.grpId);
+    addBuildEntry(
+      timing,
+      effect.bldP,
+      findDescendant(timing, (e) => isPml(e, 'bldLst')),
+    );
+  }
+  return openMergeCursor(timing);
+};
+
+/**
+ * Places one freshly-built effect at the cursor, renumbering its cTn ids past
+ * everything already in the tree, and moves the cursor to it. Returns false
+ * for a tree whose shape we do not recognise, so the caller can abandon the
+ * draft rather than half-writing it.
+ */
+const mergeEffectInto = (
+  cursor: MergeCursor,
+  effect: FreshEffect,
+  start: AnimationStartCondition,
+  group: BuildGroup,
+): boolean => {
+  const offset = cursor.maxCTnId - 2; // fresh effect ids start at 3
+  if (offset > 0) shiftCTnIds(effect.par, offset);
+  cursor.maxCTnId = Math.max(cursor.maxCTnId, maxCTnId(effect.par));
+
+  // A click effect becomes its own stop. A with/after effect joins the stop
+  // already there: `withPrevious` alongside the effects that run together,
+  // `afterPrevious` as the next group inside the same stop, so both play off
+  // the click that started their predecessor. With no stop to join — the
+  // effect is the slide's first — the fresh wrapper is kept, and the builder
+  // has already given it a zero delay so it runs as the slide appears.
+  if (start === 'click' || cursor.lastStop === undefined) {
+    cursor.mainSeqChildTnLst.children.push(effect.par);
+    cursor.lastStop = effect.par;
+    cursor.lastGroup = innerPars(effect.par).at(-1);
+  } else if (start === 'afterPrevious') {
+    const group_ = innerPars(effect.par)[0];
+    if (group_ === undefined || cursor.lastGroup === undefined) return false;
+    // The group is a sibling of the one before it, so it would otherwise
+    // start at the same moment. Offsetting it to where that group finishes
+    // is what makes "after previous" mean it; the caller's own delay stays
+    // on the effect, counted from there.
+    const previousEnd = groupEndMs(cursor.lastGroup);
+    if (previousEnd === null) {
+      throw new Error(
+        'setShapeAnimation: cannot start an effect after one whose length this library cannot ' +
+          'measure. The effect before it runs indefinitely, states no duration, repeats, or ' +
+          'starts from another node rather than at a fixed offset. Use start: "click" or ' +
+          '"withPrevious".',
+      );
+    }
+    if (!setGroupStartOffset(group_, previousEnd) || !appendPar(cursor.lastStop, group_)) {
+      return false;
+    }
+    cursor.lastGroup = group_;
+  } else {
+    const effectPar = innerPars(innerPars(effect.par)[0] ?? effect.par)[0];
+    if (effectPar === undefined || cursor.lastGroup === undefined) return false;
+    if (!appendPar(cursor.lastGroup, effectPar)) return false;
+  }
+
+  if (effect.cTn) setGrpId(effect.cTn, group.grpId);
+  if (group.addBuild) {
+    setGrpId(effect.bldP, group.grpId);
+    cursor.bldLst = addBuildEntry(cursor.timing, effect.bldP, cursor.bldLst);
+  }
+  return true;
+};
+
+/**
+ * The timing this call should leave on the slide: a copy of `existing` with
+ * every effect added, or the builder's own tree when the slide has none.
+ * `null` for an existing tree we cannot extend.
+ *
+ * Working on a copy is what makes a call all-or-nothing. A by-paragraph build
+ * adds one effect per paragraph, and a refusal part-way must leave the slide
+ * as it was rather than stranding it with some of the paragraphs animated.
+ */
+const timingWithEffects = (
+  existing: XmlElement | null,
+  spid: number,
+  opts: AnimationOptions,
+  targets: readonly (number | null)[],
+): XmlElement | null => {
+  const start = opts.start ?? 'click';
+  let timing = existing === null ? null : cloneElement(existing);
+  let cursor = timing === null ? null : openMergeCursor(timing);
+  // Every paragraph of one build joins the group the first of them opened. A
+  // fresh group takes max-existing-grpId + 1 (not a count) because a template's
+  // authored build grpIds need not be the contiguous 0..n-1 sequence —
+  // PowerPoint can leave gaps after a delete or reorder, and a count would then
+  // collide with an existing group.
+  let buildGrpId: string | null = null;
+
+  for (const paragraph of targets) {
+    const fresh = buildSingleEffectTiming(spid, opts, paragraph);
+    if (timing === null) {
+      // No timing on the slide at all, so the builder's standalone tree is the
+      // draft — effect, click stop and build entry already in place, with the
+      // group it numbers 0.
+      timing = fresh;
+      cursor = openMergeCursor(timing);
+      if (cursor === null) return null;
+      buildGrpId = '0';
+      continue;
+    }
+    const effect = openFreshEffect(fresh);
+    if (effect === null) return null;
+    const group: BuildGroup = {
+      grpId: buildGrpId ?? String(maxGrpId(timing) + 1),
+      addBuild: buildGrpId === null,
+    };
+    if (cursor === null) {
+      cursor = adoptMainSeq(timing, fresh, effect, group);
+      if (cursor === null) return null;
+    } else if (!mergeEffectInto(cursor, effect, start, group)) {
+      return null;
+    }
+    buildGrpId = group.grpId;
+  }
+  return timing;
+};
+
+/**
+ * The paragraphs each effect of this call targets, in order. `null` is the
+ * whole shape — one effect, the way every call worked before builds existed.
+ */
+const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number | null)[] => {
+  if (opts.byParagraph !== true) return [null];
+  const count = getShapeParagraphCount(shape);
+  if (count === 0) {
+    throw new Error(
+      'setShapeAnimation: byParagraph needs a shape with text. This shape has no paragraphs to ' +
+        'build, so animate it as a whole instead.',
+    );
+  }
+  return Array.from({ length: count }, (_, i) => i);
 };
 
 /**
@@ -292,24 +443,33 @@ const insertBldLst = (timing: XmlElement, bldLst: XmlElement): void => {
  * from another node rather than at a fixed offset. The slide is left untouched;
  * `'click'` and `'withPrevious'` need no such measurement.
  *
+ * `byParagraph` reveals the shape's text one paragraph at a time rather than
+ * animating the shape as a whole: one effect per paragraph, each with the same
+ * `start`, so the default `'click'` advances a paragraph per click. They share
+ * a single `<p:bldP build="p">`, which is how PowerPoint and Google Slides both
+ * present the build as one animation. `getSlideAnimations` reports each
+ * paragraph as its own step, targeting a paragraph range.
+ *
  * Reading the result back, including the order and start condition of every
  * effect on the slide, is `getSlideAnimations`.
  */
 export const setShapeAnimation = (shape: SlideShapeData, opts: AnimationOptions): void => {
   const slide = shape[SHAPE_SLIDE];
   const spid = shape[SHAPE_SNAPSHOT].id;
-  const fresh = buildSingleEffectTiming(spid, opts);
   const existing = findTiming(slide);
-  if (existing === null) {
-    insertTimingAtEnd(slide, fresh);
-  } else if (!mergeEffectInto(existing, fresh, opts.start ?? 'click')) {
-    // A timing tree we don't know how to extend (no mainSeq). Leave it intact
-    // rather than silently destroying authored animations.
+  const draft = timingWithEffects(existing, spid, opts, effectTargets(shape, opts));
+  if (draft === null) {
+    // A timing tree we don't know how to extend. Leave it intact rather than
+    // silently destroying authored animations.
     throw new Error(
       'setShapeAnimation: the slide already has an animation timing tree this single-effect ' +
         'API cannot safely extend. Call clearSlideAnimations(slide) first to reset it.',
     );
   }
+
+  const children = slide[SLIDE_DOCUMENT].root.children;
+  if (existing === null) insertTimingAtEnd(slide, draft);
+  else children[children.indexOf(existing)] = draft;
   commitSlideData(slide);
   refreshSlideData(slide);
 };

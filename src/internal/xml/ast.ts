@@ -148,3 +148,18 @@ export const insertChildByRank = (
   }
   parent.children.splice(idx, 0, element);
 };
+
+/**
+ * Deep copy of an element, sharing nothing mutable with the original. Editing
+ * paths that must either apply a whole change or none of it build into a copy
+ * and swap it in once, so a failure part-way leaves the live tree untouched.
+ */
+export const cloneElement = (el: XmlElement): XmlElement =>
+  elem(el.name, {
+    attrs: el.attrs.map((a) => attr(a.name, a.value)),
+    prefixDecls: new Map(el.prefixDecls),
+    children: el.children.map(cloneNode),
+  });
+
+const cloneNode = (node: XmlNode): XmlNode =>
+  node.kind === 'element' ? cloneElement(node) : { ...node };

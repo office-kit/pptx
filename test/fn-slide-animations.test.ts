@@ -17,10 +17,12 @@ import {
   addBlankSlide,
   addSlideMedia,
   addSlideShape,
+  addSlideTextBox,
   createPresentation,
   findShapesWithAnimation,
   getShapeAnimation,
   getShapeId,
+  getShapeParagraphCount,
   getSlideAnimations,
   getSlideShapes,
   getSlides,
@@ -28,6 +30,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeAnimation,
+  setShapeBullets,
   slideHasAnimations,
 } from '../src/api/index.ts';
 
@@ -726,6 +729,221 @@ describe('fn API: setShapeAnimation — when an "after previous" effect actually
     const reloaded = await loadPresentation(await savePresentation(pres));
     expect(slideXml(reloaded)).toBe(before);
     expect(getSlideAnimations(getSlides(reloaded)[0]!)).toEqual(steps);
+  });
+});
+
+describe('fn API: setShapeAnimation — building text one paragraph at a time', () => {
+  const deck = (
+    lines: readonly string[],
+  ): { pres: PresentationData; slide: SlideData; shape: SlideShapeData } => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const shape = addSlideTextBox(slide, { ...box, text: lines.join('\n') });
+    return { pres, slide, shape };
+  };
+  const slideXml = (pres: PresentationData): string =>
+    decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
+
+  it('writes one effect per paragraph, each over its own paragraph range', () => {
+    const { slide, shape } = deck(['One', 'Two', 'Three']);
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+
+    const steps = getSlideAnimations(slide);
+    expect(steps).toHaveLength(3);
+    expect(steps.map((s) => s.target)).toEqual([
+      { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 0, lastParagraph: 0 },
+      { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 1, lastParagraph: 1 },
+      { kind: 'paragraphs', shapeId: getShapeId(shape), firstParagraph: 2, lastParagraph: 2 },
+    ]);
+    expect(steps.every((s) => s.buildByParagraph)).toBe(true);
+    expect(steps.every((s) => s.playable)).toBe(true);
+    expect(new Set(steps.map((s) => s.id)).size).toBe(3);
+  });
+
+  // PowerPoint ties an effect to its build through grpId, and the build is
+  // what says "paragraph by paragraph" — one entry for the whole body, not one
+  // per paragraph, or the later ones would each re-declare the same build.
+  it('gives the whole build a single `<p:bldP build="p">`', () => {
+    const { pres, shape } = deck(['One', 'Two', 'Three']);
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    const xml = slideXml(pres);
+    expect(xml.match(/<p:bldP\b/g)).toHaveLength(1);
+    expect(xml).toContain(`<p:bldP spid="${getShapeId(shape)}" grpId="0" build="p"/>`);
+  });
+
+  it('advances a paragraph per click by default', () => {
+    const { pres, slide, shape } = deck(['One', 'Two', 'Three']);
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    expect(wrapperDelays(slideXml(pres))).toEqual([
+      'indefinite',
+      '0',
+      'indefinite',
+      '0',
+      'indefinite',
+      '0',
+    ]);
+    expect(getSlideAnimations(slide).map((s) => s.start)).toEqual(['click', 'click', 'click']);
+  });
+
+  it('cascades the paragraphs off one click when they follow each other', () => {
+    const { pres, slide, shape } = deck(['One', 'Two', 'Three']);
+    setShapeAnimation(shape, {
+      effect: 'fadeIn',
+      durationMs: 400,
+      byParagraph: true,
+      start: 'afterPrevious',
+    });
+    // One stop; each paragraph's group waits out the 400ms before it.
+    expect(wrapperDelays(slideXml(pres))).toEqual(['0', '0', '400', '800']);
+    expect(getSlideAnimations(slide).map((s) => s.start)).toEqual([
+      'afterPrevious',
+      'afterPrevious',
+      'afterPrevious',
+    ]);
+  });
+
+  it('runs every paragraph together when they share the previous start', () => {
+    const { pres, shape } = deck(['One', 'Two', 'Three']);
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true, start: 'withPrevious' });
+    expect(wrapperDelays(slideXml(pres))).toEqual(['0', '0']);
+  });
+
+  it('builds a Japanese bulleted body the same way', () => {
+    const { pres, slide, shape } = deck(['一つ目', '二つ目', '三つ目']);
+    setShapeBullets(shape, 'bullet');
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+
+    const steps = getSlideAnimations(slide);
+    expect(steps.map((s) => s.target.kind)).toEqual(['paragraphs', 'paragraphs', 'paragraphs']);
+    expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(1);
+  });
+
+  skipIfNoXmllint('emits a schema-valid paragraph build', () => {
+    const { pres, shape } = deck(['One', 'Two', 'Three']);
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    expectSchemaValid(slideXml(pres), 'pml');
+  });
+
+  it('keeps the build through save and reload', async () => {
+    const { pres, slide, shape } = deck(['One', 'Two']);
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    const before = slideXml(pres);
+    const steps = getSlideAnimations(slide);
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(slideXml(reloaded)).toBe(before);
+    expect(getSlideAnimations(getSlides(reloaded)[0]!)).toEqual(steps);
+  });
+
+  // The build is one group; a shape animated as a whole is another. Sharing a
+  // grpId would make PowerPoint reveal the text with the other shape's effect.
+  it('keeps a build and a whole-shape effect in separate groups', () => {
+    const { pres, slide, shape } = deck(['One', 'Two']);
+    const other = addSlideShape(slide, { preset: 'rect', ...box });
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    setShapeAnimation(other, { effect: 'fadeIn' });
+
+    const xml = slideXml(pres);
+    expect(xml.match(/<p:bldP\b/g)).toHaveLength(2);
+    expect(xml).toContain(`<p:bldP spid="${getShapeId(shape)}" grpId="0" build="p"/>`);
+    expect(xml).toContain(`<p:bldP spid="${getShapeId(other)}" grpId="1"/>`);
+    expect(getShapeAnimation(other)).toBe('fadeIn');
+  });
+
+  it('refuses to build a shape that has no text', () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const shape = addSlideShape(slide, { preset: 'rect', ...box });
+    expect(() => setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true })).toThrow(
+      /byParagraph needs a shape with text/,
+    );
+    expect(getSlideAnimations(slide)).toEqual([]);
+    expect(slideHasAnimations(slide)).toBe(false);
+  });
+
+  it('appends a build behind the effects a slide already has', () => {
+    const { pres, slide, shape } = deck(['One', 'Two', 'Three']);
+    const first = addSlideShape(slide, { preset: 'rect', ...box });
+    setShapeAnimation(first, { effect: 'fadeIn' });
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+
+    const steps = getSlideAnimations(slide);
+    expect(steps.map((s) => s.target.shapeId)).toEqual([
+      getShapeId(first),
+      getShapeId(shape),
+      getShapeId(shape),
+      getShapeId(shape),
+    ]);
+    expect(steps.map((s) => s.buildByParagraph)).toEqual([false, true, true, true]);
+    expect(new Set(steps.map((s) => s.id)).size).toBe(4);
+    expect(slideXml(pres).match(/<p:bldP\b/g)).toHaveLength(2);
+  });
+
+  skipIfNoXmllint('appends a build to timing this library did not author', async () => {
+    const spid = await firstShapeId();
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(presetEffect(3, spid)),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    const target = getSlideShapes(slide)[0]!;
+    setShapeAnimation(target, { effect: 'fadeIn', byParagraph: true });
+
+    const steps = getSlideAnimations(slide);
+    expect(steps).toHaveLength(1 + getShapeParagraphCount(target));
+    expect(steps[0]!.target).toEqual({ kind: 'shape', shapeId: spid });
+    expect(steps.slice(1).every((s) => s.target.kind === 'paragraphs')).toBe(true);
+    expectSchemaValid(slideXml(pres), 'pml');
+  });
+
+  // A build is several effects, so a refusal part-way would be the one case
+  // that could strand a slide half-animated. The whole call is written into a
+  // copy, so what the slide keeps is either all of it or none.
+  it('leaves nothing behind when a build is refused, and still takes the next call', async () => {
+    const { pres, slide, shape } = deck(['One', 'Two', 'Three']);
+    const before = slideXml(pres);
+
+    expect(() =>
+      setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true, durationMs: -1 }),
+    ).toThrow(/durationMs/);
+    expect(slideXml(pres)).toBe(before);
+    expect(getSlideAnimations(slide)).toEqual([]);
+    expect(slideHasAnimations(slide)).toBe(false);
+
+    setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const steps = getSlideAnimations(getSlides(reloaded)[0]!);
+    expect(steps).toHaveLength(3);
+    expect(steps.map((s) => s.target.kind)).toEqual(['paragraphs', 'paragraphs', 'paragraphs']);
+    expect(
+      decoder
+        .decode(_internalPackageOf(reloaded).getPart(partName(SLIDE1))!.data)
+        .match(/<p:bldP\b/g),
+    ).toHaveLength(1);
+  });
+
+  it('leaves an authored tree untouched when a build cannot follow it', async () => {
+    const spid = await firstShapeId();
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(stopWith(behaviour(6, spid, ' dur="indefinite" fill="hold"'))),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    const before = slideXml(pres);
+    const target = getSlideShapes(slide)[0]!;
+
+    expect(() =>
+      setShapeAnimation(target, { effect: 'fadeIn', byParagraph: true, start: 'afterPrevious' }),
+    ).toThrow(/cannot start an effect after one whose length this library cannot measure/);
+    expect(slideXml(pres)).toBe(before);
+    expect(getSlideAnimations(slide)).toHaveLength(1);
+
+    // The refusal is about the start condition, not the build: a click build
+    // still lands, and lands whole.
+    setShapeAnimation(target, { effect: 'fadeIn', byParagraph: true });
+    expect(getSlideAnimations(slide)).toHaveLength(1 + getShapeParagraphCount(target));
   });
 });
 
