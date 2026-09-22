@@ -492,3 +492,9 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Replies appear immediately after their parent thread even when the PPTX stores them after unrelated comments. Display ordering does not change save ordering or reply identity.
 - Adding a comment or reply focuses its author input. Deletion moves focus to a surviving comment or the Add comment button.
 - Thread ordering is iterative and linear; tests cover orphaned parents, cycles, and 20,000 nested replies without recursive stack growth. Browser coverage verifies interleaved threads across save/reload and keyboard focus after additions and deletions.
+
+### Restore deleted placeholders
+
+- Restore missing title and content slots from the current layout through the slide panel or Home ribbon in English and Japanese. Selected slides are restored in one undoable transaction.
+- Existing text, geometry and formatting stay intact. Restored slots start empty and inherit layout styles and geometry; grouped placeholders are recognized and repeated restoration does not duplicate slots.
+- Core tests cover unique IDs, empty and blank slides, grouped placeholders and editable saved content. Browser tests verify multiple selected slides, undo/redo, both languages and saved reload. Clearing all formatting overrides for a complete layout reset remains outstanding.

@@ -1,3 +1,4 @@
+import { buildPlaceholderStub } from '../../internal/presentationml/slide-builder.ts';
 import {
   readFlip,
   readPosition,
@@ -31,7 +32,14 @@ import {
   SLIDE_DOCUMENT,
   type SlideData,
 } from '../_internal-symbols.ts';
-import { commitSlideData, decode, refreshSlideData } from './_helpers.ts';
+import {
+  commitSlideData,
+  decode,
+  refreshSlideData,
+  nextShapeId,
+  requireSpTree,
+  rebuildShapesFromDocument,
+} from './_helpers.ts';
 import { getSlideLayout, getSlideShapes } from './shape-slide-read.ts';
 
 const nvNames = {
@@ -41,10 +49,10 @@ const nvNames = {
   graphicFrame: 'nvGraphicFramePr',
   group: 'nvGrpSpPr',
 };
-function hasPlaceholder(shape: SlideShape): boolean {
+function placeholderElement(shape: SlideShape): XmlElement | null {
   const nv = firstChildElement(shape.element, qname('p', nvNames[shape.kind], NS.pml));
   const properties = nv && firstChildElement(nv, qname('p', 'nvPr', NS.pml));
-  return !!properties && !!firstChildElement(properties, qname('p', 'ph', NS.pml));
+  return properties ? firstChildElement(properties, qname('p', 'ph', NS.pml)) : null;
 }
 function topLevelElements(root: XmlElement): Set<XmlNode> {
   const csld = firstChildElement(root, qname('p', 'cSld', NS.pml));
@@ -73,7 +81,7 @@ export const resetSlidePlaceholderGeometry = (slide: SlideData): number => {
   for (const shape of layout[LAYOUT_PART].shapes) {
     if (
       layoutElements.has(shape.element) &&
-      hasPlaceholder(shape) &&
+      placeholderElement(shape) &&
       !slots.has(shape.placeholderIdx ?? 0)
     )
       slots.set(shape.placeholderIdx ?? 0, shape);
@@ -90,7 +98,7 @@ export const resetSlidePlaceholderGeometry = (slide: SlideData): number => {
     const elements = topLevelElements(root);
     for (const shape of readShapeTreeFromCsldRoot(root, 'sldMaster').shapes) {
       const type = masterType(shape.placeholderType);
-      if (elements.has(shape.element) && hasPlaceholder(shape) && !masters.has(type))
+      if (elements.has(shape.element) && placeholderElement(shape) && !masters.has(type))
         masters.set(type, shape);
     }
   }
@@ -98,7 +106,7 @@ export const resetSlidePlaceholderGeometry = (slide: SlideData): number => {
   let count = 0;
   for (const shape of getSlideShapes(slide)) {
     const snapshot = shape[SHAPE_SNAPSHOT];
-    if (!elements.has(shape[SHAPE_ELEMENT]) || !hasPlaceholder(snapshot)) continue;
+    if (!elements.has(shape[SHAPE_ELEMENT]) || !placeholderElement(snapshot)) continue;
     const slot = slots.get(snapshot.placeholderIdx ?? 0);
     if (!slot) continue;
     let source = slot;
@@ -128,4 +136,45 @@ export const resetSlidePlaceholderGeometry = (slide: SlideData): number => {
     refreshSlideData(slide);
   }
   return count;
+};
+
+/**
+ * Restore missing slide placeholders using the current layout.
+ * Existing content, geometry and formatting are untouched, including grouped
+ * placeholders. New slots inherit their layout's geometry and text style;
+ * layout prompt text and layout-only relationships are not copied.
+ * Returns the number of added placeholders. Repeated calls do not add duplicates.
+ */
+export const addMissingSlidePlaceholders = (slide: SlideData): number => {
+  const layout = getSlideLayout(slide);
+  if (!layout) return 0;
+  const present = new Set<number>();
+  for (const shape of getSlideShapes(slide)) {
+    const snapshot = shape[SHAPE_SNAPSHOT];
+    if (placeholderElement(snapshot)) present.add(snapshot.placeholderIdx ?? 0);
+  }
+  const elements = topLevelElements(layout[LAYOUT_PART].root);
+  const additions: XmlElement[] = [];
+  let id = nextShapeId(slide);
+  for (const slot of layout[LAYOUT_PART].shapes) {
+    if (!elements.has(slot.element)) continue;
+    const ph = placeholderElement(slot);
+    const index = slot.placeholderIdx ?? 0;
+    if (!ph || present.has(index)) continue;
+    additions.push(buildPlaceholderStub(id++, ph));
+    present.add(index);
+  }
+  if (!additions.length) return 0;
+  const tree = requireSpTree(slide);
+  // Shape-tree extensions must remain after all shape children.
+  const extension = tree.children.findIndex(
+    (node) =>
+      node.kind === 'element' &&
+      node.name.namespaceURI === NS.pml &&
+      node.name.localName === 'extLst',
+  );
+  tree.children.splice(extension < 0 ? tree.children.length : extension, 0, ...additions);
+  commitSlideData(slide);
+  rebuildShapesFromDocument(slide);
+  return additions.length;
 };

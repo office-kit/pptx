@@ -122,7 +122,7 @@ const buildGrpSpPr = (): XmlElement => elem(NAME_GRP_SP_PR);
 // Returns a placeholder-shape stub: <p:sp> with cNvPr, nvSpPr, ph, empty
 // spPr, and an empty txBody. Geometry, fill, and default style all flow
 // from the corresponding layout placeholder via inheritance.
-const buildPlaceholderStub = (id: number, layoutPlaceholder: XmlElement): XmlElement => {
+export const buildPlaceholderStub = (id: number, layoutPlaceholder: XmlElement): XmlElement => {
   const phType = getAttrValue(layoutPlaceholder, ATTR_TYPE);
   // Prompt flags describe layout-only prompt content, not the empty slide body.
   const phAttrs: XmlAttr[] = layoutPlaceholder.attrs
