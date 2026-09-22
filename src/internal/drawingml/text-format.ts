@@ -279,6 +279,71 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
 };
 
+const VISUAL_RUN_ATTRIBUTES = new Set([
+  'kumimoji',
+  'sz',
+  'b',
+  'i',
+  'u',
+  'strike',
+  'kern',
+  'cap',
+  'spc',
+  'normalizeH',
+  'baseline',
+]);
+const VISUAL_RUN_CHILDREN = new Set([
+  'ln',
+  'noFill',
+  'solidFill',
+  'gradFill',
+  'blipFill',
+  'pattFill',
+  'grpFill',
+  'effectLst',
+  'effectDag',
+  'highlight',
+  'uLnTx',
+  'uLn',
+  'uFillTx',
+  'uFill',
+  'latin',
+  'ea',
+  'cs',
+  'sym',
+]);
+
+/** Retain links, language, proofing and unknown extensions when clearing appearance. */
+export const resetRunFormat = (properties: XmlElement): void => {
+  properties.attrs = properties.attrs.filter(
+    (a) => a.name.namespaceURI !== '' || !VISUAL_RUN_ATTRIBUTES.has(a.name.localName),
+  );
+  properties.children = properties.children.filter(
+    (c) =>
+      c.kind !== 'element' ||
+      c.name.namespaceURI !== NS.dml ||
+      !VISUAL_RUN_CHILDREN.has(c.name.localName),
+  );
+};
+
+const resetTextBodyRunFormats = (node: XmlElement): void => {
+  if (
+    node.name.namespaceURI === NS.dml &&
+    ['rPr', 'defRPr', 'endParaRPr'].includes(node.name.localName)
+  ) {
+    resetRunFormat(node);
+    return;
+  }
+  for (const child of node.children) {
+    if (
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName !== 'extLst'
+    )
+      resetTextBodyRunFormats(child);
+  }
+};
+
 /**
  * Walks `txBody`, ensuring every `<a:r>` has an `<a:rPr>` carrying the
  * supplied format. Existing run-property attributes not addressed by
@@ -288,12 +353,21 @@ export const applyFormatToAllRuns = (
   txBody: XmlElement,
   format: TextFormat,
   caller = 'setShapeTextFormat',
+  reset = false,
 ): void => {
   validateFormatEnums(format, caller);
-  applyValidatedFormatToAllRuns(txBody, format);
+  applyValidatedFormatToAllRuns(txBody, format, reset);
 };
 
-export const applyValidatedFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
+export const applyValidatedFormatToAllRuns = (
+  txBody: XmlElement,
+  format: TextFormat,
+  reset = false,
+): void => {
+  if (reset) {
+    applyValidatedRunFormat(elem(NAME_RPR), format);
+    resetTextBodyRunFormats(txBody);
+  }
   // Walk depth-first; runs live two levels deep (txBody > p > r).
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {

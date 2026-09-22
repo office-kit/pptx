@@ -6,7 +6,7 @@
   let { formats, selected, onformat, ontoggle, ondone, onlink, paragraph, onparagraph, context = 'text' }: {
     formats: TextFormat[];
     selected: boolean;
-    onformat: (format: TextFormat) => void;
+    onformat: (format: TextFormat, reset?: boolean) => void;
     ontoggle?: (property: TextFormatToggle) => void;
     ondone?: () => void;
     onlink?: () => void;
@@ -44,6 +44,7 @@
   <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!selected} onchange={e => onformat({ highlight: e.currentTarget.value })} /></label>
   <button class="ok-btn" disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
   <button class="ok-btn" disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
+  <button class="ok-btn" disabled={!selected} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{t('Clear text formatting')}</button>
   {#if onparagraph && paragraph}
     <label>{t('Paragraph alignment')}<select aria-label={t('Paragraph alignment')} value={paragraph.align} onchange={e => onparagraph?.('align', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option>

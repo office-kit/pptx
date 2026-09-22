@@ -29,8 +29,8 @@
     const cells = [...selectedCells];
     if (cells.length) doc.transact(label, () => { for (const cell of cells) edit(cell); });
   }
-  function formatCells(format: TextFormat) {
-    applyToCells(t('Format selected cells'), cell => setTableCellTextFormat(cell, format));
+  function formatCells(format: TextFormat, reset = false) {
+    applyToCells(t(reset ? 'Clear text formatting' : 'Format selected cells'), cell => setTableCellTextFormat(cell, format, { reset }));
   }
   function editCellLinks() {
     if (!tableState) return;

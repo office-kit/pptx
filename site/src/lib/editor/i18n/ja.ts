@@ -534,6 +534,7 @@ export const ja: Record<string, string> = {
   'Selected text formatting': '選択した文字の書式',
   'Selected text': '選択した文字',
   'Select text to format': '書式を変える文字を選択',
+  'Clear text formatting': '文字の書式を解除',
   'Format selected text': '選択した文字の書式を変更',
   'Edit text': 'テキストを編集',
   'Cell borders': 'セルの罫線',

@@ -650,17 +650,17 @@
     cur.changes = [];
     requestAnimationFrame(() => textArea?.setSelectionRange(range.start, range.end));
   }
-  function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat)) {
+  function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat), reset = false) {
     if (!editing || textRange.start === textRange.end) return;
     const cur = editing;
     const box = boxes.find((b) => b.id === cur.id);
     if (!box) return;
     const range = { ...textRange };
-    doc.transact(t('Format selected text'), () => {
+    doc.transact(t(reset ? 'Clear text formatting' : 'Format selected text'), () => {
       replayEdits(box, cur);
       const resolved = typeof format === 'function' ? format(selectedTextFormats()) : format;
-      if (cur.cell) setTableCellTextFormat(getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!, resolved, { range });
-      else setShapeTextFormat(box.shape, resolved, { range });
+      if (cur.cell) setTableCellTextFormat(getTableCells(box.shape)[cur.cell.row]![cur.cell.col]!, resolved, { range, reset });
+      else setShapeTextFormat(box.shape, resolved, { range, reset });
     });
     cur.changes = [];
     requestAnimationFrame(() => {
@@ -835,6 +835,7 @@
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === '\\' && textRange.start !== textRange.end) { e.preventDefault(); applyInlineFormat({}, true); }
                 if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u') && textRange.start !== textRange.end) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
                 else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }

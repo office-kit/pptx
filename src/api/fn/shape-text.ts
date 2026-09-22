@@ -670,15 +670,18 @@ export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignme
  * with an exclusive end. Paragraph separators and line breaks each count as one
  * character. Empty ranges do nothing; invalid or split-surrogate boundaries throw.
  * Partially selected fields become literal runs; fully selected fields stay fields.
+ * With `reset`, clears direct visual run properties before applying `format`,
+ * restoring inherited fonts and appearance while keeping links and language.
+ * Without a range, also clears text-body and paragraph run-format defaults.
  */
 export const setShapeTextFormat = (
   shape: SlideShapeData,
   format: TextFormat,
-  options?: { range?: { start: number; end: number } },
+  options?: { range?: { start: number; end: number }; reset?: boolean },
 ): void => {
   const body = requireTxBody(shape);
-  if (options?.range) formatTextBodyRange(body, format, options.range);
-  else applyFormatToAllRuns(body, format, 'setShapeTextFormat');
+  if (options?.range) formatTextBodyRange(body, format, options.range, options.reset);
+  else applyFormatToAllRuns(body, format, 'setShapeTextFormat', options?.reset);
   commitAndRefresh(shape);
 };
 

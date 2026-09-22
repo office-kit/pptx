@@ -2088,7 +2088,7 @@
         },
         {
           "name": "options",
-          "type": "{ range?: { start: number; end: number } }",
+          "type": "{ range?: { start: number; end: number }; reset?: boolean }",
           "kind": "object",
           "optional": true
         }
@@ -2529,7 +2529,7 @@
         },
         {
           "name": "options",
-          "type": "{ range?: { start: number; end: number } }",
+          "type": "{ range?: { start: number; end: number }; reset?: boolean }",
           "kind": "object",
           "optional": true
         }
