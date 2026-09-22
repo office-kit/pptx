@@ -40,6 +40,7 @@ export * from './fn/media.ts';
 export * from './fn/shape-click-action.ts';
 export * from './fn/shape-image-effects.ts';
 export * from './fn/shape-animation.ts';
+export * from './fn/slide-animation-edit.ts';
 
 // Slide features
 export * from './fn/slide-background.ts';

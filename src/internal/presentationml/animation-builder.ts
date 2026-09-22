@@ -227,29 +227,28 @@ const buildOpacityAnim = (
 export const buildSingleEffectTiming = (
   spid: number,
   opts: AnimationOptions,
-  paragraph: number | null = null,
+  ctx: { readonly paragraph?: number | null; readonly label?: string } = {},
 ): XmlElement => {
+  const paragraph = ctx.paragraph ?? null;
+  const label = ctx.label ?? 'setShapeAnimation';
   const effect = oneOf(
     opts.effect,
     ['fadeIn', 'fadeOut', 'appear', 'disappear'],
-    'setShapeAnimation: effect',
+    `${label}: effect`,
   );
   const preset = PRESETS[effect];
   // <p:cTn dur> is ST_TLTime (xsd:unsignedInt ms or "indefinite"). Bounds
   // checking rounds to whole milliseconds and rejects anything outside the
   // range, so we never emit an invalid dur.
   const duration =
-    opts.durationMs === undefined
-      ? 500
-      : unsignedIntMs(opts.durationMs, 'setShapeAnimation: durationMs');
+    opts.durationMs === undefined ? 500 : unsignedIntMs(opts.durationMs, `${label}: durationMs`);
 
   const start = oneOf(
     opts.start ?? 'click',
     ['click', 'withPrevious', 'afterPrevious'],
-    'setShapeAnimation: start',
+    `${label}: start`,
   );
-  const delay =
-    opts.delayMs === undefined ? 0 : unsignedIntMs(opts.delayMs, 'setShapeAnimation: delayMs');
+  const delay = opts.delayMs === undefined ? 0 : unsignedIntMs(opts.delayMs, `${label}: delayMs`);
 
   const isFade = opts.effect === 'fadeIn' || opts.effect === 'fadeOut';
   const isEntrance = preset.presetClass === 'entr';

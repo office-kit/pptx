@@ -11,6 +11,7 @@ import {
   NS,
   type XmlElement,
   allChildElements,
+  attr,
   cloneElement,
   elem,
   firstChildElement,
@@ -26,6 +27,13 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import {
+  buildEntryKey,
+  cTnIdsUnder,
+  readBuildEntries,
+  remapSpids,
+  startOfEffect,
+} from './_animation-layout.ts';
+import {
   type AnimationSequenceKind,
   type AnimationStart,
   type AnimationTarget,
@@ -33,6 +41,7 @@ import {
   findSlideTimingElement,
   groupEndMs,
   readSlideTiming,
+  readTimingSteps,
   setGroupStartOffset,
 } from './_animation-timing.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
@@ -99,6 +108,33 @@ const shiftCTnIds = (el: XmlElement, offset: number): void => {
             : a,
         );
       }
+    }
+    for (const c of e.children) if (c.kind === 'element') walk(c);
+  };
+  walk(el);
+};
+
+/**
+ * Gives every `<p:cTn>` under `el` the next id the cursor has, in document
+ * order, recording what each one was when the caller asks.
+ *
+ * A freshly built effect numbers its nodes from 3, so shifting them past the
+ * tree would do; a copied subtree carries whatever ids the file it came from
+ * used, and those can land anywhere — on top of an id already in the target
+ * included. Renumbering outright is the one rule that holds for both.
+ */
+const renumberCTnIds = (el: XmlElement, cursor: MergeCursor, into?: Map<string, string>): void => {
+  const walk = (e: XmlElement): void => {
+    if (isPml(e, 'cTn')) {
+      const previous = getAttrValue(e, ATTR_ID_FN);
+      const id = String(++cursor.maxCTnId);
+      if (previous !== null) into?.set(previous, id);
+      e.attrs =
+        previous === null
+          ? [attr(ATTR_ID_FN, id), ...e.attrs]
+          : e.attrs.map((a) =>
+              a.name.namespaceURI === '' && a.name.localName === 'id' ? { ...a, value: id } : a,
+            );
     }
     for (const c of e.children) if (c.kind === 'element') walk(c);
   };
@@ -293,10 +329,9 @@ const mergeEffectInto = (
   effect: FreshEffect,
   start: AnimationStartCondition,
   group: BuildGroup,
+  renumbered?: Map<string, string>,
 ): boolean => {
-  const offset = cursor.maxCTnId - 2; // fresh effect ids start at 3
-  if (offset > 0) shiftCTnIds(effect.par, offset);
-  cursor.maxCTnId = Math.max(cursor.maxCTnId, maxCTnId(effect.par));
+  renumberCTnIds(effect.par, cursor, renumbered);
 
   // A click effect becomes its own stop. A with/after effect joins the stop
   // already there: `withPrevious` alongside the effects that run together,
@@ -368,7 +403,7 @@ const timingWithEffects = (
   let buildGrpId: string | null = null;
 
   for (const paragraph of targets) {
-    const fresh = buildSingleEffectTiming(spid, opts, paragraph);
+    const fresh = buildSingleEffectTiming(spid, opts, { paragraph });
     if (timing === null) {
       // No timing on the slide at all, so the builder's standalone tree is the
       // draft — effect, click stop and build entry already in place, with the
@@ -553,4 +588,298 @@ export const clearSlideAnimations = (slide: SlideData): void => {
   }
   commitSlideData(slide);
   refreshSlideData(slide);
+};
+
+// ---------------------------------------------------------------------------
+// Copying a shape's animations along with the shape.
+//
+// Each effect is copied as the subtree it is, not rebuilt from what the read
+// model makes of it: a build whose second paragraph was deleted stays deleted,
+// a paragraph retimed on its own keeps its own timing, and a preset this
+// library cannot name still comes across. Only the shape ids, the cTn ids and
+// the build groups are rewritten.
+//
+// The whole copy — the offsets an `afterPrevious` effect needs measured
+// included — is assembled before the caller has added a shape, a relationship
+// or a part, so a refusal costs the target nothing.
+
+const COPY = 'copyShape: ';
+
+const ATTR_GRP_ID_FN = qname('', 'grpId', '');
+const ATTR_VAL_FN = qname('', 'val', '');
+const ATTR_SPID_FN = qname('', 'spid', '');
+
+/** The `<p:par>` each time node hangs from, collected in one walk. */
+const parentPars = (timing: XmlElement): Map<XmlElement, XmlElement> => {
+  const out = new Map<XmlElement, XmlElement>();
+  const walk = (el: XmlElement): void => {
+    if (isPml(el, 'par')) {
+      const cTn = firstChildElement(el, NAME_CTN);
+      if (cTn !== null) out.set(cTn, el);
+    }
+    for (const c of el.children) if (c.kind === 'element') walk(c);
+  };
+  walk(timing);
+  return out;
+};
+
+/** One effect of the source slide, and what the copy needs to know about it. */
+interface CopiedEffect {
+  /** The source's effect `<p:par>` — the subtree that is cloned. */
+  readonly par: XmlElement;
+  readonly start: AnimationStartCondition;
+  /** The shapes it drives, in document order; all of them are being copied. */
+  readonly spids: readonly string[];
+  readonly grpId: string | null;
+}
+
+/**
+ * The effects to copy, in the click order they play in. Taken from the read
+ * model's own effect nodes rather than by looking for `<p:par>` wrappers whose
+ * targets all happen to be copied: on a slide where the copied shape is the
+ * only animated one, every wrapper up to the root passes that test, and the
+ * root is not an effect.
+ */
+const effectsToCopy = (source: XmlElement, copied: ReadonlySet<string>): CopiedEffect[] => {
+  const pars = parentPars(source);
+  const out: CopiedEffect[] = [];
+  for (const node of readTimingSteps(source)) {
+    const spids = node.step.targetShapeIds.map(String);
+    if (!spids.some((id) => copied.has(id))) continue;
+    if (!spids.every((id) => copied.has(id))) {
+      throw new Error(
+        `${COPY}this shape shares an animation with a shape that is not being copied, so the copy ` +
+          'cannot be given one of its own. Copy the shapes together, or split the effect first.',
+      );
+    }
+    if (node.step.sequence !== 'mainSeq') {
+      throw new Error(
+        `${COPY}this shape is animated by an interactive sequence, which is bound to the click ` +
+          'that triggers it and cannot be reproduced for the copy. Remove that animation first.',
+      );
+    }
+    const par = pars.get(node.cTn);
+    const start = startOfEffect(node.cTn);
+    if (par === undefined || start === null) {
+      throw new Error(
+        `${COPY}this shape has an animation whose start condition is not one this library models, ` +
+          'so the copy could not be given the same one. Remove it from the original first.',
+      );
+    }
+    out.push({ par, start, spids, grpId: getAttrValue(node.cTn, ATTR_GRP_ID_FN) });
+  }
+  return out;
+};
+
+/** Every `<p:tn val>` at or under `el` — the time nodes it waits on. */
+const timeNodeRefs = (el: XmlElement, into: Set<string>): void => {
+  if (isPml(el, 'tn')) {
+    const val = getAttrValue(el, ATTR_VAL_FN);
+    if (val !== null) into.add(val);
+  }
+  for (const c of el.children) if (c.kind === 'element') timeNodeRefs(c, into);
+};
+
+/** Rewrites those references to the ids the copies were renumbered to. */
+const remapTimeNodeRefs = (el: XmlElement, remap: ReadonlyMap<string, string>): void => {
+  if (isPml(el, 'tn')) {
+    el.attrs = el.attrs.map((a) =>
+      a.name.namespaceURI === '' && a.name.localName === 'val'
+        ? { ...a, value: remap.get(a.value) ?? a.value }
+        : a,
+    );
+  }
+  for (const c of el.children) if (c.kind === 'element') remapTimeNodeRefs(c, remap);
+};
+
+/**
+ * Refuses an effect that waits on a time node outside the copied set. One that
+ * waits on another copied effect is fine — both are renumbered through the
+ * same map, so the copy waits on its own predecessor — but one that waits on
+ * an effect staying behind would follow the original, and stop following
+ * anything the moment the original is retimed.
+ */
+const assertReferencesStayInside = (effects: readonly CopiedEffect[]): void => {
+  const inside = new Set<string>();
+  for (const effect of effects) for (const id of cTnIdsUnder(effect.par)) inside.add(id);
+  const refs = new Set<string>();
+  for (const effect of effects) timeNodeRefs(effect.par, refs);
+  const outside = [...refs].find((id) => !inside.has(id));
+  if (outside !== undefined) {
+    throw new Error(
+      `${COPY}this shape has an animation timed against another element of the slide ` +
+        `(<p:tn val="${outside}">), and the copy would either still wait on the original or wait ` +
+        'on nothing. Remove it from the original first.',
+    );
+  }
+};
+
+/**
+ * A `<p:timing>` with a main sequence and nothing in it, for a target slide
+ * that has no timing at all. Every effect then merges the way it would on a
+ * slide that already animates something, rather than the first one taking a
+ * path of its own.
+ */
+const emptyMainSeqTiming = (): XmlElement => {
+  const timing = buildSingleEffectTiming(1, { effect: 'appear' });
+  const mainSeq = findDescendant(timing, isMainSeqCTn);
+  const childTnLst = mainSeq === null ? null : firstChildElement(mainSeq, NAME_CHILD_TN_LST);
+  if (childTnLst === null) throw new Error(`${COPY}post-condition failed: no main sequence`);
+  childTnLst.children = [];
+  timing.children = timing.children.filter((c) => !(c.kind === 'element' && isPml(c, 'bldLst')));
+  return timing;
+};
+
+/**
+ * Puts an empty main sequence ahead of the sequences a timing already has, for
+ * a target slide whose timing holds only media or interactive nodes.
+ * PowerPoint keeps the main sequence first.
+ */
+const adoptEmptyMainSeq = (timing: XmlElement): MergeCursor | null => {
+  const rootList = rootChildTnLst(timing);
+  const seq = rootChildTnLst(emptyMainSeqTiming())?.children.find(
+    (c): c is XmlElement => c.kind === 'element' && isPml(c, 'seq'),
+  );
+  if (!rootList || !seq) return null;
+  shiftCTnIds(seq, maxCTnId(timing) - 1); // a fresh mainSeq is cTn id 2
+  rootList.children.unshift(seq);
+  return openMergeCursor(timing);
+};
+
+/** The builder's click stop and group wrapper, with a cloned effect inside. */
+const wrapClonedEffect = (
+  spid: string,
+  start: AnimationStartCondition,
+  clone: XmlElement,
+  bldP: XmlElement,
+): FreshEffect | null => {
+  const shell = openFreshEffect(buildSingleEffectTiming(Number(spid), { effect: 'appear', start }));
+  const group = shell === null ? undefined : innerPars(shell.par)[0];
+  const groupCTn = group === undefined ? null : firstChildElement(group, NAME_CTN);
+  const childTnLst = groupCTn === null ? null : firstChildElement(groupCTn, NAME_CHILD_TN_LST);
+  const cloneCTn = firstChildElement(clone, NAME_CTN);
+  if (shell === null || childTnLst === null || cloneCTn === null) return null;
+  childTnLst.children = [clone];
+  return { par: shell.par, bldP, cTn: cloneCTn };
+};
+
+/** A `<p:bldP>` for a copied shape whose original had none. */
+const freshBuildEntry = (spid: string): XmlElement =>
+  elem(qname('p', 'bldP', NS.pml), {
+    attrs: [attr(ATTR_SPID_FN, spid), attr(ATTR_GRP_ID_FN, '0')],
+  });
+
+/** The build entries a newly opened group needs — one per shape it animates. */
+const buildEntriesFor = (
+  effect: CopiedEffect,
+  idMap: ReadonlyMap<string, string>,
+  sourceBuilds: ReadonlyMap<string, XmlElement>,
+): XmlElement[] =>
+  effect.spids.map((spid) => {
+    const copied = idMap.get(spid)!;
+    const source = sourceBuilds.get(buildEntryKey(spid, effect.grpId));
+    if (source === undefined) return freshBuildEntry(copied);
+    // The original's entry carries `build="p"` and `bldLvl`, which is what
+    // makes a copied paragraph build still reveal a paragraph at a time.
+    const entry = cloneElement(source);
+    entry.attrs = entry.attrs.map((a) =>
+      a.name.namespaceURI === '' && a.name.localName === 'spid' ? { ...a, value: copied } : a,
+    );
+    return entry;
+  });
+
+const NO_ANIMATION_COPY = (): void => {};
+
+/**
+ * Works out what `targetSlide`'s timing has to become for the copies of the
+ * shapes in `idMap` to animate the way their originals do, and returns the
+ * step that installs it. Throws instead when the animations cannot be
+ * reproduced — while the caller has still changed nothing, which is the point
+ * of splitting the work in two.
+ *
+ * A trigger is not inherited: an interactive sequence the original starts
+ * stays bound to the original.
+ *
+ * @internal
+ */
+export const planAnimationCopy = (
+  sourceSlide: SlideData,
+  targetSlide: SlideData,
+  idMap: ReadonlyMap<string, string>,
+): (() => void) => {
+  const source = findSlideTimingElement(sourceSlide);
+  if (source === null || idMap.size === 0) return NO_ANIMATION_COPY;
+  const effects = effectsToCopy(source, new Set(idMap.keys()));
+  if (effects.length === 0) return NO_ANIMATION_COPY;
+  assertReferencesStayInside(effects);
+
+  const sourceBuilds = readBuildEntries(source);
+  const existing = findTiming(targetSlide);
+  const timing = existing === null ? emptyMainSeqTiming() : cloneElement(existing);
+  const cursor = openMergeCursor(timing) ?? adoptEmptyMainSeq(timing);
+  if (cursor === null) {
+    throw new Error(
+      `${COPY}the target slide has an animation timing tree this library cannot safely extend, so ` +
+        "the copy's animations have nowhere to go. Call clearSlideAnimations on it first.",
+    );
+  }
+
+  // A new group takes max-existing + 1 rather than a count: authored grpIds
+  // need not be the contiguous 0..n sequence, and a count would collide.
+  let nextGrpId = maxGrpId(timing) + 1;
+  const groups = new Map<string, string>();
+  const renumbered = new Map<string, string>();
+  const clones: XmlElement[] = [];
+
+  for (const effect of effects) {
+    const clone = cloneElement(effect.par);
+    remapSpids(clone, idMap);
+    clones.push(clone);
+
+    // One group per source group, so the paragraphs of one build still share a
+    // single entry and animate as one build on the copy too.
+    const key = `${effect.spids.join(',')}|${effect.grpId ?? ''}`;
+    const known = groups.get(key);
+    const grpId = known ?? String(nextGrpId++);
+    const entries = known === undefined ? buildEntriesFor(effect, idMap, sourceBuilds) : [];
+    const spid = idMap.get(effect.spids[0]!)!;
+    const wrapped = wrapClonedEffect(
+      spid,
+      effect.start,
+      clone,
+      entries[0] ?? freshBuildEntry(spid),
+    );
+    const merged =
+      wrapped !== null &&
+      mergeEffectInto(
+        cursor,
+        wrapped,
+        effect.start,
+        { grpId, addBuild: known === undefined },
+        renumbered,
+      );
+    if (!merged) {
+      throw new Error(
+        `${COPY}the target slide has an animation timing tree this library cannot safely extend, ` +
+          "so the copy's animations have nowhere to go. Call clearSlideAnimations on it first.",
+      );
+    }
+    // A composite effect drives more than one shape, and PowerPoint wants an
+    // entry per shape under the group they share.
+    for (const extra of entries.slice(1)) {
+      setGrpId(extra, grpId);
+      cursor.bldLst = addBuildEntry(cursor.timing, extra, cursor.bldLst);
+    }
+    groups.set(key, grpId);
+  }
+
+  // Only now is every new id known, so an effect that waited on another copied
+  // one can be pointed at that one's copy.
+  for (const clone of clones) remapTimeNodeRefs(clone, renumbered);
+
+  return () => {
+    const children = targetSlide[SLIDE_DOCUMENT].root.children;
+    if (existing === null) insertTimingAtEnd(targetSlide, timing);
+    else children[children.indexOf(existing)] = timing;
+  };
 };

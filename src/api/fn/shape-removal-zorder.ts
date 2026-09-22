@@ -27,6 +27,8 @@ import {
   findShapeParent,
 } from './_helpers.ts';
 import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
+import { planAnimationCopy } from './shape-animation.ts';
+import { planShapeAnimationRemoval } from './slide-animation-edit.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — removal.
 
@@ -82,7 +84,13 @@ export const copyShape = (
     }
   }
   const newId = nextShapeId(targetSlide);
-  rewriteShapeIds(cloned, newId);
+  const copiedIds = rewriteShapeIds(cloned, newId);
+  // A copy animates on its own: the effects the original carries are cloned
+  // against the ids the copy has just been given, group children included.
+  // Planned here, ahead of the parts and relationships, so a copy this library
+  // cannot reproduce faithfully leaves the target slide untouched rather than
+  // half-built.
+  const copyAnimations = planAnimationCopy(sourceSlide, targetSlide, copiedIds);
 
   const sourceRels = sourcePkg.getRels(sourceSlide[SLIDE_PART_NAME]);
   const relsById = new Map(sourceRels?.items.map((rel) => [rel.id, rel]));
@@ -145,8 +153,11 @@ export const copyShape = (
   rewriteRIdReferences(cloned, (id) => relIds.get(id)!);
   pkg.setRels(targetSlide[SLIDE_PART_NAME], targetRels);
 
+  copyAnimations();
+
   // A clip's play controls come from a media time node keyed by shape id, so
-  // the copy needs its own node under the id it was just given.
+  // the copy needs its own node under the id it was just given. It goes into
+  // the timing the animations have already landed in.
   const addMediaControls = (el: XmlElement): void => {
     if (el.name.namespaceURI === NS.pml && el.name.localName === 'pic') {
       const media = readPictureMediaRef(el);
@@ -178,7 +189,7 @@ const cloneXmlElement = (el: XmlElement): XmlElement => ({
   }),
 });
 
-const rewriteShapeIds = (root: XmlElement, firstId: number): void => {
+const rewriteShapeIds = (root: XmlElement, firstId: number): Map<string, string> => {
   const ids = new Map<string, string>();
   let nextId = firstId;
   const walk = (el: XmlElement, rewriteReferences: boolean): void => {
@@ -200,6 +211,7 @@ const rewriteShapeIds = (root: XmlElement, firstId: number): void => {
   };
   walk(root, false);
   walk(root, true);
+  return ids;
 };
 
 const rewriteRIdReferences = (root: XmlElement, map: (oldRId: string) => string): void => {
@@ -405,14 +417,15 @@ export const sendShapeBackward = (shape: SlideShapeData): void => {
 export const clearSlideShapes = (slide: SlideData): void => {
   const spTree = requireSpTree(slide);
   const removedIds = new Set<number>();
-  spTree.children = spTree.children.filter((c) => {
-    const isShape =
-      c.kind === 'element' &&
-      c.name.namespaceURI === NS.pml &&
-      SHAPE_CHILD_LOCALS.has(c.name.localName);
-    if (isShape) collectShapeIds(c, removedIds);
-    return !isShape;
-  });
+  for (const child of spTree.children) {
+    if (child.kind === 'element' && isShapeChild(child)) collectShapeIds(child, removedIds);
+  }
+  // Before the shapes go, so a slide whose timing could not survive losing
+  // them keeps both the shapes and their animations.
+  const dropAnimations = planShapeAnimationRemoval(slide, removedIds);
+
+  spTree.children = spTree.children.filter((c) => !isShapeChild(c));
+  dropAnimations();
   removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
@@ -424,9 +437,14 @@ export const removeShape = (shape: SlideShapeData): void => {
   if (!spTree) return;
   const idx = spTree.children.indexOf(shape[SHAPE_ELEMENT]);
   if (idx < 0) return;
-  spTree.children.splice(idx, 1);
   const removedIds = new Set<number>();
   collectShapeIds(shape[SHAPE_ELEMENT], removedIds);
+  // Before the shape goes, so a slide whose timing could not survive losing it
+  // keeps both the shape and its animations.
+  const dropAnimations = planShapeAnimationRemoval(slide, removedIds);
+
+  spTree.children.splice(idx, 1);
+  dropAnimations();
   removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);

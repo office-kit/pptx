@@ -556,6 +556,68 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  updateSlideAnimation: {
+    labelEn: 'Edit animation',
+    labelJa: 'アニメーションの変更',
+    ribbonGroup: 'animation',
+    params: [
+      { name: 'id', type: 'number', kind: 'number', optional: false, label: 'Animation' },
+      {
+        name: 'patch',
+        type: 'AnimationPatch',
+        kind: 'object',
+        optional: false,
+        fields: [
+          {
+            name: 'effect',
+            type: 'AnimationEffect',
+            kind: 'enum',
+            optional: true,
+            label: 'Effect',
+            enumValues: ['fadeIn', 'fadeOut', 'appear', 'disappear'],
+          },
+          {
+            name: 'start',
+            type: 'AnimationStartCondition',
+            kind: 'enum',
+            optional: true,
+            label: 'Start',
+            enumValues: ['click', 'withPrevious', 'afterPrevious'],
+          },
+          {
+            name: 'durationMs',
+            type: 'number',
+            kind: 'number',
+            optional: true,
+            label: 'Duration (ms)',
+          },
+          { name: 'delayMs', type: 'number', kind: 'number', optional: true, label: 'Delay (ms)' },
+          {
+            name: 'byParagraph',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'By paragraph',
+          },
+        ],
+      },
+    ],
+  },
+  removeSlideAnimation: {
+    labelEn: 'Delete animation',
+    labelJa: 'アニメーションの削除',
+    ribbonGroup: 'animation',
+    params: [{ name: 'id', type: 'number', kind: 'number', optional: false, label: 'Animation' }],
+  },
+  moveSlideAnimation: {
+    labelEn: 'Reorder animation',
+    labelJa: 'アニメーションの並べ替え',
+    ribbonGroup: 'animation',
+    params: [
+      { name: 'id', type: 'number', kind: 'number', optional: false, label: 'Animation' },
+      { name: 'index', type: 'number', kind: 'number', optional: false, label: 'Position' },
+    ],
+  },
   setShapeImageCrop: {
     labelEn: 'Crop image',
     labelJa: '画像のトリミング',

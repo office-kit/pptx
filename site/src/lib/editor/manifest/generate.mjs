@@ -54,6 +54,7 @@ export const MUTATING_VERBS = [
   'increment',
   'compact',
   'reset',
+  'update',
 ];
 
 // A handful of mutating-verb exports are not slide-authoring operations the
