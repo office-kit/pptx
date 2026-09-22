@@ -206,6 +206,7 @@ export {
   getCommentAuthor,
   getCommentAuthors,
   getCommentDate,
+  getCommentParent,
   getCommentPosition,
   getCommentSlide,
   getCommentText,

@@ -114,7 +114,7 @@
       "params": [
         {
           "name": "opts",
-          "type": "{ author: { name: string; initials?: string }; text: string; position?: CommentPosition | null; date?: Date; }",
+          "type": "{ author: { name: string; initials?: string }; text: string; position?: CommentPosition | null; date?: Date; /** Existing comment on this slide to reply to. */ replyTo?: SlideCommentData; }",
           "kind": "object",
           "optional": false
         }
