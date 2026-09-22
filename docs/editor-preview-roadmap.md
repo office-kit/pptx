@@ -387,3 +387,8 @@ positions, rotations and reflections produced by ungrouping.
 
 - Inline character-format indicators and toggle decisions now read the end mark of an empty paragraph in text shapes and table cells. This retains authored bold and size settings before typing, rather than reporting an unformatted caret.
 - Regression coverage verifies empty first/last paragraphs, neighboring nonempty text, save/reload and pending insertions that move the caret's paragraph.
+
+### Inherited character formatting in the inline toolbar
+
+- Caret and range controls resolve text-box character formats through the same layout/master/theme cascade as the rendered text, including detached pending edits. Toggle decisions therefore honor inherited bold rather than treating an absent run property as false.
+- Unit coverage checks master font size, paragraph-end bold, pending Japanese paragraph insertion and unchanged source XML. Browser coverage checks inherited title size in the toolbar before typing, during pending input and after saving/reopening.

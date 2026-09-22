@@ -1,6 +1,12 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import {
   addBlankSlide,
+  addSlide,
+  findSlideLayout,
+  findSlidePlaceholder,
+  getShapeRunFormatEffective,
+  getShapeXmlString,
   addSlideTextBox,
   addSlideTable,
   createPresentation,
@@ -56,3 +62,31 @@ for (const kind of ['shape', 'cell'] as const)
       }
     });
   });
+
+it('uses inherited placeholder styles for toolbar selections after pending edits', async () => {
+  const pres = await loadPresentation(
+    await readFile(new URL('./fixtures/minimal/blank.pptx', import.meta.url)),
+  );
+  const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content')! });
+  const shape = findSlidePlaceholder(slide, 'body')!;
+  setShapeParagraphs(shape, [{ runs: [{ text: 'English' }], endFormat: { bold: true } }]);
+  const xml = getShapeXmlString(shape);
+  const inherited = getShapeRunFormatEffective(pres, shape, 0, 0);
+  expect(inherited.size).toBeGreaterThan(18);
+  expect(inherited.bold).toBe(true);
+  for (const target of [
+    shape,
+    projectTextEdits(shape, [{ start: 0, end: 0, text: '日本語\n' }], undefined, pres),
+  ]) {
+    const context = { pres, source: shape };
+    const caret = textFormatsInRange(target, { start: 5, end: 5 }, undefined, context);
+    expect(caret[0]).toMatchObject(inherited);
+    expect(toggleTextFormat(caret, 'bold')).toEqual({ bold: false });
+    expect(
+      textFormatsInRange(target, { start: 4, end: 7 }, undefined, context).every(
+        (format) => format.size === inherited.size,
+      ),
+    ).toBe(true);
+  }
+  expect(getShapeXmlString(shape)).toBe(xml);
+});
