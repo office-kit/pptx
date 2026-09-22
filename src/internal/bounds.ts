@@ -121,6 +121,12 @@ export const normalizeGuid = (value: string, field: string): string => {
   return value.toUpperCase();
 };
 
+/**
+ * A fresh `ST_Guid`. `crypto.randomUUID` is a Web API, available in both
+ * runtimes this library targets, and is the only randomness it uses.
+ */
+export const newGuid = (): string => `{${globalThis.crypto.randomUUID().toUpperCase()}}`;
+
 // Generic enum-membership guard for attributes whose XSD type is an enumeration
 // (e.g. a pattern preset, a transition effect element name). Returns the value
 // narrowed to the allowed set, or throws naming the field and the legal tokens.

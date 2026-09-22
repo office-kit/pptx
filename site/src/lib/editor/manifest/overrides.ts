@@ -48,6 +48,27 @@ const handOverrides: Record<string, CapabilityOverride> = {
     ],
   },
   setCommentText: { labelEn: 'Edit Comments', labelJa: 'コメントを編集' },
+  setCommentStatus: {
+    labelEn: 'Resolve or Reopen Comment',
+    labelJa: 'コメントを解決 / 再開',
+    params: [
+      {
+        name: 'comment',
+        type: 'SlideCommentData',
+        kind: 'object',
+        optional: false,
+        label: 'Comment',
+      },
+      {
+        name: 'status',
+        type: 'CommentStatus',
+        kind: 'enum',
+        optional: false,
+        label: 'Status',
+        enumValues: ['active', 'resolved', 'closed'],
+      },
+    ],
+  },
   splitTableCell: { labelJa: '結合セルを分割' },
   addSectionHeaderSlide: { labelJa: 'セクション見出しスライドの追加' },
   addMissingSlidePlaceholders: {

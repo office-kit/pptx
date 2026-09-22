@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack, tick } from 'svelte';
-  import { getSlides, getSlideTitle, addSlideComment, getSlideComments, getCommentAuthor, getCommentText, getCommentParent, type SlideCommentData, removeSlideComment, setCommentText } from '@office-kit/pptx';
+  import { getSlides, getSlideTitle, addSlideComment, getSlideComments, getCommentAuthor, getCommentText, getCommentParent, getCommentStatus, type CommentStatus, type SlideCommentData, removeSlideComment, setCommentStatus, setCommentText } from '@office-kit/pptx';
   import { orderCommentThreads } from '../core/comment-threads.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -10,14 +10,17 @@
   const version = untrack(() => doc.version);
   const slides = untrack(() => getSlides(doc.pres));
   const original = slides.map(slide => getSlideComments(slide));
-  type Draft = { id: number; parent: number | null; comment: number | null; author: string; text: string };
+  // `status` is `null` for a comment that has nowhere to keep one — an
+  // ECMA-376 `<p:cm>` — and for a draft that is not in the file yet.
+  type Draft = { id: number; parent: number | null; comment: number | null; author: string; text: string; status: CommentStatus | null };
   const initialIndex = Math.max(0, slides.indexOf(openedSlide!));
   let reviewIndex = $state(initialIndex);
+  let showResolved = $state(false);
   let nextId = original.reduce((max, comments) => Math.max(max, comments.length), 0);
-  const newDraft = (parent: number | null = null): Draft => ({ id: nextId++, parent, comment: null, author: '', text: '' });
+  const newDraft = (parent: number | null = null): Draft => ({ id: nextId++, parent, comment: null, author: '', text: '', status: null });
   let slideDrafts = $state<Draft[][]>(original.map(comments => {
     const indices = new Map(comments.map((comment, index) => [comment, index]));
-    return comments.map((comment, index) => ({ id: index, parent: indices.get(getCommentParent(comment)!) ?? null, comment: index, author: getCommentAuthor(comment).name, text: getCommentText(comment) }));
+    return comments.map((comment, index) => ({ id: index, parent: indices.get(getCommentParent(comment)!) ?? null, comment: index, author: getCommentAuthor(comment).name, text: getCommentText(comment), status: getCommentStatus(comment) }));
   }));
   if (slideDrafts[initialIndex]?.length === 0) slideDrafts[initialIndex]!.push(newDraft());
   const drafts = $derived(slideDrafts[reviewIndex] ?? []);
@@ -30,7 +33,14 @@
     const ids = new Set(comments.map(draft => draft.id));
     return comments.every(draft => draft.text.trim() && (draft.comment !== null || draft.author.trim()) && (draft.parent === null || ids.has(draft.parent)));
   }));
-  const changed = $derived(pending.some((comments, index) => comments.length !== original[index]!.length || comments.some(draft => draft.comment === null || draft.text !== getCommentText(original[index]![draft.comment]!))));
+  // Resolving a thread and changing nothing else is a change: without the
+  // status here, Apply would stay disabled and the click would be lost.
+  const changed = $derived(pending.some((comments, index) => comments.length !== original[index]!.length || comments.some(draft => draft.comment === null || draft.text !== getCommentText(original[index]![draft.comment]!) || draft.status !== getCommentStatus(original[index]![draft.comment]!))));
+  // A resolved thread is out of the way by default, and its replies with it,
+  // but it is still here to be brought back and reopened.
+  const resolvedRoot = (draft: Draft): boolean => (draft.parent === null ? draft : draftById.get(draft.parent) ?? draft).status === 'resolved';
+  const visible = $derived(showResolved ? ordered : ordered.filter(draft => !resolvedRoot(draft)));
+  const hidden = $derived(ordered.length - visible.length);
   let error = $state('');
   let dialog: HTMLDialogElement;
   const valid = $derived(slides.length > 0 && complete && changed);
@@ -79,6 +89,7 @@
             if (draft.comment !== null) {
               const comment = existing[draft.comment]!;
               if (draft.text !== getCommentText(comment)) setCommentText(comment, draft.text);
+              if (draft.status !== null && draft.status !== getCommentStatus(comment)) setCommentStatus(comment, draft.status);
             } else {
               const replyTo = draft.parent === null ? undefined : handles.get(draft.parent);
               if (draft.parent !== null && !replyTo) throw new Error(t('Reply parent is missing.'));
@@ -102,15 +113,21 @@
         {/each}
       </select>
     </label>
+    <label class="inline"><input type="checkbox" aria-label={t('Show resolved threads')} bind:checked={showResolved} /> {t('Show resolved threads')}{#if hidden > 0} ({hidden}){/if}</label>
     <div class="comments">
-      {#each ordered as draft, i (draft.id)}
-        <section data-comment-id={draft.id} class:reply={draft.parent !== null} aria-label={`${t('Comment')} ${i + 1}`}>
-          <header>{#if draft.comment !== null}<strong>{draft.author}</strong>{:else}<label>{t('Author name')}<input class="ok-input" aria-label={t('Author name')} required={!!draft.text.trim()} bind:value={draft.author} /></label>{/if}<button type="button" class="ok-btn" onclick={() => removeDraft(draft.id)}>{t(parents.has(draft.id) ? 'Delete thread' : 'Delete comment')}</button></header>
+      {#each visible as draft, i (draft.id)}
+        <section data-comment-id={draft.id} class:reply={draft.parent !== null} class:resolved={draft.status === 'resolved'} aria-label={`${t('Comment')} ${i + 1}`}>
+          <header>{#if draft.comment !== null}<strong>{draft.author}</strong>{:else}<label>{t('Author name')}<input class="ok-input" aria-label={t('Author name')} required={!!draft.text.trim()} bind:value={draft.author} /></label>{/if}{#if draft.status === 'resolved'}<span class="badge">{t('Resolved')}</span>{/if}<button type="button" class="ok-btn" onclick={() => removeDraft(draft.id)}>{t(parents.has(draft.id) ? 'Delete thread' : 'Delete comment')}</button></header>
           {#if draft.parent !== null}<p>{t('Reply to')}: {draftById.get(draft.parent)?.author} — {draftById.get(draft.parent)?.text}</p>{/if}
           <label>{t('Comment text')}<textarea class="ok-input" aria-label={t('Comment text')} rows="3" required={draft.comment !== null || !!draft.author.trim()} bind:value={draft.text}></textarea></label>
-          <button type="button" class="ok-btn reply-button" disabled={!draft.text.trim() || (draft.comment === null && !draft.author.trim())} onclick={() => addDraft(draft.id)}>{t('Reply')}</button>
+          <div class="row">
+            <button type="button" class="ok-btn" disabled={!draft.text.trim() || (draft.comment === null && !draft.author.trim())} onclick={() => addDraft(draft.id)}>{t('Reply')}</button>
+            {#if draft.parent === null && draft.status !== null}
+              <button type="button" class="ok-btn" aria-label={`${t(draft.status === 'resolved' ? 'Reopen' : 'Resolve')} ${i + 1}`} onclick={() => draft.status = draft.status === 'resolved' ? 'active' : 'resolved'}>{t(draft.status === 'resolved' ? 'Reopen' : 'Resolve')}</button>
+            {/if}
+          </div>
         </section>
-      {:else}<p>{t('No comments on this slide.')}</p>{/each}
+      {:else}<p>{ordered.length > 0 ? t('Every thread on this slide is resolved.') : t('No comments on this slide.')}</p>{/each}
     </div>
     <button type="button" class="ok-btn" data-add-comment onclick={() => addDraft()}>{t('Add comment')}</button>
     {#if !complete}<p role="status">{t('Complete or delete unfinished comments on all slides before applying.')}</p>{/if}
@@ -125,7 +142,10 @@
   .comments { max-height: 50vh; overflow: auto; }
   section { padding: 12px; border: 1px solid var(--ok-border); border-radius: 6px; }
   section.reply { margin-left: 20px; border-left: 3px solid var(--ok-border); }
-  .reply-button { justify-self: start; }
+  section.resolved { opacity: 0.75; }
+  .row { display: flex; gap: 8px; }
+  .inline { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .badge { padding: 1px 8px; border: 1px solid var(--ok-border); border-radius: 999px; font-size: 11px; color: var(--ok-text-2); }
   section p { overflow-wrap: anywhere; }
   header, footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   footer { justify-content: flex-end; }

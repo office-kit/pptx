@@ -535,6 +535,11 @@ export const ja: Record<string, string> = {
   'Complete or delete unfinished comments on all slides before applying.':
     '適用する前に、各スライドの未入力のコメントを完成させるか削除してください。',
   'No comments on this slide.': 'このスライドにコメントはありません。',
+  Resolve: '解決済みにする',
+  Reopen: '再開する',
+  Resolved: '解決済み',
+  'Show resolved threads': '解決済みのスレッドを表示',
+  'Every thread on this slide is resolved.': 'このスライドのスレッドはすべて解決済みです。',
   'Comments are saved with this slide. Apply to save your changes.':
     'コメントはこのスライドに保存されます。「適用」で変更を保存します。',
   Comments: 'コメント',
