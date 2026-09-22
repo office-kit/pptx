@@ -5,12 +5,11 @@ import {
   getShapeRunFormatEffective,
   getTableCellParagraphs,
   getTableCells,
-  isShapePlaceholder,
-  isShapeTextBox,
   type PresentationData,
   type SlideShapeData,
 } from '@office-kit/pptx';
 import { paragraphNumberLabels } from '@office-kit/pptx-preview';
+import { shapeTextDefaults } from './text-layout-defaults.ts';
 import { textClipboardHtml } from './html-text-clipboard.ts';
 
 /** Keep literal UTF-16 paragraph separators for editing and clipboard offsets. */
@@ -76,8 +75,7 @@ export function inlineTextHtml(
     style.textAlign =
       props.align === 'distribute'
         ? 'justify'
-        : (props.align ??
-          (!tableCell && !isShapePlaceholder(shape) && !isShapeTextBox(shape) ? 'center' : 'left'));
+        : (props.align ?? (tableCell ? 'left' : shapeTextDefaults(shape).align));
     if (props.align === 'distribute') style.textAlignLast = 'justify';
     if (props.lineSpacing)
       style.lineHeight =

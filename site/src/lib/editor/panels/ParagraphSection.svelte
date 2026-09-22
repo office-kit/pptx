@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { getEditor } from '../core/context.ts';
   import { tableCellsInRange, tableSelectionBlock } from '../core/table-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -25,7 +26,7 @@
           properties: getParagraphPropertiesEffective(doc.pres, cell, paragraphIndex),
         }));
       });
-      return { key: `${sel.slideIndex}:${sel.shapeId}:${sel.row},${sel.col}:${sel.end?.row},${sel.end?.col}`, paragraphs };
+      return { key: `${sel.slideIndex}:${sel.shapeId}:${sel.row},${sel.col}:${sel.end?.row},${sel.end?.col}`, paragraphs, defaultAlign: 'left' };
     }
     if (sel.kind !== 'shape' || sel.shapeIds.length !== 1) return null;
     const shape = doc.shapeById(sel.slideIndex, sel.shapeIds[0]!);
@@ -35,7 +36,7 @@
       text: getShapeParagraphElements(shape, index).map(element => element.kind === 'br' ? ' ' : element.text).join(''),
       properties: getParagraphPropertiesEffective(doc.pres, shape, index),
     }));
-    return { key: `${sel.slideIndex}:${sel.shapeIds[0]}`, paragraphs };
+    return { key: `${sel.slideIndex}:${sel.shapeIds[0]}`, paragraphs, defaultAlign: shapeTextDefaults(shape).align };
   });
   const index = $derived(current && target?.key === current.key && target.index < current.paragraphs.length ? target.index : -1);
   const selected = $derived(current?.paragraphs.filter(p => index === -1 || p.index === index) ?? []);
@@ -43,7 +44,7 @@
     const values = selected.map(p => read(p.properties));
     return values.every(value => value === values[0]) ? values[0] : undefined;
   }
-  const align = $derived(common(p => p.align ?? 'left'));
+  const align = $derived(common(p => p.align ?? current?.defaultAlign ?? 'left'));
   const bullet = $derived(common(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : 'custom'));
   const level = $derived(common(p => p.level));
   const lineKind = $derived(common(p => p.lineSpacing?.kind ?? 'inherit'));

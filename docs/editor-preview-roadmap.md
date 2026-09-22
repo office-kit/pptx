@@ -558,3 +558,8 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - The preview renderer and inline editor share the preset text rectangle calculation. Triangles, diamonds, pentagons, five-pointed stars and double arrows retain their constrained text regions and asymmetric body margins while editing. Autoshape paragraphs without authored or inherited alignment now use the preview's centered default.
 - Browser coverage compares the editing content rectangle against the rendered SVG foreignObject for six presets, a nonuniformly scaled group, and margins that collapse a star's region. It checks bilingual edits and Japanese saved reload. Renderer tests cover degenerate inset fallback and existing SVG/audit behavior.
 - This matches the preview's existing preset approximations. Custom-geometry text rectangles and adjustment-dependent geometry still require renderer work.
+
+### Default paragraph alignment readback
+
+- The inline toolbar and paragraph panel now report centered alignment for autoshapes with no authored or inherited alignment, matching their rendered text. Text boxes, placeholders and table cells retain the left-aligned fallback. Editing layout and both controls share the editor's shape defaults.
+- Browser coverage checks English and Japanese readback for preset shapes, text-box/table defaults, explicit right alignment and Undo/Redo. Mixed or inherited object-level controls retain their existing distinction between local settings and effective paragraph values.
