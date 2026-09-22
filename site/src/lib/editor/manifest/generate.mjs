@@ -14,6 +14,7 @@
 // entries.
 //
 // Run: `node site/src/lib/editor/manifest/generate.mjs`
+import { spawnSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -309,4 +310,12 @@ writeFileSync(
     2,
   ) + '\n',
 );
+// `JSON.stringify` and oxfmt disagree about short arrays, so an unformatted
+// write would fail `format:check` every time this regenerates.
+const formatted = spawnSync(join(repoRoot, 'node_modules', '.bin', 'oxfmt'), [outPath], {
+  stdio: 'inherit',
+});
+if (formatted.status !== 0) {
+  throw new Error(`oxfmt failed on ${outPath} (exit ${formatted.status})`);
+}
 console.log(`Wrote ${capabilities.length} capabilities to ${outPath.replace(repoRoot + '/', '')}`);
