@@ -399,6 +399,52 @@ test('nested groups remain a single selectable object and ungroup one level at a
   assert.deepEqual(editor.doc.selection.shapeIds, shapes.map(getShapeId));
 });
 
+test('grouped siblings can regroup and ungroup in place with undo and mixed-scope rejection', async () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const ids = shapes.map(getShapeId);
+  const slideIndex = editor.doc.selection.slideIndex;
+  editor.invoke('groupShapes');
+  const outerId = getShapeId(editor.selectedShapes()[0]);
+  const outer = () => editor.doc.shapeById(slideIndex, outerId);
+  editor.doc.transact('Transform outer', () => {
+    setShapeRotation(outer(), 35);
+    setShapeFlip(outer(), { horizontal: true, vertical: false });
+    setShapeBounds(outer(), { x: emu(500), y: emu(700), w: emu(2200), h: emu(3000) });
+  });
+  const outerBounds = getShapeBoundsResolved(editor.doc.pres, outer());
+  const childBounds = getGroupChildren(outer()).map((s) =>
+    getShapeBoundsResolved(editor.doc.pres, s),
+  );
+  editor.doc.select({ kind: 'shape', slideIndex, shapeIds: [ids[1], ids[0]] });
+  assert.equal(editor.canRun('groupShapes'), true);
+  editor.invoke('groupShapes');
+  const innerId = getShapeId(editor.selectedShapes()[0]);
+  assert.deepEqual(getGroupChildren(outer()).map(getShapeId), [innerId, ids[2]]);
+  assert.deepEqual(getGroupChildren(editor.selectedShapes()[0]).map(getShapeId), ids.slice(0, 2));
+  await editor.doc.undo();
+  assert.deepEqual(editor.doc.selection.shapeIds, [ids[1], ids[0]]);
+  assert.deepEqual(getGroupChildren(outer()).map(getShapeId), ids);
+  await editor.doc.redo();
+  assert.equal(editor.canRun('ungroupShapes'), true);
+  editor.invoke('ungroupShapes');
+  assert.deepEqual(editor.doc.selection.shapeIds, ids.slice(0, 2));
+  assert.deepEqual(getGroupChildren(outer()).map(getShapeId), ids);
+  assert.deepEqual(
+    getGroupChildren(outer()).map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+    childBounds,
+  );
+  assert.deepEqual(getShapeBoundsResolved(editor.doc.pres, outer()), outerBounds);
+  assert.equal(getShapeRotation(outer()), 35);
+  assert.deepEqual(getShapeFlip(outer()), { horizontal: true, vertical: false });
+  await editor.doc.undo();
+  assert.deepEqual(editor.doc.selection.shapeIds, [innerId]);
+  await editor.doc.redo();
+  editor.doc.select({ kind: 'shape', slideIndex, shapeIds: [outerId, ids[0], ids[1]] });
+  assert.equal(editor.canRun('groupShapes'), false);
+  assert.equal(editor.canRun('ungroupShapes'), false);
+});
+
 test('image insertion preserves aspect ratio, selects the image and restores it through history', async () => {
   const editor = new EditorController();
   const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);

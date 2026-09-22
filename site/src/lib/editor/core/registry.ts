@@ -10,17 +10,13 @@
 // Manifest coverage proves command discovery. Selection bindings and browser
 // tests separately verify that a user can execute an editing workflow.
 
+import { shapeScope } from '../canvas/group-space.ts';
 import * as pptx from '@office-kit/pptx';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
 import { capabilities, capabilityById } from '../manifest/index.ts';
 import type { ResolvedCapability } from '../manifest/types.ts';
 import type { Selection } from './selection.ts';
-import {
-  availableOperands,
-  selectedSlideIndices,
-  selectedShapeId,
-  topLevelShapes,
-} from './selection.ts';
+import { availableOperands, selectedSlideIndices, selectedShapeId } from './selection.ts';
 
 /** A dynamic view of the library so we can dispatch by capability id. */
 const lib = pptx as unknown as Record<string, (...args: unknown[]) => unknown>;
@@ -349,7 +345,10 @@ class GroupCommand extends ManifestCommand {
     if (!slide || selection.kind !== 'shape') return [];
     const ids = new Set(selection.shapeIds);
     // A user can select front to back. Keep the existing stacking order.
-    return topLevelShapes(slide).filter((shape) => ids.has(pptx.getShapeId(shape)));
+    const siblings = shapeScope(slide, selection.shapeIds[0] ?? null).shapes;
+    const shapes = siblings.filter((shape) => ids.has(pptx.getShapeId(shape)));
+    // Mixed hierarchy selections must never silently group only a subset.
+    return shapes.length === ids.size ? shapes : [];
   }
 
   override canRun({ doc }: CommandContext): boolean {
