@@ -289,6 +289,33 @@ test(
         boxes.map((b) => b.y / 914400),
         [1, 1, 1],
       );
+      await arrange.getByRole('combobox', { name: 'Alignment reference' }).selectOption('slide');
+      await arrange.getByRole('button', { name: 'Align center', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const centered = await readDeck();
+      for (const shape of getSlideShapes(getSlides(centered)[0])) {
+        const b = getShapeBoundsResolved(centered, shape);
+        assert.ok(Math.abs(b.x + b.w / 2 - getSlideSize(centered).width / 2) <= 0.5);
+      }
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.lang select').selectOption('ja');
+      const japaneseArrange = editor.getByRole('region', { name: '配置', exact: true });
+      assert.equal(
+        await japaneseArrange.getByRole('combobox', { name: '整列の基準' }).inputValue(),
+        'slide',
+      );
+      await japaneseArrange.getByRole('button', { name: '下揃え', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      const bottomAligned = await readDeck();
+      for (const shape of getSlideShapes(getSlides(bottomAligned)[0])) {
+        const b = getShapeBoundsResolved(bottomAligned, shape);
+        assert.equal(b.y + b.h, getSlideSize(bottomAligned).height);
+      }
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      await japaneseArrange.getByRole('combobox', { name: '整列の基準' }).selectOption('selection');
+      await editor.locator('.lang select').selectOption('en');
       await arrange.getByRole('button', { name: 'Group', exact: true }).click();
       await editor.locator('.hit').nth(1).waitFor({ state: 'detached' });
       assert.equal(await editor.locator('.hit.selected').count(), 1);

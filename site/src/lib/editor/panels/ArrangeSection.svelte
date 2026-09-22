@@ -5,6 +5,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   const count = $derived(doc.selection.kind === 'shape' ? doc.selection.shapeIds.length : 0);
+  let reference = $state<'selection' | 'slide'>('selection');
   const alignments = [
     ['left', 'Align left'], ['center', 'Align center'], ['right', 'Align right'],
     ['top', 'Align top'], ['middle', 'Align middle'], ['bottom', 'Align bottom'],
@@ -14,10 +15,17 @@
 {#if count > 0}
   <section class="arrange" aria-label={t('Arrange')}>
     <strong>{t('Arrange')}</strong>
-    <p>{t(count === 1 ? 'Align to slide' : 'Align to selection')}</p>
+    {#if count === 1}
+      <p>{t('Align to slide')}</p>
+    {:else}
+      <select aria-label={t('Alignment reference')} bind:value={reference}>
+        <option value="selection">{t('Align to selection')}</option>
+        <option value="slide">{t('Align to slide')}</option>
+      </select>
+    {/if}
     <div class="buttons">
       {#each alignments as [alignment, label]}
-        <button onclick={() => editor.alignSelection(alignment)}>{t(label)}</button>
+        <button onclick={() => editor.alignSelection(alignment, reference)}>{t(label)}</button>
       {/each}
       <button disabled={count < 3} onclick={() => editor.distributeSelection('horizontal')}>{t('Distribute horizontally')}</button>
       <button disabled={count < 3} onclick={() => editor.distributeSelection('vertical')}>{t('Distribute vertically')}</button>
@@ -30,6 +38,7 @@
 <style>
   .arrange { padding: 12px; border-bottom: 1px solid var(--ok-border); }
   p { font-size: 11px; color: var(--ok-text-2); margin: 6px 0; }
+  select { width: 100%; margin: 6px 0; padding: 5px; font: inherit; font-size: 11px; background: var(--ok-panel); color: var(--ok-text); border: 1px solid var(--ok-border); border-radius: var(--ok-radius); }
   .buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
   button { font: inherit; font-size: 11px; padding: 6px 4px; border: 1px solid var(--ok-border); border-radius: var(--ok-radius); background: var(--ok-panel); color: var(--ok-text); cursor: pointer; }
   button:hover:not(:disabled) { background: var(--ok-hover); }
