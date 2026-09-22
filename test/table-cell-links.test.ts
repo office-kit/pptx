@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, it } from 'vitest';
+import { unzipSync } from 'fflate';
 import {
   addSlideTable,
   getSlides,
@@ -81,7 +82,7 @@ it('round-trips every cell click action and description while preserving surroun
 it('rejects invalid ranges and foreign slide targets without changing cell XML or relationships', async () => {
   const { pres, cell } = await fixture();
   const foreign = await fixture();
-  const before = await savePresentation(pres);
+  const before = unzipSync(await savePresentation(pres));
   expect(() =>
     setTableCellClickAction(
       cell,
@@ -95,7 +96,8 @@ it('rejects invalid ranges and foreign slide targets without changing cell XML o
     { kind: 'url', url: 'https://example.com' },
     { range: { start: 2, end: 2 } },
   );
-  expect(await savePresentation(pres)).toEqual(before);
+  // ZIP timestamps can differ across saves; compare every actual package part.
+  expect(unzipSync(await savePresentation(pres))).toEqual(before);
 });
 
 it.each(['svg', 'foreignObject'] as const)(
