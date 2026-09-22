@@ -326,3 +326,79 @@ test(
     }
   },
 );
+
+test('replies stay with their thread and focus the new input', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-comment-order-'));
+  let preview, browser;
+  try {
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide/></Presentation>`,
+    );
+    preview = await startPreview(file);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+    const editor = page.frameLocator('#editor-frame');
+    const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+    const open = async () => {
+      await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+      await editor.locator('button[title$="— addSlideComment"]').click();
+      return editor.getByRole('dialog', { name: 'Comments', exact: true });
+    };
+    await saved();
+    let dialog = await open();
+    await dialog.getByLabel('Author name', { exact: true }).fill('A');
+    await dialog.getByLabel('Comment text', { exact: true }).fill('First thread');
+    await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+    await dialog.getByLabel('Author name', { exact: true }).nth(1).fill('B');
+    await dialog.getByLabel('Comment text', { exact: true }).nth(1).fill('Second thread');
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+    await saved();
+    dialog = await open();
+    await dialog.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    const author = dialog.getByLabel('Author name', { exact: true });
+    await dialog.locator('input:focus').waitFor({ timeout: 2000 });
+    await author.fill('C');
+    await dialog.getByLabel('Comment text', { exact: true }).nth(1).fill('First reply');
+    assert.deepEqual(
+      await dialog
+        .getByLabel('Comment text', { exact: true })
+        .evaluateAll((elements) => elements.map((element) => element.value)),
+      ['First thread', 'First reply', 'Second thread'],
+    );
+    await dialog.getByRole('button', { name: 'Reply', exact: true }).nth(1).click();
+    await dialog.getByLabel('Author name', { exact: true }).nth(1).fill('D');
+    await dialog.getByLabel('Comment text', { exact: true }).nth(2).fill('Nested reply');
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+    await saved();
+    await page.reload();
+    await saved();
+    dialog = await open();
+    assert.deepEqual(
+      await dialog
+        .getByLabel('Comment text', { exact: true })
+        .evaluateAll((elements) => elements.map((element) => element.value)),
+      ['First thread', 'First reply', 'Nested reply', 'Second thread'],
+    );
+    await dialog.getByRole('button', { name: 'Delete thread', exact: true }).first().click();
+    await dialog.locator('textarea:focus').waitFor({ timeout: 2000 });
+    assert.deepEqual(
+      await dialog
+        .getByLabel('Comment text', { exact: true })
+        .evaluateAll((elements) => elements.map((element) => element.value)),
+      ['Second thread'],
+    );
+    await dialog.getByRole('button', { name: 'Delete comment', exact: true }).click();
+    await dialog.locator('[data-add-comment]:focus').waitFor({ timeout: 2000 });
+    await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+    await dialog.locator('input:focus').waitFor({ timeout: 2000 });
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

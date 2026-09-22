@@ -486,3 +486,9 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Apply commits all drafts in one undo step; Cancel discards them. Deleting a parent removes its descendants and is labeled “Delete thread”.
 - Replies persist using the PowerPoint p15 threading extension in legacy comment parts. Core and browser tests cover save/reload, editing, alternate XML prefixes, unknown extension preservation, sibling retention, and undo/redo.
 - Resolved status and editing modern p188 comment parts remain unfinished; this reply support does not provide those capabilities.
+
+### Comment conversation navigation
+
+- Replies appear immediately after their parent thread even when the PPTX stores them after unrelated comments. Display ordering does not change save ordering or reply identity.
+- Adding a comment or reply focuses its author input. Deletion moves focus to a surviving comment or the Add comment button.
+- Thread ordering is iterative and linear; tests cover orphaned parents, cycles, and 20,000 nested replies without recursive stack growth. Browser coverage verifies interleaved threads across save/reload and keyboard focus after additions and deletions.

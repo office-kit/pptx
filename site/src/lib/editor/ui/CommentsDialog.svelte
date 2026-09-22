@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount, untrack, tick } from 'svelte';
   import { getSlides, getSlideTitle, addSlideComment, getSlideComments, getCommentAuthor, getCommentText, getCommentParent, type SlideCommentData, removeSlideComment, setCommentText } from '@office-kit/pptx';
+  import { orderCommentThreads } from '../core/comment-threads.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
@@ -20,6 +21,7 @@
   }));
   if (slideDrafts[initialIndex]?.length === 0) slideDrafts[initialIndex]!.push(newDraft());
   const drafts = $derived(slideDrafts[reviewIndex] ?? []);
+  const ordered = $derived(orderCommentThreads(drafts));
   // An untouched new row is a placeholder, not an unfinished comment.
   const pending = $derived(slideDrafts.map(comments => comments.filter(draft => draft.comment !== null || draft.author.trim() || draft.text.trim())));
   const parents = $derived(new Set(drafts.flatMap(draft => draft.parent === null ? [] : [draft.parent])));
@@ -33,7 +35,14 @@
   let dialog: HTMLDialogElement;
   const valid = $derived(slides.length > 0 && complete && changed);
   onMount(() => dialog.showModal());
-  function removeDraft(id: number) {
+  async function addDraft(parent: number | null = null) {
+    const draft = newDraft(parent);
+    drafts.push(draft);
+    await tick();
+    dialog.querySelector<HTMLInputElement>(`[data-comment-id="${draft.id}"] input`)?.focus();
+  }
+  async function removeDraft(id: number) {
+    const position = ordered.findIndex(draft => draft.id === id);
     const children = new Map<number, number[]>();
     for (const draft of drafts) if (draft.parent !== null) {
       const siblings = children.get(draft.parent) ?? [];
@@ -48,7 +57,12 @@
       removed.add(current);
       for (const child of children.get(current) ?? []) queue.push(child);
     }
+    const remaining = ordered.filter(draft => !removed.has(draft.id));
+    const next = remaining[Math.min(position, remaining.length - 1)];
     slideDrafts[reviewIndex] = drafts.filter(draft => !removed.has(draft.id));
+    await tick();
+    const selector = next ? `[data-comment-id="${next.id}"] textarea` : '[data-add-comment]';
+    dialog.querySelector<HTMLElement>(selector)?.focus();
   }
   function apply(event: SubmitEvent) {
     event.preventDefault();
@@ -89,16 +103,16 @@
       </select>
     </label>
     <div class="comments">
-      {#each drafts as draft, i (draft.id)}
-        <section class:reply={draft.parent !== null} aria-label={`${t('Comment')} ${i + 1}`}>
+      {#each ordered as draft, i (draft.id)}
+        <section data-comment-id={draft.id} class:reply={draft.parent !== null} aria-label={`${t('Comment')} ${i + 1}`}>
           <header>{#if draft.comment !== null}<strong>{draft.author}</strong>{:else}<label>{t('Author name')}<input class="ok-input" aria-label={t('Author name')} required={!!draft.text.trim()} bind:value={draft.author} /></label>{/if}<button type="button" class="ok-btn" onclick={() => removeDraft(draft.id)}>{t(parents.has(draft.id) ? 'Delete thread' : 'Delete comment')}</button></header>
           {#if draft.parent !== null}<p>{t('Reply to')}: {draftById.get(draft.parent)?.author} — {draftById.get(draft.parent)?.text}</p>{/if}
           <label>{t('Comment text')}<textarea class="ok-input" aria-label={t('Comment text')} rows="3" required={draft.comment !== null || !!draft.author.trim()} bind:value={draft.text}></textarea></label>
-          <button type="button" class="ok-btn reply-button" disabled={!draft.text.trim() || (draft.comment === null && !draft.author.trim())} onclick={() => drafts.push(newDraft(draft.id))}>{t('Reply')}</button>
+          <button type="button" class="ok-btn reply-button" disabled={!draft.text.trim() || (draft.comment === null && !draft.author.trim())} onclick={() => addDraft(draft.id)}>{t('Reply')}</button>
         </section>
       {:else}<p>{t('No comments on this slide.')}</p>{/each}
     </div>
-    <button type="button" class="ok-btn" onclick={() => drafts.push(newDraft())}>{t('Add comment')}</button>
+    <button type="button" class="ok-btn" data-add-comment onclick={() => addDraft()}>{t('Add comment')}</button>
     {#if !complete}<p role="status">{t('Complete or delete unfinished comments on all slides before applying.')}</p>{/if}
     {#if error}<p role="alert">{error}</p>{/if}
     <footer><button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit" class="ok-btn primary" disabled={!valid}>{t('Apply')}</button></footer>
