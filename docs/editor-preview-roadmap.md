@@ -127,7 +127,7 @@ that a user can complete the corresponding editing workflow.
   top-level objects and preserve stacking order and undo selection. Canvas and
   Select All treat nested groups as one object. Browser tests cover bilingual
   controls, moving a group, ungrouping, undo, saved geometry and reload.
-  Rotated-group transforms and group-child editing still need workflow verification.
+  Group-child editing still needs workflow verification.
 
 - Image replacement detaches shared media and relationships so copied pictures
   remain independent. Tests cover same-slide and cross-slide copies, same-format
@@ -352,3 +352,10 @@ checks every corner with rotated objects and minimum-size limits; browser covera
 checks expansion, contraction, fixed anchors, unselected objects, English/Japanese,
 Undo/Redo, Escape and saved reloads. Scaling font sizes, borders and other appearance
 attributes alongside geometry remains pending.
+
+Ungrouping now transfers a group's rotation and horizontal/vertical reflections to
+its children, preserving their transformed centres and composing their existing
+angles and flips. Unit coverage checks uniform resizing, all flip combinations,
+nested groups and saved reloads. Browser coverage checks rotating a group before
+ungrouping in English/Japanese, Undo/Redo and reload. Nonuniformly scaled groups
+with rotated children still need affine-transform fidelity work.
