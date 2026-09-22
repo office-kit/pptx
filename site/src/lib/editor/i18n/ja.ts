@@ -490,6 +490,8 @@ export const ja: Record<string, string> = {
   'Align to slide': 'スライドを基準に整列',
   'Flip horizontally': '左右反転',
   'Flip vertically': '上下反転',
+  'Set bounds': '位置とサイズを設定',
+  'Values apply to each selected object': '入力値は選択した各オブジェクトに適用されます',
   'Alignment reference': '整列の基準',
   'Align to selection': '選択範囲を基準に整列',
   'The selection contains an object without a position or size':

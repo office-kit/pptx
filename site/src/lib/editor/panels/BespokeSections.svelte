@@ -37,12 +37,18 @@
     return id == null ? null : doc.shapeById(sel.slideIndex, id);
   });
 
-  let lockAspectRatio = $state(false);
-  const canLockAspectRatio = $derived.by(() => {
+  const geometry = $derived.by(() => {
     doc.version;
-    const current = shape ? getShapeBoundsResolved(doc.pres, shape) : null;
-    return current !== null && current.w > 0 && current.h > 0;
+    const items = [];
+    for (const target of editor.selectedShapes()) {
+      const bounds = getShapeBoundsResolved(doc.pres, target);
+      if (!bounds) return [];
+      items.push({ shape: target, bounds });
+    }
+    return items;
   });
+  let lockAspectRatio = $state(false);
+  const canLockAspectRatio = $derived(geometry.length > 0 && geometry.every(item => item.bounds.w > 0 && item.bounds.h > 0));
   const emuPerInch = inches(1);
   // DrawingML ST_Coordinate limits, expressed in the panel's inches.
   const minPosition = -27273042329600 / emuPerInch;
@@ -52,23 +58,13 @@
   }
 
   const bounds = $derived.by(() => {
-    doc.version;
-    const s = shape;
-    if (!s) return null;
-    try {
-      const b = getShapeBoundsResolved(doc.pres, s);
-      if (!b) return null;
-      return {
-        x: emuToIn(b.x),
-        y: emuToIn(b.y),
-        w: emuToIn(b.w),
-        h: emuToIn(b.h),
-      };
-    } catch {
-      return null;
-    }
+    if (!geometry.length) return null;
+    const common = (field: 'x' | 'y' | 'w' | 'h') => {
+      const values = new Set(geometry.map(item => item.bounds[field]));
+      return values.size === 1 ? emuToIn(geometry[0]!.bounds[field]) : null;
+    };
+    return { x: common('x'), y: common('y'), w: common('w'), h: common('h') };
   });
-
   const rotation = $derived.by(() => {
     doc.version;
     const values = new Set(editor.selectedShapes().map(getShapeRotation));
@@ -168,25 +164,29 @@
     if (dash) editor.invoke('setShapeStrokeDash', { dash });
   }
   function setBoundsField(field: 'x' | 'y' | 'w' | 'h', input: HTMLInputElement) {
-    const s = shape;
-    if (!s || !bounds) return;
+    if (!bounds || !geometry.length) return;
+    const restore = () => { input.value = bounds?.[field] == null ? '' : String(bounds[field]); };
     if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
-      input.value = String(bounds[field]);
+      restore();
       return;
     }
-    const current = getShapeBoundsResolved(doc.pres, s);
-    if (!current) return;
-    const next = { ...current, [field]: inches(input.valueAsNumber) };
-    if (lockAspectRatio && current.w > 0 && current.h > 0) {
-      if (field === 'w') next.h = emu(current.h * next.w / current.w);
-      if (field === 'h') next.w = emu(current.w * next.h / current.h);
-      if (next.w > maxDimension * emuPerInch || next.h > maxDimension * emuPerInch) {
-        input.value = String(bounds[field]);
-        editor.toast('error', t('The proportional size is too large'));
-        return;
+    const value = inches(input.valueAsNumber);
+    const updates = geometry.map(({ shape, bounds: current }) => {
+      const next = { ...current, [field]: value };
+      if (lockAspectRatio && canLockAspectRatio) {
+        if (field === 'w') next.h = emu(current.h * next.w / current.w);
+        if (field === 'h') next.w = emu(current.w * next.h / current.h);
       }
+      return { shape, bounds: next };
+    });
+    if (updates.some(item => item.bounds.w > maxDimension * emuPerInch || item.bounds.h > maxDimension * emuPerInch)) {
+      restore();
+      editor.toast('error', t('The proportional size is too large'));
+      return;
     }
-    doc.transact('Set bounds', () => setShapeBounds(s, next));
+    doc.transact(t('Set bounds'), () => {
+      for (const item of updates) setShapeBounds(item.shape, item.bounds);
+    });
   }
   function applyRotation(input: HTMLInputElement) {
     const s = shape;
@@ -249,22 +249,23 @@
     {#if bounds}
       <div class="sec">
         <div class="sec-title">{t('Position & size (in)')}</div>
+        {#if geometry.length > 1}<p class="scope">{t('Values apply to each selected object')}</p>{/if}
         <label class="aspect-lock">
           <input type="checkbox" bind:checked={lockAspectRatio} disabled={!canLockAspectRatio} />
           <span>{t('Lock aspect ratio')}</span>
         </label>
         <div class="grid4">
           <label class="mini"><span>X</span>
-            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.x}
+            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.x ?? ''} placeholder={bounds.x === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('x', e.currentTarget)} /></label>
           <label class="mini"><span>Y</span>
-            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.y}
+            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.y ?? ''} placeholder={bounds.y === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('y', e.currentTarget)} /></label>
           <label class="mini"><span>W</span>
-            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.w}
+            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.w ?? ''} placeholder={bounds.w === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('w', e.currentTarget)} /></label>
           <label class="mini"><span>H</span>
-            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.h}
+            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.h ?? ''} placeholder={bounds.h === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('h', e.currentTarget)} /></label>
         </div>
       </div>
@@ -334,6 +335,7 @@
     padding: 0;
     cursor: pointer;
   }
+  .scope { font-size: 11px; color: var(--ok-text-2); margin: 0 0 6px; }
   .aspect-lock {
     display: flex;
     align-items: center;

@@ -224,7 +224,7 @@ test(
 );
 
 test(
-  'multiple selected rotations show mixed values and apply together in both languages',
+  'multiple selected geometry values show mixed values and apply together in both languages',
   { timeout: 60000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-mixed-rotation-'));
@@ -233,7 +233,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={2} height={1} rotation={20}>日本語</Text><Text x={4} y={1} width={2} height={1}>English</Text><Text x={7} y={1} width={2} height={1}>Untouched</Text></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={2} height={1} rotation={20}>日本語</Text><Text x={4} y={1} width={2} height={2}>English</Text><Text x={7} y={1} width={2} height={1}>Untouched</Text></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -269,6 +269,40 @@ test(
         .locator('.hit')
         .nth(1)
         .click({ modifiers: ['Shift'] });
+      const sizeField = (name) =>
+        editor.locator('.bespoke').getByRole('spinbutton', { name, exact: true });
+      assert.equal(await sizeField('X').inputValue(), '');
+      assert.equal(await sizeField('X').getAttribute('placeholder'), 'Mixed');
+      await sizeField('X').fill('2.125');
+      await sizeField('X').press('Tab');
+      await saved();
+      assert.deepEqual(
+        await read(),
+        before.map((value, index) =>
+          index < 2 ? { ...value, bounds: { ...value.bounds, x: inches(2.125) } } : value,
+        ),
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), before);
+      await editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true }).check();
+      await sizeField('W').fill('3');
+      await sizeField('W').press('Tab');
+      await saved();
+      assert.deepEqual(
+        await read(),
+        before.map((value, index) =>
+          index < 2
+            ? {
+                ...value,
+                bounds: { ...value.bounds, w: inches(3), h: inches(index === 0 ? 1.5 : 3) },
+              }
+            : value,
+        ),
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), before);
       assert.equal(await rotation().inputValue(), '');
       assert.equal(await rotation().getAttribute('placeholder'), 'Mixed');
       await rotation().fill('');
@@ -276,6 +310,28 @@ test(
       assert.deepEqual(await read(), before);
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
+      assert.equal(await sizeField('H').inputValue(), '');
+      await sizeField('H').fill('1');
+      await sizeField('H').press('Tab');
+      await saved();
+      assert.deepEqual(
+        await read(),
+        before.map((value, index) =>
+          index < 2
+            ? {
+                ...value,
+                bounds: { ...value.bounds, h: inches(1), w: inches(index === 0 ? 2 : 1) },
+              }
+            : value,
+        ),
+      );
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), before);
+      await sizeField('H').fill(String(27273042316900 / inches(1)));
+      await sizeField('H').press('Tab');
+      assert.deepEqual(await read(), before);
+      assert.equal(await sizeField('H').inputValue(), '');
       assert.equal(await rotation().inputValue(), '');
       await rotation().fill('-30.5');
       await rotation().press('Tab');
@@ -291,9 +347,22 @@ test(
       assert.equal(await rotation().inputValue(), '');
       await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
       await saved();
-      await page.reload();
+      await editor.getByRole('checkbox', { name: '縦横比を固定', exact: true }).uncheck();
+      await sizeField('W').fill('4');
+      await sizeField('W').press('Tab');
+      await saved();
+      const resized = expected.map((value, index) =>
+        index < 2 ? { ...value, bounds: { ...value.bounds, w: inches(4) } } : value,
+      );
+      assert.deepEqual(await read(), resized);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await read(), expected);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(), resized);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
