@@ -9,7 +9,7 @@
   import { tableSelectionBlock, tableCellsInRange } from '../core/table-selection.ts';
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
-  import { projectTextEdits, replayTextEdits } from '../core/text-edit-preview.ts';
+  import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -131,7 +131,7 @@
   let guides = $state<readonly Guide[]>([]);
   let textArea = $state<HTMLTextAreaElement>();
   let textRange = $state({ start: 0, end: 0 });
-  let editing = $state<{ id: number; cell?: { row: number; col: number }; text: string; changes: { start: number; end: number; text: string }[] } | null>(null);
+  let editing = $state<{ id: number; cell?: { row: number; col: number }; text: string; changes: TextEdit[]; typing?: { format: TextFormat; reset: boolean } } | null>(null);
 
   // Marquee (rubber-band) selection, in stage-local px.
   let marquee = $state<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
@@ -463,12 +463,13 @@
     if (!editing) return;
     const before = editing.text;
     let start = 0;
-    while (start < before.length && start < value.length && before[start] === value[start]) start++;
+    while (start < textRange.start && start < before.length && start < value.length && before[start] === value[start]) start++;
     let end = before.length;
     let newEnd = value.length;
     while (end > start && newEnd > start && before[end - 1] === value[newEnd - 1]) { end--; newEnd--; }
-    if (start !== end || start !== newEnd) editing.changes.push({ start, end, text: value.slice(start, newEnd) });
+    if (start !== end || start !== newEnd) editing.changes.push({ start, end, text: value.slice(start, newEnd), ...(editing.typing ? { typing: { format: { ...editing.typing.format }, reset: editing.typing.reset } } : {}) });
     editing.text = value;
+    textRange = { start: textArea?.selectionStart ?? newEnd, end: textArea?.selectionEnd ?? newEnd };
   }
   function commitEditing() {
     if (!editing) return;
@@ -588,9 +589,13 @@
       ? getTableCellParagraphs(getTableCells(shape)[editing.cell.row]![editing.cell.col]!).map(p => p.elements)
       : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => getShapeParagraphElements(shape, i));
     for (const elements of paragraphs) {
+      const paragraphStart = offset;
       for (const element of elements) {
         const length = element.kind === 'br' ? 1 : element.text.length;
-        if (offset < textRange.end && offset + length > textRange.start) formats.push(element.format ?? {});
+        if (textRange.start === textRange.end) {
+          const caret = textRange.start;
+          if (length && ((offset < caret && offset + length >= caret) || (caret === paragraphStart && offset === caret))) return [element.format ?? {}];
+        } else if (offset < textRange.end && offset + length > textRange.start) formats.push(element.format ?? {});
         offset += length;
       }
       offset++;
@@ -599,7 +604,9 @@
   }
   const rangeFormats = $derived.by(() => {
     doc.version;
-    return pendingTextShape ? selectedTextFormats(pendingTextShape) : [];
+    const formats = pendingTextShape ? selectedTextFormats(pendingTextShape) : [];
+    if (editing?.typing && textRange.start === textRange.end) return [{ ...(editing.typing.reset ? {} : formats[0]), ...editing.typing.format }];
+    return formats;
   });
   function inlineParagraphTarget(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape || !editing) return null;
@@ -651,7 +658,12 @@
     requestAnimationFrame(() => textArea?.setSelectionRange(range.start, range.end));
   }
   function applyInlineFormat(format: TextFormat | ((formats: TextFormat[]) => TextFormat), reset = false) {
-    if (!editing || textRange.start === textRange.end) return;
+    if (!editing) return;
+    if (textRange.start === textRange.end) {
+      const resolved = typeof format === 'function' ? format(rangeFormats) : format;
+      editing.typing = { format: { ...(reset ? {} : editing.typing?.format), ...resolved }, reset: reset || editing.typing?.reset || false };
+      return;
+    }
     const cur = editing;
     const box = boxes.find((b) => b.id === cur.id);
     if (!box) return;
@@ -739,7 +751,7 @@
 
 <div class="canvas-shell" onfocusout={onTextFocusOut}>
 {#if editing}
-  <TextFormatBar formats={rangeFormats} selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
+  <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} ondone={commitEditing} />
 {/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
@@ -818,9 +830,14 @@
               class="inline-edit"
               aria-label={t(editing.cell ? 'Cell text' : 'Edit text')}
               bind:this={textArea}
-              onselect={(e) => { textRange = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; }}
+              onselect={(e) => {
+                const range = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd };
+                if (editing && (range.start !== textRange.start || range.end !== textRange.end)) delete editing.typing;
+                textRange = range;
+              }}
               style="left:{eb.left}%; top:{eb.top}%; width:{eb.width}%; height:{eb.height}%; transform: rotate({eb.rotation}deg);"
               value={editing.text}
+              onbeforeinput={(e) => { textRange = { start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd }; }}
               oninput={(e) => updateEditing(e.currentTarget.value)}
               onpaste={pasteCells}
               use:focusEdit
@@ -835,8 +852,8 @@
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();
-                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === '\\' && textRange.start !== textRange.end) { e.preventDefault(); applyInlineFormat({}, true); }
-                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u') && textRange.start !== textRange.end) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === '\\') { e.preventDefault(); applyInlineFormat({}, true); }
+                if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (formatKey === 'b' || formatKey === 'i' || formatKey === 'u')) { e.preventDefault(); toggleInlineFormat(formatKey === 'b' ? 'bold' : formatKey === 'i' ? 'italic' : 'underline'); }
                 else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); editSelectedTextLink(); }
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
                 else if (e.key === 'Escape') editing = null;

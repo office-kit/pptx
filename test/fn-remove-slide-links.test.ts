@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, it } from 'vitest';
+import { unzipSync } from 'fflate';
 import {
   addSlide,
   addSlideTable,
@@ -79,5 +80,6 @@ it('rejects a foreign slide handle with the same part name without changing the 
   const foreign = await fixture();
   const before = await savePresentation(pres);
   expect(() => removeSlide(pres, getSlides(foreign)[1]!)).toThrow('must belong');
-  expect(await savePresentation(pres)).toEqual(before);
+  // ZIP entry timestamps can change between saves; compare the actual parts.
+  expect(unzipSync(await savePresentation(pres))).toEqual(unzipSync(before));
 });
