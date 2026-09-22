@@ -14,8 +14,10 @@ function renderSlide(svg,options){
   displayedSvg=svg;
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
-  const effect=options?.effect;
-  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!['cut','fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash','wheel'].includes(effect))return;
+  const playableEffects=['fade','push','wipe','cover','pull','zoom','split','circle','diamond','plus','blinds','comb','checker','strips','randomBar','dissolve','wedge','newsflash','wheel'];
+  // Choose per visit without replacing the persisted random transition or its timing.
+  const effect=options?.effect==='random'?playableEffects[Math.floor(Math.random()*playableEffects.length)]:options?.effect;
+  if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!(effect==='cut'||playableEffects.includes(effect)))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
   outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
