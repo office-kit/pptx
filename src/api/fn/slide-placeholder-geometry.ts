@@ -71,7 +71,15 @@ function masterType(type: string | null): string {
  * current layout (or its master when the layout inherits its geometry).
  * Text, formatting, IDs, relationships and other shapes are preserved. Slots
  * without matching layout geometry are left intact; deleted placeholders are
- * not recreated. Grouped placeholders retain their group-relative geometry.
+ * not recreated.
+ *
+ * A placeholder inside a group is left where it is. The layout states a
+ * rectangle on the slide, while a grouped shape's own geometry is written in
+ * its group's coordinate space — so restoring it would mean either tearing the
+ * shape out of the arrangement it was grouped into, or inventing a rectangle
+ * the layout never described. Its formatting and appearance are still reset by
+ * the two functions below.
+ *
  * Returns the number of placeholders restored.
  */
 export const resetSlidePlaceholderGeometry = (slide: SlideData): number => {
@@ -181,10 +189,11 @@ export const addMissingSlidePlaceholders = (slide: SlideData): number => {
 };
 
 /**
- * Restore inherited text formatting on top-level placeholders bound to the current
- * layout. Clears direct run, paragraph and text-body appearance while preserving
- * text, fields, hyperlinks, language, outline levels and unknown extensions.
- * Geometry, shape appearance and grouped placeholders remain unchanged.
+ * Restore inherited text formatting on placeholders bound to the current
+ * layout, including placeholders inside a group. Clears direct run, paragraph
+ * and text-body appearance while preserving text, fields, hyperlinks,
+ * language, outline levels and unknown extensions. Geometry and shape
+ * appearance remain unchanged.
  * Returns the number of matching text placeholders processed.
  */
 export const resetSlidePlaceholderTextFormatting = (slide: SlideData): number => {
@@ -196,16 +205,13 @@ export const resetSlidePlaceholderTextFormatting = (slide: SlideData): number =>
     if (layoutElements.has(slot.element) && placeholderElement(slot))
       slots.add(slot.placeholderIdx ?? 0);
   }
-  const elements = topLevelElements(slide[SLIDE_DOCUMENT].root);
   let count = 0;
+  // Unlike geometry, formatting means the same thing wherever the placeholder
+  // sits: a group scales and turns what is inside it, it does not give the
+  // text a font. So a grouped placeholder is reset like any other.
   for (const shape of getSlideShapes(slide)) {
     const snapshot = shape[SHAPE_SNAPSHOT];
-    if (
-      !elements.has(shape[SHAPE_ELEMENT]) ||
-      !placeholderElement(snapshot) ||
-      !slots.has(snapshot.placeholderIdx ?? 0)
-    )
-      continue;
+    if (!placeholderElement(snapshot) || !slots.has(snapshot.placeholderIdx ?? 0)) continue;
     const body = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'txBody', NS.pml));
     if (!body) continue;
     resetTextBodyFormatting(body);
@@ -238,8 +244,13 @@ const LAYOUT_APPEARANCE_CHILDREN = new Set([
  * Reset the current slide's layout: restore deleted slots, reset top-level
  * placeholder geometry and clear direct shape/text appearance to inherit the
  * layout again. Content, picture crops, relationships, IDs and unrelated shapes
- * remain intact. Grouped placeholders retain their group-relative state.
- * Returns the number of top-level layout placeholders processed, including new slots.
+ * remain intact.
+ *
+ * A placeholder inside a group has its appearance and text formatting reset
+ * like any other, but keeps its geometry: where it sits is a statement about
+ * the group's arrangement, and the layout has nothing to say about that.
+ *
+ * Returns the number of layout placeholders processed, including new slots.
  */
 export const resetSlideLayout = (slide: SlideData): number => {
   const layout = getSlideLayout(slide);
@@ -253,17 +264,11 @@ export const resetSlideLayout = (slide: SlideData): number => {
     if (layoutElements.has(slot.element) && placeholderElement(slot))
       slots.add(slot.placeholderIdx ?? 0);
   }
-  const elements = topLevelElements(slide[SLIDE_DOCUMENT].root);
   let count = 0;
   for (const shape of getSlideShapes(slide)) {
     const snapshot = shape[SHAPE_SNAPSHOT];
     const element = shape[SHAPE_ELEMENT];
-    if (
-      !elements.has(element) ||
-      !placeholderElement(snapshot) ||
-      !slots.has(snapshot.placeholderIdx ?? 0)
-    )
-      continue;
+    if (!placeholderElement(snapshot) || !slots.has(snapshot.placeholderIdx ?? 0)) continue;
     const properties = firstChildElement(element, qname('p', 'spPr', NS.pml));
     if (properties) {
       properties.attrs = properties.attrs.filter(

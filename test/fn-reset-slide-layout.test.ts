@@ -27,6 +27,7 @@ import {
   setShapeRotation,
   setShapeHyperlink,
   removeShape,
+  groupShapes,
   inches,
 } from '../src/api/index.ts';
 import { commitSlideData } from '../src/api/fn/_helpers.ts';
@@ -138,5 +139,46 @@ describe('resetSlideLayout', () => {
     expect(serializeFragment(child(getSlideShapes(getSlides(roundtrip)[0]!)[1]!, 'blipFill'))).toBe(
       content,
     );
+  });
+
+  // Appearance and formatting come from the layout wherever the placeholder
+  // sits. Where it sits does not: that is a statement about the group.
+  it('clears a grouped placeholder back to the layout without moving it', async () => {
+    const pres = createPresentation();
+    const slide = addSlide(pres, { layout: findSlideLayout(pres, 'Title and Content')! });
+    for (const shape of getSlideShapes(slide)) {
+      setShapeText(shape, 'Keep');
+      setShapeTextFormat(shape, { bold: true });
+      setShapeFill(shape, '#FF0000');
+      setShapeStroke(shape, { color: '#00FF00', widthEmu: 30000 });
+      const bounds = getShapeBoundsResolved(pres, shape)!;
+      setShapePosition(shape, bounds.x, bounds.y);
+      setShapeSize(shape, bounds.w, bounds.h);
+    }
+    const group = groupShapes([...getSlideShapes(slide)]);
+    setShapeRotation(group, 21);
+    const placed = getSlideShapes(slide).map((shape) => getShapeBoundsResolved(pres, shape));
+
+    expect(resetSlideLayout(slide)).toBe(2);
+
+    const [, title, body] = getSlideShapes(slide);
+    for (const shape of [title!, body!]) {
+      const xml = getShapeXmlString(shape);
+      expect(xml).not.toContain('b="1"');
+      expect(xml).not.toContain('FF0000');
+      expect(xml).not.toContain('00FF00');
+      expect(getShapeFill(shape)).toEqual({ kind: 'inherit' });
+    }
+    expect(getSlideShapes(slide).map(getShapeText)).toEqual(['', 'Keep', 'Keep']);
+    expect(getSlideShapes(slide).map((shape) => getShapeBoundsResolved(pres, shape))).toEqual(
+      placed,
+    );
+
+    const reloaded = getSlides(await loadPresentation(await savePresentation(pres)))[0]!;
+    expect(getSlideShapes(reloaded).map(getShapeText)).toEqual(['', 'Keep', 'Keep']);
+    expect(getShapeXmlString(getSlideShapes(reloaded)[1]!)).not.toContain('b="1"');
+    // And a second reset changes nothing further.
+    expect(resetSlideLayout(reloaded)).toBe(2);
+    expect(getSlideShapes(reloaded).map(getShapeText)).toEqual(['', 'Keep', 'Keep']);
   });
 });

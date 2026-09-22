@@ -561,7 +561,7 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - The slide panel and Home ribbon can reset placeholder text formatting to inherited layout defaults in English and Japanese, for every selected slide in one undo step.
 - Direct run styling, paragraph spacing/alignment/bullets and text-body alignment/margins/autofit are cleared. Text, fields, links, language, paragraph outline levels and unknown extensions survive. Shape geometry and non-placeholder content are preserved; grouped placeholders are left unchanged.
-- Core tests cover preserved content and metadata, idempotence, save/reload and grouped objects. Browser tests check selected-slide scope, bilingual controls, undo/redo, saved reload and retained geometry. The combined layout reset below includes shape appearance; resetting grouped placeholders remains outstanding.
+- Core tests cover preserved content and metadata, idempotence, save/reload and grouped objects. Browser tests check selected-slide scope, bilingual controls, undo/redo, saved reload and retained geometry. The combined layout reset below includes shape appearance; grouped placeholders are covered below.
 
 ### Readable layout actions
 
@@ -571,7 +571,13 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 ### Combined layout reset
 
 - Reset layout restores missing slots, layout geometry and inherited shape/text appearance in one command, available in English and Japanese in the slide panel and Home ribbon. All selected slides share one undo step.
-- Text, hyperlinks, image content and crops, relationship targets, shape IDs and unknown extension metadata survive. Non-placeholder objects remain unchanged; grouped placeholders retain their group-relative state.
+- Text, hyperlinks, image content and crops, relationship targets, shape IDs and unknown extension metadata survive. Non-placeholder objects remain unchanged.
+
+### Resetting grouped placeholders
+
+- Text formatting and shape appearance are restored for a placeholder inside a group, from both `resetSlidePlaceholderTextFormatting` and `resetSlideLayout`, and both count it. A group scales and turns what is inside it; it does not decide what font the text is in.
+- Geometry is deliberately left alone, from `resetSlidePlaceholderGeometry` and from the geometry half of `resetSlideLayout`. The layout states a rectangle on the slide while a grouped shape's geometry is written in its group's coordinate space, so restoring it would either tear the shape out of the arrangement it was grouped into or invent a rectangle the layout never described. The reason is recorded on both functions.
+- Core tests check that a grouped title and body lose direct formatting, fills and strokes while a plain text box beside them in the same group keeps its own, that every shape's resolved bounds are unchanged, and that a second reset changes nothing further. Browser coverage drives the ribbon on a rotated group in English and Japanese, checks the untouched second slide, one-step undo/redo and a reload.
 - Core tests verify idempotence, imported picture placeholders and saved round trips. Browser tests cover selected-slide scope, formatting and deleted slots, undo/redo, both languages and saved reload. Grouped layout reset and the other outstanding workflows above remain unfinished.
 
 ### Editing objects inside groups
