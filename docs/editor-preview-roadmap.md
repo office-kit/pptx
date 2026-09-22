@@ -359,3 +359,8 @@ angles and flips. Unit coverage checks uniform resizing, all flip combinations,
 nested groups and saved reloads. Browser coverage checks rotating a group before
 ungrouping in English/Japanese, Undo/Redo and reload. Nonuniformly scaled groups
 with rotated children still need affine-transform fidelity work.
+
+Imported shape/group flip flags now accept both XML boolean spellings (`true`/`false`
+and `1`/`0`), including surrounding whitespace. Round-trip tests compare 36 flag
+combinations against numeric equivalents, including preview SVG output and the
+positions, rotations and reflections produced by ungrouping.
