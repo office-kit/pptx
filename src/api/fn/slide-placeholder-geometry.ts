@@ -217,3 +217,77 @@ export const resetSlidePlaceholderTextFormatting = (slide: SlideData): number =>
   }
   return count;
 };
+
+const LAYOUT_APPEARANCE_CHILDREN = new Set([
+  'prstGeom',
+  'custGeom',
+  'noFill',
+  'solidFill',
+  'gradFill',
+  'blipFill',
+  'pattFill',
+  'grpFill',
+  'ln',
+  'effectLst',
+  'effectDag',
+  'scene3d',
+  'sp3d',
+]);
+
+/**
+ * Reset the current slide's layout: restore deleted slots, reset top-level
+ * placeholder geometry and clear direct shape/text appearance to inherit the
+ * layout again. Content, picture crops, relationships, IDs and unrelated shapes
+ * remain intact. Grouped placeholders retain their group-relative state.
+ * Returns the number of top-level layout placeholders processed, including new slots.
+ */
+export const resetSlideLayout = (slide: SlideData): number => {
+  const layout = getSlideLayout(slide);
+  if (!layout) return 0;
+  addMissingSlidePlaceholders(slide);
+  resetSlidePlaceholderGeometry(slide);
+  resetSlidePlaceholderTextFormatting(slide);
+  const layoutElements = topLevelElements(layout[LAYOUT_PART].root);
+  const slots = new Set<number>();
+  for (const slot of layout[LAYOUT_PART].shapes) {
+    if (layoutElements.has(slot.element) && placeholderElement(slot))
+      slots.add(slot.placeholderIdx ?? 0);
+  }
+  const elements = topLevelElements(slide[SLIDE_DOCUMENT].root);
+  let count = 0;
+  for (const shape of getSlideShapes(slide)) {
+    const snapshot = shape[SHAPE_SNAPSHOT];
+    const element = shape[SHAPE_ELEMENT];
+    if (
+      !elements.has(element) ||
+      !placeholderElement(snapshot) ||
+      !slots.has(snapshot.placeholderIdx ?? 0)
+    )
+      continue;
+    const properties = firstChildElement(element, qname('p', 'spPr', NS.pml));
+    if (properties) {
+      properties.attrs = properties.attrs.filter(
+        (a) => a.name.namespaceURI !== '' || a.name.localName !== 'bwMode',
+      );
+      // The picture's content is p:blipFill, outside spPr; keep it and its crop.
+      // Geometry is already reset; leave xfrm and extension metadata in place.
+      properties.children = properties.children.filter(
+        (c) =>
+          c.kind !== 'element' ||
+          c.name.namespaceURI !== NS.dml ||
+          !LAYOUT_APPEARANCE_CHILDREN.has(c.name.localName),
+      );
+    }
+    // CT_ShapeStyle contains the four direct theme references. Removing this
+    // optional node restores the corresponding layout's references.
+    element.children = element.children.filter(
+      (c) => c.kind !== 'element' || c.name.namespaceURI !== NS.pml || c.name.localName !== 'style',
+    );
+    count++;
+  }
+  if (count) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
+  }
+  return count;
+};

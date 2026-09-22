@@ -60,6 +60,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
     labelJa: 'プレースホルダーの文字書式を戻す',
     category: 'slide',
   },
+  resetSlideLayout: {
+    labelEn: 'Reset layout',
+    labelJa: 'レイアウトをリセット',
+    category: 'slide',
+  },
   resetSlidePlaceholderGeometry: {
     labelEn: 'Reset placeholder positions',
     labelJa: 'プレースホルダーの配置を戻す',

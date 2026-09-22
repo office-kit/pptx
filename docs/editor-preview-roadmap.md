@@ -497,15 +497,21 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 
 - Restore missing title and content slots from the current layout through the slide panel or Home ribbon in English and Japanese. Selected slides are restored in one undoable transaction.
 - Existing text, geometry and formatting stay intact. Restored slots start empty and inherit layout styles and geometry; grouped placeholders are recognized and repeated restoration does not duplicate slots.
-- Core tests cover unique IDs, empty and blank slides, grouped placeholders and editable saved content. Browser tests verify multiple selected slides, undo/redo, both languages and saved reload. Clearing all formatting overrides for a complete layout reset remains outstanding.
+- Core tests cover unique IDs, empty and blank slides, grouped placeholders and editable saved content. Browser tests verify multiple selected slides, undo/redo, both languages and saved reload. The combined layout reset below also clears direct appearance overrides.
 
 ### Placeholder text formatting reset
 
 - The slide panel and Home ribbon can reset placeholder text formatting to inherited layout defaults in English and Japanese, for every selected slide in one undo step.
 - Direct run styling, paragraph spacing/alignment/bullets and text-body alignment/margins/autofit are cleared. Text, fields, links, language, paragraph outline levels and unknown extensions survive. Shape geometry and non-placeholder content are preserved; grouped placeholders are left unchanged.
-- Core tests cover preserved content and metadata, idempotence, save/reload and grouped objects. Browser tests check selected-slide scope, bilingual controls, undo/redo, saved reload and retained geometry. A full combined layout reset including shape appearance and grouped placeholders remains outstanding.
+- Core tests cover preserved content and metadata, idempotence, save/reload and grouped objects. Browser tests check selected-slide scope, bilingual controls, undo/redo, saved reload and retained geometry. The combined layout reset below includes shape appearance; resetting grouped placeholders remains outstanding.
 
 ### Readable layout actions
 
 - Home separates layout restoration/reset actions into their own group with distinct compact English and Japanese labels, full accessible names and tooltips.
 - Ribbon groups retain their width and scroll horizontally instead of squeezing command labels as more actions are added. The ribbon can grow vertically to keep group titles below two-line labels visible. Existing bilingual layout-picker and reset browser workflows verify dispatch, history and persistence after the presentation change.
+
+### Combined layout reset
+
+- Reset layout restores missing slots, layout geometry and inherited shape/text appearance in one command, available in English and Japanese in the slide panel and Home ribbon. All selected slides share one undo step.
+- Text, hyperlinks, image content and crops, relationship targets, shape IDs and unknown extension metadata survive. Non-placeholder objects remain unchanged; grouped placeholders retain their group-relative state.
+- Core tests verify idempotence, imported picture placeholders and saved round trips. Browser tests cover selected-slide scope, formatting and deleted slots, undo/redo, both languages and saved reload. Grouped layout reset and the other outstanding workflows above remain unfinished.

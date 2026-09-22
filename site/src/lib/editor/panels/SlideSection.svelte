@@ -63,6 +63,7 @@
       {#if !layout}<option value="">{t('None')}</option>{/if}
       {#each layouts as item}<option value={getSlideLayoutPartName(item)}>{t(getSlideLayoutName(item))}</option>{/each}
     </select></label>
+    <button class="ok-btn" onclick={() => editor.invoke('resetSlideLayout')}>{t('Reset layout')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('addMissingSlidePlaceholders')}>{t('Restore deleted placeholders')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderTextFormatting')}>{t('Reset placeholder text formatting')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderGeometry')}>{t('Reset placeholder positions')}</button>

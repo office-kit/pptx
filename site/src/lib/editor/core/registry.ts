@@ -214,6 +214,7 @@ const activeSlideCommands = new Set([
   'moveSlide',
   'duplicateSlideAt',
   'resetSlidePlaceholderGeometry',
+  'resetSlideLayout',
   'resetSlidePlaceholderTextFormatting',
   'addMissingSlidePlaceholders',
 ]);
@@ -277,6 +278,8 @@ class SlideCommand extends ManifestCommand {
             (count, target) => count + pptx.resetSlidePlaceholderTextFormatting(target),
             0,
           );
+        case 'resetSlideLayout':
+          return selected.reduce((count, target) => count + pptx.resetSlideLayout(target), 0);
         case 'resetSlidePlaceholderGeometry':
           return selected.reduce(
             (count, target) => count + pptx.resetSlidePlaceholderGeometry(target),

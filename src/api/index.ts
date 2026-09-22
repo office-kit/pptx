@@ -555,6 +555,7 @@ export {
   setSlideHidden,
   setSlideLayout,
   resetSlidePlaceholderGeometry,
+  resetSlideLayout,
   resetSlidePlaceholderTextFormatting,
   addMissingSlidePlaceholders,
   setCommentText,
