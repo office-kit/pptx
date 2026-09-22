@@ -21,7 +21,6 @@
     getShapeStrokeColorResolved,
     getShapeId,
     getSlideShapes,
-    setShapeRotation,
     setShapeText,
   } from '@office-kit/pptx';
   import { selectedShapeId } from '../core/selection.ts';
@@ -72,13 +71,8 @@
 
   const rotation = $derived.by(() => {
     doc.version;
-    const s = shape;
-    if (!s) return 0;
-    try {
-      return getShapeRotation(s);
-    } catch {
-      return 0;
-    }
+    const values = new Set(editor.selectedShapes().map(getShapeRotation));
+    return values.size > 1 ? null : [...values][0] ?? 0;
   });
 
   const flips = $derived.by(() => {
@@ -198,10 +192,10 @@
     const s = shape;
     if (!s) return;
     if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
-      input.value = String(rotation);
+      input.value = rotation === null ? '' : String(rotation);
       return;
     }
-    doc.transact('Rotate', () => setShapeRotation(s, input.valueAsNumber));
+    editor.invoke('setShapeRotation', { degrees: input.valueAsNumber });
   }
   function applyText(value: string) {
     const s = shape;
@@ -279,7 +273,7 @@
     <div class="sec">
       <div class="sec-title">{t('Rotation')}</div>
       <div class="rotrow">
-        <input class="ok-input" type="number" aria-label={t('Rotation')} step="any" value={rotation}
+        <input class="ok-input" type="number" aria-label={t('Rotation')} step="any" value={rotation ?? ''} placeholder={rotation === null ? t('Mixed') : undefined}
           onchange={(e) => applyRotation(e.currentTarget)} />
         <span class="deg">°</span>
       </div>

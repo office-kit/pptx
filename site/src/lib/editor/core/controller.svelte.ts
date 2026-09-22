@@ -19,6 +19,7 @@ import {
   emu,
   loadPresentation,
   getSlides,
+  getSlideShapes,
   getSlideSize,
   findShapeById,
   type PresentationData,
@@ -236,9 +237,10 @@ export class EditorController {
   selectedShapes(): SlideShapeData[] {
     const sel = this.doc.selection;
     const ids = selectedShapeIds(sel);
-    return ids
-      .map((id) => this.doc.shapeById(sel.slideIndex, id))
-      .filter((s): s is SlideShapeData => s != null);
+    const slide = this.doc.slideAt(sel.slideIndex);
+    if (!slide || !ids.length) return [];
+    const shapes = new Map(getSlideShapes(slide).map((shape) => [getShapeId(shape), shape]));
+    return ids.map((id) => shapes.get(id)).filter((s): s is SlideShapeData => s != null);
   }
 
   moveCellSelection(dr: number, dc: number, extend = false): void {

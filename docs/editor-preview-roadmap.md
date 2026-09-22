@@ -453,3 +453,5 @@ positions, rotations and reflections produced by ungrouping.
 Numeric position and size controls resolve placeholder geometry inherited from layouts or masters. Editing one coordinate preserves the remaining resolved bounds; aspect-ratio locking also works before local geometry exists. Browser regression coverage checks English/Japanese edits, undo back to inheritance and saved reloads.
 
 Shape properties expose horizontal and vertical flip checkboxes in English and Japanese, including indeterminate values for mixed selections. Flip commands apply the selected axis to each selected object without changing the other axis or unselected objects. Model and browser tests cover mixed-state history, bulk flags and saved reloads.
+
+The numeric rotation field displays mixed values for multi-selection and applies an entered angle to each selected object about its own center. Model and bilingual browser tests verify negative/fractional angle normalization, empty input, unchanged bounds and unselected objects, undo to mixed angles, redo and saved reloads. Selected shape lookup builds one ID map rather than repeatedly scanning the slide.

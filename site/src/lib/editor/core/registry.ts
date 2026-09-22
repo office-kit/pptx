@@ -126,6 +126,7 @@ function applyResultSelection(doc: CommandDoc, cap: ResolvedCapability, result: 
 // structural commands keep their own operand/selection semantics.
 const selectionAppearanceCommands = new Set([
   'setShapeFlip',
+  'setShapeRotation',
   'setShapeFill',
   'setShapeGradientFill',
   'setShapePatternFill',
