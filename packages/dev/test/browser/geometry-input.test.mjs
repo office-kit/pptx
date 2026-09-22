@@ -88,9 +88,45 @@ test(
       await change('回転', '');
       assert.equal(await field('回転').inputValue(), '329.5');
       assert.deepEqual(await read(), rotated);
-      await page.reload();
+      const lock = editor.getByRole('checkbox', { name: '縦横比を固定', exact: true });
+      await lock.check();
+      await change('W', '6');
+      await saved();
+      const wider = await read();
+      assert.equal(wider.bounds.w, inches(6));
+      assert.equal(wider.bounds.h, Math.round((rotated.bounds.h * inches(6)) / rotated.bounds.w));
+      assert.equal(wider.bounds.x, rotated.bounds.x);
+      assert.equal(wider.bounds.y, rotated.bounds.y);
+      assert.equal(wider.rotation, rotated.rotation);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await read(), rotated);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), wider);
+      await editor.locator('.lang select').selectOption('en');
+      ja = false;
+      assert.equal(
+        await editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true }).isChecked(),
+        true,
+      );
+      const beforeOverflow = await field('H').inputValue();
+      await change('H', String(27273042316900 / inches(1)));
+      assert.equal(await field('H').inputValue(), beforeOverflow);
+      assert.deepEqual(await read(), wider);
+      await change('H', '2');
+      await saved();
+      const taller = await read();
+      assert.equal(taller.bounds.h, inches(2));
+      assert.equal(taller.bounds.w, Math.round((wider.bounds.w * inches(2)) / wider.bounds.h));
+      await editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true }).uncheck();
+      await change('W', '5');
+      await saved();
+      const resized = await read();
+      assert.deepEqual(resized, { ...taller, bounds: { ...taller.bounds, w: inches(5) } });
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(), resized);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

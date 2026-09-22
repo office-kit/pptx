@@ -9,6 +9,7 @@
     getShapeRotation,
     getShapeText,
     inches,
+    emu,
     setShapeBounds,
     getShapeFill,
     getShapeFillColorResolved,
@@ -36,6 +37,12 @@
     return id == null ? null : doc.shapeById(sel.slideIndex, id);
   });
 
+  let lockAspectRatio = $state(false);
+  const canLockAspectRatio = $derived.by(() => {
+    doc.version;
+    const current = shape ? getShapeBounds(shape) : null;
+    return current !== null && current.w > 0 && current.h > 0;
+  });
   const emuPerInch = inches(1);
   // DrawingML ST_Coordinate limits, expressed in the panel's inches.
   const minPosition = -27273042329600 / emuPerInch;
@@ -163,9 +170,17 @@
     }
     const current = getShapeBounds(s);
     if (!current) return;
-    doc.transact('Set bounds', () =>
-      setShapeBounds(s, { ...current, [field]: inches(input.valueAsNumber) }),
-    );
+    const next = { ...current, [field]: inches(input.valueAsNumber) };
+    if (lockAspectRatio && current.w > 0 && current.h > 0) {
+      if (field === 'w') next.h = emu(current.h * next.w / current.w);
+      if (field === 'h') next.w = emu(current.w * next.h / current.h);
+      if (next.w > maxDimension * emuPerInch || next.h > maxDimension * emuPerInch) {
+        input.value = String(bounds[field]);
+        editor.toast('error', t('The proportional size is too large'));
+        return;
+      }
+    }
+    doc.transact('Set bounds', () => setShapeBounds(s, next));
   }
   function applyRotation(input: HTMLInputElement) {
     const s = shape;
@@ -228,6 +243,10 @@
     {#if bounds}
       <div class="sec">
         <div class="sec-title">{t('Position & size (in)')}</div>
+        <label class="aspect-lock">
+          <input type="checkbox" bind:checked={lockAspectRatio} disabled={!canLockAspectRatio} />
+          <span>{t('Lock aspect ratio')}</span>
+        </label>
         <div class="grid4">
           <label class="mini"><span>X</span>
             <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.x}
@@ -297,6 +316,13 @@
     background: none;
     padding: 0;
     cursor: pointer;
+  }
+  .aspect-lock {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    font-size: 11px;
   }
   .grid4 {
     display: grid;

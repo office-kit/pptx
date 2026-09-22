@@ -252,6 +252,8 @@ Quick outline controls support point widths and all eleven preset dash styles, w
 
 Position/size inputs preserve the original precision of untouched fields. Empty, negative-size and out-of-range inputs restore the current value without changing the document. Browser checks cover fractional positions, negative slide offsets, fractional rotation, English/Japanese controls, undo/redo and saved reloads.
 
+Numeric size editing supports a bilingual aspect-ratio lock. Width and height updates scale the paired dimension from the current full-precision bounds, preserve position/rotation, and undo together. The lock is unavailable for zero-size shapes; proportional overflow is rejected before mutation. Browser checks cover both dimensions, unlocking, undo/redo, overflow and reload persistence of the resulting geometry.
+
 While a table cell is selected, canvas clicks select cells, Shift-click extends the range, and dragging selects a rectangle without moving the table. All selected visible cells are highlighted using the same merged-cell-aware range as formatting and clipboard actions. Browser coverage checks nine-cell selection, four-cell dragging, geometry preservation, undo, and merged-cell range highlights.
 
 Canvas moves, resizes, and rotations can be canceled with Escape, pointer interruption, or window blur. Cancellation restores committed geometry and retains redo history. Escape also restores the selection before a marquee or cell-range gesture; small click jitter does not mutate geometry. Browser coverage verifies geometry restoration, interrupted gestures, marquee cancellation, redo, and saved reloads.
