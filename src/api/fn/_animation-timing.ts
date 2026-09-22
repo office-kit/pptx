@@ -13,7 +13,14 @@
 // an effect spanning several targets, a duplicated `<p:cTn id>` — is reported
 // with `editable: false` instead of a handle.
 
-import { type AnimationEffect, isMediaTimingNode } from '../../internal/presentationml/index.ts';
+import {
+  ANIMATION_DIRECTIONS,
+  type AnimationDirection,
+  type AnimationEffect,
+  FULL_TURN,
+  isMediaTimingNode,
+  trailingHideDelayMs,
+} from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
@@ -36,6 +43,9 @@ const NAME_TGT_EL = qname('p', 'tgtEl', NS.pml);
 const NAME_SP_TGT = qname('p', 'spTgt', NS.pml);
 const NAME_TX_EL = qname('p', 'txEl', NS.pml);
 const NAME_P_RG = qname('p', 'pRg', NS.pml);
+const NAME_C_BHVR = qname('p', 'cBhvr', NS.pml);
+const NAME_TO = qname('p', 'to', NS.pml);
+const NAME_STR_VAL = qname('p', 'strVal', NS.pml);
 
 const ATTR_ID = qname('', 'id', '');
 const ATTR_DUR = qname('', 'dur', '');
@@ -44,6 +54,7 @@ const ATTR_EVT = qname('', 'evt', '');
 const ATTR_NODE_TYPE = qname('', 'nodeType', '');
 const ATTR_PRESET_ID = qname('', 'presetID', '');
 const ATTR_PRESET_CLASS = qname('', 'presetClass', '');
+const ATTR_PRESET_SUBTYPE = qname('', 'presetSubtype', '');
 const ATTR_GRP_ID = qname('', 'grpId', '');
 const ATTR_SPID = qname('', 'spid', '');
 const ATTR_BUILD = qname('', 'build', '');
@@ -51,6 +62,10 @@ const ATTR_BLD_LVL = qname('', 'bldLvl', '');
 const ATTR_ST = qname('', 'st', '');
 const ATTR_END = qname('', 'end', '');
 const ATTR_FILL = qname('', 'fill', '');
+const ATTR_BY = qname('', 'by', '');
+const ATTR_FROM = qname('', 'from', '');
+const ATTR_TO = qname('', 'to', '');
+const ATTR_VAL = qname('', 'val', '');
 
 /** `fill` values that leave a timing node's value in place after it has run. */
 const HOLDING_FILLS = new Set(['hold', 'freeze']);
@@ -118,8 +133,13 @@ export interface SlideAnimationStep {
    * `target` refuses to name one of them as *the* target.
    */
   readonly targetShapeIds: readonly number[];
-  /** `null` for presets outside the four `AnimationEffect` tokens. */
+  /** `null` for a preset outside the `AnimationEffect` tokens. */
   readonly effect: AnimationEffect | null;
+  /**
+   * Which edge of the slide a fly comes from or leaves by. `null` for every
+   * other effect — the preset states no direction, so neither does this.
+   */
+  readonly direction: AnimationDirection | null;
   readonly presetId: number | null;
   readonly presetClass: string | null;
   /** `'unknown'` when the node type is not one this library models. */
@@ -396,12 +416,85 @@ const readValueAfterEnd = (step: XmlElement): AnimationValueAfterEnd => {
   return stated ? 'held' : 'unstated';
 };
 
-const PRESET_EFFECTS: ReadonlyArray<readonly [string, number, AnimationEffect]> = [
-  ['entr', 1, 'appear'],
-  ['entr', 10, 'fadeIn'],
-  ['exit', 1, 'disappear'],
-  ['exit', 10, 'fadeOut'],
-];
+/** The bit PowerPoint's directional presets set for each edge of the slide. */
+const FLY_SUBTYPES: Record<AnimationDirection, number> = { top: 1, right: 2, bottom: 4, left: 8 };
+
+interface PresetEffect {
+  readonly effect: AnimationEffect;
+  readonly direction: AnimationDirection | null;
+}
+
+/**
+ * Which effect a `(presetClass, presetID, presetSubtype)` triple names.
+ *
+ * All three are read, because for several presets the subtype is what the
+ * effect actually does: entrance preset 23 grows from nothing at subtype 16 and
+ * shrinks in from four times the size at subtype 32, and preset 2 flies from a
+ * different edge for each of its bits. Reading only the first two would report
+ * one as the other and animate the shape the wrong way.
+ *
+ * `'-'` stands for a subtype the tree does not state. It is accepted only where
+ * PowerPoint's gallery offers the preset no options at all, so there is a
+ * single thing it could have meant; a fly or a zoom without a subtype is an
+ * effect we cannot name, and neither are the diagonal flies (two bits at once)
+ * this library does not write.
+ */
+const PRESET_EFFECTS: ReadonlyMap<string, PresetEffect> = (() => {
+  const out = new Map<string, PresetEffect>();
+  const plain = (cls: string, id: number, effect: AnimationEffect): void => {
+    out.set(`${cls}:${id}:0`, { effect, direction: null });
+    out.set(`${cls}:${id}:-`, { effect, direction: null });
+  };
+  plain('entr', 1, 'appear');
+  plain('entr', 10, 'fadeIn');
+  plain('exit', 1, 'disappear');
+  plain('exit', 10, 'fadeOut');
+  plain('emph', 8, 'spin');
+  out.set('entr:23:16', { effect: 'zoomIn', direction: null });
+  out.set('exit:23:32', { effect: 'zoomOut', direction: null });
+  for (const direction of ANIMATION_DIRECTIONS) {
+    const subtype = FLY_SUBTYPES[direction];
+    out.set(`entr:2:${subtype}`, { effect: 'flyIn', direction });
+    out.set(`exit:2:${subtype}`, { effect: 'flyOut', direction });
+  }
+  return out;
+})();
+
+/**
+ * Whether a `spin` really turns the shape once, clockwise, and does nothing
+ * else.
+ *
+ * The preset triple is not enough. `presetClass="emph" presetID="8"` is
+ * PowerPoint's Spin whatever angle it turns through: the amount lives on
+ * `<p:animRot>`, whose `by` / `from` / `to` are `a:ST_Angle` — sixtieth-
+ * thousandths of a degree, and negative for a counter-clockwise turn. A tree
+ * that says half a turn back the other way carries the same preset numbers as
+ * one that says a full turn forwards, so reading the numbers alone would report
+ * the second when the file says the first — and let an edit rewrite it as one.
+ *
+ * Only the shape this library writes is accepted: a single rotation behaviour,
+ * `by` a full positive turn, and no `from` / `to` fixing where it starts or
+ * ends. Anything else is an effect we read rather than name.
+ */
+const isFullClockwiseTurn = (step: XmlElement): boolean => {
+  const rotations: XmlElement[] = [];
+  const walk = (el: XmlElement): void => {
+    if (isPml(el, 'cBhvr')) return;
+    if (isPml(el, 'animRot')) {
+      rotations.push(el);
+      return;
+    }
+    for (const child of el.children) if (child.kind === 'element') walk(child);
+  };
+  for (const child of step.children) if (child.kind === 'element') walk(child);
+  const rotation = rotations[0];
+  if (rotations.length !== 1 || rotation === undefined) return false;
+  if (behavioursOf(step).length !== 1) return false;
+  if (getAttrValue(rotation, ATTR_FROM) !== null || getAttrValue(rotation, ATTR_TO) !== null) {
+    return false;
+  }
+  return strictInt(getAttrValue(rotation, ATTR_BY)) === FULL_TURN;
+};
 
 const readStart = (step: XmlElement): AnimationStart => {
   switch (getAttrValue(step, ATTR_NODE_TYPE)) {
@@ -446,8 +539,16 @@ const toStep = (
 
   const grpId = getAttrValue(node, ATTR_GRP_ID) ?? '0';
   const bldP = target.kind === 'unsupported' ? undefined : builds.get(`${target.shapeId}:${grpId}`);
-  const effect =
-    PRESET_EFFECTS.find(([cls, pid]) => cls === presetClass && pid === presetId)?.[2] ?? null;
+  const rawSubtype = getAttrValue(node, ATTR_PRESET_SUBTYPE);
+  // A subtype that is stated but is not a plain integer is not "unstated": it
+  // says something we cannot read, so it matches no entry rather than the one
+  // for a preset written without a subtype at all.
+  const subtype = rawSubtype === null ? '-' : (strictInt(rawSubtype) ?? 'unreadable');
+  const named = PRESET_EFFECTS.get(`${presetClass}:${presetId}:${subtype}`) ?? null;
+  // A preset whose numbers do not settle what it does is checked against the
+  // behaviour that does.
+  const preset = named?.effect === 'spin' && !isFullClockwiseTurn(node) ? null : named;
+  const effect = preset?.effect ?? null;
   const playable =
     sequence === 'mainSeq' &&
     start !== 'unknown' &&
@@ -460,6 +561,7 @@ const toStep = (
     target,
     targetShapeIds,
     effect,
+    direction: preset?.direction ?? null,
     presetId,
     presetClass,
     start,
@@ -700,17 +802,74 @@ export const setEffectDelayMs = (effectCTn: XmlElement, delayMs: number): boolea
 
 /**
  * Sets how long an effect runs, in place, leaving everything else about it
- * alone. `false` when the effect animates through more than one timed
- * behaviour, since there is no single length to set. An effect with none —
- * `appear` and `disappear` write only the visibility kick — has no duration to
- * change and is left as it is.
+ * alone.
+ *
+ * An effect may animate through several behaviours at once — a fly drives both
+ * axes, a zoom both sides — and they run together, so one length covers all of
+ * them. `false` when they do not already agree on one: an effect whose
+ * behaviours run for different lengths has no single length to set, and picking
+ * one would silently retime the rest of it.
+ *
+ * An effect with no timed behaviour — `appear` and `disappear` write only the
+ * visibility kick — has no duration to change and is left as it is.
  */
 export const setEffectDurationMs = (effectCTn: XmlElement, durationMs: number): boolean => {
-  const timed = behavioursOf(effectCTn).filter((b) => !isVisibilityKick(b));
-  if (timed.length === 0) return true;
-  if (timed.length > 1) return false;
-  const cTn = firstChildElement(timed[0]!, NAME_C_TN);
-  if (cTn === null) return false;
-  setTimeAttr(cTn, 'dur', String(durationMs));
+  const behaviours = behavioursOf(effectCTn);
+  const timed = behaviours.filter((b) => !isVisibilityKick(b));
+  const cTns = timed.map((b) => firstChildElement(b, NAME_C_TN));
+  if (cTns.some((cTn) => cTn === null)) return false;
+  const durations = new Set(cTns.map((cTn) => getAttrValue(cTn!, ATTR_DUR)));
+  if (durations.size > 1) return false;
+  // Nothing timed to set — `appear` and `disappear` write only the visibility
+  // kick, and it is the whole of the effect rather than something trailing it.
+  if (cTns.length === 0) return true;
+  const was = wholeMs([...durations][0] ?? null);
+  for (const cTn of cTns) setTimeAttr(cTn!, 'dur', String(durationMs));
+  // An exit stays on the slide until its motion is over, so the `<p:set>` that
+  // hides the shape trails that motion by the millisecond it takes itself, and
+  // has to move when the end does.
+  //
+  // It is found by where it stands rather than by standing anywhere but zero:
+  // an exit written at a duration of one millisecond or less already hides at
+  // zero, so "not at zero" would strand it there on the next change. A kick
+  // somewhere else entirely belongs to timing this library did not write, and
+  // moving it would say something about the effect the file never did.
+  const trailing = was === null ? null : String(trailingHideDelayMs(was));
+  if (trailing === null) return true;
+  for (const hide of hideSets(effectCTn)) {
+    const cTn = firstChildElement(hide, NAME_C_TN);
+    const cond = cTn === null ? null : offsetCond(cTn);
+    if (cond === null || getAttrValue(cond, ATTR_DELAY) !== trailing) continue;
+    setTimeAttr(cond, 'delay', String(trailingHideDelayMs(durationMs)));
+  }
   return true;
+};
+
+/**
+ * The `<p:cBhvr>` of every `<p:set>` in the effect that takes its target off the
+ * slide. A `<p:set>` putting it *on* is an entrance's opening kick and never
+ * trails anything.
+ */
+const hideSets = (step: XmlElement): XmlElement[] => {
+  const out: XmlElement[] = [];
+  const walk = (el: XmlElement): void => {
+    if (isPml(el, 'cBhvr')) return;
+    if (isPml(el, 'set')) {
+      const cBhvr = firstChildElement(el, NAME_C_BHVR);
+      const to = firstChildElement(el, NAME_TO);
+      const strVal = to === null ? null : firstChildElement(to, NAME_STR_VAL);
+      if (
+        cBhvr !== null &&
+        isVisibilityKick(cBhvr) &&
+        strVal !== null &&
+        getAttrValue(strVal, ATTR_VAL) === 'hidden'
+      ) {
+        out.push(cBhvr);
+      }
+      return;
+    }
+    for (const child of el.children) if (child.kind === 'element') walk(child);
+  };
+  for (const child of step.children) if (child.kind === 'element') walk(child);
+  return out;
 };

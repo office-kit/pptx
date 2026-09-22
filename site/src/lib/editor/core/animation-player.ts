@@ -38,8 +38,33 @@
 import type { SlideAnimationStep } from '@office-kit/pptx';
 
 const INSTANT_EFFECTS = ['appear', 'disappear'];
-const ENTRANCE_EFFECTS = ['fadeIn', 'appear'];
-const EXIT_EFFECTS = ['fadeOut', 'disappear'];
+const ENTRANCE_EFFECTS = ['fadeIn', 'appear', 'flyIn', 'zoomIn'];
+const EXIT_EFFECTS = ['fadeOut', 'disappear', 'flyOut', 'zoomOut'];
+const EMPHASIS_EFFECTS = ['spin'];
+
+/**
+ * What an effect does to its target beyond putting it on the slide or taking it
+ * off. Each one is reproduced here as the browser's own equivalent of the
+ * behaviour the deck states: `style.opacity` as `opacity`, `ppt_x` / `ppt_y` as
+ * a translation, `ppt_w` / `ppt_h` as a scale about the shape's centre, and `r`
+ * as a rotation about it.
+ */
+type Motion = 'none' | 'fade' | 'fly' | 'zoom' | 'spin';
+
+const MOTIONS: Readonly<Record<string, Motion>> = {
+  appear: 'none',
+  disappear: 'none',
+  fadeIn: 'fade',
+  fadeOut: 'fade',
+  flyIn: 'fly',
+  flyOut: 'fly',
+  zoomIn: 'zoom',
+  zoomOut: 'zoom',
+  spin: 'spin',
+};
+
+/** One clockwise turn, which is what the `spin` preset this library reads is. */
+const SPIN_DEGREES = 360;
 
 /** Why a step is not played. */
 export type UnsupportedReason =
@@ -60,7 +85,11 @@ export interface UnsupportedAnimation {
 /** What one step does to its target, and when, within its stop. */
 export interface AnimationItem {
   readonly step: SlideAnimationStep;
-  readonly kind: 'entrance' | 'exit';
+  /**
+   * `'emphasis'` animates a shape that is already on the slide and leaves it
+   * there, so unlike the other two it never decides whether the shape is shown.
+   */
+  readonly kind: 'entrance' | 'exit' | 'emphasis';
   /** Milliseconds from the start of the stop. */
   readonly begin: number;
   /** Null when the tree states no length. */
@@ -149,11 +178,12 @@ type StyledElement = Element & ElementCSSInlineStyle;
 const styled = (el: Element): StyledElement | null =>
   el instanceof HTMLElement || el instanceof SVGElement ? el : null;
 
-/** Whether a step reveals its target or hides it; null when we cannot tell. */
-const kindOf = (step: SlideAnimationStep): 'entrance' | 'exit' | null => {
+/** Whether a step reveals its target, hides it, or neither; null when we cannot tell. */
+const kindOf = (step: SlideAnimationStep): AnimationItem['kind'] | null => {
   if (step.effect === null) return null;
   if (ENTRANCE_EFFECTS.includes(step.effect)) return 'entrance';
   if (EXIT_EFFECTS.includes(step.effect)) return 'exit';
+  if (EMPHASIS_EFFECTS.includes(step.effect)) return 'emphasis';
   return null;
 };
 
@@ -269,6 +299,145 @@ const targetsOf = (
 };
 
 const nowMs = (): number => (typeof performance === 'object' ? performance.now() : Date.now());
+
+/**
+ * The slide's own box on screen. A fly is stated against the slide's edges
+ * (`1+#ppt_h/2` puts the shape's centre one half-height below the bottom of it),
+ * so that is what the distance has to be measured from — never the viewport,
+ * which is not where the slide ends.
+ */
+const slideBoxOf = (el: Element, root: ParentNode): DOMRect | null => {
+  const svg = el.closest('svg');
+  if (svg !== null) return svg.getBoundingClientRect();
+  return root instanceof Element ? root.getBoundingClientRect() : null;
+};
+
+/**
+ * The matrix taking the element's own coordinates to the screen, which is also
+ * the space a CSS transform written on it is read in.
+ *
+ * The shape and paragraph markers carry no transform of their own — the
+ * renderer wraps the drawn shape rather than transforming the wrapper — so the
+ * matrix does not have to be un-done first, and a shape the deck rotates or a
+ * group it scales is accounted for by the ancestors it comes through. Text laid
+ * out as HTML sits in a `<foreignObject>`, whose own matrix is the one its
+ * pixels are scaled by.
+ */
+const screenMatrixOf = (el: StyledElement): DOMMatrix | null => {
+  if (el instanceof SVGGraphicsElement) return el.getScreenCTM();
+  const host = el.closest('foreignObject');
+  return host instanceof SVGGraphicsElement ? host.getScreenCTM() : null;
+};
+
+/**
+ * How far the element has to move to sit just outside the named edge, in the
+ * units its own CSS transform is written in. `null` when the slide has not been
+ * laid out yet, or its matrix cannot be inverted.
+ */
+const flyOffset = (
+  el: StyledElement,
+  direction: 'top' | 'right' | 'bottom' | 'left',
+  root: ParentNode,
+): { readonly dx: number; readonly dy: number } | null => {
+  const slide = slideBoxOf(el, root);
+  if (slide === null || slide.width <= 0 || slide.height <= 0) return null;
+  const box = el.getBoundingClientRect();
+  // Clear of the edge by the element's own extent: the far side of the box has
+  // to reach the edge before the near side goes past it.
+  const dx =
+    direction === 'right'
+      ? slide.right - box.left
+      : direction === 'left'
+        ? slide.left - box.right
+        : 0;
+  const dy =
+    direction === 'bottom'
+      ? slide.bottom - box.top
+      : direction === 'top'
+        ? slide.top - box.bottom
+        : 0;
+  const matrix = screenMatrixOf(el);
+  // Plain HTML with no SVG above it: its pixels are the screen's.
+  if (matrix === null) return { dx, dy };
+  const determinant = matrix.a * matrix.d - matrix.b * matrix.c;
+  if (determinant === 0) return null;
+  return {
+    dx: (matrix.d * dx - matrix.c * dy) / determinant,
+    dy: (matrix.a * dy - matrix.b * dx) / determinant,
+  };
+};
+
+/** What one effect runs on one element, and whether it needs the element's own box. */
+interface Movement {
+  readonly frames: Keyframe[];
+  /**
+   * Scaling and turning happen about the shape's centre, which is the shape's
+   * own bounding box rather than the slide's — the default reference box for an
+   * SVG element is the viewport, so it has to be said.
+   */
+  readonly aboutOwnCentre: boolean;
+}
+
+/**
+ * Each motion animates a property of its own — `translate`, `scale`, `rotate`
+ * — rather than all of them sharing `transform`.
+ *
+ * Two reasons, both of them things the deck states and a single `transform`
+ * would lose. The first is that PresentationML animates a shape's position, its
+ * size and its rotation as separate attributes (`ppt_x`/`ppt_y`, `ppt_w`/
+ * `ppt_h`, `r`), so a slide may well run a fly and a spin over one shape at the
+ * same moment; written to one property, the animation that begins second
+ * replaces the first outright and the shape would only turn. The second is that
+ * the drawn slide uses `transform` itself, for the rotation and the group
+ * scaling the deck gives a shape — and the individual properties apply on top
+ * of it rather than in place of it, so nothing the renderer did is overwritten.
+ */
+
+/**
+ * Whether a step's motion has to be measured against the drawn slide, so that a
+ * movement of `null` means "not read yet" rather than "nothing to run".
+ */
+const needsGeometry = (item: AnimationItem): boolean =>
+  item.step.effect !== null && MOTIONS[item.step.effect] === 'fly';
+
+/**
+ * The keyframes one step runs on one element, or `null` when there is nothing
+ * to run: an instant effect, or a fly whose distance cannot be measured. Either
+ * way the element is put where the step leaves it without motion, which for
+ * every effect modelled here is the element's own untransformed place.
+ */
+const movementFor = (item: AnimationItem, el: StyledElement, root: ParentNode): Movement | null => {
+  const effect = item.step.effect;
+  const entering = item.kind === 'entrance';
+  switch (effect === null ? 'none' : (MOTIONS[effect] ?? 'none')) {
+    case 'none':
+      return null;
+    case 'fade':
+      return {
+        frames: entering ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }],
+        aboutOwnCentre: false,
+      };
+    case 'zoom': {
+      const none = { scale: '0' };
+      const full = { scale: '1' };
+      return { frames: entering ? [none, full] : [full, none], aboutOwnCentre: true };
+    }
+    case 'spin':
+      return {
+        frames: [{ rotate: '0deg' }, { rotate: `${SPIN_DEGREES}deg` }],
+        aboutOwnCentre: true,
+      };
+    case 'fly': {
+      const direction = item.step.direction;
+      if (direction === null) return null;
+      const offset = flyOffset(el, direction, root);
+      if (offset === null) return null;
+      const away = { translate: `${offset.dx}px ${offset.dy}px` };
+      const place = { translate: '0px 0px' };
+      return { frames: entering ? [away, place] : [place, away], aboutOwnCentre: false };
+    }
+  }
+};
 
 /** Plays a slide's animations against a rendered SVG. */
 export const createAnimationPlayer = (options: AnimationPlayerOptions): AnimationPlayer => {
@@ -416,15 +585,32 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
     if (timers.length === 0 && animations.length === 0) startedAt = null;
     onChange(player);
   };
+  // The reference box a scale or a turn is measured against. Set while such an
+  // effect runs and taken off once nothing is animating the element, so the
+  // player leaves no style of its own on a settled slide. It is safe to set
+  // because the markers it is set on carry no transform themselves — the
+  // renderer wraps the drawn shape rather than transforming the wrapper — so
+  // there is nothing already on the element for a changed origin to move.
+  const centreOn = (el: StyledElement): void => {
+    touched.add(el);
+    el.style.transformBox = 'fill-box';
+    el.style.transformOrigin = '50% 50%';
+  };
+  const uncentre = (el: StyledElement): void => {
+    el.style.transformBox = '';
+    el.style.transformOrigin = '';
+  };
   const show = (el: StyledElement): void => {
     touched.add(el);
     el.style.visibility = '';
     el.style.opacity = '';
+    uncentre(el);
   };
   const hide = (el: StyledElement): void => {
     touched.add(el);
     el.style.visibility = 'hidden';
     el.style.opacity = '';
+    uncentre(el);
   };
 
   // Which effects touch each element and which elements each effect touches,
@@ -459,9 +645,16 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
    */
   interface ElementPlan {
     readonly list: Entry[];
-    /** The highest-priority effect that has run: the one that decides. */
+    /**
+     * The effects that decide whether the element is on the slide at all, which
+     * is every one of them but the emphasis effects: those animate a shape that
+     * is already there and hand it back unchanged, so one that has run says
+     * nothing about whether the shape is shown.
+     */
+    readonly gates: Entry[];
+    /** The highest-priority gate that has run: the one that decides. */
     top: Entry | null;
-    /** Whether the first effect to begin — the lowest priority — has run. */
+    /** Whether the first gate to begin — the lowest priority — has run. */
     firstPlayed: boolean;
   }
   /** One effect's hold on one element, so finishing it costs no search. */
@@ -469,8 +662,19 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
     readonly el: StyledElement;
     readonly plan: ElementPlan;
     readonly entry: Entry;
+    /**
+     * What this effect runs on this element, measured against the slide as it
+     * was drawn. Read once per drawing so that playing forward, seeking and
+     * resuming all work from the same geometry; `null` when the effect has
+     * nothing to run here and the element simply takes its settled place.
+     */
+    readonly movement: Movement | null;
   }
   let indexedRoot: ParentNode | null = null;
+  // Whether the last index found the geometry the effects in it need. An effect
+  // that has to know where the slide's edges are cannot be measured before the
+  // browser has laid the slide out, and a zero read then is not an answer.
+  let laidOut = true;
   let plans = new Map<StyledElement, ElementPlan>();
   let placements = new Map<AnimationItem, Placement[]>();
   /** Every stop below this has run; within the stop in hand, `finished` says. */
@@ -482,8 +686,8 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
   const recompute = (): void => {
     for (const plan of plans.values()) {
       plan.top = null;
-      for (const entry of plan.list) if (hasPlayed(entry)) plan.top = entry;
-      const first = plan.list[0];
+      for (const entry of plan.gates) if (hasPlayed(entry)) plan.top = entry;
+      const first = plan.gates[0];
       plan.firstPlayed = first !== undefined && hasPlayed(first);
     }
   };
@@ -493,9 +697,12 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
     const sample = plans.keys().next();
     // An index that found nothing is not an index: the slide may simply not
     // have been drawn yet, and a deck that really animates nothing costs one
-    // empty pass to say so again.
-    if (current === indexedRoot && sample.done !== true && sample.value.isConnected) return;
+    // empty pass to say so again. Nor is one taken before the browser laid the
+    // slide out, where every distance an effect has to travel reads as zero.
+    if (current === indexedRoot && sample.done !== true && sample.value.isConnected && laidOut)
+      return;
     indexedRoot = current;
+    laidOut = true;
     silence(current);
     plans = new Map();
     placements = new Map();
@@ -503,18 +710,24 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
       for (const item of stop.items) {
         const spots: Placement[] = [];
         for (const el of targetsOf(current, item.step, blocked)) {
-          const plan = plans.get(el) ?? { list: [], top: null, firstPlayed: false };
+          const plan = plans.get(el) ?? { list: [], gates: [], top: null, firstPlayed: false };
           plans.set(el, plan);
           const entry: Entry = { item, stopIndex, order: 0 };
           plan.list.push(entry);
-          spots.push({ el, plan, entry });
+          if (item.kind !== 'emphasis') plan.gates.push(entry);
+          const movement = movementFor(item, el, current);
+          if (movement === null && needsGeometry(item)) laidOut = false;
+          spots.push({ el, plan, entry, movement });
         }
         placements.set(item, spots);
       }
     });
     for (const plan of plans.values()) {
       // Stable, so effects that begin together keep the document's order.
-      plan.list.sort((a, b) => a.stopIndex - b.stopIndex || a.item.begin - b.item.begin);
+      const byBegin = (a: Entry, b: Entry): number =>
+        a.stopIndex - b.stopIndex || a.item.begin - b.item.begin;
+      plan.list.sort(byBegin);
+      plan.gates.sort(byBegin);
       plan.list.forEach((entry, at) => {
         entry.order = at;
       });
@@ -524,7 +737,7 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
 
   /** Where an element stands: the highest-priority effect that has run wins. */
   const visibilityOf = (plan: ElementPlan): boolean => {
-    const first = plan.list[0];
+    const first = plan.gates[0];
     if (first === undefined) return true;
     // An entrance that has not run yet keeps its target off the slide, even
     // when a later step would have shown it.
@@ -559,8 +772,10 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
    */
   const markPlayed = (spot: Placement): void => {
     const { plan, entry } = spot;
-    if (entry === plan.list[0]) plan.firstPlayed = true;
-    if (plan.top === null || entry.order > plan.top.order) plan.top = entry;
+    if (entry.item.kind !== 'emphasis') {
+      if (entry === plan.gates[0]) plan.firstPlayed = true;
+      if (plan.top === null || entry.order > plan.top.order) plan.top = entry;
+    }
     render(spot.el, plan);
   };
 
@@ -580,7 +795,11 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
       complete(item);
       return;
     }
-    const entering = item.kind === 'entrance';
+    // The elements this effect actually animates. One it reaches but has
+    // nothing to run on — an instant preset, or a fly whose distance the slide
+    // did not give us — simply takes the place the effect leaves it in, which
+    // for every effect modelled here is the element's own untransformed one.
+    const moving = spots.filter((spot) => spot.movement !== null);
     const duration = item.duration;
     const from = Math.max(0, into);
     // Over before it could be seen: instantaneous, or joined after its end.
@@ -592,21 +811,33 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
     // is taken away when it ends: then there is nothing to hold, and the effect
     // underneath is the one that shows.
     const holds = item.step.valueAfterEnd !== 'removed';
-    if (reduced() || (over && (!holds || !spots.some((spot) => inFlight.has(spot.el))))) {
+    if (
+      reduced() ||
+      moving.length === 0 ||
+      (over && (!holds || !moving.some((spot) => inFlight.has(spot.el))))
+    ) {
       complete(item);
       return;
     }
+    // Nothing is going to animate these, so they are settled the moment the
+    // effect has its turn.
+    for (const spot of spots) if (spot.movement === null) markPlayed(spot);
     const length = over ? 0 : duration;
-    outstanding.set(item, spots.length);
-    for (const spot of spots) {
+    outstanding.set(item, moving.length);
+    for (const spot of moving) {
       const el = spot.el;
+      const movement = spot.movement!;
       touched.add(el);
-      el.style.visibility = '';
+      // Only an effect that decides whether the shape is on the slide may put
+      // it there. An emphasis effect animates whatever is already drawn, so a
+      // shape an entrance is still holding back — or one an exit has taken away
+      // — stays off the slide while it turns, rather than showing for as long
+      // as the turn lasts. `render` cannot undo it either: it leaves an element
+      // an effect is animating to that effect until it ends.
+      if (item.kind !== 'emphasis') el.style.visibility = '';
+      if (movement.aboutOwnCentre) centreOn(el);
       inFlight.set(el, (inFlight.get(el) ?? 0) + 1);
-      const animation = el.animate(
-        entering ? [{ opacity: 0 }, { opacity: 1 }] : [{ opacity: 1 }, { opacity: 0 }],
-        { duration: length, fill: 'both' },
-      );
+      const animation = el.animate(movement.frames, { duration: length, fill: 'both' });
       animation.currentTime = over ? length : from;
       animations.push(animation);
       void animation.finished.then(
@@ -756,6 +987,7 @@ export const createAnimationPlayer = (options: AnimationPlayerOptions): Animatio
       for (const el of touched) {
         el.style.visibility = '';
         el.style.opacity = '';
+        uncentre(el);
       }
       touched.clear();
     },

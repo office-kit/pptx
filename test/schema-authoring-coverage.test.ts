@@ -358,4 +358,39 @@ describe('schema coverage: images, notes, connectors, animation', () => {
     expect(xml).toContain('presetClass="entr"');
     expect(xml).toContain('presetClass="exit"');
   });
+
+  it('fly, zoom and spin are schema-valid, with the behaviours that drive them', async () => {
+    // Each of these writes behaviours the fades never did — `<p:anim>` over
+    // `ppt_x` / `ppt_w` with string keyframes, and `<p:animRot>` — so they are
+    // validated against the XSD rather than only read back through our own
+    // parser, which would accept a tree PowerPoint would not.
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const effects = [
+      { effect: 'flyIn', direction: 'left' },
+      { effect: 'flyOut', direction: 'top' },
+      { effect: 'zoomIn' },
+      { effect: 'zoomOut' },
+      { effect: 'spin' },
+    ] as const;
+    effects.forEach((opts, at) => {
+      const shape = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1),
+        y: inches(0.5 + at),
+        w: inches(2),
+        h: inches(0.8),
+        text: opts.effect,
+      });
+      setShapeAnimation(shape, opts);
+    });
+
+    const xml = await authoredXml(pres);
+    expect((xml.match(/<p:bldP/g) ?? []).length).toBe(effects.length);
+    expect(xml).toContain('presetClass="emph"');
+    expect(xml).toContain('<p:attrName>ppt_x</p:attrName>');
+    expect(xml).toContain('<p:attrName>ppt_w</p:attrName>');
+    expect(xml).toContain('<p:animRot by="21600000">');
+    expect(xml).toContain('<p:strVal val="0-#ppt_w/2"/>');
+  });
 });
