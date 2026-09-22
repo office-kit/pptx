@@ -3,6 +3,7 @@
 
 export const ja: Record<string, string> = {
   'Choose a slide layout.': 'スライドのレイアウトを選択してください。',
+  'Restore deleted placeholders': '削除したプレースホルダーを復元',
   'Reset placeholder positions': 'プレースホルダーの配置を戻す',
   'New slide from layout': 'レイアウトからスライドを追加',
   'Choose a layout to insert a slide after the current slide.':

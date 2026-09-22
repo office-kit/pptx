@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 155,
+  "count": 156,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -28,6 +28,16 @@
           "optional": false
         }
       ]
+    },
+    {
+      "id": "addMissingSlidePlaceholders",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-placeholder-geometry.ts",
+      "returns": "number",
+      "canvas": true,
+      "params": []
     },
     {
       "id": "addSectionHeaderSlide",
