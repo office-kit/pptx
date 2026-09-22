@@ -7,6 +7,7 @@
   import {
     getShapeBoundsResolved,
     getShapeRotation,
+    getShapeFlip,
     getShapeText,
     inches,
     emu,
@@ -78,6 +79,17 @@
     } catch {
       return 0;
     }
+  });
+
+  const flips = $derived.by(() => {
+    doc.version;
+    const values = editor.selectedShapes().map(target => getShapeFlip(target));
+    const horizontal = new Set(values.map(value => value?.horizontal ?? false));
+    const vertical = new Set(values.map(value => value?.vertical ?? false));
+    return {
+      horizontal: horizontal.size > 1 ? null : horizontal.has(true),
+      vertical: vertical.size > 1 ? null : vertical.has(true),
+    };
   });
 
   const text = $derived.by(() => {
@@ -271,6 +283,17 @@
           onchange={(e) => applyRotation(e.currentTarget)} />
         <span class="deg">°</span>
       </div>
+    </div>
+
+    <div class="row2">
+      {#each ['horizontal', 'vertical'] as axis}
+        {@const value = axis === 'horizontal' ? flips.horizontal : flips.vertical}
+        <label class="aspect-lock">
+          <input type="checkbox" checked={value ?? false} indeterminate={value === null}
+            onchange={event => editor.invoke('setShapeFlip', { options: { [axis]: event.currentTarget.checked } })} />
+          <span>{t(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically')}{value === null ? ` (${t('Mixed')})` : ''}</span>
+        </label>
+      {/each}
     </div>
 
     <div class="sec">

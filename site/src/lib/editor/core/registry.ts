@@ -125,6 +125,7 @@ function applyResultSelection(doc: CommandDoc, cap: ResolvedCapability, result: 
 // Appearance edits share arguments across a selection; content replacement and
 // structural commands keep their own operand/selection semantics.
 const selectionAppearanceCommands = new Set([
+  'setShapeFlip',
   'setShapeFill',
   'setShapeGradientFill',
   'setShapePatternFill',

@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  getShapeFlip,
   getShapeFillColor,
   getShapeFill,
   getShapeStroke,
@@ -49,6 +50,53 @@ test(
         return getSlideShapes(getSlides(deck)[0]).map(reader);
       };
       await saved();
+      const initialFlips = await colors(getShapeFlip);
+      await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).check();
+      await saved();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      const mixedFlip = editor.getByRole('checkbox', {
+        name: 'Flip horizontally (Mixed)',
+        exact: true,
+      });
+      assert.equal(await mixedFlip.evaluate((node) => node.indeterminate), true);
+      await mixedFlip.check();
+      await saved();
+      assert.deepEqual((await colors(getShapeFlip)).slice(0, 2), [
+        { horizontal: true, vertical: false },
+        { horizontal: true, vertical: false },
+      ]);
+      assert.deepEqual((await colors(getShapeFlip))[2], initialFlips[2]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(await mixedFlip.evaluate((node) => node.indeterminate), true);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      await editor.getByRole('checkbox', { name: '上下反転', exact: true }).check();
+      await saved();
+      assert.deepEqual((await colors(getShapeFlip)).slice(0, 2), [
+        { horizontal: true, vertical: true },
+        { horizontal: true, vertical: true },
+      ]);
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      assert.equal(
+        await editor.getByRole('checkbox', { name: '左右反転', exact: true }).isChecked(),
+        true,
+      );
+      assert.equal(
+        await editor.getByRole('checkbox', { name: '上下反転', exact: true }).isChecked(),
+        true,
+      );
+      assert.deepEqual((await colors(getShapeFlip))[2], initialFlips[2]);
+      await editor.locator('.lang select').selectOption('en');
+      ja = false;
       const initialFill = await colors(getShapeFillColor);
       const initialStroke = await colors(getShapeStrokeColor);
       await editor.locator('.hit').nth(0).click();

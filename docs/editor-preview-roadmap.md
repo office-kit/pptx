@@ -451,3 +451,5 @@ positions, rotations and reflections produced by ungrouping.
 - Wheel spokes can be edited in Japanese/English, undone, and saved/reloaded without losing the count. Presentation mode reveals clockwise sectors (default four), using bounded-size gradient masks even for large unsigned counts; zero spokes uses a fade. Saved-deck pixel tests cover one, two, three, four and eight spokes, plus interruption, completion and reduced motion.
 
 Numeric position and size controls resolve placeholder geometry inherited from layouts or masters. Editing one coordinate preserves the remaining resolved bounds; aspect-ratio locking also works before local geometry exists. Browser regression coverage checks English/Japanese edits, undo back to inheritance and saved reloads.
+
+Shape properties expose horizontal and vertical flip checkboxes in English and Japanese, including indeterminate values for mixed selections. Flip commands apply the selected axis to each selected object without changing the other axis or unselected objects. Model and browser tests cover mixed-state history, bulk flags and saved reloads.
