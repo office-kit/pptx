@@ -49,7 +49,8 @@
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
   import { rotateRect, selectionBounds } from './rotation.ts';
-  import { snapMove, type Guide, type Rect } from './snapping.ts';
+  import { type Guide, type Rect } from './snapping.ts';
+  import { snapTransformedMove } from './transformed-snapping.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -348,17 +349,15 @@
     const dyEmu = last.y - start.y;
 
     if (drag.mode === 'move') {
-      // Snap the group's bounding box, then move every shape by the same delta.
-      const rects = [...drag.startRects.values()];
-      const bx = Math.min(...rects.map((r) => r.x));
-      const by = Math.min(...rects.map((r) => r.y));
-      const bw = Math.max(...rects.map((r) => r.x + r.w)) - bx;
-      const bh = Math.max(...rects.map((r) => r.y + r.h)) - by;
-      const others = boxes.filter((b) => !drag!.ids.includes(b.id)).map((b) => resolvedRect(b.id)!).filter(Boolean);
-      const thresh = 6 / pxPerEmuX();
-      const snap = snapMove({ x: bx + dxEmu, y: by + dyEmu, w: bw, h: bh }, others, { w: metrics.widthEmu, h: metrics.heightEmu }, thresh);
-      const gdx = snap.x - bx;
-      const gdy = snap.y - by;
+      const movingIds = new Set(drag.ids);
+      const moving = [...drag.startRects].map(([id, rect]) => ({ ...rect, rotation: drag!.startRotations.get(id)! }));
+      const others = boxes.filter(box => !movingIds.has(box.id)).flatMap(box => {
+        const rect = resolvedRect(box.id);
+        return rect ? [{ ...rect, rotation: box.rotation }] : [];
+      });
+      const snap = snapTransformedMove(moving, others, scope!.matrix, { x: dxEmu, y: dyEmu }, { w: metrics.widthEmu, h: metrics.heightEmu }, 6 / pxPerEmuX());
+      const gdx = snap.delta.x;
+      const gdy = snap.delta.y;
       guides = snap.guides;
       doc.applyLive(() => {
         for (const [id, r] of drag!.startRects) {
@@ -978,6 +977,12 @@
         <div class="paint">{@html doc.currentSvg}</div>
       {/key}
 
+      <div class="overlay">
+        {#each guides as g, i (i)}
+          <div class="guide {g.o}" style={guideStyle(g)}></div>
+        {/each}
+      </div>
+
       <div class="overlay" style={scopeStyle}>
         {#each boxes as box (box.id)}
           {@const isSel = selectedIds.has(box.id)}
@@ -1024,10 +1029,6 @@
           </div>
         {/if}
 
-        <!-- smart guides -->
-        {#each guides as g, i (i)}
-          <div class="guide {g.o}" style={guideStyle(g)}></div>
-        {/each}
 
         <!-- marquee -->
         {#if marquee}

@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,7 @@ const result = await build({
   ],
 });
 const {
+  setShapeBounds,
   getShapeTextAnchor,
   getParagraphPropertiesEffective,
   addSlideLine,
@@ -655,4 +656,67 @@ test('text alignment updates all selected paragraphs with one undo step', async 
   assert.deepEqual(state(), unchanged);
   editor.invoke('setShapeTextAnchor', { anchor: 'top' });
   assert.deepEqual(state(), unchanged);
+});
+
+test('grouped alignment and distribution use visible edges through rotation reflection and scale', async () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const ids = shapes.map(getShapeId);
+  editor.invoke('groupShapes');
+  editor.doc.transact('Transform group', () => {
+    const group = editor.selectedShapes()[0];
+    setShapeRotation(group, 90);
+    setShapeFlip(group, { horizontal: true, vertical: false });
+    setShapeBounds(group, { x: emu(100), y: emu(100), w: emu(2200), h: emu(3000) });
+  });
+  editor.doc.select({ kind: 'shape', slideIndex: editor.doc.selection.slideIndex, shapeIds: ids });
+  const bounds = () =>
+    editor.selectedShapes().map((shape) => getShapeBoundsResolved(editor.doc.pres, shape));
+  const visible = () =>
+    bounds().map((b) => ({
+      x: 3000 - 3 * (b.y + b.h),
+      y: 2900 - 2 * (b.x + b.w),
+      w: 3 * b.h,
+      h: 2 * b.w,
+    }));
+  const original = bounds();
+  const size = getSlideSize(editor.doc.pres);
+  for (const alignment of ['left', 'center', 'right', 'top', 'middle', 'bottom']) {
+    editor.alignSelection(alignment, 'slide');
+    for (const b of visible()) {
+      const actual = {
+        left: b.x,
+        center: b.x + b.w / 2,
+        right: b.x + b.w,
+        top: b.y,
+        middle: b.y + b.h / 2,
+        bottom: b.y + b.h,
+      }[alignment];
+      const expected = {
+        left: 0,
+        center: size.width / 2,
+        right: size.width,
+        top: 0,
+        middle: size.height / 2,
+        bottom: size.height,
+      }[alignment];
+      assert.ok(Math.abs(actual - expected) <= 2, `${alignment}: ${actual} vs ${expected}`);
+    }
+    await editor.doc.undo();
+    assert.deepEqual(bounds(), original);
+  }
+  for (const direction of ['horizontal', 'vertical']) {
+    const axis = direction === 'horizontal' ? 'x' : 'y';
+    const extent = direction === 'horizontal' ? 'w' : 'h';
+    const before = visible().sort((a, b) => a[axis] - b[axis]);
+    editor.distributeSelection(direction);
+    const after = visible().sort((a, b) => a[axis] - b[axis]);
+    assert.deepEqual(after[0], before[0]);
+    assert.deepEqual(after[2], before[2]);
+    const firstGap = after[1][axis] - after[0][axis] - after[0][extent];
+    const lastGap = after[2][axis] - after[1][axis] - after[1][extent];
+    assert.ok(Math.abs(firstGap - lastGap) <= 3);
+    await editor.doc.undo();
+    assert.deepEqual(bounds(), original);
+  }
 });
