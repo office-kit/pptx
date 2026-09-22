@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 158,
+  "count": 161,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -705,6 +705,29 @@
       ]
     },
     {
+      "id": "moveSlideAnimation",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "animation",
+      "file": "api/fn/slide-animation-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "id",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "index",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "removeShape",
       "operand": "shape",
       "takesOperand": true,
@@ -727,6 +750,23 @@
           "name": "slide",
           "type": "SlideData",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "removeSlideAnimation",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "animation",
+      "file": "api/fn/slide-animation-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "id",
+          "type": "number",
+          "kind": "number",
           "optional": false
         }
       ]
@@ -2792,6 +2832,29 @@
       "returns": "ReadonlyArray<SlideShapeData>",
       "canvas": true,
       "params": []
+    },
+    {
+      "id": "updateSlideAnimation",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "animation",
+      "file": "api/fn/slide-animation-edit.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "id",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "patch",
+          "type": "AnimationPatch",
+          "kind": "object",
+          "optional": false
+        }
+      ]
     }
   ]
 }

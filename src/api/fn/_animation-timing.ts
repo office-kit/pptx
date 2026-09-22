@@ -405,7 +405,14 @@ const toStep = (
  */
 export const readSlideTiming = (slide: SlideData): AnimationStepNode[] => {
   const timing = findSlideTimingElement(slide);
-  if (timing === null) return [];
+  return timing === null ? [] : readTimingSteps(timing);
+};
+
+/**
+ * The same read against a `<p:timing>` element directly, for the editing paths:
+ * they assemble a change in a copy of the tree, which is not on a slide yet.
+ */
+export const readTimingSteps = (timing: XmlElement): AnimationStepNode[] => {
   const rootList = rootChildTnLst(timing);
   if (rootList === null) return [];
   const builds = readBuilds(timing);
@@ -461,7 +468,7 @@ const wholeMs = (raw: string | null): number | null => {
  * number of milliseconds, and reading the `delay` attribute beside one as if it
  * were the offset would place the node at a time PowerPoint never plays it.
  */
-const offsetCond = (cTn: XmlElement): XmlElement | null => {
+export const offsetCond = (cTn: XmlElement): XmlElement | null => {
   const stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
   if (stCondLst === null) return null;
   const conds = stCondLst.children.filter(
@@ -581,5 +588,52 @@ export const setGroupStartOffset = (groupPar: XmlElement, delayMs: number): bool
       ? { ...a, value: String(delayMs) }
       : a,
   );
+  return true;
+};
+
+// The `<p:set>` that flips visibility is scaffolding around every preset, not
+// the effect's own length, so it is not what a duration change should touch.
+const isVisibilityKick = (cBhvr: XmlElement): boolean => {
+  const attrNameLst = firstChildElement(cBhvr, NAME_ATTR_NAME_LST);
+  const attrName = attrNameLst === null ? null : firstChildElement(attrNameLst, NAME_ATTR_NAME);
+  return (attrName?.children.find((c) => c.kind === 'text')?.data ?? '') === VISIBILITY_ATTR_NAME;
+};
+
+const setTimeAttr = (el: XmlElement, name: string, value: string): void => {
+  const has = el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === name);
+  el.attrs = has
+    ? el.attrs.map((a) =>
+        a.name.namespaceURI === '' && a.name.localName === name ? { ...a, value } : a,
+      )
+    : [...el.attrs, { name: qname('', name, ''), value }];
+};
+
+/**
+ * Sets how long after its group an effect waits, in place. `false` when the
+ * effect does not start at a plain offset: the condition there ties it to
+ * something else, and overwriting the delay beside it would not mean what the
+ * caller asked for.
+ */
+export const setEffectDelayMs = (effectCTn: XmlElement, delayMs: number): boolean => {
+  const cond = offsetCond(effectCTn);
+  if (cond === null) return false;
+  setTimeAttr(cond, 'delay', String(delayMs));
+  return true;
+};
+
+/**
+ * Sets how long an effect runs, in place, leaving everything else about it
+ * alone. `false` when the effect animates through more than one timed
+ * behaviour, since there is no single length to set. An effect with none —
+ * `appear` and `disappear` write only the visibility kick — has no duration to
+ * change and is left as it is.
+ */
+export const setEffectDurationMs = (effectCTn: XmlElement, durationMs: number): boolean => {
+  const timed = behavioursOf(effectCTn).filter((b) => !isVisibilityKick(b));
+  if (timed.length === 0) return true;
+  if (timed.length > 1) return false;
+  const cTn = firstChildElement(timed[0]!, NAME_C_TN);
+  if (cTn === null) return false;
+  setTimeAttr(cTn, 'dur', String(durationMs));
   return true;
 };

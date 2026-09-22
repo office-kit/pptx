@@ -64,6 +64,7 @@ const MUTATING_VERBS = [
   'increment',
   'compact',
   'reset',
+  'update',
 ];
 
 function isMutatingName(name: string): boolean {
