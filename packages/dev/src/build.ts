@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { compile, type Node } from '@office-kit/pptx-dsl';
 import {
+  getSlideAnimations,
   getSlideSize,
   getSlides,
   getSlideNotes,
@@ -20,6 +21,8 @@ export interface BuildResult {
   notes: (string | null)[];
   hiddenSlides: boolean[];
   transitions: ReturnType<typeof getSlideTransition>[];
+  /** What each slide animates, in click order — the preview's player reads this. */
+  animations: ReturnType<typeof getSlideAnimations>[];
   aspectRatio: number;
   dependencies: string[];
   diagnostics: ReturnType<typeof validatePresentation>;
@@ -64,6 +67,7 @@ export async function renderDeck(
       notes: getSlides(saved).map(getSlideNotes),
       hiddenSlides: getSlides(saved).map(isSlideHidden),
       transitions: getSlides(saved).map(getSlideTransition),
+      animations: getSlides(saved).map(getSlideAnimations),
       diagnostics,
     },
   };

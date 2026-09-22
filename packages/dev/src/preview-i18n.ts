@@ -31,6 +31,7 @@ function updatePreviewLabels(){
  byId('exit-present').textContent=pt('Exit · Esc');
  byId('toggle-editor').textContent=pt(document.body.classList.contains('editing')?'Preview':'Edit');
  byId('count').textContent=slideCount();byId('present-count').textContent=slideCount();
+ updateAnimationNotice();
  slide.setAttribute('aria-label',slideLabel(index));
  for(const [i,item] of Array.from(thumbnails.children).entries()){
   item.firstElementChild.setAttribute('aria-label',slideLabel(i));

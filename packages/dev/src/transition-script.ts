@@ -11,6 +11,9 @@ reducedMotion.addEventListener('change',()=>{if(reducedMotion.matches){cancelTra
 function renderSlide(svg,options){
   const previous=displayedSvg;
   cancelTransition();
+  // What the viewer last saw, not the drawing the slide started as: leaving a
+  // slide part-way through its build must not flash the effects still to come.
+  const previousMarkup=canvas.innerHTML;
   displayedSvg=svg;
   const style='<style>svg{display:block;width:100%;height:100%}.transition-layer{position:absolute;inset:0;background:white;overflow:hidden}.transition-old{pointer-events:none}</style>';
   canvas.innerHTML=svg?style+svg:'';
@@ -20,7 +23,7 @@ function renderSlide(svg,options){
   if(!previous||!svg||reducedMotion.matches||(effect==='cut'&&!options.thruBlack)||!(effect==='cut'||playableEffects.includes(effect)))return;
   const incoming=document.createElement('div'),outgoing=document.createElement('div');
   incoming.className='transition-layer';incoming.innerHTML=svg;
-  outgoing.className='transition-layer transition-old';outgoing.innerHTML=previous;
+  outgoing.className='transition-layer transition-old';outgoing.innerHTML=previousMarkup;
   outgoing.setAttribute('aria-hidden','true');outgoing.inert=true;
   canvas.innerHTML=style;canvas.append(outgoing,incoming);
   const duration=options.speed==='slow'?1000:options.speed==='fast'?300:600;
@@ -172,7 +175,16 @@ function renderSlide(svg,options){
     animate(incoming,[{transform:options.direction==='out'?'scale(2)':'scale(0.1)',opacity:0},{transform:'scale(1)',opacity:1}]);
   }
   clearTimeout(advanceTimer);advanceKey=null;
-  const cleanup=()=>{outgoing.remove();incoming.remove();canvas.innerHTML=style+svg;slide.style.background='';};
+  const cleanup=()=>{
+    outgoing.remove();
+    // The incoming layer keeps its own nodes rather than being re-parsed into
+    // the canvas: the slide's build may already be running on them — a leading
+    // 'with previous' effect starts as the slide appears — and new nodes would
+    // lose both the animation and what it was hiding. Dropping the class is
+    // enough to leave no transition layer behind.
+    incoming.className='';incoming.style.cssText='position:absolute;inset:0';
+    slide.style.background='';
+  };
   transitionCleanup=cleanup;
   Promise.all(transitionAnimations.map(animation=>animation.finished)).then(()=>{
     if(transitionCleanup!==cleanup)return;

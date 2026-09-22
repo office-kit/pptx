@@ -15,6 +15,35 @@ const canvases={current:byId('current').attachShadow({mode:'open'}),next:byId('n
 const displayed={};
 let locale='en',started=performance.now(),connected=false;
 const text=(en,ja)=>locale==='ja'?ja:en;
+// The presenter shows the slide the audience is looking at, so it runs the very
+// same player over its own copy, resumed at the same point in the same stop,
+// rather than being told after the fact what is on screen.
+let makePlayer,animationPlayer,animationKey,animationGeneration,lastState;
+const presenterReducedMotion=matchMedia('(prefers-reduced-motion: reduce)');
+import('/animation-player.js').then(module=>{makePlayer=module.createAnimationPlayer;if(lastState)syncAnimation(lastState);},()=>{});
+function syncAnimation(data){
+ const steps=data.presenting?data.animationSteps:null;
+ if(!steps||!steps.length||!makePlayer){
+  if(animationPlayer){animationPlayer.dispose();animationPlayer=undefined;animationKey=undefined;animationGeneration=undefined;}
+  return;
+ }
+ const key=data.index+'\\u0000'+(data.current??'')+'\\u0000'+JSON.stringify(steps);
+ if(key!==animationKey){
+  animationPlayer?.dispose();
+  animationPlayer=makePlayer({root:canvases.current,steps,reducedMotion:()=>presenterReducedMotion.matches});
+  animationKey=key;animationGeneration=undefined;
+ }
+ const progress=data.animation;
+ if(!progress)return;
+ // Follow the audience only when it actually moved. The effects inside a stop
+ // run on the same clock here, so re-running them on every passing report would
+ // restart a fade; a seek that lands on the cursor it is already on — jumping
+ // to the end of the stop in hand, say — still has to be followed, which is
+ // what the generation says and the cursor alone does not.
+ if(progress.generation===animationGeneration)return;
+ animationGeneration=progress.generation;
+ animationPlayer.resume(progress.cursor,progress.elapsed);
+}
 function send(action,index){if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'presenter-command',action,index},location.origin);}
 for(const canvas of Object.values(canvases))canvas.addEventListener('click',event=>{
  const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
@@ -30,7 +59,10 @@ function update(data){
  for(const [id,en,ja] of [['title','Presenter view','発表者ビュー'],['timer-label','Elapsed','経過時間'],['reset','Reset timer','タイマーをリセット'],['current-title','Current slide','現在のスライド'],['notes-title','Speaker notes','発表者ノート'],['next-title','Next slide','次のスライド'],['prev','Previous','前へ'],['next-button','Next','次へ'],['exit','Exit presentation','プレゼンテーションを終了']])byId(id).textContent=text(en,ja);
  document.title=text('Presenter view — Office Kit','発表者ビュー — Office Kit');
  byId('message').textContent=data.presenting?'':text('Presentation is stopped.','プレゼンテーションは停止中です。');
- byId('count').textContent=data.count?text('Slide '+(data.index+1)+' of '+data.count,'スライド '+(data.index+1)+' / '+data.count):text('No slides','スライドがありません');
+ const animation=data.animation&&data.animation.stops>0
+  ? ' · '+text('Click '+data.animation.cursor+' of '+data.animation.stops,'クリック '+data.animation.cursor+' / '+data.animation.stops)
+  : '';
+ byId('count').textContent=data.count?text('Slide '+(data.index+1)+' of '+data.count,'スライド '+(data.index+1)+' / '+data.count)+animation:text('No slides','スライドがありません');
  for(const name of ['current','next']){
   const svg=data[name];
   if(displayed[name]!==svg){displayed[name]=svg;canvases[name].innerHTML=svg?'<style>svg{display:block;width:100%;height:100%}</style>'+svg:'';}
@@ -38,9 +70,11 @@ function update(data){
  }
  byId('notes').textContent=data.notes||text('No speaker notes.','発表者ノートはありません。');
  byId('prev').disabled=!data.hasPrevious;
- byId('next-button').disabled=!data.next;
+ // The next click may be an effect on this slide rather than the next slide.
+ byId('next-button').disabled=!(data.hasNext??data.next);
  byId('exit').disabled=!data.presenting;
- byId('end').hidden=!!data.next;byId('end').textContent=text('End of presentation','プレゼンテーションの最後です');
+ byId('end').hidden=!!(data.hasNext??data.next);byId('end').textContent=text('End of presentation','プレゼンテーションの最後です');
+ lastState=data;syncAnimation(data);
 }
 window.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===window.opener&&event.data?.type==='presenter-state')update(event.data);});
 byId('prev').onclick=()=>send('previous');byId('next-button').onclick=()=>send('next');byId('exit').onclick=()=>send('exit');

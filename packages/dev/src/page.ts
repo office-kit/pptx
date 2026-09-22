@@ -1,3 +1,4 @@
+import { animationScript } from './animation-script.ts';
 import { previewI18nScript } from './preview-i18n.ts';
 import { transitionScript } from './transition-script.ts';
 import { previewStyles } from './styles.ts';
@@ -28,7 +29,7 @@ body.editing:not(.presenting){grid-template-rows:60px minmax(0,1fr)}
 <div class="workspace-heading"><span>✦ AI WORKSPACE</span><b>LOCAL</b></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
 </div>
 <footer><span id="count" aria-live="polite">No slides</span><span class="hint">Changes appear automatically · Text can be selected and copied</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
-<div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
+<div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
 let displayedSvg;
@@ -38,14 +39,23 @@ function findSlide(start,step,skipHidden=presenting){
  for(let i=start;i>=0&&i<state.slides.length;i+=step)if(!skipHidden||!state.hiddenSlides?.[i])return i;
  return -1;
 }
-function moveSlide(step,skipHidden=presenting){
+function moveSlide(step,skipHidden=presenting,focusThumbnail=false){
+ // A build comes before the slide: the click that would move on first plays
+ // whatever the current slide still has to show, in either direction.
+ if(animationPlayer&&(step>0?animationPlayer.advance():animationPlayer.back()))return;
  const next=findSlide(index+step,step,skipHidden);
- if(next>=0)selectSlide(next);
+ // Arriving backwards lands on a slide that has already played out, the way
+ // PowerPoint shows it; arriving forwards starts its build from the top.
+ if(next>=0)selectSlide(next,focusThumbnail,true,step<0?'end':'start');
 }
 let advanceTimer,advanceKey;
 function scheduleAdvance(){
   const delay=state.transitions?.[index]?.advanceAfterMs;
-  const key=presenting&&findSlide(index+1,1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
+  // A slide that still has effects to play — or one whose last click is still
+  // playing out — is not finished, whatever its transition says about
+  // advancing itself.
+  const settled=!animationPlayer||!(animationPlayer.pending||animationPlayer.running);
+  const key=presenting&&settled&&findSlide(index+1,1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
   if(key===advanceKey)return;
   clearTimeout(advanceTimer);advanceKey=key;
   if(key===null)return;
@@ -59,6 +69,17 @@ function scheduleAdvance(){
   advanceTimer=setTimeout(tick,Math.min(delay,2147483647));
 }
 const byId=id=>document.getElementById(id);
+// Next and previous move through the slide's own build before they move
+// through the deck, so the last slide's remaining effects are still reachable
+// and the first step back is the one inside this slide.
+function animationsPending(){return Boolean(animationPlayer&&animationPlayer.pending);}
+function animationsBehind(){return Boolean(animationPlayer&&animationPlayer.cursor>0);}
+function updateNavigationButtons(){
+  for(const id of ['prev','present-prev'])byId(id).disabled=findSlide(index-1,-1)<0&&!animationsBehind();
+  for(const id of ['next','present-next'])byId(id).disabled=findSlide(index+1,1)<0&&!animationsPending();
+  byId('present').disabled=findSlide(0,1,true)<0;
+  byId('presenter').disabled=byId('present').disabled;
+}
 const stage=byId('stage'),slide=byId('slide'),thumbnails=byId('thumbnails');
 const workspace=document.querySelector('.workspace'),chatResizer=byId('chat-resizer');
 const chatWidthKey='office-kit-chat-width',minChatWidth=280,minStageWidth=240;
@@ -96,6 +117,57 @@ new ResizeObserver(updateChatWidthAria).observe(byId('chat'));
 // document, so arrow-key navigation keeps working after clicking into a slide.
 const canvas=slide.attachShadow({mode:'open'});
 ${transitionScript}
+${animationScript}
+// The slide's object animations. One player per slide, kept while the slide and
+// its timing stay as they are: an unrelated rebuild (new speaker notes, say)
+// must not throw away how far the viewer has clicked through a build.
+let animationPlayer,animationPlayerKey;
+const animationStepsAt=i=>state.animations?.[i]??[];
+const animationKeyAt=i=>i+'\u0000'+(state.slides[i]??'')+'\u0000'+JSON.stringify(animationStepsAt(i));
+// A transition draws the arriving slide into a layer of its own, beside a layer
+// holding the slide being left — whose shapes carry ids of their own, from a
+// different slide's id space. Only the arriving one is this slide.
+const slideRoot=()=>canvas.querySelector('.transition-layer:not(.transition-old)')??canvas;
+function updateAnimationNotice(){
+  const note=byId('present-note');
+  const skipped=animationPlayer?animationPlayer.unsupported:[];
+  note.hidden=skipped.length===0;
+  note.textContent=skipped.length===0?'':previewLocale==='ja'
+    ?'このスライドの '+skipped.length+' 件のアニメーションは未対応のため再生されません'
+    :skipped.length===1
+      ?'1 animation on this slide is not supported yet, so it is not played'
+      :skipped.length+' animations on this slide are not supported yet, so they are not played';
+}
+function syncAnimationPlayer(position){
+  // Animations belong to the slide show. The still preview shows the slide as
+  // it ends, which is what the renderer drew.
+  const wanted=presenting&&animationStepsAt(index).length>0;
+  if(!wanted){
+    if(animationPlayer){animationPlayer.dispose();animationPlayer=undefined;animationPlayerKey=undefined;}
+    updateAnimationNotice();
+    return;
+  }
+  const key=animationKeyAt(index);
+  if(!animationPlayer||animationPlayerKey!==key){
+    // A changed timing makes the old cursor meaningless — the effects it
+    // counted are not the effects there are now.
+    animationPlayer?.dispose();
+    animationPlayer=createAnimationPlayer({
+      root:slideRoot,
+      steps:animationStepsAt(index),
+      reducedMotion:()=>reducedMotion.matches,
+      onChange:()=>{updateNavigationButtons();updatePresenter();scheduleAdvance();},
+    });
+    animationPlayerKey=key;
+    position==='end'?animationPlayer.finish():animationPlayer.reset();
+    updateAnimationNotice();
+    return;
+  }
+  if(position==='end')animationPlayer.finish();
+  else if(position==='start')animationPlayer.reset();
+  // 'keep' leaves the cursor where the viewer left it.
+  updateAnimationNotice();
+}
 function resize(){
   if(!state.slides.length)return;
   const style=getComputedStyle(stage);
@@ -106,7 +178,7 @@ function resize(){
   const slideWidth=presenting||zoom==='fit'?Math.min(width,height*ratio):1280*Number(zoom);
   slide.style.width=slideWidth+'px';slide.style.height=slideWidth/ratio+'px';
 }
-function selectSlide(next,focusThumbnail=false,reveal=true){
+function selectSlide(next,focusThumbnail=false,reveal=true,position='start'){
   const previousIndex=index;
   index=Math.max(0,Math.min(next,state.slides.length-1));
   if(presenting&&state.hiddenSlides?.[index]){
@@ -118,16 +190,14 @@ function selectSlide(next,focusThumbnail=false,reveal=true){
   window.dispatchEvent(new Event('agent-focus'));
   if(document.body.classList.contains('editing')&&editorFocus)applyEditorFocus();
   byId('count').textContent=count;byId('present-count').textContent=count;
-  for(const id of ['prev','present-prev'])byId(id).disabled=findSlide(index-1,-1)<0;
-  for(const id of ['next','present-next'])byId(id).disabled=findSlide(index+1,1)<0;
-  byId('present').disabled=findSlide(0,1,true)<0;
-  byId('presenter').disabled=byId('present').disabled;
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
   if(svg!==displayedSvg||previousIndex!==index){
     renderSlide(svg,presenting&&previousIndex!==index?state.transitions?.[index]:null);
   }
+  syncAnimationPlayer(position);
+  updateNavigationButtons();
   slide.setAttribute('aria-label',slideLabel(index));
   for(const [position,item] of Array.from(thumbnails.children).entries()){
     const button=item.firstElementChild,selected=position===index;
@@ -168,7 +238,7 @@ function update(updated){
     if(oldUrl)URL.revokeObjectURL(oldUrl);
   });
   if(presenting&&findSlide(0,1,true)<0)void exitPresentation();
-  selectSlide(index,focusedThumbnail,false);
+  selectSlide(index,focusedThumbnail,false,'keep');
 }
 function setPresenting(value){
   cancelTransition();
@@ -189,7 +259,12 @@ byId('present').onclick=async()=>{
 };
 function updatePresenter(){
  if(!presenterWindow||presenterWindow.closed)return;
- presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,current:state.slides[index]??null,next:state.slides[findSlide(index+1,1,true)]??null,hasPrevious:findSlide(index-1,-1,true)>=0,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
+ // The presenter runs the same player over its own copy of the slide, from the
+ // same cursor and the same moment within the stop in hand, so what it shows
+ // is what the audience sees — including an effect still fading in.
+ const progress=animationPlayer?animationPlayer.progress:null;
+ const animationSteps=animationPlayer?animationStepsAt(index):null;
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[findSlide(index+1,1,true)]??null,hasPrevious:findSlide(index-1,-1,true)>=0||animationsBehind(),hasNext:findSlide(index+1,1,true)>=0||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
 }
 byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
@@ -221,19 +296,27 @@ stage.onclick=event=>{
     }
     return;
   }
-  if(presenting&&state.transitions?.[index]?.advanceOnClick!==false&&!getSelection().toString())moveSlide(1);
+  if(!presenting||getSelection().toString())return;
+  // 'advClick' says whether a click moves to the next *slide*. A build still
+  // belongs to this one, so its remaining effects play either way.
+  if(animationsPending()||state.transitions?.[index]?.advanceOnClick!==false)moveSlide(1);
 };
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
-  let next=index;
-  if(['ArrowLeft','ArrowUp','PageUp'].includes(event.key))next=findSlide(index-1,-1);
-  else if(['ArrowRight','ArrowDown','PageDown'].includes(event.key))next=findSlide(index+1,1);
-  else if(event.key==='Home')next=findSlide(0,1);
-  else if(event.key==='End')next=findSlide(state.slides.length-1,-1);
-  else if(event.key===' '&&presenting&&!event.target.closest('button,a'))next=findSlide(index+(event.shiftKey?-1:1),event.shiftKey?-1:1);
+  const focusThumbnail=thumbnails.contains(document.activeElement);
+  let step=0,jump=-1;
+  if(['ArrowLeft','ArrowUp','PageUp'].includes(event.key))step=-1;
+  else if(['ArrowRight','ArrowDown','PageDown'].includes(event.key))step=1;
+  else if(event.key==='Home')jump=findSlide(0,1);
+  else if(event.key==='End')jump=findSlide(state.slides.length-1,-1);
+  else if(event.key===' '&&presenting&&!event.target.closest('button,a'))step=event.shiftKey?-1:1;
   else return;
-  event.preventDefault();if(next>=0)selectSlide(next,thumbnails.contains(document.activeElement));
+  event.preventDefault();
+  // Home and End are a jump, not a step: they land on a slide with its build
+  // at the start rather than walking through the one in hand.
+  if(step!==0)moveSlide(step,presenting,focusThumbnail);
+  else if(jump>=0)selectSlide(jump,focusThumbnail);
 });
 new ResizeObserver(resize).observe(stage);
 let refreshId=0;
