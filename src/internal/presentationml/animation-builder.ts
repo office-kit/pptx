@@ -7,8 +7,8 @@
 //
 //   - Entrance + exit preset families. Emphasis and motion presets are not
 //     modelled yet.
-//   - The whole shape is the target; per-paragraph builds
-//     (`<p:txEl><p:pRg>`, `<p:bldP build="p">`) are not modelled yet.
+//   - The whole shape, or one paragraph of its text body
+//     (`<p:txEl><p:pRg>`, `<p:bldP build="p">`).
 //
 // The timing tree shape follows what PowerPoint itself emits for a
 // single "fade in on click" effect — the boilerplate scaffolding around
@@ -44,6 +44,8 @@ const NAME_TAV_LST = qname('p', 'tavLst', NS.pml);
 const NAME_TAV = qname('p', 'tav', NS.pml);
 const NAME_BLD_LST = qname('p', 'bldLst', NS.pml);
 const NAME_BLD_P = qname('p', 'bldP', NS.pml);
+const NAME_TX_EL = qname('p', 'txEl', NS.pml);
+const NAME_P_RG = qname('p', 'pRg', NS.pml);
 
 const ATTR_ID = qname('', 'id', '');
 const ATTR_DUR = qname('', 'dur', '');
@@ -64,6 +66,9 @@ const ATTR_CALCMODE = qname('', 'calcmode', '');
 const ATTR_VALUE_TYPE = qname('', 'valueType', '');
 const ATTR_ADDITIVE = qname('', 'additive', '');
 const ATTR_TM = qname('', 'tm', '');
+const ATTR_BUILD = qname('', 'build', '');
+const ATTR_ST = qname('', 'st', '');
+const ATTR_END = qname('', 'end', '');
 
 /** What kind of effect to apply. Currently the four most-used presets. */
 export type AnimationEffect = 'fadeIn' | 'fadeOut' | 'appear' | 'disappear';
@@ -106,12 +111,45 @@ export interface AnimationOptions {
   readonly start?: AnimationStartCondition;
   /** How long to wait once the start condition is met. Defaults to 0ms. */
   readonly delayMs?: number;
+  /**
+   * Reveal the shape's text one paragraph at a time instead of animating the
+   * shape as a whole — PowerPoint's "By paragraph", Google Slides' "By
+   * paragraph". Each paragraph gets its own effect with the same `start`, so
+   * the default `'click'` advances one paragraph per click.
+   */
+  readonly byParagraph?: boolean;
 }
 
-const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
-  const tgt = elem(NAME_TGT_EL, {
-    children: [elem(NAME_SP_TGT, { attrs: [attr(ATTR_SPID, String(spid))] })],
+/**
+ * The `<p:tgtEl>` an effect's behaviours animate. A paragraph index narrows it
+ * to that one paragraph (`<p:txEl><p:pRg>`, CT_IndexRange — inclusive on both
+ * ends, so a single paragraph has `st` and `end` equal).
+ */
+const buildTarget = (spid: number, paragraph: number | null): XmlElement => {
+  const spTgt = elem(NAME_SP_TGT, {
+    attrs: [attr(ATTR_SPID, String(spid))],
+    children:
+      paragraph === null
+        ? []
+        : [
+            elem(NAME_TX_EL, {
+              children: [
+                elem(NAME_P_RG, {
+                  attrs: [attr(ATTR_ST, String(paragraph)), attr(ATTR_END, String(paragraph))],
+                }),
+              ],
+            }),
+          ],
   });
+  return elem(NAME_TGT_EL, { children: [spTgt] });
+};
+
+const buildSetVisibility = (
+  spid: number,
+  visible: boolean,
+  paragraph: number | null,
+): XmlElement => {
+  const tgt = buildTarget(spid, paragraph);
   const attrName = elem(NAME_ATTR_NAME_LST, {
     children: [elem(NAME_ATTR_NAME_FN, { children: [{ kind: 'text', data: 'style.visibility' }] })],
   });
@@ -130,10 +168,13 @@ const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
   return elem(NAME_SET, { children: [cBhvr, to] });
 };
 
-const buildOpacityAnim = (spid: number, durationMs: number, fadeIn: boolean): XmlElement => {
-  const tgt = elem(NAME_TGT_EL, {
-    children: [elem(NAME_SP_TGT, { attrs: [attr(ATTR_SPID, String(spid))] })],
-  });
+const buildOpacityAnim = (
+  spid: number,
+  durationMs: number,
+  fadeIn: boolean,
+  paragraph: number | null,
+): XmlElement => {
+  const tgt = buildTarget(spid, paragraph);
   const attrName = elem(NAME_ATTR_NAME_LST, {
     children: [elem(NAME_ATTR_NAME_FN, { children: [{ kind: 'text', data: 'style.opacity' }] })],
   });
@@ -177,8 +218,17 @@ const buildOpacityAnim = (spid: number, durationMs: number, fadeIn: boolean): Xm
  * shape id. The result is a standalone tree whose outermost `<p:par>` is one
  * click stop; merging it behind effects that already exist is the caller's
  * job, and only the caller knows whether that stop survives.
+ *
+ * `paragraph` narrows the effect to one paragraph of the shape's text body.
+ * A by-paragraph build is one such effect per paragraph, which is why the
+ * caller loops rather than this function: the effects share a build group and
+ * each needs merging into whatever the slide holds by then.
  */
-export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): XmlElement => {
+export const buildSingleEffectTiming = (
+  spid: number,
+  opts: AnimationOptions,
+  paragraph: number | null = null,
+): XmlElement => {
   const effect = oneOf(
     opts.effect,
     ['fadeIn', 'fadeOut', 'appear', 'disappear'],
@@ -206,9 +256,9 @@ export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): X
 
   const effectChildren: XmlElement[] = [];
   // Visibility kick: entrance reveals, exit hides.
-  effectChildren.push(buildSetVisibility(spid, isEntrance));
+  effectChildren.push(buildSetVisibility(spid, isEntrance, paragraph));
   if (isFade) {
-    effectChildren.push(buildOpacityAnim(spid, duration, isEntrance));
+    effectChildren.push(buildOpacityAnim(spid, duration, isEntrance, paragraph));
   }
 
   // cTn id=5 — the effect node.
@@ -302,13 +352,13 @@ export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): X
   const rootPar = elem(NAME_PAR, { children: [rootCTn] });
   const tnLst = elem(NAME_TN_LST, { children: [rootPar] });
 
-  // bldLst entry — required for PowerPoint to render the effect.
+  // bldLst entry — required for PowerPoint to render the effect. `build="p"`
+  // is what tells it the body is revealed paragraph by paragraph; the default
+  // (`whole`) would reveal all of it on the first effect.
+  const bldAttrs = [attr(ATTR_SPID, String(spid)), attr(ATTR_GRP_ID, '0')];
+  if (paragraph !== null) bldAttrs.push(attr(ATTR_BUILD, 'p'));
   const bldLst = elem(NAME_BLD_LST, {
-    children: [
-      elem(NAME_BLD_P, {
-        attrs: [attr(ATTR_SPID, String(spid)), attr(ATTR_GRP_ID, '0')],
-      }),
-    ],
+    children: [elem(NAME_BLD_P, { attrs: bldAttrs })],
   });
 
   return elem(NAME_TIMING, { children: [tnLst, bldLst] });
