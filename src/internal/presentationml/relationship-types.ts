@@ -8,7 +8,7 @@
 const OFFICE_DOC = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const PACKAGE = 'http://schemas.openxmlformats.org/package/2006/relationships';
 const MS_2007 = 'http://schemas.microsoft.com/office/2007/relationships';
-const MS_2015 = 'http://schemas.microsoft.com/office/2015/relationships';
+const MS_2018_10 = 'http://schemas.microsoft.com/office/2018/10/relationships';
 
 export const REL_TYPES = {
   // Package-root → presentation
@@ -54,10 +54,10 @@ export const REL_TYPES = {
   audio: `${OFFICE_DOC}/audio`,
   font: `${OFFICE_DOC}/font`,
 
-  // Authors list for modern comments
-  authors: `${MS_2015}/authors`,
-  // Modern comments per slide
-  modernComment: `${MS_2015}/comments`,
+  // Modern comments ([MS-PPTX] §2.1.x): the author list hangs off the
+  // presentation part, one comment part hangs off each slide that has any.
+  authors: `${MS_2018_10}/authors`,
+  modernComment: `${MS_2018_10}/comments`,
 
   // Legacy comments — universally supported by every PPTX consumer.
   // Authors list lives at /ppt/commentAuthors.xml (one per package);

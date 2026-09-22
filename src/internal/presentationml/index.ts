@@ -66,8 +66,42 @@ export type {
   SlideComment,
 } from './comments-part.ts';
 export {
+  DEFAULT_COMMENT_POSITION,
   buildCommentAuthorListDoc,
   buildCommentListDoc,
   readCommentAuthorList,
   readCommentList,
 } from './comments-part.ts';
+export type {
+  CommentStatus,
+  ModernAuthor,
+  ModernComment,
+  ModernCommentPosition,
+  ModernReply,
+} from './modern-comments-part.ts';
+export {
+  COMMENT_STATUSES,
+  CREATION_ID_URI,
+  MODERN_AUTHORS_CONTENT_TYPE,
+  MODERN_COMMENTS_CONTENT_TYPE,
+  MODERN_COMMENTS_NS,
+  P14_NS,
+  PC_NS,
+  anchorOf,
+  appendModernReply,
+  buildModernAuthorElement,
+  buildModernAuthorListDoc,
+  buildModernCommentElement,
+  buildModernCommentListDoc,
+  buildModernReplyElement,
+  buildSlideAnchor,
+  buildUnknownAnchor,
+  findModernComment,
+  findModernReply,
+  modernCommentElements,
+  readModernAuthorList,
+  readModernCommentList,
+  removeModernComment,
+  setModernStatus,
+  setModernText,
+} from './modern-comments-part.ts';

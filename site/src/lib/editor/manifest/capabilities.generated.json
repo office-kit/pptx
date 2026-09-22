@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 161,
+  "count": 162,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -124,7 +124,7 @@
       "params": [
         {
           "name": "opts",
-          "type": "{ author: { name: string; initials?: string }; text: string; position?: CommentPosition | null; date?: Date; /** Existing comment on this slide to reply to. */ replyTo?: SlideCommentData; }",
+          "type": "AddCommentOptions",
           "kind": "object",
           "optional": false
         }
@@ -1086,6 +1086,29 @@
         {
           "name": "spec",
           "type": "ChartSpec",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setCommentStatus",
+      "operand": "presentation",
+      "takesOperand": false,
+      "category": "comment",
+      "file": "api/fn/comments.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "comment",
+          "type": "SlideCommentData",
+          "kind": "object",
+          "optional": false
+        },
+        {
+          "name": "status",
+          "type": "CommentStatus",
           "kind": "object",
           "optional": false
         }

@@ -20,6 +20,10 @@
 //
 // Position coordinates are EMUs (ECMA Part 1 §19.7.2 `ST_Coordinate`).
 // `idx` is per-author; `lastIdx` on the author tracks the last used.
+//
+// `<p:pos>` is `minOccurs="1"` in `CT_Comment`, so it is written even when the
+// caller never placed a pin. Reading stays tolerant: imported files that omit
+// it are reported as having no position rather than being rejected.
 
 import {
   NS,
@@ -228,17 +232,18 @@ export const buildCommentAuthorListDoc = (authors: ReadonlyArray<CommentAuthor>)
   };
 };
 
+/** Where the pin goes when the caller did not say: the slide's own origin. */
+export const DEFAULT_COMMENT_POSITION: CommentPosition = { x: 0, y: 0 };
+
 const commentElement = (c: SlideComment): XmlElement => {
   const attrs = [attr(ATTR_AUTHOR_ID, String(c.authorId)), attr(ATTR_IDX, String(c.idx))];
   if (c.dt !== null) attrs.push(attr(ATTR_DT, c.dt));
-  const children: XmlElement[] = [];
-  if (c.position !== null) {
-    children.push(
-      elem(NAME_POS, {
-        attrs: [attr(ATTR_X, String(c.position.x)), attr(ATTR_Y, String(c.position.y))],
-      }),
-    );
-  }
+  const position = c.position ?? DEFAULT_COMMENT_POSITION;
+  const children: XmlElement[] = [
+    elem(NAME_POS, {
+      attrs: [attr(ATTR_X, String(position.x)), attr(ATTR_Y, String(position.y))],
+    }),
+  ];
   children.push(elem(NAME_TEXT, { children: [textNode(c.text)] }));
   if (c.parent)
     children.push(

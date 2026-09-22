@@ -19,8 +19,10 @@ export type {
 export type {
   CommentAuthor,
   CommentPosition,
+  CommentStatus,
   SlideComment,
 } from '../internal/presentationml/index.ts';
+export { COMMENT_STATUSES } from '../internal/presentationml/index.ts';
 export type { PresentationInput, PresentationSize, SlideSize } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
@@ -217,9 +219,11 @@ export {
   getCommentAuthor,
   getCommentAuthors,
   getCommentDate,
+  getCommentFormat,
   getCommentParent,
   getCommentPosition,
   getCommentSlide,
+  getCommentStatus,
   getCommentText,
   getCommentsSortedByDate,
   getCoreProperties,
@@ -553,6 +557,7 @@ export {
   resetSlideLayout,
   resetSlidePlaceholderTextFormatting,
   addMissingSlidePlaceholders,
+  setCommentStatus,
   setCommentText,
   setSlideNotes,
   setSlidePlaceholders,

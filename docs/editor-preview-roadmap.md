@@ -138,7 +138,7 @@ that a user can complete the corresponding editing workflow.
   code — that the dragged corner follows the pointer, the opposite corner and
   the centre of rotation stay put on the slide, the stored angle matches the
   angle swept in the child's own space, and every frame around the child keeps
-  its outer *and* inner transform and child order. Undo/redo, a reload and
+  its outer _and_ inner transform and child order. Undo/redo, a reload and
   Japanese controls are included; a corner driven past the one opposite it stops
   at the editor's minimum size instead of inverting.
 
@@ -534,7 +534,16 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - The comments dialog can reply to existing comments and unsaved drafts, including replies to replies. Parent author and text are visible in English and Japanese.
 - Apply commits all drafts in one undo step; Cancel discards them. Deleting a parent removes its descendants and is labeled “Delete thread”.
 - Replies persist using the PowerPoint p15 threading extension in legacy comment parts. Core and browser tests cover save/reload, editing, alternate XML prefixes, unknown extension preservation, sibling retention, and undo/redo.
-- Resolved status and editing modern p188 comment parts remain unfinished; this reply support does not provide those capabilities.
+- Modern p188 comment parts and resolved status are covered below.
+
+### Modern comments and resolved threads
+
+- Comments written by PowerPoint 2021 and Microsoft 365 are read and edited rather than only carried through. The format is Microsoft's own, not ECMA-376: [MS-PPTX] §2.16.1 for the Author and Comment parts and §5.14 for the schema, both read from the published specification rather than inferred from a file.
+- A thread owns its replies, its text is a DrawingML body, authors are GUIDs in `/ppt/authors.xml`, and a thread carries `status` — `active`, `resolved` or `closed`. `getSlideComments` returns both formats; `getCommentFormat`, `getCommentStatus` and `setCommentStatus` are public. A legacy comment reports no status, and setting one throws instead of silently doing nothing.
+- Editing goes through the file's own tree, so the slide or shape anchor, the pin, extension lists and reactions all survive a text edit, a resolve and a save. Core tests cover reading threads/replies/authors, resolve and reopen through save and reload, preserved unknown XML, replying inside a thread, starting a thread with the anchor the slide's own threads use, removing a reply or a whole thread, dropping the part and its relationship with the last thread, and a deck that carries both formats at once.
+- The comments dialog hides resolved threads with a count, brings them back on request, and resolves or reopens them in English and Japanese. A status change on its own enables Apply — the dialog used to compare only counts and text. Browser coverage drives resolve, Cancel discarding it, Apply, one-step undo/redo, reopening a resolved thread in Japanese, and one Apply carrying edits made on two slides.
+- Fixed on the way: `<p:pos>` is required by `CT_Comment` and nothing made a caller pass one, so every comment the editor added was schema-invalid. New comments are pinned to the slide origin, with a schema test that would have caught it.
+- Not covered: how real PowerPoint renders any of this is unverified, as is every other visual claim here. Assignment (`assignedTo`, `dueDate`, `complete`), reactions and shape-anchored authoring are read and preserved but not editable.
 
 ### Comment conversation navigation
 

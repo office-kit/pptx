@@ -339,6 +339,31 @@ describe('Layer 1: schema validation', () => {
     expectSchemaValid(decode(comments?.data ?? new Uint8Array()), 'pml');
   });
 
+  // `<p:pos>` is required by `CT_Comment`, and nothing in the API makes a
+  // caller pass one — the editor's own comment dialog does not.
+  skipIfNoXmllint('a comment added without a pin still validates', async () => {
+    const { addSlideComment, getSlides, loadPresentation, savePresentation } =
+      await import('../src/api/index.ts');
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0];
+    if (!slide) throw new Error('expected slide');
+    const first = addSlideComment(slide, {
+      author: { name: 'Reviewer', initials: 'R' },
+      text: 'No pin was given for this one.',
+      date: new Date('2026-05-15T12:00:00.000Z'),
+    });
+    addSlideComment(slide, {
+      author: { name: 'Second', initials: 'S' },
+      text: 'Nor this reply.',
+      replyTo: first,
+      date: new Date('2026-05-15T12:01:00.000Z'),
+    });
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(pres)));
+    const comments = pkg.parts.find((p) => p.name === '/ppt/comments/comment1.xml');
+    expect(comments).not.toBeUndefined();
+    expectSchemaValid(decode(comments!.data), 'pml');
+  });
+
   skipIfNoXmllint(
     'every emitted slide / presentation in the end-to-end deck validates',
     async () => {
