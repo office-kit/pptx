@@ -534,13 +534,13 @@ for (const control of ['keyboard', 'toolbar'])
           if (control === 'keyboard') await input.press(key);
           else
             await editor
-              .locator('.text-format-bar')
+              .locator('.canvas-shell > .text-format-bar')
               .getByRole('button', { name: label, exact: true })
               .click();
         };
         assert.equal(
           await editor
-            .locator('.text-format-bar')
+            .locator('.canvas-shell > .text-format-bar')
             .getByRole('button', { name: 'Bold', exact: true })
             .getAttribute('aria-pressed'),
           'true',
@@ -551,7 +551,7 @@ for (const control of ['keyboard', 'toolbar'])
         let text = await shape();
         assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
         assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
-        const bar = editor.locator('.text-format-bar');
+        const bar = editor.locator('.canvas-shell > .text-format-bar');
         assert.equal(
           await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
           'false',
@@ -694,7 +694,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.inline-edit');
-      const bar = editor.locator('.text-format-bar');
+      const bar = editor.locator('.canvas-shell > .text-format-bar');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(

@@ -546,3 +546,9 @@ The comment dialog offers a bilingual slide selector with slide titles and draft
 - Cell hit testing reverses table rotation and both flips after mapping the pointer through ancestor groups. Selected-cell highlights and input centers use the same reflected cell positions.
 - Cell text input follows the preview's table text rotation and reflection cancellation while retaining ancestor scaling. This differs from shape text, whose renderer cancels group scaling for glyphs.
 - Browser regression coverage clicks the rendered cell independently of editor geometry, verifies its text, selection/input centers and CSS/SVG glyph matrices, and checks saved cell contents and Japanese input after reload. It covers all four table flip combinations, with and without a rotated, reflected, nonuniformly scaled ancestor. Paragraph/body layout parity remains separate from these transform checks.
+
+### Text body layout while editing
+
+- Inline editing uses effective shape body margins and vertical alignment, including inherited shape settings and default autoshape centering. Table cells use their own margins and anchor. Insets follow canvas zoom, and the selection outline no longer consumes text layout space.
+- Browser regressions verify asymmetric margins and top/center/bottom placement in text boxes and table cells, with bilingual text editing and Japanese saved reload. Existing paragraph/selection and transformed-group editing checks guard the unchanged contenteditable DOM structure.
+- Nonrectangular preset text regions, autofit, vertical writing and complete renderer paragraph fidelity remain open.
