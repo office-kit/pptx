@@ -673,9 +673,10 @@ this table is about the everyday paths, and about what is not there at all.
 1. ~~**Format painter** (書式のコピー/貼り付け).~~ Done — see below.
 2. ~~**Character-level effects.**~~ Done — see below. What a run still cannot
    carry is a gradient or picture text fill; only a solid colour.
-3. **Media playback.** `addSlideMedia` embeds a clip and its poster, but nothing
-   states autoplay, loop, volume or a trimmed range, so a deck with a video plays
-   it the way PowerPoint defaults to. Library work first.
+3. ~~**Media playback.**~~ Autoplay, loop, volume, mute, full screen and
+   hide-when-stopped are done — see below. A **trimmed range** is still missing,
+   and stays missing on purpose: PowerPoint keeps `p14:trim` in a 2010
+   extension rather than in the core schema.
 4. ~~**Slide number, date and footer.**~~ Slide numbers are done — see below.
    Dates and footers stay literal text: the field types exist
    (`setShapeTextField(shape, 'datetime1' | 'ftr')`), but a preview cannot
@@ -712,3 +713,10 @@ properties of a `.pptx` file.
 - `parseEffectList` moved down into the module both the shape and run readers can depend on, so one parser decodes `<a:effectLst>` wherever it appears. `GlowOptions` gained the `opacity` its reader already reported — a glow with `<a:alpha>` now round-trips.
 - The preview paints all three: `-webkit-text-stroke` plus `paint-order` for the outline and layered `text-shadow` for the glow and shadow, with an effect's alpha folded into the colour because `text-shadow` has no opacity of its own. The pure-SVG text path (rasterised export) strokes the glyphs too; shadow and glow there are not implemented, so a PNG export shows the outline but not the halo.
 - Reachable in the editor through the text-format dialog and the properties panel, in English and Japanese, and they travel with the format painter. Browser tests check the painted canvas and the saved `.pptx` in both languages; library tests cover the child order, removal, the round trip and schema validity.
+
+### Media playback
+
+- `getShapeMediaPlayback` / `setShapeMediaPlayback` read and write what PowerPoint's Playback tab sets: `autoplay` (the media time node's start condition — `delay="0"` against `indefinite`), `loop` (`repeatCount`), `volume`, `muted`, `hideWhenStopped` from `CT_TLCommonMediaNodeData`, and `fullScreen` from `CT_TLMediaNodeVideo`. Omitted properties keep their value, and "no repeat" drops the attribute rather than writing the schema's own default back.
+- Both refuse what the file cannot state: `fullScreen` on an audio clip throws instead of writing an attribute `CT_TLMediaNodeAudio` does not have, and a volume outside 0–1 throws before anything changes. A shape with no media time node reads as `null` and refuses to be written — that is also what a clip pasted in without its node looks like, and such a clip shows no controls in the slide show.
+- Trimming is not covered: `p14:trim` is a 2010 extension, and a reader that does not know it plays the whole clip. The preview does not play media either; these settings travel in the file rather than being previewed.
+- Reachable in the editor through the properties panel and the command palette, in English and Japanese. Library tests cover the defaults a freshly added clip carries, each property, the refusals, the round trip and the XSD validity of the written timing tree.

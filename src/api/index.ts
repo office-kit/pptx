@@ -67,6 +67,7 @@ export type { ImageCrop } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type {
   AudioFormat,
+  MediaPlayback,
   ShapeMedia,
   SlideMediaOptions,
   SlideMediaSource,
@@ -291,6 +292,7 @@ export {
   getShapeIndex,
   getShapeKind,
   getShapeMedia,
+  getShapeMediaPlayback,
   getShapeName,
   getShapePatternFill,
   getShapeParagraphCount,
@@ -539,6 +541,7 @@ export {
   setShapeStrokeJoin,
   setShapeText,
   setShapeTextAnchor,
+  setShapeMediaPlayback,
   setShapeTextField,
   setShapeTextAutoFit,
   setShapeTextBodyRotationDeg,

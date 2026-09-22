@@ -79,6 +79,53 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  setShapeMediaPlayback: {
+    labelEn: 'Playback options',
+    labelJa: '再生オプション',
+    params: [
+      {
+        name: 'options',
+        type: 'Partial<MediaPlayback>',
+        kind: 'object',
+        optional: false,
+        label: 'Playback',
+        // Trimming is missing on purpose: PowerPoint keeps it in a 2010
+        // extension, which the library does not write.
+        fields: [
+          {
+            name: 'autoplay',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Start with the slide',
+          },
+          {
+            name: 'loop',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Loop until stopped',
+          },
+          { name: 'volume', type: 'number', kind: 'number', optional: true, label: 'Volume (0-1)' },
+          { name: 'muted', type: 'boolean', kind: 'boolean', optional: true, label: 'Mute' },
+          {
+            name: 'fullScreen',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Play full screen (video)',
+          },
+          {
+            name: 'hideWhenStopped',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Hide when not playing',
+          },
+        ],
+      },
+    ],
+  },
   setShapeTextField: {
     labelEn: 'Insert field',
     labelJa: 'フィールドを挿入',
