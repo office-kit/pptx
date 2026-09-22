@@ -1,6 +1,7 @@
 // Slide animations.
 
 import {
+  type AnimationDirection,
   type AnimationEffect,
   type AnimationOptions,
   type AnimationStartCondition,
@@ -53,13 +54,13 @@ import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
 // Animations (one effect per call).
 //
-// Current scope: each call adds one entrance or exit effect — or, for a
-// by-paragraph build, one per paragraph — and merges it into whatever timing
-// tree the slide already has, so a slide can carry several effects across
-// several shapes and click stops. Emphasis and motion presets, and editing or
-// reordering an effect that is already there, are not modelled yet.
+// Current scope: each call adds one entrance, exit or emphasis effect — or,
+// for a by-paragraph build, one per paragraph — and merges it into whatever
+// timing tree the slide already has, so a slide can carry several effects
+// across several shapes and click stops. Motion-path presets, and the rest of
+// the emphasis family, are not modelled.
 
-export type { AnimationEffect, AnimationOptions, AnimationStartCondition };
+export type { AnimationDirection, AnimationEffect, AnimationOptions, AnimationStartCondition };
 export type { AnimationSequenceKind, AnimationStart, AnimationTarget, SlideAnimationStep };
 export type { AnimationValueAfterEnd };
 
@@ -460,13 +461,20 @@ const effectTargets = (shape: SlideShapeData, opts: AnimationOptions): (number |
  *
  * Supported `effect` tokens:
  *
- *   - `'fadeIn'`   entrance fade
- *   - `'fadeOut'`  exit fade
- *   - `'appear'`   instant entrance
- *   - `'disappear'` instant exit
+ *   - `'appear'` / `'disappear'` — instant entrance and exit
+ *   - `'fadeIn'` / `'fadeOut'` — entrance and exit fade
+ *   - `'flyIn'` / `'flyOut'` — entrance and exit that travel in from, or out
+ *     to, one edge of the slide. `direction` picks the edge (`'top'`,
+ *     `'right'`, `'bottom'` — the default — or `'left'`) and is an error for
+ *     any other effect.
+ *   - `'zoomIn'` / `'zoomOut'` — entrance that grows from nothing, exit that
+ *     shrinks back to it, both about the shape's centre
+ *   - `'spin'` — emphasis: one clockwise turn about the shape's centre,
+ *     leaving it exactly where it was. It never puts the shape on the slide or
+ *     takes it off, so a shape that is not already shown stays unshown.
  *
- * `durationMs` defaults to 500ms (fades only — `appear`/`disappear`
- * are instantaneous).
+ * `durationMs` defaults to 500ms. `appear` and `disappear` are instantaneous by
+ * definition of the preset and write no timed behaviour at all.
  *
  * `start` decides where the effect lands. The default `'click'` gives it a
  * click stop of its own, so the viewer sees it on the next click.

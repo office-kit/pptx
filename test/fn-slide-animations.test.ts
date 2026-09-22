@@ -32,6 +32,7 @@ import {
   setShapeAnimation,
   setShapeBullets,
   slideHasAnimations,
+  updateSlideAnimation,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -1198,5 +1199,137 @@ describe('fn API: setShapeAnimation — timing an after-previous effect cannot m
     );
     setShapeAnimation(getSlideShapes(slide)[0]!, { effect: 'fadeIn', start: 'afterPrevious' });
     expect(wrapperDelays(slideXml(pres))).toEqual(['indefinite', '0', '900']);
+  });
+});
+
+/** A click stop holding one effect, so a hand-written effect has somewhere to sit. */
+const clickStop = (effect: string): string =>
+  `<p:par><p:cTn id="20" fill="hold"><p:stCondLst><p:cond delay="indefinite"/></p:stCondLst>` +
+  `<p:childTnLst><p:par><p:cTn id="21" fill="hold">` +
+  `<p:stCondLst><p:cond delay="0"/></p:stCondLst>` +
+  `<p:childTnLst>${effect}</p:childTnLst></p:cTn></p:par></p:childTnLst></p:cTn></p:par>`;
+
+describe('fn API: an emphasis preset is read from its own behaviour', () => {
+  // `presetClass="emph" presetID="8"` is PowerPoint's Spin whatever angle it
+  // turns through: the amount is on `<p:animRot>`, in sixtieth-thousandths of a
+  // degree, and negative for a counter-clockwise turn. Only a single full
+  // clockwise turn is an effect this library names, so a tree that says
+  // anything else has to come back as one it reads rather than plays.
+  const spinEffect = (id: number, spid: number, rotation: string): string =>
+    `<p:par><p:cTn id="${id}" presetID="8" presetClass="emph" presetSubtype="0" fill="hold" ` +
+    `grpId="0" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst>` +
+    `<p:childTnLst><p:animRot ${rotation}><p:cBhvr>` +
+    `<p:cTn id="${id + 1}" dur="2000" fill="hold"/>` +
+    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+    `<p:attrNameLst><p:attrName>r</p:attrName></p:attrNameLst>` +
+    `</p:cBhvr></p:animRot></p:childTnLst></p:cTn></p:par>`;
+
+  it('names a full clockwise turn', async () => {
+    const spid = await firstShapeId();
+    const { slide } = await withTiming(
+      timingRoot(mainSeq(clickStop(spinEffect(3, spid, 'by="21600000"')))),
+    );
+    const steps = getSlideAnimations(slide);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]!.effect).toBe('spin');
+    expect(steps[0]!.playable).toBe(true);
+  });
+
+  it('refuses to name a half turn, a counter-clockwise one, or one with fixed ends', async () => {
+    const spid = await firstShapeId();
+    for (const rotation of ['by="10800000"', 'by="-21600000"', 'from="0" to="21600000"']) {
+      const { slide } = await withTiming(
+        timingRoot(mainSeq(clickStop(spinEffect(3, spid, rotation)))),
+      );
+      const steps = getSlideAnimations(slide);
+      expect(steps, rotation).toHaveLength(1);
+      // Still listed, with its place in the click order, but not named and not
+      // ours to rewrite: turning it a full circle would be a different slide.
+      expect(steps[0]!.effect, rotation).toBeNull();
+      expect(steps[0]!.presetId, rotation).toBe(8);
+      expect(steps[0]!.playable, rotation).toBe(false);
+      expect(steps[0]!.editable, rotation).toBe(false);
+    }
+  });
+
+  it('refuses to rewrite a rotation it did not name, and leaves it as it was', async () => {
+    const spid = await firstShapeId();
+    const { pres, slide } = await withTiming(
+      timingRoot(
+        mainSeq(clickStop(spinEffect(3, spid, 'by="10800000"'))),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+    const before = decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
+    // `<p:animRot>` is a behaviour this library writes, so the layout check
+    // alone would let this node be replaced. What stops it is that a half turn
+    // is not an effect the read model names.
+    expect(() => updateSlideAnimation(slide, 3, { effect: 'fadeIn' })).toThrow(/cannot edit/);
+    expect(() => updateSlideAnimation(slide, 3, { durationMs: 900 })).toThrow(/cannot edit/);
+    expect(decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data)).toBe(before);
+  });
+
+  it('refuses a preset that turns the shape and does something else too', async () => {
+    const spid = await firstShapeId();
+    const composite = spinEffect(3, spid, 'by="21600000"').replace(
+      '</p:childTnLst></p:cTn></p:par>',
+      `<p:set><p:cBhvr><p:cTn id="9" dur="1" fill="hold"/>` +
+        `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+        `<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+        `<p:to><p:strVal val="hidden"/></p:to></p:set></p:childTnLst></p:cTn></p:par>`,
+    );
+    const { slide } = await withTiming(timingRoot(mainSeq(clickStop(composite))));
+    expect(getSlideAnimations(slide)[0]!.effect).toBeNull();
+  });
+});
+
+describe('fn API: retiming an exit that hides at the end', () => {
+  // This library writes the `<p:set>` that ends an exit one millisecond before
+  // the end. A file that puts it somewhere else is saying something we did not
+  // write and cannot restate, so a duration change moves the motion and leaves
+  // that kick where it is.
+  const exitWithHideAt = (id: number, spid: number, hideDelay: number): string =>
+    `<p:par><p:cTn id="${id}" presetID="10" presetClass="exit" presetSubtype="0" fill="hold" ` +
+    `grpId="0" nodeType="clickEffect"><p:stCondLst><p:cond delay="0"/></p:stCondLst>` +
+    `<p:childTnLst><p:anim calcmode="lin" valueType="num"><p:cBhvr additive="base">` +
+    `<p:cTn id="${id + 1}" dur="500" fill="hold"/>` +
+    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+    `<p:attrNameLst><p:attrName>style.opacity</p:attrName></p:attrNameLst></p:cBhvr>` +
+    `<p:tavLst/></p:anim>` +
+    `<p:set><p:cBhvr><p:cTn id="${id + 2}" dur="1" fill="hold">` +
+    `<p:stCondLst><p:cond delay="${hideDelay}"/></p:stCondLst></p:cTn>` +
+    `<p:tgtEl><p:spTgt spid="${spid}"/></p:tgtEl>` +
+    `<p:attrNameLst><p:attrName>style.visibility</p:attrName></p:attrNameLst></p:cBhvr>` +
+    `<p:to><p:strVal val="hidden"/></p:to></p:set>` +
+    `</p:childTnLst></p:cTn></p:par>`;
+
+  const slideXml = (pres: PresentationData): string =>
+    decoder.decode(_internalPackageOf(pres).getPart(partName(SLIDE1))!.data);
+
+  const withExit = async (hideDelay: number) => {
+    const spid = await firstShapeId();
+    return withTiming(
+      timingRoot(
+        mainSeq(clickStop(exitWithHideAt(3, spid, hideDelay))),
+        `<p:bldLst><p:bldP spid="${spid}" grpId="0"/></p:bldLst>`,
+      ),
+    );
+  };
+
+  it('moves a hide this library would have written', async () => {
+    const { pres, slide } = await withExit(499);
+    updateSlideAnimation(slide, 3, { durationMs: 1200 });
+    const xml = slideXml(pres);
+    expect(xml).toContain('dur="1200"');
+    expect(xml).toContain('<p:cond delay="1199"/>');
+  });
+
+  it('leaves a hide the file put somewhere else alone', async () => {
+    const { pres, slide } = await withExit(200);
+    updateSlideAnimation(slide, 3, { durationMs: 1200 });
+    const xml = slideXml(pres);
+    expect(xml).toContain('dur="1200"');
+    expect(xml).toContain('<p:cond delay="200"/>');
+    expect(xml).not.toContain('<p:cond delay="1199"/>');
   });
 });

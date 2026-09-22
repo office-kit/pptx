@@ -468,3 +468,111 @@ test(
     }
   },
 );
+
+test(
+  'a fly is given an edge in the panel, and only a fly is offered one',
+  { timeout: 180000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-animation-direction-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide>` +
+          `<Text x={1} y={1} width={4} height={1}>Alpha</Text>` +
+          `</Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const context = await browser.newContext({ viewport: { width: 1500, height: 1000 } });
+      const page = await context.newPage();
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const label = (en, jp) => (ja ? jp : en);
+      const saved = () =>
+        editor.getByText(label('Saved to this project', 'このプロジェクトに保存済み')).waitFor();
+      const stored = async () =>
+        getSlideAnimations(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        ).map((step) => ({ effect: step.effect, direction: step.direction }));
+      const pane = () =>
+        editor.getByRole('region', { name: label('Animations', 'アニメーション') });
+      /**
+       * What the deck on disk says once the edit has landed. The save
+       * indicator is already showing "saved" from the edit before this one, so
+       * waiting on it can step straight past the write being checked.
+       */
+      const settles = async (expected) => {
+        const deadline = Date.now() + 20000;
+        let last;
+        for (;;) {
+          last = await stored();
+          if (JSON.stringify(last) === JSON.stringify(expected)) return;
+          if (Date.now() > deadline) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        assert.deepEqual(last, expected);
+      };
+      await saved();
+
+      // --- Adding a fly ----------------------------------------------------
+      // The edge is only offered once the effect that uses it is picked.
+      const newDirection = () => pane().getByLabel(label('New direction', '追加する方向'));
+      assert.equal(await newDirection().count(), 0, 'no edge for a fade');
+      await pane().getByLabel(label('New effect', '追加する効果')).selectOption('flyIn');
+      await newDirection().selectOption('left');
+      await pane()
+        .getByRole('button', { name: label('Add animation', 'アニメーションを追加') })
+        .click();
+      await settles([{ effect: 'flyIn', direction: 'left' }]);
+
+      // --- Changing the edge -----------------------------------------------
+      const direction = () => pane().getByLabel(`${label('Direction', '方向')} 1`);
+      assert.equal(await direction().inputValue(), 'left');
+      await direction().selectOption('top');
+      await settles([{ effect: 'flyIn', direction: 'top' }]);
+
+      // --- Changing the preset ---------------------------------------------
+      // A spin states no edge, so the file stops carrying one and the row stops
+      // offering one. The panel must not hand the old edge to the new preset.
+      await pane()
+        .getByLabel(`${label('Effect', '効果')} 1`)
+        .selectOption('spin');
+      await settles([{ effect: 'spin', direction: null }]);
+      assert.equal(await direction().count(), 0, 'no edge for a spin');
+
+      // Back to a fly: it takes this library's own default rather than an edge
+      // the row was showing before the spin.
+      await pane()
+        .getByLabel(`${label('Effect', '効果')} 1`)
+        .selectOption('flyOut');
+      await settles([{ effect: 'flyOut', direction: 'bottom' }]);
+
+      // --- Japanese --------------------------------------------------------
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      await assert.doesNotReject(pane().waitFor());
+      assert.deepEqual(
+        (await direction().locator('option').allTextContents()).map((text) => text.trim()),
+        ['下辺', '上辺', '左辺', '右辺'],
+      );
+      await direction().selectOption('right');
+      await settles([{ effect: 'flyOut', direction: 'right' }]);
+
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

@@ -8,10 +8,12 @@
 
 import { unsignedIntMs } from '../../internal/bounds.ts';
 import {
+  type AnimationDirection,
   type AnimationEffect,
   type AnimationOptions,
   type AnimationStartCondition,
   buildSingleEffectTiming,
+  isDirectionalEffect,
   isMediaTimingNode,
 } from '../../internal/presentationml/index.ts';
 import {
@@ -65,6 +67,13 @@ import { rootChildTnLst } from './_media-timing.ts';
  */
 export interface AnimationPatch {
   readonly effect?: AnimationEffect;
+  /**
+   * Which edge a fly comes from or leaves by. Changing it rewrites the effect
+   * the same way changing the preset does, because the direction is part of
+   * what the preset says. Passing it for an effect that does not fly is an
+   * error — including one this patch is turning into such an effect.
+   */
+  readonly direction?: AnimationDirection;
   readonly durationMs?: number;
   readonly start?: AnimationStartCondition;
   readonly delayMs?: number;
@@ -262,7 +271,22 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
     // Changing the preset or the paragraph build means writing a new effect
     // node; anything else is set on the one that is there, so an effect this
     // library did not author keeps whatever else it carries.
-    const changesPreset = patch.effect !== undefined && patch.effect !== node.step.effect;
+    const effect = patch.effect ?? node.step.effect!;
+    if (patch.direction !== undefined && !isDirectionalEffect(effect)) {
+      throw new RangeError(
+        `${fn}: direction only applies to an effect that flies, and animation ${id} would be ` +
+          `${JSON.stringify(effect)}.`,
+      );
+    }
+    // The direction is part of the preset, so changing it writes a new effect
+    // node just as changing the preset itself does. An effect that keeps flying
+    // keeps the edge the slide already names unless the patch says otherwise.
+    const direction = isDirectionalEffect(effect)
+      ? (patch.direction ?? (isDirectionalEffect(node.step.effect!) ? node.step.direction : null))
+      : null;
+    const changesPreset =
+      (patch.effect !== undefined && patch.effect !== node.step.effect) ||
+      direction !== node.step.direction;
     const rebuild = changesPreset || nowBuild !== wasBuild;
 
     let replaced: ReadonlySet<XmlElement> = new Set([node.cTn]);
@@ -283,7 +307,7 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
       }
       replacements = [{ ...current, start }];
     } else {
-      if (!isPlainEffect(current.par)) {
+      if (!isPlainEffect(current.par, node.step.effect)) {
         throw new Error(`${fn}: animation ${id} ${NOT_REPLACEABLE}.`);
       }
       // The effect node keeps its id, but its behaviours are written anew.
@@ -297,7 +321,8 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
       const durationMs = patch.durationMs ?? node.step.durationMs;
       const delayMs = patch.delayMs ?? node.step.delayMs;
       const opts: AnimationOptions = {
-        effect: patch.effect ?? node.step.effect!,
+        effect,
+        ...(direction === null ? {} : { direction }),
         ...(durationMs === null ? {} : { durationMs }),
         ...(delayMs === null ? {} : { delayMs }),
         start,
@@ -321,7 +346,7 @@ export const updateSlideAnimation = (slide: SlideData, id: number, patch: Animat
         // that replaces them takes the addressed step's place in the order.
         const siblings = buildSiblings(timing, layout, node);
         const pars = siblings.map((n) => parByCTn.get(n.cTn)!);
-        if (!pars.every(isPlainEffect)) {
+        if (!siblings.every((n, at) => isPlainEffect(pars[at]!, n.step.effect))) {
           throw new Error(`${fn}: animation ${id} ${NOT_REPLACEABLE}.`);
         }
         const going = new Set(pars.flatMap((par) => [...cTnIdsUnder(par)]));

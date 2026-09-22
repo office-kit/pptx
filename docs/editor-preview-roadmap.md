@@ -174,6 +174,32 @@ that a user can complete the corresponding editing workflow.
   through the optional UTF-16 range in setTableCellTextFormat. Browser tests
   cover English/Japanese editing, merged-cell hit areas, cancellation and undo.
 
+- A bilingual animation pane lists a slide's object animations in click order,
+  naming the object the way a person does rather than by the handle the file
+  uses. Effects can be added, retimed, reordered and removed, with start
+  condition, duration, delay and paragraph builds; one this library reads but
+  cannot play keeps its place and says why. Play opens the slide over the editor
+  from the document in hand, adding no history entry. One player serves the
+  preview, the presenter view and the pane, compositing two effects over one
+  object by the order they begin, with the document breaking ties
+  (SMIL 3.0 §12.4.3, which PresentationML timing is built on, ECMA-376 Part 1
+  §19.5).
+
+- Beyond fading and appearing, the authoring API, the reader, the pane and the
+  player cover flying in and out through a named edge of the slide, zooming in
+  and out about the shape's centre, and one clockwise spin. A preset is matched
+  on all three of `presetClass`, `presetID` and `presetSubtype`, and a spin is
+  only named when the rotation really is a single full clockwise turn, so an
+  imported effect that means something else is listed and saved as it arrived.
+  Each motion animates a CSS property of its own — `translate`, `scale`,
+  `rotate` — so a fly and a spin over one shape both take effect and the
+  renderer's own `transform` is untouched. Browser tests check the edge a fly
+  arrives from (including under a rotated group, where the slide's edge and the
+  marker's own axes disagree), paragraph builds, overlapping effects playing
+  forward and on resume, a spin never revealing a shape no entrance has shown,
+  and reduced motion; the saved-file path is played end to end in the preview.
+  Real PowerPoint playback is unverified.
+
 ## Outstanding work
 
 Complete workflow coverage, remaining UI translations, accessibility and draft
@@ -455,6 +481,19 @@ Numeric position and size controls resolve placeholder geometry inherited from l
 Shape properties expose horizontal and vertical flip checkboxes in English and Japanese, including indeterminate values for mixed selections. Flip commands apply the selected axis to each selected object without changing the other axis or unselected objects. Model and browser tests cover mixed-state history, bulk flags and saved reloads.
 
 The numeric rotation field displays mixed values for multi-selection and applies an entered angle to each selected object about its own center. Model and bilingual browser tests verify negative/fractional angle normalization, empty input, unchanged bounds and unselected objects, undo to mixed angles, redo and saved reloads. Selected shape lookup builds one ID map rather than repeatedly scanning the slide.
+
+### Remaining animation presets
+
+- Only nine presets are authored and played: appear, fade, fly, zoom in each
+  direction, and one clockwise spin. The rest of PowerPoint's gallery — the
+  other emphasis effects, the diagonal flies, the zoom sub-variants, and
+  `presetClass="path"` motion paths — is read and saved unchanged but reported
+  as something this library does not play, and a slide carrying one keeps its
+  place in the click order without being approximated.
+- Interactive sequences, `<p:iterate>` letter/word staggering and repeat counts
+  are likewise read rather than played.
+- Playback is verified in Chromium against the preview's own renderer. What
+  PowerPoint itself does with the trees this library writes is unverified.
 
 ### Multiple-selection numeric position and size
 

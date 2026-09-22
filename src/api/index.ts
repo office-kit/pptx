@@ -50,6 +50,7 @@ export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
 export type {
+  AnimationDirection,
   AnimationEffect,
   AnimationOptions,
   AnimationPatch,

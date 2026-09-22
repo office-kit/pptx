@@ -45,11 +45,19 @@ export { buildEmptyNotesSlide } from './notes-slide-builder.ts';
 export type { TransitionEffect, TransitionOptions } from './transition-builder.ts';
 export { buildTransition } from './transition-builder.ts';
 export type {
+  AnimationDirection,
   AnimationEffect,
   AnimationOptions,
   AnimationStartCondition,
 } from './animation-builder.ts';
-export { buildSingleEffectTiming } from './animation-builder.ts';
+export {
+  ANIMATION_DIRECTIONS,
+  ANIMATION_EFFECTS,
+  buildSingleEffectTiming,
+  FULL_TURN,
+  isDirectionalEffect,
+  trailingHideDelayMs,
+} from './animation-builder.ts';
 export type {
   CommentAuthor,
   CommentAuthorList,

@@ -15,6 +15,7 @@
     removeSlideAnimation,
     setShapeAnimation,
     updateSlideAnimation,
+    type AnimationDirection,
     type AnimationEffect,
     type AnimationStartCondition,
     type SlideAnimationStep,
@@ -33,9 +34,25 @@
   const EFFECTS: { value: AnimationEffect; label: string }[] = [
     { value: 'fadeIn', label: 'Fade in' },
     { value: 'appear', label: 'Appear' },
+    { value: 'flyIn', label: 'Fly in' },
+    { value: 'zoomIn', label: 'Zoom in' },
+    { value: 'spin', label: 'Spin' },
     { value: 'fadeOut', label: 'Fade out' },
     { value: 'disappear', label: 'Disappear' },
+    { value: 'flyOut', label: 'Fly out' },
+    { value: 'zoomOut', label: 'Zoom out' },
   ];
+  // What the file records is an edge of the slide, and the same edge means
+  // "from there" for an entrance and "out through there" for an exit. The
+  // labels name the edge, so the effect beside them says which of the two it
+  // is rather than the list having to say it twice.
+  const DIRECTIONS: { value: AnimationDirection; label: string }[] = [
+    { value: 'bottom', label: 'Bottom edge' },
+    { value: 'top', label: 'Top edge' },
+    { value: 'left', label: 'Left edge' },
+    { value: 'right', label: 'Right edge' },
+  ];
+  const FLYING: AnimationEffect[] = ['flyIn', 'flyOut'];
   const STARTS: { value: AnimationStartCondition; label: string }[] = [
     { value: 'click', label: 'On click' },
     { value: 'withPrevious', label: 'With previous' },
@@ -155,6 +172,7 @@
     return first ? getShapeId(first) : null;
   });
   let addEffect = $state<AnimationEffect>('fadeIn');
+  let addDirection = $state<AnimationDirection>('bottom');
   let addStart = $state<AnimationStartCondition>('click');
   let addDuration = $state(500);
   let addDelay = $state(0);
@@ -166,6 +184,7 @@
     apply('Add animation', () =>
       setShapeAnimation(shape, {
         effect: addEffect,
+        ...(FLYING.includes(addEffect) ? { direction: addDirection } : {}),
         durationMs: addDuration,
         start: addStart,
         delayMs: addDelay,
@@ -221,12 +240,36 @@
                     class="ok-input"
                     aria-label="{t('Effect')} {place + 1}"
                     value={step.effect}
-                    onchange={(event) =>
-                      patch(step, { effect: event.currentTarget.value as AnimationEffect })}
+                    onchange={(event) => {
+                      const next = event.currentTarget.value as AnimationEffect;
+                      // A preset that flies needs an edge, and one that does
+                      // not refuses to be given one.
+                      patch(step, {
+                        effect: next,
+                        ...(FLYING.includes(next) ? { direction: step.direction ?? 'bottom' } : {}),
+                      });
+                    }}
                   >
                     {#each EFFECTS as item}<option value={item.value}>{t(item.label)}</option>{/each}
                   </select>
                 </label>
+                {#if step.direction !== null}
+                  <label
+                    >{t('Direction')}
+                    <select
+                      class="ok-input"
+                      aria-label="{t('Direction')} {place + 1}"
+                      value={step.direction}
+                      onchange={(event) =>
+                        patch(step, {
+                          direction: event.currentTarget.value as AnimationDirection,
+                        })}
+                    >
+                      {#each DIRECTIONS as item}<option value={item.value}>{t(item.label)}</option
+                        >{/each}
+                    </select>
+                  </label>
+                {/if}
                 <label
                   >{t('Start')}
                   <select
@@ -331,6 +374,11 @@
           <select class="ok-input" aria-label={t('New effect')} bind:value={addEffect}>
             {#each EFFECTS as item}<option value={item.value}>{t(item.label)}</option>{/each}
           </select>
+          {#if FLYING.includes(addEffect)}
+            <select class="ok-input" aria-label={t('New direction')} bind:value={addDirection}>
+              {#each DIRECTIONS as item}<option value={item.value}>{t(item.label)}</option>{/each}
+            </select>
+          {/if}
         </label>
         <label
           >{t('Start')}
