@@ -508,6 +508,8 @@ export const ja: Record<string, string> = {
   Tables: '表',
   Illustrations: '図',
   Text: 'テキスト',
+  'Select one text shape to edit its content.':
+    '文章を編集するには、文字を入力できる図形を1つ選択してください。',
   Comment: 'コメント',
   'Add comment': 'コメントを追加',
   'Delete comment': 'コメントを削除',

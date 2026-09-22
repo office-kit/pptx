@@ -88,15 +88,14 @@
     };
   });
 
+  const textShape = $derived.by(() => {
+    const selection = doc.selection;
+    if (selection.kind !== 'shape' || selection.shapeIds.length !== 1) return null;
+    return shape && getShapeKind(shape) === 'shape' ? shape : null;
+  });
   const text = $derived.by(() => {
     doc.version;
-    const s = shape;
-    if (!s) return '';
-    try {
-      return getShapeText(s);
-    } catch {
-      return '';
-    }
+    return textShape ? getShapeText(textShape) : '';
   });
 
   const objectFormats = $derived.by(() => {
@@ -231,7 +230,7 @@
     editor.invoke('setShapeRotation', { degrees: input.valueAsNumber });
   }
   function applyText(value: string) {
-    const s = shape;
+    const s = textShape;
     if (!s) return;
     doc.transact(t('Edit text'), () => setShapeText(s, value, { preserveFormatting: true }));
   }
@@ -349,11 +348,15 @@
       </div>
     {/if}
 
-    <div class="sec">
-      <div class="sec-title">{t('Text')}</div>
-      <textarea class="ok-input" aria-label={t('Text')} rows="2" value={text}
-        onchange={(e) => applyText(e.currentTarget.value)}></textarea>
-    </div>
+    {#if textShape}
+      <div class="sec">
+        <div class="sec-title">{t('Text')}</div>
+        <textarea class="ok-input" aria-label={t('Text')} rows="2" value={text}
+          onchange={(e) => applyText(e.currentTarget.value)}></textarea>
+      </div>
+    {:else if objectFormats}
+      <p class="scope">{t('Select one text shape to edit its content.')}</p>
+    {/if}
   </div>
 {/if}
 

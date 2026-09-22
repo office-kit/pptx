@@ -471,3 +471,7 @@ Blank autoshapes now expose the same formatting controls, including shapes with 
 ### Selected-object text alignment
 
 The quick property panel includes paragraph and vertical alignment controls in English and Japanese. Horizontal state is read across every selected paragraph, with mixed or inherited values shown explicitly. Changes apply to every selected text shape in one undo step, including blank autoshapes without a text body. Non-text targets are checked before any mutation. Core, model and browser coverage checks invalid input, paragraph-wide application, blank-shape persistence, mixed readback, undo/redo, bilingual controls, saved reload and preservation of unselected objects.
+
+### Text content selection scope
+
+The quick text content editor is available only when one text-capable shape is selected. Multiple text shapes keep bulk formatting controls and show a localized instruction to select one shape for content editing. Non-text objects no longer expose an unusable text area. Browser regression coverage checks selection changes, bilingual guidance, multiline content replacement on the intended shape, undo/redo, saved reload and line selection.
