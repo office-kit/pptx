@@ -1,7 +1,9 @@
 // Slide-level background.
 
+import type { Color } from '../../internal/drawingml/index.ts';
 import {
-  type GradientFillOptions,
+  type ReadGradientFill,
+  type ReadGradientStop,
   readFlip,
   readPosition,
   readRotation,
@@ -463,7 +465,7 @@ export const getSlideMasterBackgroundPatternFill = (
  */
 export const getSlideLayoutBackgroundGradientFill = (
   layout: SlideLayoutData,
-): GradientFillOptions | null => {
+): ReadGradientFill | null => {
   const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
   if (!cSld) return null;
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
@@ -474,7 +476,7 @@ export const getSlideLayoutBackgroundGradientFill = (
   if (!gradFill) return null;
   const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
   if (!gsLst) return null;
-  const stops: Array<{ offset: number; color: string }> = [];
+  const stops: ReadGradientStop[] = [];
   for (const c of gsLst.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
       continue;
@@ -516,7 +518,7 @@ export const getSlideLayoutBackgroundGradientFill = (
 export const getSlideMasterBackgroundGradientFill = (
   pres: PresentationData,
   layout: SlideLayoutData,
-): GradientFillOptions | null => {
+): ReadGradientFill | null => {
   const pkg = pres[INTERNAL_PACKAGE];
   const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
   const layoutRels = pkg.getRels(layoutPartName);
@@ -536,7 +538,7 @@ export const getSlideMasterBackgroundGradientFill = (
   if (!gradFill) return null;
   const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
   if (!gsLst) return null;
-  const stops: Array<{ offset: number; color: string }> = [];
+  const stops: ReadGradientStop[] = [];
   for (const c of gsLst.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
       continue;
@@ -603,7 +605,7 @@ export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackgrou
  * background kind. Shape identical to `getShapeGradientFill` so renderers
  * can use the same projection logic for slide backgrounds.
  */
-export const getSlideBackgroundGradientFill = (slide: SlideData): GradientFillOptions | null => {
+export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFill | null => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) return null;
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
@@ -616,7 +618,7 @@ export const getSlideBackgroundGradientFill = (slide: SlideData): GradientFillOp
   // element shape is identical between shape and slide backgrounds.
   const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
   if (!gsLst) return null;
-  const stops: Array<{ offset: number; color: string }> = [];
+  const stops: ReadGradientStop[] = [];
   for (const c of gsLst.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
       continue;
@@ -795,7 +797,7 @@ export const getSlideMasterBackgroundImageBytes = (
 };
 
 /** Sets a solid fill on the slide's background. */
-export const setSlideBackground = (slide: SlideData, color: string): void => {
+export const setSlideBackground = (slide: SlideData, color: Color): void => {
   setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
 };
 

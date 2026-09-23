@@ -2,7 +2,7 @@ import type { BulletStyle } from '@office-kit/pptx';
 
 // Maps a `BulletStyle` value to the underlying `ST_TextAutoNumberScheme`
 // token (or `null` when the paragraph isn't auto-numbered). `'number'`
-// is the shorthand for arabicPeriod that setShapeBullets uses.
+// is the shorthand for arabicPeriod that setShapeBulletStyle uses.
 const bulletAutoNumType = (style: BulletStyle | null): string | null => {
   if (style === 'number') return 'arabicPeriod';
   if (style !== null && typeof style === 'object' && 'autoNum' in style) {

@@ -7,7 +7,13 @@ import { textBodyText } from '../../internal/drawingml/text-body.ts';
 // Shape click action.
 import { getSlides } from './slide-query.ts';
 
-import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
+import {
+  basename,
+  emptyRels,
+  nextRelId,
+  partName,
+  resolveTarget,
+} from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
@@ -29,7 +35,7 @@ import {
   type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 // ---------------------------------------------------------------------------
 // Shape click action — `<a:hlinkClick>` on the shape's cNvPr.
 //
@@ -181,6 +187,7 @@ export const setShapeClickAction = (
   if (range && body) mutateTextBodyRangeProperties(body, range, apply);
   else apply(cNvPr);
   commitAndRefresh(shape);
+  releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
 };
 
 export const buildClickAction = (slide: SlideData, action: ShapeClickAction): XmlElement => {
@@ -213,6 +220,9 @@ export const buildClickAction = (slide: SlideData, action: ShapeClickAction): Xm
       if (action.slide[INTERNAL_PACKAGE] !== pkg || !pkg.getPart(target)) {
         throw new Error('setShapeClickAction: target slide must belong to this presentation');
       }
+      // PowerPoint writes slide-jump targets relative to the slide part; an
+      // absolute one is legal OPC but nothing else in a deck spells it that way.
+      const relative = `../slides/${basename(target)}`;
       const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
       const existing = rels.items.find(
         (rl) =>
@@ -227,7 +237,7 @@ export const buildClickAction = (slide: SlideData, action: ShapeClickAction): Xm
         rels.items.push({
           id: newId,
           type: REL_TYPES.slide,
-          target,
+          target: relative,
           targetMode: 'Internal',
         });
         pkg.setRels(slide[SLIDE_PART_NAME], rels);

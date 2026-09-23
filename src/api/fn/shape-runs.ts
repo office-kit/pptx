@@ -7,6 +7,7 @@ import {
   type BulletStyle,
   type ParagraphAlignment,
   type ParagraphAlignmentToken,
+  type ReadTextFormat,
   type TextFormat,
   applyBulletToParagraph,
   parseAlignmentToken,
@@ -36,7 +37,7 @@ import {
   SLIDE_PART_NAME,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
 import { getSlides } from './slide-query.ts';
 import { findCNvPr, NAME_HLINK_CLICK_FN, type ShapeClickAction } from './embedded.ts';
@@ -163,14 +164,14 @@ export const getShapeParagraphCount = (shape: SlideShapeData): number => {
  * unchanged so renderers can decide whether to substitute live values.
  */
 export type ShapeParagraphElement =
-  | { readonly kind: 'r'; readonly text: string; readonly format: TextFormat | null }
+  | { readonly kind: 'r'; readonly text: string; readonly format: ReadTextFormat | null }
   | {
       readonly kind: 'fld';
       readonly text: string;
-      readonly format: TextFormat | null;
+      readonly format: ReadTextFormat | null;
       readonly type: string | null;
     }
-  | { readonly kind: 'br'; readonly format: TextFormat | null };
+  | { readonly kind: 'br'; readonly format: ReadTextFormat | null };
 
 /**
  * Returns the inline children of a paragraph in document order — runs,
@@ -192,14 +193,14 @@ export const getShapeParagraphElements = (
 export const getParagraphEndFormat = (
   shape: SlideShapeData,
   paragraphIndex: number,
-): TextFormat | null => readParagraphEndFormat(requireParagraph(shape, paragraphIndex));
+): ReadTextFormat | null => readParagraphEndFormat(requireParagraph(shape, paragraphIndex));
 
 /**
  * Shared by the shape reader above and the table-cell paragraph reader.
  *
  * @internal
  */
-export const readParagraphEndFormat = (paragraph: XmlElement): TextFormat | null => {
+export const readParagraphEndFormat = (paragraph: XmlElement): ReadTextFormat | null => {
   const endParaRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
   return endParaRPr === null ? null : parseRPrLikeElement(endParaRPr);
 };
@@ -225,7 +226,7 @@ export const readParagraphElements = (
     }
     return acc;
   };
-  const readFmt = (parent: XmlElement): TextFormat | null => {
+  const readFmt = (parent: XmlElement): ReadTextFormat | null => {
     const rPr = firstChildElement(parent, NAME_A_RPR);
     if (!rPr) return null;
     return parseRPrLikeElement(rPr) as TextFormat;
@@ -301,6 +302,7 @@ export const setShapeRunHyperlink = (
     applyHyperlinkToProperties(rPr, rId, tooltip);
   } else applyHyperlinkToProperties(rPr, null);
   commitAndRefresh(shape);
+  releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
 };
 
 /**
@@ -479,7 +481,7 @@ export const setParagraphAlignment = (
  * Used in tandem with bullets to author nested lists:
  *
  *   setShapeText(shape, 'Item 1\nNested\nItem 2');
- *   setShapeBullets(shape, 'bullet');
+ *   setShapeBulletStyle(shape, 'bullet');
  *   setParagraphLevel(shape, 1, 1);  // indent the second line
  */
 export const setParagraphLevel = (
@@ -903,7 +905,7 @@ export const getParagraphBulletStyle = (
 
 /**
  * Sets the bullet style on a single paragraph. Same `BulletStyle` shape
- * as `setShapeBullets` — pass `'bullet'` / `'number'` / `'none'` or an
+ * as `setShapeBulletStyle` — pass `'bullet'` / `'number'` / `'none'` or an
  * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.
  */
 export const setParagraphBullet = (

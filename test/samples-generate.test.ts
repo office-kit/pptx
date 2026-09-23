@@ -51,7 +51,7 @@ import {
   setPresentationFonts,
   setPresentationTheme,
   setShapeAnimation,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeGlow,
@@ -78,6 +78,8 @@ import {
   setTableCellTextFormat,
   type Emu,
   type SlideData,
+  type Color,
+  type GradientStop,
 } from '../src/api/index.ts';
 import { buildPng } from './lib/build-png.ts';
 
@@ -204,7 +206,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Centered line',
       ].join('\n'),
     });
-    setShapeBullets(box, 'bullet');
+    setShapeBulletStyle(box, 'bullet');
     setParagraphBullet(box, 0, 'none');
     setParagraphBullet(box, 3, { char: '◦' });
     setParagraphAlignment(box, 5, 'r');
@@ -905,7 +907,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
     // <a:lin> today, so a `path` case would render identically to linear.)
     const cases: Array<{
       label: string;
-      stops: Array<{ offset: number; color: string }>;
+      stops: GradientStop[];
       angleDeg: number;
     }> = [
       {
@@ -1185,7 +1187,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       label: string;
       rotation: number;
       flip?: { horizontal?: boolean; vertical?: boolean };
-      color: string;
+      color: Color;
     }[] = [
       { label: 'base', rotation: 0, color: '#2E75B6' },
       { label: 'rot 45', rotation: 45, color: '#2E75B6' },
@@ -1257,7 +1259,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Dark mode',
       ].join('\n'),
     });
-    setShapeBullets(nested, 'bullet');
+    setShapeBulletStyle(nested, 'bullet');
     const nestedLevels = [0, 0, 1, 2, 2, 1, 0, 1, 2];
     nestedLevels.forEach((lvl, i) => {
       setParagraphLevel(nested, i, lvl);
@@ -1286,7 +1288,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Build and deploy',
       ].join('\n'),
     });
-    setShapeBullets(numbered, { autoNum: 'arabicPeriod' });
+    setShapeBulletStyle(numbered, { autoNum: 'arabicPeriod' });
     const numberedLevels = [0, 1, 1, 0, 1, 2, 2, 0];
     numberedLevels.forEach((lvl, i) => {
       setParagraphLevel(numbered, i, lvl);
@@ -1767,7 +1769,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       w: Emu,
       value: string,
       label: string,
-      accent: string,
+      accent: Color,
     ) => {
       const h = inches(1.5);
       const card = addSlideShape(slide, { preset: 'roundRect', x, y, w, h });
@@ -1815,7 +1817,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       index: number,
       title: string,
       initiatives: ReadonlyArray<string>,
-      accent: string,
+      accent: Color,
     ) => {
       const y = inches(2.35);
       const headerH = inches(0.85);
@@ -1853,7 +1855,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         h: inches(1.7),
         text: initiatives.join('\n'),
       });
-      setShapeBullets(listBox, { char: '—' });
+      setShapeBulletStyle(listBox, { char: '—' });
       for (let i = 0; i < initiatives.length; i++) {
         setShapeRunFormat(listBox, i, 0, { font: 'Calibri', size: 11, color: INK });
         setParagraphSpacing(listBox, i, { afterPts: 6 });
@@ -1955,7 +1957,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       'The Southeast Asian expansion can add $340M in incremental revenue by FY28 if we act within the next two quarters',
     );
 
-    const kpis: Array<{ value: string; label: string; accent: string }> = [
+    const kpis: Array<{ value: string; label: string; accent: Color }> = [
       { value: '$340M', label: 'Incremental revenue by FY28', accent: TEAL },
       { value: '18%', label: 'Projected market share, Year 3', accent: GOLD },
       { value: '6', label: 'Priority markets identified', accent: SLATE },
@@ -1989,7 +1991,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       h: inches(2.6),
       text: takeawayLines.join('\n'),
     });
-    setShapeBullets(takeaways, { char: '●' });
+    setShapeBulletStyle(takeaways, { char: '●' });
     for (let i = 0; i < takeawayLines.length; i++) {
       setShapeRunFormat(takeaways, i, 0, { font: 'Calibri', size: 13, color: INK });
       setParagraphSpacing(takeaways, i, { afterPts: 10 });
@@ -2129,7 +2131,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       'Walk through the KPI cards first, then the regional revenue chart. Flag the APAC dip before Q&A.',
     );
 
-    const kpis: { label: string; value: string; color: string }[] = [
+    const kpis: { label: string; value: string; color: Color }[] = [
       { label: 'Revenue', value: '$4.8M', color: '#2E75B6' },
       { label: 'New logos', value: '126', color: '#548235' },
       { label: 'Churn', value: '2.1%', color: '#C00000' },
@@ -2191,7 +2193,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'LATAM is on track for its first profitable quarter since launch.',
       ].join('\n'),
     });
-    setShapeBullets(highlights, 'bullet');
+    setShapeBulletStyle(highlights, 'bullet');
     setShapeTextColumns(highlights, { count: 2, gapEmu: pt(18) });
 
     const detail = addSlideTable(s2, {
@@ -2236,7 +2238,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
       label: string;
       rotation: number;
       flip?: { horizontal?: boolean; vertical?: boolean };
-      color: string;
+      color: Color;
     }[] = [
       { label: 'Q1 — Foundation', rotation: 0, color: '#2E75B6' },
       { label: 'Q2 — Collab', rotation: 0, flip: { horizontal: true }, color: '#548235' },
@@ -2267,7 +2269,7 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         h: inches(2.8),
         text: ['Key deliverable', 'Workstream A', 'Workstream B'].join('\n'),
       });
-      setShapeBullets(detail, 'bullet');
+      setShapeBulletStyle(detail, 'bullet');
       setParagraphLevel(detail, 0, 0);
       setShapeRunFormat(detail, 0, 0, { bold: true, size: 12 });
       setParagraphLevel(detail, 1, 1);
@@ -2539,12 +2541,12 @@ describe.skipIf(!ENABLED)('manual-inspection sample generation', () => {
         'Native integrations for the tools your team already uses.',
       ].join('\n'),
     });
-    setShapeBullets(body, 'bullet');
+    setShapeBulletStyle(body, 'bullet');
     setShapeTextColumns(body, { count: 2, gapEmu: pt(16) });
     setShapeTextFormat(body, { size: 14 });
 
     // Three small icon-style shapes with captions under the body.
-    const icons: { preset: 'star5' | 'ellipse' | 'hexagon'; label: string; color: string }[] = [
+    const icons: { preset: 'star5' | 'ellipse' | 'hexagon'; label: string; color: Color }[] = [
       { preset: 'star5', label: 'Fast', color: '#FFC000' },
       { preset: 'ellipse', label: 'Secure', color: '#548235' },
       { preset: 'hexagon', label: 'Open API', color: '#2E75B6' },

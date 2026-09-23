@@ -59,6 +59,17 @@ export default <Presentation source={source} mode="edit"><Slide target={{index:0
   await assert.rejects(initProject(project), /EEXIST/);
 });
 
+test('the project guide is written under every name an agent loads', async (t) => {
+  const directory = await fixture(t);
+  const project = await initProject(join(directory, 'slides'));
+  // An agent that starts without the guide reaches for its own slide tooling
+  // instead of editing the TSX, so each one has to find it under its own name.
+  const claude = await readFile(join(project, 'CLAUDE.md'), 'utf8');
+  const agents = await readFile(join(project, 'AGENTS.md'), 'utf8');
+  assert.equal(agents, claude);
+  assert.match(agents, /@office-kit\/pptx-dsl/);
+});
+
 test('builds are isolated and recover from compile and runtime errors', async (t) => {
   const directory = await fixture(t);
   const deck = join(directory, 'deck.tsx');
@@ -193,4 +204,25 @@ export default <Presentation><Slide><Text x={1} y={1} width={4} height={1}>${suf
     Date.now() - recoveryStarted < 3000,
     'an obsolete infinite loop must not delay the next edit',
   );
+});
+
+test('the documented TSX agenda builds without Raw or invented components', async (t) => {
+  const directory = await fixture(t);
+  const reference = await readFile(
+    new URL('../../../skill/references/tsx.md', import.meta.url),
+    'utf8',
+  );
+  const example = reference
+    .split('## Lists and tables of contents')[1]
+    .match(/```tsx\n([\s\S]*?)```/)[1];
+  const entry = join(directory, 'deck.tsx');
+  await writeFile(
+    entry,
+    example +
+      "\nimport { Presentation } from '@office-kit/pptx-dsl';\nexport default <Presentation><TableOfContents /></Presentation>;",
+  );
+  const result = await buildDeck(entry);
+  assert.equal(result.slides.length, 1);
+  for (const title of ['目次', '前提', '課題', '解決策'])
+    assert.match(result.slideTexts[0], new RegExp(title));
 });

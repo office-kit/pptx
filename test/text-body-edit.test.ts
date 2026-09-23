@@ -116,6 +116,7 @@ describe('text range formatting', () => {
     formatTextBodyRange(doc.root, { bold: true }, { start: 2, end: 2 });
     expect(serializeXml(doc)).toBe(original);
     expect(() =>
+      // @ts-expect-error Exercise the JavaScript boundary.
       formatTextBodyRange(doc.root, { bold: true, color: 'invalid' }, { start: 2, end: 5 }),
     ).toThrow();
     expect(serializeXml(doc)).toBe(original);

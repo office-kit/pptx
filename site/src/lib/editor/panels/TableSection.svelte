@@ -5,7 +5,7 @@
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { getTableCellMargins, setTableCellMargins, getTableCellPosition, setTableCellBorders, type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
+  import { asColor, toWritableTextFormat, getTableCellMargins, setTableCellMargins, getTableCellPosition, setTableCellBorders, type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -171,8 +171,8 @@
         <button class="ok-btn" disabled={getTableCellSpan(tableState.cell).gridSpan === 1 && getTableCellSpan(tableState.cell).rowSpan === 1} onclick={split}>{t('Split cell')}</button>
       </div>
       <label>{t('Cell text')}<textarea class="ok-input" rows="3" value={getTableCellText(tableState.cell)} onchange={(e) => { const s = tableState; if (s?.cell) doc.transact(t('Edit cell text'), () => setTableCellText(s.cell!, e.currentTarget.value, { preserveFormatting: true })); }}></textarea></label>
-      <TextFormatBar formats={textRuns.map(run => run.format ?? {})} selected={selectedCells.size > 0} onformat={formatCells} onlink={editCellLinks} context="cells" />
-      <label>{t('Cell fill')}<input type="color" value={getTableCellFill(tableState.cell) ?? '#ffffff'} onchange={(e) => { const value = e.currentTarget.value; applyToCells(t('Cell fill'), cell => setTableCellFill(cell, value)); }} /></label>
+      <TextFormatBar formats={textRuns.map(run => toWritableTextFormat(run.format ?? {}))} selected={selectedCells.size > 0} onformat={formatCells} onlink={editCellLinks} context="cells" />
+      <label>{t('Cell fill')}<input type="color" value={getTableCellFill(tableState.cell) ?? '#ffffff'} onchange={(e) => { const value = asColor(e.currentTarget.value); if (value) applyToCells(t('Cell fill'), cell => setTableCellFill(cell, value)); }} /></label>
       <label>{t('Horizontal alignment')}<select aria-label={t('Horizontal alignment')} class="ok-input" value={getTableCellAlignment(tableState.cell) ?? 'l'} onchange={(e) => { const v = e.currentTarget.value; if (v === 'l' || v === 'ctr' || v === 'r') applyToCells(t('Horizontal alignment'), cell => setTableCellAlignment(cell, v)); }}>
         <option value="l">{t('Left')}</option><option value="ctr">{t('Center')}</option><option value="r">{t('Right')}</option>
       </select></label>

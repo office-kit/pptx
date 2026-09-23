@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { setShapeImageOpacity, setShapeImageBrightness, setShapeImageContrast, getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
+  import { asColor, setShapeImageOpacity, setShapeImageBrightness, setShapeImageContrast, getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -29,7 +29,10 @@
     if (value === 'none') { editor.invoke('setShapeNoStroke'); return; }
     if (value !== 'solid' && value !== 'dash' && value !== 'dot') return;
     doc.transact(t('Image border style'), () => {
-      if (!border.visible) setShapeStroke(picture!, { color: border.color, widthEmu: 12700 });
+      // The reader widens the color to a string; a value the writer would
+      // reject leaves the width alone rather than inventing a color.
+      const color = asColor(border.color);
+      if (!border.visible && color) setShapeStroke(picture!, { color, widthEmu: 12700 });
       setShapeStrokeDash(picture!, value);
     });
   }

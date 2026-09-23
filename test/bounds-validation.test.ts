@@ -202,7 +202,9 @@ describe('bounds: animations and transitions', () => {
     expect(() => setSlideTransition(slide, { effect: 'fade', advanceAfterMs: 5e9 })).toThrow(
       RangeError,
     );
+    // @ts-expect-error - the type rejects this; the runtime guard still must.
     expect(() => setSlideTransition(slide, { effect: '' })).toThrow(RangeError);
+    // @ts-expect-error - the type rejects this; the runtime guard still must.
     expect(() => setSlideTransition(slide, { effect: 'bogusEffect' })).toThrow(RangeError);
   });
 });

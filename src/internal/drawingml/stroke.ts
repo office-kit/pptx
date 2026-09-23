@@ -6,6 +6,7 @@
 // color, noFill, preset dash, join, and head/tail arrowheads — each inserted at
 // its CT_LineProperties slot via LN_CHILD_RANK below.
 
+import type { Color } from './color.ts';
 import { LINE_DASHES } from '../enum-values.ts';
 import { oneOf, lineWidthEmu } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, insertChildByRank, qname } from '../xml/index.ts';
@@ -71,7 +72,7 @@ const ensureLn = (spPr: XmlElement): XmlElement => {
 
 export interface StrokeOptions {
   /** Line color. Same accepted forms as `setFill`. */
-  color?: string;
+  color?: Color;
   /** Line width in EMU. PowerPoint's default for a hairline is 9525 (0.75pt). */
   widthEmu?: number;
 }

@@ -22,10 +22,11 @@ import type {
   ChartDataLabels,
   ChartErrorBars,
   ChartManualLayout,
-  ChartSpec,
   ChartTextStyle,
   ChartView3D,
+  ReadChartSpec,
 } from './types.ts';
+import { STOCK_SERIES_WITHOUT_OPEN, STOCK_SERIES_WITH_OPEN, type ChartSpec } from './chart-spec.ts';
 
 // QNames (chart `c:` namespace) --------------------------------------------
 
@@ -1444,10 +1445,6 @@ const buildRadarChart = (g: PlotGroup): XmlElement =>
     ],
   });
 
-// CT_StockChart takes 3 series (high, low, close) or 4 (open first).
-const STOCK_SERIES_WITH_OPEN = 4;
-const STOCK_SERIES_WITHOUT_OPEN = 3;
-
 const buildStockChart = (g: PlotGroup): XmlElement => {
   const { spec } = g;
   const count = spec.series.length;
@@ -1769,7 +1766,10 @@ const XY_KINDS: ReadonlySet<ChartSpec['kind']> = new Set(['scatter', 'bubble']);
 
 // Cross-field rules of a spec that no single element builder owns. Each one
 // would otherwise serialize into a chart PowerPoint repairs or misdraws.
-const validateSpec = (spec: ChartSpec, usesComboFields: boolean): void => {
+// `ChartSpec` already rules most of them out at compile time; this is the
+// guard for the specs that reach the builder untyped (JS callers, a spec
+// `isChartSpec` has not narrowed).
+const validateSpec = (spec: ReadChartSpec, usesComboFields: boolean): void => {
   if (usesComboFields && !COMBO_KINDS.has(spec.kind)) {
     throw new Error(
       `chart kind '${spec.kind}' does not support per-series chartKind / secondaryAxis (combo charts require a bar / column / line / area base kind)`,
@@ -1995,4 +1995,5 @@ export const buildChartSpaceDoc = (spec: ChartSpec): XmlDocument => {
   };
 };
 
-export type { ChartKind, ChartSpec } from './types.ts';
+export type { ChartKind } from './types.ts';
+export type { ChartSpec } from './chart-spec.ts';

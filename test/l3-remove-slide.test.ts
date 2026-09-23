@@ -4,15 +4,23 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  addBlankSlide,
   addSlide,
+  addSlideTextBox,
+  createPresentation,
+  duplicateSlide,
   findSlidePlaceholder,
+  getShapeClickAction,
   getShapeText,
   getSlideLayoutName,
   getSlideLayouts,
   getSlides,
+  getSlideShapes,
+  inches,
   loadPresentation,
   removeSlide,
   savePresentation,
+  setShapeClickAction,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -60,6 +68,41 @@ describe('L3: removeSlide', () => {
 
     const reloaded = await loadPresentation(await savePresentation(pres));
     expect(getSlides(reloaded).length).toBe(2);
+  });
+
+  it('drops a slide-jump click action that pointed at the removed slide', async () => {
+    const pres = createPresentation({ size: '16:9' });
+    const cover = addBlankSlide(pres);
+    addSlideTextBox(cover, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      text: 'cover',
+    });
+    const closing = addBlankSlide(pres);
+    const jump = addSlideTextBox(closing, {
+      x: inches(0),
+      y: inches(0),
+      w: inches(1),
+      h: inches(1),
+      text: 'back to cover',
+    });
+    setShapeClickAction(jump, { kind: 'slide', slide: cover });
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const [first, second] = getSlides(reloaded);
+    if (!first || !second) throw new Error('expected two slides');
+    removeSlide(reloaded, first);
+
+    // A leftover rel makes duplicating the referring slide walk into the deleted part.
+    expect(() => duplicateSlide(reloaded, second)).not.toThrow();
+    const survivor = getSlides(reloaded)[0];
+    if (!survivor) throw new Error('expected the referring slide to survive');
+    for (const shape of getSlideShapes(survivor)) {
+      expect(getShapeClickAction(shape)).toBeNull();
+    }
+    await expect(savePresentation(reloaded)).resolves.toBeInstanceOf(Uint8Array);
   });
 
   it('handles a slide from a different presentation by matching part name', async () => {

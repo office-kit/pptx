@@ -85,7 +85,7 @@ it('renders picture outlines outside the crop clip with mask shape and line styl
   setShapePreset(picture, 'ellipse');
   setShapeImageCrop(picture, { left: 0.2 });
   setShapeRotation(picture, 25);
-  setShapeStroke(picture, { color: 'FF2200', widthEmu: 50800 });
+  setShapeStroke(picture, { color: '#FF2200', widthEmu: 50800 });
   setShapeStrokeDash(picture, 'dash');
   const svg = renderSlideToSvg(pres, slide);
   expect(svg).toMatch(

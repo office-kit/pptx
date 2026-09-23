@@ -77,7 +77,7 @@ function leadIn(slide, lead, rest, box, size = 14) {
 
 function bullets(slide, lines, box) {
   const shape = text(slide, lines.join('\n'), box, { size: 14, color: INK });
-  setShapeBullets(shape, 'bullet');
+  setShapeBulletStyle(shape, 'bullet');
   lines.forEach((_, i) => setParagraphSpacing(shape, i, { afterPts: 9 }));
   return shape;
 }

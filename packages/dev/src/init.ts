@@ -45,9 +45,10 @@ for shared design values. The JSX runtime is
 
 - Run npm run dev, then open its local URL to preview. Saving source files
   updates the preview. A failed build retains the last successful output.
-- The preview is view-only: use the vertical thumbnails to select slides, zoom
-  to inspect details, and Present to view full-screen (Escape exits). Make all
-  content and layout changes in TSX; there are no canvas editing controls.
+- Select an area in the preview to request a focused AI edit, or use Edit text
+  for a direct text save. Changes are persisted in TSX. Use the thumbnails, zoom
+  and Present to review slides. After edits, inspect every screenshot supplied
+  by the preview and correct clipping, overlap, spacing and contrast.
 - For a local revision, locate the slide through deck.tsx or a text search and
   read only the relevant source and dependencies. Patch the requested text, data
   or props; do not regenerate the deck or reformat unrelated code. Keep descriptive
@@ -143,8 +144,14 @@ export async function initProject(directory: string): Promise<string> {
     'deck.tsx': starter,
     'theme.ts': theme,
     'slides/cover.tsx': cover,
+    // Same text under both names on purpose: Claude Code loads CLAUDE.md,
+    // Codex loads AGENTS.md, and an agent that starts without the guide
+    // reaches for its own slide tooling instead of editing the TSX.
     'CLAUDE.md': guide,
-    '.gitignore': 'node_modules/\ndeck.pptx\n',
+    'AGENTS.md': guide,
+    'README.md':
+      '# Your slides\n\nInstall once with `npm install`, then run `npm run dev` (or `npx office-pptx dev deck.tsx`). Open the printed URL.\n\nEdit `slides/cover.tsx`, select an area for an AI instruction, or choose Edit text in the preview. Start Claude Code in an agent pane before sending instructions. An installed Chrome enables automatic screenshot review.\n\nRun `npm run check` and `npm run build` to check and export `deck.pptx`.\n',
+    '.gitignore': 'node_modules/\ndeck.pptx\n.office-kit/\n',
     '.vscode/tasks.json':
       JSON.stringify(
         {

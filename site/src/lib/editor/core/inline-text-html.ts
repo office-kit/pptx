@@ -1,4 +1,5 @@
 import {
+  toWritableTextFormat,
   getParagraphPropertiesEffective,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -49,7 +50,9 @@ export function inlineTextHtml(
       text += element.kind === 'br' ? '\n' : element.text;
       const format =
         element.kind === 'r' ? (resolve?.(index, runIndex++) ?? element.format) : element.format;
-      return { start, end: text.length, format: format ?? {} };
+      // The reader widens colors to strings; the HTML exporter takes what a
+      // writer would.
+      return { start, end: text.length, format: toWritableTextFormat(format ?? {}) };
     });
     const paragraph = document.createElement('section');
     paragraph.setAttribute('data-text-paragraph', '');

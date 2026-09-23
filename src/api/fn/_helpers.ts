@@ -4,7 +4,11 @@
 // referenced from two or more split files is centralized here.
 
 import type { OpcPackage } from '../../internal/parts/index.ts';
-import { readSlideLayoutPart, readSlidePart } from '../../internal/presentationml/index.ts';
+import {
+  REL_TYPES,
+  readSlideLayoutPart,
+  readSlidePart,
+} from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
@@ -13,6 +17,7 @@ import {
   getAttrValue,
   qname,
   serializeXml,
+  walkElements,
 } from '../../internal/xml/index.ts';
 import { partName } from '../../internal/opc/index.ts';
 import {
@@ -171,6 +176,30 @@ export const ensureTxBody = (shape: SlideShapeData): XmlElement => {
 export const commitAndRefresh = (shape: SlideShapeData): void => {
   commitSlideData(shape[SHAPE_SLIDE]);
   refreshSlideData(shape[SHAPE_SLIDE]);
+};
+
+// A link's rel is owned by the `<a:hlinkClick>` that points at it, and nothing else
+// in a slide can reach a `hyperlink` or `slide` rel. Left behind after the link is
+// removed, a `slide` rel keeps a removed slide alive as a dependency (duplicateSlide
+// then fails on it) and a `hyperlink` rel keeps the URL in the file.
+const LINK_REL_TYPES: ReadonlySet<string> = new Set([REL_TYPES.hyperlink, REL_TYPES.slide]);
+
+/** Drops the slide's link rels that no element references any more. */
+export const releaseUnusedLinkRels = (slide: SlideData): void => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
+  if (rels === null) return;
+
+  const referenced = new Set<string>();
+  walkElements(slide[SLIDE_DOCUMENT].root, (element) => {
+    for (const a of element.attrs) {
+      if (a.name.namespaceURI === NS.officeDocRels) referenced.add(a.value);
+    }
+  });
+
+  const kept = rels.items.filter((rel) => !LINK_REL_TYPES.has(rel.type) || referenced.has(rel.id));
+  if (kept.length === rels.items.length) return;
+  pkg.setRels(slide[SLIDE_PART_NAME], { items: kept });
 };
 
 export const requireSpTree = (slide: SlideData): XmlElement => {

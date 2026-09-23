@@ -22,7 +22,28 @@ else {
 }`;
   for (const provider of ['claude', 'codex'])
     await writeFile(join(directory, provider), script, { mode: 0o755 });
-  const chat = createChat(join(directory, 'deck.tsx'), () => {});
+  const historyEvents = [];
+  let verificationErrors = [];
+  let verificationGate;
+  const chat = createChat(
+    join(directory, 'deck.tsx'),
+    () => {},
+    () => false,
+    async () => {
+      await verificationGate;
+      return verificationErrors.shift() ?? null;
+    },
+    undefined,
+    undefined,
+    {
+      async begin() {
+        historyEvents.push('begin');
+      },
+      async end() {
+        historyEvents.push('end');
+      },
+    },
+  );
   const focus = {
     slide: 3,
     count: 5,
@@ -64,6 +85,37 @@ else {
     }
     throw new Error('Chat did not finish');
   };
+  verificationErrors = ['ReferenceError: Bullets is not defined', null];
+  await post(request('Create an agenda'));
+  let repaired = await finished();
+  assert.equal(repaired.status, 'Done');
+  assert.deepEqual(historyEvents, ['begin', 'end']);
+  assert.equal(repaired.messages.filter((message) => message.role === 'user').length, 2);
+  assert.match(await readFile(join(directory, 'prompt.txt'), 'utf8'), /Bullets is not defined/);
+  await post({}, '/chat/reset');
+  verificationErrors = Array(4).fill('Repeated build failure');
+  await post(request('Create an agenda'));
+  repaired = await finished();
+  assert.match(repaired.status, /after 3 repair attempts/);
+  assert.deepEqual(historyEvents, ['begin', 'end', 'begin', 'end']);
+  assert.equal(repaired.messages.filter((message) => message.role === 'user').length, 4);
+  await post({}, '/chat/reset');
+  let releaseVerification;
+  verificationGate = new Promise((resolve) => {
+    releaseVerification = resolve;
+  });
+  verificationErrors = ['Do not repair after stop'];
+  await post(request('Stop during verification'));
+  for (let i = 0; i < 150 && (await state()).status !== 'Verifying preview…'; i++) await pause();
+  assert.equal((await state()).status, 'Verifying preview…');
+  await post({}, '/chat/stop');
+  releaseVerification();
+  const stopped = await finished();
+  assert.match(stopped.status, /Stopped/);
+  assert.deepEqual(historyEvents.slice(-2), ['begin', 'end']);
+  assert.equal(stopped.messages.filter((message) => message.role === 'user').length, 1);
+  verificationGate = undefined;
+  await post({}, '/chat/reset');
   assert.equal((await post(request('cross origin'), '/chat', 'https://example.com')).status, 403);
   assert.equal((await post({ ...request('stale'), revision: 6 })).status, 400);
   // Split inside a Japanese character to exercise HTTP's incremental UTF-8 decoder.

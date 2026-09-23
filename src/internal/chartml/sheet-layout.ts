@@ -6,7 +6,7 @@
 // formulas in one place is what keeps the two from drifting.
 
 import { type SheetCell, cellAddr, cellRange } from './embedded-xlsx.ts';
-import type { ChartSpec } from './types.ts';
+import type { ReadChartSpec } from './types.ts';
 
 const SHEET = 'Sheet1';
 
@@ -33,7 +33,8 @@ export interface ChartSheetLayout {
   readonly series: ReadonlyArray<SeriesSheetRefs>;
 }
 
-const isXyKind = (spec: ChartSpec): boolean => spec.kind === 'scatter' || spec.kind === 'bubble';
+const isXyKind = (spec: ReadChartSpec): boolean =>
+  spec.kind === 'scatter' || spec.kind === 'bubble';
 
 /** Parses a date-axis category; the caller has validated it is numeric. */
 export const dateSerial = (category: string): number => Number(category);
@@ -43,7 +44,7 @@ export const dateSerial = (category: string): number => Number(category);
 //   |  (level columns, outermost first)  | series 0 | series 1 | …
 //   |  2024  |  Q1                       |    10    |    7     |
 //   |        |  Q2                       |    12    |    9     |
-const layoutCategorySheet = (spec: ChartSpec): ChartSheetLayout => {
+const layoutCategorySheet = (spec: ReadChartSpec): ChartSheetLayout => {
   const outerLevels = [...(spec.categoryGroupLevels ?? [])].reverse();
   const levelCount = outerLevels.length + 1;
   const rowCount = spec.categories.length;
@@ -80,7 +81,7 @@ const layoutCategorySheet = (spec: ChartSpec): ChartSheetLayout => {
 // xy kinds — each series owns its x channel, so each gets its own block of
 // columns (x, y[, size]). The series name heads the y column because that
 // is the cell `<c:tx>` points at.
-const layoutXySheet = (spec: ChartSpec): ChartSheetLayout => {
+const layoutXySheet = (spec: ReadChartSpec): ChartSheetLayout => {
   const isBubble = spec.kind === 'bubble';
   const stride = isBubble ? 3 : 2;
   const rowCount = Math.max(
@@ -119,5 +120,5 @@ const layoutXySheet = (spec: ChartSpec): ChartSheetLayout => {
 };
 
 /** Lays `spec` out as a sheet grid plus the formulas that address it. */
-export const layoutChartSheet = (spec: ChartSpec): ChartSheetLayout =>
+export const layoutChartSheet = (spec: ReadChartSpec): ChartSheetLayout =>
   isXyKind(spec) ? layoutXySheet(spec) : layoutCategorySheet(spec);

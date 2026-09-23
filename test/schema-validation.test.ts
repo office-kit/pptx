@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  type ChartSpec,
   _internalPackageOf,
   inches,
   loadPresentation,
@@ -218,7 +219,7 @@ describe('Layer 1: schema validation', () => {
       loadPresentation,
       savePresentation,
       setParagraphLevel,
-      setShapeBullets,
+      setShapeBulletStyle,
     } = await import('../src/api/index.ts');
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0];
@@ -230,7 +231,7 @@ describe('Layer 1: schema validation', () => {
       h: inches(3),
       text: 'Top\nNested\nBack',
     });
-    setShapeBullets(tb, 'bullet');
+    setShapeBulletStyle(tb, 'bullet');
     setParagraphLevel(tb, 1, 1);
     const bytes = await savePresentation(pres);
     const reloaded = await loadPresentation(bytes);
@@ -260,27 +261,23 @@ describe('Layer 1: schema validation', () => {
   skipIfNoXmllint('doughnut and area charts validate', async () => {
     const { addSlideChart, getSlides, loadPresentation, savePresentation } =
       await import('../src/api/index.ts');
-    for (const kind of ['doughnut', 'area'] as const) {
+    const specs = [
+      { kind: 'doughnut', categories: ['A', 'B', 'C'], series: [{ name: 'S', values: [1, 2, 3] }] },
+      {
+        kind: 'area',
+        categories: ['A', 'B', 'C'],
+        series: [
+          { name: 'X', values: [1, 2, 3] },
+          { name: 'Y', values: [3, 2, 1] },
+        ],
+      },
+    ] satisfies ReadonlyArray<ChartSpec>;
+    for (const spec of specs) {
+      const kind = spec.kind;
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0];
       if (!slide) throw new Error('expected slide');
-      addSlideChart(slide, {
-        x: inches(0.5),
-        y: inches(0.5),
-        w: inches(4),
-        h: inches(3),
-        spec: {
-          kind,
-          categories: ['A', 'B', 'C'],
-          series:
-            kind === 'doughnut'
-              ? [{ name: 'S', values: [1, 2, 3] }]
-              : [
-                  { name: 'X', values: [1, 2, 3] },
-                  { name: 'Y', values: [3, 2, 1] },
-                ],
-        },
-      });
+      addSlideChart(slide, { x: inches(0.5), y: inches(0.5), w: inches(4), h: inches(3), spec });
       const bytes = await savePresentation(pres);
       const reloaded = await loadPresentation(bytes);
       const pkg = _internalPackageOf(reloaded);

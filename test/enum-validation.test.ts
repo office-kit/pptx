@@ -201,12 +201,12 @@ it('setShapeStrokeArrow validates length', () => {
   expect(api.getSlideXmlString(slide)).toContain('type="none"');
 });
 
-it('setShapeBullets validates autoNum', () => {
+it('setShapeBulletStyle validates autoNum', () => {
   const { shape, slide } = fixture();
   expect(() => {
-    api.setShapeBullets(shape, { autoNum: 'bogus' });
-  }).toThrow(/setShapeBullets: .*is not one of:/);
-  expect(() => api.setShapeBullets(shape, { autoNum: 'thaiNumPeriod' })).not.toThrow();
+    api.setShapeBulletStyle(shape, { autoNum: 'bogus' });
+  }).toThrow(/setShapeBulletStyle: .*is not one of:/);
+  expect(() => api.setShapeBulletStyle(shape, { autoNum: 'thaiNumPeriod' })).not.toThrow();
   expect(api.getSlideXmlString(slide)).toContain('type="thaiNumPeriod"');
 });
 
@@ -287,8 +287,8 @@ it('setShapeGradientFill validates path', () => {
       // @ts-expect-error Exercise the JavaScript boundary.
       path: 'bogus',
       stops: [
-        { offset: 0, color: 'FF0000' },
-        { offset: 1, color: 'FFFFFF' },
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#FFFFFF' },
       ],
     });
   }).toThrow(/setShapeGradientFill: .*is not one of:/);
@@ -296,8 +296,8 @@ it('setShapeGradientFill validates path', () => {
     api.setShapeGradientFill(shape, {
       path: 'circle',
       stops: [
-        { offset: 0, color: 'FF0000' },
-        { offset: 1, color: 'FFFFFF' },
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#FFFFFF' },
       ],
     }),
   ).not.toThrow();
@@ -409,8 +409,8 @@ it('validates shape-builder anchor and arrow end without changing existing shape
     /setShapeStrokeArrow: end: .*is not one of:/,
   );
   // @ts-expect-error Exercise the JavaScript boundary.
-  expect(() => api.setShapeBullets(shape, 'bogus')).toThrow(
-    /setShapeBullets: bullets: .*is not one of:/,
+  expect(() => api.setShapeBulletStyle(shape, 'bogus')).toThrow(
+    /setShapeBulletStyle: bullets: .*is not one of:/,
   );
   expect(api.getSlideXmlString(slide)).toBe(before);
   api.addSlideShape(slide, { ...box, preset: 'rect', text: 'X', textAnchor: 'ctr' });
@@ -443,7 +443,7 @@ it.each(['alignment', 'textFormat'] as const)(
     const table = api.addSlideTable(slide, { ...box, rows: [['a', 'b']] });
     api.mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 2 }, { coveredText: 'drop' });
     const cell = api.getTableCell(table, 0, 1);
-    api.setTableCellFill(cell, 'FF0000');
+    api.setTableCellFill(cell, '#FF0000');
     const before = api.getSlideXmlString(slide);
     expect(() => {
       if (setter === 'alignment') {
@@ -454,7 +454,7 @@ it.each(['alignment', 'textFormat'] as const)(
       }
     }).toThrow(RangeError);
     // A later successful setter must not commit a rejected setter's mutations.
-    api.setTableCellFill(cell, 'FF0000');
+    api.setTableCellFill(cell, '#FF0000');
     expect(api.getSlideXmlString(slide)).toBe(before);
   },
 );

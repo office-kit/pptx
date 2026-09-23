@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { getSlideTransition, getSlides, setSlideTransition, clearSlideTransition, type TransitionOptions } from '@office-kit/pptx';
+  import { getSlideTransition, getSlides, setSlideTransition, clearSlideTransition, type TransitionEffect, type TransitionOptions } from '@office-kit/pptx';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -12,9 +12,13 @@
   const version = untrack(() => doc.version);
   const original = slide ? getSlideTransition(slide) : null;
   const mixed = targets.some(target => JSON.stringify(getSlideTransition(target)) !== JSON.stringify(original));
-  const effects = [['none', 'None'], ['fade', 'Fade'], ['push', 'Push'], ['wipe', 'Wipe'], ['cover', 'Cover'], ['pull', 'Uncover'], ['split', 'Split'], ['cut', 'Cut transition'], ['dissolve', 'Dissolve'], ['checker', 'Checkerboard'], ['blinds', 'Blinds'], ['comb', 'Comb'], ['randomBar', 'Random bars'], ['zoom', 'Zoom'], ['circle', 'Circle'], ['diamond', 'Diamond'], ['plus', 'Plus'], ['wedge', 'Wedge'], ['newsflash', 'Newsflash'], ['strips', 'Strips'], ['wheel', 'Wheel'], ['random', 'Random']];
+  const effects: ReadonlyArray<readonly [TransitionEffect, string]> = [['none', 'None'], ['fade', 'Fade'], ['push', 'Push'], ['wipe', 'Wipe'], ['cover', 'Cover'], ['pull', 'Uncover'], ['split', 'Split'], ['cut', 'Cut transition'], ['dissolve', 'Dissolve'], ['checker', 'Checkerboard'], ['blinds', 'Blinds'], ['comb', 'Comb'], ['randomBar', 'Random bars'], ['zoom', 'Zoom'], ['circle', 'Circle'], ['diamond', 'Diamond'], ['plus', 'Plus'], ['wedge', 'Wedge'], ['newsflash', 'Newsflash'], ['strips', 'Strips'], ['wheel', 'Wheel'], ['random', 'Random']];
   const directionLabels: Record<string, string> = { l: 'Left', r: 'Right', u: 'Up', d: 'Down', lu: 'Upper left', ru: 'Upper right', ld: 'Lower left', rd: 'Lower right', horz: 'Horizontal', vert: 'Vertical', in: 'Inward', out: 'Outward' };
-  let effect = $state(original?.effect ?? 'none');
+  // A deck can hold a transition token this dialog does not offer; matching it
+  // against the list is what turns the read value back into a known effect.
+  const knownEffect = (value: string | undefined): TransitionEffect =>
+    effects.find(([token]) => token === value)?.[0] ?? 'none';
+  let effect = $state<TransitionEffect>(knownEffect(original?.effect));
   let speed = $state<NonNullable<TransitionOptions['speed']>>(original?.speed ?? 'med');
   let direction = $state(original?.direction ?? '');
   let orientation = $state<NonNullable<TransitionOptions['orientation']>>(original?.orientation ?? 'horz');

@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import {
   type ChartSpec,
+  type ReadChartSpec,
   addSlideChart,
   getSlideCharts,
   getSlides,
@@ -24,7 +25,7 @@ const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 const roundTrip = async (
   spec: ChartSpec,
-): Promise<{ readonly spec: ChartSpec; readonly xml: string }> => {
+): Promise<{ readonly spec: ReadChartSpec; readonly xml: string }> => {
   const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
   addSlideChart(getSlides(pres)[0]!, {
     x: inches(0.5),

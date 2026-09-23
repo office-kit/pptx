@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { addSlideChart, setChartSpec, getShapeId, getSlideCharts, emu, type ChartKind, type ChartSeries, type ChartSpec, type ChartDataLabels } from '@office-kit/pptx';
+  import { addSlideChart, isChartSpec, setChartSpec, getShapeId, getSlideCharts, emu, type ChartKind, type ChartSeries, type ChartSpec, type ReadChartSpec, type ChartDataLabels } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { slideMetrics } from '../canvas/geometry.ts';
@@ -140,8 +140,14 @@
     event.preventDefault();
     if (!supported || !validSeries || !validAxes || !validMarkers || !validPieOptions || !doc.currentSlide) return;
     if (doc.pres !== presentation || doc.version !== version) { error = t('The document changed. Reopen the chart editor.'); return; }
-    const spec: ChartSpec = {
-      ...original,
+    // The dialog offers one form for every kind, so the draft it assembles is
+    // the permissive read shape; `isChartSpec` is the library's own narrowing
+    // to a spec a chart of this kind can actually carry.
+    const draft: ReadChartSpec = {
+      // Changing the kind drops what only the old kind could draw — a pie has
+      // no hole size, a bar has no first-slice angle. The dialog's own fields
+      // below carry everything the new kind still shows.
+      ...(kind === original?.kind ? original : {}),
       ...(supportsSliceAngle && sliceAngleChanged ? { firstSliceAngleDeg: sliceAngle ?? undefined } : {}),
       ...(kind === 'doughnut' && holeSizeChanged ? { holeSizePct: holeSize ?? undefined } : {}),
       ...(supportsBlanks && blanksChanged ? { dispBlanksAs: blanks } : {}),
@@ -169,6 +175,11 @@
         pointDataLabels: entry.base.pointDataLabels?.map(label => label ? updatedLabels(label)! : null),
       })),
     };
+    if (!isChartSpec(draft)) {
+      error = t('This chart cannot carry one of these settings.');
+      return;
+    }
+    const spec = draft;
     try {
       doc.transact(heading, () => {
         if (edit && initial) setChartSpec(initial, spec);

@@ -13,6 +13,7 @@ import {
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
 import {
   REL_TYPES,
+  type PlaceholderType,
   readShapeTreeFromCsldRoot,
   type SlideShape,
 } from '../../internal/presentationml/index.ts';
@@ -205,7 +206,10 @@ function insertShapes(slide: SlideData, additions: XmlElement[]): void {
  * of `addMissingSlidePlaceholders`, it starts empty and inherits its geometry
  * and text style from the layout and master.
  */
-export const addSlidePlaceholder = (slide: SlideData, type: string): SlideShapeData | null => {
+export const addSlidePlaceholder = (
+  slide: SlideData,
+  type: PlaceholderType,
+): SlideShapeData | null => {
   const existing = findSlidePlaceholder(slide, type);
   if (existing) return existing;
   const layout = getSlideLayout(slide);

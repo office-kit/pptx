@@ -7,7 +7,9 @@ description: Create and revise editable PowerPoint presentations with typed TSX 
 
 Turn the user's brief into an editable PPTX. You operate the authoring tools;
 the user describes the content and reviews slides in the browser. Make content
-and layout changes in TSX. The browser viewer has no editing controls.
+and layout changes in TSX. The preview also supports region instructions and direct
+text saves. When it provides screenshots after an edit, inspect every image and
+correct clipping, overlap, spacing and contrast on affected slides.
 
 ## Start or resume a project
 

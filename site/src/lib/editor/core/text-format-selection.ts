@@ -8,6 +8,7 @@ import {
   getTableCellParagraphs,
   type SlideShapeData,
   type TextFormat,
+  toWritableTextFormat,
 } from '@office-kit/pptx';
 
 /** Character formats at a caret or intersecting a selected text range. */
@@ -31,12 +32,16 @@ export function textFormatsInRange(
     for (const element of elements) {
       const currentRun = runIndex;
       if (element.kind === 'r') runIndex++;
-      const format = () =>
-        context && !cell && element.kind === 'r'
-          ? getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
-              inheritanceSource: context.source ?? shape,
-            })
-          : (element.format ?? {});
+      // Readers widen colors to plain strings; the selection's format is fed
+      // straight back into writers, so it is converted once here.
+      const format = (): TextFormat =>
+        toWritableTextFormat(
+          context && !cell && element.kind === 'r'
+            ? getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
+                inheritanceSource: context.source ?? shape,
+              })
+            : (element.format ?? {}),
+        );
       const length = element.kind === 'br' ? 1 : element.text.length;
       if (range.start === range.end) {
         const caret = range.start;
@@ -52,7 +57,7 @@ export function textFormatsInRange(
     // Empty paragraphs have no character to sample. Their end mark carries
     // the format inherited by the next typed character.
     if (offset === paragraphStart && range.start === offset && range.end === offset) {
-      return [endFormat ?? elements[0]?.format ?? {}];
+      return [toWritableTextFormat(endFormat ?? elements[0]?.format ?? {})];
     }
     offset++;
   }

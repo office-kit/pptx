@@ -1,4 +1,4 @@
-import type { TextFormat } from '@office-kit/pptx';
+import type { Color, TextFormat } from '@office-kit/pptx';
 import type { TextEdit } from './text-edit-preview.ts';
 
 type FormattedText = { text: string; formats: NonNullable<TextEdit['formats']> };
@@ -30,7 +30,7 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
   // Spreadsheet paste has its own cell-aware path.
   if (template.content.querySelector('table')) return null;
   const colorContext = document.createElement('canvas').getContext('2d');
-  function color(value: string): string | undefined {
+  function color(value: string): Color | undefined {
     if (
       !value ||
       !colorContext ||
@@ -40,8 +40,11 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
       return undefined;
     colorContext.fillStyle = '#010203';
     colorContext.fillStyle = value;
-    const resolved = colorContext.fillStyle;
-    return /^#[\da-f]{6}$/i.test(resolved) ? resolved : undefined;
+    // This module is also loaded standalone in the browser (see the clipboard
+    // browser test), so it stays free of runtime imports: the template literal
+    // is what makes the checked value a `HexColor` without a cast.
+    const hex = /^#([\da-f]{6})$/i.exec(colorContext.fillStyle);
+    return hex ? `#${hex[1]!}` : undefined;
   }
   function formatFor(element: HTMLElement, parent: TextFormat): TextFormat {
     const format = { ...parent };

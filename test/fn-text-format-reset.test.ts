@@ -1,29 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import {
-  createPresentation,
   addBlankSlide,
-  addSlideTextBox,
   addSlideTable,
-  inches,
-  setShapeTextFormat,
-  setTableCellTextFormat,
-  getTableCells,
-  getTableCellParagraphs,
-  getShapeParagraphElements,
-  getShapeText,
-  setShapeHyperlink,
-  getShapeRunHyperlink,
-  setParagraphAlignment,
+  addSlideTextBox,
+  createPresentation,
   getParagraphAlignment,
+  getShapeParagraphElements,
+  getShapeRunHyperlink,
+  getShapeText,
   getSlides,
   getSlideShapes,
-  savePresentation,
+  getTableCellParagraphs,
+  getTableCells,
+  inches,
   loadPresentation,
+  savePresentation,
+  setParagraphAlignment,
+  setShapeHyperlink,
+  setShapeTextFormat,
+  setTableCellTextFormat,
+  type TextFormat,
 } from '../src/api/index.ts';
 import { applyFormatToAllRuns } from '../src/internal/drawingml/text-format.ts';
 import { parseXml, serializeFragment } from '../src/internal/xml/index.ts';
 
-const decorated = {
+const decorated: TextFormat = {
   font: 'Arial',
   fontEastAsian: 'Meiryo',
   fontComplexScript: 'Arial',

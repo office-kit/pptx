@@ -5,6 +5,7 @@ import {
   getTableCells,
   type SlideShapeData,
   type TextFormat,
+  toWritableTextFormat,
 } from '@office-kit/pptx';
 import type { TextEdit } from './text-edit-preview.ts';
 
@@ -42,7 +43,9 @@ export function copyTextRange(
           format = resolveRunFormat(index, runIndex);
         runIndex++;
       }
-      append(element.kind === 'br' ? '\n' : element.text, format ?? {});
+      // What the reader hands back widens colors to strings; the clipboard
+      // carries a format that can be written straight into another shape.
+      append(element.kind === 'br' ? '\n' : element.text, toWritableTextFormat(format ?? {}));
     }
   });
   return { version: 1, text: text.slice(start, end), formats };

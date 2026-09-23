@@ -48,6 +48,18 @@ export interface Part {
   data: Uint8Array;
 }
 
+// Relationships are read for every shape during rendering. Cache parsing, but
+// return independent snapshots so edits remain invisible until setRels().
+const parsedRels = new WeakMap<Uint8Array, Relationships>();
+const readRels = (bytes: Uint8Array): Relationships => {
+  let rels = parsedRels.get(bytes);
+  if (!rels) {
+    rels = parseRels(decode(bytes));
+    parsedRels.set(bytes, rels);
+  }
+  return { items: rels.items.map((item) => ({ ...item })) };
+};
+
 const CONTENT_TYPES_PART = '[Content_Types].xml';
 
 /**
@@ -208,7 +220,7 @@ export class OpcPackage {
     const relsName = relsPartNameFor(forPart);
     const part = this.getPart(relsName);
     if (part === null) return null;
-    return parseRels(decode(part.data));
+    return readRels(part.data);
   }
 
   /**
@@ -236,7 +248,7 @@ export class OpcPackage {
   rootRels(): Relationships | null {
     const part = this.getPart(partName('/_rels/.rels'));
     if (part === null) return null;
-    return parseRels(decode(part.data));
+    return readRels(part.data);
   }
 
   /** Convenience: write package-root relationships. */

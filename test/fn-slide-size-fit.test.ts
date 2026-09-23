@@ -55,7 +55,7 @@ it('fits pictures, text and tables proportionally and keeps cached handles edita
   });
   setShapeTextFormat(text, { size: 24 });
   setShapeTextMargins(text, { left: 100000, top: 50000, right: 200000, bottom: 25000 });
-  setShapeStroke(text, { color: '123456', widthEmu: 50800 });
+  setShapeStroke(text, { color: '#123456', widthEmu: 50800 });
   const table = addSlideTable(slide, {
     x: inches(1),
     y: inches(3),

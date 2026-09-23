@@ -16,6 +16,26 @@ npm install
 npm run dev
 ```
 
+For a single-command first launch (macOS/Linux):
+
+```sh
+npx --yes @office-kit/pptx-dev@latest init my-slides && cd my-slides && npm install && npm run dev
+```
+
+The built-in `init` is the starter generator: no separate `degit` checkout is
+needed, and it selects compatible package versions. For an existing project,
+start development with `npm run dev` or `npx office-pptx dev deck.tsx`.
+If you prefer the bare `office-pptx dev deck.tsx` command, install the CLI once
+with `npm install --global @office-kit/pptx-dev@latest`. The local npm script
+continues to use the project's installed version.
+
+To update an existing project, stop its dev server and run inside the project:
+
+```sh
+npm install -D @office-kit/pptx-dev@latest
+npm run dev
+```
+
 Open the local URL printed by the server. The default editor lets you edit text,
 move and resize objects, and use the slide, insert and formatting tools directly
 in the preview. Switch between English and Japanese from the editor header.
@@ -66,6 +86,11 @@ fade, push, wipe, cover, uncover, and zoom using the saved speed and direction.
 Other effects currently switch immediately. Reduced-motion preferences disable
 these animations; automatic slide timing starts after each animation completes.
 
+The viewer has a vertical thumbnail strip, a large slide canvas and an AI chat
+panel on the right. Click a thumbnail or use arrow keys, Page Up/Down, Home/End
+to navigate; Fit/zoom and Present (Escape to exit) are viewing controls. Click an
+object or drag an area for an AI instruction.
+
 Canvas edits are saved beside the entry in `.office-kit/<entry-name>.editor.zip`;
 for example, `.office-kit/deck.tsx.editor.zip`. Keep this file with your project:
 it contains the edited presentation and its source fingerprint. Canvas edits do
@@ -81,7 +106,8 @@ an unresolved conflict so that it cannot silently export the wrong version.
 
 Keep the server running throughout the edit/review loop. In Preview mode, saving
 updates changed thumbnails and slides while preserving zoom, scroll and
-presentation mode. Rapid source edits cancel obsolete evaluations. Syntax and
+presentation mode. Rapid source edits cancel obsolete evaluations; only the latest successful result
+is published. Syntax and
 runtime errors remain visible alongside the last successful preview; DSL errors
 include the TSX element's source file and line number.
 
@@ -131,6 +157,20 @@ CLI. Navigation while Claude is replying does not change that turn's context.
 Stale input is rejected with a retry message. If your Claude settings or managed
 policy disable hooks, automatic context attachment is unavailable; enable the
 preview hook in Claude Code to use it. No project settings file is rewritten.
+
+Use **Shift+Enter** to insert a newline in the embedded Claude prompt. On completion,
+the preview checks the actual deck build. Build errors are returned to Claude's
+Stop hook or to the Codex conversation for up to three repair attempts per user
+request. If repair fails, the error stays visible and the last successful preview
+is retained. Stopping the agent cancels further repair attempts.
+
+Both agents receive guidance to check text against its actual background, including
+inherited theme colors, and to use native `Text` paragraphs or mapped rows for lists
+and agendas. `Bullets` and `TableOfContents` are not built-in DSL components; define
+or import project helpers if using those names. See the
+[TSX authoring reference](../../skill/references/tsx.md#lists-and-tables-of-contents)
+for a complete agenda example. Contrast guidance still requires visual review;
+a successful build is not a visual accessibility check.
 Dependency paths are source candidates, not an exact slide-to-file mapping.
 “This slide” requests a focused patch; requests about another slide or the
 whole deck can edit other files or shared styling.
@@ -181,6 +221,63 @@ install script (`pnpm approve-builds`) if your project blocks dependency scripts
 References: [Claude Code commands](https://code.claude.com/docs/en/commands),
 [Claude Code hooks](https://code.claude.com/docs/en/hooks), and
 [Codex non-interactive mode](https://developers.openai.com/codex/noninteractive).
+
+## Edit from the slide
+
+Hover to see an object's outline, **click an object** to give it an AI instruction,
+or **drag a rectangle** to select an arbitrary area. No mode switching is needed.
+Enter an instruction such as “Move this down a little,” choose an agent pane, and
+click **Apply with AI**. The request includes the slide, preview revision, relative
+bounds and intersecting text. Start Claude Code in that pane first; Codex starts
+when you send. Click the background or press Escape to deselect. Selection also
+clears when the preview or selected slide changes. Shift+Enter (or Cmd/Ctrl+Enter)
+sends the request; Enter inserts a newline.
+
+**Double-click a paragraph** to edit it in place. Enter inserts a newline;
+Shift+Enter (or Cmd/Ctrl+Enter) saves immediately, and Escape cancels.
+There is no separate text editing dialog. Direct saves require a
+unique source literal within the entry directory and verify that other slides did
+not change. For computed text, shared values and ambiguous matches, press Escape,
+click the object and describe the replacement with **Apply with AI** instead.
+
+### Undo and Redo
+
+The toolbar's **Undo / Redo** restores actual source and asset changes, including
+AI edits, direct text saves and saves from an external editor. Use **Cmd/Ctrl+Z**
+and **Cmd/Ctrl+Shift+Z** (or Ctrl+Y) while focused on the preview. Inside a text
+field or agent terminal, those keys keep their normal local meaning.
+
+An AI turn includes its build repairs and screenshot correction passes. Overlapping
+agent turns are grouped as **Concurrent edits**; Undo waits until all have finished.
+A direct text save and any subsequent AI visual corrections are separate entries.
+New edits clear Redo. File additions and deletions are included; newer external saves
+are recorded as their own edit before Undo, and conflicting writes are refused.
+Undo/Redo rebuilds the preview without asking an agent to reinterpret or change the
+restored design. It also works when an AI edit broke the build.
+
+History lasts for the dev server session (browser reloads preserve it), up to 50
+entries / 128 MiB. It covers TS/JS, JSON, CSS, Markdown, YAML, PPTX and image files
+inside the entry directory, excluding symlinks, `node_modules`, `.git`, `dist` and
+`.office-kit`. The tracked project must fit within 64 MiB. Changes outside that
+folder, CLI session state and conversation transcripts are not restored. Keep Git for
+persistent project history.
+
+After each successful agent edit or direct text save, the dev server captures
+all changed slides, including slides offscreen. Codex receives PNG attachments;
+Claude Code receives local PNG paths through its Stop hook and is instructed to
+read them. The agent checks overlap, clipping, alignment, spacing and contrast,
+and can make up to two correction passes followed by a final inspection. This is
+AI-assisted review, not a guarantee of pixel-perfect rendering. The preview updates
+as soon as the build finishes, independently of screenshot review.
+
+Screenshot capture uses an installed Chrome, or falls back to Playwright Chromium.
+Set `PLAYWRIGHT_CHANNEL` to use another installed Chromium channel. If neither is
+available, install Chrome and restart the dev server. Capture failures are shown
+explicitly; saved edits remain available. If the chosen agent is busy or not started,
+use **Retry visual review** after making it available. Screenshots and review prompts
+are stored locally under `.office-kit/reviews/`; new projects ignore this directory.
+Add `.office-kit/` to `.gitignore` in existing projects. Images are provided to the
+selected AI agent using its existing login and provider settings.
 
 ## Edit only what changed
 

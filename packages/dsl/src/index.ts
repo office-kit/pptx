@@ -70,7 +70,7 @@ export type Target =
 export type SlideProps = Children &
   ({ from?: SlideRef; target?: never } | { from?: never; target: SlideRef }) & {
     layout?: LayoutRef;
-    background?: string;
+    background?: api.Color;
     notes?: string;
   };
 function selectSlide(context: Context, ref: SlideRef): api.SlideData {
@@ -119,6 +119,8 @@ export function Slide(props: SlideProps): Node {
     await visit(props.children, { ...context, slide, scope: 'slide' });
   });
 }
+const writableFormat = api.toWritableTextFormat;
+
 export type RawProps =
   | { scope?: undefined; apply: (context: RawContext) => void | Promise<void> }
   | {
@@ -161,8 +163,8 @@ export interface Bounds {
 }
 export interface ShapeStyle {
   name?: string;
-  fill?: string | api.GradientFillOptions;
-  stroke?: { color: string; width?: number } | false;
+  fill?: api.Color | api.GradientFillOptions;
+  stroke?: { color: api.Color; width?: number } | false;
   rotation?: number;
   shadow?: api.ShadowOptions;
   glow?: api.GlowOptions;
@@ -238,7 +240,7 @@ export function Text(props: TextProps): Node {
     props.paragraphs?.forEach((paragraph, index) => {
       if (paragraph.level !== undefined) api.setParagraphLevel(shape, index, paragraph.level);
     });
-    if (props.bullets !== undefined) api.setShapeBullets(shape, props.bullets);
+    if (props.bullets !== undefined) api.setShapeBulletStyle(shape, props.bullets);
     props.paragraphs?.forEach((paragraph, index) => {
       if (paragraph.bullet !== undefined) api.setParagraphBullet(shape, index, paragraph.bullet);
     });
@@ -342,12 +344,12 @@ export function Chart(props: ChartProps): Node {
 }
 export type CellBorderSide = 'left' | 'right' | 'top' | 'bottom';
 export interface CellStyle {
-  fill?: string;
+  fill?: api.Color;
   format?: api.TextFormat;
   anchor?: api.TextAnchor;
   align?: api.ParagraphAlignment;
   /** Border per side. `width` is in points; without it the line has no explicit width. */
-  borders?: Partial<Record<CellBorderSide, { color: string; width?: number }>>;
+  borders?: Partial<Record<CellBorderSide, { color: api.Color; width?: number }>>;
 }
 export interface TableCellInfo {
   /** Zero-based; row 0 is the header. */
@@ -372,7 +374,7 @@ export interface TableProps extends Bounds, Children {
   rowHeights?: readonly number[];
   cellStyle?: CellStyle;
   headerStyle?: CellStyle;
-  stripeFill?: string;
+  stripeFill?: api.Color;
   /**
    * Style for one cell, merged over `cellStyle`, `headerStyle` and
    * `stripeFill` — for a status column, a total row, a highlighted figure.
@@ -380,7 +382,7 @@ export interface TableProps extends Bounds, Children {
   styleCell?: (cell: TableCellInfo) => CellStyle | undefined;
 }
 function cellBorders(borders: NonNullable<CellStyle['borders']>) {
-  const sides: Partial<Record<CellBorderSide, { color: string; widthEmu?: number }>> = {};
+  const sides: Partial<Record<CellBorderSide, { color: api.Color; widthEmu?: number }>> = {};
   for (const side of ['left', 'right', 'top', 'bottom'] as const) {
     const border = borders[side];
     if (!border) continue;
@@ -468,7 +470,10 @@ export function Table(props: TableProps): Node {
           // addSlideTable bakes the deck's body-text color into each run so text
           // stays readable on an inverted color map; new runs must keep it.
           const built = api.getTableCellParagraphs(cell)[0]?.elements[0];
-          const base = { ...(built?.kind === 'r' ? built.format : {}), ...appearance.format };
+          const base = {
+            ...(built?.kind === 'r' && built.format ? writableFormat(built.format) : {}),
+            ...appearance.format,
+          };
           const { align } = appearance;
           api.setTableCellParagraphs(
             cell,
@@ -507,7 +512,7 @@ export interface LineProps {
   y1: number;
   x2: number;
   y2: number;
-  color?: string;
+  color?: api.Color;
   /** Stroke width in points. */
   width?: number;
   name?: string;

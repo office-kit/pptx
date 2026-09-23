@@ -164,7 +164,7 @@
       "params": [
         {
           "name": "opts",
-          "type": "{ from: { x: Emu; y: Emu }; to: { x: Emu; y: Emu }; color?: string; widthEmu?: number; name?: string; }",
+          "type": "{ from: { x: Emu; y: Emu }; to: { x: Emu; y: Emu }; color?: Color; widthEmu?: number; name?: string; }",
           "kind": "object",
           "optional": false
         }
@@ -198,8 +198,8 @@
       "params": [
         {
           "name": "type",
-          "type": "string",
-          "kind": "string",
+          "type": "PlaceholderType",
+          "kind": "object",
           "optional": false
         }
       ]
@@ -1463,7 +1463,7 @@
       ]
     },
     {
-      "id": "setShapeBullets",
+      "id": "setShapeBulletStyle",
       "operand": "shape",
       "takesOperand": true,
       "category": "paragraph",
@@ -1530,7 +1530,7 @@
       "params": [
         {
           "name": "color",
-          "type": "string",
+          "type": "Color",
           "kind": "color",
           "optional": false
         }
@@ -2022,7 +2022,7 @@
       "params": [
         {
           "name": "options",
-          "type": "{ color?: string; widthEmu?: number }",
+          "type": "{ color?: Color; widthEmu?: number }",
           "kind": "object",
           "optional": false
         }
@@ -2341,7 +2341,7 @@
       "params": [
         {
           "name": "color",
-          "type": "string",
+          "type": "Color",
           "kind": "color",
           "optional": false
         }
@@ -2525,7 +2525,7 @@
       "params": [
         {
           "name": "byType",
-          "type": "Readonly<Record<string, string>>",
+          "type": "Readonly<Partial<Record<PlaceholderType, string>>>",
           "kind": "object",
           "optional": false
         }
@@ -2692,7 +2692,7 @@
       "params": [
         {
           "name": "color",
-          "type": "string",
+          "type": "Color",
           "kind": "color",
           "optional": false
         }

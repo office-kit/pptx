@@ -2,29 +2,30 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import {
   addBlankSlide,
-  addSlideTextBox,
+  addSlide,
   addSlideTable,
+  addSlideTextBox,
   createPresentation,
-  inches,
-  getShapeText,
-  getShapeRunFormatEffective,
-  getShapeXmlString,
-  getShapeParagraphElements,
-  getTableCells,
-  getTableCellText,
-  getTableCellParagraphs,
-  setShapeParagraphs,
-  setTableCellTextFormat,
-  getSlideShapes,
-  getParagraphPropertiesEffective,
-  getParagraphBullet,
-  loadPresentation,
   findSlideLayout,
   findSlidePlaceholder,
-  addSlide,
-  setShapeText,
+  getParagraphBullet,
+  getParagraphPropertiesEffective,
+  getShapeParagraphElements,
+  getShapeRunFormatEffective,
+  getShapeText,
+  getShapeXmlString,
+  getSlideShapes,
+  getTableCellParagraphs,
+  getTableCells,
+  getTableCellText,
+  inches,
+  loadPresentation,
   setParagraphLevel,
   setParagraphLineSpacing,
+  setShapeParagraphs,
+  setShapeText,
+  setTableCellTextFormat,
+  toWritableTextFormat,
 } from '../src/api/index.ts';
 import { copyTextRange } from '../site/src/lib/editor/core/text-clipboard.ts';
 import { projectTextEdits } from '../site/src/lib/editor/core/text-edit-preview.ts';
@@ -115,7 +116,9 @@ describe('pending text formatting preview', () => {
     const literal = copyTextRange(projected, 0, 11);
     expect(literal.formats.every((span) => span.format.size === undefined)).toBe(true);
     const display = copyTextRange(projected, 0, 11, undefined, (paragraph, run) =>
-      getShapeRunFormatEffective(pres, projected, paragraph, run, { inheritanceSource: shape }),
+      toWritableTextFormat(
+        getShapeRunFormatEffective(pres, projected, paragraph, run, { inheritanceSource: shape }),
+      ),
     );
     expect(display.text).toBe('English\n日本語');
     const originalParagraph = getParagraphPropertiesEffective(pres, shape, 0);

@@ -1,3 +1,6 @@
+import { createHistory, historyFile } from './history.ts';
+import { createTextEditor } from './text-edit.ts';
+import { createVisualReviewer } from './visual-review.ts';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { createHash, randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
@@ -58,17 +61,38 @@ export async function serveDeck(entry: string, port = 4173) {
       closing: boolean;
     }
   >();
+  const history = await createHistory(dirname(resolve(entry)), () => {
+    for (const client of clients) client.write('data: history\n\n');
+  });
+  let textEdits = 0;
+  const capturedReviews = new Map<string, string[]>();
   function session(id: string) {
     let result = sessions.get(id);
     if (!result) {
+      const review = createVisualReviewer(resolve(entry), () => latest?.slides ?? []);
+      const turnHistory = {
+        begin: () => history.begin('agent:' + id, 'AI edit'),
+        end: () => history.end('agent:' + id),
+      };
       const chat = createChat(
         entry,
         () => {
           for (const client of clients) client.write('data: chat\n\n');
         },
         () => terminal.isRunning(),
+        verify,
+        review,
+        (prompt) => capturedReviews.get(prompt) ?? [],
+        turnHistory,
       );
-      const terminal = createTerminal(entry, () => chat.isRunning(), id ? '/agents/' + id : '');
+      const terminal = createTerminal(
+        entry,
+        () => chat.isRunning(),
+        id ? '/agents/' + id : '',
+        verify,
+        review,
+        turnHistory,
+      );
       result = { chat, terminal, closing: false };
       sessions.set(id, result);
     }
@@ -181,6 +205,15 @@ export async function serveDeck(entry: string, port = 4173) {
       if (!response.headersSent) json(500, cause instanceof Error ? cause.message : String(cause));
     }
   }
+  const textEditor = createTextEditor(
+    resolve(entry),
+    () => {
+      if (!latest || building || pending || timer || error)
+        throw new Error('Wait for a successful preview build.');
+      return { ...latest, revision };
+    },
+    verify,
+  );
   const server = createServer((request, response) => {
     const host = request.headers.host;
     if (host !== `127.0.0.1:${actualPort}` && host !== `localhost:${actualPort}`) {
@@ -189,10 +222,75 @@ export async function serveDeck(entry: string, port = 4173) {
     }
     response.setHeader('Cache-Control', 'no-store');
     const match = request.url?.match(
-      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context)|close))?$/,
+      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|prompt|resize|stop|events|context|verify)|close))?$/,
     );
     if (request.url?.startsWith('/agents/') && !match) {
       response.writeHead(404).end();
+      return;
+    }
+    if (request.url === '/history' && request.method === 'GET') {
+      response
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify(history.state()));
+      return;
+    }
+    if (
+      request.url === '/text-edit' ||
+      request.url === '/history/undo' ||
+      request.url === '/history/redo'
+    ) {
+      if (
+        request.method !== 'POST' ||
+        request.headers.origin !== `http://${host}` ||
+        request.headers['content-type'] !== 'application/json'
+      ) {
+        response.writeHead(403).end();
+        return;
+      }
+      void (async () => {
+        let body = '';
+        request.setEncoding('utf8');
+        for await (const chunk of request) {
+          body += chunk;
+          if (Buffer.byteLength(body) > 100000) throw new Error('Request too large');
+        }
+        if (request.url !== '/text-edit') {
+          await history.move(request.url === '/history/undo' ? 'undo' : 'redo');
+          const buildError = await verify();
+          response
+            .writeHead(200, { 'Content-Type': 'application/json' })
+            .end(JSON.stringify({ ...history.state(), buildError }));
+          return;
+        }
+        const manualReview = createVisualReviewer(resolve(entry), () => latest?.slides ?? []);
+        manualReview.begin();
+        const editId = 'text:' + ++textEdits;
+        await history.begin(editId, 'Text edit');
+        try {
+          await textEditor.edit(JSON.parse(body));
+        } finally {
+          await history.end(editId);
+        }
+        let review;
+        let reviewError;
+        try {
+          review = await manualReview.next();
+          if (review) {
+            capturedReviews.set(review.prompt, review.images);
+            if (capturedReviews.size > 64)
+              capturedReviews.delete(capturedReviews.keys().next().value!);
+          }
+        } catch (cause) {
+          reviewError = cause instanceof Error ? cause.message : String(cause);
+        }
+        response
+          .writeHead(200, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ review, reviewError }));
+      })().catch((cause) =>
+        response
+          .writeHead(400, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ error: cause instanceof Error ? cause.message : String(cause) })),
+      );
       return;
     }
     const id = match?.[1] ?? '';
@@ -359,6 +457,17 @@ export async function serveDeck(entry: string, port = 4173) {
       response.writeHead(404).end();
     }
   });
+  async function verify() {
+    // A fresh build also covers writes whose watcher notification has not arrived yet.
+    void rebuild();
+    const deadline = Date.now() + 30000;
+    while (!closed && (building || timer || pending)) {
+      if (Date.now() >= deadline)
+        return 'Preview verification timed out. Inspect the build before claiming success.';
+      await new Promise((done) => setTimeout(done, 50));
+    }
+    return closed ? 'Preview server closed.' : error;
+  }
   async function rebuild() {
     if (closed) return;
     if (building) {
@@ -384,6 +493,9 @@ export async function serveDeck(entry: string, port = 4173) {
         error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
     } finally {
       building = false;
+      void history.capture().catch(() => {
+        /* The history endpoint exposes capture failures. */
+      });
       for (const client of clients) client.write('data: updated\n\n');
       if (pending && !timer) {
         pending = false;
@@ -401,7 +513,7 @@ export async function serveDeck(entry: string, port = 4173) {
         .some((part) => ['node_modules', '.git', 'dist', '.office-kit'].includes(part))
     )
       return;
-    if (!/\.([cm]?[jt]sx?|json|pptx|png|jpe?g|gif|bmp|tiff?|emf|wmf|svg)$/i.test(filename)) return;
+    if (!historyFile(filename)) return;
     generation++;
     void builder.cancel();
     clearTimeout(timer);

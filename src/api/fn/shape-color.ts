@@ -1,7 +1,7 @@
 // Color transforms and rPr-like element parsing.
 
 import { NAME_A_RPR, requireRun } from './shape-runs.ts';
-import { type TextFormat } from '../../internal/drawingml/index.ts';
+import { type ReadTextFormat, type TextFormat } from '../../internal/drawingml/index.ts';
 // Type-only: erased at compile time, so this does not make the modules cyclic.
 import type { ShapeEffectAny } from './shape-effects.ts';
 import {
@@ -450,8 +450,8 @@ const colorOfFill = (
 export const parseRPrLikeElement = (
   rPr: XmlElement,
   ctx?: { readonly theme: PresentationTheme | null },
-): Partial<TextFormat> => {
-  const out: Partial<TextFormat> = {};
+): Partial<ReadTextFormat> => {
+  const out: Partial<ReadTextFormat> = {};
   const sz = getAttrValue(rPr, qname('', 'sz', ''));
   if (sz !== null) {
     const n = Number.parseInt(sz, 10);
@@ -591,7 +591,7 @@ export const getShapeRunFormat = (
   shape: SlideShapeData,
   paragraphIndex: number,
   runIndex: number,
-): TextFormat | null => {
+): ReadTextFormat | null => {
   const run = requireRun(shape, paragraphIndex, runIndex);
   const rPr = firstChildElement(run, NAME_A_RPR);
   if (rPr === null) return null;

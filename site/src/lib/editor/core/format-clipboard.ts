@@ -9,6 +9,7 @@
 // dropping them.
 
 import {
+  asColor,
   clearShapeEffects,
   clearShapeFill,
   clearShapeStroke,
@@ -45,6 +46,7 @@ import {
   setShapeStrokeJoin,
   setShapeTextFormat,
   setTableCellTextFormat,
+  type Color,
   type GradientFillOptions,
   type PresentationData,
   type SlideShapeData,
@@ -161,9 +163,21 @@ const paintOf = (pres: PresentationData, shape: SlideShapeData): ShapePaint => {
   };
 };
 
+// Readers widen every color to a string, because a deck can hold a scheme
+// token its theme never defines. A color the writer would reject is dropped
+// rather than pasted as something the schema has no room for.
+const writableColor = (color: string): Color | null => asColor(color);
+
 const gradientFillOf = (shape: SlideShapeData): ShapePaint['fill'] => {
   const gradient = getShapeGradientFill(shape);
-  return gradient ? { kind: 'gradient', gradient } : null;
+  if (!gradient) return null;
+  const stops = gradient.stops.flatMap((stop) => {
+    const color = writableColor(stop.color);
+    return color === null ? [] : [{ ...stop, color }];
+  });
+  return stops.length === gradient.stops.length
+    ? { kind: 'gradient', gradient: { ...gradient, stops } }
+    : null;
 };
 
 const patternFillOf = (pres: PresentationData, shape: SlideShapeData): ShapePaint['fill'] => {
@@ -220,17 +234,21 @@ export function copiedFormatLimits(pres: PresentationData, shape: SlideShapeData
 
 const applyPaint = (shape: SlideShapeData, paint: ShapePaint): void => {
   if (paint.fill !== null) {
-    if (paint.fill.kind === 'solid') setShapeFill(shape, paint.fill.color);
-    else if (paint.fill.kind === 'gradient') setShapeGradientFill(shape, paint.fill.gradient);
+    if (paint.fill.kind === 'solid') {
+      const color = writableColor(paint.fill.color);
+      if (color !== null) setShapeFill(shape, color);
+    } else if (paint.fill.kind === 'gradient') setShapeGradientFill(shape, paint.fill.gradient);
     else if (paint.fill.kind === 'pattern') setShapePatternFill(shape, paint.fill.pattern);
     else if (paint.fill.kind === 'none') setShapeNoFill(shape);
     else clearShapeFill(shape);
   }
   if (paint.stroke.kind === 'solid') {
-    setShapeStroke(shape, {
-      color: paint.stroke.color,
-      ...(paint.stroke.widthEmu === undefined ? {} : { widthEmu: paint.stroke.widthEmu }),
-    });
+    const strokeColor = writableColor(paint.stroke.color);
+    if (strokeColor !== null)
+      setShapeStroke(shape, {
+        color: strokeColor,
+        ...(paint.stroke.widthEmu === undefined ? {} : { widthEmu: paint.stroke.widthEmu }),
+      });
     // Stroke detail only means anything once the outline exists, and each
     // writer is skipped when the source said nothing — writing a default
     // would invent an outline style the source never had.
@@ -245,8 +263,11 @@ const applyPaint = (shape: SlideShapeData, paint: ShapePaint): void => {
   // One clear, then whichever effects the source had: pasting a format
   // replaces the target's effects rather than merging into them.
   clearShapeEffects(shape);
-  if (paint.shadow) setShapeShadow(shape, paint.shadow);
-  if (paint.glow) setShapeGlow(shape, paint.glow);
+  const shadowColor = paint.shadow ? writableColor(paint.shadow.color) : null;
+  if (paint.shadow && shadowColor !== null)
+    setShapeShadow(shape, { ...paint.shadow, color: shadowColor });
+  const glowColor = paint.glow ? writableColor(paint.glow.color) : null;
+  if (paint.glow && glowColor !== null) setShapeGlow(shape, { ...paint.glow, color: glowColor });
 };
 
 const applyParagraph = (target: FormatTarget, index: number, paragraph: ParagraphFormat): void => {

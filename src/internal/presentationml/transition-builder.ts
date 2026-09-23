@@ -27,33 +27,44 @@ const ATTR_ORIENT = qname('', 'orient', '');
 const ATTR_THRU_BLK = qname('', 'thruBlk', '');
 
 /**
- * Transition effect token. Maps to a `<p:{token}/>` child of
- * `<p:transition>`. The list covers the effects all current PowerPoint
- * versions emit; pass any other ECMA-376-permitted local name as a raw
- * string for forward compatibility.
+ * Every transition effect element name in `CT_SlideTransition`'s choice
+ * (ECMA-376 pml.xsd). The token is emitted verbatim as `<p:{token}/>`, so this
+ * list is both the type's domain and the write-time validation domain —
+ * keeping them one declaration stops them drifting apart.
  */
-export type TransitionEffect =
-  | 'none'
-  | 'fade'
-  | 'push'
-  | 'cover'
-  | 'wipe'
-  | 'split'
-  | 'cut'
-  | 'dissolve'
-  | 'checker'
-  | 'blinds'
-  | 'randomBar'
-  | 'zoom'
-  | 'circle'
-  | 'diamond'
-  | 'plus'
-  | 'wedge'
-  | 'newsflash'
-  | 'wheel';
+export const TRANSITION_EFFECTS = [
+  'blinds',
+  'checker',
+  'circle',
+  'dissolve',
+  'comb',
+  'cover',
+  'cut',
+  'diamond',
+  'fade',
+  'newsflash',
+  'plus',
+  'pull',
+  'push',
+  'random',
+  'randomBar',
+  'split',
+  'strips',
+  'wedge',
+  'wheel',
+  'wipe',
+  'zoom',
+] as const;
+
+/**
+ * Transition effect token. Maps to a `<p:{token}/>` child of
+ * `<p:transition>`, except `'none'`: that is the library-level sentinel for
+ * "no effect element", which the schema's choice has no member for.
+ */
+export type TransitionEffect = 'none' | (typeof TRANSITION_EFFECTS)[number];
 
 export interface TransitionOptions {
-  effect: TransitionEffect | string;
+  effect: TransitionEffect;
   /** Effect speed. Defaults to omitted (PowerPoint treats absence as `med`). */
   speed?: 'slow' | 'med' | 'fast';
   /**
@@ -83,6 +94,13 @@ export interface TransitionOptions {
   advanceAfterMs?: number;
 }
 
+/**
+ * A transition read back from a deck. `effect` widens to `string` because a
+ * file authored elsewhere can carry an effect element this library does not
+ * model; writing one still requires a `TransitionEffect`.
+ */
+export type SlideTransition = Omit<TransitionOptions, 'effect'> & { effect: string };
+
 // Per-effect `dir` value domains (ECMA-376 Part 1, pml.xsd). The effect
 // element's CT type fixes which direction tokens are legal — they are NOT
 // interchangeable: blinds wants horz/vert, push wants l/r/u/d, zoom wants
@@ -108,35 +126,6 @@ const DIR_DOMAINS: Readonly<Record<string, ReadonlySet<string>>> = {
 };
 // Effects whose CT type carries `thruBlk` (CT_OptionalBlackTransition).
 const THRU_BLK_EFFECTS = new Set(['fade', 'cut']);
-
-// Every transition effect element name in CT_SlideTransition's choice
-// (ECMA-376 pml.xsd). `effect` is typed `TransitionEffect | string` for
-// forward-compat, so the raw token reaches the wire — validate it against the
-// full spec set, or an empty/unknown string yields non-well-formed or
-// schema-invalid XML. `none` is handled before this and is intentionally absent.
-const TRANSITION_EFFECTS: ReadonlyArray<string> = [
-  'blinds',
-  'checker',
-  'circle',
-  'dissolve',
-  'comb',
-  'cover',
-  'cut',
-  'diamond',
-  'fade',
-  'newsflash',
-  'plus',
-  'pull',
-  'push',
-  'random',
-  'randomBar',
-  'split',
-  'strips',
-  'wedge',
-  'wheel',
-  'wipe',
-  'zoom',
-];
 
 // Returns the single effect child, or null for the "no transition effect"
 // sentinel ('none' is not a valid effect element name — CT_SlideTransition's

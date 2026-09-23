@@ -15,6 +15,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeTextFormat,
+  type TextFormat,
 } from '../src/api/index.ts';
 
 const textBox = (text = 'WordArt 文字') => {
@@ -128,7 +129,7 @@ describe('character-level effects', () => {
 
   it('survives the save/load round trip', async () => {
     const { pres, shape } = textBox();
-    const format = {
+    const format: TextFormat = {
       outline: { color: '#FF0000', widthEmu: 12700 },
       shadow: { color: '#123456', blurEmu: 50800, offsetEmu: 38100, angleDeg: 90 },
       glow: { color: '#00FF00', radiusEmu: 63500 },

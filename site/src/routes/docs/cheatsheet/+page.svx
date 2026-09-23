@@ -49,7 +49,7 @@ for every export see <a href="{base}/api">API reference</a>.
 | Set / get a shape's text | `setShapeText` + `getShapeText` |
 | Per-run formatting (bold, size, color) | `setShapeRunFormat` |
 | Per-paragraph alignment / level / bullet | `setParagraphAlignment` + `setParagraphLevel` + `setParagraphBullet` |
-| Bullets across the whole shape | `setShapeBullets` |
+| Bullets across the whole shape | `setShapeBulletStyle` |
 
 ### Shapes
 

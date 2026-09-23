@@ -90,7 +90,7 @@ Reaching zero combined two things:
      built-in and the blank deck ships `tableStyles.xml`.
    - Bulleted text boxes got the bullet glyph but no hanging indent (the glyph
      jammed against the text), because a text box inherits the master
-     `otherStyle` (marL=0), not the body style. `setShapeBullets` /
+     `otherStyle` (marL=0), not the body style. `setShapeBulletStyle` /
      `setParagraphBullet` now write PowerPoint's per-level `marL` / `indent`.
    - The chart reader returned empty categories for `<c:multiLvlStrRef>`, which
      is what PowerPoint and PptxGenJS emit. It now reads them — so the chart

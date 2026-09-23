@@ -31,8 +31,33 @@ process.stdin.on('data',async data=>{
 `,
       { mode: 0o755 },
     );
+    let historyActive = false;
     let busy = true;
-    const terminal = createTerminal(join(directory, 'deck.tsx'), () => busy);
+    let visual = false;
+    const review = {
+      begin() {},
+      async next() {
+        if (!visual) return;
+        visual = false;
+        return { prompt: 'Inspect changed slides: /tmp/slide-3.png', images: ['/tmp/slide-3.png'] };
+      },
+    };
+    let buildError = 'ReferenceError: Bullets is not defined';
+    const terminal = createTerminal(
+      join(directory, 'deck.tsx'),
+      () => busy,
+      '',
+      async () => buildError,
+      review,
+      {
+        async begin() {
+          historyActive = true;
+        },
+        async end() {
+          historyActive = false;
+        },
+      },
+    );
     const server = createServer(
       (req, res) =>
         void terminal.handle(req, res, (slide, revision) => {
@@ -109,6 +134,48 @@ process.stdin.on('data',async data=>{
       value.hookSpecificOutput.additionalContext.includes('"slide":6'),
     );
     assert.match(context.hookSpecificOutput.additionalContext, /NOT a restriction/);
+    const hook = JSON.parse(args[1]).hooks.Stop[0].hooks[0];
+    const verify = async () =>
+      (
+        await fetch(hook.url, {
+          method: 'POST',
+          headers: hook.headers,
+          body: '{}',
+        })
+      ).json();
+    assert.equal((await post('verify', {})).status, 403);
+    assert.equal(historyActive, true);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const feedback = await verify();
+      assert.equal(feedback.decision, 'block');
+      assert.equal(historyActive, true);
+      assert.match(feedback.reason, /Bullets is not defined/);
+    }
+    assert.equal((await verify()).decision, undefined);
+    assert.equal(historyActive, false);
+    buildError = null;
+    visual = true;
+    const visualFeedback = await verify();
+    assert.equal(visualFeedback.decision, 'block');
+    assert.match(visualFeedback.reason, /slide-3\.png/);
+    assert.equal((await verify()).decision, undefined);
+    assert.equal(
+      (await post('prompt', { message: 'bad\x1b[2J', slide: 2, revision: 7 })).status,
+      400,
+    );
+    assert.equal(
+      (await post('prompt', { message: 'Move down', slide: 2, revision: 6 })).status,
+      400,
+    );
+    assert.equal(
+      (await post('prompt', { message: 'Move down\nslightly', slide: 2, revision: 7 })).status,
+      200,
+    );
+    assert.equal(
+      (await post('prompt', { message: 'Another edit', slide: 2, revision: 7 })).status,
+      400,
+    );
+    assert.equal((await verify()).decision, undefined);
     assert.equal((await post('resize', { cols: 12, rows: 3 })).status, 200);
     assert.equal((await post('resize', { cols: 1, rows: 0 })).status, 400);
     assert.equal((await post('resize', { cols: 100, rows: 30 })).status, 200);

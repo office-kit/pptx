@@ -16,6 +16,7 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  type ChartSpec,
   addSlideChart,
   readPackagePart,
   getShapeKind,
@@ -84,29 +85,25 @@ describe('fn API: addSlideChart', () => {
   });
 
   it('bar / line / pie / doughnut / area chart kinds all save and reload', async () => {
-    for (const kind of ['bar', 'line', 'pie', 'doughnut', 'area'] as const) {
+    const CATEGORIES = ['A', 'B', 'C'];
+    const ONE = { name: 'S1', values: [1, 2, 3] };
+    const TWO = { name: 'S2', values: [3, 2, 1] };
+    const specs = [
+      { kind: 'bar', categories: CATEGORIES, series: [ONE, TWO] },
+      { kind: 'line', categories: CATEGORIES, series: [ONE, TWO] },
+      { kind: 'pie', categories: CATEGORIES, series: [ONE] },
+      { kind: 'doughnut', categories: CATEGORIES, series: [ONE] },
+      { kind: 'area', categories: CATEGORIES, series: [ONE, TWO] },
+    ] satisfies ReadonlyArray<ChartSpec>;
+    for (const spec of specs) {
       const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
       const slide = getSlides(pres)[0]!;
-      const seriesCount = kind === 'pie' || kind === 'doughnut' ? 1 : 2;
-      addSlideChart(slide, {
-        x: inches(0),
-        y: inches(0),
-        w: inches(5),
-        h: inches(3),
-        spec: {
-          kind,
-          categories: ['A', 'B', 'C'],
-          series: Array.from({ length: seriesCount }, (_, i) => ({
-            name: `S${i + 1}`,
-            values: [1, 2, 3],
-          })),
-        },
-      });
+      addSlideChart(slide, { x: inches(0), y: inches(0), w: inches(5), h: inches(3), spec });
       const reloaded = await loadPresentation(await savePresentation(pres));
       const reloadedShape = getSlideShapes(getSlides(reloaded)[0]!).find(
         (s) => getShapeKind(s) === 'graphicFrame',
       );
-      expect(reloadedShape, `${kind} chart lost on round-trip`).toBeDefined();
+      expect(reloadedShape, `${spec.kind} chart lost on round-trip`).toBeDefined();
     }
   });
 

@@ -1,0 +1,3 @@
+/** Shared guidance for agents editing a deck through the preview. */
+export const authoringGuidance = `For lists and tables of contents, use Text paragraphs/bullets or mapped Text rows. Bullets and TableOfContents are not built-in DSL components: inspect installed exports, import existing local helpers or define them. Do not use Raw for these layouts.
+Choose foreground and actual background colors together. Explicitly set readable text colors on slides, cards, tables, chart labels and footnotes; check inherited theme styles. Aim for 4.5:1 contrast for normal text and 3:1 for large text (18pt or 14pt bold). Use a solid backing over images or gradients if needed. Inspect rendered slides; compilation alone cannot verify contrast.`;

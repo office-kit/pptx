@@ -1,5 +1,6 @@
 // Slide title convenience.
 
+import type { PlaceholderType } from '../../internal/presentationml/index.ts';
 import { SHAPE_SNAPSHOT, type SlideData } from '../_internal-symbols.ts';
 import { findSlidePlaceholder, setShapeText } from './shapes.ts';
 
@@ -56,9 +57,9 @@ export const setSlideTitle = (slide: SlideData, title: string): void => {
  */
 export const setSlidePlaceholders = (
   slide: SlideData,
-  byType: Readonly<Record<string, string>>,
+  byType: Readonly<Partial<Record<PlaceholderType, string>>>,
 ): void => {
-  for (const [type, text] of Object.entries(byType)) {
+  for (const [type, text] of Object.entries(byType) as ReadonlyArray<[PlaceholderType, string]>) {
     const shape =
       type === 'title'
         ? (findSlidePlaceholder(slide, 'title') ?? findSlidePlaceholder(slide, 'ctrTitle'))

@@ -6,6 +6,7 @@
 // `(|x2-x1|, |y2-y1|)`. Direction (which end is "from" and which is
 // "to") is captured via `flipH` / `flipV` on the xfrm.
 
+import type { Color } from '../drawingml/index.ts';
 import { emuCoordinate, emuExtent, lineWidthEmu } from '../bounds.ts';
 import { type XmlElement, NS, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from '../drawingml/color.ts';
@@ -54,7 +55,7 @@ export interface ConnectorOptions {
    * tokens, etc. When omitted PowerPoint applies the layout's default
    * line color.
    */
-  color?: string;
+  color?: Color;
   /** Line width in EMU. PowerPoint's hairline default is `9525` (0.75pt). */
   widthEmu?: number;
 }

@@ -15,6 +15,7 @@
 // then set the relevant attributes / child elements. Existing properties
 // not addressed by the format object are preserved.
 
+import type { Color } from './color.ts';
 import {
   NS,
   type XmlAttr,
@@ -27,7 +28,7 @@ import {
 } from '../xml/index.ts';
 import { UNDERLINES, STRIKES } from '../enum-values.ts';
 import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
-import { parseColor } from './color.ts';
+import { asColor, parseColor } from './color.ts';
 import {
   type EffectPlacement,
   type GlowOptions,
@@ -112,7 +113,7 @@ export interface TextFormat {
    * Color. Accepts `#RRGGBB`, `RRGGBB`, an ECMA-376 scheme color token
    * (`tx1`, `accent1`, ...), or `null` to clear.
    */
-  color?: string | null;
+  color?: Color | null;
   bold?: boolean;
   italic?: boolean;
   /**
@@ -153,7 +154,7 @@ export interface TextFormat {
    * Highlight color (cell-fill style background per run). Same color
    * format as `color`. Mirrors `<a:rPr><a:highlight>…</a:highlight></a:rPr>`.
    */
-  highlight?: string | null;
+  highlight?: Color | null;
   /**
    * Outline drawn around the glyphs — `<a:rPr><a:ln>`, the character-level
    * twin of `setShapeStroke`. `null` removes it, which is not the same as
@@ -175,10 +176,76 @@ export interface TextFormat {
 /** A run's outline: `CT_LineProperties` as far as text uses it. */
 export interface TextOutline {
   /** Same accepted forms as `TextFormat.color`. */
-  readonly color?: string;
+  readonly color?: Color;
   /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
   readonly widthEmu?: number;
 }
+
+/**
+ * A run format read back from a deck. `color` and `highlight` widen to
+ * `string`: when no theme is supplied, or a token is not in the scheme, the
+ * readers surface the raw `<a:schemeClr val>` token as-is.
+ */
+export type ReadTextFormat = Omit<
+  TextFormat,
+  'color' | 'highlight' | 'outline' | 'shadow' | 'glow'
+> & {
+  color?: string | null;
+  highlight?: string | null;
+  outline?: ReadTextOutline | null;
+  shadow?: (Omit<ShadowOptions, 'color'> & { readonly color?: string }) | null;
+  glow?: (Omit<GlowOptions, 'color'> & { readonly color: string }) | null;
+};
+
+/** A run outline read back from a deck. `color` widens for the same reason. */
+export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: string };
+
+/**
+ * Converts a format read back from a deck into one a writer accepts. The
+ * readers widen every color to `string`, because a deck can hold a scheme
+ * token that is not in its theme; this checks each one and drops the property
+ * (or, for a glow, the whole effect) when the writer would reject it, so the
+ * round trip never writes a color the schema has no room for.
+ */
+export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
+  const { color, highlight, outline, shadow, glow, ...rest } = format;
+  const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
+  const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
+  const glowColor = glow == null ? null : asColor(glow.color);
+  return {
+    ...rest,
+    ...(color == null ? {} : { color: asColor(color) }),
+    ...(highlight == null ? {} : { highlight: asColor(highlight) }),
+    ...(outline == null
+      ? {}
+      : {
+          outline: {
+            ...(outline.widthEmu === undefined ? {} : { widthEmu: outline.widthEmu }),
+            ...(outlineColor === null ? {} : { color: outlineColor }),
+          },
+        }),
+    ...(shadow == null
+      ? {}
+      : {
+          shadow: {
+            ...(shadow.blurEmu === undefined ? {} : { blurEmu: shadow.blurEmu }),
+            ...(shadow.offsetEmu === undefined ? {} : { offsetEmu: shadow.offsetEmu }),
+            ...(shadow.angleDeg === undefined ? {} : { angleDeg: shadow.angleDeg }),
+            ...(shadow.opacity === undefined ? {} : { opacity: shadow.opacity }),
+            ...(shadowColor === null ? {} : { color: shadowColor }),
+          },
+        }),
+    ...(glow == null || glowColor === null
+      ? {}
+      : {
+          glow: {
+            color: glowColor,
+            ...(glow.radiusEmu === undefined ? {} : { radiusEmu: glow.radiusEmu }),
+            ...(glow.opacity === undefined ? {} : { opacity: glow.opacity }),
+          },
+        }),
+  };
+};
 
 const setOrRemoveAttr = (
   attrs: XmlAttr[],

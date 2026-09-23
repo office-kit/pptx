@@ -31,6 +31,13 @@ describe('fn API: findLayoutsWithPlaceholderType', () => {
 
   it('returns an empty list for a placeholder type no layout exposes', async () => {
     const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    expect(findLayoutsWithPlaceholderType(pres, 'clipArt')).toEqual([]);
+  });
+
+  it('rejects a token outside ST_PlaceholderType at compile time', async () => {
+    const pres = await loadPresentation(await readFile(fixture('blank.pptx')));
+    // @ts-expect-error - the closed PlaceholderType is the point; widening it back
+    // to string leaves this directive unused and fails the build.
     expect(findLayoutsWithPlaceholderType(pres, 'no-such-ph-type')).toEqual([]);
   });
 });

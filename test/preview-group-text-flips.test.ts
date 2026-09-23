@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  type ChartSpec,
   addBlankSlide,
   addSlideShape,
   addSlideChart,
@@ -177,6 +178,37 @@ describe('table text orientation in flipped groups', () => {
       }
 });
 
+// One spec per chart kind. `ChartSpec` is a union, and a pie has no axes to
+// title, so the axis labels ride only with the kinds that plot them.
+const labelledSpec = (
+  kind: 'column' | 'bar' | 'line' | 'area' | 'pie' | 'doughnut' | 'scatter' | 'bubble' | 'radar',
+): ChartSpec => {
+  const common = {
+    title: '日本語 English',
+    categories: ['A', 'B'],
+    legend: { position: 'r' as const },
+  };
+  const axes = {
+    valueAxisTitle: '値 Value',
+    categoryAxisTitle: '分類 Category',
+    categoryAxisLabelRotationDeg: 30,
+  };
+  const series = { name: '系列 Series', values: [2, 4] };
+  if (kind === 'scatter')
+    return { ...common, ...axes, kind, series: [{ ...series, xValues: [1, 2] }] };
+  if (kind === 'bubble')
+    return {
+      ...common,
+      ...axes,
+      kind,
+      series: [{ ...series, xValues: [1, 2], bubbleSizes: [3, 4] }],
+    };
+  if (kind === 'pie') return { ...common, kind, series: [series] };
+  if (kind === 'doughnut') return { ...common, kind, series: [series] };
+  if (kind === 'radar') return { ...common, ...axes, kind, series: [series] };
+  return { ...common, ...axes, kind, series: [series] };
+};
+
 describe('chart label orientation in flipped groups', () => {
   for (const kind of [
     'column',
@@ -199,18 +231,7 @@ describe('chart label orientation in flipped groups', () => {
             y: inches(1),
             w: inches(5),
             h: inches(4),
-            spec: {
-              kind,
-              title: '日本語 English',
-              categories: ['A', 'B'],
-              series: [
-                { name: '系列 Series', values: [2, 4], xValues: [1, 2], bubbleSizes: [3, 4] },
-              ],
-              legend: { position: 'r' },
-              valueAxisTitle: '値 Value',
-              categoryAxisTitle: '分類 Category',
-              categoryAxisLabelRotationDeg: 30,
-            },
+            spec: labelledSpec(kind),
           });
           setShapeRotation(chart, 31);
           setShapeFlip(chart, chartFlip);

@@ -42,12 +42,32 @@ export type {
   ChartSeries,
   ChartSeriesAxis,
   ChartSpec,
+  ReadChartSpec,
   ChartTextStyle,
   ChartTimeUnit,
   ChartTrendline,
   ChartUpDownBars,
   ChartView3D,
+  BubbleChartSeries,
+  BubbleChartSpec,
+  Bar3DChartSpec,
+  CandlestickChartSpec,
+  ChartVariant,
+  ComboChartSeries,
+  ComboChartSpec,
+  DoughnutChartSpec,
+  LineArea3DChartSpec,
+  OfPieChartSpec,
+  Pie3DChartSpec,
+  PieChartSpec,
+  PlainChartSeries,
+  RadarChartSpec,
+  ScatterChartSeries,
+  ScatterChartSpec,
+  StockChartSpec,
+  SurfaceChartSpec,
 } from '../internal/chartml/index.ts';
+export { isChartSpec } from '../internal/chartml/index.ts';
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
@@ -503,7 +523,7 @@ export {
   setShapeAltTitle,
   setShapeAnimation,
   setShapeBounds,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeGlow,
@@ -601,11 +621,18 @@ export {
   validatePresentation,
 } from './fn.ts';
 
+export { asColor, toWritableTextFormat } from '../internal/drawingml/index.ts';
 export type {
   BulletStyle,
+  Color,
+  HexColor,
   ParagraphAlignment,
   ParagraphAlignmentToken,
   ParagraphSpec,
+  SchemeColorToken,
+  ReadGradientFill,
+  ReadGradientStop,
+  ReadTextFormat,
   RunSpec,
   TextFormat,
   TextOutline,
@@ -613,7 +640,9 @@ export type {
 export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type {
+  PlaceholderType,
   PresetShape,
+  SlideTransition,
   TransitionEffect,
   TransitionOptions,
 } from '../internal/presentationml/index.ts';

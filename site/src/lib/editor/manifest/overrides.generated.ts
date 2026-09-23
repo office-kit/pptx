@@ -769,8 +769,8 @@ export const generatedOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
-  setShapeBullets: {
-    labelEn: 'Set Shape Bullets',
+  setShapeBulletStyle: {
+    labelEn: 'Set Shape Bullet Style',
     labelJa: '図形の箇条書きを設定',
     params: [
       {

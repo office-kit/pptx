@@ -1,5 +1,70 @@
 # @office-kit/pptx-dev
 
+## 0.9.0
+
+### Minor Changes
+
+- 92eef76: `init` now writes the project guide as `AGENTS.md` as well as `CLAUDE.md`, so coding agents other than Claude Code pick up the TSX workflow.
+
+  Claude Code loads `CLAUDE.md` automatically; Codex and most other agents load `AGENTS.md`. A generated project only had the first, so those agents started with no instructions and reached for their own slide-building tools — producing a deck outside the project instead of editing `deck.tsx`. Both files carry the same text, and existing projects can get the same result by copying `CLAUDE.md` to `AGENTS.md`.
+
+## 0.8.3
+
+### Patch Changes
+
+- 98273a7: Submit selected-area instructions and save in-place text with Shift+Enter. Remove the separate text editing dialog, reveal saved previews before visual review finishes, and use compact Undo/Redo icon buttons.
+- Updated dependencies [28731c2]
+  - @office-kit/pptx@0.21.0
+  - @office-kit/pptx-dsl@0.7.0
+  - @office-kit/pptx-preview@0.11.0
+
+## 0.8.2
+
+### Patch Changes
+
+- Updated dependencies [4235418]
+- Updated dependencies [4235418]
+  - @office-kit/pptx-preview@0.10.0
+  - @office-kit/pptx-dsl@0.6.0
+
+## 0.8.1
+
+### Patch Changes
+
+- Updated dependencies [04eda82]
+  - @office-kit/pptx@0.20.0
+
+## 0.8.0
+
+### Minor Changes
+
+- cc7740b: Edit slides directly without switching modes: click objects for AI instructions, drag a region, or double-click text to edit in place. Undo and Redo now restore source and asset changes across AI turns, text edits, and external saves, with keyboard shortcuts and grouped concurrent agent edits.
+
+### Patch Changes
+
+- Updated dependencies [3eecc92]
+- Updated dependencies [cb702c1]
+  - @office-kit/pptx@0.19.0
+
+## 0.7.0
+
+### Minor Changes
+
+- 758df05: Edit selected slide regions through a chosen coding agent, directly save uniquely identifiable text literals with guarded undo, and automatically provide screenshots of changed slides for bounded AI design review.
+
+## 0.6.0
+
+### Minor Changes
+
+- 9b8f8a0: Reduce preview latency on large TSX decks by avoiding repeated parsing of existing slides, themes and relationships. Keep existing slide handles live when appending or duplicating slides.
+
+  Verify builds when an embedded agent finishes and return failures to Claude Code or Codex for up to three automatic repair attempts. Support Shift+Enter in the Claude terminal and provide native TSX agenda examples and foreground/background contrast guidance.
+
+### Patch Changes
+
+- Updated dependencies [9b8f8a0]
+  - @office-kit/pptx@0.18.3
+
 ## 0.5.0
 
 ### Minor Changes

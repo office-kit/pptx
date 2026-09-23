@@ -52,11 +52,14 @@ import { loadPresentationFile, savePresentationToFile } from '@office-kit/pptx/n
 3. **Build, then format.** Add a shape/slide; it returns a handle. Pass that
    handle to formatting functions (`setShape*`). Order of formatting calls does
    not matter — the library inserts each XML child at its schema-mandated slot.
-4. **Colors** are `#RRGGBB`, the 3-digit shorthand `#RGB`, bare `RRGGBB`, or a
-   theme token (`accent1`…`accent6`, `tx1`, `bg1`, `dk1`, `lt1`, `hlink`). An
-   unrecognized color **throws** — it is never silently emitted. One exception:
-   chart series colors accept the hex forms but **not** theme tokens (a series
-   must resolve to a concrete sRGB value).
+4. **Colors** are `#RRGGBB`, the 3-digit shorthand `#RGB`, or a theme token
+   (`accent1`…`accent6`, `tx1`, `bg1`, `dk1`, `lt1`, `hlink`) — the exported
+   `Color` type, which rejects anything else at compile time. The `#` is
+   required. Chart series colors take `HexColor`: a series must resolve to a
+   concrete sRGB value, so a theme token is not accepted there. A malformed
+   hex body such as `'#zzzzzz'` still **throws** at run time, because
+   TypeScript cannot spell "six hex digits". Colors read back off a deck are
+   plain `string`; pass one through `asColor` to write it again.
 
 ## Core workflow — build a deck from scratch
 
@@ -75,7 +78,6 @@ if (subtitle) setShapeText(subtitle, 'Strategy, results, and the road ahead');
 // Title + body content slide.
 const agenda = addContentSlide(pres, { title: 'Agenda' });
 const body = findSlidePlaceholder(agenda, 'body');
-// IMPORTANT: bullet *content* is multi-line text + a bullet style, NOT a list arg.
 if (body) setShapeText(body, 'Highlights\nFinancials\nRoadmap\nRisks', { bullets: 'bullet' });
 
 const out = await savePresentation(pres);
@@ -190,6 +192,7 @@ Formatting and slide features (one canonical call each):
 | Capability                      | Call                                                                                                                                                                                                                                |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Whole-shape text                | `setShapeText(shape, text, { bullets? })` (split lines with `\n`)                                                                                                                                                                   |
+| Bullet glyph style              | `setShapeBulletStyle(shape, 'bullet' \| 'number' \| 'none' \| { char } \| { autoNum })` (restyles existing paragraphs)                                                                                                              |
 | Mixed-format paragraphs         | `setShapeParagraphs(shape, [{ align?, runs: [{ text, format? }], endFormat? }])` (several runs per paragraph; `endFormat: { size }` gives a run-less paragraph its font size, read back with `getParagraphEndFormat`)               |
 | One run's format                | `setShapeRunFormat(shape, p, r, { bold, italic, underline, size, color, font, highlight, ... })`                                                                                                                                    |
 | Paragraph align / level         | `setParagraphAlignment(shape, p, 'ctr')`, `setParagraphLevel(shape, p, 1)`                                                                                                                                                          |
@@ -202,7 +205,7 @@ Formatting and slide features (one canonical call each):
 | Picture corrections             | `setShapeImageCrop/Opacity/Brightness/Contrast` (brightness/contrast in `[-1, 1]`)                                                                                                                                                  |
 | Hyperlink / click action        | `setShapeHyperlink(shape, url)`, `setShapeClickAction(shape, { kind: 'nextSlide' })`                                                                                                                                                |
 | Slide background                | `setSlideBackground(slide, '#102030')`, `setSlideBackgroundImage(slide, bytes)`                                                                                                                                                     |
-| Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — key is **`effect`**, not `type`                                                                                                                                                   |
+| Transition                      | `setSlideTransition(slide, { effect: 'fade' })` — `effect: 'none'` emits no transition; `clearSlideTransition(slide)` removes one                                                                                                   |
 | Animation                       | `setShapeAnimation(shape, { effect: 'fadeIn' })` (`fadeIn`/`fadeOut`/`appear`/`disappear`)                                                                                                                                          |
 | Speaker notes                   | `setSlideNotes(slide, '...')`                                                                                                                                                                                                       |
 | Comments                        | `addSlideComment(slide, { author: { name }, text })`                                                                                                                                                                                |
@@ -270,16 +273,6 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
 
 ## Footguns (memorize these — each is a real, easy mistake)
 
-- **Bullets are content + style, not a list argument.** To make a bulleted
-  list: `setShapeText(shape, 'A\nB\nC', { bullets: 'bullet' })`.
-  `setShapeBullets(shape, style)` sets the _bullet glyph style_ (`'bullet'` |
-  `'number'` | `'none'` | `{ char }` | `{ autoNum }`) on existing paragraphs —
-  it is NOT how you set the text.
-- **`setShapeFill(shape, color)` takes a color string**, e.g.
-  `setShapeFill(card, '#059669')` — not an object.
-- **Transitions key on `effect`**: `setSlideTransition(slide, { effect: 'fade' })`.
-  `{ type: 'fade' }` is wrong. `effect: 'none'` emits no transition (use
-  `clearSlideTransition` to remove one).
 - **Multi-line text** in a text box, shape, or table cell uses `\n` between
   lines — each becomes its own paragraph. A literal newline inside one run is
   not a line break.
@@ -287,11 +280,14 @@ Keep content within `x ∈ [0.5, 12.83]`, `y ∈ [0.5, 7.0]` inches.
   `doughnut`, `radar`, `stock`, `surface`, plus `scatter` / `bubble`, whose
   series carry their own `xValues` (and `bubbleSizes`) instead of sharing
   `categories`. 3-D is a modifier, not a kind: add `view3D` to `bar` / `column`
-  / `line` / `area` / `pie`. `pie`/`doughnut` take exactly one series; `stock`
-  takes three (high, low, close) or four (open first). A spec whose fields
-  contradict each other (e.g. `view3D` on a scatter chart) throws.
-- **Find placeholders by type token**, not display name:
-  `findSlidePlaceholder(slide, 'title' | 'body' | 'ctrTitle' | 'subTitle')`.
+  / `line` / `area` / `pie` / `surface`. `pie`/`doughnut` take exactly one
+  series; `stock` takes three (high, low, close) or four (open first).
+  `ChartSpec` is a union over `kind`, so a field the kind has no element for —
+  `scatterStyle` on a column, an axis title on a pie, `bar3DShape` without
+  `view3D` — is a type error rather than a value the writer drops.
+  `getShapeChartSpec` returns the permissive `ReadChartSpec` instead, since a
+  deck authored elsewhere can carry any combination; narrow it back with
+  `isChartSpec` before writing it.
 
 ## QA protocol — run this before saying "done"
 

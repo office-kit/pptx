@@ -139,16 +139,16 @@ import {
   type PresentationTheme,
   type ChartKind,
   type ChartSeries,
-  type ChartSpec,
+  type ReadChartSpec,
   type ChartTextStyle,
   type CustomGeometry,
-  type GradientFillOptions,
+  type ReadGradientFill,
   type ShapeFill,
   type ShapeStroke,
   type SlideData,
   type SlideShapeData,
   type TableCellParagraph,
-  type TextFormat,
+  type ReadTextFormat,
 } from '@office-kit/pptx';
 import { renderEmfToSvg } from './emf.ts';
 import {
@@ -648,7 +648,7 @@ let activeSlideNumber = '1';
 // objectBoundingBox unit cube. ECMA-376 measures `angleDeg` clockwise
 // from 3 o'clock, which matches the trig below (0° = +x, 90° = +y).
 const gradientDef = (
-  grad: GradientFillOptions,
+  grad: ReadGradientFill,
   theme: PresentationTheme | null,
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
@@ -2105,7 +2105,7 @@ const cssColorWithOpacity = (hex: string, opacity: number | undefined): string =
 // autofit factor, or the placeholder default scaled the same way.
 const renderRun = (
   text: string,
-  format: TextFormat | null,
+  format: ReadTextFormat | null,
   theme: PresentationTheme | null,
   effectivePt: number,
   /* unused but kept for forward compatibility */ _wasDefault = false,
@@ -2226,7 +2226,7 @@ const AUTOFIT_STEP = 0.05;
 
 type RunData = {
   text: string;
-  fmt: TextFormat | null;
+  fmt: ReadTextFormat | null;
   sizePt: number;
   href?: string;
   hrefTip?: string;
@@ -2252,13 +2252,13 @@ interface ParaData {
 // (wavy/wavyDbl/wavyHeavy) needs a hand-drawn path since SVG has no
 // text-decoration-style, so it can't share a bucket with plain/dashed/dotted
 // styles, which all render fine as a single line.
-const underlineStyleOf = (fmt: TextFormat | null): 'none' | 'single' | 'wavy' => {
+const underlineStyleOf = (fmt: ReadTextFormat | null): 'none' | 'single' | 'wavy' => {
   const u = fmt?.underline;
   if (u === undefined || u === false || u === 'none') return 'none';
   if (typeof u === 'string' && u.startsWith('wavy')) return 'wavy';
   return 'single';
 };
-const hasStrikeFmt = (fmt: TextFormat | null): boolean => {
+const hasStrikeFmt = (fmt: ReadTextFormat | null): boolean => {
   const s = fmt?.strike;
   return s !== undefined && s !== false && s !== 'noStrike';
 };
@@ -2753,7 +2753,7 @@ export const resolveTextBodyModel = (
       // keeps its cached text — `datetime` in particular has thirteen
       // locale-dependent variants that a preview should not guess at.
       const txt = el.kind === 'fld' && el.type === 'slidenum' ? activeSlideNumber : el.text;
-      let fmt: TextFormat | null = el.format;
+      let fmt: ReadTextFormat | null = el.format;
       let href: string | undefined;
       let hrefTip: string | undefined;
       if (el.kind === 'r') {
@@ -3324,7 +3324,7 @@ const layoutChart = (
   legendOverlay = false,
   hasLegend = true,
   titlePx = DEFAULT_CHART_TITLE_PT * PX_PER_PT,
-  plotAreaLayout?: ChartSpec['plotAreaLayout'],
+  plotAreaLayout?: ReadChartSpec['plotAreaLayout'],
 ): ChartFrame => {
   const x = xEmu / EMU_PER_PX;
   const y = yEmu / EMU_PER_PX;
@@ -3756,8 +3756,8 @@ const renderCategoryAxis = (
   labelAlign?: 'ctr' | 'l' | 'r',
   lineColor?: string,
   lineHidden = false,
-  majorTickMark: ChartSpec['categoryAxisMajorTickMark'] = 'out',
-  minorTickMark: ChartSpec['categoryAxisMinorTickMark'] = 'none',
+  majorTickMark: ReadChartSpec['categoryAxisMajorTickMark'] = 'out',
+  minorTickMark: ReadChartSpec['categoryAxisMinorTickMark'] = 'none',
 ): string => {
   const labels: string[] = [];
   for (let i = 0; i < pointCount; i++) {
@@ -3856,7 +3856,7 @@ const renderCategoryAxis = (
   const step = pointCount > 0 ? span / pointCount : 0;
   // Major ticks bound category slots; minor ticks sit halfway between them.
   const ticks = (
-    mark: NonNullable<ChartSpec['categoryAxisMajorTickMark']>,
+    mark: NonNullable<ReadChartSpec['categoryAxisMajorTickMark']>,
     length: number,
     offset: number,
   ): void => {
@@ -3877,7 +3877,7 @@ const renderCategoryAxis = (
   return out.join('');
 };
 
-const seriesMinMax = (spec: ChartSpec): { min: number; max: number; step: number } => {
+const seriesMinMax = (spec: ReadChartSpec): { min: number; max: number; step: number } => {
   // Stacked charts scale the value axis to the per-category stacked total,
   // not the largest single value, or the bars overflow / the axis labels
   // disagree with the bar heights. percentStacked always spans 0..100%.
@@ -4075,7 +4075,7 @@ const renderChartLegend = (
 // `<c:val>` array alone is enough; PowerPoint then labels the x-axis
 // 1, 2, 3, ... Use the longest series as the point count when
 // `spec.categories` is empty so those charts still plot.
-const pointCount = (spec: ChartSpec): number => {
+const pointCount = (spec: ReadChartSpec): number => {
   if (spec.categories.length > 0) return spec.categories.length;
   let n = 0;
   for (const s of spec.series) if (s.values.length > n) n = s.values.length;
@@ -4087,7 +4087,7 @@ const chartFillOpacityAttr = (opacity = 1): string =>
 
 // Stacked inversion is unsupported in the preview, so negative-color inversion stays with clustered callers.
 const chartPointBaseColor = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
   seriesIndex: number,
   pointIndex: number,
@@ -4141,7 +4141,7 @@ const barLabelLayout = (x: number, w: number, v: number, pos: string | undefined
 
 const renderColumnChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const N = pointCount(spec);
@@ -4530,14 +4530,14 @@ const formatChartValue = (v: number): string => {
   return v.toFixed(2).replace(/\.?0+$/, '');
 };
 
-const chartPointLabelOptions = (spec: ChartSpec, seriesIdx: number, pointIdx: number) => ({
+const chartPointLabelOptions = (spec: ReadChartSpec, seriesIdx: number, pointIdx: number) => ({
   ...spec.dataLabels,
   ...spec.series[seriesIdx]?.dataLabels,
   ...spec.series[seriesIdx]?.pointDataLabels?.[pointIdx],
 });
 
 const cartesianDataLabelText = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   seriesIdx: number,
   pointIdx: number,
   value: number,
@@ -4558,7 +4558,7 @@ const cartesianDataLabelText = (
 // `v` through it. Falls back to `formatChartValue` when neither layer
 // authors a format.
 const formatDataLabelValue = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   seriesIdx: number,
   v: number,
   pointIdx?: number,
@@ -4576,7 +4576,7 @@ const formatDataLabelValue = (
 // Falls back to the renderer's hardcoded size / caller-supplied fill /
 // weight so existing layouts don't shift when no textStyle is authored.
 const dataLabelTextAttrs = (
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   seriesIdx: number,
   fallbackFill: string,
   fallbackSizePt = 9,
@@ -4595,7 +4595,11 @@ const dataLabelTextAttrs = (
   return `font-family="sans-serif" font-size="${chartFontPx(sz)}" fill="${fill}"${weight}${italic}`;
 };
 
-const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<string>): string => {
+const renderBarChart = (
+  f: ChartFrame,
+  spec: ReadChartSpec,
+  colors: ReadonlyArray<string>,
+): string => {
   const N = pointCount(spec);
   if (N === 0 || spec.series.length === 0) return '';
   const grouping = spec.grouping ?? 'clustered';
@@ -4707,7 +4711,7 @@ const renderBarChart = (f: ChartFrame, spec: ChartSpec, colors: ReadonlyArray<st
 
 const renderLineChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
   fill: boolean,
 ): string => {
@@ -4947,7 +4951,7 @@ const renderLineChart = (
 
 const renderPieChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
   doughnut: boolean,
 ): string => {
@@ -5103,7 +5107,7 @@ const xyPoints = (series: ChartSeries): Array<{ x: number; y: number; size: numb
 // (y) axis).
 const renderScatterAxes = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   xB: { min: number; max: number },
   yB: { min: number; max: number },
 ): string => {
@@ -5132,7 +5136,7 @@ const renderScatterAxes = (
 
 const renderScatterChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const perSeries = spec.series.map((s) => xyPoints(s));
@@ -5198,7 +5202,7 @@ const renderScatterChart = (
 
 const renderBubbleChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const perSeries = spec.series.map((s) => xyPoints(s));
@@ -5253,7 +5257,7 @@ const renderBubbleChart = (
 
 const renderRadarChart = (
   f: ChartFrame,
-  spec: ChartSpec,
+  spec: ReadChartSpec,
   colors: ReadonlyArray<string>,
 ): string => {
   const N = pointCount(spec);
@@ -5369,7 +5373,7 @@ const renderChart = (
   theme: PresentationTheme | null,
   groupReflected: boolean,
 ): string | null => {
-  let spec: ChartSpec | null = null;
+  let spec: ReadChartSpec | null = null;
   try {
     spec = getShapeChartSpec(shape);
   } catch {
@@ -5559,7 +5563,7 @@ const renderChart = (
       (g.secondary ? 2 : 0) + (g.kind === 'line' || g.kind === 'area' ? 1 : 0);
     for (const group of [...groups.values()].sort((a, b) => paintOrder(a) - paintOrder(b))) {
       const scale = group.secondary && secondaryScale ? secondaryScale : primaryScale;
-      const groupSpec: ChartSpec = {
+      const groupSpec: ReadChartSpec = {
         ...spec,
         series: group.series,
         valueAxis: { min: scale.min, max: scale.max },

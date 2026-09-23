@@ -11,6 +11,7 @@ import { replaceTokensInTree } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
 import {
+  type PlaceholderType,
   REL_TYPES,
   type ShapeKind,
   readSlideLayoutPart,
@@ -111,7 +112,10 @@ export const getSlideLayout = (slide: SlideData): SlideLayoutData | null => {
  * if no match). Shapes whose `<p:ph>` omits an explicit type default to
  * `'body'` per ECMA-376 §19.7.10.
  */
-export const findSlidePlaceholder = (slide: SlideData, type: string): SlideShapeData | null => {
+export const findSlidePlaceholder = (
+  slide: SlideData,
+  type: PlaceholderType,
+): SlideShapeData | null => {
   for (const shape of slide[SLIDE_SHAPES]) {
     const snap = shape[SHAPE_SNAPSHOT];
     if (snap.placeholderType === type) return shape;
@@ -224,7 +228,7 @@ export const findSlidePlaceholderByIdx = (slide: SlideData, idx: number): SlideS
  */
 export const findSlidePlaceholders = (
   slide: SlideData,
-  type: string,
+  type: PlaceholderType,
 ): ReadonlyArray<SlideShapeData> => {
   const out: SlideShapeData[] = [];
   for (const shape of slide[SLIDE_SHAPES]) {

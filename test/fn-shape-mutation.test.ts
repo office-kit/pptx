@@ -23,7 +23,7 @@ import {
   removeShape,
   savePresentation,
   setShapeAlignment,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeHyperlink,
@@ -52,14 +52,14 @@ const slideRels = async (bytes: Uint8Array, slideIndex: number): Promise<string>
 };
 
 describe('fn API: shape text mutation', () => {
-  it('setShapeText + setShapeBullets + setShapeAlignment + setShapeTextFormat persist', async () => {
+  it('setShapeText + setShapeBulletStyle + setShapeAlignment + setShapeTextFormat persist', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = getSlideShapes(slide).find((s) => getShapeText(s).length > 0);
     if (!shape) throw new Error('expected text shape');
 
     setShapeText(shape, 'Line one\nLine two');
-    setShapeBullets(shape, 'bullet');
+    setShapeBulletStyle(shape, 'bullet');
     setShapeAlignment(shape, 'center');
     setShapeTextFormat(shape, { bold: true, color: '#FF0000' });
 

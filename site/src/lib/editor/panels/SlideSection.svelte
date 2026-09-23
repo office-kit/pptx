@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { asColor, getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -70,7 +70,7 @@
     <button class="ok-btn" onclick={() => editor.invoke('addMissingSlidePlaceholders')}>{t('Restore deleted placeholders')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderTextFormatting')}>{t('Reset placeholder text formatting')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderGeometry')}>{t('Reset placeholder positions')}</button>
-    <label>{t('Background color')}<input type="color" aria-label={t('Background color')} value={background?.kind === 'solid' && /^#[0-9a-f]{6}$/i.test(background.color) ? background.color : '#ffffff'} onchange={event => { const color = event.currentTarget.value; apply('Background color', target => setSlideBackground(target, color)); }} /></label>
+    <label>{t('Background color')}<input type="color" aria-label={t('Background color')} value={background?.kind === 'solid' && /^#[0-9a-f]{6}$/i.test(background.color) ? background.color : '#ffffff'} onchange={event => { const color = asColor(event.currentTarget.value); if (color) apply('Background color', target => setSlideBackground(target, color)); }} /></label>
     {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}
     <input bind:this={fileInput} aria-label={t('Background image')} type="file" accept="image/*" hidden disabled={loading} onchange={upload} />
     <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>

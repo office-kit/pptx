@@ -9,18 +9,20 @@ import { describe, expect, it } from 'vitest';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import {
   type ChartSpec,
+  isChartSpec,
   type ParagraphAlignment,
   type ParagraphSpec,
   type PresentationData,
+  type ReadTextFormat,
   type ShapeParagraphElement,
   type SlideData,
   type SlideShapeData,
   type TableCellParagraph,
-  type TextFormat,
   addSlide,
   addSlideChart,
   addSlideTable,
   addSlideTextBox,
+  toWritableTextFormat,
   createPresentation,
   findSlideLayoutByType,
   getParagraphAlignment,
@@ -61,9 +63,13 @@ const freshSlide = (): { pres: PresentationData; slide: SlideData } => {
   return { pres, slide: addSlide(pres, { layout }) };
 };
 
+// The round trip writes what it read, so the spec has to narrow to the
+// write-side domain — a deck pptxgenjs authored may not.
 const chartOf = (pres: PresentationData): ChartSpec => {
   const shape = getSlideShapes(getSlides(pres)[0]!).at(-1)!;
-  return getShapeChartSpec(shape)!;
+  const spec = getShapeChartSpec(shape)!;
+  if (!isChartSpec(spec)) throw new Error(`a ${spec.kind} chart read back unwritable`);
+  return spec;
 };
 
 const partXml = (pres: PresentationData, name: string): string =>
@@ -216,7 +222,7 @@ interface ParagraphDto {
   // getParagraphAlignment or the plain-English name of getTableCellParagraphs.
   readonly align: ParagraphAlignment | null;
   readonly elements: ReadonlyArray<ShapeParagraphElement>;
-  readonly endFormat: TextFormat | null;
+  readonly endFormat: ReadTextFormat | null;
 }
 
 const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
@@ -226,14 +232,16 @@ const shapeParagraphs = (shape: SlideShapeData): ParagraphDto[] =>
     endFormat: getParagraphEndFormat(shape, i),
   }));
 
+const writableFormat = toWritableTextFormat;
+
 const toSpecs = (paragraphs: ReadonlyArray<ParagraphDto>): ParagraphSpec[] =>
   paragraphs.map((p) => ({
     ...(p.align !== null ? { align: p.align } : {}),
     runs: p.elements.map((e) => {
       if (e.kind !== 'r') throw new Error(`fixture has a ${e.kind} element`);
-      return { text: e.text, ...(e.format !== null ? { format: e.format } : {}) };
+      return { text: e.text, ...(e.format !== null ? { format: writableFormat(e.format) } : {}) };
     }),
-    ...(p.endFormat !== null ? { endFormat: p.endFormat } : {}),
+    ...(p.endFormat !== null ? { endFormat: writableFormat(p.endFormat) } : {}),
   }));
 
 describe('pptxgenjs compatibility: text', () => {
@@ -397,7 +405,10 @@ describe('pptxgenjs compatibility: merged table', () => {
     setTableCellParagraphs(cell, [
       {
         ...toSpecs(before)[0]!,
-        endFormat: { ...before[0]!.endFormat, fontComplexScript: 'Leelawadee UI' },
+        endFormat: {
+          ...(before[0]!.endFormat === null ? {} : writableFormat(before[0]!.endFormat)),
+          fontComplexScript: 'Leelawadee UI',
+        },
       },
     ]);
     const saved = await loadPresentation(await savePresentation(src));

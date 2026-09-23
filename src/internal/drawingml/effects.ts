@@ -5,6 +5,7 @@
 // effectLst → scene3d → sp3d → extLst`. Callers locate the right
 // insertion slot using `effectInsertionIndex`.
 
+import type { Color } from './color.ts';
 import { emuExtent } from '../bounds.ts';
 import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
 import { buildColorElement } from './color.ts';
@@ -24,7 +25,7 @@ const ATTR_VAL = qname('', 'val', '');
 
 export interface ShadowOptions {
   /** `#RRGGBB`, bare `RRGGBB`, or scheme token. Defaults to black. */
-  readonly color?: string;
+  readonly color?: Color;
   /** Edge blur in EMU. Defaults to 50800 (4pt). */
   readonly blurEmu?: number;
   /** Offset distance in EMU. Defaults to 38100 (3pt). */
@@ -40,7 +41,7 @@ export interface ShadowOptions {
 
 export interface GlowOptions {
   /** `#RRGGBB`, bare `RRGGBB`, or scheme token. */
-  readonly color: string;
+  readonly color: Color;
   /** Glow radius in EMU. Defaults to 63500 (5pt). */
   readonly radiusEmu?: number;
   /** Opacity (0–1). Defaults to fully opaque. */

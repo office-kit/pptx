@@ -90,7 +90,7 @@ export const RIBBON: readonly RibbonTab[] = [
           // truncates to four indistinguishable buttons. Use PowerPoint's own
           // short names instead.
           { id: 'setParagraphAlignment', icon: 'align', label: 'Align' },
-          { id: 'setShapeBullets', icon: 'bullets', label: 'Bullets' },
+          { id: 'setShapeBulletStyle', icon: 'bullets', label: 'Bullets' },
           { id: 'setParagraphLevel', icon: 'indent', label: 'Indent' },
           { id: 'setParagraphLineSpacing', icon: 'line-spacing', label: 'Line spacing' },
           { id: 'setParagraphSpacing', icon: 'space', label: 'Spacing' },

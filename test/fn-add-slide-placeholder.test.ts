@@ -43,7 +43,8 @@ describe('addSlidePlaceholder', () => {
     // `addSlide` copies every slot the layout defines, so the three footer
     // placeholders go first — the state a deck authored in PowerPoint without
     // footers arrives in.
-    for (const type of ['sldNum', 'ftr', 'dt']) removeShape(findSlidePlaceholder(slide, type)!);
+    for (const type of ['sldNum', 'ftr', 'dt'] as const)
+      removeShape(findSlidePlaceholder(slide, type)!);
     const before = getSlideShapes(slide).length;
 
     const added = addSlidePlaceholder(slide, 'sldNum');

@@ -11,6 +11,7 @@ import {
   addBlankSlide,
   addSlideChart,
   addSlideShape,
+  asColor,
   createPresentation,
   findSlideLayout,
   getShapeFillColor,
@@ -184,12 +185,19 @@ describe('sweep: scheme-color round-trip', () => {
     const read = getShapeFillColor(r);
     expect(read).toBe('scheme:accent1');
     // The whole point: feeding the getter's output back to the setter must work.
-    expect(() => setShapeFill(r, read!)).not.toThrow();
+    // The getter is typed `string` because a deck can hold a token outside the
+    // theme, so the round-trip goes through `asColor`.
+    const writable = asColor(read!);
+    expect(writable).not.toBeNull();
+    expect(() => setShapeFill(r, writable!)).not.toThrow();
     expect(getShapeFillColor(r)).toBe('scheme:accent1');
   });
 
   it('still rejects an unknown scheme token', () => {
-    expect(() => setShapeFill(rect(createPresentation()), 'scheme:bogus')).toThrow();
+    expect(() =>
+      // @ts-expect-error Exercise the JavaScript boundary.
+      setShapeFill(rect(createPresentation()), 'scheme:bogus'),
+    ).toThrow();
   });
 });
 

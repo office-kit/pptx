@@ -30,7 +30,7 @@ import {
   loadPresentation,
   savePresentation,
   setShapeAnimation,
-  setShapeBullets,
+  setShapeBulletStyle,
   slideHasAnimations,
   updateSlideAnimation,
 } from '../src/api/index.ts';
@@ -955,7 +955,7 @@ describe('fn API: setShapeAnimation — building text one paragraph at a time', 
 
   it('builds a Japanese bulleted body the same way', () => {
     const { pres, slide, shape } = deck(['一つ目', '二つ目', '三つ目']);
-    setShapeBullets(shape, 'bullet');
+    setShapeBulletStyle(shape, 'bullet');
     setShapeAnimation(shape, { effect: 'fadeIn', byParagraph: true });
 
     const steps = getSlideAnimations(slide);

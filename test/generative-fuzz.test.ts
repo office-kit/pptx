@@ -15,6 +15,7 @@ import {
   _internalPackageOf,
   addBlankSlide,
   addContentSlide,
+  type ChartSpec,
   addSlideChart,
   addSlideImage,
   addSlideLine,
@@ -41,6 +42,8 @@ import {
   setSlideTransition,
   setTableCellBorders,
   setTableCellFill,
+  type Color,
+  type SchemeColorToken,
 } from '../src/api/index.ts';
 import { buildPng } from './lib/build-png.ts';
 import {
@@ -75,7 +78,7 @@ const makeRng = (seed: number): (() => number) => {
 };
 
 const HEX = '0123456789abcdef';
-const SCHEME = ['accent1', 'accent2', 'accent3', 'tx1', 'bg1', 'dk1', 'lt1'];
+const SCHEME: SchemeColorToken[] = ['accent1', 'accent2', 'accent3', 'tx1', 'bg1', 'dk1', 'lt1'];
 const PATTERNS = ['pct50', 'dkUpDiag', 'wave', 'cross', 'horzBrick', 'zigZag'] as const;
 const TRANSITIONS = [
   { effect: 'fade' as const },
@@ -115,17 +118,17 @@ describe('generative fuzz: every authored part is schema-valid', () => {
         const rng = makeRng(seed);
         const pick = <T>(arr: ReadonlyArray<T>): T => arr[Math.floor(rng() * arr.length)]!;
         const chance = (p: number): boolean => rng() < p;
-        const color = (): string => {
+        const color = (): Color => {
           if (chance(0.3)) {
             const token = pick(SCHEME);
             // Exercise both spellings the API accepts: bare and `scheme:`-prefixed
             // (the latter is what the read-back getters emit, so it must round-trip).
             return chance(0.5) ? `scheme:${token}` : token;
           }
-          let s = '#';
+          let body = '';
           const n = chance(0.5) ? 3 : 6;
-          for (let i = 0; i < n; i++) s += HEX[Math.floor(rng() * 16)];
-          return s;
+          for (let i = 0; i < n; i++) body += HEX[Math.floor(rng() * 16)];
+          return `#${body}`;
         };
         const emu = (lo: number, hi: number) => inches(lo + rng() * (hi - lo));
 
@@ -262,50 +265,56 @@ describe('generative fuzz: every authored part is schema-valid', () => {
             }
             if (chance(0.3)) {
               const kind = pick(CHART_KINDS);
+              const seriesA = {
+                name: 'A',
+                values: [1, 2, 3, 4],
+                ...(chance(0.5) ? { color: '4472C4' } : {}),
+              };
+              const common = {
+                categories: ['Q1', 'Q2', 'Q3', 'Q4'],
+                ...(chance(0.5)
+                  ? {
+                      dataLabels: {
+                        showValue: true,
+                        showCategory: false,
+                        showSeriesName: false,
+                        showPercent: false,
+                      },
+                    }
+                  : {}),
+              };
+              // Random-but-valid percentages for the kinds that take them, so the
+              // bounds wrappers (gap 0..500, hole 1..90, angle 0..360) are exercised
+              // at real values rather than only at the defaults.
+              const firstSliceAng = chance(0.5)
+                ? { firstSliceAngleDeg: Math.floor(rng() * 361) }
+                : {};
               // pie / doughnut take exactly one series.
-              const single = kind === 'pie' || kind === 'doughnut';
-              const series = single
-                ? [{ name: 'A', values: [1, 2, 3, 4], ...(chance(0.5) ? { color: '4472C4' } : {}) }]
-                : [
-                    {
-                      name: 'A',
-                      values: [1, 2, 3, 4],
-                      ...(chance(0.5) ? { color: '4472C4' } : {}),
-                    },
-                    { name: 'B', values: [4, 3, 2, 1] },
-                  ];
+              const spec: ChartSpec =
+                kind === 'pie'
+                  ? { ...common, kind, series: [seriesA], ...firstSliceAng }
+                  : kind === 'doughnut'
+                    ? {
+                        ...common,
+                        kind,
+                        series: [seriesA],
+                        ...firstSliceAng,
+                        ...(chance(0.5) ? { holeSizePct: 1 + Math.floor(rng() * 90) } : {}),
+                      }
+                    : {
+                        ...common,
+                        kind,
+                        series: [seriesA, { name: 'B', values: [4, 3, 2, 1] }],
+                        ...((kind === 'bar' || kind === 'column') && chance(0.5)
+                          ? { gapWidthPct: Math.floor(rng() * 501) }
+                          : {}),
+                      };
               addSlideChart(slide, {
                 x: emu(0.3, 2),
                 y: emu(0.3, 2),
                 w: emu(4, 7),
                 h: emu(2, 4),
-                spec: {
-                  kind,
-                  categories: ['Q1', 'Q2', 'Q3', 'Q4'],
-                  series,
-                  // Random-but-valid percentages for the kinds that take them, so
-                  // the bounds wrappers (gap 0..500, hole 1..90, angle 0..360) are
-                  // exercised at real values rather than only at the defaults.
-                  ...((kind === 'bar' || kind === 'column') && chance(0.5)
-                    ? { gapWidthPct: Math.floor(rng() * 501) }
-                    : {}),
-                  ...(kind === 'doughnut' && chance(0.5)
-                    ? { holeSizePct: 1 + Math.floor(rng() * 90) }
-                    : {}),
-                  ...((kind === 'pie' || kind === 'doughnut') && chance(0.5)
-                    ? { firstSliceAngleDeg: Math.floor(rng() * 361) }
-                    : {}),
-                  ...(chance(0.5)
-                    ? {
-                        dataLabels: {
-                          showValue: true,
-                          showCategory: false,
-                          showSeriesName: false,
-                          showPercent: false,
-                        },
-                      }
-                    : {}),
-                },
+                spec,
               });
             }
             if (chance(0.3)) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TextFormat } from '@office-kit/pptx';
+  import { asColor, type TextFormat } from '@office-kit/pptx';
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -45,8 +45,8 @@
   {/each}
   <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
   <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
-  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={(e) => onformat({color:e.currentTarget.value})} /></label>
-  <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => onformat({ highlight: e.currentTarget.value })} /></label>
+  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={(e) => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ color: picked }); }} /></label>
+  <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{t('Clear text formatting')}</button>

@@ -245,6 +245,7 @@ export const ja: Record<string, string> = {
   'Background color': '背景色',
   'Slide layout': 'スライドのレイアウト',
   'Slide options': 'スライドの設定',
+  'This chart cannot carry one of these settings.': 'このグラフには設定できない項目があります。',
   'Layout name': 'レイアウト名',
   'Layout background color': 'レイアウトの背景色',
   'Reset layout background': 'レイアウトの背景をリセット',

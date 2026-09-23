@@ -17,6 +17,7 @@ import {
   type XmlDocument,
   type XmlElement,
   allChildElements,
+  childElements,
   attr,
   elem,
   firstChildElement,
@@ -59,7 +60,7 @@ import {
   getSlideLayouts,
   getSlideLayoutPlaceholders,
 } from './layouts.ts';
-import { getSlides, refreshSlideOrder } from './slide-query.ts';
+import { buildSlideData, getSlides, refreshSlideOrder } from './slide-query.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
 
 // ---------------------------------------------------------------------------
@@ -269,11 +270,68 @@ export const addSlide = (
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  refreshSlideOrder(pres);
+  // Appending does not change existing slide documents. Re-parsing them here
+  // made composing a deck quadratic and detached previously returned handles.
+  if (pres._slidesCache !== null) {
+    const added = buildSlideData(pkg, newSlidePartName, slideBytes);
+    pres._slidesCache = [...pres._slidesCache, added];
+    return added;
+  }
   const slides = getSlides(pres);
   const last = slides[slides.length - 1];
   if (!last) throw new Error('addSlide: post-condition failed; slide not in cache');
   return last;
+};
+
+/**
+ * Drops relationships in other parts that point at `removed`, and the
+ * `<a:hlinkClick>` / `<a:hlinkHover>` elements that carried them.
+ *
+ * A slide-jump click action stores a `slide` relationship on the *referring*
+ * slide. Removing the target leaves that relationship pointing at a deleted
+ * part, which PowerPoint rejects and which makes a later `duplicateSlide` of
+ * the referring slide fail on the missing dependency.
+ */
+const dropRelsPointingAtSlide = (pkg: OpcPackage, removed: PartName): void => {
+  for (const part of pkg.parts) {
+    if (part.name === removed || part.name.endsWith('.rels')) continue;
+    const rels = pkg.getRels(part.name);
+    if (!rels) continue;
+
+    const dangling = new Set(
+      rels.items
+        .filter((rel) => {
+          if (rel.type !== REL_TYPES.slide || rel.targetMode === 'External') return false;
+          const target = rel.target.startsWith('/')
+            ? partName(rel.target)
+            : resolveTarget(part.name, rel.target);
+          return target === removed;
+        })
+        .map((rel) => rel.id),
+    );
+    if (dangling.size === 0) continue;
+
+    rels.items = rels.items.filter((rel) => !dangling.has(rel.id));
+    pkg.setRels(part.name, rels);
+
+    const doc = parseXml(decode(part.data));
+    stripHlinksWithRelId(doc.root, dangling);
+    part.data = encode(serializeXml(doc));
+  }
+};
+
+/** Removes every `<a:hlinkClick>` / `<a:hlinkHover>` whose `r:id` is in `relIds`. */
+const stripHlinksWithRelId = (element: XmlElement, relIds: ReadonlySet<string>): void => {
+  element.children = element.children.filter((child) => {
+    if (child.kind !== 'element') return true;
+    const isHlink =
+      child.name.namespaceURI === NS.dml &&
+      (child.name.localName === 'hlinkClick' || child.name.localName === 'hlinkHover');
+    if (!isHlink) return true;
+    const rId = getAttrValue(child, ATTR_R_ID);
+    return rId === null || !relIds.has(rId);
+  });
+  for (const child of childElements(element)) stripHlinksWithRelId(child, relIds);
 };
 
 /**
@@ -362,6 +420,9 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
 
   pkg.removePart(relsPartNameFor(slidePartName));
   pkg.removePart(slidePartName);
+  dropRelsPointingAtSlide(pkg, slidePartName);
+  // Rebuild from the deck's own order rather than dropping the cache: the
+  // surviving slides keep the handles the caller (and the editor) still holds.
   refreshSlideOrder(pres);
 };
 
@@ -564,7 +625,11 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  refreshSlideOrder(pres);
+  if (pres._slidesCache !== null) {
+    const added = buildSlideData(pkg, newSlidePartName, pkg.getPart(newSlidePartName)!.data);
+    pres._slidesCache = [...pres._slidesCache, added];
+    return added;
+  }
   const slides = getSlides(pres);
   const dup = slides[slides.length - 1];
   if (!dup) throw new Error('duplicateSlide: post-condition failed');

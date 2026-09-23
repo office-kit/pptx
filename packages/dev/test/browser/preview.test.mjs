@@ -15,10 +15,18 @@ test(
     await writeFile(
       dir + '/codex',
       `#!${process.execPath}
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 let input='';for await(const chunk of process.stdin)input+=chunk;
 writeFileSync('chat-prompt.txt',input);
-writeFileSync('deck.tsx',readFileSync('deck.tsx','utf8').replace("i===2?'':","i===2?'ChatEdited':"));
+let source=readFileSync('deck.tsx','utf8');
+if(!existsSync('repair-started')) {
+ writeFileSync('repair-started','1');
+ source=source.replace('</Slide>', '<Bullets /></Slide>');
+} else {
+ source=source.replace('<Bullets />','').replace("i===2?'':","i===2?'ChatEdited':");
+ if(input.includes('Bullets is not defined'))writeFileSync('repair-observed','1');
+}
+writeFileSync('deck.tsx',source);
 console.log(JSON.stringify({type:'item.completed',item:{type:'agent_message',text:'Updated the focused slide. **Verified**'}}));
 console.log(JSON.stringify({type:'turn.completed'}));
 `,
@@ -27,14 +35,15 @@ console.log(JSON.stringify({type:'turn.completed'}));
     await writeFile(
       dir + '/claude',
       `#!${process.execPath}
-const {writeFileSync}=require('node:fs');
+const {writeFileSync,mkdirSync}=require('node:fs');
+mkdirSync('.office-kit',{recursive:true});
 console.log('Claude Code terminal ready');
 process.stdin.setEncoding('utf8');
 process.stdin.on('data',async data=>{
  const hook=JSON.parse(process.argv[3]).hooks.UserPromptSubmit[0].hooks[0];
  const response=await fetch(hook.url,{method:'POST',headers:hook.headers,body:'{}'});
- writeFileSync('terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
- console.log('Model menu: '+data.trim());
+ writeFileSync('.office-kit/terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
+ console.log('Model menu: '+data.replaceAll('\\x1b[13;2u','').trim());
 });
 `,
       { mode: 0o755 },
@@ -122,6 +131,16 @@ process.stdin.on('data',async data=>{
       await resizer.press('ArrowRight');
       await assertTerminalFits(agent);
       await page.screenshot({ path: '/tmp/office-kit-studio.png' });
+      const inputs = [];
+      page.on('request', (request) => {
+        if (request.url().endsWith('/terminal/input')) inputs.push(request.postDataJSON().data);
+      });
+      const newlineRequest = page.waitForRequest((request) =>
+        request.url().endsWith('/terminal/input'),
+      );
+      await agent.locator('.xterm-helper-textarea').press('Shift+Enter');
+      await newlineRequest;
+      assert.deepEqual(inputs, ['\x1b[13;2u']);
       await agent.locator('.xterm-helper-textarea').pressSequentially('/model');
       await agent.locator('.xterm-helper-textarea').press('Enter');
       await agent.waitForFunction(() =>
@@ -168,7 +187,7 @@ process.stdin.on('data',async data=>{
       );
       assert.ok(!(await agent.locator('#terminal').textContent()).includes('second-agent'));
       const secondContext = await readFile(
-        dir + '/terminal-context-' + secondPath.split('/').at(-1) + '.json',
+        dir + '/.office-kit/terminal-context-' + secondPath.split('/').at(-1) + '.json',
         'utf8',
       );
       assert.match(JSON.parse(secondContext).hookSpecificOutput.additionalContext, /"slide":3/);
@@ -182,18 +201,50 @@ process.stdin.on('data',async data=>{
       const thirdPath = await page.locator('.agent-pane iframe').nth(2).getAttribute('src');
       const third = page.frames().find((frame) => frame.url().endsWith(thirdPath));
       await assertTerminalFits(second);
+      // A new pane renders its initial chat snapshot asynchronously. Wait for that
+      // render and the selected-slide context before scrolling to the Send button.
+      await third.waitForFunction(() => {
+        const context = document.querySelector('#chat-context');
+        return (
+          context.textContent === 'Slide 3 of 50' &&
+          JSON.parse(context.dataset.focus).revision > 0 &&
+          document
+            .querySelector('#messages .chat-intro')
+            ?.textContent.startsWith('Ask for a focused slide edit')
+        );
+      });
       await third.selectOption('#chat-provider', 'codex');
       await third.locator('#chat-input').fill('Parallel edit');
-      await third.locator('#chat-send').click();
-      await third.waitForFunction(
-        () => document.querySelector('#chat-status').textContent === 'Done',
-      );
+      const [submitted] = await Promise.all([
+        page.waitForResponse(
+          (response) =>
+            response.url() === url + thirdPath + '/chat' && response.request().method() === 'POST',
+        ),
+        third.locator('#chat-send').click(),
+      ]);
+      const submission = await submitted.json();
+      assert.equal(submitted.status(), 202, JSON.stringify(submission));
+      assert.equal(submission.messages[0].text, 'Parallel edit');
+      assert.equal(submission.messages[0].context.slide, 3);
+      try {
+        await third.waitForFunction(
+          () => document.querySelector('#chat-status').textContent === 'Done',
+        );
+      } catch (cause) {
+        const chat = await (await page.request.get(url + thirdPath + '/chat')).json();
+        throw new Error(
+          'Parallel agent did not finish: ' +
+            JSON.stringify({ chat, status: await third.locator('#chat-status').textContent() }),
+          { cause },
+        );
+      }
       assert.equal(await agent.locator('#terminal-stop').isVisible(), true);
       assert.equal(await second.locator('#terminal-stop').isVisible(), true);
       assert.equal(
         (await (await page.request.get(url + agentPath + '/chat')).json()).messages.length,
         0,
       );
+      assert.equal(await readFile(dir + '/repair-observed', 'utf8'), '1');
       await third.locator('#chat-input').fill('independent draft');
       await page.getByRole('button', { name: 'Split down', exact: true }).nth(2).click();
       assert.equal(await third.locator('#chat-input').inputValue(), 'independent draft');
@@ -299,9 +350,17 @@ process.stdin.on('data',async data=>{
       await page.locator('#error').waitFor({ state: 'hidden' });
       await page.waitForFunction(slideSvg, 'Recovered');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
-      // Slide text is real DOM inside the shadow root: select it and read the selection.
-      await page.locator('#slide p').first().click({ clickCount: 3 });
-      assert.ok((await page.evaluate(() => getSelection().toString())).includes('Slide 2'));
+      // Text editing owns arrow keys until the user exits the in-place field.
+      await page.locator('#slide p').first().dblclick();
+      assert.ok(
+        (
+          await page.getByRole('textbox', { name: 'Edit slide text', exact: true }).inputValue()
+        ).includes('Slide 2'),
+      );
+      await page.keyboard.press('ArrowRight');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      await page.keyboard.press('Escape');
+      await page.locator('#slide').focus();
       await page.keyboard.press('ArrowRight');
       assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 50');
       await page.keyboard.press('ArrowLeft');

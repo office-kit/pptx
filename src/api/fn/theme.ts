@@ -103,6 +103,18 @@ const readSchemeSlot = (parent: XmlElement, local: string): string => {
 export const getPresentationTheme = (pres: PresentationData): PresentationTheme | null =>
   themeFromPackage(pres[INTERNAL_PACKAGE]);
 
+// Readers share parsed immutable part bytes; writers parse their own document.
+// Replacing a part's bytes naturally invalidates the weakly held snapshot.
+const readRoots = new WeakMap<Uint8Array, XmlElement>();
+const readRoot = (bytes: Uint8Array): XmlElement => {
+  let root = readRoots.get(bytes);
+  if (!root) {
+    root = parseXml(decode(bytes)).root;
+    readRoots.set(bytes, root);
+  }
+  return root;
+};
+
 const resolveRelTarget = (from: PartName, target: string): PartName =>
   target.startsWith('/') ? partName(target) : resolveTarget(from, target);
 
@@ -121,7 +133,7 @@ const firstSlideMasterPartName = (pkg: OpcPackage): PartName | null => {
   const presPart = pkg.getPart(PRES_PART_NAME);
   const presRels = pkg.getRels(PRES_PART_NAME);
   if (presPart === null || presRels === null) return null;
-  const masterLst = firstChildElement(parseXml(decode(presPart.data)).root, NAME_SLD_MASTER_ID_LST);
+  const masterLst = firstChildElement(readRoot(presPart.data), NAME_SLD_MASTER_ID_LST);
   const firstId = masterLst?.children.find((c) => c.kind === 'element');
   const rId = firstId?.kind === 'element' ? getAttrValue(firstId, ATTR_R_ID) : null;
   const rel =
@@ -159,7 +171,7 @@ const deckThemePart = (pkg: OpcPackage): Part | undefined => {
 export const themeFromPackage = (pkg: OpcPackage): PresentationTheme | null => {
   const themePart = deckThemePart(pkg);
   if (!themePart) return null;
-  const root = parseXml(decode(themePart.data)).root;
+  const root = readRoot(themePart.data);
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
   if (!themeElements) return null;
   const clrScheme = firstChildElement(themeElements, NAME_CLR_SCHEME);
@@ -217,7 +229,7 @@ export const getPresentationFonts = (pres: PresentationData): PresentationFonts 
   const pkg = pres[INTERNAL_PACKAGE];
   const themePart = deckThemePart(pkg);
   if (!themePart) return null;
-  const root = parseXml(decode(themePart.data)).root;
+  const root = readRoot(themePart.data);
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
   if (!themeElements) return null;
   const fontScheme = firstChildElement(themeElements, qname('a', 'fontScheme', NS.dml));

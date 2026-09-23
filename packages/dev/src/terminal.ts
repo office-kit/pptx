@@ -1,3 +1,5 @@
+import type { VisualReview } from './visual-review.ts';
+import { authoringGuidance } from './authoring-guidance.ts';
 import { randomBytes } from 'node:crypto';
 import { dirname, resolve, join } from 'node:path';
 import { createRequire } from 'node:module';
@@ -10,7 +12,16 @@ const OUTPUT_LIMIT = 2_000_000;
 const REQUEST_LIMIT = 128_000;
 
 /** A real interactive Claude session, shared across reloads of its owning tab. */
-export function createTerminal(entry: string, busy = () => false, base = '') {
+export function createTerminal(
+  entry: string,
+  busy = () => false,
+  base = '',
+  verify: () => Promise<string | null> = async () => null,
+  review?: { begin(): void; next(): Promise<VisualReview | undefined> },
+  history?: { begin(): Promise<void>; end(): Promise<void> },
+) {
+  let repairs = 0;
+  let working = false;
   let process: IPty | undefined;
   let owner = '';
   let output = '';
@@ -53,18 +64,80 @@ export function createTerminal(entry: string, busy = () => false, base = '') {
       response.writeHead(code, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify(value));
     };
-    if (request.url === '/terminal/context') {
+    if (request.url === '/terminal/context' || request.url === '/terminal/verify') {
       if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${token}`) {
         json(403, { error: 'Invalid hook credentials' });
         return;
       }
       request.resume();
+      if (request.url === '/terminal/verify') {
+        if (closing || stopping || !process) {
+          json(200, {});
+          return;
+        }
+        let error: string | null;
+        try {
+          error = await verify();
+        } catch (cause) {
+          error = cause instanceof Error ? cause.message : String(cause);
+        }
+        if (closing || stopping || !process) {
+          json(200, {});
+          return;
+        }
+        if (error && repairs < 3) {
+          repairs++;
+          status = `Repairing preview (${repairs}/3)…`;
+          json(200, {
+            decision: 'block',
+            reason: `The actual preview build failed. Repair the source before finishing (attempt ${repairs}/3). Preserve unrelated edits, inspect the installed DSL exports and local components before changing imports. Do not hide the error or remove requested content. No Raw is needed for lists or an agenda: use Text paragraphs/bullets or mapped Text rows. Build error:\n${error.slice(0, 16000)}`,
+          });
+        } else {
+          if (!error && review) {
+            try {
+              const visual = await review.next();
+              if (closing || stopping || !process) {
+                json(200, {});
+                return;
+              }
+              if (visual) {
+                status = 'Reviewing slide screenshots…';
+                json(200, { decision: 'block', reason: visual.prompt });
+                emit('state', snapshot());
+                return;
+              }
+            } catch (cause) {
+              error = cause instanceof Error ? cause.message : String(cause);
+            }
+          }
+          try {
+            await history?.end();
+          } catch (cause) {
+            error = 'History: ' + String(cause);
+          }
+          working = false;
+          status = error ? 'Preview verification incomplete: ' + error : 'Preview build verified';
+          json(200, {});
+        }
+        emit('state', snapshot());
+        return;
+      }
+      try {
+        await history?.begin();
+      } catch (cause) {
+        json(409, { error: String(cause) });
+        return;
+      }
+      repairs = 0;
+      working = true;
+      review?.begin();
       json(200, {
         hookSpecificOutput: {
           hookEventName: 'UserPromptSubmit',
           additionalContext: `You are editing the local PowerPoint TSX project at ${resolve(entry)}.
 Read the project's authoring instructions. Make focused source patches and preserve unrelated work.
-The preview rebuilds on save; do not start another dev server.
+The preview rebuilds on save; do not start another dev server. A Stop hook checks the actual build and returns errors for repair.
+${authoringGuidance}
 The focused slide is context, NOT a restriction. For "this slide", edit only its relevant source. For other slides or deck-wide requests, locate the relevant source or shared theme.
 Slide numbers are 1-based. Verify source before editing; dependency paths are candidates, not an exact slide-to-file mapping.
 Preview context captured with the latest terminal input: ${JSON.stringify(context)}`,
@@ -161,6 +234,18 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
             if (process || closing) throw new Error('Terminal state changed. Try again.');
             const settings = {
               hooks: {
+                Stop: [
+                  {
+                    hooks: [
+                      {
+                        type: 'http',
+                        url: `${origin}${base}/terminal/verify`,
+                        headers: { Authorization: `Bearer ${token}` },
+                        timeout: 120,
+                      },
+                    ],
+                  },
+                ],
                 UserPromptSubmit: [
                   {
                     hooks: [
@@ -197,21 +282,62 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
             emit('output', data);
           });
           completion = new Promise<void>((done) =>
-            process!.onExit(({ exitCode }) => {
+            process!.onExit(async ({ exitCode }) => {
               process = undefined;
+              working = false;
               stopping = false;
               status = `Claude Code exited (${exitCode}). Start to open a new session.`;
+              try {
+                await history?.end();
+              } catch (cause) {
+                status += ' History: ' + String(cause);
+              }
               emit('state', snapshot());
               done();
             }),
           );
         }
+      } else if (request.url === '/terminal/prompt') {
+        if (!process) throw new Error('Start Claude Code in the selected agent pane first.');
+        if (working)
+          throw new Error('Claude Code is working. Wait for the current turn to finish.');
+        if (
+          typeof value.message !== 'string' ||
+          !value.message.trim() ||
+          value.message.length > 16000 ||
+          [...value.message].some((character: string) => {
+            const code = character.charCodeAt(0);
+            return (code < 32 && code !== 9 && code !== 10) || code === 127;
+          })
+        )
+          throw new Error('Invalid inline prompt');
+        updateFocus();
+        working = true;
+        try {
+          await history?.begin();
+        } catch (cause) {
+          working = false;
+          throw cause;
+        }
+        if (!process || closing || stopping) {
+          await history?.end();
+          working = false;
+          throw new Error('Claude Code stopped before submitting.');
+        }
+        process.write('\x1b[200~' + value.message + '\x1b[201~');
+        await new Promise((done) => setTimeout(done, 100));
+        if (!process || stopping) throw new Error('Claude Code stopped before submitting.');
+        process.write('\r');
       } else if (request.url === '/terminal/input') {
         if (!process) throw new Error('Start Claude Code first');
         if (typeof value.data !== 'string' || value.data.length > 32000)
           throw new Error('Invalid terminal input');
         updateFocus();
         process.write(value.data);
+        if (value.data.includes('\x03')) {
+          working = false;
+          await history?.end();
+        }
       } else if (request.url === '/terminal/resize') {
         size();
         process?.resize(value.cols, value.rows);

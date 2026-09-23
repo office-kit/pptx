@@ -1,5 +1,77 @@
 # @office-kit/pptx
 
+## 0.21.0
+
+### Minor Changes
+
+- 28731c2: feat(charts): `ChartSpec` is now a union over `kind`, so a chart cannot be given a field it has no element for
+
+  Every chart kind carries only the fields its OOXML element defines. A
+  `scatterStyle` on a column chart, an axis title on a pie, `bar3DShape`
+  without `view3D`, a scatter series with no `xValues` — each of these used to
+  either throw at save time or serialize into nothing. They are now type errors
+  at the call site.
+
+  `getShapeChartSpec` and `SlideChartData.spec` return the new `ReadChartSpec`,
+  which keeps every field optional: a deck authored elsewhere can combine
+  fields no kind draws, and dropping them on read would lose data. Narrow one
+  back to the write side with `isChartSpec` before passing it to
+  `addSlideChart` / `setChartSpec`.
+
+  Two behaviour fixes came out of the change:
+
+  - A 3-D line chart no longer reports `lineMarkers: false` on read.
+    `<c:line3DChart>` has no `<c:marker>` element, so the value was meaningless.
+  - Pie and doughnut charts no longer get the deck's body-text colour written
+    onto axis-label styles they have no axes to show.
+
+## 0.20.0
+
+### Minor Changes
+
+- 04eda82: Colors are now a type, not a string. `Color` (`#RRGGBB`, the `#RGB` shorthand, a theme token such as `accent1`, or the `scheme:`-prefixed form) replaces `string` on every authoring call that takes one — shape and table fills, slide backgrounds, strokes, shadows, glows, gradient stops, connectors and run formats — so `'reddish'` or a mistyped `'accnet1'` is a compile error instead of a run-time throw. Chart colors take `HexColor`, which enforces what the docs already said: a chart series must resolve to a concrete sRGB value and cannot carry a theme token.
+
+  The `#` is now required. Bare `RRGGBB` was one of four accepted spellings of the same thing, and admitting it collapsed the union back to `string`, taking every other color check down with it. The runtime parser still accepts it, so untyped JavaScript callers are unaffected.
+
+  `@office-kit/pptx-dsl` picks this up too: `fill`, `stroke`, `background`, `stripeFill` and cell borders are typed the same way, so a bad color in a TSX deck fails `npm run check` rather than the export.
+
+  Reading stays permissive, since a deck authored elsewhere can carry a scheme token outside its theme. `getShapeRunFormat` and friends now return `ReadTextFormat`, and the gradient readers return `ReadGradientFill` / `ReadGradientStop` — same shapes, with colors as `string`. To write a color you read back, pass it through the new `asColor`, which returns `null` when the value is not one this library can emit.
+
+## 0.19.0
+
+### Minor Changes
+
+- 3eecc92: Rename `setShapeBullets` to `setShapeBulletStyle`. The old plural name read like it set the list's _content_, so calls meant to create a bulleted list reached for it and silently got back an unchanged, text-less shape. The new name says what the function actually does: it restyles the bullet glyph on paragraphs that already exist. Bulleted text is still authored in one call — `setShapeText(shape, 'A\nB\nC', { bullets: 'bullet' })`.
+- cb702c1: Placeholder lookups and slide transitions now reject an unknown token at compile time instead of at runtime.
+
+  `findSlidePlaceholder`, `findSlidePlaceholders` and `findLayoutsWithPlaceholderType` take the closed `ST_PlaceholderType` set (exported as `PlaceholderType`) rather than `string`, so a shape's display name or a typo no longer type-checks and then silently finds nothing. `setSlidePlaceholders` keys its `byType` record the same way, so a misspelled key is no longer skipped in silence.
+
+  `TransitionEffect` gains the five spec effects it was missing — `comb`, `pull`, `random`, `strips` and `wheel` — and `TransitionOptions.effect` drops its `| string` escape, so a mistyped effect is a type error rather than a runtime throw. Reading stays permissive: `getSlideTransition` returns the new `SlideTransition` type, whose `effect` is still `string`, because a deck authored elsewhere can carry an effect this library does not model.
+
+## 0.18.5
+
+### Patch Changes
+
+- 73b763d: `removeSlide` now drops slide relationships in other slides that pointed at the removed slide, along with the `<a:hlinkClick>` / `<a:hlinkHover>` elements that carried them. A slide-jump click action stores its relationship on the _referring_ slide, so removing the target used to leave a dangling relationship: PowerPoint rejects the package and a later `duplicateSlide` of the referring slide throws `Cannot duplicate missing dependency`.
+
+## 0.18.4
+
+### Patch Changes
+
+- 7b15e41: fix: removing or replacing a link left its relationship behind on the slide
+
+  `setShapeClickAction(shape, null)`, `setShapeHyperlink(shape, null)` and `setShapeRunHyperlink(…, null)` deleted the `<a:hlinkClick>` but kept the `hyperlink` / `slide` relationship it pointed at, and replacing a link added a second one beside the first. The orphan stayed in `_rels`, so the URL remained in the saved file and a slide jump kept its target slide alive as a dependency: after removing that target, `duplicateSlide` failed with `Cannot duplicate missing dependency /ppt/slides/slideN.xml`.
+
+  Each of the three setters now releases a link relationship once nothing on the slide points at it. A relationship other runs still use is kept, and relationships of every other type are untouched.
+
+## 0.18.3
+
+### Patch Changes
+
+- 9b8f8a0: Reduce preview latency on large TSX decks by avoiding repeated parsing of existing slides, themes and relationships. Keep existing slide handles live when appending or duplicating slides.
+
+  Verify builds when an embedded agent finishes and return failures to Claude Code or Codex for up to three automatic repair attempts. Support Shift+Enter in the Claude terminal and provide native TSX agenda examples and foreground/background contrast guidance.
+
 ## 0.18.2
 
 ### Patch Changes

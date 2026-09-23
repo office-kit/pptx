@@ -32,7 +32,7 @@ import {
   findSlideLayoutByType,
   type PatternPreset,
   type PresentationData,
-  setShapeBullets,
+  setShapeBulletStyle,
   setShapeFill,
   setShapeFlip,
   setShapeGradientFill,
@@ -42,6 +42,7 @@ import {
   setShapeRunFormat,
   type SlideData,
   type SlideShapeData,
+  type GradientStop,
 } from '../../src/api/index.ts';
 
 // Fixed seed so CI runs are reproducible. Bump deliberately when you want
@@ -364,9 +365,11 @@ const applyFill = (shape: SlideShapeData, fill: FillSpec): void => {
       setShapeFill(shape, `#${fill.hex}`);
       return;
     case 'gradient': {
-      const stops = [
+      const stops: GradientStop[] = [
         { offset: 0, color: `#${fill.fromHex}` },
-        ...(fill.midHex !== null ? [{ offset: 0.5, color: `#${fill.midHex}` }] : []),
+        ...(fill.midHex !== null
+          ? [{ offset: 0.5, color: `#${fill.midHex}` } satisfies GradientStop]
+          : []),
         { offset: 1, color: `#${fill.toHex}` },
       ];
       setShapeGradientFill(shape, { stops, angleDeg: fill.angleDeg });
@@ -394,7 +397,7 @@ const applyTextShape = (shape: SlideShapeData, spec: TextShapeCommon): void => {
     size: spec.format.sizePt,
     font: spec.format.font,
   });
-  if (spec.bullet !== null) setShapeBullets(shape, spec.bullet);
+  if (spec.bullet !== null) setShapeBulletStyle(shape, spec.bullet);
 };
 
 const applyShape = (slide: SlideData, spec: ShapeSpec): void => {
