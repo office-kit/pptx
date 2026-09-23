@@ -661,6 +661,7 @@ export const ja: Record<string, string> = {
   Apply: '適用',
   Close: '閉じる',
   'This command takes no arguments.': 'この操作に引数はありません。',
+  'Fill in first:': '先に入力してください:',
   'operates on': '対象',
   category: 'カテゴリ',
   returns: '戻り値',

@@ -26,7 +26,14 @@
       else if (p.default !== undefined) seed[p.name] = coerceDefault(p.default, p.kind);
     }
     args = seed;
+    missing = [];
   });
+
+  // Names of required parameters left empty on the last submit attempt. The
+  // core functions take their arguments as plain values, so a missing one
+  // surfaces as a raw TypeError from deep inside the library — name the field
+  // here instead.
+  let missing = $state<readonly string[]>([]);
 
   function coerceDefault(raw: string, kind: string): unknown {
     if (kind === 'number' || kind === 'index' || kind === 'emu') {
@@ -39,6 +46,10 @@
 
   function submit(e: Event) {
     e.preventDefault();
+    missing = (cmd?.params ?? [])
+      .filter((p) => !p.optional && args[p.name] === undefined)
+      .map((p) => p.label ?? p.name);
+    if (missing.length > 0) return;
     editor.invoke(id, args);
     editor.closeDialog();
   }
@@ -77,6 +88,9 @@
         {/if}
       </div>
       <footer>
+        {#if missing.length > 0}
+          <p class="missing" role="alert">{t('Fill in first:')} {missing.join(', ')}</p>
+        {/if}
         <button type="button" class="ok-btn" onclick={() => editor.closeDialog()}>{t('Cancel')}</button>
         <button type="submit" class="ok-btn primary">{t('Apply')}</button>
       </footer>
@@ -150,6 +164,12 @@
     padding: 10px 14px;
     border-top: 1px solid var(--ok-border);
     background: var(--ok-panel-2);
+  }
+  .missing {
+    margin: 0 auto 0 0;
+    align-self: center;
+    color: var(--ok-danger);
+    font-size: 12px;
   }
   .primary {
     background: var(--ok-accent);
