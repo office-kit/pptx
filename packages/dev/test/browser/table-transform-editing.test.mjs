@@ -94,17 +94,28 @@ for (const grouped of [false, true]) {
           const input = editor.locator('.inline-edit');
           await input.waitFor();
           assert.equal(await input.innerText(), '日本語 English');
-          const rendered = await foreign.boundingBox();
-          const center = {
-            x: rendered.x + rendered.width / 2,
-            y: rendered.y + rendered.height / 2,
-          };
-          const box = await input.boundingBox();
-          assert.ok(Math.abs(box.x + box.width / 2 - center.x) < 1);
-          assert.ok(Math.abs(box.y + box.height / 2 - center.y) < 1);
-          const selection = await editor.locator('.cell-selection').boundingBox();
-          assert.ok(Math.abs(selection.x + selection.width / 2 - center.x) < 1);
-          assert.ok(Math.abs(selection.y + selection.height / 2 - center.y) < 1);
+          // Starting a cell edit adds the text format bar, which shrinks the
+          // canvas and re-fits the slide a frame later. Read the cell and both
+          // overlays in one layout pass so a comparison can never straddle it.
+          const centers = await input.evaluate((node) => {
+            const center = (element) => {
+              const rect = element.getBoundingClientRect();
+              return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+            };
+            return {
+              cell: center(
+                [...document.querySelectorAll('.paint foreignObject')].find((n) =>
+                  n.textContent.includes('日本語 English'),
+                ),
+              ),
+              input: center(node),
+              selection: center(document.querySelector('.cell-selection')),
+            };
+          });
+          assert.ok(Math.abs(centers.input.x - centers.cell.x) < 1, JSON.stringify(centers));
+          assert.ok(Math.abs(centers.input.y - centers.cell.y) < 1, JSON.stringify(centers));
+          assert.ok(Math.abs(centers.selection.x - centers.cell.x) < 1, JSON.stringify(centers));
+          assert.ok(Math.abs(centers.selection.y - centers.cell.y) < 1, JSON.stringify(centers));
           const matrices = await input.evaluate((node) => {
             const text = [...document.querySelectorAll('.paint foreignObject')].find((n) =>
               n.textContent.includes('日本語 English'),
