@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import GradientFillSection from './GradientFillSection.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
@@ -18,6 +19,8 @@
   const layoutId = $derived(layout ? getSlideLayoutPartName(layout) : '');
   const mixedLayout = $derived(slides.some(item => { const value = getSlideLayout(item); return (value ? getSlideLayoutPartName(value) : '') !== layoutId; }));
   const mixedBackground = $derived(slides.some(item => JSON.stringify(getSlideBackground(item)) !== JSON.stringify(background)));
+  const gradientBackground = $derived(slides.length > 0 && slides.every(item => getSlideBackground(item).kind === 'gradient'));
+  const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(getSlideBackground(item).kind)));
   const canReset = $derived(slides.some(item => getSlideBackground(item)?.kind !== 'inherit'));
   let fileInput = $state<HTMLInputElement>();
   let error = $state('');
@@ -71,7 +74,15 @@
     <button class="ok-btn" onclick={() => editor.invoke('addMissingSlidePlaceholders')}>{t('Restore deleted placeholders')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderTextFormatting')}>{t('Reset placeholder text formatting')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderGeometry')}>{t('Reset placeholder positions')}</button>
-    <div class="color-field">{t('Background color')}<ColorPicker label={t('Background color')} value={!mixedBackground && background?.kind === 'solid' ? background.color : undefined} choose={color => apply('Background color', target => setSlideBackground(target, color))} /></div>
+    <div class="background-types" role="radiogroup" aria-label={t('Background fill')}>
+      <label class="check"><input type="radio" name="background-fill" checked={solidBackground} onchange={() => apply('Background color', target => setSlideBackground(target, '#FFFFFF'))} />{t('Solid fill')}</label>
+      <label class="check"><input type="radio" name="background-fill" checked={gradientBackground} onchange={() => apply('Gradient fill', target => setSlideBackgroundGradientFill(target, { stops: [{ offset: 0, color: 'accent1', brightness: 0.95 }, { offset: 1, color: 'accent1', brightness: 0.7 }], angleDeg: 0, scaled: false }))} />{t('Gradient fill')}</label>
+    </div>
+    {#if gradientBackground}
+      <GradientFillSection background />
+    {:else}
+      <div class="color-field">{t('Background color')}<ColorPicker label={t('Background color')} value={!mixedBackground && background?.kind === 'solid' ? background.color : undefined} choose={color => apply('Background color', target => setSlideBackground(target, color))} /></div>
+    {/if}
     {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}
     <input bind:this={fileInput} aria-label={t('Background image')} type="file" accept="image/*" hidden disabled={loading} onchange={upload} />
     <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>
@@ -82,6 +93,7 @@
 
 <style>
   section { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--ok-border); }
+  .background-types { display: grid; gap: 6px; }
   .selection { font-size: 11px; color: var(--ok-muted); }
   strong { font-size: 12px; }
   label, .color-field { display: grid; gap: 6px; font-size: 11px; }
