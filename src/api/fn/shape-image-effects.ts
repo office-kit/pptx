@@ -1,3 +1,4 @@
+import { readImageCrop } from './_image-crop.ts';
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
@@ -485,20 +486,7 @@ const cropImageFill = (shape: SlideShapeData): XmlElement | null => {
 export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
   const blipFill = cropImageFill(shape);
   if (!blipFill) return null;
-  const srcRect = firstChildElement(blipFill, qname('a', 'srcRect', NS.dml));
-  if (!srcRect) return null;
-  const parseSide = (local: string): number => {
-    const v = getAttrValue(srcRect, qname('', local, ''));
-    if (v === null) return 0;
-    const n = Number.parseInt(v, 10);
-    return Number.isFinite(n) ? n / 100000 : 0;
-  };
-  return {
-    left: parseSide('l'),
-    top: parseSide('t'),
-    right: parseSide('r'),
-    bottom: parseSide('b'),
-  };
+  return readImageCrop(blipFill);
 };
 
 // Brightness and contrast are two attributes of a SINGLE `<a:lum>` effect

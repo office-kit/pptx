@@ -73,6 +73,7 @@ import {
   getShapeImageFillBytes,
   getShapeImageFillLayout,
   getSlideBackgroundImageFillLayout,
+  getSlideBackgroundImageCrop,
   getSlideBackgroundImageIntrinsicSize,
   type ImageFillLayout,
   getShapeImageIntrinsicSize,
@@ -7289,11 +7290,28 @@ export const renderSlideSvg = (
       const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
       const layout = getSlideBackgroundImageFillLayout(slide);
+      const crop = getSlideBackgroundImageCrop(slide);
+      const cropLeft = crop?.left ?? 0,
+        cropTop = crop?.top ?? 0;
+      const cropRight = crop?.right ?? 0,
+        cropBottom = crop?.bottom ?? 0;
       const opacity = getSlideBackgroundImageOpacity(slide) ?? 1;
       const intrinsic =
         layout?.mode === 'tile' ? getSlideBackgroundImageIntrinsicSize(slide) : null;
       if (layout?.mode === 'tile' && intrinsic) {
-        const pattern = imageTilePattern(dataUrl, layout, intrinsic, 0, 0, W, H);
+        const pattern = imageTilePattern(
+          dataUrl,
+          layout,
+          intrinsic,
+          0,
+          0,
+          W,
+          H,
+          cropLeft,
+          cropTop,
+          cropRight,
+          cropBottom,
+        );
         bgImage = `${pattern.defs}<rect width="${E(W)}" height="${E(H)}" fill="${pattern.fill}" opacity="${opacity}"/>`;
       } else {
         const stretch = layout?.mode === 'stretch' ? layout : null;
@@ -7301,8 +7319,13 @@ export const renderSlideSvg = (
         const top = stretch?.top ?? 0;
         const width = Math.max(0, W * (1 - left - (stretch?.right ?? 0)));
         const height = Math.max(0, H * (1 - top - (stretch?.bottom ?? 0)));
+        const sourceWidth = 1 - cropLeft - cropRight;
+        const sourceHeight = 1 - cropTop - cropBottom;
+        const imageWidth = sourceWidth > 0 ? width / sourceWidth : 0;
+        const imageHeight = sourceHeight > 0 ? height / sourceHeight : 0;
         const clipId = mintId();
-        bgImage = `<defs><clipPath id="${clipId}"><rect width="${E(W)}" height="${E(H)}"/></clipPath></defs><g clip-path="url(#${clipId})"><image opacity="${opacity}" x="${E(W * left)}" y="${E(H * top)}" width="${E(width)}" height="${E(height)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></g>`;
+        const sourceClipId = mintId();
+        bgImage = `<defs><clipPath id="${clipId}"><rect width="${E(W)}" height="${E(H)}"/></clipPath><clipPath id="${sourceClipId}"><rect x="${E(W * left)}" y="${E(H * top)}" width="${E(width)}" height="${E(height)}"/></clipPath></defs><g clip-path="url(#${clipId})"><g clip-path="url(#${sourceClipId})"><image opacity="${opacity}" x="${E(W * left - imageWidth * cropLeft)}" y="${E(H * top - imageHeight * cropTop)}" width="${E(imageWidth)}" height="${E(imageHeight)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></g></g>`;
       }
     }
   }

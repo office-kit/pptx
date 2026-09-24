@@ -477,3 +477,10 @@ coverage verifies selected-slide restoration, solid transparency, pattern choice
 gradient stop/type values, inherited gradient transforms, undo/redo and the saved
 active fill. Picture background restoration, texture presets and native memory
 behavior across document reopening remain unverified or incomplete.
+
+Background picture source rectangles now reach stretch and tile previews, including
+inherited images. `getSlideBackgroundImageCrop` reads the effective crop without
+changing the source. Raster coverage checks cropped quadrants, negative outsets
+and empty source regions before and after inheritance/save/reload. This closes the
+source-crop preview gap; fill-type picture restoration and effects beyond opacity
+still need implementation.

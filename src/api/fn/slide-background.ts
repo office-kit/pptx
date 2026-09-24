@@ -1,3 +1,5 @@
+import { readImageCrop } from './_image-crop.ts';
+import type { ImageCrop } from './shape-image-effects.ts';
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 import {
   readImageFillLayout,
@@ -853,6 +855,14 @@ export const getSlideBackgroundImageIntrinsicSize = (
   if (!relationship || relationship.targetMode === 'External') return null;
   const bytes = pkg.getPart(resolveTarget(image.part, relationship.target))?.data;
   return bytes ? readImageIntrinsicSize(image.fill, bytes) : null;
+};
+
+/** Reads direct or inherited background image crop fractions, including negative outsets.
+ * Returns null when no source rectangle is specified or the background is not an image.
+ */
+export const getSlideBackgroundImageCrop = (slide: SlideData): ImageCrop | null => {
+  const image = effectiveImageBackground(slide);
+  return image ? readImageCrop(image.fill) : null;
 };
 
 /** Reads direct or inherited image background placement; returns null for other fills. */
