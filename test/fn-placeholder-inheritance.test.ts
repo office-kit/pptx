@@ -1,3 +1,4 @@
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 // Placeholder-type equivalence for inheritance. A `ctrTitle` must inherit from
 // a `title` placeholder (and `subTitle` from `body`) when walking the layout /
 // master cascade — otherwise a centered title on a title-slide layout drops the
@@ -14,6 +15,9 @@ import {
   getShapePlaceholderType,
   getSlideShapes,
   loadPresentation,
+  savePresentation,
+  getSlides,
+  setShapeTextDirection,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -70,5 +74,37 @@ describe('ctrTitle inherits the master title bodyPr', () => {
     // The master title placeholder carries anchor="ctr"; a ctrTitle must inherit
     // it (it returned null before the placeholder-type equivalence fix).
     expect(getShapeBodyPrEffective(pres, ctr!).anchor).toBe('center');
+  });
+});
+
+describe('horizontal direction overrides vertical inheritance', () => {
+  const verticalMaster = async (horizontalLayout = false) => {
+    const parts = unzipSync(await readFile(fixture('blank.pptx')));
+    const master = 'ppt/slideMasters/slideMaster1.xml';
+    parts[master] = strToU8(strFromU8(parts[master]!).replaceAll('vert="horz"', 'vert="eaVert"'));
+    if (horizontalLayout) {
+      const layout = 'ppt/slideLayouts/slideLayout1.xml';
+      parts[layout] = strToU8(
+        strFromU8(parts[layout]!).replaceAll('<a:bodyPr/>', '<a:bodyPr vert="horz"/>'),
+      );
+    }
+    return loadPresentation(zipSync(parts));
+  };
+  it('stops at an explicit horizontal layout instead of inheriting vertical master text', async () => {
+    const pres = await verticalMaster(true);
+    const title = getSlideShapes(addTitleSlide(pres, 'Horizontal'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title).vert).toBeNull();
+  });
+  it('persists a horizontal override and restores inheritance only when cleared', async () => {
+    const pres = await verticalMaster();
+    const title = getSlideShapes(addTitleSlide(pres, 'Horizontal'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title).vert).toBe('eaVert');
+    setShapeTextDirection(title, 'horz');
+    expect(getShapeBodyPrEffective(pres, title).vert).toBeNull();
+    const restored = await loadPresentation(await savePresentation(pres));
+    const restoredTitle = getSlideShapes(getSlides(restored).at(-1)!)[0]!;
+    expect(getShapeBodyPrEffective(restored, restoredTitle).vert).toBeNull();
+    setShapeTextDirection(restoredTitle, null);
+    expect(getShapeBodyPrEffective(restored, restoredTitle).vert).toBe('eaVert');
   });
 });
