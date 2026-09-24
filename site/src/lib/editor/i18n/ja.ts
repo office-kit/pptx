@@ -30,6 +30,7 @@ export const ja: Record<string, string> = {
   'Vertical guide': '垂直ガイド',
   'Horizontal guide': '水平ガイド',
   'Grid and Guides': 'グリッドとガイド',
+  'Thumbnail pane width': 'サムネイル ペインの幅',
   Thumbnails: 'サムネイル',
   Show: '表示',
   'Zoom percentage': 'ズーム倍率',

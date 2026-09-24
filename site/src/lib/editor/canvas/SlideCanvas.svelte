@@ -1236,9 +1236,7 @@
   .canvas-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .canvas-area {
     flex: 1;
-    background:
-      radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.05) 1px, transparent 0) 0 0 / 22px 22px,
-      var(--ok-canvas-bg);
+    background: var(--ok-canvas-bg);
     overflow: auto;
     display: grid;
     place-items: center;
