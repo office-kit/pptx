@@ -134,15 +134,16 @@ const parseGradFill = (
         const pct = (name: string): number | undefined => {
           const v = getAttrValue(fillToRect, qname('', name, ''));
           if (v === null) return undefined;
-          let n = Number.parseFloat(v);
+          const n = Number.parseFloat(v);
           if (!Number.isFinite(n)) return undefined;
-          if (Math.abs(n) > 1) n = n / 100000;
-          return n;
+          return n / (v.endsWith('%') ? 100 : 100000);
         };
-        const l = pct('l') ?? 0.5;
-        const t = pct('t') ?? 0.5;
-        const r = pct('r') ?? 0.5;
-        const b = pct('b') ?? 0.5;
+        // CT_RelativeRect defaults omitted insets to zero. Mac PowerPoint
+        // omits right/bottom for the From Bottom Right Corner direction.
+        const l = pct('l') ?? 0;
+        const t = pct('t') ?? 0;
+        const r = pct('r') ?? 0;
+        const b = pct('b') ?? 0;
         focus = { left: l, top: t, right: r, bottom: b };
       }
       return { stops, angleDeg, ...direction, path: pathVal, ...(focus ? { focus } : {}) };
