@@ -2,6 +2,24 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Theme Colors': 'テーマの色',
+  'Standard Colors': '標準の色',
+  'More Colors...': 'その他の色...',
+  'Background 1': '背景 1',
+  'Background 2': '背景 2',
+  'Text 1': 'テキスト 1',
+  'Text 2': 'テキスト 2',
+  'Accent 1': 'アクセント 1',
+  'Accent 2': 'アクセント 2',
+  'Accent 3': 'アクセント 3',
+  'Accent 4': 'アクセント 4',
+  'Accent 5': 'アクセント 5',
+  'Accent 6': 'アクセント 6',
+  'Dark Red': '濃い赤',
+  'Light Green': '薄い緑',
+  'Light Blue': '水色',
+  'Dark Blue': '濃い青',
+
   'Picture or texture fill': '塗りつぶし（図またはテクスチャ）',
   Clipboard: 'クリップボード',
   'The clipboard does not contain a picture.': 'クリップボードに図がありません。',
