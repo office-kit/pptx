@@ -254,6 +254,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - Inserting a replacement picture retains transparency and remembered stretch offsets, switches to stretch mode, and keeps the prior tile settings available. Native verification retained 35% transparency, restored a 25% left offset, and restored Scale X 60% when tiling was enabled again. The three temporary edits were undone and saved. Arbitrary image effects and source crop behavior during replacement still need comparison.
 
+- Browser coverage verifies insertion, replacement, remembered tile/stretch settings, switching back to the preceding fill, Undo/Redo and saved reloads. It reproduced and fixed a radio selection bug when restoring a remembered picture; clicking an already selected picture fill also retains its selection.
+
 ### Slide-background fill
 
 - Selecting Slide background fill hides all fill controls and writes `p:sp useBgFill="1"` with no fill choice inside `p:spPr`. It preserves the geometry and line settings. The temporary comparison was undone and saved; Undo is disabled.

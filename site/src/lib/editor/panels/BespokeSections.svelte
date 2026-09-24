@@ -133,7 +133,7 @@
     const shapes = editor.selectedShapes();
     if (kind === 'image' && shapes.some(target => getShapeFillEffective(doc.pres, target).kind !== 'image' && !doc.rememberedFills.get(`${slideKey}:${getShapeId(target)}`)?.image)) {
       pictureFill?.chooseImage();
-      return;
+      return false;
     }
     doc.transact(t('Fill'), () => {
       for (const target of shapes) {
@@ -192,7 +192,7 @@
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
             {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['image', 'Picture or texture fill'], ['pattern', 'Pattern fill'], ['background', 'Slide background fill']] as [kind, label]}
               <label><input type="radio" name="shape-fill-type" checked={fillKind === kind} disabled={(kind === 'background' || kind === 'image') && editor.selectedShapes().some(target => getShapeKind(target) !== 'shape')}
-                onclick={event => { if (kind === 'image') { event.preventDefault(); if (fillKind !== 'image') changeFill('image'); } }}
+                onclick={event => { if (kind === 'image' && fillKind !== 'image' && changeFill('image') === false) event.preventDefault(); }}
                 onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient' || kind === 'pattern' || kind === 'background') changeFill(kind); }} />{t(label)}</label>
             {/each}
           </fieldset>
