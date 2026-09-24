@@ -307,7 +307,7 @@ test(
       await saved();
       assert.equal(await direction.isDisabled(), true);
       assert.equal((await gradient()).path, 'shape');
-      assert.deepEqual((await gradient()).focus, radialSaved.focus);
+      assert.deepEqual((await gradient()).focus, { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 });
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal(await direction.isEnabled(), true);

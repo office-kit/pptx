@@ -102,7 +102,13 @@
     <label class="field"><span>{t('Type')}</span>
       <select class="ok-input" aria-label={t('Gradient type')} value={pathValue} onchange={event => {
         const path = event.currentTarget.value;
-        if (path === 'linear' || path === 'circle' || path === 'rect' || path === 'shape') apply({ path });
+        // Mac PowerPoint initializes geometry for each type instead of recalling
+        // its previous direction. Color stops and rotation remain unchanged.
+        if (path === 'linear') apply({ path, angleDeg: 45, scaled: true, focus: undefined, tileRect: { left: 0, top: 0, right: 0, bottom: 0 } });
+        else if (path === 'circle' || path === 'rect' || path === 'shape') {
+          const { focus, tileRect } = pathDirections[path === 'shape' ? 2 : 0]!;
+          apply({ path, focus, tileRect });
+        }
       }}>
         {#if !pathValue}<option value="" disabled>{t('Mixed')}</option>{/if}
         <option value="linear">{t('Linear')}</option><option value="circle">{t('Radial')}</option>
