@@ -216,7 +216,7 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - The existing gradient setter accepts stop opacity/brightness and preserves explicit scaling/rotation options. Invalid stop settings fail before replacing the old fill. Native positive brightness writes luminance modulation plus offset; negative brightness uses modulation only.
 - Native add-stop comparison places the new stop between the selection and its next neighbor, or before the final 100% stop, using an interpolated RGB color with zero brightness. Temporary edits in the disposable native deck were undone and saved; Undo is disabled.
 - Browser coverage verifies edits, add/remove, Undo followed by editing, interpolated opacity, invalid input restoration, radial angle disabling and saved reloads. Core: 2,875 passed / 109 skipped with four workers and a 30-second timeout; Svelte: zero errors/warnings.
-- Remaining: picture/texture, pattern and slide-background fill radio controls, preset and path-direction galleries, multi-selection editing, preserving arbitrary imported color transforms during edits, and complete native geometry. Preview honors Rotate with shape for linear gradients, including the aspect ratio of rotated shapes (verified against a 4:1 rectangle rotated 45° in Mac PowerPoint). Rectangular/path gradients remain approximations; path-gradient rotation and gradient scaling still need native parity. Slide-background gradient transforms also remain outstanding. Full parity is incomplete.
+- Remaining: picture/texture and slide-background fill radio controls, preset and path-direction galleries, multi-selection editing, preserving arbitrary imported color transforms during edits, and complete native geometry. Preview honors Rotate with shape for linear gradients, including the aspect ratio of rotated shapes (verified against a 4:1 rectangle rotated 45° in Mac PowerPoint). Rectangular/path gradients remain approximations; path-gradient rotation and gradient scaling still need native parity. Slide-background gradient transforms also remain outstanding. Full parity is incomplete.
 
 - Stop handles now drag directly with local position feedback, one history entry on release, Escape/pointer-cancel rollback and selection/version-change cancellation. Browser coverage verifies the actual SVG stop color/opacity as well as saved values, drag/Undo and cancellation.
 
@@ -224,10 +224,26 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - No fill, Solid fill and Gradient fill use radio controls in the native order. Selecting No fill hides paint controls; selecting Gradient fill exposes its inline controls. Type changes apply to the selected shapes in one history entry and respect locked selections.
 - The editor remembers each shape's solid/gradient settings, including after closing/reopening the pane, and clears them when opening another document. New gradients use the Mac default stop positions 0/74/83/100%, brightness 95/55/55/70%, linear angle 90°, and scaled coordinates. Native switching from gradient to solid and back retained the old gradient; the audit changes were undone and saved (Undo disabled).
-- Regression coverage includes restoring a custom gradient, new gradient defaults, Undo/Redo, Japanese/English labels and multiple selected shapes. Picture/texture, pattern and slide-background radio controls, preservation of arbitrary imported color transforms remain outstanding.
+- Regression coverage includes restoring a custom gradient, new gradient defaults, Undo/Redo, Japanese/English labels and multiple selected shapes. Picture/texture and slide-background radio controls, preservation of arbitrary imported color transforms remain outstanding.
 
 ### Linear gradient direction gallery
 
 - The Fill pane offers the eight native linear direction choices in the observed order (45°, 90°, 135°, 0°, 180°, 315°, 270°, 225°), with preview swatches and keyboard selection/Escape cancellation.
 - Choosing a direction preserves stops and sets scaled coordinates. Native comparison of a 45° choice saved `a:lin ang="2700000" scaled="1"` even when the previous gradient used `scaled="0"`. The disposable change was undone and saved; native Undo is disabled.
 - Direction edits share the angle field, project persistence and Undo/Redo. Preset galleries, path-gradient direction choices and exact popup geometry remain outstanding.
+
+### Pattern fill gallery
+
+- Pattern fill exposes the native 48 presets in the observed order, in six columns of rectangular swatches, followed by Foreground and Background controls. New patterns use `pct5`, `accent1` and `bg1`, confirmed from Mac PowerPoint saved XML. The temporary native change was undone and saved; Undo is disabled.
+- Preset and color changes apply to multiple selected shapes in one history entry, respect locks, and persist through save/reload. Partial pattern updates retain untouched theme colors and imported transforms. Fill-type switches remember resolved pattern settings; opening or creating a presentation clears the remembered settings.
+- Native color menus, exact gallery swatch rendering/spacing, inherited pattern fills and preserving arbitrary transforms across fill-type switches remain outstanding. Full visual and operational parity is incomplete.
+
+### Picture/texture fill native audit (implementation outstanding)
+
+- Selecting Picture or texture fill inserts the native default texture, switches the pane to Format Picture, and adds a Picture category. Controls include Insert, Clipboard, Texture, Transparency, Tile picture as texture and Rotate with shape.
+- Tiled mode exposes offsets X/Y (−1,584 to 1,584 pt), scales X/Y (0–100%), Alignment and Mirror type. Saved default XML uses `a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"`.
+- Stretch mode replaces tile controls with four offsets (left/right/top/bottom, −100,000% to 100,000%). Both temporary audit changes were undone and saved; Undo is disabled.
+
+### Slide-background fill native audit (implementation outstanding)
+
+- Selecting Slide background fill hides all fill controls and writes `p:sp useBgFill="1"` with no fill choice inside `p:spPr`. It preserves the geometry and line settings. The temporary comparison was undone and saved; Undo is disabled.

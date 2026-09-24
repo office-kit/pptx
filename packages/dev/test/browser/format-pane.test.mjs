@@ -35,12 +35,18 @@ test(
       const effects = tabs.getByRole('tab', { name: 'Effects', exact: true });
       const size = tabs.getByRole('tab', { name: 'Size & Properties' });
       assert.equal(await paint.getAttribute('aria-selected'), 'true');
-      assert.equal(await editor.getByLabel('Fill', { exact: true }).isVisible(), true);
+      assert.equal(
+        await editor.getByRole('radio', { name: 'No fill', exact: true }).isVisible(),
+        true,
+      );
       assert.equal(await editor.getByRole('spinbutton', { name: 'Width', exact: true }).count(), 0);
       await paint.press('ArrowRight');
       assert.equal(await effects.getAttribute('aria-selected'), 'true');
       assert.equal(await effects.evaluate((el) => el === document.activeElement), true);
-      assert.equal(await editor.getByLabel('Fill', { exact: true }).isVisible(), false);
+      assert.equal(
+        await editor.getByRole('radio', { name: 'No fill', exact: true }).isVisible(),
+        false,
+      );
       assert.equal(await editor.locator('.cat-head').count(), 1);
       await effects.press('End');
       assert.equal(await size.getAttribute('aria-selected'), 'true');

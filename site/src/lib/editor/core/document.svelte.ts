@@ -36,6 +36,7 @@ import type {
   SlideShapeData,
   Color,
   GradientFillOptions,
+  PatternFillOptions,
 } from '@office-kit/pptx';
 import { RegroupHistory } from './regroup-history.ts';
 import { selectedSlideIndices, type Selection } from './selection.ts';
@@ -52,7 +53,11 @@ const HISTORY_MAX = 60;
 export class EditorDocument {
   readonly rememberedFills = new Map<
     string,
-    { solid?: { color: Color; opacity?: number }; gradient?: GradientFillOptions }
+    {
+      solid?: { color: Color; opacity?: number };
+      gradient?: GradientFillOptions;
+      pattern?: PatternFillOptions;
+    }
   >();
   /** The live presentation. Mutated in place by library commands. */
   pres = $state.raw<PresentationData>(createInitial());
@@ -305,6 +310,7 @@ export class EditorDocument {
     this.pres = createInitial();
     this.fileName = 'Untitled.pptx';
     this.regroupHistory.records = [];
+    this.rememberedFills.clear();
     this.#history = [];
     this.#cursor = -1;
     this.selection = { kind: 'none', slideIndex: 0 };

@@ -189,6 +189,20 @@ test('new and open end an unfinished live gesture', async () => {
   assert.equal(doc.canUndo, false);
 });
 
+test('remembered fills survive history but do not leak into a new or opened deck', async () => {
+  const doc = new EditorDocument();
+  const remembered = { solid: { color: '#123456' } };
+  doc.rememberedFills.set('slide1:2', remembered);
+  append(doc, 'A');
+  await doc.undo();
+  assert.deepEqual(doc.rememberedFills.get('slide1:2'), remembered);
+  doc.resetBlank();
+  assert.equal(doc.rememberedFills.size, 0);
+  doc.rememberedFills.set('slide1:2', remembered);
+  await doc.loadBytes(await doc.toBytes(), 'replacement.pptx');
+  assert.equal(doc.rememberedFills.size, 0);
+});
+
 function selectedTitle(editor) {
   const shape = getSlideShapes(editor.doc.slideAt(0))[0];
   editor.doc.selectShape(0, getShapeId(shape));

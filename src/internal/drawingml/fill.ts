@@ -11,7 +11,15 @@
 
 import type { Color } from './color.ts';
 import { oneOf } from '../bounds.ts';
-import { NS, type XmlElement, attr, elem, firstChildElement, qname } from '../xml/index.ts';
+import {
+  NS,
+  type XmlElement,
+  attr,
+  cloneElement,
+  elem,
+  firstChildElement,
+  qname,
+} from '../xml/index.ts';
 import { buildColorElement, editSolidColor } from './color.ts';
 
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
@@ -234,22 +242,32 @@ const NAME_FG_CLR = qname('a', 'fgClr', NS.dml);
 const NAME_BG_CLR = qname('a', 'bgClr', NS.dml);
 const ATTR_PRST = qname('', 'prst', '');
 
-/**
- * Sets `<a:pattFill>` on `host` with the given preset + colors.
- * Replaces any previous fill choice.
- */
-export const setPatternFill = (host: XmlElement, options: PatternFillOptions): void => {
+/** Updates a pattern fill, preserving unspecified settings and their original XML. */
+export const setPatternFill = (host: XmlElement, options: Partial<PatternFillOptions>): void => {
+  const previous = firstChildElement(host, NAME_PATT_FILL);
+  const pattFill = previous
+    ? cloneElement(previous)
+    : elem(NAME_PATT_FILL, { attrs: [attr(ATTR_PRST, 'pct5')] });
+  if (options.preset !== undefined) {
+    const preset = oneOf(options.preset, PATTERN_PRESETS, 'setShapePatternFill: preset');
+    pattFill.attrs = pattFill.attrs.filter(
+      (a) => a.name.localName !== 'prst' || a.name.namespaceURI !== '',
+    );
+    pattFill.attrs.push(attr(ATTR_PRST, preset));
+  }
+  for (const [name, color, fallback] of [
+    [NAME_FG_CLR, options.foreground, 'accent1'],
+    [NAME_BG_CLR, options.background, 'bg1'],
+  ] as const) {
+    const current = firstChildElement(pattFill, name);
+    if (color === undefined && previous) continue;
+    const replacement = elem(name, { children: [buildColorElement(color ?? fallback)] });
+    if (current) pattFill.children.splice(pattFill.children.indexOf(current), 1, replacement);
+    else
+      pattFill.children.splice(name === NAME_FG_CLR ? 0 : pattFill.children.length, 0, replacement);
+  }
+  // Build and validate the replacement before touching the attached fill.
   removeAnyFill(host);
-  // `preset` is typed but authoring input is a boundary — reject an out-of-enum
-  // token rather than emitting a schema-invalid `prst`.
-  const preset = oneOf(options.preset, PATTERN_PRESETS, 'setShapePatternFill: preset');
-  const pattFill = elem(NAME_PATT_FILL, {
-    attrs: [attr(ATTR_PRST, preset)],
-    children: [
-      elem(NAME_FG_CLR, { children: [buildColorElement(options.foreground)] }),
-      elem(NAME_BG_CLR, { children: [buildColorElement(options.background)] }),
-    ],
-  });
   host.children.splice(fillInsertionIndex(host), 0, pattFill);
 };
 

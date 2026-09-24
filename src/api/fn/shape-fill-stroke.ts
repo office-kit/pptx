@@ -188,9 +188,14 @@ export const setShapeGradientFill = (shape: SlideShapeData, options: GradientFil
  *
  * `foreground` is the pattern stroke color; `background` fills behind
  * the pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens
- * (`accent1`, `bg1`, ...).
+ * (`accent1`, `bg1`, ...). Omitted settings preserve existing pattern XML,
+ * including theme references and color transforms. A new pattern defaults to
+ * `pct5`, foreground `accent1` and background `bg1`, as in Mac PowerPoint.
  */
-export const setShapePatternFill = (shape: SlideShapeData, options: PatternFillOptions): void => {
+export const setShapePatternFill = (
+  shape: SlideShapeData,
+  options: Partial<PatternFillOptions>,
+): void => {
   setPatternFill(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
