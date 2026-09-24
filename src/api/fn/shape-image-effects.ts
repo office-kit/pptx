@@ -52,13 +52,6 @@ const NAME_ALPHA_MOD_FIX_FN = qname('a', 'alphaModFix', NS.dml);
 const ATTR_AMT_FN = qname('', 'amt', '');
 
 /**
- * Sets the picture's opacity (0–1 fraction; `1` is fully opaque, `0`
- * fully transparent). Pass `null` to remove an existing opacity
- * override and restore PowerPoint's default behavior.
- *
- * Throws for non-picture shapes and on opacities outside `[0, 1]`.
- */
-/**
  * Returns the embedded image bytes for a picture shape, or `null`
  * when the shape isn't a picture or has no `r:embed` reference
  * (external images aren't followed).
@@ -456,16 +449,23 @@ export const getShapeImageFormat = (shape: SlideShapeData): ImageFormat | null =
   return detectImageFormat(bytes);
 };
 
+const getImageOpacityBlip = (shape: SlideShapeData): XmlElement | null => {
+  const element = shape[SHAPE_ELEMENT];
+  const spPr = firstChildElement(element, qname('p', 'spPr', NS.pml));
+  const fill =
+    shape[SHAPE_SNAPSHOT].kind === 'picture'
+      ? firstChildElement(element, qname('p', 'blipFill', NS.pml))
+      : spPr && firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+  return fill ? firstChildElement(fill, qname('a', 'blip', NS.dml)) : null;
+};
+
 /**
- * Reads the picture's opacity (0–1 fraction). Returns `null` when no
+ * Reads the picture or image fill's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.
  */
 export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  const blip = getImageOpacityBlip(shape);
   if (!blip) return null;
   const alpha = firstChildElement(blip, qname('a', 'alphaModFix', NS.dml));
   if (!alpha) return null;
@@ -611,16 +611,18 @@ export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
 export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'bright');
 
+/**
+ * Sets picture or image-fill opacity (0–1; `1` is fully opaque).
+ * Pass `null` to restore PowerPoint's default opacity.
+ * Rejects shapes without an image and values outside `[0, 1]` without changing them.
+ */
 export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageOpacity only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
+  const blip = getImageOpacityBlip(shape);
+  if (!blip)
+    throw new Error('setShapeImageOpacity requires a picture or a shape with an image fill');
+  if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
+    throw new RangeError(`opacity must be in [0, 1], got ${opacity}`);
   }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
 
   blip.children = blip.children.filter(
     (c) =>
@@ -632,9 +634,6 @@ export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | nu
   );
 
   if (opacity !== null) {
-    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) {
-      throw new RangeError(`opacity must be in [0, 1], got ${opacity}`);
-    }
     blip.children.push(
       elem(NAME_ALPHA_MOD_FIX_FN, {
         attrs: [attr(ATTR_AMT_FN, String(Math.round(opacity * 100000)))],
