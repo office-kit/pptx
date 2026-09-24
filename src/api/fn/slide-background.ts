@@ -1,3 +1,8 @@
+import {
+  readImageFillLayout,
+  writeImageFillLayout,
+  type ImageFillLayout,
+} from './_image-fill-layout.ts';
 // Slide-level background.
 
 import type { Color } from '../../internal/drawingml/index.ts';
@@ -798,7 +803,7 @@ export const setSlideBackgroundGradientFill = (
   setSlideBackgroundXml(slide, (bgPr) => setGradientFill(bgPr, options));
 };
 
-// Stop at any explicit background, even when it is not a pattern.
+// An explicit background stops inheritance regardless of its fill type.
 const effectiveBackgroundElement = (
   slide: SlideData,
 ): { element: XmlElement; part: PartName } | null => {
@@ -821,6 +826,76 @@ const effectiveBackgroundElement = (
   const master = pkg.getPart(resolveTarget(layoutName, masterRel.target));
   const element = master && background(parseXml(decode(master.data)).root);
   return element && master ? { element, part: master.name } : null;
+};
+
+const effectiveImageBackground = (slide: SlideData) => {
+  const background = effectiveBackgroundElement(slide);
+  const properties =
+    background && firstChildElement(background.element, qname('p', 'bgPr', NS.pml));
+  const fill = properties && firstChildElement(properties, qname('a', 'blipFill', NS.dml));
+  return fill && background ? { fill, part: background.part } : null;
+};
+
+/** Reads direct or inherited image background placement; returns null for other fills. */
+export const getSlideBackgroundImageFillLayout = (slide: SlideData): ImageFillLayout | null => {
+  const image = effectiveImageBackground(slide);
+  return image ? readImageFillLayout(image.fill) : null;
+};
+
+/**
+ * Changes background image placement while preserving media, crop and effects.
+ * An inherited image becomes a slide override, leaving its layout/master unchanged.
+ * Invalid settings or missing relationships leave the presentation unchanged.
+ */
+export const setSlideBackgroundImageFillLayout = (
+  slide: SlideData,
+  layout: ImageFillLayout,
+): void => {
+  const image = effectiveImageBackground(slide);
+  if (!image) throw new Error('setSlideBackgroundImageFillLayout requires an image background');
+  const fill = cloneElement(image.fill);
+  writeImageFillLayout(fill, layout);
+  const pkg = slide[INTERNAL_PACKAGE];
+  const target = slide[SLIDE_PART_NAME];
+  const rels = { items: [...(pkg.getRels(target)?.items ?? [])] };
+  if (image.part !== target) {
+    const sourceRels = new Map(pkg.getRels(image.part)?.items.map((rel) => [rel.id, rel]));
+    const mapped = new Map<string, string>();
+    let availableId = nextRelId(rels.items.map((rel) => rel.id));
+    const rewrite = (element: XmlElement): void => {
+      element.attrs = element.attrs.map((attribute) => {
+        if (attribute.name.namespaceURI !== NS.officeDocRels || !attribute.value) return attribute;
+        let id = mapped.get(attribute.value);
+        if (!id) {
+          const source = sourceRels.get(attribute.value);
+          if (!source)
+            throw new Error(`Image background has a missing relationship: ${attribute.value}`);
+          id = availableId;
+          availableId = nextRelId([id]);
+          rels.items.push({
+            ...source,
+            id,
+            target:
+              source.targetMode === 'External'
+                ? source.target
+                : resolveTarget(image.part, source.target),
+          });
+          mapped.set(attribute.value, id);
+        }
+        return { ...attribute, value: id };
+      });
+      for (const child of element.children) if (child.kind === 'element') rewrite(child);
+    };
+    rewrite(fill);
+  }
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('slide has no <p:cSld>');
+  writeBackgroundPr(cSld, (properties) => {
+    properties.children.push(fill);
+  });
+  pkg.setRels(target, rels);
+  commitSlideData(slide);
+  refreshSlideData(slide);
 };
 
 /**

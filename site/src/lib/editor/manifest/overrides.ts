@@ -909,6 +909,12 @@ export const overrides: Record<string, CapabilityOverride> = {
     category: 'slide-background',
     ribbonGroup: 'background',
   },
+  setSlideBackgroundImageFillLayout: {
+    labelEn: 'Background picture layout',
+    labelJa: '背景画像の配置',
+    category: 'slide-background',
+    ribbonGroup: 'background',
+  },
   setSlideBackgroundPatternFill: {
     ...handOverrides.setShapePatternFill,
     labelEn: 'Background pattern',

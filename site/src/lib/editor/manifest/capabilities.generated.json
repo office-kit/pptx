@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 181,
+  "count": 182,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2527,6 +2527,23 @@
           "kind": "object",
           "optional": false,
           "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackgroundImageFillLayout",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "ImageFillLayout",
+          "kind": "object",
+          "optional": false
         }
       ]
     },
