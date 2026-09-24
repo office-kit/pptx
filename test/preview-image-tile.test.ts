@@ -9,6 +9,11 @@ import {
   inches,
   pt,
   setShapeImageFill,
+  setShapeImageCrop,
+  getShapeImageCrop,
+  savePresentation,
+  getSlides,
+  getSlideShapes,
   setShapeImageFillLayout,
   getShapeImageIntrinsicSize,
   type ImageTileAlignment,
@@ -126,3 +131,28 @@ it('scales each tile independently and omits zero-sized tiles', async () => {
   setShapeImageFillLayout(shape, { mode: 'tile', scaleX: 0 });
   expect(renderSlideToSvg(pres, slide)).not.toContain('<pattern');
 });
+
+it.each(['none', 'x', 'y', 'xy'] as const)(
+  'crops each tile before %s mirroring and save/reload',
+  async (flip) => {
+    const { pres, slide, shape } = await fixture();
+    setShapeImageCrop(shape, { left: 0.5 });
+    setShapeImageFillLayout(shape, { mode: 'tile', flip });
+    const restored = await loadPresentation(await savePresentation(pres));
+    const savedSlide = getSlides(restored)[0]!;
+    const savedShape = getSlideShapes(savedSlide).at(-1)!;
+    expect(getShapeImageCrop(savedShape)).toEqual({ left: 0.5, top: 0, right: 0, bottom: 0 });
+    for (const [presentation, target] of [
+      [pres, slide],
+      [restored, savedSlide],
+    ] as const) {
+      const { image } = renderSlideToRgba(presentation, target, { width: 960 });
+      const pixel = (x: number, y: number) =>
+        Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3));
+      expect(pixel(102, 102)).toEqual([0, 255, 0]);
+      expect(pixel(114, 102)).toEqual([0, 255, 0]);
+      expect(pixel(102, 114)).toEqual([0, 0, 0]);
+      expect(pixel(102, 126)).toEqual([0, flip === 'y' || flip === 'xy' ? 0 : 255, 0]);
+    }
+  },
+);

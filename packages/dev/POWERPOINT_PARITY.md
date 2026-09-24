@@ -246,7 +246,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Core opacity reading/writing and preview support image-filled ordinary shapes. Round-trip tests cover transparency, removal and invalid-input preservation.
 - `getShapeImageFillLayout` / `setShapeImageFillLayout` read and edit tile/stretch placement without replacing media, crop or effects. Native left offset 25% was verified as `fillRect l="25000"`; the reference was restored and saved. Stretch offsets now affect preview and clip to the shape. Core tests cover both pictures and image-filled shapes, mode changes, invalid-input preservation, round trips and XML schema validity.
 - PNG/JPEG tile preview now repeats at the image’s physical size with nine alignment choices, offsets, separate X/Y scaling and alternating X/Y/XY reflections. `getShapeImageIntrinsicSize` reads dimensions, explicit fill DPI and PNG pHYs/JPEG JFIF density (96 DPI fallback). Native default texture metadata is 128 × 128 pixels at approximately 144 DPI. Raster tests cover repetition, reflections and shape clipping.
-- Picture/texture controls, rotation-independent image rendering, source-cropped tiles, additional image formats/EXIF resolution and texture selection remain outstanding.
+- Source-cropped image fills now render and round-trip in automated tests, including all tile mirror modes; native visual comparison remains pending.
+- Picture/texture controls, rotation-independent image rendering, native comparison of source-cropped tiles, additional image formats/EXIF resolution and texture selection remain outstanding.
 
 ### Slide-background fill
 
