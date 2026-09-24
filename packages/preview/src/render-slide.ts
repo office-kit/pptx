@@ -72,6 +72,9 @@ import {
   getShapeImageDuotone,
   getShapeImageFillBytes,
   getShapeImageFillLayout,
+  getSlideBackgroundImageFillLayout,
+  getSlideBackgroundImageIntrinsicSize,
+  type ImageFillLayout,
   getShapeImageIntrinsicSize,
   getShapeImageOpacity,
   getSlideBackgroundImageOpacity,
@@ -482,42 +485,21 @@ const renderPicture = (
     if (layout?.mode === 'tile') {
       const intrinsic = getShapeImageIntrinsicSize(shape);
       if (intrinsic) {
-        const sourceW = intrinsic.width * (layout.scaleX ?? 1);
-        const sourceH = intrinsic.height * (layout.scaleY ?? 1);
-        const tileW = sourceW * (1 - cropL - cropR);
-        const tileH = sourceH * (1 - cropT - cropB);
-        if (tileW <= 0 || tileH <= 0) return `${clipDef}${border}<g${transform}>${textOverlay}</g>`;
-        const alignment = layout.alignment ?? 'tl';
-        const horizontal = ['t', 'ctr', 'b'].includes(alignment)
-          ? 0.5
-          : ['tr', 'r', 'br'].includes(alignment)
-            ? 1
-            : 0;
-        const vertical = ['l', 'ctr', 'r'].includes(alignment)
-          ? 0.5
-          : ['bl', 'b', 'br'].includes(alignment)
-            ? 1
-            : 0;
-        const tileX = x + (w - tileW) * horizontal + (layout.offsetX ?? 0);
-        const tileY = y + (h - tileH) * vertical + (layout.offsetY ?? 0);
-        const mirrorX = layout.flip === 'x' || layout.flip === 'xy';
-        const mirrorY = layout.flip === 'y' || layout.flip === 'xy';
-        const patternId = mintId();
-        const images: string[] = [];
-        for (let row = 0; row < (mirrorY ? 2 : 1); row++) {
-          for (let col = 0; col < (mirrorX ? 2 : 1); col++) {
-            const reflection =
-              col || row
-                ? ` transform="translate(${E(col * 2 * tileW)} ${E(row * 2 * tileH)}) scale(${col ? -1 : 1} ${row ? -1 : 1})"`
-                : '';
-            images.push(
-              `<g${reflection}><svg width="${E(tileW)}" height="${E(tileH)}" overflow="hidden"><image x="${E(-sourceW * cropL)}" y="${E(-sourceH * cropT)}" width="${E(sourceW)}" height="${E(sourceH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></svg></g>`,
-            );
-          }
-        }
-        const pattern = `<defs><pattern id="${patternId}" patternUnits="userSpaceOnUse" x="${E(tileX)}" y="${E(tileY)}" width="${E(tileW * (mirrorX ? 2 : 1))}" height="${E(tileH * (mirrorY ? 2 : 1))}">${images.join('')}</pattern></defs>`;
+        const pattern = imageTilePattern(
+          dataUrl,
+          layout,
+          intrinsic,
+          x,
+          y,
+          w,
+          h,
+          cropL,
+          cropT,
+          cropR,
+          cropB,
+        );
         const geometry = pictureClipGeometry(shape, preset, x, y, w, h);
-        return `${clipDef}${pattern}<g${transform} fill="url(#${patternId})"${filterAttr}${opacityAttr}>${geometry}</g>${border}<g${transform}>${textOverlay}</g>`;
+        return `${clipDef}${pattern.defs}<g${transform} fill="${pattern.fill}"${filterAttr}${opacityAttr}>${geometry}</g>${border}<g${transform}>${textOverlay}</g>`;
       }
     }
     return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g>${border}<g${transform}>${textOverlay}</g>`;
@@ -532,6 +514,57 @@ const renderPicture = (
       : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
   return `<g data-pptx-fallback="image"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+};
+
+const imageTilePattern = (
+  dataUrl: string,
+  layout: Extract<ImageFillLayout, { mode: 'tile' }>,
+  intrinsic: { width: number; height: number },
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  cropL = 0,
+  cropT = 0,
+  cropR = 0,
+  cropB = 0,
+): { defs: string; fill: string } => {
+  const sourceW = intrinsic.width * (layout.scaleX ?? 1);
+  const sourceH = intrinsic.height * (layout.scaleY ?? 1);
+  const tileW = sourceW * (1 - cropL - cropR);
+  const tileH = sourceH * (1 - cropT - cropB);
+  if (tileW <= 0 || tileH <= 0) return { defs: '', fill: 'none' };
+  const alignment = layout.alignment ?? 'tl';
+  const horizontal = ['t', 'ctr', 'b'].includes(alignment)
+    ? 0.5
+    : ['tr', 'r', 'br'].includes(alignment)
+      ? 1
+      : 0;
+  const vertical = ['l', 'ctr', 'r'].includes(alignment)
+    ? 0.5
+    : ['bl', 'b', 'br'].includes(alignment)
+      ? 1
+      : 0;
+  const tileX = x + (w - tileW) * horizontal + (layout.offsetX ?? 0);
+  const tileY = y + (h - tileH) * vertical + (layout.offsetY ?? 0);
+  const mirrorX = layout.flip === 'x' || layout.flip === 'xy';
+  const mirrorY = layout.flip === 'y' || layout.flip === 'xy';
+  const patternId = mintId();
+  const images: string[] = [];
+  for (let row = 0; row < (mirrorY ? 2 : 1); row++) {
+    for (let col = 0; col < (mirrorX ? 2 : 1); col++) {
+      const reflection =
+        col || row
+          ? ` transform="translate(${E(col * 2 * tileW)} ${E(row * 2 * tileH)}) scale(${col ? -1 : 1} ${row ? -1 : 1})"`
+          : '';
+      images.push(
+        `<g${reflection}><svg width="${E(tileW)}" height="${E(tileH)}" overflow="hidden"><image x="${E(-sourceW * cropL)}" y="${E(-sourceH * cropT)}" width="${E(sourceW)}" height="${E(sourceH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></svg></g>`,
+      );
+    }
+  }
+  const pattern = `<defs><pattern id="${patternId}" patternUnits="userSpaceOnUse" x="${E(tileX)}" y="${E(tileY)}" width="${E(tileW * (mirrorX ? 2 : 1))}" height="${E(tileH * (mirrorY ? 2 : 1))}">${images.join('')}</pattern></defs>`;
+
+  return { defs: pattern, fill: `url(#${patternId})` };
 };
 
 // Share preset path generators with native shapes so image masks use the
@@ -7255,7 +7288,22 @@ export const renderSlideSvg = (
       const fmt = detectImageFormatLocal(bytes);
       const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-      bgImage = `<image opacity="${getSlideBackgroundImageOpacity(slide) ?? 1}" x="0" y="0" width="${E(W)}" height="${E(H)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="xMidYMid slice"/>`;
+      const layout = getSlideBackgroundImageFillLayout(slide);
+      const opacity = getSlideBackgroundImageOpacity(slide) ?? 1;
+      const intrinsic =
+        layout?.mode === 'tile' ? getSlideBackgroundImageIntrinsicSize(slide) : null;
+      if (layout?.mode === 'tile' && intrinsic) {
+        const pattern = imageTilePattern(dataUrl, layout, intrinsic, 0, 0, W, H);
+        bgImage = `${pattern.defs}<rect width="${E(W)}" height="${E(H)}" fill="${pattern.fill}" opacity="${opacity}"/>`;
+      } else {
+        const stretch = layout?.mode === 'stretch' ? layout : null;
+        const left = stretch?.left ?? 0;
+        const top = stretch?.top ?? 0;
+        const width = Math.max(0, W * (1 - left - (stretch?.right ?? 0)));
+        const height = Math.max(0, H * (1 - top - (stretch?.bottom ?? 0)));
+        const clipId = mintId();
+        bgImage = `<defs><clipPath id="${clipId}"><rect width="${E(W)}" height="${E(H)}"/></clipPath></defs><g clip-path="url(#${clipId})"><image opacity="${opacity}" x="${E(W * left)}" y="${E(H * top)}" width="${E(width)}" height="${E(height)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></g>`;
+      }
     }
   }
 

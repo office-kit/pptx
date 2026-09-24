@@ -1,19 +1,13 @@
-import { readImagePixelSize, readImageResolution } from '../../internal/opc/image-format.ts';
 import { getShapeImageBytes, getShapeImageFillBytes } from './shape-image-effects.ts';
-import {
-  NS,
-  firstChildElement,
-  getAttrValue,
-  qname,
-  type XmlElement,
-} from '../../internal/xml/index.ts';
+import { NS, firstChildElement, qname, type XmlElement } from '../../internal/xml/index.ts';
 import { SHAPE_ELEMENT, SHAPE_SNAPSHOT, type SlideShapeData } from '../_internal-symbols.ts';
-import { inches, type Emu } from '../units.ts';
+import { type Emu } from '../units.ts';
 import { commitAndRefresh } from './_helpers.ts';
 
 export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './_image-fill-layout.ts';
 import {
   readImageFillLayout,
+  readImageIntrinsicSize,
   writeImageFillLayout,
   type ImageFillLayout,
 } from './_image-fill-layout.ts';
@@ -53,14 +47,5 @@ export const getShapeImageIntrinsicSize = (
   if (!fill) return null;
   const bytes = getShapeImageBytes(shape) ?? getShapeImageFillBytes(shape);
   if (!bytes) return null;
-  const pixels = readImagePixelSize(bytes);
-  if (!pixels) return null;
-  const override = Number(getAttrValue(fill, qname('', 'dpi', '')));
-  const resolution = readImageResolution(bytes);
-  const dpiX = override > 0 ? override : (resolution?.x ?? 96);
-  const dpiY = override > 0 ? override : (resolution?.y ?? 96);
-  return {
-    width: inches(pixels.width / dpiX),
-    height: inches(pixels.height / dpiY),
-  };
+  return readImageIntrinsicSize(fill, bytes);
 };

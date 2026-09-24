@@ -391,6 +391,7 @@ export {
   getSlideBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideBackgroundImageFillLayout,
+  getSlideBackgroundImageIntrinsicSize,
   getSlideBackgroundImageOpacity,
   getSlideBackgroundPatternFill,
   getSlideBody,
