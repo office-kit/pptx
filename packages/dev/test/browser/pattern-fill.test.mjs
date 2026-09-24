@@ -57,6 +57,33 @@ test(
         foreground: '#4F81BD',
         background: '#FFFFFF',
       });
+      const foreground = editor.getByRole('button', { name: 'Foreground', exact: true });
+      const palette = editor.getByRole('menu', { name: 'Foreground', exact: true });
+      await foreground.click();
+      assert.equal(
+        await palette
+          .getByRole('menuitemradio', { name: 'Accent 1', exact: true })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      await palette.getByRole('menuitemradio', { name: 'Accent 2', exact: true }).click();
+      await saved();
+      await editor.getByRole('radio', { name: 'Solid fill', exact: true }).check();
+      await saved();
+      await editor.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
+      await saved();
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').first().click();
+      await foreground.click();
+      assert.equal(
+        await palette
+          .getByRole('menuitemradio', { name: 'Accent 2', exact: true })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      await palette.getByRole('menuitemradio', { name: 'Accent 1', exact: true }).click();
+      await saved();
       const gallery = editor.getByRole('group', { name: 'Pattern', exact: true });
       assert.equal(await gallery.getByRole('button').count(), 48);
       assert.equal(
@@ -98,10 +125,12 @@ test(
       await page.keyboard.press('Escape');
       await editor.locator('.hit').first().click();
       const color = async (label, value) => {
-        await editor.getByLabel(label, { exact: true }).evaluate((input, value) => {
-          input.value = value;
-          input.dispatchEvent(new Event('change', { bubbles: true }));
-        }, value);
+        await editor
+          .getByLabel(`${label}: More Colors...`, { exact: true })
+          .evaluate((input, value) => {
+            input.value = value;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          }, value);
         await saved();
       };
       await color('Foreground', '#123456');

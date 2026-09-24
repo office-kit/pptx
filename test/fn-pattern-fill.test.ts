@@ -7,6 +7,7 @@ import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import {
   addSlideShape,
   getShapeFill,
+  getShapePatternFill,
   getSlideShapes,
   getSlideXmlString,
   getSlides,
@@ -112,6 +113,12 @@ describe('fn API: setShapePatternFill', () => {
     const importedSlide = getSlides(imported)[0]!;
     const target = getSlideShapes(importedSlide).at(-1)!;
     const original = getSlideXmlString(importedSlide);
+    const resolved = getShapePatternFill(imported, target)!;
+    expect(getShapePatternFill(imported, target, { preserveTheme: true })).toEqual({
+      ...resolved,
+      background: 'bg1',
+    });
+    expect(resolved.foreground).toMatch(/^#[0-9A-F]{6}$/);
     setShapePatternFill(target, { preset: 'wave' });
     expect(getSlideXmlString(importedSlide)).toBe(original.replace('prst="pct5"', 'prst="wave"'));
     setShapePatternFill(target, { background: '#123456' });

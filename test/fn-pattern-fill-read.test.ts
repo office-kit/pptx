@@ -9,9 +9,11 @@ import {
   addSlideShape,
   getShapePatternFill,
   getSlides,
+  getSlideShapes,
   inches,
   loadPresentation,
   setShapePatternFill,
+  savePresentation,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -73,5 +75,17 @@ describe('fn API: getShapePatternFill', () => {
     // Both should be hex resolved from the theme.
     expect(pat!.foreground).toMatch(/^#[0-9A-F]{6}$/);
     expect(pat!.background).toMatch(/^#[0-9A-F]{6}$/);
+    expect(getShapePatternFill(pres, shape, { preserveTheme: true })).toEqual({
+      preset: 'pct25',
+      foreground: 'accent1',
+      background: 'bg1',
+    });
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const reloadedShape = getSlideShapes(getSlides(reloaded)[0]!).at(-1)!;
+    expect(getShapePatternFill(reloaded, reloadedShape, { preserveTheme: true })).toEqual({
+      preset: 'pct25',
+      foreground: 'accent1',
+      background: 'bg1',
+    });
   });
 });
