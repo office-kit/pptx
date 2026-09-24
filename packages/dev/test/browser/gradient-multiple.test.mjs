@@ -71,6 +71,58 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(await read(), changed);
+      await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('button', { name: 'Add gradient stop', exact: true }).click();
+      await saved();
+      const differing = await read();
+      assert.equal(differing[0].stops.length, 3);
+      assert.equal(differing[1].stops.length, 2);
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(
+        await editor
+          .getByRole('group', { name: 'Gradient stops', exact: true })
+          .getByRole('button')
+          .count(),
+        0,
+      );
+      for (const name of [
+        'Gradient angle',
+        'Gradient stop position',
+        'Gradient stop transparency',
+        'Gradient stop brightness',
+      ]) {
+        const input = editor.getByRole('spinbutton', { name, exact: true });
+        assert.equal(await input.isDisabled(), true);
+        assert.equal(await input.inputValue(), '');
+      }
+      for (const name of ['Add gradient stop', 'Remove gradient stop', 'Gradient direction']) {
+        assert.equal(await editor.getByRole('button', { name, exact: true }).isDisabled(), true);
+      }
+      assert.equal(
+        await editor.getByLabel('Gradient stop color', { exact: true }).isDisabled(),
+        true,
+      );
+      assert.equal(
+        await editor.getByRole('combobox', { name: 'Gradient type', exact: true }).isEnabled(),
+        true,
+      );
+      assert.equal(await rotation.isEnabled(), true);
+      assert.equal(await rotation.evaluate((input) => input.indeterminate), true);
+      await rotation.click();
+      await saved();
+      assert.deepEqual(
+        await read(),
+        differing.map((value) => ({ ...value, rotateWithShape: true })),
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), differing);
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(), differing);
     } finally {
       await browser?.close();
       await preview?.close();

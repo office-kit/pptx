@@ -9,11 +9,9 @@
     editor.doc.version;
     return editor.selectedShapes().map(shape => getShapeGradientFillEffective(editor.doc.pres, shape));
   });
-  const gradient = $derived.by(() => {
-    const first = gradients[0];
-    if (!first || !gradients.every(value => value && JSON.stringify(value.stops) === JSON.stringify(first.stops))) return null;
-    return first;
-  });
+  const gradient = $derived(gradients[0] ?? null);
+  const matchingStops = $derived(!!gradient && gradients.every(value => value && JSON.stringify(value.stops) === JSON.stringify(gradient.stops)));
+  const pathValue = $derived(gradients.every(value => (value?.path ?? 'linear') === (gradient?.path ?? 'linear')) ? gradient?.path ?? 'linear' : '');
   const angleValue = $derived(gradients.every(value => (value?.angleDeg ?? 90) === (gradient?.angleDeg ?? 90)) ? gradient?.angleDeg ?? 90 : undefined);
   const mixedRotation = $derived(gradients.some(value => (value?.rotateWithShape !== false) !== (gradient?.rotateWithShape !== false)));
   let selected = $state(0);
@@ -21,11 +19,11 @@
   const selectedIndex = $derived(Math.min(selected, (gradient?.stops.length ?? 1) - 1));
   let dragging = $state<{ index: number; offset: number; left: number; width: number } | null>(null);
   $effect(() => { editor.doc.version; editor.doc.selection; dragging = null; });
-  const visibleStops = $derived(gradient?.stops.map((item, index) => dragging?.index === index ? { ...item, offset: dragging.offset } : item) ?? []);
-  const stop = $derived(visibleStops[selectedIndex]);
+  const visibleStops = $derived((matchingStops ? gradient?.stops : undefined)?.map((item, index) => dragging?.index === index ? { ...item, offset: dragging.offset } : item) ?? []);
+  const stop = $derived(visibleStops[selectedIndex] ?? { offset: 0, color: '#000000' });
   const locked = $derived(editor.selectionLocked());
   const stopColor = (stop: ReadGradientStop) => stop.resolvedColor ?? (/^#[\da-f]{6}$/i.test(stop.color) ? stop.color : '#000000');
-  const track = $derived(gradient ? `linear-gradient(to right, ${[...visibleStops].sort((a, b) => a.offset - b.offset).map(stop => `${stopColor(stop)} ${stop.offset * 100}%`).join(', ')})` : '');
+  const track = $derived(matchingStops ? `linear-gradient(to right, ${[...visibleStops].sort((a, b) => a.offset - b.offset).map(stop => `${stopColor(stop)} ${stop.offset * 100}%`).join(', ')})` : '');
 
   function startDrag(event: PointerEvent, index: number) {
     if (locked || event.button !== 0) return;
@@ -61,7 +59,7 @@
     });
   }
   function editStop(patch: Partial<ReadGradientStop>) {
-    if (!gradient) return;
+    if (!gradient || !matchingStops) return;
     apply({ stops: gradient.stops.map((stop, index) => index === selectedIndex ? { ...stop, ...patch } : stop) });
   }
   function numeric(input: HTMLInputElement, field: 'offset' | 'brightness' | 'opacity') {
@@ -73,7 +71,7 @@
     editStop({ [field]: field === 'opacity' ? 1 - input.valueAsNumber / 100 : input.valueAsNumber / 100 });
   }
   function angle(input: HTMLInputElement) {
-    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) { input.value = String(gradient?.angleDeg ?? 90); return; }
+    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) { input.value = String(angleValue ?? ''); return; }
     apply({ angleDeg: input.valueAsNumber });
   }
   function addStop() {
@@ -100,20 +98,22 @@
 {#if gradient && stop}
   <fieldset disabled={locked} class="gradient-fields">
     <label class="field"><span>{t('Type')}</span>
-      <select class="ok-input" aria-label={t('Gradient type')} value={gradient.path ?? 'linear'} onchange={event => {
+      <select class="ok-input" aria-label={t('Gradient type')} value={pathValue} onchange={event => {
         const path = event.currentTarget.value;
         if (path === 'linear' || path === 'circle' || path === 'rect' || path === 'shape') apply({ path });
       }}>
+        {#if !pathValue}<option value="" disabled>{t('Mixed')}</option>{/if}
         <option value="linear">{t('Linear')}</option><option value="circle">{t('Radial')}</option>
         <option value="rect">{t('Rectangular')}</option><option value="shape">{t('Path')}</option>
       </select>
     </label>
-    {#if gradient.path === undefined || gradient.path === 'linear'}
-      <GradientDirection angle={gradient.angleDeg ?? 90} disabled={locked} choose={angleDeg => apply({ angleDeg, scaled: true })} />
+    {#if pathValue === 'linear'}
+      <GradientDirection angle={matchingStops ? angleValue : undefined} disabled={locked || !matchingStops} choose={angleDeg => apply({ angleDeg, scaled: true })} />
     {/if}
     <label class="field"><span>{t('Angle')}</span><span class="number">
-      <input class="ok-input" type="number" min="0" max="359.9" step="any" aria-label={t('Gradient angle')} value={angleValue ?? ''} placeholder={t('Mixed')} disabled={gradient.path !== undefined && gradient.path !== 'linear'} onchange={event => angle(event.currentTarget)} />°
+      <input class="ok-input" type="number" min="0" max="359.9" step="any" aria-label={t('Gradient angle')} value={matchingStops ? angleValue ?? '' : ''} placeholder={t('Mixed')} disabled={!matchingStops || pathValue !== 'linear'} onchange={event => angle(event.currentTarget)} />°
     </span></label>
+    <fieldset class="gradient-fields" disabled={!matchingStops}>
     <span>{t('Gradient stops')}</span>
     <div class="stops" role="group" aria-label={t('Gradient stops')} style:background={track}>
       {#each visibleStops as item, index}
@@ -128,17 +128,16 @@
     </div>
     <div class="stop-actions"><button type="button" class="ok-btn" aria-label={t('Add gradient stop')} title={t('Add gradient stop')} onclick={addStop}>+</button><button type="button" class="ok-btn" aria-label={t('Remove gradient stop')} title={t('Remove gradient stop')} disabled={gradient.stops.length <= 2} onclick={removeStop}>−</button></div>
     <label class="field"><span>{t('Color')}</span><input type="color" aria-label={t('Gradient stop color')} value={stopColor(stop)} onchange={event => editStop({ color: event.currentTarget.value, brightness: 0 })} /></label>
-    <label class="field"><span>{t('Position')}</span><span class="number"><input class="ok-input" type="number" min="0" max="100" step="any" aria-label={t('Gradient stop position')} value={Math.round(stop.offset * 100000) / 1000} onchange={event => numeric(event.currentTarget, 'offset')} />%</span></label>
+    <label class="field"><span>{t('Position')}</span><span class="number"><input class="ok-input" type="number" min="0" max="100" step="any" aria-label={t('Gradient stop position')} value={matchingStops ? Math.round(stop.offset * 100000) / 1000 : ''} onchange={event => numeric(event.currentTarget, 'offset')} />%</span></label>
     {#each [{ field: 'opacity', label: 'Transparency', accessible: 'Gradient stop transparency', min: 0, value: (1 - (stop.opacity ?? 1)) * 100 }, { field: 'brightness', label: 'Brightness', accessible: 'Gradient stop brightness', min: -100, value: (stop.brightness ?? 0) * 100 }] as control}
       <div class="amount"><span>{t(control.label)}</span><div class="amount-controls">
         <input type="range" min={control.min} max="100" step="1" aria-label={t(control.accessible)} value={control.value} onchange={event => numeric(event.currentTarget, control.field === 'opacity' ? 'opacity' : 'brightness')} />
-        <span class="number"><input class="ok-input" type="number" min={control.min} max="100" step="any" aria-label={t(control.accessible)} value={Math.round(control.value * 1000) / 1000} onchange={event => numeric(event.currentTarget, control.field === 'opacity' ? 'opacity' : 'brightness')} />%</span>
+        <span class="number"><input class="ok-input" type="number" min={control.min} max="100" step="any" aria-label={t(control.accessible)} value={matchingStops ? Math.round(control.value * 1000) / 1000 : ''} onchange={event => numeric(event.currentTarget, control.field === 'opacity' ? 'opacity' : 'brightness')} />%</span>
       </div></div>
     {/each}
-    <label class="rotate"><input type="checkbox" checked={gradient.rotateWithShape !== false} indeterminate={mixedRotation} onchange={event => apply({ rotateWithShape: event.currentTarget.checked })} />{t('Rotate with shape')}</label>
+    </fieldset>
+    <label class="rotate"><input type="checkbox" checked={!mixedRotation && gradient.rotateWithShape !== false} indeterminate={mixedRotation} onchange={event => apply({ rotateWithShape: event.currentTarget.checked })} />{t('Rotate with shape')}</label>
   </fieldset>
-{:else}
-  <p>{t('Select shapes with matching gradient stops to edit them together.')}</p>
 {/if}
 
 <style>

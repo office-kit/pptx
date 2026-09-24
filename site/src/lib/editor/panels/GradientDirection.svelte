@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { angle, disabled, choose }: { angle: number; disabled: boolean; choose: (angle: number) => void } = $props();
+  let { angle, disabled, choose }: { angle: number | undefined; disabled: boolean; choose: (angle: number) => void } = $props();
   const directions = [
     [45, 'Linear Diagonal - Top Left to Bottom Right'],
     [90, 'Linear Down'],
@@ -46,7 +46,7 @@
   <span class="swatch" style:background={`linear-gradient(${value + 90}deg, #4472c4, #ecf1fa)`}></span>
 {/snippet}
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
-<div class="field"><span>{t('Direction')}</span><button class="ok-input trigger" bind:this={trigger} aria-label={t('Gradient direction')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{@render swatch(angle)}<span>▾</span></button></div>
+<div class="field"><span>{t('Direction')}</span><button class="ok-input trigger" bind:this={trigger} aria-label={t('Gradient direction')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{#if angle === undefined}<span class="swatch"></span>{:else}{@render swatch(angle)}{/if}<span>▾</span></button></div>
 {#if open}
   <div class="gallery" role="menu" aria-label={t('Gradient direction')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     {#each directions as [value, label]}
