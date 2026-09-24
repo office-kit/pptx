@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSlides, getSlidePartName, getSlideBackgroundImageFillLayout, setSlideBackgroundImageFillLayout, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideData } from '@office-kit/pptx';
+  import { getSlideBackgroundImageOpacity, setSlideBackgroundImageOpacity, getSlides, getSlidePartName, getSlideBackgroundImageFillLayout, setSlideBackgroundImageFillLayout, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideData } from '@office-kit/pptx';
   import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
@@ -15,6 +15,13 @@
   const stretchFields = [['left', 'Offset left'], ['right', 'Offset right'], ['top', 'Offset top'], ['bottom', 'Offset bottom']] as const;
   let error = $state('');
   function common<T>(values: T[]): T | undefined { return values.every(value => value === values[0]) ? values[0] : undefined; }
+  const transparency = $derived(common(slides.map(slide => Math.round((1 - (getSlideBackgroundImageOpacity(slide) ?? 1)) * 100000) / 1000)));
+  function changeTransparency(input: HTMLInputElement) {
+    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) { input.value = String(transparency ?? ''); return; }
+    const opacity = 1 - input.valueAsNumber / 100;
+    try { doc.transact(t('Picture transparency'), () => { for (const slide of slides) setSlideBackgroundImageOpacity(slide, opacity); }); error = ''; }
+    catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
+  }
   const alignment = $derived(common(layouts.map(value => value?.mode === 'tile' ? value.alignment ?? 'tl' : undefined)));
   const flip = $derived(common(layouts.map(value => value?.mode === 'tile' ? value.flip ?? 'none' : undefined)));
   function edit(change: (layout: ImageFillLayout, slide: SlideData) => ImageFillLayout) {
@@ -48,6 +55,11 @@
 </script>
 
 <div class="picture-layout">
+  <span>{t('Transparency')}</span>
+  <div class="row">
+    <input type="range" min="0" max="100" value={transparency ?? 0} aria-label={t('Picture transparency')} aria-valuetext={transparency === undefined ? t('Mixed') : `${transparency}%`} onchange={event => changeTransparency(event.currentTarget)} />
+    <label class="number"><input class="ok-input" type="number" min="0" max="100" step="any" value={transparency ?? ''} placeholder={t('Mixed')} aria-label={t('Picture transparency')} onchange={event => changeTransparency(event.currentTarget)} />%</label>
+  </div>
   <label class="check"><input type="checkbox" checked={tiled} indeterminate={mixedMode} onchange={event => switchLayout(event.currentTarget.checked)} />{t('Tile picture as texture')}</label>
   {#each tiled ? tileFields : stretchFields as [field, label]}
     <label class="row"><span>{t(label)}</span><span class="number"><input class="ok-input" type="number" min={field.startsWith('scale') ? 0 : tiled ? -1584 : -100000} max={field.startsWith('scale') ? 100 : tiled ? 1584 : 100000} step="any" value={numericValue(field) ?? ''} placeholder={t('Mixed')} aria-label={t(label)} onchange={event => numeric(event.currentTarget, field)} />{field.startsWith('offset') ? 'pt' : '%'}</span></label>

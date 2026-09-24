@@ -1,3 +1,4 @@
+import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
 
@@ -47,9 +48,6 @@ import { getSlideSize } from './features.ts';
 // `amt` is ECMA-376's ST_PositiveFixedPercentage (0–100000, scale 1/1000
 // of a percent). PowerPoint defaults to fully opaque when the element
 // is absent. Pass `null` to remove a prior `<a:alphaModFix>`.
-
-const NAME_ALPHA_MOD_FIX_FN = qname('a', 'alphaModFix', NS.dml);
-const ATTR_AMT_FN = qname('', 'amt', '');
 
 /**
  * Returns the embedded image bytes for a picture shape, or `null`
@@ -467,13 +465,7 @@ const getImageOpacityBlip = (shape: SlideShapeData): XmlElement | null => {
 export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
   const blip = getImageOpacityBlip(shape);
   if (!blip) return null;
-  const alpha = firstChildElement(blip, qname('a', 'alphaModFix', NS.dml));
-  if (!alpha) return null;
-  const amt = getAttrValue(alpha, qname('', 'amt', ''));
-  if (amt === null) return 1;
-  const n = Number.parseInt(amt, 10);
-  if (!Number.isFinite(n)) return null;
-  return n / 100000;
+  return readImageOpacity(blip);
 };
 
 const cropImageFill = (shape: SlideShapeData): XmlElement | null => {
@@ -628,26 +620,7 @@ export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | nu
   const blip = getImageOpacityBlip(shape);
   if (!blip)
     throw new Error('setShapeImageOpacity requires a picture or a shape with an image fill');
-  if (opacity !== null && (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)) {
-    throw new RangeError(`opacity must be in [0, 1], got ${opacity}`);
-  }
-
-  blip.children = blip.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'alphaModFix'
-      ),
-  );
-
-  if (opacity !== null) {
-    blip.children.push(
-      elem(NAME_ALPHA_MOD_FIX_FN, {
-        attrs: [attr(ATTR_AMT_FN, String(Math.round(opacity * 100000)))],
-      }),
-    );
-  }
+  writeImageOpacity(blip, opacity);
   commitAndRefresh(shape);
 };
 
