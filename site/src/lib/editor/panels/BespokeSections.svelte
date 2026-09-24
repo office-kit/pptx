@@ -34,6 +34,15 @@
 
   const editor = getEditor();
   const doc = editor.doc;
+  let rotationInput = $state<HTMLInputElement>();
+  $effect(() => {
+    if (editor.rotationFocusRequested && rotationInput) {
+      rotationInput.scrollIntoView({ block: 'nearest' });
+      rotationInput.focus();
+      rotationInput.select();
+      editor.rotationFocusRequested = false;
+    }
+  });
 
   const shape = $derived.by(() => {
     doc.version;
@@ -306,7 +315,7 @@
     <div class="sec">
       <div class="sec-title">{t('Rotation')}</div>
       <div class="rotrow">
-        <input class="ok-input" type="number" aria-label={t('Rotation')} step="any" value={rotation ?? ''} placeholder={rotation === null ? t('Mixed') : undefined}
+        <input bind:this={rotationInput} class="ok-input" type="number" aria-label={t('Rotation')} step="any" value={rotation ?? ''} placeholder={rotation === null ? t('Mixed') : undefined}
           onchange={(e) => applyRotation(e.currentTarget)} />
         <span class="deg">°</span>
       </div>

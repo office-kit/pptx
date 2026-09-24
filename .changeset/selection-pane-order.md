@@ -10,4 +10,6 @@ Use the Home Arrange menu for object stacking, grouping, alignment, rotation, fl
 
 Keep the alignment reference synchronized between the Arrange menu and the properties pane.
 
+Open and focus the numeric rotation control through Arrange > Rotate > More Rotation Options.
+
 Keep Enter-to-edit working from the table cell grid while preventing ordinary buttons from starting canvas text editing.

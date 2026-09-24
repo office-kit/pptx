@@ -90,6 +90,7 @@ export class EditorController {
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);
   alignmentReference = $state<'selection' | 'slide'>('selection');
+  rotationFocusRequested = $state(false);
   thumbnailWidth = $state<number | null>(null);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);
@@ -101,6 +102,12 @@ export class EditorController {
     this.setViewMode('normal');
     this.notesVisible = true;
     this.notesFocusRequest++;
+  }
+
+  showRotationOptions(): void {
+    this.setViewMode('normal');
+    this.selectionPaneVisible = false;
+    this.rotationFocusRequested = true;
   }
 
   setViewMode(mode: 'normal' | 'sorter'): void {
