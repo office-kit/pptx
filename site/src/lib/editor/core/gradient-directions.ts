@@ -1,7 +1,7 @@
 import type { ReadGradientFill } from '@office-kit/pptx';
 
-// Mac PowerPoint's Radial gallery order and saved edge insets.
-export const radialDirections = [
+// Mac PowerPoint's Radial and Rectangular galleries order and saved edge insets.
+export const pathDirections = [
   { label: 'From Bottom Right Corner', x: 1, y: 1 },
   { label: 'From Bottom Left Corner', x: 0, y: 1 },
   { label: 'From Center', x: 0.5, y: 0.5 },
@@ -20,10 +20,10 @@ export const radialDirections = [
   },
 }));
 
-export function radialDirectionIndex(gradient: ReadGradientFill | null): number | undefined {
-  if (!gradient || gradient.path !== 'circle') return undefined;
+export function pathDirectionIndex(gradient: ReadGradientFill | null): number | undefined {
+  if (!gradient || !['circle', 'rect', 'shape'].includes(gradient.path ?? '')) return undefined;
   const focus = gradient.focus;
-  const index = radialDirections.findIndex(
+  const index = pathDirections.findIndex(
     (direction) =>
       focus &&
       direction.focus.left === focus.left &&
