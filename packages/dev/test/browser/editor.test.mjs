@@ -901,12 +901,20 @@ test(
         .locator('.hit')
         .first()
         .dblclick({ position: { x: mergedBox.width * 0.8, y: mergedBox.height * 0.2 } });
-      await inlineCell.fill('取り消す編集');
+      await inlineCell.fill('Escapeで確定する編集');
       await inlineCell.press('Escape');
       assert.equal(
         await editor.getByLabel('セルのテキスト', { exact: true }).inputValue(),
-        mergedText,
+        'Escapeで確定する編集',
       );
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(
+        getTableCellText(getTableCells(await readTable())[0][0]),
+        'Escapeで確定する編集',
+      );
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal(getTableCellText(getTableCells(await readTable())[0][0]), mergedText);
       await page.screenshot({ path: '/tmp/pptx-pr287-table-ja.png', fullPage: true });
       assert.deepEqual(errors, []);
     } catch (error) {

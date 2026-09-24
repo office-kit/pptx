@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getShapeStrokeDash, getShapeStrokeCap, getShapeStrokeJoin, getShapeStrokeCompound } from '@office-kit/pptx';
+  import ArrowStyleFields from './ArrowStyleFields.svelte';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -38,6 +39,8 @@
     </select>
   </label>
 {/each}
+
+<ArrowStyleFields />
 
 <style>
   label { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
