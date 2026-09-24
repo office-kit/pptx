@@ -74,6 +74,7 @@ import {
   getShapeImageFillLayout,
   getShapeImageIntrinsicSize,
   getShapeImageOpacity,
+  getSlideBackgroundImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
   getShapeAdjustValues,
@@ -7254,7 +7255,7 @@ export const renderSlideSvg = (
       const fmt = detectImageFormatLocal(bytes);
       const mime = fmt ? (imageMime[fmt] ?? 'image/png') : 'image/png';
       const dataUrl = `data:${mime};base64,${u8ToBase64(bytes)}`;
-      bgImage = `<image x="0" y="0" width="${E(W)}" height="${E(H)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="xMidYMid slice"/>`;
+      bgImage = `<image opacity="${getSlideBackgroundImageOpacity(slide) ?? 1}" x="0" y="0" width="${E(W)}" height="${E(H)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="xMidYMid slice"/>`;
     }
   }
 

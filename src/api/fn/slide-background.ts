@@ -1,3 +1,4 @@
+import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 import {
   readImageFillLayout,
   writeImageFillLayout,
@@ -851,10 +852,32 @@ export const setSlideBackgroundImageFillLayout = (
   slide: SlideData,
   layout: ImageFillLayout,
 ): void => {
+  editImageBackground(slide, (fill) => writeImageFillLayout(fill, layout));
+};
+
+/** Reads direct or inherited background picture opacity; null means no explicit opacity. */
+export const getSlideBackgroundImageOpacity = (slide: SlideData): number | null => {
   const image = effectiveImageBackground(slide);
-  if (!image) throw new Error('setSlideBackgroundImageFillLayout requires an image background');
+  const blip = image && firstChildElement(image.fill, qname('a', 'blip', NS.dml));
+  return blip ? readImageOpacity(blip) : null;
+};
+
+/** Sets background image opacity (0–1), preserving media and placement. Null restores the default.
+ * Inherited images become slide overrides. Invalid values leave the deck unchanged.
+ */
+export const setSlideBackgroundImageOpacity = (slide: SlideData, opacity: number | null): void => {
+  editImageBackground(slide, (fill) => {
+    const blip = firstChildElement(fill, qname('a', 'blip', NS.dml));
+    if (!blip) throw new Error('Image background has no blip');
+    writeImageOpacity(blip, opacity);
+  });
+};
+
+const editImageBackground = (slide: SlideData, edit: (fill: XmlElement) => void): void => {
+  const image = effectiveImageBackground(slide);
+  if (!image) throw new Error('This operation requires an image background');
   const fill = cloneElement(image.fill);
-  writeImageFillLayout(fill, layout);
+  edit(fill);
   const pkg = slide[INTERNAL_PACKAGE];
   const target = slide[SLIDE_PART_NAME];
   const rels = { items: [...(pkg.getRels(target)?.items ?? [])] };

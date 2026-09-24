@@ -451,3 +451,11 @@ selection or document changes during loading cancel the insertion. Browser
 coverage exercises success, undo, empty and denied reads, and a deferred read
 completed after changing slides. Native clipboard availability/format behavior,
 background transparency, textures, and remembered fill-type switching remain.
+
+Background picture transparency now reads inherited alphaModFix opacity and edits
+only the selected slides, preserving placement and media. The pane provides a
+slider and percentage field; the preview renders opacity. Core coverage checks
+inheritance, round-trip preservation, reset, invalid input and SVG output; browser
+coverage checks edits, undo and persistence. Background image placement still
+needs to be applied by the preview renderer; textures and remembered fill-type
+switching also remain incomplete.

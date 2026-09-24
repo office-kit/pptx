@@ -8,6 +8,7 @@ import {
   addBlankSlide,
   applySlideBackgroundToAll,
   getSlideBackgroundImageFillLayout,
+  getSlideBackgroundImageOpacity,
   getShapeImageBytes,
   getShapeKind,
   getSlideShapes,
@@ -59,6 +60,7 @@ test(
         return getSlides(deck).map((slide) => ({
           kind: getSlideBackground(slide).kind,
           layout: getSlideBackgroundImageFillLayout(slide),
+          opacity: getSlideBackgroundImageOpacity(slide),
         }));
       };
       const open = async () => {
@@ -74,6 +76,21 @@ test(
           .isChecked(),
         true,
       );
+      const transparency = editor.getByRole('spinbutton', {
+        name: 'Picture transparency',
+        exact: true,
+      });
+      await transparency.fill('65');
+      await transparency.press('Tab');
+      await saved();
+      assert.equal((await read())[0].opacity, 0.35);
+      assert.equal((await read())[1].opacity, null);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await read())[0].opacity, null);
+      await transparency.fill('20');
+      await transparency.press('Tab');
+      await saved();
       const left = editor.getByRole('spinbutton', { name: 'Offset left', exact: true });
       await left.fill('25');
       await left.press('Tab');
@@ -125,6 +142,8 @@ test(
         });
       });
       const clipboard = editor.getByRole('button', { name: 'Clipboard', exact: true });
+      assert.equal(await transparency.inputValue(), '20');
+      assert.equal((await read())[0].opacity, 0.8);
       const beforePaste = await read();
       await clipboard.click();
       await editor

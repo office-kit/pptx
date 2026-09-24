@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 182,
+  "count": 183,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2543,6 +2543,23 @@
           "name": "layout",
           "type": "ImageFillLayout",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackgroundImageOpacity",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "opacity",
+          "type": "number | null",
+          "kind": "number",
           "optional": false
         }
       ]

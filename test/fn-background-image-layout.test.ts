@@ -1,5 +1,6 @@
 import { readFile } from 'node:fs/promises';
 import { expect, it } from 'vitest';
+import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import {
   addBlankSlide,
   applySlideBackgroundToAll,
@@ -9,6 +10,7 @@ import {
   getSlideBackground,
   getSlideBackgroundImageBytes,
   getSlideBackgroundImageFillLayout,
+  getSlideBackgroundImageOpacity,
   getSlideShapes,
   getSlides,
   getSlideXmlString,
@@ -17,6 +19,7 @@ import {
   savePresentation,
   setSlideBackgroundImage,
   setSlideBackgroundImageFillLayout,
+  setSlideBackgroundImageOpacity,
 } from '../src/api/index.ts';
 
 it('edits inherited image placement without replacing media or changing the master', async () => {
@@ -63,4 +66,40 @@ it('edits inherited image placement without replacing media or changing the mast
   const before = getSlideXmlString(slide);
   expect(() => setSlideBackgroundImageFillLayout(slide, { mode: 'stretch', left: NaN })).toThrow();
   expect(getSlideXmlString(slide)).toBe(before);
+});
+
+it('round-trips inherited image opacity without changing sibling fills, placement or media', async () => {
+  const pres = await loadPresentation(
+    await readFile(new URL('./fixtures/minimal/one-image-slide.pptx', import.meta.url)),
+  );
+  const slide = getSlides(pres)[0]!;
+  const bytes = getShapeImageBytes(
+    getSlideShapes(slide).find((shape) => getShapeKind(shape) === 'picture')!,
+  )!;
+  setSlideBackgroundImage(slide, bytes);
+  setSlideBackgroundImageFillLayout(slide, { mode: 'stretch', left: 0.25 });
+  setSlideBackgroundImageOpacity(slide, 0.8);
+  const other = addBlankSlide(pres);
+  applySlideBackgroundToAll(pres, slide);
+  const mediaCount = getMediaParts(pres).length;
+  expect(getSlideBackgroundImageOpacity(slide)).toBe(0.8);
+  setSlideBackgroundImageOpacity(slide, 0.35);
+  expect(getSlideBackgroundImageOpacity(other)).toBe(0.8);
+  expect(renderSlideToSvg(pres, slide, { textLayout: 'svg' })).toMatch(/<image opacity="0.35"/);
+  const saved = await loadPresentation(await savePresentation(pres));
+  const restored = getSlides(saved)[0]!;
+  expect(getSlideBackgroundImageOpacity(restored)).toBe(0.35);
+  expect(getSlideBackgroundImageFillLayout(restored)).toMatchObject({
+    mode: 'stretch',
+    left: 0.25,
+  });
+  expect(getSlideBackgroundImageBytes(restored)).toEqual(bytes);
+  expect(getMediaParts(saved)).toHaveLength(mediaCount);
+  const before = getSlideXmlString(slide);
+  for (const invalid of [-1, 1.1, NaN, Infinity])
+    expect(() => setSlideBackgroundImageOpacity(slide, invalid)).toThrow();
+  expect(getSlideXmlString(slide)).toBe(before);
+  setSlideBackgroundImageOpacity(slide, null);
+  expect(getSlideBackgroundImageOpacity(slide)).toBeNull();
+  expect(getSlideBackgroundImageOpacity(other)).toBe(0.8);
 });

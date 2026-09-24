@@ -909,6 +909,12 @@ export const overrides: Record<string, CapabilityOverride> = {
     category: 'slide-background',
     ribbonGroup: 'background',
   },
+  setSlideBackgroundImageOpacity: {
+    labelEn: 'Background picture transparency',
+    labelJa: '背景画像の透明度',
+    category: 'slide-background',
+    ribbonGroup: 'background',
+  },
   setSlideBackgroundImageFillLayout: {
     labelEn: 'Background picture layout',
     labelJa: '背景画像の配置',
