@@ -10,6 +10,7 @@ export const ja: Record<string, string> = {
   'Hide object': 'オブジェクトを非表示',
   'Object name': 'オブジェクト名',
   'Rename object': 'オブジェクト名の変更',
+  'Reorder object': 'オブジェクトの順序変更',
   Expand: '展開',
   Collapse: '折りたたむ',
   'Grid Settings': 'グリッドの設定',
