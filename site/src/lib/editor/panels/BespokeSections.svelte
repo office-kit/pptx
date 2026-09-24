@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { readRememberedImageFill, restoreRememberedImageFill } from '../core/remembered-image-fill.ts';
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
@@ -129,16 +130,21 @@
     const kinds = new Set(editor.selectedShapes().map(target => getShapeFillEffective(doc.pres, target).kind));
     return kinds.size === 1 ? [...kinds][0] : 'mixed';
   });
-  function changeFill(kind: 'none' | 'solid' | 'gradient' | 'pattern' | 'background') {
+  function changeFill(kind: 'none' | 'solid' | 'gradient' | 'pattern' | 'background' | 'image') {
     if (editor.selectionLocked() || doc.selection.kind !== 'shape' || fillKind === kind) return;
     const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
     const shapes = editor.selectedShapes();
+    if (kind === 'image' && shapes.some(target => getShapeFillEffective(doc.pres, target).kind !== 'image' && !doc.rememberedFills.get(`${slideKey}:${getShapeId(target)}`)?.image)) {
+      pictureFill?.chooseImage();
+      return;
+    }
     doc.transact(t('Fill'), () => {
       for (const target of shapes) {
         const key = `${slideKey}:${getShapeId(target)}`;
         const remembered = doc.rememberedFills.get(key) ?? {};
         const current = getShapeFillEffective(doc.pres, target);
         if (current.kind === kind) continue;
+        if (current.kind === 'image') remembered.image = readRememberedImageFill(target);
         if (current.kind === 'pattern') remembered.pattern = getShapePatternFill(doc.pres, target) ?? undefined;
         if (current.kind === 'solid') remembered.solid = { color: asColor(getShapeFillColorResolved(doc.pres, target) ?? current.color) ?? 'accent1', opacity: getShapeFillOpacity(target) ?? undefined };
         if (current.kind === 'gradient') {
@@ -149,7 +155,8 @@
           }) };
         }
         doc.rememberedFills.set(key, remembered);
-        if (kind === 'background') setShapeSlideBackgroundFill(target);
+        if (kind === 'image' && remembered.image) restoreRememberedImageFill(target, remembered.image);
+        else if (kind === 'background') setShapeSlideBackgroundFill(target);
         else if (kind === 'none') setShapeNoFill(target);
         else if (kind === 'solid') setShapeFill(target, remembered.solid ?? { color: 'accent1' });
         else if (kind === 'pattern') setShapePatternFill(target, remembered.pattern ?? { preset: 'pct5', foreground: 'accent1', background: 'bg1' });
@@ -197,7 +204,7 @@
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
             {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['image', 'Picture or texture fill'], ['pattern', 'Pattern fill'], ['background', 'Slide background fill']] as [kind, label]}
               <label><input type="radio" name="shape-fill-type" checked={fillKind === kind} disabled={(kind === 'background' || kind === 'image') && editor.selectedShapes().some(target => getShapeKind(target) !== 'shape')}
-                onclick={event => { if (kind === 'image') { event.preventDefault(); if (fillKind !== 'image') pictureFill?.chooseImage(); } }}
+                onclick={event => { if (kind === 'image') { event.preventDefault(); if (fillKind !== 'image') changeFill('image'); } }}
                 onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient' || kind === 'pattern' || kind === 'background') changeFill(kind); }} />{t(label)}</label>
             {/each}
           </fieldset>
