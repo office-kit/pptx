@@ -79,8 +79,8 @@
       {#if branch === 'align' && count}<div class="menu submenu" role="menu" aria-label={t('Align')} use:place={true}>
         {#each alignment as item}<button role="menuitem" onclick={() => choose(() => editor.alignSelection(item.value, toSlide ? 'slide' : 'selection'))}>{t(item.label)}</button>{/each}
         <hr />
-        <button role="menuitem" disabled={count < 3 || toSlide} onclick={() => choose(() => editor.distributeSelection('horizontal'))}>{t('Distribute Horizontally')}</button>
-        <button role="menuitem" disabled={count < 3 || toSlide} onclick={() => choose(() => editor.distributeSelection('vertical'))}>{t('Distribute Vertically')}</button>
+        <button role="menuitem" disabled={count === 0 || (!toSlide && count < 3)} onclick={() => choose(() => editor.distributeSelection('horizontal'))}>{t('Distribute Horizontally')}</button>
+        <button role="menuitem" disabled={count === 0 || (!toSlide && count < 3)} onclick={() => choose(() => editor.distributeSelection('vertical'))}>{t('Distribute Vertically')}</button>
         <hr />
         <button role="menuitemradio" aria-checked={toSlide} onclick={() => choose(() => editor.alignmentReference = 'slide')}>{t('Align to Slide')}<span>{toSlide ? '✓' : ''}</span></button>
         <button role="menuitemradio" disabled={count < 2} aria-checked={!toSlide} onclick={() => choose(() => editor.alignmentReference = 'selection')}>{t('Align Selected Objects')}<span>{!toSlide ? '✓' : ''}</span></button>

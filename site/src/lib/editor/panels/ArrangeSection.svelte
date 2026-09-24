@@ -26,8 +26,8 @@
       {#each alignments as [alignment, label]}
         <button onclick={() => editor.alignSelection(alignment, editor.alignmentReference)}>{t(label)}</button>
       {/each}
-      <button disabled={count < 3} onclick={() => editor.distributeSelection('horizontal')}>{t('Distribute horizontally')}</button>
-      <button disabled={count < 3} onclick={() => editor.distributeSelection('vertical')}>{t('Distribute vertically')}</button>
+      <button disabled={count === 2 && editor.alignmentReference !== 'slide'} onclick={() => editor.distributeSelection('horizontal')}>{t('Distribute horizontally')}</button>
+      <button disabled={count === 2 && editor.alignmentReference !== 'slide'} onclick={() => editor.distributeSelection('vertical')}>{t('Distribute vertically')}</button>
       <button disabled={!editor.canRun('groupShapes')} onclick={() => editor.invoke('groupShapes')}>{t('Group')}</button>
       <button disabled={!editor.canRun('ungroupShapes')} onclick={() => editor.invoke('ungroupShapes')}>{t('Ungroup')}</button>
     </div>

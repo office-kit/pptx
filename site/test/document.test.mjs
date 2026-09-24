@@ -937,3 +937,75 @@ test('regroup keeps separate histories and nested sibling boundaries', async () 
   assert.equal(editor.canRegroup(), true);
   assert.equal(getGroupChildren(outer()).length, 3);
 });
+
+test('slide distribution includes outer margins and supports one or two objects', async () => {
+  for (const direction of ['horizontal', 'vertical']) {
+    for (const count of [1, 2, 3]) {
+      const editor = new EditorController();
+      const shapes = arrangedShapes(editor).slice(0, count);
+      const ids = shapes.map(getShapeId);
+      editor.doc.select({
+        kind: 'shape',
+        slideIndex: editor.doc.selection.slideIndex,
+        shapeIds: ids,
+      });
+      const before = shapes.map((s) => getShapeBoundsResolved(editor.doc.pres, s));
+      const axis = direction === 'horizontal' ? 'x' : 'y';
+      const extent = direction === 'horizontal' ? 'w' : 'h';
+      const size = getSlideSize(editor.doc.pres);
+      const gap =
+        ((axis === 'x' ? size.width : size.height) -
+          before.reduce((sum, b) => sum + b[extent], 0)) /
+        (count + 1);
+      editor.alignmentReference = 'slide';
+      editor.distributeSelection(direction);
+      let position = gap;
+      const expected = before.map((b) => {
+        const result = { ...b, [axis]: Math.round(position) };
+        position += b[extent] + gap;
+        return result;
+      });
+      assert.deepEqual(
+        editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+        expected,
+      );
+      await editor.doc.undo();
+      assert.deepEqual(
+        editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+        before,
+      );
+      await editor.doc.redo();
+      assert.deepEqual(
+        editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+        expected,
+      );
+    }
+  }
+});
+
+test('distribution reproduces saved Mac PowerPoint coordinates', () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const original = [
+    { x: 914400, y: 914400, w: 914400, h: 914400 },
+    { x: 3657600, y: 2743200, w: 1828800, h: 1828800 },
+    { x: 7315200, y: 4572000, w: 2743200, h: 914400 },
+  ];
+  editor.doc.transact('Native geometry', () => {
+    shapes.forEach((shape, index) => setShapeBounds(shape, original[index]));
+  });
+  editor.alignmentReference = 'slide';
+  editor.distributeSelection('horizontal');
+  assert.deepEqual(
+    shapes.map((s) => getShapeBoundsResolved(editor.doc.pres, s).x),
+    [1676400, 4267200, 7772400],
+  );
+  editor.doc.select({
+    kind: 'shape',
+    slideIndex: editor.doc.selection.slideIndex,
+    shapeIds: [getShapeId(shapes[0])],
+  });
+  editor.alignmentReference = 'selection';
+  editor.distributeSelection('horizontal');
+  assert.equal(getShapeBoundsResolved(editor.doc.pres, shapes[0]).x, 5638800);
+});
