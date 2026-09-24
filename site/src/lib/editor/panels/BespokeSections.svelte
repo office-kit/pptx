@@ -6,7 +6,6 @@
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
-    getShapeTextAnchor,
     getShapeParagraphCount,
     getParagraphPropertiesEffective,
     getShapeKind,
@@ -22,6 +21,7 @@
     setShapeText,
   } from '@office-kit/pptx';
   import SizePositionSection from './SizePositionSection.svelte';
+  import TextBoxSection from './TextBoxSection.svelte';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { selectedShapeId } from '../core/selection.ts';
@@ -59,11 +59,9 @@
 
   const textAlignment = $derived.by(() => {
     doc.version;
-    if (!objectFormats) return { align: '', anchor: '' };
+    if (!objectFormats) return { align: '' };
     const horizontal = new Set<string>();
-    const vertical = new Set<string>();
     for (const target of editor.selectedShapes()) {
-      vertical.add(getShapeTextAnchor(target) ?? '');
       const count = getShapeParagraphCount(target);
       if (!count) horizontal.add('');
       for (let index = 0; index < count; index++) {
@@ -71,7 +69,7 @@
         horizontal.add(['left', 'center', 'right', 'justify'].includes(align) ? align : '');
       }
     }
-    return { align: horizontal.size === 1 ? [...horizontal][0] : '', anchor: vertical.size === 1 ? [...vertical][0] : '' };
+    return { align: horizontal.size === 1 ? [...horizontal][0] : '' };
   });
 
   const paint = $derived.by(() => {
@@ -194,6 +192,7 @@
     </div>
 
     <SizePositionSection />
+    <TextBoxSection />
 
     {#if objectFormats}
       <TextFormatBar formats={objectFormats} selected context="objects"
@@ -204,15 +203,6 @@
             onchange={event => editor.invoke('setShapeAlignment', { align: event.currentTarget.value })}>
             <option value="" disabled>{t('Mixed or inherited')}</option>
             {#each [['left', 'Left'], ['center', 'Center'], ['right', 'Right'], ['justify', 'Justify']] as [value, label]}
-              <option {value}>{t(label)}</option>
-            {/each}
-          </select>
-        </label>
-        <label>{t('Vertical alignment')}
-          <select class="ok-input" aria-label={t('Vertical alignment')} value={textAlignment.anchor}
-            onchange={event => editor.invoke('setShapeTextAnchor', { anchor: event.currentTarget.value })}>
-            <option value="" disabled>{t('Mixed or inherited')}</option>
-            {#each [['top', 'Top'], ['center', 'Center'], ['bottom', 'Bottom']] as [value, label]}
               <option {value}>{t(label)}</option>
             {/each}
           </select>
