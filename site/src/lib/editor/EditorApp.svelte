@@ -13,6 +13,7 @@
   import StatusBar from './ui/StatusBar.svelte';
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
+  import GridOptionsDialog from './ui/GridOptionsDialog.svelte';
   import CropDialog from './ui/CropDialog.svelte';
   import ImageDialog from './ui/ImageDialog.svelte';
   import ChartDialog from './ui/ChartDialog.svelte';
@@ -65,6 +66,8 @@
       editor.runOrPrompt('replaceTextInPresentation');
       return;
     }
+    if (mod && e.altKey && e.code === 'KeyR') { e.preventDefault(); editor.ribbonVisible = !editor.ribbonVisible; return; }
+    if (mod && !e.altKey && !e.shiftKey && ['Digit1', 'Digit2'].includes(e.code)) { e.preventDefault(); editor.setViewMode(e.code === 'Digit1' ? 'normal' : 'sorter'); return; }
     if (typing || e.defaultPrevented) return;
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
@@ -153,16 +156,15 @@
 
 </script>
 
-<svelte:window on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
+<svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
 <div class="ok-editor ok-shell">
   <TopBar {onsave} />
   {#if status}<div class="host-status">{@render status()}</div>{/if}
-  <Ribbon />
-  <div class="ok-body">
-    <SlideNavigator />
-    <SlideCanvas />
-    <PropertiesPanel />
+  <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'}>
+    <SlideNavigator mode={editor.viewMode} />
+    {#if editor.viewMode === 'normal'}<SlideCanvas /><PropertiesPanel />{/if}
   </div>
   <StatusBar />
 
@@ -170,7 +172,9 @@
     <CommandPalette />
   {/if}
   {#if editor.activeDialog}
-    {#if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
+    {#if editor.activeDialog === 'gridOptions'}
+      <GridOptionsDialog />
+    {:else if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
       {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
     {:else if editor.activeDialog === 'setShapeImageCrop'}
       <CropDialog />
@@ -219,6 +223,7 @@
   .ok-shell:has(.host-status) {
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
+  .ok-body.sorter { grid-template-columns: minmax(0, 1fr); }
   .ok-body {
     display: grid;
     grid-template-columns: var(--ok-nav-w) minmax(0, 1fr) var(--ok-panel-w);

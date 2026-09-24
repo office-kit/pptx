@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { snapTransformedMove } from '../src/lib/editor/canvas/transformed-snapping.ts';
+import {
+  snapTransformedMove,
+  snapTransformedGrid,
+  projectedBounds,
+} from '../src/lib/editor/canvas/transformed-snapping.ts';
 
 const slide = { w: 1000, h: 800 };
 const rect = { x: 0, y: 0, w: 100, h: 50, rotation: 0 };
@@ -40,4 +44,12 @@ test('rotated child envelopes determine visible edge snapping', () => {
   );
   assert.equal(result.delta.x, -45);
   assert.ok(result.guides.some((g) => g.o === 'v' && g.pos === 0));
+});
+
+test('grid snapping preserves group translation and uses independent slide grid intervals', () => {
+  const matrix = [0, 2, -3, 0, 305, 100];
+  const delta = snapTransformedGrid([rect], matrix, { x: 7, y: 50 }, { x: 20, y: 30 });
+  const visible = projectedBounds({ ...rect, x: delta.x, y: delta.y }, matrix);
+  assert.ok(Math.abs(visible.x) < 1e-9);
+  assert.ok(Math.abs(visible.y - 120) < 1e-9);
 });

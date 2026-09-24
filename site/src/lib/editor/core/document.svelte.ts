@@ -21,6 +21,8 @@
 
 import {
   createPresentation,
+  setGridSpacing,
+  setSnapToGrid,
   addTitleSlide,
   getSlides,
   findShapeById,
@@ -293,5 +295,21 @@ export class EditorDocument {
 function createInitial(): PresentationData {
   const pres = createPresentation();
   addTitleSlide(pres, 'Untitled presentation');
+  try {
+    const defaults = JSON.parse(localStorage.getItem('office-grid-defaults') ?? 'null');
+    if (
+      defaults &&
+      Number.isSafeInteger(defaults.x) &&
+      defaults.x > 0 &&
+      Number.isSafeInteger(defaults.y) &&
+      defaults.y > 0 &&
+      typeof defaults.snap === 'boolean'
+    ) {
+      setGridSpacing(pres, { x: defaults.x, y: defaults.y });
+      setSnapToGrid(pres, defaults.snap);
+    }
+  } catch {
+    /* Missing or invalid local defaults do not prevent creating a deck. */
+  }
   return pres;
 }

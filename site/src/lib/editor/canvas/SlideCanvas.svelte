@@ -1,4 +1,5 @@
 <script lang="ts">
+  import DrawingGuides from './DrawingGuides.svelte';
   // The editing surface. Paints the current slide with the preview renderer and
   // manipulates it directly: click/marquee to select, drag to move (multi-shape,
   // with smart-guide snapping), handles to resize, a top handle to rotate,
@@ -62,7 +63,8 @@
   import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
   import { rotateRect, selectionBounds } from './rotation.ts';
   import { type Guide, type Rect } from './snapping.ts';
-  import { snapTransformedMove } from './transformed-snapping.ts';
+  import { getDrawingGuides, getDrawingGuidesVisible, getGridSpacing, getSnapToGrid } from '@office-kit/pptx';
+  import { snapTransformedGrid, snapTransformedMove } from './transformed-snapping.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -73,6 +75,16 @@
   const metrics = $derived.by(() => {
     doc.version;
     return slideMetrics(doc.pres);
+  });
+
+  const gridSpacing = $derived.by(() => { doc.version; return getGridSpacing(doc.pres) ?? { x: 72000, y: 72000 }; });
+  const drawingGuides = $derived.by(() => {
+    doc.version;
+    if (!(editor.view.drawing ?? getDrawingGuidesVisible(doc.pres) ?? false)) return [];
+    return getDrawingGuides(doc.pres) ?? [
+      { id: 1, axis: 'x' as const, position: metrics.widthEmu / 2, color: '#808080' },
+      { id: 2, axis: 'y' as const, position: metrics.heightEmu / 2, color: '#808080' },
+    ];
   });
 
   // Slide size in CSS px at 96dpi (1 inch = 914400 EMU = 96px).
@@ -122,14 +134,13 @@
   });
 
   // Compute a fit-to-area zoom and adopt it until the user zooms themselves.
-  let userZoomed = $state(false);
   function recomputeFit() {
     if (!areaEl) return;
     const avail = areaEl.clientWidth - 56;
     const availH = areaEl.clientHeight - 56;
     const fit = Math.min(avail / slidePx.w, availH / slidePx.h);
     editor.fitZoom = fit > 0 ? fit : 1;
-    if (!userZoomed) editor.setZoom(editor.fitZoom);
+    if (editor.autoFitZoom) editor.zoom = editor.fitZoom;
   }
   $effect(() => {
     slidePx.w;
@@ -139,12 +150,6 @@
     ro.observe(areaEl);
     return () => ro.disconnect();
   });
-  // Track manual zoom so we stop auto-fitting.
-  $effect(() => {
-    editor.zoom;
-    if (Math.abs(editor.zoom - editor.fitZoom) > 0.001) userZoomed = true;
-  });
-
   // ---- Coordinate helpers ------------------------------------------------
   function pxPerEmuX() {
     return stageW / metrics.widthEmu;
@@ -372,7 +377,12 @@
         const rect = resolvedRect(box.id);
         return rect ? [{ ...rect, rotation: box.rotation }] : [];
       });
-      const snap = snapTransformedMove(moving, others, scope!.matrix, { x: dxEmu, y: dyEmu }, { w: metrics.widthEmu, h: metrics.heightEmu }, 6 / pxPerEmuX());
+      const delta = getSnapToGrid(doc.pres)
+        ? snapTransformedGrid(moving, scope!.matrix, { x: dxEmu, y: dyEmu }, gridSpacing)
+        : { x: dxEmu, y: dyEmu };
+      const snap = editor.view.smart && !getSnapToGrid(doc.pres)
+        ? snapTransformedMove(moving, others, scope!.matrix, delta, { w: metrics.widthEmu, h: metrics.heightEmu }, 6 / pxPerEmuX())
+        : { delta, guides: [] };
       const gdx = snap.delta.x;
       const gdy = snap.delta.y;
       guides = snap.guides;
@@ -1100,6 +1110,10 @@
       {/key}
 
       <div class="overlay">
+        {#if editor.view.grid}
+          <div class="grid-dots" style="background-size:{Math.max(2, gridSpacing.x * pxPerEmuX())}px {Math.max(2, gridSpacing.y * pxPerEmuY())}px"></div>
+        {/if}
+        <DrawingGuides guides={drawingGuides} scaleX={pxPerEmuX()} scaleY={pxPerEmuY()} />
         {#each guides as g, i (i)}
           <div class="guide {g.o}" style={guideStyle(g)}></div>
         {/each}
@@ -1224,6 +1238,7 @@
 </div>
 
 <style>
+  .grid-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, #808080 0.7px, transparent 0.8px); }
   .group-navigation { display: flex; align-items: center; gap: 12px; padding: 4px 12px; background: var(--ok-panel); }
   .canvas-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .canvas-area {
