@@ -1,16 +1,21 @@
 <script lang="ts">
-  import { getShapeGradientFillEffective, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
+  import { getShapeGradientFillEffective, setShapeGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import GradientDirection from './GradientDirection.svelte';
 
   const editor = getEditor();
-  const gradient = $derived.by(() => {
+  const gradients = $derived.by(() => {
     editor.doc.version;
-    const shapes = editor.selectedShapes();
-    if (shapes.length !== 1) return null;
-    return getShapeGradientFillEffective(editor.doc.pres, shapes[0]!);
+    return editor.selectedShapes().map(shape => getShapeGradientFillEffective(editor.doc.pres, shape));
   });
+  const gradient = $derived.by(() => {
+    const first = gradients[0];
+    if (!first || !gradients.every(value => value && JSON.stringify(value.stops) === JSON.stringify(first.stops))) return null;
+    return first;
+  });
+  const angleValue = $derived(gradients.every(value => (value?.angleDeg ?? 90) === (gradient?.angleDeg ?? 90)) ? gradient?.angleDeg ?? 90 : undefined);
+  const mixedRotation = $derived(gradients.some(value => (value?.rotateWithShape !== false) !== (gradient?.rotateWithShape !== false)));
   let selected = $state(0);
   $effect(() => { editor.doc.selection; selected = 0; });
   const selectedIndex = $derived(Math.min(selected, (gradient?.stops.length ?? 1) - 1));
@@ -44,7 +49,16 @@
   }
   function apply(patch: Partial<ReadGradientFill>) {
     if (!gradient || locked) return;
-    editor.invoke('setShapeGradientFill', { options: { ...gradient, ...patch } });
+    editor.doc.transact(t('Gradient fill'), () => {
+      for (const shape of editor.selectedShapes()) {
+        const current = getShapeGradientFillEffective(editor.doc.pres, shape)!;
+        const next = { ...current, ...patch };
+        setShapeGradientFill(shape, { ...next, stops: next.stops.map(stop => {
+          const color = asColor(stop.color);
+          return { ...stop, color: color ?? asColor(stop.resolvedColor ?? '') ?? 'accent1', brightness: color ? stop.brightness : 0 };
+        }) });
+      }
+    });
   }
   function editStop(patch: Partial<ReadGradientStop>) {
     if (!gradient) return;
@@ -98,7 +112,7 @@
       <GradientDirection angle={gradient.angleDeg ?? 90} disabled={locked} choose={angleDeg => apply({ angleDeg, scaled: true })} />
     {/if}
     <label class="field"><span>{t('Angle')}</span><span class="number">
-      <input class="ok-input" type="number" min="0" max="359.9" step="any" aria-label={t('Gradient angle')} value={gradient.angleDeg ?? 90} disabled={gradient.path !== undefined && gradient.path !== 'linear'} onchange={event => angle(event.currentTarget)} />°
+      <input class="ok-input" type="number" min="0" max="359.9" step="any" aria-label={t('Gradient angle')} value={angleValue ?? ''} placeholder={t('Mixed')} disabled={gradient.path !== undefined && gradient.path !== 'linear'} onchange={event => angle(event.currentTarget)} />°
     </span></label>
     <span>{t('Gradient stops')}</span>
     <div class="stops" role="group" aria-label={t('Gradient stops')} style:background={track}>
@@ -121,10 +135,10 @@
         <span class="number"><input class="ok-input" type="number" min={control.min} max="100" step="any" aria-label={t(control.accessible)} value={Math.round(control.value * 1000) / 1000} onchange={event => numeric(event.currentTarget, control.field === 'opacity' ? 'opacity' : 'brightness')} />%</span>
       </div></div>
     {/each}
-    <label class="rotate"><input type="checkbox" checked={gradient.rotateWithShape !== false} onchange={event => apply({ rotateWithShape: event.currentTarget.checked })} />{t('Rotate with shape')}</label>
+    <label class="rotate"><input type="checkbox" checked={gradient.rotateWithShape !== false} indeterminate={mixedRotation} onchange={event => apply({ rotateWithShape: event.currentTarget.checked })} />{t('Rotate with shape')}</label>
   </fieldset>
 {:else}
-  <p>{t('Select one shape to edit gradient stops.')}</p>
+  <p>{t('Select shapes with matching gradient stops to edit them together.')}</p>
 {/if}
 
 <style>

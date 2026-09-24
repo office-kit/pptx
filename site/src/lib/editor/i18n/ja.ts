@@ -5,6 +5,8 @@ export const ja: Record<string, string> = {
   'Picture or texture fill': '塗りつぶし（図またはテクスチャ）',
   Clipboard: 'クリップボード',
   'The clipboard does not contain a picture.': 'クリップボードに図がありません。',
+  'Select shapes with matching gradient stops to edit them together.':
+    'グラデーションの分岐点が一致する図形を選択して、一緒に編集してください。',
   'Picture source': '図のソース',
   'Insert...': '挿入...',
   'Picture transparency': '図の透明度',
