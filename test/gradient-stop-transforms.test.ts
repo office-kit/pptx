@@ -2,6 +2,11 @@ import { readFile } from 'node:fs/promises';
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
+  getSlideSize,
+  setShapeText,
+  inches,
+  setShapeBounds,
+  setShapeRotation,
   getShapeGradientFill,
   getShapeGradientFillEffective,
   getSlideShapes,
@@ -10,6 +15,7 @@ import {
   savePresentation,
   setShapeGradientFill,
 } from '../src/api/index.ts';
+import { renderSlideToRgba } from '../packages/preview/src/node.ts';
 import { renderSlideSvg } from '../packages/preview/src/render-slide.ts';
 
 const transformedGradient = async (path: 'linear' | 'circle') => {
@@ -60,6 +66,37 @@ describe('imported gradient stop color transforms', () => {
       const pres = await transformedGradient(path);
       const svg = renderSlideSvg(pres, getSlides(pres)[0]!);
       expect(svg).toMatch(/<stop[^>]*stop-color="#808080"[^>]*stop-opacity="0.25"/);
+    },
+  );
+});
+
+describe('gradient rotation', () => {
+  it.each([true, false])(
+    'honors rotateWithShape=%s on a wide rotated rectangle',
+    async (rotateWithShape) => {
+      const pres = await transformedGradient('linear');
+      const slide = getSlides(pres)[0]!;
+      const shape = getSlideShapes(slide)[0]!;
+      setShapeBounds(shape, { x: inches(1), y: inches(2), w: inches(4), h: inches(1) });
+      setShapeRotation(shape, 45);
+      setShapeText(shape, '');
+      setShapeGradientFill(shape, {
+        stops: [
+          { offset: 0, color: '#FF0000' },
+          { offset: 1, color: '#0000FF' },
+        ],
+        angleDeg: 0,
+        rotateWithShape,
+      });
+      const { image } = renderSlideToRgba(pres, slide, {
+        width: Math.round((getSlideSize(pres)!.width / inches(1)) * 96),
+      });
+      const redAt = (x: number, y: number) => image.data[(y * image.width + x) * 4]!;
+      // Two points at the same slide x coordinate inside the slanted rectangle.
+      const verticalDifference = Math.abs(redAt(288, 225) - redAt(288, 255));
+      if (rotateWithShape) expect(verticalDifference).toBeGreaterThan(10);
+      else expect(verticalDifference).toBeLessThanOrEqual(1);
+      expect(redAt(220, 172)).toBeGreaterThan(redAt(355, 307));
     },
   );
 });

@@ -653,6 +653,7 @@ let activeSlideNumber = '1';
 const gradientDef = (
   grad: ReadGradientFill,
   theme: PresentationTheme | null,
+  transform = '',
 ): { defs: string; fillAttr: string } => {
   const id = mintId();
   const orderedStops = [...grad.stops].sort((a, b) => a.offset - b.offset);
@@ -690,7 +691,7 @@ const gradientDef = (
   const y1 = 0.5 - dy;
   const x2 = 0.5 + dx;
   const y2 = 0.5 + dy;
-  const defs = `<defs><linearGradient id="${id}" gradientUnits="objectBoundingBox" x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
+  const defs = `<defs><linearGradient id="${id}" gradientUnits="objectBoundingBox"${transform} x1="${x1.toFixed(4)}" y1="${y1.toFixed(4)}" x2="${x2.toFixed(4)}" y2="${y2.toFixed(4)}">${stops}</linearGradient></defs>`;
   return { defs, fillAttr: `url(#${id})` };
 };
 
@@ -946,7 +947,30 @@ const paint = (
         : getShapeGradientFill(shape)
       : null;
     if (grad) {
-      const built = gradientDef(grad, theme);
+      let transform = '';
+      const bounds = shape && (pres ? getShapeBoundsResolved(pres, shape) : getShapeBounds(shape));
+      if (grad.rotateWithShape === false && shape && bounds && bounds.w > 0 && bounds.h > 0) {
+        // Mac PowerPoint anchors a non-rotating gradient to the rotated shape's
+        // axis-aligned bounding box. Undo the shape transform in physical space;
+        // rotating the unit square alone distorts wide or tall shapes.
+        const angle = (getShapeRotation(shape) * Math.PI) / 180;
+        const cos = Math.cos(angle);
+        const sin = Math.sin(angle);
+        const w = bounds.w;
+        const h = bounds.h;
+        const rotatedW = Math.abs(cos) * w + Math.abs(sin) * h;
+        const rotatedH = Math.abs(sin) * w + Math.abs(cos) * h;
+        const flip = getShapeFlip(shape);
+        const sx = flip?.horizontal ? -1 : 1;
+        const sy = flip?.vertical ? -1 : 1;
+        const a = (sx * cos * rotatedW) / w;
+        const b = (-sy * sin * rotatedW) / h;
+        const c = (sx * sin * rotatedH) / w;
+        const d = (sy * cos * rotatedH) / h;
+        const matrix = [a, b, c, d, (1 - a - c) / 2, (1 - b - d) / 2];
+        transform = ` gradientTransform="matrix(${matrix.map((value) => value.toFixed(6)).join(' ')})"`;
+      }
+      const built = gradientDef(grad, theme, transform);
       defs = built.defs;
       fillColor = built.fillAttr;
     } else {
