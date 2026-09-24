@@ -20,6 +20,7 @@ import {
   getSlideShapes,
 } from '@office-kit/pptx';
 import {
+  switchRememberedImageLayout,
   readRememberedImageFill,
   restoreRememberedImageFill,
 } from '../src/lib/editor/core/remembered-image-fill.ts';
@@ -79,4 +80,23 @@ test('restoring remembered stretch fills preserves empty effects and offsets', (
   assert.deepEqual(getShapeImageFillLayout(shape), remembered.layout);
   assert.equal(getShapeImageOpacity(shape), null);
   assert.equal(getShapeImageCrop(shape), null);
+});
+
+test('tile and stretch settings survive mode changes while rotation remains shared', () => {
+  const remembered = {};
+  const tile = {
+    mode: 'tile',
+    scaleX: 0.6,
+    scaleY: 0.8,
+    alignment: 'br',
+    flip: 'xy',
+    rotateWithShape: true,
+  };
+  const stretch = switchRememberedImageLayout(tile, 'stretch', remembered);
+  assert.deepEqual(stretch, { mode: 'stretch', rotateWithShape: true });
+  stretch.left = 0.25;
+  stretch.rotateWithShape = false;
+  const restoredTile = switchRememberedImageLayout(stretch, 'tile', remembered);
+  assert.deepEqual(restoredTile, { ...tile, rotateWithShape: false });
+  assert.deepEqual(switchRememberedImageLayout(restoredTile, 'stretch', remembered), stretch);
 });

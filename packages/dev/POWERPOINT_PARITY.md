@@ -250,6 +250,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Picture fill controls now expose image insertion, transparency, tile/stretch offsets, scaling, alignment, mirroring and rotation, with multi-selection edits in one undo transaction. Initial selection opens a file chooser; native default texture selection, Clipboard and visual comparison of this pane remain outstanding. Image fills are remembered across type switches, including media, tile/stretch placement, opacity and supported crop values. Mac PowerPoint restored 35% transparency after switching to gradient and back; all four temporary edits were undone and the reference saved. Imported negative/outset crops, explicit DPI overrides and arbitrary image effects are not yet preserved by this cache.
 - Texture selection, rotation-independent image rendering, native comparison of source-cropped tiles, additional image formats/EXIF resolution and texture selection remain outstanding.
 
+- Picture fill placement modes now remember tile and stretch settings separately for each shape. In Mac PowerPoint, setting Scale X to 60%, disabling Tile picture as texture, and enabling it again restored 60%; the audit changes were undone and saved. Rotation remains a shared setting when switching modes.
+
 ### Slide-background fill
 
 - Selecting Slide background fill hides all fill controls and writes `p:sp useBgFill="1"` with no fill choice inside `p:spPr`. It preserves the geometry and line settings. The temporary comparison was undone and saved; Undo is disabled.

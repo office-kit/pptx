@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, setShapeImageFill, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
+  import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, setShapeImageFill, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
+  import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -33,6 +34,21 @@
     apply('Picture or texture fill', shape => {
       const value = getShapeImageFillLayout(shape);
       if (value) setShapeImageFillLayout(shape, edit(value));
+    });
+  }
+  function switchLayout(tile: boolean) {
+    if (doc.selection.kind !== 'shape') return;
+    const slide = doc.slideAt(doc.selection.slideIndex);
+    if (!slide) return;
+    const slideKey = getSlidePartName(slide);
+    apply('Tile picture as texture', shape => {
+      const current = getShapeImageFillLayout(shape);
+      if (!current) return;
+      const key = `${slideKey}:${getShapeId(shape)}`;
+      const remembered = doc.rememberedFills.get(key) ?? {};
+      const layouts = remembered.imageLayouts ??= {};
+      setShapeImageFillLayout(shape, switchRememberedImageLayout(current, tile ? 'tile' : 'stretch', layouts));
+      doc.rememberedFills.set(key, remembered);
     });
   }
   function numericValue(field: string) {
@@ -87,7 +103,7 @@
       <input type="range" min="0" max="100" value={transparency ?? 0} aria-label={t('Picture transparency')} aria-valuetext={transparency === undefined ? t('Mixed') : `${transparency}%`} onchange={event => { const value = event.currentTarget.valueAsNumber; apply('Picture transparency', shape => setShapeImageOpacity(shape, 1 - value / 100)); }} />
       <label class="number"><input class="ok-input" type="number" min="0" max="100" step="any" value={transparency ?? ''} placeholder={t('Mixed')} aria-label={t('Picture transparency')} onchange={event => { const element = event.currentTarget; if (element.reportValidity() && Number.isFinite(element.valueAsNumber)) { const value = element.valueAsNumber; apply('Picture transparency', shape => setShapeImageOpacity(shape, 1 - value / 100)); } else element.value = String(transparency ?? ''); }} />%</label>
     </div>
-    <label class="check"><input type="checkbox" checked={tiled} indeterminate={mixedMode} onchange={event => { const tile = event.currentTarget.checked; layout(current => ({ mode: tile ? 'tile' : 'stretch', rotateWithShape: current.rotateWithShape })); }} />{t('Tile picture as texture')}</label>
+    <label class="check"><input type="checkbox" checked={tiled} indeterminate={mixedMode} onchange={event => switchLayout(event.currentTarget.checked)} />{t('Tile picture as texture')}</label>
     {#each tiled ? tileFields : stretchFields as [field, label]}
       <label class="row"><span>{t(label)}</span><span class="number"><input class="ok-input" type="number" min={field.startsWith('scale') ? 0 : tiled ? -1584 : -100000} max={field.startsWith('scale') ? 100 : tiled ? 1584 : 100000} step="any" value={numericValue(field) ?? ''} placeholder={t('Mixed')} aria-label={t(label)} onchange={event => numeric(event.currentTarget, field)} />{field.startsWith('offset') ? 'pt' : '%'}</span></label>
     {/each}
