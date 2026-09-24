@@ -32,6 +32,7 @@
   import SizePositionSection from './SizePositionSection.svelte';
   import TextBoxSection from './TextBoxSection.svelte';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
+  import ColorPicker from '../ui/ColorPicker.svelte';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -122,6 +123,18 @@
   function colorValue(value: string): string {
     return /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
   }
+  const paintColors = $derived.by(() => {
+    doc.version;
+    const shapes = editor.selectedShapes();
+    const common = (read: typeof getShapeFill | typeof getShapeStroke) => {
+      const values = new Set(shapes.map(target => {
+        const paint = read(target);
+        return paint.kind === 'solid' ? paint.color : undefined;
+      }));
+      return values.size === 1 ? [...values][0] : undefined;
+    };
+    return { fill: common(getShapeFill), stroke: common(getShapeStroke) };
+  });
   const fillKind = $derived.by(() => {
     doc.version;
     const kinds = new Set(editor.selectedShapes().map(target => getShapeFillEffective(doc.pres, target).kind));
@@ -205,7 +218,7 @@
           <div class="mini">
             <span>{t('Color')}</span>
             <span class="colorwrap">
-              <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
+              <ColorPicker label={t('Fill')} value={paintColors.fill} resolvedColor={colorValue(paint.fill)} disabled={editor.selectionLocked()} choose={applyFill} />
               <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
             </span>
           </div>
@@ -220,7 +233,7 @@
           <div class="mini">
             <span>{t('Color')}</span>
             <span class="colorwrap">
-              <input type="color" aria-label={t('Outline')} value={colorValue(paint.stroke)} onchange={(e) => applyStroke(e.currentTarget.value)} />
+              <ColorPicker label={t('Outline')} value={paintColors.stroke} resolvedColor={colorValue(paint.stroke)} disabled={editor.selectionLocked()} choose={applyStroke} />
               <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
             </span>
             <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
@@ -341,15 +354,6 @@
     color: var(--ok-text-2);
     flex: 1;
     min-width: 0;
-  }
-  .colorwrap input[type='color'] {
-    width: 100%;
-    height: 26px;
-    border: 1px solid var(--ok-border-strong);
-    border-radius: var(--ok-radius);
-    background: none;
-    padding: 0;
-    cursor: pointer;
   }
   .scope {
     font-size: 11px;
