@@ -7,6 +7,7 @@ import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { chromium } from 'playwright';
 import {
   getSlideBackgroundGradientFill,
+  getSlideBackground,
   getSlideLayout,
   getSlideLayoutBackgroundGradientFill,
   getSlides,
@@ -46,6 +47,35 @@ test(
       await thumbs.nth(0).click();
       await thumbs.nth(1).click({ modifiers: ['Shift'] });
       const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
+      const backgroundValues = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        ).map(getSlideBackground);
+      const transparency = pane.getByRole('spinbutton', {
+        name: 'Background transparency',
+        exact: true,
+      });
+      await transparency.fill('40');
+      await transparency.press('Tab');
+      await saved();
+      let backgrounds = await backgroundValues();
+      assert.equal(backgrounds[0].opacity, 0.6);
+      assert.deepEqual(backgrounds[0], backgrounds[1]);
+      assert.equal(backgrounds[2].kind, 'inherit');
+      await page.reload();
+      await saved();
+      assert.deepEqual(await backgroundValues(), backgrounds);
+      await thumbs.nth(0).click();
+      await thumbs.nth(1).click({ modifiers: ['Shift'] });
+      await transparency.fill('100');
+      await transparency.press('Tab');
+      await saved();
+      assert.equal((await backgroundValues())[0].opacity, 0);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await backgroundValues(), backgrounds);
       await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).check();
       await saved();
       let values = await gradients();

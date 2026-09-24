@@ -55,6 +55,7 @@ import {
 import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } from './_helpers.ts';
 import { getPresentationTheme, themeFromPackage } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
+import { resolveDrawingColorOpacity } from './shape-color.ts';
 import { parseGradFill } from './shape-gradient-read.ts';
 import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
 
@@ -100,7 +101,7 @@ const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) =
  * the layout / master).
  */
 export type SlideBackground =
-  | { readonly kind: 'solid'; readonly color: string }
+  | { readonly kind: 'solid'; readonly color: string; readonly opacity?: number }
   | { readonly kind: 'gradient' }
   | { readonly kind: 'pattern' }
   | { readonly kind: 'image' }
@@ -153,13 +154,24 @@ export const backgroundOfCSld = (cSld: XmlElement | null): SlideBackground => {
   if (bgRef) {
     for (const inner of bgRef.children) {
       if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+      const opacity = resolveDrawingColorOpacity(inner);
       if (inner.name.localName === 'srgbClr') {
         const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+        if (val !== null)
+          return {
+            kind: 'solid',
+            color: `#${val.toUpperCase()}`,
+            ...(opacity === null ? {} : { opacity }),
+          };
       }
       if (inner.name.localName === 'schemeClr') {
         const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+        if (val !== null)
+          return {
+            kind: 'solid',
+            color: `scheme:${val}`,
+            ...(opacity === null ? {} : { opacity }),
+          };
       }
     }
     return { kind: 'inherit' };
@@ -172,13 +184,24 @@ export const backgroundOfCSld = (cSld: XmlElement | null): SlideBackground => {
       case 'solidFill': {
         for (const inner of c.children) {
           if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+          const opacity = resolveDrawingColorOpacity(inner);
           if (inner.name.localName === 'srgbClr') {
             const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+            if (val !== null)
+              return {
+                kind: 'solid',
+                color: `#${val.toUpperCase()}`,
+                ...(opacity === null ? {} : { opacity }),
+              };
           }
           if (inner.name.localName === 'schemeClr') {
             const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+            if (val !== null)
+              return {
+                kind: 'solid',
+                color: `scheme:${val}`,
+                ...(opacity === null ? {} : { opacity }),
+              };
           }
         }
         return { kind: 'solid', color: '' };
@@ -707,9 +730,11 @@ export const getSlideMasterBackgroundImageBytes = (
   return part?.data ?? null;
 };
 
-/** Sets a solid fill on the slide's background. */
-export const setSlideBackground = (slide: SlideData, color: Color): void => {
-  setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
+/** Sets a solid background; optional opacity is 0 (transparent) to 1 (opaque). */
+export const setSlideBackground = (slide: SlideData, color: Color, opacity?: number): void => {
+  setSlideBackgroundXml(slide, (bgPr) =>
+    setSolidFill(bgPr, { color, ...(opacity === undefined ? {} : { opacity }) }),
+  );
 };
 
 /**

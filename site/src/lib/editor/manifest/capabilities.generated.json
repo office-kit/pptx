@@ -2429,6 +2429,12 @@
           "type": "string",
           "kind": "color",
           "optional": false
+        },
+        {
+          "name": "opacity",
+          "type": "number",
+          "kind": "number",
+          "optional": true
         }
       ]
     },

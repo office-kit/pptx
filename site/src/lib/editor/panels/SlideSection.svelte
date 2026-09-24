@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { getSlides, asColor, type Color, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
   import { readSlideBackground } from '../core/slide-background.ts';
   import GradientFillSection from './GradientFillSection.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
@@ -22,6 +22,14 @@
   const mixedBackground = $derived(slides.some(item => JSON.stringify(readSlideBackground(doc.pres, item).fill) !== JSON.stringify(background)));
   const gradientBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'gradient'));
   const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(readSlideBackground(doc.pres, item).fill.kind)));
+  const opacity = $derived(background?.kind === 'solid' ? background.opacity ?? 1 : 1);
+  const mixedOpacity = $derived(slides.some(item => { const value = readSlideBackground(doc.pres, item).fill; return (value.kind === 'solid' ? value.opacity ?? 1 : 1) !== opacity; }));
+  function changeSolid(color?: Color, opacity?: number) {
+    apply('Background color', target => {
+      const current = readSlideBackground(doc.pres, target).fill;
+      setSlideBackground(target, color ?? (current.kind === 'solid' ? asColor(current.color) : null) ?? '#FFFFFF', opacity ?? (current.kind === 'solid' ? current.opacity : undefined));
+    });
+  }
   const canReset = $derived(slides.some(item => getSlideBackground(item)?.kind !== 'inherit'));
   let fileInput = $state<HTMLInputElement>();
   let error = $state('');
@@ -82,7 +90,13 @@
     {#if gradientBackground}
       <GradientFillSection background />
     {:else}
-      <div class="color-field">{t('Background color')}<ColorPicker label={t('Background color')} value={!mixedBackground && background?.kind === 'solid' ? background.color : undefined} choose={color => apply('Background color', target => setSlideBackground(target, color))} /></div>
+      <div class="color-field">{t('Background color')}<ColorPicker label={t('Background color')} value={!mixedBackground && background?.kind === 'solid' ? background.color : undefined} choose={color => changeSolid(color)} /></div>
+    {/if}
+    {#if solidBackground}
+      <label>{t('Transparency')}<div class="transparency">
+        <input type="range" aria-label={t('Background transparency')} min="0" max="100" value={Math.round((1 - opacity) * 100)} onchange={event => changeSolid(undefined, 1 - Number(event.currentTarget.value) / 100)} />
+        <input class="ok-input" type="number" aria-label={t('Background transparency')} min="0" max="100" placeholder={mixedOpacity ? t('Mixed') : undefined} value={mixedOpacity ? '' : Math.round((1 - opacity) * 100)} onchange={event => { if (event.currentTarget.value !== '' && event.currentTarget.validity.valid) changeSolid(undefined, 1 - Number(event.currentTarget.value) / 100); }} /><span>%</span>
+      </div></label>
     {/if}
     {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}
     <input bind:this={fileInput} aria-label={t('Background image')} type="file" accept="image/*" hidden disabled={loading} onchange={upload} />
@@ -94,6 +108,8 @@
 
 <style>
   section { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--ok-border); }
+  .transparency { display: grid; grid-template-columns: minmax(0, 1fr) 55px auto; gap: 6px; align-items: center; }
+  .transparency input { min-width: 0; width: 100%; }
   .background-types { display: grid; gap: 6px; }
   .selection { font-size: 11px; color: var(--ok-muted); }
   strong { font-size: 12px; }
