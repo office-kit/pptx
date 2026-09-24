@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 173,
+  "count": 174,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1796,6 +1796,23 @@
           "name": "opacity",
           "type": "number | null",
           "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeLocked",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-locks.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "locked",
+          "type": "boolean",
+          "kind": "boolean",
           "optional": false
         }
       ]

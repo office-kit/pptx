@@ -238,6 +238,23 @@ test(
       assert.deepEqual(getShapeBounds(await picture()), squareBounds);
       assert.deepEqual(getShapeImageCrop(await picture()), squareCrop);
       assert.deepEqual(Buffer.from(getShapeImageBytes(await picture())), png);
+      await editor.locator('.lang select').selectOption('en');
+      ja = false;
+      await editor.getByRole('tab', { name: 'Home', exact: true }).click();
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
+      const pane = editor.getByRole('region', { name: 'Selection Pane', exact: true });
+      await pane.getByRole('button', { name: 'Lock All', exact: true }).click();
+      await saved();
+      await editor.locator('.hit').dblclick();
+      const lockedCrop = editor.getByRole('dialog', { name: 'Crop image', exact: true });
+      assert.equal(
+        await lockedCrop.getByLabel('Crop aspect ratio', { exact: true }).isDisabled(),
+        true,
+      );
+      await lockedCrop.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.deepEqual(errors, []);
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-crop-failure.png', fullPage: true });

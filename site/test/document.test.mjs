@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { getSnapToGrid, getGridSpacing, setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { isShapeLocked, setShapeLocked, getSnapToGrid, getGridSpacing, setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,8 @@ const result = await build({
   ],
 });
 const {
+  isShapeLocked,
+  setShapeLocked,
   getSnapToGrid,
   getGridSpacing,
   setShapeBounds,
@@ -1008,4 +1010,62 @@ test('distribution reproduces saved Mac PowerPoint coordinates', () => {
   editor.alignmentReference = 'selection';
   editor.distributeSelection('horizontal');
   assert.equal(getShapeBoundsResolved(editor.doc.pres, shapes[0]).x, 5638800);
+});
+
+test('object locking blocks geometry and grouping but preserves text editing, stacking and undo', async () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  const slide = doc.currentSlide;
+  const shape = getSlideShapes(slide)[0];
+  doc.selectShape(0, getShapeId(shape));
+  const before = getShapeBoundsResolved(doc.pres, shape);
+  editor.lockObjects([shape], true);
+  assert.equal(isShapeLocked(shape), true);
+  assert.equal(editor.canRun('setShapeBounds'), false);
+  assert.equal(editor.canRun('setShapeRotation'), false);
+  assert.equal(editor.canRun('setShapeText'), true);
+  assert.equal(editor.canRun('bringShapeToFront'), true);
+  editor.nudge(914400, 0);
+  editor.alignSelection('right', 'slide');
+  editor.distributeSelection('horizontal');
+  assert.deepEqual(getShapeBoundsResolved(doc.pres, shape), before);
+  await doc.undo();
+  assert.equal(isShapeLocked(doc.shapeById(0, getShapeId(shape))), false);
+  await doc.redo();
+  assert.equal(isShapeLocked(doc.shapeById(0, getShapeId(shape))), true);
+});
+
+test('a locked group protects child geometry while keeping child text editable', () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  arrangedShapes(editor);
+  editor.invoke('groupShapes');
+  const group = editor.selectedShapes()[0];
+  editor.lockObjects([group], true);
+  const slideIndex = doc.selection.slideIndex;
+  doc.selectShape(slideIndex, getShapeId(getGroupChildren(group)[0]));
+  assert.equal(editor.selectionLocked(), true);
+  assert.equal(editor.canRun('setShapeSize'), false);
+  assert.equal(editor.canRun('setShapeText'), true);
+  doc.selectShape(slideIndex, getShapeId(group));
+  assert.equal(editor.canRun('ungroupShapes'), false);
+  editor.lockObjects([group], false);
+  assert.equal(editor.canRun('ungroupShapes'), true);
+});
+
+test('regroup refuses a locked former member outside the current selection', () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const ids = shapes.map(getShapeId);
+  const index = editor.doc.selection.slideIndex;
+  editor.invoke('groupShapes');
+  editor.invoke('ungroupShapes');
+  editor.lockObjects([editor.doc.shapeById(index, ids[1])], true);
+  editor.doc.selectShape(index, ids[0]);
+  assert.equal(editor.canRegroup(), false);
+  editor.regroupSelection();
+  assert.equal(
+    getSlideShapes(editor.doc.currentSlide).some((s) => getShapeKind(s) === 'group'),
+    false,
+  );
 });

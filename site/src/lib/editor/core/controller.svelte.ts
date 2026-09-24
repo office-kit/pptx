@@ -6,7 +6,9 @@
 // context menus and the palette all funnel through `invoke` / `runOrPrompt`,
 // so there is exactly one path from "user intent" to "library call".
 
+import { lockedShapeIds, selectionLocked } from './shape-locks.ts';
 import {
+  setShapeLocked,
   groupShapes,
   getDrawingGuides,
   getDrawingGuidesVisible,
@@ -167,6 +169,7 @@ export class EditorController {
   }
 
   canRun(id: string): boolean {
+    this.doc.version;
     const cmd = getCommand(id);
     return cmd ? cmd.canRun(this.ctx) : false;
   }
@@ -175,18 +178,22 @@ export class EditorController {
     this.doc.version;
     const selection = this.doc.selection;
     const slide = this.doc.currentSlide;
-    return slide && selection.kind === 'shape'
-      ? this.doc.regroupHistory.members(slide, selection.shapeIds)
-      : [];
+    const members =
+      slide && selection.kind === 'shape'
+        ? this.doc.regroupHistory.members(slide, selection.shapeIds)
+        : [];
+    const locked = slide ? lockedShapeIds(slide) : new Set<number>();
+    return members.some((shape) => locked.has(getShapeId(shape))) ? [] : members;
   }
 
   canRegroup(): boolean {
+    if (this.selectionLocked()) return false;
     return this.regroupMembers().length >= 2;
   }
 
   regroupSelection(): void {
     const members = this.regroupMembers();
-    if (members.length < 2) return;
+    if (members.length < 2 || this.selectionLocked()) return;
     this.doc.transact(t('Regroup'), () => {
       const group = groupShapes(members);
       this.doc.regroupHistory.forget(this.doc.currentSlide!, members);
@@ -387,11 +394,23 @@ export class EditorController {
     });
   }
 
+  selectionLocked(): boolean {
+    this.doc.version;
+    return selectionLocked(this.doc.currentSlide, this.doc.selection);
+  }
+
+  lockObjects(shapes: readonly SlideShapeData[], locked: boolean): void {
+    if (!shapes.length) return;
+    this.doc.transact(t(locked ? 'Lock objects' : 'Unlock objects'), () =>
+      setShapeLocked(shapes, locked),
+    );
+  }
+
   private selectedGeometry() {
     const items: { shape: SlideShapeData; bounds: ShapeBounds; visible: Rect; inverse: Matrix }[] =
       [];
     const slide = this.doc.currentSlide;
-    if (!slide) return items;
+    if (!slide || this.selectionLocked()) return items;
     const scope = shapeScope(slide, selectedShapeId(this.doc.selection));
     const inverse = invert(scope.matrix);
     if (!inverse) return items;
@@ -751,6 +770,7 @@ export class EditorController {
 
   /** Move all selected shapes by a slide-space EMU delta as one undo step. */
   nudge(dxEmu: number, dyEmu: number): void {
+    if (this.selectionLocked()) return;
     const shapes = this.selectedShapes();
     if (!shapes.length) return;
     const slide = this.doc.currentSlide;

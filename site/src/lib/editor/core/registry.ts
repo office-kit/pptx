@@ -10,6 +10,7 @@
 // Manifest coverage proves command discovery. Selection bindings and browser
 // tests separately verify that a user can execute an editing workflow.
 
+import { selectionLocked } from './shape-locks.ts';
 import type { RegroupHistory } from './regroup-history.ts';
 import { shapeScope } from '../canvas/group-space.ts';
 import * as pptx from '@office-kit/pptx';
@@ -144,6 +145,17 @@ const selectionAppearanceCommands = new Set([
   'setShapeTextAnchor',
 ]);
 
+const geometryCommands = new Set([
+  'setShapeBounds',
+  'setShapePosition',
+  'setShapeSize',
+  'setShapeRotation',
+  'setShapeFlip',
+  'setShapePreset',
+  'setShapeAdjustValues',
+  'setShapeCustomGeometry',
+]);
+
 class ManifestCommand implements Command {
   readonly capability: ResolvedCapability;
   constructor(cap: ResolvedCapability) {
@@ -156,6 +168,11 @@ class ManifestCommand implements Command {
 
   canRun(ctx: CommandContext): boolean {
     const cap = this.capability;
+    if (
+      geometryCommands.has(cap.id) &&
+      selectionLocked(ctx.doc.slideAt(ctx.doc.selection.slideIndex), ctx.doc.selection)
+    )
+      return false;
     if (!cap.takesOperand) return true; // factory/package ops always available
     if (!availableOperands(ctx.doc.selection).has(cap.operand)) return false;
     return resolveOperand(ctx.doc, cap) != null || cap.operand === 'presentation';
@@ -381,6 +398,7 @@ class GroupCommand extends ManifestCommand {
 
   override canRun({ doc }: CommandContext): boolean {
     const shapes = selectedSiblingShapes(doc);
+    if (selectionLocked(doc.slideAt(doc.selection.slideIndex), doc.selection)) return false;
     return this.capability.id === 'groupShapes'
       ? shapes.length >= 2
       : shapes.some((shape) => pptx.getShapeKind(shape) === 'group');
@@ -480,20 +498,38 @@ class LayoutCommand extends ManifestCommand {
   }
 }
 
+class LockCommand extends ManifestCommand {
+  override get params(): ResolvedCapability['params'] {
+    return super.params.filter((param) => param.name !== 'shapes');
+  }
+  override canRun({ doc }: CommandContext): boolean {
+    return selectedSiblingShapes(doc).length > 0;
+  }
+  override run({ doc }: CommandContext, args: Record<string, unknown>): void {
+    if (typeof args.locked !== 'boolean') throw new CommandError('locked must be a boolean.');
+    const locked = args.locked;
+    const shapes = selectedSiblingShapes(doc);
+    if (!shapes.length) throw new CommandError('Select an object first.');
+    doc.transact(this.capability.labelEn, () => pptx.setShapeLocked(shapes, locked));
+  }
+}
+
 const registry = new Map<string, Command>(
   capabilities.map((cap) => [
     cap.id,
-    activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide' || cap.id === 'addSlide'
-      ? new SlideCommand(cap)
-      : layoutCommands.has(cap.id)
-        ? new LayoutCommand(cap)
-        : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
-          ? new GroupCommand(cap)
-          : stackingCommands.has(cap.id)
-            ? new StackingCommand(cap)
-            : cap.id === 'setChartSpec'
-              ? new ChartCommand(cap)
-              : new ManifestCommand(cap),
+    cap.id === 'setShapeLocked'
+      ? new LockCommand(cap)
+      : activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide' || cap.id === 'addSlide'
+        ? new SlideCommand(cap)
+        : layoutCommands.has(cap.id)
+          ? new LayoutCommand(cap)
+          : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
+            ? new GroupCommand(cap)
+            : stackingCommands.has(cap.id)
+              ? new StackingCommand(cap)
+              : cap.id === 'setChartSpec'
+                ? new ChartCommand(cap)
+                : new ManifestCommand(cap),
   ]),
 );
 

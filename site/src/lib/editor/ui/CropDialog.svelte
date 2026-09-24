@@ -9,6 +9,7 @@
   const doc = editor.doc;
   const selection = untrack(() => doc.selection);
   const version = untrack(() => doc.version);
+  const geometryLocked = untrack(() => editor.selectionLocked());
   const ids = selectedShapeIds(selection);
   const shape = ids.length === 1 ? untrack(() => doc.shapeById(selection.slideIndex, ids[0]!)) : null;
   const picture = shape && getShapeKind(shape) === 'picture' ? shape : null;
@@ -126,7 +127,7 @@
       const crop = { left: rect.left, top: rect.top, right: 1 - rect.right, bottom: 1 - rect.bottom };
       doc.transact(t('Crop image'), () => {
         setShapeImageCrop(picture, Object.values(crop).every(value => value === 0) ? null : crop);
-        if (ratio && bounds) {
+        if (ratio && bounds && !geometryLocked) {
           const w = Math.min(bounds.w, bounds.h * ratio), h = w / ratio;
           setShapeBounds(picture, { ...bounds, x: emu(Math.round(bounds.x + (bounds.w - w) / 2)), y: emu(Math.round(bounds.y + (bounds.h - h) / 2)), w: emu(Math.max(1, Math.round(w))), h: emu(Math.max(1, Math.round(h))) });
         }
@@ -140,7 +141,7 @@
   <form onsubmit={submit}>
     <header><strong>{t('Crop image')}</strong><button class="ok-btn" type="button" aria-label={t('Close')} onclick={() => editor.closeDialog()}>✕</button></header>
     <p>{t('Drag the edges to crop or drag the selection to move it. Arrow keys adjust by 1%; hold Shift for 10%.')}</p>
-    <label class="ratio">{t('Crop aspect ratio')}<select aria-label={t('Crop aspect ratio')} value={ratioKey} onchange={event => { ratioKey = event.currentTarget.value; chooseRatio(); }} disabled={!loaded}>{#each presets as preset}<option value={preset.value}>{t(preset.label)}</option>{/each}</select></label>
+    <label class="ratio">{t('Crop aspect ratio')}<select aria-label={t('Crop aspect ratio')} value={ratioKey} onchange={event => { ratioKey = event.currentTarget.value; chooseRatio(); }} disabled={!loaded || geometryLocked}>{#each presets as preset}<option value={preset.value}>{t(preset.label)}</option>{/each}</select></label>
     {#if ratio}<p>{t('The image frame will match this ratio and stay centered.')}</p>{/if}
     {#if url}
       <div class="workspace">

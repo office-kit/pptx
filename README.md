@@ -652,6 +652,21 @@ Runs that name no face fall back to the theme's font scheme, which is also where
 
 Authored XML text and attribute values must contain only XML 1.0 characters. Illegal C0 controls (except tab, LF, and CR), U+FFFE, U+FFFF, and unpaired UTF-16 surrogates throw an error identifying the code point. Remove these characters before authoring; valid supplementary characters such as emoji are preserved.
 
+Object geometry can be locked like PowerPoint's Selection Pane:
+
+```ts
+import { isShapeLocked, setShapeLocked } from '@office-kit/pptx';
+
+setShapeLocked(shape, true);
+console.log(isShapeLocked(shape)); // true
+setShapeLocked([shape, anotherShape], false);
+```
+
+Locks leave text editable and preserve unrelated drawing constraints. Group children
+keep independent locks; include descendants when locking every object. These APIs
+write drawing restrictions for editing applications; programmatic geometry setters
+remain available.
+
 ## Preview and text-overflow checks
 
 [`@office-kit/pptx-preview`](packages/preview) is a companion package that

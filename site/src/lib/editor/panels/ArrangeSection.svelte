@@ -5,6 +5,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   const count = $derived(doc.selection.kind === 'shape' ? doc.selection.shapeIds.length : 0);
+  const locked = $derived(editor.selectionLocked());
   const alignments = [
     ['left', 'Align left'], ['center', 'Align center'], ['right', 'Align right'],
     ['top', 'Align top'], ['middle', 'Align middle'], ['bottom', 'Align bottom'],
@@ -24,10 +25,10 @@
     {/if}
     <div class="buttons">
       {#each alignments as [alignment, label]}
-        <button onclick={() => editor.alignSelection(alignment, editor.alignmentReference)}>{t(label)}</button>
+        <button disabled={locked} onclick={() => editor.alignSelection(alignment, editor.alignmentReference)}>{t(label)}</button>
       {/each}
-      <button disabled={count === 2 && editor.alignmentReference !== 'slide'} onclick={() => editor.distributeSelection('horizontal')}>{t('Distribute horizontally')}</button>
-      <button disabled={count === 2 && editor.alignmentReference !== 'slide'} onclick={() => editor.distributeSelection('vertical')}>{t('Distribute vertically')}</button>
+      <button disabled={locked || (count === 2 && editor.alignmentReference !== 'slide')} onclick={() => editor.distributeSelection('horizontal')}>{t('Distribute horizontally')}</button>
+      <button disabled={locked || (count === 2 && editor.alignmentReference !== 'slide')} onclick={() => editor.distributeSelection('vertical')}>{t('Distribute vertically')}</button>
       <button disabled={!editor.canRun('groupShapes')} onclick={() => editor.invoke('groupShapes')}>{t('Group')}</button>
       <button disabled={!editor.canRun('ungroupShapes')} onclick={() => editor.invoke('ungroupShapes')}>{t('Ungroup')}</button>
     </div>

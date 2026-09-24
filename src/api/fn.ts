@@ -25,6 +25,7 @@ export * from './fn/slide-placeholder-geometry.ts';
 // Shape
 export * from './fn/shape-slide-read.ts';
 export * from './fn/shape-read-base.ts';
+export * from './fn/shape-locks.ts';
 export * from './fn/shape-read-paint.ts';
 export * from './fn/shape-gradient-read.ts';
 export * from './fn/shape-fill-stroke.ts';
