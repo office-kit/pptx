@@ -495,8 +495,8 @@ export const getShapeTextDirection = (
 /**
  * Sets the shape's text-direction via `<a:bodyPr vert="…"/>`. See
  * `getShapeTextDirection` for the meaning of each value. Passing `null`
- * (or `'horz'`) clears the attribute so the shape uses the default
- * horizontal direction. Throws for non-text-bearing shape kinds.
+ * clears the attribute, restoring layout/master inheritance. `'horz'` writes
+ * an explicit horizontal override. Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextDirection = (
   shape: SlideShapeData,
@@ -515,7 +515,7 @@ export const setShapeTextDirection = (
   bodyPr.attrs = bodyPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
   );
-  if (direction !== null && direction !== 'horz') {
+  if (direction !== null) {
     bodyPr.attrs.push(attr(qname('', 'vert', ''), direction));
   }
   commitAndRefresh(shape);
@@ -578,6 +578,7 @@ export const getShapeBodyPrEffective = (
       bottom: null as number | null,
     },
   };
+  let directionResolved = false;
   const parseBodyPr = (bodyPr: XmlElement): void => {
     if (result.anchor === null) {
       const a = getAttrValue(bodyPr, qname('', 'anchor', ''));
@@ -590,8 +591,10 @@ export const getShapeBodyPrEffective = (
       if (w === 'square') result.wrap = 'square';
       else if (w === 'none') result.wrap = 'none';
     }
-    if (result.vert === null) {
+    if (!directionResolved) {
       const v = getAttrValue(bodyPr, qname('', 'vert', ''));
+      // An explicit horizontal value must stop a vertical master from winning.
+      if (v === 'horz') directionResolved = true;
       if (
         v === 'vert' ||
         v === 'vert270' ||
@@ -599,8 +602,10 @@ export const getShapeBodyPrEffective = (
         v === 'eaVert' ||
         v === 'mongolianVert' ||
         v === 'wordArtVertRtl'
-      )
+      ) {
         result.vert = v;
+        directionResolved = true;
+      }
     }
     for (const side of ['l', 't', 'r', 'b'] as const) {
       const target =

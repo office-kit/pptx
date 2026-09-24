@@ -1,6 +1,6 @@
 // `setShapeTextDirection` — vertical-text writer that pairs with
 // `getShapeTextDirection`. Asserts all six `ST_TextVerticalType`
-// values round-trip and that null / `'horz'` clears the attribute.
+// values round-trip and that null / `'horz'` reads as horizontal.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -63,7 +63,7 @@ describe('fn API: setShapeTextDirection', () => {
     expect(getShapeTextDirection(reShapes[reShapes.length - 1]!)).toBe('eaVert');
   });
 
-  it('clears the attribute when set to null or horz', async () => {
+  it('reads null and explicit horz as horizontal', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
