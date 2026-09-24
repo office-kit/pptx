@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 180,
+  "count": 181,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2669,6 +2669,23 @@
           "name": "bounds",
           "type": "ShapeBounds",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideMasterBackgroundStyle",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/master-background-style.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "style",
+          "type": "number",
+          "kind": "number",
           "optional": false
         }
       ]

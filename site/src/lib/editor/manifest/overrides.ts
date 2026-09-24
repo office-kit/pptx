@@ -278,6 +278,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
     labelJa: '背景のグラフィックを表示しない',
     category: 'slide-background',
   },
+  setSlideMasterBackgroundStyle: {
+    labelEn: 'Background Styles',
+    labelJa: '背景のスタイル',
+    category: 'slide-background',
+  },
   clearSlideBackground: { labelJa: '背景を解除' },
   clearSlideComments: { labelJa: 'スライドのコメントを削除' },
   clearSlideHyperlinks: { labelJa: 'スライドのリンクを削除' },
