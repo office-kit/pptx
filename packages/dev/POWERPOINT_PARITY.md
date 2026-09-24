@@ -370,8 +370,20 @@ The theme's second and third background fill styles were radial gradients using
 `phClr` plus tint, shade, and saturation transforms. Consequently, a correct
 gallery must resolve the theme background fill list and preserve its color map;
 substituting twelve fixed colors or gradients would not match this behavior.
-The current background reader reduces `bgRef` to a solid color and needs this
-resolution before the gallery can be implemented correctly. The remaining style
-columns, multi-selection scope, and multiple-master behavior still need auditing.
+The background reader now resolves theme-referenced gradients through the owning
+master theme, substituting `phClr` and applying the effective color map and color
+transforms. Tests cover slide, layout, and master references, a separate owning
+master theme, rendered radial stops, and unchanged background/theme XML on save.
+Editing these gradients still needs to preserve transforms not represented by
+the brightness control. The gallery, remaining style columns, multi-selection
+scope, and multiple-master application behavior still need implementation or auditing.
 Each temporary style change was undone before the next comparison, and the final
 document was saved with Undo disabled.
+
+Moving Style 12's first gradient stop from 0% to 10% in the Mac pane creates a
+slide-local `bgPr/gradFill`. The stop keeps `schemeClr=bg1` with `tint=80000`
+and `satMod=300000`; the second keeps `shade=30000` and `satMod=200000`.
+Only the first stop position changes. Reset Background becomes enabled, while
+the master keeps its original `bgRef`. This confirms that editor stop-position
+changes must retain the imported color transforms. Both changes were undone and
+the document was saved with Undo disabled.

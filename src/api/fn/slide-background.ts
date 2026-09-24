@@ -65,8 +65,8 @@ import {
   refreshSlideData,
   setOpcDefault,
 } from './_helpers.ts';
-import { getPresentationTheme, themeFromPackage } from './theme.ts';
-import { getEffectiveColorMap } from './color-map.ts';
+import { getPresentationTheme } from './theme.ts';
+import { readBackgroundStyle } from './background-style-read.ts';
 import { resolveDrawingColorOpacity } from './shape-color.ts';
 import {
   getSlides,
@@ -161,7 +161,10 @@ export const getSlideColorMapOverride = (slide: SlideData): Record<string, strin
  * Projects the `<p:bg>` of any `<p:cSld>` — slide, layout or master —
  * onto the `SlideBackground` union. @internal
  */
-export const backgroundOfCSld = (cSld: XmlElement | null): SlideBackground => {
+export const backgroundOfCSld = (
+  cSld: XmlElement | null,
+  properties?: XmlElement | null,
+): SlideBackground => {
   if (cSld === null) return { kind: 'inherit' };
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
   if (!bg) return { kind: 'inherit' };
@@ -171,7 +174,7 @@ export const backgroundOfCSld = (cSld: XmlElement | null): SlideBackground => {
   // mapping target — projecting that to a scheme token is the most
   // useful shape for renderers.
   const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
-  if (bgRef) {
+  if (bgRef && !properties) {
     for (const inner of bgRef.children) {
       if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
       const opacity = resolveDrawingColorOpacity(inner);
@@ -196,7 +199,7 @@ export const backgroundOfCSld = (cSld: XmlElement | null): SlideBackground => {
     }
     return { kind: 'inherit' };
   }
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  const bgPr = properties ?? firstChildElement(bg, qname('p', 'bgPr', NS.pml));
   if (!bgPr) return { kind: 'inherit' };
   for (const c of bgPr.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
@@ -238,7 +241,11 @@ export const backgroundOfCSld = (cSld: XmlElement | null): SlideBackground => {
 };
 
 export const getSlideBackground = (slide: SlideData): SlideBackground =>
-  backgroundOfCSld(firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD));
+  backgroundOfCSld(
+    firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD),
+    readBackgroundStyle(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], slide[SLIDE_DOCUMENT].root)
+      .properties,
+  );
 
 /**
  * A simplified, render-ready view of one of the layout's non-placeholder
@@ -516,26 +523,21 @@ export const getSlideMasterBackgroundPatternFill = (
 };
 
 /**
- * Reads the slide layout's gradient background when its `<p:bg>` is a
- * `<p:bgPr><a:gradFill>`. Same shape as `getSlideBackgroundGradientFill`
+ * Reads the slide layout's gradient background from either `<p:bgPr><a:gradFill>`
+ * or a theme style referenced by `<p:bgRef>`. Same shape as `getSlideBackgroundGradientFill`
  * for slides. Stop `resolvedColor` values include the presentation theme
  * and DrawingML color transforms.
  */
 export const getSlideLayoutBackgroundGradientFill = (
   layout: SlideLayoutData,
 ): ReadGradientFill | null => {
-  const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
-  if (!cSld) return null;
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return null;
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return null;
-  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
-  return parseGradFill(gradFill, {
-    theme: themeFromPackage(layout[INTERNAL_PACKAGE]),
-    colorMap: {},
-  });
+  const context = readBackgroundStyle(
+    layout[INTERNAL_PACKAGE],
+    layout[LAYOUT_PART_NAME],
+    layout[LAYOUT_DOCUMENT].root,
+  );
+  const fill = context.properties ? firstChildElement(context.properties, NAME_A_GRAD_FILL) : null;
+  return fill ? parseGradFill(fill, context) : null;
 };
 
 /**
@@ -559,15 +561,9 @@ export const getSlideMasterBackgroundGradientFill = (
   const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
   if (!masterPart) return null;
   const masterRoot = parseXml(decode(masterPart.data)).root;
-  const cSld = firstChildElement(masterRoot, NAME_CSLD);
-  if (!cSld) return null;
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return null;
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return null;
-  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
-  return parseGradFill(gradFill, { theme: getPresentationTheme(pres), colorMap: {} });
+  const context = readBackgroundStyle(pkg, masterPart.name, masterRoot);
+  const fill = context.properties ? firstChildElement(context.properties, NAME_A_GRAD_FILL) : null;
+  return fill ? parseGradFill(fill, context) : null;
 };
 
 /**
@@ -593,33 +589,39 @@ export const getSlideMasterBackground = (
   const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
   if (!masterPart) return { kind: 'inherit' };
   const masterRoot = parseXml(decode(masterPart.data)).root;
-  return backgroundOfCSld(firstChildElement(masterRoot, NAME_CSLD));
+  return backgroundOfCSld(
+    firstChildElement(masterRoot, NAME_CSLD),
+    readBackgroundStyle(pkg, masterPart.name, masterRoot).properties,
+  );
 };
 
 export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground =>
-  backgroundOfCSld(firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD));
+  backgroundOfCSld(
+    firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD),
+    readBackgroundStyle(
+      layout[INTERNAL_PACKAGE],
+      layout[LAYOUT_PART_NAME],
+      layout[LAYOUT_DOCUMENT].root,
+    ).properties,
+  );
 
 /**
  * Returns the gradient stops + path when the slide carries a
- * `<p:bgPr><a:gradFill>` background. Returns `null` for any other
+ * literal `<p:bgPr><a:gradFill>` or theme-referenced `<p:bgRef>` gradient.
+ * Returns `null` for any other
  * background kind. Shape identical to `getShapeGradientFill` so renderers
  * can use the same projection logic for slide backgrounds.
  * Stop `resolvedColor` values include the presentation theme, slide color map
  * and DrawingML color transforms; `color` retains the authored token.
  */
 export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFill | null => {
-  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
-  if (!cSld) return null;
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return null;
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return null;
-  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
-  return parseGradFill(gradFill, {
-    theme: themeFromPackage(slide[INTERNAL_PACKAGE]),
-    colorMap: getEffectiveColorMap(slide),
-  });
+  const context = readBackgroundStyle(
+    slide[INTERNAL_PACKAGE],
+    slide[SLIDE_PART_NAME],
+    slide[SLIDE_DOCUMENT].root,
+  );
+  const fill = context.properties ? firstChildElement(context.properties, NAME_A_GRAD_FILL) : null;
+  return fill ? parseGradFill(fill, context) : null;
 };
 
 /**
