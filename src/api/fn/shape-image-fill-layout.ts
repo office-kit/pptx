@@ -1,3 +1,5 @@
+import { readImagePixelSize, readImageResolution } from '../../internal/opc/image-format.ts';
+import { getShapeImageBytes, getShapeImageFillBytes } from './shape-image-effects.ts';
 import {
   NS,
   attr,
@@ -8,7 +10,7 @@ import {
   type XmlElement,
 } from '../../internal/xml/index.ts';
 import { SHAPE_ELEMENT, SHAPE_SNAPSHOT, type SlideShapeData } from '../_internal-symbols.ts';
-import { emu, type Emu } from '../units.ts';
+import { emu, inches, type Emu } from '../units.ts';
 import { commitAndRefresh } from './_helpers.ts';
 
 export type ImageTileAlignment = 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
@@ -203,4 +205,28 @@ export const setShapeImageFillLayout = (shape: SlideShapeData, layout: ImageFill
     fill.attrs.push(attr(qname('', 'rotWithShape', ''), layout.rotateWithShape ? '1' : '0'));
   }
   commitAndRefresh(shape);
+};
+
+/**
+ * Natural image-fill size before tile scaling, in EMUs. Reads PNG/JPEG dimensions,
+ * the fill's DPI override, and PNG pHYs/JPEG JFIF resolution. Missing resolution
+ * uses 96 DPI. Returns null for unavailable bytes or unsupported image headers.
+ */
+export const getShapeImageIntrinsicSize = (
+  shape: SlideShapeData,
+): { width: Emu; height: Emu } | null => {
+  const fill = fillElement(shape);
+  if (!fill) return null;
+  const bytes = getShapeImageBytes(shape) ?? getShapeImageFillBytes(shape);
+  if (!bytes) return null;
+  const pixels = readImagePixelSize(bytes);
+  if (!pixels) return null;
+  const override = Number(value(fill, 'dpi'));
+  const resolution = readImageResolution(bytes);
+  const dpiX = override > 0 ? override : (resolution?.x ?? 96);
+  const dpiY = override > 0 ? override : (resolution?.y ?? 96);
+  return {
+    width: inches(pixels.width / dpiX),
+    height: inches(pixels.height / dpiY),
+  };
 };

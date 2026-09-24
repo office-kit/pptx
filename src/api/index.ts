@@ -308,6 +308,7 @@ export {
   getShapeImageDuotone,
   getShapeImageFillBytes,
   getShapeImageFillLayout,
+  getShapeImageIntrinsicSize,
   getShapeImageFormat,
   getShapeImageLinkUrl,
   getShapeImageOpacity,
