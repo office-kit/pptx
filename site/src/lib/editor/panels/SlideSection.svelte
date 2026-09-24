@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { readSlideBackground } from '../core/slide-background.ts';
   import GradientFillSection from './GradientFillSection.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import { selectedSlideIndices } from '../core/selection.ts';
@@ -13,14 +14,14 @@
   // Deck-wide, unlike everything else here, so it does not read from `slides`.
   const slideNumbers = $derived.by(() => { doc.version; return editor.slideNumbersOn(); });
   const mixedSkipped = $derived(!skipped && slides.some(isSlideHidden));
-  const background = $derived.by(() => { doc.version; return slide ? getSlideBackground(slide) : null; });
+  const background = $derived.by(() => { doc.version; return slide ? readSlideBackground(doc.pres, slide).fill : null; });
   const layouts = $derived.by(() => { doc.version; return getSlideLayouts(doc.pres); });
   const layout = $derived.by(() => { doc.version; return slide ? getSlideLayout(slide) : null; });
   const layoutId = $derived(layout ? getSlideLayoutPartName(layout) : '');
   const mixedLayout = $derived(slides.some(item => { const value = getSlideLayout(item); return (value ? getSlideLayoutPartName(value) : '') !== layoutId; }));
-  const mixedBackground = $derived(slides.some(item => JSON.stringify(getSlideBackground(item)) !== JSON.stringify(background)));
-  const gradientBackground = $derived(slides.length > 0 && slides.every(item => getSlideBackground(item).kind === 'gradient'));
-  const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(getSlideBackground(item).kind)));
+  const mixedBackground = $derived(slides.some(item => JSON.stringify(readSlideBackground(doc.pres, item).fill) !== JSON.stringify(background)));
+  const gradientBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'gradient'));
+  const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(readSlideBackground(doc.pres, item).fill.kind)));
   const canReset = $derived(slides.some(item => getSlideBackground(item)?.kind !== 'inherit'));
   let fileInput = $state<HTMLInputElement>();
   let error = $state('');

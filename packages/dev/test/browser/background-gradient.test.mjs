@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { chromium } from 'playwright';
 import {
   getSlideBackgroundGradientFill,
+  getSlideLayout,
+  getSlideLayoutBackgroundGradientFill,
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
@@ -110,6 +113,89 @@ test(
         true,
       );
       assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'editing an inherited gradient creates a slide override and reset restores inheritance',
+  { timeout: 120000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-background-inherit-'));
+    let preview, browser;
+    try {
+      const zip = unzipSync(
+        await readFile(
+          new URL('../../../../test/fixtures/minimal/two-slides.pptx', import.meta.url),
+        ),
+      );
+      for (const [name, bytes] of Object.entries(zip)) {
+        if (!/^ppt\/(slides|slideLayouts)\/[^/]+\.xml$/.test(name)) continue;
+        let xml = strFromU8(bytes).replace(/<p:bg\b[^>]*>[\s\S]*?<\/p:bg>/g, '');
+        if (name.startsWith('ppt/slideLayouts/'))
+          xml = xml.replace(
+            /(<p:cSld\b[^>]*>)/,
+            '$1<p:bg><p:bgPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="123456"/></a:gs><a:gs pos="100000"><a:srgbClr val="ABCDEF"/></a:gs></a:gsLst><a:lin ang="2700000"/></a:gradFill></p:bgPr></p:bg>',
+          );
+        zip[name] = strToU8(xml);
+      }
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, zipSync(zip));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1100 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const read = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        );
+      await saved();
+      await editor.locator('.thumb-row').nth(0).click();
+      const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
+      assert.equal(
+        await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).isChecked(),
+        true,
+      );
+      const reset = pane.getByRole('button', { name: 'Reset background', exact: true });
+      assert.equal(await reset.isEnabled(), false);
+      const initial = getSlideLayoutBackgroundGradientFill(getSlideLayout((await read())[0]));
+      const brightness = pane.getByRole('spinbutton', {
+        name: 'Gradient stop brightness',
+        exact: true,
+      });
+      await brightness.fill('25');
+      await brightness.press('Tab');
+      await saved();
+      let slides = await read();
+      assert.equal(getSlideBackgroundGradientFill(slides[0]).stops[0].brightness, 0.25);
+      assert.equal(getSlideBackgroundGradientFill(slides[0]).angleDeg, 45);
+      assert.deepEqual(getSlideLayoutBackgroundGradientFill(getSlideLayout(slides[0])), initial);
+      assert.equal(getSlideBackgroundGradientFill(slides[1]), null);
+      await reset.click();
+      await saved();
+      assert.equal(getSlideBackgroundGradientFill((await read())[0]), null);
+      assert.equal(await brightness.inputValue(), '0');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      slides = await read();
+      assert.equal(getSlideBackgroundGradientFill(slides[0]).stops[0].brightness, 0.25);
+      assert.deepEqual(getSlideLayoutBackgroundGradientFill(getSlideLayout(slides[0])), initial);
     } finally {
       await browser?.close();
       await preview?.close();
