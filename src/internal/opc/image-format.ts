@@ -101,18 +101,71 @@ const jpegSize = (bytes: Uint8Array): ImagePixelSize | null => {
   return null;
 };
 
+// GIF dimensions belong to the logical screen, not an individual animation frame.
+const gifSize = (bytes: Uint8Array): ImagePixelSize | null => {
+  if (bytes.length < 13 || !['GIF87a', 'GIF89a'].includes(decoder.decode(bytes.subarray(0, 6))))
+    return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = view.getUint16(6, true),
+    height = view.getUint16(8, true);
+  return width && height ? { width, height } : null;
+};
+
+// Read the RIFF canvas before decoding any pixel data. Extended/animated WebP
+// uses VP8X; simple files use the key-frame VP8 or lossless VP8L header.
+const webpSize = (bytes: Uint8Array): ImagePixelSize | null => {
+  if (bytes.length < 20) return null;
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const end = view.getUint32(4, true) + 8;
+  if (end > bytes.length || end < 20 || end % 2) return null;
+  for (let offset = 12; offset + 8 <= end; ) {
+    const tag = decoder.decode(bytes.subarray(offset, offset + 4));
+    const size = view.getUint32(offset + 4, true),
+      data = offset + 8;
+    const next = data + size + (size % 2);
+    if (next > end) return null;
+    if (tag === 'VP8X') {
+      if (size < 10) return null;
+      const uint24 = (at: number) => view.getUint16(at, true) + bytes[at + 2]! * 65536;
+      const width = uint24(data + 4) + 1,
+        height = uint24(data + 7) + 1;
+      return width * height <= 0xffffffff ? { width, height } : null;
+    }
+    if (tag === 'VP8L') {
+      if (size < 5 || bytes[data] !== 0x2f) return null;
+      const bits = view.getUint32(data + 1, true);
+      if (bits >>> 29) return null;
+      return { width: (bits & 0x3fff) + 1, height: ((bits >>> 14) & 0x3fff) + 1 };
+    }
+    if (tag === 'VP8 ') {
+      if (
+        size < 10 ||
+        bytes[data]! & 1 ||
+        bytes[data + 3] !== 0x9d ||
+        bytes[data + 4] !== 1 ||
+        bytes[data + 5] !== 0x2a
+      )
+        return null;
+      const width = view.getUint16(data + 6, true) & 0x3fff;
+      const height = view.getUint16(data + 8, true) & 0x3fff;
+      return width && height ? { width, height } : null;
+    }
+    offset = next;
+  }
+  return null;
+};
+
 /**
- * Reads an image's natural pixel dimensions from its header. Supports PNG
- * and JPEG — the two formats whose headers carry dimensions cheaply and
- * unambiguously. Returns `null` for every other format (and for truncated
- * / malformed headers), letting callers fall back rather than fail: an
- * aspect-ratio-preserving placement that can't measure the image just
- * stretches it as before.
+ * Reads natural canvas dimensions for PNG, JPEG, GIF and WebP. Returns null
+ * for unsupported formats or incomplete/invalid dimension headers. This is a
+ * header reader, not a validator of the compressed image payload.
  */
 export const readImagePixelSize = (bytes: Uint8Array): ImagePixelSize | null => {
   const format = detectImageFormat(bytes);
   if (format === 'png') return pngSize(bytes);
   if (format === 'jpeg') return jpegSize(bytes);
+  if (format === 'gif') return gifSize(bytes);
+  if (format === 'webp') return webpSize(bytes);
   return null;
 };
 

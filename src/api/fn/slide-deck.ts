@@ -56,6 +56,7 @@ import {
   getSlideLayoutPlaceholders,
 } from './layouts.ts';
 import { getSlides } from './slide-query.ts';
+import { removeCustomShowSlideReferences } from './custom-shows.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
 
 // ---------------------------------------------------------------------------
@@ -283,15 +284,17 @@ export const addSlide = (
 export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
   const pkg = pres[INTERNAL_PACKAGE];
   const slidePartName = slide[SLIDE_PART_NAME];
-  if (pkg.getPart(slidePartName) === null) {
+  if (slide[INTERNAL_PACKAGE] !== pkg || pkg.getPart(slidePartName) === null) {
     throw new Error(`removeSlide: ${slidePartName} not present in package`);
   }
 
   const presRels = pkg.getRels(PRES_PART_NAME);
   if (!presRels) throw new Error('presentation.xml has no rels');
-  const slideTargetRel = `slides/${basename(slidePartName)}`;
   const removedRel = presRels.items.find(
-    (r) => r.type === REL_TYPES.slide && r.target === slideTargetRel,
+    (r) =>
+      r.type === REL_TYPES.slide &&
+      r.targetMode === 'Internal' &&
+      resolveTarget(PRES_PART_NAME, r.target) === slidePartName,
   );
   if (!removedRel) {
     throw new Error(`presentation.xml.rels missing entry for slide ${slidePartName}`);
@@ -310,6 +313,7 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
       return getAttrValue(c, ATTR_R_ID) !== removedRel.id;
     });
   }
+  removeCustomShowSlideReferences(presDoc.root, removedRel.id);
   presPart.data = encode(serializeXml(presDoc));
 
   pkg.removePart(relsPartNameFor(slidePartName));

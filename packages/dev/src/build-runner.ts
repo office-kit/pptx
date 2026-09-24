@@ -48,7 +48,7 @@ export function createDeckBuilder(entry: string, keepWarm = true) {
         const built = await Promise.race([
           (async () => {
             const dependencies = await (await compiler).build(join(current.directory, 'deck.mjs'));
-            current.worker.postMessage({ dependencies, cache });
+            current.worker.postMessage({ dependencies, cache, entry });
             return current.result;
           })(),
           new Promise<never>((_, reject) => {

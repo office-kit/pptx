@@ -8,6 +8,27 @@
 // glyphs.
 
 import { Resvg } from '@resvg/resvg-js';
+import { renderInkToSvg } from './ink.ts';
+import { getInkBounds, type InkStroke } from '@office-kit/pptx';
+
+/** Raster fallback at 192 DPI, bounded to 2048 pixels on the longer axis. */
+export const renderInkToPng = (strokes: ReadonlyArray<InkStroke>): Uint8Array => {
+  const bounds = getInkBounds(strokes);
+  const longest = Math.max(bounds.cx, bounds.cy);
+  const pixels = Math.max(1, Math.min(2048, Math.ceil((longest / 9525) * 2)));
+  const width = Math.max(1, Math.round((bounds.cx / longest) * pixels));
+  const height = Math.max(1, Math.round((bounds.cy / longest) * pixels));
+  // Even subpixel-thin strokes need a nonzero bitmap axis. The native shape
+  // restores the exact physical bounds when this fallback is displayed.
+  const svg = renderInkToSvg(strokes).replace(
+    /width="[^"]+" height="[^"]+"/,
+    `width="${width}" height="${height}" preserveAspectRatio="none"`,
+  );
+  const raster = new Resvg(svg, {
+    font: { loadSystemFonts: false },
+  });
+  return raster.render().asPng();
+};
 import { getSlideSize, type PresentationData, type SlideData } from '@office-kit/pptx';
 import { renderSlideSvg } from './render-slide.ts';
 import { MONO, SANS, SERIF, type TextMeasurer } from './text-layout.ts';

@@ -1,3 +1,4 @@
+import { inkContentPart, inkTransform, syncInkFallbackTransform } from './ink-content.ts';
 // Mutating counterpart to `geometry.ts`. Writes `<a:off>` / `<a:ext>` on
 // the shape's transform, creating the `<a:xfrm>` (and the host element)
 // when they don't yet exist.
@@ -27,6 +28,16 @@ const ATTR_CY = qname('', 'cy', '');
  * Returns the xfrm element.
  */
 const ensureTransform = (shape: XmlElement, kind: ShapeKindForGeometry): XmlElement => {
+  if (kind === 'ink') {
+    const content = inkContentPart(shape);
+    if (!content) throw new Error('Missing ink contentPart');
+    let transform = inkTransform(shape);
+    if (!transform) {
+      transform = elem(qname('p14', 'xfrm', NS.p14));
+      content.children.push(transform);
+    }
+    return transform;
+  }
   if (kind === 'graphicFrame') {
     let xfrm = firstChildElement(shape, NAME_P_XFRM);
     if (xfrm === null) {
@@ -76,6 +87,7 @@ export const setPosition = (
     attr(ATTR_X, String(emuCoordinate(x, 'setShapePosition: x'))),
     attr(ATTR_Y, String(emuCoordinate(y, 'setShapePosition: y'))),
   ];
+  if (kind === 'ink') syncInkFallbackTransform(shape);
 };
 
 /** Sets the shape's `<a:ext>` to `(w, h)` in EMU. */
@@ -100,6 +112,7 @@ export const setSize = (
     attr(ATTR_CX, String(emuExtent(w, 'setShapeSize: w'))),
     attr(ATTR_CY, String(emuExtent(h, 'setShapeSize: h'))),
   ];
+  if (kind === 'ink') syncInkFallbackTransform(shape);
 };
 
 const ATTR_ROT = qname('', 'rot', '');
@@ -124,6 +137,7 @@ export const setRotation = (
   const value = Math.round(normalized * 60000);
   xfrm.attrs = xfrm.attrs.filter((a) => a.name.localName !== 'rot');
   if (value !== 0) xfrm.attrs.push(attr(ATTR_ROT, String(value)));
+  if (kind === 'ink') syncInkFallbackTransform(shape);
 };
 
 /** Sets `flipH` / `flipV` boolean attributes on the shape's transform. */
@@ -141,6 +155,7 @@ export const setFlip = (
     xfrm.attrs = xfrm.attrs.filter((a) => a.name.localName !== 'flipV');
     if (options.vertical) xfrm.attrs.push(attr(ATTR_FLIP_V, '1'));
   }
+  if (kind === 'ink') syncInkFallbackTransform(shape);
 };
 
 const NAME_PRST_GEOM = qname('a', 'prstGeom', NS.dml);

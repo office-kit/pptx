@@ -349,6 +349,7 @@ export const getPresentationSummary = (pres: PresentationData): PresentationSumm
     group: 0,
     graphicFrame: 0,
     connector: 0,
+    ink: 0,
   };
   let hasAnimations = false;
   for (const slide of slides) {

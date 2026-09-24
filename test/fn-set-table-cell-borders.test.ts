@@ -37,6 +37,20 @@ const addDemo = async () => {
 };
 
 describe('fn API: setTableCellBorders', () => {
+  it('explicit no-fill borders survive serialization and differ from clearing an override', async () => {
+    const { pres, table } = await addDemo();
+    setTableCellBorders(getTableCell(table, 0, 0), {
+      left: { noFill: true },
+      top: { color: 'FF0000' },
+    });
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const cell = getTableCell(getSlideShapes(getSlides(loaded)[0]!).at(-1)!, 0, 0);
+    expect(getTableCellBorders(loaded, cell).left?.noFill).toBe(true);
+    expect(getTableCellBorders(loaded, cell).top?.color).toBe('#FF0000');
+    setTableCellBorders(cell, { left: null });
+    expect(getTableCellBorders(loaded, cell).left).toBeNull();
+  });
+
   it('writes one side and reads it back through save/reload', async () => {
     const { pres, table } = await addDemo();
     const cell = getTableCell(table, 0, 0);

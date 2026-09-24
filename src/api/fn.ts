@@ -19,6 +19,7 @@ export * from './fn/thumbnail.ts';
 // Slide-level
 export * from './fn/slide-query.ts';
 export * from './fn/slide-deck.ts';
+export { addSlideInk, getInkBounds, type InkStroke } from './fn/slide-ink.ts';
 
 // Shape
 export * from './fn/shape-slide-read.ts';
@@ -54,3 +55,18 @@ export * from './fn/charts.ts';
 export * from './fn/tables.ts';
 export * from './fn/validation.ts';
 export * from './fn/package-introspection.ts';
+
+export * from './fn/shape-connections.ts';
+export * from './fn/slide-layout-apply.ts';
+
+export * from './fn/guides.ts';
+
+export * from './fn/shape-action-sound.ts';
+
+export { getCustomShows, setCustomShows, type CustomShow } from './fn/custom-shows.ts';
+
+export {
+  getSlideShowProperties,
+  setSlideShowProperties,
+  type SlideShowProperties,
+} from './fn/show-properties.ts';

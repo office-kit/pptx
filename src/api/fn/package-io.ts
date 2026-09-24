@@ -26,6 +26,11 @@ const normalize = async (input: PresentationInput): Promise<Uint8Array> => {
  */
 export const loadPresentation = async (input: PresentationInput): Promise<PresentationData> => {
   const bytes = await normalize(input);
+  return loadPresentationBytes(bytes);
+};
+
+/** Loads already available PPTX bytes synchronously (no Blob/File I/O). */
+export const loadPresentationBytes = (bytes: Uint8Array): PresentationData => {
   const pkg = OpcPackage.load(bytes);
   return { [INTERNAL_PACKAGE]: pkg, _slidesCache: null };
 };

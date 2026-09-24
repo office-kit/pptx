@@ -17,6 +17,7 @@ import {
   attr,
   elem,
   firstChildElement,
+  insertChildByRank,
   qname,
   text,
   walkElements,
@@ -368,6 +369,15 @@ export const updateBulletIndentForLevel = (
 const hasAttr = (el: XmlElement, local: string): boolean =>
   el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === local);
 
+// Bullet font and marker precede tab stops, default run properties and extensions.
+const bulletChildRank = (el: XmlElement): number => {
+  if (el.name.namespaceURI !== NS.dml) return 9;
+  if (['buFont', 'buFontTx'].includes(el.name.localName)) return 1;
+  if (['buNone', 'buChar', 'buAutoNum', 'buBlip'].includes(el.name.localName)) return 2;
+  if (['tabLst', 'defRPr', 'extLst'].includes(el.name.localName)) return 3;
+  return 0;
+};
+
 const applyNormalizedBullet = (paragraph: XmlElement, style: NormalizedBullet): void => {
   let pPr = firstChildElement(paragraph, NAME_PPR_FOR_BULLET);
   if (pPr === null) {
@@ -384,7 +394,9 @@ const applyNormalizedBullet = (paragraph: XmlElement, style: NormalizedBullet): 
         (c.name.localName === 'buChar' ||
           c.name.localName === 'buAutoNum' ||
           c.name.localName === 'buNone' ||
-          c.name.localName === 'buFont')
+          c.name.localName === 'buFont' ||
+          c.name.localName === 'buFontTx' ||
+          c.name.localName === 'buBlip')
       ),
   );
 
@@ -408,9 +420,13 @@ const applyNormalizedBullet = (paragraph: XmlElement, style: NormalizedBullet): 
   // directly and needs none. `<a:buFont>` precedes the bullet child per the
   // CT_TextParagraphProperties element order.
   if (style.kind === 'autoNum') {
-    pPr.children.push(elem(NAME_BU_FONT, { attrs: [attr(ATTR_TYPEFACE, '+mj-lt')] }));
+    insertChildByRank(
+      pPr,
+      elem(NAME_BU_FONT, { attrs: [attr(ATTR_TYPEFACE, '+mj-lt')] }),
+      bulletChildRank,
+    );
   }
-  pPr.children.push(buildBulletElement(style));
+  insertChildByRank(pPr, buildBulletElement(style), bulletChildRank);
 };
 
 export const applyBulletToParagraph = (paragraph: XmlElement, style: BulletStyle): void => {

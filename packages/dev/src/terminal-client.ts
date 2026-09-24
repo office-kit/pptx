@@ -19,10 +19,10 @@ export function mountTerminal() {
     cursorBlink: true,
     scrollback: 5000,
     theme: {
-      background: '#171b24',
-      foreground: '#e4e8f0',
-      cursor: '#aebdff',
-      selectionBackground: '#4b5980',
+      background: '#252525',
+      foreground: '#e5e5e5',
+      cursor: '#eeeeee',
+      selectionBackground: '#555555',
     },
   });
   const fit = new FitAddon();
@@ -61,6 +61,16 @@ export function mountTerminal() {
   }
   new ResizeObserver(resize).observe(host);
   void document.fonts.ready.then(resize);
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (event.key === 'Enter' && event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !event.isComposing) {
+      if (event.type === 'keydown') {
+        event.preventDefault();
+        if (running && owned) void send('input', { data: '\x1b[13;2u', ...focus() });
+      }
+      return false;
+    }
+    return true;
+  });
   terminal.onData((data) => {
     if (running && owned) void send('input', { data, ...focus() });
   });

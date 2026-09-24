@@ -1,3 +1,15 @@
+import type { ShapeClickAction } from './shape-click-action.ts';
+import {
+  paragraphSettingsPatch,
+  applyParagraphSettingsPatch,
+  type ParagraphSettings,
+} from '../../internal/drawingml/paragraph-settings.ts';
+import {
+  replaceTextBodyRange,
+  validateTextRange,
+  formatTextBodyRange,
+  textBodyParagraphsInRange,
+} from '../../internal/drawingml/text-range.ts';
 // Table cell access.
 
 import { oneOf } from '../../internal/bounds.ts';
@@ -5,12 +17,17 @@ import { TEXT_ANCHORS, TEXT_DIRECTIONS, LINE_DASHES } from '../../internal/enum-
 import { resolveChartPartName } from './charts.ts';
 import {
   alignToken,
+  applyBulletToAllParagraphs,
+  applyBulletToParagraph,
+  type BulletStyle,
   applyAlignmentTokenToAllParagraphs,
   applyValidatedFormatToAllRuns,
+  applyRunFormat,
   validateFormatEnums,
   buildColorElement,
   clearFill as clearFillImpl,
   setSolidFill,
+  setNoFill,
   setTextBody,
   buildTextBodyParagraphs,
   replaceTextBodyParagraphs,
@@ -55,8 +72,14 @@ import {
   type ShapeParagraphElement,
   readParagraphElements,
   readParagraphEndFormat,
+  readTextBodyClickActions,
+  setTextBodyRangeClickAction,
 } from './shape-runs.ts';
-import { ALIGN_TOKEN_MAP } from './shape-paragraph.ts';
+import {
+  ALIGN_TOKEN_MAP,
+  parsePPrLikeElement,
+  type ParagraphProperties,
+} from './shape-paragraph.ts';
 import { getPresentationTheme } from './package.ts';
 import { resolveDrawingColor } from './shapes.ts';
 import { getSlides } from './slide-query.ts';
@@ -488,6 +511,22 @@ export const setTableCellText = (cell: TableCellData, text: string): void => {
   commitTableCell(cell);
 };
 
+/** Replace a UTF-16 cell text range, retaining unaffected formatting and links. */
+export const replaceTableCellTextRange = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  replacement: string,
+): void => {
+  const value = getTableCellText(cell);
+  // Validate before creating a missing text body.
+  validateTextRange(value, start, end);
+  if (typeof replacement !== 'string') throw new TypeError('Replacement must be text.');
+  if (start === end && !replacement) return;
+  replaceTextBodyRange(ensureCellTxBody(cell), value, start, end, replacement);
+  commitTableCell(cell);
+};
+
 /**
  * Replaces the cell's text with explicitly structured paragraphs and runs —
  * the table counterpart of `setShapeParagraphs`. Read back with
@@ -582,13 +621,17 @@ const cellIsMergedAlready = (tc: XmlElement): boolean => {
  *   - The block must lie fully inside the table grid.
  *   - No cell in the block may already participate in another merge —
  *     overlapping merges corrupt the grid and trip PowerPoint's repair
- *     dialog. Split the existing merge first.
+ *     dialog. Split the existing merge first, or set `allowContainedMerges`
+ *     to combine fully contained merges. Partial intersections always throw.
  *
  * The anchor cell's text is preserved. `coveredText: 'keep'` (the default)
  * leaves each covered cell's `<a:txBody>` in the XML; `'drop'` removes it,
  * so the covered cells carry no `<a:txBody>` at all (CT_TableCell allows
  * that), which is how PptxGenJS writes a merge; `getTableCellParagraphs`
  * reads them as `[]`.
+ * `'append'` moves the covered cells' paragraphs into the anchor in row-major
+ * order, preserving run/paragraph XML (including formatting and hyperlinks),
+ * and removes the covered text bodies. Empty cells add no paragraphs.
  */
 export const mergeTableCells = (
   table: SlideShapeData,
@@ -598,13 +641,16 @@ export const mergeTableCells = (
     readonly rowSpan: number;
     readonly colSpan: number;
   },
-  options?: { readonly coveredText?: 'keep' | 'drop' },
+  options?: {
+    readonly coveredText?: 'keep' | 'drop' | 'append';
+    readonly allowContainedMerges?: boolean;
+  },
 ): void => {
   const { row, col, rowSpan, colSpan } = block;
   const coveredText = options?.coveredText ?? 'keep';
-  if (coveredText !== 'keep' && coveredText !== 'drop') {
+  if (coveredText !== 'keep' && coveredText !== 'drop' && coveredText !== 'append') {
     throw new TypeError(
-      `mergeTableCells: coveredText must be 'keep' or 'drop' (got ${String(coveredText)})`,
+      `mergeTableCells: coveredText must be 'keep', 'drop' or 'append' (got ${String(coveredText)})`,
     );
   }
   if (!Number.isInteger(rowSpan) || !Number.isInteger(colSpan) || rowSpan < 1 || colSpan < 1) {
@@ -629,6 +675,7 @@ export const mergeTableCells = (
       `mergeTableCells: block rows ${row}..${lastRow} exceed table height ${cells.length}`,
     );
   }
+
   for (let r = row; r <= lastRow; r++) {
     const rowCellsArr = cells[r]!;
     if (lastCol >= rowCellsArr.length) {
@@ -640,9 +687,23 @@ export const mergeTableCells = (
 
   // Reject overlaps with any pre-existing merge before mutating anything,
   // so a rejected call leaves the table untouched.
+  if (options?.allowContainedMerges) {
+    for (let r = 0; r < cells.length; r++) {
+      for (let c = 0; c < cells[r]!.length; c++) {
+        const span = getTableCellSpan(cells[r]![c]!);
+        if (span.hMerge || span.vMerge) continue;
+        const endRow = r + span.rowSpan - 1;
+        const endCol = c + span.gridSpan - 1;
+        if (r > lastRow || c > lastCol || endRow < row || endCol < col) continue;
+        if (r < row || c < col || endRow > lastRow || endCol > lastCol) {
+          throw new Error('mergeTableCells: select the entire merged cell');
+        }
+      }
+    }
+  }
   for (let r = row; r <= lastRow; r++) {
     for (let c = col; c <= lastCol; c++) {
-      if (cellIsMergedAlready(cells[r]![c]![CELL_ELEMENT])) {
+      if (!options?.allowContainedMerges && cellIsMergedAlready(cells[r]![c]![CELL_ELEMENT])) {
         throw new Error(
           `mergeTableCells: cell (${r}, ${c}) is already part of a merge; split it before re-merging`,
         );
@@ -650,9 +711,30 @@ export const mergeTableCells = (
     }
   }
 
+  if (coveredText === 'append') {
+    const paragraphs: XmlElement[] = [];
+    for (let r = row; r <= lastRow; r++) {
+      for (let c = col; c <= lastCol; c++) {
+        const cell = cells[r]![c]!;
+        const span = getTableCellSpan(cell);
+        if (span.hMerge || span.vMerge || !getTableCellText(cell)) continue;
+        const body = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+        if (body) paragraphs.push(...allChildElements(body, qname('a', 'p', NS.dml)));
+      }
+    }
+    if (paragraphs.length) {
+      replaceTextBodyParagraphs(ensureCellTxBody(cells[row]![col]!), paragraphs);
+    }
+  }
+
   for (let r = row; r <= lastRow; r++) {
     for (let c = col; c <= lastCol; c++) {
       const tc = cells[r]![c]![CELL_ELEMENT];
+      tc.attrs = tc.attrs.filter(
+        (a) =>
+          a.name.namespaceURI !== '' ||
+          !['gridSpan', 'rowSpan', 'hMerge', 'vMerge'].includes(a.name.localName),
+      );
       if (r === row && c === col) {
         if (colSpan > 1) setSpanAttr(tc, ATTR_GRID_SPAN, String(colSpan));
         if (rowSpan > 1) setSpanAttr(tc, ATTR_ROW_SPAN, String(rowSpan));
@@ -662,7 +744,7 @@ export const mergeTableCells = (
       // offset sets vMerge. The bottom-right block carries both.
       if (c > col) setSpanAttr(tc, ATTR_H_MERGE, '1');
       if (r > row) setSpanAttr(tc, ATTR_V_MERGE, '1');
-      if (coveredText === 'drop') {
+      if (coveredText === 'drop' || coveredText === 'append') {
         tc.children = tc.children.filter(
           (child) => !(child.kind === 'element' && qnameEquals(child.name, NAME_A_TX_BODY_TBL)),
         );
@@ -670,6 +752,142 @@ export const mergeTableCells = (
     }
   }
 
+  commitSlideData(table[SHAPE_SLIDE]);
+  refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/**
+ * Divides one visible table cell into equally sized rows and columns. Existing
+ * grid boundaries are retained; new boundaries extend through neighboring cells
+ * as merge spans, so those cells and the table frame retain their geometry.
+ * The original content remains in the top-left cell. New cells are empty.
+ */
+export const splitTableCell = (
+  table: SlideShapeData,
+  row: number,
+  col: number,
+  options: { readonly rows: number; readonly columns: number },
+): void => {
+  const { rows, columns } = options;
+  if (![row, col].every((n) => Number.isInteger(n) && n >= 0))
+    throw new RangeError('splitTableCell: invalid cell position');
+  if (![rows, columns].every((n) => Number.isInteger(n) && n >= 1 && n <= 100))
+    throw new RangeError('splitTableCell: rows and columns must be integers from 1 to 100');
+  const cells = getTableCells(table);
+  const target = cells[row]?.[col];
+  if (!target) throw new RangeError('splitTableCell: cell is outside the table');
+  const span = getTableCellSpan(target);
+  if (span.hMerge || span.vMerge) throw new Error('splitTableCell: select the visible cell anchor');
+  if (rows === 1 && columns === 1) return;
+  const boundaries = (sizes: readonly number[]): number[] => {
+    const result = [0];
+    for (const size of sizes) {
+      if (!Number.isSafeInteger(size) || size <= 0)
+        throw new Error('splitTableCell: invalid grid size');
+      result.push(result[result.length - 1]! + size);
+    }
+    return result;
+  };
+  const x = boundaries(getTableColumnWidths(table));
+  const y = boundaries(getTableRowHeights(table));
+  const subdivide = (edges: number[], start: number, length: number, count: number): number[] => {
+    const extent = edges[start + length]! - edges[start]!;
+    if (!Number.isFinite(extent) || extent < count)
+      throw new RangeError('splitTableCell: cell is too small to split');
+    return Array.from(
+      { length: count + 1 },
+      (_, i) => edges[start]! + Math.round((extent * i) / count),
+    );
+  };
+  const sx = subdivide(x, col, span.gridSpan, columns);
+  const sy = subdivide(y, row, span.rowSpan, rows);
+  const nx = [...new Set([...x, ...sx])].sort((a, b) => a - b);
+  const ny = [...new Set([...y, ...sy])].sort((a, b) => a - b);
+  const originalIndex = (edges: number[], value: number): number => {
+    let index = 0;
+    while (index + 1 < edges.length && edges[index + 1]! <= value) index++;
+    return index;
+  };
+  const clearText = (cell: XmlElement): void => {
+    cell.children = cell.children.filter(
+      (child) => !(child.kind === 'element' && qnameEquals(child.name, NAME_A_TX_BODY_TBL)),
+    );
+  };
+  const grid = ny.slice(0, -1).map((top) =>
+    nx.slice(0, -1).map((left) => {
+      const r = originalIndex(y, top),
+        c = originalIndex(x, left);
+      const cell = structuredClone(cells[r]![c]![CELL_ELEMENT]);
+      cell.attrs = cell.attrs.filter(
+        (a) =>
+          a.name.namespaceURI !== '' ||
+          !['gridSpan', 'rowSpan', 'hMerge', 'vMerge'].includes(a.name.localName),
+      );
+      if (top !== y[r] || left !== x[c]) clearText(cell);
+      return cell;
+    }),
+  );
+  const applyRegion = (left: number, top: number, right: number, bottom: number): void => {
+    const r0 = ny.indexOf(top),
+      r1 = ny.indexOf(bottom);
+    const c0 = nx.indexOf(left),
+      c1 = nx.indexOf(right);
+    if (r0 < 0 || r1 <= r0 || c0 < 0 || c1 <= c0)
+      throw new Error('splitTableCell: invalid merge geometry');
+    for (let r = r0; r < r1; r++)
+      for (let c = c0; c < c1; c++) {
+        const cell = grid[r]![c]!;
+        if (r === r0 && c === c0) {
+          if (r1 - r0 > 1) setSpanAttr(cell, ATTR_ROW_SPAN, String(r1 - r0));
+          if (c1 - c0 > 1) setSpanAttr(cell, ATTR_GRID_SPAN, String(c1 - c0));
+        } else {
+          if (r > r0) setSpanAttr(cell, ATTR_V_MERGE, '1');
+          if (c > c0) setSpanAttr(cell, ATTR_H_MERGE, '1');
+        }
+      }
+  };
+  for (let r = 0; r < cells.length; r++)
+    for (let c = 0; c < cells[r]!.length; c++) {
+      const oldSpan = getTableCellSpan(cells[r]![c]!);
+      if (oldSpan.hMerge || oldSpan.vMerge || (r === row && c === col)) continue;
+      applyRegion(x[c]!, y[r]!, x[c + oldSpan.gridSpan]!, y[r + oldSpan.rowSpan]!);
+    }
+  for (let r = 0; r < rows; r++)
+    for (let c = 0; c < columns; c++) {
+      const r0 = ny.indexOf(sy[r]!),
+        r1 = ny.indexOf(sy[r + 1]!);
+      const c0 = nx.indexOf(sx[c]!),
+        c1 = nx.indexOf(sx[c + 1]!);
+      for (let rr = r0; rr < r1; rr++)
+        for (let cc = c0; cc < c1; cc++) {
+          if (rr === ny.indexOf(y[row]!) && cc === nx.indexOf(x[col]!)) continue;
+          clearText(grid[rr]![cc]!);
+        }
+      applyRegion(sx[c]!, sy[r]!, sx[c + 1]!, sy[r + 1]!);
+    }
+  // All validation and replacement construction precedes the first mutation.
+  const tbl = requireTbl(table);
+  const oldRows = tableRows(tbl);
+  const newRows = ny.slice(0, -1).map((top, r) => {
+    const tr = structuredClone(oldRows[originalIndex(y, top)]!);
+    setSpanAttr(tr, ATTR_H_TBL, String(ny[r + 1]! - top));
+    const oldCells = rowCells(tr);
+    const first = tr.children.indexOf(oldCells[0]!);
+    tr.children = tr.children.filter((child) => !oldCells.includes(child as XmlElement));
+    tr.children.splice(first, 0, ...grid[r]!);
+    return tr;
+  });
+  const tblGrid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
+  if (!tblGrid) throw new Error('splitTableCell: missing table grid');
+  const newColumns = nx
+    .slice(0, -1)
+    .map((left, c) =>
+      elem(NAME_A_GRID_COL, { attrs: [attr(ATTR_W_TBL, String(nx[c + 1]! - left))] }),
+    );
+  const firstRow = tbl.children.indexOf(oldRows[0]!);
+  tbl.children = tbl.children.filter((child) => !oldRows.includes(child as XmlElement));
+  tbl.children.splice(firstRow, 0, ...newRows);
+  tblGrid.children = newColumns;
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
@@ -684,6 +902,7 @@ export interface TableCellBorder {
   // concrete value or `null` when un-styled). The setter takes a `Partial` of
   // this (see `setTableCellBorders`), so authoring `{ color, widthEmu }` without
   // `dash` is allowed without widening what reads return.
+  readonly noFill?: boolean;
   readonly color: string | null;
   readonly widthEmu: number | null;
   readonly dash: string | null;
@@ -735,7 +954,12 @@ export const getTableCellBorders = (
     }
     const prstDash = firstChildElement(ln, qname('a', 'prstDash', NS.dml));
     const dash = prstDash ? getAttrValue(prstDash, qname('', 'val', '')) : null;
-    return { color, widthEmu, dash };
+    return {
+      color,
+      widthEmu,
+      dash,
+      ...(firstChildElement(ln, qname('a', 'noFill', NS.dml)) ? { noFill: true } : {}),
+    };
   };
   return {
     left: readLn('lnL'),
@@ -796,7 +1020,8 @@ const writeBorderLn = (
     lnAttrs.push(attr(qname('', 'w', ''), String(w)));
   }
   const children: XmlElement[] = [];
-  if (border.color !== null && border.color !== undefined) {
+  if (border.noFill) children.push(elem(qname('a', 'noFill', NS.dml)));
+  else if (border.color !== null && border.color !== undefined) {
     children.push(
       elem(qname('a', 'solidFill', NS.dml), { children: [buildColorElement(border.color)] }),
     );
@@ -835,6 +1060,8 @@ export const setTableCellBorders = (
 ): void => {
   if (sides !== null) {
     for (const [side, border] of Object.entries(sides)) {
+      if (border?.noFill !== undefined && typeof border.noFill !== 'boolean')
+        throw new Error('setTableCellBorders: noFill must be boolean');
       if (border?.dash != null)
         oneOf(border.dash, LINE_DASHES, `setTableCellBorders: ${side}.dash`);
     }
@@ -1039,6 +1266,8 @@ export const getTableCellText = (cell: TableCellData): string => {
 
 /** One paragraph of a cell's text, with its alignment and inline elements. */
 export interface TableCellParagraph {
+  /** Literal paragraph properties; table style defaults are not resolved. */
+  readonly properties?: Partial<ParagraphProperties>;
   /**
    * Horizontal alignment from `<a:pPr algn>`, or `null` when unset (the
    * cell then inherits PowerPoint's left default).
@@ -1080,19 +1309,31 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
     // rest of the API uses, mirroring the shape-text alignment cascade. A
     // token outside the map is malformed input and reads as unset.
     const align: ParagraphAlignment | null = algn !== null ? (ALIGN_TOKEN_MAP[algn] ?? null) : null;
-    out.push({ align, elements: readParagraphElements(p), endFormat: readParagraphEndFormat(p) });
+    out.push({
+      align,
+      properties: pPr ? parsePPrLikeElement(pPr) : {},
+      elements: readParagraphElements(p),
+      endFormat: readParagraphEndFormat(p),
+    });
   }
   return out;
 };
 
-/** Sets a solid background color on a cell (`<a:tcPr><a:solidFill>`). */
-export const setTableCellFill = (cell: TableCellData, color: string): void => {
+/** Sets a solid cell background; null explicitly disables fill instead of inheriting it. */
+export const setTableCellFill = (cell: TableCellData, color: string | null): void => {
   const tcPr = ensureCellTcPr(cell);
-  setSolidFill(tcPr, color);
+  if (color === null) setNoFill(tcPr);
+  else setSolidFill(tcPr, color);
   commitTableCell(cell);
 };
 
-/** Removes any background fill from a cell. */
+/** Whether a cell explicitly disables its background, overriding its table style. */
+export const isTableCellNoFill = (cell: TableCellData): boolean => {
+  const tcPr = firstChildElement(cell[CELL_ELEMENT], NAME_A_TC_PR);
+  return !!tcPr && !!firstChildElement(tcPr, qname('a', 'noFill', NS.dml));
+};
+
+/** Removes the explicit cell background so the table style applies again. */
 export const clearTableCellFill = (cell: TableCellData): void => {
   const tcPr = ensureCellTcPr(cell);
   clearFillImpl(tcPr);
@@ -1123,11 +1364,187 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
   return null;
 };
 
+/** Read click links on cell text, including fields and explicit breaks. */
+export const getTableCellTextRangeClickActions = (
+  cell: TableCellData,
+): ReturnType<typeof readTextBodyClickActions> => {
+  const body = firstChildElement(cell[CELL_ELEMENT], qname('a', 'txBody', NS.dml));
+  return body ? readTextBodyClickActions(cell[CELL_TABLE], body) : [];
+};
+
+/** Set or clear a cell text link while preserving surrounding runs and properties. */
+export const setTableCellTextRangeClickAction = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  action: ShapeClickAction | null,
+  tooltip?: string,
+): void => {
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  if (start === end) return;
+  setTextBodyRangeClickAction(
+    cell[CELL_TABLE],
+    ensureCellTxBody(cell),
+    value,
+    start,
+    end,
+    action,
+    tooltip,
+  );
+  commitTableCell(cell);
+};
+
+/** Format a half-open UTF-16 cell text range without flattening surrounding runs. */
+export const setTableCellTextRangeFormat = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  format: TextFormat,
+): void => {
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  validateFormatEnums(format, 'setTableCellTextRangeFormat');
+  formatTextBodyRange(ensureCellTxBody(cell), value, start, end, format);
+  commitTableCell(cell);
+};
+
 /** Applies a TextFormat to every run in the cell's text. */
 export const setTableCellTextFormat = (cell: TableCellData, format: TextFormat): void => {
   validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
   applyValidatedFormatToAllRuns(txBody, format);
+  // Whole-cell formatting also establishes the format used by empty paragraphs
+  // and paragraph ends, and includes fields and explicit line breaks.
+  for (const paragraph of allChildElements(txBody, qname('a', 'p', NS.dml))) {
+    for (const child of paragraph.children) {
+      if (
+        child.kind !== 'element' ||
+        child.name.namespaceURI !== NS.dml ||
+        !['fld', 'br'].includes(child.name.localName)
+      )
+        continue;
+      const name = qname('a', 'rPr', NS.dml);
+      let properties = firstChildElement(child, name);
+      if (!properties) {
+        properties = elem(name);
+        child.children.unshift(properties);
+      }
+      applyRunFormat(properties, format);
+    }
+    const name = qname('a', 'endParaRPr', NS.dml);
+    let end = firstChildElement(paragraph, name);
+    if (!end) {
+      end = elem(name);
+      paragraph.children.push(end);
+    }
+    applyRunFormat(end, format);
+  }
+  commitTableCell(cell);
+};
+
+/** Set alignment on the cell paragraphs touched by a UTF-16 selection. */
+export const setTableCellTextRangeAlignment = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  align: ParagraphAlignment,
+): void => {
+  const token = alignToken(align, 'setTableCellTextRangeAlignment');
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  const body = ensureCellTxBody(cell);
+  const paragraphs = textBodyParagraphsInRange(body, value, start, end);
+  // A temporary wrapper shares the selected paragraph nodes with the cell body.
+  applyAlignmentTokenToAllParagraphs({ ...body, children: paragraphs }, token);
+  commitTableCell(cell);
+};
+
+/** Shift each selected paragraph's level independently, clamped to levels 0–8. */
+export const shiftTableCellTextRangeLevel = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  delta: -1 | 1,
+): void => {
+  if (delta !== -1 && delta !== 1) throw new Error('Invalid paragraph level delta.');
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  const body = ensureCellTxBody(cell);
+  for (const paragraph of textBodyParagraphsInRange(body, value, start, end)) {
+    const properties = firstChildElement(paragraph, qname('a', 'pPr', NS.dml));
+    const level = properties ? (parsePPrLikeElement(properties).level ?? 0) : 0;
+    applyParagraphSettingsPatch(
+      paragraph,
+      elem(qname('a', 'pPr', NS.dml), {
+        attrs: [attr(qname('', 'lvl', ''), String(Math.max(0, Math.min(8, level + delta))))],
+      }),
+    );
+  }
+  commitTableCell(cell);
+};
+
+/** Set bullets on the cell paragraphs touched by a UTF-16 selection. */
+export const setTableCellTextRangeBullets = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  style: BulletStyle,
+): void => {
+  // Validate the style on a detached paragraph before touching the cell.
+  applyBulletToParagraph(elem(qname('a', 'p', NS.dml)), style);
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  const body = ensureCellTxBody(cell);
+  const paragraphs = textBodyParagraphsInRange(body, value, start, end);
+  applyBulletToAllParagraphs({ ...body, children: paragraphs }, style);
+  commitTableCell(cell);
+};
+
+/** Set line spacing on the cell paragraphs touched by a UTF-16 selection. */
+export const setTableCellTextRangeLineSpacing = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  spacing: ParagraphProperties['lineSpacing'],
+): void => {
+  if (
+    spacing !== null &&
+    (!['pct', 'pts'].includes(spacing.kind) ||
+      !Number.isFinite(spacing.value) ||
+      spacing.value < 0 ||
+      spacing.value * (spacing.kind === 'pct' ? 100000 : 100) > 2147483647)
+  )
+    throw new Error('Invalid table cell line spacing.');
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  const body = ensureCellTxBody(cell);
+  for (const paragraph of textBodyParagraphsInRange(body, value, start, end)) {
+    let pPr = firstChildElement(paragraph, qname('a', 'pPr', NS.dml));
+    if (!pPr) {
+      if (spacing === null) continue;
+      pPr = elem(qname('a', 'pPr', NS.dml));
+      paragraph.children.unshift(pPr);
+    }
+    pPr.children = pPr.children.filter(
+      (child) =>
+        !(
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.dml &&
+          child.name.localName === 'lnSpc'
+        ),
+    );
+    if (spacing !== null) {
+      const pct = spacing.kind === 'pct';
+      const inner = elem(qname('a', pct ? 'spcPct' : 'spcPts', NS.dml), {
+        attrs: [
+          attr(qname('', 'val', ''), String(Math.round(spacing.value * (pct ? 100000 : 100)))),
+        ],
+      });
+      // lnSpc is the first child in CT_TextParagraphProperties.
+      pPr.children.unshift(elem(qname('a', 'lnSpc', NS.dml), { children: [inner] }));
+    }
+  }
   commitTableCell(cell);
 };
 
@@ -1198,6 +1615,45 @@ const rowDefaultHeight = (tbl: XmlElement): number => {
   return count > 0 ? Math.round(sum / count) : 370000;
 };
 
+// Capture merges before the physical grid changes. Inserting through a merge
+// extends that merge; inserting at either boundary keeps its extent unchanged.
+const insertionMergeRepair = (tbl: XmlElement, rows: boolean, index: number): (() => void) => {
+  const crossing: { row: number; col: number; rowSpan: number; colSpan: number }[] = [];
+  tableRows(tbl).forEach((tr, row) => {
+    rowCells(tr).forEach((tc, col) => {
+      if (
+        ['1', 'true'].includes(getAttrValue(tc, ATTR_H_MERGE) ?? '') ||
+        ['1', 'true'].includes(getAttrValue(tc, ATTR_V_MERGE) ?? '')
+      )
+        return;
+      const rowSpan = Math.max(1, Number(getAttrValue(tc, ATTR_ROW_SPAN) ?? 1));
+      const colSpan = Math.max(1, Number(getAttrValue(tc, ATTR_GRID_SPAN) ?? 1));
+      const start = rows ? row : col;
+      const span = rows ? rowSpan : colSpan;
+      if (start < index && index < start + span) crossing.push({ row, col, rowSpan, colSpan });
+    });
+  });
+  return () => {
+    const grid = tableRows(tbl).map(rowCells);
+    for (const block of crossing) {
+      const anchor = grid[block.row]![block.col]!;
+      setSpanAttr(
+        anchor,
+        rows ? ATTR_ROW_SPAN : ATTR_GRID_SPAN,
+        String((rows ? block.rowSpan : block.colSpan) + 1),
+      );
+      const count = rows ? block.colSpan : block.rowSpan;
+      for (let offset = 0; offset < count; offset++) {
+        const row = rows ? index : block.row + offset;
+        const col = rows ? block.col + offset : index;
+        const tc = grid[row]![col]!;
+        if (row > block.row) setSpanAttr(tc, ATTR_V_MERGE, '1');
+        if (col > block.col) setSpanAttr(tc, ATTR_H_MERGE, '1');
+      }
+    }
+  };
+};
+
 /**
  * Inserts a row into the table. `atIndex` is 0-based; `undefined`
  * appends at the end. `cells` supplies cell values; missing cells
@@ -1218,6 +1674,7 @@ export const insertTableRow = (
   const rows = tableRows(tbl);
   const insertAt =
     atIndex !== undefined ? Math.max(0, Math.min(atIndex, rows.length)) : rows.length;
+  const repairMerges = insertionMergeRepair(tbl, true, insertAt);
   if (insertAt === rows.length) {
     tbl.children.push(row);
   } else {
@@ -1225,19 +1682,78 @@ export const insertTableRow = (
     const idx = tbl.children.indexOf(target);
     tbl.children.splice(idx, 0, row);
   }
+  repairMerges();
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+// Shrink intersected merges and promote their anchor when its physical row or
+// column is removed. Moving the anchor preserves its text and cell formatting.
+const deletionMergeRepair = (tbl: XmlElement, rows: boolean, index: number): (() => void) => {
+  const blocks: { row: number; col: number; height: number; width: number; anchor: XmlElement }[] =
+    [];
+  tableRows(tbl).forEach((tr, row) =>
+    rowCells(tr).forEach((tc, col) => {
+      if (
+        ['1', 'true'].includes(getAttrValue(tc, ATTR_H_MERGE) ?? '') ||
+        ['1', 'true'].includes(getAttrValue(tc, ATTR_V_MERGE) ?? '')
+      )
+        return;
+      const height = Math.max(1, Number(getAttrValue(tc, ATTR_ROW_SPAN) ?? 1));
+      const width = Math.max(1, Number(getAttrValue(tc, ATTR_GRID_SPAN) ?? 1));
+      const start = rows ? row : col,
+        span = rows ? height : width;
+      if (span > 1 && start <= index && index < start + span)
+        blocks.push({
+          row,
+          col,
+          height: height - (rows ? 1 : 0),
+          width: width - (rows ? 0 : 1),
+          anchor: tc,
+        });
+    }),
+  );
+  return () => {
+    const physicalRows = tableRows(tbl);
+    const grid = physicalRows.map(rowCells);
+    for (const block of blocks) {
+      if (index === (rows ? block.row : block.col)) {
+        const tr = physicalRows[block.row]!;
+        const old = grid[block.row]![block.col]!;
+        tr.children[tr.children.indexOf(old)] = block.anchor;
+        grid[block.row]![block.col] = block.anchor;
+      }
+      for (let r = 0; r < block.height; r++)
+        for (let c = 0; c < block.width; c++) {
+          const tc = grid[block.row + r]![block.col + c]!;
+          tc.attrs = tc.attrs.filter(
+            (a) =>
+              a.name.namespaceURI !== '' ||
+              !['gridSpan', 'rowSpan', 'hMerge', 'vMerge'].includes(a.name.localName),
+          );
+          if (r === 0 && c === 0) {
+            if (block.height > 1) setSpanAttr(tc, ATTR_ROW_SPAN, String(block.height));
+            if (block.width > 1) setSpanAttr(tc, ATTR_GRID_SPAN, String(block.width));
+          } else {
+            if (r > 0) setSpanAttr(tc, ATTR_V_MERGE, '1');
+            if (c > 0) setSpanAttr(tc, ATTR_H_MERGE, '1');
+          }
+        }
+    }
+  };
 };
 
 /** Removes the row at `atIndex` from the table. Throws on out-of-range. */
 export const removeTableRow = (table: SlideShapeData, atIndex: number): void => {
   const tbl = requireTbl(table);
   const rows = tableRows(tbl);
-  if (atIndex < 0 || atIndex >= rows.length) {
+  if (!Number.isInteger(atIndex) || atIndex < 0 || atIndex >= rows.length) {
     throw new RangeError(`removeTableRow: index ${atIndex} out of range (have ${rows.length})`);
   }
+  const repairMerges = deletionMergeRepair(tbl, true, atIndex);
   const target = rows[atIndex]!;
   tbl.children = tbl.children.filter((c) => c !== target);
+  repairMerges();
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
@@ -1259,6 +1775,8 @@ export const insertTableColumn = (
   const cols = allChildElements(grid, NAME_A_GRID_COL);
   const insertAt =
     atIndex !== undefined ? Math.max(0, Math.min(atIndex, cols.length)) : cols.length;
+
+  const repairMerges = insertionMergeRepair(tbl, false, insertAt);
 
   // Default width: average of existing widths.
   let defaultWidth = widthEmu;
@@ -1299,6 +1817,7 @@ export const insertTableColumn = (
     }
   }
 
+  repairMerges();
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
 };
@@ -1309,9 +1828,10 @@ export const removeTableColumn = (table: SlideShapeData, atIndex: number): void 
   const grid = firstChildElement(tbl, qname('a', 'tblGrid', NS.dml));
   if (!grid) throw new Error('table is missing <a:tblGrid>');
   const cols = allChildElements(grid, NAME_A_GRID_COL);
-  if (atIndex < 0 || atIndex >= cols.length) {
+  if (!Number.isInteger(atIndex) || atIndex < 0 || atIndex >= cols.length) {
     throw new RangeError(`removeTableColumn: index ${atIndex} out of range (have ${cols.length})`);
   }
+  const repairMerges = deletionMergeRepair(tbl, false, atIndex);
   const targetCol = cols[atIndex]!;
   grid.children = grid.children.filter((c) => c !== targetCol);
   for (const tr of tableRows(tbl)) {
@@ -1320,6 +1840,23 @@ export const removeTableColumn = (table: SlideShapeData, atIndex: number): void 
       tr.children = tr.children.filter((c) => c !== tcs[atIndex]);
     }
   }
+  repairMerges();
   commitSlideData(table[SHAPE_SLIDE]);
   refreshSlideData(table[SHAPE_SLIDE]);
+};
+
+/** Update geometry and spacing of cell paragraphs touched by a UTF-16 range. */
+export const setTableCellTextRangeParagraphSettings = (
+  cell: TableCellData,
+  start: number,
+  end: number,
+  settings: ParagraphSettings,
+): void => {
+  const patch = paragraphSettingsPatch(settings);
+  const value = getTableCellText(cell);
+  validateTextRange(value, start, end);
+  const body = ensureCellTxBody(cell);
+  for (const paragraph of textBodyParagraphsInRange(body, value, start, end))
+    applyParagraphSettingsPatch(paragraph, patch);
+  commitTableCell(cell);
 };

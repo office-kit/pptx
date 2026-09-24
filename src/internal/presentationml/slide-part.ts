@@ -1,3 +1,4 @@
+import { inkContentPart } from '../drawingml/ink-content.ts';
 // Read-only view over a slide part (`/ppt/slides/slideN.xml`).
 //
 // ECMA-376 Part 1 §19.3.1.38 — `<p:sld>` wraps a common slide data block
@@ -25,7 +26,7 @@ import { textBodyText } from '../drawingml/index.ts';
 import { NS, firstChildElement, getAttrValue, qname } from '../xml/index.ts';
 import type { XmlElement } from '../xml/index.ts';
 
-export type ShapeKind = 'shape' | 'picture' | 'group' | 'graphicFrame' | 'connector';
+export type ShapeKind = 'shape' | 'picture' | 'group' | 'graphicFrame' | 'connector' | 'ink';
 
 export interface SlideShape {
   readonly kind: ShapeKind;
@@ -83,9 +84,11 @@ const NV_BY_KIND: Record<ShapeKind, ReturnType<typeof qname>> = {
   group: NAME_NV_GRP_SP_PR,
   graphicFrame: NAME_NV_GRAPHIC_FRAME_PR,
   connector: NAME_NV_CXN_SP_PR,
+  ink: qname('p14', 'nvContentPartPr', NS.p14),
 };
 
 const classify = (element: XmlElement): ShapeKind | null => {
+  if (inkContentPart(element)) return 'ink';
   if (element.name.namespaceURI !== NS.pml) return null;
   switch (element.name.localName) {
     case 'sp':
@@ -104,14 +107,20 @@ const classify = (element: XmlElement): ShapeKind | null => {
 };
 
 const extractShape = (element: XmlElement, kind: ShapeKind): SlideShape => {
-  const nvContainer = firstChildElement(element, NV_BY_KIND[kind]);
+  const nvContainer = firstChildElement(
+    kind === 'ink' ? inkContentPart(element)! : element,
+    NV_BY_KIND[kind],
+  );
   let id = 0;
   let name = '';
   let placeholderType: string | null = null;
   let placeholderIdx: number | null = null;
 
   if (nvContainer !== null) {
-    const cNvPr = firstChildElement(nvContainer, NAME_C_NV_PR);
+    const cNvPr = firstChildElement(
+      nvContainer,
+      kind === 'ink' ? qname('p14', 'cNvPr', NS.p14) : NAME_C_NV_PR,
+    );
     if (cNvPr !== null) {
       const idRaw = getAttrValue(cNvPr, ATTR_ID);
       if (idRaw !== null) id = Number.parseInt(idRaw, 10);

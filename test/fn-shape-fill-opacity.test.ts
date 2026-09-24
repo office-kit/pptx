@@ -19,6 +19,8 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
+  setShapeFillOpacity,
+  setShapeStrokeOpacity,
   setShapeStroke,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
@@ -78,4 +80,38 @@ describe('fn API: getShapeFillOpacity / getShapeStrokeOpacity', () => {
     expect(getShapeFillColorResolved(pres, shape)).toBe('#3366CC');
     expect(getShapeStrokeColorResolved(pres, shape)).toBe('#000000');
   });
+});
+
+it('width-only outline changes preserve color transforms through export', async () => {
+  const { pres, shape } = await loadRectWithAlpha('', '<a:alpha val="35000"/>');
+  setShapeStroke(shape, { widthEmu: 38100 });
+  expect(getShapeStrokeColorResolved(pres, shape)).toBe('#000000');
+  expect(getShapeStrokeOpacity(shape)).toBe(0.35);
+  const reloaded = await loadPresentation(await savePresentation(pres));
+  const saved = getSlideShapes(getSlides(reloaded).at(-1)!).at(-1)!;
+  expect(getShapeStrokeOpacity(saved)).toBe(0.35);
+  expect(getShapeStrokeColorResolved(reloaded, saved)).toBe('#000000');
+});
+
+it('absolute opacity replaces alpha transforms, survives export and rejects invalid values', async () => {
+  const { pres, shape } = await loadRectWithAlpha(
+    '<a:alpha val="80000"/><a:alphaMod val="50000"/>',
+    '<a:alpha val="60000"/><a:alphaOff val="10000"/>',
+  );
+  setShapeFillOpacity(shape, 0.25);
+  setShapeStrokeOpacity(shape, 0);
+  expect(getShapeFillOpacity(shape)).toBe(0.25);
+  expect(getShapeStrokeOpacity(shape)).toBe(0);
+  for (const value of [-1, 1.1, NaN, Infinity]) {
+    expect(() => setShapeFillOpacity(shape, value)).toThrow();
+    expect(() => setShapeStrokeOpacity(shape, value)).toThrow();
+  }
+  expect(getShapeFillOpacity(shape)).toBe(0.25);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const saved = getSlideShapes(getSlides(loaded).at(-1)!).at(-1)!;
+  expect(getShapeFillOpacity(saved)).toBe(0.25);
+  expect(getShapeStrokeOpacity(saved)).toBe(0);
+  expect(getShapeFillColorResolved(loaded, saved)).toBe('#3366CC');
+  setShapeFillOpacity(saved, 1);
+  expect(getShapeFillOpacity(saved)).toBe(1);
 });

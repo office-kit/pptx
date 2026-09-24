@@ -23,6 +23,8 @@ export interface FontSpec {
   readonly bold: boolean;
   readonly italic: boolean;
   readonly letterSpacingPx: number;
+  /** Explicit kerning override; undefined preserves the renderer default. */
+  readonly kerning?: boolean;
 }
 
 /** Advance width of `text` in px, plus optional vertical metrics. A real
@@ -141,14 +143,19 @@ export interface PieceInput {
   readonly bold: boolean;
   readonly italic: boolean;
   readonly letterSpacingPx: number;
+  /** Explicit kerning override; undefined preserves the renderer default. */
+  readonly kerning?: boolean;
   readonly fillHex: string;
+  readonly highlightHex?: string;
   /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
    *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
    *  support, so the engine draws it as an explicit path (see `wavyPath`). */
   readonly underline: 'none' | 'single' | 'wavy';
   readonly strike: boolean;
+  readonly baseline?: number; // authored shift as a fraction of the unscaled font size
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   readonly href: string | null;
+  readonly hrefTip?: string | null;
   readonly isBreak: boolean; // <a:br>
 }
 
@@ -196,6 +203,7 @@ export interface TextBodyInput {
   readonly boxWpx: number;
   readonly boxHpx: number;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCenter?: boolean;
   readonly wrap: boolean;
   readonly paragraphs: readonly ParaInput[];
   /** Vertical text direction; omitted / 'none' is the default horizontal flow. */
@@ -293,10 +301,11 @@ const splitEastAsianBreakables = (word: string): string[] => {
 
 const specOf = (piece: PieceInput): FontSpec => ({
   family: piece.family,
-  sizePx: piece.sizePx,
+  sizePx: renderedSizePxOf(piece),
   bold: piece.bold,
   italic: piece.italic,
   letterSpacingPx: piece.letterSpacingPx,
+  ...(piece.kerning !== undefined ? { kerning: piece.kerning } : {}),
 });
 
 const bulletSpec = (b: BulletInput): FontSpec => ({
@@ -331,7 +340,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
   const widthCache = new Map<string, number>();
   const metricCache = new Map<string, { a: number; d: number; g: number }>();
   const key = (text: string, s: FontSpec): string =>
-    `${s.family}|${s.sizePx}|${s.bold}|${s.italic}|${s.letterSpacingPx}|${text}`;
+    `${s.family}|${s.sizePx}|${s.bold}|${s.italic}|${s.letterSpacingPx}|${s.kerning}|${text}`;
   const mWidth = (text: string, s: FontSpec): number => {
     const k = key(text, s);
     let w = widthCache.get(k);
@@ -351,9 +360,9 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         r.ascentPx !== undefined && r.descentPx !== undefined
           ? { a: r.ascentPx, d: r.descentPx, g: r.lineGapPx ?? 0 }
           : {
-              a: piece.sizePx * FALLBACK_ASCENT,
-              d: piece.sizePx * FALLBACK_DESCENT,
-              g: piece.sizePx * FALLBACK_LINEGAP,
+              a: s.sizePx * FALLBACK_ASCENT,
+              d: s.sizePx * FALLBACK_DESCENT,
+              g: s.sizePx * FALLBACK_LINEGAP,
             };
       metricCache.set(k, m);
     }
@@ -425,8 +434,9 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         for (const t of toks) {
           if (t.isSpace || t.isBreak) continue;
           const m = mMetrics(t.piece);
-          if (m.a > ascent) ascent = m.a;
-          if (m.d > descent) descent = m.d;
+          const shift = baselineShiftPxOf(t.piece);
+          ascent = Math.max(ascent, m.a + shift);
+          descent = Math.max(descent, m.d - shift);
           if (m.g > lineGap) lineGap = m.g;
         }
         if (ascent === 0) {
@@ -513,6 +523,27 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
       ? placeColumns(frame, columns, input.anchor, buildLines)
       : placeSingle(frame, input.anchor, buildLines);
 
+  if (input.anchorCenter && placements.length) {
+    let left = Infinity,
+      right = -Infinity;
+    for (const { line, dx } of placements) {
+      let end = line.tokens.length;
+      while (end && (line.tokens[end - 1]!.isSpace || line.tokens[end - 1]!.isBreak)) end--;
+      const width = line.tokens
+        .slice(0, end)
+        .reduce((sum, token) => sum + (token.isBreak ? 0 : token.width), 0);
+      if (width === 0 && !line.bullet) continue;
+      const x =
+        line.anchorX +
+        dx -
+        width * (line.textAnchor === 'middle' ? 0.5 : line.textAnchor === 'end' ? 1 : 0);
+      left = Math.min(left, x, line.bullet ? line.bullet.x + dx : x);
+      right = Math.max(right, x + width);
+    }
+    const shift = Number.isFinite(left) ? frame.x + frame.w / 2 - (left + right) / 2 : 0;
+    for (let i = 0; i < placements.length; i++)
+      placements[i] = { ...placements[i]!, dx: placements[i]!.dx + shift };
+  }
   return { placements, requiredH, vert, cx, cy };
 };
 
@@ -675,11 +706,34 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   const content = toks.filter((t) => !t.isBreak);
   if (content.length === 0) return '';
   const groups = groupTokens(content);
-  const tspans = groups.map((g) => tspan(g)).join('');
+  const tspans = groups
+    .map((g) => {
+      const span = tspan(g);
+      if (!g.piece.href) return span;
+      const target = g.piece.href.startsWith('#')
+        ? ''
+        : ' target="_blank" rel="noopener noreferrer"';
+      const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
+      return `<a href="${escapeXml(g.piece.href)}"${target}>${title}${span}</a>`;
+    })
+    .join('');
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
-  return text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
+  const totalWidth = groups.reduce((sum, group) => sum + group.width, 0);
+  let cursor =
+    x0 -
+    (line.textAnchor === 'middle' ? totalWidth / 2 : line.textAnchor === 'end' ? totalWidth : 0);
+  const highlights = groups
+    .map((group) => {
+      const rect = group.piece.highlightHex
+        ? `<rect x="${fmt(cursor)}" y="${fmt(baselineY - line.ascent)}" width="${fmt(group.width)}" height="${fmt(line.ascent + line.descent)}" fill="${escapeXml(group.piece.highlightHex)}"/>`
+        : '';
+      cursor += group.width;
+      return rect;
+    })
+    .join('');
+  return highlights + text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
 };
 
 interface Group {
@@ -712,11 +766,13 @@ const groupTokens = (toks: Token[]): Group[] => {
 const SUPERSCRIPT_SHIFT_RATIO = 0.33;
 const SUBSCRIPT_SHIFT_RATIO = 0.16;
 const baselineShiftPxOf = (p: PieceInput): number =>
-  p.superSub === 1
-    ? p.sizePx * SUPERSCRIPT_SHIFT_RATIO
-    : p.superSub === -1
-      ? -p.sizePx * SUBSCRIPT_SHIFT_RATIO
-      : 0;
+  p.baseline !== undefined
+    ? p.sizePx * p.baseline
+    : p.superSub === 1
+      ? p.sizePx * SUPERSCRIPT_SHIFT_RATIO
+      : p.superSub === -1
+        ? -p.sizePx * SUBSCRIPT_SHIFT_RATIO
+        : 0;
 
 // A super/subscript run's glyphs render at this fraction of its authored
 // size (see tspan()) — wavyPath reuses it so a wavy-underlined super/
@@ -796,11 +852,15 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.bold === b.bold &&
   a.italic === b.italic &&
   a.letterSpacingPx === b.letterSpacingPx &&
+  a.kerning === b.kerning &&
   a.fillHex === b.fillHex &&
+  a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
   a.strike === b.strike &&
   a.superSub === b.superSub &&
-  a.href === b.href;
+  a.baseline === b.baseline &&
+  a.href === b.href &&
+  a.hrefTip === b.hrefTip;
 
 const tspan = (g: Group): string => {
   const p = g.piece;
@@ -810,6 +870,7 @@ const tspan = (g: Group): string => {
     `font-size="${fmt(sizePx)}"`,
     `fill="${p.fillHex}"`,
   ];
+  if (p.kerning !== undefined) attrs.push(`style="font-kerning:${p.kerning ? 'normal' : 'none'}"`);
   if (p.bold) attrs.push('font-weight="700"');
   if (p.italic) attrs.push('font-style="italic"');
   const deco: string[] = [];

@@ -7,6 +7,12 @@ import {
   addSlideImage,
   addSlideShape,
   copyShape,
+  importShape,
+  createPresentation,
+  addBlankSlide,
+  savePresentation,
+  validatePresentation,
+  getMediaParts,
   findShapesByKind,
   getShapeKind,
   getShapeText,
@@ -72,4 +78,25 @@ describe('fn API: copyShape', () => {
     const targetSlide = getSlides(presB)[0]!;
     expect(() => copyShape(targetSlide, sourceShape)).toThrow(/same package/);
   });
+});
+
+it('imports a picture across packages with independent media bytes', async () => {
+  const source = createPresentation();
+  const destination = createPresentation();
+  const sourceSlide = addBlankSlide(source);
+  const targetSlide = addBlankSlide(destination);
+  const picture = addSlideImage(sourceSlide, tinyPng(), {
+    x: inches(1),
+    y: inches(1),
+    w: inches(2),
+    h: inches(1),
+    format: 'png',
+  });
+  const originalBytes = await savePresentation(source);
+  const imported = importShape(targetSlide, picture);
+  expect(getShapeKind(imported)).toBe('picture');
+  expect(await savePresentation(source)).toEqual(originalBytes);
+  const reloaded = await loadPresentation(await savePresentation(destination));
+  expect(getMediaParts(reloaded).map((part) => part.data)).toEqual([tinyPng()]);
+  expect(validatePresentation(reloaded).filter((issue) => issue.severity === 'error')).toEqual([]);
 });

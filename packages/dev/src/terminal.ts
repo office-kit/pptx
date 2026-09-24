@@ -10,7 +10,8 @@ const OUTPUT_LIMIT = 2_000_000;
 const REQUEST_LIMIT = 128_000;
 
 /** A real interactive Claude session, shared across reloads of its owning tab. */
-export function createTerminal(entry: string, busy = () => false, base = '') {
+export function createTerminal(entry: string, busy = () => false, base = '', verify: () => Promise<string | null> = async () => null) {
+  let repairs = 0;
   let process: IPty | undefined;
   let owner = '';
   let output = '';
@@ -53,18 +54,34 @@ export function createTerminal(entry: string, busy = () => false, base = '') {
       response.writeHead(code, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify(value));
     };
-    if (request.url === '/terminal/context') {
+    if (request.url === '/terminal/context' || request.url === '/terminal/verify') {
       if (request.method !== 'POST' || request.headers.authorization !== `Bearer ${token}`) {
         json(403, { error: 'Invalid hook credentials' });
         return;
       }
       request.resume();
+      if (request.url === '/terminal/verify') {
+        const error = await verify();
+        if (closing || stopping || !process) { json(200, {}); return; }
+        if (error && repairs < 3) {
+          repairs++;
+          status = `Repairing preview (${repairs}/3)…`;
+          json(200, { decision: 'block', reason: `The actual preview build failed. Repair the source before finishing (attempt ${repairs}/3). Preserve unrelated edits, inspect the installed DSL exports and local components before changing imports. Do not hide the error or remove requested content. No Raw is needed for lists or an agenda: use Text paragraphs/bullets or mapped Text rows. Build error:\n${error.slice(0, 16000)}` });
+        } else {
+          status = error ? 'Preview still has errors after 3 repair attempts.' : 'Preview build verified';
+          json(200, {});
+        }
+        emit('state', snapshot());
+        return;
+      }
+      repairs = 0;
       json(200, {
         hookSpecificOutput: {
           hookEventName: 'UserPromptSubmit',
           additionalContext: `You are editing the local PowerPoint TSX project at ${resolve(entry)}.
 Read the project's authoring instructions. Make focused source patches and preserve unrelated work.
-The preview rebuilds on save; do not start another dev server.
+The preview rebuilds on save; do not start another dev server. A Stop hook checks the actual build and returns errors for repair.
+For lists and tables of contents, use Text paragraphs/bullets or mapped Text rows. Bullets and TableOfContents are not built-in DSL components: define or import local helpers. Do not use Raw for these layouts.
 The focused slide is context, NOT a restriction. For "this slide", edit only its relevant source. For other slides or deck-wide requests, locate the relevant source or shared theme.
 Slide numbers are 1-based. Verify source before editing; dependency paths are candidates, not an exact slide-to-file mapping.
 Preview context captured with the latest terminal input: ${JSON.stringify(context)}`,
@@ -161,6 +178,7 @@ Preview context captured with the latest terminal input: ${JSON.stringify(contex
             if (process || closing) throw new Error('Terminal state changed. Try again.');
             const settings = {
               hooks: {
+                Stop: [{ hooks: [{ type: 'http', url: `${origin}${base}/terminal/verify`, headers: { Authorization: `Bearer ${token}` }, timeout: 40 }] }],
                 UserPromptSubmit: [
                   {
                     hooks: [

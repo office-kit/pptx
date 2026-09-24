@@ -197,6 +197,13 @@ describe('auditTextLayout — soft wraps (段落ち)', () => {
 describe('buildFontkitMeasurer — registered fonts and glyph fallback', () => {
   const spec = { family: 'Carlito', sizePx: 24, bold: false, italic: false, letterSpacingPx: 0 };
 
+  it('uses the kerning override for real glyph advances', () => {
+    const on = measureText('AVATAR', { ...spec, kerning: true });
+    const off = measureText('AVATAR', { ...spec, kerning: false });
+    expect(on.widthPx).toBeLessThan(off.widthPx);
+    expect(measureText('AVATAR', spec).widthPx).toBe(on.widthPx);
+  });
+
   it('estimates CJK glyphs the bundled Latin fonts lack (1em, approximate)', () => {
     const r = measureText('あいう', spec);
     expect(r.approximate).toBe(true);

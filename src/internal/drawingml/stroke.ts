@@ -83,9 +83,9 @@ export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void =
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
     ln.attrs.push(attr(ATTR_W, String(lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu'))));
   }
-  // Replace any existing fill choice inside <a:ln>.
-  removeChildrenIn(ln, FILL_LOCALS);
+  // A width-only update must retain the existing color and its transforms.
   if (options.color !== undefined) {
+    removeChildrenIn(ln, FILL_LOCALS);
     insertLnChild(ln, elem(NAME_SOLID_FILL, { children: [buildColorElement(options.color)] }));
   }
 };

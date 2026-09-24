@@ -5,6 +5,8 @@ import {
   addBlankSlide,
   addSlideChart,
   duplicateSlide,
+  copyShape,
+  importShape,
   getSlideCharts,
   getShapeChartSeriesValues,
   setChartSpec,
@@ -90,4 +92,71 @@ it('fails atomically when an owned dependency is missing', () => {
   expect(() => duplicateSlide(pres, slide)).toThrow('missing dependency');
   expect(pkg.parts.map(({ name, data }) => ({ name, data }))).toEqual(before);
   expect(getSlides(pres)).toHaveLength(1);
+});
+
+it('copies charts with independent editable data on the same and another slide', async () => {
+  const pres = createPresentation();
+  const source = addBlankSlide(pres);
+  const destination = addBlankSlide(pres);
+  addSlideChart(source, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(5),
+    h: inches(3),
+    spec: { kind: 'column', categories: ['Q1'], series: [{ name: 'Revenue', values: [10] }] },
+  });
+  const original = getSlideCharts(source)[0]!.shape;
+  copyShape(source, original);
+  copyShape(destination, original);
+  setChartSpec(getSlideCharts(source)[1]!, {
+    kind: 'column',
+    categories: ['Q1'],
+    series: [{ name: 'Revenue', values: [20] }],
+  });
+  setChartSpec(getSlideCharts(destination)[0]!, {
+    kind: 'column',
+    categories: ['Q1'],
+    series: [{ name: 'Revenue', values: [30] }],
+  });
+  const reloaded = await loadPresentation(await savePresentation(pres));
+  const values = getSlides(reloaded).flatMap((slide) =>
+    getSlideCharts(slide).map((chart) => getShapeChartSeriesValues(chart.shape, 'Revenue')),
+  );
+  expect(values).toEqual([[10], [20], [30]]);
+  expect(validatePresentation(reloaded).filter((issue) => issue.severity === 'error')).toEqual([]);
+});
+
+it('imports chart dependency graphs from a frozen copy without sharing later edits', async () => {
+  const original = createPresentation();
+  const originalSlide = addBlankSlide(original);
+  addSlideChart(originalSlide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(5),
+    h: inches(3),
+    spec: { kind: 'column', categories: ['Q1'], series: [{ name: 'Revenue', values: [10] }] },
+  });
+  const frozen = await loadPresentation(await savePresentation(original));
+  setChartSpec(getSlideCharts(originalSlide)[0]!, {
+    kind: 'column',
+    categories: ['Q1'],
+    series: [{ name: 'Revenue', values: [40] }],
+  });
+  importShape(originalSlide, getSlideCharts(getSlides(frozen)[0]!)[0]!.shape);
+  setChartSpec(getSlideCharts(originalSlide)[1]!, {
+    kind: 'column',
+    categories: ['Q1'],
+    series: [{ name: 'Revenue', values: [70] }],
+  });
+  importShape(originalSlide, getSlideCharts(getSlides(frozen)[0]!)[0]!.shape);
+  const reloaded = await loadPresentation(await savePresentation(original));
+  expect(
+    getSlideCharts(getSlides(reloaded)[0]!).map((chart) =>
+      getShapeChartSeriesValues(chart.shape, 'Revenue'),
+    ),
+  ).toEqual([[40], [70], [10]]);
+  expect(
+    getShapeChartSeriesValues(getSlideCharts(getSlides(frozen)[0]!)[0]!.shape, 'Revenue'),
+  ).toEqual([10]);
+  expect(validatePresentation(reloaded).filter((issue) => issue.severity === 'error')).toEqual([]);
 });

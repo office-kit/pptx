@@ -1,5 +1,6 @@
 // Shape reads: identity, geometry, placeholders, bounds, group.
 
+import { inkAspectRatioLocked } from '../../internal/drawingml/ink-content.ts';
 import { setShapePosition } from './shape-fill-stroke.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
@@ -64,8 +65,7 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
  * `'rightArrow'`, ...) for shapes whose body carries a
  * `<a:prstGeom prst="…"/>`. Returns `null` for:
  *
- *   - non-`'shape'` kinds (pictures, connectors, group shapes, tables,
- *     charts — they have their own geometry tags or no geometry),
+ *   - kinds without shape geometry (groups, tables and charts),
  *   - shapes using custom geometry (`<a:custGeom>`),
  *   - shapes whose preset is missing (malformed but possible).
  *
@@ -73,8 +73,8 @@ export const getShapeId = (shape: SlideShapeData): number => shape[SHAPE_SNAPSHO
  * approximation of each shape without dropping to the raw XML.
  */
 export const getShapePreset = (shape: SlideShapeData): string | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape' && shape[SHAPE_SNAPSHOT].kind !== 'connector')
-    return null;
+  const kind = shape[SHAPE_SNAPSHOT].kind;
+  if (kind !== 'shape' && kind !== 'connector' && kind !== 'picture') return null;
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const prstGeom = firstChildElement(spPr, qname('a', 'prstGeom', NS.dml));
@@ -142,7 +142,7 @@ export type { CustomGeometry, GeomCommand, GeomPath, GeomPoint, PathFillMode };
  */
 export const getShapeCustomGeometry = (shape: SlideShapeData): CustomGeometry | null => {
   const kind = shape[SHAPE_SNAPSHOT].kind;
-  if (kind !== 'shape' && kind !== 'connector') return null;
+  if (kind !== 'shape' && kind !== 'connector' && kind !== 'picture') return null;
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const custGeom = firstChildElement(spPr, qname('a', 'custGeom', NS.dml));
@@ -451,6 +451,27 @@ export const getShapeSize = (shape: SlideShapeData): Size | null =>
 
 export const getShapeRotation = (shape: SlideShapeData): number =>
   readRotation(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind);
+
+/** Whether the shape's native DrawingML locks preserve its aspect ratio. */
+export const getShapeAspectRatioLocked = (shape: SlideShapeData): boolean => {
+  if (shape[SHAPE_SNAPSHOT].kind === 'ink') return inkAspectRatioLocked(shape[SHAPE_ELEMENT]);
+  const kind = shape[SHAPE_SNAPSHOT].kind;
+  const names =
+    kind === 'picture'
+      ? ['nvPicPr', 'cNvPicPr', 'picLocks']
+      : kind === 'group'
+        ? ['nvGrpSpPr', 'cNvGrpSpPr', 'grpSpLocks']
+        : kind === 'connector'
+          ? ['nvCxnSpPr', 'cNvCxnSpPr', 'cxnSpLocks']
+          : kind === 'graphicFrame'
+            ? ['nvGraphicFramePr', 'cNvGraphicFramePr', 'graphicFrameLocks']
+            : ['nvSpPr', 'cNvSpPr', 'spLocks'];
+  const nv = firstChildElement(shape[SHAPE_ELEMENT], qname('p', names[0]!, NS.pml));
+  const properties = nv && firstChildElement(nv, qname('p', names[1]!, NS.pml));
+  const locks = properties && firstChildElement(properties, qname('a', names[2]!, NS.dml));
+  const value = locks && getAttrValue(locks, qname('', 'noChangeAspect', ''));
+  return value === '1' || value === 'true';
+};
 
 export const getShapeFlip = (
   shape: SlideShapeData,

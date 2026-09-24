@@ -1,7 +1,7 @@
 // addSlideImage / setShapeImage `fit` option — 'contain' scales the image
 // to fit inside the target box preserving aspect ratio (centered), 'fill'
 // (the default) stretches to the exact box as before. Natural size comes
-// from the PNG / JPEG header; unmeasurable formats fall back to 'fill'.
+// from PNG / JPEG / GIF / WebP headers; unmeasurable formats fall back to 'fill'.
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -65,8 +65,8 @@ describe('internal: readImagePixelSize', () => {
     expect(readImagePixelSize(JPEG_64X32)).toEqual({ width: 64, height: 32 });
   });
 
-  it('returns null for formats without a cheap header (GIF) and truncated bytes', () => {
-    expect(readImagePixelSize(GIF_HEADER)).toBeNull();
+  it('reads GIF canvas dimensions and rejects truncated bytes', () => {
+    expect(readImagePixelSize(GIF_HEADER)).toEqual({ width: 2, height: 1 });
     expect(readImagePixelSize(PNG_1X1.subarray(0, 20))).toBeNull();
     expect(readImagePixelSize(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]))).toBeNull();
   });
@@ -114,10 +114,14 @@ describe('fn API: addSlideImage fit option', () => {
     expect(b.h).toBe(inches(1));
   });
 
-  it("'contain' falls back to 'fill' for unmeasurable formats (GIF) without erroring", async () => {
+  it("'contain' falls back to 'fill' for unmeasurable formats (SVG) without erroring", async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
-    const pic = addSlideImage(slide, GIF_HEADER, { ...box, fit: 'contain' });
+    const pic = addSlideImage(
+      slide,
+      new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'),
+      { ...box, fit: 'contain' },
+    );
     expect(getShapeBounds(pic)).toEqual({ x: box.x, y: box.y, w: box.w, h: box.h });
   });
 
@@ -159,7 +163,9 @@ describe('fn API: setShapeImage fit option', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const pic = addSlideImage(slide, PNG_1X1, box);
-    setShapeImage(pic, GIF_HEADER, { fit: 'contain' });
+    setShapeImage(pic, new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>'), {
+      fit: 'contain',
+    });
     expect(getShapeBounds(pic)).toEqual({ x: box.x, y: box.y, w: box.w, h: box.h });
   });
 });

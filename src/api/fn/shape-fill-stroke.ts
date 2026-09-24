@@ -1,5 +1,8 @@
 // Shape mutation: geometry, fill, stroke.
 
+import { setInkAspectRatioLocked } from '../../internal/drawingml/ink-content.ts';
+import { oneOf } from '../../internal/bounds.ts';
+import { SHAPE_PRESETS } from '../../internal/enum-values.ts';
 import { resolveDrawingColor } from './shape-color.ts';
 import {
   type ArrowOptions,
@@ -59,6 +62,37 @@ import { getPresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — geometry.
 
+/** Changes a picture's crop outline, preserving its image, source crop and bounds. */
+export const setShapeImageCropShape = (shape: SlideShapeData, preset: string): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture')
+    throw new Error('Crop to Shape requires a picture.');
+  oneOf(preset, SHAPE_PRESETS, 'setShapeImageCropShape: preset');
+  const spPr = requireSpPr(shape);
+  spPr.children = spPr.children.filter(
+    (child) =>
+      !(
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['prstGeom', 'custGeom'].includes(child.name.localName)
+      ),
+  );
+  const transform = spPr.children.findIndex(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'xfrm',
+  );
+  spPr.children.splice(
+    transform + 1,
+    0,
+    elem(qname('a', 'prstGeom', NS.dml), {
+      attrs: [attr(qname('', 'prst', ''), preset)],
+      children: [elem(qname('a', 'avLst', NS.dml))],
+    }),
+  );
+  commitAndRefresh(shape);
+};
+
 /** Sets the shape's position in EMU. Companion to `setShapeSize`. */
 export const setShapePosition = (shape: SlideShapeData, x: Emu, y: Emu): void => {
   writePosition(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, x, y);
@@ -77,6 +111,40 @@ export const setShapeSize = (shape: SlideShapeData, w: Emu, h: Emu): void => {
  */
 export const setShapeRotation = (shape: SlideShapeData, degrees: number): void => {
   writeRotation(shape[SHAPE_ELEMENT], shape[SHAPE_SNAPSHOT].kind, degrees);
+  commitAndRefresh(shape);
+};
+
+/** Sets the native aspect-ratio lock without changing the shape geometry. */
+export const setShapeAspectRatioLocked = (shape: SlideShapeData, locked: boolean): void => {
+  if (typeof locked !== 'boolean') throw new Error('Aspect ratio lock must be boolean.');
+  if (shape[SHAPE_SNAPSHOT].kind === 'ink') {
+    setInkAspectRatioLocked(shape[SHAPE_ELEMENT], locked);
+    commitAndRefresh(shape);
+    return;
+  }
+  const names = {
+    shape: ['nvSpPr', 'cNvSpPr', 'spLocks'],
+    picture: ['nvPicPr', 'cNvPicPr', 'picLocks'],
+    group: ['nvGrpSpPr', 'cNvGrpSpPr', 'grpSpLocks'],
+    connector: ['nvCxnSpPr', 'cNvCxnSpPr', 'cxnSpLocks'],
+    graphicFrame: ['nvGraphicFramePr', 'cNvGraphicFramePr', 'graphicFrameLocks'],
+  }[shape[SHAPE_SNAPSHOT].kind];
+  const nv = firstChildElement(shape[SHAPE_ELEMENT], qname('p', names[0]!, NS.pml));
+  if (!nv) throw new Error('Shape has no non-visual properties.');
+  let properties = firstChildElement(nv, qname('p', names[1]!, NS.pml));
+  if (!properties) {
+    properties = elem(qname('p', names[1]!, NS.pml));
+    nv.children.splice(1, 0, properties);
+  }
+  let locks = firstChildElement(properties, qname('a', names[2]!, NS.dml));
+  if (!locks) {
+    locks = elem(qname('a', names[2]!, NS.dml));
+    properties.children.unshift(locks);
+  }
+  locks.attrs = locks.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'noChangeAspect'),
+  );
+  locks.attrs.push(attr(qname('', 'noChangeAspect', ''), locked ? '1' : '0'));
   commitAndRefresh(shape);
 };
 
@@ -450,3 +518,40 @@ export const setShapeStrokeCompound = (
   setStrokeCompound(requireSpPr(shape), cmpd);
   commitAndRefresh(shape);
 };
+
+/** Set absolute opacity on an explicitly authored solid fill, preserving other color transforms. */
+export const setShapeFillOpacity = (shape: SlideShapeData, opacity: number): void => {
+  setPaintOpacity(shape, opacity, false);
+};
+
+/** Set absolute opacity on an explicitly authored solid outline. */
+export const setShapeStrokeOpacity = (shape: SlideShapeData, opacity: number): void => {
+  setPaintOpacity(shape, opacity, true);
+};
+
+function setPaintOpacity(shape: SlideShapeData, opacity: number, stroke: boolean): void {
+  if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)
+    throw new Error('Opacity must be between 0 and 1.');
+  const spPr = requireSpPr(shape);
+  const host = stroke ? firstChildElement(spPr, qname('a', 'ln', NS.dml)) : spPr;
+  const fill = host && firstChildElement(host, qname('a', 'solidFill', NS.dml));
+  const color = fill?.children.find(
+    (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+  );
+  if (!color || color.kind !== 'element')
+    throw new Error('Opacity requires an explicit solid fill or line.');
+  color.children = color.children.filter(
+    (child) =>
+      !(
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['alpha', 'alphaMod', 'alphaOff'].includes(child.name.localName)
+      ),
+  );
+  color.children.push(
+    elem(qname('a', 'alpha', NS.dml), {
+      attrs: [attr(qname('', 'val', ''), String(Math.round(opacity * 100000)))],
+    }),
+  );
+  commitAndRefresh(shape);
+}

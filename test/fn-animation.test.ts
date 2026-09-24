@@ -66,6 +66,32 @@ describe('fn API: animations (v1 — single click-effect)', () => {
     expect(xml).toContain('val="hidden"');
   });
 
+  it.each([
+    ['fadeOut', 1250, 1250, 'hidden'],
+    ['fadeOut', 0, 0, 'hidden'],
+    ['fadeIn', 1250, 0, 'visible'],
+    ['disappear', 1250, 0, 'hidden'],
+    ['appear', 1250, 0, 'visible'],
+  ] as const)(
+    '%s changes visibility at the correct point in the effect (%i ms)',
+    async (effect, durationMs, delay, visibility) => {
+      const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+      const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+      setShapeAnimation(shape, { effect, durationMs });
+      const xml = await slideXml(await savePresentation(pres), 0);
+      const visibilityBehavior = xml.match(/<p:set>[\s\S]*?<\/p:set>/)?.[0];
+      expect(visibilityBehavior).toBeDefined();
+      expect(visibilityBehavior).toContain('style.visibility');
+      expect(visibilityBehavior).toContain('<p:cond delay="' + delay + '"');
+      expect(visibilityBehavior).toContain('val="' + visibility + '"');
+      if (effect === 'fadeOut' || effect === 'fadeIn') {
+        const opacityBehavior = xml.match(/<p:anim [\s\S]*?<\/p:anim>/)?.[0];
+        expect(opacityBehavior).toContain('style.opacity');
+        expect(opacityBehavior).toContain('dur="' + durationMs + '"');
+      }
+    },
+  );
+
   it('setShapeAnimation merges a second effect into the existing timing', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
     const slide = getSlides(pres)[0]!;

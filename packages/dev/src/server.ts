@@ -1,3 +1,21 @@
+import {
+  getSlides,
+  loadPresentation,
+  savePresentation,
+  validatePresentation,
+} from '@office-kit/pptx';
+import { renderSlideToSvg } from '@office-kit/pptx-preview';
+import {
+  editorModel,
+  restoreEditorSession,
+  readHistory,
+  writeHistory,
+  recordEdit,
+  emptyHistory,
+  editPath,
+  type EditCommand,
+} from './editor.ts';
+import { renderPreview } from './preview-cache.ts';
 import { createServer, type ServerResponse } from 'node:http';
 import { watch } from 'node:fs';
 import { dirname, resolve, sep } from 'node:path';
@@ -18,6 +36,18 @@ export async function serveDeck(entry: string, port = 4173) {
   let patch: Record<number, string> = {};
   let pending = false;
   let closed = false;
+  let editing = false;
+  let historyState = emptyHistory();
+  let writingHistory: string | null = null;
+  async function persistHistory(history: typeof historyState) {
+    writingHistory = JSON.stringify(history);
+    try {
+      await writeHistory(entry, history);
+      historyState = history;
+    } finally {
+      writingHistory = null;
+    }
+  }
   const clients = new Set<ServerResponse>();
   const sessions = new Map<
     string,
@@ -37,7 +67,12 @@ export async function serveDeck(entry: string, port = 4173) {
         },
         () => terminal.isRunning(),
       );
-      const terminal = createTerminal(entry, () => chat.isRunning(), id ? '/agents/' + id : '');
+      const terminal = createTerminal(
+        entry,
+        () => chat.isRunning(),
+        id ? '/agents/' + id : '',
+        verify,
+      );
       result = { chat, terminal, closing: false };
       sessions.set(id, result);
     }
@@ -51,7 +86,7 @@ export async function serveDeck(entry: string, port = 4173) {
     }
     response.setHeader('Cache-Control', 'no-store');
     const match = request.url?.match(
-      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context)|close))?$/,
+      /^\/agents\/([\w-]{1,64})(\/(?:chat(?:\/(?:stop|reset))?|terminal\/(?:start|input|resize|stop|events|context|verify)|close))?$/,
     );
     if (request.url?.startsWith('/agents/') && !match) {
       response.writeHead(404).end();
@@ -111,7 +146,126 @@ export async function serveDeck(entry: string, port = 4173) {
       request.url = match[2];
     }
 
-    if (
+    if (request.url === '/edit') {
+      if (
+        request.method !== 'POST' ||
+        request.headers.origin !== `http://${host}` ||
+        request.headers['sec-fetch-site'] === 'cross-site' ||
+        request.headers['content-type'] !== 'application/json'
+      ) {
+        response.writeHead(403).end();
+        return;
+      }
+      if (editing || building || timer || pending) {
+        response
+          .writeHead(409)
+          .end(JSON.stringify({ error: 'The presentation is updating. Try again.' }));
+        return;
+      }
+      editing = true;
+      void (async () => {
+        let body = '';
+        for await (const chunk of request) {
+          body += String(chunk);
+          if (body.length > 28_000_000) throw new Error('Edit is too large.');
+        }
+        const input = JSON.parse(body) as {
+          revision: number;
+          command?: EditCommand;
+          action?: 'undo' | 'redo';
+          preview?: boolean;
+          snapshot?: boolean;
+          previewRender?: boolean;
+        };
+        if (input.revision !== revision || building || timer || pending)
+          throw new Error('The presentation changed. Review it and try again.');
+        const started = generation;
+        const history = await readHistory(entry);
+        if (JSON.stringify(history) !== JSON.stringify(historyState))
+          throw new Error('Edit history changed. Reload and try again.');
+        if (input.snapshot && (input.command || input.action || input.preview))
+          throw new Error('Cannot combine snapshot and edit operations.');
+        if (input.preview && input.action) throw new Error('Cannot preview history actions.');
+        if (input.action) {
+          if (input.action === 'undo' && history.cursor > 0) history.cursor--;
+          else if (input.action === 'redo' && history.cursor < history.entries.length)
+            history.cursor++;
+          else throw new Error('Nothing to ' + input.action + '.');
+          if (generation !== started) throw new Error('Source changed while editing. Try again.');
+          await persistHistory(history);
+          if (latest) latest = { ...latest, history };
+          await rebuild();
+          response.writeHead(200, { 'Content-Type': 'application/json' }).end('{}');
+          return;
+        }
+        if (error || !latest) throw new Error('Resolve the build error before editing.');
+        if (input.snapshot) {
+          response
+            .writeHead(200, { 'Content-Type': 'application/json' })
+            .end(
+              JSON.stringify({ snapshot: Buffer.from(latest.bytes).toString('base64'), revision }),
+            );
+          return;
+        }
+        if (!input.command) throw new Error('Missing edit command.');
+        const presentation = await loadPresentation(latest.bytes);
+        restoreEditorSession(presentation, latest.editor);
+        const record = recordEdit(presentation, input.command);
+        const diagnostics = validatePresentation(presentation);
+        if (diagnostics.some((issue) => issue.severity === 'error'))
+          throw new Error('The edit would produce an invalid presentation.');
+        if (input.preview) {
+          const svg = input.previewRender
+            ? renderSlideToSvg(presentation, getSlides(presentation)[input.command.slide]!)
+            : undefined;
+          if (generation !== started) throw new Error('Source changed while editing. Try again.');
+          response
+            .writeHead(200, { 'Content-Type': 'application/json' })
+            .end(JSON.stringify({ editor: editorModel(presentation), revision, svg }));
+          return;
+        }
+        const bytes = await savePresentation(presentation);
+        const saved = await loadPresentation(bytes);
+        restoreEditorSession(saved, editorModel(presentation));
+        const preview = renderPreview(saved, bytes);
+        const model = editorModel(saved);
+        history.entries = history.entries.slice(0, history.cursor).concat(record);
+        history.cursor++;
+        if (generation !== started) throw new Error('Source changed while editing. Try again.');
+        await persistHistory(history);
+        // Publish only after the atomic history write succeeds, then verify replay
+        // before acknowledging the edit. Filesystem notifications may arrive later.
+        patch = {};
+        preview.slides.forEach((svg, index) => {
+          if (latest?.slides[index] !== svg) patch[index] = svg;
+        });
+        latest = {
+          ...latest,
+          bytes,
+          slides: preview.slides,
+          slideTexts: preview.slideTexts,
+          editor: model,
+          history,
+          diagnostics,
+        };
+        revision++;
+        await rebuild();
+        response
+          .writeHead(200, { 'Content-Type': 'application/json' })
+          .end(JSON.stringify({ revision }));
+      })()
+        .catch((cause) => {
+          if (!response.headersSent)
+            response
+              .writeHead(409, { 'Content-Type': 'application/json' })
+              .end(
+                JSON.stringify({ error: cause instanceof Error ? cause.message : String(cause) }),
+              );
+        })
+        .finally(() => {
+          editing = false;
+        });
+    } else if (
       request.url === '/chat' ||
       request.url?.startsWith('/chat/') ||
       request.url?.startsWith('/terminal/')
@@ -135,9 +289,14 @@ export async function serveDeck(entry: string, port = 4173) {
       });
     } else if (
       request.method === 'GET' &&
-      ['/terminal.js', '/terminal.css'].includes(request.url ?? '')
+      ['/terminal.js', '/terminal.css', '/editor.js'].includes(request.url ?? '')
     ) {
-      const asset = request.url === '/terminal.js' ? 'terminal-client.js' : 'terminal-client.css';
+      const asset =
+        request.url === '/editor.js'
+          ? 'editor-client.js'
+          : request.url === '/terminal.js'
+            ? 'terminal-client.js'
+            : 'terminal-client.css';
       void readFile(new URL(asset, import.meta.url)).then(
         (bytes) => {
           response.writeHead(200, {
@@ -162,13 +321,18 @@ export async function serveDeck(entry: string, port = 4173) {
       response.end(
         JSON.stringify({
           revision,
-          building,
+          building: building || !!timer || pending,
           ...(incremental
             ? {
                 changes: since === String(revision) ? {} : patch,
                 count: latest?.slides.length ?? 0,
               }
             : { slides: latest?.slides ?? [] }),
+          editor: latest?.editor,
+          history: {
+            undo: historyState.cursor,
+            redo: historyState.entries.length - historyState.cursor,
+          },
           aspectRatio: latest?.aspectRatio ?? 16 / 9,
           error,
           diagnostics: latest?.diagnostics ?? [],
@@ -187,6 +351,17 @@ export async function serveDeck(entry: string, port = 4173) {
       response.writeHead(404).end();
     }
   });
+  async function verify() {
+    // A fresh build also covers writes whose watcher notification has not arrived yet.
+    void rebuild();
+    const deadline = Date.now() + 30000;
+    while (!closed && (building || timer || pending)) {
+      if (Date.now() >= deadline)
+        return 'Preview verification timed out. Inspect the build before claiming success.';
+      await new Promise((done) => setTimeout(done, 50));
+    }
+    return closed ? 'Preview server closed.' : error;
+  }
   async function rebuild() {
     if (closed) return;
     if (building) {
@@ -204,10 +379,16 @@ export async function serveDeck(entry: string, port = 4173) {
           if (svg !== latest?.slides[index]) patch[index] = svg;
         });
         latest = result;
+        historyState = result.history;
         revision++;
         error = null;
       }
     } catch (cause) {
+      try {
+        historyState = await readHistory(entry);
+      } catch {
+        /* Preserve the last readable history. */
+      }
       if (started === generation)
         error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
     } finally {
@@ -221,7 +402,7 @@ export async function serveDeck(entry: string, port = 4173) {
   }
   let timer: ReturnType<typeof setTimeout> | undefined;
   const root = dirname(resolve(entry));
-  const watcher = watch(root, { recursive: true }, (_, filename) => {
+  const watcher = watch(root, { recursive: true }, async (_, filename) => {
     if (
       !filename ||
       filename
@@ -230,6 +411,17 @@ export async function serveDeck(entry: string, port = 4173) {
     )
       return;
     if (!/\.([cm]?[jt]sx?|json|pptx|png|jpe?g|gif|bmp|tiff?|emf|wmf|svg)$/i.test(filename)) return;
+    if (resolve(root, filename) === resolve(editPath(entry))) {
+      try {
+        const history = JSON.stringify(await readHistory(entry));
+        // Our own saves explicitly rebuild. A delayed notification must not
+        // interrupt the user's next edit; external history changes still rebuild.
+        if (history === writingHistory || history === JSON.stringify(historyState)) return;
+      } catch {
+        // Let the build report malformed or unreadable external history.
+      }
+    }
+    if (closed) return;
     generation++;
     void builder.cancel();
     clearTimeout(timer);

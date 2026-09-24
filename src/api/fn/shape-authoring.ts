@@ -101,11 +101,14 @@ export const addSlideLine = (
     color?: string;
     widthEmu?: number;
     name?: string;
+    /** Straight, elbow or curved connector geometry. */
+    preset?: 'line' | 'straightConnector1' | 'bentConnector3' | 'curvedConnector3';
   },
 ): SlideShapeData => {
   const cxn = buildConnector({
     id: nextShapeId(slide),
     ...(opts.name !== undefined ? { name: opts.name } : {}),
+    ...(opts.preset !== undefined ? { preset: opts.preset } : {}),
     from: opts.from,
     to: opts.to,
     ...(opts.color !== undefined ? { color: opts.color } : {}),

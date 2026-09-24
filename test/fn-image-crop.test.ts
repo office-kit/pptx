@@ -73,6 +73,7 @@ describe('fn API: setShapeImageCrop', () => {
     const slide = getSlides(pres)[0]!;
     const picture = getSlideShapes(slide).find((s) => getShapeKind(s) === 'picture')!;
     expect(() => setShapeImageCrop(picture, { left: 1.5 })).toThrow();
-    expect(() => setShapeImageCrop(picture, { top: -0.1 })).toThrow();
+    expect(() => setShapeImageCrop(picture, { top: Number.NaN })).toThrow();
+    expect(() => setShapeImageCrop(picture, { left: 0.6, right: 0.4 })).toThrow();
   });
 });

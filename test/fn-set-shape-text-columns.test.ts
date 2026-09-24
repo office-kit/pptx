@@ -70,7 +70,7 @@ describe('fn API: setShapeTextColumns', () => {
     expect(getShapeTextColumns(tb)).toBeNull();
   });
 
-  it('throws when count < 2', async () => {
+  it('retains spacing for one column and rejects invalid counts', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const tb = addSlideTextBox(slide, {
@@ -80,6 +80,8 @@ describe('fn API: setShapeTextColumns', () => {
       h: inches(2),
       text: 'c',
     });
-    expect(() => setShapeTextColumns(tb, { count: 1 })).toThrow(/count must be >= 2/);
+    setShapeTextColumns(tb, { count: 1, gapEmu: 180000 });
+    expect(getShapeTextColumns(tb)).toEqual({ count: 1, gapEmu: 180000 });
+    for (const count of [0, 17, Number.NaN]) expect(() => setShapeTextColumns(tb, { count })).toThrow();
   });
 });

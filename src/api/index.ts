@@ -22,6 +22,7 @@ export type {
   SlideComment,
 } from '../internal/presentationml/index.ts';
 export type { PresentationInput, PresentationSize, SlideSize } from './fn.ts';
+export { addSlideInk, getInkBounds, type InkStroke } from './fn.ts';
 export { SLIDE_SIZE_4_3, SLIDE_SIZE_16_9, SLIDE_SIZE_16_10 } from './fn.ts';
 export type { ImageFormat } from '../internal/opc/index.ts';
 export type {
@@ -49,7 +50,7 @@ export type {
 export type { SlideChartData } from './fn.ts';
 export type { ShapeClickAction } from './fn.ts';
 export type { IssueSeverity, ValidationIssue } from './fn.ts';
-export type { AnimationEffect, AnimationOptions } from './fn.ts';
+export type { AnimationEffect, AnimationOptions, SlideAnimationEffect } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type {
@@ -146,6 +147,7 @@ export {
   clearTableCellFill,
   compactPackage,
   copyShape,
+  importShape,
   createPresentation,
   duplicateSlide,
   duplicateSlideAt,
@@ -217,6 +219,9 @@ export {
   getGroupChildren,
   getGroupTransform,
   groupShapes,
+  getRegroupShapes,
+  rememberRegroupShapes,
+  regroupShapes,
   ungroupShapes,
   getHiddenSlides,
   getExtendedProperties,
@@ -233,6 +238,19 @@ export {
   getShapeAdjustValues,
   getShapeAltTitle,
   getShapeAnimation,
+  getSlideAnimationSequence,
+  setSlideAnimationDuration,
+  setSlideAnimationDelay,
+  setSlideAnimationStart,
+  setSlideAnimationEffect,
+  setSlideAnimationsSettings,
+  type AnimationSettings,
+  type AnimationStart,
+  removeSlideAnimation,
+  removeSlideAnimations,
+  moveSlideAnimation,
+  moveSlideAnimations,
+  reorderSlideAnimations,
   getShapeAt,
   getShapeBounds,
   getShapeBodyPrEffective,
@@ -244,6 +262,9 @@ export {
   getShapeChartSeriesValues,
   getShapeChartSpec,
   getShapeClickAction,
+  getShapeHoverAction,
+  getShapeHoverActionTooltip,
+  getShapeClickActionTooltip,
   getShapeCustomGeometry,
   getShapeDescription,
   getShapeEffect,
@@ -257,6 +278,7 @@ export {
   getShapeFillColorResolved,
   getShapeFillOpacity,
   getShapeFlip,
+  getShapeAspectRatioLocked,
   getShapeHyperlink,
   getShapeHyperlinkTooltip,
   getShapeId,
@@ -310,6 +332,7 @@ export {
   getShapePosition,
   getShapeRotation,
   getShapeRunClickAction,
+  getShapeTextRangeClickActions,
   getShapeRunCount,
   getShapeRunFormat,
   getShapeRunFormatEffective,
@@ -389,6 +412,8 @@ export {
   getSlideShapes,
   getSlideTables,
   getSlideSize,
+  getFirstSlideNumber,
+  getNotesSize,
   getSlideText,
   getSlideTextLength,
   getSlideTitle,
@@ -409,6 +434,7 @@ export {
   getTableCellAnchor,
   getTableCellBorders,
   getTableCellFill,
+  isTableCellNoFill,
   getTableCellMargins,
   getTableCellParagraphs,
   getTableCellPosition,
@@ -424,6 +450,7 @@ export {
   getTableStyleFlags,
   getTableStyleId,
   mergeTableCells,
+  splitTableCell,
   getThumbnail,
   getVisibleSlides,
   hasShapeText,
@@ -442,6 +469,7 @@ export {
   isTableShape,
   listPackageParts,
   loadPresentation,
+  loadPresentationBytes,
   mergePresentations,
   moveSlide,
   readPackagePart,
@@ -472,6 +500,9 @@ export {
   setCoreProperties,
   setExtendedProperties,
   setMediaPartBytes,
+  setShapeImageCropShape,
+  setShapeImageFit,
+  setShapeImageCropAspectRatio,
   setShapeAdjustValues,
   setShapeAlignment,
   setShapeAltTitle,
@@ -479,7 +510,9 @@ export {
   setShapeBounds,
   setShapeBullets,
   setShapeFill,
+  setShapeFillOpacity,
   setShapeFlip,
+  setShapeAspectRatioLocked,
   setShapeGlow,
   setShapeGradientFill,
   setShapeHidden,
@@ -492,6 +525,7 @@ export {
   setShapeImageFill,
   setShapeImageOpacity,
   setShapeClickAction,
+  setShapeHoverAction,
   setShapeDescription,
   setShapeNoFill,
   setShapeNoStroke,
@@ -502,6 +536,8 @@ export {
   setParagraphLevel,
   setParagraphLineSpacing,
   setParagraphSpacing,
+  setParagraphSettings,
+  type ParagraphSettings,
   setShapePosition,
   setShapeRotation,
   setShapeRunFormat,
@@ -509,6 +545,7 @@ export {
   setShapeRunText,
   setShapeSize,
   setShapeStroke,
+  setShapeStrokeOpacity,
   setShapeStrokeArrow,
   setShapeStrokeCap,
   setShapeStrokeCompound,
@@ -516,11 +553,15 @@ export {
   setShapeStrokeJoin,
   setShapeText,
   setShapeTextAnchor,
+  setShapeTextAnchorCenter,
   setShapeTextAutoFit,
   setShapeTextBodyRotationDeg,
   setShapeTextColumns,
   setShapeTextDirection,
   setShapeTextFormat,
+  setShapeTextRangeFormat,
+  setShapeTextRangeClickAction,
+  replaceShapeTextRange,
   setShapeTextMargins,
   setShapeTextWrap,
   setShapeZIndex,
@@ -531,12 +572,21 @@ export {
   setSlideBody,
   setSlideHidden,
   setSlideLayout,
+  applySlideLayout,
+  resetSlideLayout,
   setSlideNotes,
   setSlidePlaceholders,
   setSlideSections,
   setSlideSize,
   setSlideTitle,
   setSlideTransition,
+  setSlideAdvanceTiming,
+  setSlideTransitionEffect,
+  setSlideTransitionDuration,
+  setSlideTransitionSound,
+  getSlideTransitionSound,
+  type SlideTransitionSound,
+  applySlideTransitionToAll,
   setTableCellAlignment,
   setTableCellAnchor,
   setTableCellBorders,
@@ -544,6 +594,15 @@ export {
   setTableCellMargins,
   setTableCellParagraphs,
   setTableCellText,
+  replaceTableCellTextRange,
+  setTableCellTextRangeFormat,
+  getTableCellTextRangeClickActions,
+  setTableCellTextRangeClickAction,
+  setTableCellTextRangeAlignment,
+  setTableCellTextRangeLineSpacing,
+  setTableCellTextRangeParagraphSettings,
+  shiftTableCellTextRangeLevel,
+  setTableCellTextRangeBullets,
   setTableCellTextDirection,
   setTableCellTextFormat,
   setTableColumnWidth,
@@ -584,3 +643,38 @@ export type {
 declare const __PPTX_KIT_VERSION__: string;
 export const VERSION =
   typeof __PPTX_KIT_VERSION__ === 'string' ? __PPTX_KIT_VERSION__ : '0.0.0-dev';
+
+export {
+  getShapeConnectionSites,
+  getShapeConnection,
+  setShapeConnection,
+  type ShapeConnection,
+  type ConnectionSite,
+} from './fn/shape-connections.ts';
+
+export {
+  getDrawingGuides,
+  setDrawingGuides,
+  getDrawingGuidesVisible,
+  getGridSpacing,
+  getSnapToGrid,
+  setSnapToGrid,
+  setGridSpacing,
+  setDrawingGuidesVisible,
+  type DrawingGuide,
+} from './fn/guides.ts';
+
+export {
+  getShapeActionSound,
+  setShapeActionSound,
+  type ShapeActionSound,
+  type ShapeActionTrigger,
+} from './fn/shape-action-sound.ts';
+
+export { getCustomShows, setCustomShows, type CustomShow } from './fn/custom-shows.ts';
+
+export {
+  getSlideShowProperties,
+  setSlideShowProperties,
+  type SlideShowProperties,
+} from './fn/show-properties.ts';

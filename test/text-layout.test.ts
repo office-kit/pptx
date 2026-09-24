@@ -111,6 +111,43 @@ const body = (paragraphs: ParaInput[], over: Partial<TextBodyInput> = {}): TextB
 const countText = (svg: string): number => (svg.match(/<text /g) ?? []).length;
 
 describe('layoutTextSvg', () => {
+  it('measures superscript at its displayed size and preserves distinct offsets', () => {
+    const sizes: number[] = [];
+    const svg = layoutTextSvg(
+      body([
+        para([
+          piece('X', { sizePx: 20, superSub: 1, baseline: 0.2 }),
+          piece('Y', { sizePx: 20, superSub: 1, baseline: 0.4 }),
+        ]),
+      ]),
+      (text, spec) => {
+        sizes.push(spec.sizePx);
+        return stubMeasurer(text, spec);
+      },
+    );
+    expect(sizes.every((size) => size === 13)).toBe(true);
+    expect(svg).toMatch(/baseline-shift="4(?:\.0+)?"/);
+    expect(svg).toMatch(/baseline-shift="8(?:\.0+)?"/);
+    expect((svg.match(/<tspan /g) ?? []).length).toBe(2);
+  });
+
+  it('keeps kerning states separate when measuring and grouping identical runs', () => {
+    const seen: Array<boolean | undefined> = [];
+    const measure: TextMeasurer = (text, spec) => {
+      seen.push(spec.kerning);
+      return stubMeasurer(text, spec);
+    };
+    const svg = layoutTextSvg(
+      body([para([piece('AV ', { kerning: true }), piece('AV ', { kerning: false })])]),
+      measure,
+    );
+    expect(seen).toContain(true);
+    expect(seen).toContain(false);
+    expect(svg).toContain('font-kerning:normal');
+    expect(svg).toContain('font-kerning:none');
+    expect((svg.match(/<tspan /g) ?? []).length).toBe(2);
+  });
+
   it('emits one <text> for a single line, left-anchored at the box edge', () => {
     const svg = layoutTextSvg(body([para([piece('Hello')])]), stubMeasurer);
     expect(countText(svg)).toBe(1);
@@ -163,6 +200,23 @@ describe('layoutTextSvg', () => {
     expect(svg).toContain('font-style="italic"');
     expect(svg).toContain('text-decoration="underline"');
     expect(svg).toContain('fill="#FF0000"');
+  });
+
+  it('paints highlights behind only the highlighted runs', () => {
+    const svg = layoutTextSvg(
+      body([
+        para([
+          piece('first', { highlightHex: '#FFFF00' }),
+          piece('second'),
+          piece('third', { highlightHex: '#00FF00' }),
+        ]),
+      ]),
+      stubMeasurer,
+    );
+    expect(svg.match(/<rect /g)).toHaveLength(2);
+    expect(svg.indexOf('fill="#FFFF00"')).toBeLessThan(svg.indexOf('<text '));
+    expect(svg).toContain('fill="#00FF00"');
+    expect(svg.match(/<tspan /g)).toHaveLength(3);
   });
 
   it('draws wavy underline as a path, not text-decoration (resvg has no text-decoration-style)', () => {
@@ -358,4 +412,18 @@ describe('layoutTextSvg horizontal parity', () => {
       `"<text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text>"`,
     );
   });
+});
+
+it('centers the whole text bounds while preserving relative paragraph positions', () => {
+  const paragraphs = [para([piece('Long text')]), para([piece('Short')])];
+  const plain = layoutTextSvg(body(paragraphs), stubMeasurer);
+  const centered = layoutTextSvg(body(paragraphs, { anchorCenter: true }), stubMeasurer);
+  const xs = (svg: string) => [...svg.matchAll(/<text x="([^"]+)"/g)].map((m) => Number(m[1]));
+  expect(xs(centered)[0]).toBeGreaterThan(xs(plain)[0]!);
+  expect(xs(centered)[0]).toBe(xs(centered)[1]);
+  expect(centered).not.toContain('text-anchor="middle"');
+  const mixed = [paragraphs[0]!, para([piece('Short')], { align: 'right' })];
+  const a = xs(layoutTextSvg(body(mixed), stubMeasurer));
+  const b = xs(layoutTextSvg(body(mixed, { anchorCenter: true }), stubMeasurer));
+  expect(b[1]! - b[0]!).toBeCloseTo(a[1]! - a[0]!);
 });

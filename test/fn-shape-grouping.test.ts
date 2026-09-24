@@ -20,15 +20,21 @@ import {
   getShapeKind,
   getShapePosition,
   getShapeRotation,
+  getShapeFlip,
   getShapeText,
   getSlideShapes,
+  getSlides,
   getSlideXmlString,
   groupShapes,
+  getRegroupShapes,
+  regroupShapes,
   inches,
   loadPresentation,
   savePresentation,
+  removeShape,
   setShapePosition,
   setShapeRotation,
+  setShapeFlip,
   setShapeSize,
   ungroupShapes,
 } from '../src/api/index.ts';
@@ -49,6 +55,52 @@ const blankSlide = () => {
 };
 
 describe('fn API: groupShapes / ungroupShapes', () => {
+  it('regroups former siblings from one selected member, retaining current geometry', async () => {
+    const { pres, slide } = blankSlide();
+    const add = (x: number) =>
+      addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(x),
+        y: inches(1),
+        w: inches(1),
+        h: inches(1),
+      });
+    const group = groupShapes([add(1), add(3)], { name: 'Old name' });
+    const members = ungroupShapes(group);
+    setShapePosition(members[0]!, inches(2), inches(2));
+    const before = members.map(getShapeBounds);
+    expect(getRegroupShapes(members[1]!).map(getShapeId)).toEqual(members.map(getShapeId));
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideShapes(getSlides(loaded)[0]!).every((s) => !getRegroupShapes(s).length)).toBe(
+      true,
+    );
+    const regrouped = regroupShapes([members[1]!]);
+    expect(getGroupChildren(regrouped).map(getShapeBounds)).toEqual(before);
+    expect(getGroupChildren(regrouped).every((s) => !getRegroupShapes(s).length)).toBe(true);
+    expect(getShapeKind(regrouped)).toBe('group');
+  });
+
+  it('restores only the first eligible former group and rejects detached membership', () => {
+    const { slide } = blankSlide();
+    const add = (x: number) =>
+      addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(x),
+        y: inches(1),
+        w: inches(1),
+        h: inches(1),
+      });
+    const first = ungroupShapes(groupShapes([add(1), add(3)]));
+    const second = ungroupShapes(groupShapes([add(5), add(7)]));
+    const result = regroupShapes([second[0]!, first[0]!]);
+    expect(getGroupChildren(result).map(getShapeId)).toEqual(second.map(getShapeId));
+    expect(getRegroupShapes(first[0]!)).toHaveLength(2);
+    removeShape(first[1]!);
+    add(9);
+    expect(getRegroupShapes(first[0]!)).toEqual([]);
+    expect(() => regroupShapes([first[0]!])).toThrow('no previously ungrouped group');
+  });
+
   it('wraps two shapes in a <p:grpSp> whose bounds are the union of its members', () => {
     const { slide } = blankSlide();
     const box = addSlideShape(slide, {
@@ -135,7 +187,7 @@ describe('fn API: groupShapes / ungroupShapes', () => {
     expect(() => groupShapes([a, b, a])).toThrow(/was passed twice/);
   });
 
-  it('rejects a shape that is already nested inside a group', () => {
+  it('rejects grouping shapes with different parents', () => {
     const { slide } = blankSlide();
     const a = addSlideShape(slide, {
       preset: 'rect',
@@ -162,6 +214,39 @@ describe('fn API: groupShapes / ungroupShapes', () => {
     // `a` is now nested one level down; grouping it directly (rather than
     // its enclosing group) must fail instead of silently doing nothing.
     expect(() => groupShapes([a, c])).toThrow(/not a direct child/);
+  });
+
+  it('groups and ungroups siblings inside a transformed parent', async () => {
+    const { pres, slide } = blankSlide();
+    const a = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(2),
+      w: inches(2),
+      h: inches(1),
+    });
+    const b = addSlideShape(slide, {
+      preset: 'ellipse',
+      x: inches(4),
+      y: inches(3),
+      w: inches(2),
+      h: inches(1),
+    });
+    const parent = groupShapes([a, b]);
+    setShapeRotation(parent, 30);
+    setShapeSize(parent, inches(9), inches(4));
+    const before = getSlideXmlString(slide);
+    const bounds = [getShapeBounds(a), getShapeBounds(b)];
+    const inner = groupShapes([a, b]);
+    expect(getGroupChildren(parent).map(getShapeId)).toEqual([getShapeId(inner)]);
+    expect(getGroupChildren(inner).map(getShapeId)).toEqual([getShapeId(a), getShapeId(b)]);
+    expect(getGroupChildren(inner).map(getShapeBounds)).toEqual(bounds);
+    const restored = ungroupShapes(inner);
+    expect(restored.map(getShapeId)).toEqual([getShapeId(a), getShapeId(b)]);
+    expect(restored.map(getShapeBounds)).toEqual(bounds);
+    expect(getSlideXmlString(slide)).toBe(before);
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(getGroupChildren(getSlideShapes(getSlides(loaded)[0]!)[0]!).length).toBe(2);
   });
 
   it('allows grouping an existing group with another top-level shape (nested groups)', () => {
@@ -256,6 +341,82 @@ describe('fn API: groupShapes / ungroupShapes', () => {
       h: inches(2),
     });
   });
+
+  it.each([
+    [90, false, false],
+    [37, true, false],
+    [215, false, true],
+    [15, true, true],
+  ] as const)(
+    'preserves child corners when ungrouping rotation %s and flips %s/%s',
+    async (angle, horizontal, vertical) => {
+      const { pres, slide } = blankSlide();
+      const a = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1),
+        y: inches(2),
+        w: inches(2),
+        h: inches(1),
+      });
+      const b = addSlideShape(slide, {
+        preset: 'ellipse',
+        x: inches(5),
+        y: inches(4),
+        w: inches(1),
+        h: inches(2),
+      });
+      setShapeRotation(a, 23);
+      setShapeFlip(a, { horizontal: true });
+      const group = groupShapes([a, b]);
+      setShapeRotation(group, angle);
+      setShapeFlip(group, { horizontal, vertical });
+      setShapePosition(group, inches(3), inches(1));
+      const initial = getShapeBounds(group)!;
+      setShapeSize(group, emu(initial.w * 2), emu(initial.h * 2));
+      const project = (shape: typeof a, x: number, y: number) => {
+        const box = getShapeBounds(shape)!;
+        const flip = getShapeFlip(shape);
+        const rad = (getShapeRotation(shape) * Math.PI) / 180;
+        const dx = (x - box.w / 2) * (flip?.horizontal ? -1 : 1);
+        const dy = (y - box.h / 2) * (flip?.vertical ? -1 : 1);
+        return {
+          x: box.x + box.w / 2 + dx * Math.cos(rad) - dy * Math.sin(rad),
+          y: box.y + box.h / 2 + dx * Math.sin(rad) + dy * Math.cos(rad),
+        };
+      };
+      const frame = getGroupTransform(group)!;
+      const before = [a, b].map((child) => {
+        const box = getShapeBounds(child)!;
+        return [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ].map(([x, y]) => {
+          const point = project(child, x! * box.w, y! * box.h);
+          return project(group, (point.x - frame.inner.x) * 2, (point.y - frame.inner.y) * 2);
+        });
+      });
+      const restored = ungroupShapes(group);
+      restored.forEach((child, index) => {
+        const box = getShapeBounds(child)!;
+        [
+          [0, 0],
+          [1, 0],
+          [1, 1],
+          [0, 1],
+        ].forEach(([x, y], corner) => {
+          const actual = project(child, x! * box.w, y! * box.h);
+          expect(Math.abs(actual.x - before[index]![corner]!.x)).toBeLessThan(2);
+          expect(Math.abs(actual.y - before[index]![corner]!.y)).toBeLessThan(2);
+        });
+      });
+      const loaded = await loadPresentation(await savePresentation(pres));
+      const saved = getSlideShapes(getSlides(loaded)[0]!);
+      expect(saved.map(getShapeRotation)).toEqual(restored.map(getShapeRotation));
+      expect(saved.map(getShapeFlip)).toEqual(restored.map(getShapeFlip));
+    },
+  );
 
   it('preserves each member rotation and z-order position across group/ungroup', () => {
     const { slide } = blankSlide();

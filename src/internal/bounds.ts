@@ -15,6 +15,7 @@
 // comment on each names the simple type so the next reader can verify it.
 
 const RANGES = {
+  slideSize: [914400, 51206400], // ST_SlideSizeCoordinate (1..56 inches)
   coordinate: [-27273042329600, 27273042316900], // ST_Coordinate (EMU, xsd:long)
   positiveCoordinate: [0, 27273042316900], // ST_PositiveCoordinate
   coordinate32: [-2147483648, 2147483647], // ST_Coordinate32 (xsd:int)
@@ -60,6 +61,9 @@ export const boundedInt = (value: number, key: RangeKey, field: string): number 
   return n;
 };
 
+/** Slide canvas extent in EMU — ST_SlideSizeCoordinate. */
+export const slideSizeCoordinate = (v: number, field: string): number =>
+  boundedInt(v, 'slideSize', field);
 /** EMU position coordinate (`<a:off>` x/y) — ST_Coordinate. */
 export const emuCoordinate = (v: number, field: string): number =>
   boundedInt(v, 'coordinate', field);

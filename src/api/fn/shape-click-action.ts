@@ -1,4 +1,6 @@
+import { inkContentPart } from '../../internal/drawingml/ink-content.ts';
 // Shape click action.
+import { getCustomShows } from './custom-shows.ts';
 import { getSlides } from './slide-query.ts';
 
 import {
@@ -17,6 +19,7 @@ import {
   elem,
   firstChildElement,
   getAttrValue,
+  insertChildByRank,
   qname,
 } from '../../internal/xml/index.ts';
 import {
@@ -33,29 +36,45 @@ import { commitAndRefresh } from './_helpers.ts';
 // ---------------------------------------------------------------------------
 // Shape click action — `<a:hlinkClick>` on the shape's cNvPr.
 //
-// Two flavors today: open a URL (External rel) or jump to another slide
-// in this deck (Internal rel + `action="ppaction://hlinksldjump"`).
-//
-// PowerPoint also supports preset actions like `nextslide`, `prevslide`,
-// `firstslide`, `lastslide`, but they're niche enough to defer until a
-// concrete user need shows up.
+// Supports external URLs, internal slide destinations and preset navigation.
 
 /** What clicking the shape should do. */
 export type ShapeClickAction =
   | { readonly kind: 'url'; readonly url: string }
   | { readonly kind: 'slide'; readonly slide: SlideData }
+  | { readonly kind: 'customShow'; readonly id: number; readonly showAndReturn: boolean }
   | { readonly kind: 'nextSlide' }
   | { readonly kind: 'prevSlide' }
   | { readonly kind: 'firstSlide' }
-  | { readonly kind: 'lastSlide' };
+  | { readonly kind: 'lastSlide' }
+  | { readonly kind: 'lastSlideViewed' }
+  | { readonly kind: 'endShow' };
+
+/** Parses the custom-show action defined by MS-OI29500 section 2.1.1395. */
+export const parseCustomShowAction = (value: string | null): ShapeClickAction | null => {
+  if (!value?.startsWith('ppaction://customshow?')) return null;
+  const params = new URLSearchParams(value.slice('ppaction://customshow?'.length));
+  const raw = params.get('id');
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const id = Number(raw);
+  if (!Number.isInteger(id) || id > 0xffffffff) return null;
+  return { kind: 'customShow', id, showAndReturn: params.get('return') === 'true' };
+};
 
 export const NAME_HLINK_CLICK_FN = qname('a', 'hlinkClick', NS.dml);
+const NAME_HLINK_HOVER = qname('a', 'hlinkHover', NS.dml);
+type ActionTrigger = 'hlinkClick' | 'hlinkHover';
 
 // cNvPr lives at different paths depending on shape kind. Returns null
-// for kinds we don't know how to navigate yet (groups, etc.).
+// for kinds we don't know how to navigate yet.
 export const findCNvPr = (shape: SlideShapeData): XmlElement | null => {
   const root = shape[SHAPE_ELEMENT];
   const kind = shape[SHAPE_SNAPSHOT].kind;
+  if (kind === 'ink') {
+    const content = inkContentPart(root);
+    const nv = content && firstChildElement(content, qname('p14', 'nvContentPartPr', NS.p14));
+    return nv && firstChildElement(nv, qname('p14', 'cNvPr', NS.p14));
+  }
   const wrapperName =
     kind === 'shape'
       ? 'nvSpPr'
@@ -65,21 +84,19 @@ export const findCNvPr = (shape: SlideShapeData): XmlElement | null => {
           ? 'nvCxnSpPr'
           : kind === 'graphicFrame'
             ? 'nvGraphicFramePr'
-            : null;
+            : kind === 'group'
+              ? 'nvGrpSpPr'
+              : null;
   if (wrapperName === null) return null;
   const wrapper = firstChildElement(root, qname('p', wrapperName, NS.pml));
   if (!wrapper) return null;
   return firstChildElement(wrapper, qname('p', 'cNvPr', NS.pml));
 };
 
-const removeExistingHlinkClick = (cNvPr: XmlElement): void => {
+const removeExistingAction = (cNvPr: XmlElement, trigger: ActionTrigger): void => {
   cNvPr.children = cNvPr.children.filter(
     (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'hlinkClick'
-      ),
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === trigger),
   );
 };
 
@@ -106,18 +123,37 @@ const findExistingHyperlinkRel = (
  * For `kind: 'slide'`, the matching slide is resolved by part name.
  * Returns `null` for unknown `ppaction` strings.
  */
-export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | null => {
+export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | null =>
+  readShapeAction(shape, 'hlinkClick');
+
+/** Reads the action triggered when the pointer enters the shape during a slideshow. */
+export const getShapeHoverAction = (shape: SlideShapeData): ShapeClickAction | null =>
+  readShapeAction(shape, 'hlinkHover');
+
+const readShapeAction = (
+  shape: SlideShapeData,
+  trigger: ActionTrigger,
+): ShapeClickAction | null => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) return null;
-  const hlink = firstChildElement(cNvPr, NAME_HLINK_CLICK_FN);
+  const hlink = firstChildElement(
+    cNvPr,
+    trigger === 'hlinkClick' ? NAME_HLINK_CLICK_FN : NAME_HLINK_HOVER,
+  );
   if (!hlink) return null;
   const action = getAttrValue(hlink, qname('', 'action', ''));
   const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
+
+  const customShow = parseCustomShowAction(action);
+  if (customShow) return customShow;
 
   if (action === 'ppaction://hlinkshowjump?jump=nextslide') return { kind: 'nextSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=previousslide') return { kind: 'prevSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=firstslide') return { kind: 'firstSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=lastslideviewed')
+    return { kind: 'lastSlideViewed' };
+  if (action === 'ppaction://hlinkshowjump?jump=endshow') return { kind: 'endShow' };
 
   if (rId !== null && rId !== '') {
     const slide = shape[SHAPE_SLIDE];
@@ -147,6 +183,13 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
   return null;
 };
 
+/** Reads only the object click ScreenTip, independently of text-run links. */
+export const getShapeClickActionTooltip = (shape: SlideShapeData): string | null => {
+  const metadata = findCNvPr(shape);
+  const link = metadata && firstChildElement(metadata, NAME_HLINK_CLICK_FN);
+  return link ? getAttrValue(link, qname('', 'tooltip', '')) : null;
+};
+
 /**
  * Sets (or clears) the click action on the shape. Side effects:
  *
@@ -160,12 +203,36 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
  *     is allocated; just the `action` attribute carries the preset.
  *   - `null` removes any existing `<a:hlinkClick>`.
  *
- * The shape must be one of `shape | picture | connector | graphicFrame`.
- * Groups don't carry their own click action in our model.
+ * Supports shapes, pictures, connectors, graphic frames and groups.
+ * The optional tooltip is the ScreenTip stored on the object link.
  */
 export const setShapeClickAction = (
   shape: SlideShapeData,
   action: ShapeClickAction | null,
+  tooltip?: string,
+): void => {
+  setShapeAction(shape, action, tooltip, 'hlinkClick');
+};
+
+/** Sets or clears the mouse-over action without changing the click action. */
+export const setShapeHoverAction = (
+  shape: SlideShapeData,
+  action: ShapeClickAction | null,
+  tooltip?: string,
+): void => setShapeAction(shape, action, tooltip, 'hlinkHover');
+
+/** Reads the ScreenTip attached to the mouse-over action. */
+export const getShapeHoverActionTooltip = (shape: SlideShapeData): string | null => {
+  const metadata = findCNvPr(shape);
+  const link = metadata && firstChildElement(metadata, NAME_HLINK_HOVER);
+  return link ? getAttrValue(link, qname('', 'tooltip', '')) : null;
+};
+
+const setShapeAction = (
+  shape: SlideShapeData,
+  action: ShapeClickAction | null,
+  tooltip: string | undefined,
+  trigger: ActionTrigger,
 ): void => {
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
@@ -174,20 +241,76 @@ export const setShapeClickAction = (
     );
   }
 
-  removeExistingHlinkClick(cNvPr);
-
-  if (action === null) {
-    commitAndRefresh(shape);
-    return;
+  const link = createShapeClickLink(shape, action, tooltip);
+  const existing = firstChildElement(
+    cNvPr,
+    trigger === 'hlinkClick' ? NAME_HLINK_CLICK_FN : NAME_HLINK_HOVER,
+  );
+  // Updating the destination must retain independent settings such as sound,
+  // endSnd and extension data. A null action explicitly removes the whole link.
+  if (link && existing) {
+    link.attrs.push(
+      ...existing.attrs.filter(
+        ({ name }) =>
+          !(name.namespaceURI === NS.officeDocRels && name.localName === 'id') &&
+          !(
+            name.namespaceURI === '' && ['action', 'tooltip', 'invalidUrl'].includes(name.localName)
+          ),
+      ),
+    );
+    link.children = existing.children;
+    link.prefixDecls = new Map(existing.prefixDecls);
   }
+  removeExistingAction(cNvPr, trigger);
+  if (link) {
+    link.name = trigger === 'hlinkClick' ? NAME_HLINK_CLICK_FN : NAME_HLINK_HOVER;
+    insertChildByRank(cNvPr, link, (child) => {
+      if (child.name.namespaceURI !== NS.dml) return 2;
+      if (child.name.localName === 'hlinkClick') return 0;
+      if (child.name.localName === 'hlinkHover') return 1;
+      return 2;
+    });
+  }
+  commitAndRefresh(shape);
+};
 
+/** Builds a click link and allocates its slide relationship without changing object metadata. */
+export const createShapeClickLink = (
+  shape: SlideShapeData,
+  action: ShapeClickAction | null,
+  tooltip?: string,
+): XmlElement | null => {
+  // Validate a destination before touching an existing link or its relationships.
   const slide = shape[SHAPE_SLIDE];
   const pkg = slide[INTERNAL_PACKAGE];
+  if (
+    action?.kind === 'slide' &&
+    (action.slide[INTERNAL_PACKAGE] !== pkg ||
+      !getSlides({ [INTERNAL_PACKAGE]: pkg, _slidesCache: null }).some(
+        (candidate) => candidate[SLIDE_PART_NAME] === action.slide[SLIDE_PART_NAME],
+      ))
+  )
+    throw new Error('setShapeClickAction: target slide must belong to this presentation.');
 
+  if (
+    action?.kind === 'customShow' &&
+    (!Number.isInteger(action.id) ||
+      action.id < 0 ||
+      action.id > 0xffffffff ||
+      typeof action.showAndReturn !== 'boolean' ||
+      !getCustomShows({ [INTERNAL_PACKAGE]: pkg, _slidesCache: null }).some(
+        (show) => show.id === action.id,
+      ))
+  )
+    throw new Error('setShapeClickAction: custom show must belong to this presentation.');
+  if (action === null) return null;
   let rId: string | null = null;
   let actionAttr: string | null = null;
 
   switch (action.kind) {
+    case 'customShow':
+      actionAttr = `ppaction://customshow?id=${action.id}${action.showAndReturn ? '&return=true' : ''}`;
+      break;
     case 'url': {
       const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
       const reused = findExistingHyperlinkRel(rels, action.url);
@@ -241,6 +364,12 @@ export const setShapeClickAction = (
     case 'firstSlide':
       actionAttr = 'ppaction://hlinkshowjump?jump=firstslide';
       break;
+    case 'lastSlideViewed':
+      actionAttr = 'ppaction://hlinkshowjump?jump=lastslideviewed';
+      break;
+    case 'endShow':
+      actionAttr = 'ppaction://hlinkshowjump?jump=endshow';
+      break;
     case 'lastSlide':
       actionAttr = 'ppaction://hlinkshowjump?jump=lastslide';
       break;
@@ -250,12 +379,7 @@ export const setShapeClickAction = (
   if (rId !== null) attrs.push(attr(qname('r', 'id', NS.officeDocRels), rId));
   else attrs.push(attr(qname('r', 'id', NS.officeDocRels), ''));
   if (actionAttr !== null) attrs.push(attr(qname('', 'action', ''), actionAttr));
+  if (tooltip !== undefined) attrs.push(attr(qname('', 'tooltip', ''), tooltip));
 
-  cNvPr.children.push(
-    elem(NAME_HLINK_CLICK_FN, {
-      attrs,
-    }),
-  );
-
-  commitAndRefresh(shape);
+  return elem(NAME_HLINK_CLICK_FN, { attrs });
 };

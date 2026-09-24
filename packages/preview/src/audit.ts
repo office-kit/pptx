@@ -257,6 +257,7 @@ const detectApproximate = (
         bold: piece.bold,
         italic: piece.italic,
         letterSpacingPx: piece.letterSpacingPx,
+        ...(piece.kerning !== undefined ? { kerning: piece.kerning } : {}),
       };
       const r = measure(piece.text, spec);
       if (r.approximate === true || r.ascentPx === undefined) return true;

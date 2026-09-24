@@ -19,8 +19,21 @@ npm run dev
 Open the local URL printed by the server. Save a slide file, `theme.ts` or `deck.tsx` to rebuild. The viewer
 has a vertical thumbnail strip, a large slide canvas and an AI chat panel on the right. Click a thumbnail or use
 arrow keys, Page Up/Down, Home/End to navigate. Fit/zoom and Present (Escape to
-exit) are viewing controls; the canvas has no editing, dragging or resize handles.
-Changes are made only in TSX, including when an AI agent edits the presentation.
+exit) are available in the ribbon and status bar. Select objects on the canvas to
+move, resize, rotate, duplicate, group, arrange, or format them. F2 edits text;
+Home/Insert adds text boxes and basic shapes. The ribbon also provides slide
+creation, duplication, deletion, notes and undo/redo. Drag thumbnails to reorder.
+
+Canvas edits are saved atomically in `deck.tsx.edits.json` alongside the entry
+file, leaving TSX unchanged. Keep this file with the source: both development
+preview and CLI builds replay it before export. Undo/redo survives reloads.
+If a source edit changes an affected slide, replay stops with a conflict instead
+of applying an edit to the wrong object. Undo the conflicting canvas operations,
+or reconcile the sidecar with the changed source. Retain a backup before manually
+changing the journal. Text editing currently replaces an entire text box's text;
+it does not preserve mixed formatting within that box. Clipboard operations are
+internal to the current preview tab. This editor does not yet cover all PowerPoint
+commands or reproduce its UI exactly.
 Keep the server running throughout the edit/review loop. Saving updates only the
 changed thumbnails and slide view, preserving zoom, scroll position and presentation
 mode. The previous slide stays visible until its replacement is ready. Rapid edits

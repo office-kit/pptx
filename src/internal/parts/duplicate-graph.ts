@@ -8,9 +8,10 @@ export function duplicatePartGraph(
   source: PartName,
   destination: PartName,
   sharedTypes: ReadonlySet<string>,
+  sourcePackage: OpcPackage = pkg,
 ): void {
-  const parts = new Map(pkg.parts.map((part) => [part.name.toLowerCase(), part]));
-  const occupied = new Set(parts.keys());
+  const parts = new Map(sourcePackage.parts.map((part) => [part.name.toLowerCase(), part]));
+  const occupied = new Set(pkg.parts.map((part) => part.name.toLowerCase()));
   const copies = new Map<string, PartName>([[source.toLowerCase(), destination]]);
   const pending = [source];
   const planned: Part[] = [];
@@ -83,7 +84,7 @@ export function duplicatePartGraph(
     });
   }
   // Missing dependencies must fail before changing the original package.
-  const names = new Set(parts.keys());
+  const names = new Set(pkg.parts.map((part) => part.name.toLowerCase()));
   for (const part of planned) {
     const key = part.name.toLowerCase();
     if (names.has(key)) throw new Error(`Cannot duplicate into existing part ${part.name}`);

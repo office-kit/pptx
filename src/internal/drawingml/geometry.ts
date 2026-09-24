@@ -1,3 +1,4 @@
+import { inkTransform } from './ink-content.ts';
 // Read-only geometry extraction from DrawingML transforms.
 //
 // `<a:xfrm>` carries the position (`<a:off x cy/>`) and size
@@ -46,6 +47,8 @@ const parseIntOr = (raw: string | null): number | null =>
 
 const findTransform = (shape: XmlElement, kind: ShapeKindForGeometry): XmlElement | null => {
   switch (kind) {
+    case 'ink':
+      return inkTransform(shape);
     case 'shape':
     case 'picture':
     case 'connector': {
@@ -68,7 +71,13 @@ const findTransform = (shape: XmlElement, kind: ShapeKindForGeometry): XmlElemen
  * Subset of `ShapeKind` from presentationml/, redeclared here to avoid an
  * upward import. They're kept in lock-step intentionally.
  */
-export type ShapeKindForGeometry = 'shape' | 'picture' | 'group' | 'graphicFrame' | 'connector';
+export type ShapeKindForGeometry =
+  | 'shape'
+  | 'picture'
+  | 'group'
+  | 'graphicFrame'
+  | 'connector'
+  | 'ink';
 
 /** Returns the shape's position (in EMU) or `null` if `<a:off>` is absent. */
 export const readPosition = (shape: XmlElement, kind: ShapeKindForGeometry): Position | null => {

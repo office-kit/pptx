@@ -44,6 +44,8 @@ const ATTR_FLIP_V = qname('', 'flipV', '');
 
 export interface ConnectorOptions {
   id: number;
+  /** Connector routing geometry; defaults to a straight line. */
+  preset?: 'line' | 'straightConnector1' | 'bentConnector3' | 'curvedConnector3';
   name?: string;
   /** Start point in EMU. */
   from: { x: number; y: number };
@@ -61,6 +63,11 @@ export interface ConnectorOptions {
 
 /** Returns a `<p:cxnSp>` straight-line connector. */
 export const buildConnector = (opts: ConnectorOptions): XmlElement => {
+  if (
+    opts.preset !== undefined &&
+    !['line', 'straightConnector1', 'bentConnector3', 'curvedConnector3'].includes(opts.preset)
+  )
+    throw new Error('Invalid connector preset.');
   const name = opts.name ?? `Straight Connector ${opts.id}`;
 
   const cNvPr = elem(NAME_C_NV_PR, {
@@ -100,7 +107,7 @@ export const buildConnector = (opts: ConnectorOptions): XmlElement => {
     ],
   });
   const prstGeom = elem(NAME_PRST_GEOM, {
-    attrs: [attr(ATTR_PRST, 'line')],
+    attrs: [attr(ATTR_PRST, opts.preset ?? 'line')],
     children: [elem(NAME_AV_LST)],
   });
 

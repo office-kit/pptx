@@ -179,10 +179,26 @@ export const getShapeTextWrap = (shape: SlideShapeData): TextWrap | null => {
  *   - `'shape'`  → `<a:spAutoFit/>`     grow the shape to fit text
  *
  * Replaces any prior auto-fit child on `<a:bodyPr>`. Throws for
- * non-text-bearing shape kinds.
+ * non-text-bearing shape kinds. Optional normal-mode parameters persist a
+ * computed font scale and line-spacing reduction as DrawingML percentages.
  */
-export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): void => {
+export const setShapeTextAutoFit = (
+  shape: SlideShapeData,
+  mode: TextAutoFit,
+  params?: { fontScale: number; lnSpcReduction: number },
+): void => {
   oneOf(mode, ['none', 'normal', 'shape'], 'setShapeTextAutoFit: mode');
+  if (
+    params !== undefined &&
+    (mode !== 'normal' ||
+      !Number.isFinite(params.fontScale) ||
+      params.fontScale <= 0 ||
+      params.fontScale > 1 ||
+      !Number.isFinite(params.lnSpcReduction) ||
+      params.lnSpcReduction < 0 ||
+      params.lnSpcReduction > 1)
+  )
+    throw new Error('Invalid normal autofit parameters.');
   const bodyPr = requireBodyPr(shape);
   bodyPr.children = bodyPr.children.filter(
     (c) =>
@@ -193,7 +209,19 @@ export const setShapeTextAutoFit = (shape: SlideShapeData, mode: TextAutoFit): v
       ),
   );
   const local = { none: 'noAutofit', normal: 'normAutofit', shape: 'spAutoFit' }[mode];
-  bodyPr.children.push(elem(qname('a', local, NS.dml)));
+  bodyPr.children.push(
+    elem(qname('a', local, NS.dml), {
+      attrs: params
+        ? [
+            attr(qname('', 'fontScale', ''), String(Math.round(params.fontScale * 100000))),
+            attr(
+              qname('', 'lnSpcReduction', ''),
+              String(Math.round(params.lnSpcReduction * 100000)),
+            ),
+          ]
+        : [],
+    }),
+  );
   commitAndRefresh(shape);
 };
 
@@ -213,6 +241,17 @@ export const getShapeTextAutoFit = (shape: SlideShapeData): TextAutoFit | null =
     if (c.name.localName === 'spAutoFit') return 'shape';
   }
   return null;
+};
+
+const readAutoFitParams = (element: XmlElement): { fontScale: number; lnSpcReduction: number } => {
+  const fsRaw = getAttrValue(element, qname('', 'fontScale', ''));
+  const lsRaw = getAttrValue(element, qname('', 'lnSpcReduction', ''));
+  const fs = fsRaw === null ? 100_000 : Number.parseInt(fsRaw, 10);
+  const ls = lsRaw === null ? 0 : Number.parseInt(lsRaw, 10);
+  return {
+    fontScale: Number.isFinite(fs) ? fs / 100_000 : 1,
+    lnSpcReduction: Number.isFinite(ls) ? ls / 100_000 : 0,
+  };
 };
 
 /**
@@ -241,14 +280,7 @@ export const getShapeTextAutoFitParams = (
       c.name.namespaceURI === NS.dml &&
       c.name.localName === 'normAutofit'
     ) {
-      const fsRaw = getAttrValue(c, qname('', 'fontScale', ''));
-      const lsRaw = getAttrValue(c, qname('', 'lnSpcReduction', ''));
-      const fs = fsRaw === null ? 100_000 : Number.parseInt(fsRaw, 10);
-      const ls = lsRaw === null ? 0 : Number.parseInt(lsRaw, 10);
-      return {
-        fontScale: Number.isFinite(fs) ? fs / 100_000 : 1,
-        lnSpcReduction: Number.isFinite(ls) ? ls / 100_000 : 0,
-      };
+      return readAutoFitParams(c);
     }
   }
   return null;
@@ -296,7 +328,7 @@ export const getShapeTextColumns = (
   const numColRaw = getAttrValue(bodyPr, qname('', 'numCol', ''));
   if (numColRaw === null) return null;
   const count = Number.parseInt(numColRaw, 10);
-  if (!Number.isFinite(count) || count < 2) return null;
+  if (!Number.isFinite(count) || count < 1) return null;
   const gapRaw = getAttrValue(bodyPr, qname('', 'spcCol', ''));
   if (gapRaw !== null) {
     const g = Number.parseInt(gapRaw, 10);
@@ -309,8 +341,8 @@ export const getShapeTextColumns = (
  * Sets the multi-column layout on the shape's text body — writes
  * `<a:bodyPr numCol="N" [spcCol="EMU"]/>`. Pass `null` to clear both
  * attributes so the text body falls back to PowerPoint's default
- * single column. `count` must be in `2..16` (ST_TextColumnCount caps at
- * 16, and single column is the `null` default). `gapEmu`, when omitted,
+ * single column. `count` must be in `1..16` (ST_TextColumnCount caps at
+ * 16; an explicit single column can retain its gap). `gapEmu`, when omitted,
  * removes any prior `spcCol`. Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextColumns = (
@@ -326,11 +358,6 @@ export const setShapeTextColumns = (
       ),
   );
   if (columns !== null) {
-    if (columns.count < 2) {
-      throw new Error(
-        `setShapeTextColumns: count must be >= 2 (single column is the default — pass null instead). Got ${columns.count}.`,
-      );
-    }
     // ST_TextColumnCount caps at 16; spcCol is ST_PositiveCoordinate32.
     const numCol = textColumnCount(columns.count, 'setShapeTextColumns: count');
     bodyPr.attrs.push(attr(qname('', 'numCol', ''), String(numCol)));
@@ -428,8 +455,9 @@ export const getShapeTextDirection = (
 /**
  * Sets the shape's text-direction via `<a:bodyPr vert="…"/>`. See
  * `getShapeTextDirection` for the meaning of each value. Passing `null`
- * (or `'horz'`) clears the attribute so the shape uses the default
- * horizontal direction. Throws for non-text-bearing shape kinds.
+ * clears the attribute to restore inheritance. Passing `'horz'` explicitly
+ * selects horizontal text even when the layout is vertical.
+ * Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextDirection = (
   shape: SlideShapeData,
@@ -448,7 +476,7 @@ export const setShapeTextDirection = (
   bodyPr.attrs = bodyPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
   );
-  if (direction !== null && direction !== 'horz') {
+  if (direction !== null) {
     bodyPr.attrs.push(attr(qname('', 'vert', ''), direction));
   }
   commitAndRefresh(shape);
@@ -482,7 +510,7 @@ export const getShapeTextMargins = (
 
 /**
  * Resolves the effective `<a:bodyPr>` properties — anchor, wrap, vertical
- * direction, and inset margins — by walking the layout / master cascade
+ * direction, autofit mode, and inset margins — by walking the layout / master cascade
  * the same way `getShapeRunFormatEffective` walks rPr. Returns the
  * innermost value that the cascade supplies, or `null` for properties
  * neither the shape nor any inherited placeholder authors.
@@ -496,14 +524,20 @@ export const getShapeBodyPrEffective = (
   shape: SlideShapeData,
 ): {
   anchor: TextAnchor | null;
+  anchorCenter: boolean | null;
   wrap: TextWrap | null;
-  vert: ReturnType<typeof getShapeTextDirection>;
+  vert: ReturnType<typeof getShapeTextDirection> | 'horz';
+  autoFit: TextAutoFit | null;
+  autoFitParams: ReturnType<typeof getShapeTextAutoFitParams>;
   margins: { left: number | null; top: number | null; right: number | null; bottom: number | null };
 } => {
   const result = {
     anchor: null as TextAnchor | null,
+    anchorCenter: null as boolean | null,
     wrap: null as TextWrap | null,
-    vert: null as ReturnType<typeof getShapeTextDirection>,
+    vert: null as ReturnType<typeof getShapeTextDirection> | 'horz',
+    autoFit: null as TextAutoFit | null,
+    autoFitParams: null as ReturnType<typeof getShapeTextAutoFitParams>,
     margins: {
       left: null as number | null,
       top: null as number | null,
@@ -512,11 +546,28 @@ export const getShapeBodyPrEffective = (
     },
   };
   const parseBodyPr = (bodyPr: XmlElement): void => {
+    if (result.autoFit === null) {
+      for (const child of bodyPr.children) {
+        if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+        if (child.name.localName === 'noAutofit') result.autoFit = 'none';
+        else if (child.name.localName === 'normAutofit') {
+          result.autoFit = 'normal';
+          result.autoFitParams = readAutoFitParams(child);
+        } else if (child.name.localName === 'spAutoFit') result.autoFit = 'shape';
+        if (result.autoFit !== null) break;
+      }
+    }
+
     if (result.anchor === null) {
       const a = getAttrValue(bodyPr, qname('', 'anchor', ''));
       if (a === 't') result.anchor = 'top';
       else if (a === 'ctr') result.anchor = 'center';
       else if (a === 'b') result.anchor = 'bottom';
+    }
+    if (result.anchorCenter === null) {
+      const value = getAttrValue(bodyPr, qname('', 'anchorCtr', ''));
+      if (value === '1' || value === 'true') result.anchorCenter = true;
+      else if (value === '0' || value === 'false') result.anchorCenter = false;
     }
     if (result.wrap === null) {
       const w = getAttrValue(bodyPr, qname('', 'wrap', ''));
@@ -526,6 +577,7 @@ export const getShapeBodyPrEffective = (
     if (result.vert === null) {
       const v = getAttrValue(bodyPr, qname('', 'vert', ''));
       if (
+        v === 'horz' ||
         v === 'vert' ||
         v === 'vert270' ||
         v === 'wordArtVert' ||
@@ -596,6 +648,18 @@ export const getShapeBodyPrEffective = (
     }
   }
   return result;
+};
+
+/** Centers the text bounds independently of paragraph alignment. Null restores inheritance. */
+export const setShapeTextAnchorCenter = (shape: SlideShapeData, centered: boolean | null): void => {
+  if (centered !== null && typeof centered !== 'boolean')
+    throw new TypeError('anchorCenter must be boolean or null');
+  const bodyPr = requireBodyPr(shape);
+  bodyPr.attrs = bodyPr.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchorCtr'),
+  );
+  if (centered !== null) bodyPr.attrs.push(attr(qname('', 'anchorCtr', ''), centered ? '1' : '0'));
+  commitAndRefresh(shape);
 };
 
 export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {

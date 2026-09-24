@@ -4,6 +4,7 @@
 // referenced from two or more split files is centralized here.
 
 import type { OpcPackage } from '../../internal/parts/index.ts';
+import { syncInkFallbackMetadata } from '../../internal/drawingml/ink-content.ts';
 import { readSlidePart } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -11,6 +12,8 @@ import {
   firstChildElement,
   qname,
   serializeXml,
+  walkElements,
+  getAttrValue,
 } from '../../internal/xml/index.ts';
 import { partName } from '../../internal/opc/index.ts';
 import {
@@ -123,6 +126,7 @@ export const requireTxBody = (shape: SlideShapeData): XmlElement => {
 };
 
 export const commitAndRefresh = (shape: SlideShapeData): void => {
+  if (shape[SHAPE_SNAPSHOT].kind === 'ink') syncInkFallbackMetadata(shape[SHAPE_ELEMENT]);
   commitSlideData(shape[SHAPE_SLIDE]);
   refreshSlideData(shape[SHAPE_SLIDE]);
 };
@@ -137,9 +141,17 @@ export const requireSpTree = (slide: SlideData): XmlElement => {
 
 export const nextShapeId = (slide: SlideData): number => {
   let maxId = 0;
-  for (const s of slide[SLIDE_PART].shapes) {
-    if (s.id > maxId) maxId = s.id;
-  }
+  // Include contentPart/AlternateContent that the typed shape reader cannot
+  // yet expose. New shapes must never reuse their nonvisual identifiers.
+  walkElements(requireSpTree(slide), (element) => {
+    if (
+      element.name.localName !== 'cNvPr' ||
+      (element.name.namespaceURI !== NS.pml && element.name.namespaceURI !== NS.p14)
+    )
+      return;
+    const id = Number(getAttrValue(element, ATTR_ID));
+    if (Number.isInteger(id) && id > maxId) maxId = id;
+  });
   return Math.max(maxId, 1) + 1;
 };
 
@@ -158,3 +170,19 @@ export const setOpcDefault = (pkg: OpcPackage, extension: string, contentType: s
   const has = pkg.contentTypes.defaults.some((d) => d.extension.toLowerCase() === extension);
   if (!has) pkg.contentTypes.defaults.push({ extension, contentType });
 };
+
+/** Find the owning shape container without changing its coordinate space. */
+export function shapeParent(root: XmlElement, target: XmlElement): XmlElement | undefined {
+  if (root.children.includes(target)) return root;
+  for (const child of root.children) {
+    if (
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.pml ||
+      child.name.localName !== 'grpSp'
+    )
+      continue;
+    const parent = shapeParent(child, target);
+    if (parent) return parent;
+  }
+  return undefined;
+}

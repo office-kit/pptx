@@ -1,3 +1,15 @@
+import { parseCustomShowAction } from './shape-click-action.ts';
+import {
+  paragraphSettingsPatch,
+  applyParagraphSettingsPatch,
+  type ParagraphSettings,
+} from '../../internal/drawingml/paragraph-settings.ts';
+import {
+  replaceTextBodyRange,
+  formatTextBodyRange,
+  mutateTextBodyRange,
+  validateTextRange,
+} from '../../internal/drawingml/text-range.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
@@ -35,7 +47,12 @@ import {
 import { commitAndRefresh, requireTxBody } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
 import { getSlides } from './slide-query.ts';
-import { findCNvPr, NAME_HLINK_CLICK_FN, type ShapeClickAction } from './embedded.ts';
+import {
+  createShapeClickLink,
+  findCNvPr,
+  NAME_HLINK_CLICK_FN,
+  type ShapeClickAction,
+} from './embedded.ts';
 
 const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
@@ -122,6 +139,82 @@ const writeRunText = (run: XmlElement, value: string): void => {
     run.children.push(tEl);
   }
   tEl.children = [{ kind: 'text', data: value }];
+};
+
+/** Replace a UTF-16 text range, preserving unaffected runs, links and paragraph properties. */
+export const replaceShapeTextRange = (
+  shape: SlideShapeData,
+  start: number,
+  end: number,
+  replacement: string,
+): void => {
+  replaceTextBodyRange(requireTxBody(shape), shape[SHAPE_SNAPSHOT].text, start, end, replacement);
+  commitAndRefresh(shape);
+};
+
+/**
+ * Formats a half-open UTF-16 range in the shape's visible text. Paragraph
+ * separators and explicit line breaks each occupy one character. Runs are
+ * split without losing their existing properties or hyperlink relationships.
+ * Fields remain atomic: touching a field formats the entire field.
+ */
+export const setShapeTextRangeFormat = (
+  shape: SlideShapeData,
+  start: number,
+  end: number,
+  format: TextFormat,
+): void => {
+  const original = requireTxBody(shape);
+  const value = shape[SHAPE_SNAPSHOT].text;
+  formatTextBodyRange(original, value, start, end, format);
+  commitAndRefresh(shape);
+};
+
+/** Set or clear a click link over a half-open UTF-16 text range, preserving other run properties.
+ * Fields are atomic; an empty selection changes nothing. Object links are unaffected.
+ */
+export const setShapeTextRangeClickAction = (
+  shape: SlideShapeData,
+  start: number,
+  end: number,
+  action: ShapeClickAction | null,
+  tooltip?: string,
+): void => {
+  const body = requireTxBody(shape);
+  const value = shape[SHAPE_SNAPSHOT].text;
+  setTextBodyRangeClickAction(shape, body, value, start, end, action, tooltip);
+  commitAndRefresh(shape);
+};
+
+export const setTextBodyRangeClickAction = (
+  shape: SlideShapeData,
+  body: XmlElement,
+  value: string,
+  start: number,
+  end: number,
+  action: ShapeClickAction | null,
+  tooltip?: string,
+): void => {
+  validateTextRange(value, start, end);
+  if (start === end) return;
+  const link = createShapeClickLink(shape, action, tooltip);
+  mutateTextBodyRange(body, value, start, end, (properties) => {
+    properties.children = properties.children.filter(
+      (child) =>
+        !(
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.dml &&
+          child.name.localName === 'hlinkClick'
+        ),
+    );
+    if (link)
+      insertChildByRank(properties, structuredClone(link), (child) =>
+        child.name.namespaceURI === NS.dml &&
+        ['hlinkHover', 'rtl', 'extLst'].includes(child.name.localName)
+          ? 1
+          : 0,
+      );
+  });
 };
 
 /** Number of paragraphs in the shape's text body. Throws for non-text shapes. */
@@ -401,7 +494,10 @@ export const getShapeRunClickAction = (
   paragraphIndex: number,
   runIndex: number,
 ): ShapeClickAction | null => {
-  const run = requireRun(shape, paragraphIndex, runIndex);
+  return readInlineClickAction(shape, requireRun(shape, paragraphIndex, runIndex));
+};
+
+const readInlineClickAction = (shape: SlideShapeData, run: XmlElement): ShapeClickAction | null => {
   const rPr = firstChildElement(run, qname('a', 'rPr', NS.dml));
   if (!rPr) return null;
   const hlink = firstChildElement(rPr, qname('a', 'hlinkClick', NS.dml));
@@ -409,10 +505,15 @@ export const getShapeRunClickAction = (
   const action = getAttrValue(hlink, qname('', 'action', ''));
   const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
 
+  const customShow = parseCustomShowAction(action);
+  if (customShow) return customShow;
   if (action === 'ppaction://hlinkshowjump?jump=nextslide') return { kind: 'nextSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=previousslide') return { kind: 'prevSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=firstslide') return { kind: 'firstSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=lastslideviewed')
+    return { kind: 'lastSlideViewed' };
+  if (action === 'ppaction://hlinkshowjump?jump=endshow') return { kind: 'endShow' };
 
   if (rId === null || rId === '') return null;
   const slide = shape[SHAPE_SLIDE];
@@ -435,6 +536,53 @@ export const getShapeRunClickAction = (
     return { kind: 'url', url: rel.target };
   }
   return null;
+};
+
+/** Click actions on text runs, fields and breaks, using UTF-16 text offsets. */
+export const getShapeTextRangeClickActions = (
+  shape: SlideShapeData,
+): Array<{
+  start: number;
+  end: number;
+  action: ShapeClickAction;
+  tooltip: string | null;
+}> => {
+  return readTextBodyClickActions(shape, requireTxBody(shape));
+};
+
+export const readTextBodyClickActions = (
+  shape: SlideShapeData,
+  body: XmlElement,
+): ReturnType<typeof getShapeTextRangeClickActions> => {
+  const result: ReturnType<typeof getShapeTextRangeClickActions> = [];
+  let offset = 0;
+  for (const paragraph of paragraphsOf(body)) {
+    const elements = readParagraphElements(paragraph);
+    const nodes = paragraph.children.filter(
+      (node): node is XmlElement =>
+        node.kind === 'element' &&
+        node.name.namespaceURI === NS.dml &&
+        ['r', 'fld', 'br'].includes(node.name.localName),
+    );
+    for (let i = 0; i < elements.length; i++) {
+      const element = elements[i]!;
+      const end = offset + (element.kind === 'br' ? 1 : element.text.length);
+      const action = readInlineClickAction(shape, nodes[i]!);
+      if (action) {
+        const properties = firstChildElement(nodes[i]!, NAME_A_RPR)!;
+        const link = firstChildElement(properties, NAME_HLINK_CLICK_FN)!;
+        result.push({
+          start: offset,
+          end,
+          action,
+          tooltip: getAttrValue(link, qname('', 'tooltip', '')),
+        });
+      }
+      offset = end;
+    }
+    offset++;
+  }
+  return result;
 };
 
 export const NAME_A_PPR = qname('a', 'pPr', NS.dml);
@@ -923,5 +1071,17 @@ export const setShapeRunText = (
 ): void => {
   const run = requireRun(shape, paragraphIndex, runIndex);
   writeRunText(run, text);
+  commitAndRefresh(shape);
+};
+
+export type { ParagraphSettings } from '../../internal/drawingml/paragraph-settings.ts';
+/** Update paragraph geometry and spacing without rebuilding its runs. */
+export const setParagraphSettings = (
+  shape: SlideShapeData,
+  index: number,
+  settings: ParagraphSettings,
+): void => {
+  const patch = paragraphSettingsPatch(settings);
+  applyParagraphSettingsPatch(requireParagraph(shape, index), patch);
   commitAndRefresh(shape);
 };

@@ -33,6 +33,7 @@ import {
   setShapeRunFormat,
   setShapeStrokeArrow,
   setShapeText,
+  setShapeTextAnchorCenter,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
@@ -367,16 +368,25 @@ describe('renderSlideToSvg', () => {
     expect(svg).toContain('rotate(');
   });
 
-  // The text overlay is a separate <g transform="rotate(...)"> that
-  // immediately wraps the <foreignObject> (the default textLayout mode) —
-  // see render-slide.ts's textRotation calculation.
+  // Centered text uses SVG even in the default browser layout mode.
+  // Both text paths must receive the same upright rotation independently
+  // of the geometry flip.
   const textOverlayRotation = (svg: string): number => {
-    const m = /rotate\((-?[\d.]+) [\d.]+ [\d.]+\)"><foreignObject/.exec(svg);
+    const m = /rotate\((-?[\d.]+) [\d.]+ [\d.]+\)"><(?:foreignObject|text)\s/.exec(svg);
     if (!m) throw new Error('no text-overlay rotate() transform found');
     return Number(m[1]);
   };
 
-  it('rotation + flip.vertical: text rotates an extra 180° to stay upright', async () => {
+  it.each([
+    { layout: 'default centered', centered: true, textLayout: undefined, tag: 'text' },
+    {
+      layout: 'browser HTML',
+      centered: false,
+      textLayout: 'foreignObject' as const,
+      tag: 'foreignObject',
+    },
+    { layout: 'SVG', centered: false, textLayout: 'svg' as const, tag: 'text' },
+  ])('rotation and flips keep text upright with $layout', async ({ centered, textLayout, tag }) => {
     const { pres, slide } = await blankSlide();
     const shape = addSlideShape(slide, {
       preset: 'rect',
@@ -386,26 +396,20 @@ describe('renderSlideToSvg', () => {
       h: inches(1),
       text: 'Hi',
     });
+    setShapeTextAnchorCenter(shape, centered);
     setShapeRotation(shape, 30);
-    setShapeFlip(shape, { vertical: true });
-    const svg = renderSlideToSvg(pres, slide);
-    expect(textOverlayRotation(svg)).toBe(210);
-  });
-
-  it('rotation + flip.horizontal (no vertical): text keeps the plain rotation', async () => {
-    const { pres, slide } = await blankSlide();
-    const shape = addSlideShape(slide, {
-      preset: 'rect',
-      x: inches(1),
-      y: inches(1),
-      w: inches(2),
-      h: inches(1),
-      text: 'Hi',
-    });
-    setShapeRotation(shape, 30);
-    setShapeFlip(shape, { horizontal: true });
-    const svg = renderSlideToSvg(pres, slide);
-    expect(textOverlayRotation(svg)).toBe(30);
+    for (const [horizontal, vertical, expected] of [
+      [false, false, 30],
+      [true, false, 30],
+      [false, true, 210],
+      [true, true, 210],
+    ] as const) {
+      setShapeFlip(shape, { horizontal, vertical });
+      const svg = renderSlideToSvg(pres, slide, textLayout === undefined ? {} : { textLayout });
+      expect(countTags(svg, tag)).toBeGreaterThan(0);
+      expect(textContentOf(svg)).toContain('Hi');
+      expect(textOverlayRotation(svg)).toBe(expected);
+    }
   });
 
   it('setShapeHyperlink: shape is wrapped in an <a> with the href', async () => {

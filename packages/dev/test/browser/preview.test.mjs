@@ -34,7 +34,7 @@ process.stdin.on('data',async data=>{
  const hook=JSON.parse(process.argv[3]).hooks.UserPromptSubmit[0].hooks[0];
  const response=await fetch(hook.url,{method:'POST',headers:hook.headers,body:'{}'});
  writeFileSync('terminal-context-'+hook.url.split('/')[4]+'.json',await response.text());
- console.log('Model menu: '+data.trim());
+ console.log('Model menu: '+data.replace(/\\x1b\\[13;2u/g,'').trim());
 });
 `,
       { mode: 0o755 },
@@ -121,6 +121,13 @@ process.stdin.on('data',async data=>{
       await resizer.press('ArrowRight');
       await assertTerminalFits(agent);
       await page.screenshot({ path: '/tmp/office-kit-studio.png' });
+      const inputs = [];
+      page.on('request', (request) => {
+        if (request.url().endsWith('/terminal/input')) inputs.push(request.postDataJSON().data);
+      });
+      await agent.locator('.xterm-helper-textarea').press('Shift+Enter');
+      await page.waitForTimeout(150);
+      assert.deepEqual(inputs, ['\x1b[13;2u']);
       await agent.locator('.xterm-helper-textarea').pressSequentially('/model');
       await agent.locator('.xterm-helper-textarea').press('Enter');
       await agent.waitForFunction(() =>
@@ -258,7 +265,45 @@ process.stdin.on('data',async data=>{
       await page.setViewportSize({ width: 1280, height: 800 });
       await writeFile(file, source());
       await page.waitForFunction(() => !state.slides[2].includes('ChatEdited'));
-      await page.selectOption('#zoom', '2');
+      await page.getByRole('tab', { name: 'View', exact: true }).click();
+      await page.getByRole('button', { name: 'Zoom', exact: true }).click();
+      await page.locator('#zoom-percent').fill('200');
+      await page.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal(await page.locator('#zoom-level').textContent(), '200%');
+      // Presets are pending until OK; Cancel and Escape preserve the existing zoom.
+      await page.locator('#zoom-level').click();
+      await page.getByRole('radio', { name: '400%', exact: true }).check();
+      assert.equal(await page.locator('#zoom-level').textContent(), '200%');
+      await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(await page.locator('#zoom-level').textContent(), '200%');
+      await page.locator('#zoom-level').click();
+      await page.getByRole('radio', { name: '400%', exact: true }).check();
+      await page.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal(await page.locator('#zoom-level').textContent(), '400%');
+      assert.equal(await page.locator('#zoom-slider').inputValue(), '2000');
+      await page.getByRole('button', { name: 'Slide 3', exact: true }).click({ button: 'right' });
+      await page.getByRole('menuitem', { name: 'Zoom…', exact: true }).click();
+      await page.locator('#zoom-percent').fill('200');
+      await page.getByRole('button', { name: 'OK', exact: true }).click();
+      await page.locator('#status-normal').click();
+      assert.equal(await page.locator('#zoom-level').textContent(), '200%');
+      const thumbnailWidth = await page.locator('.filmstrip').evaluate((el) => el.clientWidth);
+      await page.locator('#filmstrip-resizer').press('ArrowRight');
+      assert.equal(
+        await page.locator('.filmstrip').evaluate((el) => el.clientWidth),
+        thumbnailWidth + 10,
+      );
+      await page.locator('#show-thumbnails').uncheck();
+      assert.equal(await page.locator('.filmstrip').isVisible(), false);
+      await page.locator('#show-thumbnails').check();
+      await page.getByRole('tab', { name: 'View', exact: true }).press('Home');
+      assert.equal(
+        await page.getByRole('tab', { name: 'Home', exact: true }).getAttribute('aria-selected'),
+        'true',
+      );
+      await page.getByRole('button', { name: 'Collapse ribbon', exact: true }).click();
+      assert.equal(await page.locator('#ribbon-home').isVisible(), false);
+      await page.getByRole('button', { name: 'Expand ribbon', exact: true }).click();
       await page.evaluate(() => {
         window.oldSvg = document.querySelector('#slide').shadowRoot.querySelector('svg');
         window.oldThumb = document.querySelectorAll('.thumbnail')[2];
@@ -292,9 +337,14 @@ process.stdin.on('data',async data=>{
       await page.locator('#error').waitFor({ state: 'hidden' });
       await page.waitForFunction(slideSvg, 'Recovered');
       assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
-      // Slide text is real DOM inside the shadow root: select it and read the selection.
-      await page.locator('#slide p').first().click({ clickCount: 3 });
-      assert.ok((await page.evaluate(() => getSelection().toString())).includes('Slide 2'));
+      // The canvas now enters text editing through object selection.
+      await page.locator('.shape-hit').first().dblclick();
+      assert.match(
+        await page.getByRole('textbox', { name: 'Edit text', exact: true }).textContent(),
+        /Slide 2/,
+      );
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Escape');
       await page.keyboard.press('ArrowRight');
       assert.equal(await page.locator('#count').textContent(), 'Slide 4 of 50');
       await page.keyboard.press('ArrowLeft');
@@ -308,6 +358,33 @@ process.stdin.on('data',async data=>{
         await page.locator('main').evaluate((el) => el.clientWidth),
         await page.evaluate(() => innerWidth),
       );
+      await page.keyboard.press('b');
+      assert.equal(await page.locator('#show-screen').getAttribute('class'), 'black');
+      await page.keyboard.press('b');
+      assert.equal(await page.locator('#show-screen').isVisible(), false);
+      await page.locator('#stage').click({ button: 'right' });
+      await page.getByRole('menuitem', { name: 'Screen', exact: true }).click();
+      await page.getByRole('menuitem', { name: 'White Screen', exact: true }).click();
+      assert.equal(await page.locator('#show-screen').getAttribute('class'), 'white');
+      await page.keyboard.press('w');
+      await page.keyboard.press('End');
+      await page.keyboard.press('ArrowRight');
+      assert.equal(
+        await page.locator('#show-screen').textContent(),
+        'End of slide show, click to exit.',
+      );
+      await page.keyboard.press('ArrowLeft');
+      assert.equal(await page.locator('#show-screen').isVisible(), false);
+      await page.keyboard.press('3');
+      await page.keyboard.press('Enter');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
+      await page.keyboard.press('Escape');
+      await page.keyboard.press('Meta+Shift+Enter');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 1 of 50');
+      await page.keyboard.press('Escape');
+      await page.getByRole('button', { name: 'Slide 3', exact: true }).click();
+      await page.keyboard.press('Shift+F5');
+      assert.equal(await page.locator('#count').textContent(), 'Slide 3 of 50');
       await page.keyboard.press('Escape');
       await page.context().setOffline(true);
       await writeFile(file, source('Reconnect'));

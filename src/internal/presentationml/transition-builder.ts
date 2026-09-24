@@ -2,7 +2,7 @@
 // animates from this slide to the next.
 //
 // Per ECMA-376 Part 1 §19.5.51 the transition carries:
-//   - `spd` attribute: `slow` | `med` | `fast` (default `med`)
+//   - `spd` attribute: `slow` | `med` | `fast` (default `fast`)
 //   - `advClick` attribute: `1` to advance on click (default), `0` to disable
 //   - `advTm` attribute: auto-advance time in milliseconds
 //   - Exactly one child element from the effect catalog (fade, push,
@@ -48,12 +48,15 @@ export type TransitionEffect =
   | 'circle'
   | 'diamond'
   | 'plus'
+  | 'wheelReverse'
   | 'wedge'
   | 'newsflash';
 
 export interface TransitionOptions {
   effect: TransitionEffect | string;
-  /** Effect speed. Defaults to omitted (PowerPoint treats absence as `med`). */
+  /** Visual transition duration in milliseconds (Office 2010 and later). */
+  durationMs?: number;
+  /** Effect speed. Defaults to omitted (the schema default is `fast`). */
   speed?: 'slow' | 'med' | 'fast';
   /**
    * Direction, valid only for effects that carry a `dir` attribute and only
@@ -69,6 +72,8 @@ export interface TransitionOptions {
   direction?: string;
   /** For `split`: orientation token (`horz` / `vert`). */
   orientation?: 'horz' | 'vert';
+  /** Number of radial sectors for the wheel transition. */
+  spokes?: number;
   /** For `fade`: pass `true` to fade through black. */
   thruBlack?: boolean;
   /** Whether clicking advances; default `true` (PowerPoint's default). */
@@ -131,6 +136,7 @@ const TRANSITION_EFFECTS: ReadonlyArray<string> = [
   'strips',
   'wedge',
   'wheel',
+  'wheelReverse',
   'wipe',
   'zoom',
 ];
@@ -141,7 +147,8 @@ const TRANSITION_EFFECTS: ReadonlyArray<string> = [
 const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
   if (opts.effect === 'none') return null;
   const effect = oneOf(opts.effect, TRANSITION_EFFECTS, 'setSlideTransition: effect');
-  const name = qname('p', effect, NS.pml);
+  const name =
+    effect === 'wheelReverse' ? qname('p14', effect, NS.p14) : qname('p', effect, NS.pml);
   const attrs = [];
   if (opts.direction !== undefined) {
     // Only effects with a `dir` attribute carry a domain; for any other effect
@@ -165,7 +172,15 @@ const buildEffectElement = (opts: TransitionOptions): XmlElement | null => {
   if (opts.thruBlack && THRU_BLK_EFFECTS.has(opts.effect)) {
     attrs.push(attr(ATTR_THRU_BLK, '1'));
   }
-  return elem(name, { attrs });
+  if (['wheel', 'wheelReverse'].includes(opts.effect) && opts.spokes !== undefined) {
+    if (!Number.isInteger(opts.spokes) || opts.spokes < 0 || opts.spokes > 4294967295)
+      throw new Error('setSlideTransition: spokes must be an unsigned integer.');
+    attrs.push(attr(qname('', 'spokes', ''), String(opts.spokes)));
+  }
+  return elem(name, {
+    attrs,
+    ...(effect === 'wheelReverse' ? { prefixDecls: new Map([['p14', NS.p14]]) } : {}),
+  });
 };
 
 /** Returns a complete `<p:transition>` element. */
@@ -180,9 +195,23 @@ export const buildTransition = (opts: TransitionOptions): XmlElement => {
     const advTm = unsignedIntMs(opts.advanceAfterMs, 'setSlideTransition: advanceAfterMs');
     attrs.push(attr(ATTR_ADV_TM, String(advTm)));
   }
+  if (opts.durationMs !== undefined) {
+    if (!Number.isInteger(opts.durationMs)) throw new Error('Invalid transition duration.');
+    unsignedIntMs(opts.durationMs, 'setSlideTransition: durationMs');
+    attrs.push(attr(qname('p14', 'dur', NS.p14), String(opts.durationMs)));
+    attrs.push(attr(qname('mc', 'Ignorable', NS.mc), 'p14'));
+  }
   const effect = buildEffectElement(opts);
   return elem(NAME_TRANSITION, {
     attrs,
     children: effect === null ? [] : [effect],
+    ...(opts.durationMs !== undefined
+      ? {
+          prefixDecls: new Map([
+            ['p14', NS.p14],
+            ['mc', NS.mc],
+          ]),
+        }
+      : {}),
   });
 };

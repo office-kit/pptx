@@ -15,3 +15,5 @@ await copyFile(
   createRequire(import.meta.url).resolve('@xterm/xterm/css/xterm.css'),
   'dist/terminal-client.css',
 );
+
+await build({ entryPoints: ['src/editor-client.ts'], outfile: 'dist/editor-client.js', bundle: true, minify: true, format: 'esm', platform: 'browser', target: 'es2022' });

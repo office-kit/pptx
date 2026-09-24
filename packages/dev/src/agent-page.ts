@@ -1,6 +1,12 @@
 import { previewStyles } from './styles.ts';
 export const agentPage = `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><link rel="stylesheet" href="/terminal.css"><style>${previewStyles}
 body{display:flex;flex-direction:column;background:#191e30;height:100dvh;min-width:0;overflow:auto;overflow-x:hidden} .chat-heading{flex-wrap:wrap} .chat-heading select{min-width:100px}.chat-heading,#chat-context{flex-shrink:0}#claude-panel{min-height:100px}#codex-panel{min-height:240px}
+
+body{background:#252525;color:#e5e5e5;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,select{border-radius:3px;background:#333;border-color:#555}button:hover:not(:disabled){background:#454545}
+.chat-heading{background:#292929;border-color:#444}.chat-heading select{color:#eee}.chat-heading option{background:#292929}
+#chat-context{background:#252525;color:#aaa;border-color:#444}#claude-panel{background:#252525}#terminal-start,#chat-send{background:#a63c24;border-color:#bd5139;box-shadow:none;color:white}
+#chat-input{background:#202020;border-color:#555;border-radius:3px;color:#eee}#chat-input:focus{border-color:#e98b73;box-shadow:none}#chat-form{border-color:#444}.chat-message.user{background:#383838;border-color:#555;border-radius:4px}.chat-message small,.chat-intro,#chat-status,.chat-shortcut{color:#aaa}.markdown pre,.markdown code{background:#303030;color:#eee;border-color:#555}.markdown a{color:#efab98}
 </style><div class="chat-heading"><select id="chat-provider" aria-label="AI provider"><option value="claude">Claude Code</option><option value="codex">Codex</option></select><button id="chat-reset" hidden>New chat</button></div>
 <div id="chat-context">No slide selected</div>
 <section id="claude-panel" aria-label="Claude Code terminal"><div class="terminal-toolbar"><span id="terminal-status" role="status">Start Claude Code to edit your slides.</span><button id="terminal-start">Start</button><button id="terminal-stop" hidden>End session</button></div><div class="terminal-frame"><div id="terminal"></div></div></section>

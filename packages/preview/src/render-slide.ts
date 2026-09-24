@@ -1,3 +1,4 @@
+import { compoundStroke } from './compound-stroke.ts';
 // Per-slide SVG renderer for the playground.
 //
 // @office-kit/pptx does not ship a full DrawingML renderer — that would be a
@@ -22,6 +23,11 @@
 
 import type { getParagraphLineSpacing, getShapeEffects } from '@office-kit/pptx';
 import {
+  getFirstSlideNumber,
+  isShapeHidden,
+  getSlides,
+  getShapeSlide,
+  getSlidePartName,
   getParagraphAlignment,
   getParagraphBullet,
   getParagraphBulletStyle,
@@ -47,10 +53,12 @@ import {
   getShapeBodyPrEffective,
   getShapeChartSpec,
   getShapeClickAction,
+  getShapeClickActionTooltip,
+  getShapeActionSound,
+  getShapeHoverAction,
+  getShapeHoverActionTooltip,
   getShapeAltTitle,
   getShapeDescription,
-  getShapeHyperlink,
-  getShapeHyperlinkTooltip,
   getShapeName,
   getShapeTextColumns,
   getShapeTextBodyRotationDeg,
@@ -69,11 +77,10 @@ import {
   getShapeAdjustValues,
   getShapeCustomGeometry,
   getShapeKind,
+  getShapeId,
   getShapeParagraphCount,
   getShapeParagraphElements,
-  getShapeRunClickAction,
-  getShapeRunHyperlink,
-  getShapeRunHyperlinkTooltip,
+  getShapeTextRangeClickActions,
   getShapePlaceholderType,
   getShapePreset,
   getShapeXmlString,
@@ -99,7 +106,6 @@ import {
   getSlideMasterBackgroundGradientFill,
   getSlideBackgroundImageBytes,
   getSlideBackgroundPatternFill,
-  getSlideIndex,
   getSlideLayout,
   getSlideLayoutBackground,
   getSlideLayoutBackgroundImageBytes,
@@ -112,10 +118,13 @@ import {
   getSlideShapes,
   getSlideSize,
   getTableCellAnchor,
+  getTableCellTextDirection,
   getTableCellMargins,
   getTableCellBorders,
   getTableCellFill,
+  isTableCellNoFill,
   getTableCellParagraphs,
+  getTableCellTextRangeClickActions,
   getTableCellSpan,
   getTableCells,
   getTableStyleFlags,
@@ -281,7 +290,12 @@ const renderPicture = (
   textOverlay: string,
   bytes: Uint8Array | null,
   format: string | null,
+  outline: string,
+  silhouette: string,
 ): string => {
+  const maskId = mintId();
+  const shapeMask = `<defs><mask id="${maskId}" maskUnits="userSpaceOnUse" x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" style="mask-type:luminance">${silhouette}</mask></defs>`;
+  const shapeMaskAttr = ` mask="url(#${maskId})"`;
   let mime: string | null = null;
   if (bytes && format) {
     mime = imageMime[format] ?? null;
@@ -315,7 +329,7 @@ const renderPicture = (
     const cropT = crop?.top ?? 0;
     const cropR = crop?.right ?? 0;
     const cropB = crop?.bottom ?? 0;
-    if (cropL > 0 || cropT > 0 || cropR > 0 || cropB > 0) {
+    if (cropL !== 0 || cropT !== 0 || cropR !== 0 || cropB !== 0) {
       // ECMA-376 <a:srcRect> sides are fractions of the source image;
       // PowerPoint crops by adjusting the visible region. We project
       // the same effect by scaling the <image> larger and clipping it
@@ -331,7 +345,8 @@ const renderPicture = (
       clipAttr = ` clip-path="url(#${clipId})"`;
     }
     const brightness = getShapeImageBrightness(shape) ?? 0;
-    const contrast = getShapeImageContrast(shape) ?? 1;
+    const contrast = 1 + (getShapeImageContrast(shape) ?? 0);
+    const luminanceOffset = brightness + (1 - contrast) / 2;
     const opacity = getShapeImageOpacity(shape) ?? 1;
     const grayscale = isShapeImageGrayscale(shape);
     const biLevel = getShapeImageBiLevelThreshold(shape);
@@ -351,7 +366,7 @@ const renderPicture = (
       const prims: string[] = [];
       if (brightness !== 0 || contrast !== 1) {
         prims.push(
-          `<feComponentTransfer><feFuncR type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncG type="linear" slope="${contrast}" intercept="${brightness}"/><feFuncB type="linear" slope="${contrast}" intercept="${brightness}"/></feComponentTransfer>`,
+          `<feComponentTransfer color-interpolation-filters="sRGB"><feFuncR type="linear" slope="${contrast}" intercept="${luminanceOffset}"/><feFuncG type="linear" slope="${contrast}" intercept="${luminanceOffset}"/><feFuncB type="linear" slope="${contrast}" intercept="${luminanceOffset}"/></feComponentTransfer>`,
         );
       }
       if (grayscale) {
@@ -404,7 +419,7 @@ const renderPicture = (
       filterAttr = ` filter="url(#${fid})"`;
     }
     const opacityAttr = opacity !== 1 ? ` opacity="${opacity.toFixed(3)}"` : '';
-    return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g><g${transform}>${textOverlay}</g>`;
+    return `${shapeMask}${clipDef}<g${transform}${clipAttr}${shapeMaskAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g><g${transform}>${outline}${textOverlay}</g>`;
   }
   // B14 — external r:link pictures don't ship bytes in the package.
   // Surface the URL in the placeholder so users can see where the
@@ -415,7 +430,7 @@ const renderPicture = (
       ? `picture (link: ${linkUrl.length > 48 ? linkUrl.slice(0, 45) + '…' : linkUrl})`
       : 'picture (no bytes)'
     : `picture (${format ?? 'unknown'}${bytes ? `, ${bytes.byteLength} B` : ''})`;
-  return `<g data-pptx-fallback="image"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
+  return `${shapeMask}<g data-pptx-fallback="image"${transform}><g${shapeMaskAttr}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/></g>${renderPicturePlaceholderLabel(x, y, w, h, label)}${outline}${textOverlay}</g>`;
 };
 
 const renderPicturePlaceholderLabel = (
@@ -919,12 +934,6 @@ const paint = (
       if (join === 'round') strokeAttrParts.push('stroke-linejoin="round"');
       else if (join === 'bevel') strokeAttrParts.push('stroke-linejoin="bevel"');
       else if (join === 'miter') strokeAttrParts.push('stroke-linejoin="miter"');
-      const cmpd = getShapeStrokeCompound(shape);
-      if (cmpd === 'dbl') {
-        // Approximate a double line by widening + a transparent stripe down
-        // the middle. SVG has no native compound-line primitive.
-        strokeWidth = Math.max(strokeWidth, 19_050);
-      }
       const head = getShapeStrokeArrow(shape, 'head');
       const tail = getShapeStrokeArrow(shape, 'tail');
       if (head && head.type !== 'none') {
@@ -1967,6 +1976,25 @@ const PRESET_PATHS: Record<string, (x: number, y: number, w: number, h: number) 
     `M${x},${y} C${x + w * 0.25},${y} ${x + w * 0.25},${y + h * 0.25} ${x + w * 0.5},${y + h * 0.5} C${x + w * 0.75},${y + h * 0.75} ${x + w * 0.75},${y + h} ${x + w},${y + h}`,
 };
 
+/** Default preset outline for compact shape galleries; null means unsupported. */
+export function getPresetShapePath(preset: string, w = 24, h = 24): string | null {
+  if (preset === 'rect') return `M0,0 H${w} V${h} H0 Z`;
+  if (preset === 'roundRect') {
+    const r = Math.min(w, h) * 0.167;
+    return `M${r},0 H${w - r} Q${w},0 ${w},${r} V${h - r} Q${w},${h} ${w - r},${h} H${r} Q0,${h} 0,${h - r} V${r} Q0,0 ${r},0 Z`;
+  }
+  if (preset === 'ellipse')
+    return `M0,${h / 2} A${w / 2},${h / 2} 0 1 0 ${w},${h / 2} A${w / 2},${h / 2} 0 1 0 0,${h / 2} Z`;
+  if (Object.hasOwn(PRESET_PATHS, preset)) return PRESET_PATHS[preset]!(0, 0, w, h);
+  if (Object.hasOwn(PRESET_POINTS, preset))
+    return (
+      PRESET_POINTS[preset]!(w, h)
+        .map(([x, y], i) => `${i ? 'L' : 'M'}${x * w},${y * h}`)
+        .join(' ') + ' Z'
+    );
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Text body rendering via foreignObject + XHTML.
 
@@ -2112,6 +2140,10 @@ const renderRun = (
   if (format?.font) styles.push(`font-family:${escapeXml(format.font)}, ${DEFAULT_FONT}`);
   if (format?.bold) styles.push('font-weight:700');
   if (format?.italic) styles.push('font-style:italic');
+  if (format?.kern !== undefined) {
+    const enabled = format.kern > 0 && effectivePt * 100 >= format.kern;
+    styles.push(`font-kerning:${enabled ? 'normal' : 'none'}`);
+  }
   const underline = format?.underline;
   const strike = format?.strike;
   const hasUnderline = underline !== undefined && underline !== false && underline !== 'none';
@@ -2149,9 +2181,8 @@ const renderRun = (
   if (format?.baseline !== undefined && format.baseline !== 0) {
     // Positive = superscript, negative = subscript. Scale the glyph a
     // little smaller as PowerPoint does (~64% for super/subscript).
-    const direction = format.baseline > 0 ? 'super' : 'sub';
-    styles.push(`vertical-align:${direction}`);
-    styles.push('font-size:0.65em');
+    styles.push(`vertical-align:${(format.baseline * effectivePt * PX_PER_PT).toFixed(3)}px`);
+    styles.push(`font-size:${(effectivePt * PX_PER_PT * 0.65).toFixed(3)}px`);
   }
   if (format?.cap === 'all') styles.push('text-transform:uppercase');
   else if (format?.cap === 'small') styles.push('font-variant:small-caps');
@@ -2189,6 +2220,29 @@ type RunData = {
   href?: string;
   hrefTip?: string;
 };
+const renderLinkedRun = (run: RunData, theme: PresentationTheme | null, scale = 1): string => {
+  // Per-run hyperlinks render the text in the theme's hyperlink
+  // color (with underline) and wrap the span in an <a href> so the
+  // preview is clickable.
+  let runFmt = run.fmt;
+  if (run.href) {
+    const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
+    runFmt = {
+      ...runFmt,
+      // Theme hlink color overrides a hyperlink run's direct fill (see
+      // the SVG path above) — match PowerPoint / LibreOffice.
+      color: hlinkColor,
+      underline: runFmt?.underline ?? true,
+    };
+  }
+  const span = renderRun(run.text, runFmt, theme, run.sizePt * scale, run.fmt?.size === undefined);
+  if (!run.href) return span;
+  const isInPage = run.href.startsWith('#');
+  const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
+  const titleAttr = run.hrefTip ? ` title="${escapeXml(run.hrefTip)}"` : '';
+  return `<a href="${escapeXml(run.href)}"${targetAttrs}${titleAttr} style="color:inherit;text-decoration:inherit">${span}</a>`;
+};
+
 interface ParaData {
   readonly align: string;
   readonly level: number;
@@ -2204,6 +2258,38 @@ interface ParaData {
   readonly spcAftPts: number | null;
   readonly indent: ReturnType<typeof getParagraphIndent>;
 }
+
+const paragraphNumberLabels = (paraData: readonly ParaData[]): Array<string | null> => {
+  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
+  // keeps one counter per indent level: a nested list (level 1) between two
+  // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
+  // renders as such. A paragraph resets the counters of every deeper level;
+  // a non-numbered paragraph also resets its own level, and a different
+  // numbering scheme at the same level starts over at 1.
+  const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
+  {
+    const counters: number[] = [];
+    const types: Array<string | null> = [];
+    for (let i = 0; i < paraData.length; i++) {
+      const para = paraData[i]!;
+      const num = bulletAutoNumType(para.bulletStyle);
+      const level = Math.max(0, para.level);
+      for (let l = num === null ? level : level + 1; l < counters.length; l++) {
+        counters[l] = 0;
+        types[l] = null;
+      }
+      if (num === null) continue;
+      if (types[level] !== num) {
+        counters[level] = 1;
+        types[level] = num;
+      } else {
+        counters[level] = (counters[level] ?? 0) + 1;
+      }
+      numberLabels[i] = formatAutoNum(num, counters[level]!);
+    }
+  }
+  return numberLabels;
+};
 
 // Collapses every ST_TextUnderlineType token onto the 3 styles the SVG text
 // engine actually distinguishes (see PieceInput.underline): the wavy family
@@ -2233,6 +2319,7 @@ export interface SvgTextArgs {
   readonly themeFace: string | null;
   readonly defaultColor: string;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCenter?: boolean;
   readonly wrap: boolean;
   readonly innerX: number;
   readonly innerY: number;
@@ -2268,7 +2355,7 @@ const alignOf = (a: string): ParaInput['align'] =>
 // already out of spec. Faithful multi-column upright wrapping in the SVG engine
 // is disproportionate to that edge case, so we accept the clip.
 export const verticalLayoutOf = (
-  vert: ReturnType<typeof getShapeTextDirection>,
+  vert: ReturnType<typeof getShapeTextDirection> | 'horz',
 ): VerticalLayout => {
   switch (vert) {
     case 'vert':
@@ -2280,6 +2367,7 @@ export const verticalLayoutOf = (
     case 'vert270':
     case 'mongolianVert':
       return 'cw270';
+    case 'horz':
     case null:
       return 'none';
   }
@@ -2325,11 +2413,19 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         bold: fmt?.bold ?? false,
         italic: fmt?.italic ?? false,
         letterSpacingPx,
+        ...(fmt?.kern !== undefined
+          ? { kerning: fmt.kern > 0 && run.sizePt * scale * 100 >= fmt.kern }
+          : {}),
         fillHex,
+        ...(fmt?.highlight
+          ? { highlightHex: resolveColor(fmt.highlight, a.theme, '#FFFF00') }
+          : {}),
         underline: underlineStyleOf(fmt),
         strike: hasStrikeFmt(fmt),
         superSub,
+        ...(fmt?.baseline !== undefined ? { baseline: fmt.baseline } : {}),
         href: run.href ?? null,
+        hrefTip: run.hrefTip ?? null,
       };
       // A run's text can carry embedded '\n' only via <a:br>, already split
       // out above; still split defensively so any stray newline becomes a break.
@@ -2397,6 +2493,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
     boxWpx: a.innerW / EMU_PER_PX,
     boxHpx: a.innerH / EMU_PER_PX,
     anchor: a.anchor,
+    anchorCenter: a.anchorCenter ?? false,
     wrap: a.wrap,
     paragraphs,
     vert: a.vert,
@@ -2528,6 +2625,7 @@ export interface TextBodyModel {
   readonly effectiveDefaultFont: string;
   readonly effectiveBody: ReturnType<typeof getShapeBodyPrEffective>;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCenter?: boolean;
   /** Inner text rect in EMU (preset-geometry text rect + insets applied). */
   readonly innerX: number;
   readonly innerY: number;
@@ -2577,8 +2675,11 @@ export const resolveTextBodyModel = (
   } catch {
     effectiveBody = {
       anchor: getShapeTextAnchor(shape),
+      anchorCenter: null,
       wrap: null,
       vert: getShapeTextDirection(shape),
+      autoFit: null,
+      autoFitParams: getShapeTextAutoFitParams(shape),
       margins: getShapeTextMargins(shape) ?? { left: null, top: null, right: null, bottom: null },
     };
   }
@@ -2642,6 +2743,8 @@ export const resolveTextBodyModel = (
   // adjusted size. RunData / ParaData are module-scoped (above) so the
   // pure-SVG path can consume the same resolved model.
   const paraData: ParaData[] = [];
+  const textLinks = getShapeTextRangeClickActions(shape);
+  let textOffset = 0;
   let hasAnyText = false;
   for (let p = 0; p < paragraphCount; p++) {
     // Resolve paragraph properties through the layout/master cascade so
@@ -2724,14 +2827,25 @@ export const resolveTextBodyModel = (
     }
     let rIdx = 0;
     for (const el of elements) {
+      const sourceLength = el.kind === 'br' ? 1 : el.text.length;
+      const link = textLinks.find(
+        (link) => link.start === textOffset && link.end === textOffset + sourceLength,
+      );
+      textOffset += sourceLength;
       if (el.kind === 'br') {
         runs.push({ text: '\n', fmt: null, sizePt: defaultPt });
         continue;
       }
-      const txt = el.text;
+      const slideIndex =
+        el.kind === 'fld' && el.type === 'slidenum'
+          ? getSlides(pres).findIndex(
+              (slide) => getSlidePartName(slide) === getSlidePartName(getShapeSlide(shape)),
+            )
+          : -1;
+      const txt = slideIndex >= 0 ? String(getFirstSlideNumber(pres) + slideIndex) : el.text;
       let fmt: TextFormat | null = el.format;
-      let href: string | undefined;
-      let hrefTip: string | undefined;
+      const href = link ? clickActionHref(pres, link.action) : undefined;
+      const hrefTip = link?.tooltip ?? undefined;
       if (el.kind === 'r') {
         // The cascade only makes sense for actual <a:r> runs; field
         // text is opaque cached content and shouldn't pretend to be a
@@ -2740,24 +2854,6 @@ export const resolveTextBodyModel = (
           fmt = getShapeRunFormatEffective(pres, shape, p, rIdx);
         } catch {
           fmt = getShapeRunFormat(shape, p, rIdx);
-        }
-        try {
-          href = getShapeRunHyperlink(shape, p, rIdx) ?? undefined;
-          // Per-run slide-jump actions (`<a:hlinkClick action=
-          // "ppaction://hlinksldjump"/>`) resolve to an in-page anchor.
-          // Fall back to them only when no external URL was authored.
-          if (!href) {
-            const act = getShapeRunClickAction(shape, p, rIdx);
-            if (act?.kind === 'slide') {
-              const idx = getSlideIndex(pres, act.slide);
-              if (idx >= 0) href = `#slide-${idx + 1}`;
-            } else if (act?.kind === 'url') {
-              href = act.url;
-            }
-          }
-          if (href) hrefTip = getShapeRunHyperlinkTooltip(shape, p, rIdx) ?? undefined;
-        } catch {
-          href = undefined;
         }
         rIdx++;
       }
@@ -2771,6 +2867,7 @@ export const resolveTextBodyModel = (
         ...(hrefTip !== undefined ? { hrefTip } : {}),
       });
     }
+    textOffset++;
     paraData.push({
       align,
       level,
@@ -2798,7 +2895,7 @@ export const resolveTextBodyModel = (
   // An earlier heuristic shrank such shapes to fit their authored box, which
   // rendered template placeholders (size inherited from layout/master, box
   // sized by the template author) at up to 0.4× of their PowerPoint size.
-  const authoredAutofit = getShapeTextAutoFitParams(shape);
+  const authoredAutofit = effectiveBody.autoFitParams;
   let autoFitScale = authoredAutofit?.fontScale ?? 1;
   const lineHeightScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
 
@@ -2807,34 +2904,7 @@ export const resolveTextBodyModel = (
   const effectiveLineHeight = LINE_HEIGHT * lineHeightScale;
   void effectiveLineHeight; // currently unused — kept for forward compat
 
-  // Numbering pre-pass — assign an autonum index per paragraph. PowerPoint
-  // keeps one counter per indent level: a nested list (level 1) between two
-  // level-0 items does not restart the outer list, so "1. / a. / b. / 2."
-  // renders as such. A paragraph resets the counters of every deeper level;
-  // a non-numbered paragraph also resets its own level, and a different
-  // numbering scheme at the same level starts over at 1.
-  const numberLabels: Array<string | null> = Array.from({ length: paraData.length }, () => null);
-  {
-    const counters: number[] = [];
-    const types: Array<string | null> = [];
-    for (let i = 0; i < paraData.length; i++) {
-      const para = paraData[i]!;
-      const num = bulletAutoNumType(para.bulletStyle);
-      const level = Math.max(0, para.level);
-      for (let l = num === null ? level : level + 1; l < counters.length; l++) {
-        counters[l] = 0;
-        types[l] = null;
-      }
-      if (num === null) continue;
-      if (types[level] !== num) {
-        counters[level] = 1;
-        types[level] = num;
-      } else {
-        counters[level] = (counters[level] ?? 0) + 1;
-      }
-      numberLabels[i] = formatAutoNum(num, counters[level]!);
-    }
-  }
+  const numberLabels = paragraphNumberLabels(paraData);
 
   // A bare `<a:normAutofit/>` (no baked `fontScale`, so it defaults to 1) means
   // "shrink text to fit the box" — PowerPoint computes that reduction at display
@@ -2873,6 +2943,7 @@ export const resolveTextBodyModel = (
       themeFace,
       defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      anchorCenter: effectiveBody.anchorCenter ?? false,
       wrap: effectiveBody.wrap !== 'none',
       innerX: fitRect.x,
       innerY: fitRect.y,
@@ -2958,32 +3029,7 @@ const renderTextBody = (
   for (let pi = 0; pi < paraData.length; pi++) {
     const para = paraData[pi]!;
     const runHtmls = para.runs.map((run) => {
-      // Per-run hyperlinks render the text in the theme's hyperlink
-      // color (with underline) and wrap the span in an <a href> so the
-      // preview is clickable.
-      let runFmt = run.fmt;
-      if (run.href) {
-        const hlinkColor = theme ? normalizeHex(theme.hyperlink) : '#0563C1';
-        runFmt = {
-          ...runFmt,
-          // Theme hlink color overrides a hyperlink run's direct fill (see
-          // the SVG path above) — match PowerPoint / LibreOffice.
-          color: hlinkColor,
-          underline: runFmt?.underline ?? true,
-        };
-      }
-      const span = renderRun(
-        run.text,
-        runFmt,
-        theme,
-        run.sizePt * autoFitScale,
-        run.fmt?.size === undefined,
-      );
-      if (!run.href) return span;
-      const isInPage = run.href.startsWith('#');
-      const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
-      const titleAttr = run.hrefTip ? ` title="${escapeXml(run.hrefTip)}"` : '';
-      return `<a href="${escapeXml(run.href)}"${targetAttrs}${titleAttr} style="color:inherit;text-decoration:inherit">${span}</a>`;
+      return renderLinkedRun(run, theme, autoFitScale);
     });
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
@@ -3104,7 +3150,9 @@ const renderTextBody = (
   // layout model from the already-resolved paraData and hand it to the engine,
   // matching the foreignObject path's vertical-text and multi-column handling so
   // server-side rendering agrees with the browser (W1).
-  if (ctx.mode === 'svg') {
+  // Centering the whole text bounds needs measured line extents, including mixed
+  // paragraph alignment. Use the same placement engine in browser previews too.
+  if (ctx.mode === 'svg' || effectiveBody.anchorCenter) {
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     // numCol only applies to horizontal text — see the engine's combination note.
@@ -3143,6 +3191,7 @@ const renderTextBody = (
       themeFace,
       defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      anchorCenter: effectiveBody.anchorCenter ?? false,
       wrap: effectiveBody.wrap !== 'none',
       innerX: vInnerX,
       innerY: vInnerY,
@@ -5522,43 +5571,134 @@ const renderChart = (
 // wrapping, and the svg ↔ foreignObject split for free.
 
 // Builds the per-paragraph layout model the shared text engine consumes from a
-// cell's structured paragraphs. Table cells have no bullets, levels, indents,
-// or paragraph spacing, so those fields are inert. A run's effective point
+// cell's structured paragraphs, including authored line and paragraph spacing.
+// Literal bullets and indents share the shape text layout model. A run's effective point
 // size resolves to its explicit `<a:rPr sz>` when present, else the table-cell
 // default: @office-kit/pptx doesn't model `<a:tblStyle>` text props, so unstyled cells
 // fall to PowerPoint's authored default cell size (18 pt — what it writes for a
 // freshly inserted table) in the theme's minor font and the cell's text color.
+const clickActionHref = (
+  pres: PresentationData,
+  action: NonNullable<ReturnType<typeof getShapeClickAction>>,
+): string | undefined => {
+  if (action.kind === 'url') return action.url;
+  if (action.kind === 'customShow')
+    return `#slide-customShow-${action.id}-${action.showAndReturn ? 'return' : 'exit'}`;
+  if (action.kind !== 'slide') return `#slide-${action.kind}`;
+  const index = getSlides(pres).findIndex(
+    (slide) => getSlidePartName(slide) === getSlidePartName(action.slide),
+  );
+  return index < 0 ? undefined : `#slide-${index + 1}`;
+};
+
 const cellParaData = (
   paragraphs: ReadonlyArray<TableCellParagraph>,
+  links: ReadonlyArray<{ start: number; end: number; href: string; tooltip: string | null }> = [],
 ): { paraData: ParaData[]; hasText: boolean } => {
   let hasText = false;
+  let offset = 0;
   const paraData = paragraphs.map((para): ParaData => {
     const runs: RunData[] = [];
     for (const el of para.elements) {
-      if (el.kind === 'br') {
-        runs.push({ text: '\n', fmt: null, sizePt: DEFAULT_BODY_PT });
-        continue;
-      }
-      if (el.text.trim()) hasText = true;
-      runs.push({ text: el.text, fmt: el.format, sizePt: el.format?.size ?? DEFAULT_BODY_PT });
+      const text = el.kind === 'br' ? '\n' : el.text;
+      const link = links.find((link) => link.start === offset && link.end === offset + text.length);
+      offset += text.length;
+      if (text.trim()) hasText = true;
+      const fmt = el.kind === 'br' ? null : el.format;
+      runs.push({
+        text,
+        fmt,
+        sizePt: fmt?.size ?? DEFAULT_BODY_PT,
+        ...(link
+          ? { href: link.href, ...(link.tooltip !== null ? { hrefTip: link.tooltip } : {}) }
+          : {}),
+      });
     }
+    offset++;
     return {
       align: para.align ?? 'left',
-      level: 0,
-      bulletStyle: null,
+      level: para.properties?.level ?? 0,
+      bulletStyle: para.properties?.bullet ?? null,
       bulletDetail: { color: null, sizePct: null, sizePts: null, font: null },
       bulletIsPicture: false,
-      // Table cells never carry picture bullets (no <a:pPr> bullet model
-      // in <a:tc> text bodies).
+      // Picture bullet relationships in cells are not resolved yet.
       bulletImageHref: null,
       runs,
-      lineSpacing: null,
-      spcBefPts: null,
-      spcAftPts: null,
-      indent: { leftEmu: null, rightEmu: null, firstLineEmu: null },
+      lineSpacing: para.properties?.lineSpacing ?? null,
+      spcBefPts: para.properties?.spcBefPts ?? null,
+      spcAftPts: para.properties?.spcAftPts ?? null,
+      indent: {
+        leftEmu: para.properties?.marL ?? null,
+        rightEmu: para.properties?.marR ?? null,
+        firstLineEmu: para.properties?.indent ?? null,
+      },
     };
   });
   return { paraData, hasText };
+};
+
+/** Minimum horizontal cell height in EMU using the preview layout engine.
+ * The default metrics are approximate; callers may supply a font measurer.
+ * Vertical writing requires a separate column-fitting policy and returns null.
+ */
+export const measureTableCellHeight = (
+  pres: PresentationData,
+  shape: SlideShapeData,
+  row: number,
+  column: number,
+  measure: TextMeasurer = defaultMeasurer,
+): number | null => {
+  const cell = getTableCells(shape)[row]?.[column];
+  if (!cell) throw new RangeError('Invalid table cell');
+  const span = getTableCellSpan(cell);
+  if (span.hMerge || span.vMerge || verticalLayoutOf(getTableCellTextDirection(cell)) !== 'none')
+    return null;
+  const box = getShapeBoundsResolved(pres, shape);
+  if (!box) return null;
+  const widths = getTableColumnWidths(shape);
+  const sum = widths.reduce((a, b) => a + b, 0);
+  if (sum <= 0) return null;
+  const width =
+    (widths.slice(column, column + span.gridSpan).reduce((a, b) => a + b, 0) * box.w) / sum;
+  const margins = getTableCellMargins(cell);
+  const padL = margins.left ?? 4 * EMU_PER_PX,
+    padR = margins.right ?? 4 * EMU_PER_PX;
+  const padT = margins.top ?? 4 * EMU_PER_PX,
+    padB = margins.bottom ?? 4 * EMU_PER_PX;
+  const paragraphs = getTableCellParagraphs(cell);
+  const { paraData } = cellParaData(paragraphs);
+  const input = buildSvgTextInput({
+    pres,
+    shape,
+    theme: getPresentationTheme(pres),
+    paraData,
+    numberLabels: paragraphNumberLabels(paraData),
+    autoFitScale: 1,
+    lineHeightScale: 1,
+    defaultPt: DEFAULT_BODY_PT,
+    themeFace: getPresentationFonts(pres)?.minorLatin ?? null,
+    defaultColor: '#000000',
+    anchor: 'top',
+    wrap: true,
+    innerX: 0,
+    innerY: 0,
+    innerW: Math.max(1, width - padL - padR),
+    innerH: 1,
+    measure,
+    vert: 'none',
+    columns: null,
+  });
+  const sizedInput = {
+    ...input,
+    paragraphs: input.paragraphs.map((para, i) => ({
+      ...para,
+      fallbackSizePx: (paragraphs[i]?.endFormat?.size ?? DEFAULT_BODY_PT) * PX_PER_PT,
+    })),
+  };
+  const height = paraData.length
+    ? measureTextBodyHeight(sizedInput, measure)
+    : DEFAULT_BODY_PT * PX_PER_PT * 1.2;
+  return Math.ceil(height * EMU_PER_PX + padT + padB - 1e-7);
 };
 
 const renderTableCellText = (
@@ -5574,14 +5714,23 @@ const renderTableCellText = (
   themeFace: string | null,
   ctx: LayoutCtx,
   vAnchor: 'top' | 'center' | 'bottom',
+  direction: ReturnType<typeof getTableCellTextDirection>,
   margins: {
     left: number | null;
     right: number | null;
     top: number | null;
     bottom: number | null;
   },
+  links: ReturnType<typeof getTableCellTextRangeClickActions>,
 ): string => {
-  const { paraData, hasText } = cellParaData(paragraphs);
+  const { paraData, hasText } = cellParaData(
+    paragraphs,
+    links.flatMap((link) => {
+      const href = clickActionHref(pres, link.action);
+      return href ? [{ ...link, href }] : [];
+    }),
+  );
+  const numberLabels = paragraphNumberLabels(paraData);
   if (!hasText) return '';
   // PowerPoint stores margins in EMU; fall back to ~4px when unset.
   const defaultPadPx = 4;
@@ -5605,7 +5754,7 @@ const renderTableCellText = (
       shape,
       theme,
       paraData,
-      numberLabels: paraData.map(() => null),
+      numberLabels,
       autoFitScale: 1,
       lineHeightScale: 1,
       defaultPt: DEFAULT_BODY_PT,
@@ -5618,9 +5767,7 @@ const renderTableCellText = (
       innerW: innerW * EMU_PER_PX,
       innerH: innerH * EMU_PER_PX,
       measure: ctx.measure,
-      // Cell-level vertical text (<a:tcPr vert>) isn't modeled yet; cells lay
-      // out horizontally, single-column.
-      vert: 'none',
+      vert: verticalLayoutOf(direction),
       columns: null,
     });
   }
@@ -5629,16 +5776,50 @@ const renderTableCellText = (
   // rendered through renderRun so the browser lays the styled text out.
   const justify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
   const familyFont = themeFace ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
+  const writingMode =
+    direction === 'vert270' || direction === 'mongolianVert'
+      ? 'vertical-lr'
+      : direction
+        ? 'vertical-rl'
+        : 'horizontal-tb';
+  const orientation =
+    direction === 'wordArtVert' || direction === 'wordArtVertRtl'
+      ? 'upright'
+      : direction === 'eaVert'
+        ? 'mixed'
+        : 'sideways';
+  const directionStyle = `;writing-mode:${writingMode};text-orientation:${orientation}${direction === 'vert270' ? ';transform:rotate(180deg)' : ''}${direction === 'wordArtVertRtl' ? ';direction:rtl' : ''}`;
   const body = paraData
-    .map((para) => {
-      const runHtml = para.runs
-        .map((run) => renderRun(run.text, run.fmt, theme, run.sizePt, run.fmt?.size === undefined))
-        .join('');
-      const textAlign = ALIGNMENT_TO_CSS[para.align] ?? 'left';
-      return `<p style="margin:0;padding:0;text-align:${textAlign};line-height:1.2">${runHtml || '&#8203;'}</p>`;
+    .map((para, index) => {
+      const runHtml = para.runs.map((run) => renderLinkedRun(run, theme)).join('');
+      const textAlign =
+        para.align === 'distribute' ? 'justify' : (ALIGNMENT_TO_CSS[para.align] ?? 'left');
+      const lineHeight =
+        para.lineSpacing?.kind === 'pts'
+          ? `${para.lineSpacing.value * PX_PER_PT}px`
+          : String(para.lineSpacing?.value ?? 1.2);
+      const before = (para.spcBefPts ?? 0) * PX_PER_PT;
+      const after = (para.spcAftPts ?? 0) * PX_PER_PT;
+      const style = para.bulletStyle;
+      const marker =
+        numberLabels[index] ??
+        (style && typeof style === 'object' && 'char' in style
+          ? style.char
+          : style === 'bullet' || (style !== 'none' && para.level > 0)
+            ? bulletChar(para.level)
+            : '');
+      const firstPt =
+        para.runs.find((run) => run.text !== '\n' && run.text !== '')?.sizePt ?? DEFAULT_BODY_PT;
+      const prefix = marker
+        ? `<span style="color:${bulletFillOf(para, theme, color)};font-family:${DEFAULT_BULLET_FONT},${DEFAULT_FONT};font-size:${firstPt * PX_PER_PT}px;margin-right:${0.4 * DEFAULT_BODY_PT * PX_PER_PT}px">${escapeXml(marker)}</span>`
+        : '';
+      const left = (para.indent.leftEmu ?? 0) / EMU_PER_PX;
+      const right = (para.indent.rightEmu ?? 0) / EMU_PER_PX;
+      const indent = (para.indent.firstLineEmu ?? 0) / EMU_PER_PX;
+      return `<p style="margin:${before}px 0 ${after}px;padding:0 ${right}px 0 ${left}px;text-indent:${indent}px;text-align:${textAlign};text-align-last:${para.align === 'distribute' ? 'justify' : 'auto'};line-height:${lineHeight}">${prefix}${runHtml || '&#8203;'}</p>`;
     })
     .join('');
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${familyFont};color:${color};word-break:break-word${directionStyle}">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
@@ -5730,7 +5911,9 @@ const renderTable = (
       const ch = (rowYs[endRow] ?? cy) - cy;
       const fill = getTableCellFill(cell as Parameters<typeof getTableCellFill>[0]);
       let resolvedFill: string;
-      if (fill) {
+      if (isTableCellNoFill(typedCell)) {
+        resolvedFill = 'none';
+      } else if (fill) {
         resolvedFill = resolveColor(fill, theme, '#FFFFFF');
       } else if (flags.firstRow && r === 0) {
         resolvedFill = headerFill;
@@ -5754,7 +5937,7 @@ const renderTable = (
       }
       const cellTextColor = resolvedFill === headerFill ? '#FFFFFF' : textColor;
       out.push(
-        `<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
+        `<rect data-pptx-cell="${r},${c}" data-pptx-text-color="${cellTextColor}" data-pptx-font="${escapeXml(tableThemeFace ?? DEFAULT_FONT)}" x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
       );
       // Per-side borders override the default thin gray grid. Draw them
       // separately after the fills so they sit on top.
@@ -5772,25 +5955,37 @@ const renderTable = (
         return ` stroke-dasharray="${arr}"`;
       };
       const edge = (
-        side: keyof Pick<typeof borders, 'left' | 'right' | 'top' | 'bottom'>,
+        side: 'left' | 'right' | 'top' | 'bottom',
+        rr: number,
+        cc: number,
         x1: number,
         y1: number,
         x2: number,
         y2: number,
       ): void => {
-        const b = borders[side];
-        if (!b) return;
-        const sw = b.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : 0.5;
-        const col = b.color ?? '#9CA3AF';
+        const physical = cells[rr]?.[cc] as Parameters<typeof getTableCellBorders>[1] | undefined;
+        const b = (physical ? getTableCellBorders(pres, physical)[side] : null) ?? borders[side];
+        if (b?.noFill) return;
+        const styled = b && (b.color !== null || b.widthEmu !== null || b.dash !== null);
+        const sw = b?.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : styled ? 0.5 : 0.4;
+        const col = b?.color ?? '#9CA3AF';
         borderEdges.push(
-          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"${dashAttr(b.dash, sw)}/>`,
+          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"${styled ? dashAttr(b.dash, sw) : ' opacity="0.6"'}/>`,
         );
       };
-      edge('left', cx, cy, cx, cy + ch);
-      edge('right', cx + cw, cy, cx + cw, cy + ch);
-      edge('top', cx, cy, cx + cw, cy);
-      edge('bottom', cx, cy + ch, cx + cw, cy + ch);
-      if (borders.tlToBr) {
+      for (let rr = r; rr < endRow; rr++) {
+        const y1 = rowYs[rr] ?? cy,
+          y2 = rowYs[rr + 1] ?? cy + ch;
+        edge('left', rr, c, cx, y1, cx, y2);
+        edge('right', rr, endCol - 1, cx + cw, y1, cx + cw, y2);
+      }
+      for (let cc = c; cc < endCol; cc++) {
+        const x1 = colXs[cc] ?? cx,
+          x2 = colXs[cc + 1] ?? cx + cw;
+        edge('top', r, cc, x1, cy, x2, cy);
+        edge('bottom', endRow - 1, cc, x1, cy + ch, x2, cy + ch);
+      }
+      if (borders.tlToBr && !borders.tlToBr.noFill) {
         const sw = borders.tlToBr.widthEmu
           ? Math.max(0.4, borders.tlToBr.widthEmu / EMU_PER_PX)
           : 0.5;
@@ -5798,7 +5993,7 @@ const renderTable = (
           `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${borders.tlToBr.color ?? '#9CA3AF'}" stroke-width="${px(sw)}"${dashAttr(borders.tlToBr.dash, sw)}/>`,
         );
       }
-      if (borders.blToTr) {
+      if (borders.blToTr && !borders.blToTr.noFill) {
         const sw = borders.blToTr.widthEmu
           ? Math.max(0.4, borders.blToTr.widthEmu / EMU_PER_PX)
           : 0.5;
@@ -5806,25 +6001,6 @@ const renderTable = (
           `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="${px(sw)}"${dashAttr(borders.blToTr.dash, sw)}/>`,
         );
       }
-      // Default thin grid for sides that didn't define a border.
-      const defaultColor = '#9CA3AF';
-      if (!borders.left)
-        borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-      if (!borders.right)
-        borderEdges.push(
-          `<line x1="${px(cx + cw)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-      if (!borders.top)
-        borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-      if (!borders.bottom)
-        borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-
       const cellParagraphs = getTableCellParagraphs(
         cell as Parameters<typeof getTableCellParagraphs>[0],
       );
@@ -5846,7 +6022,9 @@ const renderTable = (
           tableThemeFace,
           ctx,
           vAnchor,
+          getTableCellTextDirection(typedCell),
           cellMargins,
+          getTableCellTextRangeClickActions(typedCell),
         ),
       );
     }
@@ -6017,7 +6195,128 @@ const customGeometryToSvg = (
   return out.join('');
 };
 
+const renderShapeGeometry = (
+  shape: SlideShapeData,
+  p: PaintResult,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+): { svg: string; isCustGeom: boolean } => {
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const rawPreset = getShapePreset(shape);
+  const preset = rawPreset ?? 'rect';
+
+  const fa = p.fillAttrs;
+  const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
+  const ma = p.markerAttrs ?? '';
+  // Custom geometry (<a:custGeom>) overrides the preset path entirely.
+  // getShapePreset returns null for it, so only the no-preset case probes.
+  const customGeom = rawPreset === null ? getShapeCustomGeometry(shape) : null;
+  let geomSvg =
+    customGeom !== null
+      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, fa, p.stroke, p.strokeWidth, sa, ma)
+      : '';
+  // No preset and no rendered custom geometry means either a custGeom that
+  // failed to evaluate (a true fallback — marked) or no geometry at all
+  // (placeholders inherit theirs from the layout, which is almost always a
+  // rect — correct, not marked). The string probe distinguishes the two
+  // because getShapeCustomGeometry returns null for both malformed custGeom
+  // and absent custGeom.
+  const isCustGeom =
+    geomSvg === '' && rawPreset === null && getShapeXmlString(shape).includes('custGeom');
+
+  if (geomSvg !== '') {
+    // geomSvg already holds the rendered custom geometry.
+  } else if (preset === 'rect') {
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+  } else if (preset === 'roundRect') {
+    // A6 — adjust-handle aware corner radius. <a:gd name="adj"
+    // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
+    // min(w,h)/2 × 100. Defaults to ~16.6% when no adj is authored.
+    const adjusts = getShapeAdjustValues(shape);
+    const adjVal = adjusts.adj ?? 16667;
+    const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
+    const r = E(Math.min(w, h) * ratio);
+    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+  } else if (preset === 'ellipse' || preset === 'oval') {
+    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+  } else {
+    const pathFn = PRESET_PATHS[preset];
+    if (pathFn) {
+      // The path generators output CSS-px coords directly (post-E).
+      const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
+      geomSvg = `<path d="${d}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
+    } else {
+      const pointsFn = PRESET_POINTS[preset];
+      if (pointsFn) {
+        const points = pointsFn(w / EMU_PER_PX, h / EMU_PER_PX)
+          .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
+          .join(' ');
+        geomSvg = `<polygon points="${points}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
+      } else {
+        // Unrecognised preset — fall back to a rectangle, but tag it
+        // with the preset name so users (and future-us) can see which
+        // shape needs a renderer. The `<title>` shows on hover; the
+        // `data-pptx-preset` attribute is for DevTools inspection.
+        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
+      }
+    }
+  }
+
+  geomSvg = compoundStroke(
+    geomSvg,
+    getShapeStrokeCompound(shape),
+    {
+      x: x / EMU_PER_PX,
+      y: y / EMU_PER_PX,
+      w: w / EMU_PER_PX,
+      h: h / EMU_PER_PX,
+    },
+    p.strokeWidth / EMU_PER_PX,
+    mintId(),
+  );
+
+  return { svg: geomSvg, isCustGeom };
+};
+
+// Apply object actions to every shape kind, including pictures and groups.
 const renderShape = (
+  shape: SlideShapeData,
+  pres: PresentationData,
+  theme: PresentationTheme | null,
+  ctx: LayoutCtx,
+): string => {
+  if (isShapeHidden(shape)) return '';
+  const inner = renderShapeContent(shape, pres, theme, ctx);
+  if (!inner) return inner;
+  const click = getShapeClickAction(shape);
+  const hover = getShapeHoverAction(shape);
+  const href = click ? clickActionHref(pres, click) : undefined;
+  const hoverHref = hover ? clickActionHref(pres, hover) : undefined;
+  const soundAttrs = (['click', 'hover'] as const)
+    .map((trigger) => {
+      const value = getShapeActionSound(shape, trigger);
+      return (
+        (value.sound
+          ? ` data-${trigger}-sound="data:audio/wav;base64,${u8ToBase64(value.sound.bytes)}"`
+          : '') + (value.stopPrevious ? ` data-${trigger}-stop-sound="true"` : '')
+      );
+    })
+    .join('');
+  if (!href && !hoverHref && !soundAttrs) return inner;
+  const tooltip = getShapeClickActionTooltip(shape) ?? getShapeHoverActionTooltip(shape);
+  const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
+  const hoverAttrs = hoverHref ? ` data-hover-href="${escapeXml(hoverHref)}"` : '';
+  if (href) {
+    const targetAttrs = href.startsWith('#') ? '' : ' target="_blank" rel="noopener noreferrer"';
+    return `<a href="${escapeXml(href)}"${targetAttrs}${hoverAttrs}${soundAttrs} pointer-events="bounding-box">${titleEl}${inner}</a>`;
+  }
+  return `<g${hoverAttrs}${soundAttrs} pointer-events="bounding-box">${titleEl}${inner}</g>`;
+};
+
+const renderShapeContent = (
   shape: SlideShapeData,
   pres: PresentationData,
   theme: PresentationTheme | null,
@@ -6088,7 +6387,33 @@ const renderShape = (
       ? `<g transform="scale(${(1 / gsx).toFixed(6)} ${(1 / gsy).toFixed(6)})">${rawTextOverlay}</g>`
       : rawTextOverlay;
 
-  if (kind === 'picture') {
+  // Pictures and image-filled shapes share the same outline geometry and
+  // stroke styles as ordinary shapes. Paint it outside the image's crop/filter
+  // group so crop and image opacity cannot cut or fade the outline.
+  if (kind === 'picture' || kind === 'ink' || (kind === 'shape' && fill.kind === 'image')) {
+    const borderPaint = paint(shape, { kind: 'none' }, stroke, theme, false, pres);
+    const outline =
+      borderPaint.stroke === 'none' || borderPaint.strokeWidth <= 0
+        ? ''
+        : borderPaint.defs + renderShapeGeometry(shape, borderPaint, x, y, w, h).svg;
+    // Keep the mask independent of the authored fill/line opacity. Custom
+    // paths with no fill remain transparent, including holes and open paths.
+    const silhouette = renderShapeGeometry(
+      shape,
+      {
+        fill: 'white',
+        fillAttrs: '',
+        stroke: 'none',
+        strokeWidth: 0,
+        strokeAttrs: '',
+        markerAttrs: '',
+        defs: '',
+      },
+      x,
+      y,
+      w,
+      h,
+    ).svg;
     return renderPicture(
       shape,
       pres,
@@ -6098,27 +6423,12 @@ const renderShape = (
       h,
       transform,
       textOverlay,
-      getShapeImageBytes(shape),
+      kind === 'picture' || kind === 'ink'
+        ? getShapeImageBytes(shape)
+        : getShapeImageFillBytes(shape),
       getShapeImageFormat(shape),
-    );
-  }
-
-  // Shapes with an image fill (`<p:sp>` + `<a:blipFill>` instead of a
-  // solid / gradient / pattern). PowerPoint's "Insert Picture from
-  // File" and several third-party tools emit pictures this way rather
-  // than as top-level `<p:pic>`.
-  if (kind === 'shape' && fill.kind === 'image') {
-    return renderPicture(
-      shape,
-      pres,
-      x,
-      y,
-      w,
-      h,
-      transform,
-      textOverlay,
-      getShapeImageFillBytes(shape),
-      getShapeImageFormat(shape),
+      outline,
+      silhouette,
     );
   }
 
@@ -6159,9 +6469,24 @@ const renderShape = (
     // curvedConnector{2,3,4,5} are quadratic / cubic Bézier curves. We
     // route them between the bounding box's diagonal endpoints in
     // CSS-px so the cadence matches PowerPoint within visual tolerance.
+    const renderConnector = (geometry: string) =>
+      `${p.defs}<g${connectorTransform}>${compoundStroke(
+        geometry,
+        getShapeStrokeCompound(shape),
+        {
+          x: x / EMU_PER_PX,
+          y: y / EMU_PER_PX,
+          w: w / EMU_PER_PX,
+          h: h / EMU_PER_PX,
+        },
+        sw / EMU_PER_PX,
+        mintId(),
+      )}</g>`;
     const preset = getShapePreset(shape) ?? 'line';
     if (preset === 'straightConnector1' || preset === 'line') {
-      return `${p.defs}<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${sa}${ma}${connectorTransform}/>`;
+      return renderConnector(
+        `<line x1="${E(x1)}" y1="${E(y1)}" x2="${E(x2)}" y2="${E(y2)}" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${sa}${ma}/>`,
+      );
     }
     // For bent / curved, we work in CSS px to keep the path math readable.
     const px1 = x1 / EMU_PER_PX;
@@ -6203,7 +6528,9 @@ const renderShape = (
       // Unknown connector preset — fall back to a straight line.
       d += ` L${px2.toFixed(2)} ${py2.toFixed(2)}`;
     }
-    return `${p.defs}<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${joinDefault}${sa}${ma}${connectorTransform}/>`;
+    return renderConnector(
+      `<path d="${d}" fill="none" stroke="${strokeColor}" stroke-width="${E(sw)}"${capDefault}${joinDefault}${sa}${ma}/>`,
+    );
   }
 
   if (kind === 'group') {
@@ -6276,7 +6603,12 @@ const renderShape = (
               sy: ctx.groupScale.sy * groupScaleY,
             },
           };
-    const childrenSvg = children.map((c) => renderShape(c, pres, theme, childCtx)).join('');
+    const childrenSvg = children
+      .map(
+        (c) =>
+          `<g data-pptx-shape-id="${getShapeId(c)}">${renderShape(c, pres, theme, childCtx)}</g>`,
+      )
+      .join('');
     return `<g${groupTransform}>${childrenSvg}</g>`;
   }
 
@@ -6313,66 +6645,9 @@ const renderShape = (
     return `<g data-pptx-fallback="${gfFallbackKind}"${transform}><rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill === 'none' ? '#F9FAFB' : p.fill}" stroke="#9CA3AF" stroke-width="${E(9_525)}" stroke-dasharray="${E(50_000)},${E(30_000)}"/>${renderPicturePlaceholderLabel(x, y, w, h, label)}${textOverlay}</g>`;
   }
 
-  // kind === 'shape'
-  const rawPreset = getShapePreset(shape);
-  const preset = rawPreset ?? 'rect';
-
-  const fa = p.fillAttrs;
-  const sa = p.strokeAttrs ? ` ${p.strokeAttrs}` : '';
-  const ma = p.markerAttrs ?? '';
-  // Custom geometry (<a:custGeom>) overrides the preset path entirely.
-  // getShapePreset returns null for it, so only the no-preset case probes.
-  const customGeom = rawPreset === null ? getShapeCustomGeometry(shape) : null;
-  let geomSvg =
-    customGeom !== null
-      ? customGeometryToSvg(customGeom, x, y, w, h, p.fill, fa, p.stroke, p.strokeWidth, sa, ma)
-      : '';
-  // No preset and no rendered custom geometry means either a custGeom that
-  // failed to evaluate (a true fallback — marked) or no geometry at all
-  // (placeholders inherit theirs from the layout, which is almost always a
-  // rect — correct, not marked). The string probe distinguishes the two
-  // because getShapeCustomGeometry returns null for both malformed custGeom
-  // and absent custGeom.
-  const isCustGeom =
-    geomSvg === '' && rawPreset === null && getShapeXmlString(shape).includes('custGeom');
-
-  if (geomSvg !== '') {
-    // geomSvg already holds the rendered custom geometry.
-  } else if (preset === 'rect') {
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-  } else if (preset === 'roundRect') {
-    // A6 — adjust-handle aware corner radius. <a:gd name="adj"
-    // fmla="val N"/> in [0, 50000] = ratio of corner-radius to
-    // min(w,h)/2 × 100. Defaults to ~16.6% when no adj is authored.
-    const adjusts = getShapeAdjustValues(shape);
-    const adjVal = adjusts.adj ?? 16667;
-    const ratio = Math.max(0, Math.min(0.5, adjVal / 100_000));
-    const r = E(Math.min(w, h) * ratio);
-    geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" rx="${r}" ry="${r}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-  } else if (preset === 'ellipse' || preset === 'oval') {
-    geomSvg = `<ellipse cx="${E(cx)}" cy="${E(cy)}" rx="${E(w / 2)}" ry="${E(h / 2)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-  } else {
-    const pathFn = PRESET_PATHS[preset];
-    if (pathFn) {
-      // The path generators output CSS-px coords directly (post-E).
-      const d = pathFn(x / EMU_PER_PX, y / EMU_PER_PX, w / EMU_PER_PX, h / EMU_PER_PX);
-      geomSvg = `<path d="${d}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}" fill-rule="evenodd"${sa}${ma}/>`;
-    } else {
-      const pointsFn = PRESET_POINTS[preset];
-      if (pointsFn) {
-        const points = pointsFn(w / EMU_PER_PX, h / EMU_PER_PX)
-          .map(([nx, ny]) => `${E(x + nx * w)},${E(y + ny * h)}`)
-          .join(' ');
-        geomSvg = `<polygon points="${points}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma}/>`;
-      } else {
-        // Unrecognised preset — fall back to a rectangle, but tag it
-        // with the preset name so users (and future-us) can see which
-        // shape needs a renderer. The `<title>` shows on hover; the
-        // `data-pptx-preset` attribute is for DevTools inspection.
-        geomSvg = `<rect x="${E(x)}" y="${E(y)}" width="${E(w)}" height="${E(h)}" fill="${p.fill}"${fa} stroke="${p.stroke}" stroke-width="${E(p.strokeWidth)}"${sa}${ma} data-pptx-preset="${escapeXml(preset)}"><title>${escapeXml(`preset: ${preset}`)}</title></rect>`;
-      }
-    }
-  }
+  const geometry = renderShapeGeometry(shape, p, x, y, w, h);
+  let geomSvg = geometry.svg;
+  const isCustGeom = geometry.isCustGeom;
 
   // Effects (`<a:effectLst>`): outerShdw / innerShdw / glow / softEdge
   // / reflection / blur. Build a single SVG <filter> chain so multiple
@@ -6395,13 +6670,6 @@ const renderShape = (
     fxDefs += reflection.defs;
   }
 
-  // B6 — Shape-level hyperlinks + slide-jump click actions. Wrap the
-  // rendered shape in an SVG <a href> so the playground preview is
-  // clickable, matching the PowerPoint slideshow's behavior. Per-run
-  // hyperlinks live on the text body and are handled by renderRun
-  // separately.
-  const url = getShapeHyperlink(shape);
-  const tooltip = getShapeHyperlinkTooltip(shape);
   // Expose the shape's authored name as a data attribute so DevTools /
   // Selenium / a11y inspections can identify a shape without having to
   // parse SVG geometry. The PowerPoint alt-title / alt-description feed
@@ -6436,27 +6704,6 @@ const renderShape = (
   const placedText = textOverlay ? `<g${textTransform}>${textOverlay}</g>` : '';
   const custGeomAttr = isCustGeom ? ' data-pptx-fallback="custGeom"' : '';
   const inner = `${p.defs}${fxDefs}<g${nameAttr}${ariaAttr}${custGeomAttr}><g${transform}>${geomSvg}</g>${placedText}</g>`;
-  const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
-  if (url) {
-    return `<a href="${escapeXml(url)}" target="_blank" rel="noopener noreferrer">${titleEl}${inner}</a>`;
-  }
-  // Slide-jump click actions resolve to a hash anchor — the playground
-  // gives each <li> an id="slide-N" so the browser jumps in-page.
-  const action = getShapeClickAction(shape);
-  if (action) {
-    let href: string | null = null;
-    if (action.kind === 'slide') {
-      const idx = getSlideIndex(pres, action.slide);
-      if (idx >= 0) href = `#slide-${idx + 1}`;
-    } else if (action.kind === 'url') {
-      href = action.url;
-    }
-    if (href !== null) {
-      const isInPage = href.startsWith('#');
-      const targetAttrs = isInPage ? '' : ' target="_blank" rel="noopener noreferrer"';
-      return `<a href="${escapeXml(href)}"${targetAttrs}>${titleEl}${inner}</a>`;
-    }
-  }
   return inner;
 };
 
@@ -6798,7 +7045,7 @@ export const renderSlideSvg = (
   }
 
   const shapesSvg = topLevelShapes(getSlideShapes(slide), { dropPlaceholders: false })
-    .map((s) => renderShape(s, pres, theme, ctx))
+    .map((s) => `<g data-pptx-shape-id="${getShapeId(s)}">${renderShape(s, pres, theme, ctx)}</g>`)
     .join('');
 
   return [

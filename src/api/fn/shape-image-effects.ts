@@ -1,10 +1,13 @@
+import { inkFallbackPicture } from '../../internal/drawingml/ink-content.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
+import { emu } from '../units.ts';
 
 import { getPictureEmbedRId } from '../../internal/drawingml/index.ts';
 import {
   type ImageFormat,
   detectImageFormat,
+  readImagePixelSize,
   partName,
   resolveTarget,
 } from '../../internal/opc/index.ts';
@@ -34,6 +37,7 @@ import { getSlideLayoutPartName } from './layouts.ts';
 import { getPresentationTheme, getSlideLayoutName, getSlideLayoutType } from './package.ts';
 import {
   getShapeBounds,
+  setShapeBounds,
   getShapeFlip,
   getSlideLayout,
   resolveDrawingColor,
@@ -68,8 +72,11 @@ const ATTR_AMT_FN = qname('', 'amt', '');
  * buffer.
  */
 export const getShapeImageBytes = (shape: SlideShapeData): Uint8Array | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const rEmbed = getPictureEmbedRId(shape[SHAPE_ELEMENT]);
+  const kind = shape[SHAPE_SNAPSHOT].kind;
+  if (kind !== 'picture' && kind !== 'ink') return null;
+  const picture = kind === 'ink' ? inkFallbackPicture(shape[SHAPE_ELEMENT]) : shape[SHAPE_ELEMENT];
+  if (!picture) return null;
+  const rEmbed = getPictureEmbedRId(picture);
   if (rEmbed === null) return null;
   const slide = shape[SHAPE_SLIDE];
   const pkg = slide[INTERNAL_PACKAGE];
@@ -647,7 +654,7 @@ export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | nu
 // ---------------------------------------------------------------------------
 // Picture cropping — `<a:srcRect>` inside the picture's `<p:blipFill>`.
 //
-// Percentages are 0-1 fractions per side, converted to ECMA-376's
+// Percentages are signed fractions per side, converted to ECMA-376's
 // `ST_Percentage` units (1/1000 of a percent, so 0.25 → "25000"). Pass
 // `null` to remove an existing crop.
 
@@ -669,8 +676,8 @@ const ATTR_CROP_B = qname('', 'b', '');
 
 const fractionToST = (n: number | undefined): string | null => {
   if (n === undefined || n === 0) return null;
-  if (!Number.isFinite(n) || n < 0 || n >= 1) {
-    throw new RangeError(`crop fraction must be in [0, 1), got ${n}`);
+  if (!Number.isFinite(n) || n < -21474.83648 || n >= 1) {
+    throw new RangeError(`crop fraction must be in [-21474.83648, 1), got ${n}`);
   }
   return String(Math.round(n * 100000));
 };
@@ -680,7 +687,7 @@ const fractionToST = (n: number | undefined): string | null => {
  * embedded image by the given fraction on each side. Pass `null` to
  * remove an existing crop.
  *
- * Fractions are in `[0, 1)` per side. `{ left: 0.25 }` clips 25% off
+ * Negative fractions add space outside the source image; positive fractions crop it. `{ left: 0.25 }` clips 25% off
  * the left edge; the visible image stretches to fill the original
  * frame. The shape's geometry (`<a:xfrm>`) is unchanged.
  */
@@ -694,22 +701,23 @@ export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null)
   const blipFill = firstChildElement(pic, NAME_BLIP_FILL_FN);
   if (!blipFill) throw new Error('picture has no <p:blipFill>');
 
-  // Remove any existing srcRect first.
+  // Validate before touching XML so a rejected edit leaves the previous crop intact.
+  const attrs: Array<ReturnType<typeof attr>> = [];
+  const l = fractionToST(crop?.left);
+  const t = fractionToST(crop?.top);
+  const r = fractionToST(crop?.right);
+  const b = fractionToST(crop?.bottom);
+  if (Number(l) + Number(r) >= 100000 || Number(t) + Number(b) >= 100000)
+    throw new RangeError('Crop must leave a positive source region.');
   blipFill.children = blipFill.children.filter(
     (c) =>
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'srcRect'),
   );
-
   if (crop === null) {
     commitAndRefresh(shape);
     return;
   }
 
-  const attrs: Array<ReturnType<typeof attr>> = [];
-  const l = fractionToST(crop.left);
-  const t = fractionToST(crop.top);
-  const r = fractionToST(crop.right);
-  const b = fractionToST(crop.bottom);
   if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
   if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
   if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
@@ -727,6 +735,80 @@ export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null)
     blipFill.children.splice(blipIdx + 1, 0, srcRect);
   }
   commitAndRefresh(shape);
+};
+
+/**
+ * Centers the source picture within its existing frame, preserving its aspect ratio.
+ * Fill covers the frame; fit keeps the entire image visible. PNG/JPEG/GIF/WebP sizes are read
+ * automatically; callers can provide decoded dimensions for other image formats.
+ */
+export const setShapeImageFit = (
+  shape: SlideShapeData,
+  mode: 'fill' | 'fit',
+  sourceSize?: { width: number; height: number },
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') throw new Error('Image fit requires a picture.');
+  if (mode !== 'fill' && mode !== 'fit') throw new Error('Invalid image fit mode.');
+  const bytes = getShapeImageBytes(shape);
+  const size = sourceSize ?? (bytes && readImagePixelSize(bytes));
+  const frame = getShapeBounds(shape);
+  if (
+    !size ||
+    !Number.isFinite(size.width) ||
+    !Number.isFinite(size.height) ||
+    size.width <= 0 ||
+    size.height <= 0
+  )
+    throw new Error('Cannot determine picture dimensions.');
+  if (!frame || frame.w <= 0 || frame.h <= 0) throw new Error('Picture needs a positive frame.');
+  const scale = (mode === 'fill' ? Math.max : Math.min)(
+    frame.w / size.width,
+    frame.h / size.height,
+  );
+  const horizontal = (1 - frame.w / (size.width * scale)) / 2;
+  const vertical = (1 - frame.h / (size.height * scale)) / 2;
+  setShapeImageCrop(shape, {
+    left: horizontal,
+    right: horizontal,
+    top: vertical,
+    bottom: vertical,
+  });
+};
+
+/**
+ * Crops a centered rectangle of the requested width/height ratio inside the
+ * current picture frame. Retains source image scale, crop offset and rotation.
+ * The original image bytes remain available for subsequent crop edits.
+ */
+export const setShapeImageCropAspectRatio = (shape: SlideShapeData, ratio: number): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') throw new Error('Image crop requires a picture.');
+  if (!Number.isFinite(ratio) || ratio <= 0) throw new Error('Invalid crop aspect ratio.');
+  const frame = getShapeBounds(shape);
+  if (!frame || frame.w <= 0 || frame.h <= 0) throw new Error('Picture needs a positive frame.');
+  const w = Math.round(Math.min(frame.w, frame.h * ratio));
+  const h = Math.round(Math.min(frame.h, frame.w / ratio));
+  if (w < 1 || h < 1) throw new Error('Crop aspect ratio produces an empty frame.');
+  const crop = getShapeImageCrop(shape);
+  const left = crop?.left ?? 0,
+    right = crop?.right ?? 0;
+  const top = crop?.top ?? 0,
+    bottom = crop?.bottom ?? 0;
+  const dx = ((1 - w / frame.w) * (1 - left - right)) / 2;
+  const dy = ((1 - h / frame.h) * (1 - top - bottom)) / 2;
+  // Crop validation happens before changing the frame.
+  setShapeImageCrop(shape, {
+    left: left + dx,
+    right: right + dx,
+    top: top + dy,
+    bottom: bottom + dy,
+  });
+  setShapeBounds(shape, {
+    ...frame,
+    x: emu(frame.x + (frame.w - w) / 2),
+    y: emu(frame.y + (frame.h - h) / 2),
+    w: emu(w),
+    h: emu(h),
+  });
 };
 
 void NAME_BLIP_FN;

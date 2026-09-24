@@ -88,7 +88,7 @@ export interface AnimationOptions {
   readonly durationMs?: number;
 }
 
-const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
+const buildSetVisibility = (spid: number, visible: boolean, delayMs = 0): XmlElement => {
   const tgt = elem(NAME_TGT_EL, {
     children: [elem(NAME_SP_TGT, { attrs: [attr(ATTR_SPID, String(spid))] })],
   });
@@ -99,7 +99,7 @@ const buildSetVisibility = (spid: number, visible: boolean): XmlElement => {
     attrs: [attr(ATTR_ID, '6'), attr(ATTR_DUR, '1'), attr(ATTR_FILL, 'hold')],
     children: [
       elem(NAME_ST_COND_LST, {
-        children: [elem(NAME_COND, { attrs: [attr(ATTR_DELAY, '0')] })],
+        children: [elem(NAME_COND, { attrs: [attr(ATTR_DELAY, String(delayMs))] })],
       }),
     ],
   });
@@ -174,8 +174,9 @@ export const buildSingleEffectTiming = (spid: number, opts: AnimationOptions): X
   const isEntrance = preset.presetClass === 'entr';
 
   const effectChildren: XmlElement[] = [];
-  // Visibility kick: entrance reveals, exit hides.
-  effectChildren.push(buildSetVisibility(spid, isEntrance));
+  // Keep exits visible while opacity animates, then hide at the fade endpoint.
+  // Instant exits still hide as soon as their click effect starts.
+  effectChildren.push(buildSetVisibility(spid, isEntrance, isFade && !isEntrance ? duration : 0));
   if (isFade) {
     effectChildren.push(buildOpacityAnim(spid, duration, isEntrance));
   }

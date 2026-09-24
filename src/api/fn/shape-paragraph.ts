@@ -424,8 +424,14 @@ export const ALIGN_TOKEN_MAP: Record<string, ParagraphProperties['align']> = {
   thaiDist: 'distribute',
 };
 
-const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
+/** @internal Read literal DrawingML paragraph properties without inheritance. */
+export const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
   const out: Partial<ParagraphProperties> = {};
+  const level = getAttrValue(pPr, qname('', 'lvl', ''));
+  if (level !== null) {
+    const parsed = Number(level);
+    if (Number.isInteger(parsed) && parsed >= 0 && parsed <= 8) out.level = parsed;
+  }
   const algn = getAttrValue(pPr, qname('', 'algn', ''));
   if (algn !== null && ALIGN_TOKEN_MAP[algn] !== undefined) out.align = ALIGN_TOKEN_MAP[algn];
   const marL = getAttrValue(pPr, qname('', 'marL', ''));

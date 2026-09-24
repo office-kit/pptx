@@ -62,6 +62,41 @@ export interface CustomGeometry {
   readonly paths: readonly GeomPath[];
 }
 
+/** Local connection coordinates, with outward angle in degrees. Order is the OOXML site index. */
+export interface ConnectionSite extends GeomPoint {
+  readonly angle: number;
+}
+
+export const parseConnectionSites = (
+  geometry: XmlElement,
+  width: number,
+  height: number,
+  adjustments?: XmlElement | null,
+): readonly ConnectionSite[] | null => {
+  try {
+    const guides = builtinGuides(width, height);
+    evalGuideList(firstDmlChild(geometry, NAME_AV_LST), guides);
+    evalGuideList(adjustments ?? null, guides);
+    evalGuideList(firstDmlChild(geometry, NAME_GD_LST), guides);
+    const list = firstDmlChild(geometry, qname('a', 'cxnLst', NS.dml));
+    if (!list) return [];
+    return dmlChildren(list, 'cxn').map((site) => {
+      const point = firstDmlChild(site, qname('a', 'pos', NS.dml));
+      if (!point) throw new GeomEvalError('connection site has no position');
+      const result = {
+        ...resolvePt(point, guides),
+        angle: resolveToken(getAttrValue(site, qname('', 'ang', '')) ?? '0', guides) / 60000,
+      };
+      if (!Object.values(result).every(Number.isFinite))
+        throw new GeomEvalError('invalid connection site');
+      return result;
+    });
+  } catch (error) {
+    if (error instanceof GeomEvalError) return null;
+    throw error;
+  }
+};
+
 /**
  * Thrown internally when a formula references a guide name that was never
  * defined, or when an unknown `fmla` operator appears. Both are malformed
@@ -124,6 +159,7 @@ const builtinGuides = (w: number, h: number): Map<string, number> => {
     ['wd6', w / 6],
     ['wd8', w / 8],
     ['wd10', w / 10],
+    ['wd32', w / 32],
     ['hd2', h / 2],
     ['hd3', h / 3],
     ['hd4', h / 4],
@@ -136,6 +172,7 @@ const builtinGuides = (w: number, h: number): Map<string, number> => {
     ['ssd6', ss / 6],
     ['ssd8', ss / 8],
     ['cd2', FULL_TURN_60K / 2],
+    ['cd3', FULL_TURN_60K / 3],
     ['cd4', cd4],
     ['cd6', FULL_TURN_60K / 6],
     ['cd8', cd8],

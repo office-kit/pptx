@@ -49,6 +49,103 @@ const buildTable = (slide: ReturnType<typeof getSlides>[number]) =>
   });
 
 describe('fn API: mergeTableCells', () => {
+  it('appends nonempty cell paragraphs in reading order with their formatting, then reloads', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    setTableCellText(getTableCell(tbl, 0, 0), '');
+    setTableCellParagraphs(getTableCell(tbl, 0, 1), [
+      { align: 'right', runs: [{ text: '日本語', format: { bold: true, color: '#FF0000' } }] },
+      { runs: [{ text: '🙂', format: { italic: true } }] },
+    ]);
+    const expected = [
+      ...getTableCellParagraphs(getTableCell(tbl, 0, 1)),
+      ...getTableCellParagraphs(getTableCell(tbl, 1, 0)),
+      ...getTableCellParagraphs(getTableCell(tbl, 1, 1)),
+    ];
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 2, colSpan: 2 }, { coveredText: 'append' });
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const again = getSlideTables(getSlides(reloaded)[0]!)[0]!;
+    expect(getTableCellParagraphs(getTableCell(again, 0, 0))).toEqual(expected);
+    expect(getTableCellText(getTableCell(again, 0, 0))).toBe('日本語\n🙂\nd\ne');
+    for (const [r, c] of [
+      [0, 1],
+      [1, 0],
+      [1, 1],
+    ]) {
+      expect(getTableCellParagraphs(getTableCell(again, r!, c!))).toEqual([]);
+    }
+    expect(getTableCellText(getTableCell(again, 0, 2))).toBe('c');
+  });
+
+  it('combines contained merges without duplicate hidden text or stale spans', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    setTableCellParagraphs(getTableCell(tbl, 1, 0), [
+      { runs: [{ text: 'styled', format: { bold: true } }] },
+    ]);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 1, colSpan: 2 });
+    mergeTableCells(tbl, { row: 1, col: 0, rowSpan: 1, colSpan: 2 });
+    const expected = [
+      ...getTableCellParagraphs(getTableCell(tbl, 0, 0)),
+      ...getTableCellParagraphs(getTableCell(tbl, 1, 0)),
+    ];
+    mergeTableCells(
+      tbl,
+      { row: 0, col: 0, rowSpan: 2, colSpan: 2 },
+      { coveredText: 'append', allowContainedMerges: true },
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const table = getSlideTables(getSlides(loaded)[0]!)[0]!;
+    expect(getTableCellParagraphs(getTableCell(table, 0, 0))).toEqual(expected);
+    expect(getTableCellSpan(getTableCell(table, 1, 0))).toEqual({
+      gridSpan: 1,
+      rowSpan: 1,
+      hMerge: false,
+      vMerge: true,
+    });
+    expect(getTableCellText(getTableCell(table, 1, 0))).toBe('');
+    expect(getTableCellText(getTableCell(table, 0, 2))).toBe('c');
+  });
+
+  it('rejects partial intersections from either side before changing the XML', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 0, col: 0, rowSpan: 2, colSpan: 2 });
+    const before = decode(
+      _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!.data,
+    );
+    for (const block of [
+      { row: 1, col: 1, rowSpan: 2, colSpan: 2 },
+      { row: 0, col: 0, rowSpan: 1, colSpan: 3 },
+    ]) {
+      expect(() =>
+        mergeTableCells(tbl, block, { coveredText: 'append', allowContainedMerges: true }),
+      ).toThrow(/entire merged cell/);
+      expect(
+        decode(_internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!.data),
+      ).toBe(before);
+    }
+  });
+
+  it('rejects invalid append merges before changing any paragraphs', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const tbl = buildTable(getSlides(pres)[0]!);
+    mergeTableCells(tbl, { row: 1, col: 0, rowSpan: 1, colSpan: 2 });
+    const before = decode(
+      _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!.data,
+    );
+    for (const block of [
+      { row: 0, col: 0, rowSpan: 2, colSpan: 2 },
+      { row: 0, col: 2, rowSpan: 1, colSpan: 2 },
+    ]) {
+      expect(() => mergeTableCells(tbl, block, { coveredText: 'append' })).toThrow();
+      expect(getTableCellText(getTableCell(tbl, 0, 0))).toBe('a');
+      expect(
+        decode(_internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!.data),
+      ).toBe(before);
+    }
+  });
+
   it('merges a horizontal 1×2 block (gridSpan on anchor, hMerge on cover)', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

@@ -7,11 +7,13 @@ import {
   contentTypeForFormat,
   detectImageFormat,
   extensionForFormat,
+  nextRelId,
   partName,
   readImagePixelSize,
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import type { Emu } from '../units.ts';
+import { NS, attr, firstChildElement, qname } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
   SHAPE_ELEMENT,
@@ -60,6 +62,9 @@ export const fitImageRect = (
  * Replaces a picture's media with `bytes`. Same-format replacements
  * write in place; cross-format replacements allocate a new media part
  * and repoint the rel. The geometry — crop, transform — is preserved.
+ * Any SVG alternate resource on this picture is discarded on replacement.
+ * Pass `isolated: true` to allocate both a new media part and relationship,
+ * changing only this picture even when other pictures share its image.
  *
  * Pass `options.fit: 'contain'` to re-fit the picture's extent to the
  * replacement image's aspect ratio, inscribed and centered in the shape's
@@ -70,7 +75,7 @@ export const fitImageRect = (
 export const setShapeImage = (
   shape: SlideShapeData,
   bytes: Uint8Array,
-  options: { format?: ImageFormat; fit?: ImageFit } = {},
+  options: { format?: ImageFormat; fit?: ImageFit; isolated?: boolean } = {},
 ): void => {
   if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
     throw new Error(
@@ -102,7 +107,7 @@ export const setShapeImage = (
   const dotIdx = mediaName.lastIndexOf('.');
   const currentExtension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1).toLowerCase() : '';
 
-  if (currentExtension === newExtension) {
+  if (currentExtension === newExtension && !options.isolated) {
     const part = pkg.getPart(mediaName);
     if (!part) throw new Error(`media part missing: ${mediaName}`);
     part.data = bytes;
@@ -125,8 +130,58 @@ export const setShapeImage = (
       pkg.contentTypes.defaults.push({ extension: newExtension, contentType: newContentType });
     }
     pkg.addPart(newPartName, newContentType, bytes);
-    rel.target = `../media/image${nextN}.${newExtension}`;
+    const target = `../media/image${nextN}.${newExtension}`;
+    if (options.isolated) {
+      // A relationship, as well as its media part, can be shared by pictures.
+      const id = nextRelId(rels.items.map((item) => item.id));
+      rels.items.push({ id, type: rel.type, target, targetMode: 'Internal' });
+      const fill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml))!;
+      const blip = firstChildElement(fill, qname('a', 'blip', NS.dml))!;
+      blip.attrs = blip.attrs.filter(
+        (item) => !(item.name.namespaceURI === NS.officeDocRels && item.name.localName === 'embed'),
+      );
+      blip.attrs.push(attr(qname('r', 'embed', NS.officeDocRels), id));
+    } else rel.target = target;
     pkg.setRels(slide[SLIDE_PART_NAME], rels);
+  }
+
+  // Office may prefer the SVG resource over the raster fallback in r:embed.
+  // It describes the old image, so it must not survive a replacement. Keep
+  // unrelated extensions (including DPI and processing metadata) intact.
+  const fill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  const blip = fill && firstChildElement(fill, qname('a', 'blip', NS.dml));
+  const extensions = blip && firstChildElement(blip, qname('a', 'extLst', NS.dml));
+  let removedSvg = false;
+  if (extensions) {
+    extensions.children = extensions.children.filter((extension) => {
+      if (
+        extension.kind !== 'element' ||
+        extension.name.namespaceURI !== NS.dml ||
+        extension.name.localName !== 'ext'
+      )
+        return true;
+      let removed = false;
+      extension.children = extension.children.filter((child) => {
+        const svg =
+          child.kind === 'element' &&
+          child.name.namespaceURI === 'http://schemas.microsoft.com/office/drawing/2016/SVG/main' &&
+          child.name.localName === 'svgBlip';
+        removed ||= svg;
+        return !svg;
+      });
+      removedSvg ||= removed;
+      return !removed || extension.children.some((child) => child.kind === 'element');
+    });
+    if (removedSvg) {
+      if (!extensions.children.some((child) => child.kind === 'element')) {
+        blip!.children = blip!.children.filter((child) => child !== extensions);
+      }
+    }
+  }
+
+  if (options.isolated || removedSvg) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
   }
 
   // 'contain' re-fits the picture's extent to the new image's aspect ratio
