@@ -2,6 +2,9 @@ export type TextSelection = { start: number; end: number };
 
 /** Contenteditable can create DIV/BR nodes while typing; count them as text newlines. */
 export function richTextValue(root: HTMLElement, stop?: { node: Node; offset: number }): string {
+  // Chromium leaves one BR to hold the caret after deleting all content.
+  // It is an empty editing host, not an authored line break.
+  if (root.childNodes.length === 1 && root.firstChild instanceof HTMLBRElement) return '';
   let text = '';
   let stopped = false;
   function visit(node: Node) {

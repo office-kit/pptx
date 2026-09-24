@@ -19,11 +19,12 @@ import {
   loadPresentation,
   savePresentation,
   setShapeTextAutoFit,
+  setShapeTextAnchor,
   setShapeTextColumns,
   setShapeTextDirection,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
-import { renderSlideToSvg } from '../packages/preview/src/index.ts';
+import { renderSlideToSvg, shapeTextAnchorOffset } from '../packages/preview/src/index.ts';
 import { attrsOf, countTags } from './lib/svg-query.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
@@ -248,5 +249,35 @@ describe('renderSlideToSvg — horizontal parity (svg mode)', () => {
     expect(svg).not.toContain('transform="rotate(');
     // The body lays out as a single left-anchored column.
     expect(new Set(textXs(svg)).size).toBe(1);
+  });
+});
+
+describe('centered anchor rendering', () => {
+  it('moves the text block without changing paragraph alignment in both rendering modes', async () => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+      text: 'Long line\nA',
+    });
+    const original = textXs(renderSlideToSvg(pres, slide, { textLayout: 'svg' }));
+    setShapeTextAnchor(box, 'top', { centered: true });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    const centered = textXs(svg);
+    expect(centered[0]).toBeGreaterThan(original[0]!);
+    expect(shapeTextAnchorOffset(pres, box).x).toBeCloseTo(centered[0]! - original[0]!, 1);
+    expect(centered[1]).toBe(centered[0]);
+    expect(
+      attrsOf(svg, 'text')
+        .filter((a) => a['text-anchor'])
+        .map((a) => a['text-anchor']),
+    ).toEqual(['start', 'start']);
+    expect(renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' })).toContain(
+      `translate:${shapeTextAnchorOffset(pres, box).x}px 0px;`,
+    );
+    setShapeTextAnchor(box, 'top', { centered: false });
+    expect(textXs(renderSlideToSvg(pres, slide, { textLayout: 'svg' }))).toEqual(original);
   });
 });

@@ -201,6 +201,7 @@ export interface TextBodyInput {
   readonly boxWpx: number;
   readonly boxHpx: number;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCentered?: boolean;
   readonly wrap: boolean;
   readonly paragraphs: readonly ParaInput[];
   /** Vertical text direction; omitted / 'none' is the default horizontal flow. */
@@ -325,6 +326,7 @@ const fmt = (n: number): string => {
 
 export interface LayoutCore {
   readonly placements: Placement[];
+  readonly anchorShift: number;
   readonly requiredH: number; // laid-out content height in px (top-anchored space)
   readonly vert: VerticalLayout;
   readonly cx: number;
@@ -523,7 +525,42 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
       ? placeColumns(frame, columns, input.anchor, buildLines)
       : placeSingle(frame, input.anchor, buildLines);
 
-  return { placements, requiredH, vert, cx, cy };
+  // anchorCtr centers the entire text bounds, keeping paragraph alignment and
+  // indentation intact. Include bullets and column offsets in those bounds.
+  let anchorShift = 0;
+  if (input.anchorCentered && placements.length) {
+    let left = Infinity;
+    let right = -Infinity;
+    for (const { line, dx } of placements) {
+      let end = line.tokens.length;
+      while (end > 0 && (line.tokens[end - 1]!.isSpace || line.tokens[end - 1]!.isBreak)) end--;
+      let width = 0;
+      for (let i = 0; i < end; i++) if (!line.tokens[i]!.isBreak) width += line.tokens[i]!.width;
+      if (end) {
+        const x =
+          line.anchorX +
+          dx -
+          (line.textAnchor === 'end' ? width : line.textAnchor === 'middle' ? width / 2 : 0);
+        left = Math.min(left, x);
+        right = Math.max(right, x + width);
+      }
+      if (line.bullet) {
+        const { x, b } = line.bullet;
+        left = Math.min(left, x + dx);
+        right = Math.max(right, x + dx + (b.imageHref ? b.sizePx : mWidth(b.text, bulletSpec(b))));
+      }
+    }
+    if (left !== Infinity) {
+      const shift = frame.x + frame.w / 2 - (left + right) / 2;
+      anchorShift = shift;
+      for (let i = 0; i < placements.length; i++) {
+        const placement = placements[i]!;
+        placements[i] = { ...placement, dx: placement.dx + shift };
+      }
+    }
+  }
+
+  return { placements, requiredH, vert, cx, cy, anchorShift };
 };
 
 export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {

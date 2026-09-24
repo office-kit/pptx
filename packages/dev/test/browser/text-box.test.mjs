@@ -9,6 +9,7 @@ import {
   getShapeBodyPrEffective,
   getShapeTextAutoFit,
   getShapeTextColumns,
+  getShapeText,
   getSlides,
   getSlideShapes,
   loadPresentation,
@@ -47,6 +48,7 @@ test(
         );
         return getSlideShapes(getSlides(pres)[0]).map((shape) => ({
           ...getShapeBodyPrEffective(pres, shape),
+          text: getShapeText(shape),
           fit: getShapeTextAutoFit(shape),
           columns: getShapeTextColumns(shape),
         }));
@@ -55,6 +57,45 @@ test(
       const initial = await read();
       await editor.locator('.hit').first().click();
       await box.locator('summary').click();
+      const verticalAlignment = box.getByRole('combobox', {
+        name: 'Vertical alignment',
+        exact: true,
+      });
+      assert.equal(await verticalAlignment.locator('option').count(), 7);
+      await verticalAlignment.selectOption('top-centered');
+      await saved();
+      assert.equal((await read())[0].anchorCentered, true);
+      const textBlock = editor
+        .locator('.paint foreignObject > div')
+        .filter({ hasText: '日本語 English' })
+        .first();
+      assert.ok(await textBlock.isVisible());
+      const previewTranslation = await textBlock.evaluate((el) => parseFloat(el.style.translate));
+      assert.ok(previewTranslation > 0);
+      await editor.locator('.hit').first().dblclick();
+      const textEditor = editor.getByRole('textbox', { name: 'Edit text', exact: true });
+      await textEditor.waitFor();
+      assert.match(await textEditor.evaluate((el) => el.style.transform), /translate\([1-9]/);
+      await textEditor.press('ControlOrMeta+a');
+      await textEditor.press('Backspace');
+      await textEditor.pressSequentially('Centered');
+      await textEditor.press('Enter');
+      await textEditor.pressSequentially('A');
+      await textEditor.press('ControlOrMeta+Enter');
+      await saved();
+      assert.equal((await read())[0].text, 'Centered\nA');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      // Restore the fixture in one selection edit so the following mixed tests
+      // retain their original expected text, independent of typing-burst history.
+      await editor.locator('.hit').first().dblclick();
+      await textEditor.press('ControlOrMeta+a');
+      await textEditor.fill('日本語 English');
+      await textEditor.press('ControlOrMeta+Enter');
+      await saved();
+      await verticalAlignment.selectOption('top');
+      await saved();
+      assert.equal((await read())[0].anchorCentered, false);
       const left = () =>
         box.getByRole('spinbutton', { name: ja ? '左余白' : 'Left margin', exact: true });
       await left().fill('0.375');

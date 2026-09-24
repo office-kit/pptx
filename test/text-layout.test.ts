@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultMeasurer,
   layoutTextSvg,
+  layoutCore,
   substituteFamily,
   type FontSpec,
   type ParaInput,
@@ -412,5 +413,58 @@ describe('layoutTextSvg horizontal parity', () => {
     expect(svg).toMatchInlineSnapshot(
       `"<g data-pptx-paragraph="0"><text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text></g><g data-pptx-paragraph="1"><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text></g>"`,
     );
+  });
+});
+
+describe('centered text bounds', () => {
+  it('preserves the full paragraph frame with opposing alignment', () => {
+    const paragraphs = [para([piece('ABC')]), para([piece('A')], { align: 'right' })];
+    const normal = layoutCore(body(paragraphs, { boxWpx: 100 }), stubMeasurer);
+    const centered = layoutCore(
+      body(paragraphs, { boxWpx: 100, anchorCentered: true }),
+      stubMeasurer,
+    );
+    expect(centered.anchorShift).toBe(0);
+    expect(centered.placements).toEqual(normal.placements);
+  });
+  it.each(['top', 'center', 'bottom'] as const)(
+    'centers a left-aligned block independently of %s anchoring',
+    (anchor) => {
+      const paragraphs = [para([piece('ABCD')]), para([piece('A')])];
+      const normal = layoutCore(
+        body(paragraphs, { boxXpx: 20, boxWpx: 100, anchor }),
+        stubMeasurer,
+      );
+      const centered = layoutCore(
+        body(paragraphs, { boxXpx: 20, boxWpx: 100, anchor, anchorCentered: true }),
+        stubMeasurer,
+      );
+      expect(centered.placements.map((p) => p.line.anchorX + p.dx)).toEqual([50, 50]);
+      expect(centered.placements.map((p) => p.baselineY)).toEqual(
+        normal.placements.map((p) => p.baselineY),
+      );
+      expect(centered.placements.map((p) => p.line.textAnchor)).toEqual(['start', 'start']);
+    },
+  );
+  it('includes a hanging bullet and ignores trailing spaces', () => {
+    const line = para([piece('AB  ')], {
+      firstIndentPx: -10,
+      bullet: { text: '•', family: 'Carlito', sizePx: 10, fillHex: '#000000' },
+    });
+    const {
+      placements: [p],
+    } = layoutCore(body([line], { boxWpx: 100, anchorCentered: true }), stubMeasurer);
+    // Bullet at 30, a ten-pixel gap, then two ten-pixel glyphs to 70.
+    expect(p!.line.bullet!.x + p!.dx).toBe(30);
+    expect(p!.line.anchorX + p!.dx).toBe(50);
+  });
+  it('centers the reading dimension before rotating vertical text', () => {
+    const {
+      placements: [p],
+    } = layoutCore(
+      body([para([piece('AB')])], { boxWpx: 100, boxHpx: 200, vert: 'cw90', anchorCentered: true }),
+      stubMeasurer,
+    );
+    expect(p!.line.anchorX + p!.dx).toBe(40);
   });
 });

@@ -19,7 +19,7 @@
   });
   const values = $derived(shapes.map(shape => ({ shape, body: getShapeBodyPrEffective(doc.pres, shape), fit: getShapeTextAutoFit(shape) })));
   function common<T>(items: T[]): T | undefined { return items.every(item => item === items[0]) ? items[0] : undefined; }
-  const anchor = $derived(common(values.map(item => item.body.anchor ?? shapeTextDefaults(item.shape).anchor)));
+  const anchor = $derived(common(values.map(item => `${item.body.anchor ?? shapeTextDefaults(item.shape).anchor}${item.body.anchorCentered ? '-centered' : ''}`)));
   const direction = $derived(common(values.map(item => item.body.vert ?? 'horz')));
   const autoFit = $derived(common(values.map(item => item.fit)));
   const wrap = $derived(common(values.map(item => (item.body.wrap ?? 'square') === 'square')));
@@ -42,7 +42,8 @@
     if (shapes.length) doc.transact(t(label), () => { for (const shape of shapes) operation(shape); });
   }
   function changeAnchor(value: string) {
-    if (value === 'top' || value === 'center' || value === 'bottom') apply('Vertical alignment', shape => setShapeTextAnchor(shape, value));
+    const option = anchors.find(([key]) => key === value);
+    if (option) apply('Vertical alignment', shape => setShapeTextAnchor(shape, option[2], { centered: option[3] }));
   }
   function changeDirection(value: string) {
     const option = directions.find(([key]) => key === value);
@@ -53,7 +54,10 @@
     const value = cm(input.valueAsNumber);
     apply('Text margins', shape => setShapeTextMargins(shape, { [side]: value }));
   }
-  const anchors: ReadonlyArray<readonly [TextAnchor, string]> = [['top', 'Top'], ['center', 'Middle'], ['bottom', 'Bottom']];
+  const anchors: ReadonlyArray<readonly [string, string, TextAnchor, boolean]> = [
+    ['top', 'Top', 'top', false], ['center', 'Middle', 'center', false], ['bottom', 'Bottom', 'bottom', false],
+    ['top-centered', 'Top Centered', 'top', true], ['center-centered', 'Middle Centered', 'center', true], ['bottom-centered', 'Bottom Centered', 'bottom', true],
+  ];
   const fits: ReadonlyArray<readonly [TextAutoFit, string]> = [['none', 'Do not Autofit'], ['normal', 'Shrink text on overflow'], ['shape', 'Resize shape to fit text']];
 </script>
 

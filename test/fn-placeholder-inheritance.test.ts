@@ -18,6 +18,7 @@ import {
   savePresentation,
   getSlides,
   setShapeTextDirection,
+  setShapeTextAnchor,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -106,5 +107,23 @@ describe('horizontal direction overrides vertical inheritance', () => {
     expect(getShapeBodyPrEffective(restored, restoredTitle).vert).toBeNull();
     setShapeTextDirection(restoredTitle, null);
     expect(getShapeBodyPrEffective(restored, restoredTitle).vert).toBe('eaVert');
+  });
+});
+
+describe('centered anchor inheritance', () => {
+  it('overrides inherited centering explicitly and restores it when cleared', async () => {
+    const parts = unzipSync(await readFile(fixture('blank.pptx')));
+    const master = 'ppt/slideMasters/slideMaster1.xml';
+    const xml = strFromU8(parts[master]!);
+    parts[master] = strToU8(xml.replaceAll('<a:bodyPr ', '<a:bodyPr anchorCtr="true" '));
+    const pres = await loadPresentation(zipSync(parts));
+    const title = getSlideShapes(addTitleSlide(pres, 'Centered'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title).anchorCentered).toBe(true);
+    setShapeTextAnchor(title, 'top', { centered: false });
+    const restored = await loadPresentation(await savePresentation(pres));
+    const copy = getSlideShapes(getSlides(restored).at(-1)!)[0]!;
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(false);
+    setShapeTextAnchor(copy, 'top', { centered: null });
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(true);
   });
 });
