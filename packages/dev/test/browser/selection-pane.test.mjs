@@ -137,6 +137,7 @@ test(
       );
       await page.keyboard.press('Escape');
       await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       for (const name of [
         'Horizontal position',
         'Vertical position',

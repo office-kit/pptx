@@ -52,6 +52,7 @@ test(
       await saved();
       const original = await read();
       await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const bar = editor.locator('.bespoke .text-format-bar');
       await bar.getByRole('button', { name: 'Bold', exact: true }).click();
       await saved();
@@ -159,6 +160,7 @@ test('blank shapes retain their chosen text format before typing', { timeout: 60
     };
     await saved();
     await editor.locator('.hit').first().click();
+    await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
     const bar = editor.locator('.bespoke .text-format-bar');
     await bar.getByRole('button', { name: 'Bold', exact: true }).click();
     await saved();
@@ -169,6 +171,7 @@ test('blank shapes retain their chosen text format before typing', { timeout: 60
     await page.reload();
     await saved();
     await editor.locator('.hit').first().click();
+    await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
     assert.equal(
       await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
       'true',
@@ -230,6 +233,7 @@ test(
       await saved();
       const before = await read();
       await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const panel = editor.locator('.bespoke');
       await panel
         .getByRole('combobox', { name: 'Paragraph alignment', exact: true })
@@ -277,6 +281,7 @@ test(
       await page.reload();
       await saved();
       await editor.locator('.hit').nth(1).click();
+      await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       await panel.getByText('テキスト ボックス', { exact: true }).click();
       assert.equal(
         await panel.getByRole('combobox', { name: '段落の配置', exact: true }).inputValue(),

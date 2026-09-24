@@ -168,7 +168,7 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - Native Format Shape shows separate Fill and Line disclosures. Solid Line orders Width, Compound type, Dash type, Cap type and Join type, alongside transparency, sketch and arrow controls. Native test changes to fill/line were undone.
 - Split the editor's combined paint section into independent disclosures. Added direct compound, cap and join fields using existing mutation commands and per-selection readback, including mixed group-child selections.
-- The native radio selectors, sketch and gradient-line layouts remain outstanding, as does the format pane tab migration. These controls are an incremental migration, not a claim of full native parity.
+- The native radio selectors, sketch and gradient-line layouts remain outstanding, as does the remaining format pane layout migration. These controls are an incremental migration, not a claim of full native parity.
 
 - Validation: both paint-selection browser scenarios pass, including disclosure state, multi-selection line values, saved PPTX and Undo. Editor unit tests (67), Svelte diagnostics, format, lint and types pass.
 
@@ -188,3 +188,11 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Native Mac Line transparency at 25% saves `a:alpha val="75000"`. The temporary change was undone and the disposable deck saved; no native edits remain pending.
 - Fill and Line now expose percentage sliders and numeric fields, including mixed selections, one-step undo, decimal percentages and saved reloads. Color changes preserve opacity; opacity changes preserve theme references and non-alpha color transforms. Non-solid paint disables these controls.
 - Validation: all 2,865 core tests and 67 editor unit tests pass; the browser regression covers mixed values, Undo/Redo, color changes, invalid percentages, keyboard sliders, reload and No Fill. Inherited paint editing and native radio/gradient layouts remain outstanding.
+
+## Format Shape tabs
+
+- Confirmed the native Fill & Line, Effects and Size & Properties tabs through the reconnected Mac UI and screenshots. Shape, connector and group selections now use those three tabs; pictures, charts and tables retain their existing controls pending their own native comparison.
+- Tab navigation supports arrow keys, Home/End and localized names. Existing controls stay mounted while hidden so relative scale baselines, disclosure state and geometry origins survive tab changes. More Rotation Options selects Size & Properties before focusing Rotation.
+- Browser coverage verifies control visibility, keyboard focus, scale input retention, Undo and Japanese labels. Existing geometry, text-box, paragraph and selection tests now explicitly navigate to the appropriate tab.
+- This is a navigation migration. Native effect disclosures, complete Size & Properties contents and format-pane close/reopen behavior remain outstanding.
+- Native effect audit: Shadow orders presets, color, transparency (0–100%), size (1–200%), blur (0–100 pt), angle (0–359°), distance (0–200 pt). Reflection has presets, transparency/size (0–100%), blur/distance (0–100 pt). Glow has presets, color, size (0–150 pt), transparency (0–100%). Soft Edges has presets and size (0–100 pt). Opening these disclosures made no document changes.

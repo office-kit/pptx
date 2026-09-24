@@ -193,6 +193,7 @@ test(
       await saved();
       const initialFlips = await colors(getShapeFlip);
       await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       await editor.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).check();
       await saved();
       await editor
@@ -227,6 +228,7 @@ test(
       await page.reload();
       await saved();
       await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       assert.equal(
         await editor.getByRole('checkbox', { name: '左右反転', exact: true }).isChecked(),
         true,
@@ -238,6 +240,7 @@ test(
       assert.deepEqual((await colors(getShapeFlip))[2], initialFlips[2]);
       await editor.locator('.lang select').selectOption('en');
       ja = false;
+      await editor.getByRole('tab', { name: 'Fill & Line', exact: true }).click();
       const initialFill = await colors(getShapeFillColor);
       const initialStroke = await colors(getShapeStrokeColor);
       await editor.locator('.hit').nth(0).click();

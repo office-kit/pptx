@@ -269,6 +269,7 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().click();
       await page.keyboard.press('Control+a');
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const arrange = editor.getByRole('region', { name: 'Arrange', exact: true });
       await arrange.getByRole('button', { name: 'Align top', exact: true }).click();
       await arrange.getByRole('button', { name: 'Distribute horizontally', exact: true }).click();
@@ -536,6 +537,7 @@ test(
       await page.screenshot({ path: '/tmp/pptx-pr287-text-format-toolbar.png', fullPage: true });
       await bar.getByRole('button', { name: 'Done', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       assert.equal(await editor.locator('.bespoke textarea').inputValue(), 'Hello 日本語 🌎!');
       const runs = async () => {
         const pres = await loadPresentation(
@@ -592,6 +594,7 @@ test(
       assert.equal(result[1].format.color, '#FF0000');
       assert.equal(result[0].format.bold, true);
       // Editing through the properties pane must keep the same mixed formatting.
+      await editor.getByRole('tab', { name: 'サイズとプロパティ', exact: true }).click();
       await editor.locator('.bespoke textarea').fill('Hello 日本語 🌎!?');
       await editor.locator('.bespoke textarea').press('Tab');
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
