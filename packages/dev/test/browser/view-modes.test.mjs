@@ -114,6 +114,16 @@ test(
       assert.notEqual(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '175%');
       const slider = editor.getByRole('slider', { name: 'Zoom percentage' });
       const beforeZoomRevision = (await waitForState(preview.url, () => true)).revision;
+      for (const [start, button, expected] of [
+        ['123', 'Zoom out (Ctrl+-)', '120%'],
+        ['127', 'Zoom in (Ctrl+=)', '130%'],
+      ]) {
+        await editor.getByTitle('Zoom...', { exact: true }).click();
+        await zoomDialog.getByRole('spinbutton').fill(start);
+        await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
+        await editor.getByTitle(button, { exact: true }).click();
+        assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), expected);
+      }
       await slider.focus();
       await slider.press('End');
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '400%');

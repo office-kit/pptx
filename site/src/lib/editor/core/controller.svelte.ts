@@ -379,14 +379,12 @@ export class EditorController {
     }
   }
   zoomIn(): void {
-    this.setZoom(
-      (Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 10) + 1) / 10,
-    );
+    const percent = Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 100);
+    this.setZoom((Math.floor(percent / 10) + 1) / 10);
   }
   zoomOut(): void {
-    this.setZoom(
-      (Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 10) - 1) / 10,
-    );
+    const percent = Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 100);
+    this.setZoom((Math.ceil(percent / 10) - 1) / 10);
   }
   zoomFit(): void {
     if (this.viewMode === 'sorter') this.sorterZoom = 1;
