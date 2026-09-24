@@ -398,3 +398,18 @@ Neither creates a slide-local background, and Reset Background remains disabled.
 Together with Style 1 and Style 4, this verifies all four first-row columns;
 the remaining gradient-row combinations and application scope are still pending.
 Both temporary changes were undone and the audit file saved with Undo disabled.
+
+A two-slide native check selected only the second slide and chose Style 7.
+PowerPoint changed their shared master's background to `bgRef idx="1002"`,
+`schemeClr=bg2`, with the dark color map. Neither slide nor any layout gained a
+background override. This confirms shared-master scope for a single selection;
+multiple-master native behavior remains unaudited. The background change and
+slide duplication were both undone, then saved with Undo disabled.
+
+The core `setSlideMasterBackgroundStyle` operation now writes these theme
+references and swaps the light/dark mappings while retaining accent mappings.
+Regression tests cover the seven audited presets, shared-master inheritance,
+round-trip preservation of slides/layouts/themes, separate master isolation,
+and atomic rejection of invalid indices or missing theme fills. The editor
+still needs the gallery and its previews; this API alone does not complete the
+Background Styles UI.

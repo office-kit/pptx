@@ -46,6 +46,7 @@ export * from './fn/slide-animation-edit.ts';
 
 // Slide features
 export * from './fn/slide-background.ts';
+export * from './fn/master-background-style.ts';
 export * from './fn/color-map.ts';
 export * from './fn/slide-transition.ts';
 export * from './fn/slide-notes.ts';
