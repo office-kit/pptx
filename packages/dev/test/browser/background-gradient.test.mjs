@@ -49,8 +49,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Format Background', exact: true });
       const backgroundValues = async () =>
         getSlides(
@@ -74,8 +75,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
 
       assert.deepEqual(await backgroundValues(), backgrounds);
       await thumbs.nth(0).click();
@@ -139,8 +141,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
 
       assert.deepEqual(await gradients(), values);
       await thumbs.nth(0).click();
@@ -215,8 +218,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Format Background', exact: true });
       assert.equal(
         await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).isChecked(),
@@ -267,8 +271,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
 
       slides = await read();
       assert.equal(getSlideBackgroundGradientFill(slides[0]).stops[0].brightness, 0.25);

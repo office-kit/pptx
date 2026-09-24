@@ -410,6 +410,15 @@ The core `setSlideMasterBackgroundStyle` operation now writes these theme
 references and swaps the light/dark mappings while retaining accent mappings.
 Regression tests cover the seven audited presets, shared-master inheritance,
 round-trip preservation of slides/layouts/themes, separate master isolation,
-and atomic rejection of invalid indices or missing theme fills. The editor
-still needs the gallery and its previews; this API alone does not complete the
-Background Styles UI.
+and atomic rejection of invalid indices or missing theme fills.
+
+The Design ribbon now opens a four-column Background Styles gallery with theme
+solid/gradient previews, the selected master style, Format Background..., and
+Reset Slide Background. Keyboard navigation, Escape, master-wide application,
+undo, and save/reload are covered by browser tests. The read-only
+`getSlideMasterBackgroundStyles` reader resolves preset colors without mutating
+the document. Native connection was rechecked successfully; the menu exposes
+12 presets and both footer actions, with Reset disabled on an inherited fill.
+Exact native gallery dimensions still need a usable popover screenshot.
+Custom pattern/image theme swatches and rectangular gradient previews remain
+incomplete; multiple-master native selection behavior remains unaudited.

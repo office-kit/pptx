@@ -3,6 +3,7 @@ import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { expect, it } from 'vitest';
 import {
   getEffectiveColorMap,
+  getSlideMasterBackgroundStyles,
   getSlides,
   loadPresentation,
   savePresentation,
@@ -96,4 +97,53 @@ it('uses the selected slide master and preserves unrelated masters and accent ma
     bg1: 'dk1',
     accent1: 'accent6',
   });
+});
+
+it('previews all theme presets without mutating the package and tracks saved selection', async () => {
+  const pres = await loadPresentation(
+    await readFile(new URL('./fixtures/minimal/two-slides.pptx', import.meta.url)),
+  );
+  const slide = getSlides(pres)[0]!;
+  const before = unzipSync(await savePresentation(pres));
+  const styles = getSlideMasterBackgroundStyles(slide);
+  expect(styles.map((item) => item.style)).toEqual(
+    Array.from({ length: 12 }, (_, index) => index + 1),
+  );
+  expect(styles[0]!.fill).toMatchObject({ kind: 'solid', color: '#FFFFFF' });
+  expect(styles[3]!.fill).toMatchObject({ kind: 'solid', color: '#000000' });
+  expect(unzipSync(await savePresentation(pres))).toEqual(before);
+  setSlideMasterBackgroundStyle(slide, 7);
+  expect(
+    getSlideMasterBackgroundStyles(slide)
+      .filter((item) => item.selected)
+      .map((item) => item.style),
+  ).toEqual([7]);
+  const reloaded = await loadPresentation(await savePresentation(pres));
+  expect(
+    getSlideMasterBackgroundStyles(getSlides(reloaded)[0]!)
+      .filter((item) => item.selected)
+      .map((item) => item.style),
+  ).toEqual([7]);
+});
+
+it('resolves theme placeholder colors and transforms for gradient swatches', async () => {
+  const zip = unzipSync(
+    await readFile(new URL('./fixtures/minimal/two-slides.pptx', import.meta.url)),
+  );
+  zip['ppt/theme/theme1.xml'] = strToU8(
+    strFromU8(zip['ppt/theme/theme1.xml']!).replace(
+      /<a:bgFillStyleLst>[\s\S]*?<\/a:bgFillStyleLst>/,
+      '<a:bgFillStyleLst><a:solidFill><a:schemeClr val="phClr"/></a:solidFill><a:gradFill><a:gsLst><a:gs pos="0"><a:schemeClr val="phClr"><a:tint val="50000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:schemeClr val="phClr"/></a:gs></a:gsLst><a:path path="circle"><a:fillToRect l="50000" t="-80000" r="50000" b="180000"/></a:path></a:gradFill></a:bgFillStyleLst>',
+    ),
+  );
+  const pres = await loadPresentation(zipSync(zip));
+  const before = unzipSync(await savePresentation(pres));
+  const styles = getSlideMasterBackgroundStyles(getSlides(pres)[0]!);
+  expect(styles).toHaveLength(8);
+  expect(styles[7]!.gradient).toMatchObject({
+    path: 'circle',
+    focus: { left: 0.5, top: -0.8, right: 0.5, bottom: 1.8 },
+    stops: [{ resolvedColor: '#BCBCBC' }, { resolvedColor: '#000000' }],
+  });
+  expect(unzipSync(await savePresentation(pres))).toEqual(before);
 });

@@ -7,14 +7,14 @@ import { chromium } from 'playwright';
 import {
   duplicateSlide,
   getSlides,
-  isSlideBackgroundGraphicsHidden,
+  getSlideMasterBackgroundStyles,
   loadPresentation,
   savePresentation,
 } from '../../../../dist/index.js';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
-  'background graphics hide on selected slides, undo, show mixed state and survive reload',
+  'background style gallery applies to the master, supports keyboard and undo, and survives reload',
   { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-background-graphics-'));
@@ -48,64 +48,60 @@ test(
         const deck = await loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
-        return getSlides(deck).map(isSlideBackgroundGraphicsHidden);
+        return getSlides(deck).map(
+          (slide) => getSlideMasterBackgroundStyles(slide).find((style) => style.selected)?.style,
+        );
       };
       const open = async () => {
         await editor.getByRole('tab', { name: 'Design', exact: true }).click();
-        await editor
-          .getByRole('tabpanel', { name: 'Design', exact: true })
-          .getByRole('button', { name: 'Background Styles', exact: true })
-          .click();
-        await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
+        await editor.getByRole('button', { name: 'Background Styles', exact: true }).click();
       };
       await saved();
+      await editor.locator('.thumb-row').nth(1).click();
+      const before = await read();
       await open();
-      const thumbs = editor.locator('.thumb-row');
-      const checkbox = editor.getByRole('checkbox', {
-        name: 'Hide Background Graphics',
-        exact: true,
-      });
-      const canvas = editor.locator('.stage .paint');
-      await thumbs.nth(0).click();
-      assert.match(await canvas.innerHTML(), /TEMPLATE/);
-      await thumbs.nth(1).click({ modifiers: ['Shift'] });
-      await checkbox.check();
+      const gallery = editor.getByRole('menu', { name: 'Background Styles', exact: true });
+      assert.equal(await gallery.getByRole('menuitemradio').count(), 12);
+      assert.equal(
+        await gallery
+          .getByRole('menuitem', { name: 'Reset Slide Background', exact: true })
+          .isEnabled(),
+        false,
+      );
+      await gallery
+        .getByRole('menuitemradio', { name: 'Style 1', exact: true })
+        .press('ArrowRight');
+      assert.equal(
+        await gallery
+          .getByRole('menuitemradio', { name: 'Style 2', exact: true })
+          .evaluate((el) => el === el.ownerDocument.activeElement),
+        true,
+      );
+      await gallery.getByRole('menuitemradio', { name: 'Style 2', exact: true }).press('Escape');
+      assert.equal(await gallery.count(), 0);
+      assert.deepEqual(await read(), before);
+      await open();
+      await gallery.getByRole('menuitemradio', { name: 'Style 7', exact: true }).click();
       await saved();
-      assert.deepEqual(await read(), [true, true, false]);
-      assert.doesNotMatch(await canvas.innerHTML(), /TEMPLATE/);
+      assert.deepEqual(await read(), [7, 7, 7]);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      assert.deepEqual(await read(), [false, false, false]);
-      assert.match(await canvas.innerHTML(), /TEMPLATE/);
-      await checkbox.check();
+      assert.deepEqual(await read(), before);
+      await open();
+      await gallery.getByRole('menuitemradio', { name: 'Style 4', exact: true }).click();
       await saved();
-      await thumbs.nth(2).click({ modifiers: ['Shift'] });
-      assert.equal(await checkbox.evaluate((element) => element.indeterminate), true);
-      await checkbox.check();
-      await saved();
-      assert.deepEqual(await read(), [true, true, true]);
       await page.reload();
       await saved();
       await open();
-      assert.equal(await checkbox.isChecked(), true);
-      assert.doesNotMatch(await canvas.innerHTML(), /TEMPLATE/);
-      await thumbs.nth(0).click();
-      await checkbox.uncheck();
-      await saved();
-      assert.deepEqual(await read(), [false, true, true]);
-      assert.match(await canvas.innerHTML(), /TEMPLATE/);
-      await checkbox.check();
-      await saved();
-      await editor.getByRole('button', { name: 'Apply to All', exact: true }).click();
-      await saved();
-      await checkbox.uncheck();
-      await saved();
-      assert.match(await canvas.innerHTML(), /TEMPLATE/);
-      assert.doesNotMatch(await canvas.innerHTML(), /#2E75B6/);
-      await editor.getByRole('button', { name: 'Apply to All', exact: true }).click();
-      await saved();
-      assert.deepEqual(await read(), [false, false, false]);
-      assert.match(await canvas.innerHTML(), /#2E75B6/);
+      assert.equal(
+        await gallery
+          .getByRole('menuitemradio', { name: 'Style 4', exact: true })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      assert.deepEqual(await read(), [4, 4, 4]);
+      await gallery.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
+      await editor.getByRole('region', { name: 'Format Background', exact: true }).waitFor();
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
