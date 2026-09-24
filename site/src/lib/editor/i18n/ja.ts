@@ -2,6 +2,7 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Slide background fill': '塗りつぶし（スライドの背景）',
   'Pattern fill': '塗りつぶし（パターン）',
   Foreground: '前景',
   'Diagonal stripes: Light downward': '斜め線（右下がり、細）',

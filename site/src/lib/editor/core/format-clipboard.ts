@@ -15,6 +15,7 @@ import {
   getParagraphPropertiesEffective,
   getShapeEffects,
   getShapeFill,
+  getShapeKind,
   getShapeGradientFill,
   getShapeParagraphCount,
   getShapePatternFill,
@@ -34,6 +35,7 @@ import {
   setShapeGlow,
   setShapeGradientFill,
   setShapeNoFill,
+  setShapeSlideBackgroundFill,
   setShapeNoStroke,
   setShapePatternFill,
   setShapeShadow,
@@ -61,6 +63,7 @@ interface ShapePaint {
         readonly kind: 'pattern';
         readonly pattern: NonNullable<ReturnType<typeof getShapePatternFill>>;
       }
+    | { readonly kind: 'background' }
     | { readonly kind: 'none' }
     | { readonly kind: 'inherit' }
     | null;
@@ -223,7 +226,9 @@ const applyPaint = (shape: SlideShapeData, paint: ShapePaint): void => {
     if (paint.fill.kind === 'solid') setShapeFill(shape, paint.fill.color);
     else if (paint.fill.kind === 'gradient') setShapeGradientFill(shape, paint.fill.gradient);
     else if (paint.fill.kind === 'pattern') setShapePatternFill(shape, paint.fill.pattern);
-    else if (paint.fill.kind === 'none') setShapeNoFill(shape);
+    else if (paint.fill.kind === 'background') {
+      if (getShapeKind(shape) === 'shape') setShapeSlideBackgroundFill(shape);
+    } else if (paint.fill.kind === 'none') setShapeNoFill(shape);
     else clearShapeFill(shape);
   }
   if (paint.stroke.kind === 'solid') {

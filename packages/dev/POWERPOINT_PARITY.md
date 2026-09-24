@@ -244,6 +244,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Tiled mode exposes offsets X/Y (−1,584 to 1,584 pt), scales X/Y (0–100%), Alignment and Mirror type. Saved default XML uses `a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"`.
 - Stretch mode replaces tile controls with four offsets (left/right/top/bottom, −100,000% to 100,000%). Both temporary audit changes were undone and saved; Undo is disabled.
 
-### Slide-background fill native audit (implementation outstanding)
+### Slide-background fill
 
 - Selecting Slide background fill hides all fill controls and writes `p:sp useBgFill="1"` with no fill choice inside `p:spPr`. It preserves the geometry and line settings. The temporary comparison was undone and saved; Undo is disabled.
+
+- The Fill pane now exposes Slide background fill for ordinary shapes, applies it to multiple selected shapes, hides paint controls, and supports Undo/Redo and saved reloads. Other fill setters clear the background flag.
+- Preview paints only the slide background through the shape, covering intervening objects. Raster tests verify fixed slide coordinates through shape rotation/reflection and group scaling, translation, rotation and reflection. Exact native rendering across every background kind remains unverified.

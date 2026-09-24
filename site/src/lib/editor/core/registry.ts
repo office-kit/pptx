@@ -131,6 +131,7 @@ const selectionAppearanceCommands = new Set([
   'setShapePatternFill',
   'setShapeImageFill',
   'setShapeNoFill',
+  'setShapeSlideBackgroundFill',
   'setShapeStroke',
   'setShapeNoStroke',
   'setShapeStrokeDash',

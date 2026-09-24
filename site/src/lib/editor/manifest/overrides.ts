@@ -615,6 +615,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
       },
     ],
   },
+  setShapeSlideBackgroundFill: {
+    labelEn: 'Slide background fill',
+    labelJa: '塗りつぶし（スライドの背景）',
+    ribbonGroup: 'shape-styles',
+  },
   setShapePatternFill: {
     labelEn: 'Pattern fill',
     labelJa: 'パターン',
