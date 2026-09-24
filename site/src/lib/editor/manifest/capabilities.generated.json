@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 175,
+  "count": 176,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1780,6 +1780,23 @@
           "kind": "object",
           "optional": false,
           "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageFillLayout",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-fill-layout.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "layout",
+          "type": "ImageFillLayout",
+          "kind": "object",
+          "optional": false
         }
       ]
     },

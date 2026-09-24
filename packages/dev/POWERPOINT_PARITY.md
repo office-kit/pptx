@@ -243,7 +243,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Selecting Picture or texture fill inserts the native default texture, switches the pane to Format Picture, and adds a Picture category. Controls include Insert, Clipboard, Texture, Transparency, Tile picture as texture and Rotate with shape.
 - Tiled mode exposes offsets X/Y (−1,584 to 1,584 pt), scales X/Y (0–100%), Alignment and Mirror type. Saved default XML uses `a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"`.
 - Stretch mode replaces tile controls with four offsets (left/right/top/bottom, −100,000% to 100,000%). Both temporary audit changes were undone and saved; Undo is disabled.
-- Core opacity reading/writing and preview now support image-filled ordinary shapes. Round-trip tests cover transparency, removal and invalid-input preservation. The Picture/texture UI, tile/stretch geometry and texture selection remain outstanding.
+- Core opacity reading/writing and preview support image-filled ordinary shapes. Round-trip tests cover transparency, removal and invalid-input preservation.
+- `getShapeImageFillLayout` / `setShapeImageFillLayout` read and edit tile/stretch placement without replacing media, crop or effects. Native left offset 25% was verified as `fillRect l="25000"`; the reference was restored and saved. Stretch offsets now affect preview and clip to the shape. Core tests cover both pictures and image-filled shapes, mode changes, invalid-input preservation, round trips and XML schema validity.
+- Picture/texture controls, tile rendering, rotation-independent image rendering and texture selection remain outstanding.
 
 ### Slide-background fill
 

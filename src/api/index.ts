@@ -83,6 +83,7 @@ export type {
   AnimationValueAfterEnd,
   SlideAnimationStep,
 } from './fn.ts';
+export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type {
@@ -306,6 +307,7 @@ export {
   getShapeImageCrop,
   getShapeImageDuotone,
   getShapeImageFillBytes,
+  getShapeImageFillLayout,
   getShapeImageFormat,
   getShapeImageLinkUrl,
   getShapeImageOpacity,
@@ -538,6 +540,7 @@ export {
   setShapeImageContrast,
   setShapeImageCrop,
   setShapeImageFill,
+  setShapeImageFillLayout,
   setShapeImageOpacity,
   setShapeClickAction,
   setShapeDescription,

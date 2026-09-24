@@ -311,6 +311,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
   setShapeImageBrightness: { labelJa: '画像の明るさ' },
   setShapeImageContrast: { labelJa: '画像のコントラスト' },
   setShapeImageFill: { labelJa: '画像による塗りつぶし' },
+  setShapeImageFillLayout: { labelEn: 'Picture fill layout', labelJa: '画像の塗りつぶしの配置' },
   setShapeImageOpacity: { labelJa: '画像の不透明度' },
   setShapeParagraphs: { labelJa: '段落と文字書式の編集' },
   setShapePosition: { labelJa: '図形の位置' },
