@@ -23,6 +23,9 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { decode } from './_helpers.ts';
+import { getEffectiveColorMap } from './color-map.ts';
+import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
+import { getPresentationTheme, type PresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Detailed gradient-fill reader. Companion to `getShapeFill`, which
 // only reports the discriminated `kind`. Returns the full stop list +
@@ -53,7 +56,10 @@ export const readColorFromContainer = (parent: XmlElement): string | null => {
 
 // Parses one `<a:gradFill>` element into the stop list + direction.
 // Shared by the shape-own reader and the placeholder-cascade reader.
-const parseGradFill = (gradFill: XmlElement): ReadGradientFill | null => {
+const parseGradFill = (
+  gradFill: XmlElement,
+  context?: { theme: PresentationTheme | null; colorMap: Readonly<Record<string, string>> },
+): ReadGradientFill | null => {
   const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
   if (!gsLst) return null;
   const stops: ReadGradientStop[] = [];
@@ -67,7 +73,21 @@ const parseGradFill = (gradFill: XmlElement): ReadGradientFill | null => {
     if (!Number.isFinite(pos)) continue;
     const color = readColorFromContainer(c);
     if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
+    const colorElement = c.children.find(
+      (child) => child.kind === 'element' && child.name.namespaceURI === NS.dml,
+    );
+    const opacity =
+      colorElement?.kind === 'element' ? resolveDrawingColorOpacity(colorElement) : null;
+    const resolvedColor =
+      context && colorElement?.kind === 'element'
+        ? resolveDrawingColor(colorElement, context.theme, context.colorMap)
+        : null;
+    stops.push({
+      offset: pos / 100_000,
+      color,
+      ...(opacity !== null ? { opacity } : {}),
+      ...(resolvedColor !== null ? { resolvedColor } : {}),
+    });
   }
   if (stops.length === 0) return null;
   // ECMA-376 §20.1.8.33: gradFill has either <a:lin> (linear) or <a:path>
@@ -129,6 +149,7 @@ export const getShapeGradientFill = (shape: SlideShapeData): ReadGradientFill | 
 /**
  * Same as `getShapeGradientFill` but walks the layout → master
  * placeholder cascade when the shape itself carries no `<a:gradFill>`.
+ * Stop `resolvedColor` values include the theme, color map, and color transforms.
  * Returns the first gradient found, or `null` when neither the shape
  * nor its inherited placeholder defines one.
  *
@@ -142,7 +163,17 @@ export const getShapeGradientFillEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
 ): ReadGradientFill | null => {
-  const own = getShapeGradientFill(shape);
+  const readGradFromSpPr = (el: XmlElement): ReadGradientFill | null => {
+    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
+    if (!spPr) return null;
+    const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
+    if (!gradFill) return null;
+    return parseGradFill(gradFill, {
+      theme: getPresentationTheme(pres),
+      colorMap: getEffectiveColorMap(shape[SHAPE_SLIDE]),
+    });
+  };
+  const own = readGradFromSpPr(shape[SHAPE_ELEMENT]);
   if (own) return own;
 
   const phIdx = getShapePlaceholderIdx(shape);
@@ -151,14 +182,6 @@ export const getShapeGradientFillEffective = (
 
   const layout = getSlideLayout(shape[SHAPE_SLIDE]);
   if (!layout) return null;
-
-  const readGradFromSpPr = (el: XmlElement): ReadGradientFill | null => {
-    const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
-    if (!spPr) return null;
-    const gradFill = firstChildElement(spPr, NAME_A_GRAD_FILL);
-    if (!gradFill) return null;
-    return parseGradFill(gradFill);
-  };
 
   const findPh = (
     shapes: ReadonlyArray<{

@@ -659,7 +659,7 @@ const gradientDef = (
   const stops = orderedStops
     .map(
       (s) =>
-        `<stop offset="${s.offset.toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+        `<stop offset="${s.offset.toFixed(4)}" stop-color="${s.resolvedColor ?? resolveColor(s.color, theme, '#E5E7EB')}"${s.opacity !== undefined ? ` stop-opacity="${s.opacity}"` : ''}/>`,
     )
     .join('');
   if (grad.path === 'circle' || grad.path === 'rect' || grad.path === 'shape') {
@@ -677,7 +677,7 @@ const gradientDef = (
       .reverse()
       .map(
         (s) =>
-          `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${resolveColor(s.color, theme, '#E5E7EB')}"/>`,
+          `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${s.resolvedColor ?? resolveColor(s.color, theme, '#E5E7EB')}"${s.opacity !== undefined ? ` stop-opacity="${s.opacity}"` : ''}/>`,
       )
       .join('');
     const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${reversed}</radialGradient></defs>`;
