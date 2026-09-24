@@ -1,14 +1,22 @@
 <script lang="ts">
-  import { getShapeGradientFillEffective, setShapeGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
+  import { getShapeGradientFillEffective, setShapeGradientFill, getSlideBackgroundGradientFill, setSlideBackgroundGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import GradientDirection from './GradientDirection.svelte';
   import { pathDirections, pathDirectionIndex } from '../core/gradient-directions.ts';
 
+  import { selectedSlideIndices } from '../core/selection.ts';
+
+  let { background = false }: { background?: boolean } = $props();
   const editor = getEditor();
+  const slides = $derived.by(() => {
+    editor.doc.version;
+    return selectedSlideIndices(editor.doc.selection).flatMap(index => { const slide = editor.doc.slideAt(index); return slide ? [slide] : []; });
+  });
   const gradients = $derived.by(() => {
     editor.doc.version;
+    if (background) return slides.map(getSlideBackgroundGradientFill);
     return editor.selectedShapes().map(shape => getShapeGradientFillEffective(editor.doc.pres, shape));
   });
   const gradient = $derived(gradients[0] ?? null);
@@ -24,7 +32,7 @@
   $effect(() => { editor.doc.version; editor.doc.selection; dragging = null; });
   const visibleStops = $derived((matchingStops ? gradient?.stops : undefined)?.map((item, index) => dragging?.index === index ? { ...item, offset: dragging.offset } : item) ?? []);
   const stop = $derived(visibleStops[selectedIndex] ?? { offset: 0, color: '#000000' });
-  const locked = $derived(editor.selectionLocked());
+  const locked = $derived(!background && editor.selectionLocked());
   const stopColor = (stop: ReadGradientStop) => stop.resolvedColor ?? (/^#[\da-f]{6}$/i.test(stop.color) ? stop.color : '#000000');
   const track = $derived(matchingStops ? `linear-gradient(to right, ${[...visibleStops].sort((a, b) => a.offset - b.offset).map(stop => `${stopColor(stop)}${Math.round((stop.opacity ?? 1) * 255).toString(16).padStart(2, '0')} ${stop.offset * 100}%`).join(', ')})` : '');
 
@@ -51,13 +59,17 @@
   function apply(patch: Partial<ReadGradientFill>) {
     if (!gradient || locked) return;
     editor.doc.transact(t('Gradient fill'), () => {
-      for (const shape of editor.selectedShapes()) {
-        const current = getShapeGradientFillEffective(editor.doc.pres, shape)!;
+      const options = (current: ReadGradientFill) => {
         const next = { ...current, ...patch };
-        setShapeGradientFill(shape, { ...next, stops: next.stops.map(stop => {
+        return { ...next, stops: next.stops.map(stop => {
           const color = asColor(stop.color);
           return { ...stop, color: color ?? asColor(stop.resolvedColor ?? '') ?? 'accent1', brightness: color ? stop.brightness : 0 };
-        }) });
+        }) };
+      };
+      if (background) {
+        for (const slide of slides) setSlideBackgroundGradientFill(slide, options(getSlideBackgroundGradientFill(slide)!));
+      } else {
+        for (const shape of editor.selectedShapes()) setShapeGradientFill(shape, options(getShapeGradientFillEffective(editor.doc.pres, shape)!));
       }
     });
   }
@@ -147,7 +159,7 @@
       </div></div>
     {/each}
     </fieldset>
-    <label class="rotate"><input type="checkbox" checked={!mixedRotation && gradient.rotateWithShape !== false} indeterminate={mixedRotation} onchange={event => apply({ rotateWithShape: event.currentTarget.checked })} />{t('Rotate with shape')}</label>
+    <label class="rotate"><input type="checkbox" disabled={background} checked={!background && !mixedRotation && gradient.rotateWithShape !== false} indeterminate={background || mixedRotation} onchange={event => apply({ rotateWithShape: event.currentTarget.checked })} />{t('Rotate with shape')}</label>
   </fieldset>
 {/if}
 

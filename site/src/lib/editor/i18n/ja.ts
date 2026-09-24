@@ -126,6 +126,7 @@ export const ja: Record<string, string> = {
   Color: '色',
   Transparency: '透明度',
   'Fill type': '塗りつぶしの種類',
+  'Background fill': '背景の塗りつぶし',
   'Solid fill': '塗りつぶし（単色）',
   'Gradient fill': '塗りつぶし（グラデーション）',
   'Fill transparency': '塗りつぶしの透明度',
