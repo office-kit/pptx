@@ -374,9 +374,12 @@ The background reader now resolves theme-referenced gradients through the owning
 master theme, substituting `phClr` and applying the effective color map and color
 transforms. Tests cover slide, layout, and master references, a separate owning
 master theme, rendered radial stops, and unchanged background/theme XML on save.
-Editing these gradients still needs to preserve transforms not represented by
-the brightness control. The gallery, remaining style columns, multi-selection
-scope, and multiple-master application behavior still need implementation or auditing.
+Gradient readers and writers now retain ordered color transforms when changing
+stop positions, direction, brightness, and transparency. The editor clears the
+old color transforms when choosing a replacement color. Regression tests cover
+saved color transforms and inherited backgrounds edited through the browser.
+The gallery, remaining style columns, multi-selection scope, and multiple-master
+application behavior still need implementation or auditing.
 Each temporary style change was undone before the next comparison, and the final
 document was saved with Undo disabled.
 

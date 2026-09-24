@@ -23,6 +23,10 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { decode } from './_helpers.ts';
+import {
+  colorTransformBrightness,
+  readColorTransforms,
+} from '../../internal/drawingml/color-transforms.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
 import { getPresentationTheme, type PresentationTheme } from './theme.ts';
@@ -96,21 +100,21 @@ export const parseGradFill = (
       context && colorElement?.kind === 'element'
         ? resolveDrawingColor(colorElement, context.theme, context.colorMap)
         : null;
-    let brightness: number | undefined;
-    if (colorElement?.kind === 'element') {
-      const mod = firstChildElement(colorElement, qname('a', 'lumMod', NS.dml));
-      const off = firstChildElement(colorElement, qname('a', 'lumOff', NS.dml));
-      const modValue = mod ? Number(getAttrValue(mod, qname('', 'val', ''))) : 100000;
-      const offValue = off ? Number(getAttrValue(off, qname('', 'val', ''))) : 0;
-      if (mod && Number.isFinite(modValue) && Number.isFinite(offValue)) {
-        if (offValue > 0 && modValue + offValue === 100000) brightness = offValue / 100000;
-        else if (offValue === 0 && modValue >= 0 && modValue <= 100000)
-          brightness = modValue / 100000 - 1;
-      }
-    }
+    const transforms = colorElement?.kind === 'element' ? readColorTransforms(colorElement) : [];
+    const brightness = colorTransformBrightness(transforms);
+    const extraTransforms = transforms.some(
+      (transform) =>
+        ![
+          'alpha',
+          'alphaMod',
+          'alphaOff',
+          ...(brightness !== undefined ? ['lumMod', 'lumOff'] : []),
+        ].includes(transform.kind),
+    );
     stops.push({
       offset: pos / 100_000,
       color,
+      ...(extraTransforms ? { colorTransforms: transforms } : {}),
       ...(opacity !== null ? { opacity } : {}),
       ...(brightness !== undefined ? { brightness } : {}),
       ...(resolvedColor !== null ? { resolvedColor } : {}),

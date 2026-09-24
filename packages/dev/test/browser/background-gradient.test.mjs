@@ -186,7 +186,7 @@ test(
         if (name.startsWith('ppt/slideLayouts/'))
           xml = xml.replace(
             /(<p:cSld\b[^>]*>)/,
-            '$1<p:bg><p:bgPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="123456"/></a:gs><a:gs pos="100000"><a:srgbClr val="ABCDEF"/></a:gs></a:gsLst><a:lin ang="2700000"/></a:gradFill></p:bgPr></p:bg>',
+            '$1<p:bg><p:bgPr><a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="123456"><a:tint val="80000"/><a:satMod val="300000"/></a:srgbClr></a:gs><a:gs pos="100000"><a:srgbClr val="ABCDEF"/></a:gs></a:gsLst><a:lin ang="2700000"/></a:gradFill></p:bgPr></p:bg>',
           );
         zip[name] = strToU8(xml);
       }
@@ -225,6 +225,21 @@ test(
       const reset = pane.getByRole('button', { name: 'Reset background', exact: true });
       assert.equal(await reset.isEnabled(), false);
       const initial = getSlideLayoutBackgroundGradientFill(getSlideLayout((await read())[0]));
+      const position = pane.getByRole('spinbutton', {
+        name: 'Gradient stop position',
+        exact: true,
+      });
+      await position.fill('10');
+      await position.press('Tab');
+      await saved();
+      const moved = getSlideBackgroundGradientFill((await read())[0]);
+      assert.equal(moved.stops[0].offset, 0.1);
+      assert.deepEqual(moved.stops[0].colorTransforms, initial.stops[0].colorTransforms);
+      assert.equal(moved.stops[0].resolvedColor, initial.stops[0].resolvedColor);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getSlideBackgroundGradientFill((await read())[0]), null);
+
       const brightness = pane.getByRole('spinbutton', {
         name: 'Gradient stop brightness',
         exact: true,
@@ -235,6 +250,10 @@ test(
       let slides = await read();
       assert.equal(getSlideBackgroundGradientFill(slides[0]).stops[0].brightness, 0.25);
       assert.equal(getSlideBackgroundGradientFill(slides[0]).angleDeg, 45);
+      assert.deepEqual(
+        getSlideBackgroundGradientFill(slides[0]).stops[0].colorTransforms.slice(0, 2),
+        initial.stops[0].colorTransforms,
+      );
       assert.deepEqual(getSlideLayoutBackgroundGradientFill(getSlideLayout(slides[0])), initial);
       assert.equal(getSlideBackgroundGradientFill(slides[1]), null);
       await reset.click();
@@ -253,6 +272,10 @@ test(
 
       slides = await read();
       assert.equal(getSlideBackgroundGradientFill(slides[0]).stops[0].brightness, 0.25);
+      assert.deepEqual(
+        getSlideBackgroundGradientFill(slides[0]).stops[0].colorTransforms.slice(0, 2),
+        initial.stops[0].colorTransforms,
+      );
       assert.deepEqual(getSlideLayoutBackgroundGradientFill(getSlideLayout(slides[0])), initial);
     } finally {
       await browser?.close();

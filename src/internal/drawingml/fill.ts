@@ -10,6 +10,12 @@
 // `pattFill`/`grpFill`) before inserting the new `solidFill`.
 
 import type { Color } from './color.ts';
+import {
+  buildColorTransforms,
+  colorTransformBrightness,
+  colorTransformOpacity,
+  type ColorTransform,
+} from './color-transforms.ts';
 import { oneOf } from '../bounds.ts';
 import {
   NS,
@@ -113,6 +119,8 @@ export interface GradientStop {
   readonly offset: number;
   /** `#RRGGBB`, the `#RGB` shorthand, or a theme color token. */
   readonly color: Color;
+  /** Ordered imported color adjustments. Brightness and opacity override their corresponding transforms when changed. */
+  readonly colorTransforms?: readonly ColorTransform[];
   /** Opacity from 0 (transparent) to 1 (opaque). */
   readonly opacity?: number;
   /** PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged. */
@@ -289,29 +297,44 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
     if (!Number.isFinite(s.offset) || s.offset < 0 || s.offset > 1) {
       throw new RangeError(`gradient stop offset must be in [0, 1], got ${s.offset}`);
     }
-    const color = editSolidColor(undefined, {
-      color: s.color,
-      ...(s.opacity !== undefined ? { opacity: s.opacity } : {}),
-    });
+    let color = buildColorElement(s.color);
+    const transforms = s.colorTransforms ?? [];
+    color.children = buildColorTransforms(transforms);
+    if (s.opacity !== undefined) {
+      if (!Number.isFinite(s.opacity) || s.opacity < 0 || s.opacity > 1)
+        throw new RangeError('gradient stop opacity must be in [0, 1]');
+      if (!s.colorTransforms || s.opacity !== colorTransformOpacity(transforms))
+        color = editSolidColor(color, { opacity: s.opacity });
+    }
     if (s.brightness !== undefined) {
       if (!Number.isFinite(s.brightness) || s.brightness < -1 || s.brightness > 1) {
         throw new RangeError('gradient stop brightness must be in [-1, 1]');
       }
-      // Mac PowerPoint uses luminance modulation plus an offset for positive
-      // brightness, and modulation alone for negative brightness.
-      color.children.push(
-        elem(qname('a', 'lumMod', NS.dml), {
-          attrs: [
-            attr(qname('', 'val', ''), String(Math.round((1 - Math.abs(s.brightness)) * 100000))),
-          ],
-        }),
-      );
-      if (s.brightness > 0)
+      if (s.brightness !== colorTransformBrightness(transforms)) {
+        color.children = color.children.filter(
+          (child) =>
+            !(
+              child.kind === 'element' &&
+              child.name.namespaceURI === NS.dml &&
+              ['lumMod', 'lumOff'].includes(child.name.localName)
+            ),
+        );
+        // Mac PowerPoint uses luminance modulation plus an offset for positive
+        // brightness, and modulation alone for negative brightness.
         color.children.push(
-          elem(qname('a', 'lumOff', NS.dml), {
-            attrs: [attr(qname('', 'val', ''), String(Math.round(s.brightness * 100000)))],
+          elem(qname('a', 'lumMod', NS.dml), {
+            attrs: [
+              attr(qname('', 'val', ''), String(Math.round((1 - Math.abs(s.brightness)) * 100000))),
+            ],
           }),
         );
+        if (s.brightness > 0)
+          color.children.push(
+            elem(qname('a', 'lumOff', NS.dml), {
+              attrs: [attr(qname('', 'val', ''), String(Math.round(s.brightness * 100000)))],
+            }),
+          );
+      }
     }
     const posST = String(Math.round(s.offset * 100000));
     return elem(NAME_GS, {
