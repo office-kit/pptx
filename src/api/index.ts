@@ -478,6 +478,8 @@ export {
   isChartShape,
   isParagraphBulletPicture,
   isShapeHidden,
+  isShapeLocked,
+  setShapeLocked,
   isShapeImageGrayscale,
   isShapePlaceholder,
   isShapeTextBox,

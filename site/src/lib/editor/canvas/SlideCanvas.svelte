@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { lockedShapeIds } from '../core/shape-locks.ts';
   import DrawingGuides from './DrawingGuides.svelte';
   // The editing surface. Paints the current slide with the preview renderer and
   // manipulates it directly: click/marquee to select, drag to move (multi-shape,
@@ -129,11 +130,14 @@
     return shapeBoxes(doc.pres, slide, (scope?.shapes ?? []).filter(shape => visible.has(getShapeId(shape))));
   });
 
+  const lockedIds = $derived.by(() => { doc.version; return doc.currentSlide ? lockedShapeIds(doc.currentSlide) : new Set<number>(); });
   const boxesById = $derived(new Map(boxes.map(box => [box.id, box])));
 
   const selectedIds = $derived.by<Set<number>>(() => {
     return new Set(selectedShapeIds(doc.selection));
   });
+
+  const selectionLocked = $derived([...selectedIds].some(id => lockedIds.has(id)));
 
   // Compute a fit-to-area zoom and adopt it until the user zooms themselves.
   function recomputeFit() {
@@ -298,7 +302,7 @@
   }
 
   function startDrag(mode: Drag['mode'], handle: Handle | undefined, ids: number[], e: PointerEvent) {
-    if (e.button !== 0 || cancelling || !inverseScope) return;
+    if (e.button !== 0 || cancelling || !inverseScope || ids.some(id => lockedIds.has(id))) return;
     gestureSelection = doc.selection;
     const startRects = new Map<number, Rect>();
     for (const id of ids) {
@@ -1145,10 +1149,10 @@
               {/each}
             {/if}
             {#if isSel && !editing && selectedIds.size === 1}
-              <button class="rotate" aria-label={t('Rotate')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={(e) => onRotateDown(e, box)}></button>
+              {#if !lockedIds.has(box.id)}<button class="rotate" aria-label={t('Rotate')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={(e) => onRotateDown(e, box)}></button>{/if}
               {#each HANDLES as hd (hd.h)}
                 <button
-                  class="handle"
+                  class="handle" class:locked={lockedIds.has(box.id)} disabled={lockedIds.has(box.id)}
                   aria-label={t(`Resize ${hd.h}`)}
                   title={t('Hold Shift to preserve aspect ratio')}
                   style="left:{hd.cx}%; top:{hd.cy}%; cursor:{hd.cur};"
@@ -1161,9 +1165,9 @@
 
         {#if multiFrame && !editing}
           <div class="multi-selection" style="left:{multiFrame.x * pxPerEmuX()}px; top:{multiFrame.y * pxPerEmuY()}px; width:{multiFrame.w * pxPerEmuX()}px; height:{multiFrame.h * pxPerEmuY()}px; transform: rotate({multiFrame.rotation}deg);">
-            <button class="rotate" aria-label={t('Rotate selected objects')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={onMultiRotateDown}></button>
+            {#if !selectionLocked}<button class="rotate" aria-label={t('Rotate selected objects')} title={t('Hold Shift to rotate in 15° steps')} onpointerdown={onMultiRotateDown}></button>{/if}
             {#each HANDLES.filter(handle => handle.h.length === 2) as hd (hd.h)}
-              <button class="handle" aria-label={t(`Scale selection ${hd.h}`)} title={t('Resize selection proportionally')}
+              <button class="handle" class:locked={selectionLocked} disabled={selectionLocked} aria-label={t(`Scale selection ${hd.h}`)} title={t('Resize selection proportionally')}
                 style="left:{hd.cx}%; top:{hd.cy}%; cursor:{hd.cur};" onpointerdown={e => onMultiResizeDown(e, hd.h)}></button>
             {/each}
           </div>
@@ -1293,6 +1297,7 @@
   }
   .cell-selection { position: absolute; pointer-events: none; background: color-mix(in srgb, var(--ok-selected-border) 16%, transparent); outline: 2px solid var(--ok-selected-border); outline-offset: -2px; }
   .multi-selection { position: absolute; pointer-events: none; outline: 1px dashed var(--ok-selected-border); transform-origin: center; }
+  .handle.locked { background: linear-gradient(135deg, white 43%, #777 44%, #777 56%, white 57%); cursor: default !important; }
   .handle {
     position: absolute;
     width: 10px;

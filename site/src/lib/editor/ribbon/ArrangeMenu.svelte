@@ -13,6 +13,7 @@
   let trigger: HTMLButtonElement;
   let menu = $state<HTMLDivElement>();
   const count = $derived(selectedShapeIds(doc.selection).length);
+  const locked = $derived(editor.selectionLocked());
   const toSlide = $derived(count < 2 || editor.alignmentReference === 'slide');
   const order = [{ id: 'bringShapeToFront', label: 'Bring to Front' }, { id: 'sendShapeToBack', label: 'Send to Back' }, { id: 'bringShapeForward', label: 'Bring Forward' }, { id: 'sendShapeBackward', label: 'Send Backward' }];
   const alignment = [{ value: 'left', label: 'Align Left' }, { value: 'center', label: 'Align Center' }, { value: 'right', label: 'Align Right' }, { value: 'top', label: 'Align Top' }, { value: 'middle', label: 'Align Middle' }, { value: 'bottom', label: 'Align Bottom' }] as const;
@@ -52,7 +53,7 @@
     }
   }
   function transform(action: 'right' | 'left' | 'horizontal' | 'vertical') {
-    if (!doc.currentSlide) return;
+    if (!doc.currentSlide || locked) return;
     const ids = new Set(selectedShapeIds(doc.selection));
     const shapes = getSlideShapes(doc.currentSlide).filter(shape => ids.has(getShapeId(shape)));
     if (!shapes.length) return;
@@ -75,7 +76,7 @@
     <button role="menuitem" disabled={!editor.canRegroup()} onclick={() => choose(() => editor.regroupSelection())}>{t('Regroup')}</button>
     <hr /><div class="heading">{t('Position Objects')}</div>
     <div class="branch">
-      <button role="menuitem" data-branch="align" aria-label={t('Align')} aria-haspopup="menu" aria-expanded={branch === 'align'} disabled={!count} onpointerenter={() => branch = 'align'} onclick={() => branch = 'align'}>{t('Align')}<span>›</span></button>
+      <button role="menuitem" data-branch="align" aria-label={t('Align')} aria-haspopup="menu" aria-expanded={branch === 'align'} disabled={!count || locked} onpointerenter={() => branch = 'align'} onclick={() => branch = 'align'}>{t('Align')}<span>›</span></button>
       {#if branch === 'align' && count}<div class="menu submenu" role="menu" aria-label={t('Align')} use:place={true}>
         {#each alignment as item}<button role="menuitem" onclick={() => choose(() => editor.alignSelection(item.value, toSlide ? 'slide' : 'selection'))}>{t(item.label)}</button>{/each}
         <hr />
@@ -87,7 +88,7 @@
       </div>{/if}
     </div>
     <div class="branch">
-      <button role="menuitem" data-branch="rotate" aria-label={t('Rotate')} aria-haspopup="menu" aria-expanded={branch === 'rotate'} disabled={!count} onpointerenter={() => branch = 'rotate'} onclick={() => branch = 'rotate'}>{t('Rotate')}<span>›</span></button>
+      <button role="menuitem" data-branch="rotate" aria-label={t('Rotate')} aria-haspopup="menu" aria-expanded={branch === 'rotate'} disabled={!count || locked} onpointerenter={() => branch = 'rotate'} onclick={() => branch = 'rotate'}>{t('Rotate')}<span>›</span></button>
       {#if branch === 'rotate' && count}<div class="menu submenu" role="menu" aria-label={t('Rotate')} use:place={true}>
         {#each [{ action: 'right', label: 'Rotate Right 90°' }, { action: 'left', label: 'Rotate Left 90°' }, { action: 'vertical', label: 'Flip Vertical' }, { action: 'horizontal', label: 'Flip Horizontal' }] as item}<button role="menuitem" onclick={() => choose(() => transform(item.action as 'right' | 'left' | 'vertical' | 'horizontal'))}>{t(item.label)}</button>{/each}
         <hr /><button role="menuitem" disabled={!editor.canRun('setShapeRotation')} onclick={() => choose(() => editor.showRotationOptions())}>{t('More Rotation Options...')}</button>

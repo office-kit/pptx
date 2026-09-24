@@ -20,6 +20,7 @@ import {
   getSlideShapes,
   getSlides,
   isShapeHidden,
+  isShapeLocked,
   savePresentation,
   loadPresentation,
   inches,
@@ -103,6 +104,55 @@ test(
       );
       await pane.getByRole('button', { name: 'Third', exact: true }).click();
       const arrange = editor.getByRole('button', { name: 'Arrange', exact: true });
+      await pane.getByRole('button', { name: 'Lock object: Third', exact: true }).click();
+      await saved();
+      assert.equal(
+        isShapeLocked((await state()).find((shape) => getShapeName(shape) === 'Third')),
+        true,
+      );
+      assert.equal(await editor.locator('.hit.selected .handle:disabled').count(), 8);
+      assert.equal(await editor.locator('.hit.selected .rotate').count(), 0);
+      const fixed = getShapeBounds(
+        (await state()).find((shape) => getShapeName(shape) === 'Third'),
+      );
+      const hit = editor.locator('.hit.selected');
+      const box = await hit.boundingBox();
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 50, box.y + box.height / 2 + 40, { steps: 5 });
+      await page.mouse.up();
+      await page.keyboard.press('ArrowRight');
+      assert.deepEqual(
+        getShapeBounds((await state()).find((shape) => getShapeName(shape) === 'Third')),
+        fixed,
+      );
+      await arrange.click();
+      assert.equal(
+        await editor.getByRole('menuitem', { name: 'Align', exact: true }).isDisabled(),
+        true,
+      );
+      assert.equal(
+        await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).isDisabled(),
+        true,
+      );
+      await page.keyboard.press('Escape');
+      await hit.dblclick();
+      await editor.locator('[contenteditable="true"]').waitFor();
+      await page.keyboard.press('Escape');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(
+        isShapeLocked((await state()).find((shape) => getShapeName(shape) === 'Third')),
+        false,
+      );
+      await pane.getByRole('button', { name: 'Lock All', exact: true }).click();
+      await saved();
+      assert.equal((await state()).every(isShapeLocked), true);
+      await pane.getByRole('button', { name: 'Unlock All', exact: true }).click();
+      await saved();
+      assert.equal((await state()).some(isShapeLocked), false);
+      await pane.getByRole('button', { name: 'Third', exact: true }).click();
+
       await pane
         .getByRole('button', { name: 'Group', exact: true })
         .click({ modifiers: ['Shift'] });

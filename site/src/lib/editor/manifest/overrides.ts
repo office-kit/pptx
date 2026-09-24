@@ -62,6 +62,20 @@ const withCharacterEffects = (format: ParamSpec): ParamSpec => ({
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
+  setShapeLocked: {
+    labelEn: 'Lock object',
+    labelJa: 'オブジェクトをロック',
+    params: [
+      {
+        name: 'locked',
+        type: 'boolean',
+        kind: 'boolean',
+        optional: false,
+        label: 'Locked',
+        default: 'true',
+      },
+    ],
+  },
   addSlidePlaceholder: {
     labelEn: 'Add placeholder',
     labelJa: 'プレースホルダーを追加',

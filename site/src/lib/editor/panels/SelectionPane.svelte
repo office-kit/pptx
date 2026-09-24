@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
-  import { getGroupChildren, getShapeId, getShapeName, isShapeHidden, renameShape, setShapeHidden, setShapeZIndex, type SlideShapeData } from '@office-kit/pptx';
+  import { getGroupChildren, getShapeId, getShapeName, isShapeHidden, isShapeLocked, renameShape, setShapeHidden, setShapeZIndex, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds, topLevelShapes } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
   const doc = editor.doc;
-  interface Row { shape: SlideShapeData; id: number; name: string; hidden: boolean; parent: number | null; depth: number; group: boolean; }
+  interface Row { shape: SlideShapeData; id: number; name: string; hidden: boolean; locked: boolean; parent: number | null; depth: number; group: boolean; }
   let expanded = $state<number[]>([]);
   const expandedIds = $derived(new Set(expanded));
   let renaming = $state<number | null>(null);
@@ -53,13 +53,14 @@
       for (const shape of [...shapes].reverse()) {
         const id = getShapeId(shape);
         const children = getGroupChildren(shape);
-        rows.push({ shape, id, name: getShapeName(shape), hidden: isShapeHidden(shape), parent, depth, group: children.length > 0 });
+        rows.push({ shape, id, name: getShapeName(shape), hidden: isShapeHidden(shape), locked: isShapeLocked(shape), parent, depth, group: children.length > 0 });
         visit(children, id, depth + 1);
       }
     }
     if (doc.currentSlide) visit(topLevelShapes(doc.currentSlide), null, 0);
     return rows;
   });
+  const allLocked = $derived(allRows.length > 0 && allRows.every(row => row.locked));
   const allHidden = $derived(allRows.length > 0 && allRows.every(row => row.hidden));
   const rows = $derived.by(() => {
     const visible = new Set<number>();
@@ -141,7 +142,7 @@
 
 <section class="panel" aria-label={t('Selection Pane')}>
   <header><strong>{t('Selection Pane')}</strong><button aria-label={t('Close Selection Pane')} onclick={() => editor.selectionPaneVisible = false}>×</button></header>
-  <div class="actions"><button aria-label={t(allHidden ? 'Show All' : 'Hide All')} title={t(allHidden ? 'Show All' : 'Hide All')} disabled={!allRows.length} onclick={() => showAll(!allHidden)}><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M1 8Q10 -3 19 8Q10 19 1 8Z"/><circle cx="10" cy="8" r="3"/>{#if allHidden}<path d="m2 1 16 14"/>{/if}</svg></button></div>
+  <div class="actions"><button aria-label={t(allLocked ? 'Unlock All' : 'Lock All')} title={t(allLocked ? 'Unlock All' : 'Lock All')} disabled={!allRows.length} onclick={() => editor.lockObjects(allRows.map(row => row.shape), !allLocked)}><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="9" width="12" height="9" rx="1"/><path d={allLocked ? 'M6 9V6a4 4 0 0 1 8 0v3' : 'M6 9V6a4 4 0 0 1 8 0'}/></svg></button><button aria-label={t(allHidden ? 'Show All' : 'Hide All')} title={t(allHidden ? 'Show All' : 'Hide All')} disabled={!allRows.length} onclick={() => showAll(!allHidden)}><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M1 8Q10 -3 19 8Q10 19 1 8Z"/><circle cx="10" cy="8" r="3"/>{#if allHidden}<path d="m2 1 16 14"/>{/if}</svg></button></div>
   <div class="objects ok-scroll" bind:this={list}>
     {#each rows as row (row.id)}
       <div class="row" class:selected={selected.has(row.id)} data-object-id={row.id} style:padding-left={`${row.depth * 14}px`}>
@@ -151,6 +152,7 @@
         {:else}
           <button class="name" class:insert-before={insertion?.id === row.id && !insertion.after} class:insert-after={insertion?.id === row.id && insertion.after} draggable="true" ondragstart={event => dragStart(event, row)} ondragover={event => dragOver(event, row)} ondragleave={() => insertion = null} ondrop={event => drop(event, row)} ondragend={endDrag} title={row.name} aria-pressed={selected.has(row.id)} onclick={event => choose(row, event)} ondblclick={() => { name = row.name; renaming = row.id; }} onkeydown={event => key(event, row)}>{row.name}</button>
         {/if}
+        <button class="locking" aria-label={`${t(row.locked ? 'Unlock object' : 'Lock object')}: ${row.name}`} aria-pressed={row.locked} onclick={() => editor.lockObjects([row.shape], !row.locked)}><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="4" y="9" width="12" height="9" rx="1"/><path d={row.locked ? 'M6 9V6a4 4 0 0 1 8 0v3' : 'M6 9V6a4 4 0 0 1 8 0'}/></svg></button>
         <button class="visibility" aria-label={`${t(row.hidden ? 'Show object' : 'Hide object')}: ${row.name}`} aria-pressed={!row.hidden} onclick={() => visibility(row)}><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M1 8Q10 -3 19 8Q10 19 1 8Z"/><circle cx="10" cy="8" r="3"/>{#if row.hidden}<path d="m2 1 16 14"/>{/if}</svg></button>
       </div>
     {/each}
@@ -175,7 +177,7 @@
   .name.insert-before { border-top-color: var(--ok-accent); }
   .name.insert-after { border-bottom-color: var(--ok-accent); }
   .expand, .spacer { flex: 0 0 20px; }
-  .visibility { flex: 0 0 26px; }
+  .visibility, .locking { flex: 0 0 26px; }
   svg { display: block; width: 18px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; }
   input { width: 0; min-width: 0; flex: 1; font: inherit; padding: 4px; }
 </style>
