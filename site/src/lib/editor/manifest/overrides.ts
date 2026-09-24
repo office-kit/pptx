@@ -24,6 +24,7 @@ const CHARACTER_EFFECT_FIELDS: readonly ParamSpec[] = [
     fields: [
       { name: 'color', type: 'string', kind: 'color', optional: true, label: 'Color' },
       { name: 'widthEmu', type: 'number', kind: 'emu', optional: true, label: 'Width' },
+      { name: 'opacity', type: 'number', kind: 'number', optional: true, label: 'Opacity (0–1)' },
     ],
   },
   {
@@ -465,7 +466,7 @@ const handOverrides: Record<string, CapabilityOverride> = {
     params: [
       {
         name: 'options',
-        type: '{ color?: string; widthEmu?: number }',
+        type: '{ color?: string; widthEmu?: number; opacity?: number }',
         kind: 'object',
         optional: false,
         fields: [

@@ -26,6 +26,8 @@ import {
   inches,
   getShapeFlip,
   getShapeFillColor,
+  getShapeFillOpacity,
+  getShapeStrokeOpacity,
   getShapeFill,
   getShapeStroke,
   getShapeStrokeWidth,
@@ -574,6 +576,117 @@ test(
         await editor.getByRole('button', { name: 'Begin Arrow type', exact: true }).isDisabled(),
         true,
       );
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'transparency controls preserve colors and mixed values through undo and reload',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-transparency-'));
+    let preview, browser;
+    try {
+      const pres = createPresentation();
+      const slide = addBlankSlide(pres);
+      for (const [index, x] of [1, 5].entries()) {
+        const shape = addSlideTextBox(slide, {
+          x: inches(x),
+          y: inches(1),
+          w: inches(2),
+          h: inches(1),
+          text: `Paint ${index + 1}`,
+        });
+        setShapeFill(shape, { color: index ? 'accent2' : 'accent1', opacity: index ? 0.75 : 0.25 });
+        setShapeStroke(shape, { color: '#123456', widthEmu: 25400, opacity: index ? 0.8 : 0.5 });
+      }
+      const source = join(dir, 'source.pptx');
+      const file = join(dir, 'deck.tsx');
+      await writeFile(source, await savePresentation(pres));
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const paint = async (read) => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getSlideShapes(getSlides(deck)[0]).map(read);
+      };
+      const fill = editor.getByRole('spinbutton', { name: 'Fill transparency', exact: true });
+      const line = editor.getByRole('spinbutton', { name: 'Line transparency', exact: true });
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(await fill.inputValue(), '');
+      assert.equal(await line.inputValue(), '');
+      const initialColors = await paint(getShapeFillColor);
+      await fill.fill('25');
+      await fill.press('Tab');
+      await saved();
+      assert.deepEqual(await paint(getShapeFillOpacity), [0.75, 0.75]);
+      assert.deepEqual(await paint(getShapeFillColor), initialColors);
+      assert.deepEqual(await paint(getShapeStrokeOpacity), [0.5, 0.8]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await paint(getShapeFillOpacity), [0.25, 0.75]);
+      assert.equal(await fill.inputValue(), '');
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await line.fill('55.5');
+      await line.press('Tab');
+      await saved();
+      assert.deepEqual(await paint(getShapeStrokeOpacity), [0.445, 0.445]);
+      for (const name of ['Fill', 'Outline']) {
+        await editor
+          .locator(`.bespoke input[type=color][aria-label="${name}"]`)
+          .evaluate((node) => {
+            node.value = '#abcdef';
+            node.dispatchEvent(new Event('change', { bubbles: true }));
+          });
+        await saved();
+      }
+      assert.deepEqual(await paint(getShapeFillOpacity), [0.75, 0.75]);
+      assert.deepEqual(await paint(getShapeStrokeOpacity), [0.445, 0.445]);
+      await line.fill('101');
+      await line.press('Tab');
+      assert.equal(await line.inputValue(), '55.5');
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      assert.equal(await fill.inputValue(), '25');
+      assert.equal(await line.inputValue(), '55.5');
+      const slider = editor.getByRole('slider', { name: 'Line transparency', exact: true });
+      await slider.press('Home');
+      await saved();
+      await slider.press('ArrowRight');
+      await saved();
+      assert.deepEqual(await paint(getShapeStrokeOpacity), [0.99, 0.445]);
+      assert.equal(await line.inputValue(), '1');
+      await page.screenshot({ path: '/tmp/pptx-pr287-transparency.png', fullPage: true });
+      await editor
+        .locator('.bespoke')
+        .getByRole('button', { name: 'No fill', exact: true })
+        .click();
+      await saved();
+      assert.equal(await fill.isDisabled(), true);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

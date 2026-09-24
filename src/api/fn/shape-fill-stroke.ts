@@ -7,7 +7,6 @@ import {
   type GradientFillOptions,
   type LineDash,
   type PatternFillOptions,
-  type StrokeOptions,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
   setAdjustValues as writeAdjustValues,
@@ -154,8 +153,16 @@ export const setShapeFlip = (
 // ---------------------------------------------------------------------------
 // Shape mutation — fill / stroke.
 
-/** Sets a solid fill on the shape (color in `#RRGGBB` or scheme token). */
-export const setShapeFill = (shape: SlideShapeData, color: Color): void => {
+/**
+ * Sets a solid fill. A color string replaces the fill; an options object edits
+ * only supplied properties and preserves existing opacity when changing color.
+ * Opacity ranges from 0 (transparent) to 1 (opaque). Opacity-only edits require
+ * an existing solid fill and preserve its theme reference and color transforms.
+ */
+export const setShapeFill = (
+  shape: SlideShapeData,
+  color: Color | { color?: Color; opacity?: number },
+): void => {
   setSolidFill(requireSpPr(shape), color);
   commitAndRefresh(shape);
 };
@@ -348,12 +355,12 @@ export const clearShapeFill = (shape: SlideShapeData): void => {
   commitAndRefresh(shape);
 };
 
-/** Updates outline color and/or width; omitted properties are preserved. */
+/** Updates outline color, width and/or opacity (0–1); omitted properties are preserved. */
 export const setShapeStroke = (
   shape: SlideShapeData,
-  options: { color?: Color; widthEmu?: number },
+  options: { color?: Color; widthEmu?: number; opacity?: number },
 ): void => {
-  setSolidStroke(requireSpPr(shape), options as StrokeOptions);
+  setSolidStroke(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
 

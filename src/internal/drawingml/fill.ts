@@ -11,8 +11,8 @@
 
 import type { Color } from './color.ts';
 import { oneOf } from '../bounds.ts';
-import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
-import { buildColorElement } from './color.ts';
+import { NS, type XmlElement, attr, elem, firstChildElement, qname } from '../xml/index.ts';
+import { buildColorElement, editSolidColor } from './color.ts';
 
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
 const NAME_NO_FILL = qname('a', 'noFill', NS.dml);
@@ -71,9 +71,17 @@ const fillInsertionIndex = (host: XmlElement): number => {
 };
 
 /** Sets `<a:solidFill>` on `host`, removing any previous fill choice. */
-export const setSolidFill = (host: XmlElement, color: string): void => {
+export const setSolidFill = (
+  host: XmlElement,
+  color: string | { color?: Color; opacity?: number },
+): void => {
+  const previous = firstChildElement(host, NAME_SOLID_FILL)?.children.find(
+    (child) => child.kind === 'element',
+  );
+  const edited =
+    typeof color === 'string' ? buildColorElement(color) : editSolidColor(previous, color);
   removeAnyFill(host);
-  const fill = elem(NAME_SOLID_FILL, { children: [buildColorElement(color)] });
+  const fill = elem(NAME_SOLID_FILL, { children: [edited] });
   host.children.splice(fillInsertionIndex(host), 0, fill);
 };
 
