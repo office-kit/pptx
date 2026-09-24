@@ -1216,7 +1216,7 @@ test(
         .selectOption({ label: 'Title and Content' });
       await saved();
       assert.equal(getSlideLayoutName(getSlideLayout((await slides())[0])), 'Title and Content');
-      await pane.getByLabel('Background color', { exact: true }).fill('#d8ebff');
+      await pane.getByLabel('Background color: More Colors...', { exact: true }).fill('#d8ebff');
       await saved();
       assert.deepEqual(getSlideBackground((await slides())[0]), {
         kind: 'solid',

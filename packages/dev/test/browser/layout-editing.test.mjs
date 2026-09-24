@@ -79,12 +79,42 @@ for (const language of ['en', 'ja']) {
       await saved();
       assert.equal(getSlideLayoutName(await savedLayout(preview)), 'Brand base');
 
-      await pane.getByLabel(word('Layout background color'), { exact: true }).fill('#1f3864');
+      const color = pane.getByRole('button', {
+        name: word('Layout background color'),
+        exact: true,
+      });
+      await color.click();
+      const palette = editor.getByRole('menu', {
+        name: word('Layout background color'),
+        exact: true,
+      });
+      await palette
+        .getByRole('menuitemradio', {
+          name: language === 'ja' ? 'アクセント 4' : 'Accent 4',
+          exact: true,
+        })
+        .click();
       await saved();
       assert.deepEqual(getSlideLayoutBackground(await savedLayout(preview)), {
         kind: 'solid',
-        color: '#1F3864',
+        color: 'scheme:accent4',
       });
+
+      await page.reload();
+      await saved();
+      await color.click();
+      assert.equal(
+        await palette
+          .getByRole('menuitemradio', {
+            name: language === 'ja' ? 'アクセント 4' : 'Accent 4',
+            exact: true,
+          })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      if (language === 'en')
+        await page.screenshot({ path: '/tmp/pptx-background-palette.png', fullPage: true });
+      await palette.press('Escape');
 
       await pane
         .getByRole('button', { name: word('Reset layout background'), exact: true })
