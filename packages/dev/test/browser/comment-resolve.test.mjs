@@ -268,7 +268,7 @@ test(
       session = await openEditor(dir, ['Check the second slide too.']);
       const { preview, editor, errors } = session;
       const open = async () => {
-        await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+        await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
         await editor.locator('button[title$="— addSlideComment"]').click();
         return editor.getByRole('dialog', { name: 'Comments', exact: true });
       };

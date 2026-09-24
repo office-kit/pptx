@@ -66,7 +66,7 @@ test(
         }),
         'base64',
       );
-      await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
       await editor.getByTitle(/— addSlideImage$/).click();
       let dialog = editor.getByRole('dialog');
       await dialog

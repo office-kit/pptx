@@ -87,6 +87,7 @@ export class EditorController {
   readonly doc = new EditorDocument();
   readonly view = new ViewPreferences();
   ribbonVisible = $state(true);
+  thumbnailsVisible = $state(true);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);
   notesVisible = $state(false);
@@ -288,10 +289,14 @@ export class EditorController {
     }
   }
   zoomIn(): void {
-    this.setZoom((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 1.2);
+    this.setZoom(
+      (Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 10) + 1) / 10,
+    );
   }
   zoomOut(): void {
-    this.setZoom((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) / 1.2);
+    this.setZoom(
+      (Math.round((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 10) - 1) / 10,
+    );
   }
   zoomFit(): void {
     if (this.viewMode === 'sorter') this.sorterZoom = 1;

@@ -163,8 +163,8 @@
   <TopBar {onsave} />
   {#if status}<div class="host-status">{@render status()}</div>{/if}
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
-  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'}>
-    <SlideNavigator mode={editor.viewMode} />
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible}>
+    {#if editor.viewMode === 'sorter' || editor.thumbnailsVisible}<SlideNavigator mode={editor.viewMode} />{/if}
     {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div><PropertiesPanel />{/if}
   </div>
   <StatusBar />
@@ -225,6 +225,7 @@
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
   .slide-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; }
+  .ok-body.thumbnails-hidden { grid-template-columns: minmax(0, 1fr) var(--ok-panel-w); }
   .ok-body.sorter { grid-template-columns: minmax(0, 1fr); }
   .ok-body {
     display: grid;

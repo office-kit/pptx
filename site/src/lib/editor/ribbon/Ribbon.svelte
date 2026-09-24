@@ -7,6 +7,7 @@
   import { RIBBON, type RibbonTab } from './config.ts';
   import { capabilityById } from '../manifest/index.ts';
   import Icon from '../ui/Icon.svelte';
+  import ViewRibbon from './ViewRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -31,6 +32,15 @@
 
   const current = $derived(visibleTabs.find((t) => t.id === activeTab) ?? visibleTabs[0]);
 
+  function tabKeys(event: KeyboardEvent) {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    const index = visibleTabs.findIndex(tab => tab.id === activeTab);
+    const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleTabs.length - 1 : (index + (event.key === 'ArrowLeft' ? -1 : 1) + visibleTabs.length) % visibleTabs.length;
+    activeTab = visibleTabs[next]!.id;
+    (event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
+  }
+
   function tip(id: string): string {
     const cap = capabilityById.get(id);
     return cap ? `${capLabel(cap)} — ${cap.id}` : id;
@@ -38,10 +48,15 @@
 </script>
 
 <div class="ribbon">
-  <div class="tabs">
+  <div class="tabs" role="tablist" tabindex="-1" aria-label={t('Ribbon')} onkeydown={tabKeys}>
     {#each visibleTabs as tab (tab.id)}
       <button
         class="tab"
+        role="tab"
+        id="ribbon-tab-{tab.id}"
+        aria-selected={activeTab === tab.id}
+        aria-controls="ribbon-panel"
+        tabindex={activeTab === tab.id ? 0 : -1}
         class:active={activeTab === tab.id}
         class:contextual={tab.contextual}
         onclick={() => (activeTab = tab.id)}
@@ -51,7 +66,8 @@
     {/each}
   </div>
 
-  <div class="groups ok-scroll">
+  <div class="groups ok-scroll" id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
+    {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group">
         <div class="group-items">

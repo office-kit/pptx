@@ -80,7 +80,7 @@ const run = async () => {
 
     // 2. Character effects from the ribbon's Font group.
     await editor.locator('.hit').first().click();
-    await editor.getByRole('button', { name: 'Home', exact: true }).click();
+    await editor.getByRole('tab', { name: 'Home', exact: true }).click();
     await pause(page, 400);
     await editor
       .locator('.ribbon')

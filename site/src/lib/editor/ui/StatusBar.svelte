@@ -6,6 +6,18 @@
 
   const editor = getEditor();
   const doc = editor.doc;
+  const zoomPercent = $derived(Math.round((editor.viewMode === 'sorter' ? editor.sorterZoom : editor.zoom) * 100));
+  const sliderPosition = $derived(zoomPercent <= 100 ? (zoomPercent - 10) / 90 * 1000 : 1000 + (zoomPercent - 100) / 300 * 1000);
+  function slideZoom(event: Event) {
+    const position = Number((event.currentTarget as HTMLInputElement).value);
+    editor.setZoom(Math.round(position <= 1000 ? 10 + position / 1000 * 90 : 100 + (position - 1000) / 1000 * 300) / 100);
+  }
+  function zoomKeys(event: KeyboardEvent) {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault(); event.stopPropagation();
+    const amount = event.shiftKey ? 10 : 1;
+    editor.setZoom((event.key === 'Home' ? 10 : event.key === 'End' ? 400 : zoomPercent + (['ArrowLeft', 'ArrowDown'].includes(event.key) ? -amount : amount)) / 100);
+  }
 
   const selectionLabel = $derived.by(() => {
     const sel = doc.selection;
@@ -38,8 +50,9 @@
   </div>
   <div class="zoom">
     <button class="zbtn" title={t('Zoom out (Ctrl+-)')} onclick={() => editor.zoomOut()}>−</button>
-    <button class="zpct" title={t('Reset to 100%')} onclick={() => editor.zoomReset()}>{Math.round((editor.viewMode === 'sorter' ? editor.sorterZoom : editor.zoom) * 100)}%</button>
+    <input type="range" min="0" max="2000" step="1" value={sliderPosition} aria-label={t('Zoom percentage')} aria-valuetext="{zoomPercent}%" oninput={slideZoom} onkeydown={zoomKeys} />
     <button class="zbtn" title={t('Zoom in (Ctrl+=)')} onclick={() => editor.zoomIn()}>+</button>
+    <button class="zpct" title={t('Zoom...')} onclick={() => editor.activeDialog = 'zoom'}>{zoomPercent}%</button>
     <button class="zfit" title={t('Fit (Ctrl+0)')} onclick={() => editor.zoomFit()}>{t('Fit')}</button>
   </div>
 </div>
@@ -68,6 +81,7 @@
     align-items: center;
     gap: 2px;
   }
+  .zoom input[type='range'] { width: 110px; height: 12px; accent-color: white; margin: 0 4px; }
   .views { display: flex; gap: 3px; }
   .views svg { fill: none; stroke: currentColor; }
   .views button[aria-pressed="true"] { background: rgba(255, 255, 255, .25); }

@@ -38,7 +38,15 @@ test(
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
-      await editor.getByTitle('Reset to 100%', { exact: true }).click();
+      await editor.getByTitle('Zoom...', { exact: true }).click();
+      await editor
+        .getByRole('dialog', { name: 'Zoom', exact: true })
+        .getByRole('radio', { name: '100%', exact: true })
+        .check();
+      await editor
+        .getByRole('dialog', { name: 'Zoom', exact: true })
+        .getByRole('button', { name: 'OK', exact: true })
+        .click();
       await editor
         .locator('.hit')
         .first()
@@ -64,7 +72,7 @@ test(
       await page.waitForFunction(() => {
         const root = document.querySelector('#editor-frame')?.contentDocument;
         const span = root?.querySelector('.inline-edit span');
-        return span && Math.abs(parseFloat(getComputedStyle(span).fontSize) - 38.4) < 0.01;
+        return span && Math.abs(parseFloat(getComputedStyle(span).fontSize) - 35.2) < 0.01;
       });
       assert.equal(await input.evaluate(() => window.getSelection().toString()), 'b');
       const copiedHtml = await input.evaluate((node) => {
@@ -201,7 +209,15 @@ test(
       await page.goto(preview.url);
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
-      await editor.getByTitle('Reset to 100%', { exact: true }).click();
+      await editor.getByTitle('Zoom...', { exact: true }).click();
+      await editor
+        .getByRole('dialog', { name: 'Zoom', exact: true })
+        .getByRole('radio', { name: '100%', exact: true })
+        .check();
+      await editor
+        .getByRole('dialog', { name: 'Zoom', exact: true })
+        .getByRole('button', { name: 'OK', exact: true })
+        .click();
       await editor
         .locator('.hit')
         .first()
