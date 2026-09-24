@@ -36,7 +36,7 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Visible drawing guides participate in object movement snapping in slide coordinates, including transformed groups, independently of the Smart Guides preference. Grid snapping currently takes precedence; native priority still needs comparison.
 - Canvas context menus can add guides after all guides have been deleted. Fine grids render at integer multiples of their actual spacing rather than an unrelated minimum pitch.
 - View > Zoom > Zoom... stages presets/custom percentage/Fit until OK. Cancel preserves the view. Menu keyboard events do not delete the underlying selection.
-- Native comparison was retried, but Computer Use returned `Sky Computer Use native pipe closed before response`. No native document was edited. Existing screenshots/comparison records guide implementation; complete visual and behavioral equality remains unverified.
+- An earlier native comparison attempt returned `Sky Computer Use native pipe closed before response`. No native document was edited. Existing screenshots/comparison records guide implementation; complete visual and behavioral equality remains unverified.
 
 ## Inline notes pane
 
@@ -65,3 +65,11 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Drag an object name above or below a sibling to change its stacking order, including within expanded groups. Insertion feedback is shown; cross-group drops are rejected. Browser coverage checks saved order and undo for top-level and grouped objects.
 - Dragging near the list edges scrolls it; leaving the list, dropping, cancelling or closing the pane stops scrolling. A 45-object browser test checks an offscreen reorder, saved stacking order and undo.
 - Multi-object dragging and native pane geometry remain outstanding. Exact appearance, scroll speed and native keyboard comparison remain unverified.
+
+## Native comparison resumed
+
+- Computer Use now connects to the installed Mac PowerPoint. Inspected Home > Arrange and its Align/Rotate submenus, plus the Selection Pane, in a new disposable presentation saved under `/tmp`.
+- The native Selection Pane has a single Hide All/Show All eye toggle, a separate Lock All/Unlock All toggle, and Bring Forward/Send Backward footer buttons. The visibility toggle and footer now match those operations, including disabled controls without a selection.
+- Home > Arrange now opens a menu for stacking order, grouping, alignment, rotation/flipping and Selection Pane. Object alignment uses geometry rather than the previous paragraph-alignment command. Submenus support keyboard navigation and stay within the viewport.
+- Native Lock All writes DrawingML `spLocks` attributes (`noGrp`, `noRot`, `noMove`, `noResize`, `noEditPoints`, `noAdjustHandles`, `noChangeArrowheads`, `noChangeShapeType`). Unlock All removes those attributes. The disposable reference was unlocked and saved after comparison. Lock editing/enforcement is not yet implemented.
+- Still missing here: native reorder-overlapping view, Regroup, slide-relative distribution, More Rotation Options formatting pane, pane locks, and complete native geometry/styling. Full-operation parity remains incomplete.

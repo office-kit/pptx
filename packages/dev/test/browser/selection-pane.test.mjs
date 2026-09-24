@@ -13,6 +13,9 @@ import {
   getShapeName,
   getShapeId,
   getShapeZIndex,
+  getShapeBounds,
+  getShapeRotation,
+  getShapeFlip,
   getSlideShapes,
   getSlides,
   isShapeHidden,
@@ -86,8 +89,56 @@ test(
           )[0],
         );
       await saved();
-      await editor.getByRole('button', { name: 'Selection Pane', exact: true }).click();
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
       let pane = editor.getByRole('region', { name: 'Selection Pane', exact: true });
+      assert.deepEqual(await pane.locator('.name').allTextContents(), ['Third', 'Group']);
+      assert.equal(await pane.getByRole('button', { name: 'Show All', exact: true }).count(), 0);
+      assert.equal(
+        await pane.getByRole('button', { name: 'Bring Forward', exact: true }).isDisabled(),
+        true,
+      );
+      await pane.getByRole('button', { name: 'Third', exact: true }).click();
+      const arrange = editor.getByRole('button', { name: 'Arrange', exact: true });
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Align', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await editor.getByRole('menuitem', { name: 'Align Right', exact: true }).click();
+      await saved();
+      assert.ok(
+        getShapeBounds((await state()).find((shape) => getShapeName(shape) === 'Third')).x >
+          inches(5),
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Rotate Right 90°', exact: true }).click();
+      await saved();
+      assert.equal(
+        getShapeRotation((await state()).find((shape) => getShapeName(shape) === 'Third')),
+        90,
+      );
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Flip Horizontal', exact: true }).click();
+      await saved();
+      assert.equal(
+        getShapeFlip((await state()).find((shape) => getShapeName(shape) === 'Third')).horizontal,
+        true,
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await pane.getByRole('button', { name: 'Group', exact: true }).click();
+      await pane.getByRole('button', { name: 'Bring Forward', exact: true }).click();
+      await saved();
+      assert.deepEqual(await pane.locator('.name').allTextContents(), ['Group', 'Third']);
+      await pane.getByRole('button', { name: 'Send Backward', exact: true }).click();
+      await saved();
       assert.deepEqual(await pane.locator('.name').allTextContents(), ['Third', 'Group']);
       await pane
         .getByRole('button', { name: 'Group', exact: true })
@@ -190,7 +241,10 @@ test(
       await pane.getByRole('button', { name: '選択ウィンドウを閉じる', exact: true }).click();
       assert.equal(await pane.count(), 0);
       await page.reload();
-      await editor.getByRole('button', { name: '選択ウィンドウ', exact: true }).click();
+      await editor.locator('button[aria-haspopup="menu"]').filter({ hasText: '配置' }).click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: '選択ウィンドウ...', exact: true })
+        .click();
       await editor
         .getByRole('region', { name: '選択ウィンドウ', exact: true })
         .getByRole('button', { name: 'Renamed', exact: true })
@@ -241,7 +295,10 @@ test(
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
       await saved();
-      await editor.getByRole('button', { name: 'Selection Pane', exact: true }).click();
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
       const pane = editor.getByRole('region', { name: 'Selection Pane', exact: true });
       const list = pane.locator('.objects');
       const first = pane.getByRole('button', { name: 'Object 44', exact: true });

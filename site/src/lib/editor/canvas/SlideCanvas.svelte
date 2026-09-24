@@ -535,7 +535,9 @@
     if (editing || e.isComposing || editor.activeDialog) return;
     if (selectedIds.size !== 1) return;
     const t = e.target as HTMLElement;
-    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    // Table grid buttons deliberately forward typing into the selected cell.
+    if (t?.tagName === 'BUTTON' && !t.matches('.cell-grid [data-cell]')) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const box = boxes.find((b) => selectedIds.has(b.id));
     if (!box) return;
