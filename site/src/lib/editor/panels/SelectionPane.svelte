@@ -60,6 +60,7 @@
     if (doc.currentSlide) visit(topLevelShapes(doc.currentSlide), null, 0);
     return rows;
   });
+  const allHidden = $derived(allRows.length > 0 && allRows.every(row => row.hidden));
   const rows = $derived.by(() => {
     const visible = new Set<number>();
     return allRows.filter(row => {
@@ -140,7 +141,7 @@
 
 <section class="panel" aria-label={t('Selection Pane')}>
   <header><strong>{t('Selection Pane')}</strong><button aria-label={t('Close Selection Pane')} onclick={() => editor.selectionPaneVisible = false}>×</button></header>
-  <div class="actions"><button disabled={!allRows.length} onclick={() => showAll(false)}>{t('Show All')}</button><button disabled={!allRows.length} onclick={() => showAll(true)}>{t('Hide All')}</button></div>
+  <div class="actions"><button aria-label={t(allHidden ? 'Show All' : 'Hide All')} title={t(allHidden ? 'Show All' : 'Hide All')} disabled={!allRows.length} onclick={() => showAll(!allHidden)}><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M1 8Q10 -3 19 8Q10 19 1 8Z"/><circle cx="10" cy="8" r="3"/>{#if allHidden}<path d="m2 1 16 14"/>{/if}</svg></button></div>
   <div class="objects ok-scroll" bind:this={list}>
     {#each rows as row (row.id)}
       <div class="row" class:selected={selected.has(row.id)} data-object-id={row.id} style:padding-left={`${row.depth * 14}px`}>
@@ -154,14 +155,17 @@
       </div>
     {/each}
   </div>
+  <footer><button disabled={!editor.canRun('bringShapeForward')} onclick={() => editor.invoke('bringShapeForward')}>{t('Bring Forward')}</button><button disabled={!editor.canRun('sendShapeBackward')} onclick={() => editor.invoke('sendShapeBackward')}>{t('Send Backward')}</button></footer>
 </section>
 
 <style>
   .panel { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--ok-panel); border-left: 1px solid var(--ok-border); padding: 10px; }
   header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
   header button { font-size: 20px; }
-  .actions { display: flex; gap: 8px; margin-bottom: 10px; }
-  .objects { overflow: auto; min-height: 0; }
+  .actions { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+  .objects { flex: 1; overflow: auto; min-height: 0; }
+  footer { display: flex; gap: 6px; padding-top: 10px; }
+  footer button { flex: 1; border-color: var(--ok-border); }
   .row { display: flex; align-items: center; min-height: 28px; }
   .row.selected { background: var(--ok-hover); }
   button { font: inherit; font-size: 12px; color: var(--ok-text); background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); padding: 4px; cursor: pointer; }

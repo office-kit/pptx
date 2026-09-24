@@ -8,6 +8,7 @@
   import { capabilityById } from '../manifest/index.ts';
   import Icon from '../ui/Icon.svelte';
   import ViewRibbon from './ViewRibbon.svelte';
+  import ArrangeMenu from './ArrangeMenu.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -71,6 +72,7 @@
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group">
         <div class="group-items">
+          {#if current?.id === 'home' && group.title === 'Arrange'}<ArrangeMenu />{:else}
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}
             <button
@@ -84,8 +86,6 @@
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
           {/each}
-          {#if current?.id === 'home' && group.title === 'Editing'}
-            <button class="cmd" aria-pressed={editor.selectionPaneVisible} onclick={() => { editor.setViewMode('normal'); editor.selectionPaneVisible = !editor.selectionPaneVisible; }}><span class="cmd-label">{t('Selection Pane')}</span></button>
           {/if}
         </div>
         <div class="group-title">{t(group.title)}</div>

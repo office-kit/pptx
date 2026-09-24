@@ -108,12 +108,7 @@ export const RIBBON: readonly RibbonTab[] = [
       },
       {
         title: 'Arrange',
-        items: [
-          { id: 'bringShapeToFront', icon: 'front' },
-          { id: 'sendShapeToBack', icon: 'back' },
-          { id: 'groupShapes', icon: 'group' },
-          { id: 'setShapeAlignment', icon: 'align' },
-        ],
+        items: [],
       },
       {
         title: 'Editing',
