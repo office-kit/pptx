@@ -2,12 +2,14 @@
 
 import type { Color } from '../../internal/drawingml/index.ts';
 import {
+  type GradientFillOptions,
   type ReadGradientFill,
   readFlip,
   readPosition,
   readRotation,
   readSize,
   setSolidFill,
+  setGradientFill,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
@@ -65,12 +67,6 @@ export const writeBackgroundPr = (
 ): void => {
   const bgName = qname('p', 'bg', NS.pml);
   const bgPrName = qname('p', 'bgPr', NS.pml);
-  let bg = firstChildElement(cSld, bgName);
-  if (bg === null) {
-    bg = { kind: 'element', name: bgName, attrs: [], prefixDecls: new Map(), children: [] };
-    cSld.children.unshift(bg);
-  }
-  bg.children = [];
   const bgPr: XmlElement = {
     kind: 'element',
     name: bgPrName,
@@ -78,8 +74,14 @@ export const writeBackgroundPr = (
     prefixDecls: new Map(),
     children: [],
   };
-  bg.children.push(bgPr);
+  // Validate and construct the replacement before changing the attached background.
   configure(bgPr);
+  let bg = firstChildElement(cSld, bgName);
+  if (bg === null) {
+    bg = { kind: 'element', name: bgName, attrs: [], prefixDecls: new Map(), children: [] };
+    cSld.children.unshift(bg);
+  }
+  bg.children = [bgPr];
 };
 
 const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) => void): void => {
@@ -697,6 +699,18 @@ export const getSlideMasterBackgroundImageBytes = (
 /** Sets a solid fill on the slide's background. */
 export const setSlideBackground = (slide: SlideData, color: Color): void => {
   setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
+};
+
+/**
+ * Replaces the slide background with a gradient. Uses the same stop and direction
+ * settings as `setShapeGradientFill`; offsets and opacity range from 0 to 1.
+ * Invalid settings leave the previous background unchanged.
+ */
+export const setSlideBackgroundGradientFill = (
+  slide: SlideData,
+  options: GradientFillOptions,
+): void => {
+  setSlideBackgroundXml(slide, (bgPr) => setGradientFill(bgPr, options));
 };
 
 /**
