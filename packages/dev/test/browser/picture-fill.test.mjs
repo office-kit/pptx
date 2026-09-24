@@ -100,11 +100,65 @@ test(
       await saved();
       assert.equal((await read()).layout.scaleX, 0.6);
       await upload(editor.getByRole('button', { name: 'Insert...', exact: true }));
-      const replacement = await read();
+      let replacement = await read();
       assert.equal(replacement.opacity, 0.65);
       assert.equal(replacement.layout.mode, 'stretch');
       assert.equal(replacement.layout.left, 0.25);
       assert.deepEqual(replacement.bytes, new Uint8Array(image.buffer));
+      const clipboard = editor.getByRole('button', { name: 'Clipboard', exact: true });
+      await editor.locator('body').evaluate(() => {
+        Object.defineProperty(navigator.clipboard, 'read', {
+          configurable: true,
+          value: async () => [],
+        });
+      });
+      await clipboard.click();
+      await editor
+        .getByRole('alert')
+        .filter({ hasText: 'The clipboard does not contain a picture.' })
+        .waitFor();
+      assert.deepEqual(await read(), replacement);
+      await editor.locator('body').evaluate(() => {
+        Object.defineProperty(navigator.clipboard, 'read', {
+          configurable: true,
+          value: async () => {
+            throw new DOMException('Denied', 'NotAllowedError');
+          },
+        });
+      });
+      await clipboard.click();
+      await editor.getByRole('alert').filter({ hasText: 'Clipboard access was denied' }).waitFor();
+      assert.deepEqual(await read(), replacement);
+      const clipboardBytes = await editor.locator('body').evaluate(async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = 2;
+        const context = canvas.getContext('2d');
+        context.fillStyle = '#0000ff';
+        context.fillRect(0, 0, 2, 2);
+        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
+        Object.defineProperty(navigator.clipboard, 'read', {
+          configurable: true,
+          value: async () => [new ClipboardItem({ 'image/png': blob })],
+        });
+        return [...new Uint8Array(await blob.arrayBuffer())];
+      });
+      const pasted = page.waitForResponse(
+        (response) =>
+          response.url().endsWith('/editor/document') &&
+          response.request().method() === 'PUT' &&
+          response.ok(),
+      );
+      await clipboard.click();
+      await pasted;
+      await saved();
+      assert.deepEqual(await read(), { ...replacement, bytes: new Uint8Array(clipboardBytes) });
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), replacement);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      replacement = { ...replacement, bytes: new Uint8Array(clipboardBytes) };
+      assert.deepEqual(await read(), replacement);
       await editor.getByRole('radio', { name: 'Solid fill', exact: true }).check();
       await saved();
       assert.deepEqual((await read()).fill, original);

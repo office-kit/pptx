@@ -3,6 +3,8 @@
 
 export const ja: Record<string, string> = {
   'Picture or texture fill': '塗りつぶし（図またはテクスチャ）',
+  Clipboard: 'クリップボード',
+  'The clipboard does not contain a picture.': 'クリップボードに図がありません。',
   'Picture source': '図のソース',
   'Insert...': '挿入...',
   'Picture transparency': '図の透明度',
