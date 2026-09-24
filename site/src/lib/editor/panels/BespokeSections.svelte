@@ -12,6 +12,8 @@
     setShapeFill,
     setShapeNoFill,
     setShapeGradientFill,
+    getShapePatternFill,
+    setShapePatternFill,
     asColor,
     getShapeFillColorResolved,
     getShapeStroke,
@@ -23,6 +25,7 @@
     setShapeText,
   } from '@office-kit/pptx';
   import GradientFillSection from './GradientFillSection.svelte';
+  import PatternFillSection from './PatternFillSection.svelte';
   import TransparencyField from './TransparencyField.svelte';
   import LineStyleFields from './LineStyleFields.svelte';
   import SizePositionSection from './SizePositionSection.svelte';
@@ -123,7 +126,7 @@
     const kinds = new Set(editor.selectedShapes().map(target => getShapeFillEffective(doc.pres, target).kind));
     return kinds.size === 1 ? [...kinds][0] : 'mixed';
   });
-  function changeFill(kind: 'none' | 'solid' | 'gradient') {
+  function changeFill(kind: 'none' | 'solid' | 'gradient' | 'pattern') {
     if (editor.selectionLocked() || doc.selection.kind !== 'shape' || fillKind === kind) return;
     const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
     const shapes = editor.selectedShapes();
@@ -132,6 +135,8 @@
         const key = `${slideKey}:${getShapeId(target)}`;
         const remembered = doc.rememberedFills.get(key) ?? {};
         const current = getShapeFillEffective(doc.pres, target);
+        if (current.kind === kind) continue;
+        if (current.kind === 'pattern') remembered.pattern = getShapePatternFill(doc.pres, target) ?? undefined;
         if (current.kind === 'solid') remembered.solid = { color: asColor(getShapeFillColorResolved(doc.pres, target) ?? current.color) ?? 'accent1', opacity: getShapeFillOpacity(target) ?? undefined };
         if (current.kind === 'gradient') {
           const gradient = getShapeGradientFillEffective(doc.pres, target);
@@ -143,6 +148,7 @@
         doc.rememberedFills.set(key, remembered);
         if (kind === 'none') setShapeNoFill(target);
         else if (kind === 'solid') setShapeFill(target, remembered.solid ?? { color: 'accent1' });
+        else if (kind === 'pattern') setShapePatternFill(target, remembered.pattern ?? { preset: 'pct5', foreground: 'accent1', background: 'bg1' });
         else setShapeGradientFill(target, remembered.gradient ?? {
           path: 'linear', angleDeg: 90, scaled: true,
           stops: [
@@ -185,13 +191,15 @@
         <summary>{t('Fill')}</summary>
         <div class="paint-fields">
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
-            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill']] as [kind, label]}
+            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['pattern', 'Pattern fill']] as [kind, label]}
               <label><input type="radio" name="shape-fill-type" checked={fillKind === kind}
-                onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient') changeFill(kind); }} />{t(label)}</label>
+                onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient' || kind === 'pattern') changeFill(kind); }} />{t(label)}</label>
             {/each}
           </fieldset>
           {#if fillKind === 'gradient'}
             <GradientFillSection />
+          {:else if fillKind === 'pattern'}
+            <PatternFillSection />
           {:else if fillKind !== 'none'}
           <div class="mini">
             <span>{t('Color')}</span>

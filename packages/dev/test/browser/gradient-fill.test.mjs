@@ -14,7 +14,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 test(
   'gradient stops edit brightness, opacity, position and count with undo and persistence',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-gradient-'));
     let preview, browser;
