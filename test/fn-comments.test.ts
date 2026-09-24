@@ -13,6 +13,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { INTERNAL_PACKAGE, SLIDE_PART_NAME } from '../src/api/_internal-symbols.ts';
 import { partName } from '../src/internal/opc/index.ts';
@@ -289,7 +290,7 @@ it('preserves reply parents through save and removes a whole thread', async () =
   expect(() =>
     addSlideComment(other!, { author: { name: 'Wrong slide' }, text: 'Invalid', replyTo: root }),
   ).toThrow();
-  expect(await savePresentation(pres)).toEqual(before);
+  expect(unzipSync(await savePresentation(pres))).toEqual(unzipSync(before));
   const reopened = await loadPresentation(before);
   const comments = getSlideComments(getSlides(reopened)[0]!);
   expect(getCommentParent(comments[1]!)).toBe(comments[0]);
@@ -309,7 +310,7 @@ it('preserves reply parents through save and removes a whole thread', async () =
       replyTo: updated[0]!,
     }),
   ).toThrow();
-  expect(await savePresentation(reopened)).toEqual(after);
+  expect(unzipSync(await savePresentation(reopened))).toEqual(unzipSync(after));
 });
 
 it('reads threading with different prefixes and keeps sibling replies and extension XML', async () => {

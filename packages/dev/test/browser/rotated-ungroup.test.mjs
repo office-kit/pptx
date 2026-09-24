@@ -50,6 +50,7 @@ test(
       await saved();
       await editor.locator('.hit').first().click();
       await page.keyboard.press('Control+a');
+      await editor.getByRole('tab', { name: 'Size & Properties' }).click();
       await editor
         .getByRole('region', { name: 'Arrange', exact: true })
         .getByRole('button', { name: 'Group', exact: true })

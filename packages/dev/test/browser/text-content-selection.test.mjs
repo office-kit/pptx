@@ -41,6 +41,7 @@ test(
       };
       await saved();
       await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       assert.equal(
         await panel.getByRole('textbox', { name: 'Text', exact: true }).inputValue(),
         '日本語',

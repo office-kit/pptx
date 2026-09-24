@@ -126,6 +126,7 @@ test(
       );
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
+      await editor.getByRole('tab', { name: 'Size & Properties' }).click();
       await editor.getByRole('button', { name: 'Align left', exact: true }).click();
       await saved();
       const aligned = getShapeBounds((await state()).find((s) => getShapeId(s) === id));

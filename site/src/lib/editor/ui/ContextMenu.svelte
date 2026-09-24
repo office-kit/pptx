@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { getShapeKind } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
@@ -51,6 +52,13 @@
         { label: 'Group', run: () => editor.invoke('groupShapes'), disabled: !editor.canRun('groupShapes') },
         { label: 'Ungroup', run: () => editor.invoke('ungroupShapes'), disabled: !editor.canRun('ungroupShapes') },
       );
+      const shapes = editor.selectedShapes();
+      if (shapes.length && shapes.every((shape) => ['shape', 'connector', 'group'].includes(getShapeKind(shape)))) {
+        list.push(
+          { label: 'Size and Position...', run: () => editor.showShapeFormat('size') },
+          { label: 'Format Shape...', run: () => editor.showShapeFormat() },
+        );
+      }
     } else if (doc.selection.kind === 'slide') {
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },

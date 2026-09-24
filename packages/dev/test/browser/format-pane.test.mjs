@@ -54,6 +54,23 @@ test(
       await size.click();
       assert.equal(await scale.inputValue(), '150');
       assert.equal(await width.inputValue(), changedWidth);
+      const workspaceWidth = (await editor.locator('.slide-workspace').boundingBox()).width;
+      await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).click();
+      assert.equal(await tabs.isVisible(), false);
+      assert.ok(
+        (await editor.locator('.slide-workspace').boundingBox()).width > workspaceWidth + 100,
+      );
+      assert.equal(
+        await editor.locator('.hit.selected').evaluate((el) => el === document.activeElement),
+        true,
+      );
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      assert.equal(await paint.getAttribute('aria-selected'), 'true');
+      assert.equal((await editor.locator('.slide-workspace').boundingBox()).width, workspaceWidth);
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Size and Position...', exact: true }).click();
+      assert.equal(await scale.inputValue(), '150');
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal(await scale.inputValue(), '100');
@@ -61,9 +78,33 @@ test(
       assert.equal(await paint.getAttribute('aria-selected'), 'true');
       await paint.press('ArrowLeft');
       assert.equal(await size.getAttribute('aria-selected'), 'true');
+      await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).click();
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
+      await editor.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
+      assert.equal(await tabs.isVisible(), false);
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
+      assert.equal(await size.getAttribute('aria-selected'), 'true');
+      assert.equal(
+        await editor
+          .getByRole('spinbutton', { name: 'Rotation', exact: true })
+          .evaluate((el) => el === document.activeElement),
+        true,
+      );
       await editor.locator('.lang select').selectOption('ja');
       assert.equal(
         await editor.getByRole('tab', { name: 'サイズとプロパティ' }).getAttribute('aria-selected'),
+        'true',
+      );
+      await editor.getByRole('button', { name: '図形の書式設定を閉じる', exact: true }).click();
+      await editor.locator('.hit').click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: '図形の書式設定...', exact: true }).click();
+      assert.equal(
+        await editor.getByRole('tab', { name: '塗りつぶしと線' }).getAttribute('aria-selected'),
         'true',
       );
       await page.screenshot({ path: '/tmp/pptx-pr287-format-tabs.png', fullPage: true });
