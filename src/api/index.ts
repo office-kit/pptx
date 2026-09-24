@@ -583,6 +583,7 @@ export {
   setPresentationTheme,
   setSlideBackground,
   setSlideBackgroundGradientFill,
+  setSlideBackgroundPatternFill,
   setSlideBackgroundImage,
   setSlideLayoutBackground,
   setSlideLayoutName,
