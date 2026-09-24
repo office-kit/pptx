@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getSlideMasterBackgroundStyles, setSlideMasterBackgroundStyle, getSlideBackground, clearSlideBackground, getSlides, type SlideMasterBackgroundStyle } from '@office-kit/pptx';
+  import { getSlideMasterBackgroundStyles, setSlideMasterBackgroundStyle, getSlideBackground, clearSlideBackground, getSlides } from '@office-kit/pptx';
+  import { backgroundStyleSwatches } from '../core/background-style-swatches.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -12,6 +13,7 @@
   let menu = $state<HTMLDivElement>();
   let error = $state('');
   const styles = $derived.by(() => { doc.version; return open && doc.currentSlide ? getSlideMasterBackgroundStyles(doc.currentSlide) : []; });
+  const swatches = $derived(backgroundStyleSwatches(styles));
   const slides = $derived.by(() => { doc.version; const all = getSlides(doc.pres); return selectedSlideIndices(doc.selection).flatMap(index => all[index] ? [all[index]!] : []); });
   const canReset = $derived(slides.some(slide => getSlideBackground(slide).kind !== 'inherit'));
   function close(restore = true) { open = false; if (restore) trigger.focus(); }
@@ -28,15 +30,6 @@
   function reset() {
     try { doc.transact(t('Reset Slide Background'), () => { for (const slide of slides) clearSlideBackground(slide); }); close(); }
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
-  }
-  function preview(style: SlideMasterBackgroundStyle): string {
-    const gradient = style.gradient;
-    if (!gradient) return style.fill.kind === 'solid' ? `${style.fill.color}${Math.round((style.fill.opacity ?? 1) * 255).toString(16).padStart(2, '0')}` : 'transparent';
-    const stops = [...gradient.stops].sort((a, b) => a.offset - b.offset).map(stop => `${stop.resolvedColor ?? stop.color}${Math.round((stop.opacity ?? 1) * 255).toString(16).padStart(2, '0')} ${stop.offset * 100}%`).join(', ');
-    const focus = gradient.focus;
-    const x = focus ? (focus.left + 1 - focus.right) / 2 : .5;
-    const y = focus ? (focus.top + 1 - focus.bottom) / 2 : .5;
-    return gradient.path ? `radial-gradient(ellipse farthest-side at ${x * 100}% ${y * 100}%, ${stops})` : `linear-gradient(${(gradient.angleDeg ?? 0) + 90}deg, ${stops})`;
   }
   function place(node: HTMLElement) {
     const bounds = trigger.getBoundingClientRect();
@@ -61,7 +54,7 @@
   <div class="menu" role="menu" aria-label={t('Background Styles')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="gallery" role="group" aria-label={t('Background Styles')}>
       {#each styles as style}
-        <button class="preset" role="menuitemradio" aria-label={`${t('Style')} ${style.style}`} title={`${t('Style')} ${style.style}`} aria-checked={style.selected} onclick={() => apply(style.style)}><span class="swatch" style:background={preview(style)}></span></button>
+        <button class="preset" role="menuitemradio" aria-label={`${t('Style')} ${style.style}`} title={`${t('Style')} ${style.style}`} aria-checked={style.selected} onclick={() => apply(style.style)}><span class="swatch" style:background-image={swatches.has(style.style) ? `url("${swatches.get(style.style)}")` : undefined}></span></button>
       {/each}
     </div>
     <hr />
@@ -77,7 +70,7 @@
   .menu { position: fixed; z-index: 400; padding: 5px; max-height: calc(100dvh - 16px); overflow-y: auto; border: 1px solid var(--ok-border); border-radius: 6px; background: var(--ok-panel); color: var(--ok-text); box-shadow: var(--ok-shadow-lg); }
   .gallery { display: grid; grid-template-columns: repeat(4, 58px); gap: 3px; }
   .preset { padding: 4px; background: transparent; border: 1px solid transparent; border-radius: 3px; }
-  .swatch { display: block; width: 48px; height: 32px; border: 1px solid var(--ok-border); }
+  .swatch { background-size: 100% 100%; display: block; width: 48px; height: 32px; border: 1px solid var(--ok-border); }
   .preset:hover, .preset:focus-visible, .preset[aria-checked=true] { background: var(--ok-hover); border-color: var(--ok-accent); }
   .action { display: block; width: 100%; border: 0; border-radius: 4px; padding: 5px 10px; background: transparent; color: inherit; font: inherit; font-size: 12px; text-align: left; }
   .action:hover:not(:disabled), .action:focus-visible { background: var(--ok-accent); color: white; }
