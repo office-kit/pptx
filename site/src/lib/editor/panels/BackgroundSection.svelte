@@ -94,16 +94,17 @@
   </section>
 {/if}
 <style>
-  section { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--ok-border); }
+  section { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+  details { flex: 1; min-height: 0; overflow-y: auto; padding: 12px; }
   .transparency { display: grid; grid-template-columns: minmax(0, 1fr) 55px auto; gap: 6px; align-items: center; }
   .transparency input { min-width: 0; width: 100%; }
   .background-types { display: grid; gap: 6px; }
   .selection { font-size: 11px; color: var(--ok-muted); }
   summary { font-size: 12px; cursor: pointer; }
   .fill-controls { display: grid; gap: 10px; padding-top: 12px; }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .actions { flex-shrink: 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; padding: 10px 12px; }
   label, .color-field { display: grid; gap: 6px; font-size: 11px; }
   .check { display: flex; align-items: center; }
   input[type='file'] { width: 100%; font-size: 11px; }
-  [role='alert'] { color: #bf3131; font-size: 11px; }
+  [role='alert'] { flex-shrink: 0; margin: 0; padding: 0 12px 10px; color: #bf3131; font-size: 11px; }
 </style>
