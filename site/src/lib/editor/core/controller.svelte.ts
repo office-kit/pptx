@@ -9,6 +9,7 @@
 import { lockedShapeIds, selectionLocked } from './shape-locks.ts';
 import {
   setShapeLocked,
+  setShapeZIndex,
   groupShapes,
   getDrawingGuides,
   getDrawingGuidesVisible,
@@ -172,6 +173,37 @@ export class EditorController {
     this.doc.version;
     const cmd = getCommand(id);
     return cmd ? cmd.canRun(this.ctx) : false;
+  }
+
+  reorderMembers(): SlideShapeData[] {
+    this.doc.version;
+    const slide = this.doc.currentSlide;
+    const ids = new Set(selectedShapeIds(this.doc.selection));
+    if (!slide || ids.size < 2) return [];
+    const siblings = shapeScope(slide, ids.values().next().value ?? null).shapes;
+    const members = siblings.filter((shape) => ids.has(getShapeId(shape)));
+    return members.length === ids.size ? members : [];
+  }
+
+  reorderSelection(frontToBack: readonly number[]): void {
+    const members = this.reorderMembers();
+    const selected = new Set(members.map(getShapeId));
+    if (
+      members.length !== frontToBack.length ||
+      new Set(frontToBack).size !== selected.size ||
+      frontToBack.some((id) => !selected.has(id))
+    )
+      return;
+    const slide = this.doc.currentSlide!;
+    const siblings = shapeScope(slide, frontToBack[0] ?? null).shapes;
+    const byId = new Map(members.map((shape) => [getShapeId(shape), shape]));
+    const backToFront = [...frontToBack].reverse();
+    let index = 0;
+    const ordered = siblings.map((shape) =>
+      selected.has(getShapeId(shape)) ? byId.get(backToFront[index++]!)! : shape,
+    );
+    if (ordered.every((shape, i) => getShapeId(shape) === getShapeId(siblings[i]!))) return;
+    this.doc.transact(t('Reorder Objects'), () => setShapeZIndex(ordered, 0));
   }
 
   private regroupMembers(): SlideShapeData[] {

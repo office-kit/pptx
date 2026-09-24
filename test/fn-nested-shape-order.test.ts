@@ -93,3 +93,30 @@ it('copies a nested object with ancestor transforms without copying its siblings
     '日本語',
   ]);
 });
+
+it('sets a supplied sibling order in one batch and rejects mixed containers atomically', async () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  const [a, b, c, outside] = ['A', 'B', 'C', 'Outside'].map((text) =>
+    addSlideTextBox(slide, { x: inches(1), y: inches(1), w: inches(1), h: inches(1), text }),
+  );
+  const group = groupShapes([a!, b!, c!]);
+  group[SHAPE_ELEMENT].children.push(
+    parseXml(`<p:extLst xmlns:p="${NS.pml}"><p:ext uri="keep"/></p:extLst>`).root,
+  );
+  setShapeZIndex([c!, a!], 0);
+  expect(getGroupChildren(group).map(getShapeText)).toEqual(['C', 'A', 'B']);
+  expect(group[SHAPE_ELEMENT].children.at(-1)).toMatchObject({ name: { localName: 'extLst' } });
+  expect(() => setShapeZIndex([a!, outside!], 0)).toThrow('same parent');
+  expect(() => setShapeZIndex([a!, a!], 0)).toThrow('Duplicate');
+  expect(getGroupChildren(group).map(getShapeText)).toEqual(['C', 'A', 'B']);
+  setShapeZIndex([c!, a!], 999);
+  expect(getGroupChildren(group).map(getShapeText)).toEqual(['B', 'C', 'A']);
+  const loaded = getSlides(await loadPresentation(await savePresentation(pres)))[0]!;
+  expect(getSlideShapes(loaded).map(getShapeText).filter(Boolean)).toEqual([
+    'B',
+    'C',
+    'A',
+    'Outside',
+  ]);
+});

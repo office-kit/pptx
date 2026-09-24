@@ -16,6 +16,7 @@
   import StatusBar from './ui/StatusBar.svelte';
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
+  import ReorderObjectsDialog from './ui/ReorderObjectsDialog.svelte';
   import ZoomDialog from './ui/ZoomDialog.svelte';
   import GridOptionsDialog from './ui/GridOptionsDialog.svelte';
   import CropDialog from './ui/CropDialog.svelte';
@@ -179,7 +180,9 @@
     <CommandPalette />
   {/if}
   {#if editor.activeDialog}
-    {#if editor.activeDialog === 'zoom'}
+    {#if editor.activeDialog === 'reorderObjects'}
+      <ReorderObjectsDialog />
+    {:else if editor.activeDialog === 'zoom'}
       <ZoomDialog />
     {:else if editor.activeDialog === 'gridOptions'}
       <GridOptionsDialog />
