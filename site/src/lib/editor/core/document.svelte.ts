@@ -30,7 +30,13 @@ import {
   savePresentation,
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
-import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
+import type {
+  PresentationData,
+  SlideData,
+  SlideShapeData,
+  Color,
+  GradientFillOptions,
+} from '@office-kit/pptx';
 import { RegroupHistory } from './regroup-history.ts';
 import { selectedSlideIndices, type Selection } from './selection.ts';
 
@@ -44,6 +50,10 @@ interface Snapshot {
 const HISTORY_MAX = 60;
 
 export class EditorDocument {
+  readonly rememberedFills = new Map<
+    string,
+    { solid?: { color: Color; opacity?: number }; gradient?: GradientFillOptions }
+  >();
   /** The live presentation. Mutated in place by library commands. */
   pres = $state.raw<PresentationData>(createInitial());
   /** Bumped on every mutation to invalidate derived rendering. */
@@ -272,6 +282,7 @@ export class EditorDocument {
     this.pres = pres;
     this.fileName = name;
     this.regroupHistory.records = [];
+    this.rememberedFills.clear();
     this.#history = [];
     this.#cursor = -1;
     this.selection = { kind: 'none', slideIndex: 0 };

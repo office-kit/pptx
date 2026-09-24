@@ -22,7 +22,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={3} height={2} fill={{stops:[{offset:0,color:'accent1',brightness:0.95},{offset:1,color:'accent1',brightness:0.7}],angleDeg:90,scaled:true}}>Gradient</Text></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={3} height={2} fill={{stops:[{offset:0,color:'accent1',brightness:0.95},{offset:1,color:'accent1',brightness:0.7}],angleDeg:90,scaled:true}}>Gradient</Text><Text x={6} y={1} width={3} height={2} fill="#00FF00">Solid</Text></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -33,14 +33,65 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
-      const gradient = async () => {
+      const gradient = async (index = 0) => {
         const deck = await loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
-        return getShapeGradientFill(getSlideShapes(getSlides(deck)[0])[0]);
+        return getShapeGradientFill(getSlideShapes(getSlides(deck)[0])[index]);
       };
       await saved();
-      await editor.locator('.hit').click();
+      await editor.locator('.hit').nth(0).click();
+      const initialGradient = await gradient();
+      const noFill = editor.getByRole('radio', { name: 'No fill', exact: true });
+      const solidFill = editor.getByRole('radio', { name: 'Solid fill', exact: true });
+      const gradientFill = editor.getByRole('radio', { name: 'Gradient fill', exact: true });
+      assert.equal(await gradientFill.isChecked(), true);
+      await noFill.check();
+      await saved();
+      assert.equal(await gradient(), null);
+      assert.equal(
+        await editor.getByRole('spinbutton', { name: 'Gradient angle', exact: true }).count(),
+        0,
+      );
+      await solidFill.check();
+      await saved();
+      assert.equal(
+        await editor
+          .getByRole('spinbutton', { name: 'Fill transparency', exact: true })
+          .isVisible(),
+        true,
+      );
+      await editor.getByRole('button', { name: 'Close Format Shape', exact: true }).click();
+      await editor.locator('.hit').nth(0).click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'Format Shape...', exact: true }).click();
+      await gradientFill.check();
+      await saved();
+      assert.deepEqual(await gradient(), initialGradient);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(await solidFill.isChecked(), true);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await gradient(), initialGradient);
+      await editor.locator('.hit').nth(1).click();
+      assert.equal(await solidFill.isChecked(), true);
+      await gradientFill.check();
+      await saved();
+      const createdGradient = await gradient(1);
+      assert.deepEqual(
+        createdGradient.stops.map((stop) => stop.offset),
+        [0, 0.74, 0.83, 1],
+      );
+      assert.deepEqual(
+        createdGradient.stops.map((stop) => stop.brightness),
+        [0.95, 0.55, 0.55, 0.7],
+      );
+      assert.equal(createdGradient.angleDeg, 90);
+      assert.equal(createdGradient.scaled, true);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(await solidFill.isChecked(), true);
+      await editor.locator('.hit').nth(0).click();
       const brightness = editor.getByRole('spinbutton', {
         name: 'Gradient stop brightness',
         exact: true,
@@ -105,7 +156,7 @@ test(
       assert.equal((await gradient()).stops.length, 3);
       await page.reload();
       await saved();
-      await editor.locator('.hit').click();
+      await editor.locator('.hit').nth(0).click();
       assert.equal(await brightness.inputValue(), '-25');
       assert.equal(await opacity.inputValue(), '60');
       await brightness.fill('101');

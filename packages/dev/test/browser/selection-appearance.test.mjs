@@ -241,7 +241,7 @@ test(
       await editor.locator('.lang select').selectOption('en');
       ja = false;
       await editor.getByRole('tab', { name: 'Fill & Line', exact: true }).click();
-      const initialFill = await colors(getShapeFillColor);
+      let initialFill = await colors(getShapeFillColor);
       const initialStroke = await colors(getShapeStrokeColor);
       await editor.locator('.hit').nth(0).click();
       await editor
@@ -260,6 +260,9 @@ test(
           }, color);
         await saved();
       };
+      await editor.getByRole('radio', { name: 'Solid fill', exact: true }).check();
+      await saved();
+      initialFill = await colors(getShapeFillColor);
       await changeColor(0, '#123456');
       assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
       assert.equal(
@@ -394,7 +397,7 @@ test(
       const originalStrokeKinds = await colors((shape) => getShapeStroke(shape).kind);
       await editor
         .locator('.bespoke')
-        .getByRole('button', { name: '塗りつぶしなし', exact: true })
+        .getByRole('radio', { name: '塗りつぶしなし', exact: true })
         .click();
       await saved();
       assert.deepEqual(await colors((shape) => getShapeFill(shape).kind), [
@@ -402,16 +405,16 @@ test(
         'none',
         originalFillKinds[2],
       ]);
-      assert.equal(await editor.locator('[data-paint-state=fill]').textContent(), 'なし');
+      assert.equal(
+        await editor.getByRole('radio', { name: '塗りつぶしなし', exact: true }).isChecked(),
+        true,
+      );
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await colors(getShapeFillColor), ['#123456', '#123456', initialFill[2]]);
       await editor.locator('.lang select').selectOption('en');
       ja = false;
-      await editor
-        .locator('.bespoke')
-        .getByRole('button', { name: 'No fill', exact: true })
-        .click();
+      await editor.locator('.bespoke').getByRole('radio', { name: 'No fill', exact: true }).click();
       await saved();
       await editor
         .locator('.bespoke')
@@ -684,12 +687,9 @@ test(
       assert.deepEqual(await paint(getShapeStrokeOpacity), [0.99, 0.445]);
       assert.equal(await line.inputValue(), '1');
       await page.screenshot({ path: '/tmp/pptx-pr287-transparency.png', fullPage: true });
-      await editor
-        .locator('.bespoke')
-        .getByRole('button', { name: 'No fill', exact: true })
-        .click();
+      await editor.locator('.bespoke').getByRole('radio', { name: 'No fill', exact: true }).click();
       await saved();
-      assert.equal(await fill.isDisabled(), true);
+      assert.equal(await fill.count(), 0);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

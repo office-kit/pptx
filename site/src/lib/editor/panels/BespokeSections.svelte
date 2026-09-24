@@ -6,11 +6,19 @@
     getParagraphPropertiesEffective,
     getShapeKind,
     getShapeFill,
+    getShapeFillEffective,
+    getShapeFillOpacity,
+    getShapeGradientFillEffective,
+    setShapeFill,
+    setShapeNoFill,
+    setShapeGradientFill,
+    asColor,
     getShapeFillColorResolved,
     getShapeStroke,
     getShapeStrokeWidth,
     getShapeStrokeColorResolved,
     getShapeId,
+    getSlidePartName,
     getSlideShapes,
     setShapeText,
   } from '@office-kit/pptx';
@@ -110,6 +118,43 @@
   function colorValue(value: string): string {
     return /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
   }
+  const fillKind = $derived.by(() => {
+    doc.version;
+    const kinds = new Set(editor.selectedShapes().map(target => getShapeFillEffective(doc.pres, target).kind));
+    return kinds.size === 1 ? [...kinds][0] : 'mixed';
+  });
+  function changeFill(kind: 'none' | 'solid' | 'gradient') {
+    if (editor.selectionLocked() || doc.selection.kind !== 'shape' || fillKind === kind) return;
+    const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
+    const shapes = editor.selectedShapes();
+    doc.transact(t('Fill'), () => {
+      for (const target of shapes) {
+        const key = `${slideKey}:${getShapeId(target)}`;
+        const remembered = doc.rememberedFills.get(key) ?? {};
+        const current = getShapeFillEffective(doc.pres, target);
+        if (current.kind === 'solid') remembered.solid = { color: asColor(getShapeFillColorResolved(doc.pres, target) ?? current.color) ?? 'accent1', opacity: getShapeFillOpacity(target) ?? undefined };
+        if (current.kind === 'gradient') {
+          const gradient = getShapeGradientFillEffective(doc.pres, target);
+          if (gradient) remembered.gradient = { ...gradient, stops: gradient.stops.map(stop => {
+            const color = asColor(stop.color);
+            return { ...stop, color: color ?? asColor(stop.resolvedColor ?? '') ?? 'accent1', brightness: color ? stop.brightness : 0 };
+          }) };
+        }
+        doc.rememberedFills.set(key, remembered);
+        if (kind === 'none') setShapeNoFill(target);
+        else if (kind === 'solid') setShapeFill(target, remembered.solid ?? { color: 'accent1' });
+        else setShapeGradientFill(target, remembered.gradient ?? {
+          path: 'linear', angleDeg: 90, scaled: true,
+          stops: [
+            { offset: 0, color: 'accent1', brightness: 0.95 },
+            { offset: 0.74, color: 'accent1', brightness: 0.55 },
+            { offset: 0.83, color: 'accent1', brightness: 0.55 },
+            { offset: 1, color: 'accent1', brightness: 0.7 },
+          ],
+        });
+      }
+    });
+  }
   function applyFill(value: string) {
     editor.invoke('setShapeFill', { color: { color: value.replace('#', '') } });
   }
@@ -139,16 +184,21 @@
       <details class="paint-section" open>
         <summary>{t('Fill')}</summary>
         <div class="paint-fields">
-          {#if paint.fill === 'gradient'}
+          <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
+            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill']] as [kind, label]}
+              <label><input type="radio" name="shape-fill-type" checked={fillKind === kind}
+                onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient') changeFill(kind); }} />{t(label)}</label>
+            {/each}
+          </fieldset>
+          {#if fillKind === 'gradient'}
             <GradientFillSection />
-          {:else}
+          {:else if fillKind !== 'none'}
           <div class="mini">
             <span>{t('Color')}</span>
             <span class="colorwrap">
               <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
               <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
             </span>
-            <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
           </div>
           <TransparencyField paint="fill" />
           {/if}
@@ -212,6 +262,10 @@
 {/if}
 
 <style>
+  .fill-types { border: 0; margin: 0 0 8px; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+  .fill-types label { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+  .fill-types input { margin: 0; accent-color: var(--ok-accent); }
+
   .paint-controls, .size-controls {
     display: flex;
     flex-direction: column;
