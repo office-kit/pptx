@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 177,
+  "count": 178,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2493,6 +2493,23 @@
           "kind": "object",
           "optional": false,
           "default": "{}"
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackgroundPatternFill",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "Partial<PatternFillOptions>",
+          "kind": "object",
+          "optional": false
         }
       ]
     },

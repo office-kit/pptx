@@ -3,6 +3,8 @@
 import type { Color } from '../../internal/drawingml/index.ts';
 import {
   type GradientFillOptions,
+  type PatternFillOptions,
+  setPatternFill,
   type ReadGradientFill,
   readFlip,
   readPosition,
@@ -29,6 +31,7 @@ import {
   NS,
   type XmlElement,
   attr,
+  cloneElement,
   elem,
   firstChildElement,
   getAttrValue,
@@ -747,6 +750,24 @@ export const setSlideBackgroundGradientFill = (
   options: GradientFillOptions,
 ): void => {
   setSlideBackgroundXml(slide, (bgPr) => setGradientFill(bgPr, options));
+};
+
+/**
+ * Updates a slide pattern background, preserving unspecified colors and transforms.
+ * A new pattern uses Mac PowerPoint's defaults: pct5, accent1 foreground, bg1 background.
+ */
+export const setSlideBackgroundPatternFill = (
+  slide: SlideData,
+  options: Partial<PatternFillOptions>,
+): void => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  const bg = cSld && firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  const previous = bg && firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  const pattern = previous && firstChildElement(previous, qname('a', 'pattFill', NS.dml));
+  setSlideBackgroundXml(slide, (bgPr) => {
+    if (pattern) bgPr.children.push(cloneElement(pattern));
+    setPatternFill(bgPr, options);
+  });
 };
 
 /**
