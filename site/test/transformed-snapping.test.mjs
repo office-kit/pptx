@@ -53,3 +53,25 @@ test('grid snapping preserves group translation and uses independent slide grid 
   assert.ok(Math.abs(visible.x) < 1e-9);
   assert.ok(Math.abs(visible.y - 120) < 1e-9);
 });
+
+test('drawing guides snap rotated children in slide coordinates without smart targets', () => {
+  const result = snapTransformedMove(
+    [rect],
+    [],
+    [0, 2, -3, 0, 305, 100],
+    { x: 0, y: 50 },
+    slide,
+    6,
+    { smart: false, drawingGuides: [{ axis: 'x', position: 8 }] },
+  );
+  assert.ok(Math.abs(result.delta.y - 49) < 1e-9);
+  assert.equal(result.delta.x, 0);
+  assert.equal(result.guides.length, 1);
+  assert.equal(result.guides[0].pos, 8);
+  const far = snapTransformedMove([rect], [], [1, 0, 0, 1, 0, 0], { x: 2, y: 2 }, slide, 6, {
+    smart: false,
+    drawingGuides: [{ axis: 'x', position: 700 }],
+  });
+  assert.deepEqual(far.delta, { x: 2, y: 2 });
+  assert.deepEqual(far.guides, []);
+});
