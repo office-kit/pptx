@@ -2,6 +2,9 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Transparency: '透明度',
+  'Fill transparency': '塗りつぶしの透明度',
+  'Line transparency': '線の透明度',
   'Begin Arrow type': '始点の種類',
   'Begin Arrow size': '始点のサイズ',
   'End Arrow type': '終点の種類',

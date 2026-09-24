@@ -1581,7 +1581,7 @@
       "params": [
         {
           "name": "color",
-          "type": "Color",
+          "type": "Color | { color?: Color; opacity?: number }",
           "kind": "color",
           "optional": false
         }
@@ -2090,7 +2090,7 @@
       "params": [
         {
           "name": "options",
-          "type": "{ color?: Color; widthEmu?: number }",
+          "type": "{ color?: Color; widthEmu?: number; opacity?: number }",
           "kind": "object",
           "optional": false
         }
@@ -2229,6 +2229,13 @@
           "type": "TextAnchor",
           "kind": "object",
           "optional": false
+        },
+        {
+          "name": "options",
+          "type": "{ centered?: boolean | null }",
+          "kind": "object",
+          "optional": false,
+          "default": "{}"
         }
       ]
     },

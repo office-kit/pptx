@@ -124,3 +124,40 @@ export const buildColorElement = (value: string): XmlElement => {
  */
 export const asColor = (value: string): Color | null =>
   parseColor(value) === null ? null : (value as Color);
+
+/** Edits solid paint without discarding unrelated imported color transforms. */
+export const editSolidColor = (
+  previous: XmlElement | undefined,
+  options: { color?: string; opacity?: number },
+): XmlElement => {
+  if (
+    options.opacity !== undefined &&
+    (!Number.isFinite(options.opacity) || options.opacity < 0 || options.opacity > 1)
+  ) {
+    throw new RangeError('opacity must be a finite number from 0 to 1');
+  }
+  if (options.color === undefined && !previous)
+    throw new Error('opacity editing requires a solid color');
+  const isAlpha = (element: XmlElement) =>
+    element.name.namespaceURI === NS.dml &&
+    ['alpha', 'alphaMod', 'alphaOff'].includes(element.name.localName);
+  const color =
+    options.color === undefined
+      ? { ...previous!, children: [...previous!.children] }
+      : buildColorElement(options.color);
+  // A new color changes tint/shade, but leaves its separately edited transparency intact.
+  if (options.color !== undefined && previous)
+    color.children = previous.children.filter(
+      (child) => child.kind === 'element' && isAlpha(child),
+    );
+  if (options.opacity !== undefined) {
+    color.children = color.children.filter((child) => child.kind !== 'element' || !isAlpha(child));
+    const opaque = 100_000; // ST_PositiveFixedPercentage uses 1/1000 percent.
+    color.children.push(
+      elem(qname('a', 'alpha', NS.dml), {
+        attrs: [attr(ATTR_VAL, String(Math.round(options.opacity * opaque)))],
+      }),
+    );
+  }
+  return color;
+};

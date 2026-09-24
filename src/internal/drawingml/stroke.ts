@@ -9,8 +9,16 @@
 import type { Color } from './color.ts';
 import { LINE_DASHES } from '../enum-values.ts';
 import { oneOf, lineWidthEmu } from '../bounds.ts';
-import { NS, type XmlElement, attr, elem, insertChildByRank, qname } from '../xml/index.ts';
-import { buildColorElement } from './color.ts';
+import {
+  NS,
+  type XmlElement,
+  attr,
+  elem,
+  firstChildElement,
+  insertChildByRank,
+  qname,
+} from '../xml/index.ts';
+import { editSolidColor } from './color.ts';
 
 const NAME_LN = qname('a', 'ln', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
@@ -75,6 +83,8 @@ export interface StrokeOptions {
   color?: Color;
   /** Line width in EMU. PowerPoint's default for a hairline is 9525 (0.75pt). */
   widthEmu?: number;
+  /** Solid outline opacity, from 0 (transparent) to 1 (opaque). */
+  opacity?: number;
 }
 
 /** Updates the supplied outline properties, preserving omitted properties. */
@@ -86,14 +96,21 @@ export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void =
  * `<a:rPr>`, whose child order is its own, so it cannot go through `ensureLn`.
  */
 export const applySolidStroke = (ln: XmlElement, options: StrokeOptions): void => {
+  const previous = firstChildElement(ln, NAME_SOLID_FILL)?.children.find(
+    (child) => child.kind === 'element',
+  );
+  const color =
+    options.color !== undefined || options.opacity !== undefined
+      ? editSolidColor(previous, options)
+      : undefined;
   if (options.widthEmu !== undefined) {
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
     ln.attrs.push(attr(ATTR_W, String(lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu'))));
   }
   // Width-only edits preserve theme references, color transforms and noFill.
-  if (options.color !== undefined) {
+  if (color) {
     removeChildrenIn(ln, FILL_LOCALS);
-    insertLnChild(ln, elem(NAME_SOLID_FILL, { children: [buildColorElement(options.color)] }));
+    insertLnChild(ln, elem(NAME_SOLID_FILL, { children: [color] }));
   }
 };
 

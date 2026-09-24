@@ -18,6 +18,7 @@
     getSlideShapes,
     setShapeText,
   } from '@office-kit/pptx';
+  import TransparencyField from './TransparencyField.svelte';
   import LineStyleFields from './LineStyleFields.svelte';
   import SizePositionSection from './SizePositionSection.svelte';
   import TextBoxSection from './TextBoxSection.svelte';
@@ -112,7 +113,7 @@
     return /^#[0-9a-f]{6}$/i.test(value) ? value : '#000000';
   }
   function applyFill(value: string) {
-    editor.invoke('setShapeFill', { color: value.replace('#', '') });
+    editor.invoke('setShapeFill', { color: { color: value.replace('#', '') } });
   }
   function applyStroke(value: string) {
     editor.invoke('setShapeStroke', { options: { color: value.replace('#', '') } });
@@ -147,6 +148,7 @@
           </span>
           <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
         </div>
+        <TransparencyField paint="fill" />
       </div>
     </details>
 
@@ -161,6 +163,7 @@
           </span>
           <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
         </div>
+        <TransparencyField paint="line" />
         <label class="paint-field">
           <span>{t('Width')}</span>
           <span class="number"><input class="ok-input" aria-label={t('Outline width (points)')} type="number" min="0" max="1584" step="any"
