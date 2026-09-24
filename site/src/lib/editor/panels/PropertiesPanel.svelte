@@ -93,9 +93,15 @@
   }
 </script>
 
-<div class="panel ok-scroll">
+<div class="panel ok-scroll" hidden={!editor.propertiesPaneVisible}>
   <div class="panel-head">
     <strong>{selLabel}</strong>
+    {#if isShape}
+      <button class="close-pane" aria-label={t('Close Format Shape')} title={t('Close Format Shape')} onclick={(event) => {
+        editor.propertiesPaneVisible = false;
+        event.currentTarget.closest('.ok-shell')?.querySelector<HTMLElement>('.hit.selected')?.focus({ preventScroll: true });
+      }}>×</button>
+    {/if}
   </div>
 
   {#if isShape}
@@ -187,6 +193,16 @@
   }
   [hidden] {
     display: none;
+  }
+  .close-pane {
+    margin-left: auto;
+    padding: 0 4px;
+    border: none;
+    background: none;
+    color: var(--ok-text-2);
+    font-size: 20px;
+    line-height: 20px;
+    cursor: pointer;
   }
   .format-tabs {
     display: flex;

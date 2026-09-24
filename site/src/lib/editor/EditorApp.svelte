@@ -170,7 +170,7 @@
   <TopBar {onsave} />
   {#if status}<div class="host-status">{@render status()}</div>{/if}
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
-  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible}>
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
     {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane />{/if}
     {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
   </div>
@@ -235,6 +235,8 @@
   }
   .slide-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; }
   .ok-body.thumbnails-hidden { grid-template-columns: minmax(0, 1fr) var(--ok-panel-w); }
+  .ok-body.panel-hidden { grid-template-columns: var(--ok-nav-w) minmax(0, 1fr); }
+  .ok-body.thumbnails-hidden.panel-hidden { grid-template-columns: minmax(0, 1fr); }
   .ok-body.sorter { grid-template-columns: minmax(0, 1fr); }
   .ok-body {
     display: grid;
