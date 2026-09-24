@@ -499,3 +499,13 @@ the offset field showed 37% after editing (Return or Tab) but returned to 25% af
 switching fill types; the editor currently retains the latest placement, so this
 native placement-memory difference remains unresolved. Texture presets and preview rendering of
 remaining image effects still require work.
+
+Follow-up placement audit: explicitly confirming Offset left and saving the native
+document wrote `<a:fillRect l="37000"/>`. Switching to Solid fill and back still
+displayed 25%, ruling out an uncommitted numeric input. Switching to tile and then
+Solid/picture restored stretch with 25%, while transparency remained 40%. All
+seven temporary operations were undone, Undo and Reset Background were disabled,
+and the reference was saved. A separate manually patched copy showed a content
+repair warning on save, so observations from that copy are excluded from parity
+evidence. Initial-state versus session-memory behavior still needs an independent
+valid-fixture comparison before changing the editor's restoration rule.
