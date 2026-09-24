@@ -420,5 +420,7 @@ undo, and save/reload are covered by browser tests. The read-only
 the document. Native connection was rechecked successfully; the menu exposes
 12 presets and both footer actions, with Reset disabled on an inherited fill.
 Exact native gallery dimensions still need a usable popover screenshot.
-Custom pattern/image theme swatches and rectangular gradient previews remain
-incomplete; multiple-master native selection behavior remains unaudited.
+Gallery swatches now use the slide renderer, including rectangular gradient
+contours and focus. Browser coverage also verifies resetting a slide override,
+undoing the reset, and retaining inheritance after reload. Custom pattern/image
+theme swatches remain incomplete; multiple-master native selection behavior remains unaudited.

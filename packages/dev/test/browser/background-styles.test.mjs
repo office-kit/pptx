@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import {
   duplicateSlide,
   getSlides,
+  getSlideBackground,
   getSlideMasterBackgroundStyles,
   loadPresentation,
   savePresentation,
@@ -17,7 +18,7 @@ test(
   'background style gallery applies to the master, supports keyboard and undo, and survives reload',
   { timeout: 120000 },
   async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-background-graphics-'));
+    const dir = await mkdtemp(join(tmpdir(), 'office-background-styles-'));
     let preview, browser;
     try {
       const pres = await loadPresentation(
@@ -102,6 +103,30 @@ test(
       assert.deepEqual(await read(), [4, 4, 4]);
       await gallery.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await editor.getByRole('region', { name: 'Format Background', exact: true }).waitFor();
+      await editor.locator('.thumb-row').nth(1).click();
+      await editor.getByRole('radio', { name: 'Gradient fill', exact: true }).check();
+      await saved();
+      const backgrounds = async () => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getSlides(deck).map((slide) => getSlideBackground(slide).kind);
+      };
+      assert.deepEqual(await backgrounds(), ['inherit', 'gradient', 'inherit']);
+      await open();
+      await gallery.getByRole('menuitem', { name: 'Reset Slide Background', exact: true }).click();
+      await saved();
+      assert.deepEqual(await backgrounds(), ['inherit', 'inherit', 'inherit']);
+      assert.deepEqual(await read(), [4, 4, 4]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await backgrounds(), ['inherit', 'gradient', 'inherit']);
+      await open();
+      await gallery.getByRole('menuitem', { name: 'Reset Slide Background', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await backgrounds(), ['inherit', 'inherit', 'inherit']);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
