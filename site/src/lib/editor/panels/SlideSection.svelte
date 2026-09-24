@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { getSlides, asColor, type Color, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { getSlides, asColor, type Color, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
   import { readSlideBackground } from '../core/slide-background.ts';
+  import PatternFillSection from './PatternFillSection.svelte';
   import GradientFillSection from './GradientFillSection.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import { selectedSlideIndices } from '../core/selection.ts';
@@ -21,6 +22,7 @@
   const mixedLayout = $derived(slides.some(item => { const value = getSlideLayout(item); return (value ? getSlideLayoutPartName(value) : '') !== layoutId; }));
   const mixedBackground = $derived(slides.some(item => JSON.stringify(readSlideBackground(doc.pres, item).fill) !== JSON.stringify(background)));
   const gradientBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'gradient'));
+  const patternBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'pattern'));
   const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(readSlideBackground(doc.pres, item).fill.kind)));
   const opacity = $derived(background?.kind === 'solid' ? background.opacity ?? 1 : 1);
   const mixedOpacity = $derived(slides.some(item => { const value = readSlideBackground(doc.pres, item).fill; return (value.kind === 'solid' ? value.opacity ?? 1 : 1) !== opacity; }));
@@ -86,9 +88,12 @@
     <div class="background-types" role="radiogroup" aria-label={t('Background fill')}>
       <label class="check"><input type="radio" name="background-fill" checked={solidBackground} onchange={() => apply('Background color', target => setSlideBackground(target, '#FFFFFF'))} />{t('Solid fill')}</label>
       <label class="check"><input type="radio" name="background-fill" checked={gradientBackground} onchange={() => apply('Gradient fill', target => setSlideBackgroundGradientFill(target, { stops: [{ offset: 0, color: 'accent1', brightness: 0.95 }, { offset: 1, color: 'accent1', brightness: 0.7 }], angleDeg: 0, scaled: false }))} />{t('Gradient fill')}</label>
+      <label class="check"><input type="radio" name="background-fill" checked={patternBackground} onchange={() => apply('Pattern fill', target => setSlideBackgroundPatternFill(target, {}))} />{t('Pattern fill')}</label>
     </div>
     {#if gradientBackground}
       <GradientFillSection background />
+    {:else if patternBackground}
+      <PatternFillSection background />
     {:else}
       <div class="color-field">{t('Background color')}<ColorPicker label={t('Background color')} value={!mixedBackground && background?.kind === 'solid' ? background.color : undefined} choose={color => changeSolid(color)} /></div>
     {/if}

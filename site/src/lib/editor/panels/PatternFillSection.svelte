@@ -1,16 +1,20 @@
 <script lang="ts">
-  import { getShapePatternFill, setShapePatternFill, type PatternFillOptions } from '@office-kit/pptx';
+  import { getShapePatternFill, setShapePatternFill, getSlides, setSlideBackgroundPatternFill, type PatternFillOptions } from '@office-kit/pptx';
+  import { selectedSlideIndices } from '../core/selection.ts';
+  import { readSlideBackground } from '../core/slide-background.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import { patterns, patternSwatches } from './patterns.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
 
+  let { background = false }: { background?: boolean } = $props();
   const editor = getEditor();
   const swatches = patternSwatches();
   const shapes = $derived.by(() => { editor.doc.version; return editor.selectedShapes(); });
-  const fills = $derived(shapes.map(shape => getShapePatternFill(editor.doc.pres, shape)));
-  const sourceFills = $derived(shapes.map(shape => getShapePatternFill(editor.doc.pres, shape, { preserveTheme: true })));
-  const locked = $derived(editor.selectionLocked());
+  const slides = $derived.by(() => { editor.doc.version; const all = getSlides(editor.doc.pres); return selectedSlideIndices(editor.doc.selection).flatMap(index => all[index] ? [all[index]!] : []); });
+  const fills = $derived(background ? slides.map(slide => readSlideBackground(editor.doc.pres, slide).pattern) : shapes.map(shape => getShapePatternFill(editor.doc.pres, shape)));
+  const sourceFills = $derived(background ? slides.map(slide => readSlideBackground(editor.doc.pres, slide, { preserveTheme: true }).pattern) : shapes.map(shape => getShapePatternFill(editor.doc.pres, shape, { preserveTheme: true })));
+  const locked = $derived(!background && editor.selectionLocked());
   function common(field: keyof PatternFillOptions, source = false): string | undefined {
     const values = new Set((source ? sourceFills : fills).map(fill => fill?.[field]));
     return values.size === 1 ? [...values][0] : undefined;
@@ -18,7 +22,8 @@
   function apply(patch: Partial<PatternFillOptions>) {
     if (locked) return;
     editor.doc.transact(t('Pattern fill'), () => {
-      shapes.forEach(shape => setShapePatternFill(shape, patch));
+      if (background) slides.forEach(slide => setSlideBackgroundPatternFill(slide, patch));
+      else shapes.forEach(shape => setShapePatternFill(shape, patch));
     });
   }
   function keys(event: KeyboardEvent) {

@@ -59,6 +59,7 @@ import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } f
 import { getPresentationTheme, themeFromPackage } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { resolveDrawingColorOpacity } from './shape-color.ts';
+import { getSlideLayout } from './shape-slide-read.ts';
 import { parseGradFill } from './shape-gradient-read.ts';
 import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
 
@@ -408,6 +409,7 @@ export const getSlideMasterShapes = (
 export const getSlideLayoutBackgroundPatternFill = (
   pres: PresentationData,
   layout: SlideLayoutData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: string; foreground: string; background: string } | null => {
   const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
   if (!cSld) return null;
@@ -424,6 +426,14 @@ export const getSlideLayoutBackgroundPatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -443,6 +453,7 @@ export const getSlideLayoutBackgroundPatternFill = (
 export const getSlideMasterBackgroundPatternFill = (
   pres: PresentationData,
   layout: SlideLayoutData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: string; foreground: string; background: string } | null => {
   const pkg = pres[INTERNAL_PACKAGE];
   const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
@@ -468,6 +479,14 @@ export const getSlideMasterBackgroundPatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -595,6 +614,7 @@ export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFi
 export const getSlideBackgroundPatternFill = (
   pres: PresentationData,
   slide: SlideData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: string; foreground: string; background: string } | null => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) return null;
@@ -611,6 +631,14 @@ export const getSlideBackgroundPatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -752,16 +780,38 @@ export const setSlideBackgroundGradientFill = (
   setSlideBackgroundXml(slide, (bgPr) => setGradientFill(bgPr, options));
 };
 
+// Stop at any explicit background, even when it is not a pattern.
+const effectiveBackgroundElement = (slide: SlideData): XmlElement | null => {
+  const background = (root: XmlElement): XmlElement | null => {
+    const cSld = firstChildElement(root, NAME_CSLD);
+    return cSld ? firstChildElement(cSld, qname('p', 'bg', NS.pml)) : null;
+  };
+  const own = background(slide[SLIDE_DOCUMENT].root);
+  if (own) return own;
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+  const inherited = background(layout[LAYOUT_DOCUMENT].root);
+  if (inherited) return inherited;
+  const pkg = slide[INTERNAL_PACKAGE];
+  const layoutName = partName(layout[LAYOUT_PART_NAME]);
+  const masterRel = pkg
+    .getRels(layoutName)
+    ?.items.find((rel) => rel.type === REL_TYPES.slideMaster);
+  if (!masterRel) return null;
+  const master = pkg.getPart(resolveTarget(layoutName, masterRel.target));
+  return master ? background(parseXml(decode(master.data)).root) : null;
+};
+
 /**
  * Updates a slide pattern background, preserving unspecified colors and transforms.
+ * Inherited patterns become a slide override; the layout and master stay unchanged.
  * A new pattern uses Mac PowerPoint's defaults: pct5, accent1 foreground, bg1 background.
  */
 export const setSlideBackgroundPatternFill = (
   slide: SlideData,
   options: Partial<PatternFillOptions>,
 ): void => {
-  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
-  const bg = cSld && firstChildElement(cSld, qname('p', 'bg', NS.pml));
+  const bg = effectiveBackgroundElement(slide);
   const previous = bg && firstChildElement(bg, qname('p', 'bgPr', NS.pml));
   const pattern = previous && firstChildElement(previous, qname('a', 'pattFill', NS.dml));
   setSlideBackgroundXml(slide, (bgPr) => {
