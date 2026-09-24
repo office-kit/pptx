@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { asColor, getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import { getSlides, type SlideData, isSlideHidden, setSlideHidden, getSlideBackground, getSlideLayout, getSlideLayouts, getSlideLayoutName, getSlideLayoutPartName, setSlideBackground, setSlideBackgroundImage, clearSlideBackground, setSlideLayout } from '@office-kit/pptx';
+  import ColorPicker from '../ui/ColorPicker.svelte';
   import { selectedSlideIndices } from '../core/selection.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -70,7 +71,7 @@
     <button class="ok-btn" onclick={() => editor.invoke('addMissingSlidePlaceholders')}>{t('Restore deleted placeholders')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderTextFormatting')}>{t('Reset placeholder text formatting')}</button>
     <button class="ok-btn" onclick={() => editor.invoke('resetSlidePlaceholderGeometry')}>{t('Reset placeholder positions')}</button>
-    <label>{t('Background color')}<input type="color" aria-label={t('Background color')} value={background?.kind === 'solid' && /^#[0-9a-f]{6}$/i.test(background.color) ? background.color : '#ffffff'} onchange={event => { const color = asColor(event.currentTarget.value); if (color) apply('Background color', target => setSlideBackground(target, color)); }} /></label>
+    <div class="color-field">{t('Background color')}<ColorPicker label={t('Background color')} value={!mixedBackground && background?.kind === 'solid' ? background.color : undefined} choose={color => apply('Background color', target => setSlideBackground(target, color))} /></div>
     {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}
     <input bind:this={fileInput} aria-label={t('Background image')} type="file" accept="image/*" hidden disabled={loading} onchange={upload} />
     <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>
@@ -83,9 +84,8 @@
   section { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--ok-border); }
   .selection { font-size: 11px; color: var(--ok-muted); }
   strong { font-size: 12px; }
-  label { display: grid; gap: 6px; font-size: 11px; }
+  label, .color-field { display: grid; gap: 6px; font-size: 11px; }
   .check { display: flex; align-items: center; }
   input[type='file'] { width: 100%; font-size: 11px; }
-  input[type='color'] { width: 100%; height: 26px; }
   [role='alert'] { color: #bf3131; font-size: 11px; }
 </style>

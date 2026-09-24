@@ -290,7 +290,7 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Gradient stops now offer ten base theme colors and ten standard colors. Theme selections retain their scheme reference when saved; choosing a base color resets the stop brightness while retaining the other stops. Keyboard selection, Escape cancellation, Undo/Redo and selected-state restoration after reload have browser regression coverage.
 - More Colors opens the browser color picker. A native Chrome accessibility check verified the RGB fields and changing red from 192 to 128; the resulting color well read RGB 128/80/77 and the editor recorded the change. This verifies custom color entry, not equivalence with PowerPoint's custom color dialog.
 - Tone rows, recent colors, a palette-level eyedropper, slide-specific theme/color-map resolution, integration with other color controls and exact native popup geometry remain outstanding. The current theme swatches use the presentation theme.
-- Solid fill and outline now share the palette, retaining theme references and keeping their raw selected color separate from the resolved swatch. Locked selections disable both controls. Background color controls still use their existing pickers.
+- Solid fill and outline now share the palette, retaining theme references and keeping their raw selected color separate from the resolved swatch. Locked selections disable both controls.
 
 - Pattern foreground/background controls now use the same palette. Untransformed theme references remain selected after save/reload and survive switching to solid fill and back. `getShapePatternFill` keeps its resolved RGB default and offers `preserveTheme` for this editing path; transformed colors retain the existing RGB-resolution behavior. Theme/color-map resolution per slide and preservation of arbitrary color transforms while switching fill types remain outstanding.
 
@@ -298,3 +298,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - The text formatting toolbar now offers theme and standard colors for selected characters, caret typing, selected objects and table cells. Theme choices are written as scheme references. Browser regressions cover caret formatting in shapes and cells, preservation of surrounding runs, selected-text color changes, Undo/Redo and reload.
 - The shared palette resolves theme tokens for its preview swatch and custom-color starting value. Tone rows, recent colors, exact native popup geometry and slide-specific theme/color-map resolution remain outstanding. Highlight colors still use the existing picker.
+
+### Background colors
+
+- Slide and shared-layout background controls use the theme/standard palette and retain scheme references in saved files. Mixed slide backgrounds show no selected swatch. Browser coverage checks multi-slide application in one history step, Undo/Redo, shared-layout save/reload and selected swatches in English/Japanese.
+- Mac PowerPoint inspection confirms Design → Background Styles → Format Background, with Solid, Gradient, Picture or texture and Pattern radio buttons; Hide Background Graphics; Color and Transparency; and Apply to All / Reset Background at the bottom. Opening this panel did not change the audit deck (Undo disabled). The editor still exposes slide/layout settings in its existing sections: this native panel structure and the background fill-type controls remain outstanding, as do exact palette geometry and slide-specific color maps.

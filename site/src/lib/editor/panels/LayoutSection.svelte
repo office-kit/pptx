@@ -10,6 +10,7 @@
     getSlideLayoutPartName,
     getSlides,
   } from '@office-kit/pptx';
+  import ColorPicker from '../ui/ColorPicker.svelte';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
@@ -36,9 +37,9 @@
     <label>{t('Layout name')}
       <input class="ok-input" aria-label={t('Layout name')} value={name} onchange={event => editor.invoke('setSlideLayoutName', { name: event.currentTarget.value })} />
     </label>
-    <label>{t('Layout background color')}
-      <input type="color" aria-label={t('Layout background color')} value={background?.kind === 'solid' && /^#[0-9a-f]{6}$/i.test(background.color) ? background.color : '#ffffff'} onchange={event => editor.invoke('setSlideLayoutBackground', { color: event.currentTarget.value })} />
-    </label>
+    <div class="color-field">{t('Layout background color')}
+      <ColorPicker label={t('Layout background color')} value={background?.kind === 'solid' ? background.color : undefined} choose={color => editor.invoke('setSlideLayoutBackground', { color })} />
+    </div>
     <button class="ok-btn" disabled={background?.kind === 'inherit'} onclick={() => editor.invoke('clearSlideLayoutBackground')}>{t('Reset layout background')}</button>
     <button class="ok-btn" onclick={() => editor.runOrPrompt('setSlideLayoutPlaceholderBounds')}>{t('Move a layout placeholder')}</button>
   </section>
@@ -48,6 +49,5 @@
   section { display: grid; gap: 10px; padding: 12px; border-bottom: 1px solid var(--ok-border); }
   strong { font-size: 12px; }
   .shared { font-size: 11px; color: var(--ok-muted); }
-  label { display: grid; gap: 6px; font-size: 11px; }
-  input[type='color'] { width: 100%; height: 26px; }
+  label, .color-field { display: grid; gap: 6px; font-size: 11px; }
 </style>

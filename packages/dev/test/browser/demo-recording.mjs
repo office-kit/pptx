@@ -122,7 +122,9 @@ const run = async () => {
     await pane.getByLabel('Layout name', { exact: true }).fill('Brand base');
     await pane.getByLabel('Layout name', { exact: true }).press('Tab');
     await saved();
-    await pane.getByLabel('Layout background color', { exact: true }).fill('#eef2f8');
+    await pane
+      .getByLabel('Layout background color: More Colors...', { exact: true })
+      .fill('#eef2f8');
     await saved();
     await pause(page, 1200);
 

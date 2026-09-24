@@ -57,7 +57,7 @@ test(
       await saved();
       await thumbs.nth(0).click();
       const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
-      await pane.getByLabel('Background color', { exact: true }).fill('#aabbcc');
+      await pane.getByLabel('Background color: More Colors...', { exact: true }).fill('#aabbcc');
       await saved();
       await pane.getByLabel('Slide layout', { exact: true }).selectOption({ label: 'Title Slide' });
       await saved();
@@ -80,19 +80,39 @@ test(
       assert.deepEqual((await slides()).map(isSlideHidden), [true, true, false]);
       await undo();
       assert.deepEqual((await slides()).map(isSlideHidden), [true, false, false]);
-      await pane.getByLabel('Background color', { exact: true }).fill('#112233');
+      const color = pane.getByRole('button', { name: 'Background color', exact: true });
+      await color.click();
+      const palette = editor.getByRole('menu', { name: 'Background color', exact: true });
+      assert.equal(await palette.locator('[aria-checked="true"]').count(), 0);
+      await palette.getByRole('menuitemradio', { name: 'Accent 3', exact: true }).click();
       await saved();
       assert.deepEqual((await slides()).map(getSlideBackground), [
-        { kind: 'solid', color: '#112233' },
-        { kind: 'solid', color: '#112233' },
+        { kind: 'solid', color: 'scheme:accent3' },
+        { kind: 'solid', color: 'scheme:accent3' },
         { kind: 'inherit' },
       ]);
+      await color.click();
+      assert.equal(
+        await palette
+          .getByRole('menuitemradio', { name: 'Accent 3', exact: true })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      await palette.press('Escape');
       await undo();
       assert.deepEqual((await slides()).map(getSlideBackground), [
         { kind: 'solid', color: '#AABBCC' },
         { kind: 'inherit' },
         { kind: 'inherit' },
       ]);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual((await slides()).map(getSlideBackground), [
+        { kind: 'solid', color: 'scheme:accent3' },
+        { kind: 'solid', color: 'scheme:accent3' },
+        { kind: 'inherit' },
+      ]);
+      await undo();
       await pane
         .getByLabel('Slide layout', { exact: true })
         .selectOption({ label: 'Title and Content' });
