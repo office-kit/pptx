@@ -1,5 +1,6 @@
 <script lang="ts">
   import './ui/tokens.css';
+  import { arrangeShortcut } from './core/arrange-shortcuts.ts';
   import { parseTableClipboard } from './core/table-clipboard.ts';
   import { t } from './i18n/i18n.svelte.ts';
   import { untrack, type Snippet } from 'svelte';
@@ -64,7 +65,13 @@
       editor.togglePalette();
       return;
     }
-    if (mod && ['f', 'h'].includes(e.key.toLowerCase())) {
+    const arrangement = arrangeShortcut(e);
+    if (arrangement && !typing && !e.defaultPrevented) {
+      e.preventDefault();
+      if (editor.canRun(arrangement)) editor.invoke(arrangement);
+      return;
+    }
+    if (mod && !e.shiftKey && !e.altKey && ['f', 'h'].includes(e.key.toLowerCase())) {
       e.preventDefault();
       editor.runOrPrompt('replaceTextInPresentation');
       return;
@@ -93,10 +100,6 @@
     } else if (mod && e.key.toLowerCase() === 'd') {
       e.preventDefault();
       editor.duplicateSelection();
-    } else if (mod && e.key.toLowerCase() === 'g') {
-      e.preventDefault();
-      const command = e.shiftKey ? 'ungroupShapes' : 'groupShapes';
-      if (editor.canRun(command)) editor.invoke(command);
     } else if (mod && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
       // Format painter. `code`, not `key`: Alt rewrites the character on macOS.
       e.preventDefault();
