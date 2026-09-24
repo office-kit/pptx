@@ -52,7 +52,33 @@ test(
       const thumbs = editor.locator('.thumb-row');
       await thumbs.nth(0).click();
       await thumbs.nth(1).click({ modifiers: ['Shift'] });
-      const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
+      await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: 'Design', exact: true })
+        .getByRole('button', { name: 'Format Background', exact: true })
+        .click();
+      const pane = editor.getByRole('region', { name: 'Format Background', exact: true });
+      assert.equal(
+        await editor.getByRole('region', { name: 'Slide options', exact: true }).count(),
+        0,
+      );
+      await pane.locator('summary').click();
+      assert.equal(
+        await pane.getByRole('radio', { name: 'Pattern fill', exact: true }).isVisible(),
+        false,
+      );
+      assert.equal(
+        await pane.getByRole('button', { name: 'Apply to All', exact: true }).isVisible(),
+        true,
+      );
+      await pane.locator('summary').click();
+      await editor.getByRole('button', { name: 'Close Format Background', exact: true }).click();
+      assert.equal(await pane.isVisible(), false);
+      await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: 'Design', exact: true })
+        .getByRole('button', { name: 'Format Background', exact: true })
+        .click();
       await pane.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
       await saved();
       const initial = { preset: 'pct5', foreground: 'accent1', background: 'bg1' };
@@ -67,6 +93,12 @@ test(
       await page.screenshot({ path: '/tmp/pptx-background-pattern-panel.png' });
       await page.reload();
       await saved();
+      await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: 'Design', exact: true })
+        .getByRole('button', { name: 'Format Background', exact: true })
+        .click();
+
       assert.deepEqual(await read(), [changed, changed, null]);
       await thumbs.nth(0).click();
       await pane.getByRole('button', { name: 'Background', exact: true }).click();
@@ -97,6 +129,12 @@ test(
       await saved();
       await page.reload();
       await saved();
+      await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: 'Design', exact: true })
+        .getByRole('button', { name: 'Format Background', exact: true })
+        .click();
+
       assert.deepEqual(await read(true), [changed, changed, changed]);
       assert.deepEqual(errors, []);
     } finally {

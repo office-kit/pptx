@@ -160,11 +160,7 @@ export const RIBBON: readonly RibbonTab[] = [
       },
       {
         title: 'Background',
-        items: [
-          { id: 'setSlideBackground', icon: 'background' },
-          { id: 'setSlideBackgroundImage', icon: 'image' },
-          { id: 'clearSlideBackground', icon: 'trash' },
-        ],
+        items: [],
       },
       {
         title: 'Theme',

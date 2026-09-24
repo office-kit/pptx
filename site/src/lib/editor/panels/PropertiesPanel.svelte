@@ -9,6 +9,7 @@
     type ResolvedCapability,
   } from '../manifest/index.ts';
   import Icon from '../ui/Icon.svelte';
+  import BackgroundSection from './BackgroundSection.svelte';
   import SlideSection from './SlideSection.svelte';
   import LayoutSection from './LayoutSection.svelte';
   import ChartSection from './ChartSection.svelte';
@@ -28,6 +29,7 @@
     { id: 'size', label: 'Size & Properties', icon: 'resize' },
   ] as const;
   const isShape = $derived.by(() => {
+    if (editor.propertiesPaneMode === 'background') return false;
     doc.version;
     const shapes = editor.selectedShapes();
     return shapes.length > 0 && shapes.every((shape) =>
@@ -80,6 +82,7 @@
   });
 
   const selLabel = $derived.by(() => {
+    if (editor.propertiesPaneMode === 'background') return t('Format Background');
     const sel = doc.selection;
     if (sel.kind === 'shape') return isShape ? t('Format Shape') : t('Shape');
     if (sel.kind === 'cell') return t('Table cell');
@@ -96,10 +99,12 @@
 <div class="panel ok-scroll" hidden={!editor.propertiesPaneVisible}>
   <div class="panel-head">
     <strong>{selLabel}</strong>
-    {#if isShape}
-      <button class="close-pane" aria-label={t('Close Format Shape')} title={t('Close Format Shape')} onclick={(event) => {
+    {#if isShape || editor.propertiesPaneMode === 'background'}
+      <button class="close-pane" aria-label={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : 'Close Format Shape')} title={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : 'Close Format Shape')} onclick={(event) => {
         editor.propertiesPaneVisible = false;
-        event.currentTarget.closest('.ok-shell')?.querySelector<HTMLElement>('.hit.selected')?.focus({ preventScroll: true });
+        const shell = event.currentTarget.closest('.ok-shell');
+        const target = shell?.querySelector<HTMLElement>(editor.propertiesPaneMode === 'background' ? '.format-background-trigger' : '.hit.selected');
+        target?.focus({ preventScroll: true });
       }}>×</button>
     {/if}
   </div>
@@ -133,42 +138,46 @@
     role={isShape ? 'tabpanel' : undefined}
     aria-labelledby={isShape ? `format-tab-${editor.formatPaneTab}` : undefined}
   >
-    <SlideSection />
-    <LayoutSection />
-    <div hidden={isShape && editor.formatPaneTab !== 'size'}>
-      <ChartSection />
-      <TableSection />
-      <ImageSection />
-    </div>
-    <BespokeSections tab={isShape ? editor.formatPaneTab : 'all'} />
-    <div hidden={isShape && editor.formatPaneTab !== 'size'}>
-      <ParagraphSection />
-      <ArrangeSection />
-      <AnimationSection />
-    </div>
+    {#if editor.propertiesPaneMode === 'background'}
+      <BackgroundSection />
+    {:else}
+      <SlideSection />
+      <LayoutSection />
+      <div hidden={isShape && editor.formatPaneTab !== 'size'}>
+        <ChartSection />
+        <TableSection />
+        <ImageSection />
+      </div>
+      <BespokeSections tab={isShape ? editor.formatPaneTab : 'all'} />
+      <div hidden={isShape && editor.formatPaneTab !== 'size'}>
+        <ParagraphSection />
+        <ArrangeSection />
+        <AnimationSection />
+      </div>
 
-    <div class="all">
-      <div class="all-title">{t('All applicable capabilities')}</div>
-      {#each grouped as g (g.category)}
-        <section class="cat">
-          <button class="cat-head" onclick={() => toggle(g.category)}>
-            <span class="chev" class:open={open[g.category]}>▸</span>
-            {catLabel(g.label)}
-            <span class="n">{g.items.length}</span>
-          </button>
-          {#if open[g.category]}
-            <div class="cat-items">
-              {#each g.items as cap (cap.id)}
-                <button class="row" title={cap.id} onclick={() => editor.runOrPrompt(cap.id)}>
-                  <span class="row-label">{capLabel(cap)}</span>
-                  <span class="row-args">{argLabel(cap.params.length)}</span>
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </section>
-      {/each}
-    </div>
+      <div class="all">
+        <div class="all-title">{t('All applicable capabilities')}</div>
+        {#each grouped as g (g.category)}
+          <section class="cat">
+            <button class="cat-head" onclick={() => toggle(g.category)}>
+              <span class="chev" class:open={open[g.category]}>▸</span>
+              {catLabel(g.label)}
+              <span class="n">{g.items.length}</span>
+            </button>
+            {#if open[g.category]}
+              <div class="cat-items">
+                {#each g.items as cap (cap.id)}
+                  <button class="row" title={cap.id} onclick={() => editor.runOrPrompt(cap.id)}>
+                    <span class="row-label">{capLabel(cap)}</span>
+                    <span class="row-args">{argLabel(cap.params.length)}</span>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </section>
+        {/each}
+      </div>
+    {/if}
   </div>
 </div>
 
