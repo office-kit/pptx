@@ -80,12 +80,27 @@
     const element = event.currentTarget;
     if (!(element instanceof HTMLInputElement)) return;
     const file = element.files?.[0];
-    if (!file || locked || doc.selection.kind !== 'shape' || shapes.some(shape => getShapeKind(shape) !== 'shape')) return;
+    if (!file) return;
+    try { await insertImage(() => file.arrayBuffer()); }
+    finally { element.value = ''; }
+  }
+  async function pasteImage() {
+    await insertImage(async () => {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find(type => type.startsWith('image/'));
+        if (type) return (await item.getType(type)).arrayBuffer();
+      }
+      throw new Error(t('The clipboard does not contain a picture.'));
+    });
+  }
+  async function insertImage(read: () => Promise<ArrayBuffer>) {
+    if (locked || doc.selection.kind !== 'shape' || shapes.some(shape => getShapeKind(shape) !== 'shape')) return;
     const targets = [...shapes], presentation = doc.pres, version = doc.version, selection = doc.selection;
     const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
     loading = true; error = '';
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bytes = new Uint8Array(await read());
       if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection || editor.selectionLocked()) {
         error = t('The selection changed. Choose the picture again.'); return;
       }
@@ -97,8 +112,8 @@
           doc.rememberedFills.set(key, remembered);
         }
       });
-    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
-    finally { loading = false; element.value = ''; }
+    } catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
+    finally { loading = false; }
   }
 </script>
 
@@ -107,6 +122,7 @@
   <fieldset disabled={locked}>
     <span>{t('Picture source')}</span>
     <button class="ok-btn" disabled={shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={chooseImage}>{t('Insert...')}</button>
+    <button class="ok-btn" disabled={!navigator.clipboard?.read || shapes.some(shape => getShapeKind(shape) !== 'shape')} onclick={pasteImage}>{t('Clipboard')}</button>
     <span>{t('Transparency')}</span>
     <div class="transparency">
       <input type="range" min="0" max="100" value={transparency ?? 0} aria-label={t('Picture transparency')} aria-valuetext={transparency === undefined ? t('Mixed') : `${transparency}%`} onchange={event => { const value = event.currentTarget.valueAsNumber; apply('Picture transparency', shape => setShapeImageOpacity(shape, 1 - value / 100)); }} />
