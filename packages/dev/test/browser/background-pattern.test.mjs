@@ -83,6 +83,24 @@ test(
       await saved();
       const initial = { preset: 'pct5', foreground: 'accent1', background: 'bg1' };
       assert.deepEqual(await read(), [initial, initial, null]);
+      await page.setViewportSize({ width: 1280, height: 650 });
+      const actions = pane.locator('.actions');
+      const footerBefore = await actions.boundingBox();
+      const paneBounds = await pane.boundingBox();
+      assert.ok(footerBefore && paneBounds);
+      assert.ok(
+        Math.abs(footerBefore.y + footerBefore.height - paneBounds.y - paneBounds.height) < 2,
+      );
+      const settings = pane.locator('details');
+      assert.equal(await settings.evaluate((el) => el.scrollHeight > el.clientHeight), true);
+      await settings.hover();
+      await page.mouse.wheel(0, 1000);
+      await pane.getByRole('button', { name: 'Background', exact: true }).scrollIntoViewIfNeeded();
+      const footerAfter = await actions.boundingBox();
+      assert.ok(footerAfter && Math.abs(footerAfter.y - footerBefore.y) < 2);
+      assert.ok(await settings.evaluate((el) => el.scrollTop > 0));
+      await page.screenshot({ path: '/tmp/pptx-background-footer.png' });
+      await page.setViewportSize({ width: 1500, height: 1100 });
       await pane.getByRole('button', { name: 'Wave', exact: true }).click();
       await saved();
       await pane.getByRole('button', { name: 'Foreground', exact: true }).click();

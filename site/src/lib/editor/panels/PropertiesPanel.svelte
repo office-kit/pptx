@@ -96,7 +96,7 @@
   }
 </script>
 
-<div class="panel ok-scroll" hidden={!editor.propertiesPaneVisible}>
+<div class="panel ok-scroll" class:background-pane={editor.propertiesPaneMode === 'background'} hidden={!editor.propertiesPaneVisible}>
   <div class="panel-head">
     <strong>{selLabel}</strong>
     {#if isShape || editor.propertiesPaneMode === 'background'}
@@ -200,6 +200,9 @@
     background: var(--ok-panel);
     z-index: 1;
   }
+  .background-pane { overflow: hidden; min-height: 0; }
+  .background-pane .panel-head { flex-shrink: 0; }
+  .background-pane #format-panel { flex: 1; min-height: 0; display: flex; flex-direction: column; }
   [hidden] {
     display: none;
   }

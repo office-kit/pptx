@@ -348,3 +348,11 @@ After unchecking an individual slide, its layout decoration reappears but its
 master decoration stays hidden because the layout still carries the flag. The
 implementation and rendering tests cover this distinction. All temporary edits
 were undone and saved.
+
+### Background pane footer
+
+The Mac Format Background pane keeps Apply to All and Reset Background against
+the bottom edge, separate from the scrollable fill controls. The editor now does
+the same. A short-window browser check verifies that scrolling the pattern
+settings leaves both actions in place. The native gradient inspection used only
+temporary edits, which were undone and saved.
