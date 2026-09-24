@@ -476,14 +476,22 @@ export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
   return n / 100000;
 };
 
+const cropImageFill = (shape: SlideShapeData): XmlElement | null => {
+  const element = shape[SHAPE_ELEMENT];
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    return firstChildElement(element, qname('p', 'blipFill', NS.pml));
+  }
+  const spPr = firstChildElement(element, qname('p', 'spPr', NS.pml));
+  return spPr ? firstChildElement(spPr, qname('a', 'blipFill', NS.dml)) : null;
+};
+
 /**
- * Reads the picture's crop fractions. Returns `null` when no
+ * Reads a picture or image fill's crop fractions. Returns `null` when no
  * `<a:srcRect>` is present; otherwise returns a fully-populated object
  * with every side filled in (0 for omitted sides on disk).
  */
 export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  const blipFill = cropImageFill(shape);
   if (!blipFill) return null;
   const srcRect = firstChildElement(blipFill, qname('a', 'srcRect', NS.dml));
   if (!srcRect) return null;
@@ -658,7 +666,6 @@ export interface ImageCrop {
   readonly bottom?: number;
 }
 
-const NAME_BLIP_FILL_FN = qname('p', 'blipFill', NS.pml);
 const NAME_SRC_RECT_FN = qname('a', 'srcRect', NS.dml);
 const NAME_BLIP_FN = qname('a', 'blip', NS.dml);
 const ATTR_CROP_L = qname('', 'l', '');
@@ -675,23 +682,17 @@ const fractionToST = (n: number | undefined): string | null => {
 };
 
 /**
- * Sets (or clears) a `<a:srcRect>` on a picture shape, cropping the
+ * Sets (or clears) a `<a:srcRect>` on a picture or image-filled shape, cropping the
  * embedded image by the given fraction on each side. Pass `null` to
  * remove an existing crop.
  *
  * Fractions are in `[0, 1)` per side. `{ left: 0.25 }` clips 25% off
- * the left edge; the visible image stretches to fill the original
- * frame. The shape's geometry (`<a:xfrm>`) is unchanged.
+ * the left edge. Stretch fills fit the remaining image to the frame;
+ * tiled fills repeat the remaining image. The shape's geometry (`<a:xfrm>`) is unchanged.
  */
 export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageCrop only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const pic = shape[SHAPE_ELEMENT];
-  const blipFill = firstChildElement(pic, NAME_BLIP_FILL_FN);
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blipFill = cropImageFill(shape);
+  if (!blipFill) throw new Error('setShapeImageCrop requires a picture or image-filled shape');
 
   // Validate all sides before touching the live tree, so a rejected edit
   // cannot erase a crop that a later successful edit would then save.

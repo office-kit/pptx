@@ -479,8 +479,10 @@ const renderPicture = (
     if (layout?.mode === 'tile') {
       const intrinsic = getShapeImageIntrinsicSize(shape);
       if (intrinsic) {
-        const tileW = intrinsic.width * (layout.scaleX ?? 1);
-        const tileH = intrinsic.height * (layout.scaleY ?? 1);
+        const sourceW = intrinsic.width * (layout.scaleX ?? 1);
+        const sourceH = intrinsic.height * (layout.scaleY ?? 1);
+        const tileW = sourceW * (1 - cropL - cropR);
+        const tileH = sourceH * (1 - cropT - cropB);
         if (tileW <= 0 || tileH <= 0) return `${clipDef}${border}<g${transform}>${textOverlay}</g>`;
         const alignment = layout.alignment ?? 'tl';
         const horizontal = ['t', 'ctr', 'b'].includes(alignment)
@@ -506,7 +508,7 @@ const renderPicture = (
                 ? ` transform="translate(${E(col * 2 * tileW)} ${E(row * 2 * tileH)}) scale(${col ? -1 : 1} ${row ? -1 : 1})"`
                 : '';
             images.push(
-              `<image width="${E(tileW)}" height="${E(tileH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${reflection}/>`,
+              `<g${reflection}><svg width="${E(tileW)}" height="${E(tileH)}" overflow="hidden"><image x="${E(-sourceW * cropL)}" y="${E(-sourceH * cropT)}" width="${E(sourceW)}" height="${E(sourceH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"/></svg></g>`,
             );
           }
         }
