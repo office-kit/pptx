@@ -7194,6 +7194,8 @@ export const renderSlideSvg = (
     }
   }
   let bgColor = '#FFFFFF';
+  const bgOpacity = bg.kind === 'solid' ? bg.opacity : undefined;
+  const bgOpacityAttr = bgOpacity === undefined ? '' : ` fill-opacity="${bgOpacity}"`;
   let bgGradient = '';
   let bgGradientDefs = '';
   if (bg.kind === 'solid') {
@@ -7287,12 +7289,14 @@ export const renderSlideSvg = (
     .map((s) => renderShape(s, pres, theme, ctx))
     .join('');
 
+  const backgroundSvg = `${bgOpacity === undefined ? '' : `<rect width="${E(W)}" height="${E(H)}" fill="#FFFFFF"/>`}<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"${bgOpacityAttr}/>${bgGradient}${bgImage}`;
+
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
     bgGradientDefs,
     ctx.background.id
-      ? `<defs><g id="${ctx.background.id}"><rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>${bgGradient}${bgImage}</g></defs><use href="#${ctx.background.id}" xlink:href="#${ctx.background.id}"/>`
-      : `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>${bgGradient}${bgImage}`,
+      ? `<defs><g id="${ctx.background.id}">${backgroundSvg}</g></defs><use href="#${ctx.background.id}" xlink:href="#${ctx.background.id}"/>`
+      : backgroundSvg,
     layoutBgShapes,
     shapesSvg,
     '</svg>',
