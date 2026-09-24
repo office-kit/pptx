@@ -29,6 +29,8 @@ test(
       await editor.getByTitle('Reset to 100%', { exact: true }).click();
       const normalZoom = '100%';
       await editor.getByRole('button', { name: 'View', exact: true }).click();
+      await page.keyboard.press('Delete');
+      assert.equal(await editor.locator('.nav [data-slide-index]').count(), 8);
       await editor.getByRole('menuitemradio', { name: 'Slide Sorter', exact: true }).click();
       const sorter = editor.locator('.nav.sorter');
       await sorter.waitFor();
@@ -77,6 +79,30 @@ test(
       await sorter.waitFor();
       await page.keyboard.press('Meta+1');
       await sorter.waitFor({ state: 'detached' });
+      const openZoom = async () => {
+        await editor.getByRole('button', { name: 'View', exact: true }).click();
+        await editor.getByRole('menuitem', { name: 'Zoom', exact: true }).click();
+        await editor.getByRole('menuitem', { name: 'Zoom...', exact: true }).click();
+      };
+      await openZoom();
+      const zoomDialog = editor.getByRole('dialog', { name: 'Zoom', exact: true });
+      await zoomDialog.getByRole('spinbutton').fill('175');
+      await zoomDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.equal(
+        await editor.getByTitle('Reset to 100%', { exact: true }).innerText(),
+        normalZoom,
+      );
+      await openZoom();
+      await zoomDialog.getByRole('spinbutton').fill('175');
+      await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal(await editor.getByTitle('Reset to 100%', { exact: true }).innerText(), '175%');
+      await openZoom();
+      await zoomDialog.getByRole('radio', { name: 'Fit', exact: true }).check();
+      await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.notEqual(
+        await editor.getByTitle('Reset to 100%', { exact: true }).innerText(),
+        '175%',
+      );
       await page.screenshot({ path: '/tmp/pptx-view-modes.png' });
     } finally {
       await browser?.close();

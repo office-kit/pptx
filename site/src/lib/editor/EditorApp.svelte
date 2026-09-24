@@ -13,6 +13,7 @@
   import StatusBar from './ui/StatusBar.svelte';
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
+  import ZoomDialog from './ui/ZoomDialog.svelte';
   import GridOptionsDialog from './ui/GridOptionsDialog.svelte';
   import CropDialog from './ui/CropDialog.svelte';
   import ImageDialog from './ui/ImageDialog.svelte';
@@ -172,7 +173,9 @@
     <CommandPalette />
   {/if}
   {#if editor.activeDialog}
-    {#if editor.activeDialog === 'gridOptions'}
+    {#if editor.activeDialog === 'zoom'}
+      <ZoomDialog />
+    {:else if editor.activeDialog === 'gridOptions'}
       <GridOptionsDialog />
     {:else if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
       {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}

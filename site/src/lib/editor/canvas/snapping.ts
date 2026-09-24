@@ -20,6 +20,11 @@ export interface Guide {
   readonly to: number;
 }
 
+export interface SnapOptions {
+  smart?: boolean;
+  drawingGuides?: readonly { axis: 'x' | 'y'; position: number }[];
+}
+
 export interface SnapResult {
   readonly x: number;
   readonly y: number;
@@ -55,15 +60,29 @@ export function snapMove(
   others: readonly Rect[],
   slide: { w: number; h: number },
   thresh: number,
+  options: SnapOptions = {},
 ): SnapResult {
-  const targets: Rect[] = [{ x: 0, y: 0, w: slide.w, h: slide.h }, ...others];
+  const targets: Rect[] =
+    options.smart === false ? [] : [{ x: 0, y: 0, w: slide.w, h: slide.h }, ...others];
+  const xTargets = [
+    ...targets,
+    ...(options.drawingGuides ?? [])
+      .filter((g) => g.axis === 'x')
+      .map((g) => ({ x: g.position, y: 0, w: 0, h: slide.h })),
+  ];
+  const yTargets = [
+    ...targets,
+    ...(options.drawingGuides ?? [])
+      .filter((g) => g.axis === 'y')
+      .map((g) => ({ x: 0, y: g.position, w: slide.w, h: 0 })),
+  ];
 
   // Best snap per axis (smallest delta wins).
   let bestX: { delta: number; pos: number; targets: Rect[] } | null = null;
   let bestY: { delta: number; pos: number; targets: Rect[] } | null = null;
 
   for (const ma of xAnchors(moving)) {
-    for (const t of targets) {
+    for (const t of xTargets) {
       for (const ta of xAnchors(t)) {
         const delta = ta.value - ma.value;
         if (Math.abs(delta) <= thresh && (!bestX || Math.abs(delta) < Math.abs(bestX.delta))) {
@@ -75,7 +94,7 @@ export function snapMove(
     }
   }
   for (const ma of yAnchors(moving)) {
-    for (const t of targets) {
+    for (const t of yTargets) {
       for (const ta of yAnchors(t)) {
         const delta = ta.value - ma.value;
         if (Math.abs(delta) <= thresh && (!bestY || Math.abs(delta) < Math.abs(bestY.delta))) {

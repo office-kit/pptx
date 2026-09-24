@@ -68,6 +68,13 @@
         { label: 'Select all', accel: '⌘A', run: () => editor.selectAllShapes() },
       );
     }
+    if (!hasShapes && editor.viewMode === 'normal') {
+      list.push(
+        { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
+        { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
+        { label: 'Grid Options...', run: () => editor.activeDialog = 'gridOptions' },
+      );
+    }
     return list;
   });
 

@@ -20,6 +20,7 @@
   async function focusFirst() { await tick(); root?.querySelector<HTMLButtonElement>('[role="menu"] button')?.focus(); }
   function keys(event: KeyboardEvent) {
     if (!open) return;
+    event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return; }
     const target = event.target as HTMLElement;
     if (event.key === 'ArrowRight' && target.dataset.submenu) {
@@ -41,11 +42,11 @@
     catch (error) { editor.toast('error', String(error)); }
   }
 </script>
-<svelte:window onpointerdown={event => { if (open && !root.contains(event.target as Node)) close(false); }} onkeydown={keys} onfullscreenchange={() => fullScreen = !!document.fullscreenElement} />
+<svelte:window onpointerdown={event => { if (open && !root.contains(event.target as Node)) close(false); }} onfullscreenchange={() => fullScreen = !!document.fullscreenElement} />
 <div class="view-menu" bind:this={root}>
   <button class="ok-btn" bind:this={trigger} aria-haspopup="menu" aria-expanded={open} onclick={() => { open = !open; submenu = null; if (open) void focusFirst(); }}>{t('View')}</button>
   {#if open}
-    <div class="menu" role="menu" aria-label={t('View')}>
+    <div class="menu" role="menu" tabindex="-1" onkeydown={keys} aria-label={t('View')}>
       {#each [{ mode: 'normal' as const, label: 'Normal', key: '⌘1' }, { mode: 'sorter' as const, label: 'Slide Sorter', key: '⌘2' }] as item}
         <button role="menuitemradio" aria-label={t(item.label)} aria-checked={editor.viewMode === item.mode} onclick={() => choose(() => editor.setViewMode(item.mode))}><span>{editor.viewMode === item.mode ? '✓' : ''}</span>{t(item.label)}<kbd>{item.key}</kbd></button>
       {/each}
@@ -71,6 +72,8 @@
           <button role="menuitem" onclick={() => choose(() => editor.zoomFit())}><span></span>{t('Fit to Window')}</button>
           <button role="menuitem" onclick={() => choose(() => editor.zoomIn())}><span></span>{t('Zoom In')}</button>
           <button role="menuitem" onclick={() => choose(() => editor.zoomOut())}><span></span>{t('Zoom Out')}</button>
+          <hr />
+          <button role="menuitem" onclick={() => choose(() => editor.activeDialog = 'zoom')}><span></span>{t('Zoom...')}</button>
         </div>{/if}
       </div>
       <hr />

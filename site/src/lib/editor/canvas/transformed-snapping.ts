@@ -1,5 +1,5 @@
 import { invert, project, type Matrix, type Point } from './group-space.ts';
-import { snapMove, type Rect } from './snapping.ts';
+import { snapMove, type Rect, type SnapOptions } from './snapping.ts';
 import { selectionBounds, type RotatedRect } from './rotation.ts';
 
 /** Visible envelope after the object's own rotation and all ancestor transforms. */
@@ -22,6 +22,7 @@ export function snapTransformedMove(
   delta: Point,
   slide: { w: number; h: number },
   threshold: number,
+  options: SnapOptions = {},
 ) {
   const inverse = invert(matrix);
   if (!inverse) return { delta, guides: [] };
@@ -36,6 +37,7 @@ export function snapTransformedMove(
     others.map((rect) => projectedBounds(rect, matrix)),
     slide,
     threshold,
+    options,
   );
   const origin = project(inverse, { x: 0, y: 0 });
   const correction = project(inverse, { x: snapped.x - envelope.x, y: snapped.y - envelope.y });

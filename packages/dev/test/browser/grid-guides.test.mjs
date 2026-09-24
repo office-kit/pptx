@@ -82,6 +82,9 @@ test(
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.equal(getDrawingGuides(await deck()), null);
       await guide.click({ button: 'right', position: { x: 3, y: 25 } });
+      await page.keyboard.press('Delete');
+      assert.equal(await editor.locator('.nav [data-slide-index]').count(), 1);
+      assert.equal(await editor.locator('.drawing-guide').count(), 2);
       await editor.getByRole('menuitem', { name: 'Add Horizontal Guide', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.equal(getDrawingGuides(await deck()).length, 3);
@@ -110,6 +113,17 @@ test(
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.deepEqual(getGridSpacing(await deck()), { x: 180004, y: 180004 });
+      while (await editor.locator('.drawing-guide').count()) {
+        await editor.locator('.drawing-guide').first().focus();
+        await page.keyboard.press('Delete');
+      }
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.deepEqual(getDrawingGuides(await deck()), []);
+      await editor.locator('.stage').click({ button: 'right', position: { x: 20, y: 20 } });
+      await editor.getByRole('menuitem', { name: 'Add Vertical Guide', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal(getDrawingGuides(await deck()).length, 1);
+      assert.equal(await editor.locator('.drawing-guide').count(), 1);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

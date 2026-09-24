@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getSlideSize, setDrawingGuides, type DrawingGuide } from '@office-kit/pptx';
+  import { setDrawingGuides, type DrawingGuide } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   let { guides, scaleX, scaleY }: { guides: readonly DrawingGuide[]; scaleX: number; scaleY: number } = $props();
@@ -16,11 +16,8 @@
     menu = null;
   }
   function add(axis: 'x' | 'y') {
-    const size = getSlideSize(doc.pres);
-    if (!size) return;
-    const id = Math.max(0, ...guides.map(item => item.id)) + 1;
-    const position = (axis === 'x' ? size.width : size.height) / 2;
-    edit([...guides, { id, axis, position: position + 91440 * guides.filter(item => item.axis === axis).length, color: '#888888' }]);
+    editor.addDrawingGuide(axis);
+    menu = null;
   }
   function context(event: MouseEvent, guide: DrawingGuide) {
     event.preventDefault(); event.stopPropagation();
@@ -29,7 +26,10 @@
     void tick().then(() => menuElement?.querySelector<HTMLButtonElement>('button')?.focus());
   }
   function menuKeys(event: KeyboardEvent) {
+    event.stopPropagation();
     const target = event.target as HTMLElement;
+    if (event.key === 'Escape') { event.preventDefault(); menu = null; return; }
+    if (event.key === 'Tab') { menu = null; return; }
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
       event.preventDefault(); event.stopPropagation();
       const buttons = [...(target.closest('[role="menu"]')?.querySelectorAll<HTMLButtonElement>(':scope > button') ?? [])];

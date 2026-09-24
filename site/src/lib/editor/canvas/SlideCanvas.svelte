@@ -63,7 +63,7 @@
   import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
   import { rotateRect, selectionBounds } from './rotation.ts';
   import { type Guide, type Rect } from './snapping.ts';
-  import { getDrawingGuides, getDrawingGuidesVisible, getGridSpacing, getSnapToGrid } from '@office-kit/pptx';
+  import { getGridSpacing, getSnapToGrid } from '@office-kit/pptx';
   import { snapTransformedGrid, snapTransformedMove } from './transformed-snapping.ts';
 
   const editor = getEditor();
@@ -78,14 +78,7 @@
   });
 
   const gridSpacing = $derived.by(() => { doc.version; return getGridSpacing(doc.pres) ?? { x: 72000, y: 72000 }; });
-  const drawingGuides = $derived.by(() => {
-    doc.version;
-    if (!(editor.view.drawing ?? getDrawingGuidesVisible(doc.pres) ?? false)) return [];
-    return getDrawingGuides(doc.pres) ?? [
-      { id: 1, axis: 'x' as const, position: metrics.widthEmu / 2, color: '#808080' },
-      { id: 2, axis: 'y' as const, position: metrics.heightEmu / 2, color: '#808080' },
-    ];
-  });
+  const drawingGuides = $derived(editor.guidesVisible() ? editor.drawingGuides() : []);
 
   // Slide size in CSS px at 96dpi (1 inch = 914400 EMU = 96px).
   const slidePx = $derived.by(() => ({
@@ -380,8 +373,8 @@
       const delta = getSnapToGrid(doc.pres)
         ? snapTransformedGrid(moving, scope!.matrix, { x: dxEmu, y: dyEmu }, gridSpacing)
         : { x: dxEmu, y: dyEmu };
-      const snap = editor.view.smart && !getSnapToGrid(doc.pres)
-        ? snapTransformedMove(moving, others, scope!.matrix, delta, { w: metrics.widthEmu, h: metrics.heightEmu }, 6 / pxPerEmuX())
+      const snap = (editor.view.smart || drawingGuides.length > 0) && !getSnapToGrid(doc.pres)
+        ? snapTransformedMove(moving, others, scope!.matrix, delta, { w: metrics.widthEmu, h: metrics.heightEmu }, 6 / pxPerEmuX(), { smart: editor.view.smart, drawingGuides })
         : { delta, guides: [] };
       const gdx = snap.delta.x;
       const gdy = snap.delta.y;
@@ -1111,7 +1104,7 @@
 
       <div class="overlay">
         {#if editor.view.grid}
-          <div class="grid-dots" style="background-size:{Math.max(2, gridSpacing.x * pxPerEmuX())}px {Math.max(2, gridSpacing.y * pxPerEmuY())}px"></div>
+          <div class="grid-dots" style="background-size:{(gridSpacing.x * pxPerEmuX()) * Math.max(1, Math.ceil(2 / (gridSpacing.x * pxPerEmuX())))}px {(gridSpacing.y * pxPerEmuY()) * Math.max(1, Math.ceil(2 / (gridSpacing.y * pxPerEmuY())))}px"></div>
         {/if}
         <DrawingGuides guides={drawingGuides} scaleX={pxPerEmuX()} scaleY={pxPerEmuY()} />
         {#each guides as g, i (i)}

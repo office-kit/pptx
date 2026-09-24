@@ -7,6 +7,10 @@
 // so there is exactly one path from "user intent" to "library call".
 
 import {
+  getDrawingGuides,
+  getDrawingGuidesVisible,
+  setDrawingGuides,
+  type DrawingGuide,
   getTableCells,
   getTableCellText,
   setTableCellText,
@@ -89,6 +93,39 @@ export class EditorController {
   setViewMode(mode: 'normal' | 'sorter'): void {
     this.contextMenu = null;
     this.viewMode = mode;
+  }
+
+  drawingGuides(): readonly DrawingGuide[] {
+    this.doc.version;
+    const size = getSlideSize(this.doc.pres);
+    return (
+      getDrawingGuides(this.doc.pres) ??
+      (size
+        ? [
+            { id: 1, axis: 'x', position: size.width / 2, color: '#808080' },
+            { id: 2, axis: 'y', position: size.height / 2, color: '#808080' },
+          ]
+        : [])
+    );
+  }
+
+  guidesVisible(): boolean {
+    this.doc.version;
+    return this.view.drawing ?? getDrawingGuidesVisible(this.doc.pres) ?? false;
+  }
+
+  addDrawingGuide(axis: 'x' | 'y'): void {
+    const size = getSlideSize(this.doc.pres);
+    if (!size) return;
+    const guides = this.drawingGuides();
+    const id = Math.max(0, ...guides.map((item) => item.id)) + 1;
+    const position =
+      (axis === 'x' ? size.width : size.height) / 2 +
+      91440 * guides.filter((item) => item.axis === axis).length;
+    this.doc.transact(t('Edit guides'), () =>
+      setDrawingGuides(this.doc.pres, [...guides, { id, axis, position, color: '#888888' }]),
+    );
+    this.view.save({ grid: this.view.grid, smart: this.view.smart, drawing: true });
   }
 
   /** Command whose argument dialog is currently open (null = none). */
@@ -231,10 +268,10 @@ export class EditorController {
   fitZoom = $state(1);
 
   setZoom(z: number): void {
-    if (this.viewMode === 'sorter') this.sorterZoom = Math.max(0.25, Math.min(z, 3));
+    if (this.viewMode === 'sorter') this.sorterZoom = Math.max(0.1, Math.min(z, 4));
     else {
       this.autoFitZoom = false;
-      this.zoom = Math.max(0.1, Math.min(z, 5));
+      this.zoom = Math.max(0.1, Math.min(z, 4));
     }
   }
   zoomIn(): void {
