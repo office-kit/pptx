@@ -96,6 +96,7 @@ export type {
 } from './fn.ts';
 export type {
   ArrowOptions,
+  ColorTransform,
   GlowOptions,
   GradientFillOptions,
   GradientStop,
