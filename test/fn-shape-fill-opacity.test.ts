@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addSlide,
   addSlideShape,
+  clearShapeStroke,
   findSlideLayout,
   getShapeFillColorResolved,
   getShapeFillOpacity,
@@ -129,3 +130,27 @@ describe('solid paint opacity editing', () => {
     }
   });
 });
+
+it.each([false, true])(
+  'invalid stroke edits preserve XML (existing line: %s)',
+  async (existing) => {
+    const { pres, shape } = await loadRectWithAlpha('', '');
+    if (!existing) clearShapeStroke(shape);
+    const slidesXml = async () =>
+      readZip(await savePresentation(pres))
+        .entries.filter((entry) => /slides\/slide\d+\.xml$/.test(entry.name))
+        .map((entry) => dec.decode(entry.data));
+    setShapeFill(shape, '#3366CC');
+    const before = await slidesXml();
+    for (const options of [
+      { opacity: NaN },
+      { widthEmu: -1 },
+      { color: '#FFFFFF' as const, widthEmu: -1 },
+    ]) {
+      expect(() => setShapeStroke(shape, options)).toThrow();
+      // A later successful edit must not commit partial state from the failed edit.
+      setShapeFill(shape, '#3366CC');
+      expect(await slidesXml()).toEqual(before);
+    }
+  },
+);

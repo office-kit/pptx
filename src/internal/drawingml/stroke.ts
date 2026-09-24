@@ -56,16 +56,13 @@ const removeChildrenIn = (host: XmlElement, names: ReadonlySet<string>): void =>
   );
 };
 
-const ensureLn = (spPr: XmlElement): XmlElement => {
-  for (const c of spPr.children) {
-    if (c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'ln') {
-      return c;
-    }
-  }
+const ensureLn = (spPr: XmlElement): XmlElement =>
+  firstChildElement(spPr, NAME_LN) ?? insertLn(spPr, elem(NAME_LN));
+
+const insertLn = (spPr: XmlElement, ln: XmlElement): XmlElement => {
   // <a:ln> goes AFTER the fill choice and BEFORE effects / scene3d / sp3d /
   // extLst per the schema. We insert at the index of the first element that
   // belongs after `<a:ln>`; otherwise append.
-  const ln = elem(NAME_LN);
   const afterLn = new Set(['effectLst', 'effectDag', 'scene3d', 'sp3d', 'extLst']);
   for (let i = 0; i < spPr.children.length; i++) {
     const c = spPr.children[i];
@@ -88,8 +85,12 @@ export interface StrokeOptions {
 }
 
 /** Updates the supplied outline properties, preserving omitted properties. */
-export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void =>
-  applySolidStroke(ensureLn(spPr), options);
+export const setSolidStroke = (spPr: XmlElement, options: StrokeOptions): void => {
+  const existing = firstChildElement(spPr, NAME_LN);
+  const ln = existing ?? elem(NAME_LN);
+  applySolidStroke(ln, options);
+  if (!existing) insertLn(spPr, ln);
+};
 
 /**
  * The same edit on an `<a:ln>` the caller located — a run's outline lives in
@@ -104,8 +105,9 @@ export const applySolidStroke = (ln: XmlElement, options: StrokeOptions): void =
       ? editSolidColor(previous, options)
       : undefined;
   if (options.widthEmu !== undefined) {
+    const width = lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu');
     ln.attrs = ln.attrs.filter((a) => a.name.localName !== 'w');
-    ln.attrs.push(attr(ATTR_W, String(lineWidthEmu(options.widthEmu, 'setShapeStroke: widthEmu'))));
+    ln.attrs.push(attr(ATTR_W, String(width)));
   }
   // Width-only edits preserve theme references, color transforms and noFill.
   if (color) {
