@@ -13,6 +13,7 @@ import { attr, getAttrValue, parseXml, qname, serializeXml } from '../../interna
 import {
   INTERNAL_PACKAGE,
   LAYOUT_PART,
+  LAYOUT_DOCUMENT,
   LAYOUT_PART_NAME,
   type PresentationData,
   SHAPE_ELEMENT,
@@ -566,6 +567,34 @@ const ATTR_SHOW = qname('', 'show', '');
 export const isSlideHidden = (slide: SlideData): boolean => {
   const show = getAttrValue(slide[SLIDE_DOCUMENT].root, ATTR_SHOW);
   return show === '0';
+};
+
+const ATTR_SHOW_MASTER_SHAPES = qname('', 'showMasterSp', '');
+
+/** Whether inherited master and layout decoration is hidden on this slide. */
+export const isSlideBackgroundGraphicsHidden = (slide: SlideData): boolean => {
+  const value = getAttrValue(slide[SLIDE_DOCUMENT].root, ATTR_SHOW_MASTER_SHAPES);
+  return value === '0' || value === 'false';
+};
+
+/** Whether a layout suppresses its master's decoration, keeping its own shapes. */
+export const isSlideLayoutBackgroundGraphicsHidden = (layout: SlideLayoutData): boolean => {
+  const value = getAttrValue(layout[LAYOUT_DOCUMENT].root, ATTR_SHOW_MASTER_SHAPES);
+  return value === '0' || value === 'false';
+};
+
+/**
+ * Hide inherited decoration without removing shapes or changing background fills.
+ * PowerPoint's Hide Background Graphics suppresses layout decoration as well as
+ * master shapes, despite the attribute's name. Slide placeholders remain visible.
+ */
+export const setSlideBackgroundGraphicsHidden = (slide: SlideData, hidden: boolean): void => {
+  const root = slide[SLIDE_DOCUMENT].root;
+  root.attrs = root.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'showMasterSp'),
+  );
+  if (hidden) root.attrs.push(attr(ATTR_SHOW_MASTER_SHAPES, '0'));
+  commitSlideData(slide);
 };
 
 /**

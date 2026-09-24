@@ -527,6 +527,7 @@ export const ja: Record<string, string> = {
   'Format Background': '背景の書式設定',
   'Close Format Background': '背景の書式設定を閉じる',
   'Apply to All': 'すべてに適用',
+  'Hide Background Graphics': '背景のグラフィックを表示しない',
   'Reset background': '背景をリセット',
   'Background image': '背景画像',
   'Background color': '背景色',

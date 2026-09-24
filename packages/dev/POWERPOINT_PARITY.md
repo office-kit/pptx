@@ -328,3 +328,23 @@ Background Styles → Format Background... alongside a 12-style gallery and Rese
 Slide Background; that menu/gallery remains to be matched. Picture/texture fill
 and Hide Background Graphics also remain outstanding. This is partial parity,
 not completion of the overall UI match.
+
+### Hide Background Graphics
+
+Audited the installed Mac PowerPoint using a copy of `layout-decoration.pptx` at
+`/private/tmp/pptx-hide-background-audit.pptx`. Checking Hide Background Graphics
+removed both the master's blue footer bar and the layout's TEMPLATE bar and
+picture logo. Slide title text and placeholders remained visible. Saving wrote
+`showMasterSp="0"` on the slide root; the layout root was unchanged. Undo and Save
+restored the reference document and unchecked the control.
+
+The Format Background pane now exposes this checkbox below the fill choices,
+including mixed state for selected slides. Core APIs retain all template content,
+read both XML false representations, and remove the override when showing graphics.
+SVG previews suppress inherited decoration while preserving the background fill
+and slide content. Tests cover round-trip, template-part preservation, and editor
+selection, undo, and reload. Apply to All was also audited: it writes the same flag to every slide and layout.
+After unchecking an individual slide, its layout decoration reappears but its
+master decoration stays hidden because the layout still carries the flag. The
+implementation and rendering tests cover this distinction. All temporary edits
+were undone and saved.

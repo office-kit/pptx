@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getSlides, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground } from '@office-kit/pptx';
+  import { getSlides, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground } from '@office-kit/pptx';
   import { readSlideBackground } from '../core/slide-background.ts';
   import PatternFillSection from './PatternFillSection.svelte';
   import GradientFillSection from './GradientFillSection.svelte';
@@ -16,6 +16,8 @@
   const gradientBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'gradient'));
   const patternBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'pattern'));
   const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(readSlideBackground(doc.pres, item).fill.kind)));
+  const graphicsHidden = $derived(slides.length > 0 && slides.every(isSlideBackgroundGraphicsHidden));
+  const mixedGraphics = $derived(!graphicsHidden && slides.some(isSlideBackgroundGraphicsHidden));
   const opacity = $derived(background?.kind === 'solid' ? background.opacity ?? 1 : 1);
   const mixedOpacity = $derived(slides.some(item => { const value = readSlideBackground(doc.pres, item).fill; return (value.kind === 'solid' ? value.opacity ?? 1 : 1) !== opacity; }));
   function changeSolid(color?: Color, opacity?: number) {
@@ -65,6 +67,7 @@
           <label class="check"><input type="radio" name="background-fill" checked={gradientBackground} onchange={() => apply('Gradient fill', target => setSlideBackgroundGradientFill(target, { stops: [{ offset: 0, color: 'accent1', brightness: 0.95 }, { offset: 1, color: 'accent1', brightness: 0.7 }], angleDeg: 0, scaled: false }))} />{t('Gradient fill')}</label>
           <label class="check"><input type="radio" name="background-fill" checked={patternBackground} onchange={() => apply('Pattern fill', target => setSlideBackgroundPatternFill(target, {}))} />{t('Pattern fill')}</label>
         </div>
+        <label class="check"><input type="checkbox" checked={graphicsHidden} indeterminate={mixedGraphics} onchange={event => { const hidden = event.currentTarget.checked; apply('Hide Background Graphics', target => setSlideBackgroundGraphicsHidden(target, hidden)); }} />{t('Hide Background Graphics')}</label>
         {#if gradientBackground}
           <GradientFillSection background />
         {:else if patternBackground}

@@ -273,6 +273,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
   clearShapeFill: { labelJa: '図形の塗りつぶしを解除' },
   clearShapeStroke: { labelJa: '図形の枠線を解除' },
   clearSlideAnimations: { labelJa: 'アニメーションを解除' },
+  setSlideBackgroundGraphicsHidden: {
+    labelEn: 'Hide Background Graphics',
+    labelJa: '背景のグラフィックを表示しない',
+    category: 'slide-background',
+  },
   clearSlideBackground: { labelJa: '背景を解除' },
   clearSlideComments: { labelJa: 'スライドのコメントを削除' },
   clearSlideHyperlinks: { labelJa: 'スライドのリンクを削除' },

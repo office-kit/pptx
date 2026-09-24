@@ -68,7 +68,11 @@ import {
 import { getPresentationTheme, themeFromPackage } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { resolveDrawingColorOpacity } from './shape-color.ts';
-import { getSlides } from './slide-query.ts';
+import {
+  getSlides,
+  isSlideBackgroundGraphicsHidden,
+  setSlideBackgroundGraphicsHidden,
+} from './slide-query.ts';
 import { getSlideLayouts } from './layouts.ts';
 import { clearSlideLayoutBackground } from './layout-edit.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
@@ -926,8 +930,19 @@ export const applySlideBackgroundToAll = (pres: PresentationData, slide: SlideDa
     update.part.data = update.data;
     pkg.setRels(update.part.name, update.rels);
   }
-  for (const layout of layouts) clearSlideLayoutBackground(layout);
-  for (const target of getSlides(pres)) clearSlideBackground(target);
+  const hideGraphics = isSlideBackgroundGraphicsHidden(slide);
+  for (const layout of layouts) {
+    const root = layout[LAYOUT_DOCUMENT].root;
+    root.attrs = root.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'showMasterSp'),
+    );
+    if (hideGraphics) root.attrs.push(attr(qname('', 'showMasterSp', ''), '0'));
+    clearSlideLayoutBackground(layout);
+  }
+  for (const target of getSlides(pres)) {
+    setSlideBackgroundGraphicsHidden(target, hideGraphics);
+    clearSlideBackground(target);
+  }
 };
 
 /**
