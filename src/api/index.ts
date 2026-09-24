@@ -653,3 +653,16 @@ export type {
 declare const __PPTX_KIT_VERSION__: string;
 export const VERSION =
   typeof __PPTX_KIT_VERSION__ === 'string' ? __PPTX_KIT_VERSION__ : '0.0.0-dev';
+
+// Presentation view settings.
+export {
+  getDrawingGuides,
+  setDrawingGuides,
+  getDrawingGuidesVisible,
+  setDrawingGuidesVisible,
+  getGridSpacing,
+  setGridSpacing,
+  getSnapToGrid,
+  setSnapToGrid,
+  type DrawingGuide,
+} from './fn/guides.ts';

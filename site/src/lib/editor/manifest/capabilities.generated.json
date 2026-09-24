@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 169,
+  "count": 173,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1189,6 +1189,40 @@
       ]
     },
     {
+      "id": "setDrawingGuides",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/guides.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "guides",
+          "type": "readonly DrawingGuide[]",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setDrawingGuidesVisible",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/guides.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "visible",
+          "type": "boolean",
+          "kind": "boolean",
+          "optional": false
+        }
+      ]
+    },
+    {
       "id": "setExtendedProperties",
       "operand": "presentation",
       "takesOperand": true,
@@ -1200,6 +1234,23 @@
         {
           "name": "values",
           "type": "Partial<ExtendedProperties>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setGridSpacing",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/guides.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "spacing",
+          "type": "{ x: number; y: number }",
           "kind": "object",
           "optional": false
         }
@@ -2602,6 +2653,23 @@
           "name": "options",
           "type": "TransitionOptions",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSnapToGrid",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "misc",
+      "file": "api/fn/guides.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "kind": "boolean",
           "optional": false
         }
       ]
