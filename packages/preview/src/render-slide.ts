@@ -2847,7 +2847,11 @@ export const resolveTextBodyModel = (
   // yield no authoredAutofit and never shrink here. The shrink is measured with
   // the SVG layout engine (our only real line-breaker); the foreignObject path
   // then reuses the resulting scale rather than computing its own.
-  if (authoredAutofit && autoFitScale === 1) {
+  // Mac PowerPoint opens placeholders with an inherited bare normAutofit at
+  // their authored size (for example the two-line title in 01-title-only).
+  // Inheritance exposes the editing policy, but is not a saved shrink request.
+  // Keep inherited baked scales above; estimate only a shape-local request.
+  if (authoredAutofit && autoFitScale === 1 && getShapeTextAutoFit(shape) === 'normal') {
     const fitVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     const fitCols = effectiveBody.columns;
     const fitColumns: ColumnLayout | null =

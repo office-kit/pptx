@@ -7,6 +7,7 @@
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { unzipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import { partName } from '../src/internal/opc/index.ts';
@@ -1043,7 +1044,7 @@ describe('fn API: copying a shape copies its animations', () => {
     expect(getSlideShapes(targetSlide)).toHaveLength(0);
     // No shape, no relationship, and no media part: the whole package is as it
     // was before the copy was asked for.
-    expect(await savePresentation(target)).toEqual(before);
+    expect(unzipSync(await savePresentation(target))).toEqual(unzipSync(before));
   });
 
   skipIfNoXmllint('emits a schema-valid tree for the copy', () => {
