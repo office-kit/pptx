@@ -3,7 +3,11 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import {
+  getShapeGradientFill,
+  setShapeFill,
+  setShapeRotation,
   getSlideShapes,
   getSlideXmlString,
   getSlides,
@@ -93,5 +97,56 @@ describe('fn API: setShapeGradientFill', () => {
         ],
       }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('gradient stop editing', () => {
+  it('round-trips stop brightness, opacity, and direction options', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    setShapeGradientFill(shape, {
+      stops: [
+        { offset: 0, color: 'accent1', brightness: 0.95, opacity: 0.25 },
+        { offset: 1, color: '#FF0000', brightness: -0.5 },
+      ],
+      angleDeg: 45,
+      rotateWithShape: false,
+      scaled: true,
+    });
+    if (isSchemaValidationAvailable())
+      expectSchemaValid(getSlideXmlString(getSlides(pres)[0]!), 'pml');
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    expect(getShapeGradientFill(getSlideShapes(getSlides(reloaded)[0]!)[0]!)).toMatchObject({
+      stops: [
+        { offset: 0, color: 'scheme:accent1', brightness: 0.95, opacity: 0.25 },
+        { offset: 1, color: '#FF0000', brightness: -0.5 },
+      ],
+      angleDeg: 45,
+      rotateWithShape: false,
+      scaled: true,
+    });
+  });
+
+  it.each([
+    { brightness: 1.1 },
+    { brightness: Number.NaN },
+    { opacity: -0.1 },
+    { opacity: Number.NaN },
+  ])('rejects invalid stop values atomically: %j', async (invalid) => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = getSlideShapes(slide)[0]!;
+    setShapeFill(shape, '#123456');
+    expect(() =>
+      setShapeGradientFill(shape, {
+        stops: [
+          { offset: 0, color: '#000000' },
+          { offset: 1, color: '#FFFFFF', ...invalid },
+        ],
+      }),
+    ).toThrow();
+    setShapeRotation(shape, 10);
+    expect(getSlideXmlString(slide)).toContain('123456');
+    expect(getSlideXmlString(slide)).not.toContain('<a:gradFill');
   });
 });

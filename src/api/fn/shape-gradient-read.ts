@@ -82,10 +82,23 @@ const parseGradFill = (
       context && colorElement?.kind === 'element'
         ? resolveDrawingColor(colorElement, context.theme, context.colorMap)
         : null;
+    let brightness: number | undefined;
+    if (colorElement?.kind === 'element') {
+      const mod = firstChildElement(colorElement, qname('a', 'lumMod', NS.dml));
+      const off = firstChildElement(colorElement, qname('a', 'lumOff', NS.dml));
+      const modValue = mod ? Number(getAttrValue(mod, qname('', 'val', ''))) : 100000;
+      const offValue = off ? Number(getAttrValue(off, qname('', 'val', ''))) : 0;
+      if (mod && Number.isFinite(modValue) && Number.isFinite(offValue)) {
+        if (offValue > 0 && modValue + offValue === 100000) brightness = offValue / 100000;
+        else if (offValue === 0 && modValue >= 0 && modValue <= 100000)
+          brightness = modValue / 100000 - 1;
+      }
+    }
     stops.push({
       offset: pos / 100_000,
       color,
       ...(opacity !== null ? { opacity } : {}),
+      ...(brightness !== undefined ? { brightness } : {}),
       ...(resolvedColor !== null ? { resolvedColor } : {}),
     });
   }
@@ -103,6 +116,12 @@ const parseGradFill = (
       if (Number.isFinite(ang)) angleDeg = ang / 60_000;
     }
   }
+  const rotate = getAttrValue(gradFill, qname('', 'rotWithShape', ''));
+  const scaled = lin ? getAttrValue(lin, qname('', 'scaled', '')) : null;
+  const direction = {
+    ...(rotate !== null ? { rotateWithShape: rotate !== '0' && rotate !== 'false' } : {}),
+    ...(scaled !== null ? { scaled: scaled !== '0' && scaled !== 'false' } : {}),
+  };
   const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
   if (pathEl) {
     const p = getAttrValue(pathEl, qname('', 'path', ''));
@@ -126,10 +145,10 @@ const parseGradFill = (
         const b = pct('b') ?? 0.5;
         focus = { left: l, top: t, right: r, bottom: b };
       }
-      return { stops, angleDeg, path: pathVal, ...(focus ? { focus } : {}) };
+      return { stops, angleDeg, ...direction, path: pathVal, ...(focus ? { focus } : {}) };
     }
   }
-  return { stops, angleDeg };
+  return { stops, angleDeg, ...direction };
 };
 
 /**
