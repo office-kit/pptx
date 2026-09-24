@@ -70,6 +70,8 @@
 {#if open}
   <div class="menu" role="menu" aria-label={t('Arrange')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <div class="heading">{t('Reorder Objects')}</div>
+    <button role="menuitem" disabled={editor.reorderMembers().length < 2} onclick={() => choose(() => editor.activeDialog = 'reorderObjects')}>{t('Reorder Overlapping Objects')}</button>
+    <hr /><div class="heading">{t('Reorder Objects')}</div>
     {#each order as item}<button role="menuitem" disabled={!editor.canRun(item.id)} onclick={() => choose(() => editor.invoke(item.id))}>{t(item.label)}</button>{/each}
     <hr /><div class="heading">{t('Group Objects')}</div>
     {#each [{ id: 'groupShapes', label: 'Group' }, { id: 'ungroupShapes', label: 'Ungroup' }] as item}<button role="menuitem" disabled={!editor.canRun(item.id)} onclick={() => choose(() => editor.invoke(item.id))}>{t(item.label)}</button>{/each}

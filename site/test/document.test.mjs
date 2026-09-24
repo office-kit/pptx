@@ -1069,3 +1069,53 @@ test('regroup refuses a locked former member outside the current selection', () 
     false,
   );
 });
+
+test('reorder preview commits selected slots once, preserves others and supports undo', async () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  const ids = arrangedShapes(editor).map(getShapeId);
+  const index = doc.selection.slideIndex;
+  doc.select({ kind: 'shape', slideIndex: index, shapeIds: [ids[2], ids[0]] });
+  const version = doc.version;
+  assert.deepEqual(editor.reorderMembers().map(getShapeId), [ids[0], ids[2]]);
+  editor.reorderSelection([ids[2], ids[0]]);
+  assert.equal(doc.version, version);
+  editor.reorderSelection([ids[0], ids[0]]);
+  assert.equal(doc.version, version);
+  editor.reorderSelection([ids[0], ids[2]]);
+  assert.equal(doc.version, version + 1);
+  assert.deepEqual(getSlideShapes(doc.currentSlide).map(getShapeId), [ids[2], ids[1], ids[0]]);
+  await doc.undo();
+  assert.deepEqual(getSlideShapes(doc.currentSlide).map(getShapeId), ids);
+  await doc.redo();
+  assert.deepEqual(getSlideShapes(doc.currentSlide).map(getShapeId), [ids[2], ids[1], ids[0]]);
+  doc.selectShape(index, ids[0]);
+  assert.equal(editor.reorderMembers().length, 0);
+});
+
+test('reorder preview is scoped to siblings inside a group', async () => {
+  const editor = new EditorController();
+  const doc = editor.doc;
+  const ids = arrangedShapes(editor).map(getShapeId);
+  const slideIndex = doc.selection.slideIndex;
+  doc.select({ kind: 'shape', slideIndex, shapeIds: ids.slice(0, 2) });
+  editor.invoke('groupShapes');
+  const groupId = getShapeId(editor.selectedShapes()[0]);
+  doc.select({ kind: 'shape', slideIndex, shapeIds: ids.slice(0, 2) });
+  editor.reorderSelection(ids.slice(0, 2));
+  assert.deepEqual(getGroupChildren(doc.shapeById(slideIndex, groupId)).map(getShapeId), [
+    ids[1],
+    ids[0],
+  ]);
+  assert.equal(getShapeId(getSlideShapes(doc.currentSlide).at(-1)), ids[2]);
+  await doc.undo();
+  assert.deepEqual(
+    getGroupChildren(doc.shapeById(slideIndex, groupId)).map(getShapeId),
+    ids.slice(0, 2),
+  );
+  doc.select({ kind: 'shape', slideIndex, shapeIds: [ids[0], ids[2]] });
+  assert.equal(editor.reorderMembers().length, 0);
+  const version = doc.version;
+  editor.reorderSelection([ids[0], ids[2]]);
+  assert.equal(doc.version, version);
+});

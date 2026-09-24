@@ -2,6 +2,8 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Reorder Overlapping Objects': '重なったオブジェクトの順序変更',
+  'at position': '位置',
   'Selection Pane...': '選択ウィンドウ...',
   'Reorder Objects': 'オブジェクトの順序変更',
   'Group Objects': 'オブジェクトのグループ化',

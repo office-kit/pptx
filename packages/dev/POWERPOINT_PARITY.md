@@ -107,8 +107,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 ## Native overlapping-object view inspection
 
-- Home > Arrange > Reorder Overlapping Objects opens a full-window black view with separated translucent blue slide planes, perspective projection and numbered stacking positions; Cancel and OK are at the lower right. Selecting a plane highlights it. Accessibility Increment/Decrement changes its position; Cancel discards staged ordering. Confirmed on three selected ordinary rectangles, including when their bounds do not overlap. The temporary order was cancelled and the main editor returned with no new undo entry.
-- This dedicated view is not yet implemented in the web editor.
+- Home > Arrange > Reorder Overlapping Objects opens a full-window black view with separated translucent blue slide planes, perspective projection and numbered stacking positions; Cancel and OK are at the lower right. Selecting a plane highlights it. Dragging a plane changes its position; Cancel discards staged ordering. Confirmed on three selected ordinary rectangles, including when their bounds do not overlap. The temporary order was cancelled and the main editor returned with no new undo entry.
+- Reconfirmed with two selected rectangles: a single selection disables the command; dragging and Left/Right keys change the staged order; Return commits and one Undo restores the previous order. Temporary native changes were undone. AX button actions did not reliably close this native window, so keyboard confirmation/cancellation was used.
+- The web editor now opens a full-window perspective layer preview for selected siblings. It supports pointer dragging, arrow/Home/End keys, Escape/Cancel and Return/OK. Cancel does not change the document; confirmation is one undoable transaction, retaining unselected sibling slots. Nested previews retain ancestor transforms. Exact native animation, noncontiguous-selection semantics and nested-object native comparison still need verification.
 
 ## Object locking — native comparison
 
@@ -118,3 +119,5 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Targeted core tests: 16 passed, including XML schema validation. Selection Pane browser tests: 2 passed, including locked dragging, keyboard movement, saved locks, text-editor entry, Lock All/Unlock All and undo.
 
 - Final lock validation: 2,845 core tests passed / 109 skipped, 65 editor tests passed, 3 browser tests passed. Root format/lint/TypeScript, Svelte diagnostics and core/editor builds pass. Crop aspect-ratio controls are disabled for locked geometry; general cropping remains available.
+
+- Reorder validation: 2,846 core tests passed / 109 skipped; full editor suite 66 passed plus the final nested-scope regression (41 document tests passed); all three Selection Pane/reorder browser tests passed. Format/lint/TypeScript, Svelte diagnostics and builds passed.

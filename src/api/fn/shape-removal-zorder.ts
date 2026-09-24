@@ -255,13 +255,6 @@ const isShapeChild = (node: {
   node.name?.namespaceURI === NS.pml &&
   SHAPE_CHILD_LOCALS.has(node.name.localName);
 
-const lastShapeIndex = (parent: XmlElement): number => {
-  for (let i = parent.children.length - 1; i >= 0; i--) {
-    if (isShapeChild(parent.children[i]!)) return i;
-  }
-  return -1;
-};
-
 /** Move one shape or a selection in front of all siblings, preserving their stacking order. */
 export const bringShapeToFront = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
   reorderShapes(shape, 'front');
@@ -343,32 +336,38 @@ export const getShapeZIndex = (shape: SlideShapeData): number => {
 };
 
 /**
- * Moves the shape to a specific z-index among its parent container's "real"
- * shape children. Index is clamped to the available range. Higher
- * numbers render in front. The required preface elements stay at the
- * top of `<p:spTree>`.
+ * Moves a shape or an ordered batch of siblings to a specific z-index.
+ * A batch is inserted contiguously in the supplied order, back to front.
+ * Index is clamped to the available range. Non-shape XML stays in place.
  */
-export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = findShapeParent(shape);
-  if (!spTree) return;
-  const target = shape[SHAPE_ELEMENT];
-  const originalIndex = spTree.children.indexOf(target);
-  const allShapeChildren = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
-  const clamped = Math.max(0, Math.min(toIndex, allShapeChildren.length - 1));
-
-  // Remove the target from the tree, then re-insert at the position
-  // corresponding to z-index `clamped` among the remaining shapes.
-  spTree.children = spTree.children.filter((c) => c !== target);
-  const remainingShapes = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
-  if (clamped >= remainingShapes.length) {
-    const last = lastShapeIndex(spTree);
-    spTree.children.splice(last < 0 ? originalIndex : last + 1, 0, target);
-  } else {
-    const anchor = remainingShapes[clamped]!;
-    const anchorIdx = spTree.children.indexOf(anchor);
-    spTree.children.splice(anchorIdx, 0, target);
+export const setShapeZIndex = (
+  shape: SlideShapeData | readonly SlideShapeData[],
+  toIndex: number,
+): void => {
+  const shapes: readonly SlideShapeData[] = SHAPE_ELEMENT in shape ? [shape] : shape;
+  const first = shapes[0];
+  if (!first) return;
+  const parent = findShapeParent(first);
+  if (!parent) return;
+  const slide = first[SHAPE_SLIDE];
+  const siblings = parent.children.filter((child): child is XmlElement => isShapeChild(child));
+  const siblingSet = new Set(siblings);
+  const chosen = shapes.map((member) => member[SHAPE_ELEMENT]);
+  const selected = new Set(chosen);
+  if (selected.size !== chosen.length) throw new Error('Duplicate shapes are not allowed.');
+  if (
+    shapes.some((member) => member[SHAPE_SLIDE] !== slide || !siblingSet.has(member[SHAPE_ELEMENT]))
+  ) {
+    throw new Error('Shapes must belong to the same parent container.');
   }
+  const remaining = siblings.filter((child) => !selected.has(child));
+  const clamped = Math.max(0, Math.min(toIndex, remaining.length));
+  const ordered = [...remaining.slice(0, clamped), ...chosen, ...remaining.slice(clamped)];
+  if (ordered.every((child, index) => child === siblings[index])) return;
+  let index = 0;
+  parent.children = parent.children.map((child) =>
+    isShapeChild(child) ? ordered[index++]! : child,
+  );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
 };
