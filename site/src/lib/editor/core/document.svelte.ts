@@ -29,16 +29,9 @@ import {
   loadPresentation,
   savePresentation,
 } from '@office-kit/pptx';
-import type { RememberedImageFill, RememberedImageLayouts } from './remembered-image-fill.ts';
+import type { RememberedFill } from './remembered-fill.ts';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
-import type {
-  PresentationData,
-  SlideData,
-  SlideShapeData,
-  Color,
-  GradientFillOptions,
-  PatternFillOptions,
-} from '@office-kit/pptx';
+import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
 import { RegroupHistory } from './regroup-history.ts';
 import { selectedSlideIndices, type Selection } from './selection.ts';
 
@@ -52,16 +45,7 @@ interface Snapshot {
 const HISTORY_MAX = 60;
 
 export class EditorDocument {
-  readonly rememberedFills = new Map<
-    string,
-    {
-      solid?: { color: Color; opacity?: number };
-      gradient?: GradientFillOptions;
-      pattern?: PatternFillOptions;
-      image?: RememberedImageFill;
-      imageLayouts?: RememberedImageLayouts;
-    }
-  >();
+  readonly rememberedFills = new Map<string, RememberedFill>();
   /** The live presentation. Mutated in place by library commands. */
   pres = $state.raw<PresentationData>(createInitial());
   /** Bumped on every mutation to invalidate derived rendering. */

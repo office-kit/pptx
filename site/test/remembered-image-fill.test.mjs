@@ -14,6 +14,10 @@ import {
   getShapeImageCrop,
   getShapeImageFillBytes,
   setShapeFill,
+  getShapeFillOpacity,
+  getShapeFillColorResolved,
+  setShapeGradientFill,
+  getShapeGradientFillEffective,
   savePresentation,
   loadPresentation,
   getSlides,
@@ -99,4 +103,37 @@ test('tile and stretch settings survive mode changes while rotation remains shar
   const restoredTile = switchRememberedImageLayout(stretch, 'tile', remembered);
   assert.deepEqual(restoredTile, { ...tile, rotateWithShape: false });
   assert.deepEqual(switchRememberedImageLayout(restoredTile, 'stretch', remembered), stretch);
+});
+
+test('picture insertion remembers the preceding solid and gradient fills', async () => {
+  const { rememberShapeFill } = await import('../src/lib/editor/core/remembered-fill.ts');
+  const pres = createPresentation();
+  const shape = addSlideShape(addBlankSlide(pres), {
+    preset: 'rect',
+    x: inches(1),
+    y: inches(1),
+    w: inches(2),
+    h: inches(2),
+  });
+  const remembered = {};
+  setShapeFill(shape, { color: 'FF0000', opacity: 0.65 });
+  rememberShapeFill(pres, shape, remembered);
+  setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  setShapeFill(shape, remembered.solid);
+  assert.equal(getShapeFillColorResolved(pres, shape).replace('#', '').toUpperCase(), 'FF0000');
+  assert.equal(getShapeFillOpacity(shape), 0.65);
+  setShapeGradientFill(shape, {
+    path: 'linear',
+    angleDeg: 42,
+    stops: [
+      { offset: 0, color: 'accent1' },
+      { offset: 1, color: 'accent2' },
+    ],
+  });
+  const gradient = getShapeGradientFillEffective(pres, shape);
+  rememberShapeFill(pres, shape, remembered);
+  setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  setShapeGradientFill(shape, remembered.gradient);
+  assert.deepEqual(getShapeGradientFillEffective(pres, shape), gradient);
+  assert.ok(remembered.solid);
 });
