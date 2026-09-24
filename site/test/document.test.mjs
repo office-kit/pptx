@@ -84,6 +84,29 @@ function titles(doc) {
   return getSlides(doc.pres).map(getSlideText);
 }
 
+test('zoom buttons advance to the adjacent ten-percent stop in the active view', () => {
+  const editor = new EditorController();
+  for (const mode of ['normal', 'sorter']) {
+    editor.setViewMode(mode);
+    const zoom = () => (mode === 'normal' ? editor.zoom : editor.sorterZoom);
+    for (const [start, smaller, larger] of [
+      [1.23, 1.2, 1.3],
+      [1.27, 1.2, 1.3],
+      [1.2, 1.1, 1.3],
+      [0.1, 0.1, 0.2],
+      [4, 3.9, 4],
+    ]) {
+      editor.setZoom(start);
+      editor.zoomOut();
+      assert.equal(zoom(), smaller, `${mode}: zoom out from ${start}`);
+      editor.setZoom(start);
+      editor.zoomIn();
+      assert.equal(zoom(), larger, `${mode}: zoom in from ${start}`);
+    }
+  }
+  assert.equal(editor.doc.canUndo, false);
+});
+
 test('each rapid edit has its own undo step, including the first edit', async () => {
   const doc = new EditorDocument();
   append(doc, 'A');

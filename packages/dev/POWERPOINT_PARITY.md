@@ -509,3 +509,28 @@ and the reference was saved. A separate manually patched copy showed a content
 repair warning on save, so observations from that copy are excluded from parity
 evidence. Initial-state versus session-memory behavior still needs an independent
 valid-fixture comparison before changing the editor's restoration rule.
+
+A valid API-generated image-background fixture also saved the edited 37% offset
+without repair, then restored 25% on Solid/picture switching. More importantly,
+a second valid document starting at 18% restored 25% without any placement edit.
+This rules out restoring each document's initial placement: native session state
+crosses documents. Tile mode also reused 60% from an earlier document. Opacity
+still retained the latest 40%. All temporary content edits were undone and saved.
+The editor's per-slide memory remains a known difference; do not replace it with
+an initial-layout rule based on the earlier 25% fixture alone.
+
+Native background Picture > Picture Corrections exposes sharpness, brightness
+and contrast. Saving brightness 25% and contrast -20% used an
+`a14:imgLayer` source relationship and `a14:brightnessContrast` extension alongside
+the rendered image, rather than simply adding `a:lum`. Background correction UI
+and editing this original/rendered-image pair remain outstanding.
+
+## Adjacent zoom stops
+
+Native status buttons moved 123% to 130% for Zoom In and to 120% for Zoom Out;
+the temporary view was restored to its original 120%. Editor buttons previously
+rounded before stepping, causing 123% to skip to 110% when zooming out. They now
+advance to the adjacent 10% stop, with existing 10–400% limits. Controller coverage
+checks both views, exact stops and limits; browser coverage exercises custom
+percentages through the Zoom dialog and status buttons without changing document
+history. Full operation and visual parity remains incomplete.
