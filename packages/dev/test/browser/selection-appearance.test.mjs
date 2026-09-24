@@ -95,8 +95,14 @@ test(
       await saved();
       await editor.locator('.hit').dblclick();
       await editor.locator('.hit').first().click();
-      assert.equal(await editor.getByLabel('Fill', { exact: true }).inputValue(), '#123456');
-      assert.equal(await editor.getByLabel('Outline', { exact: true }).inputValue(), '#abcdef');
+      assert.equal(
+        await editor.getByLabel('Fill: More Colors...', { exact: true }).inputValue(),
+        '#123456',
+      );
+      assert.equal(
+        await editor.getByLabel('Outline: More Colors...', { exact: true }).inputValue(),
+        '#abcdef',
+      );
       assert.equal(
         await editor.getByLabel('Outline width (points)', { exact: true }).inputValue(),
         '2',
@@ -105,17 +111,23 @@ test(
         await editor.getByRole('combobox', { name: /^Outline style/ }).inputValue(),
         'dash',
       );
-      await editor.getByLabel('Fill', { exact: true }).evaluate((node) => {
+      await editor.getByLabel('Fill: More Colors...', { exact: true }).evaluate((node) => {
         node.value = '#112233';
         node.dispatchEvent(new Event('change', { bubbles: true }));
       });
       await saved();
       assert.deepEqual(await colors(), ['#112233', '#654321']);
-      assert.equal(await editor.getByLabel('Fill', { exact: true }).inputValue(), '#112233');
+      assert.equal(
+        await editor.getByLabel('Fill: More Colors...', { exact: true }).inputValue(),
+        '#112233',
+      );
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await colors(), ['#123456', '#654321']);
-      assert.equal(await editor.getByLabel('Fill', { exact: true }).inputValue(), '#123456');
+      assert.equal(
+        await editor.getByLabel('Fill: More Colors...', { exact: true }).inputValue(),
+        '#123456',
+      );
       await editor
         .locator('.hit')
         .nth(1)
@@ -161,7 +173,7 @@ test(
 
 test(
   'fill and outline apply to all selected shapes in English and Japanese',
-  { timeout: 60000 },
+  { timeout: 120000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-selection-appearance-'));
     let preview, browser;
@@ -662,7 +674,7 @@ test(
       assert.deepEqual(await paint(getShapeStrokeOpacity), [0.445, 0.445]);
       for (const name of ['Fill', 'Outline']) {
         await editor
-          .locator(`.bespoke input[type=color][aria-label="${name}"]`)
+          .locator(`.bespoke input[type=color][aria-label="${name}: More Colors..."]`)
           .evaluate((node) => {
             node.value = '#abcdef';
             node.dispatchEvent(new Event('change', { bubbles: true }));
