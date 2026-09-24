@@ -11,12 +11,41 @@ import {
   inches,
   loadPresentation,
   renameShape,
+  groupShapes,
+  getGroupChildren,
+  isShapeHidden,
+  setShapeHidden,
+  savePresentation,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: renameShape', () => {
+  it('renames and hides a group without changing its children across a round trip', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const children = ['First child', 'Second child'].map((name, index) =>
+      addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(index),
+        y: inches(0),
+        w: inches(1),
+        h: inches(1),
+        name,
+      }),
+    );
+    const group = groupShapes(children);
+    renameShape(group, 'Named group');
+    setShapeHidden(group, true);
+    const restored = await loadPresentation(await savePresentation(pres));
+    const result = findShapeByName(getSlides(restored)[0]!, 'Named group')!;
+    expect(isShapeHidden(result)).toBe(true);
+    expect(getGroupChildren(result).map(getShapeName)).toEqual(['First child', 'Second child']);
+    expect(getGroupChildren(result).some(isShapeHidden)).toBe(false);
+    setShapeHidden(result, false);
+    expect(isShapeHidden(result)).toBe(false);
+  });
   it('round-trips the new name via findShapeByName', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

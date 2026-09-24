@@ -2,6 +2,16 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Selection Pane': '選択ウィンドウ',
+  'Close Selection Pane': '選択ウィンドウを閉じる',
+  'Show All': 'すべて表示',
+  'Hide All': 'すべて非表示',
+  'Show object': 'オブジェクトを表示',
+  'Hide object': 'オブジェクトを非表示',
+  'Object name': 'オブジェクト名',
+  'Rename object': 'オブジェクト名の変更',
+  Expand: '展開',
+  Collapse: '折りたたむ',
   'Grid Settings': 'グリッドの設定',
   'Guide Settings': 'ガイドの設定',
   Purple: '紫',

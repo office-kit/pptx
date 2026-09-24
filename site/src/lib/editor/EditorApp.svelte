@@ -11,6 +11,7 @@
   import ThumbnailPane from './ui/ThumbnailPane.svelte';
   import SlideCanvas from './canvas/SlideCanvas.svelte';
   import PropertiesPanel from './panels/PropertiesPanel.svelte';
+  import SelectionPane from './panels/SelectionPane.svelte';
   import StatusBar from './ui/StatusBar.svelte';
   import CommandPalette from './ui/CommandPalette.svelte';
   import CommandDialog from './ui/CommandDialog.svelte';
@@ -166,7 +167,7 @@
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
   <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible}>
     {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane />{/if}
-    {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div><PropertiesPanel />{/if}
+    {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
   </div>
   <StatusBar />
 

@@ -57,3 +57,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Removed the decorative canvas dot pattern so grid markings only appear when enabled. Native size limits and exact divider appearance still need direct comparison.
 
 - View menus and submenus stay within the viewport, opening to the left when the right edge has insufficient room. A browser regression test reproduces the prior clipping and covers wide/narrow windows.
+
+## Selection Pane
+
+- Home opens a Selection Pane with reverse stacking order, expandable groups, sibling range/toggle selection, inline name editing, and individual/all-object visibility controls. Changes use document transactions, save, and undo; closing the pane restores properties.
+- Group names and visibility now use the group's own nonvisual properties. Hidden objects and hidden group descendants are omitted from preview rendering and canvas hit targets without deleting their content.
+- The current pane does not yet include drag reordering or native pane geometry. Exact appearance and native keyboard comparison remain outstanding.

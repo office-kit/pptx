@@ -79,7 +79,7 @@ for (const language of ['en', 'ja']) {
         }
 
         await editor.locator('.hit').first().click();
-        await editor.getByRole('button', { name: words.home, exact: true }).click();
+        await editor.getByRole('tab', { name: words.home, exact: true }).click();
         await editor
           .locator('.ribbon')
           .getByRole('button', { name: words.textFormat, exact: true })

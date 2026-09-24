@@ -50,6 +50,7 @@
     getGroupChildren,
     getShapeId,
     getShapeKind,
+    isShapeHidden,
     getShapeParagraphCount,
     getShapeParagraphElements,
     setShapeTextFormat,
@@ -57,7 +58,7 @@
     setShapeBounds,
     setShapeRotation,
   } from '@office-kit/pptx';
-  import { selectedShapeIds, selectedShapeId, type Selection } from '../core/selection.ts';
+  import { selectedShapeIds, selectedShapeId, topLevelShapes, type Selection } from '../core/selection.ts';
   import { shapeScope, invert, project } from './group-space.ts';
   import { tableCellBoxes, shapeBoxes, slideMetrics, type Box } from './geometry.ts';
   import { resizeRect, resizeSelectionRects, type ResizeHandle } from './resize.ts';
@@ -117,7 +118,15 @@
     doc.version;
     const slide = doc.currentSlide;
     if (!slide) return [];
-    return shapeBoxes(doc.pres, slide, scope?.shapes ?? []);
+    const visible = new Set<number>();
+    const pending = topLevelShapes(slide);
+    while (pending.length) {
+      const shape = pending.pop()!;
+      if (isShapeHidden(shape)) continue;
+      visible.add(getShapeId(shape));
+      pending.push(...getGroupChildren(shape));
+    }
+    return shapeBoxes(doc.pres, slide, (scope?.shapes ?? []).filter(shape => visible.has(getShapeId(shape))));
   });
 
   const boxesById = $derived(new Map(boxes.map(box => [box.id, box])));
@@ -526,7 +535,7 @@
     if (editing || e.isComposing || editor.activeDialog) return;
     if (selectedIds.size !== 1) return;
     const t = e.target as HTMLElement;
-    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const box = boxes.find((b) => selectedIds.has(b.id));
     if (!box) return;

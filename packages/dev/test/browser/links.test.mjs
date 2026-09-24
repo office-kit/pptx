@@ -53,7 +53,7 @@ test(
           )[0],
         );
       const open = async () => {
-        await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
         await editor.locator('button[title$="— setShapeHyperlink"]').click();
         return editor.getByRole('dialog', { name: ja ? 'リンクを編集' : 'Edit link', exact: true });
       };
@@ -161,7 +161,7 @@ test(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
       const open = async () => {
-        await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
         await editor.locator('button[title$="— setShapeHyperlink"]').click();
         return editor.getByRole('dialog', { name: ja ? 'リンクを編集' : 'Edit link', exact: true });
       };
@@ -539,7 +539,7 @@ test(
         editor.getByRole('button', { name: `${ja ? 'セル' : 'Cell'} 1, ${c}`, exact: true });
       const open = async (ribbon = false) => {
         if (ribbon) {
-          await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+          await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
           await editor.locator('button[title$="— setShapeHyperlink"]').click();
         } else
           await editor
@@ -660,7 +660,7 @@ test(
       await editor.locator('select').first().selectOption('ja');
       await saved();
       await editor.locator('.hit').first().click();
-      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.getByRole('tab', { name: '挿入', exact: true }).click();
       await editor.locator('button[title$="— setShapeHyperlink"]').click();
       const dialog = editor.getByRole('dialog');
       await dialog.getByLabel('リンク先の種類', { exact: true }).selectOption('slide');

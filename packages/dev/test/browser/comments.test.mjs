@@ -47,7 +47,7 @@ test(
           ),
         ).map(getSlideComments);
       const open = async () => {
-        await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
         await editor.locator('button[title$="— addSlideComment"]').click();
         return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
       };
@@ -155,7 +155,7 @@ test(
           ),
         ).map((slide) => getSlideComments(slide).map(getCommentText));
       const open = async () => {
-        await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
         await editor.locator('button[title$="— addSlideComment"]').click();
         return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
       };
@@ -260,7 +260,7 @@ test(
           )[0],
         );
       const open = async () => {
-        await editor.getByRole('button', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
         await editor.locator('button[title$="— addSlideComment"]').click();
         return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
       };
