@@ -3,14 +3,16 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import { patterns, patternSwatches } from './patterns.ts';
+  import ColorPicker from '../ui/ColorPicker.svelte';
 
   const editor = getEditor();
   const swatches = patternSwatches();
   const shapes = $derived.by(() => { editor.doc.version; return editor.selectedShapes(); });
   const fills = $derived(shapes.map(shape => getShapePatternFill(editor.doc.pres, shape)));
+  const sourceFills = $derived(shapes.map(shape => getShapePatternFill(editor.doc.pres, shape, { preserveTheme: true })));
   const locked = $derived(editor.selectionLocked());
-  function common(field: keyof PatternFillOptions): string | undefined {
-    const values = new Set(fills.map(fill => fill?.[field]));
+  function common(field: keyof PatternFillOptions, source = false): string | undefined {
+    const values = new Set((source ? sourceFills : fills).map(fill => fill?.[field]));
     return values.size === 1 ? [...values][0] : undefined;
   }
   function apply(patch: Partial<PatternFillOptions>) {
@@ -29,7 +31,7 @@
   }
 </script>
 
-<fieldset disabled={locked} class="pattern-fields">
+<fieldset disabled={locked} class="pattern-fields" aria-label={t('Pattern fill')}>
   <legend>{t('Pattern')}</legend>
   <div class="patterns" role="group" aria-label={t('Pattern')}>
     {#each patterns as [preset, label]}
@@ -38,10 +40,10 @@
   </div>
   {#each [['foreground', 'Foreground'], ['background', 'Background']] as [field, label]}
     {@const color = common(field === 'foreground' ? 'foreground' : 'background')}
-    <label class="color"><span>{t(label)}</span><span>
-      <input type="color" aria-label={t(label)} value={color ?? '#000000'} onchange={event => apply({ [field]: event.currentTarget.value })} />
+    <div class="color"><span>{t(label)}</span><span>
+      <ColorPicker label={t(label)} value={common(field === 'foreground' ? 'foreground' : 'background', true)} resolvedColor={color} disabled={locked} choose={value => apply({ [field]: value })} />
       {#if color === undefined}<span>{t('Mixed')}</span>{/if}
-    </span></label>
+    </span></div>
   {/each}
 </fieldset>
 <style>

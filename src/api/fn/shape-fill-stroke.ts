@@ -236,6 +236,8 @@ const isPatternPreset = (token: string | null): token is PatternPreset =>
 /**
  * Reads back the pattern fill on a shape: returns the preset token
  * plus the foreground / background colors resolved against the theme.
+ * With `preserveTheme`, untransformed scheme colors remain theme tokens.
+ * Transformed colors still resolve to RGB to preserve their appearance.
  * Returns `null` when the shape has no `<a:pattFill>`.
  *
  * The preset is the literal `ST_PresetPatternVal` token from §20.1.10.49 —
@@ -247,6 +249,7 @@ const isPatternPreset = (token: string | null): token is PatternPreset =>
 export const getShapePatternFill = (
   pres: PresentationData,
   shape: SlideShapeData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: PatternPreset; foreground: string; background: string } | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
@@ -260,6 +263,14 @@ export const getShapePatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
