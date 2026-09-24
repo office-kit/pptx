@@ -1,11 +1,13 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
   cm,
+  addTitleSlide,
   getShapeBodyPrEffective,
   getShapeTextAutoFit,
   getShapeTextColumns,
@@ -13,8 +15,100 @@ import {
   getSlides,
   getSlideShapes,
   loadPresentation,
+  savePresentation,
+  removeSlide,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
+
+test(
+  'inherited text layout is displayed and a single-column override survives save and undo',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-inherited-layout-'));
+    let preview, browser;
+    try {
+      const parts = unzipSync(
+        await readFile(new URL('../../../../test/fixtures/minimal/blank.pptx', import.meta.url)),
+      );
+      const layout = 'ppt/slideLayouts/slideLayout1.xml';
+      parts[layout] = strToU8(
+        strFromU8(parts[layout]).replaceAll(
+          '<a:bodyPr/>',
+          '<a:bodyPr numCol="3" spcCol="90000"><a:normAutofit fontScale="75000"/></a:bodyPr>',
+        ),
+      );
+      const pres = await loadPresentation(zipSync(parts));
+      const originals = [...getSlides(pres)];
+      addTitleSlide(pres, 'Inherited layout');
+      for (const slide of originals) removeSlide(pres, slide);
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(pres));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const read = async () => {
+        const copy = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        const title = getSlideShapes(getSlides(copy)[0])[0];
+        return { body: getShapeBodyPrEffective(copy, title), literal: getShapeTextColumns(title) };
+      };
+      await saved();
+      await editor.locator('.hit').first().click();
+      const box = editor.locator('.text-box');
+      await box.locator('summary').click();
+      assert.equal(
+        await box.getByRole('radio', { name: 'Shrink text on overflow', exact: true }).isChecked(),
+        true,
+      );
+      await box.getByRole('button', { name: 'Columns...', exact: true }).click();
+      const dialog = editor.getByRole('dialog', { name: 'Columns', exact: true });
+      assert.equal(
+        await dialog.getByRole('spinbutton', { name: 'Number of columns:' }).inputValue(),
+        '3',
+      );
+      assert.equal(
+        await dialog.getByRole('spinbutton', { name: 'Spacing between columns:' }).inputValue(),
+        '0.25',
+      );
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal((await read()).literal, null, 'unchanged dialog must retain inheritance');
+      await box.getByRole('button', { name: 'Columns...', exact: true }).click();
+      await dialog.getByRole('spinbutton', { name: 'Number of columns:' }).fill('1');
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await saved();
+      assert.deepEqual((await read()).body.columns, { count: 1, gapEmu: cm(0.25) });
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await read()).literal, null);
+      assert.equal((await read()).body.columns.count, 3);
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.getByRole('textbox', { name: 'Edit text', exact: true });
+      assert.equal(await input.evaluate((node) => getComputedStyle(node).columnCount), '3');
+      await input.press('Escape');
+      await box.getByRole('radio', { name: 'Do not Autofit', exact: true }).check();
+      await saved();
+      assert.equal((await read()).body.autoFit, 'none');
+      assert.equal((await read()).body.autoFitParams, null);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 test(
   'text-box properties preserve other margins, apply to a mixed selection and undo',

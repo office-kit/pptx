@@ -59,7 +59,6 @@ import {
   getShapeHyperlinkTooltip,
   getShapeId,
   getShapeName,
-  getShapeTextColumns,
   getShapeTextBodyRotationDeg,
   getShapeTextDirection,
   getShapeImageBiLevelThreshold,
@@ -98,6 +97,8 @@ import {
   getShapeStrokeOpacity,
   getShapeTextAnchor,
   getShapeTextAutoFitParams,
+  getShapeTextAutoFit,
+  getShapeTextColumns,
   getShapeTextMargins,
   getGroupChildren,
   getGroupTransform,
@@ -2607,6 +2608,9 @@ export const resolveTextBodyModel = (
     effectiveBody = {
       anchor: getShapeTextAnchor(shape),
       anchorCentered: null,
+      autoFit: getShapeTextAutoFit(shape),
+      autoFitParams: getShapeTextAutoFitParams(shape),
+      columns: getShapeTextColumns(shape),
       wrap: null,
       vert: getShapeTextDirection(shape),
       margins: getShapeTextMargins(shape) ?? { left: null, top: null, right: null, bottom: null },
@@ -2823,7 +2827,7 @@ export const resolveTextBodyModel = (
   // An earlier heuristic shrank such shapes to fit their authored box, which
   // rendered template placeholders (size inherited from layout/master, box
   // sized by the template author) at up to 0.4× of their PowerPoint size.
-  const authoredAutofit = getShapeTextAutoFitParams(shape);
+  const authoredAutofit = effectiveBody.autoFitParams;
   let autoFitScale = authoredAutofit?.fontScale ?? 1;
   const lineHeightScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
 
@@ -2845,7 +2849,7 @@ export const resolveTextBodyModel = (
   // then reuses the resulting scale rather than computing its own.
   if (authoredAutofit && autoFitScale === 1) {
     const fitVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
-    const fitCols = getShapeTextColumns(shape);
+    const fitCols = effectiveBody.columns;
     const fitColumns: ColumnLayout | null =
       fitVert === 'none' && fitCols && fitCols.count >= 2
         ? {
@@ -2897,7 +2901,7 @@ export const resolveTextBodyModel = (
   if (effectiveBody.anchorCentered) {
     const vert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     const rect = svgTextRect(vert);
-    const cols = getShapeTextColumns(shape);
+    const cols = effectiveBody.columns;
     const input = buildSvgTextInput({
       pres,
       shape,
@@ -3171,7 +3175,7 @@ const renderTextBody = (
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     // numCol only applies to horizontal text — see the engine's combination note.
-    const svgCols = getShapeTextColumns(shape);
+    const svgCols = effectiveBody.columns;
     const svgColumns: ColumnLayout | null =
       svgVert === 'none' && svgCols && svgCols.count >= 2
         ? {
@@ -3244,7 +3248,7 @@ const renderTextBody = (
   // B4 — multi-column text bodies. `<a:bodyPr numCol="N" spcCol="EMU"/>`
   // splits the text body into N equal columns separated by `spcCol`.
   // CSS `column-count` / `column-gap` map directly.
-  const columns = textColumnsStyle(getShapeTextColumns(shape));
+  const columns = textColumnsStyle(effectiveBody.columns);
   const colStyles = columns ? `;${columns}` : '';
   const vertStyles = (writingMode ? `;${writingMode}${extraTransform}` : '') + colStyles;
   // `<a:bodyPr wrap="none"/>` forces a single line (no word-wrap).

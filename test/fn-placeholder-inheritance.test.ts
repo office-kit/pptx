@@ -19,6 +19,8 @@ import {
   getSlides,
   setShapeTextDirection,
   setShapeTextAnchor,
+  setShapeTextAutoFit,
+  setShapeTextColumns,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -125,5 +127,43 @@ describe('centered anchor inheritance', () => {
     expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(false);
     setShapeTextAnchor(copy, 'top', { centered: null });
     expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(true);
+  });
+});
+
+describe('text layout inheritance', () => {
+  it('resolves columns per attribute and treats autofit as a single inherited choice', async () => {
+    const parts = unzipSync(await readFile(fixture('blank.pptx')));
+    const layout = 'ppt/slideLayouts/slideLayout1.xml';
+    parts[layout] = strToU8(
+      strFromU8(parts[layout]!).replaceAll(
+        '<a:bodyPr/>',
+        '<a:bodyPr numCol="3" spcCol="228600"><a:normAutofit fontScale="75000" lnSpcReduction="10000"/></a:bodyPr>',
+      ),
+    );
+    const pres = await loadPresentation(zipSync(parts));
+    const title = getSlideShapes(addTitleSlide(pres, 'Inherited text layout'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title)).toMatchObject({
+      columns: { count: 3, gapEmu: 228600 },
+      autoFit: 'normal',
+      autoFitParams: { fontScale: 0.75, lnSpcReduction: 0.1 },
+    });
+    setShapeTextColumns(title, { count: 2 });
+    expect(getShapeBodyPrEffective(pres, title).columns).toEqual({ count: 2, gapEmu: 228600 });
+    setShapeTextColumns(title, { count: 1, gapEmu: 0 });
+    setShapeTextAutoFit(title, 'none');
+    const restored = await loadPresentation(await savePresentation(pres));
+    const copy = getSlideShapes(getSlides(restored).at(-1)!)[0]!;
+    expect(getShapeBodyPrEffective(restored, copy)).toMatchObject({
+      columns: { count: 1, gapEmu: 0 },
+      autoFit: 'none',
+      autoFitParams: null,
+    });
+    setShapeTextColumns(copy, null);
+    expect(getShapeBodyPrEffective(restored, copy).columns).toEqual({ count: 3, gapEmu: 228600 });
+    setShapeTextAutoFit(copy, 'normal');
+    expect(getShapeBodyPrEffective(restored, copy).autoFitParams).toEqual({
+      fontScale: 1,
+      lnSpcReduction: 0,
+    });
   });
 });

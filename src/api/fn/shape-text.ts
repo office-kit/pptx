@@ -308,17 +308,19 @@ export const getShapeTextAutoFitParams = (
       c.name.namespaceURI === NS.dml &&
       c.name.localName === 'normAutofit'
     ) {
-      const fsRaw = getAttrValue(c, qname('', 'fontScale', ''));
-      const lsRaw = getAttrValue(c, qname('', 'lnSpcReduction', ''));
-      const fs = fsRaw === null ? 100_000 : Number.parseInt(fsRaw, 10);
-      const ls = lsRaw === null ? 0 : Number.parseInt(lsRaw, 10);
-      return {
-        fontScale: Number.isFinite(fs) ? fs / 100_000 : 1,
-        lnSpcReduction: Number.isFinite(ls) ? ls / 100_000 : 0,
-      };
+      return readAutoFitParams(c);
     }
   }
   return null;
+};
+
+const readAutoFitParams = (element: XmlElement): { fontScale: number; lnSpcReduction: number } => {
+  const ratio = (name: string, fallback: number) => {
+    const raw = getAttrValue(element, qname('', name, ''));
+    const value = raw === null ? NaN : Number.parseInt(raw, 10);
+    return Number.isFinite(value) ? value / 100_000 : fallback;
+  };
+  return { fontScale: ratio('fontScale', 1), lnSpcReduction: ratio('lnSpcReduction', 0) };
 };
 
 /**
@@ -363,7 +365,7 @@ export const getShapeTextColumns = (
   const numColRaw = getAttrValue(bodyPr, qname('', 'numCol', ''));
   if (numColRaw === null) return null;
   const count = Number.parseInt(numColRaw, 10);
-  if (!Number.isFinite(count) || count < 2) return null;
+  if (!Number.isFinite(count) || count < 1) return null;
   const gapRaw = getAttrValue(bodyPr, qname('', 'spcCol', ''));
   if (gapRaw !== null) {
     const g = Number.parseInt(gapRaw, 10);
@@ -375,15 +377,22 @@ export const getShapeTextColumns = (
 /**
  * Sets the multi-column layout on the shape's text body — writes
  * `<a:bodyPr numCol="N" [spcCol="EMU"]/>`. Pass `null` to clear both
- * attributes so the text body falls back to PowerPoint's default
- * single column. `count` must be in `2..16` (ST_TextColumnCount caps at
- * 16, and single column is the `null` default). `gapEmu`, when omitted,
+ * attributes so the text body inherits its column settings (one column
+ * when no layout/master supplies them). `count` must be in `1..16`;
+ * use `1` to override inherited columns explicitly. `gapEmu`, when omitted,
  * removes any prior `spcCol`. Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextColumns = (
   shape: SlideShapeData,
   columns: { count: number; gapEmu?: number } | null,
 ): void => {
+  // Validate before touching the XML so rejected edits preserve prior settings.
+  const numCol =
+    columns === null ? null : textColumnCount(columns.count, 'setShapeTextColumns: count');
+  const spcCol =
+    columns?.gapEmu === undefined
+      ? null
+      : emuPositiveCoordinate32(columns.gapEmu, 'setShapeTextColumns: gapEmu');
   const bodyPr = requireBodyPr(shape);
   bodyPr.attrs = bodyPr.attrs.filter(
     (a) =>
@@ -393,16 +402,8 @@ export const setShapeTextColumns = (
       ),
   );
   if (columns !== null) {
-    if (columns.count < 2) {
-      throw new Error(
-        `setShapeTextColumns: count must be >= 2 (single column is the default — pass null instead). Got ${columns.count}.`,
-      );
-    }
-    // ST_TextColumnCount caps at 16; spcCol is ST_PositiveCoordinate32.
-    const numCol = textColumnCount(columns.count, 'setShapeTextColumns: count');
     bodyPr.attrs.push(attr(qname('', 'numCol', ''), String(numCol)));
-    if (columns.gapEmu !== undefined) {
-      const spcCol = emuPositiveCoordinate32(columns.gapEmu, 'setShapeTextColumns: gapEmu');
+    if (spcCol !== null) {
       bodyPr.attrs.push(attr(qname('', 'spcCol', ''), String(spcCol)));
     }
   }
@@ -549,7 +550,7 @@ export const getShapeTextMargins = (
 
 /**
  * Resolves the effective `<a:bodyPr>` properties — anchor, wrap, vertical
- * direction, and inset margins — by walking the layout / master cascade
+ * direction, inset margins, columns and autofit — by walking the layout / master cascade
  * the same way `getShapeRunFormatEffective` walks rPr. Returns the
  * innermost value that the cascade supplies, or `null` for properties
  * neither the shape nor any inherited placeholder authors.
@@ -564,6 +565,9 @@ export const getShapeBodyPrEffective = (
 ): {
   anchor: TextAnchor | null;
   anchorCentered: boolean | null;
+  autoFit: TextAutoFit | null;
+  autoFitParams: ReturnType<typeof getShapeTextAutoFitParams>;
+  columns: ReturnType<typeof getShapeTextColumns>;
   wrap: TextWrap | null;
   vert: ReturnType<typeof getShapeTextDirection>;
   margins: { left: number | null; top: number | null; right: number | null; bottom: number | null };
@@ -571,6 +575,9 @@ export const getShapeBodyPrEffective = (
   const result = {
     anchor: null as TextAnchor | null,
     anchorCentered: null as boolean | null,
+    autoFit: null as TextAutoFit | null,
+    autoFitParams: null as ReturnType<typeof getShapeTextAutoFitParams>,
+    columns: null as ReturnType<typeof getShapeTextColumns>,
     wrap: null as TextWrap | null,
     vert: null as ReturnType<typeof getShapeTextDirection>,
     margins: {
@@ -581,7 +588,40 @@ export const getShapeBodyPrEffective = (
     },
   };
   let directionResolved = false;
+  let columnCountResolved = false;
+  let columnGapResolved = false;
   const parseBodyPr = (bodyPr: XmlElement): void => {
+    if (result.autoFit === null) {
+      for (const child of bodyPr.children) {
+        if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+        const local = child.name.localName;
+        if (local === 'noAutofit') result.autoFit = 'none';
+        else if (local === 'spAutoFit') result.autoFit = 'shape';
+        else if (local === 'normAutofit') {
+          result.autoFit = 'normal';
+          // The autofit child is a choice: its absent attributes use defaults,
+          // rather than borrowing scale factors from a different inherited child.
+          result.autoFitParams = readAutoFitParams(child);
+        }
+        if (result.autoFit !== null) break;
+      }
+    }
+    if (!columnCountResolved) {
+      const raw = getAttrValue(bodyPr, qname('', 'numCol', ''));
+      const count = raw === null ? NaN : Number.parseInt(raw, 10);
+      if (Number.isFinite(count) && count >= 1 && count <= 16) {
+        result.columns = { ...result.columns, count };
+        columnCountResolved = true;
+      }
+    }
+    if (!columnGapResolved) {
+      const raw = getAttrValue(bodyPr, qname('', 'spcCol', ''));
+      const gapEmu = raw === null ? NaN : Number.parseInt(raw, 10);
+      if (Number.isFinite(gapEmu) && gapEmu >= 0) {
+        result.columns = { count: result.columns?.count ?? 1, gapEmu };
+        columnGapResolved = true;
+      }
+    }
     if (result.anchorCentered === null) {
       const centered = getAttrValue(bodyPr, qname('', 'anchorCtr', ''));
       if (centered === '1' || centered === 'true') result.anchorCentered = true;
