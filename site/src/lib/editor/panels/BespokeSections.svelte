@@ -14,6 +14,7 @@
     getSlideShapes,
     setShapeText,
   } from '@office-kit/pptx';
+  import GradientFillSection from './GradientFillSection.svelte';
   import TransparencyField from './TransparencyField.svelte';
   import LineStyleFields from './LineStyleFields.svelte';
   import SizePositionSection from './SizePositionSection.svelte';
@@ -138,6 +139,9 @@
       <details class="paint-section" open>
         <summary>{t('Fill')}</summary>
         <div class="paint-fields">
+          {#if paint.fill === 'gradient'}
+            <GradientFillSection />
+          {:else}
           <div class="mini">
             <span>{t('Color')}</span>
             <span class="colorwrap">
@@ -147,6 +151,7 @@
             <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
           </div>
           <TransparencyField paint="fill" />
+          {/if}
         </div>
       </details>
 

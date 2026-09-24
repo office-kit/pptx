@@ -209,3 +209,11 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Shape gradient readers now preserve stop opacity, including composed alpha transforms. Effective shape gradients also expose resolved stop colors with theme/color-map lookup and brightness transforms while retaining the original color tokens.
 - Linear and radial SVG previews use these values. Regression tests cover an imported theme stop with luminance and alpha transforms, rendered output, and save/reload preservation.
 - Native gradient editing controls and slide-background gradient transforms remain outstanding.
+
+### Gradient stop editing
+
+- Existing single-shape gradients expose Type, Angle, stop selection/add/remove, Color, Position, Transparency, Brightness and Rotate with shape in Fill. Each edit uses document history and project persistence. Locked shapes disable these controls.
+- The existing gradient setter accepts stop opacity/brightness and preserves explicit scaling/rotation options. Invalid stop settings fail before replacing the old fill. Native positive brightness writes luminance modulation plus offset; negative brightness uses modulation only.
+- Native add-stop comparison places the new stop between the selection and its next neighbor, or before the final 100% stop, using an interpolated RGB color with zero brightness. Temporary edits in the disposable native deck were undone and saved; Undo is disabled.
+- Browser coverage verifies edits, add/remove, Undo followed by editing, interpolated opacity, invalid input restoration, radial angle disabling and saved reloads. Core: 2,875 passed / 109 skipped with four workers and a 30-second timeout; Svelte: zero errors/warnings.
+- Remaining: fill-type radio layout, presets/direction galleries, stop dragging, multi-selection editing, preserving arbitrary imported color transforms during edits, and complete native geometry. Preview still approximates rectangular/path gradients and does not honor gradient rotation/scaling options. Slide-background gradient transforms also remain outstanding. Full parity is incomplete.

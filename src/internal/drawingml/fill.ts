@@ -105,6 +105,10 @@ export interface GradientStop {
   readonly offset: number;
   /** `#RRGGBB`, the `#RGB` shorthand, or a theme color token. */
   readonly color: Color;
+  /** Opacity from 0 (transparent) to 1 (opaque). */
+  readonly opacity?: number;
+  /** PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged. */
+  readonly brightness?: number;
 }
 
 export interface GradientFillOptions {
@@ -117,6 +121,10 @@ export interface GradientFillOptions {
    * to `90` (top → bottom). Only meaningful for linear gradients.
    */
   readonly angleDeg?: number;
+  /** Rotate the gradient with the shape. Defaults to true. */
+  readonly rotateWithShape?: boolean;
+  /** Scale a linear gradient with the shape's aspect ratio. Defaults to false. */
+  readonly scaled?: boolean;
   /**
    * Non-linear gradient path. `circle` paints concentric circles,
    * `rect` paints nested rectangles, `shape` follows the shape's
@@ -144,8 +152,6 @@ export interface GradientFillOptions {
  */
 export type ReadGradientStop = Omit<GradientStop, 'color'> & {
   readonly color: string;
-  /** Effective stop opacity after alpha transforms; absent means opaque. */
-  readonly opacity?: number;
   /** Theme- and transform-resolved color, supplied by the effective shape reader. */
   readonly resolvedColor?: string;
 };
@@ -254,16 +260,38 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
   if (options.stops.length < 2) {
     throw new Error('gradient fill requires at least two stops');
   }
-  removeAnyFill(host);
-
   const stops = options.stops.map((s) => {
     if (!Number.isFinite(s.offset) || s.offset < 0 || s.offset > 1) {
       throw new RangeError(`gradient stop offset must be in [0, 1], got ${s.offset}`);
     }
+    const color = editSolidColor(undefined, {
+      color: s.color,
+      ...(s.opacity !== undefined ? { opacity: s.opacity } : {}),
+    });
+    if (s.brightness !== undefined) {
+      if (!Number.isFinite(s.brightness) || s.brightness < -1 || s.brightness > 1) {
+        throw new RangeError('gradient stop brightness must be in [-1, 1]');
+      }
+      // Mac PowerPoint uses luminance modulation plus an offset for positive
+      // brightness, and modulation alone for negative brightness.
+      color.children.push(
+        elem(qname('a', 'lumMod', NS.dml), {
+          attrs: [
+            attr(qname('', 'val', ''), String(Math.round((1 - Math.abs(s.brightness)) * 100000))),
+          ],
+        }),
+      );
+      if (s.brightness > 0)
+        color.children.push(
+          elem(qname('a', 'lumOff', NS.dml), {
+            attrs: [attr(qname('', 'val', ''), String(Math.round(s.brightness * 100000)))],
+          }),
+        );
+    }
     const posST = String(Math.round(s.offset * 100000));
     return elem(NAME_GS, {
       attrs: [attr(ATTR_POS, posST)],
-      children: [buildColorElement(s.color)],
+      children: [color],
     });
   });
 
@@ -277,11 +305,15 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
     options.path === undefined || options.path === 'linear'
       ? ((): XmlElement => {
           const angleDeg = options.angleDeg ?? 90;
+          if (!Number.isFinite(angleDeg)) throw new RangeError('gradient angle must be finite');
           // ECMA-376 ST_PositiveFixedAngle: 60000 units per degree, range
           // [0, 21600000). Normalize negatives via modulo.
           const norm = ((angleDeg % 360) + 360) % 360;
           return elem(NAME_LIN, {
-            attrs: [attr(ATTR_ANG, String(Math.round(norm * 60000))), attr(ATTR_SCALED, '0')],
+            attrs: [
+              attr(ATTR_ANG, String(Math.round(norm * 60000) % 21600000)),
+              attr(ATTR_SCALED, options.scaled ? '1' : '0'),
+            ],
           });
         })()
       : elem(NAME_PATH, {
@@ -302,8 +334,12 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
         });
 
   const grad = elem(NAME_GRAD_FILL, {
-    attrs: [attr(ATTR_FLIP, 'none'), attr(ATTR_ROT_WITH_SHAPE, '1')],
+    attrs: [
+      attr(ATTR_FLIP, 'none'),
+      attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === false ? '0' : '1'),
+    ],
     children: [elem(NAME_GS_LST, { children: stops }), directionEl],
   });
+  removeAnyFill(host);
   host.children.splice(fillInsertionIndex(host), 0, grad);
 };
