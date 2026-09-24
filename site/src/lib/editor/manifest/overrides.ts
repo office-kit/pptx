@@ -872,4 +872,62 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  setDrawingGuides: {
+    labelEn: 'Drawing guides',
+    labelJa: '描画ガイド',
+    category: 'presentation',
+    params: [
+      {
+        name: 'guides',
+        type: 'readonly DrawingGuide[]',
+        kind: 'array',
+        optional: false,
+        item: {
+          name: 'guide',
+          type: 'DrawingGuide',
+          kind: 'object',
+          optional: false,
+          fields: [
+            { name: 'id', type: 'number', kind: 'number', optional: false },
+            {
+              name: 'axis',
+              type: "'x' | 'y'",
+              kind: 'enum',
+              enumValues: ['x', 'y'],
+              optional: false,
+            },
+            { name: 'position', type: 'number', kind: 'emu', optional: false },
+            { name: 'color', type: 'string', kind: 'color', optional: false },
+          ],
+        },
+      },
+    ],
+  },
+  setDrawingGuidesVisible: {
+    labelEn: 'Drawing guide visibility',
+    labelJa: '描画ガイドの表示',
+    category: 'presentation',
+  },
+  setGridSpacing: {
+    labelEn: 'Grid spacing',
+    labelJa: 'グリッドの間隔',
+    category: 'presentation',
+    params: [
+      {
+        name: 'spacing',
+        type: '{ x: number; y: number }',
+        kind: 'object',
+        optional: false,
+        fields: [
+          { name: 'x', type: 'number', kind: 'emu', optional: false },
+          { name: 'y', type: 'number', kind: 'emu', optional: false },
+        ],
+      },
+    ],
+  },
+  setSnapToGrid: {
+    labelEn: 'Snap to grid',
+    labelJa: 'グリッドに合わせる',
+    category: 'presentation',
+  },
 };
