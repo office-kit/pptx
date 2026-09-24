@@ -49,3 +49,18 @@ export function restoreRememberedImageFill(shape: SlideShapeData, fill: Remember
   setShapeImageOpacity(shape, fill.opacity);
   setShapeImageCrop(shape, fill.crop);
 }
+
+export interface RememberedImageLayouts {
+  tile?: Extract<ImageFillLayout, { mode: 'tile' }>;
+  stretch?: Extract<ImageFillLayout, { mode: 'stretch' }>;
+}
+
+export function switchRememberedImageLayout(
+  current: ImageFillLayout,
+  mode: ImageFillLayout['mode'],
+  remembered: RememberedImageLayouts,
+): ImageFillLayout {
+  if (current.mode === 'tile') remembered.tile = { ...current };
+  else remembered.stretch = { ...current };
+  return { ...(remembered[mode] ?? { mode }), rotateWithShape: current.rotateWithShape };
+}

@@ -29,7 +29,7 @@ import {
   loadPresentation,
   savePresentation,
 } from '@office-kit/pptx';
-import type { RememberedImageFill } from './remembered-image-fill.ts';
+import type { RememberedImageFill, RememberedImageLayouts } from './remembered-image-fill.ts';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
 import type {
   PresentationData,
@@ -59,6 +59,7 @@ export class EditorDocument {
       gradient?: GradientFillOptions;
       pattern?: PatternFillOptions;
       image?: RememberedImageFill;
+      imageLayouts?: RememberedImageLayouts;
     }
   >();
   /** The live presentation. Mutated in place by library commands. */
