@@ -1,9 +1,10 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { radialDirections } from '../core/gradient-directions.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { angle, disabled, choose }: { angle: number | undefined; disabled: boolean; choose: (angle: number) => void } = $props();
-  const directions = [
+  let { angle, disabled, choose, radial = false }: { radial?: boolean; angle: number | undefined; disabled: boolean; choose: (angle: number) => void } = $props();
+  const linearDirections = [
     [45, 'Linear Diagonal - Top Left to Bottom Right'],
     [90, 'Linear Down'],
     [135, 'Linear Diagonal - Top Right to Bottom Left'],
@@ -13,6 +14,8 @@
     [270, 'Linear Up'],
     [225, 'Linear Diagonal - Bottom Right to Top Left'],
   ] as const;
+  const directions = $derived(radial ? radialDirections.map((item, index) => [index, item.label] as const) : linearDirections);
+  const columns = $derived(radial ? 5 : 4);
   let open = $state(false);
   let trigger: HTMLButtonElement;
   let menu = $state<HTMLDivElement>();
@@ -32,23 +35,23 @@
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); close(); return; }
     if (event.key === 'Tab') { close(false); return; }
-    const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -4, ArrowDown: 4 };
+    const offsets: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -columns, ArrowDown: columns };
     if (!(event.key in offsets) && event.key !== 'Home' && event.key !== 'End') return;
     event.preventDefault();
     const items = [...menu!.querySelectorAll<HTMLButtonElement>('button')];
     const index = items.indexOf(event.target as HTMLButtonElement);
     items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + offsets[event.key]! + items.length) % items.length]?.focus();
   }
-  $effect(() => { angle; disabled; open = false; });
+  $effect(() => { angle; disabled; radial; open = false; });
 </script>
 
 {#snippet swatch(value: number)}
-  <span class="swatch" style:background={`linear-gradient(${value + 90}deg, #4472c4, #ecf1fa)`}></span>
+  <span class="swatch" style:background={radial ? `radial-gradient(ellipse farthest-side at ${radialDirections[value]!.x * 100}% ${radialDirections[value]!.y * 100}%, #ecf1fa, #4472c4)` : `linear-gradient(${value + 90}deg, #4472c4, #ecf1fa)`}></span>
 {/snippet}
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 <div class="field"><span>{t('Direction')}</span><button class="ok-input trigger" bind:this={trigger} aria-label={t('Gradient direction')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{#if angle === undefined}<span class="swatch"></span>{:else}{@render swatch(angle)}{/if}<span>▾</span></button></div>
 {#if open}
-  <div class="gallery" role="menu" aria-label={t('Gradient direction')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
+  <div class="gallery" style:grid-template-columns={`repeat(${columns}, 44px)`} role="menu" aria-label={t('Gradient direction')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     {#each directions as [value, label]}
       <button role="menuitemradio" aria-label={t(label)} title={t(label)} aria-checked={angle === value} onclick={() => { if (!disabled) choose(value); close(); }}>{@render swatch(value)}</button>
     {/each}
