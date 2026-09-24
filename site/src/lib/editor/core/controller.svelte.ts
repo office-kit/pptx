@@ -88,6 +88,7 @@ export class EditorController {
   readonly view = new ViewPreferences();
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
+  selectionPaneVisible = $state(false);
   thumbnailWidth = $state<number | null>(null);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);

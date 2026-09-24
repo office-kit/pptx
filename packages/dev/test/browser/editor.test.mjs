@@ -951,7 +951,7 @@ test(
           )[0],
         );
       await editor.locator('select').first().selectOption('ja');
-      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.getByRole('tab', { name: '挿入', exact: true }).click();
       await editor.locator('button[title$="— addSlideTable"]').click();
       const jpDialog = editor.getByRole('dialog', { name: '表を挿入', exact: true });
       await jpDialog.getByLabel('行数', { exact: true }).fill('0');
@@ -1049,7 +1049,7 @@ test(
       const chart = (pres) => getShapeChartSpec(getSlideShapes(getSlides(pres)[0])[0]);
       await saved();
       await editor.locator('select').first().selectOption('ja');
-      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.getByRole('tab', { name: '挿入', exact: true }).click();
       await editor.locator('button[title$="— addSlideChart"]').click();
       const jp = editor.getByRole('dialog', { name: 'グラフを挿入', exact: true });
       await jp.getByLabel('グラフのタイトル', { exact: true }).fill('売上 / Revenue');

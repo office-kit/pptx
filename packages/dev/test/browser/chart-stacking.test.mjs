@@ -44,7 +44,7 @@ test(
         );
       await editor.locator('select').first().selectOption('ja');
       await saved();
-      await editor.getByRole('button', { name: '挿入', exact: true }).click();
+      await editor.getByRole('tab', { name: '挿入', exact: true }).click();
       await editor.locator('button[title$="— addSlideChart"]').click();
       const dialog = editor.getByRole('dialog');
       await dialog.getByRole('button', { name: '系列を追加', exact: true }).click();

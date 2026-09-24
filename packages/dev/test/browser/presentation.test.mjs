@@ -174,11 +174,9 @@ test(
       await presenter.getByRole('heading', { name: '発表者ビュー', exact: true }).waitFor();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByRole('button', { name: '発表者ノート', exact: true }).click();
-      const dialog = editor.getByRole('dialog', { name: '発表者ノート', exact: true });
-      await dialog
-        .getByLabel('ノートの内容', { exact: true })
+      await editor
+        .getByRole('textbox', { name: 'ノートの内容', exact: true })
         .fill('保存後のノート / Updated notes');
-      await dialog.getByRole('button', { name: '適用', exact: true }).click();
       await presenter.getByText('保存後のノート / Updated notes', { exact: true }).waitFor();
       await page.getByRole('button', { name: 'プレビュー', exact: true }).click();
       await presenter.getByText('スライド 1 / 2', { exact: true }).waitFor();

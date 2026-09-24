@@ -84,6 +84,9 @@
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
           {/each}
+          {#if current?.id === 'home' && group.title === 'Editing'}
+            <button class="cmd" aria-pressed={editor.selectionPaneVisible} onclick={() => { editor.setViewMode('normal'); editor.selectionPaneVisible = !editor.selectionPaneVisible; }}><span class="cmd-label">{t('Selection Pane')}</span></button>
+          {/if}
         </div>
         <div class="group-title">{t(group.title)}</div>
       </div>

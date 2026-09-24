@@ -147,7 +147,7 @@ test('a thread is resolved, hidden, brought back and reopened', { timeout: 12000
     let ja = false;
     const word = (en, jp) => (ja ? jp : en);
     const open = async () => {
-      await editor.getByRole('button', { name: word('Insert', '挿入'), exact: true }).click();
+      await editor.getByRole('tab', { name: word('Insert', '挿入'), exact: true }).click();
       await editor.locator('button[title$="— addSlideComment"]').click();
       return editor.getByRole('dialog', { name: word('Comments', 'コメント'), exact: true });
     };

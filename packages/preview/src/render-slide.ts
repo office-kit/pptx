@@ -119,6 +119,7 @@ import {
   getSlideMasterBackgroundImageBytes,
   getSlideMasterBackgroundPatternFill,
   getSlideShapes,
+  isShapeHidden,
   getSlideSize,
   getTableCellAnchor,
   getTableCellMargins,
@@ -6724,6 +6725,7 @@ const renderShape = (
   theme: PresentationTheme | null,
   ctx: LayoutCtx,
 ): string => {
+  if (isShapeHidden(shape)) return '';
   const inner = renderShapeContent(shape, pres, theme, ctx);
   if (!inner) return inner;
   const href = clickActionHref(pres, shape, getShapeClickAction(shape));
