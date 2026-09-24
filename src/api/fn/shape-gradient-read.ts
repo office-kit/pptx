@@ -68,8 +68,9 @@ export const readColorFromContainer = (parent: XmlElement): string | null => {
 };
 
 // Parses one `<a:gradFill>` element into the stop list + direction.
-// Shared by the shape-own reader and the placeholder-cascade reader.
-const parseGradFill = (
+// Shared by shape, background and placeholder-cascade readers.
+/** @internal */
+export const parseGradFill = (
   gradFill: XmlElement,
   context?: { theme: PresentationTheme | null; colorMap: Readonly<Record<string, string>> },
 ): ReadGradientFill | null => {

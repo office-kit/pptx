@@ -3,7 +3,6 @@
 import type { Color } from '../../internal/drawingml/index.ts';
 import {
   type ReadGradientFill,
-  type ReadGradientStop,
   readFlip,
   readPosition,
   readRotation,
@@ -53,14 +52,8 @@ import {
 } from '../_internal-symbols.ts';
 import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
-import {
-  NAME_A_GRAD_FILL,
-  NAME_A_GS_LST,
-  NAME_A_LIN,
-  type ShapeBounds,
-  readColorFromContainer,
-  resolveDrawingColor,
-} from './shapes.ts';
+import { parseGradFill } from './shape-gradient-read.ts';
+import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
 
 /**
  * Replaces the `<p:bg>` of any `<p:cSld>` with a freshly configured
@@ -474,38 +467,7 @@ export const getSlideLayoutBackgroundGradientFill = (
   if (!bgPr) return null;
   const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
   if (!gradFill) return null;
-  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
-  if (!gsLst) return null;
-  const stops: ReadGradientStop[] = [];
-  for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
-      continue;
-    const posRaw = getAttrValue(c, qname('', 'pos', ''));
-    if (posRaw === null) continue;
-    const pos = Number.parseInt(posRaw, 10);
-    if (!Number.isFinite(pos)) continue;
-    const color = readColorFromContainer(c);
-    if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
-  }
-  if (stops.length === 0) return null;
-  let angleDeg = 0;
-  const lin = firstChildElement(gradFill, NAME_A_LIN);
-  if (lin) {
-    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
-    if (angRaw !== null) {
-      const ang = Number.parseInt(angRaw, 10);
-      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
-    }
-  }
-  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
-  if (pathEl) {
-    const p = getAttrValue(pathEl, qname('', 'path', ''));
-    const pathVal: 'circle' | 'rect' | 'shape' | null =
-      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
-    if (pathVal) return { stops, angleDeg, path: pathVal };
-  }
-  return { stops, angleDeg };
+  return parseGradFill(gradFill);
 };
 
 /**
@@ -536,38 +498,7 @@ export const getSlideMasterBackgroundGradientFill = (
   if (!bgPr) return null;
   const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
   if (!gradFill) return null;
-  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
-  if (!gsLst) return null;
-  const stops: ReadGradientStop[] = [];
-  for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
-      continue;
-    const posRaw = getAttrValue(c, qname('', 'pos', ''));
-    if (posRaw === null) continue;
-    const pos = Number.parseInt(posRaw, 10);
-    if (!Number.isFinite(pos)) continue;
-    const color = readColorFromContainer(c);
-    if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
-  }
-  if (stops.length === 0) return null;
-  let angleDeg = 0;
-  const lin = firstChildElement(gradFill, NAME_A_LIN);
-  if (lin) {
-    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
-    if (angRaw !== null) {
-      const ang = Number.parseInt(angRaw, 10);
-      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
-    }
-  }
-  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
-  if (pathEl) {
-    const p = getAttrValue(pathEl, qname('', 'path', ''));
-    const pathVal: 'circle' | 'rect' | 'shape' | null =
-      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
-    if (pathVal) return { stops, angleDeg, path: pathVal };
-  }
-  return { stops, angleDeg };
+  return parseGradFill(gradFill);
 };
 
 /**
@@ -614,40 +545,7 @@ export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFi
   if (!bgPr) return null;
   const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
   if (!gradFill) return null;
-  // Reuse the same algorithm `getShapeGradientFill` does. The gradFill
-  // element shape is identical between shape and slide backgrounds.
-  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
-  if (!gsLst) return null;
-  const stops: ReadGradientStop[] = [];
-  for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
-      continue;
-    const posRaw = getAttrValue(c, qname('', 'pos', ''));
-    if (posRaw === null) continue;
-    const pos = Number.parseInt(posRaw, 10);
-    if (!Number.isFinite(pos)) continue;
-    const color = readColorFromContainer(c);
-    if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
-  }
-  if (stops.length === 0) return null;
-  let angleDeg = 0;
-  const lin = firstChildElement(gradFill, NAME_A_LIN);
-  if (lin) {
-    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
-    if (angRaw !== null) {
-      const ang = Number.parseInt(angRaw, 10);
-      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
-    }
-  }
-  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
-  if (pathEl) {
-    const p = getAttrValue(pathEl, qname('', 'path', ''));
-    const pathVal: 'circle' | 'rect' | 'shape' | null =
-      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
-    if (pathVal) return { stops, angleDeg, path: pathVal };
-  }
-  return { stops, angleDeg };
+  return parseGradFill(gradFill);
 };
 
 /**
