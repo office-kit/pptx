@@ -326,7 +326,7 @@ closing/reopening, collapsing Fill, selected-slide edits, undo and reload.
 The Design entry is currently a direct Format Background button. Native uses
 Background Styles → Format Background... alongside a 12-style gallery and Reset
 Slide Background; that menu/gallery remains to be matched. Picture/texture fill
-and Hide Background Graphics also remain outstanding. This is partial parity,
+remains outstanding. Hide Background Graphics is covered below. This is partial parity,
 not completion of the overall UI match.
 
 ### Hide Background Graphics
@@ -356,3 +356,22 @@ the bottom edge, separate from the scrollable fill controls. The editor now does
 the same. A short-window browser check verifies that scrolling the pattern
 settings leaves both actions in place. The native gradient inspection used only
 temporary edits, which were undone and saved.
+
+### Background Styles: theme-reference audit (implementation pending)
+
+On the same Mac audit document, choosing Style 6 changed the master background to
+`p:bgRef idx="1002"` with `a:schemeClr val="bg2"`; the slide and all layouts still
+had no explicit background. Style 4 used index 1001 with `bg1`, and Style 12 used
+index 1003 with `bg1`. Both dark styles changed the master's color map to
+`bg1=dk1, tx1=lt1, bg2=dk2, tx2=lt2`. Style 6 kept the light mapping. Reset
+Background remained disabled for these inherited backgrounds.
+
+The theme's second and third background fill styles were radial gradients using
+`phClr` plus tint, shade, and saturation transforms. Consequently, a correct
+gallery must resolve the theme background fill list and preserve its color map;
+substituting twelve fixed colors or gradients would not match this behavior.
+The current background reader reduces `bgRef` to a solid color and needs this
+resolution before the gallery can be implemented correctly. The remaining style
+columns, multi-selection scope, and multiple-master behavior still need auditing.
+Each temporary style change was undone before the next comparison, and the final
+document was saved with Undo disabled.
