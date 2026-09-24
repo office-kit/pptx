@@ -190,6 +190,8 @@ interface LayoutCtx {
   // slide, and the layout and master have their own id spaces where the same
   // number means a different shape.
   readonly ownShapes: boolean;
+  readonly background: { id: string; width: number; height: number };
+  readonly inverseGroupTransform: string;
 }
 
 const clickActionHref = (
@@ -6577,6 +6579,7 @@ const renderShapeContent = (
     const children = getGroupChildren(shape);
     if (children.length === 0) return '';
     const tParts: string[] = [];
+    const inverseParts: string[] = [];
     let groupScaleX = 1;
     let groupScaleY = 1;
     // B7 — group-level rotation / flip. The group's <a:xfrm rot=…
@@ -6587,14 +6590,17 @@ const renderShapeContent = (
       const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
       const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
       tParts.push(`rotate(${rotation} ${cxG.toFixed(2)} ${cyG.toFixed(2)})`);
+      inverseParts.unshift(`rotate(${-rotation} ${cxG.toFixed(2)} ${cyG.toFixed(2)})`);
     }
     if (xform && flip.horizontal) {
       const cxG = ((xform.outer.x as number) + (xform.outer.w as number) / 2) / EMU_PER_PX;
       tParts.push(`translate(${(2 * cxG).toFixed(2)} 0) scale(-1 1)`);
+      inverseParts.unshift(`translate(${(2 * cxG).toFixed(2)} 0) scale(-1 1)`);
     }
     if (xform && flip.vertical) {
       const cyG = ((xform.outer.y as number) + (xform.outer.h as number) / 2) / EMU_PER_PX;
       tParts.push(`translate(0 ${(2 * cyG).toFixed(2)}) scale(1 -1)`);
+      inverseParts.unshift(`translate(0 ${(2 * cyG).toFixed(2)}) scale(1 -1)`);
     }
     if (xform) {
       const ox = xform.outer.x as number;
@@ -6615,13 +6621,17 @@ const renderShapeContent = (
       const tx = ((ox - ix * (ow / iw)) / EMU_PER_PX).toFixed(2);
       const ty = ((oy - iy * (oh / ih)) / EMU_PER_PX).toFixed(2);
       tParts.push(`translate(${tx} ${ty})`, `scale(${sx} ${sy})`);
+      inverseParts.unshift(
+        `scale(${1 / Number(sx)} ${1 / Number(sy)}) translate(${-Number(tx)} ${-Number(ty)})`,
+      );
     }
     const groupTransform = tParts.length > 0 ? ` transform="${tParts.join(' ')}"` : '';
     const childCtx: LayoutCtx =
-      groupScaleX === 1 && groupScaleY === 1 && (!xform || flip.horizontal === flip.vertical)
+      tParts.length === 0
         ? ctx
         : {
             ...ctx,
+            inverseGroupTransform: `${inverseParts.join(' ')} ${ctx.inverseGroupTransform}`,
             groupReflected:
               ctx.groupReflected !== Boolean(xform && flip.horizontal !== flip.vertical),
             groupScale: {
@@ -6634,6 +6644,20 @@ const renderShapeContent = (
   }
 
   const p = paint(shape, fill, stroke, theme, phType !== null, pres);
+  if (fill.kind === 'background') {
+    ctx.background.id ||= mintId();
+    const id = mintId();
+    // Background paint stays in slide coordinates even as the shape and its
+    // ancestor groups rotate, reflect or scale around it.
+    const inverse: string[] = [];
+    if (flip.vertical) inverse.push(`translate(0 ${E(2 * cy)}) scale(1 -1)`);
+    if (flip.horizontal) inverse.push(`translate(${E(2 * cx)} 0) scale(-1 1)`);
+    if (rotation !== 0) inverse.push(`rotate(${-rotation} ${E(cx)} ${E(cy)})`);
+    inverse.push(ctx.inverseGroupTransform);
+    p.fill = `url(#${id})`;
+    p.fillAttrs = '';
+    p.defs += `<defs><pattern id="${id}" patternUnits="userSpaceOnUse" width="${ctx.background.width}" height="${ctx.background.height}" patternTransform="${inverse.join(' ')}"><use href="#${ctx.background.id}" xlink:href="#${ctx.background.id}"/></pattern></defs>`;
+  }
 
   if (kind === 'graphicFrame') {
     // Charts and tables get real renders. SmartArt and the
@@ -7067,6 +7091,8 @@ export const renderSlideSvg = (
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
     ownShapes: true,
+    background: { id: '', width: W / EMU_PER_PX, height: H / EMU_PER_PX },
+    inverseGroupTransform: '',
   };
 
   let bg = getSlideBackground(slide);
@@ -7182,9 +7208,9 @@ export const renderSlideSvg = (
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 ${E(W)} ${E(H)}" preserveAspectRatio="xMidYMid meet">`,
     bgGradientDefs,
-    `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>`,
-    bgGradient,
-    bgImage,
+    ctx.background.id
+      ? `<defs><g id="${ctx.background.id}"><rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>${bgGradient}${bgImage}</g></defs><use href="#${ctx.background.id}" xlink:href="#${ctx.background.id}"/>`
+      : `<rect width="${E(W)}" height="${E(H)}" fill="${bgColor}"/>${bgGradient}${bgImage}`,
     layoutBgShapes,
     shapesSvg,
     '</svg>',

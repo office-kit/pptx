@@ -153,6 +153,31 @@ export const setShapeFlip = (
 // ---------------------------------------------------------------------------
 // Shape mutation — fill / stroke.
 
+const clearBackgroundFill = (shape: SlideShapeData): void => {
+  const element = shape[SHAPE_ELEMENT];
+  element.attrs = element.attrs.filter(
+    (a) => a.name.localName !== 'useBgFill' || a.name.namespaceURI !== '',
+  );
+};
+
+/**
+ * Paints a shape with the slide background at its position, covering objects
+ * behind it. This is different from a transparent fill. Only ordinary shapes
+ * support the PresentationML `useBgFill` attribute; other kinds throw.
+ */
+export const setShapeSlideBackgroundFill = (shape: SlideShapeData): void => {
+  const element = shape[SHAPE_ELEMENT];
+  if (element.name.namespaceURI !== NS.pml || element.name.localName !== 'sp') {
+    throw new Error(
+      'setShapeSlideBackgroundFill: only ordinary shapes support slide background fill',
+    );
+  }
+  clearFillImpl(requireSpPr(shape));
+  clearBackgroundFill(shape);
+  element.attrs.push(attr(qname('', 'useBgFill', ''), '1'));
+  commitAndRefresh(shape);
+};
+
 /**
  * Sets a solid fill. A color string replaces the fill; an options object edits
  * only supplied properties and preserves existing opacity when changing color.
@@ -164,6 +189,7 @@ export const setShapeFill = (
   color: Color | { color?: Color; opacity?: number },
 ): void => {
   setSolidFill(requireSpPr(shape), color);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -180,6 +206,7 @@ export const setShapeFill = (
  */
 export const setShapeGradientFill = (shape: SlideShapeData, options: GradientFillOptions): void => {
   setGradientFill(requireSpPr(shape), options);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -197,6 +224,7 @@ export const setShapePatternFill = (
   options: Partial<PatternFillOptions>,
 ): void => {
   setPatternFill(requireSpPr(shape), options);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -342,12 +370,14 @@ export const setShapeImageFill = (
     }
   }
   spPr.children.splice(insertAt, 0, blipFill);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
 /** Sets `<a:noFill>` on the shape, leaving it transparent. */
 export const setShapeNoFill = (shape: SlideShapeData): void => {
   setNoFillImpl(requireSpPr(shape));
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -357,6 +387,7 @@ export const setShapeNoFill = (shape: SlideShapeData): void => {
  */
 export const clearShapeFill = (shape: SlideShapeData): void => {
   clearFillImpl(requireSpPr(shape));
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 

@@ -30,6 +30,7 @@ import {
   setShapeGradientFill,
   setShapeImageFill,
   setShapeNoFill,
+  setShapeSlideBackgroundFill,
   setShapePatternFill,
   setShapeShadow,
   setShapeStroke,
@@ -228,4 +229,13 @@ test('a character outline, shadow and glow travel with the text format', () => {
   assert.deepEqual(pasted.outline, { color: '#FF0000', widthEmu: 12700 });
   assert.equal(pasted.glow?.color, '#00FF00');
   assert.equal(pasted.shadow?.offsetEmu, 38100);
+});
+
+test('format painter copies slide background fill', () => {
+  const { pres, slide } = deck();
+  const source = box(slide, 1, 'Source');
+  const target = box(slide, 5, 'Target');
+  setShapeSlideBackgroundFill(source);
+  applyShapeFormat(target, readShapeFormat(pres, source, null));
+  assert.deepEqual(getShapeFill(target), { kind: 'background' });
 });

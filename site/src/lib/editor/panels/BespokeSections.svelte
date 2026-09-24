@@ -11,6 +11,7 @@
     getShapeGradientFillEffective,
     setShapeFill,
     setShapeNoFill,
+    setShapeSlideBackgroundFill,
     setShapeGradientFill,
     getShapePatternFill,
     setShapePatternFill,
@@ -126,7 +127,7 @@
     const kinds = new Set(editor.selectedShapes().map(target => getShapeFillEffective(doc.pres, target).kind));
     return kinds.size === 1 ? [...kinds][0] : 'mixed';
   });
-  function changeFill(kind: 'none' | 'solid' | 'gradient' | 'pattern') {
+  function changeFill(kind: 'none' | 'solid' | 'gradient' | 'pattern' | 'background') {
     if (editor.selectionLocked() || doc.selection.kind !== 'shape' || fillKind === kind) return;
     const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
     const shapes = editor.selectedShapes();
@@ -146,7 +147,8 @@
           }) };
         }
         doc.rememberedFills.set(key, remembered);
-        if (kind === 'none') setShapeNoFill(target);
+        if (kind === 'background') setShapeSlideBackgroundFill(target);
+        else if (kind === 'none') setShapeNoFill(target);
         else if (kind === 'solid') setShapeFill(target, remembered.solid ?? { color: 'accent1' });
         else if (kind === 'pattern') setShapePatternFill(target, remembered.pattern ?? { preset: 'pct5', foreground: 'accent1', background: 'bg1' });
         else setShapeGradientFill(target, remembered.gradient ?? {
@@ -191,16 +193,16 @@
         <summary>{t('Fill')}</summary>
         <div class="paint-fields">
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
-            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['pattern', 'Pattern fill']] as [kind, label]}
-              <label><input type="radio" name="shape-fill-type" checked={fillKind === kind}
-                onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient' || kind === 'pattern') changeFill(kind); }} />{t(label)}</label>
+            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['pattern', 'Pattern fill'], ['background', 'Slide background fill']] as [kind, label]}
+              <label><input type="radio" name="shape-fill-type" checked={fillKind === kind} disabled={kind === 'background' && editor.selectedShapes().some(target => getShapeKind(target) !== 'shape')}
+                onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient' || kind === 'pattern' || kind === 'background') changeFill(kind); }} />{t(label)}</label>
             {/each}
           </fieldset>
           {#if fillKind === 'gradient'}
             <GradientFillSection />
           {:else if fillKind === 'pattern'}
             <PatternFillSection />
-          {:else if fillKind !== 'none'}
+          {:else if fillKind !== 'none' && fillKind !== 'background'}
           <div class="mini">
             <span>{t('Color')}</span>
             <span class="colorwrap">

@@ -542,6 +542,7 @@ export {
   setShapeClickAction,
   setShapeDescription,
   setShapeNoFill,
+  setShapeSlideBackgroundFill,
   setShapeNoStroke,
   setShapePatternFill,
   setShapeParagraphs,

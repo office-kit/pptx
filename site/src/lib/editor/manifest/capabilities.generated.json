@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 174,
+  "count": 175,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1882,7 +1882,7 @@
       "params": [
         {
           "name": "options",
-          "type": "PatternFillOptions",
+          "type": "Partial<PatternFillOptions>",
           "kind": "object",
           "optional": false
         }
@@ -2078,6 +2078,16 @@
           "optional": false
         }
       ]
+    },
+    {
+      "id": "setShapeSlideBackgroundFill",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "fill",
+      "file": "api/fn/shape-fill-stroke.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
     },
     {
       "id": "setShapeStroke",
