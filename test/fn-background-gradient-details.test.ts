@@ -9,7 +9,11 @@ import {
   getSlides,
   loadPresentation,
   savePresentation,
+  getPresentationTheme,
+  clearSlideBackground,
+  clearSlideLayoutBackground,
 } from '../src/api/index.ts';
+import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 
 const gradient = `<a:gradFill rotWithShape="0"><a:gsLst><a:gs pos="0"><a:schemeClr val="accent1"><a:alpha val="40000"/><a:lumMod val="70000"/><a:lumOff val="30000"/></a:schemeClr></a:gs><a:gs pos="100000"><a:srgbClr val="123456"><a:lumMod val="80000"/></a:srgbClr></a:gs></a:gsLst><a:path path="rect"><a:fillToRect l="100000" t="100000"/></a:path><a:tileRect l="10000" t="20000" r="30000" b="40000"/></a:gradFill>`;
 
@@ -38,6 +42,30 @@ function backgrounds(pres: Awaited<ReturnType<typeof loadPresentation>>) {
 }
 
 describe('gradient background details', () => {
+  it('resolves brightness and theme colors for slide, layout and master previews', async () => {
+    const pres = await withBackground(
+      `<a:gradFill><a:gsLst><a:gs pos="0"><a:srgbClr val="000000"><a:lumMod val="50000"/><a:lumOff val="50000"/></a:srgbClr></a:gs><a:gs pos="100000"><a:schemeClr val="accent1"/></a:gs></a:gsLst><a:lin ang="0"/></a:gradFill>`,
+    );
+    const accent = getPresentationTheme(pres)!.accent1;
+    for (const value of backgrounds(pres)) {
+      expect(value?.stops[0]).toMatchObject({
+        color: '#000000',
+        resolvedColor: '#808080',
+        brightness: 0.5,
+      });
+      expect(value?.stops[1]).toMatchObject({ color: 'scheme:accent1', resolvedColor: accent });
+    }
+    const slide = getSlides(pres)[0]!;
+    const layout = getSlideLayout(slide)!;
+    for (const level of ['slide', 'layout', 'master']) {
+      if (level === 'layout') clearSlideBackground(slide);
+      if (level === 'master') clearSlideLayoutBackground(layout);
+      const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+      expect(svg).toContain('<stop offset="0.0000" stop-color="#808080"');
+      expect(svg).toContain(`<stop offset="1.0000" stop-color="${accent}"`);
+    }
+  });
+
   it('retains stop transforms and rectangular direction on slides, layouts and masters after reload', async () => {
     const pres = await withBackground(gradient);
     const expected = {
