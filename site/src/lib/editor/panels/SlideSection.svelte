@@ -106,6 +106,7 @@
     {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}
     <input bind:this={fileInput} aria-label={t('Background image')} type="file" accept="image/*" hidden disabled={loading} onchange={upload} />
     <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>
+    <button class="ok-btn" onclick={() => editor.invoke('applySlideBackgroundToAll')}>{t('Apply to All')}</button>
     <button class="ok-btn" disabled={!canReset} onclick={() => apply('Reset background', target => clearSlideBackground(target))}>{t('Reset background')}</button>
     {#if error}<p role="alert">{t('Slide update failed')}: {error}</p>{/if}
   </section>

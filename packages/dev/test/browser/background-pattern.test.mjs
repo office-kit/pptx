@@ -6,6 +6,8 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getSlideBackgroundPatternFill,
+  getSlideLayout,
+  getSlideMasterBackgroundPatternFill,
   getSlides,
   loadPresentation,
 } from '../../../../dist/index.js';
@@ -32,12 +34,18 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
-      const read = async () => {
+      const read = async (effective = false) => {
         const pres = await loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
-        return getSlides(pres).map((slide) =>
-          getSlideBackgroundPatternFill(pres, slide, { preserveTheme: true }),
+        return getSlides(pres).map(
+          (slide) =>
+            getSlideBackgroundPatternFill(pres, slide, { preserveTheme: true }) ??
+            (effective
+              ? getSlideMasterBackgroundPatternFill(pres, getSlideLayout(slide), {
+                  preserveTheme: true,
+                })
+              : null),
         );
       };
       await saved();
@@ -74,6 +82,22 @@ test(
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await read(), [changed, changed, null]);
+      await pane.getByRole('button', { name: 'Apply to All', exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), [null, null, null]);
+      assert.deepEqual(await read(true), [changed, changed, changed]);
+      await pane
+        .getByRole('button', { name: 'Reset background', exact: true })
+        .isDisabled()
+        .then((value) => assert.equal(value, true));
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), [changed, changed, null]);
+      await pane.getByRole('button', { name: 'Apply to All', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(true), [changed, changed, changed]);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
