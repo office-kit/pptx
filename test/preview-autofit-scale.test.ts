@@ -16,9 +16,14 @@ import {
   inches,
   loadPresentation,
   setShapeTextAutoFit,
+  setShapeTextColumns,
   type PresentationData,
 } from '@office-kit/pptx';
-import { renderSlideToSvg, shapeAutoFitScale } from '../packages/preview/src/index.ts';
+import {
+  auditTextLayout,
+  renderSlideToSvg,
+  shapeAutoFitScale,
+} from '../packages/preview/src/index.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
 
@@ -65,6 +70,22 @@ describe('shapeAutoFitScale', () => {
     setShapeTextAutoFit(shape, 'none');
     expect(shapeAutoFitScale(pres, shape)).toBe(1);
   });
+  it('lays out omitted column spacing exactly like explicit zero spacing', async () => {
+    const { pres, shape } = await boxWith({ w: 2, h: 1, autofit: 'normal' });
+    const slide = getSlides(pres)[0]!;
+    setShapeTextColumns(shape, { count: 2 });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    const scale = shapeAutoFitScale(pres, shape);
+    const audit = auditTextLayout(pres);
+    expect(renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' })).toContain(
+      'column-count:2;column-gap:0px',
+    );
+    setShapeTextColumns(shape, { count: 2, gapEmu: 0 });
+    expect(renderSlideToSvg(pres, slide, { textLayout: 'svg' })).toBe(svg);
+    expect(shapeAutoFitScale(pres, shape)).toBe(scale);
+    expect(auditTextLayout(pres)).toEqual(audit);
+  });
+
   it('shrinks text that overflows a normAutofit box', async () => {
     const { pres, shape } = await boxWith({ w: 2, h: 1, autofit: 'normal' });
     const scale = shapeAutoFitScale(pres, shape);

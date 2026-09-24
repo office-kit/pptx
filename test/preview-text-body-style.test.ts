@@ -49,7 +49,7 @@ describe('text columns as CSS', () => {
   });
 
   it('falls back to PowerPoint’s gap when spcCol is absent', () => {
-    expect(textColumnsStyle({ count: 2 })).toBe('column-count:2;column-gap:12px');
+    expect(textColumnsStyle({ count: 2 })).toBe('column-count:2;column-gap:0px');
   });
 
   it('says nothing below two columns, which is not a split at all', () => {
