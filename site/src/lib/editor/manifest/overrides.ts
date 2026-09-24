@@ -893,6 +893,13 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  setSlideBackgroundGradientFill: {
+    ...handOverrides.setShapeGradientFill,
+    labelEn: 'Background gradient',
+    labelJa: '背景のグラデーション',
+    category: 'slide-background',
+    ribbonGroup: 'background',
+  },
   setDrawingGuides: {
     labelEn: 'Drawing guides',
     labelJa: '描画ガイド',

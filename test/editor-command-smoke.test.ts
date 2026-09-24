@@ -18,6 +18,7 @@ import {
   getShapeText,
   getSlideShapes,
   getSlides,
+  getSlideBackgroundGradientFill,
   inches,
   loadPresentation,
   savePresentation,
@@ -68,6 +69,32 @@ function run(doc: FakeDoc, id: string, args: Record<string, unknown> = {}) {
 }
 
 describe('editor command registry drives the library', () => {
+  it('applies a background gradient to the active slide through the command registry', async () => {
+    const pres = createPresentation();
+    addBlankSlide(pres);
+    addBlankSlide(pres);
+    const doc = new FakeDoc(pres);
+    doc.selectSlide(1);
+    run(doc, 'setSlideBackgroundGradientFill', {
+      options: {
+        stops: [
+          { offset: 0, color: '#FF0000' },
+          { offset: 1, color: '#0000FF' },
+        ],
+        angleDeg: 0,
+      },
+    });
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideBackgroundGradientFill(getSlides(loaded)[0]!)).toBeNull();
+    expect(getSlideBackgroundGradientFill(getSlides(loaded)[1]!)).toMatchObject({
+      angleDeg: 0,
+      stops: [
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#0000FF' },
+      ],
+    });
+  });
+
   it('inserts a chosen layout after the active slide and selects the inserted slide', async () => {
     const pres = createPresentation();
     const first = addBlankSlide(pres);

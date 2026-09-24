@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 176,
+  "count": 177,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2445,6 +2445,23 @@
           "name": "color",
           "type": "Color",
           "kind": "color",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackgroundGradientFill",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "options",
+          "type": "GradientFillOptions",
+          "kind": "object",
           "optional": false
         }
       ]
