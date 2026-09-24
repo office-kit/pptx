@@ -15,3 +15,5 @@ Open and focus the numeric rotation control through Arrange > Rotate > More Rota
 Keep Enter-to-edit working from the table cell grid while preventing ordinary buttons from starting canvas text editing.
 
 Recognize Mac object arrangement shortcuts using physical keys: Option-Command-G for Group, Option-Shift-Command-G for Ungroup, Shift-Command-F/B for front/back, and Option-Shift-Command-F/B for one step forward/backward. Arrangement shortcuts also dismiss the open Arrange menu and no longer trigger Find.
+
+Restore a dissolved group with Arrange > Regroup or Option-Command-J, including edits made after ungrouping. Undo and redo preserve the former membership; opening a document starts a new regroup history.

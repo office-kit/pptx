@@ -10,6 +10,7 @@
 // Manifest coverage proves command discovery. Selection bindings and browser
 // tests separately verify that a user can execute an editing workflow.
 
+import type { RegroupHistory } from './regroup-history.ts';
 import { shapeScope } from '../canvas/group-space.ts';
 import * as pptx from '@office-kit/pptx';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
@@ -29,6 +30,7 @@ const lib = pptx as unknown as Record<string, (...args: unknown[]) => unknown>;
  */
 export interface CommandDoc {
   readonly selection: Selection;
+  readonly regroupHistory: RegroupHistory;
   readonly pres: PresentationData;
   readonly slides: ReadonlyArray<SlideData>;
   slideAt(index: number): SlideData | null;
@@ -400,12 +402,16 @@ class GroupCommand extends ManifestCommand {
     return doc.transact(this.capability.labelEn, () => {
       if (this.capability.id === 'groupShapes') {
         const group = pptx.groupShapes(shapes, name === undefined ? {} : { name });
+        doc.regroupHistory.forget(doc.slideAt(doc.selection.slideIndex)!, shapes);
         doc.selectShape(doc.selection.slideIndex, pptx.getShapeId(group));
         return group;
       }
-      const children = shapes.flatMap((shape) =>
-        pptx.getShapeKind(shape) === 'group' ? [...pptx.ungroupShapes(shape)] : [shape],
-      );
+      const children = shapes.flatMap((shape) => {
+        if (pptx.getShapeKind(shape) !== 'group') return [shape];
+        const members = [...pptx.ungroupShapes(shape)];
+        doc.regroupHistory.remember(doc.slideAt(doc.selection.slideIndex)!, members);
+        return members;
+      });
       doc.select({
         kind: 'shape',
         slideIndex: doc.selection.slideIndex,

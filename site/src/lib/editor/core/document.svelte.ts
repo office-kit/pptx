@@ -31,12 +31,14 @@ import {
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
+import { RegroupHistory } from './regroup-history.ts';
 import { selectedSlideIndices, type Selection } from './selection.ts';
 
 interface Snapshot {
   readonly bytes: Promise<Uint8Array>;
   readonly selection: Selection;
   readonly label: string;
+  readonly formerGroups: RegroupHistory['records'];
 }
 
 const HISTORY_MAX = 60;
@@ -59,6 +61,7 @@ export class EditorDocument {
   // A requested restore may still be loading while another undo is requested.
   #requestedCursor = $state(-1);
   #operation = 0;
+  readonly regroupHistory = new RegroupHistory();
 
   constructor() {
     // Seed the initial state so the first undo returns to the blank deck.
@@ -153,7 +156,13 @@ export class EditorDocument {
     this.committedVersion = this.version;
     const bytes = savePresentation(this.pres);
     const kept = this.#history.slice(0, this.#cursor + 1);
-    kept.push({ bytes, selection: this.selection, label });
+    this.regroupHistory.prune(getSlides(this.pres));
+    kept.push({
+      bytes,
+      selection: this.selection,
+      label,
+      formerGroups: this.regroupHistory.records,
+    });
     this.#history = kept.slice(-HISTORY_MAX);
     this.#cursor = this.#history.length - 1;
     this.#requestedCursor = this.#cursor;
@@ -169,6 +178,7 @@ export class EditorDocument {
       // New/Open, another restore, or an edit takes precedence over stale work.
       if (operation !== this.#operation) return;
       this.pres = pres;
+      this.regroupHistory.records = snap.formerGroups;
       this.selection = selection ?? snap.selection;
       this.liveEditing = false;
       this.#cursor = index;
@@ -261,6 +271,7 @@ export class EditorDocument {
     if (operation !== this.#operation) return;
     this.pres = pres;
     this.fileName = name;
+    this.regroupHistory.records = [];
     this.#history = [];
     this.#cursor = -1;
     this.selection = { kind: 'none', slideIndex: 0 };
@@ -282,6 +293,7 @@ export class EditorDocument {
     this.#invalidateRestore();
     this.pres = createInitial();
     this.fileName = 'Untitled.pptx';
+    this.regroupHistory.records = [];
     this.#history = [];
     this.#cursor = -1;
     this.selection = { kind: 'none', slideIndex: 0 };

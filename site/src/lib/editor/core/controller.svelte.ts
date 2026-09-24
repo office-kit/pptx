@@ -7,6 +7,7 @@
 // so there is exactly one path from "user intent" to "library call".
 
 import {
+  groupShapes,
   getDrawingGuides,
   getDrawingGuidesVisible,
   setDrawingGuides,
@@ -168,6 +169,29 @@ export class EditorController {
   canRun(id: string): boolean {
     const cmd = getCommand(id);
     return cmd ? cmd.canRun(this.ctx) : false;
+  }
+
+  private regroupMembers(): SlideShapeData[] {
+    this.doc.version;
+    const selection = this.doc.selection;
+    const slide = this.doc.currentSlide;
+    return slide && selection.kind === 'shape'
+      ? this.doc.regroupHistory.members(slide, selection.shapeIds)
+      : [];
+  }
+
+  canRegroup(): boolean {
+    return this.regroupMembers().length >= 2;
+  }
+
+  regroupSelection(): void {
+    const members = this.regroupMembers();
+    if (members.length < 2) return;
+    this.doc.transact(t('Regroup'), () => {
+      const group = groupShapes(members);
+      this.doc.regroupHistory.forget(this.doc.currentSlide!, members);
+      this.doc.selectShape(this.doc.selection.slideIndex, getShapeId(group));
+    });
   }
 
   /** Execute a command immediately with fully-supplied args. */
