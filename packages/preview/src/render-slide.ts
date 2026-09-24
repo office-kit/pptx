@@ -70,6 +70,7 @@ import {
   getShapeImageDuotone,
   getShapeImageFillBytes,
   getShapeImageFillLayout,
+  getShapeImageIntrinsicSize,
   getShapeImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
@@ -475,6 +476,45 @@ const renderPicture = (
       outline.stroke !== 'none' && outline.strokeWidth > 0
         ? `<g${transform} fill="none" stroke="${outline.stroke}" stroke-width="${E(outline.strokeWidth)}"${outline.strokeAttrs ? ` ${outline.strokeAttrs}` : ''}>${pictureClipGeometry(shape, preset, x, y, w, h)}</g>`
         : '';
+    if (layout?.mode === 'tile') {
+      const intrinsic = getShapeImageIntrinsicSize(shape);
+      if (intrinsic) {
+        const tileW = intrinsic.width * (layout.scaleX ?? 1);
+        const tileH = intrinsic.height * (layout.scaleY ?? 1);
+        if (tileW <= 0 || tileH <= 0) return `${clipDef}${border}<g${transform}>${textOverlay}</g>`;
+        const alignment = layout.alignment ?? 'tl';
+        const horizontal = ['t', 'ctr', 'b'].includes(alignment)
+          ? 0.5
+          : ['tr', 'r', 'br'].includes(alignment)
+            ? 1
+            : 0;
+        const vertical = ['l', 'ctr', 'r'].includes(alignment)
+          ? 0.5
+          : ['bl', 'b', 'br'].includes(alignment)
+            ? 1
+            : 0;
+        const tileX = x + (w - tileW) * horizontal + (layout.offsetX ?? 0);
+        const tileY = y + (h - tileH) * vertical + (layout.offsetY ?? 0);
+        const mirrorX = layout.flip === 'x' || layout.flip === 'xy';
+        const mirrorY = layout.flip === 'y' || layout.flip === 'xy';
+        const patternId = mintId();
+        const images: string[] = [];
+        for (let row = 0; row < (mirrorY ? 2 : 1); row++) {
+          for (let col = 0; col < (mirrorX ? 2 : 1); col++) {
+            const reflection =
+              col || row
+                ? ` transform="translate(${E(col * 2 * tileW)} ${E(row * 2 * tileH)}) scale(${col ? -1 : 1} ${row ? -1 : 1})"`
+                : '';
+            images.push(
+              `<image width="${E(tileW)}" height="${E(tileH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${reflection}/>`,
+            );
+          }
+        }
+        const pattern = `<defs><pattern id="${patternId}" patternUnits="userSpaceOnUse" x="${E(tileX)}" y="${E(tileY)}" width="${E(tileW * (mirrorX ? 2 : 1))}" height="${E(tileH * (mirrorY ? 2 : 1))}">${images.join('')}</pattern></defs>`;
+        const geometry = pictureClipGeometry(shape, preset, x, y, w, h);
+        return `${clipDef}${pattern}<g${transform} fill="url(#${patternId})"${filterAttr}${opacityAttr}>${geometry}</g>${border}<g${transform}>${textOverlay}</g>`;
+      }
+    }
     return `${clipDef}<g${transform}${clipAttr}><image x="${E(imgX)}" y="${E(imgY)}" width="${E(imgW)}" height="${E(imgH)}" href="${dataUrl}" xlink:href="${dataUrl}" preserveAspectRatio="none"${filterAttr}${opacityAttr}/></g>${border}<g${transform}>${textOverlay}</g>`;
   }
   // B14 — external r:link pictures don't ship bytes in the package.
