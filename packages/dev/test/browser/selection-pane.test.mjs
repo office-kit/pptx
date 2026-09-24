@@ -12,6 +12,7 @@ import {
   renameShape,
   getShapeName,
   getShapeId,
+  getShapeZIndex,
   getSlideShapes,
   getSlides,
   isShapeHidden,
@@ -88,6 +89,20 @@ test(
       await editor.getByRole('button', { name: 'Selection Pane', exact: true }).click();
       let pane = editor.getByRole('region', { name: 'Selection Pane', exact: true });
       assert.deepEqual(await pane.locator('.name').allTextContents(), ['Third', 'Group']);
+      await pane
+        .getByRole('button', { name: 'Group', exact: true })
+        .dragTo(pane.getByRole('button', { name: 'Third', exact: true }), {
+          targetPosition: { x: 20, y: 2 },
+        });
+      await saved();
+      assert.deepEqual(await pane.locator('.name').allTextContents(), ['Group', 'Third']);
+      assert.equal(
+        getShapeZIndex((await state()).find((shape) => getShapeName(shape) === 'Group')),
+        1,
+      );
+      await pane.getByRole('button', { name: 'Group', exact: true }).press('Meta+z');
+      await saved();
+      assert.deepEqual(await pane.locator('.name').allTextContents(), ['Third', 'Group']);
       await pane.getByRole('button', { name: 'Expand Group', exact: true }).click();
       assert.deepEqual(await pane.locator('.name').allTextContents(), [
         'Third',
@@ -95,6 +110,36 @@ test(
         'Second',
         'First',
       ]);
+      await pane
+        .getByRole('button', { name: 'First', exact: true })
+        .dragTo(pane.getByRole('button', { name: 'Second', exact: true }), {
+          targetPosition: { x: 20, y: 2 },
+        });
+      await saved();
+      assert.deepEqual(await pane.locator('.name').allTextContents(), [
+        'Third',
+        'Group',
+        'First',
+        'Second',
+      ]);
+      assert.equal(
+        getShapeZIndex((await state()).find((shape) => getShapeName(shape) === 'First')),
+        1,
+      );
+      await pane
+        .getByRole('button', { name: 'First', exact: true })
+        .dragTo(pane.getByRole('button', { name: 'Third', exact: true }), {
+          targetPosition: { x: 20, y: 2 },
+        });
+      assert.deepEqual(await pane.locator('.name').allTextContents(), [
+        'Third',
+        'Group',
+        'First',
+        'Second',
+      ]);
+      await pane.getByRole('button', { name: 'First', exact: true }).press('Meta+z');
+      await saved();
+      await pane.getByRole('button', { name: 'Expand Group', exact: true }).click();
       await pane.getByRole('button', { name: 'Second', exact: true }).click();
       await pane
         .getByRole('button', { name: 'First', exact: true })
@@ -151,6 +196,96 @@ test(
         .getByRole('button', { name: 'Renamed', exact: true })
         .waitFor();
       assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'selection pane scrolls during a drag and saves the offscreen stacking order',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-selection-scroll-'));
+    let preview, browser;
+    try {
+      const pres = createPresentation();
+      const slide = addBlankSlide(pres);
+      const count = 45;
+      for (let i = 0; i < count; i++) {
+        renameShape(
+          addSlideTextBox(slide, {
+            x: inches(1),
+            y: inches(1),
+            w: inches(2),
+            h: inches(1),
+            text: `Object ${i}`,
+          }),
+          `Object ${i}`,
+        );
+      }
+      const source = join(dir, 'source.pptx');
+      const file = join(dir, 'deck.tsx');
+      await writeFile(source, await savePresentation(pres));
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await saved();
+      await editor.getByRole('button', { name: 'Selection Pane', exact: true }).click();
+      const pane = editor.getByRole('region', { name: 'Selection Pane', exact: true });
+      const list = pane.locator('.objects');
+      const first = pane.getByRole('button', { name: 'Object 44', exact: true });
+      const origin = await first.boundingBox();
+      const bounds = await list.boundingBox();
+      const x = origin.x + origin.width / 2;
+      await page.mouse.move(x, origin.y + origin.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(x, origin.y + origin.height + 10, { steps: 5 });
+      await page.mouse.move(x, bounds.y + bounds.height - 3, { steps: 8 });
+      await list.evaluate(
+        (element) =>
+          new Promise((resolve, reject) => {
+            const deadline = performance.now() + 10000;
+            const check = () => {
+              if (element.scrollTop + element.clientHeight >= element.scrollHeight - 2) resolve();
+              else if (performance.now() >= deadline)
+                reject(new Error('Drag did not scroll to the last object'));
+              else requestAnimationFrame(check);
+            };
+            check();
+          }),
+      );
+      const last = await pane.getByRole('button', { name: 'Object 0', exact: true }).boundingBox();
+      await page.mouse.move(x, last.y + last.height - 2, { steps: 3 });
+      await page.mouse.up();
+      await saved();
+      assert.equal((await pane.locator('.name').allTextContents()).at(-1), 'Object 44');
+      const loaded = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      assert.equal(getShapeName(getSlideShapes(getSlides(loaded)[0])[0]), 'Object 44');
+      const stoppedAt = await list.evaluate((element) => element.scrollTop);
+      await list
+        .evaluate(
+          (element) =>
+            new Promise((resolve) =>
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve(element.scrollTop))),
+            ),
+        )
+        .then((value) => assert.equal(value, stoppedAt));
+      await pane.getByRole('button', { name: 'Object 44', exact: true }).press('Meta+z');
+      await saved();
+      assert.equal((await pane.locator('.name').allTextContents())[0], 'Object 44');
     } finally {
       await browser?.close();
       await preview?.close();

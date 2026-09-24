@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getGroupChildren, getShapeId, getShapeName, isShapeHidden, renameShape, setShapeHidden, type SlideShapeData } from '@office-kit/pptx';
+  import { onDestroy } from 'svelte';
+  import { getGroupChildren, getShapeId, getShapeName, isShapeHidden, renameShape, setShapeHidden, setShapeZIndex, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds, topLevelShapes } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -12,6 +13,38 @@
   let renaming = $state<number | null>(null);
   let name = $state('');
   let anchor = $state<number | null>(null);
+  let dragging = $state<number | null>(null);
+  let insertion = $state<{ id: number; after: boolean } | null>(null);
+  let list: HTMLDivElement;
+  const SCROLL_EDGE = 32;
+  const SCROLL_SPEED = 700;
+  const MAX_FRAME_MS = 50;
+  let scrollSpeed = 0;
+  let scrollFrame = 0;
+  let previousFrame = 0;
+
+  function stopScroll() {
+    cancelAnimationFrame(scrollFrame);
+    scrollFrame = 0; scrollSpeed = 0; previousFrame = 0;
+  }
+  function scroll(time: number) {
+    const elapsed = previousFrame ? Math.min(MAX_FRAME_MS, time - previousFrame) : 0;
+    previousFrame = time;
+    list.scrollTop += scrollSpeed * elapsed / 1000;
+    scrollFrame = requestAnimationFrame(scroll);
+  }
+  function edgeScroll(event: DragEvent) {
+    if (dragging === null) return;
+    const bounds = list.getBoundingClientRect();
+    if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) { stopScroll(); return; }
+    const top = Math.max(0, (SCROLL_EDGE - (event.clientY - bounds.top)) / SCROLL_EDGE);
+    const bottom = Math.max(0, (SCROLL_EDGE - (bounds.bottom - event.clientY)) / SCROLL_EDGE);
+    scrollSpeed = (bottom - top) * SCROLL_SPEED;
+    if (!scrollSpeed) stopScroll();
+    else if (!scrollFrame) scrollFrame = requestAnimationFrame(scroll);
+  }
+  function endDrag() { dragging = null; insertion = null; stopScroll(); }
+  onDestroy(stopScroll);
   const selected = $derived(new Set(selectedShapeIds(doc.selection)));
   const allRows = $derived.by(() => {
     doc.version;
@@ -61,6 +94,32 @@
     if (!cancel && row && row.name !== name) doc.transact(t('Rename object'), () => renameShape(row.shape, name));
   }
   function focusName(input: HTMLInputElement) { input.focus(); input.select(); }
+  function dragStart(event: DragEvent, row: Row) {
+    dragging = row.id;
+    doc.selectShape(doc.selection.slideIndex, row.id);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', row.name);
+    }
+  }
+  function dragOver(event: DragEvent, row: Row) {
+    const source = allRows.find(item => item.id === dragging);
+    if (!source || source.id === row.id || source.parent !== row.parent) { insertion = null; return; }
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    insertion = { id: row.id, after: event.clientY > bounds.top + bounds.height / 2 };
+  }
+  function drop(event: DragEvent, row: Row) {
+    const source = allRows.find(item => item.id === dragging);
+    if (!source || !insertion || insertion.id !== row.id || source.parent !== row.parent) return;
+    event.preventDefault();
+    const siblings = allRows.filter(item => item.parent === row.parent && item.id !== source.id);
+    const index = siblings.indexOf(row) + (insertion.after ? 1 : 0);
+    const original = allRows.filter(item => item.parent === row.parent).indexOf(source);
+    endDrag();
+    if (index !== original) doc.transact(t('Reorder object'), () => setShapeZIndex(source.shape, siblings.length - index));
+  }
   function key(event: KeyboardEvent, row: Row) {
     if (event.key === 'F2') {
       event.preventDefault(); event.stopPropagation(); name = row.name; renaming = row.id;
@@ -77,17 +136,19 @@
   }
 </script>
 
+<svelte:window ondragover={edgeScroll} ondragend={endDrag} ondrop={endDrag} />
+
 <section class="panel" aria-label={t('Selection Pane')}>
   <header><strong>{t('Selection Pane')}</strong><button aria-label={t('Close Selection Pane')} onclick={() => editor.selectionPaneVisible = false}>×</button></header>
   <div class="actions"><button disabled={!allRows.length} onclick={() => showAll(false)}>{t('Show All')}</button><button disabled={!allRows.length} onclick={() => showAll(true)}>{t('Hide All')}</button></div>
-  <div class="objects ok-scroll">
+  <div class="objects ok-scroll" bind:this={list}>
     {#each rows as row (row.id)}
       <div class="row" class:selected={selected.has(row.id)} data-object-id={row.id} style:padding-left={`${row.depth * 14}px`}>
         {#if row.group}<button class="expand" aria-label={`${t(expandedIds.has(row.id) ? 'Collapse' : 'Expand')} ${row.name}`} aria-expanded={expandedIds.has(row.id)} onclick={() => expanded = expandedIds.has(row.id) ? expanded.filter(id => id !== row.id) : [...expanded, row.id]}>{expandedIds.has(row.id) ? '▾' : '▸'}</button>{:else}<span class="spacer"></span>{/if}
         {#if renaming === row.id}
           <input use:focusName aria-label={t('Object name')} bind:value={name} onblur={() => finishRename()} onkeydown={event => { event.stopPropagation(); if (event.key === 'Enter' || event.key === 'Escape') { event.preventDefault(); finishRename(event.key === 'Escape'); } }} />
         {:else}
-          <button class="name" title={row.name} aria-pressed={selected.has(row.id)} onclick={event => choose(row, event)} ondblclick={() => { name = row.name; renaming = row.id; }} onkeydown={event => key(event, row)}>{row.name}</button>
+          <button class="name" class:insert-before={insertion?.id === row.id && !insertion.after} class:insert-after={insertion?.id === row.id && insertion.after} draggable="true" ondragstart={event => dragStart(event, row)} ondragover={event => dragOver(event, row)} ondragleave={() => insertion = null} ondrop={event => drop(event, row)} ondragend={endDrag} title={row.name} aria-pressed={selected.has(row.id)} onclick={event => choose(row, event)} ondblclick={() => { name = row.name; renaming = row.id; }} onkeydown={event => key(event, row)}>{row.name}</button>
         {/if}
         <button class="visibility" aria-label={`${t(row.hidden ? 'Show object' : 'Hide object')}: ${row.name}`} aria-pressed={!row.hidden} onclick={() => visibility(row)}><svg viewBox="0 0 20 16" aria-hidden="true"><path d="M1 8Q10 -3 19 8Q10 19 1 8Z"/><circle cx="10" cy="8" r="3"/>{#if row.hidden}<path d="m2 1 16 14"/>{/if}</svg></button>
       </div>
@@ -107,6 +168,8 @@
   button:hover { background: var(--ok-hover); }
   button:disabled { opacity: .4; cursor: default; }
   .name { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .name.insert-before { border-top-color: var(--ok-accent); }
+  .name.insert-after { border-bottom-color: var(--ok-accent); }
   .expand, .spacer { flex: 0 0 20px; }
   .visibility { flex: 0 0 26px; }
   svg { display: block; width: 18px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.3; }
