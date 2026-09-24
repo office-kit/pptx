@@ -142,7 +142,13 @@ export interface GradientFillOptions {
  * readers surface a scheme token verbatim, including one outside the theme,
  * rather than dropping it.
  */
-export type ReadGradientStop = Omit<GradientStop, 'color'> & { readonly color: string };
+export type ReadGradientStop = Omit<GradientStop, 'color'> & {
+  readonly color: string;
+  /** Effective stop opacity after alpha transforms; absent means opaque. */
+  readonly opacity?: number;
+  /** Theme- and transform-resolved color, supplied by the effective shape reader. */
+  readonly resolvedColor?: string;
+};
 export type ReadGradientFill = Omit<GradientFillOptions, 'stops'> & {
   readonly stops: ReadonlyArray<ReadGradientStop>;
 };

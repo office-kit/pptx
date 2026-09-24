@@ -203,3 +203,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Added a close button, matching context commands, and reopening from More Rotation Options. Closing preserves the scale baseline, returns keyboard focus to the selection, and gives the reclaimed width to the canvas. Opening and closing Selection Pane respects the prior format-pane visibility.
 - Native gradient fill audit: preset gradients, Type, Direction, Angle (0–359.9°), selectable stops with add/remove, stop color, position (0–100%), transparency (0–100%), brightness (−100–100%), and Rotate with shape. The temporary gradient change was undone; No fill and disabled Undo confirm restoration. Native gradient controls and Shape Options/Text Options remain outstanding.
 - Validation: pane close/reopen, Selection Pane and view-mode browser scenarios all pass (4 tests). The complete tab-migration browser run passed 185/189; all four stale tab-navigation cases pass after correction. All 67 editor tests, Svelte diagnostics and root format/lint/types/build checks pass. Core suite passed 2,867 tests with 109 skips. The CI comment rollback assertion now compares every unzipped part instead of ZIP timestamps; its 11 tests pass.
+
+### Gradient stop rendering
+
+- Shape gradient readers now preserve stop opacity, including composed alpha transforms. Effective shape gradients also expose resolved stop colors with theme/color-map lookup and brightness transforms while retaining the original color tokens.
+- Linear and radial SVG previews use these values. Regression tests cover an imported theme stop with luminance and alpha transforms, rendered output, and save/reload preservation.
+- Native gradient editing controls and slide-background gradient transforms remain outstanding.
