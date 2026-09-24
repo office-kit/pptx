@@ -121,3 +121,5 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Final lock validation: 2,845 core tests passed / 109 skipped, 65 editor tests passed, 3 browser tests passed. Root format/lint/TypeScript, Svelte diagnostics and core/editor builds pass. Crop aspect-ratio controls are disabled for locked geometry; general cropping remains available.
 
 - Reorder validation: 2,846 core tests passed / 109 skipped; full editor suite 66 passed plus the final nested-scope regression (41 document tests passed); all three Selection Pane/reorder browser tests passed. Format/lint/TypeScript, Svelte diagnostics and builds passed.
+
+- Numeric property fields now also respect inherited object locks: position, size, rotation, aspect-ratio and flip controls are disabled. A browser regression failed before the fix and passes after it; Svelte diagnostics and the editor build pass. A separate Selection Pane drag test hit a preview-server startup timeout during the combined run; the changed lock scenario passed independently.

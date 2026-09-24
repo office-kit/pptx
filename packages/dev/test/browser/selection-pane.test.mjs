@@ -136,6 +136,25 @@ test(
         true,
       );
       await page.keyboard.press('Escape');
+      await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
+      for (const name of ['X', 'Y', 'W', 'H', 'Rotation']) {
+        assert.equal(
+          await editor.getByRole('spinbutton', { name, exact: true }).isDisabled(),
+          true,
+        );
+      }
+      assert.equal(
+        await editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true }).isDisabled(),
+        true,
+      );
+      assert.equal(
+        await editor.getByRole('checkbox', { name: 'Flip horizontally', exact: true }).isDisabled(),
+        true,
+      );
+      await arrange.click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
       await hit.dblclick();
       await editor.locator('[contenteditable="true"]').waitFor();
       await page.keyboard.press('Escape');

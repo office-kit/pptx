@@ -62,6 +62,7 @@
     }
     return items;
   });
+  const locked = $derived(editor.selectionLocked());
   let lockAspectRatio = $state(false);
   const canLockAspectRatio = $derived(geometry.length > 0 && geometry.every(item => item.bounds.w > 0 && item.bounds.h > 0));
   const emuPerInch = inches(1);
@@ -205,7 +206,7 @@
     if (dash) editor.invoke('setShapeStrokeDash', { dash });
   }
   function setBoundsField(field: 'x' | 'y' | 'w' | 'h', input: HTMLInputElement) {
-    if (!bounds || !geometry.length) return;
+    if (!bounds || !geometry.length || editor.selectionLocked()) return;
     const restore = () => { input.value = bounds?.[field] == null ? '' : String(bounds[field]); };
     if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
       restore();
@@ -292,21 +293,21 @@
         <div class="sec-title">{t('Position & size (in)')}</div>
         {#if geometry.length > 1}<p class="scope">{t('Values apply to each selected object')}</p>{/if}
         <label class="aspect-lock">
-          <input type="checkbox" bind:checked={lockAspectRatio} disabled={!canLockAspectRatio} />
+          <input type="checkbox" bind:checked={lockAspectRatio} disabled={locked || !canLockAspectRatio} />
           <span>{t('Lock aspect ratio')}</span>
         </label>
         <div class="grid4">
           <label class="mini"><span>X</span>
-            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.x ?? ''} placeholder={bounds.x === null ? t('Mixed') : undefined}
+            <input class="ok-input" type="number" disabled={locked} step="any" min={minPosition} max={maxDimension} value={bounds.x ?? ''} placeholder={bounds.x === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('x', e.currentTarget)} /></label>
           <label class="mini"><span>Y</span>
-            <input class="ok-input" type="number" step="any" min={minPosition} max={maxDimension} value={bounds.y ?? ''} placeholder={bounds.y === null ? t('Mixed') : undefined}
+            <input class="ok-input" type="number" disabled={locked} step="any" min={minPosition} max={maxDimension} value={bounds.y ?? ''} placeholder={bounds.y === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('y', e.currentTarget)} /></label>
           <label class="mini"><span>W</span>
-            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.w ?? ''} placeholder={bounds.w === null ? t('Mixed') : undefined}
+            <input class="ok-input" type="number" disabled={locked} step="any" min={0} max={maxDimension} value={bounds.w ?? ''} placeholder={bounds.w === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('w', e.currentTarget)} /></label>
           <label class="mini"><span>H</span>
-            <input class="ok-input" type="number" step="any" min={0} max={maxDimension} value={bounds.h ?? ''} placeholder={bounds.h === null ? t('Mixed') : undefined}
+            <input class="ok-input" type="number" disabled={locked} step="any" min={0} max={maxDimension} value={bounds.h ?? ''} placeholder={bounds.h === null ? t('Mixed') : undefined}
               onchange={(e) => setBoundsField('h', e.currentTarget)} /></label>
         </div>
       </div>
@@ -315,7 +316,7 @@
     <div class="sec">
       <div class="sec-title">{t('Rotation')}</div>
       <div class="rotrow">
-        <input bind:this={rotationInput} class="ok-input" type="number" aria-label={t('Rotation')} step="any" value={rotation ?? ''} placeholder={rotation === null ? t('Mixed') : undefined}
+        <input bind:this={rotationInput} class="ok-input" type="number" aria-label={t('Rotation')} disabled={locked} step="any" value={rotation ?? ''} placeholder={rotation === null ? t('Mixed') : undefined}
           onchange={(e) => applyRotation(e.currentTarget)} />
         <span class="deg">°</span>
       </div>
@@ -325,7 +326,7 @@
       {#each ['horizontal', 'vertical'] as axis}
         {@const value = axis === 'horizontal' ? flips.horizontal : flips.vertical}
         <label class="aspect-lock">
-          <input type="checkbox" checked={value ?? false} indeterminate={value === null}
+          <input type="checkbox" disabled={locked} checked={value ?? false} indeterminate={value === null}
             onchange={event => editor.invoke('setShapeFlip', { options: { [axis]: event.currentTarget.checked } })} />
           <span>{t(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically')}{value === null ? ` (${t('Mixed')})` : ''}</span>
         </label>
