@@ -44,5 +44,5 @@ export { paragraphNumberLabels } from './paragraph-number-labels.ts';
 export { resolveTextBodyRect, shapeCustomTextRect } from './text-body-rect.ts';
 export { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
 export type { VerticalTextStyle } from './text-body-style.ts';
-export { shapeAutoFitScale } from './autofit.ts';
+export { shapeAutoFitScale, shapeTextAnchorOffset } from './autofit.ts';
 export type { ShapeAutoFitScaleOptions } from './autofit.ts';

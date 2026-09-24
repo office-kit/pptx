@@ -563,12 +563,14 @@ export const getShapeBodyPrEffective = (
   shape: SlideShapeData,
 ): {
   anchor: TextAnchor | null;
+  anchorCentered: boolean | null;
   wrap: TextWrap | null;
   vert: ReturnType<typeof getShapeTextDirection>;
   margins: { left: number | null; top: number | null; right: number | null; bottom: number | null };
 } => {
   const result = {
     anchor: null as TextAnchor | null,
+    anchorCentered: null as boolean | null,
     wrap: null as TextWrap | null,
     vert: null as ReturnType<typeof getShapeTextDirection>,
     margins: {
@@ -580,6 +582,11 @@ export const getShapeBodyPrEffective = (
   };
   let directionResolved = false;
   const parseBodyPr = (bodyPr: XmlElement): void => {
+    if (result.anchorCentered === null) {
+      const centered = getAttrValue(bodyPr, qname('', 'anchorCtr', ''));
+      if (centered === '1' || centered === 'true') result.anchorCentered = true;
+      else if (centered === '0' || centered === 'false') result.anchorCentered = false;
+    }
     if (result.anchor === null) {
       const a = getAttrValue(bodyPr, qname('', 'anchor', ''));
       if (a === 't') result.anchor = 'top';
@@ -670,7 +677,16 @@ export const getShapeBodyPrEffective = (
   return result;
 };
 
-export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
+/**
+ * Sets vertical anchoring. `centered` centers the text block without changing
+ * paragraph alignment (PowerPoint's Top / Middle / Bottom Centered options).
+ * Omit it to preserve centering; pass null to restore inherited centering.
+ */
+export const setShapeTextAnchor = (
+  shape: SlideShapeData,
+  anchor: TextAnchor,
+  options: { centered?: boolean | null } = {},
+): void => {
   oneOf(anchor, ['top', 'center', 'bottom'], 'setShapeTextAnchor: anchor');
   const txBody = ensureTxBody(shape);
   let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
@@ -685,6 +701,13 @@ export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): v
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchor'),
   );
   bodyPr.attrs.push(attr(ATTR_ANCHOR, token));
+  if (options.centered !== undefined) {
+    bodyPr.attrs = bodyPr.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchorCtr'),
+    );
+    if (options.centered !== null)
+      bodyPr.attrs.push(attr(qname('', 'anchorCtr', ''), options.centered ? '1' : '0'));
+  }
   commitAndRefresh(shape);
 };
 

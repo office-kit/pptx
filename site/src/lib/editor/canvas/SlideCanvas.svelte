@@ -17,7 +17,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
-  import { resolveTextBodyRect, shapeAutoFitScale, shapeCustomTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
+  import { resolveTextBodyRect, shapeAutoFitScale, shapeTextAnchorOffset, shapeCustomTextRect, textColumnsStyle, verticalTextStyle } from '@office-kit/pptx-preview';
   import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { inlineTextHtml } from '../core/inline-text-html.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
@@ -798,10 +798,23 @@
     return { ...box, width, height, left: box.left + box.width / 2 + (dx * Math.cos(angle) - dy * Math.sin(angle)) / stageW * 100 - width / 2, top: box.top + box.height / 2 + (dx * Math.sin(angle) + dy * Math.cos(angle)) / stageH * 100 - height / 2 };
   });
 
+  const textAnchorTranslation = $derived.by(() => {
+    const box = editBox;
+    if (!box || !scope || !pendingTextShape || editing?.cell) return '';
+    const offset = shapeTextAnchorOffset(doc.pres, pendingTextShape, { bounds: {
+      x: 0, y: 0,
+      w: box.width / 100 * metrics.widthEmu * scope.textScale.x,
+      h: box.height / 100 * metrics.heightEmu * scope.textScale.y,
+    } });
+    // This translation is local to the text box, before shape/group rotation.
+    const sign = textBodyTurn ? -1 : 1;
+    return `translate(${offset.x * editor.zoom * sign}px,${offset.y * editor.zoom * sign}px)`;
+  });
+
   const textInputStyle = $derived.by(() => {
     const box = editBox;
     if (!box || !scope) return '';
-    const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation + textBodyTurn}deg);`;
+    const base = `left:${box.left}%; top:${box.top}%; width:${box.width}%; height:${box.height}%; transform:rotate(${box.rotation + textBodyTurn}deg) ${textAnchorTranslation};`;
 
     const [a, b, c, d] = scope.matrix;
     const reflected = a * d - b * c < 0;
@@ -812,7 +825,7 @@
     if (!sx || !sy) return base;
     // Match the preview's text layout: expand the layout box, cancel ancestor
     // scale on glyphs, and cancel reflection before the shape's text rotation.
-    return `left:${box.left + box.width * (1 - sx) / 2}%; top:${box.top + box.height * (1 - sy) / 2}%; width:${box.width * sx}%; height:${box.height * sy}%; transform:rotate(${rotation}deg) scale(${(reflected ? -1 : 1) / sx},${1 / sy}); transform-origin:center;`;
+    return `left:${box.left + box.width * (1 - sx) / 2}%; top:${box.top + box.height * (1 - sy) / 2}%; width:${box.width * sx}%; height:${box.height * sy}%; transform:rotate(${rotation}deg) scale(${(reflected ? -1 : 1) / sx},${1 / sy}) ${textAnchorTranslation}; transform-origin:center;`;
   });
 
   const textBodyStyle = $derived.by(() => {

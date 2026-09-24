@@ -152,6 +152,7 @@ const auditShape = (
     themeFace: model.themeFace,
     defaultColor: '#000000',
     anchor: model.anchor,
+    anchorCentered: model.effectiveBody.anchorCentered ?? false,
     wrap: model.effectiveBody.wrap !== 'none',
     innerX: rect.x,
     innerY: rect.y,

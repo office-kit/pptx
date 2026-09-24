@@ -4,6 +4,9 @@
 export const ja: Record<string, string> = {
   'Text Box': 'テキスト ボックス',
   Middle: '上下中央',
+  'Top Centered': '上揃え（中央寄せ）',
+  'Middle Centered': '上下中央（中央寄せ）',
+  'Bottom Centered': '下揃え（中央寄せ）',
   Columns: '段組み',
   'Columns...': '段組み...',
   'Number of columns:': '段数:',

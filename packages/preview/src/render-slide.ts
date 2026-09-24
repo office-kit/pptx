@@ -155,6 +155,7 @@ import { renderEmfToSvg } from './emf.ts';
 import {
   defaultMeasurer,
   layoutTextSvg,
+  layoutCore,
   measureTextBodyHeight,
   substituteFamily,
   type BulletInput,
@@ -2276,6 +2277,7 @@ export interface SvgTextArgs {
   readonly themeFace: string | null;
   readonly defaultColor: string;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCentered?: boolean;
   readonly wrap: boolean;
   readonly innerX: number;
   readonly innerY: number;
@@ -2450,6 +2452,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
     boxWpx: a.innerW / EMU_PER_PX,
     boxHpx: a.innerH / EMU_PER_PX,
     anchor: a.anchor,
+    anchorCentered: a.anchorCentered ?? false,
     wrap: a.wrap,
     paragraphs,
     vert: a.vert,
@@ -2553,6 +2556,7 @@ export interface TextBodyModel {
   readonly effectiveDefaultFont: string;
   readonly effectiveBody: ReturnType<typeof getShapeBodyPrEffective>;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorOffset: { readonly x: number; readonly y: number };
   /** Inner text rect in EMU (preset-geometry text rect + insets applied). */
   readonly innerX: number;
   readonly innerY: number;
@@ -2602,6 +2606,7 @@ export const resolveTextBodyModel = (
   } catch {
     effectiveBody = {
       anchor: getShapeTextAnchor(shape),
+      anchorCentered: null,
       wrap: null,
       vert: getShapeTextDirection(shape),
       margins: getShapeTextMargins(shape) ?? { left: null, top: null, right: null, bottom: null },
@@ -2866,6 +2871,7 @@ export const resolveTextBodyModel = (
       themeFace,
       defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      anchorCentered: effectiveBody.anchorCentered ?? false,
       wrap: effectiveBody.wrap !== 'none',
       innerX: fitRect.x,
       innerY: fitRect.y,
@@ -2887,10 +2893,50 @@ export const resolveTextBodyModel = (
     autoFitScale = Math.max(AUTOFIT_FLOOR, s);
   }
 
+  let anchorOffset = { x: 0, y: 0 };
+  if (effectiveBody.anchorCentered) {
+    const vert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
+    const rect = svgTextRect(vert);
+    const cols = getShapeTextColumns(shape);
+    const input = buildSvgTextInput({
+      pres,
+      shape,
+      theme,
+      paraData,
+      numberLabels,
+      lineHeightScale,
+      defaultPt,
+      themeFace,
+      defaultColor,
+      anchor,
+      anchorCentered: true,
+      wrap: effectiveBody.wrap !== 'none',
+      innerX: rect.x,
+      innerY: rect.y,
+      innerW: rect.w,
+      innerH: rect.h,
+      measure,
+      vert,
+      autoFitScale,
+      columns:
+        vert === 'none' && cols && cols.count >= 2
+          ? { count: cols.count, gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 12 }
+          : null,
+    });
+    const { anchorShift } = layoutCore(input, measure);
+    anchorOffset =
+      vert === 'cw90'
+        ? { x: 0, y: anchorShift }
+        : vert === 'cw270'
+          ? { x: 0, y: -anchorShift }
+          : { x: anchorShift, y: 0 };
+  }
+
   return {
     paraData,
     numberLabels,
     authoredAutofit,
+    anchorOffset,
     autoFitScale,
     lineHeightScale,
     defaultPt,
@@ -3160,6 +3206,7 @@ const renderTextBody = (
       themeFace,
       defaultColor,
       anchor: anchor === 'center' || anchor === 'bottom' ? anchor : 'top',
+      anchorCentered: effectiveBody.anchorCentered ?? false,
       wrap: effectiveBody.wrap !== 'none',
       innerX: vInnerX,
       innerY: vInnerY,
@@ -3209,7 +3256,9 @@ const renderTextBody = (
   // Without this, the surrounding SVG viewport silently crops any text
   // that overshoots — exactly the title-tops-cut-off symptom users
   // hit when the autofit scale wasn't enough.
-  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${wrapStyle}${vertStyles}">${paragraphs.join('')}</div>`;
+  const content = paragraphs.join('');
+  const offsetStyle = `translate:${model.anchorOffset.x}px ${model.anchorOffset.y}px;`;
+  const body = `<div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:visible;font-family:${effectiveDefaultFont};color:${defaultColor};${offsetStyle}${wrapStyle}${vertStyles}">${content}</div>`;
   const foreign = `<foreignObject x="${E(innerX)}" y="${E(innerY)}" width="${E(innerW)}" height="${E(innerH)}" overflow="visible">${body}</foreignObject>`;
   // <a:bodyPr rot="N"/> rotates the text body around its own center
   // (PowerPoint pivots on the shape's text-anchor midpoint). Wrap the

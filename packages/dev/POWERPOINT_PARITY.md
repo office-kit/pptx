@@ -136,4 +136,12 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Native Text Box controls were inspected through the restored Mac connection. Added a collapsible section for vertical alignment, five text directions, autofit, centimeter margins and wrapping, plus a staged Columns dialog.
 - Columns accepts 1–16 columns and 0–40.64 cm spacing; margins accept 0–55.88 cm, matching native field limits. Cancel/Escape discard the dialog draft. Keyboard input stays within the modal.
 - Browser coverage checks mixed selection, unchanged margins, invalid input, persisted direction/autofit/wrapping, staged columns, Cancel/Enter/Escape, bilingual labels and undo.
-- Native centered-anchor variants, inherited autofit/column settings, full format-pane layout and exact text-layout comparison remain outstanding. This is partial operation parity.
+- Inherited autofit/column settings, full format-pane layout and exact text-layout comparison remain outstanding. This is partial operation parity.
+
+## Centered text anchors
+
+- Native Top/Middle/Bottom Centered preserve each paragraph's alignment and original wrapping width. Confirmed with a left-aligned `ABC` paragraph and a right-aligned `A` paragraph: they span the original inner frame. Temporary text/alignment changes were undone, leaving native Undo disabled.
+- All six anchor choices now map to `anchor` and `anchorCtr`. Effective centering inherits through layout/master; explicit false overrides inherited true. Existing `setShapeTextAnchor` callers preserve centering unless they supply the new `centered` option.
+- SVG, HTML and editable text use shared layout-derived translation, including bullets, paragraph alignment and column positions, rather than shrinking the paragraph frame. Text measurement still uses the preview's configured measurer; exact font-metric fidelity remains part of the broader parity work.
+
+- Validation: 2,856 core tests passed in the full run; one byte-for-byte ZIP comparison failed on timestamp metadata and its 11-test file passed on isolated rerun. All 61 focused core tests, 67 editor unit tests, and three browser scenarios passed; the Text Box scenario passed again after the final rotation-coordinate adjustment. Format, lint, TypeScript, Svelte diagnostics and affected builds pass. Clearing an editing host now ignores Chromium's caret-only BR instead of inserting a trailing newline.

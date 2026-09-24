@@ -60,3 +60,31 @@ export function shapeAutoFitScale(
   );
   return model?.autoFitScale ?? 1;
 }
+
+/** Translation in preview pixels applied to the entire text block by centered
+ * text anchoring. Paragraph widths and alignment remain unchanged. Editing
+ * surfaces must apply the same offset to keep the caret over the preview. */
+export function shapeTextAnchorOffset(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: ShapeAutoFitScaleOptions = {},
+): { readonly x: number; readonly y: number } {
+  const bounds = options.bounds ?? getShapeBoundsResolved(pres, shape);
+  if (!bounds) return { x: 0, y: 0 };
+  return (
+    resolveTextBodyModel(
+      pres,
+      shape,
+      {
+        x: bounds.x as number,
+        y: bounds.y as number,
+        w: bounds.w as number,
+        h: bounds.h as number,
+      },
+      getPresentationTheme(pres),
+      getShapePlaceholderType(shape),
+      options.measureText ?? defaultMeasurer,
+      '#000000',
+    )?.anchorOffset ?? { x: 0, y: 0 }
+  );
+}
