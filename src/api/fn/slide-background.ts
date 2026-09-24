@@ -1,6 +1,7 @@
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 import {
   readImageFillLayout,
+  readImageIntrinsicSize,
   writeImageFillLayout,
   type ImageFillLayout,
 } from './_image-fill-layout.ts';
@@ -835,6 +836,23 @@ const effectiveImageBackground = (slide: SlideData) => {
     background && firstChildElement(background.element, qname('p', 'bgPr', NS.pml));
   const fill = properties && firstChildElement(properties, qname('a', 'blipFill', NS.dml));
   return fill && background ? { fill, part: background.part } : null;
+};
+
+/** Natural background image size in EMUs, using fill DPI and embedded PNG/JPEG resolution.
+ * Reads inherited backgrounds. Returns null for missing or unsupported image bytes.
+ */
+export const getSlideBackgroundImageIntrinsicSize = (
+  slide: SlideData,
+): { width: Emu; height: Emu } | null => {
+  const image = effectiveImageBackground(slide);
+  if (!image) return null;
+  const blip = firstChildElement(image.fill, qname('a', 'blip', NS.dml));
+  const id = blip && getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  const pkg = slide[INTERNAL_PACKAGE];
+  const relationship = pkg.getRels(image.part)?.items.find((rel) => rel.id === id);
+  if (!relationship || relationship.targetMode === 'External') return null;
+  const bytes = pkg.getPart(resolveTarget(image.part, relationship.target))?.data;
+  return bytes ? readImageIntrinsicSize(image.fill, bytes) : null;
 };
 
 /** Reads direct or inherited image background placement; returns null for other fills. */

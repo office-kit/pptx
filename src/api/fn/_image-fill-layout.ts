@@ -1,3 +1,4 @@
+import { readImagePixelSize, readImageResolution } from '../../internal/opc/image-format.ts';
 import {
   NS,
   attr,
@@ -7,7 +8,7 @@ import {
   qname,
   type XmlElement,
 } from '../../internal/xml/index.ts';
-import { emu, type Emu } from '../units.ts';
+import { emu, inches, type Emu } from '../units.ts';
 
 export type ImageTileAlignment = 'tl' | 't' | 'tr' | 'l' | 'ctr' | 'r' | 'bl' | 'b' | 'br';
 export type ImageTileFlip = 'none' | 'x' | 'y' | 'xy';
@@ -181,4 +182,20 @@ export const writeImageFillLayout = (fill: XmlElement, layout: ImageFillLayout):
     );
     fill.attrs.push(attr(qname('', 'rotWithShape', ''), layout.rotateWithShape ? '1' : '0'));
   }
+};
+
+export const readImageIntrinsicSize = (
+  fill: XmlElement,
+  bytes: Uint8Array,
+): { width: Emu; height: Emu } | null => {
+  const pixels = readImagePixelSize(bytes);
+  if (!pixels) return null;
+  const override = Number(getAttrValue(fill, qname('', 'dpi', '')));
+  const resolution = readImageResolution(bytes);
+  const dpiX = override > 0 ? override : (resolution?.x ?? 96);
+  const dpiY = override > 0 ? override : (resolution?.y ?? 96);
+  return {
+    width: inches(pixels.width / dpiX),
+    height: inches(pixels.height / dpiY),
+  };
 };

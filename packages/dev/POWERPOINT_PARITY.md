@@ -459,3 +459,12 @@ inheritance, round-trip preservation, reset, invalid input and SVG output; brows
 coverage checks edits, undo and persistence. Background image placement still
 needs to be applied by the preview renderer; textures and remembered fill-type
 switching also remain incomplete.
+
+Background image placement now reaches the preview: stretch uses the whole source
+inside the specified fill rectangle, and tile uses natural image size, scale,
+alignment, offsets and alternating reflections. Shape and background tiles share
+the renderer. Raster tests verify quadrant placement, inherited tiles and each
+mirror mode; save/reload coverage verifies scale and offsets. This resolves the
+placement-preview gap noted above. Background source cropping/effects beyond
+opacity, unsupported intrinsic image formats, texture presets and remembered
+fill-type switching still require work.
