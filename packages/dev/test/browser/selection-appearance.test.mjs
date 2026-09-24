@@ -8,6 +8,9 @@ import {
   createPresentation,
   addBlankSlide,
   addSlideTextBox,
+  addSlideLine,
+  getShapeStrokeArrow,
+  setShapeStrokeArrow,
   groupShapes,
   getGroupChildren,
   setShapeFill,
@@ -433,6 +436,144 @@ test(
         'none',
         originalStrokeKinds[2],
       ]);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'arrow galleries preserve endpoint dimensions across mixed edits, undo and reload',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-arrow-gallery-'));
+    let preview, browser;
+    try {
+      const pres = createPresentation();
+      const slide = addBlankSlide(pres);
+      const lines = [1, 5].map((x) =>
+        addSlideLine(slide, {
+          from: { x: inches(x), y: inches(1) },
+          to: { x: inches(x + 2), y: inches(2) },
+          widthEmu: 25400,
+        }),
+      );
+      setShapeStrokeArrow(lines[0], 'head', { type: 'diamond', width: 'sm', length: 'lg' });
+      setShapeStrokeArrow(lines[1], 'head', { type: 'oval', width: 'lg', length: 'sm' });
+      setShapeStrokeArrow(lines[0], 'tail', { type: 'arrow', width: 'lg', length: 'lg' });
+      addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(4),
+        w: inches(2),
+        h: inches(1),
+        text: 'Text',
+      });
+      const source = join(dir, 'source.pptx');
+      const file = join(dir, 'deck.tsx');
+      await writeFile(source, await savePresentation(pres));
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const arrows = async (end) => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getSlideShapes(getSlides(deck)[0])
+          .slice(0, 2)
+          .map((shape) => getShapeStrokeArrow(shape, end));
+      };
+      const choose = async (label, option) => {
+        await editor.getByRole('button', { name: label, exact: true }).click();
+        await editor.getByRole('menuitemradio', { name: option, exact: true }).click();
+        await saved();
+      };
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      const initialHead = await arrows('head');
+      const initialTail = await arrows('tail');
+      for (const [label, type] of [
+        ['No Arrow', 'none'],
+        ['Arrow', 'triangle'],
+        ['Open Arrow', 'arrow'],
+        ['Stealth Arrow', 'stealth'],
+        ['Diamond Arrow', 'diamond'],
+        ['Oval Arrow', 'oval'],
+      ]) {
+        await choose('Begin Arrow type', label);
+        assert.deepEqual(
+          await arrows('head'),
+          initialHead.map((value) => ({ ...value, type })),
+        );
+        assert.deepEqual(await arrows('tail'), initialTail);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.deepEqual(await arrows('head'), initialHead);
+      }
+      const dimensions = ['sm', 'med', 'lg'];
+      for (let index = 0; index < 9; index++) {
+        await choose('Begin Arrow size', `Arrow Size ${index + 1}`);
+        assert.deepEqual(
+          await arrows('head'),
+          initialHead.map((value) => ({
+            ...value,
+            width: dimensions[Math.floor(index / 3)],
+            length: dimensions[index % 3],
+          })),
+        );
+      }
+      await choose('End Arrow type', 'Stealth Arrow');
+      assert.deepEqual(await arrows('tail'), [
+        { ...initialTail[0], type: 'stealth' },
+        { type: 'stealth' },
+      ]);
+      await choose('End Arrow size', 'Arrow Size 2');
+      assert.deepEqual(await arrows('tail'), [
+        { type: 'stealth', width: 'sm', length: 'med' },
+        { type: 'stealth', width: 'sm', length: 'med' },
+      ]);
+      await editor.getByRole('button', { name: 'End Arrow type', exact: true }).click();
+      await editor
+        .getByRole('menuitemradio', { name: 'Stealth Arrow', exact: true })
+        .press('Escape');
+      assert.equal(
+        await editor.getByRole('menu', { name: 'End Arrow type', exact: true }).count(),
+        0,
+      );
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('button', { name: 'End Arrow size', exact: true }).click();
+      assert.equal(
+        await editor
+          .getByRole('menuitemradio', { name: 'Arrow Size 2', exact: true })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      await editor
+        .getByRole('menuitemradio', { name: 'Arrow Size 2', exact: true })
+        .press('Escape');
+      await editor.locator('.hit').nth(2).click();
+      assert.equal(
+        await editor.getByRole('button', { name: 'Begin Arrow type', exact: true }).isDisabled(),
+        true,
+      );
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

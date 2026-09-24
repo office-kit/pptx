@@ -2,6 +2,16 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Begin Arrow type': '始点の種類',
+  'Begin Arrow size': '始点のサイズ',
+  'End Arrow type': '終点の種類',
+  'End Arrow size': '終点のサイズ',
+  'No Arrow': '矢印なし',
+  'Open Arrow': '開いた矢印',
+  'Stealth Arrow': 'ステルス矢印',
+  'Diamond Arrow': 'ひし形矢印',
+  'Oval Arrow': '円形矢印',
+  'Arrow Size': '矢印のサイズ',
   'Text Box': 'テキスト ボックス',
   Middle: '上下中央',
   'Top Centered': '上揃え（中央寄せ）',

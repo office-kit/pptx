@@ -257,6 +257,7 @@ test(
       );
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
+      await panel.getByText('テキスト ボックス', { exact: true }).click();
       await panel
         .getByRole('combobox', { name: '垂直方向の配置', exact: true })
         .selectOption('bottom');
@@ -276,6 +277,7 @@ test(
       await page.reload();
       await saved();
       await editor.locator('.hit').nth(1).click();
+      await panel.getByText('テキスト ボックス', { exact: true }).click();
       assert.equal(
         await panel.getByRole('combobox', { name: '段落の配置', exact: true }).inputValue(),
         'center',
