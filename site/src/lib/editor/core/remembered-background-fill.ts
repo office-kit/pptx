@@ -1,4 +1,11 @@
-import { asColor, type PresentationData, type SlideData } from '@office-kit/pptx';
+import {
+  createPresentation,
+  addBlankSlide,
+  copySlideBackground,
+  asColor,
+  type PresentationData,
+  type SlideData,
+} from '@office-kit/pptx';
 import { readSlideBackground } from './slide-background.ts';
 import { patterns } from '../panels/patterns.ts';
 import type { RememberedFill } from './remembered-fill.ts';
@@ -10,6 +17,11 @@ export function rememberBackgroundFill(
   remembered: RememberedFill,
 ): void {
   const { fill, gradient, pattern } = readSlideBackground(pres, slide, { preserveTheme: true });
+  if (fill.kind === 'image') {
+    const snapshot = addBlankSlide(createPresentation());
+    copySlideBackground(snapshot, slide);
+    remembered.backgroundImage = snapshot;
+  }
   if (fill.kind === 'solid')
     remembered.solid = { color: asColor(fill.color) ?? '#FFFFFF', opacity: fill.opacity };
   if (fill.kind === 'pattern' && pattern) {

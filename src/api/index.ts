@@ -595,6 +595,7 @@ export {
   setSlideBackgroundGradientFill,
   setSlideBackgroundPatternFill,
   applySlideBackgroundToAll,
+  copySlideBackground,
   setSlideBackgroundImage,
   setSlideBackgroundImageFillLayout,
   setSlideBackgroundImageOpacity,

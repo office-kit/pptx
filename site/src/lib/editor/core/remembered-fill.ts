@@ -11,6 +11,7 @@ import {
   getShapeFillColorResolved,
   asColor,
   type PresentationData,
+  type SlideData,
   type SlideShapeData,
   type Color,
   type GradientFillOptions,
@@ -29,6 +30,7 @@ export interface RememberedFill {
   pattern?: PatternFillOptions;
   image?: RememberedImageFill;
   imageLayouts?: RememberedImageLayouts;
+  backgroundImage?: SlideData;
 }
 
 export function rememberShapeFill(

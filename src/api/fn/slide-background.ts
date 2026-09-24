@@ -1,3 +1,4 @@
+import { copyPartGraphs } from '../../internal/parts/duplicate-graph.ts';
 import { readImageCrop } from './_image-crop.ts';
 import type { ImageCrop } from './shape-image-effects.ts';
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
@@ -965,6 +966,97 @@ export const setSlideBackgroundPatternFill = (
     if (pattern) bgPr.children.push(cloneElement(pattern));
     setPatternFill(bgPr, options);
   });
+};
+
+/**
+ * Copies the source's effective background into a target slide, retaining its XML
+ * and referenced parts. Inherited fills become explicit on the target. Theme
+ * references use the target's theme; background graphics visibility is unchanged.
+ * Across presentations, dependencies are copied with collision-free names.
+ */
+export const copySlideBackground = (targetSlide: SlideData, sourceSlide: SlideData): void => {
+  const effective = effectiveBackgroundElement(sourceSlide);
+  if (!effective) {
+    setSlideBackground(targetSlide, '#FFFFFF');
+    return;
+  }
+  const cSld = firstChildElement(targetSlide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('copySlideBackground: target slide has no cSld');
+  const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
+  const pkg = targetSlide[INTERNAL_PACKAGE];
+  const targetPart = targetSlide[SLIDE_PART_NAME];
+  const background = cloneElement(effective.element);
+  const references: XmlElement[] = [];
+  const ids = new Set<string>();
+  const visit = (element: XmlElement): void => {
+    references.push(element);
+    for (const attribute of element.attrs)
+      if (attribute.name.namespaceURI === NS.officeDocRels && attribute.value)
+        ids.add(attribute.value);
+    for (const child of element.children) if (child.kind === 'element') visit(child);
+  };
+  visit(background);
+  const sourceRels = new Map(sourcePkg.getRels(effective.part)?.items.map((rel) => [rel.id, rel]));
+  const roots = new Map<PartName, null>();
+  for (const id of ids) {
+    const rel = sourceRels.get(id);
+    if (!rel) throw new Error(`copySlideBackground: missing relationship ${id}`);
+    if (rel.targetMode !== 'External') {
+      const name = resolveTarget(effective.part, rel.target);
+      if (!sourcePkg.getPart(name))
+        throw new Error(`copySlideBackground: missing dependency ${name}`);
+      roots.set(name, null);
+    }
+  }
+  const copies = sourcePkg === pkg ? null : copyPartGraphs(sourcePkg, pkg, roots);
+  const rels = { items: [...(pkg.getRels(targetPart)?.items ?? [])] };
+  const key = (type: string, target: string, mode: string | undefined) =>
+    JSON.stringify([type, target, mode ?? 'Internal']);
+  const existing = new Map(
+    rels.items.map((rel) => [
+      key(
+        rel.type,
+        rel.targetMode === 'External' ? rel.target : resolveTarget(targetPart, rel.target),
+        rel.targetMode,
+      ),
+      rel.id,
+    ]),
+  );
+  const mapped = new Map<string, string>();
+  let availableId = nextRelId(rels.items.map((rel) => rel.id));
+  for (const id of ids) {
+    const rel = sourceRels.get(id)!;
+    const resolved =
+      rel.targetMode === 'External' ? rel.target : resolveTarget(effective.part, rel.target);
+    const target = copies?.get(resolved.toLowerCase()) ?? resolved;
+    const identity = key(rel.type, target, rel.targetMode);
+    let replacement = existing.get(identity);
+    if (!replacement) {
+      replacement = availableId;
+      availableId = nextRelId([replacement]);
+      rels.items.push({ ...rel, id: replacement, target });
+      existing.set(identity, replacement);
+    }
+    mapped.set(id, replacement);
+  }
+  for (const element of references)
+    element.attrs = element.attrs.map((attribute) =>
+      attribute.name.namespaceURI === NS.officeDocRels && attribute.value
+        ? { ...attribute, value: mapped.get(attribute.value)! }
+        : attribute,
+    );
+  cSld.children = cSld.children.filter(
+    (child) =>
+      !(
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'bg'
+      ),
+  );
+  cSld.children.unshift(background);
+  pkg.setRels(targetPart, rels);
+  commitSlideData(targetSlide);
+  refreshSlideData(targetSlide);
 };
 
 /**
