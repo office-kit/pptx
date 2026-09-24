@@ -23,12 +23,14 @@ import {
   savePresentation,
 } from '@office-kit/pptx';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
+import { RegroupHistory } from '../site/src/lib/editor/core/regroup-history.ts';
 import { getCommand } from '../site/src/lib/editor/core/registry.ts';
 import type { Selection } from '../site/src/lib/editor/core/selection.ts';
 
 // A minimal stand-in for EditorDocument that satisfies the surface the registry
 // uses. Real one adds undo/rendering/reactivity, irrelevant to dispatch logic.
 class FakeDoc {
+  readonly regroupHistory = new RegroupHistory();
   pres: PresentationData;
   selection: Selection = { kind: 'none', slideIndex: 0 };
   constructor(pres: PresentationData) {

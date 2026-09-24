@@ -16,6 +16,7 @@ import {
   getShapeBounds,
   getShapeRotation,
   getShapeFlip,
+  getSlideSize,
   getSlideShapes,
   getSlides,
   isShapeHidden,
@@ -116,6 +117,19 @@ test(
           .getAttribute('aria-checked'),
         'true',
       );
+      await editor.getByRole('menuitem', { name: 'Distribute Horizontally', exact: true }).click();
+      await saved();
+      const distributed = new Map(
+        (await state()).map((shape) => [getShapeName(shape), getShapeBounds(shape)]),
+      );
+      const gap = (getSlideSize(pres).width - inches(7)) / 3;
+      const boxes = [distributed.get('Group'), distributed.get('Third')].sort((a, b) => a.x - b.x);
+      assert.ok(Math.abs(boxes[0].x - gap) <= 1);
+      assert.ok(Math.abs(boxes[1].x - boxes[0].x - boxes[0].w - gap) <= 1);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Align', exact: true }).click();
       await editor.getByRole('menuitemradio', { name: 'Align Selected Objects' }).click();
       assert.equal(await reference.inputValue(), 'selection');
       await arrange.click();

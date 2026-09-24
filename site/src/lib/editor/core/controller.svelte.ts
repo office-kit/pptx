@@ -450,22 +450,30 @@ export class EditorController {
     });
   }
 
-  /** Equal edge-to-edge spacing; keep the two outside objects fixed. */
+  /** Mac PowerPoint includes the outer margins when distributing to the slide. */
   distributeSelection(direction: 'horizontal' | 'vertical'): void {
     const items = this.selectedGeometry();
-    if (items.length < 3) return;
+    const toSlide = items.length === 1 || this.alignmentReference === 'slide';
+    if (!items.length || (!toSlide && items.length < 3)) return;
+    const size = getSlideSize(this.doc.pres);
+    if (toSlide && !size) {
+      this.toast('error', t('Slide size is unavailable'));
+      return;
+    }
     const axis = direction === 'horizontal' ? 'x' : 'y';
     const extent = direction === 'horizontal' ? 'w' : 'h';
     items.sort((a, b) => a.visible[axis] - b.visible[axis]);
     const first = items[0]!.visible;
     const last = items[items.length - 1]!.visible;
     const total = items.reduce((sum, item) => sum + item.visible[extent], 0);
-    const gap = (last[axis] + last[extent] - first[axis] - total) / (items.length - 1);
+    const gap = toSlide
+      ? ((axis === 'x' ? size!.width : size!.height) - total) / (items.length + 1)
+      : (last[axis] + last[extent] - first[axis] - total) / (items.length - 1);
     this.doc.transact(t('Distribute objects'), () => {
-      let position: number = first[axis];
+      let position: number = toSlide ? gap : first[axis];
       for (let index = 0; index < items.length; index++) {
         const { shape, bounds, visible: b, inverse } = items[index]!;
-        if (index > 0 && index < items.length - 1) {
+        if (toSlide || (index > 0 && index < items.length - 1)) {
           const origin = project(inverse, { x: 0, y: 0 });
           const delta = project(inverse, {
             x: axis === 'x' ? position - b.x : 0,
