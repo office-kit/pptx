@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, setShapeImageFill, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
   import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
+  import { rememberShapeFill } from '../core/remembered-fill.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -79,15 +80,24 @@
     const element = event.currentTarget;
     if (!(element instanceof HTMLInputElement)) return;
     const file = element.files?.[0];
-    if (!file || locked || shapes.some(shape => getShapeKind(shape) !== 'shape')) return;
+    if (!file || locked || doc.selection.kind !== 'shape' || shapes.some(shape => getShapeKind(shape) !== 'shape')) return;
     const targets = [...shapes], presentation = doc.pres, version = doc.version, selection = doc.selection;
+    const slideKey = getSlidePartName(doc.slideAt(doc.selection.slideIndex)!);
     loading = true; error = '';
     try {
       const bytes = new Uint8Array(await file.arrayBuffer());
       if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection || editor.selectionLocked()) {
         error = t('The selection changed. Choose the picture again.'); return;
       }
-      doc.transact(t('Picture or texture fill'), () => { for (const target of targets) setShapeImageFill(target, bytes); });
+      doc.transact(t('Picture or texture fill'), () => {
+        for (const target of targets) {
+          const key = `${slideKey}:${getShapeId(target)}`;
+          const remembered = doc.rememberedFills.get(key) ?? {};
+          rememberShapeFill(doc.pres, target, remembered);
+          setShapeImageFill(target, bytes);
+          doc.rememberedFills.set(key, remembered);
+        }
+      });
     } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
     finally { loading = false; element.value = ''; }
   }

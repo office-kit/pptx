@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { readRememberedImageFill, restoreRememberedImageFill } from '../core/remembered-image-fill.ts';
+  import { restoreRememberedImageFill } from '../core/remembered-image-fill.ts';
+  import { rememberShapeFill } from '../core/remembered-fill.ts';
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
@@ -8,15 +9,11 @@
     getShapeKind,
     getShapeFill,
     getShapeFillEffective,
-    getShapeFillOpacity,
-    getShapeGradientFillEffective,
     setShapeFill,
     setShapeNoFill,
     setShapeSlideBackgroundFill,
     setShapeGradientFill,
-    getShapePatternFill,
     setShapePatternFill,
-    asColor,
     getShapeFillColorResolved,
     getShapeStroke,
     getShapeStrokeWidth,
@@ -144,16 +141,7 @@
         const remembered = doc.rememberedFills.get(key) ?? {};
         const current = getShapeFillEffective(doc.pres, target);
         if (current.kind === kind) continue;
-        if (current.kind === 'image') remembered.image = readRememberedImageFill(target);
-        if (current.kind === 'pattern') remembered.pattern = getShapePatternFill(doc.pres, target) ?? undefined;
-        if (current.kind === 'solid') remembered.solid = { color: asColor(getShapeFillColorResolved(doc.pres, target) ?? current.color) ?? 'accent1', opacity: getShapeFillOpacity(target) ?? undefined };
-        if (current.kind === 'gradient') {
-          const gradient = getShapeGradientFillEffective(doc.pres, target);
-          if (gradient) remembered.gradient = { ...gradient, stops: gradient.stops.map(stop => {
-            const color = asColor(stop.color);
-            return { ...stop, color: color ?? asColor(stop.resolvedColor ?? '') ?? 'accent1', brightness: color ? stop.brightness : 0 };
-          }) };
-        }
+        rememberShapeFill(doc.pres, target, remembered);
         doc.rememberedFills.set(key, remembered);
         if (kind === 'image' && remembered.image) restoreRememberedImageFill(target, remembered.image);
         else if (kind === 'background') setShapeSlideBackgroundFill(target);
