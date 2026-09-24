@@ -314,3 +314,17 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Solid background transparency is now editable with a percentage slider and number field. `setSlideBackground` accepts optional opacity; readers preserve alpha (including inherited fills), and the SVG preview paints transparent backgrounds over white. Native confirmation: entering 40% transparency and committing with Return writes `<a:schemeClr val="bg1"><a:alpha val="60000"/></a:schemeClr>`; the temporary change was undone and saved. Setting an AX stepper value alone changed its text without committing the document, so the earlier angle-switch experiment does not establish background fill-memory behavior. That behavior remains unverified.
 
 - Native Apply to All audit: on a one-master, three-slide DSL deck with red and blue slide overrides and a green layout override, applying the first slide's background removes every slide/layout `<p:bg>` and stores red on the master. A separate pattern audit stores `pct5` with `accent1`/`bg1` on the master. Reset Background becomes disabled; Undo restores the overrides. Both temporary native edits were undone and saved with Undo disabled. `applySlideBackgroundToAll` and the Slide options button now perform this master-based operation, preserving DrawingML tokens and remapping background image relationships. Core tests cover solid/pattern/image save/reload, inherited reapplication, relationship reuse, and invalid input atomicity. Multiple-master native behavior remains to be compared.
+
+### Dedicated background pane
+
+The Mac Format Background pane was inspected on the installed desktop app: it
+has its own close button and Fill disclosure, with Apply to All and Reset
+Background outside the disclosure. The editor now separates background controls
+from slide/layout options and the generic capability list. Browser checks cover
+closing/reopening, collapsing Fill, selected-slide edits, undo and reload.
+
+The Design entry is currently a direct Format Background button. Native uses
+Background Styles → Format Background... alongside a 12-style gallery and Reset
+Slide Background; that menu/gallery remains to be matched. Picture/texture fill
+and Hide Background Graphics also remain outstanding. This is partial parity,
+not completion of the overall UI match.

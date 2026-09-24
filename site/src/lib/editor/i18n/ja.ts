@@ -524,6 +524,8 @@ export const ja: Record<string, string> = {
   'The slide changed. Choose the background image again.':
     'スライドが変更されました。背景画像を選び直してください。',
   'Slide update failed': 'スライドを更新できませんでした',
+  'Format Background': '背景の書式設定',
+  'Close Format Background': '背景の書式設定を閉じる',
   'Apply to All': 'すべてに適用',
   'Reset background': '背景をリセット',
   'Background image': '背景画像',

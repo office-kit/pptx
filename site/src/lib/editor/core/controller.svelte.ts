@@ -94,6 +94,7 @@ export class EditorController {
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);
   propertiesPaneVisible = $state(true);
+  propertiesPaneMode = $state<'selection' | 'background'>('selection');
   alignmentReference = $state<'selection' | 'slide'>('selection');
   rotationFocusRequested = $state(false);
   formatPaneTab = $state<'paint' | 'effects' | 'size'>('paint');
@@ -110,10 +111,18 @@ export class EditorController {
     this.notesFocusRequest++;
   }
 
+  showBackgroundFormat(): void {
+    this.setViewMode('normal');
+    this.selectionPaneVisible = false;
+    this.propertiesPaneVisible = true;
+    this.propertiesPaneMode = 'background';
+  }
+
   showShapeFormat(tab: 'paint' | 'effects' | 'size' = 'paint'): void {
     this.setViewMode('normal');
     this.selectionPaneVisible = false;
     this.propertiesPaneVisible = true;
+    this.propertiesPaneMode = 'selection';
     this.formatPaneTab = tab;
   }
 

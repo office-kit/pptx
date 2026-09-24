@@ -57,8 +57,6 @@ test(
       await saved();
       await thumbs.nth(0).click();
       const pane = editor.getByRole('region', { name: 'Slide options', exact: true });
-      await pane.getByLabel('Background color: More Colors...', { exact: true }).fill('#aabbcc');
-      await saved();
       await pane.getByLabel('Slide layout', { exact: true }).selectOption({ label: 'Title Slide' });
       await saved();
       await pane.getByLabel('Skip during presentation', { exact: true }).check();
@@ -74,13 +72,36 @@ test(
         await pane.getByLabel('Slide layout', { exact: true }).inputValue(),
         '__mixed__',
       );
-      await pane.getByText('Background color: Mixed', { exact: true }).waitFor();
       await pane.getByLabel('Skip during presentation', { exact: true }).check();
       await saved();
       assert.deepEqual((await slides()).map(isSlideHidden), [true, true, false]);
       await undo();
       assert.deepEqual((await slides()).map(isSlideHidden), [true, false, false]);
-      const color = pane.getByRole('button', { name: 'Background color', exact: true });
+      await pane
+        .getByLabel('Slide layout', { exact: true })
+        .selectOption({ label: 'Title and Content' });
+      await saved();
+      assert.deepEqual(
+        (await slides()).slice(0, 2).map((slide) => getSlideLayoutName(getSlideLayout(slide))),
+        ['Title and Content', 'Title and Content'],
+      );
+      await undo();
+      assert.equal(getSlideLayoutName(getSlideLayout((await slides())[0])), 'Title Slide');
+      assert.notEqual(getSlideLayoutName(getSlideLayout((await slides())[1])), 'Title Slide');
+      await thumbs.nth(0).click();
+      await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: 'Design', exact: true })
+        .getByRole('button', { name: 'Format Background', exact: true })
+        .click();
+      const background = editor.getByRole('region', { name: 'Format Background', exact: true });
+      await background
+        .getByLabel('Background color: More Colors...', { exact: true })
+        .fill('#aabbcc');
+      await saved();
+      await thumbs.nth(1).click({ modifiers: ['Shift'] });
+      await background.getByText('Background color: Mixed', { exact: true }).waitFor();
+      const color = background.getByRole('button', { name: 'Background color', exact: true });
       await color.click();
       const palette = editor.getByRole('menu', { name: 'Background color', exact: true });
       assert.equal(await palette.locator('[aria-checked="true"]').count(), 0);
@@ -113,20 +134,9 @@ test(
         { kind: 'inherit' },
       ]);
       await undo();
-      await pane
-        .getByLabel('Slide layout', { exact: true })
-        .selectOption({ label: 'Title and Content' });
-      await saved();
-      assert.deepEqual(
-        (await slides()).slice(0, 2).map((slide) => getSlideLayoutName(getSlideLayout(slide))),
-        ['Title and Content', 'Title and Content'],
-      );
-      await undo();
-      assert.equal(getSlideLayoutName(getSlideLayout((await slides())[0])), 'Title Slide');
-      assert.notEqual(getSlideLayoutName(getSlideLayout((await slides())[1])), 'Title Slide');
       await editor.locator('.lang select').selectOption('ja');
       ja = true;
-      const jp = editor.getByRole('region', { name: 'スライドの設定', exact: true });
+      const jp = editor.getByRole('region', { name: '背景の書式設定', exact: true });
       const bytes = Buffer.from(
         await page.evaluate(() => {
           const canvas = document.createElement('canvas');
@@ -152,7 +162,11 @@ test(
       await undo();
       for (const slide of (await slides()).slice(0, 2))
         assert.deepEqual(Buffer.from(getSlideBackgroundImageBytes(slide)), bytes);
-      await jp.getByRole('button', { name: 'スライドの画面切り替え', exact: true }).click();
+      await editor.getByRole('tab', { name: '画面切り替え', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: '画面切り替え', exact: true })
+        .getByRole('button', { name: '画面切り替え', exact: true })
+        .click();
       const dialog = editor.getByRole('dialog');
       await dialog.getByText('選択したスライドに適用: 2', { exact: true }).waitFor();
       await dialog.locator('select').first().selectOption('fade');

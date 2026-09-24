@@ -1216,21 +1216,31 @@ test(
         .selectOption({ label: 'Title and Content' });
       await saved();
       assert.equal(getSlideLayoutName(getSlideLayout((await slides())[0])), 'Title and Content');
-      await pane.getByLabel('Background color: More Colors...', { exact: true }).fill('#d8ebff');
+      await pane.getByLabel('Slide layout', { exact: true }).selectOption({ label: 'Title Slide' });
+      await saved();
+      await editor.getByRole('tab', { name: 'Design', exact: true }).click();
+      await editor
+        .getByRole('tabpanel', { name: 'Design', exact: true })
+        .getByRole('button', { name: 'Format Background', exact: true })
+        .click();
+      const background = editor.getByRole('region', { name: 'Format Background', exact: true });
+      await background
+        .getByLabel('Background color: More Colors...', { exact: true })
+        .fill('#d8ebff');
       await saved();
       assert.deepEqual(getSlideBackground((await slides())[0]), {
         kind: 'solid',
         color: '#D8EBFF',
       });
       assert.equal(getSlideBackground((await slides())[1]).kind, 'inherit');
-      await pane.getByRole('button', { name: 'Reset background', exact: true }).click();
+      await background.getByRole('button', { name: 'Reset background', exact: true }).click();
       await saved();
       assert.equal(getSlideBackground((await slides())[0]).kind, 'inherit');
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.equal(getSlideBackground((await slides())[0]).kind, 'solid');
       await editor.locator('select').first().selectOption('ja');
-      const jp = editor.getByRole('region', { name: 'スライドの設定', exact: true });
+      const jp = editor.getByRole('region', { name: '背景の書式設定', exact: true });
       const bytes = Buffer.from(
         await page.evaluate(() => {
           const canvas = document.createElement('canvas');
@@ -1248,10 +1258,6 @@ test(
         .setInputFiles({ name: 'background.png', mimeType: 'image/png', buffer: bytes });
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       assert.deepEqual(Buffer.from(getSlideBackgroundImageBytes((await slides())[0])), bytes);
-      await jp
-        .getByLabel('スライドのレイアウト', { exact: true })
-        .selectOption({ label: 'タイトルスライド' });
-      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       await page.screenshot({ path: '/tmp/pptx-pr287-slide-options-ja.png', fullPage: true });
       await page.reload();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
