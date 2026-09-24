@@ -2031,3 +2031,11 @@ without claiming complete Selection pane parity.
 - Full Mac UI/operation parity remains unfinished, including exact native undo semantics for view preferences, native grid origin, resizing/drawing snap and broader View/editor functionality.
 
 - Follow-up validation: the full canvas editing/history/notes/reload browser integration passed (167.1 seconds). Updated its stale Selection Pane close-button accessible name to “Close Selection Pane” and removed temporary progress logging. Increased this long integration timeout from 90 to 180 seconds after the shorter timeout prevented completion on this Mac; individual operation waits remain unchanged. Targeted formatting/lint and repository diff checks passed. This verifies the exercised operations, not full PowerPoint parity.
+
+### Editor full screen from the View menu
+
+- Published the accumulated editor implementation as 71334e5 on origin/feat/mac-powerpoint-parity. The local main branch was behind origin/main; publishing the feature branch preserves both histories. Local .pnpm-store cache was excluded.
+- Read the installed Mac View menu and confirmed Enter Full Screen follows Zoom. AX reports command character F and modifier value 24; no browser keyboard mapping is claimed. Native window-level interaction was unavailable during this comparison, so a complete enter/exit visual comparison remains outstanding. No native document or preference was changed.
+- Added Enter Full Screen / Exit Full Screen to the editor View menu, using the browser fullscreen API and disabling the command when that API is unavailable. Fullscreen failures are shown through the existing editor error message.
+- A slide show started from an already-fullscreen editor now preserves editor fullscreen when End Show is invoked. A show that enters fullscreen itself still exits fullscreen on completion. This prevents the new editor mode from being lost as a side effect of ending a show; exact native window/Spaces behavior and OS shortcuts remain unverified.
+- Validation: dev TypeScript/build and targeted lint/format passed. View browser integration passed (10.0 seconds), including fullscreen enter/exit, no document revision change and preserving fullscreen across a show. Existing Mac slideshow shortcut integration passed (6.0 seconds). Full Mac UI/operation parity remains incomplete.

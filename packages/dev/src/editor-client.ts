@@ -4399,6 +4399,16 @@ async function action(name: string, element: Element) {
             { label: 'Zoom...', action: () => byId('view-zoom').click() },
           ],
         },
+        {
+          label: document.fullscreenElement ? 'Exit Full Screen' : 'Enter Full Screen',
+          disabled: !document.fullscreenEnabled,
+          action: () => {
+            const operation = document.fullscreenElement
+              ? document.exitFullscreen()
+              : document.documentElement.requestFullscreen();
+            void operation.catch((cause) => error(String(cause)));
+          },
+        },
       ],
       element,
     );

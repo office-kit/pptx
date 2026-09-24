@@ -317,7 +317,9 @@ function update(updated){
   selectSlide(index,focusedThumbnail,false);
   if(!state.slides.length&&presenting)void exitPresentation();
 }
+let editorFullscreenBeforeShow=false;
 function setPresenting(value){
+  if(value&&!presenting)editorFullscreenBeforeShow=!!document.fullscreenElement;
   cancelTransitionPlayback();
   hoverActionPoint=null;
   if(!value){cancelKioskRestart();kioskRootSequence=null;stopActionSounds();customShowSequence=null;customShowPosition=0;customShowReturns.length=0;}
@@ -336,8 +338,10 @@ function setPresenting(value){
   }
 }
 async function exitPresentation(){
+  const leaveFullscreen=!editorFullscreenBeforeShow;
   setPresenting(false);
-  try{if(document.fullscreenElement)await document.exitFullscreen();}
+  editorFullscreenBeforeShow=false;
+  try{if(leaveFullscreen&&document.fullscreenElement)await document.exitFullscreen();}
   finally{await finishShowInk();}
 }
 function startConfiguredShow(fromStart=false){

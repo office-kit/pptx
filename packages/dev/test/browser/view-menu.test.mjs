@@ -54,6 +54,24 @@ test(
         'Format',
         'Arrange',
       ]);
+      const revisionBeforeFullscreen = (await page.evaluate(() => window.office.getState()))
+        .revision;
+      await openView();
+      await item('Enter Full Screen').click();
+      await page.waitForFunction(() => !!document.fullscreenElement);
+      assert.equal((await page.evaluate(() => window.office.getState())).presenting, false);
+      await page.locator('#present').click();
+      await page.waitForFunction(() => window.office.getState().presenting);
+      await page.keyboard.press('Escape');
+      await page.waitForFunction(() => !window.office.getState().presenting);
+      assert.equal(await page.evaluate(() => !!document.fullscreenElement), true);
+      await openView();
+      await item('Exit Full Screen').click();
+      await page.waitForFunction(() => !document.fullscreenElement);
+      assert.equal(
+        (await page.evaluate(() => window.office.getState())).revision,
+        revisionBeforeFullscreen,
+      );
       await openView();
       assert.equal(await check('Normal').getAttribute('aria-checked'), 'true');
       await check('Slide Sorter').click();
