@@ -5,6 +5,16 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  createPresentation,
+  addBlankSlide,
+  addSlideTextBox,
+  groupShapes,
+  getGroupChildren,
+  setShapeFill,
+  setShapeStroke,
+  setShapeStrokeDash,
+  savePresentation,
+  inches,
   getShapeFlip,
   getShapeFillColor,
   getShapeFill,
@@ -17,6 +27,94 @@ import {
   loadPresentation,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
+
+test(
+  'group child paint controls display saved values and track edits and undo',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-group-paint-'));
+    let preview, browser;
+    try {
+      const pres = createPresentation();
+      const slide = addBlankSlide(pres);
+      const first = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+        text: 'First',
+      });
+      const second = addSlideTextBox(slide, {
+        x: inches(4),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+        text: 'Second',
+      });
+      setShapeFill(first, '123456');
+      setShapeStroke(first, { color: 'ABCDEF', widthEmu: 25400 });
+      setShapeStrokeDash(first, 'dash');
+      setShapeFill(second, '654321');
+      groupShapes([first, second]);
+      const source = join(dir, 'source.pptx');
+      const file = join(dir, 'deck.tsx');
+      await writeFile(source, await savePresentation(pres));
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const colors = async () => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getGroupChildren(getSlideShapes(getSlides(deck)[0])[0]).map(getShapeFillColor);
+      };
+      await saved();
+      await editor.locator('.hit').dblclick();
+      await editor.locator('.hit').first().click();
+      assert.equal(await editor.getByLabel('Fill', { exact: true }).inputValue(), '#123456');
+      assert.equal(await editor.getByLabel('Outline', { exact: true }).inputValue(), '#abcdef');
+      assert.equal(
+        await editor.getByLabel('Outline width (points)', { exact: true }).inputValue(),
+        '2',
+      );
+      assert.equal(
+        await editor.getByRole('combobox', { name: /^Outline style/ }).inputValue(),
+        'dash',
+      );
+      await editor.getByLabel('Fill', { exact: true }).evaluate((node) => {
+        node.value = '#112233';
+        node.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      await saved();
+      assert.deepEqual(await colors(), ['#112233', '#654321']);
+      assert.equal(await editor.getByLabel('Fill', { exact: true }).inputValue(), '#112233');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await colors(), ['#123456', '#654321']);
+      assert.equal(await editor.getByLabel('Fill', { exact: true }).inputValue(), '#123456');
+      await editor
+        .locator('.hit')
+        .nth(1)
+        .click({ modifiers: ['Shift'] });
+      assert.equal(await editor.locator('[data-paint-state=fill]').textContent(), 'Mixed');
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 test(
   'fill and outline apply to all selected shapes in English and Japanese',
