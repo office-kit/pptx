@@ -37,6 +37,7 @@ import {
   getAttrValue,
   parseXml,
   qname,
+  serializeXml,
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
@@ -55,10 +56,21 @@ import {
   type SlideLayoutData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } from './_helpers.ts';
+import {
+  NAME_CSLD,
+  PRES_PART_NAME,
+  commitSlideData,
+  decode,
+  encode,
+  refreshSlideData,
+  setOpcDefault,
+} from './_helpers.ts';
 import { getPresentationTheme, themeFromPackage } from './theme.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { resolveDrawingColorOpacity } from './shape-color.ts';
+import { getSlides } from './slide-query.ts';
+import { getSlideLayouts } from './layouts.ts';
+import { clearSlideLayoutBackground } from './layout-edit.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import { parseGradFill } from './shape-gradient-read.ts';
 import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
@@ -781,17 +793,19 @@ export const setSlideBackgroundGradientFill = (
 };
 
 // Stop at any explicit background, even when it is not a pattern.
-const effectiveBackgroundElement = (slide: SlideData): XmlElement | null => {
+const effectiveBackgroundElement = (
+  slide: SlideData,
+): { element: XmlElement; part: PartName } | null => {
   const background = (root: XmlElement): XmlElement | null => {
     const cSld = firstChildElement(root, NAME_CSLD);
     return cSld ? firstChildElement(cSld, qname('p', 'bg', NS.pml)) : null;
   };
   const own = background(slide[SLIDE_DOCUMENT].root);
-  if (own) return own;
+  if (own) return { element: own, part: slide[SLIDE_PART_NAME] };
   const layout = getSlideLayout(slide);
   if (!layout) return null;
   const inherited = background(layout[LAYOUT_DOCUMENT].root);
-  if (inherited) return inherited;
+  if (inherited) return { element: inherited, part: partName(layout[LAYOUT_PART_NAME]) };
   const pkg = slide[INTERNAL_PACKAGE];
   const layoutName = partName(layout[LAYOUT_PART_NAME]);
   const masterRel = pkg
@@ -799,7 +813,8 @@ const effectiveBackgroundElement = (slide: SlideData): XmlElement | null => {
     ?.items.find((rel) => rel.type === REL_TYPES.slideMaster);
   if (!masterRel) return null;
   const master = pkg.getPart(resolveTarget(layoutName, masterRel.target));
-  return master ? background(parseXml(decode(master.data)).root) : null;
+  const element = master && background(parseXml(decode(master.data)).root);
+  return element && master ? { element, part: master.name } : null;
 };
 
 /**
@@ -812,12 +827,107 @@ export const setSlideBackgroundPatternFill = (
   options: Partial<PatternFillOptions>,
 ): void => {
   const bg = effectiveBackgroundElement(slide);
-  const previous = bg && firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  const previous = bg && firstChildElement(bg.element, qname('p', 'bgPr', NS.pml));
   const pattern = previous && firstChildElement(previous, qname('a', 'pattFill', NS.dml));
   setSlideBackgroundXml(slide, (bgPr) => {
     if (pattern) bgPr.children.push(cloneElement(pattern));
     setPatternFill(bgPr, options);
   });
+};
+
+/**
+ * Applies the source slide's effective background throughout its presentation.
+ * Like Mac PowerPoint, stores the fill on masters and clears slide/layout overrides.
+ * Theme colors and image relationships are preserved without flattening the fill.
+ */
+export const applySlideBackgroundToAll = (pres: PresentationData, slide: SlideData): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  if (slide[INTERNAL_PACKAGE] !== pkg || !getSlides(pres).includes(slide))
+    throw new Error('applySlideBackgroundToAll: source must belong to the presentation');
+  const effective = effectiveBackgroundElement(slide);
+  const sourceRels = new Map(
+    effective ? pkg.getRels(effective.part)?.items.map((rel) => [rel.id, rel]) : [],
+  );
+  const masterRels =
+    pkg.getRels(PRES_PART_NAME)?.items.filter((rel) => rel.type === REL_TYPES.slideMaster) ?? [];
+  if (masterRels.length === 0)
+    throw new Error('applySlideBackgroundToAll: presentation has no slide master');
+  // Stage every replacement first: malformed relationship references must not leave
+  // some masters changed and the remaining slides still using their old overrides.
+  const updates = masterRels.map((masterRel) => {
+    const name = resolveTarget(PRES_PART_NAME, masterRel.target);
+    const part = pkg.getPart(name);
+    if (!part) throw new Error(`applySlideBackgroundToAll: missing master ${name}`);
+    const document = parseXml(decode(part.data));
+    const cSld = firstChildElement(document.root, NAME_CSLD);
+    if (!cSld) throw new Error(`applySlideBackgroundToAll: master ${name} has no cSld`);
+    const background = effective ? cloneElement(effective.element) : elem(qname('p', 'bg', NS.pml));
+    if (!effective) {
+      const properties = elem(qname('p', 'bgPr', NS.pml));
+      setSolidFill(properties, '#FFFFFF');
+      background.children.push(properties);
+    }
+    const rels = { items: [...(pkg.getRels(name)?.items ?? [])] };
+    let availableId = nextRelId(rels.items.map((rel) => rel.id));
+    const mapped = new Map<string, string>();
+    const existing = new Map(
+      rels.items.map((rel) => [
+        JSON.stringify([
+          rel.type,
+          rel.targetMode === 'External' ? rel.target : resolveTarget(name, rel.target),
+          rel.targetMode ?? 'Internal',
+        ]),
+        rel.id,
+      ]),
+    );
+    const rewrite = (element: XmlElement): void => {
+      element.attrs = element.attrs.map((attribute) => {
+        if (attribute.name.namespaceURI !== NS.officeDocRels || attribute.value === '')
+          return attribute;
+        let id = mapped.get(attribute.value);
+        if (!id) {
+          const rel = sourceRels.get(attribute.value);
+          if (!rel)
+            throw new Error(`applySlideBackgroundToAll: missing relationship ${attribute.value}`);
+          const target =
+            rel.targetMode === 'External' ? rel.target : resolveTarget(effective!.part, rel.target);
+          const key = JSON.stringify([rel.type, target, rel.targetMode ?? 'Internal']);
+          id = existing.get(key);
+          if (!id) {
+            id = availableId;
+            availableId = nextRelId([id]);
+            rels.items.push({ ...rel, id, target });
+            existing.set(key, id);
+          }
+          mapped.set(attribute.value, id);
+        }
+        return { ...attribute, value: id };
+      });
+      for (const child of element.children) if (child.kind === 'element') rewrite(child);
+    };
+    rewrite(background);
+    cSld.children = cSld.children.filter(
+      (child) =>
+        !(
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.pml &&
+          child.name.localName === 'bg'
+        ),
+    );
+    cSld.children.unshift(background);
+    return { part, rels, data: encode(serializeXml(document)) };
+  });
+  const layouts = getSlideLayouts(pres);
+  for (const layout of layouts) {
+    if (!firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD))
+      throw new Error('applySlideBackgroundToAll: layout has no cSld');
+  }
+  for (const update of updates) {
+    update.part.data = update.data;
+    pkg.setRels(update.part.name, update.rels);
+  }
+  for (const layout of layouts) clearSlideLayoutBackground(layout);
+  for (const target of getSlides(pres)) clearSlideBackground(target);
 };
 
 /**

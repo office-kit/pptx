@@ -584,6 +584,7 @@ export {
   setSlideBackground,
   setSlideBackgroundGradientFill,
   setSlideBackgroundPatternFill,
+  applySlideBackgroundToAll,
   setSlideBackgroundImage,
   setSlideLayoutBackground,
   setSlideLayoutName,

@@ -893,6 +893,12 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  applySlideBackgroundToAll: {
+    labelEn: 'Apply to All',
+    labelJa: 'すべてに適用',
+    category: 'slide-background',
+    ribbonGroup: 'background',
+  },
   setSlideBackgroundPatternFill: {
     ...handOverrides.setShapePatternFill,
     labelEn: 'Background pattern',

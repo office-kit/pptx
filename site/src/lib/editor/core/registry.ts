@@ -225,6 +225,7 @@ class ManifestCommand implements Command {
 // Slide operations need both the presentation and the active slide. Keep these
 // bindings here so ribbon, palette and navigator expose the same commands.
 const activeSlideCommands = new Set([
+  'applySlideBackgroundToAll',
   'duplicateSlide',
   'removeSlide',
   'moveSlide',
@@ -260,6 +261,9 @@ class SlideCommand extends ManifestCommand {
       throw new CommandError('No slide selected.');
     return doc.transact(this.capability.labelEn, () => {
       switch (id) {
+        case 'applySlideBackgroundToAll':
+          pptx.applySlideBackgroundToAll(doc.pres, slide!);
+          return;
         case 'addSlide':
         case 'addBlankSlide': {
           const options = args.options;

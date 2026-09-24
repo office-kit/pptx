@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 178,
+  "count": 179,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -302,6 +302,23 @@
           "name": "text",
           "type": "string",
           "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "applySlideBackgroundToAll",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide-background",
+      "file": "api/fn/slide-background.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "slide",
+          "type": "SlideData",
+          "kind": "object",
           "optional": false
         }
       ]
