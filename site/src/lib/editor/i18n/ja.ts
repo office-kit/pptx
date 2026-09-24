@@ -2,6 +2,7 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Color: '色',
   Transparency: '透明度',
   'Fill transparency': '塗りつぶしの透明度',
   'Line transparency': '線の透明度',
