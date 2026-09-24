@@ -228,6 +228,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 ### Linear gradient direction gallery
 
+- Shapes with matching gradient stops can now edit them together in one history entry. Unedited per-shape angle, scaling and rotation settings are retained; mixed angles are blank and mixed rotation is indeterminate. Native comparison applied 35% transparency to the first stop of two selected shapes while retaining their different `rotWithShape` flags. The temporary change was undone and saved with Undo disabled. Editing selections with differing stop sets and complete mixed-type/direction presentation remain outstanding.
+
 - The Fill pane offers the eight native linear direction choices in the observed order (45°, 90°, 135°, 0°, 180°, 315°, 270°, 225°), with preview swatches and keyboard selection/Escape cancellation.
 - Choosing a direction preserves stops and sets scaled coordinates. Native comparison of a 45° choice saved `a:lin ang="2700000" scaled="1"` even when the previous gradient used `scaled="0"`. The disposable change was undone and saved; native Undo is disabled.
 - Direction edits share the angle field, project persistence and Undo/Redo. Preset galleries, path-gradient direction choices and exact popup geometry remain outstanding.
