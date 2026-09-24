@@ -533,7 +533,11 @@ test(
         .then((focused) => assert.equal(focused, true));
       await sizeInput.fill('28');
       await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).press('Tab');
-      await bar.getByLabel('Text color', { exact: true }).fill('#ff0000');
+      await bar.getByRole('button', { name: 'Text color', exact: true }).click();
+      await editor
+        .getByRole('menu', { name: 'Text color', exact: true })
+        .getByRole('menuitemradio', { name: 'Red', exact: true })
+        .click();
       await page.screenshot({ path: '/tmp/pptx-pr287-text-format-toolbar.png', fullPage: true });
       await bar.getByRole('button', { name: 'Done', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();

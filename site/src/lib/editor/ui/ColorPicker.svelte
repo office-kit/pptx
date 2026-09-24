@@ -23,6 +23,7 @@
     ...(theme ? themeSlots.filter(([, slot]) => theme![slot]).map(([color, slot, name]) => ({ color, paint: theme![slot], name, theme: true })) : []),
     ...standard.map(([color, name]) => ({ color, paint: color, name, theme: false })),
   ]);
+  const paint = $derived(resolvedColor ?? colors.find(color => color.color.toLowerCase() === value?.replace(/^scheme:/, '').toLowerCase())?.paint ?? value);
   let open = $state(false);
   let trigger: HTMLButtonElement;
   let custom: HTMLInputElement;
@@ -59,8 +60,8 @@
 </script>
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
-<button type="button" class="ok-input trigger" bind:this={trigger} aria-label={label} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}><span class="swatch" style:background={resolvedColor ?? value ?? 'transparent'}></span><span>▾</span></button>
-<input class="custom" type="color" bind:this={custom} aria-label={`${label}: ${t('More Colors...')}`} tabindex="-1" {disabled} value={resolvedColor ?? '#000000'} onchange={event => select(event.currentTarget.value)} />
+<button type="button" class="ok-input trigger" bind:this={trigger} aria-label={label} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}><span class="swatch" style:background={paint ?? 'transparent'}></span><span>▾</span></button>
+<input class="custom" type="color" bind:this={custom} aria-label={`${label}: ${t('More Colors...')}`} tabindex="-1" {disabled} value={paint?.startsWith('#') ? paint : '#000000'} onchange={event => select(event.currentTarget.value)} />
 {#if open}
   <div class="palette" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     {#each [true, false] as isTheme}

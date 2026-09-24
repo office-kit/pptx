@@ -82,10 +82,23 @@ for (const kind of ['shape', 'cell'])
         await input.press('a');
         await bar.getByLabel('Font size', { exact: true }).fill('32');
         await bar.getByLabel('Font size', { exact: true }).press('Tab');
-        await bar.getByLabel('Text color', { exact: true }).evaluate((node) => {
-          node.value = '#13579b';
-          node.dispatchEvent(new Event('change', { bubbles: true }));
-        });
+        await bar.getByRole('button', { name: 'Text color', exact: true }).click();
+        await editor
+          .getByRole('menu', { name: 'Text color', exact: true })
+          .getByRole('menuitemradio', { name: 'Accent 2', exact: true })
+          .click();
+        await bar.getByRole('button', { name: 'Text color', exact: true }).click();
+        const palette = editor.getByRole('menu', { name: 'Text color', exact: true });
+        const accent = palette.getByRole('menuitemradio', { name: 'Accent 2', exact: true });
+        assert.equal(await accent.getAttribute('aria-checked'), 'true');
+        assert.equal(
+          await bar
+            .getByRole('button', { name: 'Text color', exact: true })
+            .locator('.swatch')
+            .evaluate((node) => getComputedStyle(node).backgroundColor),
+          await accent.evaluate((node) => getComputedStyle(node).backgroundColor),
+        );
+        await palette.press('Escape');
         await input.press('b');
         await input.press('Control+b');
         await input.press('c');
@@ -106,9 +119,11 @@ for (const kind of ['shape', 'cell'])
         assert.equal(formats[2].bold, true);
         assert.equal(formats[3].bold, true);
         assert.equal(formats[3].size, 32);
-        assert.equal(formats[3].color?.toUpperCase(), '#13579B');
+        assert.equal(formats[3].color, 'accent2');
         assert.equal(formats[4].bold, false);
         assert.equal(formats[4].size, 32);
+        assert.equal(formats[4].color, 'accent2');
+        assert.notEqual(formats[5].color, 'accent2');
         assert.notEqual(formats[5].bold, true);
         await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
         await saved();
