@@ -434,3 +434,12 @@ mirroring, inherited-image edits, and rejection of invalid settings. The native
 picture pane was rechecked (Insert, Clipboard, texture, transparency, tile,
 offsets, disabled Rotate with shape); the temporary change was undone and saved.
 These background picture controls still need to be connected to the editor UI.
+
+The background pane now displays Picture or texture fill for image backgrounds
+and provides stretch offsets, tile offsets/scales, alignment, and mirror type.
+Rotate with shape is disabled as observed in Mac PowerPoint. Switching modes
+remembers their settings within the editing session. A browser test covers an
+inherited image edited into a slide override, other-slide preservation, mode
+memory, undo and reload. Choosing a new image uses the file picker; native
+remembered fill-type switching, texture presets, Clipboard and transparency are
+still outstanding for background pictures.

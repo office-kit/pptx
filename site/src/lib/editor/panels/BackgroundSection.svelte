@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getSlides, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground } from '@office-kit/pptx';
   import { readSlideBackground } from '../core/slide-background.ts';
+  import BackgroundPictureLayout from './BackgroundPictureLayout.svelte';
   import PatternFillSection from './PatternFillSection.svelte';
   import GradientFillSection from './GradientFillSection.svelte';
   import ColorPicker from '../ui/ColorPicker.svelte';
@@ -14,6 +15,7 @@
   const background = $derived.by(() => { doc.version; return slide ? readSlideBackground(doc.pres, slide).fill : null; });
   const mixedBackground = $derived(slides.some(item => JSON.stringify(readSlideBackground(doc.pres, item).fill) !== JSON.stringify(background)));
   const gradientBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'gradient'));
+  const imageBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'image'));
   const patternBackground = $derived(slides.length > 0 && slides.every(item => readSlideBackground(doc.pres, item).fill.kind === 'pattern'));
   const solidBackground = $derived(slides.length > 0 && slides.every(item => ['solid', 'inherit'].includes(readSlideBackground(doc.pres, item).fill.kind)));
   const graphicsHidden = $derived(slides.length > 0 && slides.every(isSlideBackgroundGraphicsHidden));
@@ -65,11 +67,16 @@
         <div class="background-types" role="radiogroup" aria-label={t('Background fill')}>
           <label class="check"><input type="radio" name="background-fill" checked={solidBackground} onchange={() => apply('Background color', target => setSlideBackground(target, '#FFFFFF'))} />{t('Solid fill')}</label>
           <label class="check"><input type="radio" name="background-fill" checked={gradientBackground} onchange={() => apply('Gradient fill', target => setSlideBackgroundGradientFill(target, { stops: [{ offset: 0, color: 'accent1', brightness: 0.95 }, { offset: 1, color: 'accent1', brightness: 0.7 }], angleDeg: 0, scaled: false }))} />{t('Gradient fill')}</label>
+          <label class="check"><input type="radio" name="background-fill" checked={imageBackground} disabled={loading} onclick={event => { if (!imageBackground) { event.preventDefault(); fileInput?.click(); } }} />{t('Picture or texture fill')}</label>
           <label class="check"><input type="radio" name="background-fill" checked={patternBackground} onchange={() => apply('Pattern fill', target => setSlideBackgroundPatternFill(target, {}))} />{t('Pattern fill')}</label>
         </div>
         <label class="check"><input type="checkbox" checked={graphicsHidden} indeterminate={mixedGraphics} onchange={event => { const hidden = event.currentTarget.checked; apply('Hide Background Graphics', target => setSlideBackgroundGraphicsHidden(target, hidden)); }} />{t('Hide Background Graphics')}</label>
         {#if gradientBackground}
           <GradientFillSection background />
+        {:else if imageBackground}
+          <span class="selection">{t('Picture source')}</span>
+          <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Insert...')}</button>
+          <BackgroundPictureLayout />
         {:else if patternBackground}
           <PatternFillSection background />
         {:else}
@@ -83,7 +90,7 @@
         {/if}
         {#if mixedBackground}<span class="selection">{t('Background color')}: {t('Mixed')}</span>{/if}
         <input bind:this={fileInput} aria-label={t('Background image')} type="file" accept="image/*" hidden disabled={loading} onchange={upload} />
-        <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>
+        {#if !imageBackground}<button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Choose background image')}</button>{/if}
       </div>
     </details>
     <div class="actions">
