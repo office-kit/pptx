@@ -3,7 +3,7 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import GradientDirection from './GradientDirection.svelte';
-  import { radialDirections, radialDirectionIndex } from '../core/gradient-directions.ts';
+  import { pathDirections, pathDirectionIndex } from '../core/gradient-directions.ts';
 
   const editor = getEditor();
   const gradients = $derived.by(() => {
@@ -14,7 +14,7 @@
   const matchingStops = $derived(!!gradient && gradients.every(value => value && JSON.stringify(value.stops) === JSON.stringify(gradient.stops)));
   const pathValue = $derived(gradients.every(value => (value?.path ?? 'linear') === (gradient?.path ?? 'linear')) ? gradient?.path ?? 'linear' : '');
   const angleValue = $derived(gradients.every(value => (value?.angleDeg ?? 90) === (gradient?.angleDeg ?? 90)) ? gradient?.angleDeg ?? 90 : undefined);
-  const radialValue = $derived(gradients.every(value => radialDirectionIndex(value) === radialDirectionIndex(gradient)) ? radialDirectionIndex(gradient) : undefined);
+  const pathDirectionValue = $derived(gradients.every(value => pathDirectionIndex(value) === pathDirectionIndex(gradient)) ? pathDirectionIndex(gradient) : undefined);
   const mixedRotation = $derived(gradients.some(value => (value?.rotateWithShape !== false) !== (gradient?.rotateWithShape !== false)));
   let selected = $state(0);
   $effect(() => { editor.doc.selection; selected = 0; });
@@ -111,8 +111,8 @@
     </label>
     {#if pathValue === 'linear'}
       <GradientDirection angle={matchingStops ? angleValue : undefined} disabled={locked || !matchingStops} choose={angleDeg => apply({ angleDeg, scaled: true })} />
-    {:else if pathValue === 'circle'}
-      <GradientDirection radial angle={matchingStops ? radialValue : undefined} disabled={locked || !matchingStops} choose={index => { const { focus, tileRect } = radialDirections[index]!; apply({ focus, tileRect }); }} />
+    {:else if pathValue === 'circle' || pathValue === 'rect' || pathValue === 'shape'}
+      <GradientDirection path={pathValue} angle={matchingStops ? pathDirectionValue : undefined} disabled={locked || !matchingStops || pathValue === 'shape'} choose={index => { const { focus, tileRect } = pathDirections[index]!; apply({ focus, tileRect }); }} />
     {/if}
     <label class="field"><span>{t('Angle')}</span><span class="number">
       <input class="ok-input" type="number" min="0" max="359.9" step="any" aria-label={t('Gradient angle')} value={matchingStops ? angleValue ?? '' : ''} placeholder={t('Mixed')} disabled={!matchingStops || pathValue !== 'linear'} onchange={event => angle(event.currentTarget)} />°

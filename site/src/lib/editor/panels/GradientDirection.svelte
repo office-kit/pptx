@@ -1,9 +1,9 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { radialDirections } from '../core/gradient-directions.ts';
+  import { pathDirections } from '../core/gradient-directions.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { angle, disabled, choose, radial = false }: { radial?: boolean; angle: number | undefined; disabled: boolean; choose: (angle: number) => void } = $props();
+  let { angle, disabled, choose, path: pathKind }: { path?: 'circle' | 'rect' | 'shape'; angle: number | undefined; disabled: boolean; choose: (angle: number) => void } = $props();
   const linearDirections = [
     [45, 'Linear Diagonal - Top Left to Bottom Right'],
     [90, 'Linear Down'],
@@ -14,8 +14,8 @@
     [270, 'Linear Up'],
     [225, 'Linear Diagonal - Bottom Right to Top Left'],
   ] as const;
-  const directions = $derived(radial ? radialDirections.map((item, index) => [index, item.label] as const) : linearDirections);
-  const columns = $derived(radial ? 5 : 4);
+  const directions = $derived(pathKind ? pathDirections.map((item, index) => [index, item.label] as const) : linearDirections);
+  const columns = $derived(pathKind ? 5 : 4);
   let open = $state(false);
   let trigger: HTMLButtonElement;
   let menu = $state<HTMLDivElement>();
@@ -42,11 +42,21 @@
     const index = items.indexOf(event.target as HTMLButtonElement);
     items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + offsets[event.key]! + items.length) % items.length]?.focus();
   }
-  $effect(() => { angle; disabled; radial; open = false; });
+  $effect(() => { angle; disabled; pathKind; open = false; });
 </script>
 
 {#snippet swatch(value: number)}
-  <span class="swatch" style:background={radial ? `radial-gradient(ellipse farthest-side at ${radialDirections[value]!.x * 100}% ${radialDirections[value]!.y * 100}%, #ecf1fa, #4472c4)` : `linear-gradient(${value + 90}deg, #4472c4, #ecf1fa)`}></span>
+  {#if pathKind === 'rect' || pathKind === 'shape'}
+    <svg class="swatch" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+      {#each Array.from({ length: 64 }, (_, index) => index / 63) as progress}
+        {@const item = pathDirections[value]!}
+        {@const radius = (item.x === 0.5 ? 0.5 : 1) * (1 - progress) * 100}
+        <rect x={item.x * 100 - radius} y={item.y * 100 - radius} width={radius * 2} height={radius * 2} fill={`rgb(${68 + 168 * progress}, ${114 + 127 * progress}, ${196 + 54 * progress})`} />
+      {/each}
+    </svg>
+  {:else}
+  <span class="swatch" style:background={pathKind ? `radial-gradient(ellipse farthest-side at ${pathDirections[value]!.x * 100}% ${pathDirections[value]!.y * 100}%, #ecf1fa, #4472c4)` : `linear-gradient(${value + 90}deg, #4472c4, #ecf1fa)`}></span>
+  {/if}
 {/snippet}
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 <div class="field"><span>{t('Direction')}</span><button class="ok-input trigger" bind:this={trigger} aria-label={t('Gradient direction')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>{#if angle === undefined}<span class="swatch"></span>{:else}{@render swatch(angle)}{/if}<span>▾</span></button></div>

@@ -252,37 +252,42 @@ test(
         ['From Top Left Corner', [0, 0, 1, 1], [-1, -1, 0, 0]],
       ];
       const radialInitial = await gradient();
-      for (const [label, focus, tile] of radial) {
-        const before = await gradient();
-        await direction.click();
-        assert.deepEqual(
-          await directionMenu
-            .getByRole('menuitemradio')
-            .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label'))),
-          radial.map(([name]) => name),
-        );
-        await directionMenu.getByRole('menuitemradio', { name: label, exact: true }).click();
+      for (const path of ['circle', 'rect']) {
+        await type.selectOption(path);
         await saved();
-        const changed = await gradient();
-        const rect = ([left, top, right, bottom]) => ({ left, top, right, bottom });
-        assert.deepEqual(changed.focus, rect(focus));
-        assert.deepEqual(changed.tileRect, rect(tile));
-        assert.deepEqual(changed.stops, radialInitial.stops);
-        assert.equal(changed.rotateWithShape, radialInitial.rotateWithShape);
-        await direction.click();
-        assert.equal(
-          await directionMenu
-            .getByRole('menuitemradio', { name: label, exact: true })
-            .getAttribute('aria-checked'),
-          'true',
-        );
-        await directionMenu.press('Escape');
-        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
-        await saved();
-        assert.deepEqual(await gradient(), before);
-        await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
-        await saved();
-        assert.deepEqual(await gradient(), changed);
+        for (const [label, focus, tile] of radial) {
+          const before = await gradient();
+          await direction.click();
+          assert.deepEqual(
+            await directionMenu
+              .getByRole('menuitemradio')
+              .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label'))),
+            radial.map(([name]) => name),
+          );
+          await directionMenu.getByRole('menuitemradio', { name: label, exact: true }).click();
+          await saved();
+          const changed = await gradient();
+          const rect = ([left, top, right, bottom]) => ({ left, top, right, bottom });
+          assert.equal(changed.path, path);
+          assert.deepEqual(changed.focus, rect(focus));
+          assert.deepEqual(changed.tileRect, rect(tile));
+          assert.deepEqual(changed.stops, radialInitial.stops);
+          assert.equal(changed.rotateWithShape, radialInitial.rotateWithShape);
+          await direction.click();
+          assert.equal(
+            await directionMenu
+              .getByRole('menuitemradio', { name: label, exact: true })
+              .getAttribute('aria-checked'),
+            'true',
+          );
+          await directionMenu.press('Escape');
+          await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+          await saved();
+          assert.deepEqual(await gradient(), before);
+          await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+          await saved();
+          assert.deepEqual(await gradient(), changed);
+        }
       }
       const radialSaved = await gradient();
       await page.reload();
@@ -298,6 +303,15 @@ test(
         'true',
       );
       await directionMenu.press('Escape');
+      await type.selectOption('shape');
+      await saved();
+      assert.equal(await direction.isDisabled(), true);
+      assert.equal((await gradient()).path, 'shape');
+      assert.deepEqual((await gradient()).focus, radialSaved.focus);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(await direction.isEnabled(), true);
+      assert.deepEqual(await gradient(), radialSaved);
       await page.screenshot({ path: '/tmp/pptx-pr287-gradient-panel.png', fullPage: true });
       assert.deepEqual(errors, []);
     } finally {
