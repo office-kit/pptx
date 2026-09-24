@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, setShapeImageFill, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
+  import { getSlidePartName, getShapeId, getShapeImageFillLayout, setShapeImageFillLayout, getShapeImageOpacity, setShapeImageOpacity, getShapeKind, pt, type ImageFillLayout, type ImageTileAlignment, type ImageTileFlip, type SlideShapeData } from '@office-kit/pptx';
   import { switchRememberedImageLayout } from '../core/remembered-image-fill.ts';
-  import { rememberShapeFill } from '../core/remembered-fill.ts';
+  import { insertRememberedPictureFill } from '../core/remembered-fill.ts';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -93,8 +93,7 @@
         for (const target of targets) {
           const key = `${slideKey}:${getShapeId(target)}`;
           const remembered = doc.rememberedFills.get(key) ?? {};
-          rememberShapeFill(doc.pres, target, remembered);
-          setShapeImageFill(target, bytes);
+          insertRememberedPictureFill(doc.pres, target, bytes, remembered);
           doc.rememberedFills.set(key, remembered);
         }
       });

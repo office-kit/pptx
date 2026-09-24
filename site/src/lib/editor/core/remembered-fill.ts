@@ -1,4 +1,9 @@
 import {
+  setShapeImageFill,
+  getShapeImageFillLayout,
+  getShapeImageOpacity,
+  setShapeImageFillLayout,
+  setShapeImageOpacity,
   getShapeFillEffective,
   getShapeFillOpacity,
   getShapeGradientFillEffective,
@@ -13,6 +18,7 @@ import {
 } from '@office-kit/pptx';
 import {
   readRememberedImageFill,
+  switchRememberedImageLayout,
   type RememberedImageFill,
   type RememberedImageLayouts,
 } from './remembered-image-fill.ts';
@@ -54,4 +60,21 @@ export function rememberShapeFill(
         }),
       };
   }
+}
+
+export function insertRememberedPictureFill(
+  pres: PresentationData,
+  target: SlideShapeData,
+  bytes: Uint8Array,
+  remembered: RememberedFill,
+): void {
+  rememberShapeFill(pres, target, remembered);
+  const current = getShapeImageFillLayout(target) ?? remembered.image?.layout;
+  const opacity = getShapeImageOpacity(target) ?? remembered.image?.opacity ?? null;
+  const layout = current
+    ? switchRememberedImageLayout(current, 'stretch', (remembered.imageLayouts ??= {}))
+    : { mode: 'stretch' as const };
+  setShapeImageFill(target, bytes);
+  setShapeImageFillLayout(target, layout);
+  setShapeImageOpacity(target, opacity);
 }
