@@ -424,3 +424,13 @@ Gallery swatches now use the slide renderer, including rectangular gradient
 contours and focus. Browser coverage also verifies resetting a slide override,
 undoing the reset, and retaining inheritance after reload. Custom pattern/image
 theme swatches remain incomplete; multiple-master native selection behavior remains unaudited.
+
+Background picture placement groundwork: the core can now read and edit stretch
+and tile placement on direct or inherited picture backgrounds. Editing an
+inherited picture remaps image relationships onto the slide without duplicating
+media or modifying the master. Placement parsing/writing is shared with shape
+picture fills. Round-trip tests cover stretch offsets, tile scaling/alignment/
+mirroring, inherited-image edits, and rejection of invalid settings. The native
+picture pane was rechecked (Insert, Clipboard, texture, transparency, tile,
+offsets, disabled Rotate with shape); the temporary change was undone and saved.
+These background picture controls still need to be connected to the editor UI.
