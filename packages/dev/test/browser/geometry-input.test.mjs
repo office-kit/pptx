@@ -15,10 +15,21 @@ import {
   getSlideShapes,
   getShapeBounds,
   getShapeRotation,
-  inches,
+  cm,
   loadPresentation,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
+
+function geometryLabel(name, ja) {
+  return (
+    {
+      X: ja ? '横位置' : 'Horizontal position',
+      Y: ja ? '縦位置' : 'Vertical position',
+      W: ja ? '幅' : 'Width',
+      H: ja ? '高さ' : 'Height',
+    }[name] ?? name
+  );
+}
 
 test(
   'geometry inputs preserve untouched precision and reject invalid values in both languages',
@@ -56,20 +67,35 @@ test(
       await editor.locator('.hit').first().click();
       const original = await read();
       const field = (name) =>
-        editor.locator('.bespoke').getByRole('spinbutton', { name, exact: true });
+        editor
+          .locator('.bespoke')
+          .getByRole('spinbutton', { name: geometryLabel(name, ja), exact: true });
       const change = async (name, value) => {
         await field(name).fill(value);
         await field(name).press('Tab');
       };
+      await change('Scale Width', '150');
+      await saved();
+      assert.equal((await read()).bounds.w, Math.round(original.bounds.w * 1.5));
+      await change('Scale Width', '200');
+      await saved();
+      assert.equal((await read()).bounds.w, original.bounds.w * 2);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), original);
       await change('X', '2.125');
       await saved();
-      const moved = { ...original, bounds: { ...original.bounds, x: inches(2.125) } };
+      const moved = { ...original, bounds: { ...original.bounds, x: cm(2.125) } };
       assert.deepEqual(await read(), moved);
       for (const [name, value] of [
         ['W', '-1'],
         ['H', ''],
         ['X', '1e20'],
         ['Y', ''],
+        ['Scale Width', '1e308'],
+        ['Scale Height', '0'],
       ]) {
         const before = await field(name).inputValue();
         await change(name, value);
@@ -89,7 +115,7 @@ test(
       await change('回転', '-30.5');
       await saved();
       const rotated = await read();
-      assert.deepEqual(rotated.bounds, { ...moved.bounds, y: inches(-0.125) });
+      assert.deepEqual(rotated.bounds, { ...moved.bounds, y: cm(-0.125) });
       assert.equal(rotated.rotation, 329.5);
       await change('回転', '');
       assert.equal(await field('回転').inputValue(), '329.5');
@@ -99,8 +125,8 @@ test(
       await change('W', '6');
       await saved();
       const wider = await read();
-      assert.equal(wider.bounds.w, inches(6));
-      assert.equal(wider.bounds.h, Math.round((rotated.bounds.h * inches(6)) / rotated.bounds.w));
+      assert.equal(wider.bounds.w, cm(6));
+      assert.equal(wider.bounds.h, Math.round((rotated.bounds.h * cm(6)) / rotated.bounds.w));
       assert.equal(wider.bounds.x, rotated.bounds.x);
       assert.equal(wider.bounds.y, rotated.bounds.y);
       assert.equal(wider.rotation, rotated.rotation);
@@ -117,19 +143,19 @@ test(
         true,
       );
       const beforeOverflow = await field('H').inputValue();
-      await change('H', String(27273042316900 / inches(1)));
+      await change('H', String(27273042316900 / cm(1)));
       assert.equal(await field('H').inputValue(), beforeOverflow);
       assert.deepEqual(await read(), wider);
       await change('H', '2');
       await saved();
       const taller = await read();
-      assert.equal(taller.bounds.h, inches(2));
-      assert.equal(taller.bounds.w, Math.round((wider.bounds.w * inches(2)) / wider.bounds.h));
+      assert.equal(taller.bounds.h, cm(2));
+      assert.equal(taller.bounds.w, Math.round((wider.bounds.w * cm(2)) / wider.bounds.h));
       await editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true }).uncheck();
       await change('W', '5');
       await saved();
       const resized = await read();
-      assert.deepEqual(resized, { ...taller, bounds: { ...taller.bounds, w: inches(5) } });
+      assert.deepEqual(resized, { ...taller, bounds: { ...taller.bounds, w: cm(5) } });
       await page.reload();
       await saved();
       assert.deepEqual(await read(), resized);
@@ -189,12 +215,14 @@ test(
       assert.ok(original.resolved);
       await editor.locator('.hit').first().click();
       const field = (name) =>
-        editor.locator('.bespoke').getByRole('spinbutton', { name, exact: true });
+        editor
+          .locator('.bespoke')
+          .getByRole('spinbutton', { name: geometryLabel(name, ja), exact: true });
       assert.equal(await field('X').count(), 1);
       await field('X').fill('2.125');
       await field('X').press('Tab');
       await saved();
-      const moved = { ...original.resolved, x: inches(2.125) };
+      const moved = { ...original.resolved, x: cm(2.125) };
       assert.deepEqual((await read()).resolved, moved);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
@@ -207,8 +235,8 @@ test(
       await saved();
       const resized = {
         ...original.resolved,
-        w: inches(6),
-        h: Math.round((original.resolved.h * inches(6)) / original.resolved.w),
+        w: cm(6),
+        h: Math.round((original.resolved.h * cm(6)) / original.resolved.w),
       };
       assert.deepEqual((await read()).resolved, resized);
       await page.reload();
@@ -270,7 +298,9 @@ test(
         .nth(1)
         .click({ modifiers: ['Shift'] });
       const sizeField = (name) =>
-        editor.locator('.bespoke').getByRole('spinbutton', { name, exact: true });
+        editor
+          .locator('.bespoke')
+          .getByRole('spinbutton', { name: geometryLabel(name, ja), exact: true });
       assert.equal(await sizeField('X').inputValue(), '');
       assert.equal(await sizeField('X').getAttribute('placeholder'), 'Mixed');
       await sizeField('X').fill('2.125');
@@ -279,7 +309,7 @@ test(
       assert.deepEqual(
         await read(),
         before.map((value, index) =>
-          index < 2 ? { ...value, bounds: { ...value.bounds, x: inches(2.125) } } : value,
+          index < 2 ? { ...value, bounds: { ...value.bounds, x: cm(2.125) } } : value,
         ),
       );
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
@@ -295,7 +325,7 @@ test(
           index < 2
             ? {
                 ...value,
-                bounds: { ...value.bounds, w: inches(3), h: inches(index === 0 ? 1.5 : 3) },
+                bounds: { ...value.bounds, w: cm(3), h: cm(index === 0 ? 1.5 : 3) },
               }
             : value,
         ),
@@ -320,7 +350,7 @@ test(
           index < 2
             ? {
                 ...value,
-                bounds: { ...value.bounds, h: inches(1), w: inches(index === 0 ? 2 : 1) },
+                bounds: { ...value.bounds, h: cm(1), w: cm(index === 0 ? 2 : 1) },
               }
             : value,
         ),
@@ -328,7 +358,7 @@ test(
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await read(), before);
-      await sizeField('H').fill(String(27273042316900 / inches(1)));
+      await sizeField('H').fill(String(27273042316900 / cm(1)));
       await sizeField('H').press('Tab');
       assert.deepEqual(await read(), before);
       assert.equal(await sizeField('H').inputValue(), '');
@@ -352,7 +382,7 @@ test(
       await sizeField('W').press('Tab');
       await saved();
       const resized = expected.map((value, index) =>
-        index < 2 ? { ...value, bounds: { ...value.bounds, w: inches(4) } } : value,
+        index < 2 ? { ...value, bounds: { ...value.bounds, w: cm(4) } } : value,
       );
       assert.deepEqual(await read(), resized);
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();

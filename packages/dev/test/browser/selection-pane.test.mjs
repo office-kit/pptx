@@ -137,7 +137,15 @@ test(
       );
       await page.keyboard.press('Escape');
       await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
-      for (const name of ['X', 'Y', 'W', 'H', 'Rotation']) {
+      for (const name of [
+        'Horizontal position',
+        'Vertical position',
+        'Width',
+        'Height',
+        'Rotation',
+        'Scale Height',
+        'Scale Width',
+      ]) {
         assert.equal(
           await editor.getByRole('spinbutton', { name, exact: true }).isDisabled(),
           true,
@@ -221,6 +229,15 @@ test(
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
       const rotationInput = editor.getByRole('spinbutton', { name: 'Rotation', exact: true });
+      assert.equal(await rotationInput.evaluate((input) => input === document.activeElement), true);
+      await editor
+        .locator('.geometry summary')
+        .filter({ hasText: /^Size$/ })
+        .click();
+      assert.equal(await rotationInput.isVisible(), false);
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
       assert.equal(await rotationInput.evaluate((input) => input === document.activeElement), true);
       await rotationInput.fill('37');
       await rotationInput.press('Tab');
