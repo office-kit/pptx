@@ -69,6 +69,7 @@ import {
   getShapeImageCrop,
   getShapeImageDuotone,
   getShapeImageFillBytes,
+  getShapeImageFillLayout,
   getShapeImageOpacity,
   getShapeImagePartName,
   getShapeImageFormat,
@@ -354,10 +355,17 @@ const renderPicture = (
     // and opacity (alphaModFix) so PowerPoint's "Picture Format >
     // Corrections" matches what the playground paints.
     const crop = getShapeImageCrop(shape);
-    let imgX = x,
-      imgY = y,
-      imgW = w,
-      imgH = h;
+    const layout = getShapeImageFillLayout(shape);
+    const stretch = layout?.mode === 'stretch' ? layout : null;
+    const fillL = stretch?.left ?? 0;
+    const fillT = stretch?.top ?? 0;
+    const fillR = stretch?.right ?? 0;
+    const fillB = stretch?.bottom ?? 0;
+    const hasFillOffsets = fillL !== 0 || fillT !== 0 || fillR !== 0 || fillB !== 0;
+    let imgX = x + w * fillL,
+      imgY = y + h * fillT,
+      imgW = Math.max(0, w * (1 - fillL - fillR)),
+      imgH = Math.max(0, h * (1 - fillT - fillB));
     let clipDef = '';
     let clipAttr = '';
     const cropL = crop?.left ?? 0;
@@ -371,13 +379,13 @@ const renderPicture = (
       // to the shape's bounds.
       const scaleX = 1 / Math.max(0.001, 1 - cropL - cropR);
       const scaleY = 1 / Math.max(0.001, 1 - cropT - cropB);
-      imgW = w * scaleX;
-      imgH = h * scaleY;
-      imgX = x - imgW * cropL;
-      imgY = y - imgH * cropT;
+      imgW *= scaleX;
+      imgH *= scaleY;
+      imgX -= imgW * cropL;
+      imgY -= imgH * cropT;
     }
     const preset = getShapePreset(shape) ?? 'rect';
-    if (crop || preset !== 'rect') {
+    if (crop || hasFillOffsets || preset !== 'rect') {
       const clipId = mintId();
       const geometry = pictureClipGeometry(shape, preset, x, y, w, h);
       clipDef = `<defs><clipPath id="${clipId}">${geometry}</clipPath></defs>`;

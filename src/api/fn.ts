@@ -59,3 +59,5 @@ export * from './fn/charts.ts';
 export * from './fn/tables.ts';
 export * from './fn/validation.ts';
 export * from './fn/package-introspection.ts';
+
+export * from './fn/shape-image-fill-layout.ts';
