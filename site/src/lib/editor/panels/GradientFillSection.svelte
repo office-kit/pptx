@@ -2,6 +2,7 @@
   import { getShapeGradientFillEffective, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import GradientDirection from './GradientDirection.svelte';
 
   const editor = getEditor();
   const gradient = $derived.by(() => {
@@ -93,6 +94,9 @@
         <option value="rect">{t('Rectangular')}</option><option value="shape">{t('Path')}</option>
       </select>
     </label>
+    {#if gradient.path === undefined || gradient.path === 'linear'}
+      <GradientDirection angle={gradient.angleDeg ?? 90} disabled={locked} choose={angleDeg => apply({ angleDeg, scaled: true })} />
+    {/if}
     <label class="field"><span>{t('Angle')}</span><span class="number">
       <input class="ok-input" type="number" min="0" max="359.9" step="any" aria-label={t('Gradient angle')} value={gradient.angleDeg ?? 90} disabled={gradient.path !== undefined && gradient.path !== 'linear'} onchange={event => angle(event.currentTarget)} />°
     </span></label>

@@ -22,7 +22,7 @@ test(
       const file = join(dir, 'deck.tsx');
       await writeFile(
         file,
-        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={3} height={2} fill={{stops:[{offset:0,color:'accent1',brightness:0.95},{offset:1,color:'accent1',brightness:0.7}],angleDeg:90,scaled:true}}>Gradient</Text><Text x={6} y={1} width={3} height={2} fill="#00FF00">Solid</Text></Slide></Presentation>`,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={3} height={2} fill={{stops:[{offset:0,color:'accent1',brightness:0.95},{offset:1,color:'accent1',brightness:0.7}],angleDeg:90,scaled:false}}>Gradient</Text><Text x={6} y={1} width={3} height={2} fill="#00FF00">Solid</Text></Slide></Presentation>`,
       );
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
@@ -41,7 +41,58 @@ test(
       };
       await saved();
       await editor.locator('.hit').nth(0).click();
-      const initialGradient = await gradient();
+      let initialGradient = await gradient();
+      const direction = editor.getByRole('button', { name: 'Gradient direction', exact: true });
+      await direction.click();
+      const directionMenu = editor.getByRole('menu', { name: 'Gradient direction', exact: true });
+      const directions = [
+        ['Linear Diagonal - Top Left to Bottom Right', 45],
+        ['Linear Down', 90],
+        ['Linear Diagonal - Top Right to Bottom Left', 135],
+        ['Linear Right', 0],
+        ['Linear Left', 180],
+        ['Linear Diagonal - Bottom Left to Top Right', 315],
+        ['Linear Up', 270],
+        ['Linear Diagonal - Bottom Right to Top Left', 225],
+      ];
+      assert.deepEqual(
+        await directionMenu
+          .getByRole('menuitemradio')
+          .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label'))),
+        directions.map(([label]) => label),
+      );
+      await directionMenu.press('Escape');
+      assert.deepEqual(await gradient(), initialGradient);
+      for (const [label, angle] of directions) {
+        await direction.click();
+        await directionMenu.getByRole('menuitemradio', { name: label, exact: true }).click();
+        await saved();
+        const changed = await gradient();
+        assert.equal(changed.angleDeg, angle);
+        assert.equal(changed.scaled, true);
+        assert.deepEqual(changed.stops, initialGradient.stops);
+        if (angle === 45) {
+          await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+          await saved();
+          assert.deepEqual(await gradient(), initialGradient);
+          await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+          await saved();
+          assert.equal((await gradient()).scaled, true);
+        }
+      }
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await gradient()).angleDeg, 270);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.equal((await gradient()).angleDeg, 225);
+      await direction.click();
+      await page.keyboard.press('Home');
+      await page.keyboard.press('ArrowRight');
+      await page.keyboard.press('Enter');
+      await saved();
+      initialGradient = { ...initialGradient, scaled: true };
+      assert.deepEqual(await gradient(), initialGradient);
       const noFill = editor.getByRole('radio', { name: 'No fill', exact: true });
       const solidFill = editor.getByRole('radio', { name: 'Solid fill', exact: true });
       const gradientFill = editor.getByRole('radio', { name: 'Gradient fill', exact: true });

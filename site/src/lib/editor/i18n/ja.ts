@@ -3,6 +3,15 @@
 
 export const ja: Record<string, string> = {
   'Gradient type': 'グラデーションの種類',
+  'Gradient direction': 'グラデーションの方向',
+  'Linear Diagonal - Top Left to Bottom Right': '対角線方向 - 左上から右下',
+  'Linear Down': '下方向',
+  'Linear Diagonal - Top Right to Bottom Left': '対角線方向 - 右上から左下',
+  'Linear Right': '右方向',
+  'Linear Left': '左方向',
+  'Linear Diagonal - Bottom Left to Top Right': '対角線方向 - 左下から右上',
+  'Linear Up': '上方向',
+  'Linear Diagonal - Bottom Right to Top Left': '対角線方向 - 右下から左上',
   Linear: '線形',
   Radial: '放射状',
   Rectangular: '四角',
