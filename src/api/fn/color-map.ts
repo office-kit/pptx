@@ -2,8 +2,8 @@
 //
 // PowerPoint resolves every `schemeClr` token (`tx1`, `bg1`, `accent1`, …)
 // through the slide's effective color map before indexing the theme. The map
-// comes from the slide master's `<p:clrMap>`, optionally overridden per-slide
-// by `<p:clrMapOvr><a:overrideClrMapping>`. Most decks use the standard map
+// comes from the slide master's `<p:clrMap>`, optionally overridden by layouts
+// and slides through `<p:clrMapOvr><a:overrideClrMapping>`. Most decks use the standard map
 // (`bg1="lt1" tx1="dk1"`), but exports from Google Slides / Canva frequently
 // INVERT it (`bg1="dk1" tx1="lt1"`). Resolving colors without the map then
 // paints text and backgrounds with swapped light/dark colors — the bug this
@@ -18,7 +18,12 @@ import {
   parseXml,
   qname,
 } from '../../internal/xml/index.ts';
-import { INTERNAL_PACKAGE, SLIDE_PART_NAME, type SlideData } from '../_internal-symbols.ts';
+import {
+  INTERNAL_PACKAGE,
+  SLIDE_DOCUMENT,
+  SLIDE_PART_NAME,
+  type SlideData,
+} from '../_internal-symbols.ts';
 import { decode } from './_helpers.ts';
 import { resolveDrawingColor, resolveSchemeToken } from './shape-color.ts';
 import { getSlideColorMapOverride } from './slide-background.ts';
@@ -49,21 +54,28 @@ const NAME_LVL1_PPR = qname('a', 'lvl1pPr', NS.dml);
 const NAME_DEF_RPR = qname('a', 'defRPr', NS.dml);
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
 
-// Walk slide → layout → master, returning the master part's root element.
-// Mirrors the rel-walking pattern in `getSlideLayout` / `getSlideMasterBackground`;
-// kept self-contained here so this module doesn't depend on those readers.
-const getSlideMasterRoot = (slide: SlideData): XmlElement | null => {
+const getSlideLayoutPartName = (slide: SlideData) => {
   const pkg = slide[INTERNAL_PACKAGE];
   const slideRels = pkg.getRels(slide[SLIDE_PART_NAME]);
   if (slideRels === null) return null;
-  const layoutRel = slideRels.items.find((r) => r.type === REL_TYPES.slideLayout);
+  const layoutRel = slideRels.items.find(
+    (r) => r.type === REL_TYPES.slideLayout && r.targetMode !== 'External',
+  );
   if (!layoutRel) return null;
-  const layoutPartName = layoutRel.target.startsWith('/')
+  return layoutRel.target.startsWith('/')
     ? partName(layoutRel.target)
     : resolveTarget(slide[SLIDE_PART_NAME], layoutRel.target);
+};
+
+const getSlideMasterRoot = (slide: SlideData): XmlElement | null => {
+  const pkg = slide[INTERNAL_PACKAGE];
+  const layoutPartName = getSlideLayoutPartName(slide);
+  if (!layoutPartName) return null;
   const layoutRels = pkg.getRels(layoutPartName);
   if (layoutRels === null) return null;
-  const masterRel = layoutRels.items.find((r) => r.type === REL_TYPES.slideMaster);
+  const masterRel = layoutRels.items.find(
+    (r) => r.type === REL_TYPES.slideMaster && r.targetMode !== 'External',
+  );
   if (!masterRel) return null;
   const masterPartName = masterRel.target.startsWith('/')
     ? partName(masterRel.target)
@@ -86,7 +98,8 @@ const readClrMapElement = (root: XmlElement): Record<string, string> | null => {
 
 /**
  * The slide's effective color map: the master's `<p:clrMap>`, overlaid by a
- * per-slide `<p:clrMapOvr><a:overrideClrMapping>` when present. Falls back to
+ * layout or slide `<p:clrMapOvr><a:overrideClrMapping>` when present. An explicit
+ * slide `masterClrMapping` bypasses the layout override. Falls back to
  * the standard map for decks that omit it.
  *
  * Pass the result to color resolution / renderers so `schemeClr` tokens map to
@@ -98,7 +111,25 @@ export const getEffectiveColorMap = (slide: SlideData): Record<string, string> =
   if (override) return { ...STANDARD_COLOR_MAP, ...override };
   const masterRoot = getSlideMasterRoot(slide);
   const masterMap = masterRoot ? readClrMapElement(masterRoot) : null;
-  return masterMap ? { ...STANDARD_COLOR_MAP, ...masterMap } : { ...STANDARD_COLOR_MAP };
+  const inherited = { ...STANDARD_COLOR_MAP, ...masterMap };
+  const slideOverride = firstChildElement(
+    slide[SLIDE_DOCUMENT].root,
+    qname('p', 'clrMapOvr', NS.pml),
+  );
+  if (slideOverride && firstChildElement(slideOverride, qname('a', 'masterClrMapping', NS.dml)))
+    return inherited;
+  const layoutName = getSlideLayoutPartName(slide);
+  const layoutPart = layoutName ? slide[INTERNAL_PACKAGE].getPart(layoutName) : null;
+  const layoutOverride = layoutPart
+    ? firstChildElement(parseXml(decode(layoutPart.data)).root, qname('p', 'clrMapOvr', NS.pml))
+    : null;
+  const mapping = layoutOverride
+    ? firstChildElement(layoutOverride, qname('a', 'overrideClrMapping', NS.dml))
+    : null;
+  for (const attribute of mapping?.attrs ?? []) {
+    if (attribute.name.namespaceURI === '') inherited[attribute.name.localName] = attribute.value;
+  }
+  return inherited;
 };
 
 // First DrawingML color child of a `<a:solidFill>` element.
