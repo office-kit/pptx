@@ -88,6 +88,7 @@ export class EditorController {
   readonly view = new ViewPreferences();
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
+  thumbnailWidth = $state<number | null>(null);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);
   notesVisible = $state(false);
@@ -304,9 +305,6 @@ export class EditorController {
       this.autoFitZoom = true;
       this.zoom = this.fitZoom;
     }
-  }
-  zoomReset(): void {
-    this.setZoom(1);
   }
 
   // --- Context menu ------------------------------------------------------

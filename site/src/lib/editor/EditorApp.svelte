@@ -8,6 +8,7 @@
   import TopBar from './ui/TopBar.svelte';
   import Ribbon from './ribbon/Ribbon.svelte';
   import SlideNavigator from './ui/SlideNavigator.svelte';
+  import ThumbnailPane from './ui/ThumbnailPane.svelte';
   import SlideCanvas from './canvas/SlideCanvas.svelte';
   import PropertiesPanel from './panels/PropertiesPanel.svelte';
   import StatusBar from './ui/StatusBar.svelte';
@@ -159,12 +160,12 @@
 
 <svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
-<div class="ok-editor ok-shell">
+<div class="ok-editor ok-shell" style:--ok-nav-w={editor.thumbnailWidth === null ? undefined : `${editor.thumbnailWidth}px`}>
   <TopBar {onsave} />
   {#if status}<div class="host-status">{@render status()}</div>{/if}
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
   <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible}>
-    {#if editor.viewMode === 'sorter' || editor.thumbnailsVisible}<SlideNavigator mode={editor.viewMode} />{/if}
+    {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane />{/if}
     {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div><PropertiesPanel />{/if}
   </div>
   <StatusBar />

@@ -114,6 +114,43 @@ test(
       await slider.press('Shift+ArrowRight');
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '21%');
       assert.equal((await waitForState(preview.url, () => true)).revision, beforeZoomRevision);
+      const thumbnailResize = editor.getByRole('separator', { name: 'Thumbnail pane width' });
+      await thumbnailResize.press('Home');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#editor-frame').contentDocument.querySelector('.thumbnail-pane')
+            .clientWidth === 90,
+      );
+      await thumbnailResize.press('ArrowRight');
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#editor-frame').contentDocument.querySelector('.thumbnail-pane')
+            .clientWidth === 100,
+      );
+      const handle = await thumbnailResize.boundingBox();
+      await page.mouse.move(handle.x + handle.width / 2, handle.y + handle.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(handle.x + handle.width / 2 + 80, handle.y + handle.height / 2);
+      await page.mouse.up();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#editor-frame').contentDocument.querySelector('.thumbnail-pane')
+            .clientWidth === 180,
+      );
+      const resizedHandle = await thumbnailResize.boundingBox();
+      await page.mouse.move(
+        resizedHandle.x + resizedHandle.width / 2,
+        resizedHandle.y + resizedHandle.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(resizedHandle.x + 70, resizedHandle.y + resizedHandle.height / 2);
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      await page.waitForFunction(
+        () =>
+          document.querySelector('#editor-frame').contentDocument.querySelector('.thumbnail-pane')
+            .clientWidth === 180,
+      );
       const viewTab = editor.getByRole('tab', { name: 'View', exact: true });
       await viewTab.click();
       const viewPanel = editor.getByRole('tabpanel', { name: 'View', exact: true });
@@ -121,6 +158,10 @@ test(
       await editor.locator('.nav').waitFor({ state: 'detached' });
       await viewPanel.getByRole('checkbox', { name: 'Thumbnails', exact: true }).check();
       await editor.locator('.nav').waitFor();
+      assert.equal(
+        await editor.locator('.thumbnail-pane').evaluate((node) => node.clientWidth),
+        180,
+      );
       await viewPanel.getByRole('checkbox', { name: 'Guides', exact: true }).check();
       assert.equal(await editor.locator('.drawing-guide').count(), 2);
       await viewPanel.getByRole('button', { name: 'Slide Sorter', exact: true }).click();
@@ -131,6 +172,10 @@ test(
       );
       await viewPanel.getByRole('button', { name: 'Normal', exact: true }).click();
       await editor.locator('.nav.sorter').waitFor({ state: 'detached' });
+      assert.equal(
+        await editor.locator('.thumbnail-pane').evaluate((node) => node.clientWidth),
+        180,
+      );
       await viewPanel.getByRole('button', { name: 'Zoom', exact: true }).click();
       await zoomDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       await viewTab.focus();
