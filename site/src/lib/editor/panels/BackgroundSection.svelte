@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { getSlides, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground } from '@office-kit/pptx';
+  import { getSlides, getSlidePartName, isSlideBackgroundGraphicsHidden, setSlideBackgroundGraphicsHidden, asColor, type Color, type SlideData, getSlideBackground, setSlideBackground, setSlideBackgroundImage, setSlideBackgroundGradientFill, setSlideBackgroundPatternFill, clearSlideBackground } from '@office-kit/pptx';
   import { readSlideBackground } from '../core/slide-background.ts';
+  import { rememberBackgroundFill } from '../core/remembered-background-fill.ts';
   import BackgroundPictureLayout from './BackgroundPictureLayout.svelte';
   import PatternFillSection from './PatternFillSection.svelte';
   import GradientFillSection from './GradientFillSection.svelte';
@@ -36,6 +37,22 @@
     try { doc.transact(t(label), () => { for (const target of targets) operation(target); }); error = ''; }
     catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
   }
+  function remember(target: SlideData) {
+    const key = `background:${getSlidePartName(target)}`;
+    const remembered = doc.rememberedFills.get(key) ?? {};
+    rememberBackgroundFill(doc.pres, target, remembered);
+    doc.rememberedFills.set(key, remembered);
+    return remembered;
+  }
+  function switchFill(kind: 'solid' | 'gradient' | 'pattern') {
+    apply(kind === 'solid' ? 'Background color' : kind === 'gradient' ? 'Gradient fill' : 'Pattern fill', target => {
+      if (readSlideBackground(doc.pres, target).fill.kind === kind) return;
+      const remembered = remember(target);
+      if (kind === 'solid') setSlideBackground(target, remembered.solid?.color ?? '#FFFFFF', remembered.solid?.opacity);
+      else if (kind === 'gradient') setSlideBackgroundGradientFill(target, remembered.gradient ?? { stops: [{ offset: 0, color: 'accent1', brightness: 0.95 }, { offset: 1, color: 'accent1', brightness: 0.7 }], angleDeg: 0, scaled: false });
+      else setSlideBackgroundPatternFill(target, remembered.pattern ?? {});
+    });
+  }
   async function upload(event: Event) {
     const input = event.currentTarget;
     if (!(input instanceof HTMLInputElement)) return;
@@ -68,7 +85,7 @@
         error = t('The slide changed. Choose the background image again.');
         return;
       }
-      apply('Background image', target => setSlideBackgroundImage(target, bytes), targets);
+      apply('Background image', target => { remember(target); setSlideBackgroundImage(target, bytes); }, targets);
     } catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
     finally { loading = false; }
   }
@@ -80,10 +97,10 @@
       <summary>{t('Fill')}</summary>
       <div class="fill-controls">
         <div class="background-types" role="radiogroup" aria-label={t('Background fill')}>
-          <label class="check"><input type="radio" name="background-fill" checked={solidBackground} onchange={() => apply('Background color', target => setSlideBackground(target, '#FFFFFF'))} />{t('Solid fill')}</label>
-          <label class="check"><input type="radio" name="background-fill" checked={gradientBackground} onchange={() => apply('Gradient fill', target => setSlideBackgroundGradientFill(target, { stops: [{ offset: 0, color: 'accent1', brightness: 0.95 }, { offset: 1, color: 'accent1', brightness: 0.7 }], angleDeg: 0, scaled: false }))} />{t('Gradient fill')}</label>
+          <label class="check"><input type="radio" name="background-fill" checked={solidBackground} onchange={() => switchFill('solid')} />{t('Solid fill')}</label>
+          <label class="check"><input type="radio" name="background-fill" checked={gradientBackground} onchange={() => switchFill('gradient')} />{t('Gradient fill')}</label>
           <label class="check"><input type="radio" name="background-fill" checked={imageBackground} disabled={loading} onclick={event => { if (!imageBackground) { event.preventDefault(); fileInput?.click(); } }} />{t('Picture or texture fill')}</label>
-          <label class="check"><input type="radio" name="background-fill" checked={patternBackground} onchange={() => apply('Pattern fill', target => setSlideBackgroundPatternFill(target, {}))} />{t('Pattern fill')}</label>
+          <label class="check"><input type="radio" name="background-fill" checked={patternBackground} onchange={() => switchFill('pattern')} />{t('Pattern fill')}</label>
         </div>
         <label class="check"><input type="checkbox" checked={graphicsHidden} indeterminate={mixedGraphics} onchange={event => { const hidden = event.currentTarget.checked; apply('Hide Background Graphics', target => setSlideBackgroundGraphicsHidden(target, hidden)); }} />{t('Hide Background Graphics')}</label>
         {#if gradientBackground}

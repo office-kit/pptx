@@ -135,6 +135,30 @@ test(
       assert.equal(values[0].path, 'rect');
       assert.deepEqual(values[0], values[1]);
       assert.equal(values[2], null);
+      await pane.getByRole('radio', { name: 'Solid fill', exact: true }).check();
+      await saved();
+      assert.deepEqual(await backgroundValues(), backgrounds);
+      await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).check();
+      await saved();
+      assert.deepEqual(await gradients(), values);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await backgroundValues(), backgrounds);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await gradients(), values);
+      await pane.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
+      await pane.getByRole('button', { name: 'Dotted: 40%', exact: true }).click();
+      await saved();
+      const patternBackgrounds = await backgroundValues();
+      await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).check();
+      await saved();
+      assert.deepEqual(await gradients(), values);
+      await pane.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
+      await saved();
+      assert.deepEqual(await backgroundValues(), patternBackgrounds);
+      await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).check();
+      await saved();
       await page.screenshot({ path: '/tmp/pptx-background-gradient-panel.png' });
       await page.reload();
       await saved();
@@ -229,6 +253,21 @@ test(
       const reset = pane.getByRole('button', { name: 'Reset background', exact: true });
       assert.equal(await reset.isEnabled(), false);
       const initial = getSlideLayoutBackgroundGradientFill(getSlideLayout((await read())[0]));
+      await pane.getByRole('radio', { name: 'Solid fill', exact: true }).check();
+      await saved();
+      await pane.getByRole('radio', { name: 'Gradient fill', exact: true }).check();
+      await saved();
+      assert.deepEqual(getSlideBackgroundGradientFill((await read())[0]), {
+        ...initial,
+        rotateWithShape: true,
+        scaled: false,
+      });
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal(getSlideBackgroundGradientFill((await read())[0]), null);
+
       const position = pane.getByRole('spinbutton', {
         name: 'Gradient stop position',
         exact: true,

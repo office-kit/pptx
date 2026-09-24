@@ -468,3 +468,12 @@ mirror mode; save/reload coverage verifies scale and offsets. This resolves the
 placement-preview gap noted above. Background source cropping/effects beyond
 opacity, unsupported intrinsic image formats, texture presets and remembered
 fill-type switching still require work.
+
+Background solid, gradient and pattern settings are now remembered per slide while
+switching fill types in an editing session. Native Mac confirmation: entering a
+15% gradient stop position with Return, switching to Solid fill and back to
+Gradient fill retained 15%; the audit changes were undone and saved. Browser
+coverage verifies selected-slide restoration, solid transparency, pattern choice,
+gradient stop/type values, inherited gradient transforms, undo/redo and the saved
+active fill. Picture background restoration, texture presets and native memory
+behavior across document reopening remain unverified or incomplete.
