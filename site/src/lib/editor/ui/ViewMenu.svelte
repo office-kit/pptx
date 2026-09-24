@@ -18,6 +18,26 @@
     editor.view.save({ grid: editor.view.grid, smart: editor.view.smart, drawing, [key]: !(key === 'drawing' ? drawing : editor.view[key]) });
   }
   async function focusFirst() { await tick(); root?.querySelector<HTMLButtonElement>('[role="menu"] button')?.focus(); }
+  function place(node: HTMLElement, nested = false) {
+    const margin = 8;
+    function position() {
+      node.style.left = nested ? '100%' : '0';
+      node.style.right = 'auto';
+      node.style.top = nested ? '-5px' : '100%';
+      if (nested && node.getBoundingClientRect().right > window.innerWidth - margin) {
+        node.style.left = 'auto';
+        node.style.right = '100%';
+      }
+      const bounds = node.getBoundingClientRect();
+      const horizontal = Math.max(margin - bounds.left, Math.min(0, window.innerWidth - margin - bounds.right));
+      const vertical = Math.max(margin - bounds.top, Math.min(0, window.innerHeight - margin - bounds.bottom));
+      if (horizontal) { node.style.left = `${node.offsetLeft + horizontal}px`; node.style.right = 'auto'; }
+      if (vertical) node.style.top = `${node.offsetTop + vertical}px`;
+    }
+    position();
+    window.addEventListener('resize', position);
+    return { destroy() { window.removeEventListener('resize', position); } };
+  }
   function keys(event: KeyboardEvent) {
     if (!open) return;
     event.stopPropagation();
@@ -46,7 +66,7 @@
 <div class="view-menu" bind:this={root}>
   <button class="ok-btn" bind:this={trigger} aria-haspopup="menu" aria-expanded={open} onclick={() => { open = !open; submenu = null; if (open) void focusFirst(); }}>{t('View')}</button>
   {#if open}
-    <div class="menu" role="menu" tabindex="-1" onkeydown={keys} aria-label={t('View')}>
+    <div class="menu" use:place role="menu" tabindex="-1" onkeydown={keys} aria-label={t('View')}>
       {#each [{ mode: 'normal' as const, label: 'Normal', key: '⌘1' }, { mode: 'sorter' as const, label: 'Slide Sorter', key: '⌘2' }] as item}
         <button role="menuitemradio" aria-label={t(item.label)} aria-checked={editor.viewMode === item.mode} onclick={() => choose(() => editor.setViewMode(item.mode))}><span>{editor.viewMode === item.mode ? '✓' : ''}</span>{t(item.label)}<kbd>{item.key}</kbd></button>
       {/each}
@@ -55,7 +75,7 @@
       <div class="branch">
         <button role="menuitem" aria-haspopup="menu" aria-expanded={submenu === 'grid'} aria-label={t('Grid and Guides')} data-submenu="grid" onclick={() => submenu = 'grid'} onpointerenter={() => submenu = 'grid'}><span></span>{t('Grid and Guides')}<kbd>›</kbd></button>
         {#if submenu === 'grid'}
-          <div class="menu submenu" role="menu" aria-label={t('Grid and Guides')}>
+          <div class="menu submenu" use:place={true} role="menu" aria-label={t('Grid and Guides')}>
             {#each [{ key: 'smart' as const, label: 'Smart Guides', value: editor.view.smart }, { key: 'drawing' as const, label: 'Guides', value: drawing }, { key: 'grid' as const, label: 'Gridlines', value: editor.view.grid }] as item}
               <button role="menuitemcheckbox" aria-checked={item.value} onclick={() => choose(() => toggle(item.key))}><span>{item.value ? '✓' : ''}</span>{t(item.label)}</button>
             {/each}
@@ -68,7 +88,7 @@
       </div>
       <div class="branch">
         <button role="menuitem" aria-haspopup="menu" aria-expanded={submenu === 'zoom'} aria-label={t('Zoom')} data-submenu="zoom" onclick={() => submenu = 'zoom'} onpointerenter={() => submenu = 'zoom'}><span></span>{t('Zoom')}<kbd>›</kbd></button>
-        {#if submenu === 'zoom'}<div class="menu submenu" role="menu" aria-label={t('Zoom')}>
+        {#if submenu === 'zoom'}<div class="menu submenu" use:place={true} role="menu" aria-label={t('Zoom')}>
           <button role="menuitem" onclick={() => choose(() => editor.zoomFit())}><span></span>{t('Fit to Window')}</button>
           <button role="menuitem" onclick={() => choose(() => editor.zoomIn())}><span></span>{t('Zoom In')}</button>
           <button role="menuitem" onclick={() => choose(() => editor.zoomOut())}><span></span>{t('Zoom Out')}</button>
