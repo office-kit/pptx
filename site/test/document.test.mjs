@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { isShapeLocked, setShapeLocked, getSnapToGrid, getGridSpacing, setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { setShapeImageFill, setShapeImageFillLayout, getShapeImageFillLayout, setShapeImageOpacity, getShapeImageOpacity, isShapeLocked, setShapeLocked, getSnapToGrid, getGridSpacing, setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,11 @@ const result = await build({
   ],
 });
 const {
+  setShapeImageFill,
+  setShapeImageFillLayout,
+  getShapeImageFillLayout,
+  setShapeImageOpacity,
+  getShapeImageOpacity,
   isShapeLocked,
   setShapeLocked,
   getSnapToGrid,
@@ -1132,4 +1137,41 @@ test('reorder preview is scoped to siblings inside a group', async () => {
   const version = doc.version;
   editor.reorderSelection([ids[0], ids[2]]);
   assert.equal(doc.version, version);
+});
+
+test('picture fill edits on multiple selected shapes restore together through history and reload', async () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const bytes = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
+  editor.doc.transact('Picture fill', () => {
+    for (const shape of shapes) setShapeImageFill(shape, bytes);
+  });
+  editor.doc.transact('Tile and transparency', () => {
+    for (const shape of shapes) {
+      setShapeImageFillLayout(shape, { mode: 'tile', scaleX: 0.5, alignment: 'br', flip: 'xy' });
+      setShapeImageOpacity(shape, 0.4);
+    }
+  });
+  const assertTile = () => {
+    for (const shape of editor.selectedShapes()) {
+      assert.equal(getShapeImageFillLayout(shape).mode, 'tile');
+      assert.equal(getShapeImageFillLayout(shape).scaleX, 0.5);
+      assert.equal(getShapeImageFillLayout(shape).alignment, 'br');
+      assert.equal(getShapeImageFillLayout(shape).flip, 'xy');
+      assert.equal(getShapeImageOpacity(shape), 0.4);
+    }
+    assert.equal(editor.selectedShapes().length, 3);
+  };
+  assertTile();
+  await editor.doc.undo();
+  for (const shape of editor.selectedShapes()) {
+    assert.equal(getShapeImageFillLayout(shape).mode, 'stretch');
+    assert.equal(getShapeImageOpacity(shape), null);
+  }
+  await editor.doc.redo();
+  assertTile();
+  const selection = editor.doc.selection;
+  await editor.doc.loadBytes(await editor.doc.toBytes(), 'picture-fills.pptx');
+  editor.doc.select(selection);
+  assertTile();
 });
