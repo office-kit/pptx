@@ -35,6 +35,19 @@ import { getPresentationTheme, type PresentationTheme } from './theme.ts';
 // Useful for renderers (preview generators, PDF exporters) that need
 // to reproduce the gradient instead of substituting a placeholder.
 
+// CT_RelativeRect defaults omitted insets to zero. Mac PowerPoint omits
+// right/bottom focus insets for the From Bottom Right Corner direction.
+function readRelativeRect(element: XmlElement | null): ReadGradientFill['focus'] {
+  if (!element) return undefined;
+  const pct = (name: string): number => {
+    const value = getAttrValue(element, qname('', name, ''));
+    if (value === null) return 0;
+    const number = Number.parseFloat(value);
+    return Number.isFinite(number) ? number / (value.endsWith('%') ? 100 : 100000) : 0;
+  };
+  return { left: pct('l'), top: pct('t'), right: pct('r'), bottom: pct('b') };
+}
+
 export const NAME_A_GRAD_FILL = qname('a', 'gradFill', NS.dml);
 export const NAME_A_GS_LST = qname('a', 'gsLst', NS.dml);
 export const NAME_A_LIN = qname('a', 'lin', NS.dml);
@@ -118,7 +131,9 @@ const parseGradFill = (
   }
   const rotate = getAttrValue(gradFill, qname('', 'rotWithShape', ''));
   const scaled = lin ? getAttrValue(lin, qname('', 'scaled', '')) : null;
+  const tileRect = readRelativeRect(firstChildElement(gradFill, qname('a', 'tileRect', NS.dml)));
   const direction = {
+    ...(tileRect ? { tileRect } : {}),
     ...(rotate !== null ? { rotateWithShape: rotate !== '0' && rotate !== 'false' } : {}),
     ...(scaled !== null ? { scaled: scaled !== '0' && scaled !== 'false' } : {}),
   };
@@ -128,24 +143,7 @@ const parseGradFill = (
     const pathVal: 'circle' | 'rect' | 'shape' | null =
       p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
     if (pathVal) {
-      let focus: ReadGradientFill['focus'];
-      const fillToRect = firstChildElement(pathEl, qname('a', 'fillToRect', NS.dml));
-      if (fillToRect) {
-        const pct = (name: string): number | undefined => {
-          const v = getAttrValue(fillToRect, qname('', name, ''));
-          if (v === null) return undefined;
-          const n = Number.parseFloat(v);
-          if (!Number.isFinite(n)) return undefined;
-          return n / (v.endsWith('%') ? 100 : 100000);
-        };
-        // CT_RelativeRect defaults omitted insets to zero. Mac PowerPoint
-        // omits right/bottom for the From Bottom Right Corner direction.
-        const l = pct('l') ?? 0;
-        const t = pct('t') ?? 0;
-        const r = pct('r') ?? 0;
-        const b = pct('b') ?? 0;
-        focus = { left: l, top: t, right: r, bottom: b };
-      }
+      const focus = readRelativeRect(firstChildElement(pathEl, qname('a', 'fillToRect', NS.dml)));
       return { stops, angleDeg, ...direction, path: pathVal, ...(focus ? { focus } : {}) };
     }
   }
