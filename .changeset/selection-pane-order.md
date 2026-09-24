@@ -8,4 +8,6 @@ Match the Mac Selection Pane with a single show/hide-all toggle and footer butto
 
 Use the Home Arrange menu for object stacking, grouping, alignment, rotation, flipping and opening the Selection Pane.
 
+Keep the alignment reference synchronized between the Arrange menu and the properties pane.
+
 Keep Enter-to-edit working from the table cell grid while preventing ordinary buttons from starting canvas text editing.

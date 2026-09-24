@@ -102,6 +102,27 @@ test(
       );
       await pane.getByRole('button', { name: 'Third', exact: true }).click();
       const arrange = editor.getByRole('button', { name: 'Arrange', exact: true });
+      await pane
+        .getByRole('button', { name: 'Group', exact: true })
+        .click({ modifiers: ['Shift'] });
+      await pane.getByRole('button', { name: 'Close Selection Pane', exact: true }).click();
+      const reference = editor.getByRole('combobox', { name: 'Alignment reference', exact: true });
+      await reference.selectOption('slide');
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Align', exact: true }).click();
+      assert.equal(
+        await editor
+          .getByRole('menuitemradio', { name: 'Align to Slide' })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      await editor.getByRole('menuitemradio', { name: 'Align Selected Objects' }).click();
+      assert.equal(await reference.inputValue(), 'selection');
+      await arrange.click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
+      await pane.getByRole('button', { name: 'Third', exact: true }).click();
       await arrange.click();
       await editor.getByRole('menuitem', { name: 'Align', exact: true }).focus();
       await page.keyboard.press('ArrowRight');

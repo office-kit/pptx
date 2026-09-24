@@ -9,11 +9,10 @@
   const doc = editor.doc;
   let open = $state(false);
   let branch = $state<'align' | 'rotate' | null>(null);
-  let reference = $state<'selection' | 'slide'>('selection');
   let trigger: HTMLButtonElement;
   let menu = $state<HTMLDivElement>();
   const count = $derived(selectedShapeIds(doc.selection).length);
-  const toSlide = $derived(count < 2 || reference === 'slide');
+  const toSlide = $derived(count < 2 || editor.alignmentReference === 'slide');
   const order = [{ id: 'bringShapeToFront', label: 'Bring to Front' }, { id: 'sendShapeToBack', label: 'Send to Back' }, { id: 'bringShapeForward', label: 'Bring Forward' }, { id: 'sendShapeBackward', label: 'Send Backward' }];
   const alignment = [{ value: 'left', label: 'Align Left' }, { value: 'center', label: 'Align Center' }, { value: 'right', label: 'Align Right' }, { value: 'top', label: 'Align Top' }, { value: 'middle', label: 'Align Middle' }, { value: 'bottom', label: 'Align Bottom' }] as const;
   function close(restore = true) { open = false; branch = null; if (restore) trigger.focus(); }
@@ -80,8 +79,8 @@
         <button role="menuitem" disabled={count < 3 || toSlide} onclick={() => choose(() => editor.distributeSelection('horizontal'))}>{t('Distribute Horizontally')}</button>
         <button role="menuitem" disabled={count < 3 || toSlide} onclick={() => choose(() => editor.distributeSelection('vertical'))}>{t('Distribute Vertically')}</button>
         <hr />
-        <button role="menuitemradio" aria-checked={toSlide} onclick={() => choose(() => reference = 'slide')}>{t('Align to Slide')}<span>{toSlide ? '✓' : ''}</span></button>
-        <button role="menuitemradio" disabled={count < 2} aria-checked={!toSlide} onclick={() => choose(() => reference = 'selection')}>{t('Align Selected Objects')}<span>{!toSlide ? '✓' : ''}</span></button>
+        <button role="menuitemradio" aria-checked={toSlide} onclick={() => choose(() => editor.alignmentReference = 'slide')}>{t('Align to Slide')}<span>{toSlide ? '✓' : ''}</span></button>
+        <button role="menuitemradio" disabled={count < 2} aria-checked={!toSlide} onclick={() => choose(() => editor.alignmentReference = 'selection')}>{t('Align Selected Objects')}<span>{!toSlide ? '✓' : ''}</span></button>
       </div>{/if}
     </div>
     <div class="branch">

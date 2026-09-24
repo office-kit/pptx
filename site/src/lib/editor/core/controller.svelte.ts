@@ -89,6 +89,7 @@ export class EditorController {
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);
+  alignmentReference = $state<'selection' | 'slide'>('selection');
   thumbnailWidth = $state<number | null>(null);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);

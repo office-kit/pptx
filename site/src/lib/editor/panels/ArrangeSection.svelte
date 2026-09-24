@@ -5,7 +5,6 @@
   const editor = getEditor();
   const doc = editor.doc;
   const count = $derived(doc.selection.kind === 'shape' ? doc.selection.shapeIds.length : 0);
-  let reference = $state<'selection' | 'slide'>('selection');
   const alignments = [
     ['left', 'Align left'], ['center', 'Align center'], ['right', 'Align right'],
     ['top', 'Align top'], ['middle', 'Align middle'], ['bottom', 'Align bottom'],
@@ -18,14 +17,14 @@
     {#if count === 1}
       <p>{t('Align to slide')}</p>
     {:else}
-      <select aria-label={t('Alignment reference')} bind:value={reference}>
+      <select aria-label={t('Alignment reference')} bind:value={editor.alignmentReference}>
         <option value="selection">{t('Align to selection')}</option>
         <option value="slide">{t('Align to slide')}</option>
       </select>
     {/if}
     <div class="buttons">
       {#each alignments as [alignment, label]}
-        <button onclick={() => editor.alignSelection(alignment, reference)}>{t(label)}</button>
+        <button onclick={() => editor.alignSelection(alignment, editor.alignmentReference)}>{t(label)}</button>
       {/each}
       <button disabled={count < 3} onclick={() => editor.distributeSelection('horizontal')}>{t('Distribute horizontally')}</button>
       <button disabled={count < 3} onclick={() => editor.distributeSelection('vertical')}>{t('Distribute vertically')}</button>
