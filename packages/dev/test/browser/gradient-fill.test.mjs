@@ -14,7 +14,7 @@ import { startPreview } from '../helpers/server.mjs';
 
 test(
   'gradient stops edit brightness, opacity, position and count with undo and persistence',
-  { timeout: 120000 },
+  { timeout: 180000 },
   async () => {
     const dir = await mkdtemp(join(tmpdir(), 'office-gradient-'));
     let preview, browser;
@@ -244,6 +244,60 @@ test(
         await editor.getByRole('spinbutton', { name: 'Gradient angle', exact: true }).isDisabled(),
         true,
       );
+      const radial = [
+        ['From Bottom Right Corner', [1, 1, 0, 0], [0, 0, -1, -1]],
+        ['From Bottom Left Corner', [0, 1, 1, 0], [-1, 0, 0, -1]],
+        ['From Center', [0.5, 0.5, 0.5, 0.5], [0, 0, 0, 0]],
+        ['From Top Right Corner', [1, 0, 0, 1], [0, -1, -1, 0]],
+        ['From Top Left Corner', [0, 0, 1, 1], [-1, -1, 0, 0]],
+      ];
+      const radialInitial = await gradient();
+      for (const [label, focus, tile] of radial) {
+        const before = await gradient();
+        await direction.click();
+        assert.deepEqual(
+          await directionMenu
+            .getByRole('menuitemradio')
+            .evaluateAll((items) => items.map((item) => item.getAttribute('aria-label'))),
+          radial.map(([name]) => name),
+        );
+        await directionMenu.getByRole('menuitemradio', { name: label, exact: true }).click();
+        await saved();
+        const changed = await gradient();
+        const rect = ([left, top, right, bottom]) => ({ left, top, right, bottom });
+        assert.deepEqual(changed.focus, rect(focus));
+        assert.deepEqual(changed.tileRect, rect(tile));
+        assert.deepEqual(changed.stops, radialInitial.stops);
+        assert.equal(changed.rotateWithShape, radialInitial.rotateWithShape);
+        await direction.click();
+        assert.equal(
+          await directionMenu
+            .getByRole('menuitemradio', { name: label, exact: true })
+            .getAttribute('aria-checked'),
+          'true',
+        );
+        await directionMenu.press('Escape');
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.deepEqual(await gradient(), before);
+        await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+        await saved();
+        assert.deepEqual(await gradient(), changed);
+      }
+      const radialSaved = await gradient();
+      await page.reload();
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      assert.deepEqual(await gradient(), radialSaved);
+      await direction.click();
+      assert.equal(
+        await directionMenu
+          .getByRole('menuitemradio', { name: 'From Top Left Corner', exact: true })
+          .getAttribute('aria-checked'),
+        'true',
+      );
+      await directionMenu.press('Escape');
       await page.screenshot({ path: '/tmp/pptx-pr287-gradient-panel.png', fullPage: true });
       assert.deepEqual(errors, []);
     } finally {
