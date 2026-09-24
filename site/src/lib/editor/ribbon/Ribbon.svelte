@@ -8,6 +8,7 @@
   import { capabilityById } from '../manifest/index.ts';
   import Icon from '../ui/Icon.svelte';
   import ViewRibbon from './ViewRibbon.svelte';
+  import BackgroundStyles from './BackgroundStyles.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
@@ -74,10 +75,7 @@
         <div class="group-items">
           {#if current?.id === 'home' && group.title === 'Arrange'}<ArrangeMenu />
           {:else if current?.id === 'design' && group.title === 'Background'}
-            <button class="cmd format-background-trigger" disabled={!doc.currentSlide} aria-label={t('Format Background')} onclick={() => editor.showBackgroundFormat()}>
-              <span class="icon"><Icon name="background" /></span>
-              <span class="cmd-label">{t('Format Background')}</span>
-            </button>
+            <BackgroundStyles />
           {:else}
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}

@@ -2,6 +2,10 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Background Styles': '背景のスタイル',
+  'Format Background...': '背景の書式設定...',
+  'Reset Slide Background': 'スライドの背景をリセット',
+  Style: 'スタイル',
   'Theme Colors': 'テーマの色',
   'Standard Colors': '標準の色',
   'More Colors...': 'その他の色...',

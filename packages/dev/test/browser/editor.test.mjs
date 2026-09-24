@@ -1221,8 +1221,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const background = editor.getByRole('region', { name: 'Format Background', exact: true });
       await background
         .getByLabel('Background color: More Colors...', { exact: true })

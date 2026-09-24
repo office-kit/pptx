@@ -586,6 +586,8 @@ export {
   setPresentationTheme,
   setSlideBackground,
   setSlideMasterBackgroundStyle,
+  getSlideMasterBackgroundStyles,
+  type SlideMasterBackgroundStyle,
   setSlideBackgroundGradientFill,
   setSlideBackgroundPatternFill,
   applySlideBackgroundToAll,

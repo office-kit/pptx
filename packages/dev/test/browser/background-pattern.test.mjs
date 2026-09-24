@@ -55,8 +55,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       const pane = editor.getByRole('region', { name: 'Format Background', exact: true });
       assert.equal(
         await editor.getByRole('region', { name: 'Slide options', exact: true }).count(),
@@ -77,8 +78,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
       await pane.getByRole('radio', { name: 'Pattern fill', exact: true }).check();
       await saved();
       const initial = { preset: 'pct5', foreground: 'accent1', background: 'bg1' };
@@ -114,8 +116,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
 
       assert.deepEqual(await read(), [changed, changed, null]);
       await thumbs.nth(0).click();
@@ -150,8 +153,9 @@ test(
       await editor.getByRole('tab', { name: 'Design', exact: true }).click();
       await editor
         .getByRole('tabpanel', { name: 'Design', exact: true })
-        .getByRole('button', { name: 'Format Background', exact: true })
+        .getByRole('button', { name: 'Background Styles', exact: true })
         .click();
+      await editor.getByRole('menuitem', { name: 'Format Background...', exact: true }).click();
 
       assert.deepEqual(await read(true), [changed, changed, changed]);
       assert.deepEqual(errors, []);
