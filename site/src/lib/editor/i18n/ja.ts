@@ -715,6 +715,7 @@ export const ja: Record<string, string> = {
   'Send to back': '最背面へ移動',
   Group: 'グループ化',
   Ungroup: 'グループ解除',
+  Regroup: '再グループ化',
   'Select all': 'すべて選択',
 
   // Status bar

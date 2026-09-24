@@ -829,3 +829,111 @@ for (const [command, selected, expected] of [
     );
   });
 }
+
+test('regroup restores former members from one selected child, preserving intervening edits and undo', async () => {
+  const editor = new EditorController();
+  const ids = arrangedShapes(editor).map(getShapeId);
+  const slideIndex = editor.doc.selection.slideIndex;
+  assert.equal(editor.canRegroup(), false);
+  editor.invoke('groupShapes', { opts: { name: 'Original custom name' } });
+  editor.invoke('ungroupShapes');
+  editor.doc.selectShape(slideIndex, ids[1]);
+  editor.doc.transact('Move child', () =>
+    setShapeBounds(editor.selectedShapes()[0], {
+      ...getShapeBoundsResolved(editor.doc.pres, editor.selectedShapes()[0]),
+      x: emu(777),
+    }),
+  );
+  const bounds = ids.map((id) =>
+    getShapeBoundsResolved(editor.doc.pres, editor.doc.shapeById(slideIndex, id)),
+  );
+  assert.equal(editor.canRegroup(), true);
+  editor.regroupSelection();
+  assert.deepEqual(getGroupChildren(editor.selectedShapes()[0]).map(getShapeId), ids);
+  assert.equal(editor.canRegroup(), false);
+  await editor.doc.undo();
+  assert.deepEqual(editor.doc.selection.shapeIds, [ids[1]]);
+  assert.equal(editor.canRegroup(), true);
+  assert.deepEqual(
+    ids.map((id) => getShapeBoundsResolved(editor.doc.pres, editor.doc.shapeById(slideIndex, id))),
+    bounds,
+  );
+  await editor.doc.redo();
+  assert.equal(getShapeKind(editor.selectedShapes()[0]), 'group');
+  editor.invoke('ungroupShapes');
+  assert.deepEqual(
+    editor.selectedShapes().map((s) => getShapeBoundsResolved(editor.doc.pres, s)),
+    bounds,
+  );
+  const bytes = await editor.doc.toBytes();
+  await editor.doc.loadBytes(bytes, 'Reopened.pptx');
+  editor.doc.selectShape(slideIndex, ids[1]);
+  assert.equal(editor.canRegroup(), false);
+});
+
+test('regroup remembers each dissolved group separately and drops deleted members', async () => {
+  const editor = new EditorController();
+  const ids = arrangedShapes(editor).map(getShapeId);
+  const slideIndex = editor.doc.selection.slideIndex;
+  editor.doc.select({ kind: 'shape', slideIndex, shapeIds: ids.slice(0, 2) });
+  editor.invoke('groupShapes');
+  editor.invoke('ungroupShapes');
+  editor.doc.selectShape(slideIndex, ids[2]);
+  assert.equal(editor.canRegroup(), false);
+  editor.doc.selectShape(slideIndex, ids[0]);
+  assert.equal(editor.canRegroup(), true);
+  editor.deleteSelection();
+  editor.doc.selectShape(slideIndex, ids[1]);
+  assert.equal(editor.canRegroup(), false);
+  await editor.doc.undo();
+  editor.doc.selectShape(slideIndex, ids[1]);
+  assert.equal(editor.canRegroup(), true);
+  editor.doc.resetBlank();
+  assert.equal(editor.canRegroup(), false);
+});
+
+test('regroup keeps separate histories and nested sibling boundaries', async () => {
+  const editor = new EditorController();
+  const shapes = arrangedShapes(editor);
+  const slideIndex = editor.doc.selection.slideIndex;
+  const fourth = editor.doc.transact('Fourth shape', () =>
+    addSlideShape(editor.doc.currentSlide, {
+      preset: 'rect',
+      x: emu(1500),
+      y: emu(100),
+      w: emu(100),
+      h: emu(100),
+    }),
+  );
+  const ids = [...shapes, fourth].map(getShapeId);
+  const select = (shapeIds) => editor.doc.select({ kind: 'shape', slideIndex, shapeIds });
+  select(ids.slice(0, 2));
+  editor.invoke('groupShapes');
+  const firstGroup = editor.doc.selection.shapeIds[0];
+  select(ids.slice(2));
+  editor.invoke('groupShapes');
+  const secondGroup = editor.doc.selection.shapeIds[0];
+  select([firstGroup, secondGroup]);
+  editor.invoke('ungroupShapes');
+  select([ids[2], ids[0]]);
+  editor.regroupSelection();
+  assert.deepEqual(getGroupChildren(editor.selectedShapes()[0]).map(getShapeId), ids.slice(2));
+  select([ids[0]]);
+  editor.regroupSelection();
+  assert.deepEqual(getGroupChildren(editor.selectedShapes()[0]).map(getShapeId), ids.slice(0, 2));
+  editor.selectAllShapes();
+  editor.invoke('groupShapes');
+  const outerId = editor.doc.selection.shapeIds[0];
+  const outer = () => editor.doc.shapeById(slideIndex, outerId);
+  const innerIds = getGroupChildren(outer()).map(getShapeId);
+  select([innerIds[0]]);
+  editor.invoke('ungroupShapes');
+  const memberIds = editor.doc.selection.shapeIds;
+  select([memberIds[0]]);
+  editor.regroupSelection();
+  assert.deepEqual(getGroupChildren(editor.selectedShapes()[0]).map(getShapeId), memberIds);
+  assert.equal(getGroupChildren(outer()).length, 2);
+  await editor.doc.undo();
+  assert.equal(editor.canRegroup(), true);
+  assert.equal(getGroupChildren(outer()).length, 3);
+});

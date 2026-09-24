@@ -72,6 +72,7 @@
     {#each order as item}<button role="menuitem" disabled={!editor.canRun(item.id)} onclick={() => choose(() => editor.invoke(item.id))}>{t(item.label)}</button>{/each}
     <hr /><div class="heading">{t('Group Objects')}</div>
     {#each [{ id: 'groupShapes', label: 'Group' }, { id: 'ungroupShapes', label: 'Ungroup' }] as item}<button role="menuitem" disabled={!editor.canRun(item.id)} onclick={() => choose(() => editor.invoke(item.id))}>{t(item.label)}</button>{/each}
+    <button role="menuitem" disabled={!editor.canRegroup()} onclick={() => choose(() => editor.regroupSelection())}>{t('Regroup')}</button>
     <hr /><div class="heading">{t('Position Objects')}</div>
     <div class="branch">
       <button role="menuitem" data-branch="align" aria-label={t('Align')} aria-haspopup="menu" aria-expanded={branch === 'align'} disabled={!count} onpointerenter={() => branch = 'align'} onclick={() => branch = 'align'}>{t('Align')}<span>›</span></button>

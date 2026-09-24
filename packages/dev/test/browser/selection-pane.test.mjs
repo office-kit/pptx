@@ -433,6 +433,17 @@ test(
       await page.keyboard.press('Meta+Alt+Shift+KeyG');
       await saved();
       assert.equal(await pane.locator('.name').count(), count);
+      await pane.getByRole('button', { name: 'Object 44', exact: true }).click();
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'Regroup', exact: true }).click();
+      await saved();
+      assert.equal(await pane.locator('.name').count(), count - 1);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await pane.getByRole('button', { name: 'Object 44', exact: true }).focus();
+      await page.keyboard.press('Meta+Alt+KeyJ');
+      await saved();
+      assert.equal(await pane.locator('.name').count(), count - 1);
     } finally {
       await browser?.close();
       await preview?.close();

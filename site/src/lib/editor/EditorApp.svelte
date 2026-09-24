@@ -68,7 +68,8 @@
     const arrangement = arrangeShortcut(e);
     if (arrangement && !typing && !e.defaultPrevented) {
       e.preventDefault();
-      if (editor.canRun(arrangement)) editor.invoke(arrangement);
+      if (arrangement === 'regroup') editor.regroupSelection();
+      else if (editor.canRun(arrangement)) editor.invoke(arrangement);
       return;
     }
     if (mod && !e.shiftKey && !e.altKey && ['f', 'h'].includes(e.key.toLowerCase())) {
