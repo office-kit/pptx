@@ -83,3 +83,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Native comparison on the disposable `pptx-native-selection-lock-audit.pptx` confirmed a contiguous pair moves backward together past one unselected sibling. Duplicate/move changes were undone. The temporary slide-alignment reference was restored to Align Selected Objects.
 - Regression coverage includes noncontiguous/reversed selections, clamping, duplicate handles, nested groups/extensions, mixed parents/slides, save/load and one-step undo/redo. Browser coverage verifies Selection Pane footer selection, persisted order and undo.
 - Core suite: 2,840 passed / 109 skipped; editor unit tests: 57 passed; Selection Pane browser tests: 2 passed. Root TypeScript, Svelte checks and builds pass. Full native operation/appearance parity is still incomplete.
+
+## Mac arrangement shortcuts
+
+- Integrated the native key equivalents recorded in the earlier branch: Option-Command-G / Option-Shift-Command-G, Shift-Command-F/B and Option-Shift-Command-F/B. Physical key codes avoid Option-generated characters. Existing Control/Command-G compatibility remains.
+- Open Arrange menus pass these commands through after dismissal. Text fields, composition and dialogs retain their own input handling. Shift-Command-F no longer opens Find.
+- Browser regression first failed on the unhandled backward shortcut. Both Selection Pane browser tests now pass, including multi-object backward/front moves, menu dismissal without Find, grouping and ungrouping through Mac shortcuts. Svelte check reports no errors/warnings and editor build passes.

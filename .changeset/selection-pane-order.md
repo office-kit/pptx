@@ -13,3 +13,5 @@ Keep the alignment reference synchronized between the Arrange menu and the prope
 Open and focus the numeric rotation control through Arrange > Rotate > More Rotation Options.
 
 Keep Enter-to-edit working from the table cell grid while preventing ordinary buttons from starting canvas text editing.
+
+Recognize Mac object arrangement shortcuts using physical keys: Option-Command-G for Group, Option-Shift-Command-G for Ungroup, Shift-Command-F/B for front/back, and Option-Shift-Command-F/B for one step forward/backward. Arrangement shortcuts also dismiss the open Arrange menu and no longer trigger Find.

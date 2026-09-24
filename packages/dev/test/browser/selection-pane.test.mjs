@@ -408,6 +408,31 @@ test(
         'Object 43',
         'Object 42',
       ]);
+      await pane.getByRole('button', { name: 'Object 44', exact: true }).focus();
+      await page.keyboard.press('Meta+Alt+Shift+KeyB');
+      await saved();
+      assert.deepEqual((await pane.locator('.name').allTextContents()).slice(0, 3), [
+        'Object 42',
+        'Object 44',
+        'Object 43',
+      ]);
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await page.keyboard.press('Meta+Shift+KeyF');
+      await saved();
+      assert.equal(await editor.getByRole('menu', { name: 'Arrange', exact: true }).count(), 0);
+      assert.equal(await editor.getByRole('dialog', { name: 'Find and replace' }).count(), 0);
+      assert.deepEqual((await pane.locator('.name').allTextContents()).slice(0, 3), [
+        'Object 44',
+        'Object 43',
+        'Object 42',
+      ]);
+      await pane.getByRole('button', { name: 'Object 44', exact: true }).focus();
+      await page.keyboard.press('Meta+Alt+KeyG');
+      await saved();
+      assert.equal(await pane.locator('.name').count(), count - 1);
+      await page.keyboard.press('Meta+Alt+Shift+KeyG');
+      await saved();
+      assert.equal(await pane.locator('.name').count(), count);
     } finally {
       await browser?.close();
       await preview?.close();

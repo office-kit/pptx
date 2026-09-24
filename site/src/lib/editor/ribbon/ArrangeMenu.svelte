@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { arrangeShortcut } from '../core/arrange-shortcuts.ts';
   import { getSlideShapes, getShapeId, getShapeRotation, getShapeFlip, setShapeRotation, setShapeFlip } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { selectedShapeIds } from '../core/selection.ts';
@@ -32,6 +33,7 @@
     return { destroy() { window.removeEventListener('resize', position); } };
   }
   function keys(event: KeyboardEvent) {
+    if (!event.isComposing && arrangeShortcut(event)) { close(false); return; }
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); close(); return; }
     if (event.key === 'Tab') { close(false); return; }
