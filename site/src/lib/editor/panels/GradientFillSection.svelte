@@ -2,6 +2,7 @@
   import { getShapeGradientFillEffective, setShapeGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import ColorPicker from '../ui/ColorPicker.svelte';
   import GradientDirection from './GradientDirection.svelte';
   import { pathDirections, pathDirectionIndex } from '../core/gradient-directions.ts';
 
@@ -137,7 +138,7 @@
       {/each}
     </div>
     <div class="stop-actions"><button type="button" class="ok-btn" aria-label={t('Add gradient stop')} title={t('Add gradient stop')} onclick={addStop}>+</button><button type="button" class="ok-btn" aria-label={t('Remove gradient stop')} title={t('Remove gradient stop')} disabled={gradient.stops.length <= 2} onclick={removeStop}>−</button></div>
-    <label class="field"><span>{t('Color')}</span><input type="color" aria-label={t('Gradient stop color')} value={stopColor(stop)} onchange={event => editStop({ color: event.currentTarget.value, brightness: 0 })} /></label>
+    <div class="field"><span>{t('Color')}</span><ColorPicker label={t('Gradient stop color')} value={(stop.brightness ?? 0) === 0 ? stop.color : undefined} resolvedColor={stopColor(stop)} disabled={locked || !matchingStops} choose={color => editStop({ color, brightness: 0 })} /></div>
     <label class="field"><span>{t('Position')}</span><span class="number"><input class="ok-input" type="number" min="0" max="100" step="any" aria-label={t('Gradient stop position')} value={matchingStops ? Math.round(stop.offset * 100000) / 1000 : ''} onchange={event => numeric(event.currentTarget, 'offset')} />%</span></label>
     {#each [{ field: 'opacity', label: 'Transparency', accessible: 'Gradient stop transparency', min: 0, value: (1 - (stop.opacity ?? 1)) * 100 }, { field: 'brightness', label: 'Brightness', accessible: 'Gradient stop brightness', min: -100, value: (stop.brightness ?? 0) * 100 }] as control}
       <div class="amount"><span>{t(control.label)}</span><div class="amount-controls">

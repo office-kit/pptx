@@ -284,3 +284,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - The gradient stop track now includes stop opacity; previously changing Transparency updated the slide but left this editing preview opaque. Browser regression reproduces the unchanged preview before the fix and verifies partial/full transparency, Undo/Redo and saved reload afterward. Mac PowerPoint confirmed that 60% transparency also changes the track appearance; the temporary edit was undone and saved with Undo disabled.
 - The native color-menu audit could open the Color Picker container, but subsequent screen capture failed with ScreenCaptureKit error -3811. No color was applied. Theme/standard/custom color-menu parity remains outstanding.
+
+### Gradient color palette
+
+- Gradient stops now offer ten base theme colors and ten standard colors. Theme selections retain their scheme reference when saved; choosing a base color resets the stop brightness while retaining the other stops. Keyboard selection, Escape cancellation, Undo/Redo and selected-state restoration after reload have browser regression coverage.
+- More Colors opens the browser color picker. A native Chrome accessibility check verified the RGB fields and changing red from 192 to 128; the resulting color well read RGB 128/80/77 and the editor recorded the change. This verifies custom color entry, not equivalence with PowerPoint's custom color dialog.
+- Tone rows, recent colors, a palette-level eyedropper, slide-specific theme/color-map resolution, integration with other color controls and exact native popup geometry remain outstanding. The current theme swatches use the presentation theme.
