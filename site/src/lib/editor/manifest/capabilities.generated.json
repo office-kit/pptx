@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 179,
+  "count": 180,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2485,6 +2485,23 @@
           "name": "options",
           "type": "GradientFillOptions",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideBackgroundGraphicsHidden",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/slide-query.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "hidden",
+          "type": "boolean",
+          "kind": "boolean",
           "optional": false
         }
       ]

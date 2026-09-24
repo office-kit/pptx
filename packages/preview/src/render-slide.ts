@@ -54,6 +54,8 @@ import {
   getPresentationFirstSlideNumber,
   getSlides,
   isSlideHidden,
+  isSlideBackgroundGraphicsHidden,
+  isSlideLayoutBackgroundGraphicsHidden,
   getShapeAltTitle,
   getShapeDescription,
   getShapeHyperlinkTooltip,
@@ -7266,11 +7268,16 @@ export const renderSlideSvg = (
   // appear. Picture bytes resolve because the shapes are bound to their part.
   let layoutBgShapes = '';
   const layoutForBg = getSlideLayout(slide);
-  if (layoutForBg) {
+  if (layoutForBg && !isSlideBackgroundGraphicsHidden(slide)) {
     try {
-      const masterShapes = topLevelShapes(getSlideMasterShapes(pres, layoutForBg), {
-        dropPlaceholders: true,
-      });
+      const masterShapes = topLevelShapes(
+        isSlideLayoutBackgroundGraphicsHidden(layoutForBg)
+          ? []
+          : getSlideMasterShapes(pres, layoutForBg),
+        {
+          dropPlaceholders: true,
+        },
+      );
       const layoutShapes = topLevelShapes(getSlideLayoutShapes(pres, layoutForBg), {
         dropPlaceholders: true,
       });
