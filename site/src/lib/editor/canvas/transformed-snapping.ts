@@ -44,3 +44,26 @@ export function snapTransformedMove(
     guides: snapped.guides,
   };
 }
+
+/** Grid snapping uses slide coordinates even when moving children inside a group. */
+export function snapTransformedGrid(
+  moving: readonly RotatedRect[],
+  matrix: Matrix,
+  delta: Point,
+  spacing: { x: number; y: number },
+): Point {
+  const inverse = invert(matrix);
+  if (!inverse || !moving.length || spacing.x <= 0 || spacing.y <= 0) return delta;
+  const envelope = selectionBounds(
+    moving.map((rect) => ({
+      ...projectedBounds({ ...rect, x: rect.x + delta.x, y: rect.y + delta.y }, matrix),
+      rotation: 0,
+    })),
+  );
+  const origin = project(inverse, { x: 0, y: 0 });
+  const correction = project(inverse, {
+    x: Math.round(envelope.x / spacing.x) * spacing.x - envelope.x,
+    y: Math.round(envelope.y / spacing.y) * spacing.y - envelope.y,
+  });
+  return { x: delta.x + correction.x - origin.x, y: delta.y + correction.y - origin.y };
+}

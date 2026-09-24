@@ -10,7 +10,7 @@ const result = await build({
   stdin: {
     contents: `export { EditorController } from './src/lib/editor/core/controller.svelte.ts';
       export { EditorDocument } from './src/lib/editor/core/document.svelte.ts';
-      export { setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
+      export { getSnapToGrid, getGridSpacing, setShapeBounds, getShapeTextAnchor, getParagraphPropertiesEffective, addSlideLine, getShapeRotation, setShapeRotation, getShapeFlip, setShapeFlip, getShapeParagraphElements, getShapeFillColor, getShapeStrokeColor, getShapeImageBytes, getShapeImageCrop, getShapeDescription, getSlideSize, addSlideShape, getShapeKind, getGroupChildren, getShapeBoundsResolved, emu, addTitleSlide, createPresentation, getSlides, getSlideText, savePresentation, getSlideShapes, getShapeId, getShapeText, setShapeText }
         from '@office-kit/pptx';`,
     resolveDir: fileURLToPath(new URL('..', import.meta.url)),
   },
@@ -33,6 +33,8 @@ const result = await build({
   ],
 });
 const {
+  getSnapToGrid,
+  getGridSpacing,
   setShapeBounds,
   getShapeTextAnchor,
   getParagraphPropertiesEffective,
@@ -764,5 +766,36 @@ test('grouped alignment and distribution use visible edges through rotation refl
     assert.ok(Math.abs(firstGap - lastGap) <= 3);
     await editor.doc.undo();
     assert.deepEqual(bounds(), original);
+  }
+});
+
+test('guide display preferences do not change document history and defaults affect new decks', async () => {
+  const values = new Map();
+  globalThis.localStorage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  try {
+    const editor = new EditorController();
+    const version = editor.doc.version;
+    const undo = editor.doc.canUndo;
+    editor.view.save({ grid: true, drawing: true, smart: false });
+    assert.equal(editor.doc.version, version);
+    assert.equal(editor.doc.canUndo, undo);
+    assert.equal(editor.doc.dirty, false);
+    const second = new EditorController();
+    assert.equal(second.view.grid, true);
+    assert.equal(second.view.smart, false);
+    localStorage.setItem(
+      'office-grid-defaults',
+      JSON.stringify({ x: 90000, y: 180000, snap: true }),
+    );
+    second.doc.resetBlank();
+    assert.deepEqual(getGridSpacing(second.doc.pres), { x: 90000, y: 180000 });
+    assert.equal(getSnapToGrid(second.doc.pres), true);
+    assert.equal(second.doc.dirty, false);
+    assert.equal(getGridSpacing(editor.doc.pres), null);
+  } finally {
+    delete globalThis.localStorage;
   }
 });

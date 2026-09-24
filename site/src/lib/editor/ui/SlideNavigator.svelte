@@ -10,6 +10,7 @@
   import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
+  let { mode = 'normal' }: { mode?: 'normal' | 'sorter' } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const selected = $derived(selectedSlideIndices(doc.selection));
@@ -63,7 +64,9 @@
       void focusSlide(doc.selection.slideIndex, false, true);
       return;
     }
-    const delta = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
+    const thumbs = [...rail.querySelectorAll<HTMLElement>('[data-slide-index]')];
+    const columns = mode === 'sorter' && thumbs.length ? thumbs.filter(item => item.offsetTop === thumbs[0]!.offsetTop).length : 1;
+    const delta = event.key === 'ArrowUp' ? -columns : event.key === 'ArrowDown' ? columns : mode === 'sorter' && event.key === 'ArrowLeft' ? -1 : mode === 'sorter' && event.key === 'ArrowRight' ? 1 : 0;
     if (delta) {
       event.preventDefault();
       if (event.altKey) reorder(index, firstSelected + delta);
@@ -74,6 +77,7 @@
     } else if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       doc.selectSlide(index);
+      if (mode === 'sorter' && event.key === 'Enter') editor.setViewMode('normal');
     }
   }
 
@@ -92,7 +96,7 @@
 
 <svelte:window onpointerup={() => pointerSelecting = false} onpointercancel={() => pointerSelecting = false} />
 
-<div class="nav ok-scroll" bind:this={rail}>
+<div class="nav ok-scroll" class:sorter={mode === 'sorter'} style:--sorter-thumb={`${Math.round(230 * editor.sorterZoom)}px`} bind:this={rail}>
   <div class="nav-actions">
     <button class="ok-btn add" onclick={() => editor.invoke('addBlankSlide')} title={t('New slide')}>＋ {t('Slide')}</button>
     <button class="ok-btn add from-layout" onclick={() => editor.runOrPrompt('addSlide')} title={t('New slide from layout')}>{t('New slide from layout')}</button>
@@ -146,6 +150,7 @@
         doc.selectSlide(i, { additive: event.ctrlKey || event.metaKey, range: event.shiftKey });
         void focusSlide(doc.selection.slideIndex, false, true);
       }}
+      ondblclick={() => { doc.selectSlide(i); editor.setViewMode('normal'); }}
       onkeydown={(event) => onKeydown(event, i)}
     >
       <span class="num">{i + 1}{#if skippedSlides[i]}<span class="skip-mark" aria-label={t('Skipped during presentation')}>⊘</span>{/if}</span>
@@ -157,6 +162,12 @@
 </div>
 
 <style>
+  .sorter { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--sorter-thumb)), 1fr)); align-content: start; gap: 20px; padding: 24px; border-right: 0; }
+  .sorter .nav-actions, .sorter .selection-count { grid-column: 1 / -1; }
+  .sorter .nav-actions { display: flex; gap: 8px; align-items: center; }
+  .sorter .nav-actions .add { width: auto; margin: 0; }
+  .sorter .slide-actions { margin: 0; }
+  .sorter .thumb-row { min-width: 0; }
   .selection-count { padding: 6px 4px; font-size: 11px; color: var(--ok-muted); }
   .skipped .num { text-decoration: line-through; }
   .skip-mark { display: block; text-decoration: none; }

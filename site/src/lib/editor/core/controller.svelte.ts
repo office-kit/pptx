@@ -51,6 +51,7 @@ import { getCommand, type Command, type CommandContext } from './registry.ts';
 import { capabilityById } from '../manifest/index.ts';
 import { EditorDocument } from './document.svelte.ts';
 import { t } from '../i18n/i18n.svelte.ts';
+import { ViewPreferences } from './view-preferences.svelte.ts';
 import { shapeScope, invert, project, type Matrix } from '../canvas/group-space.ts';
 import { projectedBounds } from '../canvas/transformed-snapping.ts';
 import type { Rect } from '../canvas/snapping.ts';
@@ -80,6 +81,15 @@ let toastSeq = 0;
 
 export class EditorController {
   readonly doc = new EditorDocument();
+  readonly view = new ViewPreferences();
+  ribbonVisible = $state(true);
+  viewMode = $state<'normal' | 'sorter'>('normal');
+  sorterZoom = $state(1);
+
+  setViewMode(mode: 'normal' | 'sorter'): void {
+    this.contextMenu = null;
+    this.viewMode = mode;
+  }
 
   /** Command whose argument dialog is currently open (null = none). */
   activeDialog = $state<string | null>(null);
@@ -216,20 +226,29 @@ export class EditorController {
   // --- Zoom --------------------------------------------------------------
   /** Canvas zoom multiplier (1 = fit-ish base). */
   zoom = $state(1);
+  autoFitZoom = $state(true);
   /** When set by the canvas, `fit` recomputes to this multiplier. */
   fitZoom = $state(1);
 
   setZoom(z: number): void {
-    this.zoom = Math.max(0.1, Math.min(z, 5));
+    if (this.viewMode === 'sorter') this.sorterZoom = Math.max(0.25, Math.min(z, 3));
+    else {
+      this.autoFitZoom = false;
+      this.zoom = Math.max(0.1, Math.min(z, 5));
+    }
   }
   zoomIn(): void {
-    this.setZoom(this.zoom * 1.2);
+    this.setZoom((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) * 1.2);
   }
   zoomOut(): void {
-    this.setZoom(this.zoom / 1.2);
+    this.setZoom((this.viewMode === 'sorter' ? this.sorterZoom : this.zoom) / 1.2);
   }
   zoomFit(): void {
-    this.setZoom(this.fitZoom);
+    if (this.viewMode === 'sorter') this.sorterZoom = 1;
+    else {
+      this.autoFitZoom = true;
+      this.zoom = this.fitZoom;
+    }
   }
   zoomReset(): void {
     this.setZoom(1);

@@ -31,9 +31,13 @@
   <span class="sep"></span>
   <span>{selectionLabel}</span>
   <span class="spacer"></span>
+  <div class="views" role="group" aria-label={t('Presentation views')}>
+    <button title={t('Normal')} aria-label={t('Normal')} aria-pressed={editor.viewMode === 'normal'} onclick={() => editor.setViewMode('normal')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><rect x=".5" y=".5" width="15" height="11" rx="1"/><path d="M4 1v10M1 4h3M1 8h3"/></svg></button>
+    <button title={t('Slide Sorter')} aria-label={t('Slide Sorter')} aria-pressed={editor.viewMode === 'sorter'} onclick={() => editor.setViewMode('sorter')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M1 1h5v4H1zM9 1h5v4H9zM1 7h5v4H1zM9 7h5v4H9z"/></svg></button>
+  </div>
   <div class="zoom">
     <button class="zbtn" title={t('Zoom out (Ctrl+-)')} onclick={() => editor.zoomOut()}>−</button>
-    <button class="zpct" title={t('Reset to 100%')} onclick={() => editor.zoomReset()}>{Math.round(editor.zoom * 100)}%</button>
+    <button class="zpct" title={t('Reset to 100%')} onclick={() => editor.zoomReset()}>{Math.round((editor.viewMode === 'sorter' ? editor.sorterZoom : editor.zoom) * 100)}%</button>
     <button class="zbtn" title={t('Zoom in (Ctrl+=)')} onclick={() => editor.zoomIn()}>+</button>
     <button class="zfit" title={t('Fit (Ctrl+0)')} onclick={() => editor.zoomFit()}>{t('Fit')}</button>
   </div>
@@ -63,7 +67,10 @@
     align-items: center;
     gap: 2px;
   }
-  .zoom button {
+  .views { display: flex; gap: 3px; }
+  .views svg { fill: none; stroke: currentColor; }
+  .views button[aria-pressed="true"] { background: rgba(255, 255, 255, .25); }
+  .views button, .zoom button {
     background: transparent;
     border: none;
     color: #fff;
