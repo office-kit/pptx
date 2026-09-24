@@ -167,7 +167,16 @@ test(
       assert.equal(await input.textContent(), '候補');
       await input.press('Control+z');
       assert.equal(await input.textContent(), 'ab\n日本語c\n\n終わり');
+      await select(12);
+      await page.keyboard.insertText('確定');
       await input.press('Escape');
+      await input.waitFor({ state: 'detached' });
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: 30, y: 20 } });
+      assert.equal(await input.textContent(), 'ab\n日本語c\n\n終わり確定');
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
