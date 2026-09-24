@@ -161,17 +161,16 @@ const deckThemePart = (pkg: OpcPackage): Part | undefined => {
     .sort((a, b) => a.name.localeCompare(b.name))[0];
 };
 
-/**
- * Package-level theme reader behind {@link getPresentationTheme}. Exposed so
- * helpers holding only a package handle (e.g. color baking off a `SlideData`)
- * can read the theme without a `PresentationData`.
- *
- * @internal
- */
-export const themeFromPackage = (pkg: OpcPackage): PresentationTheme | null => {
-  const themePart = deckThemePart(pkg);
-  if (!themePart) return null;
-  const root = readRoot(themePart.data);
+/** Owning-part theme, falling back to the presentation theme. Treat the cached XML as read-only. @internal */
+export const themeRootFromPackage = (pkg: OpcPackage, from?: PartName): XmlElement | null => {
+  const themePart = (from ? themePartRelatedTo(pkg, from) : null) ?? deckThemePart(pkg);
+  return themePart ? readRoot(themePart.data) : null;
+};
+
+/** @internal */
+export const themeFromPackage = (pkg: OpcPackage, from?: PartName): PresentationTheme | null => {
+  const root = themeRootFromPackage(pkg, from);
+  if (!root) return null;
   const themeElements = firstChildElement(root, NAME_THEME_ELEMENTS);
   if (!themeElements) return null;
   const clrScheme = firstChildElement(themeElements, NAME_CLR_SCHEME);
