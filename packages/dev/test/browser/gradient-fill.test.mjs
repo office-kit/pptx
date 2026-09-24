@@ -54,6 +54,8 @@ test(
         exact: true,
       });
       assert.equal(await brightness.inputValue(), '95');
+      const paintedStop = editor.locator('.paint linearGradient stop').first();
+      const initialColor = await paintedStop.getAttribute('stop-color');
       assert.equal(
         await editor
           .getByRole('button', { name: 'Remove gradient stop', exact: true })
@@ -64,10 +66,12 @@ test(
       await brightness.press('Tab');
       await saved();
       assert.equal((await gradient()).stops[0].brightness, -0.25);
+      assert.notEqual(await paintedStop.getAttribute('stop-color'), initialColor);
       await opacity.fill('60');
       await opacity.press('Tab');
       await saved();
       assert.equal((await gradient()).stops[0].opacity, 0.4);
+      assert.equal(await paintedStop.getAttribute('stop-opacity'), '0.4');
       await editor.getByRole('button', { name: 'Gradient stop 2', exact: true }).click();
       assert.equal(await brightness.inputValue(), '70');
       await position.fill('80');
@@ -107,6 +111,29 @@ test(
       await brightness.fill('101');
       await brightness.press('Tab');
       assert.equal(await brightness.inputValue(), '-25');
+      const handle = editor.getByRole('button', { name: 'Gradient stop 1', exact: true });
+      const bounds = await handle.boundingBox();
+      const track = await editor
+        .getByRole('group', { name: 'Gradient stops', exact: true })
+        .boundingBox();
+      assert.ok(bounds && track);
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(track.x + track.width / 4, bounds.y + bounds.height / 2, { steps: 5 });
+      assert.equal(await position.inputValue(), '25');
+      await page.mouse.up();
+      await saved();
+      assert.equal((await gradient()).stops[0].offset, 0.25);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await gradient()).stops[0].offset, 0);
+      await page.mouse.move(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(track.x + track.width / 3, bounds.y + bounds.height / 2, { steps: 5 });
+      await page.keyboard.press('Escape');
+      await page.mouse.up();
+      assert.equal(await position.inputValue(), '0');
+      assert.equal((await gradient()).stops[0].offset, 0);
       const type = editor.getByRole('combobox', { name: 'Gradient type', exact: true });
       await type.selectOption('circle');
       await saved();
