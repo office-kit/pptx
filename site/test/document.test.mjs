@@ -799,3 +799,33 @@ test('guide display preferences do not change document history and defaults affe
     delete globalThis.localStorage;
   }
 });
+
+for (const [command, selected, expected] of [
+  ['bringShapeToFront', [1, 0], [2, 0, 1]],
+  ['sendShapeToBack', [2, 1], [1, 2, 0]],
+  ['bringShapeForward', [1, 0], [2, 0, 1]],
+  ['sendShapeBackward', [2, 1], [1, 2, 0]],
+]) {
+  test(`${command} moves the complete selection in one undo step`, async () => {
+    const editor = new EditorController();
+    const ids = arrangedShapes(editor).map(getShapeId);
+    const slideIndex = editor.doc.selection.slideIndex;
+    const selection = { kind: 'shape', slideIndex, shapeIds: selected.map((i) => ids[i]) };
+    editor.doc.select(selection);
+    editor.invoke(command);
+    const order = () => getSlideShapes(editor.doc.slideAt(slideIndex)).map(getShapeId);
+    assert.deepEqual(
+      order(),
+      expected.map((i) => ids[i]),
+    );
+    assert.deepEqual(editor.doc.selection, selection);
+    await editor.doc.undo();
+    assert.deepEqual(order(), ids);
+    assert.deepEqual(editor.doc.selection, selection);
+    await editor.doc.redo();
+    assert.deepEqual(
+      order(),
+      expected.map((i) => ids[i]),
+    );
+  });
+}

@@ -333,26 +333,52 @@ class SlideCommand extends ManifestCommand {
   }
 }
 
+function selectedSiblingShapes(doc: CommandDoc): SlideShapeData[] {
+  const selection = doc.selection;
+  const slide = doc.slideAt(selection.slideIndex);
+  if (!slide || selection.kind !== 'shape') return [];
+  const ids = new Set(selection.shapeIds);
+  // A user can select front to back. Keep the existing stacking order.
+  const siblings = shapeScope(slide, selection.shapeIds[0] ?? null).shapes;
+  const shapes = siblings.filter((shape) => ids.has(pptx.getShapeId(shape)));
+  // Reject mixed hierarchy selections instead of changing only a subset.
+  return shapes.length === ids.size ? shapes : [];
+}
+
+const stackingCommands = new Map<string, (shapes: readonly SlideShapeData[]) => void>([
+  ['bringShapeToFront', pptx.bringShapeToFront],
+  ['sendShapeToBack', pptx.sendShapeToBack],
+  ['bringShapeForward', pptx.bringShapeForward],
+  ['sendShapeBackward', pptx.sendShapeBackward],
+]);
+
+class StackingCommand extends ManifestCommand {
+  private shapes(doc: CommandDoc): SlideShapeData[] {
+    const selection = doc.selection;
+    if (selection.kind !== 'cell') return selectedSiblingShapes(doc);
+    const table = doc.shapeById(selection.slideIndex, selection.shapeId);
+    return table ? [table] : [];
+  }
+
+  override canRun({ doc }: CommandContext): boolean {
+    return this.shapes(doc).length > 0;
+  }
+
+  override run({ doc }: CommandContext): void {
+    const shapes = this.shapes(doc);
+    if (shapes.length === 0) throw new CommandError('Select shapes in the same parent container.');
+    doc.transact(this.capability.labelEn, () => stackingCommands.get(this.capability.id)!(shapes));
+  }
+}
+
 /** Group commands consume the selection, never a JSON representation of shapes. */
 class GroupCommand extends ManifestCommand {
   override get params(): ResolvedCapability['params'] {
     return super.params.filter((param) => param.name !== 'shapes');
   }
 
-  private shapes(doc: CommandDoc): SlideShapeData[] {
-    const selection = doc.selection;
-    const slide = doc.slideAt(selection.slideIndex);
-    if (!slide || selection.kind !== 'shape') return [];
-    const ids = new Set(selection.shapeIds);
-    // A user can select front to back. Keep the existing stacking order.
-    const siblings = shapeScope(slide, selection.shapeIds[0] ?? null).shapes;
-    const shapes = siblings.filter((shape) => ids.has(pptx.getShapeId(shape)));
-    // Mixed hierarchy selections must never silently group only a subset.
-    return shapes.length === ids.size ? shapes : [];
-  }
-
   override canRun({ doc }: CommandContext): boolean {
-    const shapes = this.shapes(doc);
+    const shapes = selectedSiblingShapes(doc);
     return this.capability.id === 'groupShapes'
       ? shapes.length >= 2
       : shapes.some((shape) => pptx.getShapeKind(shape) === 'group');
@@ -361,7 +387,7 @@ class GroupCommand extends ManifestCommand {
   override run({ doc }: CommandContext, args: Record<string, unknown>): unknown {
     if (!this.canRun({ doc }))
       throw new CommandError('Select shapes to group or a group to ungroup.');
-    const shapes = this.shapes(doc);
+    const shapes = selectedSiblingShapes(doc);
     let name: string | undefined;
     if (args.opts !== undefined) {
       if (typeof args.opts !== 'object' || args.opts === null)
@@ -457,9 +483,11 @@ const registry = new Map<string, Command>(
         ? new LayoutCommand(cap)
         : cap.id === 'groupShapes' || cap.id === 'ungroupShapes'
           ? new GroupCommand(cap)
-          : cap.id === 'setChartSpec'
-            ? new ChartCommand(cap)
-            : new ManifestCommand(cap),
+          : stackingCommands.has(cap.id)
+            ? new StackingCommand(cap)
+            : cap.id === 'setChartSpec'
+              ? new ChartCommand(cap)
+              : new ManifestCommand(cap),
   ]),
 );
 

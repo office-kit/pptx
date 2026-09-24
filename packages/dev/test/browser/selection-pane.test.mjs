@@ -382,6 +382,32 @@ test(
       await pane.getByRole('button', { name: 'Object 44', exact: true }).press('Meta+z');
       await saved();
       assert.equal((await pane.locator('.name').allTextContents())[0], 'Object 44');
+      await pane.getByRole('button', { name: 'Object 44', exact: true }).click();
+      await pane
+        .getByRole('button', { name: 'Object 43', exact: true })
+        .click({ modifiers: ['Shift'] });
+      await pane.getByRole('button', { name: 'Send Backward', exact: true }).click();
+      await saved();
+      assert.deepEqual((await pane.locator('.name').allTextContents()).slice(0, 3), [
+        'Object 42',
+        'Object 44',
+        'Object 43',
+      ]);
+      const reordered = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      assert.deepEqual(getSlideShapes(getSlides(reordered)[0]).slice(-3).map(getShapeName), [
+        'Object 43',
+        'Object 44',
+        'Object 42',
+      ]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual((await pane.locator('.name').allTextContents()).slice(0, 3), [
+        'Object 44',
+        'Object 43',
+        'Object 42',
+      ]);
     } finally {
       await browser?.close();
       await preview?.close();
