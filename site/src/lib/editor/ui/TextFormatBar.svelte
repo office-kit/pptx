@@ -1,6 +1,7 @@
 <script lang="ts">
   import { asColor, type TextFormat } from '@office-kit/pptx';
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
+  import ColorPicker from './ColorPicker.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text' }: {
@@ -26,7 +27,7 @@
   const font = $derived(formats.length && formats.every((f) => f.font === formats[0]?.font) ? formats[0]?.font ?? '' : '');
   const size = $derived(formats.length && formats.every((f) => f.size === formats[0]?.size) ? formats[0]?.size : undefined);
   const highlight = $derived(formats.length && formats.every(f => f.highlight === formats[0]?.highlight) && /^#[0-9a-f]{6}$/i.test(formats[0]?.highlight ?? '') ? formats[0]!.highlight! : null);
-  const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) && /^#[0-9a-f]{6}$/i.test(formats[0]?.color ?? '') ? formats[0]!.color! : null);
+  const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) ? formats[0]?.color : undefined);
 </script>
 
 <div class="text-format-bar" role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : context === 'objects' ? 'Format selected objects' : 'Selected text formatting')}>
@@ -45,7 +46,7 @@
   {/each}
   <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
   <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
-  <label>{t('Text color')}<input aria-label={t('Text color')} type="color" value={color ?? '#000000'} title={color ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={(e) => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ color: picked }); }} /></label>
+  <div class="color-field">{t('Text color')}<ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
   <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
@@ -82,7 +83,7 @@
 <style>
   .text-format-bar { display: flex; flex-wrap: wrap; align-items: end; gap: 5px; padding: 6px 8px; background: var(--ok-panel); border-bottom: 1px solid var(--ok-border); }
   span { font-size: 11px; align-self: center; }
-  label { display: grid; gap: 2px; font-size: 10px; }
+  label, .color-field { display: grid; gap: 2px; font-size: 10px; }
   .font { width: 110px; }
   .size { width: 56px; }
   input[type='color'] { width: 30px; height: 26px; padding: 0; border: 1px solid var(--ok-border); }
