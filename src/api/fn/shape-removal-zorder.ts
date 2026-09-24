@@ -262,72 +262,67 @@ const lastShapeIndex = (parent: XmlElement): number => {
   return -1;
 };
 
-/** Move `shape` in front of all sibling shapes in its parent container. */
-export const bringShapeToFront = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = findShapeParent(shape);
-  if (!spTree) return;
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
-  const last = lastShapeIndex(spTree);
-  if (idx === last) return;
-  spTree.children.splice(idx, 1);
-  spTree.children.splice(last, 0, target);
-  commitSlideData(slide);
-  rebuildShapesFromDocument(slide);
+/** Move one shape or a selection in front of all siblings, preserving their stacking order. */
+export const bringShapeToFront = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'front');
 };
 
-/**
- * Move `shape` behind every other sibling shape. The
- * `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface — required by the schema —
- * stays at the top.
- */
-export const sendShapeToBack = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = findShapeParent(shape);
-  if (!spTree) return;
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
+/** Move one shape or a selection behind all siblings, preserving their stacking order. */
+export const sendShapeToBack = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'back');
+};
 
-  // First "shape child" position — after nvGrpSpPr / grpSpPr.
-  let firstShapeAt = spTree.children.length;
-  for (let i = 0; i < spTree.children.length; i++) {
-    const c = spTree.children[i];
-    if (c && isShapeChild(c)) {
-      firstShapeAt = i;
-      break;
+/** Move one shape or a selection one step forward among siblings. */
+export const bringShapeForward = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'forward');
+};
+
+function reorderShapes(
+  input: SlideShapeData | readonly SlideShapeData[],
+  direction: 'front' | 'back' | 'forward' | 'backward',
+): void {
+  const shapes: readonly SlideShapeData[] = SHAPE_ELEMENT in input ? [input] : input;
+  const first = shapes[0];
+  if (!first) return;
+  const parent = findShapeParent(first);
+  if (!parent) return;
+  const slide = first[SHAPE_SLIDE];
+  const selected = new Set(shapes.map((shape) => shape[SHAPE_ELEMENT]));
+  const siblings = parent.children.filter((child): child is XmlElement => isShapeChild(child));
+  const siblingSet = new Set(siblings);
+  if (
+    shapes.some((shape) => shape[SHAPE_SLIDE] !== slide || !siblingSet.has(shape[SHAPE_ELEMENT]))
+  ) {
+    throw new Error('Shapes must belong to the same parent container.');
+  }
+  let ordered = [...siblings];
+  if (direction === 'front' || direction === 'back') {
+    const chosen = siblings.filter((child) => selected.has(child));
+    const remaining = siblings.filter((child) => !selected.has(child));
+    ordered = direction === 'front' ? [...remaining, ...chosen] : [...chosen, ...remaining];
+  } else if (direction === 'forward') {
+    // Walk toward the back so each selected block crosses only one unselected sibling.
+    for (let i = ordered.length - 2; i >= 0; i--) {
+      if (selected.has(ordered[i]!) && !selected.has(ordered[i + 1]!)) {
+        [ordered[i], ordered[i + 1]] = [ordered[i + 1]!, ordered[i]!];
+      }
+    }
+  } else {
+    for (let i = 1; i < ordered.length; i++) {
+      if (selected.has(ordered[i]!) && !selected.has(ordered[i - 1]!)) {
+        [ordered[i - 1], ordered[i]] = [ordered[i]!, ordered[i - 1]!];
+      }
     }
   }
-  if (idx <= firstShapeAt) return;
-  spTree.children.splice(idx, 1);
-  spTree.children.splice(firstShapeAt, 0, target);
+  if (ordered.every((child, i) => child === siblings[i])) return;
+  let index = 0;
+  // Retain non-shape slots, including the required preface and extension lists.
+  parent.children = parent.children.map((child) =>
+    isShapeChild(child) ? ordered[index++]! : child,
+  );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
-};
-
-/** Swap `shape` with the next shape sibling (move one step forward). */
-export const bringShapeForward = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = findShapeParent(shape);
-  if (!spTree) return;
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
-  // Find next shape sibling.
-  for (let i = idx + 1; i < spTree.children.length; i++) {
-    const c = spTree.children[i];
-    if (c && isShapeChild(c)) {
-      const next = c;
-      spTree.children[idx] = next;
-      spTree.children[i] = target;
-      commitSlideData(slide);
-      rebuildShapesFromDocument(slide);
-      return;
-    }
-  }
-};
+}
 
 /**
  * Returns the shape's z-index among its parent container's "real" shape children
@@ -378,25 +373,9 @@ export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => 
   rebuildShapesFromDocument(slide);
 };
 
-/** Swap `shape` with the previous shape sibling (move one step backward). */
-export const sendShapeBackward = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = findShapeParent(shape);
-  if (!spTree) return;
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
-  for (let i = idx - 1; i >= 0; i--) {
-    const c = spTree.children[i];
-    if (c && isShapeChild(c)) {
-      const prev = c;
-      spTree.children[idx] = prev;
-      spTree.children[i] = target;
-      commitSlideData(slide);
-      rebuildShapesFromDocument(slide);
-      return;
-    }
-  }
+/** Move one shape or a selection one step backward among siblings. */
+export const sendShapeBackward = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'backward');
 };
 
 /**
