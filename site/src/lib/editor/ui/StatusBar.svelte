@@ -31,6 +31,7 @@
   <span class="sep"></span>
   <span>{selectionLabel}</span>
   <span class="spacer"></span>
+  <button class="notes-toggle" aria-pressed={editor.notesVisible && editor.viewMode === 'normal'} onclick={() => { if (editor.viewMode === 'normal' && editor.notesVisible) editor.notesVisible = false; else editor.showNotes(); }}>{t('Notes')}</button>
   <div class="views" role="group" aria-label={t('Presentation views')}>
     <button title={t('Normal')} aria-label={t('Normal')} aria-pressed={editor.viewMode === 'normal'} onclick={() => editor.setViewMode('normal')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><rect x=".5" y=".5" width="15" height="11" rx="1"/><path d="M4 1v10M1 4h3M1 8h3"/></svg></button>
     <button title={t('Slide Sorter')} aria-label={t('Slide Sorter')} aria-pressed={editor.viewMode === 'sorter'} onclick={() => editor.setViewMode('sorter')}><svg width="16" height="12" viewBox="0 0 16 12" aria-hidden="true"><path d="M1 1h5v4H1zM9 1h5v4H9zM1 7h5v4H1zM9 7h5v4H9z"/></svg></button>
@@ -70,7 +71,7 @@
   .views { display: flex; gap: 3px; }
   .views svg { fill: none; stroke: currentColor; }
   .views button[aria-pressed="true"] { background: rgba(255, 255, 255, .25); }
-  .views button, .zoom button {
+  .notes-toggle, .views button, .zoom button {
     background: transparent;
     border: none;
     color: #fff;
