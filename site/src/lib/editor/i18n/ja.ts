@@ -2,6 +2,23 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Picture or texture fill': '塗りつぶし（図またはテクスチャ）',
+  'Picture source': '図のソース',
+  'Insert...': '挿入...',
+  'Picture transparency': '図の透明度',
+  'Tile picture as texture': '図をテクスチャとして並べる',
+  'Offset X': '横方向に移動',
+  'Offset Y': '縦方向に移動',
+  'Scale X': '幅の調整',
+  'Scale Y': '高さの調整',
+  'Offset left': '左に移動',
+  'Offset right': '右に移動',
+  'Offset top': '上に移動',
+  'Offset bottom': '下に移動',
+  'Mirror type': '反転の種類',
+  'The selection changed. Choose the picture again.':
+    '選択が変更されました。図をもう一度選んでください。',
+
   'Slide background fill': '塗りつぶし（スライドの背景）',
   'Pattern fill': '塗りつぶし（パターン）',
   Foreground: '前景',

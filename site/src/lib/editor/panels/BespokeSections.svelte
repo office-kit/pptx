@@ -27,6 +27,8 @@
   } from '@office-kit/pptx';
   import GradientFillSection from './GradientFillSection.svelte';
   import PatternFillSection from './PatternFillSection.svelte';
+  import PictureFillSection from './PictureFillSection.svelte';
+  let pictureFill: PictureFillSection | undefined = $state();
   import TransparencyField from './TransparencyField.svelte';
   import LineStyleFields from './LineStyleFields.svelte';
   import SizePositionSection from './SizePositionSection.svelte';
@@ -193,16 +195,18 @@
         <summary>{t('Fill')}</summary>
         <div class="paint-fields">
           <fieldset class="fill-types" disabled={editor.selectionLocked()} aria-label={t('Fill type')}>
-            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['pattern', 'Pattern fill'], ['background', 'Slide background fill']] as [kind, label]}
-              <label><input type="radio" name="shape-fill-type" checked={fillKind === kind} disabled={kind === 'background' && editor.selectedShapes().some(target => getShapeKind(target) !== 'shape')}
+            {#each [['none', 'No fill'], ['solid', 'Solid fill'], ['gradient', 'Gradient fill'], ['image', 'Picture or texture fill'], ['pattern', 'Pattern fill'], ['background', 'Slide background fill']] as [kind, label]}
+              <label><input type="radio" name="shape-fill-type" checked={fillKind === kind} disabled={(kind === 'background' || kind === 'image') && editor.selectedShapes().some(target => getShapeKind(target) !== 'shape')}
+                onclick={event => { if (kind === 'image') { event.preventDefault(); if (fillKind !== 'image') pictureFill?.chooseImage(); } }}
                 onchange={() => { if (kind === 'none' || kind === 'solid' || kind === 'gradient' || kind === 'pattern' || kind === 'background') changeFill(kind); }} />{t(label)}</label>
             {/each}
           </fieldset>
+          <PictureFillSection bind:this={pictureFill} visible={fillKind === 'image'} />
           {#if fillKind === 'gradient'}
             <GradientFillSection />
           {:else if fillKind === 'pattern'}
             <PatternFillSection />
-          {:else if fillKind !== 'none' && fillKind !== 'background'}
+          {:else if fillKind !== 'none' && fillKind !== 'background' && fillKind !== 'image'}
           <div class="mini">
             <span>{t('Color')}</span>
             <span class="colorwrap">

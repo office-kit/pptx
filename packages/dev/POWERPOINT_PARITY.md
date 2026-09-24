@@ -238,7 +238,7 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Preset and color changes apply to multiple selected shapes in one history entry, respect locks, and persist through save/reload. Partial pattern updates retain untouched theme colors and imported transforms. Fill-type switches remember resolved pattern settings; opening or creating a presentation clears the remembered settings.
 - Native color menus, exact gallery swatch rendering/spacing, inherited pattern fills and preserving arbitrary transforms across fill-type switches remain outstanding. Full visual and operational parity is incomplete.
 
-### Picture/texture fill (controls outstanding)
+### Picture/texture fill
 
 - Selecting Picture or texture fill inserts the native default texture, switches the pane to Format Picture, and adds a Picture category. Controls include Insert, Clipboard, Texture, Transparency, Tile picture as texture and Rotate with shape.
 - Tiled mode exposes offsets X/Y (−1,584 to 1,584 pt), scales X/Y (0–100%), Alignment and Mirror type. Saved default XML uses `a:tile tx="0" ty="0" sx="100000" sy="100000" flip="none" algn="tl"`.
@@ -247,7 +247,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - `getShapeImageFillLayout` / `setShapeImageFillLayout` read and edit tile/stretch placement without replacing media, crop or effects. Native left offset 25% was verified as `fillRect l="25000"`; the reference was restored and saved. Stretch offsets now affect preview and clip to the shape. Core tests cover both pictures and image-filled shapes, mode changes, invalid-input preservation, round trips and XML schema validity.
 - PNG/JPEG tile preview now repeats at the image’s physical size with nine alignment choices, offsets, separate X/Y scaling and alternating X/Y/XY reflections. `getShapeImageIntrinsicSize` reads dimensions, explicit fill DPI and PNG pHYs/JPEG JFIF density (96 DPI fallback). Native default texture metadata is 128 × 128 pixels at approximately 144 DPI. Raster tests cover repetition, reflections and shape clipping.
 - Source-cropped image fills now render and round-trip in automated tests, including all tile mirror modes; native visual comparison remains pending.
-- Picture/texture controls, rotation-independent image rendering, native comparison of source-cropped tiles, additional image formats/EXIF resolution and texture selection remain outstanding.
+- Picture fill controls now expose image insertion, transparency, tile/stretch offsets, scaling, alignment, mirroring and rotation, with multi-selection edits in one undo transaction. Initial selection opens a file chooser; native default texture selection, Clipboard, remembered image fills and visual comparison of this pane remain outstanding.
+- Texture selection, rotation-independent image rendering, native comparison of source-cropped tiles, additional image formats/EXIF resolution and texture selection remain outstanding.
 
 ### Slide-background fill
 
