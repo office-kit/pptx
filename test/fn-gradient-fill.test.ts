@@ -187,3 +187,61 @@ describe('imported path gradient focus', () => {
     expect(getShapeGradientFill(getSlideShapes(getSlides(reloaded)[0]!)[0]!)?.focus).toEqual(focus);
   });
 });
+
+describe('gradient tile rectangle', () => {
+  it.each([Number.NaN, Number.POSITIVE_INFINITY, 21474.83648, -21474.83649])(
+    'rejects invalid tile insets atomically: %s',
+    async (right) => {
+      const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+      const slide = getSlides(pres)[0]!;
+      const shape = getSlideShapes(slide)[0]!;
+      setShapeFill(shape, '#123456');
+      expect(() =>
+        setShapeGradientFill(shape, {
+          stops: [
+            { offset: 0, color: '#000000' },
+            { offset: 1, color: '#FFFFFF' },
+          ],
+          tileRect: { left: 0, top: 0, right, bottom: 0 },
+        }),
+      ).toThrow(RangeError);
+      expect(getSlideXmlString(slide)).toContain('123456');
+      expect(getSlideXmlString(slide)).not.toContain('<a:gradFill');
+    },
+  );
+
+  it.each(['circle', 'linear'] as const)(
+    'retains native tile insets when editing a %s gradient',
+    async (path) => {
+      const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+      const stops = [
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#0000FF' },
+      ] as const;
+      setShapeGradientFill(getSlideShapes(getSlides(pres)[0]!)[0]!, { stops, path });
+      const parts = unzipSync(await savePresentation(pres));
+      const name = 'ppt/slides/slide1.xml';
+      // Mac PowerPoint's Radial > From Bottom Right Corner uses these insets.
+      parts[name] = strToU8(
+        strFromU8(parts[name]!).replace(
+          '</a:gradFill>',
+          '<a:tileRect r="-100000" b="-100000"/></a:gradFill>',
+        ),
+      );
+      const loaded = await loadPresentation(zipSync(parts));
+      const shape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+      const gradient = getShapeGradientFill(shape)!;
+      const tileRect = { left: 0, top: 0, right: -1, bottom: -1 };
+      expect(gradient).toMatchObject({ tileRect });
+      setShapeGradientFill(shape, { ...gradient, stops, rotateWithShape: false });
+      const xml = getSlideXmlString(getSlides(loaded)[0]!);
+      expect(xml).toContain('<a:tileRect l="0" t="0" r="-100000" b="-100000"/>');
+      if (isSchemaValidationAvailable()) expectSchemaValid(xml, 'pml');
+      const reloaded = await loadPresentation(await savePresentation(loaded));
+      expect(getShapeGradientFill(getSlideShapes(getSlides(reloaded)[0]!)[0]!)).toMatchObject({
+        tileRect,
+        rotateWithShape: false,
+      });
+    },
+  );
+});

@@ -152,6 +152,12 @@ export interface GradientFillOptions {
     readonly right: number;
     readonly bottom: number;
   };
+  /**
+   * Gradient tile bounds as fractional insets from the shape's edges.
+   * Negative values extend the tile beyond that edge. Mac PowerPoint uses
+   * right/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.
+   */
+  readonly tileRect?: GradientFillOptions['focus'];
 }
 
 /**
@@ -352,12 +358,29 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
                 ],
         });
 
+  const tileRect =
+    options.tileRect === undefined
+      ? []
+      : [
+          elem(qname('a', 'tileRect', NS.dml), {
+            attrs: (['left', 'top', 'right', 'bottom'] as const).map((edge, index) => {
+              const value = Math.round(options.tileRect![edge] * 100000);
+              // ST_PercentageDecimal uses a signed 32-bit integer.
+              const min = -(2 ** 31);
+              const max = 2 ** 31 - 1;
+              if (!Number.isFinite(value) || value < min || value > max)
+                throw new RangeError('gradient tile inset must fit an OOXML percentage');
+              return attr(qname('', ['l', 't', 'r', 'b'][index]!, ''), String(value));
+            }),
+          }),
+        ];
+
   const grad = elem(NAME_GRAD_FILL, {
     attrs: [
       attr(ATTR_FLIP, 'none'),
       attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === false ? '0' : '1'),
     ],
-    children: [elem(NAME_GS_LST, { children: stops }), directionEl],
+    children: [elem(NAME_GS_LST, { children: stops }), directionEl, ...tileRect],
   });
   removeAnyFill(host);
   host.children.splice(fillInsertionIndex(host), 0, grad);
