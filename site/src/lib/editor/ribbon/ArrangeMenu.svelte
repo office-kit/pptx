@@ -87,6 +87,7 @@
       <button role="menuitem" data-branch="rotate" aria-label={t('Rotate')} aria-haspopup="menu" aria-expanded={branch === 'rotate'} disabled={!count} onpointerenter={() => branch = 'rotate'} onclick={() => branch = 'rotate'}>{t('Rotate')}<span>›</span></button>
       {#if branch === 'rotate' && count}<div class="menu submenu" role="menu" aria-label={t('Rotate')} use:place={true}>
         {#each [{ action: 'right', label: 'Rotate Right 90°' }, { action: 'left', label: 'Rotate Left 90°' }, { action: 'vertical', label: 'Flip Vertical' }, { action: 'horizontal', label: 'Flip Horizontal' }] as item}<button role="menuitem" onclick={() => choose(() => transform(item.action as 'right' | 'left' | 'vertical' | 'horizontal'))}>{t(item.label)}</button>{/each}
+        <hr /><button role="menuitem" disabled={!editor.canRun('setShapeRotation')} onclick={() => choose(() => editor.showRotationOptions())}>{t('More Rotation Options...')}</button>
       </div>{/if}
     </div>
     <hr /><button role="menuitemcheckbox" aria-label={t('Selection Pane...')} aria-checked={editor.selectionPaneVisible} onclick={() => choose(() => { editor.setViewMode('normal'); editor.selectionPaneVisible = !editor.selectionPaneVisible; })}>{t('Selection Pane...')}<span>{editor.selectionPaneVisible ? '✓' : ''}</span></button>

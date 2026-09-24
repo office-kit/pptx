@@ -136,6 +136,24 @@ test(
       await saved();
       await arrange.click();
       await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
+      await editor.getByRole('menuitem', { name: 'More Rotation Options...', exact: true }).click();
+      const rotationInput = editor.getByRole('spinbutton', { name: 'Rotation', exact: true });
+      assert.equal(await rotationInput.evaluate((input) => input === document.activeElement), true);
+      await rotationInput.fill('37');
+      await rotationInput.press('Tab');
+      await saved();
+      assert.equal(
+        getShapeRotation((await state()).find((shape) => getShapeName(shape) === 'Third')),
+        37,
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      await arrange.click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
+      await arrange.click();
+      await editor.getByRole('menuitem', { name: 'Rotate', exact: true }).click();
       await editor.getByRole('menuitem', { name: 'Rotate Right 90°', exact: true }).click();
       await saved();
       assert.equal(

@@ -22,6 +22,7 @@ export const ja: Record<string, string> = {
   'Rotate Left 90°': '左へ90度回転',
   'Flip Vertical': '上下反転',
   'Flip Horizontal': '左右反転',
+  'More Rotation Options...': 'その他の回転オプション...',
   'Selection Pane': '選択ウィンドウ',
   'Close Selection Pane': '選択ウィンドウを閉じる',
   'Show All': 'すべて表示',
