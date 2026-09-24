@@ -263,6 +263,9 @@ export const ja: Record<string, string> = {
     'スライドが変更されました。この画面を開き直してください。',
   'These notes belong to the selected slide and are included in the exported presentation.':
     '選択中のスライドのノートです。書き出したプレゼンテーションにも保存されます。',
+  Notes: 'ノート',
+  'Click to add notes': 'ノートを入力',
+  'Notes pane height': 'ノート ペインの高さ',
   'Notes content': 'ノートの内容',
   'Speaker notes': '発表者ノート',
   'Enter a width and height between 2.54 and 142.24 cm.':

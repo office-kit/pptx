@@ -22,7 +22,7 @@
   import LinkDialog from './ui/LinkDialog.svelte';
   import CommentsDialog from './ui/CommentsDialog.svelte';
   import NewSlideDialog from './ui/NewSlideDialog.svelte';
-  import NotesDialog from './ui/NotesDialog.svelte';
+  import NotesPane from './ui/NotesPane.svelte';
   import TransitionDialog from './ui/TransitionDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
@@ -165,7 +165,7 @@
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
   <div class="ok-body" class:sorter={editor.viewMode === 'sorter'}>
     <SlideNavigator mode={editor.viewMode} />
-    {#if editor.viewMode === 'normal'}<SlideCanvas /><PropertiesPanel />{/if}
+    {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div><PropertiesPanel />{/if}
   </div>
   <StatusBar />
 
@@ -191,8 +191,6 @@
       <CommentsDialog />
     {:else if editor.activeDialog === 'addSlide'}
       <NewSlideDialog />
-    {:else if editor.activeDialog === 'setSlideNotes'}
-      <NotesDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
       <TransitionDialog />
     {:else if editor.activeDialog === 'setSlideSize'}
@@ -226,6 +224,7 @@
   .ok-shell:has(.host-status) {
     grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
+  .slide-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; }
   .ok-body.sorter { grid-template-columns: minmax(0, 1fr); }
   .ok-body {
     display: grid;

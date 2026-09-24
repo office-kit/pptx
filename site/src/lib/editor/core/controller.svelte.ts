@@ -89,6 +89,15 @@ export class EditorController {
   ribbonVisible = $state(true);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);
+  notesVisible = $state(false);
+  notesHeight = $state(120);
+  notesFocusRequest = $state(0);
+
+  showNotes(): void {
+    this.setViewMode('normal');
+    this.notesVisible = true;
+    this.notesFocusRequest++;
+  }
 
   setViewMode(mode: 'normal' | 'sorter'): void {
     this.contextMenu = null;
@@ -176,6 +185,10 @@ export class EditorController {
    * (e.g. a color chosen in the ribbon).
    */
   runOrPrompt(id: string, presetArgs: Record<string, unknown> = {}): void {
+    if (id === 'setSlideNotes' && presetArgs.value === undefined) {
+      this.showNotes();
+      return;
+    }
     const cmd = getCommand(id);
     if (!cmd) return;
     const needs = cmd.params.filter((p) => !p.optional && presetArgs[p.name] === undefined);
