@@ -4,12 +4,15 @@
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   addSlide,
+  addTitleSlide,
   addSlideTextBox,
   findSlideLayout,
   getSlides,
+  getSlideShapes,
   inches,
   loadPresentation,
   setShapeTextAutoFit,
@@ -44,6 +47,24 @@ const boxWith = async (opts: { w: number; h: number; autofit: 'none' | 'normal' 
 };
 
 describe('shapeAutoFitScale', () => {
+  it('uses inherited autofit and columns in preview and editing measurements', async () => {
+    const parts = unzipSync(await readFile(fixturePath));
+    const layout = 'ppt/slideLayouts/slideLayout1.xml';
+    parts[layout] = strToU8(
+      strFromU8(parts[layout]!).replaceAll(
+        '<a:bodyPr/>',
+        '<a:bodyPr numCol="2" spcCol="190500"><a:normAutofit fontScale="75000"/></a:bodyPr>',
+      ),
+    );
+    const pres = await loadPresentation(zipSync(parts));
+    const slide = addTitleSlide(pres, 'Inherited title');
+    const shape = getSlideShapes(slide)[0]!;
+    expect(shapeAutoFitScale(pres, shape)).toBe(0.75);
+    const html = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    expect(html).toContain('column-count:2;column-gap:20.00px');
+    setShapeTextAutoFit(shape, 'none');
+    expect(shapeAutoFitScale(pres, shape)).toBe(1);
+  });
   it('shrinks text that overflows a normAutofit box', async () => {
     const { pres, shape } = await boxWith({ w: 2, h: 1, autofit: 'normal' });
     const scale = shapeAutoFitScale(pres, shape);

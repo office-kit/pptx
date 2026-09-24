@@ -1,6 +1,6 @@
 <script lang="ts">
   import {
-    cm, getShapeKind, getShapeBodyPrEffective, getShapeTextAutoFit,
+    cm, getShapeKind, getShapeBodyPrEffective,
     setShapeTextAnchor, setShapeTextDirection, setShapeTextAutoFit, setShapeTextMargins, setShapeTextWrap,
     type SlideShapeData, type TextAnchor, type TextAutoFit,
   } from '@office-kit/pptx';
@@ -17,11 +17,11 @@
     const selected = editor.selectedShapes();
     return selected.every(shape => getShapeKind(shape) === 'shape') ? selected : [];
   });
-  const values = $derived(shapes.map(shape => ({ shape, body: getShapeBodyPrEffective(doc.pres, shape), fit: getShapeTextAutoFit(shape) })));
+  const values = $derived(shapes.map(shape => ({ shape, body: getShapeBodyPrEffective(doc.pres, shape) })));
   function common<T>(items: T[]): T | undefined { return items.every(item => item === items[0]) ? items[0] : undefined; }
   const anchor = $derived(common(values.map(item => `${item.body.anchor ?? shapeTextDefaults(item.shape).anchor}${item.body.anchorCentered ? '-centered' : ''}`)));
   const direction = $derived(common(values.map(item => item.body.vert ?? 'horz')));
-  const autoFit = $derived(common(values.map(item => item.fit)));
+  const autoFit = $derived(common(values.map(item => item.body.autoFit ?? 'none')));
   const wrap = $derived(common(values.map(item => (item.body.wrap ?? 'square') === 'square')));
   const sides = [['left', 'Left margin'], ['right', 'Right margin'], ['top', 'Top margin'], ['bottom', 'Bottom margin']] as const;
   type Side = typeof sides[number][0];

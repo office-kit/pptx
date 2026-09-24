@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { cm, getShapeTextColumns, setShapeTextColumns } from '@office-kit/pptx';
+  import { cm, getShapeBodyPrEffective, setShapeTextColumns } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   const { onclose }: { onclose: () => void } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const initial = untrack(() => ({ selection: doc.selection, version: doc.version, shapes: editor.selectedShapes() }));
-  const values = initial.shapes.map(getShapeTextColumns);
+  const values = initial.shapes.map(shape => getShapeBodyPrEffective(doc.pres, shape).columns);
   const counts = values.map(value => value?.count ?? 1);
   const gaps = values.map(value => value?.gapEmu ?? 0);
   let count = $state<number | undefined>(counts.every(value => value === counts[0]) ? counts[0] : undefined);
@@ -20,12 +20,14 @@
     if (doc.selection !== initial.selection || doc.version !== initial.version) { onclose(); return; }
     if (count !== undefined && (!Number.isInteger(count) || count < 1 || count > 16)) return;
     if (spacing !== undefined && (!Number.isFinite(spacing) || spacing < 0 || spacing > 40.64)) return;
-    if (count !== undefined || spacing !== undefined) {
+    const updates = initial.shapes.flatMap((shape, i) => {
+      const columns = count ?? counts[i]!;
+      const gapEmu = spacing === undefined ? gaps[i]! : cm(spacing);
+      return columns === counts[i] && gapEmu === gaps[i] ? [] : [{ shape, columns, gapEmu }];
+    });
+    if (updates.length) {
       doc.transact(t('Columns'), () => {
-        for (let i = 0; i < initial.shapes.length; i++) {
-          const columns = count ?? counts[i]!;
-          setShapeTextColumns(initial.shapes[i]!, columns === 1 ? null : { count: columns, gapEmu: spacing === undefined ? gaps[i]! : cm(spacing) });
-        }
+        for (const { shape, columns, gapEmu } of updates) setShapeTextColumns(shape, { count: columns, gapEmu });
       });
     }
     onclose();

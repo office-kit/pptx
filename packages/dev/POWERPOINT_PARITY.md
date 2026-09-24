@@ -138,7 +138,14 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Native Text Box controls were inspected through the restored Mac connection. Added a collapsible section for vertical alignment, five text directions, autofit, centimeter margins and wrapping, plus a staged Columns dialog.
 - Columns accepts 1–16 columns and 0–40.64 cm spacing; margins accept 0–55.88 cm, matching native field limits. Cancel/Escape discard the dialog draft. Keyboard input stays within the modal.
 - Browser coverage checks mixed selection, unchanged margins, invalid input, persisted direction/autofit/wrapping, staged columns, Cancel/Enter/Escape, bilingual labels and undo.
-- Inherited autofit/column settings, full format-pane layout and exact text-layout comparison remain outstanding. This is partial operation parity.
+- Full format-pane layout and exact text-layout comparison remain outstanding. This is partial operation parity.
+
+## Inherited text layout
+
+- Native comparison with a layout-authored text body confirmed that the placeholder shows Shrink text on overflow, three columns and 0.25 cm spacing without local overrides. The read-only comparison ended with Cancel and no undo entry.
+- Effective body properties now resolve autofit and column settings through layout/master placeholders. Rendering, editable text, overflow auditing and the Text Box/Columns controls share these values. Explicit one-column and no-autofit settings override inheritance; clearing local column settings restores inheritance.
+- Unchanged Columns confirmation preserves inherited XML. Invalid column arguments are validated before mutation, preserving existing settings on failure. Browser coverage checks displayed inherited settings, unchanged confirmation, a saved one-column override, undo, inline columns and explicit no-autofit.
+- Validation: full core run passed 2,859 tests with 109 skips after extending the XML property-test timeout; the remaining DSL assertion was corrected to use the effective getter's two-argument signature and its five-test file passed. All 67 editor unit tests and four Text Box/rich-text browser scenarios pass. Format, lint, TypeScript, Svelte diagnostics and core/preview/editor builds pass.
 
 ## Centered text anchors
 

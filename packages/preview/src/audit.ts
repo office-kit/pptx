@@ -17,7 +17,6 @@ import {
   getShapeKind,
   getShapeName,
   getShapePlaceholderType,
-  getShapeTextColumns,
   getShapeTextDirection,
   getSlides,
   getSlideShapes,
@@ -126,7 +125,7 @@ const auditShape = (
   if (model === null) return;
 
   const vert = verticalLayoutOf(model.effectiveBody.vert ?? getShapeTextDirection(shape));
-  const cols = getShapeTextColumns(shape);
+  const cols = model.effectiveBody.columns;
   const columns: ColumnLayout | null =
     vert === 'none' && cols && cols.count >= 2
       ? {

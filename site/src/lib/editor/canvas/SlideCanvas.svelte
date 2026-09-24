@@ -39,7 +39,6 @@
     getShapeBounds,
     getShapeCustomGeometry,
     getShapePreset,
-    getShapeTextColumns,
     getShapeTextDirection,
     insertTableRow,
     getTableCellText,
@@ -857,7 +856,7 @@
     // half turn `vert270` needs travels with the box transform instead, which
     // already carries the shape's rotation.
     const vertical = target ? '' : verticalTextStyle(body!.vert ?? getShapeTextDirection(shape)).declarations;
-    const columns = target ? '' : textColumnsStyle(getShapeTextColumns(shape));
+    const columns = target ? '' : textColumnsStyle(body!.columns);
     // Block alignment keeps literal paragraph separators and selection offsets intact.
     return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};${vertical ? ` ${vertical};` : ''}${columns ? ` ${columns};` : ''}`;
   });
