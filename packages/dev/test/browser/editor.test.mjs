@@ -394,7 +394,7 @@ test(
         );
       const original = await png('#eb5757'),
         replacement = await png('#2d9cdb');
-      await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
       await editor.getByTitle(/— addSlideImage$/).click();
       let dialog = editor.getByRole('dialog', { name: 'Insert image', exact: true });
       await dialog

@@ -344,7 +344,7 @@ test('replies stay with their thread and focus the new input', { timeout: 60000 
     const editor = page.frameLocator('#editor-frame');
     const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
     const open = async () => {
-      await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
       await editor.locator('button[title$="— addSlideComment"]').click();
       return editor.getByRole('dialog', { name: 'Comments', exact: true });
     };

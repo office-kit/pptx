@@ -166,7 +166,7 @@ test(
         return editor.getByRole('dialog', { name: ja ? 'リンクを編集' : 'Edit link', exact: true });
       };
       await saved();
-      await editor.getByRole('button', { name: 'Insert', exact: true }).click();
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
       await editor.getByTitle(/— addSlideImage$/).click();
       let dialog = editor.getByRole('dialog');
       const png = Buffer.from(
