@@ -116,6 +116,66 @@ test(
         await editor.getByRole('checkbox', { name: 'Rotate with shape', exact: true }).isEnabled(),
         false,
       );
+      const frame = page.frames().find((frame) => frame.url().includes('/editor'));
+      assert.ok(frame);
+      await frame.evaluate(() => {
+        Object.defineProperty(navigator, 'clipboard', {
+          configurable: true,
+          value: { read: async () => [] },
+        });
+      });
+      const clipboard = editor.getByRole('button', { name: 'Clipboard', exact: true });
+      const beforePaste = await read();
+      await clipboard.click();
+      await editor
+        .getByRole('alert')
+        .filter({ hasText: 'The clipboard does not contain a picture.' })
+        .waitFor();
+      assert.deepEqual(await read(), beforePaste);
+      await frame.evaluate(() => {
+        navigator.clipboard.read = async () => {
+          throw new DOMException('Denied', 'NotAllowedError');
+        };
+      });
+      await clipboard.click();
+      await editor.getByRole('alert').filter({ hasText: 'Clipboard access was denied' }).waitFor();
+      assert.deepEqual(await read(), beforePaste);
+      const image = Array.from(getShapeImageBytes(picture));
+      await frame.evaluate((bytes) => {
+        navigator.clipboard.read = async () => [
+          {
+            types: ['image/png'],
+            getType: async () => new Blob([new Uint8Array(bytes)], { type: 'image/png' }),
+          },
+        ];
+      }, image);
+      await clipboard.click();
+      await left.waitFor({ state: 'visible' });
+      await saved();
+      assert.equal((await read())[0].layout.mode, 'stretch');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), beforePaste);
+      await frame.evaluate((bytes) => {
+        navigator.clipboard.read = () =>
+          new Promise((resolve) => {
+            window.finishBackgroundClipboard = () =>
+              resolve([
+                {
+                  types: ['image/png'],
+                  getType: async () => new Blob([new Uint8Array(bytes)], { type: 'image/png' }),
+                },
+              ]);
+          });
+      }, image);
+      await clipboard.click();
+      await editor.locator('.thumb-row').nth(1).click();
+      await frame.evaluate(() => window.finishBackgroundClipboard());
+      await editor
+        .getByRole('alert')
+        .filter({ hasText: 'The slide changed. Choose the background image again.' })
+        .waitFor();
+      assert.deepEqual(await read(), beforePaste);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

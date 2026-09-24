@@ -443,3 +443,11 @@ inherited image edited into a slide override, other-slide preservation, mode
 memory, undo and reload. Choosing a new image uses the file picker; native
 remembered fill-type switching, texture presets, Clipboard and transparency are
 still outstanding for background pictures.
+
+Background pictures now expose the Clipboard source button. File and clipboard
+insertion share a guarded asynchronous transaction: unavailable/non-image
+clipboard contents and denied access report an error without changing the deck;
+selection or document changes during loading cancel the insertion. Browser
+coverage exercises success, undo, empty and denied reads, and a deferred read
+completed after changing slides. Native clipboard availability/format behavior,
+background transparency, textures, and remembered fill-type switching remain.

@@ -40,22 +40,37 @@
     const input = event.currentTarget;
     if (!(input instanceof HTMLInputElement)) return;
     const file = input.files?.[0];
+    if (!file) return;
+    try { await insertImage(() => file.arrayBuffer()); }
+    finally { input.value = ''; }
+  }
+  async function pasteImage() {
+    await insertImage(async () => {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find(type => type.startsWith('image/'));
+        if (type) return (await item.getType(type)).arrayBuffer();
+      }
+      throw new Error(t('The clipboard does not contain a picture.'));
+    });
+  }
+  async function insertImage(read: () => Promise<ArrayBuffer>) {
+    if (loading || !slides.length) return;
     const targets = slides;
     const selection = doc.selection;
-    if (!file || !targets.length) return;
     const presentation = doc.pres;
     const version = doc.version;
     loading = true;
     error = '';
     try {
-      const bytes = new Uint8Array(await file.arrayBuffer());
+      const bytes = new Uint8Array(await read());
       if (doc.pres !== presentation || doc.version !== version || doc.selection !== selection) {
         error = t('The slide changed. Choose the background image again.');
         return;
       }
       apply('Background image', target => setSlideBackgroundImage(target, bytes), targets);
-    } catch (cause) { error = cause instanceof Error ? cause.message : String(cause); }
-    finally { loading = false; input.value = ''; }
+    } catch (cause) { error = cause instanceof DOMException && cause.name === 'NotAllowedError' ? t('Clipboard access was denied') : cause instanceof Error ? cause.message : String(cause); }
+    finally { loading = false; }
   }
 </script>
 
@@ -76,6 +91,7 @@
         {:else if imageBackground}
           <span class="selection">{t('Picture source')}</span>
           <button class="ok-btn" disabled={loading} onclick={() => fileInput?.click()}>{t('Insert...')}</button>
+          <button class="ok-btn" disabled={loading || !navigator.clipboard?.read} onclick={pasteImage}>{t('Clipboard')}</button>
           <BackgroundPictureLayout />
         {:else if patternBackground}
           <PatternFillSection background />
