@@ -715,24 +715,57 @@ const gradientDef = (
         `<stop offset="${s.offset.toFixed(4)}" stop-color="${s.resolvedColor ?? resolveColor(s.color, theme, '#E5E7EB')}"${s.opacity !== undefined ? ` stop-opacity="${s.opacity}"` : ''}/>`,
     )
     .join('');
+  if (grad.path === 'rect') {
+    const focus = grad.focus ?? { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 };
+    const tile = grad.tileRect ?? { left: 0, top: 0, right: 0, bottom: 0 };
+    const l = tile.left;
+    const t = tile.top;
+    const r = 1 - tile.right;
+    const b = 1 - tile.bottom;
+    const fl = focus.left;
+    const ft = focus.top;
+    const fr = 1 - focus.right;
+    const fb = 1 - focus.bottom;
+    // Each side interpolates perpendicular to its edge. Together the four
+    // trapezoids produce rectangular contours, including PowerPoint's corner
+    // presets whose tiles extend beyond the shape. Inverted imported rectangles
+    // keep the radial fallback below.
+    if (l <= fl && fl <= fr && fr <= r && t <= ft && ft <= fb && fb <= b && l < r && t < b) {
+      const sides = [
+        { points: `${l},${t} ${r},${t} ${fr},${ft} ${fl},${ft}`, x1: l, y1: t, x2: l, y2: ft },
+        { points: `${r},${t} ${r},${b} ${fr},${fb} ${fr},${ft}`, x1: r, y1: t, x2: fr, y2: t },
+        { points: `${r},${b} ${l},${b} ${fl},${fb} ${fr},${fb}`, x1: l, y1: b, x2: l, y2: fb },
+        { points: `${l},${b} ${l},${t} ${fl},${ft} ${fl},${fb}`, x1: l, y1: t, x2: fl, y2: t },
+      ];
+      let gradients = '';
+      let polygons = '';
+      for (const side of sides) {
+        if (side.x1 === side.x2 && side.y1 === side.y2) continue;
+        const sideId = mintId();
+        gradients += `<linearGradient id="${sideId}" gradientUnits="userSpaceOnUse" x1="${side.x2}" y1="${side.y2}" x2="${side.x1}" y2="${side.y1}">${stops}</linearGradient>`;
+        polygons += `<polygon points="${side.points}" fill="url(#${sideId})"/>`;
+      }
+      const first = orderedStops[0];
+      const center =
+        first && fr > fl && fb > ft
+          ? `<rect x="${fl}" y="${ft}" width="${fr - fl}" height="${fb - ft}" fill="${first.resolvedColor ?? resolveColor(first.color, theme, '#E5E7EB')}"${first.opacity !== undefined ? ` fill-opacity="${first.opacity}"` : ''}/>`
+          : '';
+      // Antialiasing adjacent transparent polygons separately leaves hairline
+      // gaps. Their colors meet continuously, so rasterize only their shared
+      // boundaries without antialiasing; the shape's outer clip stays smooth.
+      const defs = `<defs>${gradients}<pattern id="${id}" patternUnits="objectBoundingBox" patternContentUnits="objectBoundingBox" x="${l}" y="${t}" width="${r - l}" height="${b - t}"${transform.replace('gradientTransform', 'patternTransform')}><g shape-rendering="crispEdges" transform="translate(${-l} ${-t})">${polygons}${center}</g></pattern></defs>`;
+      return { defs, fillAttr: `url(#${id})` };
+    }
+  }
   if (grad.path === 'circle' || grad.path === 'rect' || grad.path === 'shape') {
-    // SVG only has radial gradients. Rectangular and shape-following paths
-    // remain approximations until their contours can be rendered separately.
+    // Shape-following paths still use an elliptical approximation.
     const focus = grad.focus ?? { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 };
     // fillToRect describes insets from each edge, not absolute coordinates.
     // PowerPoint's bottom-right focus has l=t=1 and r=b=0.
     const cx = (focus.left + 1 - focus.right) / 2;
     const cy = (focus.top + 1 - focus.bottom) / 2;
-    // PowerPoint puts the final stop at the focus; SVG starts there.
-    const reversed = orderedStops
-      .slice()
-      .reverse()
-      .map(
-        (s) =>
-          `<stop offset="${(1 - s.offset).toFixed(4)}" stop-color="${s.resolvedColor ?? resolveColor(s.color, theme, '#E5E7EB')}"${s.opacity !== undefined ? ` stop-opacity="${s.opacity}"` : ''}/>`,
-      )
-      .join('');
-    const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${reversed}</radialGradient></defs>`;
+    // Mac PowerPoint places the first stop at the focus, as SVG does.
+    const defs = `<defs><radialGradient id="${id}" gradientUnits="objectBoundingBox" cx="${cx.toFixed(4)}" cy="${cy.toFixed(4)}" r="${Math.max(0.5, Math.max(cx, cy, 1 - cx, 1 - cy)).toFixed(4)}">${stops}</radialGradient></defs>`;
     return { defs, fillAttr: `url(#${id})` };
   }
   const angleRad = ((grad.angleDeg ?? 0) * Math.PI) / 180;
