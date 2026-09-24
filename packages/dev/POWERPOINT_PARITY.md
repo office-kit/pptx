@@ -390,3 +390,11 @@ Only the first stop position changes. Reset Background becomes enabled, while
 the master keeps its original `bgRef`. This confirms that editor stop-position
 changes must retain the imported color transforms. Both changes were undone and
 the document was saved with Undo disabled.
+
+Style 2 and Style 3 both use master `bgRef idx="1001"` with `schemeClr=bg2`.
+Style 2 keeps the light color map (`bg1=lt1, tx1=dk1, bg2=lt2, tx2=dk2`),
+whereas Style 3 switches it to the dark map (`bg1=dk1, tx1=lt1, bg2=dk2, tx2=lt2`).
+Neither creates a slide-local background, and Reset Background remains disabled.
+Together with Style 1 and Style 4, this verifies all four first-row columns;
+the remaining gradient-row combinations and application scope are still pending.
+Both temporary changes were undone and the audit file saved with Undo disabled.
