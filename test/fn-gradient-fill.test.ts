@@ -1,5 +1,6 @@
 // Linear gradient fill on a shape.
 
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -148,5 +149,41 @@ describe('gradient stop editing', () => {
     setShapeRotation(shape, 10);
     expect(getSlideXmlString(slide)).toContain('123456');
     expect(getSlideXmlString(slide)).not.toContain('<a:gradFill');
+  });
+});
+
+describe('imported path gradient focus', () => {
+  it.each([
+    ['l="100000" t="100000"', { left: 1, top: 1, right: 0, bottom: 0 }],
+    ['', { left: 0, top: 0, right: 0, bottom: 0 }],
+    ['l="1" t="-1" r="50%" b="-25%"', { left: 0.00001, top: -0.00001, right: 0.5, bottom: -0.25 }],
+  ])('reads OOXML inset percentages and omitted zero defaults: %s', async (attributes, focus) => {
+    const pres = await loadPresentation(await readFile(fixture('one-text-slide.pptx')));
+    setShapeGradientFill(getSlideShapes(getSlides(pres)[0]!)[0]!, {
+      stops: [
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#0000FF' },
+      ],
+      path: 'circle',
+      focus: { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 },
+    });
+    const parts = unzipSync(await savePresentation(pres));
+    const name = 'ppt/slides/slide1.xml';
+    parts[name] = strToU8(
+      strFromU8(parts[name]!).replace(/<a:fillToRect[^>]*\/>/, `<a:fillToRect ${attributes}/>`),
+    );
+    const loaded = await loadPresentation(zipSync(parts));
+    const shape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+    expect(getShapeGradientFill(shape)?.focus).toEqual(focus);
+    setShapeGradientFill(shape, {
+      stops: [
+        { offset: 0, color: '#FF0000' },
+        { offset: 1, color: '#0000FF' },
+      ],
+      path: 'circle',
+      focus,
+    });
+    const reloaded = await loadPresentation(await savePresentation(loaded));
+    expect(getShapeGradientFill(getSlideShapes(getSlides(reloaded)[0]!)[0]!)?.focus).toEqual(focus);
   });
 });

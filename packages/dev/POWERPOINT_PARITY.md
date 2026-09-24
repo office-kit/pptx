@@ -266,3 +266,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - The Fill pane now exposes Slide background fill for ordinary shapes, applies it to multiple selected shapes, hides paint controls, and supports Undo/Redo and saved reloads. Other fill setters clear the background flag.
 - Preview paints only the slide background through the shape, covering intervening objects. Raster tests verify fixed slide coordinates through shape rotation/reflection and group scaling, translation, rotation and reflection. Exact native rendering across every background kind remains unverified.
+
+### Path-gradient direction audit
+
+- Mac PowerPoint's Radial direction gallery lists Bottom Right, Bottom Left, Center, Top Right and Top Left. The Bottom Right option saves `fillToRect l="100000" t="100000"` and `tileRect r="-100000" b="-100000"`; Center saves four 50000 focus insets and an empty tile rectangle. All three temporary operations were undone and saved with Undo disabled.
+- Fixed the gradient reader's omitted focus insets (zero, not 0.5) and percentage decoding (integer units of 1/100000 or explicit percent strings). Regression cases fail before the fix and check save/reload after it.
+- Direction UI remains outstanding: native `tileRect` must first be represented and rendered, and preview focus coordinates must be interpreted as insets rather than absolute right/bottom coordinates. The native Rectangular and Path galleries still need comparison.

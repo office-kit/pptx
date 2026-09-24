@@ -141,9 +141,10 @@ export interface GradientFillOptions {
    */
   readonly path?: 'linear' | 'circle' | 'rect' | 'shape';
   /**
-   * Focus rectangle for non-linear gradients, in unit coordinates
-   * (0 = left/top, 1 = right/bottom). When omitted, defaults to a
-   * single point at the rectangle's center. Mirrors `<a:fillToRect>`.
+   * Focus rectangle for non-linear gradients, expressed as fractional insets
+   * from each corresponding edge (1 = 100%). Four 0.5 insets describe
+   * a point at the center; left/top 1 and right/bottom 0 describe the
+   * bottom-right corner. Mirrors `<a:fillToRect>`.
    */
   readonly focus?: {
     readonly left: number;
