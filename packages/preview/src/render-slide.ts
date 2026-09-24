@@ -716,15 +716,14 @@ const gradientDef = (
     )
     .join('');
   if (grad.path === 'circle' || grad.path === 'rect' || grad.path === 'shape') {
-    // SVG only ships a true radial gradient; ECMA-376's `rect` and
-    // `shape` paths are close enough that we project them onto a
-    // radial fill centered on the focus rectangle.
+    // SVG only has radial gradients. Rectangular and shape-following paths
+    // remain approximations until their contours can be rendered separately.
     const focus = grad.focus ?? { left: 0.5, top: 0.5, right: 0.5, bottom: 0.5 };
-    const cx = (focus.left + focus.right) / 2;
-    const cy = (focus.top + focus.bottom) / 2;
-    // ECMA-376 stops paint outward from the focus center; SVG's radial
-    // gradient paints from cx/cy out to r. Reverse the stops so the
-    // first-stop color sits at the center, matching PowerPoint.
+    // fillToRect describes insets from each edge, not absolute coordinates.
+    // PowerPoint's bottom-right focus has l=t=1 and r=b=0.
+    const cx = (focus.left + 1 - focus.right) / 2;
+    const cy = (focus.top + 1 - focus.bottom) / 2;
+    // PowerPoint puts the final stop at the focus; SVG starts there.
     const reversed = orderedStops
       .slice()
       .reverse()
