@@ -53,7 +53,8 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } from './_helpers.ts';
-import { getPresentationTheme } from './theme.ts';
+import { getPresentationTheme, themeFromPackage } from './theme.ts';
+import { getEffectiveColorMap } from './color-map.ts';
 import { parseGradFill } from './shape-gradient-read.ts';
 import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
 
@@ -456,7 +457,8 @@ export const getSlideMasterBackgroundPatternFill = (
 /**
  * Reads the slide layout's gradient background when its `<p:bg>` is a
  * `<p:bgPr><a:gradFill>`. Same shape as `getSlideBackgroundGradientFill`
- * for slides.
+ * for slides. Stop `resolvedColor` values include the presentation theme
+ * and DrawingML color transforms.
  */
 export const getSlideLayoutBackgroundGradientFill = (
   layout: SlideLayoutData,
@@ -469,7 +471,10 @@ export const getSlideLayoutBackgroundGradientFill = (
   if (!bgPr) return null;
   const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
   if (!gradFill) return null;
-  return parseGradFill(gradFill);
+  return parseGradFill(gradFill, {
+    theme: themeFromPackage(layout[INTERNAL_PACKAGE]),
+    colorMap: {},
+  });
 };
 
 /**
@@ -478,6 +483,7 @@ export const getSlideLayoutBackgroundGradientFill = (
  * background kind. Useful for closing the bg cascade — slides that
  * report `'gradient'` inherit can now get the master's gradient
  * projected via `gradientDef`.
+ * Stop `resolvedColor` values include the presentation theme and color transforms.
  */
 export const getSlideMasterBackgroundGradientFill = (
   pres: PresentationData,
@@ -500,7 +506,7 @@ export const getSlideMasterBackgroundGradientFill = (
   if (!bgPr) return null;
   const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
   if (!gradFill) return null;
-  return parseGradFill(gradFill);
+  return parseGradFill(gradFill, { theme: getPresentationTheme(pres), colorMap: {} });
 };
 
 /**
@@ -537,6 +543,8 @@ export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackgrou
  * `<p:bgPr><a:gradFill>` background. Returns `null` for any other
  * background kind. Shape identical to `getShapeGradientFill` so renderers
  * can use the same projection logic for slide backgrounds.
+ * Stop `resolvedColor` values include the presentation theme, slide color map
+ * and DrawingML color transforms; `color` retains the authored token.
  */
 export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFill | null => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
@@ -547,7 +555,10 @@ export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFi
   if (!bgPr) return null;
   const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
   if (!gradFill) return null;
-  return parseGradFill(gradFill);
+  return parseGradFill(gradFill, {
+    theme: themeFromPackage(slide[INTERNAL_PACKAGE]),
+    colorMap: getEffectiveColorMap(slide),
+  });
 };
 
 /**
