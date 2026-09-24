@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { cm, emu, getShapeBoundsResolved, getShapeId, getShapeRotation, getShapeFlip, setShapeBounds, type ShapeBounds } from '@office-kit/pptx';
+  import { cm, emu, getSlideSize, getShapeBoundsResolved, getShapeId, getShapeRotation, getShapeFlip, setShapeBounds, type ShapeBounds } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -28,6 +28,28 @@
   let sizeOpen = $state(true);
   let positionOpen = $state(true);
   let lockAspectRatio = $state(false);
+  let origins = $state({ x: 'corner', y: 'corner' });
+  const slideSize = $derived.by(() => { doc.version; return getSlideSize(doc.pres); });
+  function originOffset(field: keyof ShapeBounds) {
+    if (field === 'x' && origins.x === 'center') return (slideSize?.width ?? 0) / 2;
+    if (field === 'y' && origins.y === 'center') return (slideSize?.height ?? 0) / 2;
+    return 0;
+  }
+  function changeOrigin(axis: 'x' | 'y', input: HTMLSelectElement) {
+    if (editor.selectionLocked()) { input.value = origins[axis]; return; }
+    const next = input.value;
+    const half = (axis === 'x' ? slideSize?.width : slideSize?.height) ?? 0;
+    const delta = (next === 'center' ? half / 2 : 0) - originOffset(axis);
+    if (geometry.some(item => Math.abs(item.bounds[axis] + delta) > cm(maxDimension))) {
+      input.value = origins[axis]; return;
+    }
+    // Mac PowerPoint keeps the entered number and moves the object when the
+    // origin changes. Undo restores geometry but keeps this panel preference.
+    origins[axis] = next;
+    doc.transact(t('Set bounds'), () => {
+      for (const item of geometry) setShapeBounds(item.shape, { ...item.bounds, [axis]: emu(item.bounds[axis] + delta) });
+    });
+  }
   let rotationInput = $state<HTMLInputElement>();
   $effect(() => {
     if (editor.rotationFocusRequested && !sizeOpen) { sizeOpen = true; return; }
@@ -45,7 +67,7 @@
   const bounds = $derived.by(() => {
     const value = (field: keyof ShapeBounds) => {
       const result = common(geometry.map(item => item.bounds[field]));
-      return result === null ? null : round(result / cm(1));
+      return result === null ? null : round((result - originOffset(field)) / cm(1));
     };
     return { x: value('x'), y: value('y'), w: value('w'), h: value('h') };
   });
@@ -82,7 +104,7 @@
     if (!geometry.length || editor.selectionLocked() || !input.reportValidity() || !Number.isFinite(input.valueAsNumber)) { restore(); return; }
     const value = input.valueAsNumber;
     const updates = geometry.map(item => {
-      const next = { ...item.bounds, [field]: scale ? emu((originals.get(getShapeId(item.shape))?.[field] ?? item.bounds[field]) * value / 100) : cm(value) };
+      const next = { ...item.bounds, [field]: scale ? emu((originals.get(getShapeId(item.shape))?.[field] ?? item.bounds[field]) * value / 100) : emu(cm(value) + originOffset(field)) };
       if (lockAspectRatio && canLockAspectRatio) {
         if (field === 'w') next.h = emu(item.bounds.h * next.w / item.bounds.w);
         if (field === 'h') next.w = emu(item.bounds.w * next.h / item.bounds.h);
@@ -122,7 +144,8 @@
       <div class="fields">
         {#each [['x', 'Horizontal position'], ['y', 'Vertical position']] as [field, label]}
           {@const axis = field as 'x' | 'y'}
-          <label><span>{t(label!)}</span><span class="number"><input class="ok-input" type="number" aria-label={t(label!)} disabled={locked} min={-maxDimension} max={maxDimension} step="any" value={bounds[axis] ?? ''} placeholder={bounds[axis] === null ? t('Mixed') : undefined} onchange={event => change(axis, event.currentTarget)} /><span>cm</span></span></label>
+          <label><span>{t(label!)}</span><span class="number"><input class="ok-input" type="number" aria-label={t(label!)} disabled={locked} min={-maxDimension - originOffset(axis) / cm(1)} max={maxDimension - originOffset(axis) / cm(1)} step="any" value={bounds[axis] ?? ''} placeholder={bounds[axis] === null ? t('Mixed') : undefined} onchange={event => change(axis, event.currentTarget)} /><span>cm</span></span></label>
+          <label><span>{t('From')}</span><select class="ok-input" aria-label={t(axis === 'x' ? 'Horizontal position from' : 'Vertical position from')} disabled={locked} value={origins[axis]} onchange={event => changeOrigin(axis, event.currentTarget)}><option value="corner">{t('Top Left Corner')}</option><option value="center">{t('Center')}</option></select></label>
         {/each}
       </div>
     </details>

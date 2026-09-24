@@ -129,7 +129,9 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Reconnected to Mac PowerPoint and inspected its Size & Properties pane. Size and Position are separate disclosure sections; dimensions and coordinates use cm. Size orders Height, Width, Rotation, Scale Height, Scale Width and Lock aspect ratio. The editor now follows those sections, labels, units and dimension/rotation input limits.
 - Native scaling from 150% to 200% produces twice the original dimension, not three times. Selecting a different object and returning resets that baseline. Percentage controls use the initial selected dimensions, including per-object dimensions in a mixed selection. Temporary native resize edits were undone; native Undo is disabled again.
 - Six browser tests passed for geometry, inherited placeholders, mixed selections, fill/line, selection locks and stacking. A subsequent geometry run passed all three tests after adding excessive/zero scale validation. Svelte diagnostics report no errors or warnings; the editor build passes.
-- This is a partial migration of the existing properties panel. Native pane tabs, the Position origin selectors, picture-specific scaling, and full Fill/Line/Effects/Text Box layouts remain outstanding. Full UI and operation parity is not complete.
+- This is a partial migration of the existing properties panel. Native pane tabs, picture-specific scaling, and full Fill/Line/Effects/Text Box layouts remain outstanding. Full UI and operation parity is not complete.
+
+- Added independent horizontal/vertical Position origin selectors. Native comparison confirmed that switching to Center preserves the entered value while moving the object by half the slide dimension; Undo restores the position but retains the origin preference. Browser tests cover both axes, saved coordinates, unchanged displayed values and Undo. All three geometry browser scenarios pass. Nested-object origin semantics still need native comparison.
 
 ## Text Box controls
 
@@ -145,3 +147,7 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - SVG, HTML and editable text use shared layout-derived translation, including bullets, paragraph alignment and column positions, rather than shrinking the paragraph frame. Text measurement still uses the preview's configured measurer; exact font-metric fidelity remains part of the broader parity work.
 
 - Validation: 2,856 core tests passed in the full run; one byte-for-byte ZIP comparison failed on timestamp metadata and its 11-test file passed on isolated rerun. All 61 focused core tests, 67 editor unit tests, and three browser scenarios passed; the Text Box scenario passed again after the final rotation-coordinate adjustment. Format, lint, TypeScript, Svelte diagnostics and affected builds pass. Clearing an editing host now ignores Chromium's caret-only BR instead of inserting a trailing newline.
+
+## Leaving text editing
+
+- Escape now commits pending text and exits editing, matching the native observation. A browser regression reproduced the lost final input before the fix and passes after it, including reopening the saved text. Both rich-text browser scenarios pass; Svelte diagnostics, format/lint and editor build pass.

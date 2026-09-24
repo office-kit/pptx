@@ -12,6 +12,7 @@ import {
   getShapeBoundsResolved,
   savePresentation,
   getSlides,
+  getSlideSize,
   getSlideShapes,
   getShapeBounds,
   getShapeRotation,
@@ -56,10 +57,12 @@ test(
         editor
           .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
           .waitFor();
+      let slideSize;
       const read = async () => {
         const deck = await loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
+        slideSize = getSlideSize(deck);
         const shape = getSlideShapes(getSlides(deck)[0])[0];
         return { bounds: getShapeBounds(shape), rotation: getShapeRotation(shape) };
       };
@@ -74,6 +77,27 @@ test(
         await field(name).fill(value);
         await field(name).press('Tab');
       };
+      for (const [axis, label, dimension] of [
+        ['x', 'Horizontal position from', 'width'],
+        ['y', 'Vertical position from', 'height'],
+      ]) {
+        const origin = editor.getByRole('combobox', { name: label, exact: true });
+        const before = await field(axis === 'x' ? 'X' : 'Y').inputValue();
+        await origin.selectOption('center');
+        await saved();
+        assert.equal((await read()).bounds[axis], original.bounds[axis] + slideSize[dimension] / 2);
+        assert.equal(await field(axis === 'x' ? 'X' : 'Y').inputValue(), before);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.deepEqual(await read(), original);
+        assert.equal(await origin.inputValue(), 'center');
+        await origin.selectOption('corner');
+        await saved();
+        assert.equal((await read()).bounds[axis], original.bounds[axis] - slideSize[dimension] / 2);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.deepEqual(await read(), original);
+      }
       await change('Scale Width', '150');
       await saved();
       assert.equal((await read()).bounds.w, Math.round(original.bounds.w * 1.5));

@@ -1245,8 +1245,7 @@
                 else if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && (e.code === 'BracketLeft' || e.code === 'BracketRight')) { e.preventDefault(); changeInlineListLevel(e.code === 'BracketRight' ? 1 : -1, false); }
                 else if (e.key === 'Tab' && !e.ctrlKey && !e.metaKey && !e.altKey && !editing?.cell && changeInlineListLevel(e.shiftKey ? -1 : 1, true)) e.preventDefault();
                 else if (e.key === 'Tab' && editing?.cell) { e.preventDefault(); void navigateCell(e.shiftKey); }
-                else if (e.key === 'Escape') editing = null;
-                else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commitEditing();
+                else if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); commitEditing(); }
               }}
             />
           {/if}
