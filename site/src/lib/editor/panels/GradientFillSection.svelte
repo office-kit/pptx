@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { getShapeGradientFillEffective, setShapeGradientFill, getSlideBackgroundGradientFill, setSlideBackgroundGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
+  import { getShapeGradientFillEffective, setShapeGradientFill, setSlideBackgroundGradientFill, asColor, type ReadGradientFill, type ReadGradientStop } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import ColorPicker from '../ui/ColorPicker.svelte';
   import GradientDirection from './GradientDirection.svelte';
   import { pathDirections, pathDirectionIndex } from '../core/gradient-directions.ts';
-
+  import { readSlideBackground } from '../core/slide-background.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
 
   let { background = false }: { background?: boolean } = $props();
@@ -16,7 +16,7 @@
   });
   const gradients = $derived.by(() => {
     editor.doc.version;
-    if (background) return slides.map(getSlideBackgroundGradientFill);
+    if (background) return slides.map(slide => readSlideBackground(editor.doc.pres, slide).gradient);
     return editor.selectedShapes().map(shape => getShapeGradientFillEffective(editor.doc.pres, shape));
   });
   const gradient = $derived(gradients[0] ?? null);
@@ -67,7 +67,7 @@
         }) };
       };
       if (background) {
-        for (const slide of slides) setSlideBackgroundGradientFill(slide, options(getSlideBackgroundGradientFill(slide)!));
+        for (const slide of slides) setSlideBackgroundGradientFill(slide, options(readSlideBackground(editor.doc.pres, slide).gradient!));
       } else {
         for (const shape of editor.selectedShapes()) setShapeGradientFill(shape, options(getShapeGradientFillEffective(editor.doc.pres, shape)!));
       }
