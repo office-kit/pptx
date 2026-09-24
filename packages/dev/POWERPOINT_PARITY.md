@@ -158,3 +158,8 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 ## Leaving text editing
 
 - Escape now commits pending text and exits editing, matching the native observation. A browser regression reproduced the lost final input before the fix and passes after it, including reopening the saved text. Both rich-text browser scenarios pass; Svelte diagnostics, format/lint and editor build pass.
+
+## Default column spacing
+
+- Native Mac PowerPoint displays 0 cm for a three-column placeholder with no local or inherited `spcCol`. The comparison dialog was cancelled and Undo remained disabled.
+- HTML, SVG, autofit and overflow auditing now use zero spacing when the effective column gap is absent. Regression coverage compares omitted spacing with explicit zero across these paths; all 13 focused tests pass.

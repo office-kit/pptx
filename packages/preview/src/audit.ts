@@ -130,7 +130,7 @@ const auditShape = (
     vert === 'none' && cols && cols.count >= 2
       ? {
           count: cols.count,
-          gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 12,
+          gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 0,
         }
       : null;
   const rect = model.svgTextRect(vert);

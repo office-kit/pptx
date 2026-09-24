@@ -2854,7 +2854,7 @@ export const resolveTextBodyModel = (
       fitVert === 'none' && fitCols && fitCols.count >= 2
         ? {
             count: fitCols.count,
-            gapPx: fitCols.gapEmu !== undefined ? fitCols.gapEmu / EMU_PER_PX : 12,
+            gapPx: fitCols.gapEmu !== undefined ? fitCols.gapEmu / EMU_PER_PX : 0,
           }
         : null;
     // Measure against the SAME rect the SVG path renders into (rotated text uses
@@ -2924,7 +2924,7 @@ export const resolveTextBodyModel = (
       autoFitScale,
       columns:
         vert === 'none' && cols && cols.count >= 2
-          ? { count: cols.count, gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 12 }
+          ? { count: cols.count, gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 0 }
           : null,
     });
     const { anchorShift } = layoutCore(input, measure);
@@ -3180,8 +3180,8 @@ const renderTextBody = (
       svgVert === 'none' && svgCols && svgCols.count >= 2
         ? {
             count: svgCols.count,
-            // spcCol is in EMU; default to the foreignObject path's 12px gap.
-            gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 12,
+            // Mac PowerPoint uses zero spacing when spcCol is absent.
+            gapPx: svgCols.gapEmu !== undefined ? svgCols.gapEmu / EMU_PER_PX : 0,
           }
         : null;
     // Horizontal text uses the shared inner rect (already preset-rect- and

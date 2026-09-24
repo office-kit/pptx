@@ -5,8 +5,8 @@
 
 import type { getShapeTextColumns, getShapeTextDirection } from '@office-kit/pptx';
 
-/** PowerPoint's column gap when `spcCol` is absent. */
-const DEFAULT_COLUMN_GAP_PX = 12;
+/** Mac PowerPoint uses zero spacing when `spcCol` is absent. */
+const DEFAULT_COLUMN_GAP_PX = 0;
 
 const EMU_PER_PX = 9525;
 
