@@ -87,6 +87,14 @@ test(
       const openZoom = async () => {
         await editor.getByRole('button', { name: 'View', exact: true }).click();
         await editor.getByRole('menuitem', { name: 'Zoom', exact: true }).click();
+        const submenuBounds = await editor
+          .getByRole('menu', { name: 'Zoom', exact: true })
+          .boundingBox();
+        assert.ok(
+          submenuBounds.x >= 0 &&
+            submenuBounds.x + submenuBounds.width <= page.viewportSize().width,
+          'View submenu stays inside the viewport',
+        );
         await editor.getByRole('menuitem', { name: 'Zoom...', exact: true }).click();
       };
       await openZoom();
@@ -94,10 +102,12 @@ test(
       await zoomDialog.getByRole('spinbutton').fill('175');
       await zoomDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), normalZoom);
+      await page.setViewportSize({ width: 900, height: 700 });
       await openZoom();
       await zoomDialog.getByRole('spinbutton').fill('175');
       await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '175%');
+      await page.setViewportSize({ width: 1500, height: 1000 });
       await openZoom();
       await zoomDialog.getByRole('radio', { name: 'Fit', exact: true }).check();
       await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
