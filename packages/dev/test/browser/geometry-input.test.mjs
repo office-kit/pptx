@@ -68,6 +68,7 @@ test(
       };
       await saved();
       await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const original = await read();
       const field = (name) =>
         editor
@@ -238,6 +239,7 @@ test(
       assert.equal(original.raw, null);
       assert.ok(original.resolved);
       await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const field = (name) =>
         editor
           .locator('.bespoke')
@@ -312,6 +314,7 @@ test(
       await saved();
       const before = await read();
       await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const rotation = () =>
         editor
           .locator('.bespoke')

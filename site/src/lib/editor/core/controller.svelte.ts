@@ -95,6 +95,7 @@ export class EditorController {
   selectionPaneVisible = $state(false);
   alignmentReference = $state<'selection' | 'slide'>('selection');
   rotationFocusRequested = $state(false);
+  formatPaneTab = $state<'paint' | 'effects' | 'size'>('paint');
   thumbnailWidth = $state<number | null>(null);
   viewMode = $state<'normal' | 'sorter'>('normal');
   sorterZoom = $state(1);
@@ -111,6 +112,7 @@ export class EditorController {
   showRotationOptions(): void {
     this.setViewMode('normal');
     this.selectionPaneVisible = false;
+    this.formatPaneTab = 'size';
     this.rotationFocusRequested = true;
   }
 

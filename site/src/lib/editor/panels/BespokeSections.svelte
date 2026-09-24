@@ -1,8 +1,4 @@
 <script lang="ts">
-  // Hand-tuned quick controls for the most-used shape properties, shown at the
-  // top of the properties panel. These are ergonomic shortcuts; the full,
-  // exhaustive list still lives below in the auto-generated section, so nothing
-  // here is the *only* path to a capability.
   import { getEditor } from '../core/context.ts';
   import {
     getShapeText,
@@ -27,6 +23,7 @@
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
+  let { tab }: { tab: 'paint' | 'effects' | 'size' | 'all' } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const shape = $derived.by(() => {
@@ -137,75 +134,87 @@
 
 {#if shape}
   <div class="bespoke">
-    <details class="paint-section" open>
-      <summary>{t('Fill')}</summary>
-      <div class="paint-fields">
-        <div class="mini">
-          <span>{t('Color')}</span>
-          <span class="colorwrap">
-            <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
-            <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
-          </span>
-          <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
+    <div hidden={tab !== 'paint' && tab !== 'all'} class="paint-controls">
+      <details class="paint-section" open>
+        <summary>{t('Fill')}</summary>
+        <div class="paint-fields">
+          <div class="mini">
+            <span>{t('Color')}</span>
+            <span class="colorwrap">
+              <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
+              <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
+            </span>
+            <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
+          </div>
+          <TransparencyField paint="fill" />
         </div>
-        <TransparencyField paint="fill" />
-      </div>
-    </details>
+      </details>
 
-    <details class="paint-section" open>
-      <summary>{t('Line')}</summary>
-      <div class="paint-fields">
-        <div class="mini">
-          <span>{t('Color')}</span>
-          <span class="colorwrap">
-            <input type="color" aria-label={t('Outline')} value={colorValue(paint.stroke)} onchange={(e) => applyStroke(e.currentTarget.value)} />
-            <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
-          </span>
-          <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
+      <details class="paint-section" open>
+        <summary>{t('Line')}</summary>
+        <div class="paint-fields">
+          <div class="mini">
+            <span>{t('Color')}</span>
+            <span class="colorwrap">
+              <input type="color" aria-label={t('Outline')} value={colorValue(paint.stroke)} onchange={(e) => applyStroke(e.currentTarget.value)} />
+              <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
+            </span>
+            <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
+          </div>
+          <TransparencyField paint="line" />
+          <label class="paint-field">
+            <span>{t('Width')}</span>
+            <span class="number"><input class="ok-input" aria-label={t('Outline width (points)')} type="number" min="0" max="1584" step="any"
+              value={widthValue()} placeholder={paintLabel(paint.width)}
+              onchange={(e) => applyWidth(e.currentTarget)} /><span>pt</span></span>
+          </label>
+          <LineStyleFields />
         </div>
-        <TransparencyField paint="line" />
-        <label class="paint-field">
-          <span>{t('Width')}</span>
-          <span class="number"><input class="ok-input" aria-label={t('Outline width (points)')} type="number" min="0" max="1584" step="any"
-            value={widthValue()} placeholder={paintLabel(paint.width)}
-            onchange={(e) => applyWidth(e.currentTarget)} /><span>pt</span></span>
-        </label>
-        <LineStyleFields />
-      </div>
-    </details>
+      </details>
 
-    <SizePositionSection />
-    <TextBoxSection />
+    </div>
+    <div hidden={tab !== 'size' && tab !== 'all'} class="size-controls">
+      <SizePositionSection />
+      <TextBoxSection />
 
-    {#if objectFormats}
-      <TextFormatBar formats={objectFormats} selected context="objects"
-        onformat={(format, reset) => editor.invoke('setShapeTextFormat', { format, options: { reset } })} />
-      <div class="row2">
-        <label>{t('Paragraph alignment')}
-          <select class="ok-input" aria-label={t('Paragraph alignment')} value={textAlignment.align}
-            onchange={event => editor.invoke('setShapeAlignment', { align: event.currentTarget.value })}>
-            <option value="" disabled>{t('Mixed or inherited')}</option>
-            {#each [['left', 'Left'], ['center', 'Center'], ['right', 'Right'], ['justify', 'Justify']] as [value, label]}
-              <option {value}>{t(label)}</option>
-            {/each}
-          </select>
-        </label>
-      </div>
-    {/if}
+      {#if objectFormats}
+        <TextFormatBar formats={objectFormats} selected context="objects"
+          onformat={(format, reset) => editor.invoke('setShapeTextFormat', { format, options: { reset } })} />
+        <div class="row2">
+          <label>{t('Paragraph alignment')}
+            <select class="ok-input" aria-label={t('Paragraph alignment')} value={textAlignment.align}
+              onchange={event => editor.invoke('setShapeAlignment', { align: event.currentTarget.value })}>
+              <option value="" disabled>{t('Mixed or inherited')}</option>
+              {#each [['left', 'Left'], ['center', 'Center'], ['right', 'Right'], ['justify', 'Justify']] as [value, label]}
+                <option {value}>{t(label)}</option>
+              {/each}
+            </select>
+          </label>
+        </div>
+      {/if}
 
-    {#if textShape}
-      <div class="sec">
-        <div class="sec-title">{t('Text')}</div>
-        <textarea class="ok-input" aria-label={t('Text')} rows="2" value={text}
-          onchange={(e) => applyText(e.currentTarget.value)}></textarea>
-      </div>
-    {:else if objectFormats}
-      <p class="scope">{t('Select one text shape to edit its content.')}</p>
-    {/if}
+      {#if textShape}
+        <div class="sec">
+          <div class="sec-title">{t('Text')}</div>
+          <textarea class="ok-input" aria-label={t('Text')} rows="2" value={text}
+            onchange={(e) => applyText(e.currentTarget.value)}></textarea>
+        </div>
+      {:else if objectFormats}
+        <p class="scope">{t('Select one text shape to edit its content.')}</p>
+      {/if}
+    </div>
   </div>
 {/if}
 
 <style>
+  .paint-controls, .size-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  [hidden] {
+    display: none;
+  }
   .bespoke {
     padding: 8px 10px;
     border-bottom: 1px solid var(--ok-border);
@@ -213,12 +222,39 @@
     flex-direction: column;
     gap: 10px;
   }
-  .paint-section { margin: 0 -10px; font-size: 11px; }
-  .paint-section summary { padding: 4px 8px; background: var(--ok-hover); cursor: pointer; }
-  .paint-fields { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
-  .paint-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  .number { display: flex; align-items: center; gap: 3px; width: 96px; }
-  .number input { width: 72px; min-width: 0; padding: 2px 4px; font-size: inherit; }
+  .paint-section {
+    margin: 0 -10px;
+    font-size: 11px;
+  }
+  .paint-section summary {
+    padding: 4px 8px;
+    background: var(--ok-hover);
+    cursor: pointer;
+  }
+  .paint-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+  .paint-field {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .number {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    width: 96px;
+  }
+  .number input {
+    width: 72px;
+    min-width: 0;
+    padding: 2px 4px;
+    font-size: inherit;
+  }
   .sec-title {
     font-size: 11px;
     font-weight: 600;
@@ -247,7 +283,11 @@
     padding: 0;
     cursor: pointer;
   }
-  .scope { font-size: 11px; color: var(--ok-text-2); margin: 0 0 6px; }
+  .scope {
+    font-size: 11px;
+    color: var(--ok-text-2);
+    margin: 0 0 6px;
+  }
   textarea.ok-input {
     resize: vertical;
     width: 100%;

@@ -67,6 +67,7 @@ test(
       await saved();
       await editor.locator('.hit').first().click();
       const box = editor.locator('.text-box');
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       await box.locator('summary').click();
       assert.equal(
         await box.getByRole('radio', { name: 'Shrink text on overflow', exact: true }).isChecked(),
@@ -150,6 +151,7 @@ test(
       await saved();
       const initial = await read();
       await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       await box.locator('summary').click();
       const verticalAlignment = box.getByRole('combobox', {
         name: 'Vertical alignment',
