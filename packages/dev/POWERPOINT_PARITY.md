@@ -123,3 +123,10 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 - Reorder validation: 2,846 core tests passed / 109 skipped; full editor suite 66 passed plus the final nested-scope regression (41 document tests passed); all three Selection Pane/reorder browser tests passed. Format/lint/TypeScript, Svelte diagnostics and builds passed.
 
 - Numeric property fields now also respect inherited object locks: position, size, rotation, aspect-ratio and flip controls are disabled. A browser regression failed before the fix and passes after it; Svelte diagnostics and the editor build pass. A separate Selection Pane drag test hit a preview-server startup timeout during the combined run; the changed lock scenario passed independently.
+
+## Size and Position controls
+
+- Reconnected to Mac PowerPoint and inspected its Size & Properties pane. Size and Position are separate disclosure sections; dimensions and coordinates use cm. Size orders Height, Width, Rotation, Scale Height, Scale Width and Lock aspect ratio. The editor now follows those sections, labels, units and dimension/rotation input limits.
+- Native scaling from 150% to 200% produces twice the original dimension, not three times. Selecting a different object and returning resets that baseline. Percentage controls use the initial selected dimensions, including per-object dimensions in a mixed selection. Temporary native resize edits were undone; native Undo is disabled again.
+- Six browser tests passed for geometry, inherited placeholders, mixed selections, fill/line, selection locks and stacking. A subsequent geometry run passed all three tests after adding excessive/zero scale validation. Svelte diagnostics report no errors or warnings; the editor build passes.
+- This is a partial migration of the existing properties panel. Native pane tabs, the Position origin selectors, picture-specific scaling, and full Fill/Line/Effects/Text Box layouts remain outstanding. Full UI and operation parity is not complete.

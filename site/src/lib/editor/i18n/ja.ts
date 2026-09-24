@@ -2,6 +2,14 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Size: 'サイズ',
+  Position: '位置',
+  Height: '高さ',
+  Width: '幅',
+  'Horizontal position': '横位置',
+  'Vertical position': '縦位置',
+  'Scale Height': '高さの倍率',
+  'Scale Width': '幅の倍率',
   'Reorder Overlapping Objects': '重なったオブジェクトの順序変更',
   'at position': '位置',
   'Selection Pane...': '選択ウィンドウ...',

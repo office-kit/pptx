@@ -5,17 +5,11 @@
   // here is the *only* path to a capability.
   import { getEditor } from '../core/context.ts';
   import {
-    getShapeBoundsResolved,
-    getShapeRotation,
-    getShapeFlip,
     getShapeText,
     getShapeTextAnchor,
     getShapeParagraphCount,
     getParagraphPropertiesEffective,
     getShapeKind,
-    inches,
-    emu,
-    setShapeBounds,
     getShapeFill,
     getShapeFillColorResolved,
     getShapeStroke,
@@ -27,6 +21,7 @@
     getSlideShapes,
     setShapeText,
   } from '@office-kit/pptx';
+  import SizePositionSection from './SizePositionSection.svelte';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { selectedShapeId } from '../core/selection.ts';
@@ -34,68 +29,12 @@
 
   const editor = getEditor();
   const doc = editor.doc;
-  let rotationInput = $state<HTMLInputElement>();
-  $effect(() => {
-    if (editor.rotationFocusRequested && rotationInput) {
-      rotationInput.scrollIntoView({ block: 'nearest' });
-      rotationInput.focus();
-      rotationInput.select();
-      editor.rotationFocusRequested = false;
-    }
-  });
-
   const shape = $derived.by(() => {
     doc.version;
     const sel = doc.selection;
     if (sel.kind !== 'shape') return null;
     const id = selectedShapeId(sel);
     return id == null ? null : doc.shapeById(sel.slideIndex, id);
-  });
-
-  const geometry = $derived.by(() => {
-    doc.version;
-    const items = [];
-    for (const target of editor.selectedShapes()) {
-      const bounds = getShapeBoundsResolved(doc.pres, target);
-      if (!bounds) return [];
-      items.push({ shape: target, bounds });
-    }
-    return items;
-  });
-  const locked = $derived(editor.selectionLocked());
-  let lockAspectRatio = $state(false);
-  const canLockAspectRatio = $derived(geometry.length > 0 && geometry.every(item => item.bounds.w > 0 && item.bounds.h > 0));
-  const emuPerInch = inches(1);
-  // DrawingML ST_Coordinate limits, expressed in the panel's inches.
-  const minPosition = -27273042329600 / emuPerInch;
-  const maxDimension = 27273042316900 / emuPerInch;
-  function emuToIn(value: number): number {
-    return Math.round((value / emuPerInch) * 100) / 100;
-  }
-
-  const bounds = $derived.by(() => {
-    if (!geometry.length) return null;
-    const common = (field: 'x' | 'y' | 'w' | 'h') => {
-      const values = new Set(geometry.map(item => item.bounds[field]));
-      return values.size === 1 ? emuToIn(geometry[0]!.bounds[field]) : null;
-    };
-    return { x: common('x'), y: common('y'), w: common('w'), h: common('h') };
-  });
-  const rotation = $derived.by(() => {
-    doc.version;
-    const values = new Set(editor.selectedShapes().map(getShapeRotation));
-    return values.size > 1 ? null : [...values][0] ?? 0;
-  });
-
-  const flips = $derived.by(() => {
-    doc.version;
-    const values = editor.selectedShapes().map(target => getShapeFlip(target));
-    const horizontal = new Set(values.map(value => value?.horizontal ?? false));
-    const vertical = new Set(values.map(value => value?.vertical ?? false));
-    return {
-      horizontal: horizontal.size > 1 ? null : horizontal.has(true),
-      vertical: vertical.size > 1 ? null : vertical.has(true),
-    };
   });
 
   const textShape = $derived.by(() => {
@@ -205,40 +144,6 @@
     const dash = dashStyles.find(([key]) => key === value)?.[0];
     if (dash) editor.invoke('setShapeStrokeDash', { dash });
   }
-  function setBoundsField(field: 'x' | 'y' | 'w' | 'h', input: HTMLInputElement) {
-    if (!bounds || !geometry.length || editor.selectionLocked()) return;
-    const restore = () => { input.value = bounds?.[field] == null ? '' : String(bounds[field]); };
-    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
-      restore();
-      return;
-    }
-    const value = inches(input.valueAsNumber);
-    const updates = geometry.map(({ shape, bounds: current }) => {
-      const next = { ...current, [field]: value };
-      if (lockAspectRatio && canLockAspectRatio) {
-        if (field === 'w') next.h = emu(current.h * next.w / current.w);
-        if (field === 'h') next.w = emu(current.w * next.h / current.h);
-      }
-      return { shape, bounds: next };
-    });
-    if (updates.some(item => item.bounds.w > maxDimension * emuPerInch || item.bounds.h > maxDimension * emuPerInch)) {
-      restore();
-      editor.toast('error', t('The proportional size is too large'));
-      return;
-    }
-    doc.transact(t('Set bounds'), () => {
-      for (const item of updates) setShapeBounds(item.shape, item.bounds);
-    });
-  }
-  function applyRotation(input: HTMLInputElement) {
-    const s = shape;
-    if (!s) return;
-    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) {
-      input.value = rotation === null ? '' : String(rotation);
-      return;
-    }
-    editor.invoke('setShapeRotation', { degrees: input.valueAsNumber });
-  }
   function applyText(value: string) {
     const s = textShape;
     if (!s) return;
@@ -288,50 +193,7 @@
       </label>
     </div>
 
-    {#if bounds}
-      <div class="sec">
-        <div class="sec-title">{t('Position & size (in)')}</div>
-        {#if geometry.length > 1}<p class="scope">{t('Values apply to each selected object')}</p>{/if}
-        <label class="aspect-lock">
-          <input type="checkbox" bind:checked={lockAspectRatio} disabled={locked || !canLockAspectRatio} />
-          <span>{t('Lock aspect ratio')}</span>
-        </label>
-        <div class="grid4">
-          <label class="mini"><span>X</span>
-            <input class="ok-input" type="number" disabled={locked} step="any" min={minPosition} max={maxDimension} value={bounds.x ?? ''} placeholder={bounds.x === null ? t('Mixed') : undefined}
-              onchange={(e) => setBoundsField('x', e.currentTarget)} /></label>
-          <label class="mini"><span>Y</span>
-            <input class="ok-input" type="number" disabled={locked} step="any" min={minPosition} max={maxDimension} value={bounds.y ?? ''} placeholder={bounds.y === null ? t('Mixed') : undefined}
-              onchange={(e) => setBoundsField('y', e.currentTarget)} /></label>
-          <label class="mini"><span>W</span>
-            <input class="ok-input" type="number" disabled={locked} step="any" min={0} max={maxDimension} value={bounds.w ?? ''} placeholder={bounds.w === null ? t('Mixed') : undefined}
-              onchange={(e) => setBoundsField('w', e.currentTarget)} /></label>
-          <label class="mini"><span>H</span>
-            <input class="ok-input" type="number" disabled={locked} step="any" min={0} max={maxDimension} value={bounds.h ?? ''} placeholder={bounds.h === null ? t('Mixed') : undefined}
-              onchange={(e) => setBoundsField('h', e.currentTarget)} /></label>
-        </div>
-      </div>
-    {/if}
-
-    <div class="sec">
-      <div class="sec-title">{t('Rotation')}</div>
-      <div class="rotrow">
-        <input bind:this={rotationInput} class="ok-input" type="number" aria-label={t('Rotation')} disabled={locked} step="any" value={rotation ?? ''} placeholder={rotation === null ? t('Mixed') : undefined}
-          onchange={(e) => applyRotation(e.currentTarget)} />
-        <span class="deg">°</span>
-      </div>
-    </div>
-
-    <div class="row2">
-      {#each ['horizontal', 'vertical'] as axis}
-        {@const value = axis === 'horizontal' ? flips.horizontal : flips.vertical}
-        <label class="aspect-lock">
-          <input type="checkbox" disabled={locked} checked={value ?? false} indeterminate={value === null}
-            onchange={event => editor.invoke('setShapeFlip', { options: { [axis]: event.currentTarget.checked } })} />
-          <span>{t(axis === 'horizontal' ? 'Flip horizontally' : 'Flip vertically')}{value === null ? ` (${t('Mixed')})` : ''}</span>
-        </label>
-      {/each}
-    </div>
+    <SizePositionSection />
 
     {#if objectFormats}
       <TextFormatBar formats={objectFormats} selected context="objects"
@@ -407,29 +269,6 @@
     cursor: pointer;
   }
   .scope { font-size: 11px; color: var(--ok-text-2); margin: 0 0 6px; }
-  .aspect-lock {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 6px;
-    font-size: 11px;
-  }
-  .grid4 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 6px;
-  }
-  .rotrow {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-  .rotrow .ok-input {
-    width: 80px;
-  }
-  .deg {
-    color: var(--ok-text-2);
-  }
   textarea.ok-input {
     resize: vertical;
     width: 100%;
