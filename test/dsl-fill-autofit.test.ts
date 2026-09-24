@@ -39,7 +39,9 @@ describe('Fill autoFit', () => {
     const pres = await titleSlide();
     expect(api.getShapeTextAutoFit(titleOf(pres))).toBeNull();
     expect(api.getShapeBodyPrEffective(pres, titleOf(pres)).autoFit).toBe('normal');
-    expect(auditTextLayout(pres, { measureText })).toEqual([]);
+    expect(auditTextLayout(pres, { measureText }).map((issue) => issue.kind)).toEqual([
+      'overflow-y',
+    ]);
   });
 
   it('reports overflow when an explicit no-autofit overrides the template', async () => {

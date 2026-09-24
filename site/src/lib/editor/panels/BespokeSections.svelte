@@ -12,14 +12,13 @@
     getShapeFill,
     getShapeFillColorResolved,
     getShapeStroke,
-    getShapeStrokeDash,
     getShapeStrokeWidth,
-    type LineDash,
     getShapeStrokeColorResolved,
     getShapeId,
     getSlideShapes,
     setShapeText,
   } from '@office-kit/pptx';
+  import LineStyleFields from './LineStyleFields.svelte';
   import SizePositionSection from './SizePositionSection.svelte';
   import TextBoxSection from './TextBoxSection.svelte';
   import TextFormatBar from '../ui/TextFormatBar.svelte';
@@ -75,21 +74,19 @@
   const paint = $derived.by(() => {
     doc.version;
     const sel = doc.selection;
-    if (sel.kind !== 'shape') return { fill: 'inherit', stroke: 'inherit', width: 'inherit', dash: 'inherit' };
+    if (sel.kind !== 'shape') return { fill: 'inherit', stroke: 'inherit', width: 'inherit' };
     const slide = doc.slideAt(sel.slideIndex);
-    if (!slide) return { fill: 'inherit', stroke: 'inherit', width: 'inherit', dash: 'inherit' };
+    if (!slide) return { fill: 'inherit', stroke: 'inherit', width: 'inherit' };
     const ids = new Set(sel.shapeIds);
     const fills = new Set<string>();
     const strokes = new Set<string>();
     const widths = new Set<string>();
-    const dashes = new Set<string>();
     for (const target of getSlideShapes(slide)) {
       if (!ids.has(getShapeId(target))) continue;
       const fill = getShapeFill(target);
       const stroke = getShapeStroke(target);
       const width = getShapeStrokeWidth(target);
       widths.add(width == null ? 'inherit' : String(width / 12700));
-      dashes.add(getShapeStrokeDash(target) ?? 'inherit');
       fills.add(fill.kind === 'solid' ? getShapeFillColorResolved(doc.pres, target) ?? fill.color : fill.kind);
       strokes.add(stroke.kind === 'solid' ? getShapeStrokeColorResolved(doc.pres, target) ?? stroke.color : stroke.kind);
     }
@@ -97,7 +94,6 @@
       fill: fills.size > 1 ? 'mixed' : [...fills][0] ?? 'inherit',
       stroke: strokes.size > 1 ? 'mixed' : [...strokes][0] ?? 'inherit',
       width: widths.size > 1 ? 'mixed' : [...widths][0] ?? 'inherit',
-      dash: dashes.size > 1 ? 'mixed' : [...dashes][0] ?? 'inherit',
     };
   });
 
@@ -121,13 +117,6 @@
   function applyStroke(value: string) {
     editor.invoke('setShapeStroke', { options: { color: value.replace('#', '') } });
   }
-  const dashStyles: Array<[LineDash, string]> = [
-    ['solid', 'Solid line'], ['dot', 'Dotted line'], ['dash', 'Dashed line'],
-    ['lgDash', 'Long dashed line'], ['dashDot', 'Dash-dot line'],
-    ['lgDashDot', 'Long dash-dot line'], ['lgDashDotDot', 'Long dash-dot-dot line'],
-    ['sysDash', 'System dashed line'], ['sysDot', 'System dotted line'],
-    ['sysDashDot', 'System dash-dot line'], ['sysDashDotDot', 'System dash-dot-dot line'],
-  ];
   function widthValue(): string {
     return paint.width === 'mixed' || paint.width === 'inherit' ? '' : paint.width;
   }
@@ -138,10 +127,6 @@
     }
     editor.invoke('setShapeStroke', { options: { widthEmu: Math.round(input.valueAsNumber * 12700) } });
   }
-  function applyDash(value: string) {
-    const dash = dashStyles.find(([key]) => key === value)?.[0];
-    if (dash) editor.invoke('setShapeStrokeDash', { dash });
-  }
   function applyText(value: string) {
     const s = textShape;
     if (!s) return;
@@ -151,45 +136,40 @@
 
 {#if shape}
   <div class="bespoke">
-    <div class="sec">
-      <div class="sec-title">{t('Fill & outline')}</div>
-      <div class="row2">
+    <details class="paint-section" open>
+      <summary>{t('Fill')}</summary>
+      <div class="paint-fields">
         <div class="mini">
-          <span>{t('Fill')}</span>
+          <span>{t('Color')}</span>
           <span class="colorwrap">
             <input type="color" aria-label={t('Fill')} value={colorValue(paint.fill)} onchange={(e) => applyFill(e.currentTarget.value)} />
             <span data-paint-state="fill">{paintLabel(paint.fill)}</span>
           </span>
           <button class="ok-btn" onclick={() => editor.invoke('setShapeNoFill')}>{t('No fill')}</button>
         </div>
+      </div>
+    </details>
+
+    <details class="paint-section" open>
+      <summary>{t('Line')}</summary>
+      <div class="paint-fields">
         <div class="mini">
-          <span>{t('Outline')}</span>
+          <span>{t('Color')}</span>
           <span class="colorwrap">
             <input type="color" aria-label={t('Outline')} value={colorValue(paint.stroke)} onchange={(e) => applyStroke(e.currentTarget.value)} />
             <span data-paint-state="stroke">{paintLabel(paint.stroke)}</span>
           </span>
           <button class="ok-btn" onclick={() => editor.invoke('setShapeNoStroke')}>{t('No outline')}</button>
         </div>
+        <label class="paint-field">
+          <span>{t('Width')}</span>
+          <span class="number"><input class="ok-input" aria-label={t('Outline width (points)')} type="number" min="0" max="1584" step="any"
+            value={widthValue()} placeholder={paintLabel(paint.width)}
+            onchange={(e) => applyWidth(e.currentTarget)} /><span>pt</span></span>
+        </label>
+        <LineStyleFields />
       </div>
-    </div>
-
-    <div class="row2">
-      <label class="mini">
-        <span>{t('Outline width (points)')}</span>
-        <input class="ok-input" type="number" min="0" max="1584" step="any"
-          value={widthValue()} placeholder={paintLabel(paint.width)}
-          onchange={(e) => applyWidth(e.currentTarget)} />
-      </label>
-      <label class="mini">
-        <span>{t('Outline style')}</span>
-        <select class="ok-input" value={paint.dash} onchange={(e) => applyDash(e.currentTarget.value)}>
-          {#if !dashStyles.some(([key]) => key === paint.dash)}
-            <option value={paint.dash} disabled>{paintLabel(paint.dash)}</option>
-          {/if}
-          {#each dashStyles as [value, label]}<option {value}>{t(label)}</option>{/each}
-        </select>
-      </label>
-    </div>
+    </details>
 
     <SizePositionSection />
     <TextBoxSection />
@@ -230,6 +210,12 @@
     flex-direction: column;
     gap: 10px;
   }
+  .paint-section { margin: 0 -10px; font-size: 11px; }
+  .paint-section summary { padding: 4px 8px; background: var(--ok-hover); cursor: pointer; }
+  .paint-fields { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+  .paint-field { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .number { display: flex; align-items: center; gap: 3px; width: 96px; }
+  .number input { width: 72px; min-width: 0; padding: 2px 4px; font-size: inherit; }
   .sec-title {
     font-size: 11px;
     font-weight: 600;

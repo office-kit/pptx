@@ -163,3 +163,16 @@ Reconcile the remaining operations from the earlier branch. Continue native visu
 
 - Native Mac PowerPoint displays 0 cm for a three-column placeholder with no local or inherited `spcCol`. The comparison dialog was cancelled and Undo remained disabled.
 - HTML, SVG, autofit and overflow auditing now use zero spacing when the effective column gap is absent. Regression coverage compares omitted spacing with explicit zero across these paths; all 13 focused tests pass.
+
+## Fill and Line sections
+
+- Native Format Shape shows separate Fill and Line disclosures. Solid Line orders Width, Compound type, Dash type, Cap type and Join type, alongside transparency, sketch and arrow controls. Native test changes to fill/line were undone.
+- Split the editor's combined paint section into independent disclosures. Added direct compound, cap and join fields using existing mutation commands and per-selection readback, including mixed group-child selections.
+- The native radio selectors, transparency, sketch, gradient-line and arrow layouts remain outstanding, as does the format pane tab migration. These controls are an incremental migration, not a claim of full native parity.
+
+- Validation: both paint-selection browser scenarios pass, including disclosure state, multi-selection line values, saved PPTX and Undo. Editor unit tests (67), Svelte diagnostics, format, lint and types pass.
+
+## Placeholder opening size
+
+- Native Mac PowerPoint opens sample 01 with its title at the authored size on two lines, although the master supplies bare `normAutofit`. Inheriting that editing policy must not trigger a new shrink estimate during rendering. Explicit saved scales remain effective.
+- Added a regression that reproduced an incorrect 0.75 scale before the fix. Both text-preview suites pass (17 tests); title and showcase fidelity return to their CI baselines. The animation copy rollback test now compares all unzipped package parts, excluding only ZIP entry timestamps.

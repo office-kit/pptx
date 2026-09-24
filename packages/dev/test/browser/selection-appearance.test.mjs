@@ -13,6 +13,12 @@ import {
   setShapeFill,
   setShapeStroke,
   setShapeStrokeDash,
+  setShapeStrokeCap,
+  setShapeStrokeJoin,
+  setShapeStrokeCompound,
+  getShapeStrokeCap,
+  getShapeStrokeJoin,
+  getShapeStrokeCompound,
   savePresentation,
   inches,
   getShapeFlip,
@@ -54,6 +60,9 @@ test(
       setShapeFill(first, '123456');
       setShapeStroke(first, { color: 'ABCDEF', widthEmu: 25400 });
       setShapeStrokeDash(first, 'dash');
+      setShapeStrokeCap(first, 'rnd');
+      setShapeStrokeJoin(first, 'bevel');
+      setShapeStrokeCompound(first, 'dbl');
       setShapeFill(second, '654321');
       groupShapes([first, second]);
       const source = join(dir, 'source.pptx');
@@ -107,6 +116,35 @@ test(
         .nth(1)
         .click({ modifiers: ['Shift'] });
       assert.equal(await editor.locator('[data-paint-state=fill]').textContent(), 'Mixed');
+      const lineProperties = async (read) => {
+        const deck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getGroupChildren(getSlideShapes(getSlides(deck)[0])[0]).map(read);
+      };
+      for (const [label, read, previous, value] of [
+        ['Compound type', getShapeStrokeCompound, 'dbl', 'tri'],
+        ['Cap type', getShapeStrokeCap, 'rnd', 'sq'],
+        ['Join type', getShapeStrokeJoin, 'bevel', 'miter'],
+      ]) {
+        const input = editor.getByRole('combobox', { name: label, exact: true });
+        assert.equal(await input.inputValue(), 'mixed');
+        await input.selectOption(value);
+        await saved();
+        assert.deepEqual(await lineProperties(read), [value, value]);
+        assert.equal(await input.inputValue(), value);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+        assert.deepEqual(await lineProperties(read), [previous, null]);
+        assert.equal(await input.inputValue(), 'mixed');
+      }
+      const fillSection = editor
+        .locator('.paint-section')
+        .filter({ has: editor.locator('summary', { hasText: /^Fill$/ }) });
+      await fillSection.locator('summary').click();
+      assert.equal(await fillSection.getByLabel('Fill', { exact: true }).isVisible(), false);
+      await fillSection.locator('summary').click();
+      assert.equal(await fillSection.getByLabel('Fill', { exact: true }).isVisible(), true);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();

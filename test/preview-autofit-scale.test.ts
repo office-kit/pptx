@@ -16,6 +16,7 @@ import {
   inches,
   loadPresentation,
   setShapeTextAutoFit,
+  setShapeText,
   setShapeTextColumns,
   type PresentationData,
 } from '@office-kit/pptx';
@@ -52,6 +53,14 @@ const boxWith = async (opts: { w: number; h: number; autofit: 'none' | 'normal' 
 };
 
 describe('shapeAutoFitScale', () => {
+  it('preserves the opening size of a title with only inherited automatic fitting', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Title and Content')!;
+    const slide = addSlide(pres, { layout });
+    const title = getSlideShapes(slide)[0]!;
+    setShapeText(title, '@office-kit/pptx sample 01 — blank deck');
+    expect(shapeAutoFitScale(pres, title)).toBe(1);
+  });
   it('uses inherited autofit and columns in preview and editing measurements', async () => {
     const parts = unzipSync(await readFile(fixturePath));
     const layout = 'ppt/slideLayouts/slideLayout1.xml';
