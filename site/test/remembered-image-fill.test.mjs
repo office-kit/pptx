@@ -137,3 +137,27 @@ test('picture insertion remembers the preceding solid and gradient fills', async
   assert.deepEqual(getShapeGradientFillEffective(pres, shape), gradient);
   assert.ok(remembered.solid);
 });
+
+test('replacing a picture retains transparency and the previous stretch and tile placements', async () => {
+  const { insertRememberedPictureFill } = await import('../src/lib/editor/core/remembered-fill.ts');
+  const pres = createPresentation();
+  const shape = addSlideShape(addBlankSlide(pres), {
+    preset: 'rect',
+    x: inches(1),
+    y: inches(1),
+    w: inches(2),
+    h: inches(2),
+  });
+  setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  setShapeImageOpacity(shape, 0.65);
+  setShapeImageFillLayout(shape, { mode: 'tile', scaleX: 0.6, rotateWithShape: false });
+  const remembered = { imageLayouts: { stretch: { mode: 'stretch', left: 0.25 } } };
+  const replacement = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 0]);
+  insertRememberedPictureFill(pres, shape, replacement, remembered);
+  assert.equal(getShapeImageOpacity(shape), 0.65);
+  assert.equal(getShapeImageFillLayout(shape).mode, 'stretch');
+  assert.equal(getShapeImageFillLayout(shape).left, 0.25);
+  assert.equal(getShapeImageFillLayout(shape).rotateWithShape, false);
+  assert.equal(remembered.imageLayouts.tile.scaleX, 0.6);
+  assert.deepEqual(getShapeImageFillBytes(shape), replacement);
+});
