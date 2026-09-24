@@ -484,3 +484,18 @@ changing the source. Raster coverage checks cropped quadrants, negative outsets
 and empty source regions before and after inheritance/save/reload. This closes the
 source-crop preview gap; fill-type picture restoration and effects beyond opacity
 still need implementation.
+
+Picture backgrounds are now remembered per slide when switching fill types during
+an editing session. The editor stores an independent background copy and restores
+its full XML and dependencies, including source crop, placement, opacity and
+imported image effects. `copySlideBackground` supports direct/inherited backgrounds
+and copies referenced parts across presentations without flattening them. Core
+coverage checks independent snapshots, save/reload, media sharing within a deck
+and missing-reference failure; browser coverage checks fill switching, undo/redo
+and persistence. Native Mac confirmation: switching a picture background with
+40% transparency to Solid fill and back restored 40%; the audit changes were
+undone and saved with Undo and Reset Background disabled. In two native audits,
+the offset field showed 37% after editing (Return or Tab) but returned to 25% after
+switching fill types; the editor currently retains the latest placement, so this
+native placement-memory difference remains unresolved. Texture presets and preview rendering of
+remaining image effects still require work.
