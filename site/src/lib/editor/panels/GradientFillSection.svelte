@@ -25,7 +25,7 @@
   const stop = $derived(visibleStops[selectedIndex] ?? { offset: 0, color: '#000000' });
   const locked = $derived(editor.selectionLocked());
   const stopColor = (stop: ReadGradientStop) => stop.resolvedColor ?? (/^#[\da-f]{6}$/i.test(stop.color) ? stop.color : '#000000');
-  const track = $derived(matchingStops ? `linear-gradient(to right, ${[...visibleStops].sort((a, b) => a.offset - b.offset).map(stop => `${stopColor(stop)} ${stop.offset * 100}%`).join(', ')})` : '');
+  const track = $derived(matchingStops ? `linear-gradient(to right, ${[...visibleStops].sort((a, b) => a.offset - b.offset).map(stop => `${stopColor(stop)}${Math.round((stop.opacity ?? 1) * 255).toString(16).padStart(2, '0')} ${stop.offset * 100}%`).join(', ')})` : '');
 
   function startDrag(event: PointerEvent, index: number) {
     if (locked || event.button !== 0) return;
