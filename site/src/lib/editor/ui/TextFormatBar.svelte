@@ -2,6 +2,7 @@
   import { asColor, type TextFormat } from '@office-kit/pptx';
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import ColorPicker from './ColorPicker.svelte';
+  import FontSizeInput from './FontSizeInput.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false }: {
@@ -38,7 +39,10 @@
   <div class="font-controls">
   <div class="font-fields">
   <label><span>{t('Font')}</span><input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
+  {#if ribbon}<FontSizeInput value={size} disabled={!(selected || typing)} choose={size => onformat({ size })} />
+  {:else}
   <label><span>{t('Font size')}</span><input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
+  {/if}
   <button class="ok-btn clear-format" aria-label={t('Clear text formatting')} title={t('Clear text formatting')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{#if ribbon}A⌫{:else}{t('Clear text formatting')}{/if}</button>
   </div>
   <div class="font-buttons">
