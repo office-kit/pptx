@@ -94,6 +94,8 @@ export class EditorController {
   readonly view = new ViewPreferences();
   inlineTextFormat = $state<{
     formats: TextFormat[];
+    alignment: string;
+    align: (alignment: string) => void;
     apply: (format: TextFormat, reset?: boolean) => void;
     toggle: (property: TextFormatToggle) => void;
   } | null>(null);

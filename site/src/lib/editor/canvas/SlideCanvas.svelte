@@ -916,6 +916,8 @@
   $effect(() => {
     editor.inlineTextFormat = editing ? {
       formats: rangeFormats,
+      alignment: inlineParagraph.align,
+      align: value => applyInlineParagraph('align', value),
       apply: applyInlineFormat,
       toggle: toggleInlineFormat,
     } : null;
@@ -997,7 +999,7 @@
       const target = inlineParagraphTarget();
       if (!target) return;
       for (const index of target.indices) {
-        if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify')) setParagraphAlignment(target.shape, index, value);
+        if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify' || value === 'distribute')) setParagraphAlignment(target.shape, index, value);
         if (kind === 'lineKind' && value === 'inherit') setParagraphLineSpacing(target.shape, index, null);
         if (kind === 'lineKind' && (value === 'pct' || value === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: value, value: value === 'pct' ? 1 : 18 });
         if (kind === 'lineValue' && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && (lineKind === 'pct' || lineKind === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: lineKind, value: Number(value) });
