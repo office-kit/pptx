@@ -80,6 +80,9 @@ describe('pending text formatting preview', () => {
     setShapeText(shape, 'English');
     const before = getParagraphPropertiesEffective(pres, shape, 0);
     expect(before.bullet).toBe('bullet');
+    expect(before.asianLineBreak).toBe(true);
+    expect(before.latinLineBreak).toBe(false);
+    expect(before.hangingPunctuation).toBe(true);
     const projected = projectTextEdits(
       shape,
       [{ start: 0, end: 0, text: '日本語\n' }],
@@ -93,6 +96,10 @@ describe('pending text formatting preview', () => {
       expect(props.lineSpacing).toEqual(before.lineSpacing);
       expect(props.spcBefPts).toBe(before.spcBefPts);
       expect(props.spcAftPts).toBe(before.spcAftPts);
+      expect(props.asianLineBreak).toBe(before.asianLineBreak);
+      expect(props.latinLineBreak).toBe(before.latinLineBreak);
+      expect(props.hangingPunctuation).toBe(before.hangingPunctuation);
+      expect(props.fontAlignment).toBe(before.fontAlignment);
     }
     expect(getParagraphBullet(shape, 0)).toBeNull();
     expect(getShapeText(shape)).toBe('English');
