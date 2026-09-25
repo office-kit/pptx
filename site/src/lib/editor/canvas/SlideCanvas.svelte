@@ -916,6 +916,8 @@
   $effect(() => {
     editor.inlineTextFormat = editing ? {
       formats: rangeFormats,
+      paragraphs: inlineParagraph.properties,
+      editParagraphs: editInlineParagraphs,
       alignment: inlineParagraph.align,
       align: value => applyInlineParagraph('align', value),
       apply: applyInlineFormat,
@@ -941,6 +943,7 @@
       return values.every(value => value === values[0]) ? values[0] ?? '' : '';
     }
     return {
+      properties: properties.map(p => ({ ...p, align: p.align ?? defaultAlign })),
       align: common(p => p.align ?? defaultAlign),
       bullet: common(p => typeof p.bullet === 'string' ? p.bullet : p.bullet === null ? 'none' : ''),
       level: common(p => String(p.level)),
@@ -988,30 +991,32 @@
     editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
     void tick().then(() => { if (editing === cur) textInput?.setSelectionRange(range.start, range.end); });
   }
-  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'levelDelta' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
+  function editInlineParagraphs(edit: (shape: Parameters<typeof setParagraphAlignment>[0], index: number) => void) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
     if (!cur || !box || restoringEditing) return;
     const range = { ...textRange };
-    const lineKind = inlineParagraph.lineKind;
     doc.transact(t('Format paragraphs'), () => {
       replayEdits(box, cur);
       const target = inlineParagraphTarget();
-      if (!target) return;
-      for (const index of target.indices) {
-        if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify' || value === 'distribute')) setParagraphAlignment(target.shape, index, value);
-        if (kind === 'lineKind' && value === 'inherit') setParagraphLineSpacing(target.shape, index, null);
-        if (kind === 'lineKind' && (value === 'pct' || value === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: value, value: value === 'pct' ? 1 : 18 });
-        if (kind === 'lineValue' && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && (lineKind === 'pct' || lineKind === 'pts')) setParagraphLineSpacing(target.shape, index, { kind: lineKind, value: Number(value) });
-        if ((kind === 'before' || kind === 'after') && (value === '' || (Number.isFinite(Number(value)) && Number(value) >= 0))) setParagraphSpacing(target.shape, index, { [kind === 'before' ? 'beforePts' : 'afterPts']: value === '' ? null : Number(value) });
-        if (kind === 'levelDelta') setParagraphLevel(target.shape, index, Math.max(0, Math.min(8, getParagraphPropertiesEffective(doc.pres, target.shape, index).level + Number(value))));
-        if (kind === 'level' && /^[0-8]$/.test(value)) setParagraphLevel(target.shape, index, Number(value));
-        if (kind === 'bullet' && (value === 'none' || value === 'bullet' || value === 'number')) setParagraphBullet(target.shape, index, value);
-      }
+      if (target) for (const index of target.indices) edit(target.shape, index);
     });
     cur.changes = [];
     editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
-    void tick().then(() => textInput?.setSelectionRange(range.start, range.end));
+    void tick().then(() => { if (editing === cur) textInput?.setSelectionRange(range.start, range.end); });
+  }
+  function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'levelDelta' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
+    const lineKind = inlineParagraph.lineKind;
+    editInlineParagraphs((shape, index) => {
+      if (kind === 'align' && (value === 'left' || value === 'center' || value === 'right' || value === 'justify' || value === 'distribute')) setParagraphAlignment(shape, index, value);
+      if (kind === 'lineKind' && value === 'inherit') setParagraphLineSpacing(shape, index, null);
+      if (kind === 'lineKind' && (value === 'pct' || value === 'pts')) setParagraphLineSpacing(shape, index, { kind: value, value: value === 'pct' ? 1 : 18 });
+      if (kind === 'lineValue' && value !== '' && Number.isFinite(Number(value)) && Number(value) >= 0 && (lineKind === 'pct' || lineKind === 'pts')) setParagraphLineSpacing(shape, index, { kind: lineKind, value: Number(value) });
+      if ((kind === 'before' || kind === 'after') && (value === '' || (Number.isFinite(Number(value)) && Number(value) >= 0))) setParagraphSpacing(shape, index, { [kind === 'before' ? 'beforePts' : 'afterPts']: value === '' ? null : Number(value) });
+      if (kind === 'levelDelta') setParagraphLevel(shape, index, Math.max(0, Math.min(8, getParagraphPropertiesEffective(doc.pres, shape, index).level + Number(value))));
+      if (kind === 'level' && /^[0-8]$/.test(value)) setParagraphLevel(shape, index, Number(value));
+      if (kind === 'bullet' && (value === 'none' || value === 'bullet' || value === 'number')) setParagraphBullet(shape, index, value);
+    });
   }
   function changeInlineListLevel(delta: number, listsOnly: boolean): boolean {
     const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;

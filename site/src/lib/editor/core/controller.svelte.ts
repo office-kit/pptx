@@ -40,6 +40,8 @@ import {
   type SlideShapeData,
   type ShapeBounds,
   type TextFormat,
+  type ParagraphProperties,
+  setParagraphAlignment,
 } from '@office-kit/pptx';
 import type { TextFormatToggle } from './text-format-toggle.ts';
 import {
@@ -94,6 +96,10 @@ export class EditorController {
   readonly view = new ViewPreferences();
   inlineTextFormat = $state<{
     formats: TextFormat[];
+    paragraphs: ParagraphProperties[];
+    editParagraphs: (
+      edit: (shape: Parameters<typeof setParagraphAlignment>[0], index: number) => void,
+    ) => void;
     alignment: string;
     align: (alignment: string) => void;
     apply: (format: TextFormat, reset?: boolean) => void;
