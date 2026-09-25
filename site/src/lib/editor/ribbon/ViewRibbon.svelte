@@ -3,6 +3,7 @@
   import { t } from '../i18n/i18n.svelte.ts';
   const editor = getEditor();
   const guides = $derived(editor.guidesVisible());
+  function toggleGrid() { editor.view.save({ grid: !editor.view.grid, smart: editor.view.smart, drawing: editor.view.drawing }); }
   function toggleGuides() { editor.view.save({ grid: editor.view.grid, smart: editor.view.smart, drawing: !guides }); }
 </script>
 
@@ -16,7 +17,9 @@
 <div class="group">
   <div class="checks">
     <label><input type="checkbox" bind:checked={editor.thumbnailsVisible} disabled={editor.viewMode !== 'normal'} />{t('Thumbnails')}</label>
-    <label><input type="checkbox" checked={guides} onchange={toggleGuides} />{t('Guides')}</label>
+    <label><input type="checkbox" checked={editor.view.grid} disabled={editor.viewMode !== 'normal'} onchange={toggleGrid} />{t('Gridlines')}</label>
+    <label><input type="checkbox" checked={guides} disabled={editor.viewMode !== 'normal'} onchange={toggleGuides} />{t('Guides')}</label>
+    <button class="options" aria-pressed={editor.viewMode === 'normal' && editor.notesVisible} disabled={editor.viewMode !== 'normal'} onclick={() => editor.notesVisible = !editor.notesVisible}>{t('Notes')}</button>
     <button class="options" onclick={() => editor.activeDialog = 'gridOptions'}>{t('Grid Options...')}</button>
   </div>
   <span>{t('Show')}</span>
@@ -34,10 +37,12 @@
   .items { display: flex; align-items: center; flex: 1; gap: 2px; }
   button { font: inherit; color: var(--ok-text); background: transparent; border: 1px solid transparent; border-radius: var(--ok-radius); cursor: pointer; }
   .items button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; width: 65px; min-height: 55px; font-size: 11px; padding: 4px; }
-  button:hover, button[aria-pressed='true'] { background: var(--ok-hover); border-color: var(--ok-border); }
+  button:disabled { opacity: 0.45; cursor: default; }
+  label:has(input:disabled) { opacity: 0.45; }
+  button:not(:disabled):hover, button[aria-pressed='true'] { background: var(--ok-hover); border-color: var(--ok-border); }
   svg { width: 24px; height: 24px; stroke: currentColor; fill: none; stroke-width: 1.2; }
   .group > span { text-align: center; font-size: 10px; color: var(--ok-text-2); padding: 4px 0 1px; }
-  .checks { display: grid; align-content: center; gap: 3px; flex: 1; font-size: 11px; }
+  .checks { display: grid; grid-template-rows: repeat(3, auto); grid-auto-flow: column; align-content: center; gap: 3px 12px; flex: 1; font-size: 11px; }
   label { display: flex; align-items: center; gap: 4px; }
   input { margin: 0; accent-color: var(--ok-accent); }
   .options { text-align: left; padding: 2px 0; }

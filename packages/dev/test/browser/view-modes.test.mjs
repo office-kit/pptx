@@ -212,6 +212,21 @@ test(
         await editor.locator('.thumbnail-pane').evaluate((node) => node.clientWidth),
         180,
       );
+      const gridlines = viewPanel.getByRole('checkbox', { name: 'Gridlines', exact: true });
+      await gridlines.check();
+      await viewPanel.getByRole('button', { name: 'Grid Options...', exact: true }).click();
+      const gridDialog = editor.getByRole('dialog', { name: 'Grid and Guides', exact: true });
+      assert.equal(
+        await gridDialog
+          .getByRole('checkbox', { name: 'Display grid on screen', exact: true })
+          .isChecked(),
+        true,
+      );
+      await gridDialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      const notesToggle = viewPanel.getByRole('button', { name: 'Notes', exact: true });
+      await notesToggle.click();
+      await editor.getByRole('textbox', { name: 'Notes content', exact: true }).waitFor();
+      assert.equal(await notesToggle.getAttribute('aria-pressed'), 'true');
       await viewPanel.getByRole('checkbox', { name: 'Guides', exact: true }).check();
       assert.equal(await editor.locator('.drawing-guide').count(), 2);
       await viewPanel.getByRole('button', { name: 'Slide Sorter', exact: true }).click();
@@ -220,7 +235,21 @@ test(
         await viewPanel.getByRole('checkbox', { name: 'Thumbnails', exact: true }).isDisabled(),
         true,
       );
+      assert.equal(await gridlines.isDisabled(), true);
+      assert.equal(
+        await viewPanel.getByRole('checkbox', { name: 'Guides', exact: true }).isDisabled(),
+        true,
+      );
+      assert.equal(await notesToggle.isDisabled(), true);
+      assert.equal(await notesToggle.getAttribute('aria-pressed'), 'false');
       await viewPanel.getByRole('button', { name: 'Normal', exact: true }).click();
+      assert.equal(await gridlines.isChecked(), true);
+      assert.equal(await notesToggle.getAttribute('aria-pressed'), 'true');
+      await notesToggle.click();
+      await editor
+        .getByRole('textbox', { name: 'Notes content', exact: true })
+        .waitFor({ state: 'detached' });
+      await gridlines.uncheck();
       await editor.locator('.nav.sorter').waitFor({ state: 'detached' });
       assert.equal(
         await editor.locator('.thumbnail-pane').evaluate((node) => node.clientWidth),
