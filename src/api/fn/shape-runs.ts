@@ -1,4 +1,5 @@
 import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
+import { boundedInt } from '../../internal/bounds.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
@@ -661,6 +662,38 @@ export const getParagraphIndent = (
     rightEmu: read('marR'),
     firstLineEmu: read('indent'),
   };
+};
+
+/**
+ * Sets paragraph indents in EMU. The first-line offset is relative to the
+ * left indent; negative values create a hanging indent. Omitted sides are
+ * preserved, and `null` removes an override to restore inheritance.
+ * Values are rounded to whole EMU and must satisfy the OOXML text bounds.
+ */
+export const setParagraphIndent = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+  opts: { leftEmu?: number | null; rightEmu?: number | null; firstLineEmu?: number | null },
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const sides = [
+    ['marL', opts.leftEmu, 'textMargin'],
+    ['marR', opts.rightEmu, 'textMargin'],
+    ['indent', opts.firstLineEmu, 'textIndent'],
+  ] as const;
+  // Validate every side before changing the XML so failed updates are atomic.
+  const values = sides.map(([name, value, range]) => ({
+    name,
+    value: value == null ? value : boundedInt(value, range, `paragraph ${name}`),
+  }));
+  if (values.every(({ value }) => value === undefined)) return;
+  const pPr = ensurePPr(paragraph);
+  for (const { name, value } of values) {
+    if (value === undefined) continue;
+    pPr.attrs = pPr.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === name));
+    if (value !== null) pPr.attrs.push(attr(qname('', name, ''), String(value)));
+  }
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
