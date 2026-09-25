@@ -1,5 +1,6 @@
 <script lang="ts">
   import { lockedShapeIds } from '../core/shape-locks.ts';
+  import SlideRulers from './SlideRulers.svelte';
   import DrawingGuides from './DrawingGuides.svelte';
   // The editing surface. Paints the current slide with the preview renderer and
   // manipulates it directly: click/marquee to select, drag to move (multi-shape,
@@ -1107,6 +1108,8 @@
 {#if editing}
   <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
 {/if}
+<div class="canvas-viewport" class:with-rulers={editor.view.ruler}>
+{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} />{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
     class="stage-wrap"
@@ -1255,11 +1258,14 @@
 </div>
 
 </div>
+</div>
 
 <style>
   .grid-dots { position: absolute; inset: 0; background-image: radial-gradient(circle, #808080 0.7px, transparent 0.8px); }
   .group-navigation { display: flex; align-items: center; gap: 12px; padding: 4px 12px; background: var(--ok-panel); }
   .canvas-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .canvas-viewport { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+  .canvas-viewport.with-rulers { padding-top: 22px; padding-left: 22px; }
   .canvas-area {
     flex: 1;
     background: var(--ok-canvas-bg);

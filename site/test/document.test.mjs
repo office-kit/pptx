@@ -845,11 +845,14 @@ test('guide display preferences do not change document history and defaults affe
     const editor = new EditorController();
     const version = editor.doc.version;
     const undo = editor.doc.canUndo;
+    editor.view.save({ ruler: true });
     editor.view.save({ grid: true, drawing: true, smart: false });
+    assert.equal(editor.view.ruler, true);
     assert.equal(editor.doc.version, version);
     assert.equal(editor.doc.canUndo, undo);
     assert.equal(editor.doc.dirty, false);
     const second = new EditorController();
+    assert.equal(second.view.ruler, true);
     assert.equal(second.view.grid, true);
     assert.equal(second.view.smart, false);
     localStorage.setItem(
