@@ -468,3 +468,41 @@ describe('centered text bounds', () => {
     expect(p!.line.anchorX + p!.dx).toBe(40);
   });
 });
+
+describe('paragraph tab stops', () => {
+  it.each([
+    ['left', 80],
+    ['center', 55],
+    ['right', 30],
+    ['decimal', 50],
+  ] as const)('aligns a mixed-format tab field using %s alignment', (alignment, gap) => {
+    const input = body([
+      para([piece('AB\t12'), piece('3.4', { bold: true })], {
+        tabStops: [{ positionPx: 100, alignment }],
+      }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines[0]!.tokens.find((token) => token.isTab)?.width).toBe(gap);
+    expect(layoutTextSvg(input, stubMeasurer)).toContain(`dx="${gap}"`);
+  });
+
+  it('uses default stops relative to the paragraph margin, accounting for first-line indent', () => {
+    const input = body([
+      para([piece('A\tB\tC')], { marLpx: 30, firstIndentPx: 10, defaultTabSizePx: 50 }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines[0]!.tokens.filter((token) => token.isTab).map((token) => token.width)).toEqual([
+      30, 40,
+    ]);
+  });
+
+  it('resets tab positions after a line break and right-aligns decimal fields without a point', () => {
+    const input = body([
+      para([piece('A\t12'), piece('', { isBreak: true }), piece('B\t123')], {
+        tabStops: [{ positionPx: 100, alignment: 'decimal' }],
+      }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines.map((line) => line.tokens.find((token) => token.isTab)?.width)).toEqual([70, 60]);
+  });
+});

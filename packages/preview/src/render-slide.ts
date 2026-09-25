@@ -2380,6 +2380,8 @@ type RunData = {
   hrefTip?: string;
 };
 interface ParaData {
+  readonly tabStops?: ReturnType<typeof getParagraphPropertiesEffective>['tabStops'];
+  readonly defaultTabSizeEmu?: number | undefined;
   readonly align: string;
   readonly level: number;
   readonly bulletStyle: ReturnType<typeof getParagraphBullet>;
@@ -2579,6 +2581,11 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
 
     return {
       align: alignOf(para.align),
+      tabStops: (para.tabStops ?? []).map((stop) => ({
+        positionPx: (stop.positionEmu / EMU_PER_PX) * scale,
+        alignment: stop.alignment,
+      })),
+      defaultTabSizePx: ((para.defaultTabSizeEmu ?? 914400) / EMU_PER_PX) * scale,
       marLpx,
       marRpx,
       firstIndentPx,
@@ -2946,6 +2953,8 @@ export const resolveTextBodyModel = (
       });
     }
     paraData.push({
+      tabStops: effective.tabStops,
+      defaultTabSizeEmu: effective.defaultTabSizeEmu,
       align,
       level,
       bulletStyle,
@@ -6011,6 +6020,8 @@ const cellParaData = (
       });
     }
     return {
+      tabStops: properties.tabStops,
+      defaultTabSizeEmu: properties.defaultTabSizeEmu,
       align: properties.align ?? 'left',
       level: properties.level,
       bulletStyle: properties.bullet,
