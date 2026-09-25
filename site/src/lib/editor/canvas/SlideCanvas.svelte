@@ -32,6 +32,7 @@
     setParagraphLevel,
     setParagraphLineSpacing,
     setParagraphSpacing,
+    setParagraphIndent,
     setParagraphBullet,
     getTableCells,
     getTableCellMargins,
@@ -939,6 +940,44 @@
       after: common(p => p.spcAftPts === null ? '' : String(p.spcAftPts)),
     };
   });
+  const rulerText = $derived.by(() => {
+    doc.version;
+    const target = pendingTextShape ? inlineParagraphTarget(pendingTextShape) : null;
+    if (!target || !target.indices.length || !editBox || !scope) return null;
+    const shape = editBox.shape;
+    // Rotated and vertical text need a ruler projected onto the text axes.
+    if (editBox.rotation !== 0 || textBodyTurn !== 0 || getShapeFlip(shape)?.horizontal || getShapeFlip(shape)?.vertical) return null;
+    if (!editing?.cell) {
+      const body = getShapeBodyPrEffective(doc.pres, shape);
+      if (body.vert) return null;
+    }
+    const props = getParagraphPropertiesEffective(doc.pres, target.shape, target.indices[0]!);
+    return { left: props.marL ?? props.level * 32 * 9525, first: props.indent ?? 0, scale: editAutoFit };
+  });
+  function applyRulerIndent(kind: 'first' | 'hanging' | 'left', delta: number) {
+    const cur = editing;
+    const box = boxes.find(b => b.id === cur?.id);
+    if (!cur || !box || restoringEditing) return;
+    const range = { ...textRange };
+    doc.transact(t('Paragraph indentation'), () => {
+      replayEdits(box, cur);
+      const target = inlineParagraphTarget();
+      if (!target) return;
+      for (const index of target.indices) {
+        const props = getParagraphPropertiesEffective(doc.pres, target.shape, index);
+        const left = props.marL ?? props.level * 32 * 9525;
+        const first = props.indent ?? 0;
+        const limit = 51206400;
+        const moved = Math.max(0, Math.min(limit, left + delta));
+        setParagraphIndent(target.shape, index, kind === 'first'
+          ? { firstLineEmu: Math.max(-limit, Math.min(limit, first + delta)) }
+          : { leftEmu: moved, ...(kind === 'hanging' ? { firstLineEmu: Math.max(-limit, Math.min(limit, first + left - moved)) } : {}) });
+      }
+    });
+    cur.changes = [];
+    editingUndo = []; editingRedo = []; editingHistoryDepth = 0;
+    void tick().then(() => { if (editing === cur) textInput?.setSelectionRange(range.start, range.end); });
+  }
   function applyInlineParagraph(kind: 'align' | 'bullet' | 'level' | 'levelDelta' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
@@ -1036,12 +1075,12 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.canvas-shell .text-format-bar, .inline-edit')) return;
+    if (target instanceof Element && target.closest('.canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
       queueMicrotask(() => {
-        if (editing === current && !document.activeElement?.closest('.canvas-shell .text-format-bar, .inline-edit')) commitEditing();
+        if (editing === current && !document.activeElement?.closest('.canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
       });
       return;
     }
@@ -1109,7 +1148,7 @@
   <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
 {/if}
 <div class="canvas-viewport" class:with-rulers={editor.view.ruler}>
-{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} />{/if}
+{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} />{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
     class="stage-wrap"
