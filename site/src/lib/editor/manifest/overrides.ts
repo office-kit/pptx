@@ -903,6 +903,48 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  setParagraphIndent: {
+    labelEn: 'Paragraph indentation',
+    labelJa: '段落のインデント',
+    params: [
+      {
+        name: 'paragraphIndex',
+        type: 'number',
+        kind: 'index',
+        optional: false,
+        label: 'Paragraph Index',
+      },
+      {
+        name: 'opts',
+        type: 'object',
+        kind: 'object',
+        optional: false,
+        fields: [
+          {
+            name: 'leftEmu',
+            type: 'number | null',
+            kind: 'emu',
+            optional: true,
+            label: 'Before text',
+          },
+          {
+            name: 'rightEmu',
+            type: 'number | null',
+            kind: 'emu',
+            optional: true,
+            label: 'After text',
+          },
+          {
+            name: 'firstLineEmu',
+            type: 'number | null',
+            kind: 'emu',
+            optional: true,
+            label: 'First line',
+          },
+        ],
+      },
+    ],
+  },
   copySlideBackground: {
     labelEn: 'Copy background',
     labelJa: '背景のコピー',

@@ -90,7 +90,8 @@ it('rejects missing relationships without modifying the target deck', async () =
   const target = createPresentation();
   const slide = addBlankSlide(target);
   setSlideBackground(slide, '#00FF00');
-  const before = await savePresentation(target);
+  const before = unzipSync(await savePresentation(target));
   expect(() => copySlideBackground(slide, getSlides(source)[0]!)).toThrow(/missing relationship/);
-  expect(await savePresentation(target)).toEqual(before);
+  // ZIP headers contain save-time timestamps; compare every package part instead.
+  expect(unzipSync(await savePresentation(target))).toEqual(before);
 });
