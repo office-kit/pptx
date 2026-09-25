@@ -82,17 +82,10 @@ const run = async () => {
     await editor.locator('.hit').first().click();
     await editor.getByRole('tab', { name: 'Home', exact: true }).click();
     await pause(page, 400);
-    await editor
-      .locator('.ribbon')
-      .getByRole('button', { name: 'Text format', exact: true })
-      .click();
-    const dialog = editor.getByRole('dialog');
-    await dialog.waitFor();
-    await pause(page, 600);
-    await dialog.getByLabel('Italic', { exact: true }).check();
-    await dialog.getByLabel('Color', { exact: true }).fill('C00000');
+    const font = editor.locator('.ribbon .font-ribbon');
+    await font.getByRole('button', { name: 'Italic', exact: true }).click();
+    await font.getByLabel('Text color: More Colors...', { exact: true }).fill('#c00000');
     await pause(page, 500);
-    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
     await saved();
     await pause(page, 800);
 

@@ -913,6 +913,14 @@
     if (editing?.typing && textRange.start === textRange.end) return [{ ...(editing.typing.reset ? {} : formats[0]), ...editing.typing.format }];
     return formats;
   });
+  $effect(() => {
+    editor.inlineTextFormat = editing ? {
+      formats: rangeFormats,
+      apply: applyInlineFormat,
+      toggle: toggleInlineFormat,
+    } : null;
+    return () => { editor.inlineTextFormat = null; };
+  });
   function inlineParagraphTarget(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape || !editing) return null;
     const cell = editing.cell ? getTableCells(shape)[editing.cell.row]![editing.cell.col]! : null;
@@ -1075,12 +1083,12 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
+    if (target instanceof Element && target.closest('.ribbon, .canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
       queueMicrotask(() => {
-        if (editing === current && !document.activeElement?.closest('.canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
+        if (editing === current && !document.activeElement?.closest('.ribbon, .canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
       });
       return;
     }
@@ -1145,7 +1153,7 @@
   </div>
 {/if}
 {#if editing}
-  <TextFormatBar formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
+  <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
 {/if}
 <div class="canvas-viewport" class:with-rulers={editor.view.ruler}>
 {#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} />{/if}

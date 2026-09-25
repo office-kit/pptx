@@ -10,6 +10,7 @@
   import ViewRibbon from './ViewRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
+  import FontRibbon from './FontRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -74,6 +75,7 @@
       <div class="group">
         <div class="group-items">
           {#if current?.id === 'home' && group.title === 'Arrange'}<ArrangeMenu />
+          {:else if current?.id === 'home' && group.title === 'Font'}<FontRibbon />
           {:else if current?.id === 'design' && group.title === 'Background'}
             <BackgroundStyles />
           {:else}
