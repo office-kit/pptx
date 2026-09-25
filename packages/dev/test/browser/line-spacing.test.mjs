@@ -136,15 +136,31 @@ test(
 
       const tabs = editor.getByRole('dialog', { name: 'Tabs', exact: true });
       await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      assert.equal(await tabs.getByRole('button', { name: 'Set', exact: true }).isEnabled(), false);
+      assert.equal(
+        await tabs.getByRole('button', { name: 'Clear', exact: true }).isEnabled(),
+        false,
+      );
       await tabs.getByLabel('Tab stop position:', { exact: true }).fill('2');
+      assert.equal(
+        await tabs.getByRole('button', { name: 'Clear', exact: true }).isEnabled(),
+        true,
+      );
       await tabs.getByRole('radio', { name: 'Decimal', exact: true }).check();
       await tabs.getByRole('button', { name: 'Set', exact: true }).click();
+      assert.equal(await tabs.getByRole('button', { name: 'Set', exact: true }).isEnabled(), true);
       await tabs.getByLabel('Default tab stops:', { exact: true }).fill('1.5');
       await tabs.getByRole('button', { name: 'OK', exact: true }).click();
       assert.deepEqual(await read(), beforeDialog);
       await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
       assert.equal(await tabs.getByRole('option').count(), 1);
       await tabs.getByRole('button', { name: 'Clear All', exact: true }).click();
+      assert.equal(await tabs.getByLabel('Tab stop position:', { exact: true }).inputValue(), '0');
+      assert.equal(await tabs.getByRole('button', { name: 'Set', exact: true }).isEnabled(), false);
+      assert.equal(
+        await tabs.getByRole('button', { name: 'Clear', exact: true }).isEnabled(),
+        false,
+      );
       await tabs.getByRole('button', { name: 'Cancel', exact: true }).click();
 
       await page.screenshot({ path: '/tmp/pptx-paragraph-dialog.png' });
@@ -232,6 +248,12 @@ test(
       await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
       await tabs.getByLabel('Tab stops list').selectOption(String(cm(3)));
       await tabs.getByRole('button', { name: 'Clear', exact: true }).click();
+      assert.equal(await tabs.getByLabel('Tab stop position:', { exact: true }).inputValue(), '0');
+      assert.equal(await tabs.getByRole('button', { name: 'Set', exact: true }).isEnabled(), false);
+      assert.equal(
+        await tabs.getByRole('button', { name: 'Clear', exact: true }).isEnabled(),
+        false,
+      );
       await tabs.getByRole('button', { name: 'OK', exact: true }).click();
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.deepEqual(await read(), mixed);
