@@ -392,8 +392,19 @@ export const getShapeRunFormatEffective = (
 // Each property merges independently — innermost layer that supplies a
 // value wins for that one property.
 
+/** A custom paragraph tab stop. */
+export interface ParagraphTabStop {
+  /** Position relative to the left margin, in EMU. */
+  positionEmu: number;
+  alignment: 'left' | 'center' | 'right' | 'decimal';
+}
+
 /** Effective paragraph properties returned by `getParagraphPropertiesEffective`. */
 export interface ParagraphProperties {
+  /** Custom tab stops; an empty list explicitly clears inherited stops. */
+  tabStops?: ParagraphTabStop[];
+  /** Distance between automatic tab stops, in EMU. */
+  defaultTabSizeEmu?: number;
   /** Horizontal alignment per `ParagraphAlignment`. */
   align: ParagraphAlignment | null;
   /** East Asian line-breaking rules; absent when not authored or inherited. */
@@ -451,6 +462,35 @@ export const ALIGN_TOKEN_MAP: Record<string, ParagraphProperties['align']> = {
 
 const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
   const out: Partial<ParagraphProperties> = {};
+  const defaultTabSize = getAttrValue(pPr, qname('', 'defTabSz', ''));
+  if (defaultTabSize !== null && Number.isFinite(Number(defaultTabSize)))
+    out.defaultTabSizeEmu = Number(defaultTabSize);
+  const tabList = firstChildElement(pPr, qname('a', 'tabLst', NS.dml));
+  if (tabList) {
+    out.tabStops = [];
+    for (const tab of tabList.children) {
+      if (
+        tab.kind !== 'element' ||
+        tab.name.namespaceURI !== NS.dml ||
+        tab.name.localName !== 'tab'
+      )
+        continue;
+      const pos = getAttrValue(tab, qname('', 'pos', ''));
+      if (pos === null || !Number.isFinite(Number(pos))) continue;
+      const alignment = getAttrValue(tab, qname('', 'algn', ''));
+      out.tabStops.push({
+        positionEmu: Number(pos),
+        alignment:
+          alignment === 'ctr'
+            ? 'center'
+            : alignment === 'r'
+              ? 'right'
+              : alignment === 'dec'
+                ? 'decimal'
+                : 'left',
+      });
+    }
+  }
   const algn = getAttrValue(pPr, qname('', 'algn', ''));
   if (algn !== null && ALIGN_TOKEN_MAP[algn] !== undefined) out.align = ALIGN_TOKEN_MAP[algn];
   const marL = getAttrValue(pPr, qname('', 'marL', ''));
@@ -546,6 +586,9 @@ const mergePPrLayer = (
   base: Partial<ParagraphProperties>,
   layer: Partial<ParagraphProperties>,
 ): void => {
+  if (base.tabStops === undefined && layer.tabStops !== undefined) base.tabStops = layer.tabStops;
+  if (base.defaultTabSizeEmu === undefined && layer.defaultTabSizeEmu !== undefined)
+    base.defaultTabSizeEmu = layer.defaultTabSizeEmu;
   for (const field of ['asianLineBreak', 'latinLineBreak', 'hangingPunctuation'] as const) {
     if (base[field] === undefined && layer[field] !== undefined) base[field] = layer[field];
   }
@@ -673,6 +716,10 @@ export const getParagraphPropertiesEffective = (
     spcAftPts: result.spcAftPts ?? null,
     rtl: result.rtl ?? null,
     bullet: result.bullet ?? null,
+    ...(result.tabStops === undefined ? {} : { tabStops: result.tabStops }),
+    ...(result.defaultTabSizeEmu === undefined
+      ? {}
+      : { defaultTabSizeEmu: result.defaultTabSizeEmu }),
     ...(result.asianLineBreak === undefined ? {} : { asianLineBreak: result.asianLineBreak }),
     ...(result.latinLineBreak === undefined ? {} : { latinLineBreak: result.latinLineBreak }),
     ...(result.hangingPunctuation === undefined

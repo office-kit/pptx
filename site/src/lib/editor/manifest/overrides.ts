@@ -903,6 +903,65 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  setParagraphTabs: {
+    labelEn: 'Tabs',
+    labelJa: 'タブ設定',
+    params: [
+      {
+        name: 'paragraphIndex',
+        type: 'number',
+        kind: 'index',
+        optional: false,
+        label: 'Paragraph Index',
+      },
+      {
+        name: 'settings',
+        type: 'object',
+        kind: 'object',
+        optional: false,
+        fields: [
+          {
+            name: 'defaultTabSizeEmu',
+            type: 'number | null',
+            kind: 'emu',
+            optional: true,
+            label: 'Default tab stops',
+          },
+          {
+            name: 'tabStops',
+            type: 'ParagraphTabStop[] | null',
+            kind: 'array',
+            optional: true,
+            label: 'Tab stops',
+            item: {
+              name: 'stop',
+              type: 'ParagraphTabStop',
+              kind: 'object',
+              optional: false,
+              fields: [
+                {
+                  name: 'positionEmu',
+                  type: 'number',
+                  kind: 'emu',
+                  optional: false,
+                  label: 'Tab stop position',
+                },
+                {
+                  name: 'alignment',
+                  type: 'string',
+                  kind: 'enum',
+                  optional: false,
+                  label: 'Alignment',
+                  enumValues: ['left', 'center', 'right', 'decimal'],
+                  default: 'left',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    ],
+  },
   setParagraphTypography: {
     labelEn: 'Line Breaks and Alignment',
     labelJa: '改行と配置',
