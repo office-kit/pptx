@@ -133,6 +133,36 @@ test(
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '11%');
       await slider.press('Shift+ArrowRight');
       assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '21%');
+      await editor.getByRole('button', { name: 'Slide Sorter', exact: true }).click();
+      await editor.getByTitle('Zoom...', { exact: true }).click();
+      assert.equal(
+        await zoomDialog.getByRole('radio', { name: 'Fit', exact: true }).isEnabled(),
+        false,
+      );
+      assert.equal(
+        await zoomDialog.getByRole('radio', { name: '400%', exact: true }).isEnabled(),
+        false,
+      );
+      assert.equal(await zoomDialog.getByRole('spinbutton').getAttribute('min'), '20');
+      assert.equal(await zoomDialog.getByRole('spinbutton').getAttribute('max'), '200');
+      await zoomDialog.getByRole('spinbutton').fill('201');
+      await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal(await zoomDialog.isVisible(), true);
+      await zoomDialog.getByRole('spinbutton').fill('80');
+      await zoomDialog.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.equal(await slider.inputValue(), '750');
+      await slider.press('End');
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '200%');
+      await editor.getByTitle('Zoom in (Ctrl+=)', { exact: true }).click();
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '200%');
+      await slider.press('Home');
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '20%');
+      await editor.getByTitle('Zoom out (Ctrl+-)', { exact: true }).click();
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '20%');
+      await editor.getByTitle('Fit (Ctrl+0)', { exact: true }).click();
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '100%');
+      await editor.getByRole('button', { name: 'Normal', exact: true }).click();
+      assert.equal(await editor.getByTitle('Zoom...', { exact: true }).innerText(), '21%');
       assert.equal((await waitForState(preview.url, () => true)).revision, beforeZoomRevision);
       const thumbnailResize = editor.getByRole('separator', { name: 'Thumbnail pane width' });
       await thumbnailResize.press('Home');

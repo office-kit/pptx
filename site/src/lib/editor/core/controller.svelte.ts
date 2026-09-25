@@ -371,11 +371,19 @@ export class EditorController {
   /** When set by the canvas, `fit` recomputes to this multiplier. */
   fitZoom = $state(1);
 
+  get minZoomPercent(): number {
+    return this.viewMode === 'sorter' ? 20 : 10;
+  }
+  get maxZoomPercent(): number {
+    return this.viewMode === 'sorter' ? 200 : 400;
+  }
+
   setZoom(z: number): void {
-    if (this.viewMode === 'sorter') this.sorterZoom = Math.max(0.1, Math.min(z, 4));
+    const clamped = Math.max(this.minZoomPercent / 100, Math.min(z, this.maxZoomPercent / 100));
+    if (this.viewMode === 'sorter') this.sorterZoom = clamped;
     else {
       this.autoFitZoom = false;
-      this.zoom = Math.max(0.1, Math.min(z, 4));
+      this.zoom = clamped;
     }
   }
   zoomIn(): void {

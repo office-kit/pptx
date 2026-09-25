@@ -93,8 +93,15 @@ test('zoom buttons advance to the adjacent ten-percent stop in the active view',
       [1.23, 1.2, 1.3],
       [1.27, 1.2, 1.3],
       [1.2, 1.1, 1.3],
-      [0.1, 0.1, 0.2],
-      [4, 3.9, 4],
+      ...(mode === 'normal'
+        ? [
+            [0.1, 0.1, 0.2],
+            [4, 3.9, 4],
+          ]
+        : [
+            [0.2, 0.2, 0.3],
+            [2, 1.9, 2],
+          ]),
     ]) {
       editor.setZoom(start);
       editor.zoomOut();
@@ -104,6 +111,21 @@ test('zoom buttons advance to the adjacent ten-percent stop in the active view',
       assert.equal(zoom(), larger, `${mode}: zoom in from ${start}`);
     }
   }
+  assert.equal(editor.doc.canUndo, false);
+});
+
+test('sorter zoom uses the native 20–200 percent range independently of normal view', () => {
+  const editor = new EditorController();
+  editor.setZoom(4);
+  editor.setViewMode('sorter');
+  editor.setZoom(4);
+  assert.equal(editor.sorterZoom, 2);
+  editor.setZoom(0.1);
+  assert.equal(editor.sorterZoom, 0.2);
+  editor.zoomFit();
+  assert.equal(editor.sorterZoom, 1);
+  editor.setViewMode('normal');
+  assert.equal(editor.zoom, 4);
   assert.equal(editor.doc.canUndo, false);
 });
 

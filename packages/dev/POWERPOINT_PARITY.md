@@ -534,3 +534,10 @@ advance to the adjacent 10% stop, with existing 10–400% limits. Controller cov
 checks both views, exact stops and limits; browser coverage exercises custom
 percentages through the Zoom dialog and status buttons without changing document
 history. Full operation and visual parity remains incomplete.
+
+## Native Slide Sorter zoom range
+
+- Mac PowerPoint's Slide Sorter Zoom dialog disables Fit and 400%. Entering 400 displays “The number must be between 20 and 200.” Normal view retains 10–400%.
+- The native sorter slider reports position 750 at 80%, confirming a 20–100% lower half. The status-bar Fit button remains available and sets 100%, despite the disabled dialog preset.
+- The editor now applies view-specific bounds in its controller, dialog and both slider mappings. Browser coverage checks rejected out-of-range input, disabled presets, slider position, endpoint clamping, Fit and independent Normal zoom without document revisions.
+- The temporary reference was restored to sorter 80% and Normal 120%; no content edits remain. Color-palette internals remain unverified because native accessibility exposes an empty Color Picker container and screenshot capture returns a one-pixel image.
