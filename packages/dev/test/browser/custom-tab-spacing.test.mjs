@@ -67,6 +67,57 @@ test('custom tab alignment uses painted browser font widths', { timeout: 90000 }
         Math.abs(placement.start + shift - 192) < 1,
         `${alignment}: ${JSON.stringify(placement)}`,
       );
+      await editor.locator('.hit').first().dblclick();
+      const input = editor.locator('[contenteditable="true"]');
+      const editing = input.locator('[data-text-paragraph]').first();
+      const measureEditing = () =>
+        editing.evaluate((element) => {
+          const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+          let node;
+          while ((node = walker.nextNode())) {
+            const index = node.textContent.indexOf('12.34');
+            if (index < 0) continue;
+            const range = document.createRange();
+            range.setStart(node, index);
+            range.setEnd(node, index + 5);
+            const rect = range.getBoundingClientRect();
+            range.setEnd(node, index + 2);
+            const zoom = Number(getComputedStyle(element).getPropertyValue('--text-zoom'));
+            return {
+              start: (rect.left - element.getBoundingClientRect().left) / zoom,
+              width: rect.width / zoom,
+              decimal: range.getBoundingClientRect().width / zoom,
+              text: element.textContent,
+            };
+          }
+          throw new Error('Missing editable tab field');
+        });
+      const assertEditing = async (expectedText) => {
+        const edited = await measureEditing();
+        const editShift =
+          alignment === 'Center'
+            ? edited.width / 2
+            : alignment === 'Right'
+              ? edited.width
+              : alignment === 'Decimal'
+                ? edited.decimal
+                : 0;
+        assert.ok(
+          Math.abs(edited.start + editShift - 192) < 1,
+          `editing ${alignment}: ${JSON.stringify(edited)}`,
+        );
+        assert.equal(edited.text, expectedText);
+      };
+      await assertEditing('A\t12.34');
+      await input.press('Home');
+      await input.press('ArrowRight');
+      await page.keyboard.insertText('B');
+      await input.filter({ hasText: /^AB\t12\.34$/ }).waitFor();
+      await assertEditing('AB\t12.34');
+      await input.press('ControlOrMeta+z');
+      await input.filter({ hasText: /^A\t12\.34$/ }).waitFor();
+      await assertEditing('A\t12.34');
+      await input.press('Escape');
     }
     assert.deepEqual(errors, []);
   } finally {
