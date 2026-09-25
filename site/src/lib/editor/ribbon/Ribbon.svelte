@@ -11,6 +11,7 @@
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import FontRibbon from './FontRibbon.svelte';
+  import LineSpacingMenu from './LineSpacingMenu.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
@@ -83,6 +84,7 @@
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}
             {#if current?.id === 'home' && item.id === 'setParagraphAlignment'}<ParagraphAlignment />
+            {:else if current?.id === 'home' && item.id === 'setParagraphLineSpacing'}<LineSpacingMenu />
             {:else}
             <button
               class="cmd"
