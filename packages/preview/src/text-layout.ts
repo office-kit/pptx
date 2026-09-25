@@ -45,11 +45,12 @@ export type TextMeasurer = (text: string, spec: FontSpec) => MeasureResult;
 export type TextLayoutMode = 'foreignObject' | 'svg';
 
 export interface RenderSlideOptions {
-  /** Measurer used by the pure-SVG text path. Required when `textLayout` is
-   *  'svg'; ignored otherwise. */
+  /** Measurer used by the pure-SVG text path. Custom tabs in browser mode
+   *  use canvas font metrics, falling back to this measurer outside a browser. */
   readonly measureText?: TextMeasurer;
-  /** Which text path to use. Defaults to 'foreignObject' (the browser path)
-   *  so existing callers are unaffected; the harness opts into 'svg'. */
+  /** Which text path to use. Defaults to 'foreignObject' (the browser path).
+   *  Bodies with custom tab stops use SVG positioning in either mode, since
+   *  CSS cannot represent their alignment. The harness opts into 'svg'. */
   readonly textLayout?: TextLayoutMode;
 }
 

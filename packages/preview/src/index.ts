@@ -5,8 +5,9 @@
 // browser. For Node rasterization to PNG/RGBA, import `@office-kit/pptx-preview/node`.
 //
 // `renderSlideToSvg` is the canonical preview entry. By default it lays text
-// out with `<foreignObject>` (the browser measures + wraps), which is correct
-// in a browser but invisible to headless rasterizers. Pass
+// out with `<foreignObject>` (the browser measures + wraps), except custom-tab
+// bodies, which use SVG positioning with browser font metrics. HTML text is
+// invisible to headless rasterizers. Pass
 // `{ textLayout: 'svg', measureText }` to get pure `<text>` output that resvg
 // (or any SVG rasterizer) can paint — this is what the `/node` entry does.
 
