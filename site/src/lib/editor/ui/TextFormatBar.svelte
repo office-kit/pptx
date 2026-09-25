@@ -73,7 +73,7 @@
   {#if onparagraph && paragraph}
     <label>{t('Paragraph alignment')}<select aria-label={t('Paragraph alignment')} value={paragraph.align} onchange={e => onparagraph?.('align', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option>
-      <option value="left">{t('Left')}</option><option value="center">{t('Center')}</option><option value="right">{t('Right')}</option><option value="justify">{t('Justify')}</option>
+      <option value="left">{t('Left')}</option><option value="center">{t('Center')}</option><option value="right">{t('Right')}</option><option value="justify">{t('Justify')}</option><option value="distribute">{t('Distributed')}</option>
     </select></label>
     <label>{t('List style')}<select aria-label={t('List style')} value={paragraph.bullet} onchange={e => onparagraph?.('bullet', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option><option value="none">{t('No list')}</option><option value="bullet">{t('Bulleted list')}</option><option value="number">{t('Numbered list')}</option>

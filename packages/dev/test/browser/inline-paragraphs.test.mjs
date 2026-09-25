@@ -180,6 +180,7 @@ test(
         .click();
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'dist');
+      assert.equal(await bar.getByLabel('段落の配置', { exact: true }).inputValue(), 'distribute');
       assert.equal(getParagraphAlignment(await shape(), 2), 'dist');
       assert.equal(getParagraphAlignment(await shape(), 3), 'r');
       assert.equal(
