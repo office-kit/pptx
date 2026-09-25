@@ -168,6 +168,11 @@ export interface BulletInput {
 }
 
 export interface ParaInput {
+  readonly tabStops?: readonly {
+    positionPx: number;
+    alignment: 'left' | 'center' | 'right' | 'decimal';
+  }[];
+  readonly defaultTabSizePx?: number;
   readonly align: 'left' | 'center' | 'right' | 'justify';
   readonly marLpx: number;
   readonly marRpx: number;
@@ -214,6 +219,9 @@ export interface TextBodyInput {
 // Layout internals.
 
 export interface Token {
+  readonly isTab?: boolean;
+  tabFieldWidth?: number;
+  tabDecimalWidth?: number;
   readonly text: string;
   readonly piece: PieceInput;
   readonly isSpace: boolean;
@@ -402,7 +410,11 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           continue;
         }
         const widthSpec = { ...specOf(piece), sizePx: renderedSizePxOf(piece) };
-        for (const word of piece.text.match(/\s+|\S+/g) ?? []) {
+        for (const word of piece.text.match(/\t|[^\S\t]+|\S+/g) ?? []) {
+          if (word === '\t') {
+            tokens.push({ text: '', piece, isSpace: true, isBreak: false, isTab: true, width: 0 });
+            continue;
+          }
           const isSpace = /^\s+$/.test(word);
           for (const seg of isSpace ? [word] : splitEastAsianBreakables(word)) {
             const w = mWidth(seg, widthSpec);
@@ -423,10 +435,41 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         }
       }
 
+      // Resolve each tab's following field once, across run boundaries.
+      // Decimal tabs align the first decimal point, or the field end if absent.
+      let fieldWidth = 0;
+      let decimalWidth = 0;
+      for (let ti = tokens.length - 1; ti >= 0; ti--) {
+        const token = tokens[ti]!;
+        if (token.isTab || token.isBreak) {
+          if (token.isTab) {
+            token.tabFieldWidth = fieldWidth;
+            token.tabDecimalWidth = decimalWidth;
+          }
+          fieldWidth = decimalWidth = 0;
+        } else {
+          fieldWidth += token.width;
+          const decimal = token.text.indexOf('.');
+          decimalWidth =
+            decimal < 0
+              ? decimalWidth + token.width
+              : mWidth(token.text.slice(0, decimal), {
+                  ...specOf(token.piece),
+                  sizePx: renderedSizePxOf(token.piece),
+                });
+        }
+      }
       for (const token of tokens) {
         if (token.piece.highlightHex) token.highlightMetrics = mMetrics(token.piece);
       }
-      const wrapped = wrapTokens(tokens, input.wrap, wrapRight - firstLeft - bulletLead, avail);
+      const wrapped = wrapTokens(
+        tokens,
+        input.wrap,
+        wrapRight - firstLeft - bulletLead,
+        avail,
+        para,
+        firstLeft + bulletLead - wrapLeft,
+      );
       const paraLines: Token[][] = wrapped.length > 0 ? wrapped : [[]];
 
       for (let li = 0; li < paraLines.length; li++) {
@@ -766,6 +809,7 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
 };
 
 interface Group {
+  isTab?: boolean;
   highlightMetrics?: { a: number; d: number };
   text: string;
   piece: PieceInput;
@@ -777,12 +821,13 @@ const groupTokens = (toks: Token[]): Group[] => {
   for (const t of toks) {
     if (t.isBreak) continue;
     const last = groups[groups.length - 1];
-    if (last && samePiece(last.piece, t.piece)) {
+    if (last && !last.isTab && !t.isTab && samePiece(last.piece, t.piece)) {
       last.text += t.text;
       last.width += t.width;
     } else {
       groups.push({
         text: t.text,
+        isTab: t.isTab === true,
         piece: t.piece,
         width: t.width,
         ...(t.highlightMetrics ? { highlightMetrics: t.highlightMetrics } : {}),
@@ -917,6 +962,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.hrefTip === b.hrefTip;
 
 const tspan = (g: Group): string => {
+  if (g.isTab) return `<tspan dx="${fmt(g.width)}">&#8203;</tspan>`;
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
@@ -954,6 +1000,8 @@ const wrapTokens = (
   wrap: boolean,
   firstAvail: number,
   avail: number,
+  para: ParaInput,
+  firstOffset: number,
 ): Token[][] => {
   const lines: Token[][] = [];
   let cur: Token[] = [];
@@ -980,6 +1028,33 @@ const wrapTokens = (
       cur.push(tok);
       close();
       continue;
+    }
+    if (tok.isTab) {
+      const position = lineW + (first ? firstOffset : 0);
+      const stops = para.tabStops ?? [];
+      let lo = 0;
+      let hi = stops.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (stops[mid]!.positionPx <= position + 0.01) lo = mid + 1;
+        else hi = mid;
+      }
+      const stop = stops[lo];
+      // Mac PowerPoint defaults to one-inch intervals. Zero disables that grid.
+      const interval = para.defaultTabSizePx ?? 96;
+      const next =
+        stop?.positionPx ??
+        (interval > 0 ? (Math.floor(position / interval) + 1) * interval : position);
+      const alignment = stop?.alignment ?? 'left';
+      const offset =
+        alignment === 'center'
+          ? (tok.tabFieldWidth ?? 0) / 2
+          : alignment === 'right'
+            ? (tok.tabFieldWidth ?? 0)
+            : alignment === 'decimal'
+              ? (tok.tabDecimalWidth ?? 0)
+              : 0;
+      tok.width = Math.max(0, next - offset - position);
     }
     if (tok.isSpace) {
       cur.push(tok);
