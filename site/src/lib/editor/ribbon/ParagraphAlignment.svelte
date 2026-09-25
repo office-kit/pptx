@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getShapeKind, getShapeParagraphCount, getParagraphPropertiesEffective } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { shapeTextDefaults } from '../core/text-layout-defaults.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -12,9 +13,10 @@
     if (!enabled) return '';
     const values = new Set<string>();
     for (const shape of shapes) {
+      const defaultAlign = shapeTextDefaults(shape).align;
       const count = getShapeParagraphCount(shape);
-      for (let index = 0; index < count; index++) values.add(getParagraphPropertiesEffective(editor.doc.pres, shape, index).align ?? 'left');
-      if (!count) values.add('left');
+      for (let index = 0; index < count; index++) values.add(getParagraphPropertiesEffective(editor.doc.pres, shape, index).align ?? defaultAlign);
+      if (!count) values.add(defaultAlign);
     }
     return values.size === 1 ? [...values][0] : '';
   });
