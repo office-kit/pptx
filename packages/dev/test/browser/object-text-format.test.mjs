@@ -264,7 +264,22 @@ test(
       };
       await saved();
       const before = await read();
+      await editor.locator('.hit').nth(1).click();
+      assert.equal(
+        await editor
+          .locator('.paragraph-alignment')
+          .getByRole('button', { name: 'Center', exact: true })
+          .getAttribute('aria-pressed'),
+        'true',
+      );
       await editor.locator('.hit').nth(0).click();
+      assert.equal(
+        await editor
+          .locator('.paragraph-alignment')
+          .getByRole('button', { name: 'Align Left', exact: true })
+          .getAttribute('aria-pressed'),
+        'true',
+      );
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const panel = editor.locator('.bespoke');
       await editor
