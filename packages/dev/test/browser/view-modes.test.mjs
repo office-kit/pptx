@@ -235,6 +235,18 @@ test(
         await viewPanel.getByRole('checkbox', { name: 'Thumbnails', exact: true }).isDisabled(),
         true,
       );
+      await editor.getByRole('button', { name: 'View', exact: true }).click();
+      const gridMenu = editor.getByRole('menuitem', { name: 'Grid and Guides', exact: true });
+      await gridMenu.focus();
+      await gridMenu.press('ArrowRight');
+      const gridSubmenu = editor.getByRole('menu', { name: 'Grid and Guides', exact: true });
+      assert.equal(await gridSubmenu.locator('button').count(), 5);
+      assert.equal(await gridSubmenu.locator('button:disabled').count(), 5);
+      await gridMenu.press('Escape');
+      assert.equal(
+        await viewPanel.getByRole('button', { name: 'Grid Options...', exact: true }).isDisabled(),
+        true,
+      );
       assert.equal(await gridlines.isDisabled(), true);
       assert.equal(
         await viewPanel.getByRole('checkbox', { name: 'Guides', exact: true }).isDisabled(),

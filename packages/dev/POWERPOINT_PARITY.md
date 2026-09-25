@@ -547,3 +547,5 @@ history. Full operation and visual parity remains incomplete.
 - Native View exposes Gridlines and Guides checkboxes plus a Notes toggle; all three are disabled in Slide Sorter. Notes shows off in the sorter and restores its prior on state in Normal.
 - Added the missing Gridlines and Notes controls, sharing the existing display preference and notes pane state. Guides now also disables in Slide Sorter. Browser coverage checks Grid Options synchronization, notes visibility, view switching and unchanged document revision.
 - Inspected native Outline View and Ruler without editing content, then restored Normal view and the original disabled ruler. These two editor surfaces remain outstanding; this change does not claim complete View ribbon parity.
+
+- Follow-up native menu inspection confirmed that all five Grid and Guides submenu commands (including Smart Guides, Snap to Grid and Grid Options) disable in Slide Sorter. The editor menu and ribbon Grid Options now match. Keyboard submenu opening skips disabled items. The reference is restored to Normal 120% with Undo disabled.

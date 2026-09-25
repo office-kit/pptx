@@ -45,7 +45,7 @@
     const target = event.target as HTMLElement;
     if (event.key === 'ArrowRight' && target.dataset.submenu) {
       event.preventDefault(); submenu = target.dataset.submenu as 'grid' | 'zoom';
-      void tick().then(() => root.querySelector<HTMLButtonElement>('.submenu button')?.focus());
+      void tick().then(() => root.querySelector<HTMLButtonElement>('.submenu button:not(:disabled)')?.focus());
     } else if (event.key === 'ArrowLeft' && target.closest('.submenu')) {
       event.preventDefault(); const previous = submenu; submenu = null;
       root.querySelector<HTMLButtonElement>(`[data-submenu="${previous}"]`)?.focus();
@@ -77,12 +77,12 @@
         {#if submenu === 'grid'}
           <div class="menu submenu" use:place={true} role="menu" aria-label={t('Grid and Guides')}>
             {#each [{ key: 'smart' as const, label: 'Smart Guides', value: editor.view.smart }, { key: 'drawing' as const, label: 'Guides', value: drawing }, { key: 'grid' as const, label: 'Gridlines', value: editor.view.grid }] as item}
-              <button role="menuitemcheckbox" aria-checked={item.value} onclick={() => choose(() => toggle(item.key))}><span>{item.value ? '✓' : ''}</span>{t(item.label)}</button>
+              <button role="menuitemcheckbox" disabled={editor.viewMode !== 'normal'} aria-checked={item.value} onclick={() => choose(() => toggle(item.key))}><span>{item.value ? '✓' : ''}</span>{t(item.label)}</button>
             {/each}
             <hr />
-            <button role="menuitemcheckbox" aria-checked={snapping} onclick={() => choose(() => doc.transact(t('Snap to Grid'), () => setSnapToGrid(doc.pres, !snapping)))}><span>{snapping ? '✓' : ''}</span>{t('Snap to Grid')}</button>
+            <button role="menuitemcheckbox" disabled={editor.viewMode !== 'normal'} aria-checked={snapping} onclick={() => choose(() => doc.transact(t('Snap to Grid'), () => setSnapToGrid(doc.pres, !snapping)))}><span>{snapping ? '✓' : ''}</span>{t('Snap to Grid')}</button>
             <hr />
-            <button role="menuitem" onclick={() => choose(() => editor.activeDialog = 'gridOptions')}><span></span>{t('Grid Options...')}</button>
+            <button role="menuitem" disabled={editor.viewMode !== 'normal'} onclick={() => choose(() => editor.activeDialog = 'gridOptions')}><span></span>{t('Grid Options...')}</button>
           </div>
         {/if}
       </div>
