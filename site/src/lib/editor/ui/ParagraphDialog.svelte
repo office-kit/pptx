@@ -1,7 +1,9 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
-  import { cm, getParagraphPropertiesEffective, setParagraphAlignment, setParagraphIndent, setParagraphSpacing, setParagraphLineSpacing, setParagraphTypography, type ParagraphProperties } from '@office-kit/pptx';
+  import { cm, getParagraphPropertiesEffective, setParagraphAlignment, setParagraphIndent, setParagraphSpacing, setParagraphLineSpacing, setParagraphTypography, setParagraphTabs, type ParagraphProperties } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import TabStopsDialog from './TabStopsDialog.svelte';
+  import { editTabStops, type TabStopEdit } from '../core/paragraph-tabs.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   let { properties, apply, onclose }: { properties: ParagraphProperties[]; apply: (edit: (shape: Parameters<typeof setParagraphAlignment>[0], index: number) => void) => void; onclose: () => void } = $props();
   const doc = getEditor().doc;
@@ -24,6 +26,10 @@
     line: common(p => p.lineSpacing?.kind === 'pts' ? 'exact' : !p.lineSpacing || p.lineSpacing.value === 1 ? 'single' : p.lineSpacing.value === 1.5 ? 'oneHalf' : p.lineSpacing.value === 2 ? 'double' : 'multiple'),
     at: common(p => p.lineSpacing?.value ?? 1),
   };
+  let showTabs = $state(false);
+  let tabEdits = $state<TabStopEdit[]>([]);
+  let defaultTabSizeEmu = $state<number | undefined>(undefined);
+  const tabProperties = $derived(initial.properties.map(p => ({ ...p, tabStops: editTabStops(p.tabStops ?? [], tabEdits), ...(defaultTabSizeEmu === undefined ? {} : { defaultTabSizeEmu }) })));
   let activeTab = $state<'spacing' | 'breaking'>('spacing');
   let asianLineBreak = $state(original.asianLineBreak);
   let latinLineBreak = $state(original.latinLineBreak);
@@ -42,8 +48,9 @@
   $effect(() => { if (doc.selection !== initial.selection || doc.version !== initial.version) onclose(); });
   function submit(event: SubmitEvent) {
     event.preventDefault();
-    const changed = asianLineBreak !== original.asianLineBreak || latinLineBreak !== original.latinLineBreak || hangingPunctuation !== original.hangingPunctuation || fontAlignment !== original.fontAlignment || alignment !== original.alignment || left !== original.left || special !== original.special || by !== original.by || before !== original.before || after !== original.after || line !== original.line || at !== original.at;
+    const changed = tabEdits.length > 0 || defaultTabSizeEmu !== undefined || asianLineBreak !== original.asianLineBreak || latinLineBreak !== original.latinLineBreak || hangingPunctuation !== original.hangingPunctuation || fontAlignment !== original.fontAlignment || alignment !== original.alignment || left !== original.left || special !== original.special || by !== original.by || before !== original.before || after !== original.after || line !== original.line || at !== original.at;
     if (changed) apply((shape, index) => {
+      if (tabEdits.length || defaultTabSizeEmu !== undefined) setParagraphTabs(shape, index, { ...(tabEdits.length ? { tabStops: editTabStops(getParagraphPropertiesEffective(doc.pres, shape, index).tabStops ?? [], tabEdits) } : {}), defaultTabSizeEmu });
       const typography: Parameters<typeof setParagraphTypography>[2] = {};
       if (asianLineBreak !== original.asianLineBreak) typography.asianLineBreak = asianLineBreak;
       if (latinLineBreak !== original.latinLineBreak) typography.latinLineBreak = latinLineBreak;
@@ -63,7 +70,7 @@
     onclose();
   }
 </script>
-<dialog bind:this={dialog} aria-label={t('Paragraph')} {onclose} onkeydown={event => event.stopPropagation()}>
+<dialog style:visibility={showTabs ? 'hidden' : undefined} bind:this={dialog} aria-label={t('Paragraph')} {onclose} onkeydown={event => event.stopPropagation()}>
   <form onsubmit={submit}>
     <h2>{t('Paragraph')}</h2>
     <div class="tabs" role="tablist" aria-label={t('Paragraph')}>
@@ -93,9 +100,10 @@
         <label>{t('Text Alignment:')}<select aria-label={t('Text Alignment:')} bind:value={fontAlignment}><option value={undefined} disabled>{t('Mixed')}</option>{#each [{ value: 'top', label: 'Top' }, { value: 'center', label: 'Center' }, { value: 'baseline', label: 'Baseline' }, { value: 'bottom', label: 'Bottom' }, { value: 'auto', label: 'Auto' }] as item}<option value={item.value}>{t(item.label)}</option>{/each}</select></label>
       </fieldset>
     </div>
-    <footer><button type="button" onclick={onclose}>{t('Cancel')}</button><button type="submit">{t('OK')}</button></footer>
+    <footer><button type="button" class="tabs-button" onclick={() => showTabs = true}>{t('Tabs...')}</button><button type="button" onclick={onclose}>{t('Cancel')}</button><button type="submit">{t('OK')}</button></footer>
   </form>
 </dialog>
+{#if showTabs}<TabStopsDialog properties={tabProperties} onapply={(edits, size) => { tabEdits = [...tabEdits, ...edits]; if (size !== undefined) defaultTabSizeEmu = size; }} onclose={() => showTabs = false} />{/if}
 <style>
   dialog { width: 490px; border: 1px solid #666; border-radius: 7px; background: #303030; color: #eee; padding: 0; box-shadow: 0 15px 60px #0008; font-size: 13px; color-scheme: dark; }
   dialog::backdrop { background: #0003; }
@@ -117,5 +125,6 @@
   input:disabled { opacity: .4; }
   footer { display: flex; justify-content: flex-end; gap: 10px; padding: 4px 18px 16px; }
   footer button { min-width: 70px; padding: 3px 8px; border: 0; border-radius: 5px; background: #626262; color: inherit; font: inherit; }
+  .tabs-button { margin-right: auto; }
   footer button[type='submit'] { background: #087bfa; color: white; }
 </style>

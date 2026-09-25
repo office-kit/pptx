@@ -2,6 +2,17 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Tabs: 'タブ設定',
+  'Tabs...': 'タブ設定...',
+  'Tab stop position:': 'タブ位置:',
+  'Default tab stops:': '既定のタブ位置:',
+  'Tab stops list': 'タブ位置の一覧',
+  'Tab stops to be cleared:': '解除するタブ位置:',
+  Decimal: '小数点揃え',
+  Set: '設定',
+  All: 'すべて',
+  Clear: '解除',
+  'Clear All': 'すべて解除',
   'Background Styles': '背景のスタイル',
   'Format Background...': '背景の書式設定...',
   'Reset Slide Background': 'スライドの背景をリセット',

@@ -134,6 +134,19 @@ test(
         .press('ArrowLeft');
       assert.equal(await dialog.getByLabel('At:', { exact: true }).inputValue(), '24');
 
+      const tabs = editor.getByRole('dialog', { name: 'Tabs', exact: true });
+      await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      await tabs.getByLabel('Tab stop position:', { exact: true }).fill('2');
+      await tabs.getByRole('radio', { name: 'Decimal', exact: true }).check();
+      await tabs.getByRole('button', { name: 'Set', exact: true }).click();
+      await tabs.getByLabel('Default tab stops:', { exact: true }).fill('1.5');
+      await tabs.getByRole('button', { name: 'OK', exact: true }).click();
+      assert.deepEqual(await read(), beforeDialog);
+      await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      assert.equal(await tabs.getByRole('option').count(), 1);
+      await tabs.getByRole('button', { name: 'Clear All', exact: true }).click();
+      await tabs.getByRole('button', { name: 'Cancel', exact: true }).click();
+
       await page.screenshot({ path: '/tmp/pptx-paragraph-dialog.png' });
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
@@ -150,6 +163,8 @@ test(
       assert.equal(paragraph.latinLineBreak, true);
       assert.equal(paragraph.hangingPunctuation, false);
       assert.equal(paragraph.fontAlignment, 'baseline');
+      assert.deepEqual(paragraph.tabStops, [{ positionEmu: cm(2), alignment: 'decimal' }]);
+      assert.equal(paragraph.defaultTabSizeEmu, cm(1.5));
       assert.deepEqual(paragraph.lineSpacing, { kind: 'pts', value: 24 });
       await input.press('Control+z');
       await saved();
@@ -172,9 +187,20 @@ test(
       );
       await dialog.getByRole('tab', { name: 'Indents and Spacing', exact: true }).click();
       await dialog.getByLabel('Before:', { exact: true }).fill('24');
+      await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      await tabs.getByLabel('Tab stop position:', { exact: true }).fill('3');
+      await tabs.getByRole('button', { name: 'Set', exact: true }).click();
+      await tabs.getByRole('button', { name: 'OK', exact: true }).click();
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       const mixed = await read();
+      assert.deepEqual(mixed[0].paragraphs[0].tabStops, [
+        { positionEmu: cm(3), alignment: 'left' },
+      ]);
+      assert.deepEqual(mixed[0].paragraphs[1].tabStops, [
+        { positionEmu: cm(2), alignment: 'decimal' },
+        { positionEmu: cm(3), alignment: 'left' },
+      ]);
       assert.deepEqual(
         mixed[0].paragraphs.map((p) => p.lineSpacing),
         data[0].paragraphs.map((p) => p.lineSpacing),
@@ -202,6 +228,43 @@ test(
         ]),
       );
       assert.deepEqual(mixed[1], data[1]);
+      await options();
+      await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      await tabs.getByLabel('Tab stops list').selectOption(String(cm(3)));
+      await tabs.getByRole('button', { name: 'Clear', exact: true }).click();
+      await tabs.getByRole('button', { name: 'OK', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      assert.deepEqual(await read(), mixed);
+      await options();
+      await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      await tabs.getByLabel('Tab stops list').selectOption(String(cm(3)));
+      await tabs.getByRole('button', { name: 'Clear', exact: true }).click();
+      await page.screenshot({ path: '/tmp/pptx-tabs-dialog.png' });
+      await tabs.getByRole('button', { name: 'OK', exact: true }).click();
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await saved();
+      const cleared = await read();
+      assert.deepEqual(cleared[0].paragraphs[0].tabStops, []);
+      assert.deepEqual(cleared[0].paragraphs[1].tabStops, [
+        { positionEmu: cm(2), alignment: 'decimal' },
+      ]);
+      await options();
+      await dialog.getByRole('button', { name: 'Tabs...', exact: true }).click();
+      await tabs.getByRole('button', { name: 'Clear All', exact: true }).click();
+      await tabs.getByRole('button', { name: 'OK', exact: true }).click();
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await saved();
+      const allCleared = await read();
+      assert.deepEqual(
+        allCleared[0].paragraphs.map((p) => p.tabStops),
+        [[], []],
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), cleared);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), mixed);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
       assert.deepEqual(await read(), data);
