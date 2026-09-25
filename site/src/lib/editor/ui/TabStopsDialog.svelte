@@ -24,12 +24,19 @@
     return [...common.values()];
   });
   const selected = $derived(stops.find(stop => stop.positionEmu === (position === undefined ? undefined : cm(position))));
+  const positionEnabled = $derived((positionTouched || !!selected) && position !== undefined && position >= 0 && position <= 142.24);
   const cleared = $derived(edits.some(edit => edit.kind === 'clearAll') ? t('All') : edits.filter(edit => edit.kind === 'clear').map(edit => `${edit.positionEmu / cm(1)} cm`).join(', '));
   let dialog: HTMLDialogElement;
   onMount(() => dialog.showModal());
   function setStop() {
     if (position === undefined || position < 0 || position > 142.24) return;
     edits = [...edits, { kind: 'set', stop: { positionEmu: cm(position), alignment } }];
+  }
+  function clearStops(all: boolean) {
+    if (all) edits = [...edits, { kind: 'clearAll' }];
+    else if (position !== undefined) edits = [...edits, { kind: 'clear', positionEmu: cm(position) }];
+    position = 0;
+    positionTouched = false;
   }
   function submit(event: SubmitEvent) {
     event.preventDefault();
@@ -52,11 +59,11 @@
           <select size="7" aria-label={t('Tab stops list')} onchange={event => { const stop = stops.find(item => item.positionEmu === Number(event.currentTarget.value)); if (stop) { position = stop.positionEmu / cm(1); alignment = stop.alignment; } }}>
             {#each stops as stop}<option value={stop.positionEmu} selected={selected?.positionEmu === stop.positionEmu}>{stop.positionEmu / cm(1)} cm</option>{/each}
           </select>
-          <div class="actions"><button type="button" onclick={setStop} disabled={(!positionTouched && !selected) || position === undefined || position < 0 || position > 142.24 || (selected?.alignment === alignment)}>{t('Set')}</button><button type="button" disabled={!selected} onclick={() => { if (selected) edits = [...edits, { kind: 'clear', positionEmu: selected.positionEmu }]; }}>{t('Clear')}</button></div>
+          <div class="actions"><button type="button" onclick={setStop} disabled={!positionEnabled}>{t('Set')}</button><button type="button" disabled={!positionEnabled} onclick={() => clearStops(false)}>{t('Clear')}</button></div>
         </div>
       </div>
       <p>{t('Tab stops to be cleared:')} {cleared}</p>
-      <div class="clear-row"><button type="button" onclick={() => edits = [...edits, { kind: 'clearAll' }]}>{t('Clear All')}</button></div>
+      <div class="clear-row"><button type="button" onclick={() => clearStops(true)}>{t('Clear All')}</button></div>
     </div>
     <footer><button type="button" onclick={onclose}>{t('Cancel')}</button><button type="submit">{t('OK')}</button></footer>
   </form>
