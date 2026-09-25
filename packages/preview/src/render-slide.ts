@@ -178,6 +178,7 @@ import {
   type TextMeasurer,
   type VerticalLayout,
 } from './text-layout.ts';
+import { browserTextMeasurer } from './browser-measure.ts';
 
 export type { RenderSlideOptions, TextMeasurer, FontSpec, MeasureResult } from './text-layout.ts';
 
@@ -260,6 +261,8 @@ const DEFAULT_TITLE_PT = 44;
 // early and silently drop every property after it (notably `color:`,
 // which then inherits the site's dark-mode white = invisible text).
 const DEFAULT_FONT = "Calibri, 'Helvetica Neue', Arial, sans-serif";
+const browserFontFamily = (family: string | null): string =>
+  family ? `${JSON.stringify(family)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
 // Bullet font when no buFont is authored or inherited. The stock PowerPoint
 // template's master bodyStyle sets buFont="Arial", and its '•'/'◦' glyphs are
 // smaller and higher than the theme minor face (Calibri) — so Arial, not the
@@ -3337,7 +3340,12 @@ const renderTextBody = (
   // layout model from the already-resolved paraData and hand it to the engine,
   // matching the foreignObject path's vertical-text and multi-column handling so
   // server-side rendering agrees with the browser (W1).
-  if (ctx.mode === 'svg') {
+  const customTabs = paraData.some(
+    (para) => para.tabStops?.length && para.runs.some((run) => run.text.includes('\t')),
+  );
+  // CSS tab-size only represents a repeating interval, not authored positions
+  // or right/center/decimal alignment. Use the shared layout for these bodies.
+  if (ctx.mode === 'svg' || customTabs) {
     const svgLineScale = 1 - (authoredAutofit?.lnSpcReduction ?? 0);
     const svgVert = verticalLayoutOf(effectiveBody.vert ?? getShapeTextDirection(shape));
     // numCol only applies to horizontal text — see the engine's combination note.
@@ -3382,7 +3390,8 @@ const renderTextBody = (
       innerY: vInnerY,
       innerW: vInnerW,
       innerH: vInnerH,
-      measure: ctx.measure,
+      measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
+      ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
       vert: svgVert,
       columns: svgColumns,
     };
@@ -6089,7 +6098,10 @@ const renderTableCellText = (
   // a browser-free rasterizer gets wrapped, per-run-styled lines. The engine
   // works in EMU (it divides by EMU_PER_PX internally), so project the px box
   // back to EMU.
-  if (ctx.mode === 'svg') {
+  const customTabs = paraData.some(
+    (para) => para.tabStops?.length && para.runs.some((run) => run.text.includes('\t')),
+  );
+  if (ctx.mode === 'svg' || customTabs) {
     return buildAndLayoutSvgText({
       pres,
       shape,
@@ -6107,7 +6119,8 @@ const renderTableCellText = (
       innerY: innerY * EMU_PER_PX,
       innerW: innerW * EMU_PER_PX,
       innerH: innerH * EMU_PER_PX,
-      measure: ctx.measure,
+      measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
+      ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
       // Cell-level vertical text (<a:tcPr vert>) isn't modeled yet; cells lay
       // out horizontally, single-column.
       vert: 'none',

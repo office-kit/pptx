@@ -58,6 +58,9 @@ it.each(['shape', 'cell'] as const)(
     setParagraphTabs(target, 0, { tabStops: [{ positionEmu: inches(2), alignment: 'left' }] });
     const second = renderSlideToSvg(pres, slide, options);
     expect(gap(second) - gap(first)).toBe(96);
+    const browserPreview = renderSlideToSvg(pres, slide, { measureText: options.measureText });
+    expect(gap(browserPreview)).toBe(gap(second));
+    expect(browserPreview).not.toContain('<foreignObject');
     const loaded = await loadPresentation(await savePresentation(pres));
     const loadedSlide = getSlides(loaded)[0]!;
     expect(gap(renderSlideToSvg(loaded, loadedSlide, options))).toBe(gap(second));
