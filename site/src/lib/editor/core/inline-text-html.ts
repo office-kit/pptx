@@ -63,6 +63,10 @@ export function inlineTextHtml(
     style.boxSizing = 'border-box';
     const props = properties[index]!;
     style.tabSize = scaled((props.defaultTabSizeEmu ?? 914400) / 9525, 'px');
+    if (props.tabStops?.length)
+      paragraph.dataset.tabStops = props.tabStops
+        .map((stop) => `${stop.positionEmu / 9525}:${stop.alignment}`)
+        .join(';');
     const bullet = props.bullet;
     const marker =
       labels[index] ??

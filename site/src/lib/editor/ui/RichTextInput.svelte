@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount, untrack } from 'svelte';
+  import { layoutEditingTabs } from '../core/editing-tabs.ts';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
   let { value, html, label, style, textZoom, busy = false, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
     value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean;
@@ -18,6 +19,7 @@
   let composing = $state(false);
   let selection = { start: 0, end: 0 };
   let rendered = '';
+  let renderedZoom = 0;
   export function getSelection() { return element && document.activeElement === element ? richTextSelection(element) ?? selection : selection; }
   export function setSelectionRange(start: number, end: number) {
     selection = { start, end };
@@ -44,10 +46,11 @@
   $effect(() => {
     const markup = html;
     value;
+    const zoom = textZoom;
     if (!element || composing) return;
     const root = element;
     untrack(() => {
-      if (rendered === markup) return;
+      if (rendered === markup && renderedZoom === zoom) return;
       const active = document.activeElement === element;
       const range = { ...selection };
       root.innerHTML = markup;
@@ -63,7 +66,9 @@
         end.setAttribute('data-caret-end', '');
         root.append(end);
       }
+      layoutEditingTabs(root, zoom);
       rendered = markup;
+      renderedZoom = zoom;
       if (active) setSelectionRange(Math.min(range.start, value.length), Math.min(range.end, value.length));
     });
   });
