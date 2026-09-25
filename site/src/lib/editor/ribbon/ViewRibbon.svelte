@@ -20,7 +20,7 @@
     <label><input type="checkbox" checked={editor.view.grid} disabled={editor.viewMode !== 'normal'} onchange={toggleGrid} />{t('Gridlines')}</label>
     <label><input type="checkbox" checked={guides} disabled={editor.viewMode !== 'normal'} onchange={toggleGuides} />{t('Guides')}</label>
     <button class="options" aria-pressed={editor.viewMode === 'normal' && editor.notesVisible} disabled={editor.viewMode !== 'normal'} onclick={() => editor.notesVisible = !editor.notesVisible}>{t('Notes')}</button>
-    <button class="options" onclick={() => editor.activeDialog = 'gridOptions'}>{t('Grid Options...')}</button>
+    <button class="options" disabled={editor.viewMode !== 'normal'} onclick={() => editor.activeDialog = 'gridOptions'}>{t('Grid Options...')}</button>
   </div>
   <span>{t('Show')}</span>
 </div>
