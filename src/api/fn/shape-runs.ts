@@ -1,3 +1,5 @@
+import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
+import { boundedInt } from '../../internal/bounds.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
@@ -25,6 +27,9 @@ import {
   qname,
 } from '../../internal/xml/index.ts';
 import {
+  CELL_ELEMENT,
+  CELL_TABLE,
+  type TableCellData,
   INTERNAL_PACKAGE,
   type PresentationData,
   SHAPE_ELEMENT,
@@ -35,6 +40,7 @@ import {
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
+import type { ParagraphTabStop } from './shape-paragraph.ts';
 import { getSlides } from './slide-query.ts';
 import { findCNvPr, NAME_HLINK_CLICK_FN, type ShapeClickAction } from './embedded.ts';
 
@@ -69,8 +75,19 @@ export const runsOf = (paragraph: XmlElement): XmlElement[] =>
       c.name.localName === 'r',
   );
 
-export const requireParagraph = (shape: SlideShapeData, paragraphIndex: number): XmlElement => {
-  const txBody = requireTxBody(shape);
+/** Shared DrawingML text body for shape and table-cell paragraph operations. */
+export const requireParagraphTextBody = (target: SlideShapeData | TableCellData): XmlElement => {
+  if (!(CELL_ELEMENT in target)) return requireTxBody(target);
+  const body = firstChildElement(target[CELL_ELEMENT], qname('a', 'txBody', NS.dml));
+  if (!body) throw new Error('table cell has no <a:txBody>');
+  return body;
+};
+
+export const requireParagraph = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+): XmlElement => {
+  const txBody = requireParagraphTextBody(shape);
   const paragraphs = paragraphsOf(txBody);
   const paragraph = paragraphs[paragraphIndex];
   if (!paragraph) {
@@ -125,9 +142,12 @@ const writeRunText = (run: XmlElement, value: string): void => {
   tEl.children = [{ kind: 'text', data: value }];
 };
 
-/** Number of paragraphs in the shape's text body. Throws for non-text shapes. */
-export const getShapeParagraphCount = (shape: SlideShapeData): number =>
-  paragraphsOf(requireTxBody(shape)).length;
+/** Number of paragraphs; zero for an autoshape without a text body. Throws for non-text shapes. */
+export const getShapeParagraphCount = (shape: SlideShapeData): number => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') requireTxBody(shape);
+  const body = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'txBody', NS.pml));
+  return body ? paragraphsOf(body).length : 0;
+};
 
 /**
  * One inline element in a paragraph as ordered: a literal text run
@@ -261,14 +281,6 @@ export const setShapeRunHyperlink = (
     rPr = elem(qname('a', 'rPr', NS.dml));
     run.children.unshift(rPr);
   }
-  rPr.children = rPr.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'hlinkClick'
-      ),
-  );
   if (url !== null) {
     const slide = shape[SHAPE_SLIDE];
     const pkg = slide[INTERNAL_PACKAGE];
@@ -289,16 +301,8 @@ export const setShapeRunHyperlink = (
       });
       pkg.setRels(slide[SLIDE_PART_NAME], rels);
     }
-    const hlinkAttrs = [attr(qname('r', 'id', NS.officeDocRels), rId)];
-    if (tooltip !== undefined) {
-      hlinkAttrs.push(attr(qname('', 'tooltip', ''), tooltip));
-    }
-    rPr.children.push(
-      elem(qname('a', 'hlinkClick', NS.dml), {
-        attrs: hlinkAttrs,
-      }),
-    );
-  }
+    applyHyperlinkToProperties(rPr, rId, tooltip);
+  } else applyHyperlinkToProperties(rPr, null);
   commitAndRefresh(shape);
   releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
 };
@@ -457,7 +461,7 @@ const ensurePPr = (paragraph: XmlElement): XmlElement => {
  * as `setShapeAlignment`. Other paragraphs are untouched.
  */
 export const setParagraphAlignment = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   align: ParagraphAlignment,
 ): void => {
@@ -466,7 +470,7 @@ export const setParagraphAlignment = (
   const pPr = ensurePPr(paragraph);
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'algn');
   pPr.attrs.push(attr(ATTR_ALGN_FN, token));
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -483,7 +487,7 @@ export const setParagraphAlignment = (
  *   setParagraphLevel(shape, 1, 1);  // indent the second line
  */
 export const setParagraphLevel = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   level: number,
 ): void => {
@@ -496,7 +500,7 @@ export const setParagraphLevel = (
   pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
   if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
   updateBulletIndentForLevel(pPr, Number.isFinite(previousLevel) ? previousLevel : 0, level);
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -508,7 +512,7 @@ export const setParagraphLevel = (
  * `getParagraphPropertiesEffective`.
  */
 export const getParagraphAlignment = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): ParagraphAlignmentToken | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -522,7 +526,10 @@ export const getParagraphAlignment = (
  * absent — PowerPoint's default. Returns `null` for non-existent
  * paragraphs.
  */
-export const getParagraphLevel = (shape: SlideShapeData, paragraphIndex: number): number => {
+export const getParagraphLevel = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+): number => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (pPr === null) return 0;
@@ -568,7 +575,7 @@ const pPrChildRank = (el: XmlElement): number =>
  * Passing a side as `null` removes that spacing element.
  */
 export const setParagraphSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   opts: { beforePts?: number | null; afterPts?: number | null },
 ): void => {
@@ -600,7 +607,7 @@ export const setParagraphSpacing = (
 
   writeSide('spcBef', opts.beforePts);
   writeSide('spcAft', opts.afterPts);
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -610,7 +617,7 @@ export const setParagraphSpacing = (
  * spacing is reported as `null` for now).
  */
 export const getParagraphSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): { readonly beforePts: number | null; readonly afterPts: number | null } => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -639,7 +646,7 @@ export const getParagraphSpacing = (
  * from the layout / master).
  */
 export const getParagraphIndent = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): { leftEmu: number | null; rightEmu: number | null; firstLineEmu: number | null } => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -659,6 +666,38 @@ export const getParagraphIndent = (
 };
 
 /**
+ * Sets paragraph indents in EMU. The first-line offset is relative to the
+ * left indent; negative values create a hanging indent. Omitted sides are
+ * preserved, and `null` removes an override to restore inheritance.
+ * Values are rounded to whole EMU and must satisfy the OOXML text bounds.
+ */
+export const setParagraphIndent = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+  opts: { leftEmu?: number | null; rightEmu?: number | null; firstLineEmu?: number | null },
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const sides = [
+    ['marL', opts.leftEmu, 'textMargin'],
+    ['marR', opts.rightEmu, 'textMargin'],
+    ['indent', opts.firstLineEmu, 'textIndent'],
+  ] as const;
+  // Validate every side before changing the XML so failed updates are atomic.
+  const values = sides.map(([name, value, range]) => ({
+    name,
+    value: value == null ? value : boundedInt(value, range, `paragraph ${name}`),
+  }));
+  if (values.every(({ value }) => value === undefined)) return;
+  const pPr = ensurePPr(paragraph);
+  for (const { name, value } of values) {
+    if (value === undefined) continue;
+    pPr.attrs = pPr.attrs.filter((a) => !(a.name.namespaceURI === '' && a.name.localName === name));
+    if (value !== null) pPr.attrs.push(attr(qname('', name, ''), String(value)));
+  }
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
+};
+
+/**
  * Reads the paragraph's `<a:lnSpc>` line spacing. PowerPoint stores
  * line spacing two ways:
  *
@@ -672,7 +711,7 @@ export const getParagraphIndent = (
  * inherits line spacing from the layout / master).
  */
 export const getParagraphLineSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ):
   | { readonly kind: 'pct'; readonly value: number }
@@ -717,7 +756,7 @@ export const getParagraphLineSpacing = (
  * spacing from the layout / master).
  */
 export const setParagraphLineSpacing = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   spacing:
     | { readonly kind: 'pct'; readonly value: number }
@@ -747,7 +786,7 @@ export const setParagraphLineSpacing = (
     // <a:lnSpc> is the first child of CT_TextParagraphProperties.
     insertChildByRank(pPr, elem(qname('a', 'lnSpc', NS.dml), { children: [inner] }), pPrChildRank);
   }
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -756,7 +795,7 @@ export const setParagraphLineSpacing = (
  * paragraph inherits its bullet from the layout / master).
  */
 export const getParagraphBullet = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): BulletStyle | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -790,7 +829,7 @@ export const getParagraphBullet = (
  * *is* an image is usually enough for the UI to pick a fallback.
  */
 export const isParagraphBulletPicture = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): boolean => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -811,7 +850,7 @@ export const isParagraphBulletPicture = (
  * live view into the package media part; treat it as read-only.
  */
 export const getParagraphBulletImageBytes = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): Uint8Array | null => {
   const paragraph = requireParagraph(shape, paragraphIndex);
@@ -823,7 +862,7 @@ export const getParagraphBulletImageBytes = (
   if (!blip) return null;
   const rEmbed = getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
   if (rEmbed === null) return null;
-  const slide = shape[SHAPE_SLIDE];
+  const slide = (CELL_TABLE in shape ? shape[CELL_TABLE] : shape)[SHAPE_SLIDE];
   const pkg = slide[INTERNAL_PACKAGE];
   const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
   if (!rels) return null;
@@ -847,7 +886,7 @@ export const getParagraphBulletImageBytes = (
  */
 export const getParagraphBulletStyle = (
   pres: PresentationData,
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
 ): {
   color: string | null;
@@ -904,13 +943,13 @@ export const getParagraphBulletStyle = (
  * object like `{ char: '◆' }` / `{ autoNum: 'romanLcPeriod' }`.
  */
 export const setParagraphBullet = (
-  shape: SlideShapeData,
+  shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
   style: BulletStyle,
 ): void => {
   const paragraph = requireParagraph(shape, paragraphIndex);
   applyBulletToParagraph(paragraph, style);
-  commitAndRefresh(shape);
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
 
 /**
@@ -926,4 +965,100 @@ export const setShapeRunText = (
   const run = requireRun(shape, paragraphIndex, runIndex);
   writeRunText(run, text);
   commitAndRefresh(shape);
+};
+
+/**
+ * Update paragraph line-breaking rules and character alignment. Omitted fields
+ * are preserved; null removes the local override so the style can inherit.
+ */
+export const setParagraphTypography = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+  settings: {
+    asianLineBreak?: boolean | null;
+    latinLineBreak?: boolean | null;
+    hangingPunctuation?: boolean | null;
+    fontAlignment?: 'auto' | 'top' | 'center' | 'baseline' | 'bottom' | null;
+  },
+): void => {
+  const tokens = { auto: 'auto', top: 't', center: 'ctr', baseline: 'base', bottom: 'b' };
+  if (settings.fontAlignment != null && !Object.hasOwn(tokens, settings.fontAlignment)) {
+    throw new RangeError('setParagraphTypography: invalid font alignment');
+  }
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = ensurePPr(paragraph);
+  for (const [field, name] of [
+    ['asianLineBreak', 'eaLnBrk'],
+    ['latinLineBreak', 'latinLnBrk'],
+    ['hangingPunctuation', 'hangingPunct'],
+    ['fontAlignment', 'fontAlgn'],
+  ] as const) {
+    const value = settings[field];
+    if (value === undefined) continue;
+    pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== name);
+    if (value !== null)
+      pPr.attrs.push(
+        attr(qname('', name, ''), typeof value === 'boolean' ? (value ? '1' : '0') : tokens[value]),
+      );
+  }
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
+};
+
+/** Set custom and automatic tab stops. Null restores inheritance; [] clears custom stops. */
+export const setParagraphTabs = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+  settings: { tabStops?: readonly ParagraphTabStop[] | null; defaultTabSizeEmu?: number | null },
+): void => {
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const tokens = { left: 'l', center: 'ctr', right: 'r', decimal: 'dec' };
+  const defaultSize =
+    settings.defaultTabSizeEmu == null
+      ? settings.defaultTabSizeEmu
+      : boundedInt(settings.defaultTabSizeEmu, 'coordinate32', 'default tab size');
+  const stops = settings.tabStops
+    ?.map((stop) => {
+      if (!Object.hasOwn(tokens, stop.alignment)) throw new RangeError('Invalid tab alignment');
+      return {
+        positionEmu: boundedInt(stop.positionEmu, 'coordinate32', 'tab position'),
+        alignment: stop.alignment,
+      };
+    })
+    .sort((a, b) => a.positionEmu - b.positionEmu);
+  if (stops && new Set(stops.map((stop) => stop.positionEmu)).size !== stops.length)
+    throw new RangeError('Tab positions must be unique');
+  if (settings.tabStops === undefined && defaultSize === undefined) return;
+  const pPr = ensurePPr(paragraph);
+  if (defaultSize !== undefined) {
+    pPr.attrs = pPr.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'defTabSz'),
+    );
+    if (defaultSize !== null) pPr.attrs.push(attr(qname('', 'defTabSz', ''), String(defaultSize)));
+  }
+  if (settings.tabStops !== undefined) {
+    pPr.children = pPr.children.filter(
+      (child) =>
+        !(
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.dml &&
+          child.name.localName === 'tabLst'
+        ),
+    );
+    if (stops)
+      insertChildByRank(
+        pPr,
+        elem(qname('a', 'tabLst', NS.dml), {
+          children: stops.map((stop) =>
+            elem(qname('a', 'tab', NS.dml), {
+              attrs: [
+                attr(qname('', 'pos', ''), String(stop.positionEmu)),
+                attr(qname('', 'algn', ''), tokens[stop.alignment]),
+              ],
+            }),
+          ),
+        }),
+        pPrChildRank,
+      );
+  }
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };

@@ -1,0 +1,404 @@
+import assert from 'node:assert/strict';
+import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import test from 'node:test';
+import { chromium } from 'playwright';
+import {
+  getSlides,
+  getSlideComments,
+  getCommentAuthor,
+  getCommentText,
+  getCommentDate,
+  getCommentParent,
+  loadPresentation,
+} from '@office-kit/pptx';
+import { startPreview } from '../helpers/server.mjs';
+
+test(
+  'bilingual comments add, edit, cancel, delete, undo and reload',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-comments-'));
+    let preview, browser, page;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide/><Slide/></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (e) => errors.push(e.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        ).map(getSlideComments);
+      const open = async () => {
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.locator('button[title$="— addSlideComment"]').click();
+        return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
+      };
+      await saved();
+      let dialog = await open();
+      assert.equal(
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog.getByLabel('Author name', { exact: true }).fill('Reviewer');
+      await dialog.getByLabel('Comment text', { exact: true }).fill('First comment');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      let comments = await read();
+      assert.equal(getCommentText(comments[0][0]), 'First comment');
+      assert.equal(comments[1].length, 0);
+      const date = getCommentDate(comments[0][0]);
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      dialog = await open();
+      await dialog.getByLabel('コメントの内容', { exact: true }).fill('キャンセル');
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      assert.equal(getCommentText((await read())[0][0]), 'First comment');
+      dialog = await open();
+      await dialog
+        .getByLabel('コメントの内容', { exact: true })
+        .fill('修正済み <script>test</script>');
+      await dialog.getByRole('button', { name: 'コメントを追加', exact: true }).click();
+      await dialog.getByLabel('作成者名', { exact: true }).fill('山田');
+      await dialog
+        .getByLabel('コメントの内容', { exact: true })
+        .nth(1)
+        .fill('日本語のコメント\nSecond line');
+      await page.screenshot({ path: '/tmp/pptx-pr287-comments-ja.png', fullPage: true });
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      comments = await read();
+      assert.equal(comments[0].length, 2);
+      assert.equal(getCommentDate(comments[0][0]), date);
+      assert.equal(getCommentAuthor(comments[0][0]).name, 'Reviewer');
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual((await read())[0].map(getCommentText), ['First comment']);
+      await editor.getByTitle('やり直し (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      dialog = await open();
+      assert.equal(
+        await dialog.getByLabel('コメントの内容', { exact: true }).nth(0).inputValue(),
+        '修正済み <script>test</script>',
+      );
+      await dialog.getByRole('button', { name: 'コメントを削除', exact: true }).nth(1).click();
+      await dialog.getByRole('button', { name: 'コメントを削除', exact: true }).click();
+      await dialog.getByText('このスライドにコメントはありません。', { exact: true }).waitFor();
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(
+        (await read()).map((list) => list.length),
+        [0, 0],
+      );
+      assert.deepEqual(errors, []);
+    } catch (error) {
+      await page?.screenshot({ path: '/tmp/pptx-pr287-comments-failure.png', fullPage: true });
+      throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'review comments across slides without losing drafts, with atomic history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-comments-review-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide/><Slide/></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        ).map((slide) => getSlideComments(slide).map(getCommentText));
+      const open = async () => {
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.locator('button[title$="— addSlideComment"]').click();
+        return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
+      };
+      await saved();
+      let dialog = await open();
+      await dialog.getByLabel('Author name', { exact: true }).fill('Reviewer');
+      await dialog.getByLabel('Comment text', { exact: true }).fill('Slide one draft');
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('1');
+      await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+      await dialog.getByLabel('Author name', { exact: true }).fill('山田');
+      await dialog.getByLabel('Comment text', { exact: true }).fill('スライド2の下書き');
+      await dialog.getByLabel('Author name', { exact: true }).fill('');
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('0');
+      assert.equal(
+        await dialog.getByRole('button', { name: 'Apply', exact: true }).isDisabled(),
+        true,
+      );
+      await dialog
+        .getByRole('status')
+        .getByText('Complete or delete unfinished comments on all slides before applying.', {
+          exact: true,
+        })
+        .waitFor();
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('1');
+      await dialog.getByLabel('Author name', { exact: true }).fill('山田');
+      await dialog.getByRole('combobox', { name: 'Review slide', exact: true }).selectOption('0');
+      assert.equal(
+        await dialog.getByLabel('Comment text', { exact: true }).inputValue(),
+        'Slide one draft',
+      );
+      assert.deepEqual(await read(), [[], []]);
+      await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), [['Slide one draft'], ['スライド2の下書き']]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), [[], []]);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      dialog = await open();
+      await dialog.getByLabel('コメントの内容', { exact: true }).fill('破棄する変更');
+      await dialog
+        .getByRole('combobox', { name: '確認するスライド', exact: true })
+        .selectOption('1');
+      await dialog.getByRole('button', { name: 'コメントを削除', exact: true }).click();
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      assert.deepEqual(await read(), [['Slide one draft'], ['スライド2の下書き']]);
+      dialog = await open();
+      await dialog.getByLabel('コメントの内容', { exact: true }).fill('更新済み');
+      await dialog
+        .getByRole('combobox', { name: '確認するスライド', exact: true })
+        .selectOption('1');
+      await dialog.getByRole('button', { name: 'コメントを削除', exact: true }).click();
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.deepEqual(await read(), [['更新済み'], []]);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'comment replies preserve parents, undo and thread deletion in both languages',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-comment-replies-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide/></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      let ja = false;
+      const saved = () =>
+        editor
+          .getByText(ja ? 'このプロジェクトに保存済み' : 'Saved to this project', { exact: true })
+          .waitFor();
+      const read = async () =>
+        getSlideComments(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        );
+      const open = async () => {
+        await editor.getByRole('tab', { name: ja ? '挿入' : 'Insert', exact: true }).click();
+        await editor.locator('button[title$="— addSlideComment"]').click();
+        return editor.getByRole('dialog', { name: ja ? 'コメント' : 'Comments', exact: true });
+      };
+      await saved();
+      let dialog = await open();
+      await dialog.getByLabel('Author name', { exact: true }).fill('Reviewer');
+      await dialog.getByLabel('Comment text', { exact: true }).fill('Question');
+      await dialog.getByRole('button', { name: 'Reply', exact: true }).click();
+      await dialog.getByLabel('Author name', { exact: true }).nth(1).fill('山田');
+      await dialog.getByLabel('Comment text', { exact: true }).nth(1).fill('回答');
+      await dialog.getByRole('button', { name: 'Reply', exact: true }).nth(1).click();
+      await dialog.getByLabel('Author name', { exact: true }).nth(2).fill('Reviewer');
+      await dialog.getByLabel('Comment text', { exact: true }).nth(2).fill('Thanks');
+      await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+      await dialog.getByLabel('Author name', { exact: true }).nth(3).fill('Independent');
+      await dialog.getByLabel('Comment text', { exact: true }).nth(3).fill('Keep');
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      let comments = await read();
+      assert.equal(comments.length, 4);
+      assert.equal(getCommentParent(comments[1]), comments[0]);
+      assert.equal(getCommentParent(comments[2]), comments[1]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await read()).length, 0);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      await editor.locator('.lang select').selectOption('ja');
+      ja = true;
+      dialog = await open();
+      assert.equal(
+        await dialog.getByText('返信先: Reviewer — Question', { exact: true }).count(),
+        1,
+      );
+      await page.screenshot({ path: '/tmp/pptx-pr287-comment-replies-ja.png', fullPage: true });
+      await dialog.getByLabel('コメントの内容', { exact: true }).nth(1).fill('修正した回答');
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      comments = await read();
+      assert.equal(getCommentText(comments[1]), '修正した回答');
+      assert.equal(getCommentParent(comments[1]), comments[0]);
+      dialog = await open();
+      await dialog.getByRole('button', { name: 'スレッドを削除', exact: true }).first().click();
+      assert.equal(await dialog.getByLabel('コメントの内容', { exact: true }).count(), 1);
+      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      assert.equal((await read()).length, 4);
+      dialog = await open();
+      await dialog.getByRole('button', { name: 'スレッドを削除', exact: true }).first().click();
+      await dialog.getByRole('button', { name: '適用', exact: true }).click();
+      await saved();
+      assert.deepEqual((await read()).map(getCommentText), ['Keep']);
+      await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      comments = await read();
+      assert.equal(getCommentParent(comments[2]), comments[1]);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test('replies stay with their thread and focus the new input', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-comment-order-'));
+  let preview, browser;
+  try {
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide/></Presentation>`,
+    );
+    preview = await startPreview(file);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+    const editor = page.frameLocator('#editor-frame');
+    const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+    const open = async () => {
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
+      await editor.locator('button[title$="— addSlideComment"]').click();
+      return editor.getByRole('dialog', { name: 'Comments', exact: true });
+    };
+    await saved();
+    let dialog = await open();
+    await dialog.getByLabel('Author name', { exact: true }).fill('A');
+    await dialog.getByLabel('Comment text', { exact: true }).fill('First thread');
+    await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+    await dialog.getByLabel('Author name', { exact: true }).nth(1).fill('B');
+    await dialog.getByLabel('Comment text', { exact: true }).nth(1).fill('Second thread');
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+    await saved();
+    dialog = await open();
+    await dialog.getByRole('button', { name: 'Reply', exact: true }).first().click();
+    const author = dialog.getByLabel('Author name', { exact: true });
+    await dialog.locator('input:focus').waitFor({ timeout: 2000 });
+    await author.fill('C');
+    await dialog.getByLabel('Comment text', { exact: true }).nth(1).fill('First reply');
+    assert.deepEqual(
+      await dialog
+        .getByLabel('Comment text', { exact: true })
+        .evaluateAll((elements) => elements.map((element) => element.value)),
+      ['First thread', 'First reply', 'Second thread'],
+    );
+    await dialog.getByRole('button', { name: 'Reply', exact: true }).nth(1).click();
+    await dialog.getByLabel('Author name', { exact: true }).nth(1).fill('D');
+    await dialog.getByLabel('Comment text', { exact: true }).nth(2).fill('Nested reply');
+    await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+    await saved();
+    await page.reload();
+    await saved();
+    dialog = await open();
+    assert.deepEqual(
+      await dialog
+        .getByLabel('Comment text', { exact: true })
+        .evaluateAll((elements) => elements.map((element) => element.value)),
+      ['First thread', 'First reply', 'Nested reply', 'Second thread'],
+    );
+    await dialog.getByRole('button', { name: 'Delete thread', exact: true }).first().click();
+    await dialog.locator('textarea:focus').waitFor({ timeout: 2000 });
+    assert.deepEqual(
+      await dialog
+        .getByLabel('Comment text', { exact: true })
+        .evaluateAll((elements) => elements.map((element) => element.value)),
+      ['Second thread'],
+    );
+    await dialog.getByRole('button', { name: 'Delete comment', exact: true }).click();
+    await dialog.locator('[data-add-comment]:focus').waitFor({ timeout: 2000 });
+    await dialog.getByRole('button', { name: 'Add comment', exact: true }).click();
+    await dialog.locator('input:focus').waitFor({ timeout: 2000 });
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});

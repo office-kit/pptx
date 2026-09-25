@@ -17,6 +17,7 @@ export type {
 export {
   attr,
   cdata,
+  cloneElement,
   comment,
   elem,
   insertChildByRank,

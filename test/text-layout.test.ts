@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultMeasurer,
   layoutTextSvg,
+  layoutCore,
   substituteFamily,
   type FontSpec,
   type ParaInput,
@@ -111,6 +112,58 @@ const body = (paragraphs: ParaInput[], over: Partial<TextBodyInput> = {}): TextB
 const countText = (svg: string): number => (svg.match(/<text /g) ?? []).length;
 
 describe('layoutTextSvg', () => {
+  it.each(['left', 'center', 'right'] as const)(
+    'positions run highlights behind %s-aligned text',
+    (align) => {
+      const svg = layoutTextSvg(
+        body([para([piece('A'), piece('B', { highlightHex: '#ffff00' }), piece('C')], { align })], {
+          boxWpx: 100,
+        }),
+        stubMeasurer,
+      );
+      const rect =
+        /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#ffff00"\/>/.exec(
+          svg,
+        )!;
+      expect(rect).not.toBeNull();
+      expect(Number(rect[1])).toBeCloseTo(
+        (align === 'left' ? 10 : align === 'center' ? 45 : 80) - 0.75,
+        1,
+      );
+      expect(Number(rect[3])).toBe(10);
+      expect(Number(rect[4])).toBe(10);
+      expect(svg.indexOf('<rect')).toBeLessThan(svg.indexOf('<text'));
+      expect(svg).toContain('>A</tspan>');
+      expect(svg).toContain('>B</tspan>');
+    },
+  );
+  it.each([1, -1] as const)('measures highlighted script %s at its rendered size', (superSub) => {
+    const svg = layoutTextSvg(
+      body(
+        [
+          para([piece('A'), piece('B', { highlightHex: '#ffff00', superSub }), piece('C')], {
+            align: 'center',
+          }),
+        ],
+        { boxWpx: 100 },
+      ),
+      stubMeasurer,
+    );
+    const rect =
+      /<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)" fill="#ffff00"/.exec(svg)!;
+    expect(Number(rect[1])).toBe(46);
+    expect(Number(rect[3])).toBe(6.5);
+    expect(Number(rect[4])).toBe(6.5);
+  });
+  it('splits highlights across wrapped lines and leaves plain text without backgrounds', () => {
+    const svg = layoutTextSvg(
+      body([para([piece('ABCD', { highlightHex: '#00ff00' })])], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    expect((svg.match(/fill="#00ff00"/g) ?? []).length).toBe(2);
+    expect(layoutTextSvg(body([para([piece('plain')])]), stubMeasurer)).not.toContain('<rect');
+  });
+
   it('emits one <text> for a single line, left-anchored at the box edge', () => {
     const svg = layoutTextSvg(body([para([piece('Hello')])]), stubMeasurer);
     expect(countText(svg)).toBe(1);
@@ -354,8 +407,102 @@ describe('layoutTextSvg horizontal parity', () => {
     // and space-inclusive line breaking — "aa bb" (50px incl. space) no longer
     // fits the 40px box, so each word wraps to its own line. See the fidelity
     // calibration notes in site/fidelity/README.md.
+    // The `<g data-pptx-paragraph>` wrappers group each paragraph's lines for
+    // a build player; they carry no transform, so every coordinate above is
+    // the one this guard was calibrated against.
     expect(svg).toMatchInlineSnapshot(
-      `"<text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text>"`,
+      `"<g data-pptx-paragraph="0"><text x="-0.75" y="78.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">aa</tspan></text><text x="-0.75" y="88.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">bb</tspan></text><text x="-0.75" y="98.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">cc</tspan></text><text x="-0.75" y="108.36" text-anchor="start" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">dd</tspan></text></g><g data-pptx-paragraph="1"><text x="19.25" y="118.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ee</tspan></text><text x="19.25" y="128.36" text-anchor="middle" xml:space="preserve"><tspan font-family="Carlito" font-size="10" fill="#000000">ff</tspan></text></g>"`,
     );
+  });
+});
+
+describe('centered text bounds', () => {
+  it('preserves the full paragraph frame with opposing alignment', () => {
+    const paragraphs = [para([piece('ABC')]), para([piece('A')], { align: 'right' })];
+    const normal = layoutCore(body(paragraphs, { boxWpx: 100 }), stubMeasurer);
+    const centered = layoutCore(
+      body(paragraphs, { boxWpx: 100, anchorCentered: true }),
+      stubMeasurer,
+    );
+    expect(centered.anchorShift).toBe(0);
+    expect(centered.placements).toEqual(normal.placements);
+  });
+  it.each(['top', 'center', 'bottom'] as const)(
+    'centers a left-aligned block independently of %s anchoring',
+    (anchor) => {
+      const paragraphs = [para([piece('ABCD')]), para([piece('A')])];
+      const normal = layoutCore(
+        body(paragraphs, { boxXpx: 20, boxWpx: 100, anchor }),
+        stubMeasurer,
+      );
+      const centered = layoutCore(
+        body(paragraphs, { boxXpx: 20, boxWpx: 100, anchor, anchorCentered: true }),
+        stubMeasurer,
+      );
+      expect(centered.placements.map((p) => p.line.anchorX + p.dx)).toEqual([50, 50]);
+      expect(centered.placements.map((p) => p.baselineY)).toEqual(
+        normal.placements.map((p) => p.baselineY),
+      );
+      expect(centered.placements.map((p) => p.line.textAnchor)).toEqual(['start', 'start']);
+    },
+  );
+  it('includes a hanging bullet and ignores trailing spaces', () => {
+    const line = para([piece('AB  ')], {
+      firstIndentPx: -10,
+      bullet: { text: '•', family: 'Carlito', sizePx: 10, fillHex: '#000000' },
+    });
+    const {
+      placements: [p],
+    } = layoutCore(body([line], { boxWpx: 100, anchorCentered: true }), stubMeasurer);
+    // Bullet at 30, a ten-pixel gap, then two ten-pixel glyphs to 70.
+    expect(p!.line.bullet!.x + p!.dx).toBe(30);
+    expect(p!.line.anchorX + p!.dx).toBe(50);
+  });
+  it('centers the reading dimension before rotating vertical text', () => {
+    const {
+      placements: [p],
+    } = layoutCore(
+      body([para([piece('AB')])], { boxWpx: 100, boxHpx: 200, vert: 'cw90', anchorCentered: true }),
+      stubMeasurer,
+    );
+    expect(p!.line.anchorX + p!.dx).toBe(40);
+  });
+});
+
+describe('paragraph tab stops', () => {
+  it.each([
+    ['left', 80],
+    ['center', 55],
+    ['right', 30],
+    ['decimal', 50],
+  ] as const)('aligns a mixed-format tab field using %s alignment', (alignment, gap) => {
+    const input = body([
+      para([piece('AB\t12'), piece('3.4', { bold: true })], {
+        tabStops: [{ positionPx: 100, alignment }],
+      }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines[0]!.tokens.find((token) => token.isTab)?.width).toBe(gap);
+    expect(layoutTextSvg(input, stubMeasurer)).toContain(`dx="${gap}"`);
+  });
+
+  it('uses default stops relative to the paragraph margin, accounting for first-line indent', () => {
+    const input = body([
+      para([piece('A\tB\tC')], { marLpx: 30, firstIndentPx: 10, defaultTabSizePx: 50 }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines[0]!.tokens.filter((token) => token.isTab).map((token) => token.width)).toEqual([
+      30, 40,
+    ]);
+  });
+
+  it('resets tab positions after a line break and right-aligns decimal fields without a point', () => {
+    const input = body([
+      para([piece('A\t12'), piece('', { isBreak: true }), piece('B\t123')], {
+        tabStops: [{ positionPx: 100, alignment: 'decimal' }],
+      }),
+    ]);
+    const lines = layoutCore(input, stubMeasurer).placements.map((placement) => placement.line);
+    expect(lines.map((line) => line.tokens.find((token) => token.isTab)?.width)).toEqual([70, 60]);
   });
 });

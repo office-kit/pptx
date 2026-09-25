@@ -1,5 +1,6 @@
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
+import { editTextBody, formatTextBodyRange } from '../../internal/drawingml/text-body-edit.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
 import {
   getShapePlaceholderIdx,
@@ -12,13 +13,15 @@ import {
   type ParagraphAlignment,
   type ParagraphSpec,
   type TextFormat,
-  applyAlignmentToAllParagraphs,
+  alignToken,
+  applyAlignmentTokenToAllParagraphs,
   applyBulletToAllParagraphs,
   applyFormatToAllRuns,
   setTextBody,
   setTextBodyParagraphs,
 } from '../../internal/drawingml/index.ts';
 import {
+  newGuid,
   oneOf,
   angle60000,
   emuCoordinate32,
@@ -31,11 +34,13 @@ import {
   NS,
   type XmlElement,
   attr,
+  cloneElement,
   elem,
   firstChildElement,
   getAttrValue,
   parseXml,
   qname,
+  text,
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
@@ -47,7 +52,7 @@ import {
   SHAPE_SNAPSHOT,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, decode, requireTxBody } from './_helpers.ts';
+import { commitAndRefresh, createTxBody, decode, ensureTxBody, requireTxBody } from './_helpers.ts';
 const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 // ---------------------------------------------------------------------------
@@ -55,26 +60,96 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 /**
  * Replaces the shape's visible text with `value`. Newlines start a new
- * paragraph. Existing run/paragraph properties are preserved so font,
- * color, size, alignment, and bullet style stay intact. The paragraph-end
- * format (`<a:endParaRPr>`) is not kept; author it with `setShapeParagraphs`.
+ * paragraph. By default, new paragraphs inherit the first existing run and
+ * paragraph properties (font, color, size, alignment and bullets). The paragraph-end
+ * format (`<a:endParaRPr>`) is not kept by default; author it with `setShapeParagraphs`.
+ * Set `preserveFormatting` for incremental editing: unchanged prefix/suffix runs
+ * and paragraphs retain their XML; inserted text inherits the insertion point's
+ * format. Multiple disjoint changes should be applied separately to retain the
+ * formatting between them. With `range`, `value` replaces exactly that UTF-16
+ * selection and unaffected formatting is always preserved.
  */
 export const setShapeText = (
   shape: SlideShapeData,
   value: string,
-  options: { bullets?: BulletStyle } = {},
+  options: {
+    bullets?: BulletStyle;
+    preserveFormatting?: boolean;
+    range?: { start: number; end: number };
+  } = {},
 ): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
-    throw new Error(
-      `setShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
-  if (txBody === null) {
-    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
-  }
-  setTextBody(txBody, value, options.bullets);
+  const txBody = ensureTxBody(shape);
+  if (options.preserveFormatting || options.range) {
+    editTextBody(txBody, value, options.range);
+    if (options.bullets !== undefined) applyBulletToAllParagraphs(txBody, options.bullets);
+  } else setTextBody(txBody, value, options.bullets);
   commitAndRefresh(shape);
+};
+
+/**
+ * Replaces the shape's text with a single field — text PowerPoint fills in
+ * when it opens the deck, rather than text the file states. `type` is an
+ * ECMA-376 `ST_TextFieldType` token: `'slidenum'` for the slide's number,
+ * `'datetime'` (and its `datetime1`…`datetime13` variants) for the current
+ * date, `'footer'`, `'headerfooter'`, … Unrecognised tokens are written
+ * through, since the list is open and renderers differ on what they honour.
+ *
+ * `options.text` is the cached value stored in `<a:t>`, which is what a reader
+ * that does not evaluate fields shows — PowerPoint overwrites it on open, so
+ * it matters only for other consumers. The shape's first run's formatting is
+ * carried onto the field, the way PowerPoint keeps a placeholder's look when
+ * it inserts one.
+ *
+ * This replaces the whole text body: a field placeholder holds the field and
+ * nothing else, which is how PowerPoint writes slide numbers and dates.
+ */
+export const setShapeTextField = (
+  shape: SlideShapeData,
+  type: string,
+  options: { text?: string } = {},
+): void => {
+  if (type.length === 0) throw new Error('setShapeTextField: type must not be empty');
+  const txBody = ensureTxBody(shape);
+  // The look of the text being replaced, so inserting a field into a styled
+  // placeholder does not reset it to the theme default.
+  const firstRunPr = firstRunProperties(txBody);
+  const field = elem(qname('a', 'fld', NS.dml), {
+    attrs: [attr(qname('', 'id', ''), newGuid()), attr(qname('', 'type', ''), type)],
+    // CT_TextField is a sequence: rPr?, pPr?, t?.
+    children: [
+      ...(firstRunPr ? [cloneElement(firstRunPr)] : []),
+      elem(qname('a', 't', NS.dml), { children: [text(options.text ?? '')] }),
+    ],
+  });
+  const paragraph = elem(qname('a', 'p', NS.dml), { children: [field] });
+  const keep = txBody.children.filter(
+    (node) =>
+      node.kind === 'element' &&
+      node.name.namespaceURI === NS.dml &&
+      (node.name.localName === 'bodyPr' || node.name.localName === 'lstStyle'),
+  );
+  txBody.children = [...keep, paragraph];
+  commitAndRefresh(shape);
+};
+
+// The `<a:rPr>` of the first run or field in the body, or null when the body
+// has none to carry over.
+const firstRunProperties = (txBody: XmlElement): XmlElement | null => {
+  for (const paragraph of txBody.children) {
+    if (
+      paragraph.kind !== 'element' ||
+      paragraph.name.namespaceURI !== NS.dml ||
+      paragraph.name.localName !== 'p'
+    )
+      continue;
+    for (const inline of paragraph.children) {
+      if (inline.kind !== 'element' || inline.name.namespaceURI !== NS.dml) continue;
+      if (inline.name.localName !== 'r' && inline.name.localName !== 'fld') continue;
+      const rPr = firstChildElement(inline, qname('a', 'rPr', NS.dml));
+      if (rPr) return rPr;
+    }
+  }
+  return null;
 };
 
 /**
@@ -86,15 +161,7 @@ export const setShapeText = (
  * minus the leading newline when there was no existing text.
  */
 export const appendShapeText = (shape: SlideShapeData, value: string): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
-    throw new Error(
-      `appendShapeText only works on text-bearing shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
-  if (txBody === null) {
-    throw new Error(`shape "${shape[SHAPE_SNAPSHOT].name}" has no <p:txBody>`);
-  }
+  const txBody = ensureTxBody(shape);
   const existing = shape[SHAPE_SNAPSHOT].text;
   const combined = existing.length === 0 ? value : `${existing}\n${value}`;
   setTextBody(txBody, combined);
@@ -241,17 +308,19 @@ export const getShapeTextAutoFitParams = (
       c.name.namespaceURI === NS.dml &&
       c.name.localName === 'normAutofit'
     ) {
-      const fsRaw = getAttrValue(c, qname('', 'fontScale', ''));
-      const lsRaw = getAttrValue(c, qname('', 'lnSpcReduction', ''));
-      const fs = fsRaw === null ? 100_000 : Number.parseInt(fsRaw, 10);
-      const ls = lsRaw === null ? 0 : Number.parseInt(lsRaw, 10);
-      return {
-        fontScale: Number.isFinite(fs) ? fs / 100_000 : 1,
-        lnSpcReduction: Number.isFinite(ls) ? ls / 100_000 : 0,
-      };
+      return readAutoFitParams(c);
     }
   }
   return null;
+};
+
+const readAutoFitParams = (element: XmlElement): { fontScale: number; lnSpcReduction: number } => {
+  const ratio = (name: string, fallback: number) => {
+    const raw = getAttrValue(element, qname('', name, ''));
+    const value = raw === null ? NaN : Number.parseInt(raw, 10);
+    return Number.isFinite(value) ? value / 100_000 : fallback;
+  };
+  return { fontScale: ratio('fontScale', 1), lnSpcReduction: ratio('lnSpcReduction', 0) };
 };
 
 /**
@@ -296,7 +365,7 @@ export const getShapeTextColumns = (
   const numColRaw = getAttrValue(bodyPr, qname('', 'numCol', ''));
   if (numColRaw === null) return null;
   const count = Number.parseInt(numColRaw, 10);
-  if (!Number.isFinite(count) || count < 2) return null;
+  if (!Number.isFinite(count) || count < 1) return null;
   const gapRaw = getAttrValue(bodyPr, qname('', 'spcCol', ''));
   if (gapRaw !== null) {
     const g = Number.parseInt(gapRaw, 10);
@@ -308,15 +377,22 @@ export const getShapeTextColumns = (
 /**
  * Sets the multi-column layout on the shape's text body — writes
  * `<a:bodyPr numCol="N" [spcCol="EMU"]/>`. Pass `null` to clear both
- * attributes so the text body falls back to PowerPoint's default
- * single column. `count` must be in `2..16` (ST_TextColumnCount caps at
- * 16, and single column is the `null` default). `gapEmu`, when omitted,
+ * attributes so the text body inherits its column settings (one column
+ * when no layout/master supplies them). `count` must be in `1..16`;
+ * use `1` to override inherited columns explicitly. `gapEmu`, when omitted,
  * removes any prior `spcCol`. Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextColumns = (
   shape: SlideShapeData,
   columns: { count: number; gapEmu?: number } | null,
 ): void => {
+  // Validate before touching the XML so rejected edits preserve prior settings.
+  const numCol =
+    columns === null ? null : textColumnCount(columns.count, 'setShapeTextColumns: count');
+  const spcCol =
+    columns?.gapEmu === undefined
+      ? null
+      : emuPositiveCoordinate32(columns.gapEmu, 'setShapeTextColumns: gapEmu');
   const bodyPr = requireBodyPr(shape);
   bodyPr.attrs = bodyPr.attrs.filter(
     (a) =>
@@ -326,16 +402,8 @@ export const setShapeTextColumns = (
       ),
   );
   if (columns !== null) {
-    if (columns.count < 2) {
-      throw new Error(
-        `setShapeTextColumns: count must be >= 2 (single column is the default — pass null instead). Got ${columns.count}.`,
-      );
-    }
-    // ST_TextColumnCount caps at 16; spcCol is ST_PositiveCoordinate32.
-    const numCol = textColumnCount(columns.count, 'setShapeTextColumns: count');
     bodyPr.attrs.push(attr(qname('', 'numCol', ''), String(numCol)));
-    if (columns.gapEmu !== undefined) {
-      const spcCol = emuPositiveCoordinate32(columns.gapEmu, 'setShapeTextColumns: gapEmu');
+    if (spcCol !== null) {
       bodyPr.attrs.push(attr(qname('', 'spcCol', ''), String(spcCol)));
     }
   }
@@ -428,8 +496,8 @@ export const getShapeTextDirection = (
 /**
  * Sets the shape's text-direction via `<a:bodyPr vert="…"/>`. See
  * `getShapeTextDirection` for the meaning of each value. Passing `null`
- * (or `'horz'`) clears the attribute so the shape uses the default
- * horizontal direction. Throws for non-text-bearing shape kinds.
+ * clears the attribute, restoring layout/master inheritance. `'horz'` writes
+ * an explicit horizontal override. Throws for non-text-bearing shape kinds.
  */
 export const setShapeTextDirection = (
   shape: SlideShapeData,
@@ -448,7 +516,7 @@ export const setShapeTextDirection = (
   bodyPr.attrs = bodyPr.attrs.filter(
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'vert'),
   );
-  if (direction !== null && direction !== 'horz') {
+  if (direction !== null) {
     bodyPr.attrs.push(attr(qname('', 'vert', ''), direction));
   }
   commitAndRefresh(shape);
@@ -482,7 +550,7 @@ export const getShapeTextMargins = (
 
 /**
  * Resolves the effective `<a:bodyPr>` properties — anchor, wrap, vertical
- * direction, and inset margins — by walking the layout / master cascade
+ * direction, inset margins, columns and autofit — by walking the layout / master cascade
  * the same way `getShapeRunFormatEffective` walks rPr. Returns the
  * innermost value that the cascade supplies, or `null` for properties
  * neither the shape nor any inherited placeholder authors.
@@ -496,12 +564,20 @@ export const getShapeBodyPrEffective = (
   shape: SlideShapeData,
 ): {
   anchor: TextAnchor | null;
+  anchorCentered: boolean | null;
+  autoFit: TextAutoFit | null;
+  autoFitParams: ReturnType<typeof getShapeTextAutoFitParams>;
+  columns: ReturnType<typeof getShapeTextColumns>;
   wrap: TextWrap | null;
   vert: ReturnType<typeof getShapeTextDirection>;
   margins: { left: number | null; top: number | null; right: number | null; bottom: number | null };
 } => {
   const result = {
     anchor: null as TextAnchor | null,
+    anchorCentered: null as boolean | null,
+    autoFit: null as TextAutoFit | null,
+    autoFitParams: null as ReturnType<typeof getShapeTextAutoFitParams>,
+    columns: null as ReturnType<typeof getShapeTextColumns>,
     wrap: null as TextWrap | null,
     vert: null as ReturnType<typeof getShapeTextDirection>,
     margins: {
@@ -511,7 +587,46 @@ export const getShapeBodyPrEffective = (
       bottom: null as number | null,
     },
   };
+  let directionResolved = false;
+  let columnCountResolved = false;
+  let columnGapResolved = false;
   const parseBodyPr = (bodyPr: XmlElement): void => {
+    if (result.autoFit === null) {
+      for (const child of bodyPr.children) {
+        if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
+        const local = child.name.localName;
+        if (local === 'noAutofit') result.autoFit = 'none';
+        else if (local === 'spAutoFit') result.autoFit = 'shape';
+        else if (local === 'normAutofit') {
+          result.autoFit = 'normal';
+          // The autofit child is a choice: its absent attributes use defaults,
+          // rather than borrowing scale factors from a different inherited child.
+          result.autoFitParams = readAutoFitParams(child);
+        }
+        if (result.autoFit !== null) break;
+      }
+    }
+    if (!columnCountResolved) {
+      const raw = getAttrValue(bodyPr, qname('', 'numCol', ''));
+      const count = raw === null ? NaN : Number.parseInt(raw, 10);
+      if (Number.isFinite(count) && count >= 1 && count <= 16) {
+        result.columns = { ...result.columns, count };
+        columnCountResolved = true;
+      }
+    }
+    if (!columnGapResolved) {
+      const raw = getAttrValue(bodyPr, qname('', 'spcCol', ''));
+      const gapEmu = raw === null ? NaN : Number.parseInt(raw, 10);
+      if (Number.isFinite(gapEmu) && gapEmu >= 0) {
+        result.columns = { count: result.columns?.count ?? 1, gapEmu };
+        columnGapResolved = true;
+      }
+    }
+    if (result.anchorCentered === null) {
+      const centered = getAttrValue(bodyPr, qname('', 'anchorCtr', ''));
+      if (centered === '1' || centered === 'true') result.anchorCentered = true;
+      else if (centered === '0' || centered === 'false') result.anchorCentered = false;
+    }
     if (result.anchor === null) {
       const a = getAttrValue(bodyPr, qname('', 'anchor', ''));
       if (a === 't') result.anchor = 'top';
@@ -523,8 +638,10 @@ export const getShapeBodyPrEffective = (
       if (w === 'square') result.wrap = 'square';
       else if (w === 'none') result.wrap = 'none';
     }
-    if (result.vert === null) {
+    if (!directionResolved) {
       const v = getAttrValue(bodyPr, qname('', 'vert', ''));
+      // An explicit horizontal value must stop a vertical master from winning.
+      if (v === 'horz') directionResolved = true;
       if (
         v === 'vert' ||
         v === 'vert270' ||
@@ -532,8 +649,10 @@ export const getShapeBodyPrEffective = (
         v === 'eaVert' ||
         v === 'mongolianVert' ||
         v === 'wordArtVertRtl'
-      )
+      ) {
         result.vert = v;
+        directionResolved = true;
+      }
     }
     for (const side of ['l', 't', 'r', 'b'] as const) {
       const target =
@@ -598,9 +717,18 @@ export const getShapeBodyPrEffective = (
   return result;
 };
 
-export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): void => {
+/**
+ * Sets vertical anchoring. `centered` centers the text block without changing
+ * paragraph alignment (PowerPoint's Top / Middle / Bottom Centered options).
+ * Omit it to preserve centering; pass null to restore inherited centering.
+ */
+export const setShapeTextAnchor = (
+  shape: SlideShapeData,
+  anchor: TextAnchor,
+  options: { centered?: boolean | null } = {},
+): void => {
   oneOf(anchor, ['top', 'center', 'bottom'], 'setShapeTextAnchor: anchor');
-  const txBody = requireTxBody(shape);
+  const txBody = ensureTxBody(shape);
   let bodyPr = firstChildElement(txBody, NAME_A_BODY_PR);
   if (bodyPr === null) {
     bodyPr = elem(NAME_A_BODY_PR);
@@ -613,6 +741,13 @@ export const setShapeTextAnchor = (shape: SlideShapeData, anchor: TextAnchor): v
     (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchor'),
   );
   bodyPr.attrs.push(attr(ATTR_ANCHOR, token));
+  if (options.centered !== undefined) {
+    bodyPr.attrs = bodyPr.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'anchorCtr'),
+    );
+    if (options.centered !== null)
+      bodyPr.attrs.push(attr(qname('', 'anchorCtr', ''), options.centered ? '1' : '0'));
+  }
   commitAndRefresh(shape);
 };
 
@@ -662,17 +797,37 @@ export const setShapeBulletStyle = (shape: SlideShapeData, style: BulletStyle): 
 
 /** Sets the horizontal alignment of every paragraph in the shape's text. */
 export const setShapeAlignment = (shape: SlideShapeData, align: ParagraphAlignment): void => {
-  applyAlignmentToAllParagraphs(requireTxBody(shape), align);
+  const token = alignToken(align, 'setShapeAlignment');
+  applyAlignmentTokenToAllParagraphs(ensureTxBody(shape), token);
   commitAndRefresh(shape);
 };
 
 /**
  * Applies `format` to every run in the shape's text. Run-property
  * attributes not addressed by `format` are preserved, so partial
- * updates compose.
+ * updates compose. Optional `range` selects UTF-16 offsets in `getShapeText`,
+ * with an exclusive end. Paragraph separators and line breaks each count as one
+ * character. Empty ranges do nothing; invalid or split-surrogate boundaries throw.
+ * Partially selected fields become literal runs; fully selected fields stay fields.
+ * With `reset`, clears direct visual run properties before applying `format`,
+ * restoring inherited fonts and appearance while keeping links and language.
+ * Without a range, also clears text-body and paragraph run-format defaults.
+ * Blank autoshapes receive a text body and paragraph-end formatting for future input.
  */
-export const setShapeTextFormat = (shape: SlideShapeData, format: TextFormat): void => {
-  applyFormatToAllRuns(requireTxBody(shape), format, 'setShapeTextFormat');
+export const setShapeTextFormat = (
+  shape: SlideShapeData,
+  format: TextFormat,
+  options?: { range?: { start: number; end: number }; reset?: boolean },
+): void => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') requireTxBody(shape);
+  const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  const body = existing ?? createTxBody();
+  if (options?.range) formatTextBodyRange(body, format, options.range, options.reset);
+  else applyFormatToAllRuns(body, format, 'setShapeTextFormat', options?.reset);
+  if (!existing) {
+    if (options?.range) return;
+    shape[SHAPE_ELEMENT].children.push(body);
+  }
   commitAndRefresh(shape);
 };
 

@@ -1,16 +1,16 @@
 // Deck manipulation: add, remove, reorder, duplicate, import, merge.
 
 import {
+  type PartName,
   basename,
   emptyRels,
   nextRelId,
-  type PartName,
   partName,
   relsPartNameFor,
   resolveTarget,
 } from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
-import { duplicatePartGraph } from '../../internal/parts/duplicate-graph.ts';
+import { copyPartGraphs, duplicatePartGraph } from '../../internal/parts/duplicate-graph.ts';
 import { REL_TYPES, buildSlideFromLayout } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -23,6 +23,7 @@ import {
   firstChildElement,
   getAttrValue,
   parseXml,
+  qname,
   serializeXml,
 } from '../../internal/xml/index.ts';
 import {
@@ -30,6 +31,7 @@ import {
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
+  SLIDE_DOCUMENT,
   SLIDE_PART_NAME,
   type SlideData,
   type SlideLayoutData,
@@ -47,9 +49,10 @@ import {
   SLD_ID_MAX,
   SLD_ID_MIN,
   SLIDE_CONTENT_TYPE,
+  commitSlideData,
+  refreshSlideData,
   decode,
   encode,
-  setOpcDefault,
 } from './_helpers.ts';
 import {
   findSlideLayoutByType,
@@ -57,7 +60,7 @@ import {
   getSlideLayouts,
   getSlideLayoutPlaceholders,
 } from './layouts.ts';
-import { buildSlideData, getSlides } from './slide-query.ts';
+import { buildSlideData, getSlides, refreshSlideOrder } from './slide-query.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
 
 // ---------------------------------------------------------------------------
@@ -334,6 +337,8 @@ const stripHlinksWithRelId = (element: XmlElement, relIds: ReadonlySet<string>):
 /**
  * Removes the given slide from the deck. Removes the `<p:sldId>`, the
  * `presentation.xml.rels` entry, and the slide part + its `.rels` part.
+ * Links to this slide from other slides are cleared to prevent accidental
+ * retargeting when a slide part name is reused.
  *
  * Media parts are intentionally NOT cleaned up — they may be shared
  * with other slides. The freed `sldId` is NOT reused on subsequent
@@ -342,15 +347,20 @@ const stripHlinksWithRelId = (element: XmlElement, relIds: ReadonlySet<string>):
 export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
   const pkg = pres[INTERNAL_PACKAGE];
   const slidePartName = slide[SLIDE_PART_NAME];
+  if (slide[INTERNAL_PACKAGE] !== pkg) {
+    throw new Error('removeSlide: slide must belong to this presentation');
+  }
   if (pkg.getPart(slidePartName) === null) {
     throw new Error(`removeSlide: ${slidePartName} not present in package`);
   }
 
   const presRels = pkg.getRels(PRES_PART_NAME);
   if (!presRels) throw new Error('presentation.xml has no rels');
-  const slideTargetRel = `slides/${basename(slidePartName)}`;
   const removedRel = presRels.items.find(
-    (r) => r.type === REL_TYPES.slide && r.target === slideTargetRel,
+    (r) =>
+      r.type === REL_TYPES.slide &&
+      r.targetMode !== 'External' &&
+      resolveTarget(PRES_PART_NAME, r.target) === slidePartName,
   );
   if (!removedRel) {
     throw new Error(`presentation.xml.rels missing entry for slide ${slidePartName}`);
@@ -371,10 +381,49 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
   }
   presPart.data = encode(serializeXml(presDoc));
 
+  // Remove inbound slide links before their part name or relationship id can be
+  // reused. Edit the live document so retained shape/cell handles stay in sync.
+  for (const source of getSlides(pres)) {
+    if (source[SLIDE_PART_NAME] === slidePartName) continue;
+    const rels = pkg.getRels(source[SLIDE_PART_NAME]);
+    if (!rels) continue;
+    const removedIds = new Set(
+      rels.items
+        .filter(
+          (rel) =>
+            rel.type === REL_TYPES.slide &&
+            rel.targetMode !== 'External' &&
+            resolveTarget(source[SLIDE_PART_NAME], rel.target) === slidePartName,
+        )
+        .map((rel) => rel.id),
+    );
+    if (!removedIds.size) continue;
+    const removeLinks = (node: XmlElement): void => {
+      node.children = node.children.filter((child) => {
+        if (child.kind !== 'element') return true;
+        if (
+          child.name.namespaceURI === NS.dml &&
+          ['hlinkClick', 'hlinkMouseOver', 'hlinkHover'].includes(child.name.localName) &&
+          removedIds.has(getAttrValue(child, ATTR_R_ID) ?? '')
+        )
+          return false;
+        removeLinks(child);
+        return true;
+      });
+    };
+    removeLinks(source[SLIDE_DOCUMENT].root);
+    rels.items = rels.items.filter((rel) => !removedIds.has(rel.id));
+    pkg.setRels(source[SLIDE_PART_NAME], rels);
+    commitSlideData(source);
+    refreshSlideData(source);
+  }
+
   pkg.removePart(relsPartNameFor(slidePartName));
   pkg.removePart(slidePartName);
   dropRelsPointingAtSlide(pkg, slidePartName);
-  pres._slidesCache = null;
+  // Rebuild from the deck's own order rather than dropping the cache: the
+  // surviving slides keep the handles the caller (and the editor) still holds.
+  refreshSlideOrder(pres);
 };
 
 /**
@@ -439,7 +488,7 @@ export const sortSlides = (
   );
   sldIdLst.children = [...nonSldIdChildren, ...newOrder];
   presPart.data = encode(serializeXml(doc));
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
 };
 
 /**
@@ -515,7 +564,7 @@ export const moveSlide = (pres: PresentationData, slide: SlideData, toIndex: num
   }
   sldIdLst.children = remaining;
   presPart.data = encode(serializeXml(presDoc));
-  pres._slidesCache = null;
+  refreshSlideOrder(pres);
 };
 
 /**
@@ -619,68 +668,19 @@ export const duplicateSlideAt = (
   return slides[clamped]!;
 };
 
-// Collects every relationship id referenced (r:id / r:embed / r:link) anywhere
-// in `el`'s subtree. Relationship-typed attributes live in the officeDocRels
-// namespace regardless of local name.
-const collectRelRefs = (el: XmlElement, into: Set<string>): void => {
-  for (const a of el.attrs) {
-    if (a.name.namespaceURI === NS.officeDocRels) into.add(a.value);
-  }
-  for (const c of el.children) {
-    if (c.kind === 'element') collectRelRefs(c, into);
-  }
-};
-
-const IMPORTED_MEDIA_REL_TYPES: ReadonlySet<string> = new Set([
-  REL_TYPES.image,
-  REL_TYPES.media,
-  REL_TYPES.video,
-  REL_TYPES.audio,
-]);
-
-// importSlide copies the body verbatim but only carries media + hyperlink rels
-// across (charts / diagrams / OLE are dropped in v1). A `<p:graphicFrame>` that
-// still points at a dropped rel would be a dangling r:id — PowerPoint reports
-// the whole package corrupt. Drop those frames so the imported slide stays valid
-// (a chart-less slide is the documented v1 behavior). Recurses through groups.
-const pruneDanglingGraphicFrames = (el: XmlElement, keptRelIds: Set<string>): void => {
-  el.children = el.children.filter((c) => {
-    if (c.kind !== 'element') return true;
-    if (c.name.namespaceURI === NS.pml && c.name.localName === 'graphicFrame') {
-      const refs = new Set<string>();
-      collectRelRefs(c, refs);
-      for (const id of refs) {
-        if (!keptRelIds.has(id)) return false;
-      }
-    }
-    return true;
-  });
-  for (const c of el.children) {
-    if (c.kind === 'element') pruneDanglingGraphicFrames(c, keptRelIds);
-  }
-};
-
 /**
- * Imports a slide from another presentation into `targetPres`. The
- * slide's part bytes are copied verbatim; image rels are followed and
- * the linked media is copied into the target package with fresh part
- * names. The new slide is bound to the supplied `targetLayout` so it
- * still renders without the original deck's layouts.
- *
- * Limitations (v1):
- *
- *   - Only image / video / audio rels are copied across. Other rels (charts,
- *     embedded workbooks, oleObjects, comments) are dropped from the imported
- *     slide. A diagnostic message is appended for each dropped rel.
- *   - Hyperlinks (external URLs) are preserved.
- *   - Slide → notesSlide is dropped (notes don't follow imports).
- *
- * Returns the new `SlideData` appended to `targetPres`.
+ * Imports a slide into `targetPres`. When `targetLayout` is supplied, rebinds
+ * the slide to it. Otherwise preserves the source layout, master and theme.
+ * Copies the complete relationship graph, including charts, workbooks, notes,
+ * media and unknown extension parts. Shared dependencies and cycles retain
+ * their relationships; external hyperlinks are preserved. Missing dependencies
+ * fail before writing any imported parts.
+ * Returns the new slide appended to the target presentation.
  */
 export const importSlide = (
   targetPres: PresentationData,
   sourceSlide: SlideData,
-  targetLayout: SlideLayoutData,
+  targetLayout?: SlideLayoutData,
 ): SlideData => {
   const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
   const sourcePartName = sourceSlide[SLIDE_PART_NAME];
@@ -698,109 +698,64 @@ export const importSlide = (
   const slideN = allocateSlideN(targetPkg);
   const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
 
-  // Copy the source slide bytes verbatim.
-  targetPkg.addPart(newSlidePartName, sourcePart.contentType, new Uint8Array(sourcePart.data));
-
-  // Build the new slide's rels:
-  //   - one slideLayout pointing at the supplied target layout
-  //   - the image / video / audio rels (with each media part imported once)
-  //   - external hyperlink rels copied verbatim
-  const newRels = emptyRels();
-  const layoutPartName = targetLayout[LAYOUT_PART_NAME];
-  if (targetPkg.getPart(layoutPartName) === null) {
+  const layoutPartName = targetLayout?.[LAYOUT_PART_NAME];
+  if (layoutPartName && targetPkg.getPart(layoutPartName) === null) {
     throw new Error(`importSlide: layout ${layoutPartName} not in target package`);
   }
-  // The copied slide body keeps its original `r:embed` / `r:link` ids, so image
-  // and hyperlink rels are preserved verbatim below. The layout rel is NOT
-  // referenced from the body (PowerPoint resolves it by relationship type), so
-  // we can give it any id — but it must not collide with a preserved source id.
-  // Allocating past the source max keeps every rId on the new slide unique.
-  const layoutRelId = nextRelId(sourceRels?.items.map((r) => r.id) ?? []);
-  newRels.items.push({
-    id: layoutRelId,
-    type: REL_TYPES.slideLayout,
-    target: `../slideLayouts/${basename(layoutPartName)}`,
-    targetMode: 'Internal',
-  });
-
-  // A clip is referenced by two rels (`media` + `video` / `audio`) that must
-  // keep pointing at ONE part, so copies are keyed by source part name.
-  const importedMedia = new Map<string, string>();
-  if (sourceRels !== null) {
-    for (const rel of sourceRels.items) {
-      if (rel.type === REL_TYPES.slideLayout) continue; // handled above
-      if (rel.type === REL_TYPES.notesSlide) continue;
-      if (IMPORTED_MEDIA_REL_TYPES.has(rel.type)) {
-        // An online video's URL (or a linked image) has no part to copy.
-        if (rel.targetMode === 'External') {
-          newRels.items.push({ ...rel });
-          continue;
-        }
-        const mediaName = rel.target.startsWith('/')
-          ? partName(rel.target)
-          : resolveTarget(sourcePartName, rel.target);
-        let target = importedMedia.get(mediaName);
-        if (target === undefined) {
-          const mediaPart = sourcePkg.getPart(mediaName);
-          if (!mediaPart) continue;
-          const dotIdx = mediaName.lastIndexOf('.');
-          const extension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1) : 'bin';
-          // Copy the media part across with a fresh name, in PowerPoint's
-          // `imageN` / `mediaN` naming.
-          const stem = rel.type === REL_TYPES.image ? 'image' : 'media';
-          let nextN = 1;
-          const re = new RegExp(`^/ppt/media/${stem}(\\d+)\\.`);
-          for (const p of targetPkg.parts) {
-            const m = p.name.match(re);
-            if (m?.[1] !== undefined) {
-              const n = Number.parseInt(m[1], 10);
-              if (Number.isFinite(n) && n >= nextN) nextN = n + 1;
-            }
-          }
-          const newMediaName = partName(`/ppt/media/${stem}${nextN}.${extension}`);
-          setOpcDefault(targetPkg, extension.toLowerCase(), mediaPart.contentType);
-          targetPkg.addPart(newMediaName, mediaPart.contentType, new Uint8Array(mediaPart.data));
-          target = `../media/${stem}${nextN}.${extension}`;
-          importedMedia.set(mediaName, target);
-        }
-        newRels.items.push({ id: rel.id, type: rel.type, target, targetMode: 'Internal' });
-        continue;
-      }
-      if (rel.type === REL_TYPES.hyperlink) {
-        newRels.items.push({ ...rel });
-        continue;
-      }
-      // Other internal rels (chart/oleObject/etc) are dropped in v1.
-    }
-  }
-  targetPkg.setRels(newSlidePartName, newRels);
-
-  // The verbatim body may still reference a dropped rel (e.g. a chart frame's
-  // `<c:chart r:id="rId2"/>`). Strip any graphicFrame whose r:id is no longer in
-  // the slide's rels so we never emit a dangling relationship. Only re-serialize
-  // when there is actually a dangling reference, to keep the common (frame-less)
-  // import byte-for-byte identical.
-  const newPart = targetPkg.getPart(newSlidePartName);
-  if (newPart) {
-    const keptRelIds = new Set(newRels.items.map((r) => r.id));
-    const bodyDoc = parseXml(decode(newPart.data));
-    const bodyRefs = new Set<string>();
-    collectRelRefs(bodyDoc.root, bodyRefs);
-    let hasDangling = false;
-    for (const id of bodyRefs) {
-      if (!keptRelIds.has(id)) {
-        hasDangling = true;
-        break;
-      }
-    }
-    if (hasDangling) {
-      pruneDanglingGraphicFrames(bodyDoc.root, keptRelIds);
-      newPart.data = encode(serializeXml(bodyDoc));
-    }
+  const layoutRel = sourceRels?.items.find((rel) => rel.type === REL_TYPES.slideLayout);
+  const mappedLayouts = new Map<PartName, PartName>();
+  if (layoutRel && layoutPartName)
+    mappedLayouts.set(resolveTarget(sourcePartName, layoutRel.target), layoutPartName);
+  const copies = copyPartGraphs(
+    sourcePkg,
+    targetPkg,
+    new Map([[sourcePartName, newSlidePartName]]),
+    new Set(),
+    mappedLayouts,
+  );
+  if (!layoutRel && layoutPartName) {
+    const rels = targetPkg.getRels(newSlidePartName) ?? emptyRels();
+    rels.items.push({
+      id: nextRelId(rels.items.map((rel) => rel.id)),
+      type: REL_TYPES.slideLayout,
+      target: layoutPartName,
+      targetMode: 'Internal',
+    });
+    targetPkg.setRels(newSlidePartName, rels);
   }
 
   // presentation → slide rel + sldIdLst entry.
   const presRels = targetPkg.getRels(PRES_PART_NAME) ?? emptyRels();
+  // Imported masters must be discoverable from presentation.xml as well as layouts.
+  const masterName = qname('p', 'sldMasterId', NS.pml);
+  const masters = [...copies.values()].filter((name) =>
+    targetPkg.getPart(name)?.contentType.endsWith('slideMaster+xml'),
+  );
+  if (masters.length) {
+    let masterList = firstChildElement(presDoc.root, NAME_SLD_MASTER_ID_LST);
+    if (!masterList) {
+      masterList = elem(NAME_SLD_MASTER_ID_LST);
+      presDoc.root.children.unshift(masterList);
+    }
+    const used = new Set(
+      allChildElements(masterList, masterName).map((item) => Number(getAttrValue(item, ATTR_ID))),
+    );
+    let id = 2147483648;
+    for (const master of masters) {
+      while (used.has(id)) id++;
+      used.add(id);
+      const relId = nextRelId(presRels.items.map((rel) => rel.id));
+      presRels.items.push({
+        id: relId,
+        type: REL_TYPES.slideMaster,
+        target: master,
+        targetMode: 'Internal',
+      });
+      masterList.children.push(
+        elem(masterName, { attrs: [attr(ATTR_ID, String(id)), attr(ATTR_R_ID, relId)] }),
+      );
+    }
+  }
   const newRId = nextRelId(presRels.items.map((r) => r.id));
   presRels.items.push({
     id: newRId,
@@ -817,7 +772,7 @@ export const importSlide = (
   );
   presPart.data = encode(serializeXml(presDoc));
 
-  targetPres._slidesCache = null;
+  refreshSlideOrder(targetPres);
   const slides = getSlides(targetPres);
   const last = slides[slides.length - 1];
   if (!last) throw new Error('importSlide: post-condition failed');
@@ -826,8 +781,7 @@ export const importSlide = (
 
 /**
  * Appends every slide from `sourcePres` into `targetPres`, in source
- * order. Built on top of `importSlide`: media is propagated, charts
- * are dropped (not yet supported across decks), and the slide's
+ * order. Built on top of `importSlide`: dependencies are preserved, and the slide's
  * layout is rebound to `targetLayout` on the target side.
  *
  * `targetLayout` can be a single layout used for every imported

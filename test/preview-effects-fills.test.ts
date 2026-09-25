@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 // type identity with `renderSlideToSvg` (both import from the package).
 import {
   addSlide,
+  addSlideImage,
   addSlideShape,
   addSlideTextBox,
   findSlideLayout,
@@ -22,6 +23,8 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
+  setShapeImageContrast,
+  setShapeImageBrightness,
   setShapeStroke,
 } from '@office-kit/pptx';
 import { type ZipEntry, readZip, writeZip } from '../src/internal/opc/index.ts';
@@ -283,4 +286,40 @@ describe('renderSlideToSvg: translucent solid fills and outlines', () => {
     const svg = renderSlideToSvg(reloaded, getSlides(reloaded).at(-1)!, { textLayout: 'svg' });
     expect(svg).toContain('fill="#3366CC" fill-opacity="0.270"');
   });
+});
+
+describe('renderSlideToSvg: picture contrast', () => {
+  it.each([-1, -0.5, 0, 0.5, 1])(
+    'scales colors around mid-gray for contrast %s',
+    async (contrast) => {
+      const pres = await loadPresentation(await readFile(fixturePath));
+      const layout = findSlideLayout(pres, 'Blank');
+      if (!layout) throw new Error('Blank layout missing');
+      const slide = addSlide(pres, { layout });
+      const picture = addSlideImage(slide, PNG, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+      });
+      setShapeImageContrast(picture, contrast);
+      let svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+      if (contrast === 0) expect(svg).not.toContain('<feComponentTransfer>');
+      // Brightness also exercises neutral contrast in the emitted filter.
+      setShapeImageBrightness(picture, 0.1);
+      svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+      for (const channel of ['R', 'G', 'B']) {
+        const transfer = svg.match(
+          new RegExp(`<feFunc${channel} type="linear" slope="([^"]+)" intercept="([^"]+)"`),
+        );
+        expect(transfer).not.toBeNull();
+        const slope = Number(transfer![1]);
+        const intercept = Number(transfer![2]);
+        const transform = (value: number) => slope * value + intercept;
+        expect(transform(0.5)).toBeCloseTo(0.6);
+        expect(transform(0.75) - transform(0.25)).toBeCloseTo(0.5 * (1 + contrast));
+        expect(transform(0.75)).toBeGreaterThanOrEqual(transform(0.25));
+      }
+    },
+  );
 });

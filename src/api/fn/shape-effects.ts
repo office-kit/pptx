@@ -1,6 +1,6 @@
 // Shape mutation: shadow + glow effects.
 
-import { resolveDrawingColor } from './shape-color.ts';
+import { parseEffectList } from './shape-color.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import {
@@ -32,7 +32,7 @@ import {
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, decode, requireSpPr } from './_helpers.ts';
-import { type PresentationTheme, getPresentationTheme } from './theme.ts';
+import { getPresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Effects: shadow + glow.
 
@@ -162,107 +162,6 @@ export const getShapeEffect = (shape: SlideShapeData): ShapeEffect | null => {
  * helper. `getShapeEffects` is what renderers want because PowerPoint
  * composes multiple effects in a single filter (shadow + glow, etc.).
  */
-// Parses an `<a:effectLst>` element into the typed effect union.
-// Pulled out of `getShapeEffects` so the cascade-aware variant can
-// reuse it.
-const parseEffectLst = (
-  effectLst: XmlElement,
-  theme: PresentationTheme | null,
-): ShapeEffectAny[] => {
-  const readEffectColor = (host: XmlElement): { color: string; opacity?: number } => {
-    let inner: XmlElement | null = null;
-    for (const c of host.children) {
-      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-      if (
-        c.name.localName === 'srgbClr' ||
-        c.name.localName === 'schemeClr' ||
-        c.name.localName === 'sysClr' ||
-        c.name.localName === 'prstClr'
-      ) {
-        inner = c;
-        break;
-      }
-    }
-    if (!inner) return { color: '' };
-    let opacity: number | undefined;
-    const alphaEl = firstChildElement(inner, qname('a', 'alpha', NS.dml));
-    if (alphaEl) {
-      const a = getAttrValue(alphaEl, qname('', 'val', ''));
-      if (a !== null) {
-        let n = Number.parseFloat(a);
-        if (Number.isFinite(n)) {
-          if (Math.abs(n) > 1) n = n / 100000;
-          opacity = n;
-        }
-      }
-    }
-    const hex = resolveDrawingColor(inner, theme);
-    return { color: hex ?? '', ...(opacity !== undefined ? { opacity } : {}) };
-  };
-
-  const out: ShapeEffectAny[] = [];
-  for (const child of effectLst.children) {
-    if (child.kind !== 'element' || child.name.namespaceURI !== NS.dml) continue;
-    const local = child.name.localName;
-    if (local === 'outerShdw' || local === 'innerShdw') {
-      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
-      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
-      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
-      const c = readEffectColor(child);
-      out.push({
-        kind: local,
-        color: c.color,
-        blurEmu: blur,
-        distEmu: dist,
-        angleDeg: dir / 60000,
-        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
-      });
-    } else if (local === 'glow') {
-      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
-      const c = readEffectColor(child);
-      out.push({
-        kind: 'glow',
-        color: c.color,
-        radiusEmu: rad,
-        ...(c.opacity !== undefined ? { opacity: c.opacity } : {}),
-      });
-    } else if (local === 'reflection') {
-      const blur = Number.parseInt(getAttrValue(child, qname('', 'blurRad', '')) ?? '0', 10) || 0;
-      const dist = Number.parseInt(getAttrValue(child, qname('', 'dist', '')) ?? '0', 10) || 0;
-      const dir = Number.parseInt(getAttrValue(child, qname('', 'dir', '')) ?? '0', 10) || 0;
-      // `stA`/`endA` are ST_PositiveFixedPercentage (0..100000); `sy` is
-      // ST_Percentage and may be negative to encode the mirror flip.
-      const pctFraction = (name: string): number | undefined => {
-        const raw = getAttrValue(child, qname('', name, ''));
-        if (raw === null) return undefined;
-        let n = Number.parseFloat(raw);
-        if (!Number.isFinite(n)) return undefined;
-        if (Math.abs(n) > 1) n = n / 100000;
-        return n;
-      };
-      const opacity = pctFraction('endA');
-      const startOpacity = pctFraction('stA');
-      const scaleY = pctFraction('sy');
-      out.push({
-        kind: 'reflection',
-        blurEmu: blur,
-        distEmu: dist,
-        angleDeg: dir / 60000,
-        ...(opacity !== undefined ? { opacity } : {}),
-        ...(startOpacity !== undefined ? { startOpacity } : {}),
-        ...(scaleY !== undefined ? { scaleY } : {}),
-      });
-    } else if (local === 'softEdge') {
-      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
-      out.push({ kind: 'softEdge', radiusEmu: rad });
-    } else if (local === 'blur') {
-      const rad = Number.parseInt(getAttrValue(child, qname('', 'rad', '')) ?? '0', 10) || 0;
-      out.push({ kind: 'blur', radiusEmu: rad });
-    }
-  }
-  return out;
-};
-
 export const getShapeEffects = (
   pres: PresentationData,
   shape: SlideShapeData,
@@ -271,7 +170,7 @@ export const getShapeEffects = (
   if (!spPr) return [];
   const effectLst = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
   if (!effectLst) return [];
-  return parseEffectLst(effectLst, getPresentationTheme(pres));
+  return parseEffectList(effectLst, getPresentationTheme(pres));
 };
 
 /**
@@ -333,7 +232,7 @@ export const getShapeEffectsEffective = (
     if (!spPr) return [];
     const eff = firstChildElement(spPr, qname('a', 'effectLst', NS.dml));
     if (!eff) return [];
-    return parseEffectLst(eff, theme);
+    return parseEffectList(eff, theme);
   };
 
   const layoutPh = findPh(layout[LAYOUT_PART].shapes);
@@ -363,7 +262,8 @@ export const getShapeEffectsEffective = (
 /**
  * Sets an outer drop shadow on the shape. Defaults: black, 4pt blur,
  * 3pt offset, 45° (down-right). Pass `opacity` (0–1) to soften the
- * shadow.
+ * shadow. Replaces an existing drop shadow and leaves the shape's other
+ * effects in place; `clearShapeEffects` is the way to remove them all.
  */
 export const setShapeShadow = (shape: SlideShapeData, options: ShadowOptions = {}): void => {
   setShadow(requireSpPr(shape), options);
@@ -372,8 +272,8 @@ export const setShapeShadow = (shape: SlideShapeData, options: ShadowOptions = {
 
 /**
  * Sets a glow around the shape. The radius is in EMU (default 5pt =
- * 63500). Mutually exclusive with `setShapeShadow` in v1 — calling
- * either replaces the prior `<a:effectLst>` entirely.
+ * 63500). Replaces an existing glow and composes with a shadow, in the
+ * order `CT_EffectList` states.
  */
 export const setShapeGlow = (shape: SlideShapeData, options: GlowOptions): void => {
   setGlow(requireSpPr(shape), options);

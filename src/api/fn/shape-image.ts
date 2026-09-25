@@ -8,9 +8,13 @@ import {
   detectImageFormat,
   extensionForFormat,
   partName,
+  nextRelId,
+  parseRels,
+  relsPartNameFor,
   readImagePixelSize,
   resolveTarget,
 } from '../../internal/opc/index.ts';
+import { NS, firstChildElement, qname, walkElements } from '../../internal/xml/index.ts';
 import type { Emu } from '../units.ts';
 import {
   INTERNAL_PACKAGE,
@@ -18,6 +22,7 @@ import {
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
   SLIDE_PART_NAME,
+  SLIDE_DOCUMENT,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
@@ -57,9 +62,9 @@ export const fitImageRect = (
 };
 
 /**
- * Replaces a picture's media with `bytes`. Same-format replacements
- * write in place; cross-format replacements allocate a new media part
- * and repoint the rel. The geometry — crop, transform — is preserved.
+ * Replaces only this picture's media with `bytes`, detaching shared media
+ * or relationships when necessary. Unshared same-format media is updated
+ * in place. The geometry — crop, transform — is preserved.
  *
  * Pass `options.fit: 'contain'` to re-fit the picture's extent to the
  * replacement image's aspect ratio, inscribed and centered in the shape's
@@ -94,6 +99,10 @@ export const setShapeImage = (
   const rel = rels.items.find((r) => r.id === rEmbed);
   if (!rel) throw new Error(`slide rels missing entry for r:embed="${rEmbed}"`);
 
+  if (rel.targetMode === 'External') {
+    throw new Error('setShapeImage: r:embed must reference internal media');
+  }
+
   const mediaName = rel.target.startsWith('/')
     ? partName(rel.target)
     : resolveTarget(slide[SLIDE_PART_NAME], rel.target);
@@ -102,14 +111,43 @@ export const setShapeImage = (
   const dotIdx = mediaName.lastIndexOf('.');
   const currentExtension = dotIdx >= 0 ? mediaName.slice(dotIdx + 1).toLowerCase() : '';
 
-  if (currentExtension === newExtension) {
+  let referenceCount = 0;
+  walkElements(slide[SLIDE_DOCUMENT].root, (element) => {
+    for (const attribute of element.attrs) {
+      if (attribute.name.namespaceURI === NS.officeDocRels && attribute.value === rEmbed)
+        referenceCount++;
+    }
+  });
+  const sharedRelationship = referenceCount > 1;
+  // Index once: getRels performs a linear part lookup, which would make a
+  // package-wide scan quadratic for decks with many slides.
+  const partsByName = new Map(pkg.parts.map((part) => [part.name.toLowerCase(), part]));
+  const mediaKey = mediaName.toLowerCase();
+  const decoder = new TextDecoder();
+  const sharedMedia =
+    sharedRelationship ||
+    pkg.parts.some((part) => {
+      const relsPart = partsByName.get(relsPartNameFor(part.name).toLowerCase());
+      if (!relsPart) return false;
+      return parseRels(decoder.decode(relsPart.data)).items.some(
+        (candidate) =>
+          candidate.targetMode !== 'External' &&
+          !(
+            part.name.toLowerCase() === slide[SLIDE_PART_NAME].toLowerCase() &&
+            candidate.id === rEmbed
+          ) &&
+          resolveTarget(part.name, candidate.target).toLowerCase() === mediaKey,
+      );
+    });
+
+  if (currentExtension === newExtension && !sharedMedia) {
     const part = pkg.getPart(mediaName);
     if (!part) throw new Error(`media part missing: ${mediaName}`);
     part.data = bytes;
     part.contentType = newContentType;
   } else {
     let nextN = 1;
-    const mediaPathRegex = /^\/ppt\/media\/image(\d+)\./;
+    const mediaPathRegex = /^\/ppt\/media\/image(\d+)\./i;
     for (const p of pkg.parts) {
       const m = p.name.match(mediaPathRegex);
       if (m?.[1] !== undefined) {
@@ -125,7 +163,20 @@ export const setShapeImage = (
       pkg.contentTypes.defaults.push({ extension: newExtension, contentType: newContentType });
     }
     pkg.addPart(newPartName, newContentType, bytes);
-    rel.target = `../media/image${nextN}.${newExtension}`;
+    const target = `../media/image${nextN}.${newExtension}`;
+    if (sharedRelationship) {
+      const id = nextRelId(rels.items.map((item) => item.id));
+      const fill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml))!;
+      const blip = firstChildElement(fill, qname('a', 'blip', NS.dml))!;
+      blip.attrs = blip.attrs.map((attribute) =>
+        attribute.name.namespaceURI === NS.officeDocRels && attribute.name.localName === 'embed'
+          ? { ...attribute, value: id }
+          : attribute,
+      );
+      rels.items.push({ ...rel, id, target });
+    } else {
+      rel.target = target;
+    }
     pkg.setRels(slide[SLIDE_PART_NAME], rels);
   }
 
@@ -145,8 +196,8 @@ export const setShapeImage = (
       );
       setPosition(shape[SHAPE_ELEMENT], 'picture', fitted.x, fitted.y);
       setSize(shape[SHAPE_ELEMENT], 'picture', fitted.w, fitted.h);
-      commitSlideData(slide);
-      refreshSlideData(slide);
     }
   }
+  commitSlideData(slide);
+  refreshSlideData(slide);
 };

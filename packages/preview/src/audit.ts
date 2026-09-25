@@ -17,7 +17,6 @@ import {
   getShapeKind,
   getShapeName,
   getShapePlaceholderType,
-  getShapeTextColumns,
   getShapeTextDirection,
   getSlides,
   getSlideShapes,
@@ -126,12 +125,12 @@ const auditShape = (
   if (model === null) return;
 
   const vert = verticalLayoutOf(model.effectiveBody.vert ?? getShapeTextDirection(shape));
-  const cols = getShapeTextColumns(shape);
+  const cols = model.effectiveBody.columns;
   const columns: ColumnLayout | null =
     vert === 'none' && cols && cols.count >= 2
       ? {
           count: cols.count,
-          gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 12,
+          gapPx: cols.gapEmu !== undefined ? cols.gapEmu / EMU_PER_PX : 0,
         }
       : null;
   const rect = model.svgTextRect(vert);
@@ -152,6 +151,7 @@ const auditShape = (
     themeFace: model.themeFace,
     defaultColor: '#000000',
     anchor: model.anchor,
+    anchorCentered: model.effectiveBody.anchorCentered ?? false,
     wrap: model.effectiveBody.wrap !== 'none',
     innerX: rect.x,
     innerY: rect.y,

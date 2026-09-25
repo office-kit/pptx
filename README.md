@@ -632,7 +632,7 @@ shown together.
 | Effects              | `setShapeShadow` / `setShapeGlow` / `getShapeEffect`, `clearShapeEffects`                                                                                                                                                                                                                                                                                                                                                                                 |
 | Geometry             | `setShapePosition`, `setShapeSize`, `setShapeRotation`, `setShapeFlip`, `setShapeBounds` / `getShapeBounds`                                                                                                                                                                                                                                                                                                                                               |
 | Pictures             | `setShapeImage`, `setShapeImageCrop` / `getShapeImageCrop`, `setShapeImageOpacity` / `getShapeImageOpacity`, `setShapeImageBrightness`, `…Contrast`                                                                                                                                                                                                                                                                                                       |
-| Z-order              | `bringShapeToFront`, `sendShapeToBack`, `bringShapeForward`, `sendShapeBackward`                                                                                                                                                                                                                                                                                                                                                                          |
+| Z-order              | `bringShapeToFront`, `sendShapeToBack`, `bringShapeForward`, `sendShapeBackward`, `getShapeZIndex`, `setShapeZIndex`                                                                                                                                                                                                                                                                                                                                      |
 | Click actions        | `setShapeClickAction` / `getShapeClickAction` (`url` / `slide` / `nextSlide` / `prevSlide` / `firstSlide` / `lastSlide`)                                                                                                                                                                                                                                                                                                                                  |
 | Shape removal        | `removeShape`                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | Tables               | `getTableCell` / `getTableCells`, `setTableCellText` / `getTableCellText`, `setTableCellParagraphs` / `getTableCellParagraphs`, `setTableCellFill` / `clearTableCellFill`, `setTableCellAlignment`, `setTableCellTextFormat`, `insertTableRow` / `removeTableRow`, `insertTableColumn` / `removeTableColumn`, `mergeTableCells` / `getTableCellSpan`                                                                                                      |
@@ -646,11 +646,34 @@ shown together.
 | Validation           | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                                                                                                                                                                                                                                                                                                                              |
 | Units                | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                                                                                                                                                                                                                                                                                                                           |
 
+### Ordered shape batches
+
+`setShapeZIndex(shape, index)` moves one object among its siblings. Pass an array
+instead to insert a contiguous batch in the supplied back-to-front order:
+`setShapeZIndex([third, first], 0)`. Shapes must share a parent container; duplicate
+handles and mixed containers are rejected before mutation. Non-shape XML and
+unselected siblings are preserved.
+
 Text formats (`TextFormat`, including a paragraph's `endFormat`) cover the Latin, East Asian and complex-script typefaces (`font`, `fontEastAsian`, `fontComplexScript` — `<a:latin>`, `<a:ea>`, `<a:cs>`). Each is authored and read on its own; setting one leaves the others as they were. Chart labels carry the Latin / East Asian pair and the complex-script slot on `ChartTextStyle`: `font` fills `<a:latin>` and `<a:ea>`, `fontComplexScript` fills `<a:cs>`, and neither implies the other. Rebuilding a typeface writes the `typeface` attribute only, so any `pitchFamily` / `charset` the source file carried on that element is dropped.
 
 Runs that name no face fall back to the theme's font scheme, which is also where a per-script list (`<a:font script="Thai" typeface="Cordia New"/>` and 46 siblings) lives. `createPresentation`'s blank deck carries Office's own list in both `majorFont` and `minorFont`.
 
 Authored XML text and attribute values must contain only XML 1.0 characters. Illegal C0 controls (except tab, LF, and CR), U+FFFE, U+FFFF, and unpaired UTF-16 surrogates throw an error identifying the code point. Remove these characters before authoring; valid supplementary characters such as emoji are preserved.
+
+Object geometry can be locked like PowerPoint's Selection Pane:
+
+```ts
+import { isShapeLocked, setShapeLocked } from '@office-kit/pptx';
+
+setShapeLocked(shape, true);
+console.log(isShapeLocked(shape)); // true
+setShapeLocked([shape, anotherShape], false);
+```
+
+Locks leave text editable and preserve unrelated drawing constraints. Group children
+keep independent locks; include descendants when locking every object. These APIs
+write drawing restrictions for editing applications; programmatic geometry setters
+remain available.
 
 ## Preview and text-overflow checks
 

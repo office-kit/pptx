@@ -44,14 +44,22 @@ export interface GlowOptions {
   readonly color: Color;
   /** Glow radius in EMU. Defaults to 63500 (5pt). */
   readonly radiusEmu?: number;
+  /** Opacity (0–1). Defaults to fully opaque. */
+  readonly opacity?: number;
 }
+
+/**
+ * Where an `<a:effectLst>` goes inside its host. `<p:spPr>` is the default;
+ * `<a:rPr>` has its own order, so the run-level setters pass their own.
+ */
+export type EffectPlacement = (host: XmlElement) => number;
 
 /**
  * Computes the index inside `host.children` where an `<a:effectLst>`
  * should be inserted to satisfy the spec's child ordering on
  * `<p:spPr>`.
  */
-const effectInsertionIndex = (host: XmlElement): number => {
+const effectInsertionIndex: EffectPlacement = (host: XmlElement): number => {
   for (let i = 0; i < host.children.length; i++) {
     const c = host.children[i];
     if (c?.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
@@ -68,6 +76,72 @@ const removeEffectLst = (host: XmlElement): void => {
   );
 };
 
+// CT_EffectList is a sequence, not a choice (dml-main.xsd §20.1.8.25): each
+// effect appears at most once, in this order. Writing one out of order, or
+// twice, is schema-invalid.
+const EFFECT_ORDER = [
+  'blur',
+  'fillOverlay',
+  'glow',
+  'innerShdw',
+  'outerShdw',
+  'prstShdw',
+  'reflection',
+  'softEdge',
+] as const;
+
+const effectLstOf = (host: XmlElement): XmlElement | null => {
+  for (const c of host.children) {
+    if (c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'effectLst')
+      return c;
+  }
+  return null;
+};
+
+/**
+ * Puts `effect` into `host`'s effect list, replacing the one of its own kind
+ * and leaving every other effect alone — a shape can carry a shadow and a glow
+ * at once, and PowerPoint routinely writes both. `clearEffects` is how a caller
+ * asks for the list to be emptied.
+ */
+const putEffect = (
+  host: XmlElement,
+  effect: XmlElement,
+  place: EffectPlacement = effectInsertionIndex,
+): void => {
+  let list = effectLstOf(host);
+  if (list === null) {
+    list = elem(NAME_EFFECT_LST, { children: [] });
+    host.children.splice(place(host), 0, list);
+  }
+  const rank = (name: string): number => {
+    const index = (EFFECT_ORDER as readonly string[]).indexOf(name);
+    // An effect the schema does not list sorts last rather than ahead of a
+    // known one, so an unrecognised child cannot push a known one out of order.
+    return index === -1 ? EFFECT_ORDER.length : index;
+  };
+  const own = rank(effect.name.localName);
+  const kept = list.children.filter(
+    (c) =>
+      !(
+        c.kind === 'element' &&
+        c.name.namespaceURI === NS.dml &&
+        c.name.localName === effect.name.localName
+      ),
+  );
+  let at = kept.length;
+  for (let i = 0; i < kept.length; i++) {
+    const c = kept[i];
+    if (c?.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+    if (rank(c.name.localName) > own) {
+      at = i;
+      break;
+    }
+  }
+  kept.splice(at, 0, effect);
+  list.children = kept;
+};
+
 const colorWithAlpha = (color: string, opacity: number | undefined): XmlElement => {
   const base = buildColorElement(color);
   if (opacity !== undefined && opacity >= 0 && opacity < 1) {
@@ -78,12 +152,14 @@ const colorWithAlpha = (color: string, opacity: number | undefined): XmlElement 
 };
 
 /**
- * Sets an outer shadow on `host`'s effect list. Replaces any prior
- * `<a:effectLst>` entirely (we treat shadow + glow as mutually
- * exclusive in v1 — multi-effect stacks are a post-1.0 enhancement).
+ * Sets an outer shadow on `host`'s effect list, replacing any prior outer
+ * shadow and leaving the shape's other effects in place.
  */
-export const setShadow = (host: XmlElement, options: ShadowOptions = {}): void => {
-  removeEffectLst(host);
+export const setShadow = (
+  host: XmlElement,
+  options: ShadowOptions = {},
+  place?: EffectPlacement,
+): void => {
   const color = options.color ?? '#000000';
   // blurRad and dist are ST_PositiveCoordinate (EMU, 0..27273042316900); a
   // fractional/negative/non-finite/over-max value would emit a schema-invalid
@@ -103,27 +179,39 @@ export const setShadow = (host: XmlElement, options: ShadowOptions = {}): void =
     ],
     children: [colorWithAlpha(color, options.opacity)],
   });
-  const effectLst = elem(NAME_EFFECT_LST, { children: [outerShdw] });
-  host.children.splice(effectInsertionIndex(host), 0, effectLst);
+  putEffect(host, outerShdw, place);
 };
 
 /**
- * Sets a glow on `host`'s effect list. Replaces any prior
- * `<a:effectLst>`.
+ * Sets a glow on `host`'s effect list, replacing any prior glow and leaving
+ * the shape's other effects in place.
  */
-export const setGlow = (host: XmlElement, options: GlowOptions): void => {
-  removeEffectLst(host);
+export const setGlow = (host: XmlElement, options: GlowOptions, place?: EffectPlacement): void => {
   // rad is ST_PositiveCoordinate — validate like the shadow EMU inputs above.
   const rad = String(emuExtent(options.radiusEmu ?? 63500, 'setShapeGlow: radiusEmu'));
   const glow = elem(NAME_GLOW, {
     attrs: [attr(ATTR_RAD, rad)],
-    children: [buildColorElement(options.color)],
+    children: [colorWithAlpha(options.color, options.opacity)],
   });
-  const effectLst = elem(NAME_EFFECT_LST, { children: [glow] });
-  host.children.splice(effectInsertionIndex(host), 0, effectLst);
+  putEffect(host, glow, place);
 };
 
 /** Removes any effect list from `host`. */
 export const clearEffects = (host: XmlElement): void => {
   removeEffectLst(host);
+};
+
+/**
+ * Removes one kind of effect, and the list with it once nothing is left — an
+ * empty `<a:effectLst>` is valid but states "no effects here", which stops the
+ * inheritance a run or shape without one would otherwise get.
+ */
+export const removeEffect = (host: XmlElement, localName: string): void => {
+  const list = effectLstOf(host);
+  if (list === null) return;
+  list.children = list.children.filter(
+    (c) =>
+      !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === localName),
+  );
+  if (list.children.length === 0) removeEffectLst(host);
 };

@@ -16,6 +16,7 @@ import type { PartName } from '../internal/opc/index.ts';
 import type { OpcPackage } from '../internal/parts/index.ts';
 import type {
   CommentAuthor,
+  CommentStatus,
   SlideComment,
   SlideLayoutPart,
   SlidePart,
@@ -32,8 +33,11 @@ export const SHAPE_ELEMENT = Symbol.for('@office-kit/pptx.shape.element');
 export const SHAPE_SNAPSHOT = Symbol.for('@office-kit/pptx.shape.snapshot');
 export const LAYOUT_PART_NAME = Symbol.for('@office-kit/pptx.layout.partName');
 export const LAYOUT_PART = Symbol.for('@office-kit/pptx.layout.part');
+export const LAYOUT_DOCUMENT = Symbol.for('@office-kit/pptx.layout.document');
+export const COMMENT_PARENT = Symbol.for('@office-kit/pptx.comment.parent');
 export const COMMENT_SLIDE = Symbol.for('@office-kit/pptx.comment.slide');
 export const COMMENT_SNAPSHOT = Symbol.for('@office-kit/pptx.comment.snapshot');
+export const COMMENT_MODERN = Symbol.for('@office-kit/pptx.comment.modern');
 export const CELL_TABLE = Symbol.for('@office-kit/pptx.cell.table');
 export const CELL_ELEMENT = Symbol.for('@office-kit/pptx.cell.element');
 export const CELL_ROW = Symbol.for('@office-kit/pptx.cell.row');
@@ -66,19 +70,46 @@ export interface SlideShapeData {
   [SHAPE_SNAPSHOT]: SlidePart['shapes'][number];
 }
 
-/** Data shape backing every `SlideLayout` value. */
+/**
+ * Data shape backing every `SlideLayout` value. Carries the parsed
+ * document, not just the typed view, so a layout handle can be edited
+ * and written back the way a slide handle can.
+ */
 export interface SlideLayoutData {
+  readonly [INTERNAL_PACKAGE]: OpcPackage;
   readonly [LAYOUT_PART_NAME]: PartName;
-  readonly [LAYOUT_PART]: SlideLayoutPart;
+  [LAYOUT_DOCUMENT]: XmlDocument;
+  [LAYOUT_PART]: SlideLayoutPart;
+}
+
+/** Where a modern comment handle points: its thread, and itself within it. */
+export interface ModernCommentRef {
+  /** Id of the `<p188:cm>`; equal to `id` when the handle is the thread itself. */
+  readonly threadId: string;
+  readonly id: string;
+  readonly status: CommentStatus | null;
+  readonly authorId: string;
 }
 
 /**
  * Opaque handle for one comment on a slide. The `author` is resolved
- * on read against the package-level `commentAuthors.xml`.
+ * on read: against the package-level `commentAuthors.xml` for an
+ * ECMA-376 `<p:cm>`, and against `authors.xml` for a modern one.
  */
 export interface SlideCommentData {
+  [COMMENT_PARENT]: SlideCommentData | null;
   readonly [COMMENT_SLIDE]: SlideData;
-  readonly [COMMENT_SNAPSHOT]: SlideComment;
+  /**
+   * For a modern comment this is a projection, not what is on disk: `text`,
+   * `dt` (the thread's `created`) and `position` are real, while `authorId`
+   * and `idx` are the author's place in the modern author list and the
+   * comment's place in its part. They exist so the deck-wide queries read
+   * one shape whatever the file uses; nothing is ever written back through
+   * them. `COMMENT_MODERN` is what every modern mutation goes through.
+   */
+  [COMMENT_SNAPSHOT]: SlideComment;
+  /** Set for a modern comment; `null` for an ECMA-376 one. */
+  [COMMENT_MODERN]: ModernCommentRef | null;
   readonly author: CommentAuthor;
 }
 

@@ -4,11 +4,17 @@
 // referenced from two or more split files is centralized here.
 
 import type { OpcPackage } from '../../internal/parts/index.ts';
-import { REL_TYPES, readSlidePart } from '../../internal/presentationml/index.ts';
+import {
+  REL_TYPES,
+  readSlideLayoutPart,
+  readSlidePart,
+} from '../../internal/presentationml/index.ts';
 import {
   NS,
   type XmlElement,
+  elem,
   firstChildElement,
+  getAttrValue,
   qname,
   serializeXml,
   walkElements,
@@ -16,6 +22,9 @@ import {
 import { partName } from '../../internal/opc/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_DOCUMENT,
+  LAYOUT_PART,
+  LAYOUT_PART_NAME,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
@@ -24,6 +33,7 @@ import {
   SLIDE_PART_NAME,
   SLIDE_SHAPES,
   type SlideData,
+  type SlideLayoutData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 
@@ -75,6 +85,13 @@ export const refreshSlideData = (slide: SlideData): void => {
   }
 };
 
+export const commitLayoutData = (layout: SlideLayoutData): void => {
+  const part = layout[INTERNAL_PACKAGE].getPart(layout[LAYOUT_PART_NAME]);
+  if (!part) throw new Error(`slide layout part missing: ${layout[LAYOUT_PART_NAME]}`);
+  part.data = encode(serializeXml(layout[LAYOUT_DOCUMENT]));
+  layout[LAYOUT_PART] = readSlideLayoutPart(layout[LAYOUT_DOCUMENT].root);
+};
+
 // Rebuild shape handles entirely — used when the shape count changes
 // (e.g. removeShape). Existing SlideShapeData identities are dropped;
 // SHAPE_SLIDE back-pointers stay consistent because the SlideData
@@ -123,6 +140,39 @@ export const requireTxBody = (shape: SlideShapeData): XmlElement => {
   return txBody;
 };
 
+const NAME_BODY_PR = qname('a', 'bodyPr', NS.dml);
+const NAME_LST_STYLE = qname('a', 'lstStyle', NS.dml);
+const NAME_A_P = qname('a', 'p', NS.dml);
+
+export const createTxBody = (): XmlElement =>
+  elem(NAME_TX_BODY, {
+    children: [elem(NAME_BODY_PR), elem(NAME_LST_STYLE), elem(NAME_A_P)],
+  });
+
+/**
+ * Returns the shape's `<p:txBody>`, creating an empty one if absent.
+ *
+ * PowerPoint always gives an autoshape a text body so it can hold text the
+ * moment you click in and type. A shape authored without text (e.g.
+ * `addSlideShape` with no `text`) has none, so setting text later would
+ * otherwise fail — this makes every text-bearing shape editable. Unlike
+ * `requireTxBody`, it never throws for a missing body; it still throws for a
+ * non-text-bearing shape kind (picture / table / etc.).
+ */
+export const ensureTxBody = (shape: SlideShapeData): XmlElement => {
+  if (shape[SHAPE_SNAPSHOT].kind !== 'shape') {
+    throw new Error(
+      `text operations require a shape kind; ${shape[SHAPE_SNAPSHOT].kind} is not text-bearing`,
+    );
+  }
+  const existing = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  if (existing !== null) return existing;
+  const txBody = createTxBody();
+  // txBody is the last child of <p:sp>, after spPr / style.
+  shape[SHAPE_ELEMENT].children.push(txBody);
+  return txBody;
+};
+
 export const commitAndRefresh = (shape: SlideShapeData): void => {
   commitSlideData(shape[SHAPE_SLIDE]);
   refreshSlideData(shape[SHAPE_SLIDE]);
@@ -162,9 +212,14 @@ export const requireSpTree = (slide: SlideData): XmlElement => {
 
 export const nextShapeId = (slide: SlideData): number => {
   let maxId = 0;
-  for (const s of slide[SLIDE_PART].shapes) {
-    if (s.id > maxId) maxId = s.id;
-  }
+  const walk = (el: XmlElement): void => {
+    if (el.name.namespaceURI === NS.pml && el.name.localName === 'cNvPr') {
+      const id = Number(getAttrValue(el, qname('', 'id', '')));
+      if (id > maxId) maxId = id;
+    }
+    for (const child of el.children) if (child.kind === 'element') walk(child);
+  };
+  walk(requireSpTree(slide));
   return Math.max(maxId, 1) + 1;
 };
 
@@ -182,4 +237,23 @@ export const appendAndReturnNewShape = (slide: SlideData, child: XmlElement): Sl
 export const setOpcDefault = (pkg: OpcPackage, extension: string, contentType: string): void => {
   const has = pkg.contentTypes.defaults.some((d) => d.extension.toLowerCase() === extension);
   if (!has) pkg.contentTypes.defaults.push({ extension, contentType });
+};
+
+/** Locate the owning slide/group container without descending into shape content. */
+export const findShapeParent = (shape: SlideShapeData): XmlElement | null => {
+  const stack = [requireSpTree(shape[SHAPE_SLIDE])];
+  const target = shape[SHAPE_ELEMENT];
+  while (stack.length) {
+    const parent = stack.pop()!;
+    for (const child of parent.children) {
+      if (child === target) return parent;
+      if (
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'grpSp'
+      )
+        stack.push(child);
+    }
+  }
+  return null;
 };

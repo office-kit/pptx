@@ -154,3 +154,17 @@ did not fully render.
 ## License
 
 MIT (code). Bundled fonts: OFL-1.1 / Apache-2.0 — see `fonts/LICENSES.md`.
+
+### List numbering in custom editing surfaces
+
+`paragraphNumberLabels(paragraphs)` accepts an array of `{ bulletStyle, level }`
+and returns a number label or `null` for each paragraph. It uses the same
+per-level counters as the slide renderer, including restarts after a non-numbered
+paragraph or a change of numbering scheme. Common Arabic, alphabetic and Roman
+schemes are supported; other schemes currently fall back to Arabic numbers
+followed by a period. Labels are display data and should not be inserted into
+the editable paragraph text.
+
+### Text regions for editing overlays
+
+`resolveTextBodyRect(preset, bounds, margins)` returns the same inner text rectangle used by the preview before wrapping and autofit. Pass `{x, y, w, h}` and `{left, top, right, bottom}` in the same unit, normally EMU, with inherited/default margins already resolved. It accounts for the preview's constrained preset regions and drops margins if they collapse such a region. Rectangular regions with nonpositive width or height remain degenerate so callers can handle them explicitly. This shares the preview's current geometry approximations; it does not evaluate arbitrary custom-geometry text rectangles.

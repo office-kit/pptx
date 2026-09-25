@@ -28,10 +28,20 @@ import {
 } from '../xml/index.ts';
 import { UNDERLINES, STRIKES } from '../enum-values.ts';
 import { oneOf, fontSizeHundredthPt, textPointSpacing } from '../bounds.ts';
-import { parseColor } from './color.ts';
+import { asColor, parseColor } from './color.ts';
+import {
+  type EffectPlacement,
+  type GlowOptions,
+  type ShadowOptions,
+  removeEffect,
+  setGlow,
+  setShadow,
+} from './effects.ts';
+import { applySolidStroke } from './stroke.ts';
 
 const NAME_R = qname('a', 'r', NS.dml);
 const NAME_RPR = qname('a', 'rPr', NS.dml);
+const NAME_LN = qname('a', 'ln', NS.dml);
 const NAME_LATIN = qname('a', 'latin', NS.dml);
 const NAME_EA = qname('a', 'ea', NS.dml);
 const NAME_CS = qname('a', 'cs', NS.dml);
@@ -145,6 +155,30 @@ export interface TextFormat {
    * format as `color`. Mirrors `<a:rPr><a:highlight>…</a:highlight></a:rPr>`.
    */
   highlight?: Color | null;
+  /**
+   * Outline drawn around the glyphs — `<a:rPr><a:ln>`, the character-level
+   * twin of `setShapeStroke`. `null` removes it, which is not the same as
+   * an outline of width 0: removing restores what the run inherits.
+   */
+  outline?: TextOutline | null;
+  /**
+   * Drop shadow behind the glyphs — `<a:outerShdw>` in the run's own
+   * `<a:effectLst>`. `null` removes it.
+   */
+  shadow?: ShadowOptions | null;
+  /**
+   * Glow around the glyphs — `<a:glow>` in the run's own `<a:effectLst>`.
+   * `null` removes it.
+   */
+  glow?: GlowOptions | null;
+}
+
+/** A run's outline: `CT_LineProperties` as far as text uses it. */
+export interface TextOutline {
+  /** Same accepted forms as `TextFormat.color`. */
+  readonly color?: Color;
+  /** Line width in EMU. PowerPoint's thinnest visible text outline is 9525 (0.75pt). */
+  readonly widthEmu?: number;
 }
 
 /**
@@ -152,9 +186,65 @@ export interface TextFormat {
  * `string`: when no theme is supplied, or a token is not in the scheme, the
  * readers surface the raw `<a:schemeClr val>` token as-is.
  */
-export type ReadTextFormat = Omit<TextFormat, 'color' | 'highlight'> & {
+export type ReadTextFormat = Omit<
+  TextFormat,
+  'color' | 'highlight' | 'outline' | 'shadow' | 'glow'
+> & {
   color?: string | null;
   highlight?: string | null;
+  outline?: ReadTextOutline | null;
+  shadow?: (Omit<ShadowOptions, 'color'> & { readonly color?: string }) | null;
+  glow?: (Omit<GlowOptions, 'color'> & { readonly color: string }) | null;
+};
+
+/** A run outline read back from a deck. `color` widens for the same reason. */
+export type ReadTextOutline = Omit<TextOutline, 'color'> & { readonly color?: string };
+
+/**
+ * Converts a format read back from a deck into one a writer accepts. The
+ * readers widen every color to `string`, because a deck can hold a scheme
+ * token that is not in its theme; this checks each one and drops the property
+ * (or, for a glow, the whole effect) when the writer would reject it, so the
+ * round trip never writes a color the schema has no room for.
+ */
+export const toWritableTextFormat = (format: ReadTextFormat): TextFormat => {
+  const { color, highlight, outline, shadow, glow, ...rest } = format;
+  const outlineColor = outline?.color === undefined ? null : asColor(outline.color);
+  const shadowColor = shadow?.color === undefined ? null : asColor(shadow.color);
+  const glowColor = glow == null ? null : asColor(glow.color);
+  return {
+    ...rest,
+    ...(color == null ? {} : { color: asColor(color) }),
+    ...(highlight == null ? {} : { highlight: asColor(highlight) }),
+    ...(outline == null
+      ? {}
+      : {
+          outline: {
+            ...(outline.widthEmu === undefined ? {} : { widthEmu: outline.widthEmu }),
+            ...(outlineColor === null ? {} : { color: outlineColor }),
+          },
+        }),
+    ...(shadow == null
+      ? {}
+      : {
+          shadow: {
+            ...(shadow.blurEmu === undefined ? {} : { blurEmu: shadow.blurEmu }),
+            ...(shadow.offsetEmu === undefined ? {} : { offsetEmu: shadow.offsetEmu }),
+            ...(shadow.angleDeg === undefined ? {} : { angleDeg: shadow.angleDeg }),
+            ...(shadow.opacity === undefined ? {} : { opacity: shadow.opacity }),
+            ...(shadowColor === null ? {} : { color: shadowColor }),
+          },
+        }),
+    ...(glow == null || glowColor === null
+      ? {}
+      : {
+          glow: {
+            color: glowColor,
+            ...(glow.radiusEmu === undefined ? {} : { radiusEmu: glow.radiusEmu }),
+            ...(glow.opacity === undefined ? {} : { opacity: glow.opacity }),
+          },
+        }),
+  };
 };
 
 const setOrRemoveAttr = (
@@ -288,6 +378,194 @@ const applyValidatedRunFormat = (rPr: XmlElement, format: TextFormat): void => {
   if (format.fontComplexScript !== undefined) setComplexScript(rPr, format.fontComplexScript);
   if (format.color !== undefined) setSolidFill(rPr, format.color);
   if (format.highlight !== undefined) setHighlight(rPr, format.highlight);
+  if (format.outline !== undefined) setRunOutline(rPr, format.outline);
+  if (format.shadow !== undefined) {
+    if (format.shadow === null) removeEffect(rPr, 'outerShdw');
+    else setShadow(rPr, format.shadow, rPrEffectPlacement);
+  }
+  if (format.glow !== undefined) {
+    if (format.glow === null) removeEffect(rPr, 'glow');
+    else setGlow(rPr, format.glow, rPrEffectPlacement);
+  }
+};
+
+// `<a:effectLst>` is the third slot of CT_TextCharacterProperties, so it goes
+// ahead of the first child that outranks it rather than at the end the way it
+// does on `<p:spPr>`.
+const rPrEffectPlacement: EffectPlacement = (rPr) => {
+  const own = RPR_CHILD_RANK.effectLst!;
+  for (let i = 0; i < rPr.children.length; i++) {
+    const c = rPr.children[i];
+    if (c?.kind === 'element' && rprChildRank(c) > own) return i;
+  }
+  return rPr.children.length;
+};
+
+const setRunOutline = (rPr: XmlElement, outline: TextOutline | null): void => {
+  const existing = firstChildElement(rPr, NAME_LN);
+  if (outline === null) {
+    if (existing) rPr.children = rPr.children.filter((c) => c !== existing);
+    return;
+  }
+  const ln = existing ?? elem(NAME_LN);
+  applySolidStroke(ln, outline);
+  if (!existing) insertChildByRank(rPr, ln, rprChildRank);
+};
+
+const VISUAL_RUN_ATTRIBUTES = new Set([
+  'kumimoji',
+  'sz',
+  'b',
+  'i',
+  'u',
+  'strike',
+  'kern',
+  'cap',
+  'spc',
+  'normalizeH',
+  'baseline',
+]);
+const VISUAL_RUN_CHILDREN = new Set([
+  'ln',
+  'noFill',
+  'solidFill',
+  'gradFill',
+  'blipFill',
+  'pattFill',
+  'grpFill',
+  'effectLst',
+  'effectDag',
+  'highlight',
+  'uLnTx',
+  'uLn',
+  'uFillTx',
+  'uFill',
+  'latin',
+  'ea',
+  'cs',
+  'sym',
+]);
+
+/** Retain links, language, proofing and unknown extensions when clearing appearance. */
+export const resetRunFormat = (properties: XmlElement): void => {
+  properties.attrs = properties.attrs.filter(
+    (a) => a.name.namespaceURI !== '' || !VISUAL_RUN_ATTRIBUTES.has(a.name.localName),
+  );
+  properties.children = properties.children.filter(
+    (c) =>
+      c.kind !== 'element' ||
+      c.name.namespaceURI !== NS.dml ||
+      !VISUAL_RUN_CHILDREN.has(c.name.localName),
+  );
+};
+
+const resetTextBodyRunFormats = (node: XmlElement): void => {
+  if (
+    node.name.namespaceURI === NS.dml &&
+    ['rPr', 'defRPr', 'endParaRPr'].includes(node.name.localName)
+  ) {
+    resetRunFormat(node);
+    return;
+  }
+  for (const child of node.children) {
+    if (
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName !== 'extLst'
+    )
+      resetTextBodyRunFormats(child);
+  }
+};
+
+// ECMA-376 CT_TextBodyProperties / CT_TextParagraphProperties. Keep paragraph
+// level (the outline structure), language, hyperlinks and unknown extensions.
+const BODY_FORMAT_ATTRIBUTES = new Set([
+  'rot',
+  'spcFirstLastPara',
+  'vertOverflow',
+  'horzOverflow',
+  'vert',
+  'wrap',
+  'lIns',
+  'tIns',
+  'rIns',
+  'bIns',
+  'numCol',
+  'spcCol',
+  'rtlCol',
+  'fromWordArt',
+  'anchor',
+  'anchorCtr',
+  'forceAA',
+  'upright',
+  'compatLnSpc',
+]);
+const BODY_FORMAT_CHILDREN = new Set([
+  'prstTxWarp',
+  'noAutofit',
+  'normAutofit',
+  'spAutoFit',
+  'scene3d',
+  'sp3d',
+  'flatTx',
+]);
+const PARAGRAPH_FORMAT_ATTRIBUTES = new Set([
+  'marL',
+  'marR',
+  'indent',
+  'algn',
+  'defTabSz',
+  'rtl',
+  'eaLnBrk',
+  'fontAlgn',
+  'latinLnBrk',
+  'hangingPunct',
+]);
+const PARAGRAPH_FORMAT_CHILDREN = new Set([
+  'lnSpc',
+  'spcBef',
+  'spcAft',
+  'buClrTx',
+  'buClr',
+  'buSzTx',
+  'buSzPct',
+  'buSzPts',
+  'buFontTx',
+  'buFont',
+  'buNone',
+  'buAutoNum',
+  'buChar',
+  'buBlip',
+  'tabLst',
+]);
+
+/** Clear direct text appearance so a placeholder can inherit its layout again. */
+export const resetTextBodyFormatting = (body: XmlElement): void => {
+  resetTextBodyRunFormats(body);
+  const visit = (node: XmlElement): void => {
+    const local = node.name.localName;
+    const isBody = local === 'bodyPr';
+    if (isBody || local === 'pPr' || local === 'defPPr' || /^lvl[1-9]pPr$/.test(local)) {
+      const attributes = isBody ? BODY_FORMAT_ATTRIBUTES : PARAGRAPH_FORMAT_ATTRIBUTES;
+      const children = isBody ? BODY_FORMAT_CHILDREN : PARAGRAPH_FORMAT_CHILDREN;
+      node.attrs = node.attrs.filter(
+        (a) => a.name.namespaceURI !== '' || !attributes.has(a.name.localName),
+      );
+      node.children = node.children.filter(
+        (c) =>
+          c.kind !== 'element' || c.name.namespaceURI !== NS.dml || !children.has(c.name.localName),
+      );
+    }
+    for (const child of node.children) {
+      if (
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        child.name.localName !== 'extLst'
+      )
+        visit(child);
+    }
+  };
+  visit(body);
 };
 
 /**
@@ -299,17 +577,31 @@ export const applyFormatToAllRuns = (
   txBody: XmlElement,
   format: TextFormat,
   caller = 'setShapeTextFormat',
+  reset = false,
 ): void => {
   validateFormatEnums(format, caller);
-  applyValidatedFormatToAllRuns(txBody, format);
+  applyValidatedFormatToAllRuns(txBody, format, reset);
 };
 
-export const applyValidatedFormatToAllRuns = (txBody: XmlElement, format: TextFormat): void => {
+export const applyValidatedFormatToAllRuns = (
+  txBody: XmlElement,
+  format: TextFormat,
+  reset = false,
+): void => {
+  if (reset) {
+    applyValidatedRunFormat(elem(NAME_RPR), format);
+    resetTextBodyRunFormats(txBody);
+  }
   // Walk depth-first; runs live two levels deep (txBody > p > r).
   for (const p of txBody.children) {
     if (p.kind !== 'element' || p.name.namespaceURI !== NS.dml || p.name.localName !== 'p') {
       continue;
     }
+    // The paragraph end mark supplies the format for typing into an empty paragraph.
+    const existingEnd = firstChildElement(p, qname('a', 'endParaRPr', NS.dml));
+    const end = existingEnd ?? elem(qname('a', 'endParaRPr', NS.dml));
+    applyValidatedRunFormat(end, format);
+    if (!existingEnd && (end.attrs.length || end.children.length)) p.children.push(end);
     for (const r of p.children) {
       if (r.kind !== 'element' || r.name.namespaceURI !== NS.dml || r.name.localName !== 'r') {
         continue;

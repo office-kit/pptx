@@ -14,6 +14,7 @@ import {
   type XmlAttr,
   type XmlElement,
   type XmlNode,
+  type XmlText,
   attr,
   elem,
   firstChildElement,
@@ -136,38 +137,107 @@ export const replaceTokensInTree = (root: XmlElement, tokens: Record<string, str
   return count;
 };
 
+/** Expand JavaScript replacement tokens against the original paragraph text. */
+const replacementText = (source: string, match: RegExpExecArray, replacement: string): string =>
+  replacement.replace(/\$(\$|&|`|'|[0-9]{1,2}|<[^>]*>)/g, (token: string, key: string) => {
+    if (key === '$') return '$';
+    if (key === '&') return match[0];
+    if (key === '`') return source.slice(0, match.index);
+    if (key === "'") return source.slice(match.index + match[0].length);
+    if (key.startsWith('<')) {
+      return match.groups === undefined ? token : (match.groups[key.slice(1, -1)] ?? '');
+    }
+    const index = Number(key);
+    if (index > 0 && index < match.length) return match[index] ?? '';
+    const first = Number(key[0]);
+    if (key.length === 2 && first > 0 && first < match.length) {
+      return (match[first] ?? '') + key[1];
+    }
+    return token;
+  });
+
+const replaceTextAcrossRuns = (nodes: XmlText[], pattern: RegExp, replacement: string): number => {
+  if (nodes.length === 0) return 0;
+  const source = nodes.map((node) => node.data).join('');
+  const output = nodes.map(() => '');
+  let nodeIndex = 0;
+  let nodeOffset = 0;
+  let position = 0;
+  const consume = (end: number, keep: boolean): void => {
+    while (position < end) {
+      const node = nodes[nodeIndex]!;
+      const length = Math.min(end - position, node.data.length - nodeOffset);
+      if (keep) output[nodeIndex] += node.data.slice(nodeOffset, nodeOffset + length);
+      position += length;
+      nodeOffset += length;
+      if (nodeOffset === node.data.length && nodeIndex < nodes.length - 1) {
+        nodeIndex++;
+        nodeOffset = 0;
+      }
+    }
+  };
+  // Every paragraph starts a fresh search using our private expression.
+  pattern.lastIndex = 0;
+  for (const match of source.matchAll(pattern)) {
+    const value = replacementText(source, match, replacement);
+    if (value === match[0]) continue;
+    consume(match.index, true);
+    // At a run boundary, replacement inherits the following run's format.
+    while (nodeOffset === nodes[nodeIndex]!.data.length && nodeIndex < nodes.length - 1) {
+      nodeIndex++;
+      nodeOffset = 0;
+    }
+    output[nodeIndex] += value;
+    consume(match.index + match[0].length, false);
+  }
+  consume(source.length, true);
+  let count = 0;
+  nodes.forEach((node, index) => {
+    if (node.data !== output[index]) {
+      node.data = output[index]!;
+      count++;
+    }
+  });
+  return count;
+};
+
 /**
- * Replaces every occurrence of `from` in every `<a:t>` element under
- * `root` with `to`. `from` may be a string (literal) or a `RegExp`
- * (matched per-run). Returns the count of `<a:t>` elements that were
- * mutated — not the count of substitutions inside them, since callers
- * usually want "did anything change" rather than "how many letters
- * moved."
- *
- * Same single-run constraint as `replaceTokensInTree`: matches must
- * fit inside one `<a:t>`. Use this for the broader "find/replace
- * across the deck" use case where {{token}} syntax isn't a fit.
+ * Replace text across adjacent runs, keeping unmatched text in its original
+ * runs and giving inserted text the first matched run's formatting. Paragraphs
+ * and explicit line breaks bound matches. Returns the number of changed a:t
+ * elements, preserving the public mutation-count contract.
  */
 export const replaceTextInTree = (root: XmlElement, from: string | RegExp, to: string): number => {
-  // Build a global RegExp so .replace() touches every occurrence per run.
   const pattern =
     typeof from === 'string'
       ? new RegExp(from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g')
-      : from.global
-        ? from
-        : new RegExp(from.source, `${from.flags}g`);
+      : new RegExp(from.source, from.global ? from.flags : `${from.flags}g`);
   let count = 0;
   walkElements(root, (el) => {
-    if (el.name.namespaceURI !== NAME_T.namespaceURI) return;
-    if (el.name.localName !== 't') return;
-    const child = el.children[0];
-    if (!child || child.kind !== 'text') return;
-    const before = child.data;
-    const after = before.replace(pattern, to);
-    if (after !== before) {
-      child.data = after;
-      count++;
+    if (el.name.namespaceURI !== NS.dml) return;
+    if (el.name.localName === 'p') {
+      let nodes: XmlText[] = [];
+      for (const child of el.children) {
+        if (child.kind !== 'element') continue;
+        if (child.name.namespaceURI === NS.dml && child.name.localName === 'br') {
+          count += replaceTextAcrossRuns(nodes, pattern, to);
+          nodes = [];
+        } else {
+          walkElements(child, (runChild) => {
+            if (runChild.name.namespaceURI !== NS.dml || runChild.name.localName !== 't') return;
+            const value = runChild.children[0];
+            if (value?.kind === 'text') nodes.push(value);
+          });
+        }
+      }
+      count += replaceTextAcrossRuns(nodes, pattern, to);
+      return false;
     }
+    if (el.name.localName === 't') {
+      const child = el.children[0];
+      if (child?.kind === 'text') count += replaceTextAcrossRuns([child], pattern, to);
+    }
+    return undefined;
   });
   return count;
 };

@@ -29,6 +29,7 @@ export type ShapeFill =
   | { readonly kind: 'gradient' }
   | { readonly kind: 'pattern' }
   | { readonly kind: 'image' }
+  | { readonly kind: 'background' }
   | { readonly kind: 'none' }
   | { readonly kind: 'inherit' };
 
@@ -371,6 +372,8 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
   if (!layout) return own;
 
   const readFillFromSpPr = (el: XmlElement): ShapeFill | null => {
+    const background = getAttrValue(el, qname('', 'useBgFill', ''))?.trim();
+    if (background === '1' || background === 'true') return { kind: 'background' };
     const spPr = firstChildElement(el, qname('p', 'spPr', NS.pml));
     if (!spPr) return null;
     for (const c of spPr.children) {
@@ -440,6 +443,8 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
 };
 
 export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
+  const background = getAttrValue(shape[SHAPE_ELEMENT], qname('', 'useBgFill', ''))?.trim();
+  if (background === '1' || background === 'true') return { kind: 'background' };
   const spPrName = qname('p', 'spPr', NS.pml);
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], spPrName);
   if (!spPr) return { kind: 'inherit' };

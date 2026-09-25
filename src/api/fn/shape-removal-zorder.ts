@@ -1,6 +1,7 @@
 // Shape removal and z-order.
 
-import { emptyRels, nextRelId } from '../../internal/opc/index.ts';
+import { emptyRels, nextRelId, resolveTarget, type PartName } from '../../internal/opc/index.ts';
+import { copyPartGraphs } from '../../internal/parts/duplicate-graph.ts';
 import { readPictureMediaRef } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -13,7 +14,6 @@ import {
   INTERNAL_PACKAGE,
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
-  SLIDE_DOCUMENT,
   SLIDE_PART_NAME,
   type SlideData,
   type SlideShapeData,
@@ -24,76 +24,155 @@ import {
   nextShapeId,
   rebuildShapesFromDocument,
   requireSpTree,
+  findShapeParent,
 } from './_helpers.ts';
 import { addMediaTimingNode, removeMediaTimingNodes } from './_media-timing.ts';
+import { planAnimationCopy } from './shape-animation.ts';
+import { planShapeAnimationRemoval } from './slide-animation-edit.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — removal.
 
 /**
- * Copies a shape into `targetSlide`. The source XML is cloned and
- * appended to the target's `<p:spTree>`. Image rels on the source
- * shape are followed: the linked media part is referenced from the
- * target slide via a freshly allocated rId (no media bytes are
- * copied — both slides share the underlying part).
- *
- * v1 requires source and target to live in the same package
- * (`sourceShape`'s slide and `targetSlide` must share the same
- * `OpcPackage`). Cross-package copy is `importSlide` territory.
- *
- * Returns the new `SlideShapeData` on `targetSlide`.
+ * Copies a shape into `targetSlide`, including nested shapes and relationships.
+ * Within a presentation, media and other referenced parts remain shared.
+ * Across presentations, dependencies are cloned with collision-free part names,
+ * retaining embedded workbooks, unknown parts and external links.
+ * With `preserveGroupTransform`, a nested source retains its ancestor group
+ * transforms as wrappers, excluding sibling objects. Returns the outermost
+ * copied shape on the target slide.
  */
-export const copyShape = (targetSlide: SlideData, sourceShape: SlideShapeData): SlideShapeData => {
+export const copyShape = (
+  targetSlide: SlideData,
+  sourceShape: SlideShapeData,
+  opts: { readonly preserveGroupTransform?: boolean } = {},
+): SlideShapeData => {
   const sourceSlide = sourceShape[SHAPE_SLIDE];
-  if (sourceSlide[INTERNAL_PACKAGE] !== targetSlide[INTERNAL_PACKAGE]) {
-    throw new Error(
-      'copyShape: source and target must be in the same package. Use importSlide for cross-deck copies.',
-    );
-  }
+  const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
   const pkg = targetSlide[INTERNAL_PACKAGE];
   const sourceEl = sourceShape[SHAPE_ELEMENT];
 
-  // Deep-clone the XML by serializing + re-parsing one element.
-  // We wrap in a temporary parent so we can extract the cloned element
-  // back out without ambient namespaces leaking from the slide root.
-  const cloned = cloneXmlElement(sourceEl);
-
-  // Allocate a fresh shape id on the target slide and overwrite the
-  // cNvPr/cNvPr id attribute.
-  const newId = nextShapeId(targetSlide);
-  rewriteCNvPrId(cloned, newId);
-
-  // Walk the cloned element for r:embed / r:link references. For each
-  // referenced rId in the source slide's rels, copy the rel onto the
-  // target slide's rels (allocating a fresh rId) and update the cloned
-  // attribute. This covers picture blips + media references.
-  const sourceRels = pkg.getRels(sourceSlide[SLIDE_PART_NAME]);
-  if (sourceRels) {
-    const targetRels = pkg.getRels(targetSlide[SLIDE_PART_NAME]) ?? emptyRels();
-    const usedIds = new Set(targetRels.items.map((r) => r.id));
-    rewriteRIdReferences(cloned, (oldRId) => {
-      const sourceRel = sourceRels.items.find((r) => r.id === oldRId);
-      if (!sourceRel) return oldRId;
-      // Look for an existing rel on target with the same type+target;
-      // reuse if found to avoid duplicates.
-      const existing = targetRels.items.find(
-        (r) =>
-          r.type === sourceRel.type &&
-          r.target === sourceRel.target &&
-          r.targetMode === sourceRel.targetMode,
-      );
-      if (existing) return existing.id;
-      const newRId = nextRelId([...usedIds]);
-      usedIds.add(newRId);
-      targetRels.items.push({ ...sourceRel, id: newRId });
-      return newRId;
-    });
-    pkg.setRels(targetSlide[SLIDE_PART_NAME], targetRels);
+  let cloned = cloneXmlElement(sourceEl);
+  if (opts.preserveGroupTransform) {
+    // Keep only the copied branch inside its ancestor groups. Retaining their
+    // transforms also preserves shear from rotated, nonuniformly scaled groups,
+    // which cannot be represented by a standalone shape's xfrm.
+    const root = requireSpTree(sourceSlide);
+    const parents = new Map<XmlElement, XmlElement>();
+    const stack = [root];
+    while (stack.length) {
+      const parent = stack.pop()!;
+      for (const child of parent.children) {
+        if (child.kind !== 'element' || !isShapeChild(child)) continue;
+        parents.set(child, parent);
+        if (child.name.localName === 'grpSp') stack.push(child);
+      }
+    }
+    let branch = sourceEl;
+    let parent = parents.get(branch);
+    while (parent && parent !== root) {
+      const wrapper = cloneXmlElement({
+        ...parent,
+        children: parent.children.filter((child) => !isShapeChild(child)),
+      });
+      const insertion = parent.children
+        .slice(0, parent.children.indexOf(branch))
+        .filter((child) => !isShapeChild(child)).length;
+      wrapper.children.splice(insertion, 0, cloned);
+      cloned = wrapper;
+      branch = parent;
+      parent = parents.get(branch);
+    }
   }
+  const newId = nextShapeId(targetSlide);
+  const copiedIds = rewriteShapeIds(cloned, newId);
+  // A copy animates on its own: the effects the original carries are cloned
+  // against the ids the copy has just been given, group children included.
+  // Planned here, ahead of the parts and relationships, so a copy this library
+  // cannot reproduce faithfully leaves the target slide untouched rather than
+  // half-built.
+  const copyAnimations = planAnimationCopy(sourceSlide, targetSlide, copiedIds);
+
+  const sourceRels = sourcePkg.getRels(sourceSlide[SLIDE_PART_NAME]);
+  const relsById = new Map(sourceRels?.items.map((rel) => [rel.id, rel]));
+  const referencedIds = new Set<string>();
+  rewriteRIdReferences(cloned, (id) => {
+    referencedIds.add(id);
+    return id;
+  });
+  const roots = new Map<PartName, null>();
+  for (const id of referencedIds) {
+    const rel = relsById.get(id);
+    if (!rel) throw new Error(`copyShape: missing relationship ${id}`);
+    if (rel.targetMode !== 'External')
+      roots.set(resolveTarget(sourceSlide[SLIDE_PART_NAME], rel.target), null);
+  }
+  const copies =
+    sourcePkg === pkg
+      ? null
+      : copyPartGraphs(
+          sourcePkg,
+          pkg,
+          roots,
+          new Set(),
+          new Map([[sourceSlide[SLIDE_PART_NAME], targetSlide[SLIDE_PART_NAME]]]),
+        );
+  const targetRels = pkg.getRels(targetSlide[SLIDE_PART_NAME]) ?? emptyRels();
+  const relIds = new Map<string, string>();
+  const usedIds = targetRels.items.map((rel) => rel.id);
+  const relationshipKey = (type: string, target: string, mode: string): string =>
+    JSON.stringify([type, target, mode]);
+  const existingRels = new Map(
+    targetRels.items.map((rel) => [
+      relationshipKey(
+        rel.type,
+        rel.targetMode === 'External'
+          ? rel.target
+          : resolveTarget(targetSlide[SLIDE_PART_NAME], rel.target),
+        rel.targetMode,
+      ),
+      rel.id,
+    ]),
+  );
+  for (const id of referencedIds) {
+    const rel = relsById.get(id)!;
+    const resolved =
+      rel.targetMode === 'External'
+        ? rel.target
+        : resolveTarget(sourceSlide[SLIDE_PART_NAME], rel.target);
+    const target = copies?.get(resolved.toLowerCase()) ?? resolved;
+    const key = relationshipKey(rel.type, target, rel.targetMode);
+    const existing = existingRels.get(key);
+    const newRId = existing ?? nextRelId(usedIds);
+    if (!existing) {
+      usedIds.push(newRId);
+      targetRels.items.push({ ...rel, target, id: newRId });
+      existingRels.set(key, newRId);
+    }
+    relIds.set(id, newRId);
+  }
+  rewriteRIdReferences(cloned, (id) => relIds.get(id)!);
+  pkg.setRels(targetSlide[SLIDE_PART_NAME], targetRels);
+
+  copyAnimations();
 
   // A clip's play controls come from a media time node keyed by shape id, so
-  // the copy needs its own node under the id it was just given.
-  const media = cloned.name.localName === 'pic' ? readPictureMediaRef(cloned) : null;
-  if (media !== null) addMediaTimingNode(targetSlide, media.kind, newId);
+  // the copy needs its own node under the id it was just given. It goes into
+  // the timing the animations have already landed in.
+  const addMediaControls = (el: XmlElement): void => {
+    if (el.name.namespaceURI === NS.pml && el.name.localName === 'pic') {
+      const media = readPictureMediaRef(el);
+      const nv = firstChildElement(el, qname('p', 'nvPicPr', NS.pml));
+      const props = nv && firstChildElement(nv, qname('p', 'cNvPr', NS.pml));
+      if (media && props)
+        addMediaTimingNode(
+          targetSlide,
+          media.kind,
+          Number(getAttrValue(props, qname('', 'id', ''))),
+        );
+    }
+    for (const child of el.children) if (child.kind === 'element') addMediaControls(child);
+  };
+  addMediaControls(cloned);
 
   return appendAndReturnNewShape(targetSlide, cloned);
 };
@@ -110,32 +189,36 @@ const cloneXmlElement = (el: XmlElement): XmlElement => ({
   }),
 });
 
-const rewriteCNvPrId = (root: XmlElement, newId: number): void => {
-  const walk = (el: XmlElement): boolean => {
+const rewriteShapeIds = (root: XmlElement, firstId: number): Map<string, string> => {
+  const ids = new Map<string, string>();
+  let nextId = firstId;
+  const walk = (el: XmlElement, rewriteReferences: boolean): void => {
     if (
-      el.name.namespaceURI === NS.pml &&
-      el.name.localName === 'cNvPr' &&
-      el.attrs.some((a) => a.name.namespaceURI === '' && a.name.localName === 'id')
+      el.name.namespaceURI === (rewriteReferences ? NS.dml : NS.pml) &&
+      (rewriteReferences
+        ? ['stCxn', 'endCxn'].includes(el.name.localName)
+        : el.name.localName === 'cNvPr')
     ) {
-      el.attrs = el.attrs.map((a) =>
-        a.name.namespaceURI === '' && a.name.localName === 'id'
-          ? { name: a.name, value: String(newId) }
-          : a,
-      );
-      return true;
+      el.attrs = el.attrs.map((a) => {
+        if (a.name.namespaceURI !== '' || a.name.localName !== 'id') return a;
+        if (rewriteReferences) return { ...a, value: ids.get(a.value) ?? a.value };
+        const value = String(nextId++);
+        ids.set(a.value, value);
+        return { ...a, value };
+      });
     }
-    for (const c of el.children) {
-      if (c.kind === 'element' && walk(c)) return true;
-    }
-    return false;
+    for (const child of el.children) if (child.kind === 'element') walk(child, rewriteReferences);
   };
-  walk(root);
+  walk(root, false);
+  walk(root, true);
+  return ids;
 };
 
 const rewriteRIdReferences = (root: XmlElement, map: (oldRId: string) => string): void => {
   const walk = (el: XmlElement): void => {
     el.attrs = el.attrs.map((a) => {
       if (
+        a.value !== '' &&
         a.name.namespaceURI === NS.officeDocRels &&
         (a.name.localName === 'id' || a.name.localName === 'embed' || a.name.localName === 'link')
       ) {
@@ -151,7 +234,7 @@ const rewriteRIdReferences = (root: XmlElement, map: (oldRId: string) => string)
 };
 
 // ---------------------------------------------------------------------------
-// Z-order — move shapes forward / backward inside the slide's spTree.
+// Z-order — move shapes forward / backward inside the slide or group container.
 //
 // OOXML shape z-order is just the document order of children of
 // `<p:spTree>`: the first child renders behind, the last in front.
@@ -172,78 +255,77 @@ const isShapeChild = (node: {
   node.name?.namespaceURI === NS.pml &&
   SHAPE_CHILD_LOCALS.has(node.name.localName);
 
-/** Move `shape` to the end of its spTree (render in front of all others). */
-export const bringShapeToFront = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
-  if (idx === spTree.children.length - 1) return; // already at front
-  spTree.children.splice(idx, 1);
-  spTree.children.push(target);
-  commitSlideData(slide);
-  rebuildShapesFromDocument(slide);
+/** Move one shape or a selection in front of all siblings, preserving their stacking order. */
+export const bringShapeToFront = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'front');
 };
 
-/**
- * Move `shape` behind every other shape on the slide. The
- * `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface — required by the schema —
- * stays at the top.
- */
-export const sendShapeToBack = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
+/** Move one shape or a selection behind all siblings, preserving their stacking order. */
+export const sendShapeToBack = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'back');
+};
 
-  // First "shape child" position — after nvGrpSpPr / grpSpPr.
-  let firstShapeAt = spTree.children.length;
-  for (let i = 0; i < spTree.children.length; i++) {
-    const c = spTree.children[i];
-    if (c && isShapeChild(c)) {
-      firstShapeAt = i;
-      break;
+/** Move one shape or a selection one step forward among siblings. */
+export const bringShapeForward = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'forward');
+};
+
+function reorderShapes(
+  input: SlideShapeData | readonly SlideShapeData[],
+  direction: 'front' | 'back' | 'forward' | 'backward',
+): void {
+  const shapes: readonly SlideShapeData[] = SHAPE_ELEMENT in input ? [input] : input;
+  const first = shapes[0];
+  if (!first) return;
+  const parent = findShapeParent(first);
+  if (!parent) return;
+  const slide = first[SHAPE_SLIDE];
+  const selected = new Set(shapes.map((shape) => shape[SHAPE_ELEMENT]));
+  const siblings = parent.children.filter((child): child is XmlElement => isShapeChild(child));
+  const siblingSet = new Set(siblings);
+  if (
+    shapes.some((shape) => shape[SHAPE_SLIDE] !== slide || !siblingSet.has(shape[SHAPE_ELEMENT]))
+  ) {
+    throw new Error('Shapes must belong to the same parent container.');
+  }
+  let ordered = [...siblings];
+  if (direction === 'front' || direction === 'back') {
+    const chosen = siblings.filter((child) => selected.has(child));
+    const remaining = siblings.filter((child) => !selected.has(child));
+    ordered = direction === 'front' ? [...remaining, ...chosen] : [...chosen, ...remaining];
+  } else if (direction === 'forward') {
+    // Walk toward the back so each selected block crosses only one unselected sibling.
+    for (let i = ordered.length - 2; i >= 0; i--) {
+      if (selected.has(ordered[i]!) && !selected.has(ordered[i + 1]!)) {
+        [ordered[i], ordered[i + 1]] = [ordered[i + 1]!, ordered[i]!];
+      }
+    }
+  } else {
+    for (let i = 1; i < ordered.length; i++) {
+      if (selected.has(ordered[i]!) && !selected.has(ordered[i - 1]!)) {
+        [ordered[i - 1], ordered[i]] = [ordered[i]!, ordered[i - 1]!];
+      }
     }
   }
-  if (idx <= firstShapeAt) return;
-  spTree.children.splice(idx, 1);
-  spTree.children.splice(firstShapeAt, 0, target);
+  if (ordered.every((child, i) => child === siblings[i])) return;
+  let index = 0;
+  // Retain non-shape slots, including the required preface and extension lists.
+  parent.children = parent.children.map((child) =>
+    isShapeChild(child) ? ordered[index++]! : child,
+  );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
-};
-
-/** Swap `shape` with the next shape sibling (move one step forward). */
-export const bringShapeForward = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
-  // Find next shape sibling.
-  for (let i = idx + 1; i < spTree.children.length; i++) {
-    const c = spTree.children[i];
-    if (c && isShapeChild(c)) {
-      const next = c;
-      spTree.children[idx] = next;
-      spTree.children[i] = target;
-      commitSlideData(slide);
-      rebuildShapesFromDocument(slide);
-      return;
-    }
-  }
-};
+}
 
 /**
- * Returns the shape's z-index among the slide's "real" shape children
+ * Returns the shape's z-index among its parent container's "real" shape children
  * (`<p:sp>` / `<p:pic>` / `<p:cxnSp>` / `<p:graphicFrame>` / `<p:grpSp>`),
  * skipping the required `<p:nvGrpSpPr>` / `<p:grpSpPr>` preface.
  * Higher numbers render in front.
  */
 export const getShapeZIndex = (shape: SlideShapeData): number => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shape);
+  if (!spTree) return -1;
   let i = 0;
   for (const c of spTree.children) {
     if (!isShapeChild(c)) continue;
@@ -254,51 +336,45 @@ export const getShapeZIndex = (shape: SlideShapeData): number => {
 };
 
 /**
- * Moves the shape to a specific z-index among the slide's "real"
- * shape children. Index is clamped to the available range. Higher
- * numbers render in front. The required preface elements stay at the
- * top of `<p:spTree>`.
+ * Moves a shape or an ordered batch of siblings to a specific z-index.
+ * A batch is inserted contiguously in the supplied order, back to front.
+ * Index is clamped to the available range. Non-shape XML stays in place.
  */
-export const setShapeZIndex = (shape: SlideShapeData, toIndex: number): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
-  const target = shape[SHAPE_ELEMENT];
-  const allShapeChildren = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
-  const clamped = Math.max(0, Math.min(toIndex, allShapeChildren.length - 1));
-
-  // Remove the target from the tree, then re-insert at the position
-  // corresponding to z-index `clamped` among the remaining shapes.
-  spTree.children = spTree.children.filter((c) => c !== target);
-  const remainingShapes = spTree.children.filter((c): c is XmlElement => isShapeChild(c));
-  if (clamped >= remainingShapes.length) {
-    spTree.children.push(target);
-  } else {
-    const anchor = remainingShapes[clamped]!;
-    const anchorIdx = spTree.children.indexOf(anchor);
-    spTree.children.splice(anchorIdx, 0, target);
+export const setShapeZIndex = (
+  shape: SlideShapeData | readonly SlideShapeData[],
+  toIndex: number,
+): void => {
+  const shapes: readonly SlideShapeData[] = SHAPE_ELEMENT in shape ? [shape] : shape;
+  const first = shapes[0];
+  if (!first) return;
+  const parent = findShapeParent(first);
+  if (!parent) return;
+  const slide = first[SHAPE_SLIDE];
+  const siblings = parent.children.filter((child): child is XmlElement => isShapeChild(child));
+  const siblingSet = new Set(siblings);
+  const chosen = shapes.map((member) => member[SHAPE_ELEMENT]);
+  const selected = new Set(chosen);
+  if (selected.size !== chosen.length) throw new Error('Duplicate shapes are not allowed.');
+  if (
+    shapes.some((member) => member[SHAPE_SLIDE] !== slide || !siblingSet.has(member[SHAPE_ELEMENT]))
+  ) {
+    throw new Error('Shapes must belong to the same parent container.');
   }
+  const remaining = siblings.filter((child) => !selected.has(child));
+  const clamped = Math.max(0, Math.min(toIndex, remaining.length));
+  const ordered = [...remaining.slice(0, clamped), ...chosen, ...remaining.slice(clamped)];
+  if (ordered.every((child, index) => child === siblings[index])) return;
+  let index = 0;
+  parent.children = parent.children.map((child) =>
+    isShapeChild(child) ? ordered[index++]! : child,
+  );
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
 };
 
-/** Swap `shape` with the previous shape sibling (move one step backward). */
-export const sendShapeBackward = (shape: SlideShapeData): void => {
-  const slide = shape[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
-  const target = shape[SHAPE_ELEMENT];
-  const idx = spTree.children.indexOf(target);
-  if (idx < 0) return;
-  for (let i = idx - 1; i >= 0; i--) {
-    const c = spTree.children[i];
-    if (c && isShapeChild(c)) {
-      const prev = c;
-      spTree.children[idx] = prev;
-      spTree.children[i] = target;
-      commitSlideData(slide);
-      rebuildShapesFromDocument(slide);
-      return;
-    }
-  }
+/** Move one shape or a selection one step backward among siblings. */
+export const sendShapeBackward = (shape: SlideShapeData | readonly SlideShapeData[]): void => {
+  reorderShapes(shape, 'backward');
 };
 
 /**
@@ -319,14 +395,15 @@ export const sendShapeBackward = (shape: SlideShapeData): void => {
 export const clearSlideShapes = (slide: SlideData): void => {
   const spTree = requireSpTree(slide);
   const removedIds = new Set<number>();
-  spTree.children = spTree.children.filter((c) => {
-    const isShape =
-      c.kind === 'element' &&
-      c.name.namespaceURI === NS.pml &&
-      SHAPE_CHILD_LOCALS.has(c.name.localName);
-    if (isShape) collectShapeIds(c, removedIds);
-    return !isShape;
-  });
+  for (const child of spTree.children) {
+    if (child.kind === 'element' && isShapeChild(child)) collectShapeIds(child, removedIds);
+  }
+  // Before the shapes go, so a slide whose timing could not survive losing
+  // them keeps both the shapes and their animations.
+  const dropAnimations = planShapeAnimationRemoval(slide, removedIds);
+
+  spTree.children = spTree.children.filter((c) => !isShapeChild(c));
+  dropAnimations();
   removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);
@@ -334,16 +411,18 @@ export const clearSlideShapes = (slide: SlideData): void => {
 
 export const removeShape = (shape: SlideShapeData): void => {
   const slide = shape[SHAPE_SLIDE];
-  const doc = slide[SLIDE_DOCUMENT];
-  const cSld = firstChildElement(doc.root, qname('p', 'cSld', NS.pml));
-  if (!cSld) return;
-  const spTree = firstChildElement(cSld, qname('p', 'spTree', NS.pml));
+  const spTree = findShapeParent(shape);
   if (!spTree) return;
   const idx = spTree.children.indexOf(shape[SHAPE_ELEMENT]);
   if (idx < 0) return;
-  spTree.children.splice(idx, 1);
   const removedIds = new Set<number>();
   collectShapeIds(shape[SHAPE_ELEMENT], removedIds);
+  // Before the shape goes, so a slide whose timing could not survive losing it
+  // keeps both the shape and its animations.
+  const dropAnimations = planShapeAnimationRemoval(slide, removedIds);
+
+  spTree.children.splice(idx, 1);
+  dropAnimations();
   removeMediaTimingNodes(slide, removedIds);
   commitSlideData(slide);
   rebuildShapesFromDocument(slide);

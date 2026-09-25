@@ -1,14 +1,27 @@
+import { copyPartGraphs } from '../../internal/parts/duplicate-graph.ts';
+import { readImageCrop } from './_image-crop.ts';
+import type { ImageCrop } from './shape-image-effects.ts';
+import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
+import {
+  readImageFillLayout,
+  readImageIntrinsicSize,
+  writeImageFillLayout,
+  type ImageFillLayout,
+} from './_image-fill-layout.ts';
 // Slide-level background.
 
 import type { Color } from '../../internal/drawingml/index.ts';
 import {
+  type GradientFillOptions,
+  type PatternFillOptions,
+  setPatternFill,
   type ReadGradientFill,
-  type ReadGradientStop,
   readFlip,
   readPosition,
   readRotation,
   readSize,
   setSolidFill,
+  setGradientFill,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
@@ -28,14 +41,17 @@ import {
   NS,
   type XmlElement,
   attr,
+  cloneElement,
   elem,
   firstChildElement,
   getAttrValue,
   parseXml,
   qname,
+  serializeXml,
 } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_DOCUMENT,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
@@ -50,28 +66,39 @@ import {
   type SlideLayoutData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { NAME_CSLD, commitSlideData, decode, refreshSlideData, setOpcDefault } from './_helpers.ts';
-import { getPresentationTheme } from './theme.ts';
 import {
-  NAME_A_GRAD_FILL,
-  NAME_A_GS_LST,
-  NAME_A_LIN,
-  type ShapeBounds,
-  readColorFromContainer,
-  resolveDrawingColor,
-} from './shapes.ts';
+  NAME_CSLD,
+  PRES_PART_NAME,
+  commitSlideData,
+  decode,
+  encode,
+  refreshSlideData,
+  setOpcDefault,
+} from './_helpers.ts';
+import { getPresentationTheme } from './theme.ts';
+import { readBackgroundStyle } from './background-style-read.ts';
+import { resolveDrawingColorOpacity } from './shape-color.ts';
+import {
+  getSlides,
+  isSlideBackgroundGraphicsHidden,
+  setSlideBackgroundGraphicsHidden,
+} from './slide-query.ts';
+import { getSlideLayouts } from './layouts.ts';
+import { clearSlideLayoutBackground } from './layout-edit.ts';
+import { getSlideLayout } from './shape-slide-read.ts';
+import { parseGradFill } from './shape-gradient-read.ts';
+import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
 
-const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) => void): void => {
-  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
-  if (!cSld) throw new Error('slide has no <p:cSld>');
+/**
+ * Replaces the `<p:bg>` of any `<p:cSld>` with a freshly configured
+ * `<p:bgPr>`. Committing the change is the caller's job. @internal
+ */
+export const writeBackgroundPr = (
+  cSld: XmlElement,
+  configure: (bgPr: XmlElement) => void,
+): void => {
   const bgName = qname('p', 'bg', NS.pml);
   const bgPrName = qname('p', 'bgPr', NS.pml);
-  let bg = firstChildElement(cSld, bgName);
-  if (bg === null) {
-    bg = { kind: 'element', name: bgName, attrs: [], prefixDecls: new Map(), children: [] };
-    cSld.children.unshift(bg);
-  }
-  bg.children = [];
   const bgPr: XmlElement = {
     kind: 'element',
     name: bgPrName,
@@ -79,8 +106,20 @@ const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) =
     prefixDecls: new Map(),
     children: [],
   };
-  bg.children.push(bgPr);
+  // Validate and construct the replacement before changing the attached background.
   configure(bgPr);
+  let bg = firstChildElement(cSld, bgName);
+  if (bg === null) {
+    bg = { kind: 'element', name: bgName, attrs: [], prefixDecls: new Map(), children: [] };
+    cSld.children.unshift(bg);
+  }
+  bg.children = [bgPr];
+};
+
+const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) => void): void => {
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('slide has no <p:cSld>');
+  writeBackgroundPr(cSld, configure);
   commitSlideData(slide);
   refreshSlideData(slide);
 };
@@ -92,7 +131,7 @@ const setSlideBackgroundXml = (slide: SlideData, configure: (bgPr: XmlElement) =
  * the layout / master).
  */
 export type SlideBackground =
-  | { readonly kind: 'solid'; readonly color: string }
+  | { readonly kind: 'solid'; readonly color: string; readonly opacity?: number }
   | { readonly kind: 'gradient' }
   | { readonly kind: 'pattern' }
   | { readonly kind: 'image' }
@@ -128,9 +167,15 @@ export const getSlideColorMapOverride = (slide: SlideData): Record<string, strin
   return Object.keys(out).length > 0 ? out : null;
 };
 
-export const getSlideBackground = (slide: SlideData): SlideBackground => {
-  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
-  if (!cSld) return { kind: 'inherit' };
+/**
+ * Projects the `<p:bg>` of any `<p:cSld>` — slide, layout or master —
+ * onto the `SlideBackground` union. @internal
+ */
+export const backgroundOfCSld = (
+  cSld: XmlElement | null,
+  properties?: XmlElement | null,
+): SlideBackground => {
+  if (cSld === null) return { kind: 'inherit' };
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
   if (!bg) return { kind: 'inherit' };
   // <p:bg> can carry either a <p:bgPr> with explicit fill, or a
@@ -139,21 +184,32 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
   // mapping target — projecting that to a scheme token is the most
   // useful shape for renderers.
   const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
-  if (bgRef) {
+  if (bgRef && !properties) {
     for (const inner of bgRef.children) {
       if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+      const opacity = resolveDrawingColorOpacity(inner);
       if (inner.name.localName === 'srgbClr') {
         const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+        if (val !== null)
+          return {
+            kind: 'solid',
+            color: `#${val.toUpperCase()}`,
+            ...(opacity === null ? {} : { opacity }),
+          };
       }
       if (inner.name.localName === 'schemeClr') {
         const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+        if (val !== null)
+          return {
+            kind: 'solid',
+            color: `scheme:${val}`,
+            ...(opacity === null ? {} : { opacity }),
+          };
       }
     }
     return { kind: 'inherit' };
   }
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
+  const bgPr = properties ?? firstChildElement(bg, qname('p', 'bgPr', NS.pml));
   if (!bgPr) return { kind: 'inherit' };
   for (const c of bgPr.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
@@ -161,13 +217,24 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
       case 'solidFill': {
         for (const inner of c.children) {
           if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
+          const opacity = resolveDrawingColorOpacity(inner);
           if (inner.name.localName === 'srgbClr') {
             const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
+            if (val !== null)
+              return {
+                kind: 'solid',
+                color: `#${val.toUpperCase()}`,
+                ...(opacity === null ? {} : { opacity }),
+              };
           }
           if (inner.name.localName === 'schemeClr') {
             const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
+            if (val !== null)
+              return {
+                kind: 'solid',
+                color: `scheme:${val}`,
+                ...(opacity === null ? {} : { opacity }),
+              };
           }
         }
         return { kind: 'solid', color: '' };
@@ -182,6 +249,13 @@ export const getSlideBackground = (slide: SlideData): SlideBackground => {
   }
   return { kind: 'inherit' };
 };
+
+export const getSlideBackground = (slide: SlideData): SlideBackground =>
+  backgroundOfCSld(
+    firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD),
+    readBackgroundStyle(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], slide[SLIDE_DOCUMENT].root)
+      .properties,
+  );
 
 /**
  * A simplified, render-ready view of one of the layout's non-placeholder
@@ -368,6 +442,7 @@ export const getSlideMasterShapes = (
 export const getSlideLayoutBackgroundPatternFill = (
   pres: PresentationData,
   layout: SlideLayoutData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: string; foreground: string; background: string } | null => {
   const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
   if (!cSld) return null;
@@ -384,6 +459,14 @@ export const getSlideLayoutBackgroundPatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -403,6 +486,7 @@ export const getSlideLayoutBackgroundPatternFill = (
 export const getSlideMasterBackgroundPatternFill = (
   pres: PresentationData,
   layout: SlideLayoutData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: string; foreground: string; background: string } | null => {
   const pkg = pres[INTERNAL_PACKAGE];
   const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
@@ -428,6 +512,14 @@ export const getSlideMasterBackgroundPatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -441,53 +533,21 @@ export const getSlideMasterBackgroundPatternFill = (
 };
 
 /**
- * Reads the slide layout's gradient background when its `<p:bg>` is a
- * `<p:bgPr><a:gradFill>`. Same shape as `getSlideBackgroundGradientFill`
- * for slides.
+ * Reads the slide layout's gradient background from either `<p:bgPr><a:gradFill>`
+ * or a theme style referenced by `<p:bgRef>`. Same shape as `getSlideBackgroundGradientFill`
+ * for slides. Stop `resolvedColor` values include the presentation theme
+ * and DrawingML color transforms.
  */
 export const getSlideLayoutBackgroundGradientFill = (
   layout: SlideLayoutData,
 ): ReadGradientFill | null => {
-  const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
-  if (!cSld) return null;
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return null;
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return null;
-  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
-  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
-  if (!gsLst) return null;
-  const stops: ReadGradientStop[] = [];
-  for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
-      continue;
-    const posRaw = getAttrValue(c, qname('', 'pos', ''));
-    if (posRaw === null) continue;
-    const pos = Number.parseInt(posRaw, 10);
-    if (!Number.isFinite(pos)) continue;
-    const color = readColorFromContainer(c);
-    if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
-  }
-  if (stops.length === 0) return null;
-  let angleDeg = 0;
-  const lin = firstChildElement(gradFill, NAME_A_LIN);
-  if (lin) {
-    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
-    if (angRaw !== null) {
-      const ang = Number.parseInt(angRaw, 10);
-      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
-    }
-  }
-  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
-  if (pathEl) {
-    const p = getAttrValue(pathEl, qname('', 'path', ''));
-    const pathVal: 'circle' | 'rect' | 'shape' | null =
-      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
-    if (pathVal) return { stops, angleDeg, path: pathVal };
-  }
-  return { stops, angleDeg };
+  const context = readBackgroundStyle(
+    layout[INTERNAL_PACKAGE],
+    layout[LAYOUT_PART_NAME],
+    layout[LAYOUT_DOCUMENT].root,
+  );
+  const fill = context.properties ? firstChildElement(context.properties, NAME_A_GRAD_FILL) : null;
+  return fill ? parseGradFill(fill, context) : null;
 };
 
 /**
@@ -496,6 +556,7 @@ export const getSlideLayoutBackgroundGradientFill = (
  * background kind. Useful for closing the bg cascade — slides that
  * report `'gradient'` inherit can now get the master's gradient
  * projected via `gradientDef`.
+ * Stop `resolvedColor` values include the presentation theme and color transforms.
  */
 export const getSlideMasterBackgroundGradientFill = (
   pres: PresentationData,
@@ -510,46 +571,9 @@ export const getSlideMasterBackgroundGradientFill = (
   const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
   if (!masterPart) return null;
   const masterRoot = parseXml(decode(masterPart.data)).root;
-  const cSld = firstChildElement(masterRoot, NAME_CSLD);
-  if (!cSld) return null;
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return null;
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return null;
-  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
-  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
-  if (!gsLst) return null;
-  const stops: ReadGradientStop[] = [];
-  for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
-      continue;
-    const posRaw = getAttrValue(c, qname('', 'pos', ''));
-    if (posRaw === null) continue;
-    const pos = Number.parseInt(posRaw, 10);
-    if (!Number.isFinite(pos)) continue;
-    const color = readColorFromContainer(c);
-    if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
-  }
-  if (stops.length === 0) return null;
-  let angleDeg = 0;
-  const lin = firstChildElement(gradFill, NAME_A_LIN);
-  if (lin) {
-    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
-    if (angRaw !== null) {
-      const ang = Number.parseInt(angRaw, 10);
-      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
-    }
-  }
-  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
-  if (pathEl) {
-    const p = getAttrValue(pathEl, qname('', 'path', ''));
-    const pathVal: 'circle' | 'rect' | 'shape' | null =
-      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
-    if (pathVal) return { stops, angleDeg, path: pathVal };
-  }
-  return { stops, angleDeg };
+  const context = readBackgroundStyle(pkg, masterPart.name, masterRoot);
+  const fill = context.properties ? firstChildElement(context.properties, NAME_A_GRAD_FILL) : null;
+  return fill ? parseGradFill(fill, context) : null;
 };
 
 /**
@@ -575,158 +599,39 @@ export const getSlideMasterBackground = (
   const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
   if (!masterPart) return { kind: 'inherit' };
   const masterRoot = parseXml(decode(masterPart.data)).root;
-  const cSld = firstChildElement(masterRoot, NAME_CSLD);
-  if (!cSld) return { kind: 'inherit' };
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return { kind: 'inherit' };
-  // bgRef on the master typically points at the theme's first
-  // bgFillStyleLst entry; surface its inner color as a solid fill so
-  // renderers paint the brand color.
-  const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
-  if (bgRef) {
-    for (const inner of bgRef.children) {
-      if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-      if (inner.name.localName === 'srgbClr') {
-        const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-      }
-      if (inner.name.localName === 'schemeClr') {
-        const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-      }
-    }
-    return { kind: 'inherit' };
-  }
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return { kind: 'inherit' };
-  for (const c of bgPr.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-    switch (c.name.localName) {
-      case 'solidFill': {
-        for (const inner of c.children) {
-          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-          }
-        }
-        return { kind: 'solid', color: '' };
-      }
-      case 'gradFill':
-        return { kind: 'gradient' };
-      case 'pattFill':
-        return { kind: 'pattern' };
-      case 'blipFill':
-        return { kind: 'image' };
-    }
-  }
-  return { kind: 'inherit' };
+  return backgroundOfCSld(
+    firstChildElement(masterRoot, NAME_CSLD),
+    readBackgroundStyle(pkg, masterPart.name, masterRoot).properties,
+  );
 };
 
-export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground => {
-  const cSld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
-  if (!cSld) return { kind: 'inherit' };
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return { kind: 'inherit' };
-  // <p:bgRef> = theme-reference fill (same shape as getSlideBackground).
-  const bgRef = firstChildElement(bg, qname('p', 'bgRef', NS.pml));
-  if (bgRef) {
-    for (const inner of bgRef.children) {
-      if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-      if (inner.name.localName === 'srgbClr') {
-        const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-      }
-      if (inner.name.localName === 'schemeClr') {
-        const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-      }
-    }
-    return { kind: 'inherit' };
-  }
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return { kind: 'inherit' };
-  for (const c of bgPr.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-    switch (c.name.localName) {
-      case 'solidFill': {
-        for (const inner of c.children) {
-          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-          }
-        }
-        return { kind: 'solid', color: '' };
-      }
-      case 'gradFill':
-        return { kind: 'gradient' };
-      case 'pattFill':
-        return { kind: 'pattern' };
-      case 'blipFill':
-        return { kind: 'image' };
-    }
-  }
-  return { kind: 'inherit' };
-};
+export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground =>
+  backgroundOfCSld(
+    firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD),
+    readBackgroundStyle(
+      layout[INTERNAL_PACKAGE],
+      layout[LAYOUT_PART_NAME],
+      layout[LAYOUT_DOCUMENT].root,
+    ).properties,
+  );
 
 /**
  * Returns the gradient stops + path when the slide carries a
- * `<p:bgPr><a:gradFill>` background. Returns `null` for any other
+ * literal `<p:bgPr><a:gradFill>` or theme-referenced `<p:bgRef>` gradient.
+ * Returns `null` for any other
  * background kind. Shape identical to `getShapeGradientFill` so renderers
  * can use the same projection logic for slide backgrounds.
+ * Stop `resolvedColor` values include the presentation theme, slide color map
+ * and DrawingML color transforms; `color` retains the authored token.
  */
 export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFill | null => {
-  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
-  if (!cSld) return null;
-  const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
-  if (!bg) return null;
-  const bgPr = firstChildElement(bg, qname('p', 'bgPr', NS.pml));
-  if (!bgPr) return null;
-  const gradFill = firstChildElement(bgPr, NAME_A_GRAD_FILL);
-  if (!gradFill) return null;
-  // Reuse the same algorithm `getShapeGradientFill` does. The gradFill
-  // element shape is identical between shape and slide backgrounds.
-  const gsLst = firstChildElement(gradFill, NAME_A_GS_LST);
-  if (!gsLst) return null;
-  const stops: ReadGradientStop[] = [];
-  for (const c of gsLst.children) {
-    if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml || c.name.localName !== 'gs')
-      continue;
-    const posRaw = getAttrValue(c, qname('', 'pos', ''));
-    if (posRaw === null) continue;
-    const pos = Number.parseInt(posRaw, 10);
-    if (!Number.isFinite(pos)) continue;
-    const color = readColorFromContainer(c);
-    if (color === null) continue;
-    stops.push({ offset: pos / 100_000, color });
-  }
-  if (stops.length === 0) return null;
-  let angleDeg = 0;
-  const lin = firstChildElement(gradFill, NAME_A_LIN);
-  if (lin) {
-    const angRaw = getAttrValue(lin, qname('', 'ang', ''));
-    if (angRaw !== null) {
-      const ang = Number.parseInt(angRaw, 10);
-      if (Number.isFinite(ang)) angleDeg = ang / 60_000;
-    }
-  }
-  const pathEl = firstChildElement(gradFill, qname('a', 'path', NS.dml));
-  if (pathEl) {
-    const p = getAttrValue(pathEl, qname('', 'path', ''));
-    const pathVal: 'circle' | 'rect' | 'shape' | null =
-      p === 'circle' || p === 'rect' || p === 'shape' ? p : null;
-    if (pathVal) return { stops, angleDeg, path: pathVal };
-  }
-  return { stops, angleDeg };
+  const context = readBackgroundStyle(
+    slide[INTERNAL_PACKAGE],
+    slide[SLIDE_PART_NAME],
+    slide[SLIDE_DOCUMENT].root,
+  );
+  const fill = context.properties ? firstChildElement(context.properties, NAME_A_GRAD_FILL) : null;
+  return fill ? parseGradFill(fill, context) : null;
 };
 
 /**
@@ -737,6 +642,7 @@ export const getSlideBackgroundGradientFill = (slide: SlideData): ReadGradientFi
 export const getSlideBackgroundPatternFill = (
   pres: PresentationData,
   slide: SlideData,
+  options: { readonly preserveTheme?: boolean } = {},
 ): { preset: string; foreground: string; background: string } | null => {
   const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
   if (!cSld) return null;
@@ -753,6 +659,14 @@ export const getSlideBackgroundPatternFill = (
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -875,9 +789,380 @@ export const getSlideMasterBackgroundImageBytes = (
   return part?.data ?? null;
 };
 
-/** Sets a solid fill on the slide's background. */
-export const setSlideBackground = (slide: SlideData, color: Color): void => {
-  setSlideBackgroundXml(slide, (bgPr) => setSolidFill(bgPr, color));
+/** Sets a solid background; optional opacity is 0 (transparent) to 1 (opaque). */
+export const setSlideBackground = (slide: SlideData, color: Color, opacity?: number): void => {
+  setSlideBackgroundXml(slide, (bgPr) =>
+    setSolidFill(bgPr, { color, ...(opacity === undefined ? {} : { opacity }) }),
+  );
+};
+
+/**
+ * Replaces the slide background with a gradient. Uses the same stop and direction
+ * settings as `setShapeGradientFill`; offsets and opacity range from 0 to 1.
+ * Invalid settings leave the previous background unchanged.
+ */
+export const setSlideBackgroundGradientFill = (
+  slide: SlideData,
+  options: GradientFillOptions,
+): void => {
+  setSlideBackgroundXml(slide, (bgPr) => setGradientFill(bgPr, options));
+};
+
+// An explicit background stops inheritance regardless of its fill type.
+const effectiveBackgroundElement = (
+  slide: SlideData,
+): { element: XmlElement; part: PartName } | null => {
+  const background = (root: XmlElement): XmlElement | null => {
+    const cSld = firstChildElement(root, NAME_CSLD);
+    return cSld ? firstChildElement(cSld, qname('p', 'bg', NS.pml)) : null;
+  };
+  const own = background(slide[SLIDE_DOCUMENT].root);
+  if (own) return { element: own, part: slide[SLIDE_PART_NAME] };
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+  const inherited = background(layout[LAYOUT_DOCUMENT].root);
+  if (inherited) return { element: inherited, part: partName(layout[LAYOUT_PART_NAME]) };
+  const pkg = slide[INTERNAL_PACKAGE];
+  const layoutName = partName(layout[LAYOUT_PART_NAME]);
+  const masterRel = pkg
+    .getRels(layoutName)
+    ?.items.find((rel) => rel.type === REL_TYPES.slideMaster);
+  if (!masterRel) return null;
+  const master = pkg.getPart(resolveTarget(layoutName, masterRel.target));
+  const element = master && background(parseXml(decode(master.data)).root);
+  return element && master ? { element, part: master.name } : null;
+};
+
+const effectiveImageBackground = (slide: SlideData) => {
+  const background = effectiveBackgroundElement(slide);
+  const properties =
+    background && firstChildElement(background.element, qname('p', 'bgPr', NS.pml));
+  const fill = properties && firstChildElement(properties, qname('a', 'blipFill', NS.dml));
+  return fill && background ? { fill, part: background.part } : null;
+};
+
+/** Natural background image size in EMUs, using fill DPI and embedded PNG/JPEG resolution.
+ * Reads inherited backgrounds. Returns null for missing or unsupported image bytes.
+ */
+export const getSlideBackgroundImageIntrinsicSize = (
+  slide: SlideData,
+): { width: Emu; height: Emu } | null => {
+  const image = effectiveImageBackground(slide);
+  if (!image) return null;
+  const blip = firstChildElement(image.fill, qname('a', 'blip', NS.dml));
+  const id = blip && getAttrValue(blip, qname('r', 'embed', NS.officeDocRels));
+  const pkg = slide[INTERNAL_PACKAGE];
+  const relationship = pkg.getRels(image.part)?.items.find((rel) => rel.id === id);
+  if (!relationship || relationship.targetMode === 'External') return null;
+  const bytes = pkg.getPart(resolveTarget(image.part, relationship.target))?.data;
+  return bytes ? readImageIntrinsicSize(image.fill, bytes) : null;
+};
+
+/** Reads direct or inherited background image crop fractions, including negative outsets.
+ * Returns null when no source rectangle is specified or the background is not an image.
+ */
+export const getSlideBackgroundImageCrop = (slide: SlideData): ImageCrop | null => {
+  const image = effectiveImageBackground(slide);
+  return image ? readImageCrop(image.fill) : null;
+};
+
+/** Reads direct or inherited image background placement; returns null for other fills. */
+export const getSlideBackgroundImageFillLayout = (slide: SlideData): ImageFillLayout | null => {
+  const image = effectiveImageBackground(slide);
+  return image ? readImageFillLayout(image.fill) : null;
+};
+
+/**
+ * Changes background image placement while preserving media, crop and effects.
+ * An inherited image becomes a slide override, leaving its layout/master unchanged.
+ * Invalid settings or missing relationships leave the presentation unchanged.
+ */
+export const setSlideBackgroundImageFillLayout = (
+  slide: SlideData,
+  layout: ImageFillLayout,
+): void => {
+  editImageBackground(slide, (fill) => writeImageFillLayout(fill, layout));
+};
+
+/** Reads direct or inherited background picture opacity; null means no explicit opacity. */
+export const getSlideBackgroundImageOpacity = (slide: SlideData): number | null => {
+  const image = effectiveImageBackground(slide);
+  const blip = image && firstChildElement(image.fill, qname('a', 'blip', NS.dml));
+  return blip ? readImageOpacity(blip) : null;
+};
+
+/** Sets background image opacity (0–1), preserving media and placement. Null restores the default.
+ * Inherited images become slide overrides. Invalid values leave the deck unchanged.
+ */
+export const setSlideBackgroundImageOpacity = (slide: SlideData, opacity: number | null): void => {
+  editImageBackground(slide, (fill) => {
+    const blip = firstChildElement(fill, qname('a', 'blip', NS.dml));
+    if (!blip) throw new Error('Image background has no blip');
+    writeImageOpacity(blip, opacity);
+  });
+};
+
+const editImageBackground = (slide: SlideData, edit: (fill: XmlElement) => void): void => {
+  const image = effectiveImageBackground(slide);
+  if (!image) throw new Error('This operation requires an image background');
+  const fill = cloneElement(image.fill);
+  edit(fill);
+  const pkg = slide[INTERNAL_PACKAGE];
+  const target = slide[SLIDE_PART_NAME];
+  const rels = { items: [...(pkg.getRels(target)?.items ?? [])] };
+  if (image.part !== target) {
+    const sourceRels = new Map(pkg.getRels(image.part)?.items.map((rel) => [rel.id, rel]));
+    const mapped = new Map<string, string>();
+    let availableId = nextRelId(rels.items.map((rel) => rel.id));
+    const rewrite = (element: XmlElement): void => {
+      element.attrs = element.attrs.map((attribute) => {
+        if (attribute.name.namespaceURI !== NS.officeDocRels || !attribute.value) return attribute;
+        let id = mapped.get(attribute.value);
+        if (!id) {
+          const source = sourceRels.get(attribute.value);
+          if (!source)
+            throw new Error(`Image background has a missing relationship: ${attribute.value}`);
+          id = availableId;
+          availableId = nextRelId([id]);
+          rels.items.push({
+            ...source,
+            id,
+            target:
+              source.targetMode === 'External'
+                ? source.target
+                : resolveTarget(image.part, source.target),
+          });
+          mapped.set(attribute.value, id);
+        }
+        return { ...attribute, value: id };
+      });
+      for (const child of element.children) if (child.kind === 'element') rewrite(child);
+    };
+    rewrite(fill);
+  }
+  const cSld = firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('slide has no <p:cSld>');
+  writeBackgroundPr(cSld, (properties) => {
+    properties.children.push(fill);
+  });
+  pkg.setRels(target, rels);
+  commitSlideData(slide);
+  refreshSlideData(slide);
+};
+
+/**
+ * Updates a slide pattern background, preserving unspecified colors and transforms.
+ * Inherited patterns become a slide override; the layout and master stay unchanged.
+ * A new pattern uses Mac PowerPoint's defaults: pct5, accent1 foreground, bg1 background.
+ */
+export const setSlideBackgroundPatternFill = (
+  slide: SlideData,
+  options: Partial<PatternFillOptions>,
+): void => {
+  const bg = effectiveBackgroundElement(slide);
+  const previous = bg && firstChildElement(bg.element, qname('p', 'bgPr', NS.pml));
+  const pattern = previous && firstChildElement(previous, qname('a', 'pattFill', NS.dml));
+  setSlideBackgroundXml(slide, (bgPr) => {
+    if (pattern) bgPr.children.push(cloneElement(pattern));
+    setPatternFill(bgPr, options);
+  });
+};
+
+/**
+ * Copies the source's effective background into a target slide, retaining its XML
+ * and referenced parts. Inherited fills become explicit on the target. Theme
+ * references use the target's theme; background graphics visibility is unchanged.
+ * Across presentations, dependencies are copied with collision-free names.
+ */
+export const copySlideBackground = (targetSlide: SlideData, sourceSlide: SlideData): void => {
+  const effective = effectiveBackgroundElement(sourceSlide);
+  if (!effective) {
+    setSlideBackground(targetSlide, '#FFFFFF');
+    return;
+  }
+  const cSld = firstChildElement(targetSlide[SLIDE_DOCUMENT].root, NAME_CSLD);
+  if (!cSld) throw new Error('copySlideBackground: target slide has no cSld');
+  const sourcePkg = sourceSlide[INTERNAL_PACKAGE];
+  const pkg = targetSlide[INTERNAL_PACKAGE];
+  const targetPart = targetSlide[SLIDE_PART_NAME];
+  const background = cloneElement(effective.element);
+  const references: XmlElement[] = [];
+  const ids = new Set<string>();
+  const visit = (element: XmlElement): void => {
+    references.push(element);
+    for (const attribute of element.attrs)
+      if (attribute.name.namespaceURI === NS.officeDocRels && attribute.value)
+        ids.add(attribute.value);
+    for (const child of element.children) if (child.kind === 'element') visit(child);
+  };
+  visit(background);
+  const sourceRels = new Map(sourcePkg.getRels(effective.part)?.items.map((rel) => [rel.id, rel]));
+  const roots = new Map<PartName, null>();
+  for (const id of ids) {
+    const rel = sourceRels.get(id);
+    if (!rel) throw new Error(`copySlideBackground: missing relationship ${id}`);
+    if (rel.targetMode !== 'External') {
+      const name = resolveTarget(effective.part, rel.target);
+      if (!sourcePkg.getPart(name))
+        throw new Error(`copySlideBackground: missing dependency ${name}`);
+      roots.set(name, null);
+    }
+  }
+  const copies = sourcePkg === pkg ? null : copyPartGraphs(sourcePkg, pkg, roots);
+  const rels = { items: [...(pkg.getRels(targetPart)?.items ?? [])] };
+  const key = (type: string, target: string, mode: string | undefined) =>
+    JSON.stringify([type, target, mode ?? 'Internal']);
+  const existing = new Map(
+    rels.items.map((rel) => [
+      key(
+        rel.type,
+        rel.targetMode === 'External' ? rel.target : resolveTarget(targetPart, rel.target),
+        rel.targetMode,
+      ),
+      rel.id,
+    ]),
+  );
+  const mapped = new Map<string, string>();
+  let availableId = nextRelId(rels.items.map((rel) => rel.id));
+  for (const id of ids) {
+    const rel = sourceRels.get(id)!;
+    const resolved =
+      rel.targetMode === 'External' ? rel.target : resolveTarget(effective.part, rel.target);
+    const target = copies?.get(resolved.toLowerCase()) ?? resolved;
+    const identity = key(rel.type, target, rel.targetMode);
+    let replacement = existing.get(identity);
+    if (!replacement) {
+      replacement = availableId;
+      availableId = nextRelId([replacement]);
+      rels.items.push({ ...rel, id: replacement, target });
+      existing.set(identity, replacement);
+    }
+    mapped.set(id, replacement);
+  }
+  for (const element of references)
+    element.attrs = element.attrs.map((attribute) =>
+      attribute.name.namespaceURI === NS.officeDocRels && attribute.value
+        ? { ...attribute, value: mapped.get(attribute.value)! }
+        : attribute,
+    );
+  cSld.children = cSld.children.filter(
+    (child) =>
+      !(
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'bg'
+      ),
+  );
+  cSld.children.unshift(background);
+  pkg.setRels(targetPart, rels);
+  commitSlideData(targetSlide);
+  refreshSlideData(targetSlide);
+};
+
+/**
+ * Applies the source slide's effective background throughout its presentation.
+ * Like Mac PowerPoint, stores the fill on masters and clears slide/layout overrides.
+ * Theme colors and image relationships are preserved without flattening the fill.
+ */
+export const applySlideBackgroundToAll = (pres: PresentationData, slide: SlideData): void => {
+  const pkg = pres[INTERNAL_PACKAGE];
+  if (slide[INTERNAL_PACKAGE] !== pkg || !getSlides(pres).includes(slide))
+    throw new Error('applySlideBackgroundToAll: source must belong to the presentation');
+  const effective = effectiveBackgroundElement(slide);
+  const sourceRels = new Map(
+    effective ? pkg.getRels(effective.part)?.items.map((rel) => [rel.id, rel]) : [],
+  );
+  const masterRels =
+    pkg.getRels(PRES_PART_NAME)?.items.filter((rel) => rel.type === REL_TYPES.slideMaster) ?? [];
+  if (masterRels.length === 0)
+    throw new Error('applySlideBackgroundToAll: presentation has no slide master');
+  // Stage every replacement first: malformed relationship references must not leave
+  // some masters changed and the remaining slides still using their old overrides.
+  const updates = masterRels.map((masterRel) => {
+    const name = resolveTarget(PRES_PART_NAME, masterRel.target);
+    const part = pkg.getPart(name);
+    if (!part) throw new Error(`applySlideBackgroundToAll: missing master ${name}`);
+    const document = parseXml(decode(part.data));
+    const cSld = firstChildElement(document.root, NAME_CSLD);
+    if (!cSld) throw new Error(`applySlideBackgroundToAll: master ${name} has no cSld`);
+    const background = effective ? cloneElement(effective.element) : elem(qname('p', 'bg', NS.pml));
+    if (!effective) {
+      const properties = elem(qname('p', 'bgPr', NS.pml));
+      setSolidFill(properties, '#FFFFFF');
+      background.children.push(properties);
+    }
+    const rels = { items: [...(pkg.getRels(name)?.items ?? [])] };
+    let availableId = nextRelId(rels.items.map((rel) => rel.id));
+    const mapped = new Map<string, string>();
+    const existing = new Map(
+      rels.items.map((rel) => [
+        JSON.stringify([
+          rel.type,
+          rel.targetMode === 'External' ? rel.target : resolveTarget(name, rel.target),
+          rel.targetMode ?? 'Internal',
+        ]),
+        rel.id,
+      ]),
+    );
+    const rewrite = (element: XmlElement): void => {
+      element.attrs = element.attrs.map((attribute) => {
+        if (attribute.name.namespaceURI !== NS.officeDocRels || attribute.value === '')
+          return attribute;
+        let id = mapped.get(attribute.value);
+        if (!id) {
+          const rel = sourceRels.get(attribute.value);
+          if (!rel)
+            throw new Error(`applySlideBackgroundToAll: missing relationship ${attribute.value}`);
+          const target =
+            rel.targetMode === 'External' ? rel.target : resolveTarget(effective!.part, rel.target);
+          const key = JSON.stringify([rel.type, target, rel.targetMode ?? 'Internal']);
+          id = existing.get(key);
+          if (!id) {
+            id = availableId;
+            availableId = nextRelId([id]);
+            rels.items.push({ ...rel, id, target });
+            existing.set(key, id);
+          }
+          mapped.set(attribute.value, id);
+        }
+        return { ...attribute, value: id };
+      });
+      for (const child of element.children) if (child.kind === 'element') rewrite(child);
+    };
+    rewrite(background);
+    cSld.children = cSld.children.filter(
+      (child) =>
+        !(
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.pml &&
+          child.name.localName === 'bg'
+        ),
+    );
+    cSld.children.unshift(background);
+    return { part, rels, data: encode(serializeXml(document)) };
+  });
+  const layouts = getSlideLayouts(pres);
+  for (const layout of layouts) {
+    if (!firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD))
+      throw new Error('applySlideBackgroundToAll: layout has no cSld');
+  }
+  for (const update of updates) {
+    update.part.data = update.data;
+    pkg.setRels(update.part.name, update.rels);
+  }
+  const hideGraphics = isSlideBackgroundGraphicsHidden(slide);
+  for (const layout of layouts) {
+    const root = layout[LAYOUT_DOCUMENT].root;
+    root.attrs = root.attrs.filter(
+      (a) => !(a.name.namespaceURI === '' && a.name.localName === 'showMasterSp'),
+    );
+    if (hideGraphics) root.attrs.push(attr(qname('', 'showMasterSp', ''), '0'));
+    clearSlideLayoutBackground(layout);
+  }
+  for (const target of getSlides(pres)) {
+    setSlideBackgroundGraphicsHidden(target, hideGraphics);
+    clearSlideBackground(target);
+  }
 };
 
 /**

@@ -7,7 +7,6 @@ import {
   type GradientFillOptions,
   type LineDash,
   type PatternFillOptions,
-  type StrokeOptions,
   clearFill as clearFillImpl,
   clearStroke as clearStrokeImpl,
   setAdjustValues as writeAdjustValues,
@@ -26,6 +25,8 @@ import {
   setStrokeCompound,
   setStrokeJoin,
   setStrokeDash,
+  PATTERN_PRESETS,
+  type PatternPreset,
 } from '../../internal/drawingml/index.ts';
 import type { Emu } from '../units.ts';
 import {
@@ -37,6 +38,7 @@ import {
   nextRelId,
   partName,
 } from '../../internal/opc/index.ts';
+import type { PresetShape } from '../../internal/presentationml/shape-builder.ts';
 import { REL_TYPES } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -59,6 +61,39 @@ import { commitAndRefresh, requireSpPr, setOpcDefault } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Shape mutation — geometry.
+
+/**
+ * Replace the preset or custom geometry of a shape, picture, or connector.
+ * Picture geometry clips the image without modifying its bytes or crop.
+ * Existing adjust guides are removed; use `setShapeAdjustValues` afterward
+ * to customize the new preset. Position, size, fill, and effects are preserved.
+ */
+export const setShapePreset = (shape: SlideShapeData, preset: PresetShape): void => {
+  const spPr = requireSpPr(shape);
+  spPr.children = spPr.children.filter(
+    (child) =>
+      !(
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        ['prstGeom', 'custGeom'].includes(child.name.localName)
+      ),
+  );
+  const transform = spPr.children.findIndex(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'xfrm',
+  );
+  spPr.children.splice(
+    transform + 1,
+    0,
+    elem(qname('a', 'prstGeom', NS.dml), {
+      attrs: [attr(qname('', 'prst', ''), preset)],
+      children: [elem(qname('a', 'avLst', NS.dml))],
+    }),
+  );
+  commitAndRefresh(shape);
+};
 
 /** Sets the shape's position in EMU. Companion to `setShapeSize`. */
 export const setShapePosition = (shape: SlideShapeData, x: Emu, y: Emu): void => {
@@ -118,9 +153,43 @@ export const setShapeFlip = (
 // ---------------------------------------------------------------------------
 // Shape mutation — fill / stroke.
 
-/** Sets a solid fill on the shape (color in `#RRGGBB` or scheme token). */
-export const setShapeFill = (shape: SlideShapeData, color: Color): void => {
+const clearBackgroundFill = (shape: SlideShapeData): void => {
+  const element = shape[SHAPE_ELEMENT];
+  element.attrs = element.attrs.filter(
+    (a) => a.name.localName !== 'useBgFill' || a.name.namespaceURI !== '',
+  );
+};
+
+/**
+ * Paints a shape with the slide background at its position, covering objects
+ * behind it. This is different from a transparent fill. Only ordinary shapes
+ * support the PresentationML `useBgFill` attribute; other kinds throw.
+ */
+export const setShapeSlideBackgroundFill = (shape: SlideShapeData): void => {
+  const element = shape[SHAPE_ELEMENT];
+  if (element.name.namespaceURI !== NS.pml || element.name.localName !== 'sp') {
+    throw new Error(
+      'setShapeSlideBackgroundFill: only ordinary shapes support slide background fill',
+    );
+  }
+  clearFillImpl(requireSpPr(shape));
+  clearBackgroundFill(shape);
+  element.attrs.push(attr(qname('', 'useBgFill', ''), '1'));
+  commitAndRefresh(shape);
+};
+
+/**
+ * Sets a solid fill. A color string replaces the fill; an options object edits
+ * only supplied properties and preserves existing opacity when changing color.
+ * Opacity ranges from 0 (transparent) to 1 (opaque). Opacity-only edits require
+ * an existing solid fill and preserve its theme reference and color transforms.
+ */
+export const setShapeFill = (
+  shape: SlideShapeData,
+  color: Color | { color?: Color; opacity?: number },
+): void => {
   setSolidFill(requireSpPr(shape), color);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -137,6 +206,7 @@ export const setShapeFill = (shape: SlideShapeData, color: Color): void => {
  */
 export const setShapeGradientFill = (shape: SlideShapeData, options: GradientFillOptions): void => {
   setGradientFill(requireSpPr(shape), options);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -145,37 +215,62 @@ export const setShapeGradientFill = (shape: SlideShapeData, options: GradientFil
  *
  * `foreground` is the pattern stroke color; `background` fills behind
  * the pattern. Both accept `#RRGGBB`, bare `RRGGBB`, or scheme tokens
- * (`accent1`, `bg1`, ...).
+ * (`accent1`, `bg1`, ...). Omitted settings preserve existing pattern XML,
+ * including theme references and color transforms. A new pattern defaults to
+ * `pct5`, foreground `accent1` and background `bg1`, as in Mac PowerPoint.
  */
-export const setShapePatternFill = (shape: SlideShapeData, options: PatternFillOptions): void => {
+export const setShapePatternFill = (
+  shape: SlideShapeData,
+  options: Partial<PatternFillOptions>,
+): void => {
   setPatternFill(requireSpPr(shape), options);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
+
+// The file's `prst` is untrusted text; narrowing it here is what lets the
+// result be handed straight back to `setShapePatternFill`.
+const isPatternPreset = (token: string | null): token is PatternPreset =>
+  token !== null && (PATTERN_PRESETS as readonly string[]).includes(token);
 
 /**
  * Reads back the pattern fill on a shape: returns the preset token
  * plus the foreground / background colors resolved against the theme.
+ * With `preserveTheme`, untransformed scheme colors remain theme tokens.
+ * Transformed colors still resolve to RGB to preserve their appearance.
  * Returns `null` when the shape has no `<a:pattFill>`.
  *
- * The preset string is the literal `ST_PresetPatternVal` token from
- * §20.1.10.49 — e.g. `'pct50'`, `'dkUpDiag'`, `'cross'`, `'wave'`.
- * Renderers can map it onto an SVG `<pattern>` definition.
+ * The preset is the literal `ST_PresetPatternVal` token from §20.1.10.49 —
+ * e.g. `'pct50'`, `'dkUpDiag'`, `'cross'`, `'wave'`. Renderers can map it onto
+ * an SVG `<pattern>` definition, and the result can be handed straight back to
+ * `setShapePatternFill`. A missing or unrecognised `prst` reads as `'pct50'`,
+ * which is what PowerPoint paints when the attribute is absent.
  */
 export const getShapePatternFill = (
   pres: PresentationData,
   shape: SlideShapeData,
-): { preset: string; foreground: string; background: string } | null => {
+  options: { readonly preserveTheme?: boolean } = {},
+): { preset: PatternPreset; foreground: string; background: string } | null => {
   const spPr = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'spPr', NS.pml));
   if (!spPr) return null;
   const pattFill = firstChildElement(spPr, qname('a', 'pattFill', NS.dml));
   if (!pattFill) return null;
-  const preset = getAttrValue(pattFill, qname('', 'prst', '')) ?? 'pct50';
+  const token = getAttrValue(pattFill, qname('', 'prst', ''));
+  const preset: PatternPreset = isPatternPreset(token) ? token : 'pct50';
   const theme = getPresentationTheme(pres);
   const colorFrom = (parentName: string, fallback: string): string => {
     const parent = firstChildElement(pattFill, qname('a', parentName, NS.dml));
     if (!parent) return fallback;
     for (const c of parent.children) {
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
+      if (
+        options.preserveTheme &&
+        c.name.localName === 'schemeClr' &&
+        !c.children.some((child) => child.kind === 'element')
+      ) {
+        const token = getAttrValue(c, qname('', 'val', ''));
+        if (token) return token;
+      }
       const hex = resolveDrawingColor(c, theme);
       if (hex) return hex;
     }
@@ -286,12 +381,14 @@ export const setShapeImageFill = (
     }
   }
   spPr.children.splice(insertAt, 0, blipFill);
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
 /** Sets `<a:noFill>` on the shape, leaving it transparent. */
 export const setShapeNoFill = (shape: SlideShapeData): void => {
   setNoFillImpl(requireSpPr(shape));
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
@@ -301,15 +398,16 @@ export const setShapeNoFill = (shape: SlideShapeData): void => {
  */
 export const clearShapeFill = (shape: SlideShapeData): void => {
   clearFillImpl(requireSpPr(shape));
+  clearBackgroundFill(shape);
   commitAndRefresh(shape);
 };
 
-/** Sets a solid-color outline on the shape. */
+/** Updates outline color, width and/or opacity (0–1); omitted properties are preserved. */
 export const setShapeStroke = (
   shape: SlideShapeData,
-  options: { color?: Color; widthEmu?: number },
+  options: { color?: Color; widthEmu?: number; opacity?: number },
 ): void => {
-  setSolidStroke(requireSpPr(shape), options as StrokeOptions);
+  setSolidStroke(requireSpPr(shape), options);
   commitAndRefresh(shape);
 };
 

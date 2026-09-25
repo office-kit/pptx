@@ -119,17 +119,7 @@ export function Slide(props: SlideProps): Node {
     await visit(props.children, { ...context, slide, scope: 'slide' });
   });
 }
-// A format read back from the cell carries colors as plain strings, since a
-// deck can hold a scheme token outside the theme. Re-applying it has to go
-// through the same check the writer would run.
-const writableFormat = (format: api.ReadTextFormat): api.TextFormat => {
-  const { color, highlight, ...rest } = format;
-  return {
-    ...rest,
-    ...(color == null ? {} : { color: api.asColor(color) }),
-    ...(highlight == null ? {} : { highlight: api.asColor(highlight) }),
-  };
-};
+const writableFormat = api.toWritableTextFormat;
 
 export type RawProps =
   | { scope?: undefined; apply: (context: RawContext) => void | Promise<void> }
@@ -211,7 +201,12 @@ export interface TextParagraph extends api.ParagraphSpec {
   bullet?: api.BulletStyle;
   level?: TextLevel;
 }
-export interface TextProps extends Bounds, ShapeStyle, api.TextFormat, Children {
+// `shadow` and `glow` on a `<Text>` have always meant the box's effects, and
+// `TextFormat` now carries the character-level pair of the same names. The box
+// keeps the short names; per-run effects go through `paragraphs`, where a run
+// states its own format.
+export interface TextProps
+  extends Bounds, ShapeStyle, Omit<api.TextFormat, 'shadow' | 'glow'>, Children {
   paragraphs?: readonly TextParagraph[];
   align?: api.ParagraphAlignment;
   anchor?: api.TextAnchor;

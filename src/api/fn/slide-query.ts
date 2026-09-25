@@ -9,10 +9,11 @@ import {
   readSlidePart,
   slideText,
 } from '../../internal/presentationml/index.ts';
-import { NS, attr, getAttrValue, parseXml, qname, serializeXml } from '../../internal/xml/index.ts';
+import { attr, getAttrValue, parseXml, qname, serializeXml } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
   LAYOUT_PART,
+  LAYOUT_DOCUMENT,
   LAYOUT_PART_NAME,
   type PresentationData,
   SHAPE_ELEMENT,
@@ -35,6 +36,7 @@ import {
   encode,
   refreshSlideData,
 } from './_helpers.ts';
+import { readSlideTiming } from './_animation-timing.ts';
 import { findSlidePlaceholder, getSlideLayout, getSlideShapes } from './shapes.ts';
 import { getSlideNotes, setSlideNotes } from './features.ts';
 import { getSlideTitle } from './embedded.ts';
@@ -118,7 +120,15 @@ export const getSlideLayoutCount = (pres: PresentationData): number => {
 export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
   const cached = pres._slidesCache;
   if (cached !== null) return cached as ReadonlyArray<SlideData>;
+  return refreshSlideOrder(pres);
+};
 
+// Deck changes leave surviving slide XML untouched. Reuse its handles so edits
+// through references retained by callers stay visible to readers and save.
+export const refreshSlideOrder = (pres: PresentationData): ReadonlyArray<SlideData> => {
+  const previous = new Map(
+    ((pres._slidesCache ?? []) as SlideData[]).map((slide) => [slide[SLIDE_PART_NAME], slide]),
+  );
   const pkg = pres[INTERNAL_PACKAGE];
   const presPart = pkg.getPart(PRES_PART_NAME);
   if (presPart === null) {
@@ -145,7 +155,7 @@ export const getSlides = (pres: PresentationData): ReadonlyArray<SlideData> => {
     const slideName = partName(target.startsWith('/') ? target : `/ppt/${target}`);
     const slidePart = pkg.getPart(slideName);
     if (slidePart === null) throw new Error(`slide part ${slideName} not found`);
-    out.push(buildSlideData(pkg, slideName, slidePart.data));
+    out.push(previous.get(slideName) ?? buildSlideData(pkg, slideName, slidePart.data));
   }
   pres._slidesCache = out;
   return out;
@@ -271,8 +281,12 @@ export const getPresentationTextLengthsBySlide = (pres: PresentationData): Reado
  * call, or if it was constructed from a different package).
  */
 export const getSlideIndex = (pres: PresentationData, slide: SlideData): number => {
-  const slides = getSlides(pres);
-  return slides.indexOf(slide);
+  if (slide[INTERNAL_PACKAGE] !== pres[INTERNAL_PACKAGE]) return -1;
+  // Link readers rebuild handles from the same package, so object identity
+  // alone cannot identify their target in the presentation's cached slides.
+  return getSlides(pres).findIndex(
+    (candidate) => candidate[SLIDE_PART_NAME] === slide[SLIDE_PART_NAME],
+  );
 };
 
 /**
@@ -555,17 +569,44 @@ export const isSlideHidden = (slide: SlideData): boolean => {
   return show === '0';
 };
 
-/**
- * Returns `true` when the slide carries a `<p:timing>` block — i.e.,
- * has at least one authored animation effect. Per-slide complement to
- * `getPresentationSummary().hasAnimations`, which only reports a
- * deck-wide flag.
- */
-export const slideHasAnimations = (slide: SlideData): boolean => {
-  return slide[SLIDE_DOCUMENT].root.children.some(
-    (c) => c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
-  );
+const ATTR_SHOW_MASTER_SHAPES = qname('', 'showMasterSp', '');
+
+/** Whether inherited master and layout decoration is hidden on this slide. */
+export const isSlideBackgroundGraphicsHidden = (slide: SlideData): boolean => {
+  const value = getAttrValue(slide[SLIDE_DOCUMENT].root, ATTR_SHOW_MASTER_SHAPES);
+  return value === '0' || value === 'false';
 };
+
+/** Whether a layout suppresses its master's decoration, keeping its own shapes. */
+export const isSlideLayoutBackgroundGraphicsHidden = (layout: SlideLayoutData): boolean => {
+  const value = getAttrValue(layout[LAYOUT_DOCUMENT].root, ATTR_SHOW_MASTER_SHAPES);
+  return value === '0' || value === 'false';
+};
+
+/**
+ * Hide inherited decoration without removing shapes or changing background fills.
+ * PowerPoint's Hide Background Graphics suppresses layout decoration as well as
+ * master shapes, despite the attribute's name. Slide placeholders remain visible.
+ */
+export const setSlideBackgroundGraphicsHidden = (slide: SlideData, hidden: boolean): void => {
+  const root = slide[SLIDE_DOCUMENT].root;
+  root.attrs = root.attrs.filter(
+    (a) => !(a.name.namespaceURI === '' && a.name.localName === 'showMasterSp'),
+  );
+  if (hidden) root.attrs.push(attr(ATTR_SHOW_MASTER_SHAPES, '0'));
+  commitSlideData(slide);
+};
+
+/**
+ * Returns `true` when the slide has at least one authored animation effect.
+ * Per-slide complement to `getPresentationSummary().hasAnimations`, which only
+ * reports a deck-wide flag.
+ *
+ * A slide holding only a video / audio clip also carries a `<p:timing>` block
+ * — that is where the clip's play controls live — so the element's presence
+ * alone is not an animation.
+ */
+export const slideHasAnimations = (slide: SlideData): boolean => readSlideTiming(slide).length > 0;
 
 /**
  * Toggles the slide's visibility in the slideshow. Hiding adds
@@ -607,7 +648,10 @@ export const replaceTokensInPresentation = (
 /**
  * Replaces every occurrence of `from` in every slide's text with `to`.
  * `from` may be a string (treated as a literal) or a `RegExp`. Returns
- * the number of `<a:t>` elements mutated across the whole deck.
+ * the number of `<a:t>` elements mutated across the whole deck. Matches can
+ * span formatting runs within a paragraph, but not explicit line breaks.
+ * Inserted text inherits the first matched run’s formatting. `to` follows
+ * JavaScript replacement-string rules (`$$`, `$&`, capture groups).
  *
  * Use this for the broad "rename product X to Y" pattern; for
  * `{{token}}` style substitutions, prefer
@@ -635,7 +679,10 @@ export const replaceTextInPresentation = (
 
 /**
  * Replaces every occurrence of `from` in the slide's text with `to`.
- * Returns the number of `<a:t>` elements mutated on this slide.
+ * Matches span adjacent formatting runs, bounded by paragraphs and explicit
+ * line breaks. Inserted text inherits the first matched run’s formatting;
+ * `to` follows JavaScript replacement-string rules. Returns the number of
+ * `<a:t>` elements mutated on this slide.
  */
 export const replaceTextInSlide = (slide: SlideData, from: string | RegExp, to: string): number => {
   const n = replaceTextInTree(slide[SLIDE_DOCUMENT].root, from, to);

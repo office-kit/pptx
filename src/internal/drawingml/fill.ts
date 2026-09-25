@@ -10,9 +10,23 @@
 // `pattFill`/`grpFill`) before inserting the new `solidFill`.
 
 import type { Color } from './color.ts';
+import {
+  buildColorTransforms,
+  colorTransformBrightness,
+  colorTransformOpacity,
+  type ColorTransform,
+} from './color-transforms.ts';
 import { oneOf } from '../bounds.ts';
-import { NS, type XmlElement, attr, elem, qname } from '../xml/index.ts';
-import { buildColorElement } from './color.ts';
+import {
+  NS,
+  type XmlElement,
+  attr,
+  cloneElement,
+  elem,
+  firstChildElement,
+  qname,
+} from '../xml/index.ts';
+import { buildColorElement, editSolidColor } from './color.ts';
 
 const NAME_SOLID_FILL = qname('a', 'solidFill', NS.dml);
 const NAME_NO_FILL = qname('a', 'noFill', NS.dml);
@@ -71,9 +85,17 @@ const fillInsertionIndex = (host: XmlElement): number => {
 };
 
 /** Sets `<a:solidFill>` on `host`, removing any previous fill choice. */
-export const setSolidFill = (host: XmlElement, color: string): void => {
+export const setSolidFill = (
+  host: XmlElement,
+  color: string | { color?: Color; opacity?: number },
+): void => {
+  const previous = firstChildElement(host, NAME_SOLID_FILL)?.children.find(
+    (child) => child.kind === 'element',
+  );
+  const edited =
+    typeof color === 'string' ? buildColorElement(color) : editSolidColor(previous, color);
   removeAnyFill(host);
-  const fill = elem(NAME_SOLID_FILL, { children: [buildColorElement(color)] });
+  const fill = elem(NAME_SOLID_FILL, { children: [edited] });
   host.children.splice(fillInsertionIndex(host), 0, fill);
 };
 
@@ -97,6 +119,12 @@ export interface GradientStop {
   readonly offset: number;
   /** `#RRGGBB`, the `#RGB` shorthand, or a theme color token. */
   readonly color: Color;
+  /** Ordered imported color adjustments. Brightness and opacity override their corresponding transforms when changed. */
+  readonly colorTransforms?: readonly ColorTransform[];
+  /** Opacity from 0 (transparent) to 1 (opaque). */
+  readonly opacity?: number;
+  /** PowerPoint brightness from -1 (black) to 1 (white); 0 leaves the color unchanged. */
+  readonly brightness?: number;
 }
 
 export interface GradientFillOptions {
@@ -109,6 +137,10 @@ export interface GradientFillOptions {
    * to `90` (top → bottom). Only meaningful for linear gradients.
    */
   readonly angleDeg?: number;
+  /** Rotate the gradient with the shape. Defaults to true. */
+  readonly rotateWithShape?: boolean;
+  /** Scale a linear gradient with the shape's aspect ratio. Defaults to false. */
+  readonly scaled?: boolean;
   /**
    * Non-linear gradient path. `circle` paints concentric circles,
    * `rect` paints nested rectangles, `shape` follows the shape's
@@ -117,9 +149,10 @@ export interface GradientFillOptions {
    */
   readonly path?: 'linear' | 'circle' | 'rect' | 'shape';
   /**
-   * Focus rectangle for non-linear gradients, in unit coordinates
-   * (0 = left/top, 1 = right/bottom). When omitted, defaults to a
-   * single point at the rectangle's center. Mirrors `<a:fillToRect>`.
+   * Focus rectangle for non-linear gradients, expressed as fractional insets
+   * from each corresponding edge (1 = 100%). Four 0.5 insets describe
+   * a point at the center; left/top 1 and right/bottom 0 describe the
+   * bottom-right corner. Mirrors `<a:fillToRect>`.
    */
   readonly focus?: {
     readonly left: number;
@@ -127,6 +160,12 @@ export interface GradientFillOptions {
     readonly right: number;
     readonly bottom: number;
   };
+  /**
+   * Gradient tile bounds as fractional insets from the shape's edges.
+   * Negative values extend the tile beyond that edge. Mac PowerPoint uses
+   * right/bottom -1 for its bottom-right radial direction. Mirrors `<a:tileRect>`.
+   */
+  readonly tileRect?: GradientFillOptions['focus'];
 }
 
 /**
@@ -134,7 +173,11 @@ export interface GradientFillOptions {
  * readers surface a scheme token verbatim, including one outside the theme,
  * rather than dropping it.
  */
-export type ReadGradientStop = Omit<GradientStop, 'color'> & { readonly color: string };
+export type ReadGradientStop = Omit<GradientStop, 'color'> & {
+  readonly color: string;
+  /** Theme- and transform-resolved color, supplied by the effective shape reader. */
+  readonly resolvedColor?: string;
+};
 export type ReadGradientFill = Omit<GradientFillOptions, 'stops'> & {
   readonly stops: ReadonlyArray<ReadGradientStop>;
 };
@@ -214,22 +257,32 @@ const NAME_FG_CLR = qname('a', 'fgClr', NS.dml);
 const NAME_BG_CLR = qname('a', 'bgClr', NS.dml);
 const ATTR_PRST = qname('', 'prst', '');
 
-/**
- * Sets `<a:pattFill>` on `host` with the given preset + colors.
- * Replaces any previous fill choice.
- */
-export const setPatternFill = (host: XmlElement, options: PatternFillOptions): void => {
+/** Updates a pattern fill, preserving unspecified settings and their original XML. */
+export const setPatternFill = (host: XmlElement, options: Partial<PatternFillOptions>): void => {
+  const previous = firstChildElement(host, NAME_PATT_FILL);
+  const pattFill = previous
+    ? cloneElement(previous)
+    : elem(NAME_PATT_FILL, { attrs: [attr(ATTR_PRST, 'pct5')] });
+  if (options.preset !== undefined) {
+    const preset = oneOf(options.preset, PATTERN_PRESETS, 'setShapePatternFill: preset');
+    pattFill.attrs = pattFill.attrs.filter(
+      (a) => a.name.localName !== 'prst' || a.name.namespaceURI !== '',
+    );
+    pattFill.attrs.push(attr(ATTR_PRST, preset));
+  }
+  for (const [name, color, fallback] of [
+    [NAME_FG_CLR, options.foreground, 'accent1'],
+    [NAME_BG_CLR, options.background, 'bg1'],
+  ] as const) {
+    const current = firstChildElement(pattFill, name);
+    if (color === undefined && previous) continue;
+    const replacement = elem(name, { children: [buildColorElement(color ?? fallback)] });
+    if (current) pattFill.children.splice(pattFill.children.indexOf(current), 1, replacement);
+    else
+      pattFill.children.splice(name === NAME_FG_CLR ? 0 : pattFill.children.length, 0, replacement);
+  }
+  // Build and validate the replacement before touching the attached fill.
   removeAnyFill(host);
-  // `preset` is typed but authoring input is a boundary — reject an out-of-enum
-  // token rather than emitting a schema-invalid `prst`.
-  const preset = oneOf(options.preset, PATTERN_PRESETS, 'setShapePatternFill: preset');
-  const pattFill = elem(NAME_PATT_FILL, {
-    attrs: [attr(ATTR_PRST, preset)],
-    children: [
-      elem(NAME_FG_CLR, { children: [buildColorElement(options.foreground)] }),
-      elem(NAME_BG_CLR, { children: [buildColorElement(options.background)] }),
-    ],
-  });
   host.children.splice(fillInsertionIndex(host), 0, pattFill);
 };
 
@@ -240,16 +293,53 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
   if (options.stops.length < 2) {
     throw new Error('gradient fill requires at least two stops');
   }
-  removeAnyFill(host);
-
   const stops = options.stops.map((s) => {
     if (!Number.isFinite(s.offset) || s.offset < 0 || s.offset > 1) {
       throw new RangeError(`gradient stop offset must be in [0, 1], got ${s.offset}`);
     }
+    let color = buildColorElement(s.color);
+    const transforms = s.colorTransforms ?? [];
+    color.children = buildColorTransforms(transforms);
+    if (s.opacity !== undefined) {
+      if (!Number.isFinite(s.opacity) || s.opacity < 0 || s.opacity > 1)
+        throw new RangeError('gradient stop opacity must be in [0, 1]');
+      if (!s.colorTransforms || s.opacity !== colorTransformOpacity(transforms))
+        color = editSolidColor(color, { opacity: s.opacity });
+    }
+    if (s.brightness !== undefined) {
+      if (!Number.isFinite(s.brightness) || s.brightness < -1 || s.brightness > 1) {
+        throw new RangeError('gradient stop brightness must be in [-1, 1]');
+      }
+      if (s.brightness !== colorTransformBrightness(transforms)) {
+        color.children = color.children.filter(
+          (child) =>
+            !(
+              child.kind === 'element' &&
+              child.name.namespaceURI === NS.dml &&
+              ['lumMod', 'lumOff'].includes(child.name.localName)
+            ),
+        );
+        // Mac PowerPoint uses luminance modulation plus an offset for positive
+        // brightness, and modulation alone for negative brightness.
+        color.children.push(
+          elem(qname('a', 'lumMod', NS.dml), {
+            attrs: [
+              attr(qname('', 'val', ''), String(Math.round((1 - Math.abs(s.brightness)) * 100000))),
+            ],
+          }),
+        );
+        if (s.brightness > 0)
+          color.children.push(
+            elem(qname('a', 'lumOff', NS.dml), {
+              attrs: [attr(qname('', 'val', ''), String(Math.round(s.brightness * 100000)))],
+            }),
+          );
+      }
+    }
     const posST = String(Math.round(s.offset * 100000));
     return elem(NAME_GS, {
       attrs: [attr(ATTR_POS, posST)],
-      children: [buildColorElement(s.color)],
+      children: [color],
     });
   });
 
@@ -263,11 +353,15 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
     options.path === undefined || options.path === 'linear'
       ? ((): XmlElement => {
           const angleDeg = options.angleDeg ?? 90;
+          if (!Number.isFinite(angleDeg)) throw new RangeError('gradient angle must be finite');
           // ECMA-376 ST_PositiveFixedAngle: 60000 units per degree, range
           // [0, 21600000). Normalize negatives via modulo.
           const norm = ((angleDeg % 360) + 360) % 360;
           return elem(NAME_LIN, {
-            attrs: [attr(ATTR_ANG, String(Math.round(norm * 60000))), attr(ATTR_SCALED, '0')],
+            attrs: [
+              attr(ATTR_ANG, String(Math.round(norm * 60000) % 21600000)),
+              attr(ATTR_SCALED, options.scaled ? '1' : '0'),
+            ],
           });
         })()
       : elem(NAME_PATH, {
@@ -287,9 +381,30 @@ export const setGradientFill = (host: XmlElement, options: GradientFillOptions):
                 ],
         });
 
+  const tileRect =
+    options.tileRect === undefined
+      ? []
+      : [
+          elem(qname('a', 'tileRect', NS.dml), {
+            attrs: (['left', 'top', 'right', 'bottom'] as const).map((edge, index) => {
+              const value = Math.round(options.tileRect![edge] * 100000);
+              // ST_PercentageDecimal uses a signed 32-bit integer.
+              const min = -(2 ** 31);
+              const max = 2 ** 31 - 1;
+              if (!Number.isFinite(value) || value < min || value > max)
+                throw new RangeError('gradient tile inset must fit an OOXML percentage');
+              return attr(qname('', ['l', 't', 'r', 'b'][index]!, ''), String(value));
+            }),
+          }),
+        ];
+
   const grad = elem(NAME_GRAD_FILL, {
-    attrs: [attr(ATTR_FLIP, 'none'), attr(ATTR_ROT_WITH_SHAPE, '1')],
-    children: [elem(NAME_GS_LST, { children: stops }), directionEl],
+    attrs: [
+      attr(ATTR_FLIP, 'none'),
+      attr(ATTR_ROT_WITH_SHAPE, options.rotateWithShape === false ? '0' : '1'),
+    ],
+    children: [elem(NAME_GS_LST, { children: stops }), directionEl, ...tileRect],
   });
+  removeAnyFill(host);
   host.children.splice(fillInsertionIndex(host), 0, grad);
 };

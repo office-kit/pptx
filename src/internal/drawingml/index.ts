@@ -1,3 +1,4 @@
+export type { ColorTransform } from './color-transforms.ts';
 // internal/drawingml — a: namespace: shapes, text, geometry, color, effects.
 // Allowed imports: internal/xml.
 
@@ -22,7 +23,8 @@ export {
   setTextBodyParagraphs,
   updateBulletIndentForLevel,
 } from './text-body-mutation.ts';
-export type { ReadTextFormat, TextFormat } from './text-format.ts';
+export type { ReadTextFormat, ReadTextOutline, TextFormat, TextOutline } from './text-format.ts';
+export { toWritableTextFormat } from './text-format.ts';
 export {
   applyFormatToAllRuns,
   applyRunFormat,
@@ -39,7 +41,14 @@ export type {
   PatternFillOptions,
   PatternPreset,
 } from './fill.ts';
-export { clearFill, setGradientFill, setNoFill, setPatternFill, setSolidFill } from './fill.ts';
+export {
+  clearFill,
+  PATTERN_PRESETS,
+  setGradientFill,
+  setNoFill,
+  setPatternFill,
+  setSolidFill,
+} from './fill.ts';
 export type { GlowOptions, ShadowOptions } from './effects.ts';
 export { clearEffects, setGlow, setShadow } from './effects.ts';
 export type {

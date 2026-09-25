@@ -59,7 +59,7 @@ describe('fn API: shape effects', () => {
     expect(xml).toContain('FF0000');
   });
 
-  it('shadow then glow replaces the prior effect list', async () => {
+  it('a shadow and a glow coexist, in the order CT_EffectList states', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = addSlideShape(slide, {
@@ -72,8 +72,29 @@ describe('fn API: shape effects', () => {
     setShapeShadow(shape);
     setShapeGlow(shape, { color: '#00FF00' });
     const xml = await slideXml(await savePresentation(pres), 0);
-    expect(xml).toContain('<a:glow');
-    expect(xml).not.toContain('<a:outerShdw');
+    // CT_EffectList is a sequence: glow precedes outerShdw whichever order the
+    // two were written in.
+    expect(xml).toMatch(/<a:effectLst><a:glow\b[\s\S]*<a:outerShdw\b[\s\S]*<\/a:effectLst>/);
+  });
+
+  it('setting the same effect twice replaces it rather than repeating it', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(0),
+      y: inches(0),
+      w: inches(2),
+      h: inches(2),
+    });
+    setShapeGlow(shape, { color: '#00FF00', radiusEmu: 63500 });
+    setShapeGlow(shape, { color: '#0000FF', radiusEmu: 90000 });
+    const xml = await slideXml(await savePresentation(pres), 0);
+    // Each effect appears at most once in the sequence, so a second write has
+    // to overwrite the first — two `<a:glow>` children would be invalid.
+    expect(xml.match(/<a:glow\b/g)).toHaveLength(1);
+    expect(xml).toContain('rad="90000"');
+    expect(xml).toContain('0000FF');
   });
 
   it('clearShapeEffects removes any effectLst', async () => {

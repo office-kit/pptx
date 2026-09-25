@@ -9,11 +9,15 @@
 // slide-space coordinates, so no rescale is needed. If the group *was*
 // subsequently moved or resized (its `off`/`ext` diverged from its
 // `chOff`/`chExt`), ungrouping rescales each child's own transform so it
-// keeps its on-slide position and size.
+// keeps its on-slide position and size, including the group rotation and flips.
 
 import {
   readPosition,
   readSize,
+  readRotation,
+  readFlip,
+  setRotation as writeRotation,
+  setFlip as writeFlip,
   setPosition as writePosition,
   setSize as writeSize,
 } from '../../internal/drawingml/index.ts';
@@ -30,30 +34,29 @@ import {
   commitSlideData,
   nextShapeId,
   rebuildShapesFromDocument,
-  requireSpTree,
+  findShapeParent,
 } from './_helpers.ts';
 import { getGroupTransform } from './shape-read-base.ts';
 
 /**
- * Groups two or more top-level shapes into a single `<p:grpSp>`,
+ * Groups two or more sibling shapes into a single `<p:grpSp>`,
  * returning the new group as a `SlideShapeData`. The group's
- * slide-space bounds are the union of its members' bounds; the members
+ * parent-space bounds are the union of its members' bounds; the members
  * keep their own relative position/size (nothing is rescaled). The
  * target slide is taken from the first shape — every shape must belong
  * to the same slide.
  *
  * Every shape must:
  *   - belong to the same slide as the others,
- *   - be a direct child of the slide's shape tree (not already nested
- *     inside another group — ungroup first, then re-group),
+ *   - share the same immediate parent (the slide or a group),
  *   - have an explicit `<a:xfrm>` (placeholders that inherit position
  *     from the layout have none and can't be grouped),
  *   - appear at most once in `shapes` (grouping the same shape twice
  *     would duplicate its id).
  *
  * The group replaces its members at the position of the earliest one in
- * z-order, so grouping doesn't change how the selection stacks against
- * shapes that weren't part of it.
+ * z-order, preserving member order regardless of selection order. Members
+ * become one contiguous block, which can change interleaving with unselected shapes.
  */
 export const groupShapes = (
   shapes: ReadonlyArray<SlideShapeData>,
@@ -63,9 +66,10 @@ export const groupShapes = (
     throw new Error('groupShapes: at least 2 shapes are required');
   }
   const slide = shapes[0]![SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(shapes[0]!);
+  if (!spTree) throw new Error('groupShapes: shape is not attached to the slide');
+  const siblings = new Set(spTree.children);
 
-  const elements: XmlElement[] = [];
   const seen = new Set<XmlElement>();
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
@@ -80,10 +84,10 @@ export const groupShapes = (
       throw new Error(`groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" was passed twice`);
     }
     seen.add(el);
-    if (!spTree.children.includes(el)) {
+    if (!siblings.has(el)) {
       throw new Error(
         `groupShapes: shape "${shape[SHAPE_SNAPSHOT].name}" is not a direct child of the ` +
-          'slide (it may already be inside a group)',
+          'same parent as the other shapes',
       );
     }
     const kind = shape[SHAPE_SNAPSHOT].kind;
@@ -95,7 +99,6 @@ export const groupShapes = (
           "(placeholders that inherit geometry from the layout can't be grouped)",
       );
     }
-    elements.push(el);
     minX = Math.min(minX, pos.x);
     minY = Math.min(minY, pos.y);
     maxX = Math.max(maxX, pos.x + size.w);
@@ -106,6 +109,10 @@ export const groupShapes = (
   // validates the computed bounds as EMU coordinates and can throw. Doing
   // that after removing the members from the tree would leave the slide
   // missing shapes with no group to replace them.
+  // Selection order must not reorder overlapping members.
+  const elements = spTree.children.filter(
+    (child): child is XmlElement => child.kind === 'element' && seen.has(child),
+  );
   const grp = buildGroup({
     id: nextShapeId(slide),
     ...(opts.name !== undefined ? { name: opts.name } : {}),
@@ -116,7 +123,9 @@ export const groupShapes = (
     children: elements,
   });
 
-  const insertAt = Math.min(...elements.map((el) => spTree.children.indexOf(el)));
+  const insertAt = spTree.children.findIndex(
+    (child) => child.kind === 'element' && seen.has(child),
+  );
   spTree.children = spTree.children.filter((c) => c.kind !== 'element' || !seen.has(c));
   spTree.children.splice(insertAt, 0, grp);
 
@@ -129,11 +138,14 @@ export const groupShapes = (
 
 /**
  * Reverses `groupShapes`: removes the `<p:grpSp>` and re-inserts its
- * immediate children as top-level shapes at the group's former position,
+ * immediate children into its parent at the group's former position,
  * rescaling each child's own transform so it keeps its on-slide position
  * and size (matters when the group was moved/resized after creation, so
  * its `off`/`ext` diverged from its `chOff`/`chExt`). Returns the
  * children as fresh `SlideShapeData` handles, in their original order.
+ * Group rotation and flips are composed with each child transform. Exact
+ * preservation of rotated children requires uniform group scaling; anisotropic
+ * scaling can introduce shear, which a child shape transform cannot represent.
  *
  * Throws if `group` isn't a group shape, or its `<p:grpSpPr>` carries no
  * `<a:xfrm>` (malformed — every authored group has one).
@@ -150,8 +162,17 @@ export const ungroupShapes = (group: SlideShapeData): ReadonlyArray<SlideShapeDa
   const scaleX = inner.w === 0 ? 1 : outer.w / inner.w;
   const scaleY = inner.h === 0 ? 1 : outer.h / inner.h;
 
+  const rotation = readRotation(group[SHAPE_ELEMENT], 'group');
+  const flip = readFlip(group[SHAPE_ELEMENT], 'group')!;
+  const angle = (rotation * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+  const centerX = outer.x + outer.w / 2;
+  const centerY = outer.y + outer.h / 2;
+
   const slide = group[SHAPE_SLIDE];
-  const spTree = requireSpTree(slide);
+  const spTree = findShapeParent(group);
+  if (!spTree) throw new Error('ungroupShapes: group is not attached to the slide');
   const groupEl = group[SHAPE_ELEMENT];
   const idx = spTree.children.indexOf(groupEl);
   if (idx < 0) throw new Error('ungroupShapes: group is not attached to the slide');
@@ -161,15 +182,33 @@ export const ungroupShapes = (group: SlideShapeData): ReadonlyArray<SlideShapeDa
     const pos = readPosition(child.element, child.kind);
     const size = readSize(child.element, child.kind);
     if (pos !== null && size !== null) {
-      const newX = Math.round(outer.x + (pos.x - inner.x) * scaleX);
-      const newY = Math.round(outer.y + (pos.y - inner.y) * scaleY);
-      writePosition(child.element, child.kind, newX, newY);
-      writeSize(
+      const width = size.w * scaleX;
+      const height = size.h * scaleY;
+      const dx =
+        (outer.x + (pos.x + size.w / 2 - inner.x) * scaleX - centerX) * (flip.horizontal ? -1 : 1);
+      const dy =
+        (outer.y + (pos.y + size.h / 2 - inner.y) * scaleY - centerY) * (flip.vertical ? -1 : 1);
+      writePosition(
         child.element,
         child.kind,
-        Math.round(size.w * scaleX),
-        Math.round(size.h * scaleY),
+        Math.round(centerX + dx * cos - dy * sin - width / 2),
+        Math.round(centerY + dx * sin + dy * cos - height / 2),
       );
+      writeSize(child.element, child.kind, Math.round(width), Math.round(height));
+      if (rotation !== 0 || flip.horizontal || flip.vertical) {
+        // A reflection reverses the child's rotation before the parent turn.
+        const childRotation = readRotation(child.element, child.kind);
+        const childFlip = readFlip(child.element, child.kind)!;
+        writeRotation(
+          child.element,
+          child.kind,
+          rotation + (flip.horizontal !== flip.vertical ? -childRotation : childRotation),
+        );
+        writeFlip(child.element, child.kind, {
+          horizontal: flip.horizontal !== childFlip.horizontal,
+          vertical: flip.vertical !== childFlip.vertical,
+        });
+      }
     }
     return child.element;
   });

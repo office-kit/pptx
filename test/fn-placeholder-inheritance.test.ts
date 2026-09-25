@@ -1,3 +1,4 @@
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 // Placeholder-type equivalence for inheritance. A `ctrTitle` must inherit from
 // a `title` placeholder (and `subTitle` from `body`) when walking the layout /
 // master cascade — otherwise a centered title on a title-slide layout drops the
@@ -14,6 +15,12 @@ import {
   getShapePlaceholderType,
   getSlideShapes,
   loadPresentation,
+  savePresentation,
+  getSlides,
+  setShapeTextDirection,
+  setShapeTextAnchor,
+  setShapeTextAutoFit,
+  setShapeTextColumns,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -70,5 +77,93 @@ describe('ctrTitle inherits the master title bodyPr', () => {
     // The master title placeholder carries anchor="ctr"; a ctrTitle must inherit
     // it (it returned null before the placeholder-type equivalence fix).
     expect(getShapeBodyPrEffective(pres, ctr!).anchor).toBe('center');
+  });
+});
+
+describe('horizontal direction overrides vertical inheritance', () => {
+  const verticalMaster = async (horizontalLayout = false) => {
+    const parts = unzipSync(await readFile(fixture('blank.pptx')));
+    const master = 'ppt/slideMasters/slideMaster1.xml';
+    parts[master] = strToU8(strFromU8(parts[master]!).replaceAll('vert="horz"', 'vert="eaVert"'));
+    if (horizontalLayout) {
+      const layout = 'ppt/slideLayouts/slideLayout1.xml';
+      parts[layout] = strToU8(
+        strFromU8(parts[layout]!).replaceAll('<a:bodyPr/>', '<a:bodyPr vert="horz"/>'),
+      );
+    }
+    return loadPresentation(zipSync(parts));
+  };
+  it('stops at an explicit horizontal layout instead of inheriting vertical master text', async () => {
+    const pres = await verticalMaster(true);
+    const title = getSlideShapes(addTitleSlide(pres, 'Horizontal'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title).vert).toBeNull();
+  });
+  it('persists a horizontal override and restores inheritance only when cleared', async () => {
+    const pres = await verticalMaster();
+    const title = getSlideShapes(addTitleSlide(pres, 'Horizontal'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title).vert).toBe('eaVert');
+    setShapeTextDirection(title, 'horz');
+    expect(getShapeBodyPrEffective(pres, title).vert).toBeNull();
+    const restored = await loadPresentation(await savePresentation(pres));
+    const restoredTitle = getSlideShapes(getSlides(restored).at(-1)!)[0]!;
+    expect(getShapeBodyPrEffective(restored, restoredTitle).vert).toBeNull();
+    setShapeTextDirection(restoredTitle, null);
+    expect(getShapeBodyPrEffective(restored, restoredTitle).vert).toBe('eaVert');
+  });
+});
+
+describe('centered anchor inheritance', () => {
+  it('overrides inherited centering explicitly and restores it when cleared', async () => {
+    const parts = unzipSync(await readFile(fixture('blank.pptx')));
+    const master = 'ppt/slideMasters/slideMaster1.xml';
+    const xml = strFromU8(parts[master]!);
+    parts[master] = strToU8(xml.replaceAll('<a:bodyPr ', '<a:bodyPr anchorCtr="true" '));
+    const pres = await loadPresentation(zipSync(parts));
+    const title = getSlideShapes(addTitleSlide(pres, 'Centered'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title).anchorCentered).toBe(true);
+    setShapeTextAnchor(title, 'top', { centered: false });
+    const restored = await loadPresentation(await savePresentation(pres));
+    const copy = getSlideShapes(getSlides(restored).at(-1)!)[0]!;
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(false);
+    setShapeTextAnchor(copy, 'top', { centered: null });
+    expect(getShapeBodyPrEffective(restored, copy).anchorCentered).toBe(true);
+  });
+});
+
+describe('text layout inheritance', () => {
+  it('resolves columns per attribute and treats autofit as a single inherited choice', async () => {
+    const parts = unzipSync(await readFile(fixture('blank.pptx')));
+    const layout = 'ppt/slideLayouts/slideLayout1.xml';
+    parts[layout] = strToU8(
+      strFromU8(parts[layout]!).replaceAll(
+        '<a:bodyPr/>',
+        '<a:bodyPr numCol="3" spcCol="228600"><a:normAutofit fontScale="75000" lnSpcReduction="10000"/></a:bodyPr>',
+      ),
+    );
+    const pres = await loadPresentation(zipSync(parts));
+    const title = getSlideShapes(addTitleSlide(pres, 'Inherited text layout'))[0]!;
+    expect(getShapeBodyPrEffective(pres, title)).toMatchObject({
+      columns: { count: 3, gapEmu: 228600 },
+      autoFit: 'normal',
+      autoFitParams: { fontScale: 0.75, lnSpcReduction: 0.1 },
+    });
+    setShapeTextColumns(title, { count: 2 });
+    expect(getShapeBodyPrEffective(pres, title).columns).toEqual({ count: 2, gapEmu: 228600 });
+    setShapeTextColumns(title, { count: 1, gapEmu: 0 });
+    setShapeTextAutoFit(title, 'none');
+    const restored = await loadPresentation(await savePresentation(pres));
+    const copy = getSlideShapes(getSlides(restored).at(-1)!)[0]!;
+    expect(getShapeBodyPrEffective(restored, copy)).toMatchObject({
+      columns: { count: 1, gapEmu: 0 },
+      autoFit: 'none',
+      autoFitParams: null,
+    });
+    setShapeTextColumns(copy, null);
+    expect(getShapeBodyPrEffective(restored, copy).columns).toEqual({ count: 3, gapEmu: 228600 });
+    setShapeTextAutoFit(copy, 'normal');
+    expect(getShapeBodyPrEffective(restored, copy).autoFitParams).toEqual({
+      fontScale: 1,
+      lnSpcReduction: 0,
+    });
   });
 });

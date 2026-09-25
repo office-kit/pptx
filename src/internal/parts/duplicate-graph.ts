@@ -9,14 +9,26 @@ export function duplicatePartGraph(
   destination: PartName,
   sharedTypes: ReadonlySet<string>,
 ): void {
-  const parts = new Map(pkg.parts.map((part) => [part.name.toLowerCase(), part]));
-  const occupied = new Set(parts.keys());
-  const copies = new Map<string, PartName>([[source.toLowerCase(), destination]]);
-  const pending = [source];
+  copyPartGraphs(pkg, pkg, new Map([[source, destination]]), sharedTypes);
+}
+
+/** Stage a relationship graph before writing, retaining unknown parts and cycles. */
+export function copyPartGraphs(
+  sourcePkg: OpcPackage,
+  targetPkg: OpcPackage,
+  roots: ReadonlyMap<PartName, PartName | null>,
+  sharedTypes: ReadonlySet<string> = new Set(),
+  existingCopies: ReadonlyMap<PartName, PartName> = new Map(),
+): ReadonlyMap<string, PartName> {
+  const parts = new Map(sourcePkg.parts.map((part) => [part.name.toLowerCase(), part]));
+  const occupied = new Set(targetPkg.parts.map((part) => part.name.toLowerCase()));
+  const copies = new Map<string, PartName>(
+    [...existingCopies].map(([source, target]) => [source.toLowerCase(), target]),
+  );
+  const pending: PartName[] = [];
   const planned: Part[] = [];
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
-  occupied.add(destination.toLowerCase());
   const counters = new Map<string, number>();
   const allocate = (name: PartName): PartName => {
     const dot = name.lastIndexOf('.');
@@ -32,6 +44,13 @@ export function duplicatePartGraph(
     occupied.add(candidate.toLowerCase());
     return candidate;
   };
+
+  for (const [source, destination] of roots) {
+    if (copies.has(source.toLowerCase())) continue;
+    copies.set(source.toLowerCase(), destination ?? allocate(source));
+    if (destination) occupied.add(destination.toLowerCase());
+    pending.push(source);
+  }
 
   for (let index = 0; index < pending.length; index++) {
     const name = pending[index]!;
@@ -83,11 +102,12 @@ export function duplicatePartGraph(
     });
   }
   // Missing dependencies must fail before changing the original package.
-  const names = new Set(parts.keys());
+  const names = new Set(targetPkg.parts.map((part) => part.name.toLowerCase()));
   for (const part of planned) {
     const key = part.name.toLowerCase();
     if (names.has(key)) throw new Error(`Cannot duplicate into existing part ${part.name}`);
     names.add(key);
   }
-  for (const part of planned) pkg.addPart(part.name, part.contentType, part.data);
+  for (const part of planned) targetPkg.addPart(part.name, part.contentType, part.data);
+  return copies;
 }

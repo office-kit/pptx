@@ -1,12 +1,9 @@
 // Comments part — `/ppt/commentAuthors.xml` (one per package) and
 // `/ppt/comments/comment{N}.xml` (one per slide that has comments).
 //
-// Implements the **legacy** comment schema (ECMA-376 Part 1 §19.4),
-// which every PowerPoint / Keynote / Google Slides / LibreOffice
-// Impress consumer in the wild understands. The modern (`p15:`)
-// threaded-comments schema is a strict superset; preserving an
-// existing modern-comments part on round-trip is handled separately
-// via OPC pass-through.
+// Implements legacy comments (ECMA-376 Part 1 §19.4) with the p15
+// threading extension. Modern p188 comment parts are preserved via OPC
+// pass-through and use a separate schema.
 //
 // Schema (legacy):
 //
@@ -23,6 +20,10 @@
 //
 // Position coordinates are EMUs (ECMA Part 1 §19.7.2 `ST_Coordinate`).
 // `idx` is per-author; `lastIdx` on the author tracks the last used.
+//
+// `<p:pos>` is `minOccurs="1"` in `CT_Comment`, so it is written even when the
+// caller never placed a pin. Reading stays tolerant: imported files that omit
+// it are reported as having no position rather than being rejected.
 
 import {
   NS,
@@ -44,6 +45,14 @@ const NAME_CM_AUTHOR = qname('p', 'cmAuthor', NS.pml);
 const NAME_CM_LST = qname('p', 'cmLst', NS.pml);
 const NAME_CM = qname('p', 'cm', NS.pml);
 const NAME_POS = qname('p', 'pos', NS.pml);
+const P15 = 'http://schemas.microsoft.com/office/powerpoint/2012/main';
+// MS-PPTX 2.2.10: comment threading extension.
+const THREADING_URI = '{C676402C-5697-4E1C-873F-D02D1690AC5C}';
+const NAME_EXT_LIST = qname('p', 'extLst', NS.pml);
+const NAME_EXT = qname('p', 'ext', NS.pml);
+const NAME_THREADING = qname('p15', 'threadingInfo', P15);
+const NAME_PARENT = qname('p15', 'parentCm', P15);
+const ATTR_URI = qname('', 'uri', '');
 const NAME_TEXT = qname('p', 'text', NS.pml);
 
 const ATTR_ID = qname('', 'id', '');
@@ -76,6 +85,7 @@ export interface CommentPosition {
 }
 
 export interface SlideComment {
+  readonly parent?: { readonly authorId: number; readonly idx: number };
   /** Author id (matches `CommentAuthor.id`). */
   readonly authorId: number;
   /** Per-author monotonic index. */
@@ -159,7 +169,29 @@ export const readCommentList = (root: XmlElement): CommentList => {
       }
     }
 
+    let parent: SlideComment['parent'];
+    const extensions = firstChildElement(el, NAME_EXT_LIST);
+    if (extensions)
+      for (const extension of allChildElements(extensions, NAME_EXT)) {
+        if (getAttrValue(extension, ATTR_URI) !== THREADING_URI) continue;
+        const threading = firstChildElement(extension, NAME_THREADING);
+        const identifier = threading && firstChildElement(threading, NAME_PARENT);
+        if (!identifier) continue;
+        const author = getAttrValue(identifier, ATTR_AUTHOR_ID);
+        const index = getAttrValue(identifier, ATTR_IDX);
+        if (
+          author !== null &&
+          index !== null &&
+          /^\d+$/.test(author) &&
+          /^\d+$/.test(index) &&
+          Number(author) <= 0xffffffff &&
+          Number(index) <= 0xffffffff
+        ) {
+          parent = { authorId: Number(author), idx: Number(index) };
+        }
+      }
     comments.push({
+      ...(parent ? { parent } : {}),
       authorId,
       idx,
       dt: dtVal,
@@ -200,18 +232,42 @@ export const buildCommentAuthorListDoc = (authors: ReadonlyArray<CommentAuthor>)
   };
 };
 
+/** Where the pin goes when the caller did not say: the slide's own origin. */
+export const DEFAULT_COMMENT_POSITION: CommentPosition = { x: 0, y: 0 };
+
 const commentElement = (c: SlideComment): XmlElement => {
   const attrs = [attr(ATTR_AUTHOR_ID, String(c.authorId)), attr(ATTR_IDX, String(c.idx))];
   if (c.dt !== null) attrs.push(attr(ATTR_DT, c.dt));
-  const children: XmlElement[] = [];
-  if (c.position !== null) {
+  const position = c.position ?? DEFAULT_COMMENT_POSITION;
+  const children: XmlElement[] = [
+    elem(NAME_POS, {
+      attrs: [attr(ATTR_X, String(position.x)), attr(ATTR_Y, String(position.y))],
+    }),
+  ];
+  children.push(elem(NAME_TEXT, { children: [textNode(c.text)] }));
+  if (c.parent)
     children.push(
-      elem(NAME_POS, {
-        attrs: [attr(ATTR_X, String(c.position.x)), attr(ATTR_Y, String(c.position.y))],
+      elem(NAME_EXT_LIST, {
+        children: [
+          elem(NAME_EXT, {
+            attrs: [attr(ATTR_URI, THREADING_URI)],
+            children: [
+              elem(NAME_THREADING, {
+                prefixDecls: new Map([['p15', P15]]),
+                children: [
+                  elem(NAME_PARENT, {
+                    attrs: [
+                      attr(ATTR_AUTHOR_ID, String(c.parent.authorId)),
+                      attr(ATTR_IDX, String(c.parent.idx)),
+                    ],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
       }),
     );
-  }
-  children.push(elem(NAME_TEXT, { children: [textNode(c.text)] }));
   return elem(NAME_CM, { attrs, children });
 };
 

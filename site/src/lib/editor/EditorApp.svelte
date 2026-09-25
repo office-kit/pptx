@@ -1,0 +1,247 @@
+<script lang="ts">
+  import './ui/tokens.css';
+  import { arrangeShortcut } from './core/arrange-shortcuts.ts';
+  import { parseTableClipboard } from './core/table-clipboard.ts';
+  import { t } from './i18n/i18n.svelte.ts';
+  import { untrack, type Snippet } from 'svelte';
+  import { EditorController } from './core/controller.svelte.ts';
+  import { setEditor } from './core/context.ts';
+  import TopBar from './ui/TopBar.svelte';
+  import Ribbon from './ribbon/Ribbon.svelte';
+  import SlideNavigator from './ui/SlideNavigator.svelte';
+  import ThumbnailPane from './ui/ThumbnailPane.svelte';
+  import SlideCanvas from './canvas/SlideCanvas.svelte';
+  import PropertiesPanel from './panels/PropertiesPanel.svelte';
+  import SelectionPane from './panels/SelectionPane.svelte';
+  import StatusBar from './ui/StatusBar.svelte';
+  import CommandPalette from './ui/CommandPalette.svelte';
+  import CommandDialog from './ui/CommandDialog.svelte';
+  import ReorderObjectsDialog from './ui/ReorderObjectsDialog.svelte';
+  import ZoomDialog from './ui/ZoomDialog.svelte';
+  import GridOptionsDialog from './ui/GridOptionsDialog.svelte';
+  import CropDialog from './ui/CropDialog.svelte';
+  import ImageDialog from './ui/ImageDialog.svelte';
+  import ChartDialog from './ui/ChartDialog.svelte';
+  import FindReplaceDialog from './ui/FindReplaceDialog.svelte';
+  import LinkDialog from './ui/LinkDialog.svelte';
+  import CommentsDialog from './ui/CommentsDialog.svelte';
+  import NewSlideDialog from './ui/NewSlideDialog.svelte';
+  import NotesPane from './ui/NotesPane.svelte';
+  import TransitionDialog from './ui/TransitionDialog.svelte';
+  import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
+  import TableDialog from './ui/TableDialog.svelte';
+  import ContextMenu from './ui/ContextMenu.svelte';
+  import ToastStack from './ui/ToastStack.svelte';
+
+  let { editor: initialEditor = new EditorController(), onsave, status }: {
+    editor?: EditorController;
+    onsave?: () => Promise<void>;
+    status?: Snippet;
+  } = $props();
+  const editor = untrack(() => initialEditor);
+  setEditor(editor);
+  const doc = editor.doc;
+
+  const NUDGE = 18288; // 0.02in in EMU
+  const NUDGE_BIG = 182880; // 0.2in
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.isComposing) return;
+    if (editor.activeDialog) {
+      if (e.key === 'Escape') { e.preventDefault(); editor.closeDialog(); }
+      return;
+    }
+    const mod = e.ctrlKey || e.metaKey;
+    const target = e.target as HTMLElement;
+    const typing =
+      target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '');
+
+    if (mod && e.key.toLowerCase() === 's' && onsave) {
+      e.preventDefault();
+      void onsave();
+      return;
+    }
+    if (mod && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      editor.togglePalette();
+      return;
+    }
+    const arrangement = arrangeShortcut(e);
+    if (arrangement && !typing && !e.defaultPrevented) {
+      e.preventDefault();
+      if (arrangement === 'regroup') editor.regroupSelection();
+      else if (editor.canRun(arrangement)) editor.invoke(arrangement);
+      return;
+    }
+    if (mod && !e.shiftKey && !e.altKey && ['f', 'h'].includes(e.key.toLowerCase())) {
+      e.preventDefault();
+      editor.runOrPrompt('replaceTextInPresentation');
+      return;
+    }
+    if (mod && e.altKey && e.code === 'KeyR') { e.preventDefault(); editor.ribbonVisible = !editor.ribbonVisible; return; }
+    if (mod && !e.altKey && !e.shiftKey && ['Digit1', 'Digit2'].includes(e.code)) { e.preventDefault(); editor.setViewMode(e.code === 'Digit1' ? 'normal' : 'sorter'); return; }
+    if (typing || e.defaultPrevented) return;
+    if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const bounds = target.getBoundingClientRect();
+      editor.openContextMenu(bounds.left, bounds.bottom);
+      return;
+    }
+
+    const hasShapes = doc.selection.kind === 'shape' || doc.selection.kind === 'cell';
+
+    if (mod && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      doc.undo();
+    } else if (mod && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))) {
+      e.preventDefault();
+      doc.redo();
+    } else if (mod && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      editor.selectAll();
+    } else if (mod && e.key.toLowerCase() === 'd') {
+      e.preventDefault();
+      editor.duplicateSelection();
+    } else if (mod && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
+      // Format painter. `code`, not `key`: Alt rewrites the character on macOS.
+      e.preventDefault();
+      if (e.code === 'KeyC') editor.copyObjectFormat();
+      else editor.pasteObjectFormat();
+    } else if (mod && e.key.toLowerCase() === 'c') {
+      if (doc.selection.kind !== 'cell') editor.copySelection();
+    } else if (mod && e.key.toLowerCase() === 'x') {
+      if (doc.selection.kind !== 'cell') editor.cutSelection();
+    } else if (mod && e.key.toLowerCase() === 'v') {
+      if (doc.selection.kind !== 'cell') editor.paste();
+    } else if (mod && e.key === '=') {
+      e.preventDefault();
+      editor.zoomIn();
+    } else if (mod && e.key === '-') {
+      e.preventDefault();
+      editor.zoomOut();
+    } else if (mod && e.key === '0') {
+      e.preventDefault();
+      editor.zoomFit();
+    } else if ((e.key === 'Delete' || e.key === 'Backspace') && (hasShapes || doc.selection.kind === 'slide')) {
+      e.preventDefault();
+      editor.deleteSelection();
+    } else if (e.key.startsWith('Arrow') && hasShapes) {
+      e.preventDefault();
+      if (doc.selection.kind === 'cell') {
+        editor.moveCellSelection(e.key === 'ArrowUp' ? -1 : e.key === 'ArrowDown' ? 1 : 0, e.key === 'ArrowLeft' ? -1 : e.key === 'ArrowRight' ? 1 : 0, e.shiftKey);
+        return;
+      }
+      const d = e.shiftKey ? NUDGE_BIG : NUDGE;
+      if (e.key === 'ArrowLeft') editor.nudge(-d, 0);
+      else if (e.key === 'ArrowRight') editor.nudge(d, 0);
+      else if (e.key === 'ArrowUp') editor.nudge(0, -d);
+      else if (e.key === 'ArrowDown') editor.nudge(0, d);
+    } else if (e.key === 'Escape') {
+      if (editor.contextMenu) editor.closeContextMenu();
+      else if (editor.paletteOpen) editor.togglePalette(false);
+      else if (editor.activeDialog) editor.closeDialog();
+      else if (doc.selection.kind === 'cell') doc.selectShape(doc.selection.slideIndex, doc.selection.shapeId);
+      else if (!editor.exitGroup()) doc.clearShapeSelection();
+    }
+  }
+  function onCellClipboard(event: ClipboardEvent) {
+    const target = event.target as HTMLElement;
+    if (event.defaultPrevented || editor.activeDialog || doc.selection.kind !== 'cell' ||
+      target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '') || !event.clipboardData) return;
+    if (event.type === 'paste') {
+      if (!event.clipboardData.types.includes('text/plain')) return;
+      event.preventDefault();
+      const values = parseTableClipboard(event.clipboardData.getData('text/plain'));
+      if (values) editor.pasteCellValues(values);
+      else editor.toast('error', t('The clipboard table text is malformed'));
+    } else {
+      const text = event.type === 'cut' ? editor.cutSelection() : editor.copySelection();
+      if (text === undefined) return;
+      event.preventDefault();
+      event.clipboardData.setData('text/plain', text);
+    }
+  }
+
+</script>
+
+<svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
+
+<div class="ok-editor ok-shell" style:--ok-nav-w={editor.thumbnailWidth === null ? undefined : `${editor.thumbnailWidth}px`}>
+  <TopBar {onsave} />
+  {#if status}<div class="host-status">{@render status()}</div>{/if}
+  <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
+    {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane />{/if}
+    {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
+  </div>
+  <StatusBar />
+
+  {#if editor.paletteOpen}
+    <CommandPalette />
+  {/if}
+  {#if editor.activeDialog}
+    {#if editor.activeDialog === 'reorderObjects'}
+      <ReorderObjectsDialog />
+    {:else if editor.activeDialog === 'zoom'}
+      <ZoomDialog />
+    {:else if editor.activeDialog === 'gridOptions'}
+      <GridOptionsDialog />
+    {:else if editor.activeDialog === 'addSlideImage' || editor.activeDialog === 'setShapeImage'}
+      {#key editor.activeDialog}<ImageDialog replace={editor.activeDialog === 'setShapeImage'} />{/key}
+    {:else if editor.activeDialog === 'setShapeImageCrop'}
+      <CropDialog />
+    {:else if editor.activeDialog === 'addSlideChart' || editor.activeDialog === 'setChartSpec'}
+      {#key editor.activeDialog}<ChartDialog edit={editor.activeDialog === 'setChartSpec'} />{/key}
+    {:else if editor.activeDialog === 'replaceTextInPresentation'}
+      <FindReplaceDialog />
+    {:else if editor.activeDialog === 'setShapeHyperlink' || editor.activeDialog === 'setTableCellClickAction'}
+      <LinkDialog />
+    {:else if ['addSlideComment', 'setCommentText', 'removeSlideComment'].includes(editor.activeDialog ?? '')}
+      <CommentsDialog />
+    {:else if editor.activeDialog === 'addSlide'}
+      <NewSlideDialog />
+    {:else if editor.activeDialog === 'setSlideTransition'}
+      <TransitionDialog />
+    {:else if editor.activeDialog === 'setSlideSize'}
+      <SlideSizeDialog />
+    {:else if editor.activeDialog === 'addSlideTable'}
+      <TableDialog />
+    {:else}
+      <CommandDialog id={editor.activeDialog} />
+    {/if}
+  {/if}
+  {#if editor.contextMenu}
+    <ContextMenu />
+  {/if}
+  <ToastStack />
+</div>
+
+<style>
+  .ok-shell {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    background: var(--ok-bg);
+    overflow: hidden;
+  }
+  .ok-shell > :global(*) { min-width: 0; }
+  @media (max-width: 1100px) {
+    .ok-shell { --ok-nav-w: 120px; --ok-panel-w: 230px; }
+  }
+  .ok-shell:has(.host-status) {
+    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
+  }
+  .slide-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; }
+  .ok-body.thumbnails-hidden { grid-template-columns: minmax(0, 1fr) var(--ok-panel-w); }
+  .ok-body.panel-hidden { grid-template-columns: var(--ok-nav-w) minmax(0, 1fr); }
+  .ok-body.thumbnails-hidden.panel-hidden { grid-template-columns: minmax(0, 1fr); }
+  .ok-body.sorter { grid-template-columns: minmax(0, 1fr); }
+  .ok-body {
+    display: grid;
+    grid-template-columns: var(--ok-nav-w) minmax(0, 1fr) var(--ok-panel-w);
+    min-height: 0;
+    overflow: hidden;
+  }
+</style>

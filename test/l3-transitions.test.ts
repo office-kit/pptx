@@ -3,7 +3,9 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { INTERNAL_PACKAGE, SLIDE_PART_NAME } from '../src/api/_internal-symbols.ts';
 import {
+  getSlideTransition,
   clearSlideTransition,
   getSlideXmlString,
   getSlides,
@@ -19,6 +21,68 @@ const fixture = (name: string): string =>
 const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 
 describe('L3: setSlideTransition', () => {
+  it.each([0, 1, 2, 3, 4, 8, 4294967295])('round-trips wheel spokes %i', async (spokes) => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    setSlideTransition(slide, { effect: 'wheel', spokes });
+    expect(getSlideXmlString(slide)).toContain(`spokes="${spokes}"`);
+    expect(getSlideTransition(slide)).toEqual({ effect: 'wheel', spokes });
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlideTransition(getSlides(loaded)[0]!)).toEqual({ effect: 'wheel', spokes });
+  });
+  it.each([-1, 1.5, NaN, Infinity, 4294967296])(
+    'rejects invalid wheel spokes %s without changing the slide',
+    async (spokes) => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      const slide = getSlides(pres)[0]!;
+      const before = getSlideXmlString(slide);
+      expect(() => setSlideTransition(slide, { effect: 'wheel', spokes })).toThrow();
+      expect(getSlideXmlString(slide)).toBe(before);
+    },
+  );
+  it('omits default spokes and ignores spokes on other effects', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const slide = getSlides(pres)[0]!;
+    setSlideTransition(slide, { effect: 'wheel' });
+    expect(getSlideTransition(slide)).toEqual({ effect: 'wheel' });
+    expect(getSlideXmlString(slide)).toContain('<p:wheel/>');
+    setSlideTransition(slide, { effect: 'fade', spokes: 8 });
+    expect(getSlideTransition(slide)).toEqual({ effect: 'fade' });
+    expect(getSlideXmlString(slide)).not.toContain('spokes');
+  });
+
+  it.each(['1', '0', 'true', 'false', ' true ', ' false ', ' 1 ', ' 0 '])(
+    'reads imported XML boolean %j for fade/cut and click advance',
+    async (value) => {
+      const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+      for (const [index, slide] of getSlides(pres).entries()) {
+        setSlideTransition(slide, {
+          effect: index ? 'cut' : 'fade',
+          thruBlack: true,
+          advanceOnClick: false,
+        });
+        const part = pres[INTERNAL_PACKAGE].getPart(slide[SLIDE_PART_NAME])!;
+        part.data = new TextEncoder().encode(
+          new TextDecoder()
+            .decode(part.data)
+            .replace('thruBlk="1"', `thruBlk="${value}"`)
+            .replace('advClick="0"', `advClick="${value}"`),
+        );
+      }
+      const loaded = await loadPresentation(await savePresentation(pres));
+      const expected = ['1', 'true'].includes(value.trim());
+      for (const slide of getSlides(loaded))
+        expect(getSlideTransition(slide)).toMatchObject({
+          thruBlack: expected,
+          advanceOnClick: expected,
+        });
+      const reloaded = await loadPresentation(await savePresentation(loaded));
+      expect(getSlides(reloaded).map(getSlideTransition)).toEqual(
+        getSlides(loaded).map(getSlideTransition),
+      );
+    },
+  );
+
   it('emits <p:transition><p:fade/></p:transition>', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
@@ -129,5 +193,20 @@ describe('L3: setSlideTransition', () => {
     const slide = getSlides(pres)[0]!;
     setSlideTransition(slide, { effect: 'fade', speed: 'med' });
     expectSchemaValid(getSlideXmlString(getSlides(pres)[0]!), 'pml');
+  });
+});
+
+it('round-trips advance timing even when no transition effect is selected', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  setSlideTransition(getSlides(pres)[0]!, {
+    effect: 'none',
+    advanceOnClick: false,
+    advanceAfterMs: 2500,
+  });
+  const reloaded = await loadPresentation(await savePresentation(pres));
+  expect(getSlideTransition(getSlides(reloaded)[0]!)).toEqual({
+    effect: 'none',
+    advanceOnClick: false,
+    advanceAfterMs: 2500,
   });
 });

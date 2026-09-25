@@ -10,6 +10,7 @@ import {
 import { parseXml } from '../../internal/xml/index.ts';
 import {
   INTERNAL_PACKAGE,
+  LAYOUT_DOCUMENT,
   LAYOUT_PART,
   LAYOUT_PART_NAME,
   type PresentationData,
@@ -183,10 +184,12 @@ export const getSlideLayouts = (pres: PresentationData): ReadonlyArray<SlideLayo
   const out: SlideLayoutData[] = [];
   for (const part of pkg.parts) {
     if (part.contentType !== SLIDE_LAYOUT_CONTENT_TYPE) continue;
-    const root = parseXml(decode(part.data)).root;
+    const doc = parseXml(decode(part.data));
     out.push({
+      [INTERNAL_PACKAGE]: pkg,
       [LAYOUT_PART_NAME]: part.name,
-      [LAYOUT_PART]: readSlideLayoutPart(root),
+      [LAYOUT_DOCUMENT]: doc,
+      [LAYOUT_PART]: readSlideLayoutPart(doc.root),
     });
   }
   return out;

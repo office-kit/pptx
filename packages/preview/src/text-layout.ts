@@ -45,11 +45,12 @@ export type TextMeasurer = (text: string, spec: FontSpec) => MeasureResult;
 export type TextLayoutMode = 'foreignObject' | 'svg';
 
 export interface RenderSlideOptions {
-  /** Measurer used by the pure-SVG text path. Required when `textLayout` is
-   *  'svg'; ignored otherwise. */
+  /** Measurer used by the pure-SVG text path. Custom tabs in browser mode
+   *  use canvas font metrics, falling back to this measurer outside a browser. */
   readonly measureText?: TextMeasurer;
-  /** Which text path to use. Defaults to 'foreignObject' (the browser path)
-   *  so existing callers are unaffected; the harness opts into 'svg'. */
+  /** Which text path to use. Defaults to 'foreignObject' (the browser path).
+   *  Bodies with custom tab stops use SVG positioning in either mode, since
+   *  CSS cannot represent their alignment. The harness opts into 'svg'. */
   readonly textLayout?: TextLayoutMode;
 }
 
@@ -142,6 +143,10 @@ export interface PieceInput {
   readonly italic: boolean;
   readonly letterSpacingPx: number;
   readonly fillHex: string;
+  readonly highlightHex?: string;
+  /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
+  readonly outlineHex?: string;
+  readonly outlineWidthPx?: number;
   /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
    *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
    *  support, so the engine draws it as an explicit path (see `wavyPath`). */
@@ -149,6 +154,7 @@ export interface PieceInput {
   readonly strike: boolean;
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   readonly href: string | null;
+  readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
 }
 
@@ -163,6 +169,11 @@ export interface BulletInput {
 }
 
 export interface ParaInput {
+  readonly tabStops?: readonly {
+    positionPx: number;
+    alignment: 'left' | 'center' | 'right' | 'decimal';
+  }[];
+  readonly defaultTabSizePx?: number;
   readonly align: 'left' | 'center' | 'right' | 'justify';
   readonly marLpx: number;
   readonly marRpx: number;
@@ -196,6 +207,7 @@ export interface TextBodyInput {
   readonly boxWpx: number;
   readonly boxHpx: number;
   readonly anchor: 'top' | 'center' | 'bottom';
+  readonly anchorCentered?: boolean;
   readonly wrap: boolean;
   readonly paragraphs: readonly ParaInput[];
   /** Vertical text direction; omitted / 'none' is the default horizontal flow. */
@@ -208,11 +220,15 @@ export interface TextBodyInput {
 // Layout internals.
 
 export interface Token {
+  readonly isTab?: boolean;
+  tabFieldWidth?: number;
+  tabDecimalWidth?: number;
   readonly text: string;
   readonly piece: PieceInput;
   readonly isSpace: boolean;
   readonly isBreak: boolean;
   width: number;
+  highlightMetrics?: { a: number; d: number };
 }
 
 export interface Line {
@@ -319,6 +335,7 @@ const fmt = (n: number): string => {
 
 export interface LayoutCore {
   readonly placements: Placement[];
+  readonly anchorShift: number;
   readonly requiredH: number; // laid-out content height in px (top-anchored space)
   readonly vert: VerticalLayout;
   readonly cx: number;
@@ -393,10 +410,15 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
           continue;
         }
-        for (const word of piece.text.match(/\s+|\S+/g) ?? []) {
+        const widthSpec = { ...specOf(piece), sizePx: renderedSizePxOf(piece) };
+        for (const word of piece.text.match(/\t|[^\S\t]+|\S+/g) ?? []) {
+          if (word === '\t') {
+            tokens.push({ text: '', piece, isSpace: true, isBreak: false, isTab: true, width: 0 });
+            continue;
+          }
           const isSpace = /^\s+$/.test(word);
           for (const seg of isSpace ? [word] : splitEastAsianBreakables(word)) {
-            const w = mWidth(seg, specOf(piece));
+            const w = mWidth(seg, widthSpec);
             if (input.wrap && !isSpace && w > avail - bulletLead && [...seg].length > 1) {
               for (const ch of seg) {
                 tokens.push({
@@ -404,7 +426,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
                   piece,
                   isSpace: false,
                   isBreak: false,
-                  width: mWidth(ch, specOf(piece)),
+                  width: mWidth(ch, widthSpec),
                 });
               }
             } else {
@@ -414,7 +436,41 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
         }
       }
 
-      const wrapped = wrapTokens(tokens, input.wrap, wrapRight - firstLeft - bulletLead, avail);
+      // Resolve each tab's following field once, across run boundaries.
+      // Decimal tabs align the first decimal point, or the field end if absent.
+      let fieldWidth = 0;
+      let decimalWidth = 0;
+      for (let ti = tokens.length - 1; ti >= 0; ti--) {
+        const token = tokens[ti]!;
+        if (token.isTab || token.isBreak) {
+          if (token.isTab) {
+            token.tabFieldWidth = fieldWidth;
+            token.tabDecimalWidth = decimalWidth;
+          }
+          fieldWidth = decimalWidth = 0;
+        } else {
+          fieldWidth += token.width;
+          const decimal = token.text.indexOf('.');
+          decimalWidth =
+            decimal < 0
+              ? decimalWidth + token.width
+              : mWidth(token.text.slice(0, decimal), {
+                  ...specOf(token.piece),
+                  sizePx: renderedSizePxOf(token.piece),
+                });
+        }
+      }
+      for (const token of tokens) {
+        if (token.piece.highlightHex) token.highlightMetrics = mMetrics(token.piece);
+      }
+      const wrapped = wrapTokens(
+        tokens,
+        input.wrap,
+        wrapRight - firstLeft - bulletLead,
+        avail,
+        para,
+        firstLeft + bulletLead - wrapLeft,
+      );
       const paraLines: Token[][] = wrapped.length > 0 ? wrapped : [[]];
 
       for (let li = 0; li < paraLines.length; li++) {
@@ -513,7 +569,42 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
       ? placeColumns(frame, columns, input.anchor, buildLines)
       : placeSingle(frame, input.anchor, buildLines);
 
-  return { placements, requiredH, vert, cx, cy };
+  // anchorCtr centers the entire text bounds, keeping paragraph alignment and
+  // indentation intact. Include bullets and column offsets in those bounds.
+  let anchorShift = 0;
+  if (input.anchorCentered && placements.length) {
+    let left = Infinity;
+    let right = -Infinity;
+    for (const { line, dx } of placements) {
+      let end = line.tokens.length;
+      while (end > 0 && (line.tokens[end - 1]!.isSpace || line.tokens[end - 1]!.isBreak)) end--;
+      let width = 0;
+      for (let i = 0; i < end; i++) if (!line.tokens[i]!.isBreak) width += line.tokens[i]!.width;
+      if (end) {
+        const x =
+          line.anchorX +
+          dx -
+          (line.textAnchor === 'end' ? width : line.textAnchor === 'middle' ? width / 2 : 0);
+        left = Math.min(left, x);
+        right = Math.max(right, x + width);
+      }
+      if (line.bullet) {
+        const { x, b } = line.bullet;
+        left = Math.min(left, x + dx);
+        right = Math.max(right, x + dx + (b.imageHref ? b.sizePx : mWidth(b.text, bulletSpec(b))));
+      }
+    }
+    if (left !== Infinity) {
+      const shift = frame.x + frame.w / 2 - (left + right) / 2;
+      anchorShift = shift;
+      for (let i = 0; i < placements.length; i++) {
+        const placement = placements[i]!;
+        placements[i] = { ...placement, dx: placement.dx + shift };
+      }
+    }
+  }
+
+  return { placements, requiredH, vert, cx, cy, anchorShift };
 };
 
 export const layoutTextSvg = (input: TextBodyInput, measure: TextMeasurer): string => {
@@ -624,9 +715,30 @@ const placeColumns = (
   };
 };
 
+/**
+ * Draws the placed lines, with each paragraph's own lines — its bullet
+ * included — inside a `<g data-pptx-paragraph>`.
+ *
+ * The index is the one `<p:bldP build="p">` counts in, so a player revealing a
+ * text body one paragraph at a time has a single element to show or hide. A
+ * paragraph that wraps into the next column appears as a second group under
+ * the same index, because its lines are drawn where that column is.
+ */
 const emitPlacements = (placements: Placement[]): string => {
-  const parts: string[] = [];
+  const paragraphs: string[] = [];
+  let parts: string[] = [];
+  let paraIndex: number | null = null;
+  const close = (): void => {
+    if (paraIndex !== null && parts.length > 0) {
+      paragraphs.push(`<g data-pptx-paragraph="${paraIndex}">${parts.join('')}</g>`);
+    }
+    parts = [];
+  };
   for (const { line, baselineY, dx } of placements) {
+    if (line.paraIndex !== paraIndex) {
+      close();
+      paraIndex = line.paraIndex;
+    }
     if (line.bullet) {
       const b = line.bullet.b;
       if (b.imageHref) {
@@ -643,7 +755,8 @@ const emitPlacements = (placements: Placement[]): string => {
     }
     parts.push(emitLine(line, baselineY, dx));
   }
-  return parts.join('');
+  close();
+  return paragraphs.join('');
 };
 
 const topPad = (line: Line): number => {
@@ -675,14 +788,30 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   const content = toks.filter((t) => !t.isBreak);
   if (content.length === 0) return '';
   const groups = groupTokens(content);
-  const tspans = groups.map((g) => tspan(g)).join('');
+  const tspans = groups
+    .map((g) => {
+      const span = tspan(g);
+      if (!g.piece.href) return span;
+      const target = g.piece.href.startsWith('#')
+        ? ''
+        : ' target="_blank" rel="noopener noreferrer"';
+      const title = g.piece.hrefTip ? `<title>${escapeXml(g.piece.hrefTip)}</title>` : '';
+      return `<a href="${escapeXml(g.piece.href)}"${target}>${title}${span}</a>`;
+    })
+    .join('');
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
   const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
-  return text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
+  return (
+    emitHighlights(groups, line.textAnchor, x0, baselineY) +
+    text +
+    emitWavyUnderlines(groups, line.textAnchor, x0, baselineY)
+  );
 };
 
 interface Group {
+  isTab?: boolean;
+  highlightMetrics?: { a: number; d: number };
   text: string;
   piece: PieceInput;
   width: number;
@@ -693,11 +822,17 @@ const groupTokens = (toks: Token[]): Group[] => {
   for (const t of toks) {
     if (t.isBreak) continue;
     const last = groups[groups.length - 1];
-    if (last && samePiece(last.piece, t.piece)) {
+    if (last && !last.isTab && !t.isTab && samePiece(last.piece, t.piece)) {
       last.text += t.text;
       last.width += t.width;
     } else {
-      groups.push({ text: t.text, piece: t.piece, width: t.width });
+      groups.push({
+        text: t.text,
+        isTab: t.isTab === true,
+        piece: t.piece,
+        width: t.width,
+        ...(t.highlightMetrics ? { highlightMetrics: t.highlightMetrics } : {}),
+      });
     }
   }
   return groups;
@@ -757,6 +892,29 @@ const emitWavyUnderlines = (
   return parts.join('');
 };
 
+const emitHighlights = (
+  groups: readonly Group[],
+  anchor: 'start' | 'middle' | 'end',
+  x0: number,
+  baselineY: number,
+): string => {
+  const width = groups.reduce((sum, group) => sum + group.width, 0);
+  let x = x0 - (anchor === 'middle' ? width / 2 : anchor === 'end' ? width : 0);
+  const backgrounds: string[] = [];
+  for (const group of groups) {
+    const metrics = group.highlightMetrics;
+    if (group.piece.highlightHex && metrics && group.width > 0) {
+      const scale = group.piece.superSub === 0 ? 1 : SUPER_SUB_SIZE_RATIO;
+      const y = baselineY - baselineShiftPxOf(group.piece) - metrics.a * scale;
+      backgrounds.push(
+        `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(group.width)}" height="${fmt((metrics.a + metrics.d) * scale)}" fill="${escapeXml(group.piece.highlightHex)}"/>`,
+      );
+    }
+    x += group.width;
+  }
+  return backgrounds.join('');
+};
+
 // Calibrated purely for legibility at typical body-text sizes (no ground-truth
 // wavy-underline spec to match — OOXML doesn't define the wave's geometry,
 // only that it must render as one): amplitude and period scale with the
@@ -797,12 +955,15 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.italic === b.italic &&
   a.letterSpacingPx === b.letterSpacingPx &&
   a.fillHex === b.fillHex &&
+  a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
   a.strike === b.strike &&
   a.superSub === b.superSub &&
-  a.href === b.href;
+  a.href === b.href &&
+  a.hrefTip === b.hrefTip;
 
 const tspan = (g: Group): string => {
+  if (g.isTab) return `<tspan dx="${fmt(g.width)}">&#8203;</tspan>`;
   const p = g.piece;
   const sizePx = renderedSizePxOf(p);
   const attrs: string[] = [
@@ -812,6 +973,14 @@ const tspan = (g: Group): string => {
   ];
   if (p.bold) attrs.push('font-weight="700"');
   if (p.italic) attrs.push('font-style="italic"');
+  if (p.outlineHex !== undefined && (p.outlineWidthPx ?? 0) > 0) {
+    // PowerPoint centres a text outline on the glyph edge but draws the fill
+    // over it, which `paint-order` reproduces; without it the stroke would eat
+    // half the letterform.
+    attrs.push(`stroke="${p.outlineHex}"`);
+    attrs.push(`stroke-width="${fmt(p.outlineWidthPx!)}"`);
+    attrs.push('paint-order="stroke fill"');
+  }
   const deco: string[] = [];
   // 'wavy' is drawn as an explicit path by emitWavyUnderlines — resvg has no
   // text-decoration-style support to lean on here.
@@ -832,6 +1001,8 @@ const wrapTokens = (
   wrap: boolean,
   firstAvail: number,
   avail: number,
+  para: ParaInput,
+  firstOffset: number,
 ): Token[][] => {
   const lines: Token[][] = [];
   let cur: Token[] = [];
@@ -858,6 +1029,33 @@ const wrapTokens = (
       cur.push(tok);
       close();
       continue;
+    }
+    if (tok.isTab) {
+      const position = lineW + (first ? firstOffset : 0);
+      const stops = para.tabStops ?? [];
+      let lo = 0;
+      let hi = stops.length;
+      while (lo < hi) {
+        const mid = (lo + hi) >>> 1;
+        if (stops[mid]!.positionPx <= position + 0.01) lo = mid + 1;
+        else hi = mid;
+      }
+      const stop = stops[lo];
+      // Mac PowerPoint defaults to one-inch intervals. Zero disables that grid.
+      const interval = para.defaultTabSizePx ?? 96;
+      const next =
+        stop?.positionPx ??
+        (interval > 0 ? (Math.floor(position / interval) + 1) * interval : position);
+      const alignment = stop?.alignment ?? 'left';
+      const offset =
+        alignment === 'center'
+          ? (tok.tabFieldWidth ?? 0) / 2
+          : alignment === 'right'
+            ? (tok.tabFieldWidth ?? 0)
+            : alignment === 'decimal'
+              ? (tok.tabDecimalWidth ?? 0)
+              : 0;
+      tok.width = Math.max(0, next - offset - position);
     }
     if (tok.isSpace) {
       cur.push(tok);

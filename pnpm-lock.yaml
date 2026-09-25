@@ -240,6 +240,9 @@ importers:
       '@types/node':
         specifier: ^24.13.2
         version: 24.13.2
+      svelte:
+        specifier: ^5.56.3
+        version: 5.56.3
       tsdown:
         specifier: ^0.22.2
         version: 0.22.2(tsx@4.22.4)(typescript@6.0.3)

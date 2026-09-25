@@ -19,9 +19,13 @@ const RANGES = {
   positiveCoordinate: [0, 27273042316900], // ST_PositiveCoordinate
   coordinate32: [-2147483648, 2147483647], // ST_Coordinate32 (xsd:int)
   positiveCoordinate32: [0, 2147483647], // ST_PositiveCoordinate32
+  slideSize: [914400, 51206400], // ST_SlideSizeCoordinate (1..56 inches)
   lineWidth: [0, 20116800], // ST_LineWidth
   angle: [-2147483648, 2147483647], // ST_Angle (1/60000 degree, xsd:int)
   fontSize: [100, 400000], // ST_TextFontSize (1/100 pt → 1..4000 pt)
+  textNonNegativePoint: [0, 400000], // ST_TextNonNegativePoint (kerning threshold)
+  textMargin: [0, 51206400], // ST_TextMargin (EMU)
+  textIndent: [-51206400, 51206400], // ST_TextIndent (EMU)
   textPoint: [-400000, 400000], // ST_TextPoint (1/100 pt)
   textSpacingPoint: [0, 158400], // ST_TextSpacingPoint (1/100 pt)
   unsignedInt: [0, 4294967295], // xsd:unsignedInt (advTm; ST_TLTime numeric form)
@@ -116,6 +120,12 @@ export const normalizeGuid = (value: string, field: string): string => {
   }
   return value.toUpperCase();
 };
+
+/**
+ * A fresh `ST_Guid`. `crypto.randomUUID` is a Web API, available in both
+ * runtimes this library targets, and is the only randomness it uses.
+ */
+export const newGuid = (): string => `{${globalThis.crypto.randomUUID().toUpperCase()}}`;
 
 // Generic enum-membership guard for attributes whose XSD type is an enumeration
 // (e.g. a pattern preset, a transition effect element name). Returns the value

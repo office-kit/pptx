@@ -1,19 +1,50 @@
 import { createHistory, historyFile } from './history.ts';
 import { createTextEditor } from './text-edit.ts';
 import { createVisualReviewer } from './visual-review.ts';
-import { createServer, type ServerResponse } from 'node:http';
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { createHash, randomUUID } from 'node:crypto';
 import { watch } from 'node:fs';
-import { dirname, resolve, sep } from 'node:path';
-import type { BuildResult } from './build.ts';
+import { basename, dirname, resolve, sep } from 'node:path';
+import { renderDeck, type BuildResult } from './build.ts';
+import { editorStore, sourceFingerprint } from './editor-store.ts';
 import { createDeckBuilder } from './build-runner.ts';
 import { page } from './page.ts';
+import { presenterPage } from './presenter-page.ts';
 import { agentPage } from './agent-page.ts';
 import { readFile } from 'node:fs/promises';
 import { createTerminal } from './terminal.ts';
 import { createChat } from './chat.ts';
 
+// Files `build-editor.mjs` puts next to the CLI, served as they are. The
+// animation player is one build shared by the preview page, the presenter
+// window and the editor panel, so all three play a slide the same way.
+const BUNDLED_ASSETS: Record<string, string> = {
+  '/terminal.js': 'terminal-client.js',
+  '/terminal.css': 'terminal-client.css',
+  '/editor.js': 'editor.js',
+  '/editor.css': 'editor.css',
+  '/animation-player.js': 'animation-player.js',
+};
+
 export async function serveDeck(entry: string, port = 4173) {
   let latest: BuildResult | undefined;
+  let source: BuildResult | undefined;
+  let sourceHash: string | undefined;
+  let documentHash: string | undefined;
+  const store = editorStore(entry);
+  let saved = await store.read();
+  const serverId = randomUUID();
+  const projectId = createHash('sha256').update(resolve(entry)).digest('hex');
+  let publishing = Promise.resolve();
+  // Rebuilds and HTTP writes publish in order, including their atomic disk write.
+  function publish<T>(fn: () => Promise<T>): Promise<T> {
+    const result = publishing.then(fn);
+    publishing = result.then(
+      () => {},
+      () => {},
+    );
+    return result;
+  }
   let error: string | null = null;
   let building = false;
   let revision = 0;
@@ -66,6 +97,113 @@ export async function serveDeck(entry: string, port = 4173) {
       sessions.set(id, result);
     }
     return result;
+  }
+  function editorState() {
+    return {
+      projectId,
+      revision: `${serverId}:${revision}`,
+      previewRevision: revision,
+      documentHash,
+      sourceHash,
+      fileName: basename(entry).replace(/\.[^.]+$/, '') + '.pptx',
+      hasEdits: !!saved,
+      conflict: !!saved && !!sourceHash && saved.sourceHash !== sourceHash,
+      building,
+      error,
+      available: !!latest,
+    };
+  }
+  function update(result: BuildResult) {
+    patch = {};
+    result.slides.forEach((svg, index) => {
+      if (svg !== latest?.slides[index]) patch[index] = svg;
+    });
+    latest = result;
+    documentHash = sourceFingerprint(result.bytes);
+    revision++;
+  }
+  function notify() {
+    for (const client of clients) client.write('data: updated\n\n');
+  }
+  async function edit(request: IncomingMessage, response: ServerResponse) {
+    const json = (status: number, message?: string) => {
+      response.writeHead(status, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ ...editorState(), ...(message ? { message } : {}) }));
+    };
+    if (
+      request.headers.origin !== `http://${request.headers.host}` ||
+      request.headers['sec-fetch-site'] === 'cross-site'
+    ) {
+      request.resume();
+      json(403, 'Editor requests must come from this preview.');
+      return;
+    }
+    const useSource = request.url === '/editor/resolve' && request.method === 'POST';
+    const save = request.url === '/editor/document' && request.method === 'PUT';
+    if (!useSource && !save) {
+      request.resume();
+      json(405);
+      return;
+    }
+    if (save && request.headers['content-type'] !== 'application/octet-stream') {
+      request.resume();
+      json(415);
+      return;
+    }
+    const chunks: Buffer[] = [];
+    let length = 0;
+    const MAX_EDITOR_BYTES = 64 * 1024 * 1024;
+    try {
+      for await (const chunk of request) {
+        length += chunk.length;
+        if (length > MAX_EDITOR_BYTES) {
+          json(413, 'The editor upload exceeds 64 MiB.');
+          return;
+        }
+        chunks.push(chunk);
+      }
+      await publish(async () => {
+        if (
+          !source ||
+          !sourceHash ||
+          building ||
+          error ||
+          closed ||
+          request.headers['if-match'] !== editorState().revision ||
+          (save && editorState().conflict && request.headers['x-editor-resolve'] !== 'edits')
+        ) {
+          json(409, 'The preview changed. Review the current source before saving.');
+          return;
+        }
+        const started = generation;
+        if (useSource) {
+          await store.clear();
+          saved = undefined;
+          update(source);
+        } else {
+          const bytes = new Uint8Array(Buffer.concat(chunks));
+          let result: BuildResult;
+          try {
+            result = (await renderDeck(bytes, source.dependencies)).result;
+          } catch (cause) {
+            json(400, cause instanceof Error ? cause.message : String(cause));
+            return;
+          }
+          if (started !== generation) {
+            json(409, 'Source changed during save.');
+            return;
+          }
+          const edits = { sourceHash, bytes };
+          await store.write(edits);
+          saved = edits;
+          update(result);
+        }
+        json(200);
+        notify();
+      });
+    } catch (cause) {
+      if (!response.headersSent) json(500, cause instanceof Error ? cause.message : String(cause));
+    }
   }
   const textEditor = createTextEditor(
     resolve(entry),
@@ -233,9 +371,11 @@ export async function serveDeck(entry: string, port = 4173) {
       });
     } else if (
       request.method === 'GET' &&
-      ['/terminal.js', '/terminal.css'].includes(request.url ?? '')
+      // A retry asks for the player again with a query, so the browser fetches
+      // it rather than handing back the module load that failed.
+      BUNDLED_ASSETS[(request.url ?? '').split('?')[0]!] !== undefined
     ) {
-      const asset = request.url === '/terminal.js' ? 'terminal-client.js' : 'terminal-client.css';
+      const asset = BUNDLED_ASSETS[(request.url ?? '').split('?')[0]!]!;
       void readFile(new URL(asset, import.meta.url)).then(
         (bytes) => {
           response.writeHead(200, {
@@ -243,8 +383,28 @@ export async function serveDeck(entry: string, port = 4173) {
           });
           response.end(bytes);
         },
-        () => response.writeHead(500).end('Terminal assets unavailable. Rebuild pptx-dev.'),
+        () => response.writeHead(500).end('Preview assets unavailable. Rebuild pptx-dev.'),
       );
+    } else if (request.url?.startsWith('/editor/') && request.method !== 'GET') {
+      void edit(request, response);
+    } else if (request.method === 'GET' && request.url === '/editor/state') {
+      response
+        .writeHead(200, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify(editorState()));
+    } else if (
+      request.method === 'GET' &&
+      ['/editor/document', '/editor/source'].includes(request.url ?? '')
+    ) {
+      const result = request.url === '/editor/source' ? source : latest;
+      if (!result) {
+        response.writeHead(503).end();
+        return;
+      }
+      response.writeHead(200, {
+        'Content-Type': 'application/octet-stream',
+        ETag: editorState().revision,
+      });
+      response.end(result.bytes);
     } else if (request.method !== 'GET') {
       response.writeHead(405).end();
     } else if (request.url === '/events') {
@@ -268,6 +428,10 @@ export async function serveDeck(entry: string, port = 4173) {
               }
             : { slides: latest?.slides ?? [] }),
           aspectRatio: latest?.aspectRatio ?? 16 / 9,
+          transitions: latest?.transitions ?? [],
+          animations: latest?.animations ?? [],
+          notes: latest?.notes ?? [],
+          hiddenSlides: latest?.hiddenSlides ?? [],
           error,
           diagnostics: latest?.diagnostics ?? [],
         }),
@@ -278,6 +442,14 @@ export async function serveDeck(entry: string, port = 4173) {
         'Content-Disposition': 'attachment; filename="deck.pptx"',
       });
       response.end(latest.bytes);
+    } else if (request.url === '/editor') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end(
+        '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Office Kit Editor</title><link rel="stylesheet" href="/editor.css"><body><script type="module" src="/editor.js"></script></body></html>',
+      );
+    } else if (request.url === '/presenter') {
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      response.end(presenterPage);
     } else if (request.url === '/') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
       response.end(page);
@@ -307,15 +479,15 @@ export async function serveDeck(entry: string, port = 4173) {
     for (const client of clients) client.write('data: building\n\n');
     try {
       const result = await builder.build();
-      if (started === generation && !closed) {
-        patch = {};
-        result.slides.forEach((svg, index) => {
-          if (svg !== latest?.slides[index]) patch[index] = svg;
-        });
-        latest = result;
-        revision++;
+      await publish(async () => {
+        if (started !== generation || closed) return;
+        const edited = saved ? (await renderDeck(saved.bytes, result.dependencies)).result : result;
+        if (started !== generation || closed) return;
+        source = result;
+        sourceHash = sourceFingerprint(result.bytes);
+        update(edited);
         error = null;
-      }
+      });
     } catch (cause) {
       if (started === generation)
         error = cause instanceof Error ? (cause.stack ?? cause.message) : String(cause);
@@ -379,6 +551,7 @@ export async function serveDeck(entry: string, port = 4173) {
         [...sessions.values()].flatMap(({ terminal, chat }) => [terminal.close(), chat.close()]),
       );
       await builder.close();
+      await publishing;
       for (const client of clients) client.end();
       await new Promise<void>((done, reject) =>
         server.close((cause) => (cause ? reject(cause) : done())),

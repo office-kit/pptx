@@ -1,3 +1,9 @@
+import { replaceClickHyperlink } from '../../internal/drawingml/hyperlink.ts';
+import {
+  mutateTextBodyRangeProperties,
+  validateTextRange,
+} from '../../internal/drawingml/text-body-edit.ts';
+import { textBodyText } from '../../internal/drawingml/text-body.ts';
 // Shape click action.
 import { getSlides } from './slide-query.ts';
 
@@ -29,17 +35,10 @@ import {
   type SlideData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
-import { commitAndRefresh, releaseUnusedLinkRels } from './_helpers.ts';
+import { commitAndRefresh, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 // ---------------------------------------------------------------------------
 // Shape click action — `<a:hlinkClick>` on the shape's cNvPr.
 //
-// Two flavors today: open a URL (External rel) or jump to another slide
-// in this deck (Internal rel + `action="ppaction://hlinksldjump"`).
-//
-// PowerPoint also supports preset actions like `nextslide`, `prevslide`,
-// `firstslide`, `lastslide`, but they're niche enough to defer until a
-// concrete user need shows up.
-
 /** What clicking the shape should do. */
 export type ShapeClickAction =
   | { readonly kind: 'url'; readonly url: string }
@@ -51,8 +50,7 @@ export type ShapeClickAction =
 
 export const NAME_HLINK_CLICK_FN = qname('a', 'hlinkClick', NS.dml);
 
-// cNvPr lives at different paths depending on shape kind. Returns null
-// for kinds we don't know how to navigate yet (groups, etc.).
+// cNvPr lives at different paths depending on shape kind.
 export const findCNvPr = (shape: SlideShapeData): XmlElement | null => {
   const root = shape[SHAPE_ELEMENT];
   const kind = shape[SHAPE_SNAPSHOT].kind;
@@ -65,22 +63,13 @@ export const findCNvPr = (shape: SlideShapeData): XmlElement | null => {
           ? 'nvCxnSpPr'
           : kind === 'graphicFrame'
             ? 'nvGraphicFramePr'
-            : null;
+            : kind === 'group'
+              ? 'nvGrpSpPr'
+              : null;
   if (wrapperName === null) return null;
   const wrapper = firstChildElement(root, qname('p', wrapperName, NS.pml));
   if (!wrapper) return null;
   return firstChildElement(wrapper, qname('p', 'cNvPr', NS.pml));
-};
-
-const removeExistingHlinkClick = (cNvPr: XmlElement): void => {
-  cNvPr.children = cNvPr.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'hlinkClick'
-      ),
-  );
 };
 
 const findExistingHyperlinkRel = (
@@ -111,6 +100,11 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
   if (!cNvPr) return null;
   const hlink = firstChildElement(cNvPr, NAME_HLINK_CLICK_FN);
   if (!hlink) return null;
+  return readClickAction(shape[SHAPE_SLIDE], hlink);
+};
+
+/** Resolve a DrawingML click link using its owning slide's relationships. */
+export const readClickAction = (slide: SlideData, hlink: XmlElement): ShapeClickAction | null => {
   const action = getAttrValue(hlink, qname('', 'action', ''));
   const rId = getAttrValue(hlink, qname('r', 'id', NS.officeDocRels));
 
@@ -120,7 +114,6 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
   if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
 
   if (rId !== null && rId !== '') {
-    const slide = shape[SHAPE_SLIDE];
     const pkg = slide[INTERNAL_PACKAGE];
     const rels = pkg.getRels(slide[SLIDE_PART_NAME]);
     if (!rels) return null;
@@ -160,13 +153,24 @@ export const getShapeClickAction = (shape: SlideShapeData): ShapeClickAction | n
  *     is allocated; just the `action` attribute carries the preset.
  *   - `null` removes any existing `<a:hlinkClick>`.
  *
+ * Optional `range` applies the action to selected UTF-16 text offsets instead
+ * of the whole shape, preserving links and formatting outside the range.
+ * Optional `tooltip` sets the link description; omission clears an old description.
+ *
  * The shape must be one of `shape | picture | connector | graphicFrame`.
  * Groups don't carry their own click action in our model.
  */
 export const setShapeClickAction = (
   shape: SlideShapeData,
   action: ShapeClickAction | null,
+  options?: { range?: { start: number; end: number }; tooltip?: string },
 ): void => {
+  const range = options?.range;
+  const body = range ? requireTxBody(shape) : null;
+  if (range && body) {
+    validateTextRange(textBodyText(body), range, 'setShapeClickAction');
+    if (range.start === range.end) return;
+  }
   const cNvPr = findCNvPr(shape);
   if (!cNvPr) {
     throw new Error(
@@ -174,15 +178,20 @@ export const setShapeClickAction = (
     );
   }
 
-  removeExistingHlinkClick(cNvPr);
-
-  if (action === null) {
-    commitAndRefresh(shape);
-    releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
-    return;
+  const hlink = action ? buildClickAction(shape[SHAPE_SLIDE], action) : null;
+  if (hlink && options?.tooltip !== undefined) {
+    hlink.attrs.push(attr(qname('', 'tooltip', ''), options.tooltip));
   }
+  const apply = (parent: XmlElement) => {
+    replaceClickHyperlink(parent, hlink ? structuredClone(hlink) : null);
+  };
+  if (range && body) mutateTextBodyRangeProperties(body, range, apply);
+  else apply(cNvPr);
+  commitAndRefresh(shape);
+  releaseUnusedLinkRels(shape[SHAPE_SLIDE]);
+};
 
-  const slide = shape[SHAPE_SLIDE];
+export const buildClickAction = (slide: SlideData, action: ShapeClickAction): XmlElement => {
   const pkg = slide[INTERNAL_PACKAGE];
 
   let rId: string | null = null;
@@ -209,12 +218,17 @@ export const setShapeClickAction = (
     }
     case 'slide': {
       const target = action.slide[SLIDE_PART_NAME];
-      const targetBase = basename(target);
+      if (action.slide[INTERNAL_PACKAGE] !== pkg || !pkg.getPart(target)) {
+        throw new Error('setShapeClickAction: target slide must belong to this presentation');
+      }
+      // PowerPoint writes slide-jump targets relative to the slide part; an
+      // absolute one is legal OPC but nothing else in a deck spells it that way.
+      const relative = `../slides/${basename(target)}`;
       const rels = pkg.getRels(slide[SLIDE_PART_NAME]) ?? emptyRels();
       const existing = rels.items.find(
         (rl) =>
           rl.type === REL_TYPES.slide &&
-          rl.target === `../slides/${targetBase}` &&
+          resolveTarget(slide[SLIDE_PART_NAME], rl.target) === target &&
           rl.targetMode === 'Internal',
       );
       if (existing) {
@@ -224,7 +238,7 @@ export const setShapeClickAction = (
         rels.items.push({
           id: newId,
           type: REL_TYPES.slide,
-          target: `../slides/${targetBase}`,
+          target: relative,
           targetMode: 'Internal',
         });
         pkg.setRels(slide[SLIDE_PART_NAME], rels);
@@ -252,12 +266,5 @@ export const setShapeClickAction = (
   else attrs.push(attr(qname('r', 'id', NS.officeDocRels), ''));
   if (actionAttr !== null) attrs.push(attr(qname('', 'action', ''), actionAttr));
 
-  cNvPr.children.push(
-    elem(NAME_HLINK_CLICK_FN, {
-      attrs,
-    }),
-  );
-
-  commitAndRefresh(shape);
-  releaseUnusedLinkRels(slide);
+  return elem(NAME_HLINK_CLICK_FN, { attrs });
 };

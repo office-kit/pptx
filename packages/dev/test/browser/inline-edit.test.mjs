@@ -51,6 +51,9 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       const errors = [];
       page.on('pageerror', (e) => errors.push(e.message));
       await page.goto(url);
+      // The preview opens in the editor; this test drives the viewer's own
+      // inline editing, which lives behind the Preview toggle.
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
       await page.locator('#slide p').first().waitFor();
       const agent = page.frames().find((f) => /\/agents\//.test(f.url()));
       await agent.selectOption('#chat-provider', 'codex');

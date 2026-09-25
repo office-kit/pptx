@@ -1,3 +1,5 @@
+import { readImageCrop } from './_image-crop.ts';
+import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
 
@@ -48,16 +50,6 @@ import { getSlideSize } from './features.ts';
 // of a percent). PowerPoint defaults to fully opaque when the element
 // is absent. Pass `null` to remove a prior `<a:alphaModFix>`.
 
-const NAME_ALPHA_MOD_FIX_FN = qname('a', 'alphaModFix', NS.dml);
-const ATTR_AMT_FN = qname('', 'amt', '');
-
-/**
- * Sets the picture's opacity (0–1 fraction; `1` is fully opaque, `0`
- * fully transparent). Pass `null` to remove an existing opacity
- * override and restore PowerPoint's default behavior.
- *
- * Throws for non-picture shapes and on opacities outside `[0, 1]`.
- */
 /**
  * Returns the embedded image bytes for a picture shape, or `null`
  * when the shape isn't a picture or has no `r:embed` reference
@@ -456,49 +448,45 @@ export const getShapeImageFormat = (shape: SlideShapeData): ImageFormat | null =
   return detectImageFormat(bytes);
 };
 
+const getImageOpacityBlip = (shape: SlideShapeData): XmlElement | null => {
+  const element = shape[SHAPE_ELEMENT];
+  const spPr = firstChildElement(element, qname('p', 'spPr', NS.pml));
+  const fill =
+    shape[SHAPE_SNAPSHOT].kind === 'picture'
+      ? firstChildElement(element, qname('p', 'blipFill', NS.pml))
+      : spPr && firstChildElement(spPr, qname('a', 'blipFill', NS.dml));
+  return fill ? firstChildElement(fill, qname('a', 'blip', NS.dml)) : null;
+};
+
 /**
- * Reads the picture's opacity (0–1 fraction). Returns `null` when no
+ * Reads the picture or image fill's opacity (0–1 fraction). Returns `null` when no
  * `<a:alphaModFix>` is present (PowerPoint treats absence as fully
  * opaque); returns `1` when an explicit alphaModFix sets full opacity.
  */
 export const getShapeImageOpacity = (shape: SlideShapeData): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  const blip = getImageOpacityBlip(shape);
   if (!blip) return null;
-  const alpha = firstChildElement(blip, qname('a', 'alphaModFix', NS.dml));
-  if (!alpha) return null;
-  const amt = getAttrValue(alpha, qname('', 'amt', ''));
-  if (amt === null) return 1;
-  const n = Number.parseInt(amt, 10);
-  if (!Number.isFinite(n)) return null;
-  return n / 100000;
+  return readImageOpacity(blip);
+};
+
+const cropImageFill = (shape: SlideShapeData): XmlElement | null => {
+  const element = shape[SHAPE_ELEMENT];
+  if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
+    return firstChildElement(element, qname('p', 'blipFill', NS.pml));
+  }
+  const spPr = firstChildElement(element, qname('p', 'spPr', NS.pml));
+  return spPr ? firstChildElement(spPr, qname('a', 'blipFill', NS.dml)) : null;
 };
 
 /**
- * Reads the picture's crop fractions. Returns `null` when no
+ * Reads a picture or image fill's crop fractions. Returns `null` when no
  * `<a:srcRect>` is present; otherwise returns a fully-populated object
  * with every side filled in (0 for omitted sides on disk).
  */
 export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
+  const blipFill = cropImageFill(shape);
   if (!blipFill) return null;
-  const srcRect = firstChildElement(blipFill, qname('a', 'srcRect', NS.dml));
-  if (!srcRect) return null;
-  const parseSide = (local: string): number => {
-    const v = getAttrValue(srcRect, qname('', local, ''));
-    if (v === null) return 0;
-    const n = Number.parseInt(v, 10);
-    return Number.isFinite(n) ? n / 100000 : 0;
-  };
-  return {
-    left: parseSide('l'),
-    top: parseSide('t'),
-    right: parseSide('r'),
-    bottom: parseSide('b'),
-  };
+  return readImageCrop(blipFill);
 };
 
 // Brightness and contrast are two attributes of a SINGLE `<a:lum>` effect
@@ -611,36 +599,16 @@ export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
 export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'bright');
 
+/**
+ * Sets picture or image-fill opacity (0–1; `1` is fully opaque).
+ * Pass `null` to restore PowerPoint's default opacity.
+ * Rejects shapes without an image and values outside `[0, 1]` without changing them.
+ */
 export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageOpacity only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
-
-  blip.children = blip.children.filter(
-    (c) =>
-      !(
-        c.kind === 'element' &&
-        c.name.namespaceURI === NS.dml &&
-        c.name.localName === 'alphaModFix'
-      ),
-  );
-
-  if (opacity !== null) {
-    if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1) {
-      throw new RangeError(`opacity must be in [0, 1], got ${opacity}`);
-    }
-    blip.children.push(
-      elem(NAME_ALPHA_MOD_FIX_FN, {
-        attrs: [attr(ATTR_AMT_FN, String(Math.round(opacity * 100000)))],
-      }),
-    );
-  }
+  const blip = getImageOpacityBlip(shape);
+  if (!blip)
+    throw new Error('setShapeImageOpacity requires a picture or a shape with an image fill');
+  writeImageOpacity(blip, opacity);
   commitAndRefresh(shape);
 };
 
@@ -659,7 +627,6 @@ export interface ImageCrop {
   readonly bottom?: number;
 }
 
-const NAME_BLIP_FILL_FN = qname('p', 'blipFill', NS.pml);
 const NAME_SRC_RECT_FN = qname('a', 'srcRect', NS.dml);
 const NAME_BLIP_FN = qname('a', 'blip', NS.dml);
 const ATTR_CROP_L = qname('', 'l', '');
@@ -676,44 +643,40 @@ const fractionToST = (n: number | undefined): string | null => {
 };
 
 /**
- * Sets (or clears) a `<a:srcRect>` on a picture shape, cropping the
+ * Sets (or clears) a `<a:srcRect>` on a picture or image-filled shape, cropping the
  * embedded image by the given fraction on each side. Pass `null` to
  * remove an existing crop.
  *
  * Fractions are in `[0, 1)` per side. `{ left: 0.25 }` clips 25% off
- * the left edge; the visible image stretches to fill the original
- * frame. The shape's geometry (`<a:xfrm>`) is unchanged.
+ * the left edge. Stretch fills fit the remaining image to the frame;
+ * tiled fills repeat the remaining image. The shape's geometry (`<a:xfrm>`) is unchanged.
  */
 export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null): void => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `setShapeImageCrop only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const pic = shape[SHAPE_ELEMENT];
-  const blipFill = firstChildElement(pic, NAME_BLIP_FILL_FN);
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
+  const blipFill = cropImageFill(shape);
+  if (!blipFill) throw new Error('setShapeImageCrop requires a picture or image-filled shape');
 
-  // Remove any existing srcRect first.
+  // Validate all sides before touching the live tree, so a rejected edit
+  // cannot erase a crop that a later successful edit would then save.
+  const attrs: Array<ReturnType<typeof attr>> = [];
+  if (crop !== null) {
+    const l = fractionToST(crop.left);
+    const t = fractionToST(crop.top);
+    const r = fractionToST(crop.right);
+    const b = fractionToST(crop.bottom);
+    if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
+    if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
+    if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
+    if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
+  }
+
   blipFill.children = blipFill.children.filter(
     (c) =>
       !(c.kind === 'element' && c.name.namespaceURI === NS.dml && c.name.localName === 'srcRect'),
   );
-
   if (crop === null) {
     commitAndRefresh(shape);
     return;
   }
-
-  const attrs: Array<ReturnType<typeof attr>> = [];
-  const l = fractionToST(crop.left);
-  const t = fractionToST(crop.top);
-  const r = fractionToST(crop.right);
-  const b = fractionToST(crop.bottom);
-  if (l !== null) attrs.push(attr(ATTR_CROP_L, l));
-  if (t !== null) attrs.push(attr(ATTR_CROP_T, t));
-  if (r !== null) attrs.push(attr(ATTR_CROP_R, r));
-  if (b !== null) attrs.push(attr(ATTR_CROP_B, b));
 
   // <a:srcRect> sits between <a:blip> and <a:stretch> per the schema.
   const srcRect = elem(NAME_SRC_RECT_FN, { attrs });

@@ -358,4 +358,59 @@ describe('schema coverage: images, notes, connectors, animation', () => {
     expect(xml).toContain('presetClass="entr"');
     expect(xml).toContain('presetClass="exit"');
   });
+
+  // The deck the two tests below read: every effect that writes behaviours the
+  // fades never did — `<p:anim>` over `ppt_x` / `ppt_w` with string keyframes,
+  // and `<p:animRot>`.
+  const MOTION_EFFECTS = [
+    { effect: 'flyIn', direction: 'left' },
+    { effect: 'flyOut', direction: 'top' },
+    { effect: 'zoomIn' },
+    { effect: 'zoomOut' },
+    { effect: 'spin' },
+  ] as const;
+
+  const motionDeck = () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    MOTION_EFFECTS.forEach((opts, at) => {
+      const shape = addSlideShape(slide, {
+        preset: 'rect',
+        x: inches(1),
+        y: inches(0.5 + at),
+        w: inches(2),
+        h: inches(0.8),
+        text: opts.effect,
+      });
+      setShapeAnimation(shape, opts);
+    });
+    return pres;
+  };
+
+  const motionXml = async (): Promise<string> => {
+    const pkg = _internalPackageOf(await loadPresentation(await savePresentation(motionDeck())));
+    let combined = '';
+    for (const part of pkg.parts) {
+      if (kindFor(part.name) === null) continue;
+      combined += `\n<!-- ${part.name} -->\n${decode(part.data)}`;
+    }
+    return combined;
+  };
+
+  it('fly, zoom and spin write the behaviours that drive them', async () => {
+    const xml = await motionXml();
+
+    expect((xml.match(/<p:bldP/g) ?? []).length).toBe(MOTION_EFFECTS.length);
+    expect(xml).toContain('presetClass="emph"');
+    expect(xml).toContain('<p:attrName>ppt_x</p:attrName>');
+    expect(xml).toContain('<p:attrName>ppt_w</p:attrName>');
+    expect(xml).toContain('<p:animRot by="21600000">');
+    expect(xml).toContain('<p:strVal val="0-#ppt_w/2"/>');
+  });
+
+  // Validated against the XSD rather than only read back through our own
+  // parser, which would accept a tree PowerPoint would not.
+  skipIfNoXmllint('fly, zoom and spin are schema-valid', async () => {
+    await authoredXml(motionDeck());
+  });
 });
