@@ -3122,6 +3122,7 @@ const renderHtmlParagraphs = (
   autoFitScale: number,
   defaultPt: number,
   defaultColor: string,
+  wrap = true,
 ): string[] => {
   // Second pass — emit runs with scaled sizes.
   const paragraphs: string[] = [];
@@ -3190,6 +3191,12 @@ const renderHtmlParagraphs = (
         : 0;
     const pStyles: string[] = [
       'margin:0',
+      ...(para.runs.some((run) => run.text.includes('\t'))
+        ? [
+            `white-space:${wrap ? 'pre-wrap' : 'pre'}`,
+            `tab-size:${(((para.defaultTabSizeEmu ?? 914400) / EMU_PER_PX) * autoFitScale).toFixed(2)}px`,
+          ]
+        : []),
       marginTopCss,
       marginBottomCss,
       'padding:0',
@@ -3322,6 +3329,7 @@ const renderTextBody = (
     autoFitScale,
     defaultPt,
     defaultColor,
+    effectiveBody.wrap !== 'none',
   );
 
   const justify = ANCHOR_TO_CSS[anchor] ?? 'flex-start';
