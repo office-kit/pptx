@@ -12,9 +12,30 @@ import {
   loadPresentation,
   savePresentation,
   setParagraphTabs,
+  setShapeTextWrap,
 } from '../src/api/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import { renderSlideToRgba } from '../packages/preview/src/node.ts';
+
+it('preserves default browser tab spacing with and without text wrapping', () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  const shape = addSlideTextBox(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(5),
+    h: inches(2),
+    text: 'A\tB',
+  });
+  expect(renderSlideToSvg(pres, slide)).toContain('tab-size:96.00px');
+  setParagraphTabs(shape, 0, { defaultTabSizeEmu: inches(0.5) });
+  for (const wrap of ['square', 'none'] as const) {
+    setShapeTextWrap(shape, wrap);
+    const svg = renderSlideToSvg(pres, slide);
+    expect(svg).toContain(`white-space:${wrap === 'none' ? 'pre' : 'pre-wrap'};tab-size:48.00px`);
+    expect(svg).toContain('A\tB');
+  }
+});
 
 it.each(['shape', 'cell'] as const)(
   'renders saved %s tab stops and default spacing at their authored positions',
