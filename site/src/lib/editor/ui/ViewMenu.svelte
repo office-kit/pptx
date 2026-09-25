@@ -72,6 +72,7 @@
       {/each}
       <hr />
       <button role="menuitemcheckbox" aria-checked={editor.ribbonVisible} onclick={() => choose(() => editor.ribbonVisible = !editor.ribbonVisible)}><span>{editor.ribbonVisible ? '✓' : ''}</span>{t('Ribbon')}<kbd>⌥⌘R</kbd></button>
+      <button role="menuitemcheckbox" aria-label={t('Ruler')} disabled={editor.viewMode !== 'normal'} aria-checked={editor.view.ruler} onclick={() => choose(() => editor.view.save({ ruler: !editor.view.ruler }))}><span>{editor.view.ruler ? '✓' : ''}</span>{t('Ruler')}</button>
       <div class="branch">
         <button role="menuitem" aria-haspopup="menu" aria-expanded={submenu === 'grid'} aria-label={t('Grid and Guides')} data-submenu="grid" onclick={() => submenu = 'grid'} onpointerenter={() => submenu = 'grid'}><span></span>{t('Grid and Guides')}<kbd>›</kbd></button>
         {#if submenu === 'grid'}

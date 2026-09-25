@@ -549,3 +549,9 @@ history. Full operation and visual parity remains incomplete.
 - Inspected native Outline View and Ruler without editing content, then restored Normal view and the original disabled ruler. These two editor surfaces remain outstanding; this change does not claim complete View ribbon parity.
 
 - Follow-up native menu inspection confirmed that all five Grid and Guides submenu commands (including Smart Guides, Snap to Grid and Grid Options) disable in Slide Sorter. The editor menu and ribbon Grid Options now match. Keyboard submenu opening skips disabled items. The reference is restored to Normal 120% with Undo disabled.
+
+### Ruler display (2026-09-25)
+
+Native Mac View > Ruler toggles horizontal and vertical rulers; Slide Sorter disables the command. Native screenshots are working again. The reference Mac displays centimeter rulers with zero at the slide center and positive distance labels on both sides; vertical numbers are rotated. The reference Ruler setting was restored off after inspection.
+
+The editor now exposes Ruler in its View ribbon and menu, persists display visibility outside document history, and tracks the slide bounds through zoom, scrolling, and viewport changes. Browser coverage checks actual ruler/slide coordinate alignment, mode switching, reload persistence, and unchanged document revision. This is display coverage only: native indent/tab handles, configurable measurement units, independent vertical-ruler preferences, and exact ruler styling still need implementation/comparison. Microsoft's [ruler documentation](https://support.microsoft.com/en-us/powerpoint/show-or-hide-the-ruler) confirms the view restrictions and separate vertical-ruler preference.

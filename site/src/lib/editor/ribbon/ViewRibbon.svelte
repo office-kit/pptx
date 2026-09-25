@@ -16,9 +16,10 @@
 </div>
 <div class="group">
   <div class="checks">
-    <label><input type="checkbox" bind:checked={editor.thumbnailsVisible} disabled={editor.viewMode !== 'normal'} />{t('Thumbnails')}</label>
+    <label><input type="checkbox" checked={editor.view.ruler} disabled={editor.viewMode !== 'normal'} onchange={() => editor.view.save({ ruler: !editor.view.ruler })} />{t('Ruler')}</label>
     <label><input type="checkbox" checked={editor.view.grid} disabled={editor.viewMode !== 'normal'} onchange={toggleGrid} />{t('Gridlines')}</label>
     <label><input type="checkbox" checked={guides} disabled={editor.viewMode !== 'normal'} onchange={toggleGuides} />{t('Guides')}</label>
+    <label><input type="checkbox" bind:checked={editor.thumbnailsVisible} disabled={editor.viewMode !== 'normal'} />{t('Thumbnails')}</label>
     <button class="options" aria-pressed={editor.viewMode === 'normal' && editor.notesVisible} disabled={editor.viewMode !== 'normal'} onclick={() => editor.notesVisible = !editor.notesVisible}>{t('Notes')}</button>
     <button class="options" disabled={editor.viewMode !== 'normal'} onclick={() => editor.activeDialog = 'gridOptions'}>{t('Grid Options...')}</button>
   </div>
