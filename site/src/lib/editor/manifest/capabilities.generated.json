@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 185,
+  "count": 186,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1446,6 +1446,29 @@
         {
           "name": "opts",
           "type": "{ beforePts?: number | null; afterPts?: number | null }",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setParagraphTypography",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "paragraph",
+      "file": "api/fn/shape-runs.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "paragraphIndex",
+          "type": "number",
+          "kind": "number",
+          "optional": false
+        },
+        {
+          "name": "settings",
+          "type": "{ asianLineBreak?: boolean | null; latinLineBreak?: boolean | null; hangingPunctuation?: boolean | null; fontAlignment?: 'auto' | 'top' | 'center' | 'baseline' | 'bottom' | null; }",
           "kind": "object",
           "optional": false
         }

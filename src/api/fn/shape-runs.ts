@@ -965,3 +965,40 @@ export const setShapeRunText = (
   writeRunText(run, text);
   commitAndRefresh(shape);
 };
+
+/**
+ * Update paragraph line-breaking rules and character alignment. Omitted fields
+ * are preserved; null removes the local override so the style can inherit.
+ */
+export const setParagraphTypography = (
+  shape: SlideShapeData | TableCellData,
+  paragraphIndex: number,
+  settings: {
+    asianLineBreak?: boolean | null;
+    latinLineBreak?: boolean | null;
+    hangingPunctuation?: boolean | null;
+    fontAlignment?: 'auto' | 'top' | 'center' | 'baseline' | 'bottom' | null;
+  },
+): void => {
+  const tokens = { auto: 'auto', top: 't', center: 'ctr', baseline: 'base', bottom: 'b' };
+  if (settings.fontAlignment != null && !Object.hasOwn(tokens, settings.fontAlignment)) {
+    throw new RangeError('setParagraphTypography: invalid font alignment');
+  }
+  const paragraph = requireParagraph(shape, paragraphIndex);
+  const pPr = ensurePPr(paragraph);
+  for (const [field, name] of [
+    ['asianLineBreak', 'eaLnBrk'],
+    ['latinLineBreak', 'latinLnBrk'],
+    ['hangingPunctuation', 'hangingPunct'],
+    ['fontAlignment', 'fontAlgn'],
+  ] as const) {
+    const value = settings[field];
+    if (value === undefined) continue;
+    pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== name);
+    if (value !== null)
+      pPr.attrs.push(
+        attr(qname('', name, ''), typeof value === 'boolean' ? (value ? '1' : '0') : tokens[value]),
+      );
+  }
+  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
+};

@@ -396,6 +396,14 @@ export const getShapeRunFormatEffective = (
 export interface ParagraphProperties {
   /** Horizontal alignment per `ParagraphAlignment`. */
   align: ParagraphAlignment | null;
+  /** East Asian line-breaking rules; absent when not authored or inherited. */
+  asianLineBreak?: boolean;
+  /** Allow a Latin word to break across lines. */
+  latinLineBreak?: boolean;
+  /** Allow punctuation to extend beyond the text margin. */
+  hangingPunctuation?: boolean;
+  /** Vertical alignment of differently sized characters within a line. */
+  fontAlignment?: 'auto' | 'top' | 'center' | 'baseline' | 'bottom';
   /** Outline level (0..8). 0 = top-level paragraph. */
   level: number;
   /** Left indent in EMU. */
@@ -460,6 +468,21 @@ const parsePPrLikeElement = (pPr: XmlElement): Partial<ParagraphProperties> => {
     const n = Number.parseInt(indent, 10);
     if (Number.isFinite(n)) out.indent = n;
   }
+  for (const [field, attribute] of [
+    ['asianLineBreak', 'eaLnBrk'],
+    ['latinLineBreak', 'latinLnBrk'],
+    ['hangingPunctuation', 'hangingPunct'],
+  ] as const) {
+    const value = getAttrValue(pPr, qname('', attribute, ''));
+    if (value === '1' || value === 'true') out[field] = true;
+    if (value === '0' || value === 'false') out[field] = false;
+  }
+  const fontAlignment = getAttrValue(pPr, qname('', 'fontAlgn', ''));
+  if (fontAlignment === 'auto') out.fontAlignment = 'auto';
+  if (fontAlignment === 't') out.fontAlignment = 'top';
+  if (fontAlignment === 'ctr') out.fontAlignment = 'center';
+  if (fontAlignment === 'base') out.fontAlignment = 'baseline';
+  if (fontAlignment === 'b') out.fontAlignment = 'bottom';
   const rtl = getAttrValue(pPr, qname('', 'rtl', ''));
   if (rtl !== null) out.rtl = rtl === '1' || rtl === 'true';
   const lnSpc = firstChildElement(pPr, qname('a', 'lnSpc', NS.dml));
@@ -523,6 +546,11 @@ const mergePPrLayer = (
   base: Partial<ParagraphProperties>,
   layer: Partial<ParagraphProperties>,
 ): void => {
+  for (const field of ['asianLineBreak', 'latinLineBreak', 'hangingPunctuation'] as const) {
+    if (base[field] === undefined && layer[field] !== undefined) base[field] = layer[field];
+  }
+  if (base.fontAlignment === undefined && layer.fontAlignment !== undefined)
+    base.fontAlignment = layer.fontAlignment;
   if (base.align === undefined && layer.align !== undefined) base.align = layer.align;
   if (base.marL === undefined && layer.marL !== undefined) base.marL = layer.marL;
   if (base.marR === undefined && layer.marR !== undefined) base.marR = layer.marR;
@@ -645,6 +673,12 @@ export const getParagraphPropertiesEffective = (
     spcAftPts: result.spcAftPts ?? null,
     rtl: result.rtl ?? null,
     bullet: result.bullet ?? null,
+    ...(result.asianLineBreak === undefined ? {} : { asianLineBreak: result.asianLineBreak }),
+    ...(result.latinLineBreak === undefined ? {} : { latinLineBreak: result.latinLineBreak }),
+    ...(result.hangingPunctuation === undefined
+      ? {}
+      : { hangingPunctuation: result.hangingPunctuation }),
+    ...(result.fontAlignment === undefined ? {} : { fontAlignment: result.fontAlignment }),
   };
 };
 

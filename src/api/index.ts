@@ -561,6 +561,7 @@ export {
   setParagraphBullet,
   setParagraphLevel,
   setParagraphLineSpacing,
+  setParagraphTypography,
   setParagraphIndent,
   setParagraphSpacing,
   setShapePosition,

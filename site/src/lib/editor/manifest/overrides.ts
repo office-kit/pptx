@@ -903,6 +903,56 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  setParagraphTypography: {
+    labelEn: 'Line Breaks and Alignment',
+    labelJa: '改行と配置',
+    params: [
+      {
+        name: 'paragraphIndex',
+        type: 'number',
+        kind: 'index',
+        optional: false,
+        label: 'Paragraph Index',
+      },
+      {
+        name: 'settings',
+        type: 'object',
+        kind: 'object',
+        optional: false,
+        fields: [
+          {
+            name: 'asianLineBreak',
+            type: 'boolean | null',
+            kind: 'boolean',
+            optional: true,
+            label: 'Use Asian rules for line breaking',
+          },
+          {
+            name: 'latinLineBreak',
+            type: 'boolean | null',
+            kind: 'boolean',
+            optional: true,
+            label: 'Allow Latin text to wrap in the middle of a word',
+          },
+          {
+            name: 'hangingPunctuation',
+            type: 'boolean | null',
+            kind: 'boolean',
+            optional: true,
+            label: 'Allow hanging punctuation',
+          },
+          {
+            name: 'fontAlignment',
+            type: 'string | null',
+            kind: 'enum',
+            optional: true,
+            label: 'Text Alignment',
+            enumValues: ['auto', 'top', 'center', 'baseline', 'bottom'],
+          },
+        ],
+      },
+    ],
+  },
   setParagraphIndent: {
     labelEn: 'Paragraph indentation',
     labelJa: '段落のインデント',
