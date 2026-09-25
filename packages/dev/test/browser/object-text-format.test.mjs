@@ -70,8 +70,40 @@ test(
         (await read()).map((value) => value.format.bold),
         [true, true, original[2].format.bold],
       );
-      await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).fill('32');
-      await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).press('Tab');
+      await bar.getByRole('button', { name: 'Font size options', exact: true }).click();
+      const sizeMenu = bar.getByRole('menu', { name: 'Font size', exact: true });
+      assert.deepEqual(await sizeMenu.getByRole('menuitemradio').allTextContents(), [
+        '8',
+        '9',
+        '10',
+        '10.5',
+        '11',
+        '12',
+        '14',
+        '16',
+        '18',
+        '20',
+        '24',
+        '28',
+        '32',
+        '36',
+        '40',
+        '44',
+        '48',
+        '54',
+        '60',
+        '66',
+        '72',
+        '80',
+        '88',
+        '96',
+      ]);
+      await sizeMenu.getByRole('menuitemradio', { name: '32', exact: true }).click();
+      assert.equal(await sizeMenu.count(), 0);
+      await bar.getByRole('spinbutton', { name: 'Font size', exact: true }).press('Alt+ArrowDown');
+      await sizeMenu.getByRole('menuitemradio', { name: '32', exact: true }).press('ArrowDown');
+      await sizeMenu.getByRole('menuitemradio', { name: '36', exact: true }).press('Escape');
+      assert.equal(await sizeMenu.count(), 0);
       await saved();
       const sized = await read();
       assert.deepEqual(
