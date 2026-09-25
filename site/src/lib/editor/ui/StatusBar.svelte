@@ -7,16 +7,16 @@
   const editor = getEditor();
   const doc = editor.doc;
   const zoomPercent = $derived(Math.round((editor.viewMode === 'sorter' ? editor.sorterZoom : editor.zoom) * 100));
-  const sliderPosition = $derived(zoomPercent <= 100 ? (zoomPercent - 10) / 90 * 1000 : 1000 + (zoomPercent - 100) / 300 * 1000);
+  const sliderPosition = $derived(zoomPercent <= 100 ? (zoomPercent - editor.minZoomPercent) / (100 - editor.minZoomPercent) * 1000 : 1000 + (zoomPercent - 100) / (editor.maxZoomPercent - 100) * 1000);
   function slideZoom(event: Event) {
     const position = Number((event.currentTarget as HTMLInputElement).value);
-    editor.setZoom(Math.round(position <= 1000 ? 10 + position / 1000 * 90 : 100 + (position - 1000) / 1000 * 300) / 100);
+    editor.setZoom(Math.round(position <= 1000 ? editor.minZoomPercent + position / 1000 * (100 - editor.minZoomPercent) : 100 + (position - 1000) / 1000 * (editor.maxZoomPercent - 100)) / 100);
   }
   function zoomKeys(event: KeyboardEvent) {
     if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
     const amount = event.shiftKey ? 10 : 1;
-    editor.setZoom((event.key === 'Home' ? 10 : event.key === 'End' ? 400 : zoomPercent + (['ArrowLeft', 'ArrowDown'].includes(event.key) ? -amount : amount)) / 100);
+    editor.setZoom((event.key === 'Home' ? editor.minZoomPercent : event.key === 'End' ? editor.maxZoomPercent : zoomPercent + (['ArrowLeft', 'ArrowDown'].includes(event.key) ? -amount : amount)) / 100);
   }
 
   const selectionLabel = $derived.by(() => {

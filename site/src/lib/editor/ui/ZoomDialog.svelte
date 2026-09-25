@@ -13,7 +13,7 @@
     event.preventDefault();
     if (selected === 'fit') editor.zoomFit();
     else {
-      if (!Number.isFinite(value) || value < 10 || value > 400) return;
+      if (!Number.isFinite(value) || value < editor.minZoomPercent || value > editor.maxZoomPercent) return;
       editor.setZoom(value / 100);
     }
     editor.closeDialog();
@@ -23,10 +23,10 @@
   <form onsubmit={submit}>
     <h2>{t('Zoom')}</h2>
     <fieldset aria-label={t('Zoom to')}>
-      <label><input type="radio" name="zoom-preset" value="fit" bind:group={selected} />{t('Fit')}</label>
-      {#each presets as preset}<label><input type="radio" name="zoom-preset" value={String(preset)} bind:group={selected} onchange={() => value = preset} />{preset}%</label>{/each}
+      <label><input type="radio" name="zoom-preset" value="fit" disabled={editor.viewMode === 'sorter'} bind:group={selected} />{t('Fit')}</label>
+      {#each presets as preset}<label><input type="radio" name="zoom-preset" value={String(preset)} disabled={preset > editor.maxZoomPercent} bind:group={selected} onchange={() => value = preset} />{preset}%</label>{/each}
     </fieldset>
-    <label class="percent">{t('Percent:')}<input type="number" min={selected === 'fit' ? undefined : 10} max={selected === 'fit' ? undefined : 400} required={selected !== 'fit'} bind:value oninput={() => selected = ''} /></label>
+    <label class="percent">{t('Percent:')}<input type="number" min={selected === 'fit' ? undefined : editor.minZoomPercent} max={selected === 'fit' ? undefined : editor.maxZoomPercent} required={selected !== 'fit'} bind:value oninput={() => selected = ''} /></label>
     <footer><button type="button" onclick={() => editor.closeDialog()}>{t('Cancel')}</button><button type="submit">{t('OK')}</button></footer>
   </form>
 </dialog>
