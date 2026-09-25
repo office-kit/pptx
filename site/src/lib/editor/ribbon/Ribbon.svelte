@@ -11,6 +11,7 @@
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import FontRibbon from './FontRibbon.svelte';
+  import ParagraphAlignment from './ParagraphAlignment.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -81,6 +82,8 @@
           {:else}
           {#each group.items as item (item.id + (item.label ?? ''))}
             {@const cap = capabilityById.get(item.id)}
+            {#if current?.id === 'home' && item.id === 'setParagraphAlignment'}<ParagraphAlignment />
+            {:else}
             <button
               class="cmd"
               disabled={!editor.canRun(item.id)}
@@ -91,6 +94,7 @@
               <span class="icon"><Icon name={item.icon ?? 'dot'} /></span>
               <span class="cmd-label">{item.compactLabel ? t(item.compactLabel) : item.label ? t(item.label) : cap ? capLabel(cap) : item.id}</span>
             </button>
+            {/if}
           {/each}
           {/if}
         </div>

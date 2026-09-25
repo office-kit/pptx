@@ -389,6 +389,7 @@ export const ja: Record<string, string> = {
   Custom: 'カスタム',
   Inherit: '継承',
   Justify: '両端揃え',
+  Distributed: '均等割り付け',
   'After paragraph (pt)': '段落後（pt）',
   'Before paragraph (pt)': '段落前（pt）',
   Points: 'ポイント',

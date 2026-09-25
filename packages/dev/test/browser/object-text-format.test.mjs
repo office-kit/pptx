@@ -267,9 +267,10 @@ test(
       await editor.locator('.hit').nth(0).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const panel = editor.locator('.bespoke');
-      await panel
-        .getByRole('combobox', { name: 'Paragraph alignment', exact: true })
-        .selectOption('right');
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: 'Align Right', exact: true })
+        .click();
       await saved();
       await editor
         .locator('.hit')
@@ -281,9 +282,18 @@ test(
           .inputValue(),
         '',
       );
-      await panel
-        .getByRole('combobox', { name: 'Paragraph alignment', exact: true })
-        .selectOption('center');
+      assert.equal(await editor.locator('.paragraph-alignment [aria-pressed=true]').count(), 0);
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: 'Center', exact: true })
+        .click();
+      assert.equal(
+        await editor
+          .locator('.paragraph-alignment')
+          .getByRole('button', { name: 'Center', exact: true })
+          .getAttribute('aria-pressed'),
+        'true',
+      );
       await saved();
       assert.equal(
         await panel

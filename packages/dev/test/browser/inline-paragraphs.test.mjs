@@ -105,7 +105,10 @@ test(
       };
       const bar = editor.locator('.text-format-bar');
       await select(9);
-      await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('center');
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: 'Center', exact: true })
+        .click();
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'ctr');
       assert.deepEqual(
@@ -135,7 +138,10 @@ test(
       await fillPreservingText(input, 'English\n日本語\nThird paragraph');
       await fillPreservingText(input, 'English\n日本語\nThird paragraph\nNew paragraph');
       await select(30);
-      await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('right');
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: 'Align Right', exact: true })
+        .click();
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 3), 'r');
       assert.notEqual(getParagraphAlignment(await shape(), 2), 'r');
@@ -160,11 +166,32 @@ test(
       await bar.getByLabel('リストの階層', { exact: true }).selectOption({ value: '2' });
       await saved();
       assert.deepEqual(await levels(), [0, 2, 2, 0]);
-      await bar.getByLabel('段落の配置', { exact: true }).selectOption('justify');
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: '両端揃え', exact: true })
+        .click();
       await saved();
       assert.equal(getParagraphAlignment(await shape(), 1), 'just');
       assert.equal(getParagraphAlignment(await shape(), 2), 'just');
       assert.equal(getParagraphAlignment(await shape(), 3), 'r');
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: '均等割り付け', exact: true })
+        .click();
+      await saved();
+      assert.equal(getParagraphAlignment(await shape(), 1), 'dist');
+      assert.equal(getParagraphAlignment(await shape(), 2), 'dist');
+      assert.equal(getParagraphAlignment(await shape(), 3), 'r');
+      assert.equal(
+        await input
+          .locator('[data-text-paragraph]')
+          .nth(1)
+          .evaluate((node) => getComputedStyle(node).textAlignLast),
+        'justify',
+      );
+      await input.press('Control+z');
+      await saved();
+      assert.equal(getParagraphAlignment(await shape(), 1), 'just');
       await bar.getByRole('button', { name: '完了', exact: true }).click();
       await editor.getByTitle('元に戻す (Ctrl+Z)', { exact: true }).click();
       await saved();
@@ -236,7 +263,10 @@ test(
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       const bar = editor.getByRole('group', { name: 'Selected text formatting', exact: true });
-      await bar.getByLabel('Paragraph alignment', { exact: true }).selectOption('right');
+      await editor
+        .locator('.paragraph-alignment')
+        .getByRole('button', { name: 'Align Right', exact: true })
+        .click();
       await bar.getByLabel('List style', { exact: true }).selectOption('number');
       await saved();
       await bar.getByLabel('List level', { exact: true }).selectOption({ value: '3' });
