@@ -562,6 +562,7 @@ export {
   setParagraphLevel,
   setParagraphLineSpacing,
   setParagraphTypography,
+  setParagraphTabs,
   setParagraphIndent,
   setParagraphSpacing,
   setShapePosition,
@@ -663,7 +664,7 @@ export type {
   TextFormat,
   TextOutline,
 } from '../internal/drawingml/index.ts';
-export type { ParagraphProperties, ShapeParagraphElement } from './fn.ts';
+export type { ParagraphProperties, ParagraphTabStop, ShapeParagraphElement } from './fn.ts';
 export type { TableCellParagraph } from './fn.ts';
 export type {
   PlaceholderType,
