@@ -530,17 +530,32 @@ for (const control of ['keyboard', 'toolbar'])
           window.selectEditorText(node, 7, 14);
           node.dispatchEvent(new Event('select', { bubbles: true }));
         });
+        if (control === 'toolbar') {
+          assert.equal(
+            await editor
+              .locator('.canvas-shell > .text-format-bar')
+              .getByRole('button', { name: 'Bold', exact: true })
+              .count(),
+            0,
+          );
+          await editor.getByRole('tab', { name: 'View', exact: true }).click();
+          assert.equal(await input.isVisible(), true);
+          assert.equal(await editor.locator('.ribbon .font-ribbon').count(), 0);
+          await editor.getByRole('tab', { name: 'Home', exact: true }).click();
+          await editor.locator('.ribbon .font-ribbon').waitFor();
+          await page.screenshot({ path: '/tmp/pptx-home-font-ribbon.png' });
+        }
         const toggle = async (key, label) => {
           if (control === 'keyboard') await input.press(key);
           else
             await editor
-              .locator('.canvas-shell > .text-format-bar')
+              .locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar')
               .getByRole('button', { name: label, exact: true })
               .click();
         };
         assert.equal(
           await editor
-            .locator('.canvas-shell > .text-format-bar')
+            .locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar')
             .getByRole('button', { name: 'Bold', exact: true })
             .getAttribute('aria-pressed'),
           'true',
@@ -551,7 +566,7 @@ for (const control of ['keyboard', 'toolbar'])
         let text = await shape();
         assert.equal(getShapeParagraphElements(text, 1)[0].format.bold, false);
         assert.equal(getShapeParagraphElements(text, 2)[0].format.italic, true);
-        const bar = editor.locator('.canvas-shell > .text-format-bar');
+        const bar = editor.locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar');
         assert.equal(
           await bar.getByRole('button', { name: 'Bold', exact: true }).getAttribute('aria-pressed'),
           'false',
@@ -563,7 +578,9 @@ for (const control of ['keyboard', 'toolbar'])
         await saved();
         assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.italic, false);
         if (control === 'toolbar') {
+          await bar.getByLabel('Highlight color options', { exact: true }).click();
           await bar.getByRole('button', { name: 'Apply highlight', exact: true }).click();
+          await bar.getByLabel('Highlight color options', { exact: true }).click();
           await saved();
           assert.equal(getShapeParagraphElements(await shape(), 1)[0].format.highlight, '#FFFF00');
           await bar.getByLabel('Highlight color', { exact: true }).evaluate((node) => {
@@ -612,7 +629,9 @@ for (const control of ['keyboard', 'toolbar'])
           'false',
         );
         if (control === 'toolbar') {
+          await bar.getByLabel('蛍光ペンの色のオプション', { exact: true }).click();
           await bar.getByRole('button', { name: 'ハイライトを解除', exact: true }).click();
+          await bar.getByLabel('蛍光ペンの色のオプション', { exact: true }).click();
           await saved();
           await bar.getByRole('button', { name: '取り消し線', exact: true }).click();
           await saved();
@@ -694,7 +713,7 @@ test(
       const editor = page.frameLocator('#editor-frame');
       await editor.locator('.hit').first().dblclick();
       const input = editor.locator('.inline-edit');
-      const bar = editor.locator('.canvas-shell > .text-format-bar');
+      const bar = editor.locator('.ribbon .text-format-bar, .canvas-shell > .text-format-bar');
       const select = async (start, end = start) => {
         await input.focus();
         await input.evaluate(

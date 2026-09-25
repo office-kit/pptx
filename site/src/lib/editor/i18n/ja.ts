@@ -6,6 +6,7 @@ export const ja: Record<string, string> = {
   'Format Background...': '背景の書式設定...',
   'Reset Slide Background': 'スライドの背景をリセット',
   Ruler: 'ルーラー',
+  'Highlight color options': '蛍光ペンの色のオプション',
   'First line indent': '最初の行のインデント',
   'Hanging indent': 'ぶら下げインデント',
   'Left indent': '左インデント',

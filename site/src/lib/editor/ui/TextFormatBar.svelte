@@ -4,10 +4,12 @@
   import ColorPicker from './ColorPicker.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text' }: {
+  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false }: {
     formats: TextFormat[];
     selected: boolean;
     typing?: boolean;
+    hideFont?: boolean;
+    ribbon?: boolean;
     onformat: (format: TextFormat, reset?: boolean) => void;
     ontoggle?: (property: TextFormatToggle) => void;
     ondone?: () => void;
@@ -30,8 +32,16 @@
   const color = $derived(formats.length && formats.every((f) => f.color === formats[0]?.color) ? formats[0]?.color : undefined);
 </script>
 
-<div class="text-format-bar" role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : context === 'objects' ? 'Format selected objects' : 'Selected text formatting')}>
-  <span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : context === 'objects' ? 'Formatting applies to all text in selected objects' : selected ? 'Selected text' : typing ? 'Text to type' : onparagraph ? 'Current paragraph' : 'Select text to format')}</span>
+<div class="text-format-bar" class:font-ribbon={ribbon} role="group" aria-label={t(context === 'cells' ? 'Format selected cells' : context === 'objects' ? 'Format selected objects' : 'Selected text formatting')}>
+  {#if !ribbon}<span>{t(context === 'cells' ? 'Formatting applies to all selected cells' : context === 'objects' ? 'Formatting applies to all text in selected objects' : selected ? 'Selected text' : typing ? 'Text to type' : onparagraph ? 'Current paragraph' : 'Select text to format')}</span>{/if}
+  {#if !hideFont}
+  <div class="font-controls">
+  <div class="font-fields">
+  <label><span>{t('Font')}</span><input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
+  <label><span>{t('Font size')}</span><input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
+  <button class="ok-btn clear-format" aria-label={t('Clear text formatting')} title={t('Clear text formatting')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{#if ribbon}A⌫{:else}{t('Clear text formatting')}{/if}</button>
+  </div>
+  <div class="font-buttons">
   {#each [
     { property: 'bold', label: 'Bold' },
     { property: 'italic', label: 'Italic' },
@@ -44,13 +54,18 @@
       {#if item.property === 'bold'}<b>B</b>{:else if item.property === 'italic'}<i>I</i>{:else if item.property === 'underline'}<u>U</u>{:else if item.property === 'strike'}<s>S</s>{:else if item.property === 'superscript'}x<sup>2</sup>{:else}x<sub>2</sub>{/if}
     </button>
   {/each}
-  <label>{t('Font')}<input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
-  <label>{t('Font size')}<input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
-  <div class="color-field">{t('Text color')}<ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
-  <label>{t('Highlight color')}<input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
+  <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
+  <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
+  {#snippet highlightActions()}
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: null })}>{t('Remove highlight')}</button>
-  <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({}, true)}>{t('Clear text formatting')}</button>
+  {/snippet}
+  {#if ribbon}
+    <details class="highlight-menu"><summary aria-label={t('Highlight color options')}>▾</summary><div class="highlight-options">{@render highlightActions()}</div></details>
+  {:else}{@render highlightActions()}{/if}
+  </div>
+  </div>
+  {/if}
   {#if onparagraph && paragraph}
     <label>{t('Paragraph alignment')}<select aria-label={t('Paragraph alignment')} value={paragraph.align} onchange={e => onparagraph?.('align', e.currentTarget.value)}>
       <option value="" disabled>{t('Mixed or inherited')}</option>
@@ -88,4 +103,13 @@
   .size { width: 56px; }
   input[type='color'] { width: 30px; height: 26px; padding: 0; border: 1px solid var(--ok-border); }
   button[aria-pressed='true'] { background: var(--ok-accent); color: white; }
+  .font-controls, .font-fields, .font-buttons { display: contents; }
+  .font-ribbon { border: 0; padding: 0; background: transparent; }
+  .font-ribbon .font-controls { display: flex; flex-direction: column; gap: 5px; }
+  .font-ribbon .font-fields, .font-ribbon .font-buttons { display: flex; align-items: center; gap: 2px; }
+  .font-ribbon label > span, .font-ribbon .color-field > span { display: none; }
+  .font-ribbon .font { width: 145px; }
+  .font-ribbon .ok-btn { min-width: 23px; padding: 3px; }
+  .highlight-menu summary { cursor: pointer; list-style: none; }
+  .highlight-options { position: fixed; z-index: 50; padding: 6px; display: grid; background: var(--ok-panel); border: 1px solid var(--ok-border); box-shadow: var(--ok-shadow); }
 </style>

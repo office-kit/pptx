@@ -53,7 +53,7 @@ test(
       const original = await read();
       await editor.locator('.hit').nth(0).click();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
-      const bar = editor.locator('.bespoke .text-format-bar');
+      const bar = editor.locator('.ribbon .font-ribbon');
       await bar.getByRole('button', { name: 'Bold', exact: true }).click();
       await saved();
       await editor
@@ -161,7 +161,7 @@ test('blank shapes retain their chosen text format before typing', { timeout: 60
     await saved();
     await editor.locator('.hit').first().click();
     await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
-    const bar = editor.locator('.bespoke .text-format-bar');
+    const bar = editor.locator('.ribbon .font-ribbon');
     await bar.getByRole('button', { name: 'Bold', exact: true }).click();
     await saved();
     assert.equal(getShapeText(await read()), '');

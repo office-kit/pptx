@@ -39,7 +39,9 @@ import {
   setShapeBounds,
   type SlideShapeData,
   type ShapeBounds,
+  type TextFormat,
 } from '@office-kit/pptx';
+import type { TextFormatToggle } from './text-format-toggle.ts';
 import {
   copyTableCellValues,
   serializeTableClipboard,
@@ -90,6 +92,11 @@ let toastSeq = 0;
 export class EditorController {
   readonly doc = new EditorDocument();
   readonly view = new ViewPreferences();
+  inlineTextFormat = $state<{
+    formats: TextFormat[];
+    apply: (format: TextFormat, reset?: boolean) => void;
+    toggle: (property: TextFormatToggle) => void;
+  } | null>(null);
   ribbonVisible = $state(true);
   thumbnailsVisible = $state(true);
   selectionPaneVisible = $state(false);

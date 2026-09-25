@@ -22,15 +22,11 @@ const WORDS = {
   en: {
     saved: 'Saved to this project',
     missing: 'Fill in first:',
-    home: 'Home',
-    textFormat: 'Text format',
     apply: 'Apply',
   },
   ja: {
     saved: 'このプロジェクトに保存済み',
     missing: '先に入力してください:',
-    home: 'ホーム',
-    textFormat: '文字の書式',
     apply: '適用',
   },
 };
@@ -79,11 +75,10 @@ for (const language of ['en', 'ja']) {
         }
 
         await editor.locator('.hit').first().click();
-        await editor.getByRole('tab', { name: words.home, exact: true }).click();
-        await editor
-          .locator('.ribbon')
-          .getByRole('button', { name: words.textFormat, exact: true })
-          .click();
+        await editor.locator('.hit').first().press('Control+k');
+        const palette = editor.getByRole('dialog', { name: 'Command palette', exact: true });
+        await palette.locator('input').fill('setShapeTextFormat');
+        await palette.getByRole('option').click();
         const dialog = editor.getByRole('dialog');
         await dialog.waitFor();
         await dialog.getByRole('button', { name: words.apply, exact: true }).click();
