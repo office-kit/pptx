@@ -541,3 +541,9 @@ history. Full operation and visual parity remains incomplete.
 - The native sorter slider reports position 750 at 80%, confirming a 20–100% lower half. The status-bar Fit button remains available and sets 100%, despite the disabled dialog preset.
 - The editor now applies view-specific bounds in its controller, dialog and both slider mappings. Browser coverage checks rejected out-of-range input, disabled presets, slider position, endpoint clamping, Fit and independent Normal zoom without document revisions.
 - The temporary reference was restored to sorter 80% and Normal 120%; no content edits remain. Color-palette internals remain unverified because native accessibility exposes an empty Color Picker container and screenshot capture returns a one-pixel image.
+
+## View ribbon display controls
+
+- Native View exposes Gridlines and Guides checkboxes plus a Notes toggle; all three are disabled in Slide Sorter. Notes shows off in the sorter and restores its prior on state in Normal.
+- Added the missing Gridlines and Notes controls, sharing the existing display preference and notes pane state. Guides now also disables in Slide Sorter. Browser coverage checks Grid Options synchronization, notes visibility, view switching and unchanged document revision.
+- Inspected native Outline View and Ruler without editing content, then restored Normal view and the original disabled ruler. These two editor surfaces remain outstanding; this change does not claim complete View ribbon parity.
