@@ -398,6 +398,12 @@ several rounds, and each round's fix sometimes introduced a _new_ tell of a
 different flavor. Treat "sounding human" as an ongoing discipline applied
 while drafting, not a find-and-replace pass done at the end.
 
+The general storyline, headline and Japanese wording rules live in the
+distributable skill: `skill/references/story-document.md`,
+`skill/references/writing-ja.md` and `skill/references/review.md` (run
+`skill/scripts/deck-text.mjs --mode document` on the exported deck). This
+section adds only what is specific to consulting-style exhibits.
+
 ### Numeric self-consistency is the single strongest signal
 
 The #1 thing that got a deck flagged as AI-generated was a hard arithmetic

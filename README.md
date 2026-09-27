@@ -321,7 +321,11 @@ and a next-actions table. Use labelled sample data where needed.
 
 The [skill](skill/SKILL.md) creates a TSX project, starts the interactive preview,
 checks the source and exports an editable PPTX. Ask for changes in the same
-conversation; the preview updates as the agent edits TSX. You need Node.js 22.18+
+conversation; the preview updates as the agent edits TSX. It plans the storyline for
+either a talk or a deck people read and decide from, and checks the headlines and
+Japanese wording before delivery ([talk](skill/references/story-talk.md),
+[document](skill/references/story-document.md), [review](skill/references/review.md)).
+You need Node.js 22.18+
 and Git alongside Claude Code. See the
 [authoring guide](https://office-kit.github.io/pptx/docs/authoring) for template
 editing and manual setup. The bundled [core reference](skill/references/core-api.md)
