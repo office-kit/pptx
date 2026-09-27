@@ -37,6 +37,28 @@ existing directory; reuse a presentation project or choose a new directory.
 Read the generated `CLAUDE.md` before authoring. It is not necessarily loaded
 automatically when Claude was started in the parent directory.
 
+## Plan the story and the words
+
+Decide which kind of deck this is before writing any slide text, including outline
+drafts shown to the user:
+
+- **Talk** (the default when a speaker presents it: conference talk, lightning talk,
+  lecture, all-hands). Read [the talk rules](references/story-talk.md).
+- **Document** (read without the author, or used to reach a decision: report, proposal,
+  decision memo, board pack, handout). Read [the document rules](references/story-document.md).
+
+If the brief does not make the kind clear, ask. For a Japanese deck, also read
+[the Japanese wording rules](references/writing-ja.md). The two modes deliberately
+disagree: a talk reveals its answer step by step and mixes headline forms; a document
+states the answer first and makes every headline an assertion.
+
+For a new deck, gather the user's real material first and agree a one-line-per-slide
+storyline before building. Never invent figures, customers, quotes or anecdotes; ask,
+or leave a visible `[要確認: …]`. Give each slide's headline `Text` the prop
+`name="Headline"` so the checks can find it. When revising an existing deck, change
+wording only where the reader gains something concrete, keep the speaker's voice, and
+change structure only when asked.
+
 ## Author and revise
 
 Read [the TSX reference](references/tsx.md) when first authoring or using unfamiliar
@@ -94,8 +116,10 @@ Saving TSX updates the preview. The user selects slides in the vertical thumbnai
 strip, uses Fit/zoom, or chooses Present for presentation mode. Review affected slides
 with available browser/image tools and fix problems in TSX. Keep this loop to
 source edits and the running preview; do not run a separate export or restart
-the server for each intermediate change. If visual inspection
-is unavailable, state that limitation rather than claiming a visual check.
+the server for each intermediate change. Without browser tools, render the exported
+deck to images (for example `soffice --headless --convert-to pdf deck.pptx` and
+`pdftoppm -r 80 -png deck.pdf page`) and inspect every page. If no visual inspection is
+possible, state that limitation rather than claiming a visual check.
 
 A failed build leaves the last successful preview visible with an error. Fix the
 error before treating the visible slides or Download PPTX as current output.
@@ -111,7 +135,10 @@ npm run build
 ```
 
 Type checking is separate from the live rebuild. Fix errors and review all slides,
-including template slides retained in edit mode. The SVG preview is a rendering
+including template slides retained in edit mode. Then review the words and the story
+with [the review steps](references/review.md): run `scripts/deck-text.mjs` from this
+skill's directory on `deck.pptx`, judge each flag, read the headline track, and for a
+new deck or a substantial rewrite run one fresh-eye review by a separate agent. The SVG preview is a rendering
 aid, not a guarantee of PowerPoint fidelity or animation/media playback.
 
 Deliver the preview URL, the generated `deck.pptx` path and the editable project
