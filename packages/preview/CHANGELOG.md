@@ -1,5 +1,11 @@
 # pptx-kit-preview
 
+## 0.12.0
+
+### Minor Changes
+
+- 3c326b7: feat: the SVG ties clicks back to the deck — each slide shape (group members included) is wrapped in a `<g data-pptx-shape-id>` carrying `getShapeId`, paragraphs carry `data-pptx-paragraph`, and table cells carry `data-pptx-cell="row,col"`. Rendering is otherwise unchanged.
+
 ## 0.11.0
 
 ### Minor Changes

@@ -1,5 +1,15 @@
 # @office-kit/pptx-dev
 
+## 0.9.1
+
+### Patch Changes
+
+- 3c326b7: fix: a double-click text edit whose new text contains `$&`, `$'` or `` $` `` no longer fails as "affects other text or slides". The edit rules now come from `@office-kit/pptx-dsl/source-edit`.
+- Updated dependencies [3c326b7]
+- Updated dependencies [3c326b7]
+  - @office-kit/pptx-dsl@0.8.0
+  - @office-kit/pptx-preview@0.12.0
+
 ## 0.9.0
 
 ### Minor Changes
