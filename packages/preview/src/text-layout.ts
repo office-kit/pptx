@@ -637,7 +637,7 @@ const emitPlacements = (placements: Placement[]): string => {
         );
       } else {
         parts.push(
-          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve">${escapeXml(b.text)}</text>`,
+          `<text x="${fmt(line.bullet.x + dx + GRID_NUDGE_X)}" y="${fmt(baselineY)}" font-family="${escapeXml(b.family)}" font-size="${fmt(b.sizePx)}" fill="${b.fillHex}" xml:space="preserve" data-pptx-paragraph="${line.paraIndex}">${escapeXml(b.text)}</text>`,
         );
       }
     }
@@ -678,7 +678,7 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   const tspans = groups.map((g) => tspan(g)).join('');
   if (tspans === '') return '';
   const x0 = line.anchorX + dx + GRID_NUDGE_X;
-  const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve">${tspans}</text>`;
+  const text = `<text x="${fmt(x0)}" y="${fmt(baselineY)}" text-anchor="${line.textAnchor}" xml:space="preserve" data-pptx-paragraph="${line.paraIndex}">${tspans}</text>`;
   return text + emitWavyUnderlines(groups, line.textAnchor, x0, baselineY);
 };
 

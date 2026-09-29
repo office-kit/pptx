@@ -14,7 +14,12 @@ export function jsxDEV<P>(
   source?: Node['source'],
 ): Node {
   const result = jsx(component, props, key);
-  return source ? { ...result, source } : result;
+  if (!source) return result;
+  // A component that returns a located element keeps that location nested
+  // under the call site, so errors and shape sources name both.
+  if (result.source && !('compile' in result))
+    return { kind: result.kind, source, evaluate: (context) => visit(result, context) };
+  return { ...result, source };
 }
 export function Fragment({ children }: Children): Node {
   return node('Fragment', (context) => visit(children, context));

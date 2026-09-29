@@ -257,6 +257,78 @@ const { default: root } = await import(builtModuleUrl);
 const bytes = await savePresentation(await compile(root));
 ```
 
+## From a shape back to its source
+
+`getShapeJsxSources(shape)` returns the source locations of the elements that
+were being evaluated when `compile()` created the shape, outermost first. It needs
+the dev JSX transform described above. A component call contributes its call site,
+so a shape a prebuilt component made (whose own elements carry no location) still
+leads back to `<Headline … />` in the slide file, and every shape a component returns
+through a fragment gets that location. A `Group` has its own location; its members
+keep theirs.
+
+```ts
+import { getShapeId, getSlideShapes, getSlides } from '@office-kit/pptx';
+import { compile, getShapeJsxSources } from '@office-kit/pptx-dsl';
+
+const presentation = await compile(root);
+const sources = getSlides(presentation).map((slide) =>
+  getSlideShapes(slide).map((shape) => ({
+    id: getShapeId(shape),
+    sources: getShapeJsxSources(shape),
+  })),
+);
+```
+
+- `lineNumber` and `columnNumber` are 1-based and point at the element's `<`, as
+  TypeScript's `react-jsxdev` and esbuild's `jsxDev` emit them. `fileName` is the
+  name the transform was given.
+- It is `undefined` for shapes built with the production runtime, shapes a source
+  deck or `Slide from` brought along, targets of `Fill`, and shapes `Raw` made.
+- It answers for the presentation `compile()` returned, until that presentation's
+  slides or shapes are added, removed or regrouped. Nothing is written into the PPTX.
+  Shape ids survive `savePresentation` and `loadPresentation`, so a map from
+  slide index and `getShapeId` to sources, built before saving, stays valid for the
+  saved file.
+
+### Editing a literal in place
+
+`@office-kit/pptx-dsl/source-edit` holds the text-edit rules the dev preview's
+double-click edit uses, as pure functions over source strings. It needs
+`typescript`, an optional peer dependency.
+
+`planTextEdit` finds the one source literal that renders `before` and returns the
+file with it replaced by `after`: JSX text (whitespace collapsed the way JSX renders
+it), an attribute string, a string literal or a template literal without
+substitutions. JSX gets `{"…"}`, so any text is safe. It refuses with a reason code:
+
+| Reason                | Meaning                                                                              |
+| --------------------- | ------------------------------------------------------------------------------------ |
+| `invalid`             | `before` is blank, `before` equals `after`, or either exceeds `TEXT_EDIT_MAX_LENGTH` |
+| `not-unique-on-slide` | `before` does not occur exactly once in `slideText`                                  |
+| `not-found`           | No literal matches: the text is computed, formatted, or in another file              |
+| `ambiguous`           | More than one literal matches                                                        |
+
+Pass an `anchor` (a `getShapeJsxSources` entry, with `fileName` as `path`) to search
+only the element that starts there; two literals inside that element are still
+`ambiguous`. Only `files` are searched, so leave shared components out to keep their
+literals untouched.
+
+After rebuilding with the change, `verifyTextEdit` confirms that the only difference
+is `before` → `after` on the edited slide, or returns `slide-count-changed`,
+`other-slides-changed` or `text-mismatch`. Writing, rebuilding and rolling back are
+the caller's.
+
+```ts
+import { planTextEdit, verifyTextEdit } from '@office-kit/pptx-dsl/source-edit';
+
+const plan = planTextEdit({ files, slideText, before, after, anchor });
+if (plan.ok) {
+  const next = await rebuild(plan.change); // { slides: svg[], slideTexts: string[] }
+  const verdict = verifyTextEdit({ previous, next, slide, before, after });
+}
+```
+
 ## Current coverage
 
 This is an initial DSL, not complete OOXML coverage. Typed master/layout creation,
