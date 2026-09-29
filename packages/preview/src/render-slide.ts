@@ -68,6 +68,7 @@ import {
   getShapeImageFormat,
   getShapeAdjustValues,
   getShapeCustomGeometry,
+  getShapeId,
   getShapeKind,
   getShapeParagraphCount,
   getShapeParagraphElements,
@@ -172,6 +173,9 @@ interface LayoutCtx {
   // and aspect when the group is resized, so the text path renders into the
   // group-scaled rect and cancels the scale back out (see `renderShape`).
   readonly groupScale: { readonly sx: number; readonly sy: number };
+  // Slide shapes carry `data-pptx-shape-id`; master and layout decoration does
+  // not, since its ids live in another part and would collide with the slide's.
+  readonly tagShapes: boolean;
 }
 
 // Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
@@ -3094,7 +3098,7 @@ const renderTextBody = (
       prefix = `<span style="${bulletStyles.join(';')}">${escapeXml(char)}</span>`;
     }
     paragraphs.push(
-      `<p style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
+      `<p data-pptx-paragraph="${pi}" style="${pStyles.join(';')}">${prefix}${runHtmls.join('') || '&#8203;'}</p>`,
     );
   }
 
@@ -5634,12 +5638,12 @@ const renderTableCellText = (
   const justify = vAnchor === 'top' ? 'flex-start' : vAnchor === 'bottom' ? 'flex-end' : 'center';
   const familyFont = themeFace ? `${escapeXml(themeFace)}, ${DEFAULT_FONT}` : DEFAULT_FONT;
   const body = paraData
-    .map((para) => {
+    .map((para, index) => {
       const runHtml = para.runs
         .map((run) => renderRun(run.text, run.fmt, theme, run.sizePt, run.fmt?.size === undefined))
         .join('');
       const textAlign = ALIGNMENT_TO_CSS[para.align] ?? 'left';
-      return `<p style="margin:0;padding:0;text-align:${textAlign};line-height:1.2">${runHtml || '&#8203;'}</p>`;
+      return `<p data-pptx-paragraph="${index}" style="margin:0;padding:0;text-align:${textAlign};line-height:1.2">${runHtml || '&#8203;'}</p>`;
     })
     .join('');
   return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
@@ -5758,7 +5762,7 @@ const renderTable = (
       }
       const cellTextColor = resolvedFill === headerFill ? '#FFFFFF' : textColor;
       out.push(
-        `<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
+        `<g data-pptx-cell="${r},${c}"><rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
       );
       // Per-side borders override the default thin gray grid. Draw them
       // separately after the fills so they sit on top.
@@ -5852,6 +5856,7 @@ const renderTable = (
           vAnchor,
           cellMargins,
         ),
+        '</g>',
       );
     }
   }
@@ -6021,7 +6026,22 @@ const customGeometryToSvg = (
   return out.join('');
 };
 
+// Tags each slide shape, group members included, with its `cNvPr` id so a
+// preview can map a click back to the shape (`getShapeId`). A wrapping `<g>`
+// is the one element every shape kind's markup can take the attribute on.
 const renderShape = (
+  shape: SlideShapeData,
+  pres: PresentationData,
+  theme: PresentationTheme | null,
+  ctx: LayoutCtx,
+): string => {
+  const svg = renderShapeMarkup(shape, pres, theme, ctx);
+  return svg && ctx.tagShapes
+    ? `<g data-pptx-shape-id="${escapeXml(String(getShapeId(shape)))}">${svg}</g>`
+    : svg;
+};
+
+const renderShapeMarkup = (
   shape: SlideShapeData,
   pres: PresentationData,
   theme: PresentationTheme | null,
@@ -6696,6 +6716,7 @@ export const renderSlideSvg = (
     groupScale: { sx: 1, sy: 1 },
     mode: opts.textLayout ?? 'foreignObject',
     measure: opts.measureText ?? defaultMeasurer,
+    tagShapes: false,
   };
 
   let bg = getSlideBackground(slide);
@@ -6801,8 +6822,9 @@ export const renderSlideSvg = (
     }
   }
 
+  const slideCtx: LayoutCtx = { ...ctx, tagShapes: true };
   const shapesSvg = topLevelShapes(getSlideShapes(slide), { dropPlaceholders: false })
-    .map((s) => renderShape(s, pres, theme, ctx))
+    .map((s) => renderShape(s, pres, theme, slideCtx))
     .join('');
 
   return [

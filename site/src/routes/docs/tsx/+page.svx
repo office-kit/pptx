@@ -164,6 +164,11 @@ build has to arrange both.
 - `compile(root)` takes the root `Presentation` element and resolves to the core
   presentation; `savePresentation` from `@office-kit/pptx` gives the `.pptx` bytes.
   Template bytes go in through `<Presentation source={bytes}>`.
+- With the dev transform, `getShapeJsxSources(shape)` names the elements (1-based
+  line and column, outermost first) that created each compiled shape, and the
+  preview SVG tags each shape with `data-pptx-shape-id`, so a click on the preview
+  leads back to the TSX. `@office-kit/pptx-dsl/source-edit` exposes the dev
+  preview's literal text edit as pure functions over source strings.
 
 ## Package responsibilities and current limits
 
