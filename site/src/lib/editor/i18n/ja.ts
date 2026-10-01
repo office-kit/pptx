@@ -537,6 +537,8 @@ export const ja: Record<string, string> = {
   'Play in Background': 'バックグラウンドで再生',
   'Play Full Screen': '全画面再生',
   Volume: '音量',
+  Low: '小',
+  High: '大',
   'Start delay': '開始の遅延',
   'Start delay (seconds)': '開始の遅延（秒）',
   'When Clicked On': 'クリック時',

@@ -1,3 +1,11 @@
+## 2026-10-02: 音量メニューの実機照合
+
+- 再生リボンの音量を数値入力から「小・中・大・ミュート」のメニューへ変更。詳細パネルの任意音量指定は維持。
+- 専用 `converted-auto.pptx` をMac PowerPointで操作・保存して確認: Low=20000、Mediumはvol省略（スキーマ既定50000）、High=80000。Muteは既存volを保持してmute=1。チェック済みMuteの再選択でも解除されず、音量レベルを選ぶとmuteを除去する。確認後は元のHigh・ミュートなしに戻して保存し、閉じた。
+- 76810d7aのCIでStatic checks、OOXML validator、Preview fidelity、Node22/26が成功。以前のLatin折返しfidelity差分は解消。Node24のブラウザーテストは確認時点で実行中。
+- 検証: format/lint/typecheck、依存順dev build、Svelte 0 errors/warnings成功。音量保存・Undo・再読込・日本語・Escape・ヘッダーを含むブラウザー7件成功（`/tmp/pptx-volume-compact-final.log`）。
+- ヘッダーの変更と同じPR287に統合。4173の未保存編集は触らない。全操作の完全一致は引き続き未完了。
+
 ## 2026-10-02: ヘッダー確定・ネイティブ音声の開始方法変換
 
 - ヘッダー省スペース化を日英・900/1500pxで再検証。Studioバー40px、保存状態を同じ行、重複ツールバーなし、リボンを閉じると60px以上増える。ログ `/tmp/pptx-compact-oct2-final.log`。
