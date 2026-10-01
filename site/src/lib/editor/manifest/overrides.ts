@@ -128,6 +128,13 @@ const handOverrides: Record<string, CapabilityOverride> = {
             optional: true,
             label: 'Loop until stopped',
           },
+          {
+            name: 'slideCount',
+            type: 'number',
+            kind: 'number',
+            optional: true,
+            label: 'Number of slides to play across',
+          },
           { name: 'volume', type: 'number', kind: 'number', optional: true, label: 'Volume (0-1)' },
           { name: 'muted', type: 'boolean', kind: 'boolean', optional: true, label: 'Mute' },
           {

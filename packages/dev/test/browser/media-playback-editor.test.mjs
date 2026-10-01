@@ -151,3 +151,109 @@ for (const [kind, nested] of [
     },
   );
 }
+
+test(
+  'audio exposes Play Across Slides, persists the range, and hides it for video',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-media-cross-slide-editor-'));
+    let browser, preview;
+    try {
+      const pres = createPresentation();
+      const audioSlide = addBlankSlide(pres);
+      const videoSlide = addBlankSlide(pres);
+      const ascii = (value) => Array.from(value, (char) => char.charCodeAt(0));
+      addSlideMedia(audioSlide, {
+        kind: 'audio',
+        data: new Uint8Array([...ascii('ID3'), 3, 0, 0, 0, 0, 0, 0, 0xff, 0xfb]),
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(2),
+      });
+      addSlideMedia(videoSlide, {
+        kind: 'video',
+        data: new Uint8Array([
+          0,
+          0,
+          0,
+          0x18,
+          ...ascii('ftypmp42'),
+          0,
+          0,
+          0,
+          0,
+          ...ascii('mp42isom'),
+        ]),
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(2),
+      });
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(pres));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
+      page.setDefaultTimeout(5000);
+      await page.goto(preview.url);
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+
+      const readPlayback = async (slideIndex) => {
+        const saved = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getShapeMediaPlayback(getSlideShapes(getSlides(saved)[slideIndex])[0]);
+      };
+
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      const across = editor.getByLabel('Play Across Slides', { exact: true });
+      assert.equal(await across.count(), 1);
+      assert.equal(await across.isChecked(), false);
+      assert.equal(await editor.getByLabel('Play Full Screen', { exact: true }).count(), 0);
+
+      await across.check();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal((await readPlayback(0)).slideCount, 999);
+
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal((await readPlayback(0)).slideCount, undefined);
+
+      await across.check();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      const reloadedAcross = editor.getByLabel('Play Across Slides', { exact: true });
+      assert.equal(await reloadedAcross.isChecked(), true);
+      await reloadedAcross.uncheck();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal((await readPlayback(0)).slideCount, undefined);
+      await reloadedAcross.check();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+
+      await editor.locator('.lang select').selectOption('ja');
+      const acrossJapanese = editor.getByLabel('スライド切り替え後も再生', { exact: true });
+      assert.equal(await acrossJapanese.count(), 1);
+      assert.equal(await acrossJapanese.isChecked(), true);
+
+      await editor.getByRole('button', { name: 'スライド 2', exact: true }).click();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: '再生', exact: true }).click();
+      assert.equal(await editor.getByLabel('スライド切り替え後も再生', { exact: true }).count(), 0);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
