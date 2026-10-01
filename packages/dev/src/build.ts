@@ -3,6 +3,8 @@ import { pathToFileURL } from 'node:url';
 import { compile, type Node } from '@office-kit/pptx-dsl';
 import {
   getSlideAnimations,
+  getCustomShows,
+  getSlideShowProperties,
   getSlideSize,
   getSlides,
   getSlideNotes,
@@ -23,6 +25,8 @@ export interface BuildResult {
   transitions: ReturnType<typeof getSlideTransition>[];
   /** What each slide animates, in click order — the preview's player reads this. */
   animations: ReturnType<typeof getSlideAnimations>[];
+  showProperties: ReturnType<typeof getSlideShowProperties>;
+  customShows: { id: number; name: string; slideIndices: number[] }[];
   aspectRatio: number;
   dependencies: string[];
   diagnostics: ReturnType<typeof validatePresentation>;
@@ -56,6 +60,8 @@ export async function renderDeck(
   if (errors.length) throw new Error(`Invalid presentation: ${JSON.stringify(errors)}`);
   const size = getSlideSize(saved);
   const { slides, slideTexts, cache } = renderPreview(saved, bytes, previous);
+  const deckSlides = getSlides(saved);
+  const slideIndices = new Map(deckSlides.map((slide, index) => [slide, index]));
   return {
     cache,
     result: {
@@ -68,6 +74,12 @@ export async function renderDeck(
       hiddenSlides: getSlides(saved).map(isSlideHidden),
       transitions: getSlides(saved).map(getSlideTransition),
       animations: getSlides(saved).map(getSlideAnimations),
+      showProperties: getSlideShowProperties(saved),
+      customShows: getCustomShows(saved).map((show) => ({
+        id: show.id,
+        name: show.name,
+        slideIndices: show.slides.map((slide) => slideIndices.get(slide)!),
+      })),
       diagnostics,
     },
   };

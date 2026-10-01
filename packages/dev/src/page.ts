@@ -33,11 +33,65 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 <footer><span id="count" aria-live="polite">No slides</span><span class="hint">Changes appear automatically · Text can be selected and copied</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
 <div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
-let state={slides:[],error:null,aspectRatio:16/9},index=0,urls=[],presenting=false;
+let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
+let showOrder=[],showCursor=0;
 let displayedSvg;
 let presenterWindow;
 ${previewI18nScript}
+function rebuildShowOrder(){
+ const previousSlide=showOrder[showCursor];
+ const settings=state.showProperties;
+ let order;
+ if(settings?.slides?.kind==='range'){
+  const start=Math.max(1,settings.slides.start),end=Math.min(state.slides.length,settings.slides.end);
+  order=Array.from({length:Math.max(0,end-start+1)},(_,offset)=>start-1+offset);
+ }else if(settings?.slides?.kind==='customShow'){
+  order=state.customShows?.find(show=>show.id===settings.slides.id)?.slideIndices??[];
+ }else order=Array.from({length:state.slides.length},(_,slide)=>slide);
+ showOrder=order.filter(slide=>slide>=0&&slide<state.slides.length);
+ if(previousSlide!==undefined){
+  if(showOrder[showCursor]===previousSlide)return;
+  const candidates=showOrder.map((slide,position)=>slide===previousSlide?position:-1).filter(position=>position>=0);
+  if(candidates.length){showCursor=candidates.reduce((best,position)=>Math.abs(position-showCursor)<Math.abs(best-showCursor)?position:best,candidates[0]);return;}
+ }
+ const current=showOrder.indexOf(index);
+ if(current>=0)showCursor=current;
+ else showCursor=Math.min(showCursor,Math.max(0,showOrder.length-1));
+}
+function showSlideAt(position,step=1,skipHidden=presenting){
+ if(!showOrder.length)return -1;
+ let cursor=position;
+ for(let n=0;n<showOrder.length;n++){
+  if(cursor<0||cursor>=showOrder.length){
+   if(state.showProperties?.loop)cursor=(cursor+showOrder.length)%showOrder.length;
+   else return -1;
+  }
+  const candidate=showOrder[cursor];
+  if(!skipHidden||!state.hiddenSlides?.[candidate])return candidate;
+  cursor+=step;
+ }
+ return -1;
+}
+function firstShowSlide(){return showSlideAt(0,1,true);}
+function nextShowPosition(step){
+ if(!showOrder.length)return -1;
+ let cursor=showCursor+step;
+ for(let n=0;n<showOrder.length;n++){
+  if(cursor<0||cursor>=showOrder.length){
+   if(state.showProperties?.loop)cursor=(cursor+showOrder.length)%showOrder.length;
+   else return -1;
+  }
+  if(!presenting||!state.hiddenSlides?.[showOrder[cursor]])return cursor;
+  cursor+=step;
+ }
+ return -1;
+}
+function nextShowSlide(step){
+ const position=nextShowPosition(step);
+ return position<0?-1:showOrder[position];
+}
 function findSlide(start,step,skipHidden=presenting){
+ if(skipHidden&&presenting)return showSlideAt(showCursor+step,step);
  for(let i=start;i>=0&&i<state.slides.length;i+=step)if(!skipHidden||!state.hiddenSlides?.[i])return i;
  return -1;
 }
@@ -48,10 +102,11 @@ function moveSlide(step,skipHidden=presenting,focusThumbnail=false){
  // A build comes before the slide: the click that would move on first plays
  // whatever the current slide still has to show, in either direction.
  if(animationPlayer&&(step>0?animationPlayer.advance():animationPlayer.back()))return;
- const next=findSlide(index+step,step,skipHidden);
+ const nextPosition=skipHidden&&presenting?nextShowPosition(step):-1;
+ const next=skipHidden&&presenting?(nextPosition<0?-1:showOrder[nextPosition]):findSlide(index+step,step,skipHidden);
  // Arriving backwards lands on a slide that has already played out, the way
  // PowerPoint shows it; arriving forwards starts its build from the top.
- if(next>=0)selectSlide(next,focusThumbnail,true,step<0?'end':'start');
+ if(next>=0)selectSlide(next,focusThumbnail,true,step<0?'end':'start',nextPosition);
 }
 let advanceTimer,advanceKey;
 function scheduleAdvance(){
@@ -60,7 +115,7 @@ function scheduleAdvance(){
   // playing out — is not finished, whatever its transition says about
   // advancing itself.
   const settled=!animationsWaiting()&&(!animationPlayer||!(animationPlayer.pending||animationPlayer.running));
-  const key=presenting&&settled&&findSlide(index+1,1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+delay:null;
+  const key=presenting&&state.showProperties?.useTimings!==false&&settled&&nextShowSlide(1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+showCursor+':'+delay:null;
   if(key===advanceKey)return;
   clearTimeout(advanceTimer);advanceKey=key;
   if(key===null)return;
@@ -79,13 +134,13 @@ const byId=id=>document.getElementById(id);
 // and the first step back is the one inside this slide.
 // True while this slide has effects but the player has not arrived yet. Its
 // clicks belong to the build, so they are held rather than spent on the deck.
-function animationsWaiting(){return animationLoad==='loading'&&presenting&&animationStepsAt(index).length>0;}
-function animationsPending(){return animationsWaiting()||Boolean(animationPlayer&&animationPlayer.pending);}
+function animationsWaiting(){return state.showProperties?.showAnimation!==false&&animationLoad==='loading'&&presenting&&animationStepsAt(index).length>0;}
+function animationsPending(){return state.showProperties?.showAnimation!==false&&(animationsWaiting()||Boolean(animationPlayer&&animationPlayer.pending));}
 function animationsBehind(){return Boolean(animationPlayer&&animationPlayer.cursor>0);}
 function updateNavigationButtons(){
-  for(const id of ['prev','present-prev'])byId(id).disabled=findSlide(index-1,-1)<0&&!animationsBehind();
-  for(const id of ['next','present-next'])byId(id).disabled=findSlide(index+1,1)<0&&!animationsPending();
-  byId('present').disabled=findSlide(0,1,true)<0;
+  for(const id of ['prev','present-prev'])byId(id).disabled=presenting?nextShowSlide(-1)<0&&!animationsBehind():findSlide(index-1,-1)<0&&!animationsBehind();
+  for(const id of ['next','present-next'])byId(id).disabled=presenting?nextShowSlide(1)<0&&!animationsPending():findSlide(index+1,1)<0&&!animationsPending();
+  byId('present').disabled=firstShowSlide()<0;
   byId('presenter').disabled=byId('present').disabled;
 }
 const stage=byId('stage'),slide=byId('slide'),thumbnails=byId('thumbnails');
@@ -160,7 +215,7 @@ const animationKeyAt=i=>i+'\u0000'+(state.slides[i]??'')+'\u0000'+JSON.stringify
 const slideRoot=()=>canvas.querySelector('.transition-layer:not(.transition-old)')??canvas;
 function updateAnimationNotice(){
   const note=byId('present-note'),retry=byId('animation-retry');
-  const slideHasEffects=presenting&&animationStepsAt(index).length>0;
+  const slideHasEffects=presenting&&state.showProperties?.showAnimation!==false&&animationStepsAt(index).length>0;
   retry.hidden=!(slideHasEffects&&animationLoad==='failed');
   retry.textContent=previewLocale==='ja'?'再試行':'Try again';
   if(slideHasEffects&&animationLoad==='failed'){
@@ -186,7 +241,7 @@ function updateAnimationNotice(){
 function syncAnimationPlayer(position){
   // Animations belong to the slide show. The still preview shows the slide as
   // it ends, which is what the renderer drew.
-  const wanted=presenting&&animationStepsAt(index).length>0;
+ const wanted=presenting&&state.showProperties?.showAnimation!==false&&animationStepsAt(index).length>0;
   if(!wanted){
     if(animationPlayer){animationPlayer.dispose();animationPlayer=undefined;animationPlayerKey=undefined;}
     updateAnimationNotice();
@@ -230,11 +285,16 @@ function resize(){
   const slideWidth=presenting||zoom==='fit'?Math.min(width,height*ratio):1280*Number(zoom);
   slide.style.width=slideWidth+'px';slide.style.height=slideWidth/ratio+'px';
 }
-function selectSlide(next,focusThumbnail=false,reveal=true,position='start'){
-  const previousIndex=index;
-  index=Math.max(0,Math.min(next,state.slides.length-1));
+function selectSlide(next,focusThumbnail=false,reveal=true,position='start',showPosition=-1){
+ const previousIndex=index;
+ index=Math.max(0,Math.min(next,state.slides.length-1));
+ if(showPosition>=0)showCursor=showPosition;
+ else if(presenting){if(showOrder[showCursor]!==index){const naturalPosition=showOrder.indexOf(index);if(naturalPosition>=0)showCursor=naturalPosition;}}
+ else {const naturalPosition=showOrder.indexOf(index);if(naturalPosition>=0)showCursor=naturalPosition;}
   if(presenting&&state.hiddenSlides?.[index]){
-    const forward=findSlide(index,1);index=forward>=0?forward:Math.max(0,findSlide(index,-1));
+    const forwardPosition=nextShowPosition(1),backwardPosition=forwardPosition<0?nextShowPosition(-1):-1;
+    const position=forwardPosition>=0?forwardPosition:backwardPosition;
+    if(position>=0){showCursor=position;index=showOrder[position];}
   }
   const count=slideCount();
   byId('chat-context').textContent=state.slides.length?count:pt('Whole project');
@@ -266,6 +326,7 @@ function update(updated){
   const focusedThumbnail=thumbnails.contains(document.activeElement);
   const previous=state;
   state=updated;
+  rebuildShowOrder();
   connectionLost=false;updatePreviewStatus();
   byId('error').textContent=state.error||'';byId('error').hidden=!state.error;
   document.documentElement.style.setProperty('--slide-ratio',String(state.aspectRatio));
@@ -289,12 +350,15 @@ function update(updated){
     item.querySelector('img').src=urls[i];
     if(oldUrl)URL.revokeObjectURL(oldUrl);
   });
-  if(presenting&&findSlide(0,1,true)<0)void exitPresentation();
+  if(presenting&&firstShowSlide()<0)void exitPresentation();
   selectSlide(index,focusedThumbnail,false,'keep');
 }
 function setPresenting(value){
   cancelTransition();
-  presenting=value&&findSlide(0,1,true)>=0;document.body.classList.toggle('presenting',presenting);selectSlide(index);
+  rebuildShowOrder();
+  presenting=value&&firstShowSlide()>=0;document.body.classList.toggle('presenting',presenting);
+  if(presenting){const first=firstShowSlide();if(first>=0){index=first;showCursor=showOrder.findIndex(slide=>slide===first);}}
+  selectSlide(index);
   if(presenting)stage.focus();else{
     byId('present').focus();
     thumbnails.children[index]?.firstElementChild.scrollIntoView({block:'nearest'});
@@ -316,7 +380,7 @@ function updatePresenter(){
  // is what the audience sees — including an effect still fading in.
  const progress=animationPlayer?animationPlayer.progress:null;
  const animationSteps=animationPlayer?animationStepsAt(index):null;
- presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[findSlide(index+1,1,true)]??null,hasPrevious:findSlide(index-1,-1,true)>=0||animationsBehind(),hasNext:findSlide(index+1,1,true)>=0||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[nextShowSlide(1)]??null,hasPrevious:nextShowSlide(-1)>=0||animationsBehind(),hasNext:nextShowSlide(1)>=0||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
 }
 byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
@@ -359,18 +423,24 @@ document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
   const focusThumbnail=thumbnails.contains(document.activeElement);
-  let step=0,jump=-1;
+  let step=0,jump=-1,jumpPosition=-1;
   if(['ArrowLeft','ArrowUp','PageUp'].includes(event.key))step=-1;
   else if(['ArrowRight','ArrowDown','PageDown'].includes(event.key))step=1;
-  else if(event.key==='Home')jump=findSlide(0,1);
-  else if(event.key==='End')jump=findSlide(state.slides.length-1,-1);
+  else if(event.key==='Home'){
+    jump=presenting?firstShowSlide():findSlide(0,1);
+    if(presenting)jumpPosition=showOrder.findIndex(slide=>slide===jump&&!state.hiddenSlides?.[slide]);
+  }
+  else if(event.key==='End'){
+    jump=presenting?showSlideAt(showOrder.length-1,-1):findSlide(state.slides.length-1,-1);
+    if(presenting)jumpPosition=showOrder.findLastIndex(slide=>slide===jump&&!state.hiddenSlides?.[slide]);
+  }
   else if(event.key===' '&&presenting&&!event.target.closest('button,a'))step=event.shiftKey?-1:1;
   else return;
   event.preventDefault();
   // Home and End are a jump, not a step: they land on a slide with its build
   // at the start rather than walking through the one in hand.
   if(step!==0)moveSlide(step,presenting,focusThumbnail);
-  else if(jump>=0)selectSlide(jump,focusThumbnail);
+  else if(jump>=0)selectSlide(jump,focusThumbnail,true,'start',jumpPosition);
 });
 new ResizeObserver(resize).observe(stage);
 let refreshId=0;

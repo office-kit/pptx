@@ -25,13 +25,14 @@ import {
   setSnapToGrid,
   addTitleSlide,
   getSlides,
+  getCustomShows,
   findShapeById,
   loadPresentation,
   savePresentation,
 } from '@office-kit/pptx';
 import type { RememberedFill } from './remembered-fill.ts';
 import { renderSlideToSvg } from '@office-kit/pptx-preview';
-import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
+import type { CustomShow, PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
 import { RegroupHistory } from './regroup-history.ts';
 import { selectedSlideIndices, type Selection } from './selection.ts';
 
@@ -74,6 +75,11 @@ export class EditorDocument {
   slides = $derived.by<ReadonlyArray<SlideData>>(() => {
     this.version;
     return getSlides(this.pres);
+  });
+
+  customShows = $derived.by<ReadonlyArray<CustomShow>>(() => {
+    this.version;
+    return getCustomShows(this.pres);
   });
 
   currentSlide = $derived.by<SlideData | null>(() => {
