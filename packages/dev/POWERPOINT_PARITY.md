@@ -780,3 +780,7 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - The formatted renderer resolves inherited run styles through the existing public reader and escaped HTML exporter. Foreground follows the UI, so dark appearance stays readable. Quarter-scale point sizes are an approximation of the observed compact view; exact font metrics, size limits, default state and persistence across native sessions remain to be compared. Do not call this pixel parity.
 - Browser coverage in English/Japanese checks checked state, bold/italic display, unchanged save revision on toggles, editing/saving with original point sizes, and one-step Undo. Existing outline slide actions remain in the same test.
 - Validation: final menu/formatting tests 2/2; existing clipboard, selection lifecycle and outline editing tests 6/6. The first expanded test used Control+End, which did not move the caret on this Mac; it now sets the insertion range explicitly. Site unit tests 93/93; format/lint, Svelte (0 errors/0 warnings) and editor build pass. No core behavior changed in this increment.
+
+# アウトライン入力中の継承書式（2026-10-01 追記）
+
+複数マスターを持つ資料で、Show Formatting 有効時の入力プレビューが別マスターの文字サイズを参照する問題を修正。元の shape を段落・run の継承元として渡す。ブラウザーで入力直後の 20px → 10.6667px の変化を修正前に再現し、修正後は日英 2 ケースで表示保持・保存・Undo を確認した。これは継承元の修正であり、ネイティブとの表示倍率やメトリクスの完全一致を示すものではない。

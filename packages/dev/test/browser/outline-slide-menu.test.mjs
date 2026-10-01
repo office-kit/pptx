@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile, copyFile } from 'node:fs/promises';
+import { mkdtemp, rm, writeFile, readFile } from 'node:fs/promises';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -23,10 +24,43 @@ for (const locale of ['en', 'ja']) {
       const dir = await mkdtemp(join(tmpdir(), 'office-outline-menu-'));
       let preview, browser;
       try {
-        await copyFile(
-          new URL('../../../../test/fixtures/minimal/one-text-slide.pptx', import.meta.url),
-          join(dir, 'template.pptx'),
+        const parts = unzipSync(
+          await readFile(
+            new URL('../../../../test/fixtures/minimal/one-text-slide.pptx', import.meta.url),
+          ),
         );
+        // A non-default master exposes accidental inheritance from a disposable slide.
+        const master = 'ppt/slideMasters/slideMaster1.xml';
+        const masterXml = strFromU8(parts[master]);
+        assert.ok(masterXml.includes('sz="3200"'));
+        parts['ppt/slideMasters/slideMaster2.xml'] = strToU8(
+          masterXml.replaceAll('sz="3200"', 'sz="6000"'),
+        );
+        parts['ppt/slideMasters/_rels/slideMaster2.xml.rels'] =
+          parts['ppt/slideMasters/_rels/slideMaster1.xml.rels'];
+        const layoutRels = 'ppt/slideLayouts/_rels/slideLayout2.xml.rels';
+        parts[layoutRels] = strToU8(
+          strFromU8(parts[layoutRels]).replace('slideMaster1.xml', 'slideMaster2.xml'),
+        );
+        parts['[Content_Types].xml'] = strToU8(
+          strFromU8(parts['[Content_Types].xml']).replace(
+            '</Types>',
+            '<Override PartName="/ppt/slideMasters/slideMaster2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/></Types>',
+          ),
+        );
+        parts['ppt/presentation.xml'] = strToU8(
+          strFromU8(parts['ppt/presentation.xml']).replace(
+            '</p:sldMasterIdLst>',
+            '<p:sldMasterId id="2147483649" r:id="rIdOutlineMaster"/></p:sldMasterIdLst>',
+          ),
+        );
+        parts['ppt/_rels/presentation.xml.rels'] = strToU8(
+          strFromU8(parts['ppt/_rels/presentation.xml.rels']).replace(
+            '</Relationships>',
+            '<Relationship Id="rIdOutlineMaster" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster2.xml"/></Relationships>',
+          ),
+        );
+        await writeFile(join(dir, 'template.pptx'), zipSync(parts));
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
@@ -98,6 +132,12 @@ for (const locale of ['en', 'ja']) {
           } else assert.equal(await body.locator('span').count(), 0);
           assert.equal(await body.textContent(), 'Menu body');
           assert.equal((await waitForState(preview.url, () => true)).revision, initialRevision);
+          const displayedSize = enabled
+            ? await body
+                .locator('span')
+                .first()
+                .evaluate((node) => getComputedStyle(node).fontSize)
+            : null;
           await change(async () => {
             await body.evaluate((node) => {
               node.focus();
@@ -108,7 +148,28 @@ for (const locale of ['en', 'ja']) {
               selection.removeAllRanges();
               selection.addRange(range);
             });
-            await body.press('!');
+            if (enabled) {
+              const pendingSize = await body.evaluate(async (node) => {
+                node.dispatchEvent(
+                  new InputEvent('beforeinput', {
+                    bubbles: true,
+                    inputType: 'insertText',
+                    data: '!',
+                  }),
+                );
+                node.querySelector('span').append('!');
+                node.dispatchEvent(
+                  new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '!' }),
+                );
+                await new Promise((resolve) => setTimeout(resolve, 0));
+                return getComputedStyle(node.querySelector('span')).fontSize;
+              });
+              assert.equal(
+                pendingSize,
+                displayedSize,
+                'pending outline edits retain inherited font size',
+              );
+            } else await body.press('!');
             await editor.getByRole('tab', { name: view, exact: true }).click();
           });
           const edited = await read();

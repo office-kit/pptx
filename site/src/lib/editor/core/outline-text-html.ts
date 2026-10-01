@@ -15,10 +15,11 @@ export function outlineTextHtml(
   shape: SlideShapeData,
   title: boolean,
   showFormatting = false,
+  source: SlideShapeData = shape,
 ): string {
   const paragraphs = getShapeParagraphElements(shape);
   const properties = paragraphs.map((_, index) =>
-    getParagraphPropertiesEffective(pres, shape, index),
+    getParagraphPropertiesEffective(pres, shape, index, { inheritanceSource: source }),
   );
   const labels = paragraphNumberLabels(
     properties.map((p) => ({ bulletStyle: p.bullet, level: p.level })),
@@ -53,7 +54,7 @@ export function outlineTextHtml(
         offset += element.kind === 'br' ? 1 : element.text.length;
         const effective =
           element.kind === 'r'
-            ? getShapeRunFormatEffective(pres, shape, index, run++)
+            ? getShapeRunFormatEffective(pres, shape, index, run++, { inheritanceSource: source })
             : element.format;
         const format = toWritableTextFormat(effective ?? {});
         // Outline text follows the UI foreground, including in dark appearance.

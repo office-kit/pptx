@@ -26,7 +26,7 @@
     doc.version;
     draftVersion;
     const source = doc.shapeById(slideIndex, shapeId);
-    return source ? outlineTextHtml(doc.pres, projectTextEdits(source, changes, undefined, doc.pres), title, editor.outlineShowFormatting) : '';
+    return source ? outlineTextHtml(doc.pres, projectTextEdits(source, changes, undefined, doc.pres), title, editor.outlineShowFormatting, source) : '';
   });
   let range = { start: 0, end: 0 };
   let timer: ReturnType<typeof setTimeout> | undefined;
