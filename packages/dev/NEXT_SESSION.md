@@ -1,3 +1,11 @@
+## 2026-10-02: 動画の全画面再生
+
+- 保存済み fullScreen=true の video を、ショー中の再生開始時に viewport 全体へ表示。縦横比を維持し、同一 video 要素で一時停止・再開する。終了後は元の位置のポスターと再生ボタンへ戻り、hideWhenStopped はポスターも非表示。開始時・終了時・破棄時のフォーカスを管理する。
+- Microsoft の Mac 向け説明は、再生開始時に画面全体へ拡大することを明記: https://support.microsoft.com/en-us/powerpoint/set-a-video-to-play-full-screen 。終了・Escape・複数全画面動画の競合時の詳細は実機未確認。現状の Escape はショー全体を終了する。
+- 旧 dist で開始操作が存在しない失敗を再現（/tmp/pptx-fullscreen-old.log）。既存メディア/ショー7件、dev unit19件、format/lint/dev型検査/build成功。新規全画面動画2件は手動再生・pause/resume・同一要素再利用・終了とEscape破棄・autoplay/hideWhenStopped・フォーカス復帰を検証。全画面と復帰後のスクリーンショットを目視し、ポスター上の不要な標準ボタン表示を除去した。
+- PowerPoint は今回も画面サイズ0×0で取得失敗。ネイティブ文書・設定は変更していない。残件は発表者動画同期、クリックシーケンスのメディア開始、numSld、ナレーション、オンラインメディア、再生UIの一致など。
+- 45490f9c の CI: Static/Node22/Node26/OOXML成功、Node24は確認時進行中。Preview fidelity は従来と同じ 05-preset-shapes slide1 の 0.6161 vs baseline0.7731 で失敗（/tmp/pptx-fullscreen-existing-fidelity.log）。全体完了ではない。
+
 ## 2026-10-02: 埋め込みメディアの実再生
 
 - dev の build manifest に audio/video/online のメディア情報を追加。HTTP state は埋め込みバイナリを含まず、SHA-256 URL に置換し、同じデータを共有。専用 endpoint は MIME / immutable cache / Range 206・416 を返す。
