@@ -19,7 +19,9 @@ import {
   savePresentation,
   setShapeMediaPlayback,
   type SlideShapeData,
+  _internalPackageOf,
 } from '../src/api/index.ts';
+import { partName } from '../src/internal/opc/index.ts';
 
 const skipIfNoXmllint = isSchemaValidationAvailable() ? it : it.skip;
 const ascii = (s: string): number[] => Array.from(s, (ch) => ch.charCodeAt(0));
@@ -56,6 +58,23 @@ describe('media playback', () => {
       hideWhenStopped: false,
     });
   });
+
+  it.each(['onClick', 'onNext', 'onBegin'])(
+    'does not report %s-triggered media as slide autoplay',
+    async (event) => {
+      const { pres } = deckWith('video');
+      const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+      slidePart.data = new TextEncoder().encode(
+        new TextDecoder()
+          .decode(slidePart.data)
+          .replace('<p:cond delay="indefinite"/>', `<p:cond evt="${event}" delay="0"/>`),
+      );
+      const reloaded = await loadPresentation(await savePresentation(pres));
+      const shape = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+
+      expect(getShapeMediaPlayback(shape)?.autoplay).toBe(false);
+    },
+  );
 
   it('reports nothing for a shape that is not a clip', () => {
     const pres = createPresentation();

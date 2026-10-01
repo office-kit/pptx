@@ -382,6 +382,7 @@ const ATTR_FULL_SCRN = qname('', 'fullScrn', '');
 const ATTR_SHOW_WHEN_STOPPED = qname('', 'showWhenStopped', '');
 const ATTR_REPEAT_COUNT = qname('', 'repeatCount', '');
 const ATTR_DELAY = qname('', 'delay', '');
+const ATTR_EVT = qname('', 'evt', '');
 
 // ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
 // the integer form, and the schema's own default is spelled `50%`.
@@ -423,8 +424,13 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
   const stCondLst = cTn && firstChildElement(cTn, NAME_ST_COND_LST);
   const start = stCondLst && firstChildElement(stCondLst, NAME_COND);
   return {
-    // `indefinite` is "wait to be started"; every other delay starts on its own.
-    autoplay: start !== null && getAttrValue(start, ATTR_DELAY) !== 'indefinite',
+    // A delay is measured after the condition's trigger. An `evt` condition
+    // (for example `onClick`) therefore remains event-triggered even when its
+    // delay is zero; only an event-free condition starts with the slide.
+    autoplay:
+      start !== null &&
+      getAttrValue(start, ATTR_EVT) === null &&
+      getAttrValue(start, ATTR_DELAY) !== 'indefinite',
     loop: cTn !== null && getAttrValue(cTn, ATTR_REPEAT_COUNT) === 'indefinite',
     volume: percentFraction(getAttrValue(media, ATTR_VOL), 0.5),
     muted: xsdBoolean(getAttrValue(media, ATTR_MUTE), false),
