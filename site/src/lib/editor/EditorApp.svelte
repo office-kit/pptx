@@ -80,7 +80,7 @@
       return;
     }
     if (mod && e.altKey && e.code === 'KeyR') { e.preventDefault(); editor.ribbonVisible = !editor.ribbonVisible; return; }
-    if (mod && !e.altKey && !e.shiftKey && ['Digit1', 'Digit2'].includes(e.code)) { e.preventDefault(); editor.setViewMode(e.code === 'Digit1' ? 'normal' : 'sorter'); return; }
+    if (mod && !e.altKey && !e.shiftKey && ['Digit1', 'Digit2', 'Digit4'].includes(e.code)) { e.preventDefault(); editor.setViewMode(e.code === 'Digit1' ? 'normal' : e.code === 'Digit2' ? 'sorter' : 'outline'); return; }
     if (typing || e.defaultPrevented) return;
     if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
       e.preventDefault();
