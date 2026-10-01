@@ -30,6 +30,59 @@ export function outlineShapes(slide: SlideData) {
   });
 }
 
+/** Moving title text moves the boundary between adjacent slides' bodies. */
+export function outlineTitleMove(pres: PresentationData, slide: SlideData, direction: -1 | 1) {
+  const slides = getSlides(pres);
+  const index = slides.indexOf(slide);
+  if (index <= 0) return null;
+  const previousShapes = getSlideShapes(slides[index - 1]!);
+  const previousSlot = outlineShapes(slides[index - 1]!)
+    .filter((item) => !item.title)
+    .at(-1);
+  const bodySlot = outlineShapes(slide).find((item) => !item.title);
+  if (!previousSlot || !bodySlot) return null;
+  const previous = previousShapes.find((shape) => getShapeId(shape) === previousSlot.id)!;
+  const body = getSlideShapes(slide).find((shape) => getShapeId(shape) === bodySlot.id)!;
+  const before = getShapeText(previous);
+  const after = getShapeText(body);
+  const source = direction === -1 ? previous : body;
+  if (!(direction === -1 ? before : after)) return null;
+  const paragraphs = getShapeParagraphElements(source);
+  const moved = direction === -1 ? paragraphs.at(-1)! : paragraphs[0]!;
+  const length = moved.reduce(
+    (sum, element) => sum + (element.kind === 'br' ? 1 : element.text.length),
+    0,
+  );
+  const separator = before && after ? 1 : 0;
+  const total = before.length + separator + after.length;
+  const boundary = direction === -1 ? before.length - length : before.length + separator + length;
+  const ranges =
+    direction === -1
+      ? [
+          { start: 0, end: Math.max(0, boundary - 1) },
+          { start: boundary, end: total },
+        ]
+      : [
+          { start: 0, end: boundary },
+          { start: Math.min(total, boundary + 1), end: total },
+        ];
+  return {
+    previous,
+    body,
+    sources: [...(before ? [previous] : []), ...(after ? [body] : [])],
+    ranges,
+  };
+}
+
+export function moveOutlineTitle(pres: PresentationData, slide: SlideData, direction: -1 | 1) {
+  const move = outlineTitleMove(pres, slide, direction);
+  if (!move) return false;
+  // Concatenate before distributing so shared source/target handles retain their XML.
+  setShapeParagraphs(move.previous, { sources: move.sources });
+  setShapeParagraphs([move.previous, move.body], { source: move.previous, ranges: move.ranges });
+  return true;
+}
+
 /** Mac PowerPoint demotes a slide title into the preceding slide's body. */
 export function demoteOutlineTitle(
   pres: PresentationData,

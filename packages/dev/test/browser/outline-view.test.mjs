@@ -242,6 +242,33 @@ for (const locale of ['en', 'ja'])
           ),
           false,
         );
+        for (const up of [false, true]) {
+          await second.click({ button: 'right' });
+          await change(() =>
+            editor
+              .getByRole('menuitem', {
+                name:
+                  locale === 'en' ? (up ? 'Move Up' : 'Move Down') : up ? '上へ移動' : '下へ移動',
+                exact: true,
+              })
+              .click(),
+          );
+          const saved = getSlides(await read());
+          assert.equal(getShapeText(getSlideShapes(saved[0])[1]), up ? '' : 'First point');
+          const savedBody = getSlideShapes(saved[1]).find(
+            (shape) => getShapeText(shape) === (up ? 'First point\nSecond point' : 'Second point'),
+          );
+          assert.ok(savedBody);
+          assert.equal(getShapeParagraphElements(savedBody, 0)[0].format.italic, true);
+          assert.deepEqual(
+            await second.evaluate((node) => [node.selectionStart, node.selectionEnd]),
+            [0, 12],
+          );
+        }
+        await change(() => second.press('Control+z'));
+        assert.equal(await body.inputValue(), 'First point');
+        await change(() => second.press('Control+z'));
+        assert.equal(await body.inputValue(), '');
         const secondIcon = outline.locator('[data-outline-slide="1"] > button');
         const collapseLabel = locale === 'en' ? 'Collapse' : '折りたたむ';
         const collapseAllLabel = locale === 'en' ? 'Collapse All' : 'すべて折りたたむ';

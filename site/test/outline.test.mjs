@@ -198,3 +198,43 @@ test('outline paragraph movement uses whole selected paragraphs and leaves neste
     { start: 19, end: 19 },
   ]);
 });
+
+for (const direction of [-1, 1]) {
+  test(`title movement shifts the body boundary (${direction}) and preserves paragraph links`, async () => {
+    const { moveOutlineTitle } = await import('../src/lib/editor/core/outline.ts');
+    const pres = createPresentation();
+    const layout = getSlideLayouts(pres).find(
+      (item) => getSlideLayoutName(item) === 'Title and Content',
+    );
+    const first = addSlide(pres, { layout });
+    const second = addSlide(pres, { layout });
+    const bodies = [first, second].map((slide) =>
+      getSlideShapes(slide).find((shape) =>
+        ['obj', 'body', null].includes(getShapePlaceholderType(shape)),
+      ),
+    );
+    setShapeText(bodies[0], 'A\nB');
+    setShapeText(bodies[1], 'C\nD');
+    const source = bodies[direction === -1 ? 0 : 1];
+    const paragraph = direction === -1 ? 1 : 0;
+    setParagraphLevel(source, paragraph, 2);
+    setShapeRunHyperlink(source, paragraph, 0, 'https://example.com/moved');
+    assert.equal(moveOutlineTitle(pres, first, direction), false);
+    assert.equal(moveOutlineTitle(pres, second, direction), true);
+    assert.deepEqual(
+      bodies.map(getShapeText),
+      direction === -1 ? ['A', 'B\nC\nD'] : ['A\nB\nC', 'D'],
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const savedBodies = getSlides(loaded).map((slide) =>
+      getSlideShapes(slide).find((shape) =>
+        ['obj', 'body', null].includes(getShapePlaceholderType(shape)),
+      ),
+    );
+    assert.deepEqual(savedBodies.map(getShapeText), bodies.map(getShapeText));
+    const target = savedBodies[direction === -1 ? 1 : 0];
+    const movedIndex = direction === -1 ? 0 : 2;
+    assert.equal(getParagraphLevel(target, movedIndex), 2);
+    assert.equal(getShapeRunHyperlink(target, movedIndex, 0), 'https://example.com/moved');
+  });
+}
