@@ -1,10 +1,45 @@
 <script lang="ts">
+  import type { ParagraphTabStop } from '@office-kit/pptx';
+  import type { TabStopEdit } from '../core/paragraph-tabs.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  let { area, stage, zoom, text = null, onindent }: {
+  let { area, stage, zoom, text = null, onindent, ontabs }: {
     area: HTMLElement; stage: HTMLElement; zoom: number;
-    text?: { left: number; first: number; scale: number } | null;
+    text?: { left: number; first: number; scale: number; tabStops: readonly ParagraphTabStop[] } | null;
+    ontabs?: (edits: TabStopEdit[]) => void;
     onindent?: (kind: 'first' | 'hanging' | 'left', delta: number) => void;
   } = $props();
+  const tabKinds = [
+    { alignment: 'left', label: 'Left tab', path: 'M7 3v8h6' },
+    { alignment: 'center', label: 'Center tab', path: 'M7 3v8M2 11h10' },
+    { alignment: 'right', label: 'Right tab', path: 'M7 3v8H1' },
+    { alignment: 'decimal', label: 'Decimal tab', path: 'M7 3v8M2 11h10M11 5h1' },
+  ] as const;
+  let tabKind = $state(0);
+  let tabDrag = $state<{ stop: ParagraphTabStop; position: number; remove: boolean; pointer: number } | null>(null);
+  function tabPosition(clientX: number) {
+    return Math.max(0, Math.min(51206400, Math.round((clientX - root.getBoundingClientRect().left - textBounds.x) / emuToPixel)));
+  }
+  function addTab(event: PointerEvent) {
+    if (event.button !== 0 || !text) return;
+    event.preventDefault();
+    ontabs?.([{ kind: 'set', stop: { positionEmu: tabPosition(event.clientX), alignment: tabKinds[tabKind]!.alignment } }]);
+  }
+  function moveTab(event: PointerEvent) {
+    if (!tabDrag || event.pointerId !== tabDrag.pointer) return;
+    const top = root.getBoundingClientRect().top;
+    tabDrag.position = tabPosition(event.clientX);
+    tabDrag.remove = event.clientY < top - thickness || event.clientY > top + thickness * 2;
+  }
+  function finishTab(event: PointerEvent) {
+    if (!tabDrag || event.pointerId !== tabDrag.pointer) return;
+    moveTab(event);
+    const change = tabDrag;
+    tabDrag = null;
+    if (!change.remove && change.position === change.stop.positionEmu) return;
+    const edits: TabStopEdit[] = [{ kind: 'clear', positionEmu: change.stop.positionEmu }];
+    if (!change.remove) edits.push({ kind: 'set', stop: { ...change.stop, positionEmu: change.position } });
+    ontabs?.(edits);
+  }
   let textBounds = $state({ x: 0, y: 0, scale: 1 });
   let drag = $state<{ kind: 'first' | 'hanging' | 'left'; start: number; delta: number; pointer: number } | null>(null);
   const emuToPixel = $derived(zoom / 9525 * (text?.scale ?? 1) * textBounds.scale);
@@ -31,10 +66,10 @@
     drag.delta = delta;
   }
   $effect(() => {
-    if (!drag) return;
+    if (!drag && !tabDrag) return;
     function cancel(event: KeyboardEvent) {
       if (event.key !== 'Escape') return;
-      event.preventDefault(); event.stopPropagation(); drag = null;
+      event.preventDefault(); event.stopPropagation(); drag = null; tabDrag = null;
     }
     document.addEventListener('keydown', cancel, true);
     return () => document.removeEventListener('keydown', cancel, true);
@@ -103,6 +138,27 @@
     {/each}
   </svg>
   {#if text}
+    <button class="tab-track" style:left={`${Math.max(thickness, textBounds.x)}px`} style:width={`${Math.max(0, Math.min(bounds.width, bounds.x + bounds.slideWidth) - Math.max(thickness, textBounds.x))}px`} aria-label={t('Add tab stop')} onpointerdown={addTab}></button>
+    {#each text.tabStops as stop (stop.positionEmu)}
+      {@const moving = tabDrag?.stop.positionEmu === stop.positionEmu}
+      <button class="tab-stop" class:removing={moving && tabDrag?.remove} aria-label={`${t('Tab stop')} ${stop.positionEmu / 360000} cm`} title={`${t(tabKinds.find(kind => kind.alignment === stop.alignment)!.label)}: ${Math.round(stop.positionEmu / 3600) / 100} cm`}
+        style:left={`${textBounds.x + (moving ? tabDrag!.position : stop.positionEmu) * emuToPixel}px`}
+        onpointerdown={event => {
+          if (event.button !== 0) return;
+          event.preventDefault(); event.stopPropagation();
+          event.currentTarget.setPointerCapture(event.pointerId);
+          tabDrag = { stop, position: stop.positionEmu, remove: false, pointer: event.pointerId };
+        }}
+        onpointermove={moveTab} onpointerup={finishTab} onpointercancel={() => tabDrag = null} onlostpointercapture={() => tabDrag = null}
+        onkeydown={event => {
+          if (event.key === 'Delete' || event.key === 'Backspace') {
+            event.preventDefault(); event.stopPropagation(); ontabs?.([{ kind: 'clear', positionEmu: stop.positionEmu }]);
+          } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault(); event.stopPropagation();
+            ontabs?.([{ kind: 'clear', positionEmu: stop.positionEmu }, { kind: 'set', stop: { ...stop, positionEmu: Math.max(0, Math.min(51206400, stop.positionEmu + (event.key === 'ArrowLeft' ? -36000 : 36000))) } }]);
+          }
+        }}><svg viewBox="0 0 14 14" aria-hidden="true"><path d={tabKinds.find(kind => kind.alignment === stop.alignment)!.path} /></svg></button>
+    {/each}
     {#each handles as handle}
       <button class="indent {handle.kind}" aria-label={t(handle.label)} title={t(handle.label)}
         style:left={`${handle.kind === 'first' ? firstPosition : leftPosition}px`}
@@ -117,7 +173,9 @@
         }}></button>
     {/each}
   {/if}
-  <div class="corner"></div>
+  {#if text}
+    <button class="corner tab-selector" aria-label={t(tabKinds[tabKind]!.label)} title={t(tabKinds[tabKind]!.label)} onpointerdown={event => event.preventDefault()} onclick={() => tabKind = (tabKind + 1) % tabKinds.length}><svg viewBox="0 0 14 14" aria-hidden="true"><path d={tabKinds[tabKind]!.path} /></svg></button>
+  {:else}<div class="corner"></div>{/if}
 </div>
 
 <style>
@@ -126,6 +184,12 @@
   rect, .corner { fill: var(--ok-panel); background: var(--ok-panel); }
   line { stroke: var(--ok-text-2); stroke-width: 1; }
   text { fill: var(--ok-text-2); font: 10px sans-serif; }
+  .tab-track { position: absolute; top: 0; height: 22px; padding: 0; border: 0; background: transparent; pointer-events: auto; }
+  .tab-stop { position: absolute; top: 8px; width: 14px; height: 14px; margin-left: -7px; padding: 0; border: 0; background: transparent; pointer-events: auto; touch-action: none; cursor: ew-resize; }
+  .tab-stop.removing { opacity: 0.3; }
+  .tab-stop svg, .tab-selector svg { position: static; width: 14px; height: 14px; background: transparent; }
+  .tab-stop path, .tab-selector path { stroke: var(--ok-text); stroke-width: 2; fill: none; }
+  .tab-selector { pointer-events: auto; padding: 3px; border: 1px solid var(--ok-border); }
   .indent { position: absolute; margin: 0 0 0 -5px; padding: 0; width: 10px; height: 8px; border: 1px solid var(--ok-text-2); background: var(--ok-panel); pointer-events: auto; touch-action: none; cursor: ew-resize; }
   .indent.first { top: 0; clip-path: polygon(0 0,100% 0,100% 40%,50% 100%,0 40%); }
   .indent.hanging { top: 9px; clip-path: polygon(50% 0,100% 60%,100% 100%,0 100%,0 60%); }

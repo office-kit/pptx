@@ -2,6 +2,12 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Left tab': '左揃えタブ',
+  'Center tab': '中央揃えタブ',
+  'Right tab': '右揃えタブ',
+  'Decimal tab': '小数点揃えタブ',
+  'Add tab stop': 'タブ位置を追加',
+  'Tab stop': 'タブ位置',
   Tabs: 'タブ設定',
   'Tabs...': 'タブ設定...',
   'Tab stop position:': 'タブ位置:',
