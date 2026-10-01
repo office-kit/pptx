@@ -47,6 +47,39 @@
     playback.fade;
     if (player) untrack(applyVolume);
   });
+  function positionControls(node: HTMLDivElement) {
+    const area = node.closest<HTMLElement>('.canvas-area');
+    const host = node.parentElement;
+    if (!area || !host) return;
+    let frame = 0;
+    const position = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        node.style.marginLeft = '0px';
+        node.style.maxWidth = `${area.clientWidth}px`;
+        const bounds = area.getBoundingClientRect();
+        const controls = node.getBoundingClientRect();
+        const shift = Math.max(bounds.left - controls.left, Math.min(0, bounds.right - controls.right));
+        node.style.marginLeft = `${shift}px`;
+      });
+    };
+    const resize = new ResizeObserver(position);
+    const mutation = new MutationObserver(position);
+    // The shape moves via inline styles; canvas resize and scrolling also move its toolbar.
+    for (let ancestor: HTMLElement | null = host; ancestor; ancestor = ancestor.parentElement) {
+      resize.observe(ancestor);
+      mutation.observe(ancestor, { attributes: true, attributeFilter: ['style'] });
+      if (ancestor === area) break;
+    }
+    area.addEventListener('scroll', position);
+    position();
+    return { destroy() {
+      cancelAnimationFrame(frame);
+      resize.disconnect();
+      mutation.disconnect();
+      area.removeEventListener('scroll', position);
+    } };
+  }
   function bookmarkSeek(index: number) {
     const bookmark = bookmarks[index];
     if (!bookmark) return;
@@ -96,12 +129,6 @@
     applyVolume();
     if (!player.paused && trimEnd > trimStart && player.currentTime >= trimEnd) finishPlay();
   }
-  function volumeChange(value: number) {
-    if (!player) return;
-    player.muted = false;
-    player.volume = value;
-    editor.doc.transact(t('Volume'), () => setShapeMediaPlayback(shape, { volume: value, muted: false }));
-  }
   function toggleMute() {
     const muted = !playback.muted;
     if (player) player.muted = muted;
@@ -128,20 +155,19 @@
   {:else}
     <audio bind:this={player} src={src} preload="metadata" onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></audio>
   {/if}
-  <div class="controls" aria-label={t('Media controls')}>
-    <button type="button" aria-label={preview.state.playing ? t('Pause') : t('Play')} onclick={togglePlay}>{preview.state.playing ? '❚❚' : '▶'}</button>
-    <div class="seekbar">
+  <div class="controls" use:positionControls aria-label={t('Media controls')}>
+    <button type="button" aria-label={preview.state.playing ? t('Pause') : t('Play')} onclick={togglePlay}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">{#if preview.state.playing}<path fill="currentColor" d="M5 3h5v18H5zm9 0h5v18h-5z" />{:else}<path fill="currentColor" d="M5 2v20l16-10z" />{/if}</svg></button>
+    <div class="seekbar" style={`--played:${trimEnd > trimStart ? Math.min(100, Math.max(0, (preview.state.currentTime - trimStart) / (trimEnd - trimStart) * 100)) : 0}%`}>
       <input aria-label={t('Media position')} type="range" min={trimStart} max={trimEnd || 0} step="any" value={preview.state.shapeId === shapeId ? preview.state.currentTime : trimStart} oninput={event => seek(event.currentTarget.valueAsNumber)} />
       {#each bookmarks as bookmark, index}
         {@const markerTime = Math.min(trimEnd, Math.max(trimStart, bookmark.timeMs / 1000))}
         <button type="button" class:selected={selectedBookmark === index} class="bookmark" aria-label={bookmark.name} title={bookmark.name} style={`left:${trimEnd > trimStart ? ((markerTime - trimStart) / (trimEnd - trimStart)) * 100 : 0}%`} onclick={() => bookmarkSeek(index)}>●</button>
       {/each}
     </div>
-    <button type="button" aria-label={t('Back')} onclick={() => step(-seekStepSeconds)}>◀|</button>
-    <button type="button" aria-label={t('Forward')} onclick={() => step(seekStepSeconds)}>|▶</button>
+    <button type="button" aria-label={t('Back')} onclick={() => step(-seekStepSeconds)}><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M17 5h2v14h-2zM15 5v14L4 12z" /></svg></button>
+    <button type="button" aria-label={t('Forward')} onclick={() => step(seekStepSeconds)}><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M4 5h2v14H4zm3 0v14l11-7z" /></svg></button>
     <span class="time">{time(preview.state.shapeId === shapeId ? preview.state.currentTime : 0)}</span>
-    <button type="button" aria-label={t(playback.muted ? 'Unmute' : 'Mute')} onclick={toggleMute}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 9h4l5-4v14l-5-4H3z" />{#if playback.muted}<path d="m16 9 5 6m0-6-5 6" fill="none" stroke="currentColor" stroke-width="1.6" />{:else}<path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="1.6" />{/if}</svg></button>
-    <input class="volume" aria-label={t('Volume')} type="range" min="0" max="1" step="0.01" value={playback.muted ? 0 : playback.volume} oninput={event => volumeChange(event.currentTarget.valueAsNumber)} />
+    <button type="button" class:muted={playback.muted} aria-label={t(playback.muted ? 'Unmute' : 'Mute')} onclick={toggleMute}><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M3 9h4l5-4v14l-5-4H3z" /><path d="M15 8a6 6 0 0 1 0 8m3-11a10 10 0 0 1 0 14" fill="none" stroke="currentColor" stroke-width="1.6" /></svg></button>
   </div>
   {#if preview.state.error}<span class="error" role="alert">{preview.state.error}</span>{/if}
 </div>
@@ -150,16 +176,17 @@
   .media-preview { position:absolute; inset:0; pointer-events:none; }
   video { width:100%; height:100%; object-fit:contain; pointer-events:none; }
   audio { display:none; }
-  .controls { position:absolute; left:0; right:0; bottom:-30px; height:25px; display:flex; align-items:center; gap:4px; padding:2px 5px; min-width:280px; background:linear-gradient(#fff, #eff0f2); color:#303030; border:1px solid #c8c9cc; border-radius:4px; box-shadow:0 1px 2px #0001; pointer-events:auto; font-size:11px; }
+  .controls { position:absolute; left:50%; width:max(100%, 380px); transform:translateX(-50%); bottom:-42px; height:38px; box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:4px 8px; background:linear-gradient(#fff, #eff0f2); color:#303030; border:1px solid #c8c9cc; border-radius:4px; box-shadow:0 1px 2px #0001; pointer-events:auto; font-size:12px; }
   .controls button { display:flex; align-items:center; justify-content:center; flex-shrink:0; color:inherit; background:transparent; border:0; padding:1px 3px; cursor:pointer; }
   .controls button:disabled { opacity:.4; cursor:default; }
-  .controls input[type=range] { accent-color:#777; }
+  .controls button.muted { color:#efc451; }
   .controls button:focus-visible { outline:2px solid #376cb5; outline-offset:1px; }
   .seekbar { position:relative; flex:1; min-width:40px; display:flex; align-items:center; }
-  .seekbar input[type=range] { width:100%; }
-  .volume { width:48px; }
-  .time { min-width:42px; font-variant-numeric:tabular-nums; }
+  .seekbar input[type=range] { appearance:none; width:100%; height:28px; margin:0; border:1px solid #bfc0c3; border-radius:0; background:linear-gradient(to right, #c2c0c0 0 var(--played), #f8f9fa var(--played) 100%); cursor:pointer; }
+  .seekbar input[type=range]::-webkit-slider-thumb { appearance:none; width:1px; height:26px; background:#999; }
+  .seekbar input[type=range]::-moz-range-thumb { width:1px; height:26px; border:0; border-radius:0; background:#999; }
+  .time { min-width:48px; font-variant-numeric:tabular-nums; }
   .bookmark { position:absolute; top:50%; transform:translate(-50%, -50%); color:white !important; text-shadow:0 0 2px #333; font-size:10px; }
   .bookmark.selected { color:#f3c546 !important; }
-  .error { position:absolute; right:4px; bottom:-48px; color:#b42318; background:white; padding:2px 4px; }
+  .error { position:absolute; right:4px; bottom:-60px; color:#b42318; background:white; padding:2px 4px; }
 </style>
