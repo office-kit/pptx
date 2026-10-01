@@ -190,7 +190,7 @@ test(
       );
       const detail = editor.getByRole('tabpanel', { name: 'Video', exact: true });
       const brightness = detail.getByRole('spinbutton', { name: 'Brightness', exact: true });
-      await detail.getByRole('button', { name: 'Presets', exact: true }).click();
+      await detail.getByRole('button', { name: 'Corrections presets', exact: true }).click();
       assert.equal(
         await editor
           .getByRole('menu', { name: 'Corrections', exact: true })
@@ -240,7 +240,7 @@ test(
       for (const field of [
         brightness,
         contrast,
-        detail.getByRole('button', { name: 'Presets', exact: true }),
+        detail.getByRole('button', { name: 'Corrections presets', exact: true }),
       ]) {
         const bounds = await field.boundingBox();
         assert.ok(

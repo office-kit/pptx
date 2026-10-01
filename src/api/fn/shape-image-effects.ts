@@ -1,5 +1,10 @@
 import { readImageCrop } from './_image-crop.ts';
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
+import { type Color, buildColorElement } from '../../internal/drawingml/index.ts';
+import {
+  buildColorTransforms,
+  type ColorTransform,
+} from '../../internal/drawingml/color-transforms.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
 
@@ -42,6 +47,25 @@ import {
   shapesOverlap,
 } from './shapes.ts';
 import { getSlideSize } from './features.ts';
+
+/** A color used by a two-color image recolor, with optional DrawingML transforms. */
+export type ImageRecolorColor =
+  | Color
+  | {
+      readonly color: Color;
+      readonly colorTransforms?: readonly ColorTransform[];
+    };
+
+/**
+ * A PowerPoint image recolor operation. Threshold is expressed as a percent
+ * (0..100), matching `getShapeImageBiLevelThreshold` and PowerPoint's UI.
+ */
+export type ImageRecolor =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'grayscale' }
+  | { readonly kind: 'duotone'; readonly colors: readonly [ImageRecolorColor, ImageRecolorColor] }
+  | { readonly kind: 'threshold'; readonly threshold: number }
+  | { readonly kind: 'washout' };
 
 // ---------------------------------------------------------------------------
 // Picture opacity — `<a:alphaModFix>` inside the picture's `<a:blip>`.
@@ -603,6 +627,26 @@ export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
 // its ribbon Reset also clears shape formatting, which this operation preserves.
 const IMAGE_COLOR_EFFECT_NAMES = new Set(['grayscl', 'duotone', 'biLevel', 'lum']);
 
+const removeImageColorEffects = (blip: XmlElement): void => {
+  blip.children = blip.children.filter(
+    (child) =>
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.dml ||
+      !IMAGE_COLOR_EFFECT_NAMES.has(child.name.localName),
+  );
+};
+
+const appendImageColorEffect = (blip: XmlElement, effect: XmlElement): void => {
+  const extensionIndex = blip.children.findIndex(
+    (child) =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'extLst',
+  );
+  if (extensionIndex === -1) blip.children.push(effect);
+  else blip.children.splice(extensionIndex, 0, effect);
+};
+
 /**
  * Clears PowerPoint's image color corrections from a picture or image fill.
  * This removes grayscale (`grayscl`), duotone, bi-level recolor, and
@@ -614,12 +658,58 @@ export const resetShapeImageColorEffects = (shape: SlideShapeData): void => {
   if (!blip) {
     throw new Error('resetShapeImageColorEffects requires a picture or a shape with an image fill');
   }
-  blip.children = blip.children.filter(
-    (child) =>
-      child.kind !== 'element' ||
-      child.name.namespaceURI !== NS.dml ||
-      !IMAGE_COLOR_EFFECT_NAMES.has(child.name.localName),
-  );
+  removeImageColorEffects(blip);
+  commitAndRefresh(shape);
+};
+
+const makeImageRecolorColor = (value: ImageRecolorColor): XmlElement => {
+  const color =
+    typeof value === 'string' ? buildColorElement(value) : buildColorElement(value.color);
+  if (typeof value !== 'string' && value.colorTransforms !== undefined) {
+    color.children = buildColorTransforms(value.colorTransforms);
+  }
+  return color;
+};
+
+/**
+ * Applies a PowerPoint image recolor to a picture or image-filled shape.
+ * `none` removes the recolor while preserving opacity, media references, and
+ * unrelated DrawingML effects. Threshold is a percentage from 0 to 100.
+ */
+export const setShapeImageRecolor = (shape: SlideShapeData, recolor: ImageRecolor): void => {
+  const blip = getImageOpacityBlip(shape);
+  if (!blip)
+    throw new Error('setShapeImageRecolor requires a picture or a shape with an image fill');
+
+  if (recolor.kind === 'threshold') {
+    if (!Number.isFinite(recolor.threshold) || recolor.threshold < 0 || recolor.threshold > 100) {
+      throw new RangeError(`image recolor threshold must be in [0, 100], got ${recolor.threshold}`);
+    }
+  }
+
+  // Build the replacement before touching the live tree. Invalid colors or
+  // transforms must leave an existing correction intact.
+  let replacement: XmlElement | null = null;
+  if (recolor.kind === 'grayscale') {
+    replacement = elem(qname('a', 'grayscl', NS.dml));
+  } else if (recolor.kind === 'threshold') {
+    replacement = elem(qname('a', 'biLevel', NS.dml), {
+      attrs: [attr(qname('', 'thresh', ''), String(Math.round(recolor.threshold * 1000)))],
+    });
+  } else if (recolor.kind === 'duotone') {
+    replacement = elem(qname('a', 'duotone', NS.dml), {
+      children: recolor.colors.map(makeImageRecolorColor),
+    });
+  } else if (recolor.kind === 'washout') {
+    // PowerPoint's native Washout preset is a luminance correction, not a
+    // duotone: bright=70000 and contrast=-70000 in the blip effect.
+    replacement = elem(qname('a', 'lum', NS.dml), {
+      attrs: [attr(qname('', 'bright', ''), '70000'), attr(qname('', 'contrast', ''), '-70000')],
+    });
+  }
+
+  removeImageColorEffects(blip);
+  if (replacement !== null) appendImageColorEffect(blip, replacement);
   commitAndRefresh(shape);
 };
 

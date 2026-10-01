@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getShapeImageBrightness, getShapeImageContrast, getShapeId, setShapeMediaPlayback, type MediaPlayback, type ShapeMedia, type SlideShapeData } from '@office-kit/pptx';
+  import { getShapeImageBrightness, getShapeImageContrast, getShapeImageDuotone, getShapeImageBiLevelThreshold, isShapeImageGrayscale, getShapeId, setShapeMediaPlayback, type MediaPlayback, type ShapeMedia, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import { getMediaPreview } from '../core/media-preview.svelte.ts';
@@ -12,12 +12,26 @@
   const shapeId = $derived(getShapeId(shape));
   const componentId = $props.id();
   const correctionId = `${componentId}-correction`;
+  const luminanceMatrix = '0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0';
   const correction = $derived.by(() => {
     editor.doc.version;
     const brightness = getShapeImageBrightness(shape) ?? 0;
     const contrast = getShapeImageContrast(shape) ?? 0;
-    // Match the poster SVG transfer function while the HTML video paints over it.
-    return { active: brightness !== 0 || contrast !== 0, slope: 1 + contrast, intercept: brightness - contrast / 2 };
+    const grayscale = isShapeImageGrayscale(shape);
+    const threshold = getShapeImageBiLevelThreshold(shape);
+    const duotone = getShapeImageDuotone(editor.doc.pres, shape);
+    const firstColor = duotone?.firstColor;
+    const secondColor = duotone?.secondColor;
+    const channels = firstColor && secondColor
+      ? [0, 1, 2].map(channel => {
+        const first = parseInt(firstColor.slice(1 + channel * 2, 3 + channel * 2), 16) / 255;
+        const second = parseInt(secondColor.slice(1 + channel * 2, 3 + channel * 2), 16) / 255;
+        return `${first} ${second}`;
+      }) : null;
+    // Keep the live clip's filter pipeline aligned with the poster renderer.
+    return { active: brightness !== 0 || contrast !== 0 || grayscale || threshold !== null || channels !== null,
+      slope: 1 + contrast, intercept: brightness - contrast / 2, grayscale, threshold, channels };
+
   });
   const bookmarks = $derived([...(playback.bookmarks ?? [])].sort((a, b) => a.timeMs - b.timeMs));
   const selectedBookmark = $derived(preview.state.shapeId === shapeId ? preview.state.bookmarkIndex : null);
@@ -174,6 +188,28 @@
           <feFuncG type="linear" slope={correction.slope} intercept={correction.intercept} />
           <feFuncB type="linear" slope={correction.slope} intercept={correction.intercept} />
         </feComponentTransfer>
+        {#if correction.grayscale}<feColorMatrix type="matrix" values={luminanceMatrix} />{/if}
+        {#if correction.channels}
+          <feColorMatrix type="matrix" values={luminanceMatrix} />
+          <feComponentTransfer>
+            <feFuncR type="table" tableValues={correction.channels[0]} />
+            <feFuncG type="table" tableValues={correction.channels[1]} />
+            <feFuncB type="table" tableValues={correction.channels[2]} />
+          </feComponentTransfer>
+        {/if}
+        {#if correction.threshold !== null}
+          <feColorMatrix type="matrix" values={luminanceMatrix} />
+          <feComponentTransfer>
+            <feFuncR type="linear" slope="1" intercept={0.5 - correction.threshold / 100} />
+            <feFuncG type="linear" slope="1" intercept={0.5 - correction.threshold / 100} />
+            <feFuncB type="linear" slope="1" intercept={0.5 - correction.threshold / 100} />
+          </feComponentTransfer>
+          <feComponentTransfer>
+            <feFuncR type="discrete" tableValues="0 1" />
+            <feFuncG type="discrete" tableValues="0 1" />
+            <feFuncB type="discrete" tableValues="0 1" />
+          </feComponentTransfer>
+        {/if}
       </filter></defs>
     </svg>
     <!-- svelte-ignore a11y_media_has_caption -->

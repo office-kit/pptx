@@ -85,6 +85,7 @@ export type {
 } from './fn.ts';
 export type { ImageFillLayout, ImageTileAlignment, ImageTileFlip } from './fn.ts';
 export type { ImageCrop } from './fn.ts';
+export type { ImageRecolor, ImageRecolorColor } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type {
   AudioFormat,
@@ -557,6 +558,7 @@ export {
   setShapeImageFill,
   setShapeImageFillLayout,
   setShapeImageOpacity,
+  setShapeImageRecolor,
   resetShapeImageColorEffects,
   setShapeClickAction,
   setShapeDescription,
