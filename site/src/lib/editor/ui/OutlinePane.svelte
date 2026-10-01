@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import { getCollapsedOutlineSlides, setSlideOutlineCollapsed } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { outlineShapes } from '../core/outline.ts';
   import { selectedSlideIndices } from '../core/selection.ts';
@@ -8,8 +9,13 @@
   const editor = getEditor();
   const doc = editor.doc;
   const selected = $derived(selectedSlideIndices(doc.selection));
-  const entries = $derived.by(() => { doc.version; return doc.slides.map(outlineShapes); });
+  const entries = $derived.by(() => { doc.version; const collapsed = new Set(getCollapsedOutlineSlides(doc.pres)); return doc.slides.map(slide => ({shapes: outlineShapes(slide), collapsed: collapsed.has(slide)})); });
   let pane: HTMLElement;
+  function toggleCollapse(index: number) {
+    const slide = doc.slideAt(index)!;
+    const collapsed = entries[index].collapsed;
+    doc.transact(t(collapsed ? 'Expand' : 'Collapse'), () => setSlideOutlineCollapsed(slide, !collapsed));
+  }
   async function keys(event: KeyboardEvent, index: number) {
     if (event.isComposing) return;
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown' || event.key === 'Home' || event.key === 'End') {
@@ -26,11 +32,11 @@
 
 <nav class="outline-pane" bind:this={pane} aria-label={t('Outline View')}>
   {#key doc.pres}
-    {#each entries as shapes, index (doc.slides[index])}
+    {#each entries as entry, index (doc.slides[index])}
       <div class="outline-slide" data-outline-slide={index}>
-        <button class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} onclick={event => doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey })} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (!selected.includes(index)) doc.selectSlide(index); editor.openContextMenu(event.clientX, event.clientY); }}><span>{index + 1}</span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="13" /></svg></button>
+        <button class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} aria-expanded={!entry.collapsed} ondblclick={() => toggleCollapse(index)} onclick={event => doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey })} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (!selected.includes(index)) doc.selectSlide(index); editor.openContextMenu(event.clientX, event.clientY); }}><span>{index + 1}</span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="13" /></svg></button>
         <div class="text">
-          {#each shapes as shape (shape.id)}<OutlineText slideIndex={index} shapeId={shape.id} title={shape.title} />{/each}
+          {#each entry.shapes as shape (shape.id)}{#if shape.title || !entry.collapsed}<OutlineText slideIndex={index} shapeId={shape.id} title={shape.title} />{/if}{/each}
         </div>
       </div>
     {/each}

@@ -280,7 +280,7 @@ export const addSlide = (
 
 /**
  * Drops relationships in other parts that point at `removed`, and the
- * `<a:hlinkClick>` / `<a:hlinkHover>` elements that carried them.
+ * hyperlink elements and outline entries that carried them.
  *
  * A slide-jump click action stores a `slide` relationship on the *referring*
  * slide. Removing the target leaves that relationship pointing at a deleted
@@ -310,23 +310,28 @@ const dropRelsPointingAtSlide = (pkg: OpcPackage, removed: PartName): void => {
     pkg.setRels(part.name, rels);
 
     const doc = parseXml(decode(part.data));
-    stripHlinksWithRelId(doc.root, dangling);
+    stripSlideReferences(doc.root, dangling);
     part.data = encode(serializeXml(doc));
   }
 };
 
-/** Removes every `<a:hlinkClick>` / `<a:hlinkHover>` whose `r:id` is in `relIds`. */
-const stripHlinksWithRelId = (element: XmlElement, relIds: ReadonlySet<string>): void => {
+/** Removes hyperlinks and outline entries that refer to deleted slides. */
+const stripSlideReferences = (element: XmlElement, relIds: ReadonlySet<string>): void => {
   element.children = element.children.filter((child) => {
     if (child.kind !== 'element') return true;
     const isHlink =
       child.name.namespaceURI === NS.dml &&
       (child.name.localName === 'hlinkClick' || child.name.localName === 'hlinkHover');
-    if (!isHlink) return true;
+    const isOutlineEntry =
+      element.name.namespaceURI === NS.pml &&
+      element.name.localName === 'sldLst' &&
+      child.name.namespaceURI === NS.pml &&
+      child.name.localName === 'sld';
+    if (!isHlink && !isOutlineEntry) return true;
     const rId = getAttrValue(child, ATTR_R_ID);
     return rId === null || !relIds.has(rId);
   });
-  for (const child of childElements(element)) stripHlinksWithRelId(child, relIds);
+  for (const child of childElements(element)) stripSlideReferences(child, relIds);
 };
 
 /**

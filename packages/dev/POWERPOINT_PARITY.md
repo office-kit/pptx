@@ -613,3 +613,16 @@ clears the original body. Bilingual regression tests reproduce the prior failure
 and verify body movement, run formatting, Undo and saved reloads. The native
 comparison used `/private/tmp/pptx-outline-audit/body.pptx`; the temporary text
 edit was undone.
+
+## Outline collapse (2026-10-01)
+
+Double-clicking a native outline slide icon collapses its body; Undo restores it.
+PowerPoint persists the state in `outlineViewPr/sldLst` with slide relationships
+in `viewProps.xml.rels`. The temporary collapse was undone and saved.
+
+The editor now matches this gesture, persists each slide's state in that same
+OOXML representation, and supports Undo. Bilingual browser tests check collapse,
+Undo, saved reload and expansion; schema-validated round-trip tests check slide
+identity and preservation of grid settings. Removing a slide also removes its
+outline entry, preventing dangling references. This does not implement the full
+outline context menu, hierarchy editing or cross-slide text selection.

@@ -692,4 +692,6 @@ export {
   getSnapToGrid,
   setSnapToGrid,
   type DrawingGuide,
+  getCollapsedOutlineSlides,
+  setSlideOutlineCollapsed,
 } from './fn/guides.ts';

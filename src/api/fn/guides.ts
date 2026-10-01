@@ -12,8 +12,14 @@ import {
   qname,
   serializeXml,
 } from '../../internal/xml/index.ts';
-import { INTERNAL_PACKAGE, type PresentationData } from '../_internal-symbols.ts';
+import {
+  INTERNAL_PACKAGE,
+  SLIDE_PART_NAME,
+  type SlideData,
+  type PresentationData,
+} from '../_internal-symbols.ts';
 import { PRES_PART_NAME, decode, encode } from './_helpers.ts';
+import { getSlides } from './slide-query.ts';
 
 /** A presentation-level drawing guide. Position is in EMU from the left/top edge. */
 export interface DrawingGuide {
@@ -37,7 +43,7 @@ function list(root: XmlElement) {
     extensions && allChildElements(extensions, p('ext')).find((node) => value(node, 'uri') === uri);
   return extension ? firstChildElement(extension, p15('sldGuideLst')) : null;
 }
-function viewProperties(presentation: PresentationData) {
+function viewProperties(presentation: PresentationData | SlideData) {
   const pkg = presentation[INTERNAL_PACKAGE];
   const rel = pkg
     .getRels(PRES_PART_NAME)
@@ -274,7 +280,7 @@ export const setGridSpacing = (
 };
 
 function updateViewProperties(
-  presentation: PresentationData,
+  presentation: PresentationData | SlideData,
   update: (root: XmlElement, common: XmlElement) => void,
 ): void {
   const pkg = presentation[INTERNAL_PACKAGE];
@@ -341,3 +347,98 @@ function updateViewProperties(
     }
   }
 }
+
+/** Slides whose bodies are collapsed in PowerPoint's outline view, in deck order. */
+export function getCollapsedOutlineSlides(presentation: PresentationData): readonly SlideData[] {
+  const view = viewProperties(presentation);
+  const outline = view && firstChildElement(view.doc.root, p('outlineViewPr'));
+  const slides = outline && firstChildElement(outline, p('sldLst'));
+  if (!view || !slides) return [];
+  const rels = presentation[INTERNAL_PACKAGE].getRels(view.part.name);
+  const targets = new Map(
+    rels?.items
+      .filter((rel) => rel.type === REL_TYPES.slide && rel.targetMode === 'Internal')
+      .map((rel) => [rel.id, resolveTarget(view.part.name, rel.target)]),
+  );
+  const collapsed = new Set(
+    allChildElements(slides, p('sld'))
+      .filter((node) => ['1', 'true'].includes(value(node, 'collapse') ?? ''))
+      .map((node) => targets.get(getAttrValue(node, qname('r', 'id', NS.officeDocRels)) ?? '')),
+  );
+  return getSlides(presentation).filter((slide) => collapsed.has(slide[SLIDE_PART_NAME]));
+}
+
+/** Persists outline collapse and retains other view settings. */
+export const setSlideOutlineCollapsed = (slide: SlideData, collapsed: boolean): void => {
+  if (typeof collapsed !== 'boolean') throw new Error('Invalid outline collapse state.');
+  updateViewProperties(slide, () => {});
+  const view = viewProperties(slide)!;
+  const pkg = slide[INTERNAL_PACKAGE];
+  const rels = pkg.getRels(view.part.name) ?? { items: [] };
+  let rel = rels.items.find(
+    (rel) =>
+      rel.type === REL_TYPES.slide &&
+      rel.targetMode === 'Internal' &&
+      resolveTarget(view.part.name, rel.target) === slide[SLIDE_PART_NAME],
+  );
+  if (!rel) {
+    rel = {
+      id: nextRelId(rels.items.map((rel) => rel.id)),
+      type: REL_TYPES.slide,
+      target: slide[SLIDE_PART_NAME],
+      targetMode: 'Internal',
+    };
+    rels.items.push(rel);
+  }
+  let outline = firstChildElement(view.doc.root, p('outlineViewPr'));
+  if (!outline) {
+    outline = elem(p('outlineViewPr'), {
+      children: [
+        elem(p('cViewPr'), {
+          children: [
+            elem(p('scale'), {
+              children: ['sx', 'sy'].map((name) =>
+                elem(a(name), {
+                  attrs: [attr(attribute('n'), '100'), attr(attribute('d'), '100')],
+                }),
+              ),
+            }),
+            elem(p('origin'), { attrs: [attr(attribute('x'), '0'), attr(attribute('y'), '0')] }),
+          ],
+        }),
+      ],
+    });
+    const after = view.doc.root.children.findIndex(
+      (node) =>
+        node.kind === 'element' &&
+        node.name.namespaceURI === NS.pml &&
+        !['normalViewPr', 'slideViewPr'].includes(node.name.localName),
+    );
+    view.doc.root.children.splice(after < 0 ? view.doc.root.children.length : after, 0, outline);
+  }
+  let slides = firstChildElement(outline, p('sldLst'));
+  if (!slides) {
+    slides = elem(p('sldLst'));
+    const extension = outline.children.findIndex(
+      (node) =>
+        node.kind === 'element' &&
+        node.name.localName === 'extLst' &&
+        node.name.namespaceURI === NS.pml,
+    );
+    outline.children.splice(extension < 0 ? outline.children.length : extension, 0, slides);
+  }
+  let node = allChildElements(slides, p('sld')).find(
+    (node) => getAttrValue(node, qname('r', 'id', NS.officeDocRels)) === rel.id,
+  );
+  if (!node) {
+    node = elem(p('sld'), { attrs: [attr(qname('r', 'id', NS.officeDocRels), rel.id)] });
+    slides.children.push(node);
+  }
+  node.attrs = node.attrs.filter(
+    (item) => item.name.namespaceURI !== '' || item.name.localName !== 'collapse',
+  );
+  node.attrs.push(attr(attribute('collapse'), collapsed ? '1' : '0'));
+  view.doc.root.prefixDecls.set('r', NS.officeDocRels);
+  view.part.data = encode(serializeXml(view.doc));
+  pkg.setRels(view.part.name, rels);
+};

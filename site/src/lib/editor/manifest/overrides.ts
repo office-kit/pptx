@@ -449,6 +449,14 @@ const handOverrides: Record<string, CapabilityOverride> = {
     params: [],
   },
   moveSlide: { labelEn: 'Move slide', labelJa: 'スライドの移動', ribbonGroup: 'slides' },
+  setSlideOutlineCollapsed: {
+    labelEn: 'Collapse outline',
+    labelJa: 'アウトラインの折りたたみ',
+    ribbonGroup: 'slides',
+    params: [
+      { name: 'collapsed', type: 'boolean', kind: 'boolean', optional: false, label: 'Collapsed' },
+    ],
+  },
   setSlideHidden: {
     labelEn: 'Hide slide',
     labelJa: 'スライドを非表示',

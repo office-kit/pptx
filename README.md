@@ -650,6 +650,18 @@ shown together.
 | Validation           | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                                                                                                                                                                                                                                                                                                                              |
 | Units                | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                                                                                                                                                                                                                                                                                                                           |
 
+### Outline view state
+
+`getCollapsedOutlineSlides(presentation)` returns collapsed slides in deck order.
+Use `setSlideOutlineCollapsed(slide, true)` to hide a slide's body in PowerPoint's
+outline view, or `false` to expand it. The setting survives a save/load round trip
+without changing the slide's text:
+
+```ts
+setSlideOutlineCollapsed(getSlides(presentation)[0]!, true);
+const collapsedSlides = getCollapsedOutlineSlides(presentation);
+```
+
 ### Ordered shape batches
 
 `setShapeZIndex(shape, index)` moves one object among its siblings. Pass an array
