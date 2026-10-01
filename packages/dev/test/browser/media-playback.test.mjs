@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import { compile, Media, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
 import {
   getSlideShapes,
+  getShapeId,
   getSlides,
   savePresentation,
   setShapeMediaPlayback,
@@ -166,6 +167,136 @@ test(
       assert.equal(await manualAudio.evaluate((element) => element.paused), true);
       assert.equal(await manualAudio.evaluate((element) => element.dataset.playCalls), '1');
       assert.equal(await oldAudio.evaluate((element) => element.paused), true);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'audio continues across its configured slides without mixing same-id media',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-media-across-'));
+    let preview;
+    let browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: [
+            Slide({
+              children: Media({ kind: 'audio', data: wav(15000), x: 1, y: 1, width: 3, height: 1 }),
+            }),
+            Slide({
+              children: Media({ kind: 'audio', data: wav(15000), x: 1, y: 1, width: 3, height: 1 }),
+            }),
+            Slide({ children: Text({ x: 1, y: 1, width: 5, height: 1, children: 'Third' }) }),
+          ],
+        }),
+      );
+      const slides = getSlides(deck);
+      assert.equal(
+        getShapeId(getSlideShapes(slides[0])[0]),
+        getShapeId(getSlideShapes(slides[1])[0]),
+      );
+      setShapeMediaPlayback(getSlideShapes(slides[0])[0], {
+        autoplay: true,
+        slideCount: 2,
+        muted: true,
+      });
+      setShapeMediaPlayback(getSlideShapes(slides[1])[0], { autoplay: false, muted: true });
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.waitForFunction(() => state.slides.length === 3);
+      const popup = page.waitForEvent('popup');
+      await page.getByRole('button', { name: 'Presenter view', exact: true }).click();
+      const presenter = await popup;
+      const first = await page.locator('#slide audio').elementHandle();
+      assert.ok(first);
+      await page.waitForFunction((element) => element.currentTime > 0.1 && !element.paused, first);
+      const firstTime = await first.evaluate((element) => element.currentTime);
+      const firstMediaKey = await page.evaluate(() => mediaPlayerKey);
+      await presenter.getByRole('button', { name: 'Next', exact: true }).click();
+      await page.waitForFunction(() => index === 1);
+      assert.equal(
+        await first.evaluate((element) => element.paused),
+        false,
+        'slide navigation must preserve playing audio',
+      );
+      await page.waitForFunction(({ element, time }) => element.currentTime > time + 0.1, {
+        element: first,
+        time: firstTime,
+      });
+      await presenter.getByText('Slide 2 of 3', { exact: true }).waitFor();
+      const second = page.locator('#slide audio');
+      await second.waitFor({ state: 'attached' });
+      assert.equal(await second.evaluate((element) => element.paused), true);
+      await presenter.getByRole('button', { name: 'Play media', exact: true }).click();
+      await page.waitForFunction(
+        () => document.querySelector('#slide').shadowRoot.querySelector('audio')?.paused === false,
+      );
+      await presenter.evaluate(
+        ({ mediaKey, shapeId }) => {
+          window.opener.postMessage(
+            {
+              type: 'presenter-command',
+              action: 'media',
+              mediaKey,
+              index: { shapeId, action: 'pause' },
+            },
+            location.origin,
+          );
+        },
+        { mediaKey: firstMediaKey, shapeId: getShapeId(getSlideShapes(slides[1])[0]) },
+      );
+      await page.waitForTimeout(100);
+      assert.equal(
+        await second.evaluate((element) => element.paused),
+        false,
+        'stale presenter commands cannot control another slide',
+      );
+      await presenter.getByRole('button', { name: 'Pause media', exact: true }).click();
+      await page.waitForFunction(
+        () => document.querySelector('#slide').shadowRoot.querySelector('audio')?.paused === true,
+      );
+      assert.equal(
+        await first.evaluate((element) => element.paused),
+        false,
+        'presenter commands target only current slide media',
+      );
+      await presenter.getByRole('button', { name: 'Next', exact: true }).click();
+      await page.waitForFunction(() => index === 2);
+      await page.waitForFunction(
+        (element) => element.paused && !element.hasAttribute('src'),
+        first,
+      );
+      await presenter.getByRole('button', { name: 'Previous', exact: true }).click();
+      await page.waitForFunction(() => index === 1);
+      await presenter.getByRole('button', { name: 'Previous', exact: true }).click();
+      await page.waitForFunction(() => index === 0);
+      const restarted = await page.locator('#slide audio').elementHandle();
+      assert.ok(restarted);
+      await page.waitForFunction((element) => !element.paused, restarted);
+      await presenter.getByRole('button', { name: 'Next', exact: true }).click();
+      await page.waitForFunction(() => index === 1);
+      await presenter.getByRole('button', { name: 'Exit presentation', exact: true }).click();
+      await page.waitForFunction(() => !presenting);
+      await page.waitForFunction(
+        (element) => element.paused && !element.hasAttribute('src'),
+        restarted,
+      );
     } finally {
       await browser?.close();
       await preview?.close();
