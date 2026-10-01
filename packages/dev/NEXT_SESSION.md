@@ -137,3 +137,9 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - 実機でタイトルの降格と後続本文のレベル保持を確認。参照 body.pptx は Undo、Normal 120%、1 枚、Undo disabled に復元・保存済み。未復元変更なし。
 - コア 3,068 成功 / 109 skip、site 88 成功、関連ブラウザー英日 6 件成功。Svelte 0 errors / 0 warnings、root 型検査・core/editor build 成功。全 UI・全操作一致は未完成。
 - 次は本文右クリックのクリップボード操作、アウトラインの書式/階層表示、スライド間選択など。過去の未実装記述は本節で更新される。
+
+## 最新追記: アウトラインの右クリックとドラッグ
+
+- 右クリック Cut/Copy/Paste を実装。HTML 書式保持と非同期クリップボード応答中のフォーカス移動を検証。
+- スライドアイコンのドラッグ並べ替えを実装。連続・非連続の複数選択、Undo、保存後の再読込を英日 4 ケースで検証。Mac の追加選択は Command-click。
+- 残件表は POWERPOINT_PARITY.md の冒頭を参照。ドラッグの実機との完全一致やスクロール、本文の視覚的階層・書式表示、スライド間の文字選択などは未完了。

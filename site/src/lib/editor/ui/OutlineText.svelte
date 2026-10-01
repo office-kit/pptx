@@ -77,6 +77,40 @@
     event.preventDefault(); event.stopPropagation();
     replaceSelection(copied.text, copied.formats);
   }
+  async function menuClipboard(action: 'copy' | 'cut' | 'paste') {
+    if (composing) return;
+    const target = input;
+    rememberRange();
+    const selection = { ...range };
+    const version = doc.version;
+    const original = value;
+    // Clipboard permission may resolve after navigation, Undo or another edit.
+    const current = () => target.isConnected && doc.pres === presentation && doc.version === version
+      && target.ownerDocument.activeElement === target && value === original
+      && target.selectionStart === selection.start && target.selectionEnd === selection.end;
+    try {
+      if (action === 'paste') {
+        const items = await navigator.clipboard.read();
+        const item = items.find(item => item.types.includes('text/plain') || item.types.includes('text/html'));
+        if (!item) return;
+        const [plain, html] = await Promise.all(['text/plain', 'text/html'].map(async (mimeType) =>
+          item.types.includes(mimeType) ? (await item.getType(mimeType)).text() : ''));
+        if (!current()) return;
+        const copied = parseHtmlTextClipboard(html!, plain!);
+        replaceSelection(copied?.text ?? plain!, copied?.formats);
+        commit();
+      } else {
+        if (selection.start === selection.end) return;
+        const shape = doc.shapeById(slideIndex, shapeId)!;
+        const copied = copyTextRange(projectTextEdits(shape, changes), selection.start, selection.end);
+        await navigator.clipboard.write([new ClipboardItem({
+          'text/plain': new Blob([copied.text], { type: 'text/plain' }),
+          'text/html': new Blob([textClipboardHtml(copied)], { type: 'text/html' }),
+        })]);
+        if (action === 'cut' && current()) { replaceSelection(''); commit(); }
+      }
+    } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
+  }
   async function changeLevel(promote: boolean) {
     rememberRange(); commit();
     const source = doc.shapeById(slideIndex, shapeId)!;
@@ -112,6 +146,10 @@
     editor.openContextMenu(event.clientX, event.clientY, 'outline', {
       promote: () => { void changeLevel(true); },
       demote: () => { void changeLevel(false); },
+      copy: () => { void menuClipboard('copy'); },
+      cut: () => { void menuClipboard('cut'); },
+      paste: () => { void menuClipboard('paste'); },
+      hasTextSelection: range.start !== range.end,
       canPromote: !title,
       canDemote: !title || slideIndex > 0,
     });

@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Demotion with additional objects or missing body layouts, visual hierarchy/formatting, cross-slide text selection, remaining text menu commands and drag reordering.                             |
+| Outline                  | Demotion with additional objects or missing body layouts, visual hierarchy/formatting, cross-slide text selection, remaining text menu commands and exact native drag gestures.                  |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -715,3 +715,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Native comparison confirmed title demotion preserves following body paragraph levels; the reference `/private/tmp/pptx-outline-audit/body.pptx` was restored to one slide, Normal 120%, with Undo disabled and saved.
 - The canonical `setShapeParagraphs` API accepts `{ sources }` to concatenate paragraphs, retaining fields, formatting and slide relationships.
 - Validation: core 3,068 passed / 109 skipped; editor 88 passed; six English/Japanese browser cases passed (outline editing, clipboard and selection lifecycle). Root types, Svelte and core/editor builds passed. This is targeted validation after the earlier frozen 212-case suite, not a new full-browser pass.
+
+## Outline context clipboard and slide dragging
+
+- The outline text context menu now offers Cut, Copy and Paste. Rich HTML formatting survives menu clipboard operations; Cut changes the document only after a successful clipboard write. Delayed clipboard responses cannot edit a different input, selection or document revision.
+- Slide icons now drag single, contiguous or disjoint selections, show an insertion marker and retain selected slide order. Drops from outside the pane and stale document revisions are ignored. Undo and saved/reloaded order are covered.
+- Four English/Japanese browser cases passed against the ordinary editor build (clipboard and slide movement). Mac multi-selection uses Command-click; Control-click invokes the system context menu. Exact native drag scrolling and placement remain unverified.
