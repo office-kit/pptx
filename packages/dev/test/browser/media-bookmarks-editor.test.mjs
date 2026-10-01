@@ -88,14 +88,14 @@ test(
       await page.goto(preview.url);
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().click();
-      const inline = editor.locator('.media-preview');
+      const inline = editor.locator('[aria-label="Media controls"]');
       assert.deepEqual(
         await inline
           .locator('button')
           .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label'))),
         ['Play', 'Back', 'Forward', 'Mute'],
       );
-      const controlsBox = await inline.locator('.controls').boundingBox();
+      const controlsBox = await inline.boundingBox();
       const canvasBox = await editor.locator('.canvas-area').boundingBox();
       assert.ok(controlsBox.x >= canvasBox.x - 1);
       assert.ok(controlsBox.x + controlsBox.width <= canvasBox.x + canvasBox.width + 1);
@@ -232,7 +232,7 @@ test(
       await page.goto(preview.url);
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.locator('.hit').first().click();
-      const inline = editor.locator('.media-preview');
+      const inline = editor.locator('[aria-label="Media controls"]');
       const audio = editor.locator('audio');
       await audio.waitFor({ state: 'attached' });
       await audio.evaluate(
