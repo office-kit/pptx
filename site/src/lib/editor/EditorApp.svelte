@@ -34,10 +34,12 @@
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
-  let { editor: initialEditor = new EditorController(), onsave, status }: {
+  let { editor: initialEditor = new EditorController(), onsave, status, compactHost = false }: {
     editor?: EditorController;
     onsave?: () => Promise<void>;
     status?: Snippet;
+    /** Reduce chrome when the editor is embedded in the dev preview shell. */
+    compactHost?: boolean;
   } = $props();
   const editor = untrack(() => initialEditor);
   setEditor(editor);
@@ -176,9 +178,8 @@
 
 <svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
-<div class="ok-editor ok-shell" style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
-  <TopBar {onsave} />
-  {#if status}<div class="host-status">{@render status()}</div>{/if}
+<div class="ok-editor ok-shell" class:compact-host={compactHost} style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
+  <TopBar {onsave} {status} compact={compactHost} />
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
   <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
     {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
@@ -239,9 +240,6 @@
   .ok-shell > :global(*) { min-width: 0; }
   @media (max-width: 1100px) {
     .ok-shell { --ok-nav-w: 120px; --ok-panel-w: 230px; }
-  }
-  .ok-shell:has(.host-status) {
-    grid-template-rows: auto auto auto minmax(0, 1fr) auto;
   }
   .slide-workspace { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; min-width: 0; overflow: hidden; }
   .ok-body.thumbnails-hidden { grid-template-columns: minmax(0, 1fr) var(--ok-panel-w); }

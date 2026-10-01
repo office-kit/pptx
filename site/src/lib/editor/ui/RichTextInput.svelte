@@ -115,7 +115,7 @@
 ></div>
 
 <style>
-  .inline-edit { position: absolute; pointer-events: auto; border: 0; background: #fff; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: 1px solid var(--ok-selected-border); }
+  .inline-edit { position: absolute; pointer-events: auto; border: 0; background: transparent; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: 1px solid var(--ok-selected-border); }
 
   .inline-edit.outline { position: static; width: 100%; box-sizing: border-box; min-height: 24px; padding: 0 4px; background: transparent; color: var(--ok-text); font: 13px/24px Arial, sans-serif; outline: none; overflow: visible; }
   .outline :global([data-outline-paragraph]) { position: relative; display: inline-block; box-sizing: border-box; width: 100%; padding-left: calc(10px + var(--outline-level) * 10px); vertical-align: top; }

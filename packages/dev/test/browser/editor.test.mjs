@@ -520,6 +520,18 @@ test(
       await bar.getByRole('button', { name: 'Underline', exact: true }).click();
       await bar.getByRole('textbox', { name: 'Font', exact: true }).fill('Yu Gothic');
       await bar.getByRole('textbox', { name: 'Font', exact: true }).press('Tab');
+      const fontOptions = bar.getByRole('button', { name: 'Font options', exact: true });
+      await fontOptions
+        .evaluate(
+          (node) =>
+            new Promise((resolve) =>
+              requestAnimationFrame(() =>
+                requestAnimationFrame(() => resolve(node === document.activeElement)),
+              ),
+            ),
+        )
+        .then((focused) => assert.equal(focused, true));
+      await fontOptions.press('Tab');
       const sizeInput = bar.getByRole('spinbutton', { name: 'Font size', exact: true });
       await sizeInput
         .evaluate(
@@ -792,6 +804,15 @@ test(
           for (const run of paragraph.elements) assert.equal(run.format?.italic, true);
       assert.notEqual(getTableCellParagraphs(cells[2][0])[0].elements[0].format?.italic, true);
       const fontPanel = editor.getByRole('region', { name: 'Table options', exact: true });
+      await fontPanel.getByRole('button', { name: 'Font options', exact: true }).click();
+      await fontPanel.getByRole('menuitemradio', { name: 'Arial', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      cells = getTableCells(await readTable());
+      for (const cell of cells.slice(0, 2).flat())
+        for (const paragraph of getTableCellParagraphs(cell))
+          for (const run of paragraph.elements) assert.equal(run.format.font, 'Arial');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await fontPanel.getByLabel('Font', { exact: true }).fill('Arial');
       await fontPanel.getByLabel('Font', { exact: true }).press('Tab');
       await fontPanel.getByLabel('Font size', { exact: true }).fill('18.5');

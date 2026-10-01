@@ -2,8 +2,9 @@
   import ViewMenu from './ViewMenu.svelte';
   import { getEditor } from '../core/context.ts';
   import { t, getLocale, setLocale, LOCALES, type Locale } from '../i18n/i18n.svelte.ts';
+  import type { Snippet } from 'svelte';
 
-  let { onsave }: { onsave?: () => Promise<void> } = $props();
+  let { onsave, compact = false, status }: { onsave?: () => Promise<void>; compact?: boolean; status?: Snippet } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   let fileInput = $state<HTMLInputElement>();
@@ -44,7 +45,7 @@
   }
 </script>
 
-<div class="topbar">
+<div class="topbar" class:compact>
   <div class="brand">
     <span class="mark">◈</span>
     <span class="name">@office-kit/pptx</span>
@@ -79,6 +80,8 @@
     </button>
   </div>
 
+  {#if status}<div class="host-status">{@render status()}</div>{/if}
+
   <input
     bind:this={fileInput}
     type="file"
@@ -99,6 +102,20 @@
     background: var(--ok-accent);
     color: #fff;
   }
+  .topbar.compact {
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-height: 32px;
+    padding: 2px 8px;
+    overflow-x: auto;
+  }
+  .topbar.compact:has(:global(.conflict)) { flex-wrap: wrap; overflow-x: hidden; }
+  .topbar.compact .tag { display: none; }
+  .topbar.compact .brand { display: none; }
+  .topbar.compact .quick { flex: none; }
+  .topbar.compact .quick :global(.ok-btn),
+  .topbar.compact .right :global(.palette-btn) { font-size: 11px; padding: 3px 6px; }
+  .topbar.compact .right { flex: none; }
   .brand {
     display: flex;
     align-items: baseline;
@@ -175,5 +192,20 @@
   }
   .right :global(.palette-btn:hover) {
     background: rgba(255, 255, 255, 0.16);
+  }
+  .host-status {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+  .topbar.compact .host-status {
+    display: contents;
+  }
+  .topbar.compact .host-status :global(.save-status) {
+    flex: 0 1 auto;
+    min-height: 24px;
+  }
+  .topbar.compact .host-status :global(.conflict) {
+    flex-basis: 100%;
   }
 </style>
