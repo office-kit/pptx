@@ -200,6 +200,68 @@ test(
 );
 
 test(
+  'outline replacement does not reclaim focus from the ribbon before caret restoration',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-outline-ribbon-focus-'));
+    let preview, browser, page, outline;
+    try {
+      await writeOutlineDeck(dir);
+      ({ preview, browser, page, outline } = await openOutline(dir));
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByRole('tab', { name: 'Home', exact: true }).click();
+      await page.evaluate(() => {
+        const frame = document.querySelector('#editor-frame');
+        if (!(frame instanceof HTMLIFrameElement) || !frame.contentWindow)
+          throw new Error('editor frame is unavailable');
+        const win = frame.contentWindow;
+        const native = win.requestAnimationFrame.bind(win);
+        const queue = [];
+        win.__outlineTestRaf = { native, queue, holding: true };
+        win.requestAnimationFrame = (callback) => {
+          if (!win.__outlineTestRaf.holding) return native(callback);
+          queue.push(callback);
+          return queue.length;
+        };
+      });
+      const title = outline.getByRole('textbox').nth(0);
+      await extendForward(page, title);
+      const before = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.press('Z');
+      await waitForState(preview.url, (state) => state.revision !== before);
+      assert.ok(
+        await page.evaluate(
+          () => document.querySelector('#editor-frame').contentWindow.__outlineTestRaf.queue.length,
+        ),
+      );
+
+      const ribbonControl = editor.getByRole('button', { name: 'Font options', exact: true });
+      await ribbonControl.focus();
+      assert.equal(
+        await ribbonControl.evaluate((node) => node === node.ownerDocument.activeElement),
+        true,
+      );
+
+      await page.evaluate(() => {
+        const win = document.querySelector('#editor-frame').contentWindow;
+        const state = win.__outlineTestRaf;
+        state.holding = false;
+        for (const callback of state.queue.splice(0)) callback(performance.now());
+        win.requestAnimationFrame = state.native;
+      });
+      assert.equal(
+        await ribbonControl.evaluate((node) => node === node.ownerDocument.activeElement),
+        true,
+      );
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
   'outline cross-field selection replaces the range from a paste event',
   { timeout: 60000 },
   async () => {
@@ -396,7 +458,7 @@ test('outline right-click preserves a cross-field range for copy', { timeout: 60
     const title = outline.getByRole('textbox').nth(0);
     const body = outline.getByRole('textbox').nth(1);
     await extendForward(page, title);
-    await body.dispatchEvent('contextmenu', { clientX: 140, clientY: 260 });
+    await body.click({ button: 'right' });
     const editor = page.frameLocator('#editor-frame');
     await editor.getByRole('menuitem', { name: /^Copy/ }).click();
     await page.waitForFunction(
