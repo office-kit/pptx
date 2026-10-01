@@ -89,6 +89,7 @@ export type { ImageFit } from './fn.ts';
 export type {
   AudioFormat,
   MediaFade,
+  MediaBookmark,
   MediaPlayback,
   MediaTrim,
   ShapeMedia,
