@@ -213,6 +213,7 @@ export const RIBBON: readonly RibbonTab[] = [
     ],
   },
   { id: 'view', title: 'View', groups: [] },
+  { id: 'slideShow', title: 'Slide Show', groups: [] },
   {
     id: 'shape',
     title: 'Shape Format',

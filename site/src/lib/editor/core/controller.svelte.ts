@@ -28,6 +28,8 @@ import {
   emu,
   loadPresentation,
   getSlides,
+  getCustomShows,
+  setCustomShows,
   getSlideShapes,
   getSlideSize,
   findShapeById,
@@ -136,6 +138,76 @@ export class EditorController {
   notesVisible = $state(false);
   notesHeight = $state(120);
   notesFocusRequest = $state(0);
+
+  /** Open the Custom Shows manager. The actual sequence edits still flow
+   * through EditorDocument.transact so save/undo treats each gesture as one
+   * PowerPoint-style document edit. */
+  openCustomShows(): void {
+    this.activeDialog = 'customShows';
+  }
+
+  createCustomShow(
+    name: string,
+    slideIndices: readonly number[] = selectedSlideIndices(this.doc.selection),
+  ): void {
+    const slides = slideIndices
+      .map((index) => this.doc.slideAt(index))
+      .filter((slide): slide is NonNullable<typeof slide> => slide !== null);
+    if (!name.trim() || slides.length === 0) return;
+    this.doc.transact(t('Create custom show'), () => {
+      const shows = getCustomShows(this.doc.pres);
+      const id = shows.reduce((max, show) => Math.max(max, show.id), -1) + 1;
+      setCustomShows(this.doc.pres, [...shows, { id, name: name.trim(), slides }]);
+    });
+  }
+
+  updateCustomShow(id: number, name: string, slideIndices: readonly number[]): void {
+    const slides = slideIndices
+      .map((index) => this.doc.slideAt(index))
+      .filter((slide): slide is NonNullable<typeof slide> => slide !== null);
+    if (!name.trim() || slides.length === 0) return;
+    this.doc.transact(t('Edit custom show'), () => {
+      const shows = getCustomShows(this.doc.pres);
+      if (!shows.some((show) => show.id === id)) return;
+      setCustomShows(
+        this.doc.pres,
+        shows.map((show) => (show.id === id ? { id, name: name.trim(), slides } : show)),
+      );
+    });
+  }
+
+  copyCustomShow(id: number): void {
+    this.doc.transact(t('Copy custom show'), () => {
+      const shows = getCustomShows(this.doc.pres);
+      const source = shows.find((show) => show.id === id);
+      if (!source) return;
+      const nextId = shows.reduce((max, show) => Math.max(max, show.id), -1) + 1;
+      setCustomShows(this.doc.pres, [
+        ...shows,
+        { id: nextId, name: `${source.name} Copy`, slides: source.slides },
+      ]);
+    });
+  }
+
+  deleteCustomShow(id: number): void {
+    this.doc.transact(t('Delete custom show'), () => {
+      setCustomShows(
+        this.doc.pres,
+        getCustomShows(this.doc.pres).filter((show) => show.id !== id),
+      );
+    });
+  }
+
+  reorderCustomShow(id: number, direction: -1 | 1): void {
+    this.doc.transact(t('Reorder custom show'), () => {
+      const shows = [...getCustomShows(this.doc.pres)];
+      const index = shows.findIndex((show) => show.id === id);
+      const next = index + direction;
+      if (index < 0 || next < 0 || next >= shows.length) return;
+      [shows[index], shows[next]] = [shows[next]!, shows[index]!];
+      setCustomShows(this.doc.pres, shows);
+    });
+  }
 
   showNotes(): void {
     if (this.viewMode === 'sorter') this.setViewMode('normal');
@@ -309,6 +381,14 @@ export class EditorController {
    * (e.g. a color chosen in the ribbon).
    */
   runOrPrompt(id: string, presetArgs: Record<string, unknown> = {}): void {
+    if (id === 'setSlideShowProperties' && presetArgs.settings === undefined) {
+      this.activeDialog = 'showProperties';
+      return;
+    }
+    if (id === 'setCustomShows' && presetArgs.shows === undefined) {
+      this.openCustomShows();
+      return;
+    }
     if (id === 'setSlideNotes' && presetArgs.value === undefined) {
       this.showNotes();
       return;

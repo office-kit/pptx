@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 188,
+  "count": 190,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1217,6 +1217,23 @@
         {
           "name": "values",
           "type": "Partial<CoreProperties>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setCustomShows",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/custom-shows.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "shows",
+          "type": "readonly CustomShow[]",
           "kind": "object",
           "optional": false
         }
@@ -2873,6 +2890,23 @@
         {
           "name": "sections",
           "type": "ReadonlyArray<{ name: string; slides: ReadonlyArray<SlideData> }>",
+          "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideShowProperties",
+      "operand": "presentation",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/show-properties.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "settings",
+          "type": "SlideShowProperties",
           "kind": "object",
           "optional": false
         }

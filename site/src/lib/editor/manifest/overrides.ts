@@ -911,6 +911,14 @@ const handOverrides: Record<string, CapabilityOverride> = {
 export const overrides: Record<string, CapabilityOverride> = {
   ...generatedOverrides,
   ...handOverrides,
+  setCustomShows: {
+    labelEn: 'Custom Shows',
+    labelJa: 'カスタム ショー',
+  },
+  setSlideShowProperties: {
+    labelEn: 'Set Up Show',
+    labelJa: 'スライド ショーの設定',
+  },
   setParagraphTabs: {
     labelEn: 'Tabs',
     labelJa: 'タブ設定',

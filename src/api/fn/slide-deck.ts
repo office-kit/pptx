@@ -62,6 +62,7 @@ import {
 } from './layouts.ts';
 import { buildSlideData, getSlides, refreshSlideOrder } from './slide-query.ts';
 import { setSlideBody, setSlideTitle } from './embedded.ts';
+import { removeCustomShowSlideReferences } from './custom-shows.ts';
 
 // ---------------------------------------------------------------------------
 // Deck manipulation.
@@ -391,6 +392,10 @@ export const removeSlide = (pres: PresentationData, slide: SlideData): void => {
       return getAttrValue(c, ATTR_R_ID) !== removedRel.id;
     });
   }
+  // A custom show stores slide references in presentation.xml. Keep the
+  // sequence valid when its slide is removed, while retaining the show name
+  // and id for callers that use it as a saved presentation setting.
+  removeCustomShowSlideReferences(presDoc.root, removedRel.id);
   presPart.data = encode(serializeXml(presDoc));
 
   // Remove inbound slide links before their part name or relationship id can be

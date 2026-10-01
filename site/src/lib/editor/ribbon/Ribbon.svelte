@@ -8,6 +8,7 @@
   import { capabilityById } from '../manifest/index.ts';
   import Icon from '../ui/Icon.svelte';
   import ViewRibbon from './ViewRibbon.svelte';
+  import SlideShowRibbon from './SlideShowRibbon.svelte';
   import BackgroundStyles from './BackgroundStyles.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import FontRibbon from './FontRibbon.svelte';
@@ -73,6 +74,7 @@
 
   <div class="groups ok-scroll" id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
     {#if current?.id === 'view'}<ViewRibbon />{/if}
+    {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
       <div class="group">
         <div class="group-items">

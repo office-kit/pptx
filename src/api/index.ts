@@ -165,6 +165,8 @@ export {
   addSlideTable,
   addSlideTextBox,
   addTitleSlide,
+  getCustomShows,
+  setCustomShows,
   appendShapeText,
   appendSlideNotes,
   clearShapeEffects,
@@ -648,6 +650,8 @@ export {
   validatePresentation,
 } from './fn.ts';
 
+export type { CustomShow } from './fn/custom-shows.ts';
+
 export { asColor, toWritableTextFormat } from '../internal/drawingml/index.ts';
 export type {
   BulletStyle,
@@ -682,6 +686,12 @@ export const VERSION =
   typeof __PPTX_KIT_VERSION__ === 'string' ? __PPTX_KIT_VERSION__ : '0.0.0-dev';
 
 // Presentation view settings.
+export {
+  getSlideShowProperties,
+  setSlideShowProperties,
+  type SlideShowProperties,
+} from './fn/show-properties.ts';
+
 export {
   getDrawingGuides,
   setDrawingGuides,

@@ -1,3 +1,31 @@
+## 2026-10-01: スライドショー統合検証
+
+- 旧 c433 ビルドの全ブラウザ検証 session9572 は終了: **244 passed / 0 failed**（`/tmp/pptx-browser-c433.log`）。このセッションを再 poll しない。
+- 最新ソースで core/preview/DSL/dev の依存順 build 成功（`/tmp/pptx-show-integrated-build.log`）。dev 型検査成功、site 0 errors / 0 warnings、site 117 tests passed。
+- Custom Shows は順序・重複を扱う Add/Remove/Up/Down UI と native dialog 化を完了。ブラウザで 3,1,3 の保存後 PPTX、編集・複製・削除・Undo・再読込・日英 UI を検証し成功。
+- 再生統合の重複スライド位置・Home/End・タイマー再始動を追加修正。新規設定画面1件、再生5件、既存presentation/animation/transition15件が成功。compact-editorも日英・900/1500pxで1件成功（`/tmp/pptx-show-compact-final.log`）。Home/Endと非表示端の追加回帰も成功（agent session6327終了）。重複した同一スライドのアニメーション再始動についてはコードを確認したが専用ブラウザー回帰は未追加。
+- PowerPoint 実機は本ターンも画面サイズ 0×0 で取得失敗。操作・変更はしておらず、復元待ちなし。window/kiosk 実動作とナレーション再生は未対応。全 UI/操作の一致は未完成。
+- PR #287 は OPEN、push 先 feat/pptx-editor のまま。直近 push 4ce の CI は Static/Node22/Node26/OOXML 成功、Node24 確認時進行中、既知の Preview fidelity 失敗は継続。ユーザーの元プレビューの編集とソース競合は保持。
+
+## 2026-10-01: スライドショー統合レビュー継続中
+
+- root全テスト3103 passed /109 skipped、format/lint/typecheck成功（`/tmp/pptx-show-core-final.log`、session7701完了）。新規APIのmanifest漏れを修正し、paletteから各専用dialogを開く導線も追加。新コードの共有build/browser検証はまだ未実行。
+- build.tsとserver.tsの`/state`にshowProperties/customShows(slideIndices)を追加。outline_selectionがpage.ts再生統合を担当。初回実装はindexOfで重複スライド位置を失うので差戻し済み、showCursor主体へ修正中。poll時の位置保持、全hidden、同一slide連続時animation再始動も依頼。
+- slide_insertionはCustomShowsDialogをcheckbox方式から順序付きリスト(Add/Remove/Up/Down、重複可能)へ改善中。coreの未知XML保持とMap化も担当。entries.shiftのO(n²)、custShowLst未知子削除を指摘し修正依頼済み。custom-shows browser回帰追加中。
+- outline_selectionのshow-properties-dialog.test.mjsはwaitForStateが/editor/stateを読むのにshowPropertiesを参照する問題を指摘、/state取得に修正依頼。新再生テストは未実行。
+- 全browser旧c433検証session9572は同じ実行のまま生存、slide-numbers付近まで進行し観測失敗なし。完了まで共有distを書き換えない。
+- 本ターンではcommit/pushなし。全コードが作業ツリーにあり、両agent作業も未統合扱い。新機能にwindow/kiosk動作・narration音声制御は未対応とchangesetに明記。完全一致未完了。
+
+## 2026-10-01: スライドショー機能の移植再開（作業中）
+
+- PR #287 の push 済み HEAD は4ce7310d。ローカルHEAD a276af20はアウトライン実装状況の文書更新。作業ツリーにはスライドショー機能の移植途中の変更がある。
+- 旧branchの未統合機能として Custom Shows、Set Up Slide Show、発表中インク操作を確認。旧branchでもこれらの実機比較は未完了で、ブラウザー検証済みと実機一致を混同しない。
+- 親担当: show-properties APIと回帰を移植。表示モード、範囲、ループ、ナレーション、アニメーション、タイミングの保存。対象5件成功、custom-showsと合わせ8件成功、root型検査・対象format/lint成功。xmllintが利用可能で、テスト内のXSD検証も実施。kiosk restartの既定300000はbundled pml.xsdに明記されている。
+- slide_insertion担当: Custom Shows API/編集UI/再生統合。outline_selection担当: ShowPropertiesDialogと導線。両agentと編集範囲を調整済み。まだUIの完成・ビルド・ブラウザー検証・commit/pushは未完了。
+- 同じ全ブラウザー検証session9572は生存中。/tmp/pptx-browser-c433.logはアウトライン付近まで進行、観測時失敗なし。完了まで共有distを上書きしない。この検証対象はc433のビルドであり新しい変更の検証にはならない。
+- 最新CI run36866882930（4ce）: Static/Node22/Node26/OOXML成功、Node24実行中、Preview fidelity失敗。05-preset-shapes slide1の単語折り返し差分は同じ。OfficeのlatinLnBrk既定falseだけでは緊急分割の有無を断定できず、根拠なくbaselineや実装を変えない。
+- PowerPointの画面取得は再度0×0で失敗。Document Controlにも接続セッションなし。実機編集・復元待ちはない。ユーザープレビューの編集とソース競合を保持する。
+
 ## 2026-10-01: 日本語禁則処理の書式境界
 
 - c4335475までPR #287へpush済み。その後、句点だけ太字にすると「甲乙／。」になる回帰を失敗するテストで再現し修正。論理wordをrun横断で分割してから元runへ対応付け、書式・文字サイズを維持。単一runの狭幅時の緊急改行は保持。

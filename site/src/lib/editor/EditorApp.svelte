@@ -29,8 +29,10 @@
   import NewSlideDialog from './ui/NewSlideDialog.svelte';
   import NotesPane from './ui/NotesPane.svelte';
   import TransitionDialog from './ui/TransitionDialog.svelte';
+  import ShowPropertiesDialog from './ui/ShowPropertiesDialog.svelte';
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
+  import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
@@ -213,10 +215,14 @@
       <NewSlideDialog />
     {:else if editor.activeDialog === 'setSlideTransition'}
       <TransitionDialog />
+    {:else if editor.activeDialog === 'showProperties'}
+      <ShowPropertiesDialog />
     {:else if editor.activeDialog === 'setSlideSize'}
       <SlideSizeDialog />
     {:else if editor.activeDialog === 'addSlideTable'}
       <TableDialog />
+    {:else if editor.activeDialog === 'customShows'}
+      <CustomShowsDialog />
     {:else}
       <CommandDialog id={editor.activeDialog} />
     {/if}
