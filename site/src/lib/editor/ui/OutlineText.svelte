@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
-  import { getShapeText, getSlides, getSlideLayout, addSlideAt, setShapeText, findShapeById } from '@office-kit/pptx';
+  import { getShapeText, getSlides, getSlideLayout, addSlideAt, setShapeText, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { outlineShapes } from '../core/outline.ts';
   import { copyTextRange } from '../core/text-clipboard.ts';
@@ -63,6 +63,17 @@
         const next = addSlideAt(doc.pres, index, { layout });
         const placeholders = outlineShapes(next);
         for (const item of placeholders) setShapeText(findShapeById(next, item.id)!, '');
+        // Mac PowerPoint moves the following outline body when Enter splits a title.
+        // Copy whole placeholders so paragraph levels, bullets and links survive.
+        for (const item of placeholders) {
+          if (!item.title) removeShape(findShapeById(next, item.id)!);
+        }
+        for (const item of outlineShapes(slide)) {
+          if (item.title) continue;
+          const body = findShapeById(slide, item.id)!;
+          copyShape(next, body);
+          setShapeText(body, '');
+        }
         const heading = placeholders.find(item => item.title);
         if (heading) replayTextEdits(findShapeById(next, heading.id)!, [{ start: 0, end: 0, text: tail.text, formats: tail.formats }]);
         setShapeText(source, '', { range: { start, end: value.length } });
