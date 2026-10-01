@@ -32,8 +32,8 @@
     if (menu.outlineText) {
       const actions = menu.outlineText;
       list.push(
-        { label: 'Promote', run: actions.promote },
-        { label: 'Demote', run: actions.demote },
+        { label: 'Promote', run: actions.promote, disabled: !actions.canPromote },
+        { label: 'Demote', run: actions.demote, disabled: !actions.canDemote },
       );
     } else if (doc.selection.kind === 'cell') {
       list.push(

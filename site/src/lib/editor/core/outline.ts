@@ -16,6 +16,7 @@ import {
   getSlideShapes,
   getShapeKind,
   isShapePlaceholder,
+  removeSlide,
   type SlideData,
 } from '@office-kit/pptx';
 
@@ -27,6 +28,44 @@ export function outlineShapes(slide: SlideData) {
     if (!['title', 'ctrTitle', 'subTitle', 'body', 'obj'].includes(type)) return [];
     return [{ id: getShapeId(shape), title: type === 'title' || type === 'ctrTitle' }];
   });
+}
+
+/** Mac PowerPoint demotes a slide title into the preceding slide's body. */
+export function demoteOutlineTitle(
+  pres: PresentationData,
+  slide: SlideData,
+): SlideShapeData | null {
+  const slides = getSlides(pres);
+  const index = slides.indexOf(slide);
+  if (index <= 0) return null;
+  const previous = slides[index - 1]!;
+  const previousById = new Map(getSlideShapes(previous).map((shape) => [getShapeId(shape), shape]));
+  const bodySlot = outlineShapes(previous).find((item) => !item.title);
+  if (!bodySlot)
+    throw new Error('Outline demotion requires a body placeholder on the previous slide');
+  const shapes = getSlideShapes(slide);
+  const byId = new Map(shapes.map((shape) => [getShapeId(shape), shape]));
+  const outline = outlineShapes(slide);
+  const ids = new Set(outline.map((item) => item.id));
+  if (
+    shapes.some(
+      (shape) =>
+        !ids.has(getShapeId(shape)) &&
+        !['dt', 'ftr', 'sldNum'].includes(getShapePlaceholderType(shape) ?? ''),
+    )
+  )
+    throw new Error('Outline demotion of slides with additional objects is not supported');
+  const target = previousById.get(bodySlot.id)!;
+  const sources = [
+    ...(getShapeText(target) ? [target] : []),
+    ...outline.filter((item) => item.title).map((item) => byId.get(item.id)!),
+    ...outline
+      .filter((item) => !item.title && getShapeText(byId.get(item.id)!))
+      .map((item) => byId.get(item.id)!),
+  ];
+  setShapeParagraphs(target, { sources });
+  removeSlide(pres, slide);
+  return target;
 }
 
 /** Mac PowerPoint promotes root body paragraphs into separate slide titles. */

@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Title demotion/slide merging, visual paragraph hierarchy and rich formatting, cross-slide text selection, remaining text context menu commands and drag reordering.                              |
+| Outline                  | Demotion with additional objects or missing body layouts, visual hierarchy/formatting, cross-slide text selection, remaining text menu commands and drag reordering.                             |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -707,3 +707,11 @@ Promote/Demote menu remain outstanding; this is not complete outline parity.
 ### Mixed-level promotion verification
 
 Mac PowerPoint promotes a selected root paragraph into a new title and moves a selected nested paragraph to level zero in the new body. Verified with `Second point` / `Third point` in the reference deck; saved XML agrees with the implementation. Restored the reference to one slide, original text and levels, Normal view at 120%, Undo disabled. English/Japanese browser tests also pass for menu-based multiple-root promotion, Undo/Redo and saved text.
+
+## Outline clipboard and title demotion
+
+- Outline copy/cut includes pending text and run formatting; paste accepts the editor clipboard and external HTML. Cut/paste participate in undo and persistence.
+- Title Demote (including Tab) appends the title and following body to the preceding slide body and removes the source slide. The first title is unchanged. Extra non-outline objects and missing destination body placeholders are rejected before mutation, pending native comparison.
+- Native comparison confirmed title demotion preserves following body paragraph levels; the reference `/private/tmp/pptx-outline-audit/body.pptx` was restored to one slide, Normal 120%, with Undo disabled and saved.
+- The canonical `setShapeParagraphs` API accepts `{ sources }` to concatenate paragraphs, retaining fields, formatting and slide relationships.
+- Validation: core 3,068 passed / 109 skipped; editor 88 passed; six English/Japanese browser cases passed (outline editing, clipboard and selection lifecycle). Root types, Svelte and core/editor builds passed. This is targeted validation after the earlier frozen 212-case suite, not a new full-browser pass.

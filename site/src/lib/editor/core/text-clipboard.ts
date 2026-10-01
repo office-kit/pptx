@@ -1,6 +1,5 @@
 import {
   asColor,
-  getShapeParagraphCount,
   getShapeParagraphElements,
   getTableCellParagraphs,
   getTableCells,
@@ -47,9 +46,7 @@ export function copyTextRange(
 ): TextClipboard {
   const paragraphs = cell
     ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!).map((p) => p.elements)
-    : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) =>
-        getShapeParagraphElements(shape, i),
-      );
+    : getShapeParagraphElements(shape);
   let text = '';
   const formats: TextClipboard['formats'] = [];
   function append(value: string, format: TextFormat) {
