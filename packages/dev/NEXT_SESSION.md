@@ -118,3 +118,13 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - Clipboard boundary review reproduced and fixed invalid format metadata and sub-point HTML font sizes. Editor unit suite: 83 passed; new HTML-size browser case passed. Frozen full-suite run `/tmp/pptx-browser-10e68754.log` finished: 212 passed, zero failures. Core/editor were then rebuilt and DSL/Svelte checks passed. Focused ordinary-build validation is recorded below.
 
 - CI `10e68754` の Node 24 はアウトラインの遅延 select イベントで 1 件失敗（211 件成功）。view 切替で破棄済みの textarea に select を配送する英日テストで再現し、イベントの currentTarget を読むよう修正。タイトル分割後のフォーカス処理も破棄前の ownerDocument を保持する。独立ビルド 2 件成功、通常ビルドの関連 11 件も全て成功（アウトライン編集・移動・選択イベント各英日、書式付き貼り付け、HTML 貼り付け・フォントサイズ境界）。
+
+## 継続実装: 本文の昇格
+
+- `promoteOutlineBody` を `site/src/lib/editor/core/outline.ts` に追加。入れ子段落は一段上げ、選択したルート段落ごとに新しいスライドを作る。Shift+Tab と本文の右クリック Promote が使用する。
+- 現レイアウトにタイトル・本文枠がない場合は挿入前にエラーを表示する。Title Demote、スライドをまたぐ文字選択、書式・階層のアウトライン表示、本文メニューの残りは未完成。
+- コアの既存 API に一括処理を追加: `addSlideAt(pres,index,options[])`、`setShapeParagraphs(targets,{source,ranges})`、`getShapeParagraphElements(shape)`。元の単一対象 API も存続。
+- 実機比較はこの段階では参照ファイルへの追加変更なし。本文単一ルート・複数ルート・入れ子 Promote は前段の実機結果を参照。複数レベルが混在する選択・特殊レイアウトは更に比較が必要。
+
+- 混在レベルを実機比較済み。選択した Second（ルート）は新タイトル、Third（レベル 1）は新本文のレベル 0 となる。保存 XML も確認。参照文書は 2 回 Undo、Normal 120%、1 スライド、Undo disabled に復元して保存。
+- 英語/日本語のブラウザー検証は右クリックによる複数ルート昇格・Undo/Redo まで両方成功。末尾空段落と混在レベルは保存・再読込のユニット検証を追加。

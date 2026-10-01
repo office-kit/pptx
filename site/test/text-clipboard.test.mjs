@@ -11,6 +11,10 @@ test('invalid character metadata falls back to plain text before paste', () => {
     { strike: 'dotted' },
     { size: 0.1 },
     { spc: 400001 },
+    { kern: -1 },
+    { kern: 400001 },
+    { baseline: 30000 },
+    { baseline: -30000 },
     { color: 'ACCENT1' },
   ]) {
     assert.equal(parseTextClipboard(clipboard(format), '日本語'), null, JSON.stringify(format));
@@ -23,6 +27,8 @@ test('supported character metadata preserves theme colors and detailed underline
     strike: 'dblStrike',
     size: 1,
     spc: -400000,
+    kern: 400000,
+    baseline: 0.3,
     color: 'scheme:accent1',
   };
   assert.deepEqual(parseTextClipboard(clipboard(format), '日本語')?.formats[0].format, format);

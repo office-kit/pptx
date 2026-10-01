@@ -10,6 +10,9 @@ import {
   getSlideIndex,
   getSlides,
   loadPresentation,
+  savePresentation,
+  setSlideTitle,
+  getSlideTitle,
 } from '../src/api/index.ts';
 
 const fixture = (name: string): string =>
@@ -29,6 +32,38 @@ describe('fn API: addSlideAt', () => {
     const layout = findSlideLayout(pres, 'Title and Content')!;
     const slide = addSlideAt(pres, 99, { layout });
     expect(getSlideIndex(pres, slide)).toBe(2);
+  });
+
+  it('rejects a foreign layout before inserting any member of the batch', async () => {
+    const bytes = await readFile(fixture('two-slides.pptx'));
+    const pres = await loadPresentation(bytes);
+    const foreign = await loadPresentation(bytes);
+    const before = [...getSlides(pres)];
+    expect(() =>
+      addSlideAt(pres, 1, [
+        { layout: findSlideLayout(pres, 'Title and Content')! },
+        { layout: findSlideLayout(foreign, 'Title and Content')! },
+      ]),
+    ).toThrow('another presentation');
+    expect(getSlides(pres)).toEqual(before);
+    expect(getSlides(await loadPresentation(await savePresentation(pres)))).toHaveLength(2);
+  });
+
+  it('inserts a batch in order, retaining existing handles and saved titles', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const before = [...getSlides(pres)];
+    const layout = findSlideLayout(pres, 'Title and Content')!;
+    const added = addSlideAt(pres, 1, [{ layout }, { layout }, { layout }]);
+    added.forEach((slide, index) => setSlideTitle(slide, `Inserted ${index}`));
+    expect(getSlides(pres)).toEqual([before[0], ...added, before[1]]);
+    const loaded = await loadPresentation(await savePresentation(pres));
+    expect(getSlides(loaded).slice(1, 4).map(getSlideTitle)).toEqual([
+      'Inserted 0',
+      'Inserted 1',
+      'Inserted 2',
+    ]);
+    expect(addSlideAt(pres, 0, [])).toEqual([]);
+    expect(getSlides(pres)).toHaveLength(5);
   });
 });
 

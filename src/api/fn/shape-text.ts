@@ -1,9 +1,13 @@
-import { copyShapeRelationships } from './_copy-shape-relationships.ts';
+import {
+  copyShapeRelationships,
+  prepareShapeRelationshipCopy,
+} from './_copy-shape-relationships.ts';
 import { textBodyText } from '../../internal/drawingml/text-body.ts';
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
 import {
   copyTextBodyRange,
+  copyTextBodyRanges,
   editTextBody,
   formatTextBodyRange,
 } from '../../internal/drawingml/text-body-edit.ts';
@@ -849,17 +853,56 @@ export const setShapeTextFormat = (
  * Pass `{ source, range? }` to copy existing paragraph XML, including fields,
  * run formatting, bullets and remapped relationships. The optional range uses
  * UTF-16 offsets with an exclusive end; omitted range copies all source text.
+ * Pass an array of targets and `{ source, ranges }` to distribute ranges in one
+ * batch. All ranges are read before any target changes, including when the source
+ * is a target. Each target must have a corresponding range.
  * Target body properties and list styles remain unchanged.
  */
-export const setShapeParagraphs = (
+export function setShapeParagraphs(
   shape: SlideShapeData,
   paragraphs:
     | ReadonlyArray<ParagraphSpec>
-    | {
-        source: SlideShapeData;
-        range?: { start: number; end: number };
-      },
-): void => {
+    | { source: SlideShapeData; range?: { start: number; end: number } },
+): void;
+export function setShapeParagraphs(
+  shapes: ReadonlyArray<SlideShapeData>,
+  paragraphs: { source: SlideShapeData; ranges: ReadonlyArray<{ start: number; end: number }> },
+): void;
+export function setShapeParagraphs(
+  shape: SlideShapeData | ReadonlyArray<SlideShapeData>,
+  paragraphs:
+    | ReadonlyArray<ParagraphSpec>
+    | { source: SlideShapeData; range?: { start: number; end: number } }
+    | { source: SlideShapeData; ranges: ReadonlyArray<{ start: number; end: number }> },
+): void {
+  if ('ranges' in paragraphs) {
+    if (SHAPE_SLIDE in shape || shape.length !== paragraphs.ranges.length)
+      throw new RangeError('paragraph copy targets and ranges must have equal lengths');
+    const targets = shape.map(requireTxBody);
+    const copies = copyTextBodyRanges(requireTxBody(paragraphs.source), paragraphs.ranges);
+    const copyRelationships = prepareShapeRelationshipCopy(paragraphs.source[SHAPE_SLIDE]);
+    const groups = new Map<
+      SlideShapeData[typeof SHAPE_SLIDE],
+      { representative: SlideShapeData; xml: XmlElement }
+    >();
+    const copiedBodies = copies.map((children) => elem(NAME_TX_BODY, { children }));
+    for (let index = 0; index < shape.length; index++) {
+      const destination = shape[index]!;
+      const slide = destination[SHAPE_SLIDE];
+      let group = groups.get(slide);
+      if (!group) {
+        group = { representative: destination, xml: elem(NAME_TX_BODY) };
+        groups.set(slide, group);
+      }
+      group.xml.children.push(copiedBodies[index]!);
+    }
+    for (const [slide, group] of groups) copyRelationships(slide, group.xml, 'setShapeParagraphs');
+    for (let index = 0; index < shape.length; index++)
+      replaceParagraphChildren(targets[index]!, copiedBodies[index]!.children);
+    for (const group of groups.values()) commitAndRefresh(group.representative);
+    return;
+  }
+  if (!(SHAPE_SLIDE in shape)) throw new TypeError('batch targets require paragraph ranges');
   const target = requireTxBody(shape);
   if ('source' in paragraphs) {
     const source = requireTxBody(paragraphs.source);
@@ -871,17 +914,21 @@ export const setShapeParagraphs = (
       copied,
       'setShapeParagraphs',
     );
-    target.children = [
-      ...target.children.filter(
-        (child) =>
-          !(
-            child.kind === 'element' &&
-            child.name.namespaceURI === NS.dml &&
-            child.name.localName === 'p'
-          ),
-      ),
-      ...copied.children,
-    ];
+    replaceParagraphChildren(target, copied.children);
   } else setTextBodyParagraphs(target, paragraphs);
   commitAndRefresh(shape);
-};
+}
+
+function replaceParagraphChildren(target: XmlElement, paragraphs: XmlElement['children']): void {
+  target.children = [
+    ...target.children.filter(
+      (child) =>
+        !(
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.dml &&
+          child.name.localName === 'p'
+        ),
+    ),
+    ...paragraphs,
+  ];
+}

@@ -34,6 +34,9 @@ const underlineStyles = new Set([
   'wavyDbl',
 ]);
 const strikeStyles = new Set(['noStrike', 'sngStrike', 'dblStrike']);
+const percentageScale = 100_000;
+const minPercentageInteger = -2_147_483_648;
+const maxPercentageInteger = 2_147_483_647;
 
 export function copyTextRange(
   shape: SlideShapeData,
@@ -97,8 +100,15 @@ function validFormat(value: unknown): value is TextFormat {
       case 'spc':
         return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 400_000;
       case 'kern':
+        return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 400_000;
       case 'baseline':
-        return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1_000_000;
+        // The writer emits ST_PercentageDecimal as a signed 32-bit integer.
+        return (
+          typeof v === 'number' &&
+          Number.isFinite(v) &&
+          Math.round(v * percentageScale) >= minPercentageInteger &&
+          Math.round(v * percentageScale) <= maxPercentageInteger
+        );
       default:
         return false;
     }

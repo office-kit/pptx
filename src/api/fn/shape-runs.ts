@@ -181,13 +181,24 @@ export type ShapeParagraphElement =
  * Returns the inline children of a paragraph in document order — runs,
  * field placeholders, and line breaks. Used by renderers that need to
  * reproduce the paragraph faithfully (the `<a:r>`-only run accessors
- * silently drop fields and breaks).
+ * silently drop fields and breaks). Omit the index to read all paragraphs in
+ * one pass.
  */
-export const getShapeParagraphElements = (
+export function getShapeParagraphElements(
+  shape: SlideShapeData,
+): ReadonlyArray<ReadonlyArray<ShapeParagraphElement>>;
+export function getShapeParagraphElements(
   shape: SlideShapeData,
   paragraphIndex: number,
-): ReadonlyArray<ShapeParagraphElement> =>
-  readParagraphElements(requireParagraph(shape, paragraphIndex));
+): ReadonlyArray<ShapeParagraphElement>;
+export function getShapeParagraphElements(
+  shape: SlideShapeData,
+  paragraphIndex?: number,
+): ReadonlyArray<ShapeParagraphElement> | ReadonlyArray<ReadonlyArray<ShapeParagraphElement>> {
+  return paragraphIndex === undefined
+    ? paragraphsOf(requireTxBody(shape)).map(readParagraphElements)
+    : readParagraphElements(requireParagraph(shape, paragraphIndex));
+}
 
 /**
  * Reads the literal format of a paragraph's end mark (`<a:endParaRPr>`), or

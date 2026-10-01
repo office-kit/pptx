@@ -2,7 +2,7 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { outlineShapes } from '../core/outline.ts';
+  import { outlineShapes, promoteOutlineBody } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -42,6 +42,35 @@
     clearTimeout(timer);
     if (!composing) timer = setTimeout(commit, 600);
   }
+  async function changeLevel(promote: boolean) {
+    rememberRange(); commit();
+    const source = doc.shapeById(slideIndex, shapeId)!;
+    const ownerDocument = input.ownerDocument;
+    let focusIndex = slideIndex;
+    if (promote || getParagraphLevel(source, range).some(level => level < 8)) {
+      try { doc.transact(t(promote ? 'Promote' : 'Demote'), () => {
+        if (promote) {
+          const added = promoteOutlineBody(doc.pres, slide, source, range);
+          if (added.length) {
+            focusIndex = getSlides(doc.pres).indexOf(added[0]!);
+            doc.selectSlide(focusIndex);
+          }
+        } else setParagraphLevel(source, range, { offset: 1 });
+      }); } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
+    }
+    await tick();
+    if (focusIndex !== slideIndex) ownerDocument.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${focusIndex}"] textarea`)?.focus();
+    else input?.focus();
+  }
+  function context(event: MouseEvent) {
+    if (title) return;
+    event.preventDefault(); event.stopPropagation();
+    rememberRange(); commit();
+    editor.openContextMenu(event.clientX, event.clientY, 'outline', {
+      promote: () => { void changeLevel(true); },
+      demote: () => { void changeLevel(false); },
+    });
+  }
   async function keys(event: KeyboardEvent) {
     if (event.isComposing) return;
     const mod = event.metaKey || event.ctrlKey;
@@ -50,14 +79,9 @@
       await (event.shiftKey || event.key.toLowerCase() === 'y' ? doc.redo() : doc.undo());
     } else if (mod && event.key.toLowerCase() === 's') commit();
     else if (event.key === 'Escape') { commit(); input.blur(); }
-    else if (event.key === 'Tab' && !event.shiftKey && !mod && !event.altKey && !title) {
+    else if (event.key === 'Tab' && !mod && !event.altKey && !title) {
       event.preventDefault(); event.stopPropagation();
-      rememberRange(); commit();
-      const source = doc.shapeById(slideIndex, shapeId)!;
-      const maxLevel = 8;
-      if (getParagraphLevel(source, range).some(level => level < maxLevel)) {
-        doc.transact(t('Indent'), () => setParagraphLevel(source, range, { offset: 1 }));
-      }
+      await changeLevel(event.shiftKey);
     }
     else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey && title) {
       const layout = getSlideLayout(slide);
@@ -103,7 +127,7 @@
   onDestroy(() => untrack(commit));
 </script>
 
-<textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={event => rememberRange(event.currentTarget)} onselect={event => rememberRange(event.currentTarget)} oninput={changed} onblur={commit} onkeydown={keys} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
+<textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={event => rememberRange(event.currentTarget)} onselect={event => rememberRange(event.currentTarget)} oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
 
 <style>
   textarea { display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 23px; padding: 2px 4px; border: 0; outline: none; color: var(--ok-text); background: transparent; font: 14px/1.4 Arial, sans-serif; }

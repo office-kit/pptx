@@ -122,15 +122,6 @@ const requirePresentationDoc = (pkg: OpcPackage): XmlDocument => {
 };
 
 /**
- * Adds a new slide bound to `layout`. Returns the new `SlideData`.
- *
- * Allocates a fresh part name, sldId, and rId; clones layout
- * placeholders into the slide; writes `[Content_Types].xml`, the
- * slide's `.rels`, presentation's `.rels`, and `<p:sldIdLst>`. The
- * deck-cache on `pres` is invalidated so the next `getSlides` call
- * sees the new entry.
- */
-/**
  * Convenience over `addSlide` that picks a layout automatically:
  *
  *   1. The layout with `<p:sldLayout type="blank">`, if present.
@@ -218,65 +209,87 @@ export const addTitleSlide = (pres: PresentationData, title: string): SlideData 
   return slide;
 };
 
-export const addSlide = (
+/**
+ * Adds a new slide bound to `layout`. Returns the new `SlideData`.
+ *
+ * Allocates a fresh part name, sldId, and rId; clones layout
+ * placeholders into the slide; writes `[Content_Types].xml`, the
+ * slide's `.rels`, presentation's `.rels`, and `<p:sldIdLst>`. The
+ * deck cache is updated while existing slide handles remain valid.
+ * The layout must belong to this presentation.
+ */
+export const addSlide = (pres: PresentationData, options: { layout: SlideLayoutData }): SlideData =>
+  insertSlides(pres, [options], Infinity)[0]!;
+
+function insertSlides(
   pres: PresentationData,
-  options: { layout: SlideLayoutData },
-): SlideData => {
+  options: ReadonlyArray<{ layout: SlideLayoutData }>,
+  atIndex: number,
+): SlideData[] {
+  if (!options.length) return [];
   const pkg = pres[INTERNAL_PACKAGE];
-  const layout = options.layout;
-  const layoutPart = layout[LAYOUT_PART];
-  const layoutPartName = layout[LAYOUT_PART_NAME];
-
+  // Validate every layout before writing any part of a batch.
+  const trees = options.map(({ layout }) => {
+    if (layout[INTERNAL_PACKAGE] !== pkg)
+      throw new Error('slide layout belongs to another presentation');
+    const csld = firstChildElement(layout[LAYOUT_PART].root, NAME_CSLD);
+    const tree = csld && firstChildElement(csld, NAME_SP_TREE);
+    if (!tree) throw new Error(`layout ${layout[LAYOUT_PART_NAME]} missing <p:spTree>`);
+    return tree;
+  });
+  const existing = getSlides(pres);
+  const index = Math.max(0, Math.min(Math.trunc(atIndex), existing.length));
   const presDoc = requirePresentationDoc(pkg);
-  const presPart = pkg.getPart(PRES_PART_NAME);
-  if (!presPart) throw new Error('presentation.xml is missing');
-
+  const presPart = pkg.getPart(PRES_PART_NAME)!;
   const sldIdLst = ensureSldIdLst(presDoc.root);
-  const newSldId = allocateSldId(sldIdLst);
-  const slideN = allocateSlideN(pkg);
-  const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
-
-  const layoutCsld = firstChildElement(layoutPart.root, NAME_CSLD);
-  if (!layoutCsld) throw new Error(`layout ${layoutPartName} missing <p:cSld>`);
-  const layoutSpTree = firstChildElement(layoutCsld, NAME_SP_TREE);
-  if (!layoutSpTree) throw new Error(`layout ${layoutPartName} missing <p:spTree>`);
-
-  const slideDoc = buildSlideFromLayout(layoutSpTree);
-  const slideBytes = encode(serializeXml(slideDoc));
-  pkg.addPart(newSlidePartName, SLIDE_CONTENT_TYPE, slideBytes);
-
-  const slideRels = emptyRels();
-  slideRels.items.push({
-    id: 'rId1',
-    type: REL_TYPES.slideLayout,
-    target: `../slideLayouts/${basename(layoutPartName)}`,
-    targetMode: 'Internal',
-  });
-  pkg.setRels(newSlidePartName, slideRels);
-
+  const firstId = allocateSldId(sldIdLst);
+  if (firstId + options.length - 1 > SLD_ID_MAX) throw new Error('sldId allocator exhausted');
+  const firstPartNumber = allocateSlideN(pkg);
   const presRels = pkg.getRels(PRES_PART_NAME) ?? emptyRels();
-  const newRId = nextRelId(presRels.items.map((r) => r.id));
-  presRels.items.push({
-    id: newRId,
-    type: REL_TYPES.slide,
-    target: `slides/slide${slideN}.xml`,
-    targetMode: 'Internal',
-  });
-  pkg.setRels(PRES_PART_NAME, presRels);
-
-  sldIdLst.children.push(
-    elem(NAME_SLD_ID, {
-      attrs: [attr(ATTR_ID, String(newSldId)), attr(ATTR_R_ID, newRId)],
-    }),
+  const relIds = nextRelId(
+    presRels.items.map((rel) => rel.id),
+    options.length,
   );
+  const entries: XmlElement[] = [];
+  const added = options.map(({ layout }, offset) => {
+    const slideN = firstPartNumber + offset;
+    const newSlidePartName = partName(`/ppt/slides/slide${slideN}.xml`);
+    const slideBytes = encode(serializeXml(buildSlideFromLayout(trees[offset]!)));
+    pkg.addPart(newSlidePartName, SLIDE_CONTENT_TYPE, slideBytes);
+    const slideRels = emptyRels();
+    slideRels.items.push({
+      id: nextRelId([]),
+      type: REL_TYPES.slideLayout,
+      target: `../slideLayouts/${basename(layout[LAYOUT_PART_NAME])}`,
+      targetMode: 'Internal',
+    });
+    pkg.setRels(newSlidePartName, slideRels);
+    const id = relIds[offset]!;
+    presRels.items.push({
+      id,
+      type: REL_TYPES.slide,
+      target: `slides/slide${slideN}.xml`,
+      targetMode: 'Internal',
+    });
+    entries.push(
+      elem(NAME_SLD_ID, { attrs: [attr(ATTR_ID, String(firstId + offset)), attr(ATTR_R_ID, id)] }),
+    );
+    return buildSlideData(pkg, newSlidePartName, slideBytes);
+  });
+  // Allocate IDs and serialize shared parts once, even when an outline operation
+  // creates a slide for each selected paragraph.
+  const beforeEntry = allChildElements(sldIdLst, NAME_SLD_ID)[index];
+  const position = beforeEntry ? sldIdLst.children.indexOf(beforeEntry) : sldIdLst.children.length;
+  sldIdLst.children = [
+    ...sldIdLst.children.slice(0, position),
+    ...entries,
+    ...sldIdLst.children.slice(position),
+  ];
+  pkg.setRels(PRES_PART_NAME, presRels);
   presPart.data = encode(serializeXml(presDoc));
-
-  refreshSlideOrder(pres);
-  const slides = getSlides(pres);
-  const last = slides[slides.length - 1];
-  if (!last) throw new Error('addSlide: post-condition failed; slide not in cache');
-  return last;
-};
+  pres._slidesCache = [...existing.slice(0, index), ...added, ...existing.slice(index)];
+  return added;
+}
 
 /**
  * Drops relationships in other parts that point at `removed`, and the
@@ -630,20 +643,30 @@ export const duplicateSlide = (pres: PresentationData, slide: SlideData): SlideD
 };
 
 /**
- * Convenience over `addSlide` + `moveSlide`. Inserts the new slide
- * at the given 0-based index (clamped to `[0, getSlides(pres).length]`).
+ * Inserts slides at a 0-based index, clamped to the presentation bounds.
+ * A list of layout options inserts a contiguous batch in the same order,
+ * allocating IDs and updating shared package parts once. Existing slide handles
+ * remain valid. All layouts must belong to the target presentation.
  */
-export const addSlideAt = (
+export function addSlideAt(
+  pres: PresentationData,
+  atIndex: number,
+  options: ReadonlyArray<{ layout: SlideLayoutData }>,
+): SlideData[];
+export function addSlideAt(
   pres: PresentationData,
   atIndex: number,
   options: { layout: SlideLayoutData },
-): SlideData => {
-  const slide = addSlide(pres, options);
-  moveSlide(pres, slide, atIndex);
-  const slides = getSlides(pres);
-  const clamped = Math.max(0, Math.min(atIndex, slides.length - 1));
-  return slides[clamped]!;
-};
+): SlideData;
+export function addSlideAt(
+  pres: PresentationData,
+  atIndex: number,
+  options: { layout: SlideLayoutData } | ReadonlyArray<{ layout: SlideLayoutData }>,
+): SlideData | SlideData[] {
+  if (Number.isNaN(atIndex)) throw new RangeError('slide index must not be NaN');
+  if ('layout' in options) return insertSlides(pres, [options], atIndex)[0]!;
+  return insertSlides(pres, options, atIndex);
+}
 
 /**
  * Convenience over `duplicateSlide` + `moveSlide`. Duplicates `slide`

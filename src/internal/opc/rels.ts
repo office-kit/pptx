@@ -116,7 +116,9 @@ export const emptyRels = (): Relationships => ({ items: [] });
  * spec doesn't require this naming pattern, but PowerPoint emits it and our
  * authoring code follows suit so output diffs cleanly against PowerPoint.
  */
-export const nextRelId = (existing: ReadonlyArray<string>): string => {
+export function nextRelId(existing: ReadonlyArray<string>): string;
+export function nextRelId(existing: ReadonlyArray<string>, count: number): string[];
+export function nextRelId(existing: ReadonlyArray<string>, count?: number): string | string[] {
   let max = 0;
   for (const id of existing) {
     const m = id.match(/^rId(\d+)$/);
@@ -125,5 +127,7 @@ export const nextRelId = (existing: ReadonlyArray<string>): string => {
       if (Number.isFinite(n) && n > max) max = n;
     }
   }
-  return `rId${max + 1}`;
-};
+  return count === undefined
+    ? `rId${max + 1}`
+    : Array.from({ length: count }, (_, index) => `rId${max + index + 1}`);
+}

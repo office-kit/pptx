@@ -616,12 +616,25 @@ import { setShapeParagraphs } from '@office-kit/pptx';
 
 setShapeParagraphs(destination, { source });
 setShapeParagraphs(destination, { source, range: { start: 6, end: 12 } });
+setShapeParagraphs([first, second], {
+  source,
+  ranges: [
+    { start: 0, end: 5 },
+    { start: 6, end: 12 },
+  ],
+});
 ```
 
 Ranges use UTF-16 offsets with an exclusive end, including one character per
 paragraph separator. A partially selected field becomes literal text. The
-source stays unchanged; the destination retains its text-body settings and list
-styles.
+source stays unchanged unless it is also a destination; each destination retains
+its text-body settings and list styles. All batch ranges are read before any
+destination text changes. `getShapeParagraphElements(shape)` reads all paragraphs
+in one pass; passing an index reads one paragraph.
+
+To create several destination slides, use `addSlideAt(pres, index, [{ layout },
+{ layout }])`. It returns the new slides in insertion order, with existing slide
+handles preserved. Every layout must belong to the presentation.
 
 ### API surface (current state)
 

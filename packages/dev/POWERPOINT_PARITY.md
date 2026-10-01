@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Promote/demote including slide splitting/merging, visual paragraph hierarchy and rich formatting, cross-slide text selection, text context menu and drag reordering.                             |
+| Outline                  | Title demotion/slide merging, visual paragraph hierarchy and rich formatting, cross-slide text selection, remaining text context menu commands and drag reordering.                              |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -696,3 +696,14 @@ Promote/Demote menu remain outstanding; this is not complete outline parity.
 - Outline selection handlers now read the event's textarea instead of a binding that Svelte has cleared during unmount. Title splitting captures the owner document before replacing its input. Both lifecycle regressions pass against the isolated source build.
 - The latest core/editor builds and DSL type check pass; Svelte reports zero errors and warnings. All 11 focused ordinary-build browser tests pass: bilingual outline editing, movement and selection lifecycle, formatted text clipboard, HTML clipboard and HTML font-size boundaries.
 - Native Shift+Tab delivered through the bridge again behaved as Tab and raised the level. This shortcut remains unverified. Both temporary edits were undone and saved; the reference is back in Normal view, 120%, one slide, Undo disabled.
+
+## Outline body promotion and batch text preservation
+
+- Body Promote now raises nested paragraphs one level and splits selected root paragraphs into separate slide titles, retaining the preceding body on the original slide and following paragraphs on the generated slides. Shift+Tab and the body context menu use the same operation; Tab and Demote lower selected paragraph levels.
+- The generated slides use the current layout. Layouts without both a title and a body slot report an error before insertion. Title Demote, cross-slide text selection, formatted/indented outline rendering and the remaining native body context-menu commands are still incomplete.
+- Batch overloads on `addSlideAt` and `setShapeParagraphs` allocate shared IDs and copy paragraph ranges without rescanning the source for every destination. `getShapeParagraphElements(shape)` reads all paragraphs in one pass. Tests cover source-as-destination, same-slide and cross-slide targets, links, save/reload and invalid ranges/layouts before text or slide mutation.
+- Clipboard import rejects negative/out-of-range kerning and baseline percentages outside the signed OOXML integer range.
+
+### Mixed-level promotion verification
+
+Mac PowerPoint promotes a selected root paragraph into a new title and moves a selected nested paragraph to level zero in the new body. Verified with `Second point` / `Third point` in the reference deck; saved XML agrees with the implementation. Restored the reference to one slide, original text and levels, Normal view at 120%, Undo disabled. English/Japanese browser tests also pass for menu-based multiple-root promotion, Undo/Redo and saved text.

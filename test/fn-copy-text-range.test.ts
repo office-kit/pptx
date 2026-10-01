@@ -144,3 +144,58 @@ it('retains soft breaks and imported paragraph extensions in a partial selection
     'value="retained"',
   );
 });
+
+it('distributes source ranges with formatting and links, including replacing the source', async () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  const source = box(slide);
+  setShapeParagraphs(source, [
+    { runs: [{ text: 'First', format: { bold: true } }] },
+    { runs: [{ text: 'Second', format: { italic: true } }] },
+    { runs: [{ text: 'Third' }] },
+  ]);
+  setParagraphLevel(source, 1, 2);
+  setShapeRunHyperlink(source, 1, 0, 'https://example.com/second');
+  const sameSlide = box(slide);
+  const otherSlide = box(addBlankSlide(pres));
+  const currentSource = getSlideShapes(slide)[0]!;
+  setShapeParagraphs([currentSource, sameSlide, otherSlide], {
+    source: currentSource,
+    ranges: [
+      { start: 13, end: 18 },
+      { start: 0, end: 5 },
+      { start: 6, end: 12 },
+    ],
+  });
+  expect([currentSource, sameSlide, otherSlide].map(getShapeText)).toEqual([
+    'Third',
+    'First',
+    'Second',
+  ]);
+  expect(getShapeParagraphElements(sameSlide, 0)[0]?.format).toMatchObject({ bold: true });
+  const restored = await loadPresentation(await savePresentation(pres));
+  const target = getSlideShapes(getSlides(restored)[1]!)[0]!;
+  expect(getParagraphLevel(target, 0)).toBe(2);
+  expect(getShapeParagraphElements(target, 0)[0]?.format).toMatchObject({ italic: true });
+  expect(getShapeRunHyperlink(target, 0, 0)).toBe('https://example.com/second');
+});
+
+it('validates the entire batch before changing any target text', () => {
+  const slide = addBlankSlide(createPresentation());
+  const source = box(slide, 'A😀B');
+  const first = box(slide, 'First');
+  const last = box(slide, 'Last');
+  expect(() =>
+    setShapeParagraphs([first, last], {
+      source,
+      ranges: [
+        { start: 0, end: 1 },
+        { start: 2, end: 3 },
+      ],
+    }),
+  ).toThrow(RangeError);
+  expect([first, last].map(getShapeText)).toEqual(['First', 'Last']);
+  expect(() => setShapeParagraphs([first], { source, ranges: [] })).toThrow(RangeError);
+  setShapeParagraphs([], { source, ranges: [] });
+  expect(getShapeText(source)).toBe('A😀B');
+});
