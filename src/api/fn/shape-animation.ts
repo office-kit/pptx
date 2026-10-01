@@ -6,7 +6,6 @@ import {
   type AnimationOptions,
   type AnimationStartCondition,
   buildSingleEffectTiming,
-  buildTimingRoot,
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
@@ -50,7 +49,7 @@ import {
 } from './_animation-timing.ts';
 import { commitSlideData, refreshSlideData } from './_helpers.ts';
 import { getShapeParagraphCount } from './shape-runs.ts';
-import { maxCTnId, mediaTimingNodes, rootChildTnLst } from './_media-timing.ts';
+import { maxCTnId, rootChildTnLst } from './_media-timing.ts';
 // ---------------------------------------------------------------------------
 // Animations (one effect per call).
 //
@@ -78,6 +77,74 @@ const findTiming = (slide: SlideData): XmlElement | null =>
     (c): c is XmlElement =>
       c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'timing',
   ) ?? null;
+
+// Keep the timing containers and conditions leading to a media node when
+// removing shape effects. Media can be nested below a sequence or a child
+// time list; rebuilding a new root from only direct media nodes would hoist
+// it and silently change click/relative-start semantics.
+const retainMediaTimingBranch = (element: XmlElement): XmlElement | null => {
+  let containsMedia = false;
+  const children = [];
+  for (const child of element.children) {
+    if (child.kind !== 'element') continue;
+
+    const localName = child.name.localName;
+    const isMedia =
+      child.name.namespaceURI === NS.pml && (localName === 'video' || localName === 'audio');
+    const isTimingContainer =
+      child.name.namespaceURI === NS.pml &&
+      ['tnLst', 'childTnLst', 'subTnLst', 'par', 'seq', 'excl', 'cTn'].includes(localName);
+    const isAnimationEffect =
+      child.name.namespaceURI === NS.pml &&
+      (localName === 'bldLst' ||
+        localName === 'set' ||
+        localName === 'anim' ||
+        localName === 'animClr' ||
+        localName === 'animEffect' ||
+        localName === 'animMotion' ||
+        localName === 'animRot' ||
+        localName === 'animScale' ||
+        localName === 'cmd');
+
+    if (isMedia) {
+      containsMedia = true;
+      children.push(cloneElement(child));
+      continue;
+    }
+    if (isAnimationEffect) continue;
+    if (isTimingContainer) {
+      const retained = retainMediaTimingBranch(child);
+      if (retained !== null) {
+        containsMedia = true;
+        children.push(retained);
+      }
+      continue;
+    }
+    // Non-timing metadata belongs to the retained container. In particular,
+    // endSync/iterate/extLst must not disappear merely because sibling
+    // animation effects were removed.
+    children.push(cloneElement(child));
+  }
+  if (!containsMedia) return null;
+
+  return elem(element.name, {
+    attrs: element.attrs.map((a) => attr(a.name, a.value)),
+    prefixDecls: new Map(element.prefixDecls),
+    children,
+  });
+};
+
+const assertRetainedTimingReferences = (timing: XmlElement): void => {
+  const ids = cTnIdsUnder(timing);
+  const refs = new Set<string>();
+  timeNodeRefs(timing, refs);
+  const dangling = [...refs].find((ref) => !ids.has(ref));
+  if (dangling !== undefined) {
+    throw new Error(
+      `clearSlideAnimations: retained media timing references removed time node ${dangling}`,
+    );
+  }
+};
 
 const insertTimingAtEnd = (slide: SlideData, timing: XmlElement): void => {
   // Schema ordering: `<p:timing>` is one of the last children of `<p:sld>`
@@ -589,10 +656,11 @@ export const clearSlideAnimations = (slide: SlideData): void => {
   // not animations — dropping them with the rest would silently break the
   // slide's clips.
   const existing = findTiming(slide);
-  const mediaNodes = existing ? mediaTimingNodes(existing) : [];
-  if (existing !== null && mediaNodes.length > 0) {
+  const retained = existing === null ? null : retainMediaTimingBranch(existing);
+  if (existing !== null && retained !== null) {
+    assertRetainedTimingReferences(retained);
     const root = slide[SLIDE_DOCUMENT].root;
-    root.children[root.children.indexOf(existing)] = buildTimingRoot(mediaNodes);
+    root.children[root.children.indexOf(existing)] = retained;
   } else {
     removeExistingTiming(slide);
   }
