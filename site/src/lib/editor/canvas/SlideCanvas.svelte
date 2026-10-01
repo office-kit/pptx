@@ -55,6 +55,7 @@
     getShapeId,
     getShapeKind,
     isShapeHidden,
+    isShapeAspectRatioLocked,
     getShapeParagraphCount,
     getShapeParagraphElements,
     setShapeTextFormat,
@@ -196,6 +197,7 @@
     center: { x: number; y: number }; // rotate center, EMU
     last: { x: number; y: number };
     shift: boolean;
+    aspectLocked: boolean;
     moved: boolean;
   }
   let drag = $state<Drag | null>(null);
@@ -322,6 +324,7 @@
     const center = { x: selectionRect.x + selectionRect.w / 2, y: selectionRect.y + selectionRect.h / 2 };
     const pointer = localPoint({ x: e.clientX, y: e.clientY });
     const startAngle = Math.atan2(pointer.y - center.y, pointer.x - center.x) * 180 / Math.PI;
+    const singleShape = ids.length === 1 ? doc.shapeById(doc.selection.slideIndex, ids[0]!) : undefined;
     drag = {
       mode,
       handle,
@@ -336,6 +339,7 @@
       center,
       last: { x: e.clientX, y: e.clientY },
       shift: e.shiftKey,
+      aspectLocked: singleShape ? isShapeAspectRatioLocked(singleShape) : false,
       moved: false,
     };
     capture(e);
@@ -408,9 +412,11 @@
       const entries = [...drag.startRects];
       const delta = { x: dxEmu, y: dyEmu };
       const minimum = { w: metrics.widthEmu * 0.01, h: metrics.heightEmu * 0.01 };
+      // PowerPoint applies the saved ratio to corner handles; edge handles still stretch one axis.
+      const keepAspect = drag.shift || (drag.aspectLocked && drag.handle!.length === 2);
       const resized = drag.ids.length > 1
         ? resizeSelectionRects(entries.map(([, rect]) => rect), drag.selectionRect, drag.handle!, delta, minimum)
-        : [resizeRect(entries[0]![1], drag.handle!, delta, drag.startRot, minimum, drag.shift)];
+        : [resizeRect(entries[0]![1], drag.handle!, delta, drag.startRot, minimum, keepAspect)];
       guides = [];
       doc.applyLive(() => {
         entries.forEach(([id], index) => {

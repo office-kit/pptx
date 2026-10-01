@@ -1,3 +1,11 @@
+## 2026-10-02: キャンバスの縦横比固定
+
+- 検証: 修正前のブラウザー回帰で比率2→2.263851へ崩れることを再現。修正後のresize-geometry 2件、動画リボン1件、site121件、Svelte 0 errors/warnings、editor build成功。Undo後の再選択をテストに追加。全体型検査で前回のCommandDoc変更に対するFakeDocのsetDocumentSetting欠落を検出し、テスト用クラスも追従。
+- Mac PowerPointの参照動画で実測: 固定ONの右下ドラッグで幅10.16→11.93cm・高さ5.72→6.71cm。右辺ドラッグでは幅だけ11.93cmへ変化し高さ5.72cmを維持。固定OFFの右下ドラッグでは幅11.93cm・高さ6.00cmになり自由変形。
+- キャンバスはこれまでShiftしか見ていなかったため、ドラッグ開始時に保存済みの縦横比固定を読み、角ハンドルだけに適用する修正を追加。
+- 参照資料 `/tmp/pptx-poster-audit/trim-reset.pptx` は全リサイズをUndoし、固定ONに戻して保存。XMLで位置914400/914400、寸法3657600/2057400、noChangeAspect=1を確認。未復元の変更なし。
+- Shift併用時のPowerPoint実測、古いUndo/Redo履歴をまたぐ縦横比設定、動画書式の未実装項目は引き続き必要。全体の完全一致は未達成。
+
 ## 2026-10-02: 縦横比固定の保存
 
 - 検証: core全体3190 passed / 109 skipped、site121 passed、Svelte 0 errors/warnings、format/lint/typecheck、core/editor build成功。動画リボン・compact-editor・resize-geometryブラウザーテスト成功。
