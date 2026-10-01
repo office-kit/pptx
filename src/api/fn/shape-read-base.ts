@@ -46,6 +46,7 @@ import {
   SHAPE_SNAPSHOT,
   SLIDE_SHAPES,
   type SlideData,
+  type SlideLayoutData,
   type SlideShapeData,
 } from '../_internal-symbols.ts';
 import { PRES_PART_NAME, commitAndRefresh, decode } from './_helpers.ts';
@@ -219,18 +220,17 @@ export const getSlideMasterCount = (pres: PresentationData): number => {
  * are missing.
  */
 /**
- * Returns the part name of the slide master a slide inherits from
- * (`/ppt/slideMasters/slideMaster1.xml`), or `null` when the slide
- * has no layout or its layout has no master rel.
+ * Returns the part name of the slide master a slide or layout inherits from
+ * (`/ppt/slideMasters/slideMaster1.xml`), or `null` when it has no master rel.
  *
  * Useful for multi-master decks where different slides live under
  * different brand templates and the caller needs to scope theme /
  * fontScheme / clrMap lookups to the correct master.
  */
-export const getSlideMasterPartName = (slide: SlideData): string | null => {
-  const layout = getSlideLayout(slide);
+export const getSlideMasterPartName = (value: SlideData | SlideLayoutData): string | null => {
+  const layout = LAYOUT_PART_NAME in value ? value : getSlideLayout(value);
   if (!layout) return null;
-  const pkg = slide[INTERNAL_PACKAGE];
+  const pkg = value[INTERNAL_PACKAGE];
   const layoutPartName = partName(layout[LAYOUT_PART_NAME]);
   const layoutRels = pkg.getRels(layoutPartName);
   if (!layoutRels) return null;

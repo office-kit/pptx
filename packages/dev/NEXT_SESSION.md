@@ -1,5 +1,16 @@
 # 作業継続メモ（2026-10-01）
 
+## 最新: 3 系統の並列実装
+
+- ユーザーがサブエージェントによる並列実装を明示的に依頼。利用上限の親 1 + 子 2 で、新規スライド、アウトライン移動、選択ウィンドウを分担した。今後も独立したファイル群を担当させ、共有 dist の build とブラウザ検証は親が直列に調整する。
+- 下記の Title Slide 後の New Slide の未対応は解消。通常・アウトラインのメニューと Cmd/Ctrl+Shift+N が同じポリシーを使う。同じマスターの Title and Content を優先し、未使用レイアウトも公開 API で所属マスターを判定する。
+- アウトラインの先頭/末尾で上下矢印を押すと隣のタイトル/本文へ移動し、入力中の変更を確定する。スライドをまたぐテキスト範囲選択は未実装。
+- Selection Pane で複数の選択済み兄弟を一緒にドラッグできる。相対順・選択・グループ境界・一括 Undo を保持する。別担当の独立レビューで具体的な不具合は見つからなかった。
+- PowerPoint の Arrange を開く際に画面取得 0×0 が再発。この試行で参照文書の内容は変更しておらず、復元待ちはない。複数図形ドラッグのネイティブ比較は未完了。
+- 全操作一致は未完成。PR #287 のみを更新し、完全一致や根拠のない進捗率を報告しない。
+- 検証: root format/lint/typecheck 成功、3,073 tests passed / 109 skipped、site 96/96、Svelte check、DSL typecheck、core/editor build 成功。ログは `/tmp/pptx-parallel-root-quality.log`、`/tmp/pptx-parallel-site-quality.log`。直前 HEAD `1d6927d4` の CI は全成功（run 36836258164）。
+- 統合後の browser 9/9 成功: `new-slide-layout`、`outline-view`、`outline-slide-menu`、`selection-pane`。ログ `/tmp/pptx-parallel-browser.log`。最終 HEAD の全ブラウザ一括検証ではない。
+
 ## 接続復旧と New Slide 比較（2026-10-01）
 
 - PowerPoint の完全終了後、CUA で起動・参照資料の読み込み・Layout メニュー操作が成功。直前の画面サイズ 0×0 エラーはこの比較では再発していない。

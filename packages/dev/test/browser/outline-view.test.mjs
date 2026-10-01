@@ -271,6 +271,62 @@ for (const locale of ['en', 'ja'])
           ),
           false,
         );
+        // Arrow navigation at an outline textbox boundary continues into the
+        // adjacent title/body, matching PowerPoint's keyboard outline flow.
+        const secondBody = outline.getByRole('textbox', {
+          name: `${locale === 'en' ? 'Outline text' : 'アウトラインのテキスト'} 2`,
+          exact: true,
+        });
+        const selectionOffset = (node) =>
+          node.evaluate((root) => {
+            const selection = root.ownerDocument.getSelection();
+            if (!selection?.rangeCount) return null;
+            const range = selection.getRangeAt(0);
+            const before = root.ownerDocument.createRange();
+            before.selectNodeContents(root);
+            before.setEnd(range.startContainer, range.startOffset);
+            return [before.toString().length, selection.toString().length];
+          });
+        await second.focus();
+        await second.press('End');
+        await second.press('ArrowDown');
+        assert.equal(
+          await secondBody.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+        );
+        assert.deepEqual(await selectionOffset(secondBody), [0, 0]);
+        await secondBody.press('ArrowUp');
+        assert.equal(
+          await second.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+        );
+        assert.deepEqual(await selectionOffset(second), ['Second title'.length, 0]);
+        await change(async () => {
+          await second.fill('Pending title');
+          await second.press('End');
+          await second.press('ArrowDown');
+        });
+        assert.equal(
+          await secondBody.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+          'pending title edits commit before ArrowDown moves to the body',
+        );
+        await change(() => secondBody.press('Control+z'));
+        assert.equal(await second.textContent(), 'Second title');
+        await second.focus();
+        await second.press('End');
+        await second.press('Control+ArrowDown');
+        assert.equal(
+          await second.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+          'Ctrl+ArrowDown remains native text navigation at the outline boundary',
+        );
+        await second.press('Meta+ArrowDown');
+        assert.equal(
+          await second.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+          'Meta+ArrowDown remains native text navigation at the outline boundary',
+        );
         for (const up of [false, true]) {
           await second.click({ button: 'right' });
           await change(() =>

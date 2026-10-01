@@ -1,6 +1,7 @@
 <script lang="ts">
   import './ui/tokens.css';
   import { arrangeShortcut } from './core/arrange-shortcuts.ts';
+  import { newSlideLayout } from './core/new-slide.ts';
   import { parseTableClipboard } from './core/table-clipboard.ts';
   import { t } from './i18n/i18n.svelte.ts';
   import { untrack, type Snippet } from 'svelte';
@@ -56,6 +57,14 @@
     const target = e.target as HTMLElement;
     const typing =
       target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '');
+
+    if (mod && e.shiftKey && !e.altKey && e.code === 'KeyN' && !typing && !e.defaultPrevented) {
+      e.preventDefault();
+      const layout = newSlideLayout(doc.pres, doc.currentSlide);
+      if (layout) editor.invoke('addSlide', { options: { layout } });
+      else editor.invoke('addBlankSlide');
+      return;
+    }
 
     if (mod && e.key.toLowerCase() === 's' && onsave) {
       e.preventDefault();

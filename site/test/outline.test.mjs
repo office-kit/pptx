@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
   addSlide,
   removeShape,
@@ -22,7 +23,9 @@ import {
   getParagraphLevel,
   setShapeRunHyperlink,
   getShapeRunHyperlink,
+  getSlideMasterPartName,
 } from '@office-kit/pptx';
+import { newSlideLayout } from '../src/lib/editor/core/new-slide.ts';
 import {
   outlineShapes,
   promoteOutlineBody,
@@ -47,6 +50,101 @@ test('outline keeps empty title/body placeholders but excludes ordinary text box
   assert.deepEqual(outlineShapes(slide), expected);
   const loaded = await loadPresentation(await savePresentation(pres));
   assert.deepEqual(outlineShapes(getSlides(loaded)[0]), expected);
+});
+
+test('generic New Slide keeps content layout and advances title slide to content layout', () => {
+  const pres = createPresentation();
+  const layouts = getSlideLayouts(pres);
+  const content = layouts.find((item) => getSlideLayoutName(item) === 'Title and Content');
+  const title = layouts.find((item) => getSlideLayoutName(item) === 'Title Slide');
+  assert.ok(content);
+  assert.ok(title);
+  const contentSlide = addSlide(pres, { layout: content });
+  const titleSlide = addSlide(pres, { layout: title });
+  assert.equal(getSlideLayoutName(newSlideLayout(pres, contentSlide)), 'Title and Content');
+  assert.equal(getSlideLayoutName(newSlideLayout(pres, titleSlide)), 'Title and Content');
+});
+
+test('generic New Slide does not cross masters when the content layout is unused', async () => {
+  const zip = unzipSync(
+    await readFile(new URL('../../test/fixtures/minimal/blank.pptx', import.meta.url)),
+  );
+  zip['ppt/slideMasters/slideMaster2.xml'] = zip['ppt/slideMasters/slideMaster1.xml'];
+  zip['ppt/slideMasters/_rels/slideMaster2.xml.rels'] =
+    zip['ppt/slideMasters/_rels/slideMaster1.xml.rels'];
+  zip['[Content_Types].xml'] = strToU8(
+    strFromU8(zip['[Content_Types].xml']).replace(
+      '</Types>',
+      '<Override PartName="/ppt/slideMasters/slideMaster2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/></Types>',
+    ),
+  );
+  zip['ppt/presentation.xml'] = strToU8(
+    strFromU8(zip['ppt/presentation.xml']).replace(
+      '</p:sldMasterIdLst>',
+      '<p:sldMasterId id="2147483649" r:id="rIdOutlineMaster"/></p:sldMasterIdLst>',
+    ),
+  );
+  zip['ppt/_rels/presentation.xml.rels'] = strToU8(
+    strFromU8(zip['ppt/_rels/presentation.xml.rels']).replace(
+      '</Relationships>',
+      '<Relationship Id="rIdOutlineMaster" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster2.xml"/></Relationships>',
+    ),
+  );
+  const titleLayoutRel = 'ppt/slideLayouts/_rels/slideLayout1.xml.rels';
+  zip[titleLayoutRel] = strToU8(
+    strFromU8(zip[titleLayoutRel]).replace('slideMaster1.xml', 'slideMaster2.xml'),
+  );
+  const pres = await loadPresentation(zipSync(zip));
+  const title = getSlideLayouts(pres).find((item) => getSlideLayoutName(item) === 'Title Slide');
+  assert.ok(title);
+  const slide = addSlide(pres, { layout: title });
+  const content = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  assert.ok(content);
+  assert.notEqual(getSlideMasterPartName(slide), getSlideMasterPartName(content));
+  assert.equal(getSlideLayoutName(newSlideLayout(pres, slide)), 'Title Slide');
+});
+
+test('generic New Slide can use an unused object layout from the current master', async () => {
+  const zip = unzipSync(
+    await readFile(new URL('../../test/fixtures/minimal/blank.pptx', import.meta.url)),
+  );
+  zip['ppt/slideMasters/slideMaster2.xml'] = zip['ppt/slideMasters/slideMaster1.xml'];
+  zip['ppt/slideMasters/_rels/slideMaster2.xml.rels'] =
+    zip['ppt/slideMasters/_rels/slideMaster1.xml.rels'];
+  zip['[Content_Types].xml'] = strToU8(
+    strFromU8(zip['[Content_Types].xml']).replace(
+      '</Types>',
+      '<Override PartName="/ppt/slideMasters/slideMaster2.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/></Types>',
+    ),
+  );
+  for (const layout of ['slideLayout1.xml', 'slideLayout2.xml']) {
+    const rels = `ppt/slideLayouts/_rels/${layout}.rels`;
+    zip[rels] = strToU8(strFromU8(zip[rels]).replace('slideMaster1.xml', 'slideMaster2.xml'));
+  }
+  zip['ppt/presentation.xml'] = strToU8(
+    strFromU8(zip['ppt/presentation.xml']).replace(
+      '</p:sldMasterIdLst>',
+      '<p:sldMasterId id="2147483649" r:id="rIdOutlineMaster"/></p:sldMasterIdLst>',
+    ),
+  );
+  zip['ppt/_rels/presentation.xml.rels'] = strToU8(
+    strFromU8(zip['ppt/_rels/presentation.xml.rels']).replace(
+      '</Relationships>',
+      '<Relationship Id="rIdOutlineMaster" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster2.xml"/></Relationships>',
+    ),
+  );
+  const pres = await loadPresentation(zipSync(zip));
+  const title = getSlideLayouts(pres).find((item) => getSlideLayoutName(item) === 'Title Slide');
+  const content = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  assert.ok(title);
+  assert.ok(content);
+  const slide = addSlide(pres, { layout: title });
+  assert.equal(getSlideMasterPartName(slide), getSlideMasterPartName(content));
+  assert.equal(getSlideLayoutName(newSlideLayout(pres, slide)), 'Title and Content');
 });
 
 test('promotes each selected root paragraph into a title and retains the following body and links', async () => {

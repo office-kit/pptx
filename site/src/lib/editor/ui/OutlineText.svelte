@@ -9,6 +9,7 @@
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import RichTextInput from './RichTextInput.svelte';
   import { outlineTextHtml } from '../core/outline-text-html.ts';
+  import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { slideIndex, shapeId, title }: { slideIndex: number; shapeId: number; title: boolean } = $props();
@@ -160,6 +161,26 @@
     demotionDialog?.close();
     if (doc.pres === presentation && doc.version === demotionVersion) void changeLevel(false, true);
   }
+  function moveAcrossTextboxes(direction: -1 | 1): boolean {
+    const current = input.getElement();
+    if (!current) return false;
+    const pane = current.closest<HTMLElement>('.outline-pane');
+    const textboxes = pane
+      ? [...pane.querySelectorAll<HTMLElement>('[role="textbox"]')]
+      : [];
+    const position = textboxes.indexOf(current);
+    const next = textboxes[position + direction];
+    if (!next) return false;
+    commit();
+    next.focus();
+    const offset = direction < 0 ? richTextValue(next).length : 0;
+    selectRichText(next, offset);
+    // RichTextInput keeps its UTF-16 range in sync from selectionchange. Dispatch
+    // explicitly because focus followed by a programmatic range does not fire it
+    // in every browser.
+    next.ownerDocument.dispatchEvent(new Event('selectionchange'));
+    return true;
+  }
   async function moveParagraph(direction: -1 | 1) {
     rememberRange(); commit();
     const source = doc.shapeById(slideIndex, shapeId)!;
@@ -202,6 +223,22 @@
     const mod = event.metaKey || event.ctrlKey;
     if (mod && event.key.toLowerCase() === 's') commit();
     else if (event.key === 'Escape') { commit(); input.blur(); }
+    else if (
+      !mod &&
+      !event.shiftKey &&
+      !event.altKey &&
+      (event.key === 'ArrowUp' || event.key === 'ArrowDown')
+    ) {
+      const current = input.getSelection();
+      const boundary =
+        event.key === 'ArrowUp'
+          ? current.start === 0 && current.end === 0
+          : current.start === value.length && current.end === value.length;
+      if (boundary && moveAcrossTextboxes(event.key === 'ArrowUp' ? -1 : 1)) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+    }
     else if (event.key === 'Tab' && !mod && !event.altKey) {
       event.preventDefault(); event.stopPropagation();
       await changeLevel(event.shiftKey);

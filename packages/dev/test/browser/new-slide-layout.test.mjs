@@ -131,3 +131,60 @@ test(
     }
   },
 );
+
+test(
+  'generic New Slide advances Title Slide to Title and Content from thumbnails and keyboard',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-generic-new-layout-'));
+    let preview, browser;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide} from '@office-kit/pptx-dsl';export default <Presentation><Slide layout={{name:'Title Slide'}} /></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const slides = async () =>
+        getSlides(
+          await loadPresentation(
+            new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+          ),
+        );
+      const thumbs = editor.locator('.thumb-row');
+      await saved();
+
+      await thumbs.first().click({ button: 'right' });
+      await editor.getByRole('menuitem', { name: 'New slide', exact: true }).click();
+      await saved();
+      let deck = await slides();
+      assert.equal(deck.length, 2);
+      assert.equal(getSlideLayoutName(getSlideLayout(deck[0])), 'Title Slide');
+      assert.equal(getSlideLayoutName(getSlideLayout(deck[1])), 'Title and Content');
+
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await slides()).length, 1);
+
+      await thumbs.first().click();
+      await editor.locator('body').press('Meta+Shift+n');
+      await saved();
+      deck = await slides();
+      assert.equal(deck.length, 2);
+      assert.equal(getSlideLayoutName(getSlideLayout(deck[1])), 'Title and Content');
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.equal((await slides()).length, 1);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
