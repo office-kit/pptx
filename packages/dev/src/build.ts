@@ -15,6 +15,7 @@ import {
   validatePresentation,
 } from '@office-kit/pptx';
 import { renderPreview, type PreviewCache } from './preview-cache.ts';
+import { getPreviewMedia, type PreviewMedia } from './media-manifest.ts';
 
 export interface BuildResult {
   bytes: Uint8Array;
@@ -27,6 +28,8 @@ export interface BuildResult {
   animations: ReturnType<typeof getSlideAnimations>[];
   showProperties: ReturnType<typeof getSlideShowProperties>;
   customShows: { id: number; name: string; slideIndices: number[] }[];
+  /** Media clips keyed by slide and shape id for HTML playback in preview mode. */
+  media: PreviewMedia[];
   aspectRatio: number;
   dependencies: string[];
   diagnostics: ReturnType<typeof validatePresentation>;
@@ -80,6 +83,7 @@ export async function renderDeck(
         name: show.name,
         slideIndices: show.slides.map((slide) => slideIndices.get(slide)!),
       })),
+      media: getPreviewMedia(saved),
       diagnostics,
     },
   };

@@ -12,6 +12,59 @@ import { readFile } from 'node:fs/promises';
 import { createTerminal } from './terminal.ts';
 import { createChat } from './chat.ts';
 
+type CachedMedia = {
+  bytes: Buffer;
+  contentType: string;
+};
+
+const embeddedMediaUrl = /^data:([^;,]+);base64,(.*)$/s;
+
+function cacheEmbeddedMedia(media: BuildResult['media']) {
+  const cache = new Map<string, CachedMedia>();
+  const published = media.map((item) => {
+    if (item.kind === 'online') return item;
+    const match = embeddedMediaUrl.exec(item.src);
+    if (!match) return item;
+    const bytes = Buffer.from(match[2]!, 'base64');
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    // Repeated clips intentionally share one immutable resource.
+    if (!cache.has(hash)) {
+      cache.set(hash, {
+        bytes,
+        contentType: item.contentType ?? match[1]!,
+      });
+    }
+    return { ...item, src: `/media/${hash}` };
+  });
+  return { cache, published };
+}
+
+function mediaRange(value: string | undefined, length: number) {
+  if (!value) return { start: 0, end: length - 1, partial: false };
+  const match = /^bytes=(\d*)-(\d*)$/.exec(value);
+  if (!match || (!match[1] && !match[2]) || length === 0) return null;
+  let start: number;
+  let end: number;
+  if (!match[1]) {
+    const suffix = Number(match[2]);
+    if (!Number.isSafeInteger(suffix) || suffix <= 0) return null;
+    start = Math.max(0, length - suffix);
+    end = length - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] ? Number(match[2]) : length - 1;
+    if (
+      !Number.isSafeInteger(start) ||
+      !Number.isSafeInteger(end) ||
+      start > end ||
+      start >= length
+    )
+      return null;
+    end = Math.min(end, length - 1);
+  }
+  return { start, end, partial: true };
+}
+
 // Files `build-editor.mjs` puts next to the CLI, served as they are. The
 // animation player is one build shared by the preview page, the presenter
 // window and the editor panel, so all three play a slide the same way.
@@ -21,6 +74,7 @@ const BUNDLED_ASSETS: Record<string, string> = {
   '/editor.js': 'editor.js',
   '/editor.css': 'editor.css',
   '/animation-player.js': 'animation-player.js',
+  '/media-player.js': 'media-player.js',
 };
 
 export async function serveDeck(entry: string, port = 4173) {
@@ -28,6 +82,8 @@ export async function serveDeck(entry: string, port = 4173) {
   let source: BuildResult | undefined;
   let sourceHash: string | undefined;
   let documentHash: string | undefined;
+  let mediaCache = new Map<string, CachedMedia>();
+  let publishedMedia: BuildResult['media'] = [];
   const store = editorStore(entry);
   let saved = await store.read();
   const serverId = randomUUID();
@@ -116,6 +172,7 @@ export async function serveDeck(entry: string, port = 4173) {
       if (svg !== latest?.slides[index]) patch[index] = svg;
     });
     latest = result;
+    ({ cache: mediaCache, published: publishedMedia } = cacheEmbeddedMedia(result.media));
     documentHash = sourceFingerprint(result.bytes);
     revision++;
   }
@@ -214,6 +271,43 @@ export async function serveDeck(entry: string, port = 4173) {
     );
     if (request.url?.startsWith('/agents/') && !match) {
       response.writeHead(404).end();
+      return;
+    }
+    const mediaMatch = request.url?.match(/^\/media\/([a-f0-9]{64})(?:\?.*)?$/);
+    if (mediaMatch) {
+      if (request.method !== 'GET') {
+        response.writeHead(405).end();
+        return;
+      }
+      const cached = mediaCache.get(mediaMatch[1]!);
+      if (!cached) {
+        response.writeHead(404).end();
+        return;
+      }
+      const range = mediaRange(request.headers.range, cached.bytes.length);
+      const immutableHeaders = {
+        'Accept-Ranges': 'bytes',
+        'Cache-Control': 'public, max-age=31536000, immutable',
+        'Content-Type': cached.contentType,
+      };
+      if (!range) {
+        response
+          .writeHead(416, {
+            ...immutableHeaders,
+            'Content-Range': `bytes */${cached.bytes.length}`,
+          })
+          .end();
+        return;
+      }
+      const bytes = cached.bytes.subarray(range.start, range.end + 1);
+      response.writeHead(range.partial ? 206 : 200, {
+        ...immutableHeaders,
+        'Content-Length': bytes.length,
+        ...(range.partial
+          ? { 'Content-Range': `bytes ${range.start}-${range.end}/${cached.bytes.length}` }
+          : {}),
+      });
+      response.end(bytes);
       return;
     }
     if (request.url === '/history' && request.method === 'GET') {
@@ -418,6 +512,7 @@ export async function serveDeck(entry: string, port = 4173) {
           aspectRatio: latest?.aspectRatio ?? 16 / 9,
           transitions: latest?.transitions ?? [],
           animations: latest?.animations ?? [],
+          media: publishedMedia,
           showProperties: latest?.showProperties ?? null,
           customShows: latest?.customShows ?? [],
           notes: latest?.notes ?? [],
