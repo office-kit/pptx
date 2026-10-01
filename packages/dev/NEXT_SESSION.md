@@ -1,3 +1,12 @@
+## 2026-10-02: メディア選択時の再生リボン
+
+- 単一のメディアを選択した場合に「再生」コンテキストタブを表示。自動/クリック開始、ループ、音量%、ミュート、動画の全画面、停止中非表示を直接設定。自動開始時は別Timingグループで秒単位の遅延を編集。既存API経由のtransactでUndo/保存対応。
+- 1.001秒などの浮動小数点誤差はミリ秒変換時に丸め、入力のstep検証で桁を制約。汎用設定画面にもdelayMsを追加。日英翻訳を追加。
+- 修正前は再生タブがなく音声・動画テスト2件失敗（`/tmp/pptx-media-editor-before.log`）。修正後2件＋既存compactヘッダー1件成功。保存、Undo、再読込、1001ms遅延、音量25%、ミュート、非表示、動画のみ全画面、日本語の開始操作を確認。site117件成功、Svelte0 errors/warnings、dev build成功。
+- 日本語動画リボン画像 `/tmp/pptx-media-editor-video.png` を目視確認。PowerPoint実機は今回も0×0で取得失敗。Microsoftの操作説明を参照: https://support.microsoft.com/en-us/powerpoint/insert-and-play-a-video-file-from-your-computer 。ネイティブ版との見た目完全一致は未検証。
+- 最終format/lint/root typecheck/test/build成功。core 3125 passed / 109 skipped。ログ `/tmp/pptx-media-editor-gates.log`、`/tmp/pptx-media-editor-tests.log`。
+- 全体の完全一致は未完了。クリックシーケンス、入れ子タイミング、numSld、オンライン再生、従来fidelity差分などは残件。ユーザーの既存プレビューや編集資料は変更していない。
+
 ## 2026-10-02: 自動メディアの開始遅延
 
 - `MediaPlayback.delayMs` を追加。イベントなしの自動開始条件の正の遅延を読み込み、保存・再読込で保持。ゼロは従来の戻り値形状を維持。setterは非負safe integerのみ許容し、非自動再生へのdelay単独指定やautoplay:false併用を変更前に拒否。
