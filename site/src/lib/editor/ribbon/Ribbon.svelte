@@ -4,7 +4,6 @@
   // active, mirroring PowerPoint. Buttons dispatch through runOrPrompt, so a
   // command needing arguments opens its (auto-generated or bespoke) dialog.
   import { getShapeMedia, getShapeMediaPlayback } from '@office-kit/pptx';
-  import PosterFrameMenu from './PosterFrameMenu.svelte';
   import MediaPlaybackRibbon from './MediaPlaybackRibbon.svelte';
   import { getEditor } from '../core/context.ts';
   import { RIBBON, type RibbonTab } from './config.ts';
@@ -17,6 +16,7 @@
   import FontRibbon from './FontRibbon.svelte';
   import LineSpacingMenu from './LineSpacingMenu.svelte';
   import ParagraphAlignment from './ParagraphAlignment.svelte';
+  import VideoFormatRibbon from './VideoFormatRibbon.svelte';
   import { t, capLabel } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -87,7 +87,9 @@
   </div>
 
   <div class="groups ok-scroll" hidden={collapsed} id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
-    {#if current?.title === 'Video Format'}<PosterFrameMenu />{/if}
+    {#if current?.title === 'Video Format'}
+      <VideoFormatRibbon />
+    {:else}
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
@@ -121,6 +123,7 @@
         <div class="group-title">{t(group.title)}</div>
       </div>
     {/each}
+    {/if}
   </div>
 </div>
 
