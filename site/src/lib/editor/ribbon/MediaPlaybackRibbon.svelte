@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte';
   import {
     getShapeMedia,
     getShapeMediaPlayback,
@@ -10,9 +11,17 @@
 
   // Mac PowerPoint writes numSld=999 when Play Across Slides is enabled.
   const acrossSlidesCount = 999;
+  const volumeOptions = [
+    { label: 'Low', value: 0.2 },
+    { label: 'Medium', value: 0.5 },
+    { label: 'High', value: 0.8 },
+  ] as const;
   const editor = getEditor();
   const doc = editor.doc;
   let error = $state('');
+  let volumeOpen = $state(false);
+  let volumeTrigger = $state<HTMLButtonElement>();
+  let volumeMenu = $state<HTMLDivElement>();
 
   const selected = $derived.by(() => {
     doc.version;
@@ -47,11 +56,38 @@
     apply('Start delay', { delayMs: milliseconds });
   }
 
-  function changeVolume(input: HTMLInputElement): void {
-    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) return;
-    apply('Volume', { volume: input.valueAsNumber / 100 });
+  function closeVolume(restore = true): void {
+    volumeOpen = false;
+    if (restore) volumeTrigger?.focus();
+  }
+
+  async function showVolume(): Promise<void> {
+    volumeOpen = !volumeOpen;
+    if (volumeOpen) {
+      await tick();
+      (volumeMenu?.querySelector<HTMLButtonElement>('[aria-checked="true"]') ?? volumeMenu?.querySelector<HTMLButtonElement>('button'))?.focus();
+    }
+  }
+
+  function placeVolumeMenu(node: HTMLElement): void {
+    const bounds = volumeTrigger!.getBoundingClientRect();
+    node.style.left = `${Math.max(8, Math.min(bounds.left, innerWidth - node.offsetWidth - 8))}px`;
+    node.style.top = `${Math.max(8, Math.min(bounds.bottom, innerHeight - node.offsetHeight - 8))}px`;
+  }
+
+  function volumeKeys(event: KeyboardEvent): void {
+    event.stopPropagation();
+    if (event.key === 'Escape') { event.preventDefault(); closeVolume(); return; }
+    if (event.key === 'Tab') { closeVolume(false); return; }
+    if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const items = [...volumeMenu!.querySelectorAll<HTMLButtonElement>('button')];
+    const index = items.indexOf(event.target as HTMLButtonElement);
+    items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
   }
 </script>
+
+<svelte:window onpointerdown={event => { if (volumeOpen && !volumeMenu?.contains(event.target as Node) && !volumeTrigger?.contains(event.target as Node)) closeVolume(false); }} onblur={() => { if (volumeOpen) closeVolume(false); }} onresize={() => { if (volumeOpen) closeVolume(false); }} />
 
 {#if selected}
   <div class="group">
@@ -67,14 +103,17 @@
         <input type="checkbox" checked={selected.playback.loop} onchange={(event) => apply('Loop until stopped', { loop: event.currentTarget.checked })} />
         <span>{t('Loop until stopped')}</span>
       </label>
-      <label class="field number-field">
-        <span>{t('Volume')}</span>
-        <span class="number"><input class="ok-input" type="number" min="0" max="100" step="1" required aria-label={t('Volume')} value={Math.round(selected.playback.volume * 100)} onchange={(event) => changeVolume(event.currentTarget)} /><span>%</span></span>
-      </label>
-      <label class="check">
-        <input type="checkbox" checked={selected.playback.muted} onchange={(event) => apply('Mute', { muted: event.currentTarget.checked })} />
-        <span>{t('Mute')}</span>
-      </label>
+      <div class="volume-menu">
+        <button class="volume-trigger" bind:this={volumeTrigger} type="button" aria-label={t('Volume')} title={t('Volume')} aria-haspopup="menu" aria-expanded={volumeOpen} onclick={showVolume}>{t('Volume')} ▾</button>
+        {#if volumeOpen}
+          <div class="menu" role="menu" aria-label={t('Volume')} tabindex="-1" bind:this={volumeMenu} use:placeVolumeMenu onkeydown={volumeKeys}>
+            {#each volumeOptions as option}
+              <button role="menuitemradio" aria-checked={!selected.playback.muted && selected.playback.volume === option.value} onclick={() => { apply(option.label, { volume: option.value, muted: false }); closeVolume(); }}><span class="check" aria-hidden="true">{!selected.playback.muted && selected.playback.volume === option.value ? '✓' : ''}</span>{t(option.label)}</button>
+            {/each}
+            <button role="menuitemradio" aria-checked={selected.playback.muted} onclick={() => { apply('Mute', { muted: true }); closeVolume(); }}><span class="check" aria-hidden="true">{selected.playback.muted ? '✓' : ''}</span>{t('Mute')}</button>
+          </div>
+        {/if}
+      </div>
       {#if selected.media.kind === 'audio'}
         <button class="action" type="button" aria-label={t('Play in Background')} onclick={() => apply('Play in Background', { autoplay: true, slideCount: acrossSlidesCount, loop: true, hideWhenStopped: true })}>{t('Play in Background')}</button>
         <label class="check">
@@ -123,6 +162,12 @@
   select { min-width: 112px; padding: 3px 4px; }
   .number { display: flex; align-items: center; gap: 3px; }
   .number input { width: 52px; min-width: 0; padding: 2px 4px; }
+  .volume-menu { position: relative; display: flex; align-items: center; }
+  .volume-trigger { padding: 3px 6px; border: 1px solid var(--ok-border); border-radius: 3px; background: var(--ok-surface, transparent); color: var(--ok-text); font: inherit; font-size: 11px; white-space: nowrap; }
+  .menu { position: fixed; z-index: 400; min-width: 130px; padding: 4px; background: var(--ok-panel); color: var(--ok-text); border: 1px solid var(--ok-border); border-radius: 5px; box-shadow: var(--ok-shadow-lg); }
+  .menu button { display: flex; gap: 6px; width: 100%; border: 0; padding: 5px 8px; background: transparent; color: inherit; text-align: left; font: inherit; font-size: 12px; }
+  .menu button:hover, .menu button:focus-visible { background: var(--ok-accent); color: white; outline: none; }
+  .menu .check { width: 14px; }
   .check { max-width: 125px; }
   .action { padding: 3px 6px; border: 1px solid var(--ok-border); border-radius: 3px; background: var(--ok-surface, transparent); color: var(--ok-text); font: inherit; font-size: 11px; white-space: nowrap; }
   .check input { margin: 0; }

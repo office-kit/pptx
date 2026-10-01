@@ -129,16 +129,61 @@ for (const [kind, nested] of [
         await delay.fill('1.001');
         await delay.press('Tab');
         const volume = panel.getByLabel('Volume', { exact: true });
-        await volume.fill('25');
-        await volume.press('Tab');
-        await panel.getByLabel('Mute', { exact: true }).check();
+        const chooseVolume = async (name) => {
+          await volume.click();
+          await panel.getByRole('menuitemradio', { name, exact: true }).click();
+          await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        };
+        await chooseVolume('Low');
+        assert.equal((await readPlayback()).volume, 0.2);
+        await chooseVolume('Medium');
+        assert.equal((await readPlayback()).volume, 0.5);
+        await chooseVolume('High');
+        assert.equal((await readPlayback()).volume, 0.8);
+        await volume.click();
+        assert.equal(
+          await panel
+            .getByRole('menuitemradio', { name: 'High', exact: true })
+            .getAttribute('aria-checked'),
+          'true',
+        );
+        await panel.getByRole('menuitemradio', { name: 'High', exact: true }).press('Escape');
+        assert.equal(await panel.getByRole('menu').count(), 0);
+        assert.equal(
+          await volume.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+        );
+        await volume.click();
+        await panel.getByRole('menuitemradio', { name: 'Low', exact: true }).focus();
+        await panel.getByRole('menuitemradio', { name: 'Low', exact: true }).press('ArrowDown');
+        await panel.getByRole('menuitemradio', { name: 'Medium', exact: true }).press('Enter');
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).volume, 0.5);
+        await chooseVolume('High');
+        await volume.click();
+        await panel.getByRole('menuitemradio', { name: 'Mute', exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
         await panel.getByLabel('Hide when not playing', { exact: true }).check();
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         const settings = await readPlayback();
         assert.equal(settings.delayMs, 1001);
-        assert.equal(settings.volume, 0.25);
+        assert.equal(settings.volume, 0.8);
         assert.equal(settings.muted, true);
         assert.equal(settings.hideWhenStopped, true);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).muted, true);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).muted, false);
+        await volume.click();
+        await panel.getByRole('menuitemradio', { name: 'Mute', exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        await volume.click();
+        await panel.getByRole('menuitemradio', { name: 'Mute', exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).muted, true);
+        await chooseVolume('High');
         await page.reload();
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         await editor.locator('.hit').first().click();
@@ -146,7 +191,12 @@ for (const [kind, nested] of [
         assert.equal(await panel.getByLabel('Start', { exact: true }).inputValue(), 'automatic');
         assert.equal(await delay.inputValue(), '1.001');
         assert.equal(await rewind.isChecked(), true);
+        assert.equal((await readPlayback()).volume, 0.8);
         await editor.locator('.lang select').selectOption('ja');
+        await panel.getByRole('button', { name: '音量', exact: true }).click();
+        await panel.getByRole('menuitemradio', { name: '小', exact: true }).click();
+        await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).volume, 0.2);
         await panel.getByLabel('再生が終了したら巻き戻す', { exact: true }).uncheck();
         await panel.getByLabel('開始', { exact: true }).selectOption('click');
         await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
@@ -327,8 +377,10 @@ test(
       await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
       const background = editor.getByRole('button', { name: 'Play in Background', exact: true });
       assert.equal(await background.count(), 1);
-      await editor.getByLabel('Volume', { exact: true }).fill('25');
-      await editor.getByLabel('Volume', { exact: true }).press('Tab');
+      const volume = editor.getByLabel('Volume', { exact: true });
+      await volume.click();
+      await editor.getByRole('menuitemradio', { name: 'Low', exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.getByLabel('Rewind After Playing', { exact: true }).check();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await background.click();
@@ -339,7 +391,7 @@ test(
       assert.equal(backgroundPlayback.loop, true);
       assert.equal(backgroundPlayback.hideWhenStopped, true);
       assert.equal(backgroundPlayback.rewindAfterPlaying, true);
-      assert.equal(backgroundPlayback.volume, 0.25);
+      assert.equal(backgroundPlayback.volume, 0.2);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const undoneBackground = await readPlayback(0);
@@ -348,7 +400,7 @@ test(
       assert.equal(undoneBackground.loop, false);
       assert.equal(undoneBackground.hideWhenStopped, false);
       assert.equal(undoneBackground.rewindAfterPlaying, true);
-      assert.equal(undoneBackground.volume, 0.25);
+      assert.equal(undoneBackground.volume, 0.2);
       await background.click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await page.reload();
