@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 187,
+  "count": 188,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -2823,6 +2823,23 @@
           "name": "value",
           "type": "string",
           "kind": "string",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setSlideOutlineCollapsed",
+      "operand": "slide",
+      "takesOperand": true,
+      "category": "slide",
+      "file": "api/fn/guides.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "collapsed",
+          "type": "boolean",
+          "kind": "boolean",
           "optional": false
         }
       ]

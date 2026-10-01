@@ -67,8 +67,14 @@ for (const locale of ['en', 'ja'])
         const change = async (action) => {
           const before = (await waitForState(preview.url, () => true)).revision;
           await action();
-          await waitForState(preview.url, (state) => state.revision > before);
+          await waitForState(preview.url, (state) => state.revision !== before);
         };
+        const slideIcon = outline.locator('[data-outline-slide="0"] > button');
+        await change(() => slideIcon.dblclick());
+        assert.equal(await slideIcon.getAttribute('aria-expanded'), 'false');
+        assert.equal(await outline.getByRole('textbox').count(), 1);
+        await change(() => slideIcon.press('Control+z'));
+        assert.equal(await outline.getByRole('textbox').count(), 2);
         await change(() => title.fill('Outline title edited'));
         let pres = await read();
         assert.equal(getShapeText(getSlideShapes(getSlides(pres)[0])[0]), 'Outline title edited');
@@ -140,6 +146,23 @@ for (const locale of ['en', 'ja'])
           getShapeText(getSlideShapes(getSlides(await read())[0])[0]),
           'Saved when leaving outline',
         );
+        await editor.getByRole('tab', { name: labels.view, exact: true }).click();
+        const openOutline = () =>
+          editor
+            .getByRole('tabpanel', { name: labels.view, exact: true })
+            .getByRole('button', { name: labels.outline, exact: true })
+            .click();
+        await openOutline();
+        await change(() => slideIcon.dblclick());
+        await page.reload();
+        await editor.locator('.slide-workspace').waitFor();
+        await editor.getByRole('tab', { name: labels.view, exact: true }).click();
+        await openOutline();
+        assert.equal(await slideIcon.getAttribute('aria-expanded'), 'false');
+        assert.equal(await outline.getByRole('textbox').count(), 1);
+        await change(() => slideIcon.dblclick());
+        assert.equal(await slideIcon.getAttribute('aria-expanded'), 'true');
+        assert.equal(await outline.getByRole('textbox').count(), 2);
         assert.deepEqual(pageErrors, []);
       } finally {
         await browser?.close();
