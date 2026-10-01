@@ -9,6 +9,7 @@ import {
   addSlideMedia,
   createPresentation,
   getShapeBoundsResolved,
+  isShapeAspectRatioLocked,
   getSlides,
   getSlideShapes,
   inches,
@@ -151,38 +152,95 @@ test(
       await effects.getByRole('menuitem').nth(1).press('Escape');
       assert.equal(await effects.count(), 0);
 
-      // Size edits are persisted in OOXML and obey the explicit aspect-ratio
-      // lock. Undo must restore both dimensions as one user operation.
+      // The aspect-ratio lock is persisted in DrawingML's noChangeAspect
+      // attribute. An unlocked resize changes width only, and undoing that
+      // resize must leave the unlocked state intact.
       const readBounds = async () => {
         const saved = await loadPresentation(
           new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
         );
         return getShapeBoundsResolved(saved, getSlideShapes(getSlides(saved)[0])[0]);
       };
+      const readAspectLock = async () => {
+        const saved = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return isShapeAspectRatioLocked(getSlideShapes(getSlides(saved)[0])[0]);
+      };
       const initialBounds = await readBounds();
       assert.ok(initialBounds);
-      const height = panel.locator('input[type="number"]').nth(0);
-      const width = panel.locator('input[type="number"]').nth(1);
       const lock = panel.getByLabel('Lock aspect ratio', { exact: true });
       assert.equal(await lock.isChecked(), true);
-      const initialWidthCm = Number(await width.inputValue());
-      const initialHeightCm = Number(await height.inputValue());
-      await width.fill(String(initialWidthCm + 1));
-      await width.press('Tab');
+      assert.equal(await readAspectLock(), true);
+      const initialWidthCm = Number(
+        await panel.locator('input[type="number"]').nth(1).inputValue(),
+      );
+      const initialHeightCm = Number(
+        await panel.locator('input[type="number"]').nth(0).inputValue(),
+      );
+      await lock.uncheck();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal(await readAspectLock(), false);
+      // PowerPoint does not add a history entry for changing this checkbox.
+      assert.equal(await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).isDisabled(), true);
+
+      // Reloading must hydrate the checkbox from the saved OOXML value.
+      await page.reload();
+      const reloadedEditor = page.frameLocator('#editor-frame');
+      await reloadedEditor.getByText('Saved to this project', { exact: true }).waitFor();
+      await reloadedEditor.locator('.hit').first().click();
+      await reloadedEditor.getByRole('tab', { name: 'Video Format', exact: true }).click();
+      const reloadedPanel = reloadedEditor.locator('#ribbon-panel');
+      const reloadedLock = reloadedPanel.getByLabel('Lock aspect ratio', { exact: true });
+      assert.equal(await reloadedLock.isChecked(), false);
+      assert.equal(await readAspectLock(), false);
+
+      const unlockedInitialBounds = await readBounds();
+      assert.deepEqual(unlockedInitialBounds, initialBounds);
+      const reloadedHeight = reloadedPanel.locator('input[type="number"]').nth(0);
+      const reloadedWidth = reloadedPanel.locator('input[type="number"]').nth(1);
+      await reloadedWidth.fill(String(initialWidthCm + 1));
+      await reloadedWidth.press('Tab');
+      await reloadedEditor.getByText('Saved to this project', { exact: true }).waitFor();
       const resizedBounds = await readBounds();
       assert.ok(resizedBounds);
       assert.ok(resizedBounds.w > initialBounds.w);
-      assert.ok(resizedBounds.h > initialBounds.h);
-      assert.ok(Number(await height.inputValue()) > initialHeightCm);
-      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
-      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal(resizedBounds.h, initialBounds.h);
+      assert.ok(Math.abs(Number(await reloadedHeight.inputValue()) - initialHeightCm) < 0.01);
+      assert.ok(Math.abs(Number(await reloadedWidth.inputValue()) - (initialWidthCm + 1)) < 0.01);
+      await reloadedEditor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await reloadedEditor.getByText('Saved to this project', { exact: true }).waitFor();
       const undoneBounds = await readBounds();
       assert.deepEqual(undoneBounds, initialBounds);
+      assert.equal(await reloadedLock.isChecked(), false);
+      assert.equal(await readAspectLock(), false);
+
+      // Re-enabling the lock restores proportional resizing coverage. The
+      // subsequent Undo is for the resize only, so the lock remains enabled.
+      await reloadedLock.check();
+      await reloadedEditor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.equal(await readAspectLock(), true);
+      const lockedInitialBounds = await readBounds();
+      const lockedInitialWidthCm = Number(await reloadedWidth.inputValue());
+      await reloadedWidth.fill(String(lockedInitialWidthCm + 1));
+      await reloadedWidth.press('Tab');
+      await reloadedEditor.getByText('Saved to this project', { exact: true }).waitFor();
+      const lockedResizedBounds = await readBounds();
+      assert.ok(lockedResizedBounds.w > lockedInitialBounds.w);
+      assert.ok(lockedResizedBounds.h > lockedInitialBounds.h);
+      await reloadedEditor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await reloadedEditor.getByText('Saved to this project', { exact: true }).waitFor();
+      assert.deepEqual(await readBounds(), lockedInitialBounds);
+      assert.equal(await reloadedLock.isChecked(), true);
+      assert.equal(await readAspectLock(), true);
 
       // Format Pane opens the properties pane for the selected media shape.
-      await panel.getByRole('button', { name: 'Format Pane', exact: true }).click();
-      await editor.locator('#format-panel').waitFor({ state: 'visible' });
+      await reloadedPanel.getByRole('button', { name: 'Format Pane', exact: true }).click();
+      await reloadedEditor.locator('#format-panel').waitFor({ state: 'visible' });
+      const sizePaneLock = reloadedEditor
+        .locator('#format-panel')
+        .getByLabel('Lock aspect ratio', { exact: true });
+      if (await sizePaneLock.count()) assert.equal(await sizePaneLock.isChecked(), true);
     } finally {
       await browser?.close();
       await preview?.close();

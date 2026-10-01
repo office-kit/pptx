@@ -84,6 +84,19 @@ function titles(doc) {
   return getSlides(doc.pres).map(getSlideText);
 }
 
+test('persisted document settings do not add an undo step and survive the next edit undo', async () => {
+  const doc = new EditorDocument();
+  const initialTitles = titles(doc);
+  doc.setDocumentSetting(() => addTitleSlide(doc.pres, 'Setting snapshot'));
+  assert.equal(doc.canUndo, false);
+  assert.equal(doc.dirty, true);
+  assert.equal(doc.committedVersion, doc.version);
+  append(doc, 'Next edit');
+  await doc.undo();
+  assert.deepEqual(titles(doc), [...initialTitles, 'Setting snapshot']);
+  assert.equal(doc.canUndo, false);
+});
+
 test('zoom buttons advance to the adjacent ten-percent stop in the active view', () => {
   const editor = new EditorController();
   for (const mode of ['normal', 'sorter']) {

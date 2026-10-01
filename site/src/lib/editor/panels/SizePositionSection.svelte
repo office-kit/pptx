@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { cm, emu, getSlideSize, getShapeBoundsResolved, getShapeId, getShapeRotation, getShapeFlip, setShapeBounds, type ShapeBounds } from '@office-kit/pptx';
+  import { isShapeAspectRatioLocked, setShapeAspectRatioLocked, cm, emu, getSlideSize, getShapeBoundsResolved, getShapeId, getShapeRotation, getShapeFlip, setShapeBounds, type ShapeBounds } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
@@ -27,7 +27,15 @@
   });
   let sizeOpen = $state(true);
   let positionOpen = $state(true);
-  let lockAspectRatio = $state(false);
+  const lockAspectRatio = $derived.by(() => {
+    doc.version;
+    const values = geometry.map(item => isShapeAspectRatioLocked(item.shape));
+    return values.length && values.every(value => value === values[0]) ? values[0] : null;
+  });
+  function changeAspectLock(input: HTMLInputElement): void {
+    if (editor.selectionLocked()) return;
+    doc.setDocumentSetting(() => setShapeAspectRatioLocked(geometry.map(item => item.shape), input.checked));
+  }
   let origins = $state({ x: 'corner', y: 'corner' });
   const slideSize = $derived.by(() => { doc.version; return getSlideSize(doc.pres); });
   function originOffset(field: keyof ShapeBounds) {
@@ -105,7 +113,7 @@
     const value = input.valueAsNumber;
     const updates = geometry.map(item => {
       const next = { ...item.bounds, [field]: scale ? emu((originals.get(getShapeId(item.shape))?.[field] ?? item.bounds[field]) * value / 100) : emu(cm(value) + originOffset(field)) };
-      if (lockAspectRatio && canLockAspectRatio) {
+      if (isShapeAspectRatioLocked(item.shape) && canLockAspectRatio) {
         if (field === 'w') next.h = emu(item.bounds.h * next.w / item.bounds.w);
         if (field === 'h') next.w = emu(item.bounds.w * next.h / item.bounds.h);
       }
@@ -136,7 +144,7 @@
           {@const axis = field as 'h' | 'w'}
           <label><span>{t(label!)}</span><span class="number"><input class="ok-input" type="number" aria-label={t(label!)} disabled={locked || geometry.some(item => !originals.get(getShapeId(item.shape))?.[axis])} min="1" max={Number.isFinite(scaleLimits[axis]) ? scaleLimits[axis] : undefined} step="any" value={scales[axis] ?? ''} placeholder={scales[axis] === null ? t('Mixed') : undefined} onchange={event => change(axis, event.currentTarget, true)} /><span>%</span></span></label>
         {/each}
-        <label class="check"><input type="checkbox" bind:checked={lockAspectRatio} disabled={locked || !canLockAspectRatio} /><span>{t('Lock aspect ratio')}</span></label>
+        <label class="check"><input type="checkbox" checked={lockAspectRatio === true} indeterminate={lockAspectRatio === null} onchange={event => changeAspectLock(event.currentTarget)} disabled={locked || !canLockAspectRatio} /><span>{t('Lock aspect ratio')}</span></label>
       </div>
     </details>
     <details bind:open={positionOpen}>

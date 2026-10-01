@@ -43,6 +43,7 @@ const LOCKS = new Map([
     },
   ],
 ]);
+const NO_CHANGE_ASPECT = qname('', 'noChangeAspect', '');
 
 function lockProperties(shape: SlideShapeData) {
   const config = LOCKS.get(shape[SHAPE_ELEMENT].name.localName);
@@ -64,6 +65,16 @@ export const isShapeLocked = (shape: SlideShapeData): boolean => {
       return value === '1' || value === 'true';
     })
   );
+};
+
+/** Whether PowerPoint preserves this object's aspect ratio while resizing it. */
+export const isShapeAspectRatioLocked = (shape: SlideShapeData): boolean => {
+  const target = lockProperties(shape);
+  if (!target) return false;
+  const locks = firstChildElement(target.properties, qname('a', target.config.element, NS.dml));
+  if (!locks) return false;
+  const value = getAttrValue(locks, NO_CHANGE_ASPECT);
+  return value === '1' || value === 'true';
 };
 
 /**
@@ -95,6 +106,43 @@ export const setShapeLocked = (
       (a) => a.name.namespaceURI !== '' || !flags.has(a.name.localName),
     );
     if (locked) for (const key of flags) locks.attrs.push(attr(qname('', key, ''), '1'));
+    if (!locks.attrs.length && !locks.children.length)
+      properties.children = properties.children.filter((child) => child !== locks);
+  }
+  for (const slide of new Set(targets.map(({ shape }) => shape[SHAPE_SLIDE]))) {
+    commitSlideData(slide);
+    refreshSlideData(slide);
+  }
+};
+
+/**
+ * Sets the DrawingML `noChangeAspect` constraint without disturbing other
+ * nonvisual properties. An absent constraint and an explicit false value both
+ * read as unlocked; disabling the constraint removes only this attribute.
+ */
+export const setShapeAspectRatioLocked = (
+  shapes: SlideShapeData | readonly SlideShapeData[],
+  locked: boolean,
+): void => {
+  const targets = (Array.isArray(shapes) ? shapes : [shapes]).map((shape: SlideShapeData) => {
+    const target = lockProperties(shape);
+    if (!target)
+      throw new Error(
+        'setShapeAspectRatioLocked: shape has no supported nonvisual drawing properties',
+      );
+    return { shape, ...target };
+  });
+  for (const { config, properties } of targets) {
+    let locks = firstChildElement(properties, qname('a', config.element, NS.dml));
+    if (!locks) {
+      if (!locked) continue;
+      locks = elem(qname('a', config.element, NS.dml));
+      properties.children.unshift(locks);
+    }
+    locks.attrs = locks.attrs.filter(
+      (value) => value.name.namespaceURI !== '' || value.name.localName !== 'noChangeAspect',
+    );
+    if (locked) locks.attrs.push(attr(NO_CHANGE_ASPECT, '1'));
     if (!locks.attrs.length && !locks.children.length)
       properties.children = properties.children.filter((child) => child !== locks);
   }

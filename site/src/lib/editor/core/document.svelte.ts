@@ -134,6 +134,19 @@ export class EditorDocument {
     return result;
   }
 
+  /** Persist a document setting without adding an undo step (as PowerPoint does for aspect locks). */
+  setDocumentSetting(fn: () => void): void {
+    this.#invalidateRestore();
+    fn();
+    this.version++;
+    this.committedVersion = this.version;
+    this.dirty = true;
+    const bytes = savePresentation(this.pres);
+    this.#history = this.#history.map((snapshot, index) =>
+      index === this.#cursor ? { ...snapshot, bytes } : snapshot,
+    );
+  }
+
   /**
    * Apply a live, high-frequency mutation (a drag/resize frame). Re-renders
    * immediately but does NOT snapshot — so a whole gesture stays one undo step.
