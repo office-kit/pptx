@@ -20,6 +20,7 @@ export const ja: Record<string, string> = {
   'Alt Text': '代替テキスト',
   'Format Pane': '書式設定ウィンドウ',
   Reset: 'リセット',
+  'Reset picture color': '画像の色をリセット',
   'Poster Frame': '表紙画像',
   'Current Frame': '現在のフレーム',
   'Image from File...': 'ファイルから画像...',

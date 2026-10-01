@@ -557,6 +557,7 @@ export {
   setShapeImageFill,
   setShapeImageFillLayout,
   setShapeImageOpacity,
+  resetShapeImageColorEffects,
   setShapeClickAction,
   setShapeDescription,
   setShapeNoFill,

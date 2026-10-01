@@ -1,3 +1,11 @@
+## 2026-10-02: 動画ペインの色リセット
+
+- VideoタブのResetを実装。grayscl/duotone/biLevel/lumのみ解除し、表紙・動画・図形書式・透明度・未知の拡張を保持。Undoは1操作。リボンResetは図形書式まで解除する別動作で未実装。
+- 実機でグレースケール/セピア/白黒と明るさ/コントラストを比較。参照資料 `/private/tmp/pptx-poster-audit/trim-reset.pptx` は全一時操作をUndoして保存、slide XMLが `/tmp/pptx-video-reset-baseline.xml` と完全一致。復元待ちなし。
+- ヘッダーの省スペース化は反映済み。確認用プレビュー http://127.0.0.1:4175 。4173の未保存編集には触れない。PRは引き続き #287 に集約。
+- 検証: 動画Reset・修整・リボンのブラウザー3件成功。非既定の塗り/線/透明度を持つResetケースも再検証済み。site121件、Svelte 0 errors/warnings、format/lint/typecheck、core/editor build成功。全core検証で検出した新APIのmanifest登録漏れも修正。
+- 次はRecolor、リボンReset、ドラッグ中の連続プレビュー、Cropの実機配置。完全一致は未達成。
+
 ## 2026-10-02: 動画書式の詳細ペイン
 
 - 検証: 動画修整・動画リボンのブラウザー2件、ヘッダー省スペース表示1件、site121件成功。Svelte 0 errors/warnings、format/lint、editor build成功。幅の狭いペインではみ出す数値欄も回帰テストで再現後修正し、画像 `/tmp/pptx-video-format-pane.png` を確認。確認用プレビュー4175の稼働を再確認。
