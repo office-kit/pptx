@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Exact formatting-display metrics/persistence, cross-slide text selection, remaining text menu commands and exact native drag gestures.                                                           |
+| Outline                  | Exact formatting-display metrics/persistence, remaining text menu commands and native comparison of cross-slide selection and drag gestures.                                                     |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -822,3 +822,21 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
   layouts pass at 1500px and 900px widths, including Preview toolbar restoration.
 - All three focused browser tests pass. These usability corrections do not
   establish complete Mac PowerPoint UI parity.
+
+## Outline text ranges and formatting boundaries
+
+- Shared outline ranges now span title/body fields and slides. Copy, cut, paste,
+  ordinary typing, IME replacement, keyboard extension and Ribbon character/paragraph
+  formatting consume the shared range. Formatting is one undo transaction; queued
+  caret restoration does not steal focus from a subsequently selected control.
+- Browser regressions cover the integrated paths in `outline-cross-selection`,
+  `outline-ribbon-selection`, `outline-selection-lifecycle`, and
+  `outline-reorder-add-edit`. The focused integration run passed 15 cases on
+  c4335475. This supersedes earlier statements that cross-slide ranges are absent;
+  exact native selection gestures and all input methods still require comparison.
+- SVG line wrapping now finds Japanese punctuation boundaries across formatting
+  runs and maps the segments back to their original styles. Regression coverage
+  includes narrow boxes, explicit breaks, spaces, different character sizes and
+  Latin wrapping. The root suite passes 3,093 tests (109 skipped) on 4ce7310d.
+- The preset-shape Latin-word fidelity regression remains unresolved. Neither the
+  Japanese fix nor successful editor interaction tests prove overall visual parity.
