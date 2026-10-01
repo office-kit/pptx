@@ -70,6 +70,8 @@
   import { type Guide, type Rect } from './snapping.ts';
   import { getGridSpacing, getSnapToGrid } from '@office-kit/pptx';
   import { snapTransformedGrid, snapTransformedMove } from './transformed-snapping.ts';
+  import MediaInlinePreview from '../ui/MediaInlinePreview.svelte';
+  import { getShapeMedia, getShapeMediaPlayback } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -1236,6 +1238,13 @@
               editAtPointer(e, box);
             }}
           >
+            {#if isSel && selectedIds.size === 1}
+              {@const inlineMedia = getShapeMedia(box.shape)}
+              {@const inlinePlayback = getShapeMediaPlayback(box.shape)}
+              {#if inlineMedia && inlineMedia.kind !== 'online' && inlinePlayback}
+                <MediaInlinePreview shape={box.shape} media={inlineMedia} playback={inlinePlayback} />
+              {/if}
+            {/if}
             {#if isSel && doc.selection.kind === 'cell'}
               {#each selectedCellBoxes as cell}
                 <div class="cell-selection" aria-hidden="true" style="left:{cell.left}%; top:{cell.top}%; width:{cell.width}%; height:{cell.height}%;"></div>

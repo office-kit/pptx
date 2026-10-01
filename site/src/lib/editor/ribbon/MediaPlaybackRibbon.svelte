@@ -5,10 +5,12 @@
     getShapeMedia,
     getShapeMediaPlayback,
     setShapeMediaPlayback,
+    getShapeId,
     type MediaPlayback,
   } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import { getMediaPreview } from '../core/media-preview.svelte.ts';
 
   // Mac PowerPoint writes numSld=999 when Play Across Slides is enabled.
   const acrossSlidesCount = 999;
@@ -19,6 +21,7 @@
   ] as const;
   const editor = getEditor();
   const doc = editor.doc;
+  const preview = getMediaPreview(editor);
   let error = $state('');
   let trimOpen = $state(false);
   let volumeOpen = $state(false);
@@ -37,15 +40,56 @@
 
   const delaySeconds = $derived(selected?.playback.delayMs === undefined ? 0 : selected.playback.delayMs / 1000);
 
-  function apply(label: string, options: Partial<MediaPlayback>): void {
+  function apply(label: string, options: Partial<MediaPlayback>): boolean {
     const target = selected;
-    if (target === null) return;
+    if (target === null) return false;
     try {
       doc.transact(t(label), () => setShapeMediaPlayback(target.shape, options));
       error = '';
+      return true;
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
+      return false;
     }
+  }
+
+  $effect(() => {
+    if (trimOpen && selected) preview.command('pause', getShapeId(selected.shape));
+  });
+
+  const currentBookmark = $derived(selected ? preview.bookmarkAtCurrent(selected.playback) : null);
+  const selectedBookmark = $derived(selected && preview.state.shapeId === getShapeId(selected.shape) ? preview.state.bookmarkIndex : null);
+  const sortedBookmarks = $derived(
+    selected
+      ? [...(selected.playback.bookmarks ?? [])]
+          .map((bookmark, originalIndex) => ({ bookmark, originalIndex }))
+          .sort((a, b) => a.bookmark.timeMs - b.bookmark.timeMs)
+      : [],
+  );
+  const playLabel = $derived(preview.state.playing ? 'Pause' : 'Play');
+  function addBookmark(): void {
+    if (!selected || selected.media.kind === 'online' || currentBookmark !== null) return;
+    const bookmarks = [...(selected.playback.bookmarks ?? [])];
+    const timeMs = preview.state.currentTime * 1000;
+    const used = new Set(bookmarks.map(bookmark => bookmark.name));
+    let name = `Bookmark ${bookmarks.length + 1}`;
+    let suffix = bookmarks.length + 1;
+    while (used.has(name)) name = `Bookmark ${suffix += 1}`;
+    bookmarks.push({ name, timeMs });
+    bookmarks.sort((a, b) => a.timeMs - b.timeMs);
+    if (apply('Add Bookmark', { bookmarks })) {
+      const added = bookmarks.find(bookmark => bookmark.name === name);
+      preview.selectBookmark(bookmarks.findIndex(bookmark => bookmark.name === name), added?.timeMs);
+    }
+  }
+  function removeBookmark(): void {
+    if (!selected || selectedBookmark === null) return;
+    const bookmarks = [...(selected.playback.bookmarks ?? [])];
+    const target = sortedBookmarks[selectedBookmark];
+    if (!target) return;
+    bookmarks.splice(target.originalIndex, 1);
+    if (!apply('Remove Bookmark', { bookmarks })) return;
+    preview.selectBookmark(null);
   }
 
   function changeDelay(input: HTMLInputElement): void {
@@ -101,6 +145,14 @@
 
 {#if selected}
   {#if trimOpen}<MediaTrimDialog shape={selected.shape} onclose={() => trimOpen = false} />{/if}
+  <div class="group">
+    <div class="items">
+      <button class="action" type="button" aria-label={t(playLabel)} disabled={selected.media.kind === 'online'} onclick={() => preview.command(preview.state.playing ? 'pause' : 'play', getShapeId(selected.shape))}>{t(playLabel)}</button>
+      <button class="action" type="button" aria-label={t('Add Bookmark')} disabled={selected.media.kind === 'online' || currentBookmark !== null} onclick={addBookmark}>{t('Add Bookmark')}</button>
+      <button class="action" type="button" aria-label={t('Remove Bookmark')} disabled={selectedBookmark === null} onclick={removeBookmark}>{t('Remove Bookmark')}</button>
+    </div>
+    <span class="title">{t('Bookmarks')}</span>
+  </div>
   <div class="group"><div class="items"><button class="action" disabled={selected.media.kind === 'online'} onclick={() => trimOpen = true}>{t(selected.media.kind === 'video' ? 'Trim Video' : 'Trim Audio')}</button></div><span class="title">{t('Editing')}</span></div>
   <div class="group">
     <div class="items">
@@ -159,7 +211,7 @@
         <span>{t('Hide when not playing')}</span>
       </label>
     </div>
-    {#if error}<span class="error" role="alert">{error}</span>{/if}
+    {#if error || preview.state.error}<span class="error" role="alert">{error || preview.state.error}</span>{/if}
     <span class="title">{t('Playback')}</span>
   </div>
   {#if selected.playback.autoplay}
