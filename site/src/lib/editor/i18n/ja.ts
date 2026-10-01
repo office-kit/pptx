@@ -2,6 +2,10 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'Video Format': 'ビデオの書式',
+  'Poster Frame': '表紙画像',
+  'Current Frame': '現在のフレーム',
+  'Image from File...': 'ファイルから画像...',
   'The media could not be loaded': 'メディアを読み込めませんでした',
   'Nudge Forward': '少し進む',
   'Nudge Backward': '少し戻る',

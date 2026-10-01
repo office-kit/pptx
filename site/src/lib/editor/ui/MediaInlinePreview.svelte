@@ -159,7 +159,7 @@
 <div class="media-preview" role="presentation" onclick={event => event.stopPropagation()} onpointerdown={event => event.stopPropagation()} onkeydown={event => event.stopPropagation()}>
   {#if media.kind === 'video'}
     <!-- svelte-ignore a11y_media_has_caption -->
-    <video bind:this={player} src={src} preload="metadata" aria-label={t('Media preview')} onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></video>
+    <video style:visibility={preview.state.showVideoFrame ? undefined : 'hidden'} bind:this={player} src={src} preload="metadata" aria-label={t('Media preview')} onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></video>
   {:else}
     <audio bind:this={player} src={src} preload="metadata" onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></audio>
   {/if}

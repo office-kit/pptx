@@ -840,3 +840,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
   Latin wrapping. The root suite passes 3,093 tests (109 skipped) on 4ce7310d.
 - The preset-shape Latin-word fidelity regression remains unresolved. Neither the
   Japanese fix nor successful editor interaction tests prove overall visual parity.
+
+## Video poster frame editing (2026-10-02)
+
+- Video Format exposes Poster Frame > Current Frame and Image from File..., using the existing picture-image API without replacing the media relationship. Poster images remain visible until inline playback or seeking begins.
+- Native Mac inspection of `/private/tmp/pptx-poster-audit/deck.pptx` confirmed these menu labels and Current Frame disabled before playback, enabled after playback. The native Reset menu item and the remainder of Video Format layout/effects still need implementation and comparison.
+- Browser coverage checks saved poster bytes, preserved video bytes and playback settings, undo, reload, idle visibility and localized keyboard dismissal. This does not establish complete Video Format parity.

@@ -1,3 +1,10 @@
+## 2026-10-02: 動画の表紙画像
+
+- Video Format > Poster Frame から Current Frame / Image from File... を実装。既存 setShapeImage を利用し動画本体・再生設定を保持。再生/シークまで動画要素を隠して表紙画像を表示。
+- 実機 `/private/tmp/pptx-poster-audit/deck.pptx` を開き、Mac の項目名と Current Frame が選択直後に無効・再生後に有効になることを確認。メニューには Reset も存在するが未実装。リボン全体のVideo Format配置/スタイルも未一致。実機資料の内容変更はなし（Undo無効を確認）。
+- ブラウザーで表紙の永続化、動画バイト列/再生設定保持、Undo、再読込、日英メニューと初期非表示を検証。format/lint/root typecheck、Svelte 0 errors/warnings、site120件、editor build成功。
+- 次はPoster Frame > Reset の実機動作・保存OOXMLを確認して実装。その後、Video Formatの動画専用レイアウトと効果の差分を進める。全体の完全一致は未達成。4173の未保存編集は変更していない。
+
 ## 2026-10-02: 回転時の再生バーとヘッダー確認
 
 - Mac PowerPointで音声を90度回転しても再生バーは水平で図形の下に配置されることを確認。一時変更はUndo済み。office-kitの再現テスト失敗後、バーをキャンバス直下に配置して回転から独立させた。

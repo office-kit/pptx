@@ -6,6 +6,7 @@ export type MediaPreviewSnapshot = {
   currentTime: number;
   duration: number;
   playing: boolean;
+  showVideoFrame: boolean;
   bookmarkIndex: number | null;
   error: string;
 };
@@ -13,12 +14,15 @@ export type MediaPreviewController = {
   state: MediaPreviewSnapshot;
   attach(shapeId: number, element: HTMLMediaElement): () => void;
   reset(): void;
+  captureFrame(): Promise<Uint8Array>;
+  showPoster(): void;
   command(command: 'play' | 'pause' | 'seek', shapeId: number, time?: number): void;
   selectBookmark(index: number | null, timeMs?: number): void;
   bookmarkAtCurrent(playback: MediaPlayback | null): number | null;
 };
 
 const bookmarkTimeToleranceMs = 0.001;
+const minimumVideoReadyState = 2;
 const controllers = new WeakMap<object, MediaPreviewController>();
 
 export function getMediaPreview(editor: EditorController): MediaPreviewController {
@@ -32,6 +36,7 @@ export function getMediaPreview(editor: EditorController): MediaPreviewControlle
     currentTime: 0,
     duration: 0,
     playing: false,
+    showVideoFrame: false,
     bookmarkIndex: null,
     error: '',
   });
@@ -57,6 +62,7 @@ export function getMediaPreview(editor: EditorController): MediaPreviewControlle
       state.shapeId = shapeId;
       state.bookmarkIndex = null;
       state.error = '';
+      state.showVideoFrame = false;
       const events = [
         'timeupdate',
         'durationchange',
@@ -74,6 +80,7 @@ export function getMediaPreview(editor: EditorController): MediaPreviewControlle
         element = null;
         state.shapeId = null;
         state.playing = false;
+        state.showVideoFrame = false;
         state.bookmarkIndex = null;
         state.error = '';
         selectedTimeMs = null;
@@ -85,6 +92,43 @@ export function getMediaPreview(editor: EditorController): MediaPreviewControlle
     reset() {
       detach?.();
     },
+    async captureFrame() {
+      if (!element) throw new Error('No media is attached for frame capture.');
+      if (!(element instanceof HTMLVideoElement)) {
+        throw new Error('The attached media is not a video.');
+      }
+      const video = element;
+      video.pause();
+      update();
+      if (video.readyState < minimumVideoReadyState) {
+        throw new Error('The video has no decoded frame available.');
+      }
+      if (video.videoWidth <= 0 || video.videoHeight <= 0) {
+        throw new Error('The video has no decoded dimensions.');
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('The browser could not create a 2D canvas context.');
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((blob) => {
+          if (!blob) {
+            reject(new Error('The browser could not encode the video frame as PNG.'));
+            return;
+          }
+          resolve(blob);
+        }, 'image/png');
+      });
+      return new Uint8Array(await blob.arrayBuffer());
+    },
+    showPoster() {
+      if (!element) return;
+      element.pause();
+      state.showVideoFrame = false;
+      update();
+    },
     command(command, shapeId, time) {
       if (!element || state.shapeId !== shapeId) return;
       state.bookmarkIndex = null;
@@ -92,14 +136,17 @@ export function getMediaPreview(editor: EditorController): MediaPreviewControlle
       state.error = '';
       const target = element;
       const attachment = detach;
-      if (command === 'seek' && time !== undefined) element.currentTime = Math.max(0, time);
-      else if (command === 'play')
+      if (command === 'seek' && time !== undefined) {
+        state.showVideoFrame = true;
+        element.currentTime = Math.max(0, time);
+      } else if (command === 'play') {
+        state.showVideoFrame = true;
         void element.play().catch((error) => {
           if (element !== target || state.shapeId !== shapeId || detach !== attachment) return;
           state.playing = false;
           state.error = error instanceof Error ? error.message : String(error);
         });
-      else if (command === 'pause') element.pause();
+      } else if (command === 'pause') element.pause();
       update();
     },
     selectBookmark(index, timeMs) {
