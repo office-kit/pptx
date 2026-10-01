@@ -50,3 +50,16 @@ it('removes the outline entry when its slide is deleted', () => {
   addBlankSlide(pres);
   expect(getCollapsedOutlineSlides(pres)).toEqual([]);
 });
+
+it('collapses a batch in deck order and rejects mixed presentations atomically', () => {
+  const pres = createPresentation();
+  const first = addBlankSlide(pres),
+    second = addBlankSlide(pres);
+  setSlideOutlineCollapsed([second, first, second], true);
+  expect(getCollapsedOutlineSlides(pres)).toEqual([first, second]);
+  const foreign = addBlankSlide(createPresentation());
+  expect(() => setSlideOutlineCollapsed([first, foreign], false)).toThrow('same presentation');
+  expect(getCollapsedOutlineSlides(pres)).toEqual([first, second]);
+  setSlideOutlineCollapsed([first, second], false);
+  expect(getCollapsedOutlineSlides(pres)).toEqual([]);
+});

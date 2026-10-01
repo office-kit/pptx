@@ -626,3 +626,12 @@ Undo, saved reload and expansion; schema-validated round-trip tests check slide
 identity and preservation of grid settings. Removing a slide also removes its
 outline entry, preventing dangling references. This does not implement the full
 outline context menu, hierarchy editing or cross-slide text selection.
+
+The native outline context menu exposes Collapse and Expand submenus, each with
+selected-slide and all-slide commands. The editor now provides these four
+commands on outline slide icons, with keyboard submenu navigation and one-step
+batch Undo. A shared-library batch mutation validates slide ownership before
+changing the package and updates the shared view part in one batch. Right-clicking an icon
+after editing text now selects its slide before opening slide commands. The
+reference was restored to Normal 120% with Undo disabled. Other outline menu
+commands and right-click text editing still need comparison and implementation.

@@ -369,27 +369,26 @@ export function getCollapsedOutlineSlides(presentation: PresentationData): reado
 }
 
 /** Persists outline collapse and retains other view settings. */
-export const setSlideOutlineCollapsed = (slide: SlideData, collapsed: boolean): void => {
+export const setSlideOutlineCollapsed = (
+  slide: SlideData | readonly SlideData[],
+  collapsed: boolean,
+): void => {
   if (typeof collapsed !== 'boolean') throw new Error('Invalid outline collapse state.');
-  updateViewProperties(slide, () => {});
-  const view = viewProperties(slide)!;
-  const pkg = slide[INTERNAL_PACKAGE];
+  const selected: readonly SlideData[] = 'length' in slide ? slide : [slide];
+  if (!selected.length) return;
+  const first = selected[0]!;
+  const pkg = first[INTERNAL_PACKAGE];
+  if (selected.some((item) => item[INTERNAL_PACKAGE] !== pkg))
+    throw new Error('Outline slides must belong to the same presentation.');
+  updateViewProperties(first, () => {});
+  const view = viewProperties(first)!;
   const rels = pkg.getRels(view.part.name) ?? { items: [] };
-  let rel = rels.items.find(
-    (rel) =>
-      rel.type === REL_TYPES.slide &&
-      rel.targetMode === 'Internal' &&
-      resolveTarget(view.part.name, rel.target) === slide[SLIDE_PART_NAME],
+  const relationships = new Map(
+    rels.items
+      .filter((rel) => rel.type === REL_TYPES.slide && rel.targetMode === 'Internal')
+      .map((rel) => [resolveTarget(view.part.name, rel.target), rel]),
   );
-  if (!rel) {
-    rel = {
-      id: nextRelId(rels.items.map((rel) => rel.id)),
-      type: REL_TYPES.slide,
-      target: slide[SLIDE_PART_NAME],
-      targetMode: 'Internal',
-    };
-    rels.items.push(rel);
-  }
+  let availableId = nextRelId(rels.items.map((rel) => rel.id));
   let outline = firstChildElement(view.doc.root, p('outlineViewPr'));
   if (!outline) {
     outline = elem(p('outlineViewPr'), {
@@ -427,17 +426,32 @@ export const setSlideOutlineCollapsed = (slide: SlideData, collapsed: boolean): 
     );
     outline.children.splice(extension < 0 ? outline.children.length : extension, 0, slides);
   }
-  let node = allChildElements(slides, p('sld')).find(
-    (node) => getAttrValue(node, qname('r', 'id', NS.officeDocRels)) === rel.id,
+  const entries = new Map(
+    allChildElements(slides, p('sld')).map((node) => [
+      getAttrValue(node, qname('r', 'id', NS.officeDocRels)),
+      node,
+    ]),
   );
-  if (!node) {
-    node = elem(p('sld'), { attrs: [attr(qname('r', 'id', NS.officeDocRels), rel.id)] });
-    slides.children.push(node);
+  for (const selectedSlide of new Set(selected)) {
+    const target = selectedSlide[SLIDE_PART_NAME];
+    let rel = relationships.get(target);
+    if (!rel) {
+      rel = { id: availableId, type: REL_TYPES.slide, target, targetMode: 'Internal' };
+      availableId = nextRelId([rel.id]);
+      rels.items.push(rel);
+      relationships.set(target, rel);
+    }
+    let node = entries.get(rel.id);
+    if (!node) {
+      node = elem(p('sld'), { attrs: [attr(qname('r', 'id', NS.officeDocRels), rel.id)] });
+      slides.children.push(node);
+      entries.set(rel.id, node);
+    }
+    node.attrs = node.attrs.filter(
+      (item) => item.name.namespaceURI !== '' || item.name.localName !== 'collapse',
+    );
+    node.attrs.push(attr(attribute('collapse'), collapsed ? '1' : '0'));
   }
-  node.attrs = node.attrs.filter(
-    (item) => item.name.namespaceURI !== '' || item.name.localName !== 'collapse',
-  );
-  node.attrs.push(attr(attribute('collapse'), collapsed ? '1' : '0'));
   view.doc.root.prefixDecls.set('r', NS.officeDocRels);
   view.part.data = encode(serializeXml(view.doc));
   pkg.setRels(view.part.name, rels);
