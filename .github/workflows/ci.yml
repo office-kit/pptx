@@ -94,6 +94,9 @@ jobs:
       - name: Fetch ECMA-376 schemas for enum domain tests
         run: git submodule update --init --depth 1 references/ecma-376-5th
 
+      - name: Install XML schema validator
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libxml2-utils
+
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v6
         with:
@@ -177,8 +180,7 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
-  # Secondary OOXML oracle. The test job compares enum domains against XSDs;
-  # full XSD validation also requires xmllint, which this workflow doesn't install.
+  # Secondary OOXML oracle. The test job validates XML against XSDs.
   # Even full XSD validation can't express the semantic
   # OOXML rules PowerPoint enforces before it calls a file corrupt. This job
   # runs Microsoft's own OpenXmlValidator over the generated decks as an

@@ -43,7 +43,11 @@ import {
   refreshSlideData,
   setOpcDefault,
 } from './_helpers.ts';
-import { addMediaTimingNode, findMediaTimingNode } from './_media-timing.ts';
+import {
+  addMediaTimingNode,
+  findMediaTimingNodeWithAncestors,
+  type MediaTimingPath,
+} from './_media-timing.ts';
 import {
   NS,
   type XmlElement,
@@ -385,6 +389,7 @@ const ATTR_SHOW_WHEN_STOPPED = qname('', 'showWhenStopped', '');
 const ATTR_REPEAT_COUNT = qname('', 'repeatCount', '');
 const ATTR_DELAY = qname('', 'delay', '');
 const ATTR_EVT = qname('', 'evt', '');
+const ATTR_MASTER_REL = qname('', 'masterRel', '');
 
 // ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
 // the integer form, and the schema's own default is spelled `50%`.
@@ -407,10 +412,58 @@ const setOrRemove = (
   if (value !== null) el.attrs.push(attr(name, value));
 };
 
-const mediaNodeOf = (shape: SlideShapeData): { node: XmlElement; media: XmlElement } | null => {
-  const node = findMediaTimingNode(shape[SHAPE_SLIDE], shape[SHAPE_SNAPSHOT].id);
+const mediaNodeOf = (
+  shape: SlideShapeData,
+): (MediaTimingPath & { readonly media: XmlElement }) | null => {
+  const found = findMediaTimingNodeWithAncestors(shape[SHAPE_SLIDE], shape[SHAPE_SNAPSHOT].id);
+  const node = found?.node ?? null;
   const media = node === null ? null : firstChildElement(node, NAME_C_MEDIA_NODE);
-  return node !== null && media !== null ? { node, media } : null;
+  return found !== null && media !== null ? { ...found, media } : null;
+};
+
+type MediaStart = { readonly automatic: boolean; readonly delayMs: number } | null;
+
+// Only the simple, event-free form can be reduced to an effective slide
+// start. A click or multiple-condition ancestor stays event-driven and is
+// deliberately not guessed as autoplay.
+const effectiveMediaStart = (
+  cTns: ReadonlyArray<XmlElement>,
+  requireLastCondition = false,
+): MediaStart => {
+  let delayMs = 0;
+  for (const [index, cTn] of cTns.entries()) {
+    if (getAttrValue(cTn, ATTR_MASTER_REL) !== null) return null;
+    const list = firstChildElement(cTn, NAME_ST_COND_LST);
+    if (list === null) {
+      if (requireLastCondition && index === cTns.length - 1) return null;
+      continue;
+    }
+    const conditions = list.children.filter(
+      (child): child is XmlElement =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'cond',
+    );
+    if (conditions.length !== 1) return null;
+    const condition = conditions[0]!;
+    if (
+      condition.children.some(
+        (child) =>
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.pml &&
+          ['tn', 'rtn', 'tgtEl'].includes(child.name.localName),
+      )
+    )
+      return null;
+    if (getAttrValue(condition, ATTR_EVT) !== null) return { automatic: false, delayMs: 0 };
+    const raw = getAttrValue(condition, ATTR_DELAY);
+    if (raw === 'indefinite') return { automatic: false, delayMs: 0 };
+    const value = raw === null ? 0 : Number(raw);
+    if (!Number.isSafeInteger(value) || value < 0) return null;
+    delayMs += value;
+    if (!Number.isSafeInteger(delayMs)) return null;
+  }
+  return { automatic: true, delayMs };
 };
 
 /**
@@ -423,14 +476,16 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
   if (found === null) return null;
   const { node, media } = found;
   const cTn = firstChildElement(media, NAME_C_TN);
-  const stCondLst = cTn && firstChildElement(cTn, NAME_ST_COND_LST);
-  const start = stCondLst && firstChildElement(stCondLst, NAME_COND);
+  const ownStart = cTn === null ? null : effectiveMediaStart([cTn], true);
+  const parentStart = effectiveMediaStart(found.ancestors);
+  const delayMs = (parentStart?.delayMs ?? 0) + (ownStart?.delayMs ?? 0);
   const autoplay =
-    start !== null &&
-    getAttrValue(start, ATTR_EVT) === null &&
-    getAttrValue(start, ATTR_DELAY) !== 'indefinite';
-  const rawDelay = start === null ? null : getAttrValue(start, ATTR_DELAY);
-  const parsedDelay = rawDelay === null ? null : Number(rawDelay);
+    cTn !== null &&
+    !found.duplicateTarget &&
+    !found.hasDependentTimingAncestor &&
+    parentStart?.automatic === true &&
+    ownStart?.automatic === true &&
+    Number.isSafeInteger(delayMs);
   const playback: MediaPlayback = {
     // A delay is measured after the condition's trigger. An `evt` condition
     // (for example `onClick`) therefore remains event-triggered even when its
@@ -445,8 +500,8 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
   // Zero is the ordinary immediate-start form and remains absent to preserve
   // the existing result shape. Only a finite, event-free start can carry this
   // user-facing delay.
-  if (autoplay && parsedDelay !== null && Number.isSafeInteger(parsedDelay) && parsedDelay > 0) {
-    return { ...playback, delayMs: parsedDelay };
+  if (autoplay && delayMs > 0) {
+    return { ...playback, delayMs };
   }
   return playback;
 };
@@ -484,10 +539,66 @@ export const setShapeMediaPlayback = (
     currentStart !== null &&
     getAttrValue(currentStart, ATTR_EVT) === null &&
     getAttrValue(currentStart, ATTR_DELAY) !== 'indefinite';
+  if (
+    found.ancestors.length > 1 &&
+    cTn !== null &&
+    stCondLst !== null &&
+    (options.autoplay !== undefined || delayMs !== undefined) &&
+    effectiveMediaStart([cTn], true) === null
+  ) {
+    throw new Error('setShapeMediaPlayback: media start conditions are unsupported');
+  }
+  if (found.duplicateTarget) {
+    throw new Error('setShapeMediaPlayback: multiple media nodes target this shape');
+  }
+  if (
+    cTn === null &&
+    (options.autoplay !== undefined || options.delayMs !== undefined || options.loop !== undefined)
+  ) {
+    throw new Error('setShapeMediaPlayback: media timing node has no cTn');
+  }
+  if (
+    (options.autoplay !== undefined || delayMs !== undefined) &&
+    cTn !== null &&
+    (getAttrValue(cTn, ATTR_MASTER_REL) !== null ||
+      (currentStart !== null &&
+        currentStart.children.some(
+          (child) =>
+            child.kind === 'element' &&
+            child.name.namespaceURI === NS.pml &&
+            ['tn', 'rtn', 'tgtEl'].includes(child.name.localName),
+        )))
+  ) {
+    throw new Error('setShapeMediaPlayback: media start depends on another timing node');
+  }
+  let ownDelayMs = delayMs;
+  if (options.autoplay !== undefined || delayMs !== undefined) {
+    if (found.hasDependentTimingAncestor) {
+      throw new Error('setShapeMediaPlayback: media dependent timing is unsupported');
+    }
+    const parent = effectiveMediaStart(found.ancestors);
+    if (parent === null) {
+      throw new Error('setShapeMediaPlayback: nested media has unsupported start conditions');
+    }
+    if (!parent.automatic && options.autoplay !== false) {
+      throw new Error('setShapeMediaPlayback: media is event-triggered');
+    }
+    if (delayMs !== undefined) {
+      if (!parent.automatic || delayMs < parent.delayMs) {
+        throw new Error(
+          'setShapeMediaPlayback: delayMs cannot be represented with nested start conditions',
+        );
+      }
+      ownDelayMs = delayMs - parent.delayMs;
+    }
+  }
   if (delayMs !== undefined && options.autoplay === undefined && !currentAutoplay) {
     throw new Error('setShapeMediaPlayback: delayMs requires autoplay');
   }
-  if (options.volume !== undefined && (options.volume < 0 || options.volume > 1)) {
+  if (
+    options.volume !== undefined &&
+    (!Number.isFinite(options.volume) || options.volume < 0 || options.volume > 1)
+  ) {
     throw new Error('setShapeMediaPlayback: volume must be between 0 and 1');
   }
   if (options.fullScreen !== undefined && node.name.localName !== 'video') {
@@ -519,8 +630,8 @@ export const setShapeMediaPlayback = (
       const nextDelay =
         options.autoplay === false
           ? 'indefinite'
-          : delayMs !== undefined
-            ? String(delayMs)
+          : ownDelayMs !== undefined
+            ? String(ownDelayMs)
             : currentAutoplay
               ? (getAttrValue(currentStart!, ATTR_DELAY) ?? '0')
               : '0';

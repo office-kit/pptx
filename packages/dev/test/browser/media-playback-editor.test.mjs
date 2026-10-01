@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
   addBlankSlide,
   addSlideMedia,
@@ -17,9 +18,14 @@ import {
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
-for (const kind of ['audio', 'video']) {
+for (const [kind, nested] of [
+  ['audio', false],
+  ['video', false],
+  ['audio', true],
+  ['video', true],
+]) {
   test(
-    `Playback ribbon edits and persists ${kind} options with undo`,
+    `Playback ribbon edits and persists ${nested ? 'nested ' : ''}${kind} options with undo`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-media-editor-'));
@@ -52,7 +58,23 @@ for (const kind of ['audio', 'video']) {
           w: inches(4),
           h: inches(2),
         });
-        await writeFile(join(dir, 'source.pptx'), await savePresentation(pres));
+        let source = await savePresentation(pres);
+        if (nested) {
+          const parts = unzipSync(source);
+          const slidePath = 'ppt/slides/slide1.xml';
+          const xml = strFromU8(parts[slidePath]);
+          const media = new RegExp(`<p:${kind}\\b[^>]*>[\\s\\S]*?</p:${kind}>`);
+          assert.ok(media.test(xml));
+          parts[slidePath] = strToU8(
+            xml.replace(
+              media,
+              (node) =>
+                `<p:par><p:cTn id="3" dur="indefinite"><p:stCondLst><p:cond delay="0"/></p:stCondLst><p:childTnLst>${node}</p:childTnLst></p:cTn></p:par>`,
+            ),
+          );
+          source = zipSync(parts);
+        }
+        await writeFile(join(dir, 'source.pptx'), source);
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
@@ -118,7 +140,9 @@ for (const kind of ['audio', 'video']) {
         await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
         assert.equal((await readPlayback()).autoplay, false);
         assert.equal(await panel.getByLabel('開始の遅延（秒）', { exact: true }).count(), 0);
-        await page.screenshot({ path: `/tmp/pptx-media-editor-${kind}.png` });
+        await page.screenshot({
+          path: `/tmp/pptx-media-editor-${nested ? 'nested-' : ''}${kind}.png`,
+        });
       } finally {
         await browser?.close();
         await preview?.close();
