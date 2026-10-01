@@ -220,6 +220,48 @@ describe('layoutTextSvg', () => {
     expect(countText(split)).toBe(3);
   });
 
+  it('keeps Japanese punctuation with its neighbor across formatting runs', () => {
+    for (const text of ['甲乙。', '甲（乙', '甲（乙）。丙', '甲乙、、。丙']) {
+      for (const width of [10, 20, 30, 40]) {
+        const lines = (pieces: PieceInput[]) =>
+          layoutCore(body([para(pieces)], { boxWpx: width }), stubMeasurer).placements.map(
+            ({ line }) => line.tokens.map((t) => t.text).join(''),
+          );
+        const expected = lines([piece(text)]);
+        for (let cut = 1; cut < text.length; cut++) {
+          expect(
+            lines([piece(text.slice(0, cut)), piece(text.slice(cut), { bold: true })]),
+          ).toEqual(expected);
+        }
+      }
+    }
+    const result = layoutCore(
+      body([para([piece('甲乙'), piece('。', { bold: true })])], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    expect(result.placements.map(({ line }) => line.tokens.map((t) => t.text).join(''))).toEqual([
+      '甲',
+      '乙。',
+    ]);
+    expect(result.placements[1]!.line.tokens.at(-1)!.piece.bold).toBe(true);
+  });
+
+  it('retains emergency CJK breaks and explicit separators across styled runs', () => {
+    const lines = (pieces: PieceInput[], width: number) =>
+      layoutCore(body([para(pieces)], { boxWpx: width }), stubMeasurer).placements.map(({ line }) =>
+        line.tokens.map((t) => t.text).join(''),
+      );
+    expect(lines([piece('甲乙。')], 10)).toEqual(['甲', '乙', '。']);
+    expect(lines([piece('甲（乙')], 10)).toEqual(['甲', '（', '乙']);
+    expect(lines([piece('甲（'), piece('乙', { bold: true })], 20)).toEqual(['甲', '（乙']);
+    expect(lines([piece('甲乙'), piece('', { isBreak: true }), piece('。')], 20)).toEqual([
+      '甲乙',
+      '。',
+    ]);
+    expect(lines([piece('甲乙 '), piece('。')], 20)).toEqual(['甲乙', '。']);
+    expect(lines([piece('甲乙'), piece('。', { sizePx: 20 })], 30)).toEqual(['甲', '乙。']);
+  });
+
   it('does not introduce a Latin word break at a formatting run boundary', () => {
     const input = body([para([piece('X AB'), piece('CD', { bold: true })])], { boxWpx: 50 });
     const result = layoutCore(input, stubMeasurer);

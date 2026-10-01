@@ -1,3 +1,12 @@
+## 2026-10-01: 日本語禁則処理の書式境界
+
+- c4335475までPR #287へpush済み。その後、句点だけ太字にすると「甲乙／。」になる回帰を失敗するテストで再現し修正。論理wordをrun横断で分割してから元runへ対応付け、書式・文字サイズを維持。単一runの狭幅時の緊急改行は保持。
+- 検証: root3093 passed / 109 skipped（/tmp/pptx-cjk-root-tests.log）、root/preview型検査、lint、対象format成功。previewは実行中ブラウザー検証のdistを保つため /tmp/pptx-cjk-preview-build に分離build成功。
+- c4335475の全ブラウザー検証はsession9572、/tmp/pptx-browser-c433.logで実行中。既存のhandleをpollすること。観測時点では失敗なし。完了まで共有distを上書きしない。
+- c4335475のCI run36864790119: Static/Node22/Node26/OOXML成功、Node24実行中、Preview fidelity失敗。既知の05-preset-shapes slide1 fgSSIM .7731→.6161は未解決。PowerPoint実機の画面取得は0×0で失敗し、実機変更・復元待ちはない。
+- 検討したグラフ回転無視の修正は撤回済み。MS-OI29500 §21.3.2.28のOffice制限はchart drawings内のgraphic framesが対象であり、スライド上のp:xfrmへ適用できる根拠ではない。p:xfrm自体はrot/flipH/flipVを許す。根拠なくこの修正を再適用しない。
+- 既存ユーザープレビューの編集内容とソース競合を保持。勝手にreload/競合解消しない。全操作のPowerPoint一致は未完成。
+
 ## 2026-10-01: アウトライン書式の統合検証
 
 - ヘッダー40px・重複バー削除・保存状態統合は実装済み。同じPR #287を使用し、ユーザーのプレビュー資料と既存タブは保持。

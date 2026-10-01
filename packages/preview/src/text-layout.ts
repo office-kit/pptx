@@ -222,6 +222,8 @@ export interface TextBodyInput {
 // Layout internals.
 
 export interface Token {
+  /** Another formatted fragment of the same unbreakable segment. */
+  readonly continuesSegment?: boolean;
   readonly isTab?: boolean;
   tabFieldWidth?: number;
   tabDecimalWidth?: number;
@@ -403,47 +405,78 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           : mWidth(`${bullet.text} `, bulletSpec(bullet))
         : 0;
 
-      // Tokenize: word / whitespace runs per piece, plus break markers. Pre-split
-      // any single token wider than a full line into per-character tokens.
+      // Find break opportunities across formatting boundaries, then map each
+      // segment back to its original runs so punctuation keeps its neighbor.
       const avail = Math.max(1, wrapRight - wrapLeft);
       const tokens: Token[] = [];
+      let wordParts: { text: string; piece: PieceInput }[] = [];
+      const makeToken = (text: string, piece: PieceInput, continuesSegment = false): Token => ({
+        text,
+        piece,
+        isSpace: false,
+        isBreak: false,
+        continuesSegment,
+        width: mWidth(text, { ...specOf(piece), sizePx: renderedSizePxOf(piece) }),
+      });
+      const flushWord = (): void => {
+        if (wordParts.length === 0) return;
+        const word = wordParts.map((part) => part.text).join('');
+        let partIndex = 0;
+        let partOffset = 0;
+        for (const segment of splitEastAsianBreakables(word)) {
+          const fragments: Token[] = [];
+          let remaining = segment.length;
+          let width = 0;
+          while (remaining > 0) {
+            const part = wordParts[partIndex]!;
+            const length = Math.min(remaining, part.text.length - partOffset);
+            const token = makeToken(
+              part.text.slice(partOffset, partOffset + length),
+              part.piece,
+              fragments.length > 0,
+            );
+            fragments.push(token);
+            width += token.width;
+            remaining -= length;
+            partOffset += length;
+            if (partOffset === part.text.length) {
+              partIndex++;
+              partOffset = 0;
+            }
+          }
+          const canBreak = EAST_ASIAN_CHAR.test(segment)
+            ? width > avail - bulletLead
+            : para.latinLineBreak === true;
+          if (input.wrap && canBreak && [...segment].length > 1) {
+            for (const fragment of fragments) {
+              for (const ch of fragment.text) tokens.push(makeToken(ch, fragment.piece));
+            }
+          } else {
+            for (const fragment of fragments) tokens.push(fragment);
+          }
+        }
+        wordParts = [];
+      };
       for (const piece of para.pieces) {
         if (piece.isBreak) {
+          flushWord();
           tokens.push({ text: '', piece, isSpace: false, isBreak: true, width: 0 });
           continue;
         }
-        const widthSpec = { ...specOf(piece), sizePx: renderedSizePxOf(piece) };
         for (const word of piece.text.match(/\t|[^\S\t]+|\S+/g) ?? []) {
-          if (word === '\t') {
-            tokens.push({ text: '', piece, isSpace: true, isBreak: false, isTab: true, width: 0 });
+          if (!/^\s+$/.test(word)) {
+            wordParts.push({ text: word, piece });
             continue;
           }
-          const isSpace = /^\s+$/.test(word);
-          const segments = isSpace ? [word] : splitEastAsianBreakables(word);
-          for (const seg of segments) {
-            const w = mWidth(seg, widthSpec);
-            // Explicit Latin wrapping can use the remaining line width, even
-            // when the word fits a whole line. Keep East Asian kinsoku tokens
-            // together unless they exceed the complete line width.
-            const canBreak = EAST_ASIAN_CHAR.test(seg)
-              ? w > avail - bulletLead
-              : para.latinLineBreak === true;
-            if (input.wrap && canBreak && !isSpace && [...seg].length > 1) {
-              for (const ch of seg) {
-                tokens.push({
-                  text: ch,
-                  piece,
-                  isSpace: false,
-                  isBreak: false,
-                  width: mWidth(ch, widthSpec),
-                });
-              }
-            } else {
-              tokens.push({ text: seg, piece, isSpace, isBreak: false, width: w });
-            }
+          flushWord();
+          if (word === '\t') {
+            tokens.push({ text: '', piece, isSpace: true, isBreak: false, isTab: true, width: 0 });
+          } else {
+            tokens.push({ ...makeToken(word, piece), isSpace: true });
           }
         }
       }
+      flushWord();
 
       // Resolve each tab's following field once, across run boundaries.
       // Decimal tabs align the first decimal point, or the field end if absent.
@@ -1033,22 +1066,11 @@ const wrapTokens = (
     first = false;
   };
 
-  // A run boundary changes formatting, not the word's break opportunities.
-  // Measure adjacent Latin fragments as a group before placing the first one,
-  // preserving each token's formatting without repeatedly scanning ahead.
+  // Suffix widths let the first fragment reserve the complete segment without
+  // rescanning its remaining runs at every formatting boundary.
   const wordWidths = tokens.map((token) => token.width);
-  const continuesWord = tokens.map(() => false);
-  if (para.latinLineBreak !== true) {
-    let nextLatin = false;
-    for (let index = tokens.length - 1; index >= 0; index--) {
-      const token = tokens[index]!;
-      const latin = !token.isSpace && !token.isBreak && !EAST_ASIAN_CHAR.test(token.text);
-      if (latin && nextLatin) {
-        wordWidths[index]! += wordWidths[index + 1]!;
-        continuesWord[index + 1] = true;
-      }
-      nextLatin = latin;
-    }
+  for (let index = tokens.length - 2; index >= 0; index--) {
+    if (tokens[index + 1]!.continuesSegment) wordWidths[index]! += wordWidths[index + 1]!;
   }
 
   for (let index = 0; index < tokens.length; index++) {
@@ -1102,7 +1124,7 @@ const wrapTokens = (
     // LibreOffice's space-inclusive line measurement.
     const contentW = lineW - trailingSpaceW;
     const hasContent = contentW > 0;
-    if (wrap && hasContent && !continuesWord[index] && lineW + wordWidths[index]! > limit + 0.5) {
+    if (wrap && hasContent && !tok.continuesSegment && lineW + wordWidths[index]! > limit + 0.5) {
       close();
       cur.push(tok);
       lineW = tok.width;
