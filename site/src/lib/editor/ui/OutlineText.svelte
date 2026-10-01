@@ -26,7 +26,7 @@
     doc.version;
     draftVersion;
     const source = doc.shapeById(slideIndex, shapeId);
-    return source ? outlineTextHtml(doc.pres, projectTextEdits(source, changes, undefined, doc.pres), title) : '';
+    return source ? outlineTextHtml(doc.pres, projectTextEdits(source, changes, undefined, doc.pres), title, editor.outlineShowFormatting) : '';
   });
   let range = { start: 0, end: 0 };
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -248,7 +248,7 @@
   onDestroy(() => untrack(commit));
 </script>
 
-<RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style="" textZoom={1}
+<RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
   onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={selection => range = selection} onselect={selection => range = selection}
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}

@@ -1,16 +1,20 @@
 import {
   getShapeParagraphElements,
+  getShapeRunFormatEffective,
+  toWritableTextFormat,
   getParagraphPropertiesEffective,
   type PresentationData,
   type SlideShapeData,
 } from '@office-kit/pptx';
 import { paragraphNumberLabels } from '@office-kit/pptx-preview';
+import { textClipboardHtml } from './html-text-clipboard.ts';
 
-/** Outline paragraphs use a fixed editing size and a 10px step per level. */
+/** Outline indentation stays independent of slide paragraph margins. */
 export function outlineTextHtml(
   pres: PresentationData,
   shape: SlideShapeData,
   title: boolean,
+  showFormatting = false,
 ): string {
   const paragraphs = getShapeParagraphElements(shape);
   const properties = paragraphs.map((_, index) =>
@@ -41,7 +45,28 @@ export function outlineTextHtml(
       if (marker) paragraph.dataset.outlineMarker = marker;
     }
     const text = elements.map((element) => (element.kind === 'br' ? '\n' : element.text)).join('');
-    paragraph.append(text);
+    if (showFormatting) {
+      let offset = 0;
+      let run = 0;
+      const formats = elements.map((element) => {
+        const start = offset;
+        offset += element.kind === 'br' ? 1 : element.text.length;
+        const effective =
+          element.kind === 'r'
+            ? getShapeRunFormatEffective(pres, shape, index, run++)
+            : element.format;
+        const format = toWritableTextFormat(effective ?? {});
+        // Outline text follows the UI foreground, including in dark appearance.
+        delete format.color;
+        const outlineScale = 0.25;
+        if (format.size) format.size *= outlineScale;
+        return { start, end: offset, format };
+      });
+      const formatted = document.createElement('div');
+      formatted.innerHTML = textClipboardHtml({ text, formats });
+      paragraph.append(...formatted.firstElementChild!.childNodes);
+      paragraph.style.lineHeight = 'normal';
+    } else paragraph.append(text);
     if (!text || text.endsWith('\n')) {
       const end = document.createElement('br');
       end.dataset.caretEnd = '';

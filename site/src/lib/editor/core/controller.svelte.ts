@@ -130,6 +130,7 @@ export class EditorController {
   formatPaneTab = $state<'paint' | 'effects' | 'size'>('paint');
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
+  outlineShowFormatting = $state(false);
   viewMode = $state<'normal' | 'outline' | 'sorter'>('normal');
   sorterZoom = $state(1);
   notesVisible = $state(false);
