@@ -805,3 +805,20 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
   outline cases. Core tests: 3,073 passed / 109 skipped; site tests: 96/96.
   Format, lint, core/Svelte/DSL type checks and core/editor builds pass. This is not
   a fresh full-browser run or a complete native parity audit.
+
+## User preview feedback: text editing and workspace chrome
+
+- The user reproduced a white rectangle behind text while editing the dark review
+  slide. The editable overlay used a hard-coded white background. It now stays
+  transparent and hides only the original text glyphs during editing, retaining
+  slide artwork and table cell fills. The regression test first failed on the
+  white background, then passed for dark-slide editing, text color, save/reload,
+  and preserving the neighboring cell while editing a filled table cell.
+- Font selection now offers a searchable common-family list while retaining direct
+  input. A browser test verifies partial-run Arial selection, persisted mixed fonts,
+  and Undo. This does not enumerate locally installed fonts.
+- Embedded preview removes the duplicate command/help bar, combines save status
+  with document commands, and reduces the outer header to 40px. English/Japanese
+  layouts pass at 1500px and 900px widths, including Preview toolbar restoration.
+- All three focused browser tests pass. These usability corrections do not
+  establish complete Mac PowerPoint UI parity.

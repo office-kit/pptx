@@ -26,6 +26,7 @@ footer{display:flex;align-items:center;gap:14px;padding:0 16px;background:#191e3
 #presentation-controls{display:none}
 body.presenting{grid-template-rows:minmax(0,1fr);background:#111}
 .presenting header,.presenting footer,.presenting .filmstrip,.presenting #chat{display:none}
+body.editing header{padding:0 14px;gap:10px}body.editing header .brand{font-size:14px}
 .presenting .workspace{grid-template-columns:minmax(0,1fr)}.presenting #stage{padding:0;background:#111}.presenting #slide{box-shadow:none}
 .presenting #presentation-controls{display:flex;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);align-items:center;gap:12px;background:#202735e8;color:white;padding:6px;border-radius:8px;opacity:0;transition:opacity .15s}
 .presenting #presentation-controls:hover,.presenting #presentation-controls:focus-within{opacity:1}

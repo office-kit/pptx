@@ -224,7 +224,7 @@
 </script>
 
 <svelte:window onbeforeunload={beforeUnload} />
-<EditorApp {editor} onsave={() => save()}>
+<EditorApp {editor} onsave={() => save()} compactHost>
   {#snippet status()}
     <div class="save-status" role="status">
       <span>{saving ? t('Saving…') : !loaded ? t('Loading presentation…') : doc.dirty ? t('Unsaved changes') : t('Saved to this project')}</span>
@@ -268,6 +268,7 @@
   .recovery-entry { display:flex; flex-wrap:wrap; align-items:center; gap:12px; padding:12px 0; border-top:1px solid #ddd; }
   .recovery-entry span { flex:1; }
   .save-status, .conflict { display:flex; align-items:center; flex-wrap:wrap; gap:10px; padding:5px 12px; font:12px system-ui; color:#304050; background:#eaf3ed; }
+  :global(.compact-host) .save-status { gap:6px; padding:3px 8px; font-size:11px; }
   .save-status span:first-child { flex:1; }
   .conflict { background:#fff0cd; color:#583b00; }
   button, a { font:inherit; color:inherit; cursor:pointer; }

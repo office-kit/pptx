@@ -75,6 +75,7 @@
   const doc = editor.doc;
 
   let stageEl = $state<HTMLDivElement>();
+  let paintEl = $state<HTMLDivElement>();
   let areaEl = $state<HTMLDivElement>();
 
   const metrics = $derived.by(() => {
@@ -814,6 +815,19 @@
     return `translate(${offset.x * editor.zoom * sign}px,${offset.y * editor.zoom * sign}px)`;
   });
 
+  $effect(() => {
+    doc.currentSvg;
+    const id = editing?.id;
+    const cell = editing?.cell;
+    if (id === undefined || !paintEl) return;
+    const shape = paintEl.querySelector(`[data-pptx-shape-id="${id}"]`);
+    const target = cell ? shape?.querySelector(`[data-pptx-cell="${cell.row},${cell.col}"]`) : shape;
+    // Keep the original fill and artwork while the editable layer replaces glyphs.
+    const glyphs = target?.querySelectorAll('foreignObject, text') ?? [];
+    for (const glyph of glyphs) glyph.classList.add('editing-glyphs');
+    return () => { for (const glyph of glyphs) glyph.classList.remove('editing-glyphs'); };
+  });
+
   const textInputStyle = $derived.by(() => {
     const box = editBox;
     if (!box || !scope) return '';
@@ -1191,7 +1205,7 @@
       role="presentation"
     >
       {#key doc.selection.slideIndex}
-        <div class="paint">{@html doc.currentSvg}</div>
+        <div class="paint" bind:this={paintEl}>{@html doc.currentSvg}</div>
       {/key}
 
       <div class="overlay">
@@ -1359,6 +1373,7 @@
     height: 100%;
     display: block;
   }
+  .paint :global(.editing-glyphs) { visibility: hidden; }
   .overlay {
     pointer-events: none;
   }

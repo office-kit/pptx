@@ -3,6 +3,7 @@
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import ColorPicker from './ColorPicker.svelte';
   import FontSizeInput from './FontSizeInput.svelte';
+  import FontFamilyInput from './FontFamilyInput.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false }: {
@@ -38,7 +39,7 @@
   {#if !hideFont}
   <div class="font-controls">
   <div class="font-fields">
-  <label><span>{t('Font')}</span><input class="ok-input font" aria-label={t('Font')} disabled={!(selected || typing)} value={font} placeholder={t('Mixed or inherited')} onchange={(e) => { const font = e.currentTarget.value.trim(); if (font) onformat({font, fontEastAsian: font, fontComplexScript: font}); }} /></label>
+  <label><span>{t('Font')}</span><FontFamilyInput {ribbon} value={font} disabled={!(selected || typing)} choose={font => onformat({font, fontEastAsian: font, fontComplexScript: font})} /></label>
   {#if ribbon}<FontSizeInput value={size} disabled={!(selected || typing)} choose={size => onformat({ size })} />
   {:else}
   <label><span>{t('Font size')}</span><input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>
@@ -103,7 +104,6 @@
   .text-format-bar { display: flex; flex-wrap: wrap; align-items: end; gap: 5px; padding: 6px 8px; background: var(--ok-panel); border-bottom: 1px solid var(--ok-border); }
   span { font-size: 11px; align-self: center; }
   label, .color-field { display: grid; gap: 2px; font-size: 10px; }
-  .font { width: 110px; }
   .size { width: 56px; }
   input[type='color'] { width: 30px; height: 26px; padding: 0; border: 1px solid var(--ok-border); }
   button[aria-pressed='true'] { background: var(--ok-accent); color: white; }
@@ -112,7 +112,6 @@
   .font-ribbon .font-controls { display: flex; flex-direction: column; gap: 5px; }
   .font-ribbon .font-fields, .font-ribbon .font-buttons { display: flex; align-items: center; gap: 2px; }
   .font-ribbon label > span, .font-ribbon .color-field > span { display: none; }
-  .font-ribbon .font { width: 145px; }
   .font-ribbon .ok-btn { min-width: 23px; padding: 3px; }
   .highlight-menu summary { cursor: pointer; list-style: none; }
   .highlight-options { position: fixed; z-index: 50; padding: 6px; display: grid; background: var(--ok-panel); border: 1px solid var(--ok-border); box-shadow: var(--ok-shadow); }

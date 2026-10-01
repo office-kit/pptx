@@ -875,6 +875,9 @@ export const ja: Record<string, string> = {
   // Ribbon groups
   Slides: 'スライド',
   Font: 'フォント',
+  'Font options': 'フォントの候補',
+  'Search fonts': 'フォントを検索',
+  'No matching fonts': '一致するフォントがありません',
   Paragraph: '段落',
   Drawing: '図形描画',
   Arrange: '配置',
