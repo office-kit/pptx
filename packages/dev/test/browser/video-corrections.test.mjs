@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 import {
   addBlankSlide,
   addSlideMedia,
+  addSlideTextBox,
   createPresentation,
   getShapeImageBrightness,
   getShapeImageContrast,
@@ -63,6 +64,13 @@ test(
         y: inches(1),
         w: inches(6),
         h: inches(3.375),
+      });
+      addSlideTextBox(slide, {
+        x: inches(8),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+        text: 'Selection test',
       });
       const source = join(dir, 'source.pptx');
       await writeFile(source, await savePresentation(deck));
@@ -169,6 +177,86 @@ test(
         await correctionsButton.evaluate((node) => node === node.ownerDocument.activeElement),
         true,
       );
+
+      await correctionsButton.click();
+      await reopened
+        .getByRole('menuitem', { name: 'Movie Correction Options...', exact: true })
+        .click();
+      const format = editor.getByRole('tablist', { name: 'Format Video', exact: true });
+      await format.waitFor();
+      assert.equal(
+        await format.getByRole('tab', { name: 'Video', exact: true }).getAttribute('aria-selected'),
+        'true',
+      );
+      const detail = editor.getByRole('tabpanel', { name: 'Video', exact: true });
+      const brightness = detail.getByRole('spinbutton', { name: 'Brightness', exact: true });
+      await detail.getByRole('button', { name: 'Presets', exact: true }).click();
+      assert.equal(
+        await editor
+          .getByRole('menu', { name: 'Corrections', exact: true })
+          .getByRole('menuitemradio')
+          .count(),
+        25,
+      );
+      await editor.getByRole('menu', { name: 'Corrections', exact: true }).press('Escape');
+      await brightness.fill('101');
+      await brightness.press('Tab');
+      assert.equal(await brightness.evaluate((input) => input.validity.rangeOverflow), true);
+      assert.deepEqual(await readAdjustments(), [0, 0]);
+
+      await brightness.fill('35');
+      await brightness.press('Tab');
+      await saved();
+      assert.deepEqual(await readAdjustments(), [0.35, 0]);
+      assert.equal(
+        await detail.getByRole('slider', { name: 'Brightness', exact: true }).inputValue(),
+        '35',
+      );
+      const contrast = detail.getByRole('slider', { name: 'Contrast', exact: true });
+      await contrast.focus();
+      await contrast.press('ArrowRight');
+      await saved();
+      assert.deepEqual(await readAdjustments(), [0.35, 0.01]);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await readAdjustments(), [0.35, 0]);
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
+
+      await format.getByRole('tab', { name: 'Video', exact: true }).click();
+      await format.getByRole('tab', { name: 'Video', exact: true }).press('Home');
+      assert.equal(
+        await format
+          .getByRole('tab', { name: 'Fill & Line', exact: true })
+          .getAttribute('aria-selected'),
+        'true',
+      );
+      await format.getByRole('tab', { name: 'Fill & Line', exact: true }).press('End');
+      assert.equal(
+        await format.getByRole('tab', { name: 'Video', exact: true }).getAttribute('aria-selected'),
+        'true',
+      );
+      const detailBounds = await detail.boundingBox();
+      for (const field of [
+        brightness,
+        contrast,
+        detail.getByRole('button', { name: 'Presets', exact: true }),
+      ]) {
+        const bounds = await field.boundingBox();
+        assert.ok(
+          bounds.x >= detailBounds.x &&
+            bounds.x + bounds.width <= detailBounds.x + detailBounds.width,
+          'video controls must fit the pane without horizontal clipping',
+        );
+      }
+      await page.screenshot({ path: '/tmp/pptx-video-format-pane.png' });
+      await editor.locator('.hit').nth(1).click();
+      const shapeFormat = editor.getByRole('tablist', { name: 'Format Shape', exact: true });
+      await shapeFormat.waitFor();
+      assert.equal(await shapeFormat.getByRole('tab', { selected: true }).count(), 1);
+      assert.equal(await shapeFormat.getByRole('tab', { name: 'Video', exact: true }).count(), 0);
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
 
       // PowerPoint exposes the same gallery after switching UI language.
       await editor.locator('.lang select').selectOption('ja');
