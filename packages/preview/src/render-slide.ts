@@ -50,10 +50,8 @@ import {
   getShapeBodyPrEffective,
   getShapeChartSpec,
   getShapeClickAction,
-  getShapeSlide,
   getPresentationFirstSlideNumber,
   getSlides,
-  isSlideHidden,
   isSlideBackgroundGraphicsHidden,
   isSlideLayoutBackgroundGraphicsHidden,
   getShapeAltTitle,
@@ -206,7 +204,6 @@ interface LayoutCtx {
 
 const clickActionHref = (
   pres: PresentationData,
-  shape: SlideShapeData,
   action: ReturnType<typeof getShapeClickAction>,
 ): string | undefined => {
   if (!action) return undefined;
@@ -219,21 +216,13 @@ const clickActionHref = (
     const index = getSlideIndex(pres, action.slide);
     return index >= 0 ? `#slide-${index + 1}` : undefined;
   }
-  const slides = getSlides(pres);
-  const current = getSlideIndex(pres, getShapeSlide(shape));
-  if (current < 0) return undefined;
-  const backwards = action.kind === 'prevSlide' || action.kind === 'lastSlide';
-  const step = backwards ? -1 : 1;
-  const start =
-    action.kind === 'firstSlide'
-      ? 0
-      : action.kind === 'lastSlide'
-        ? slides.length - 1
-        : current + step;
-  for (let index = start; index >= 0 && index < slides.length; index += step) {
-    if (!isSlideHidden(slides[index]!)) return `#slide-${index + 1}`;
-  }
-  return `#slide-${current + 1}`;
+  const destinations = {
+    nextSlide: '#pptx-next-slide',
+    prevSlide: '#pptx-prev-slide',
+    firstSlide: '#pptx-first-slide',
+    lastSlide: '#pptx-last-slide',
+  };
+  return destinations[action.kind];
 };
 
 // Widescreen 16:9 fallback in EMU (13.333" × 7.5"), the PowerPoint
@@ -2948,7 +2937,7 @@ export const resolveTextBodyModel = (
           // Fall back to them only when no external URL was authored.
           if (!href) {
             const act = getShapeRunClickAction(shape, p, rIdx);
-            href = clickActionHref(pres, shape, act);
+            href = clickActionHref(pres, act);
           }
           if (href) hrefTip = getShapeRunHyperlinkTooltip(shape, p, rIdx) ?? undefined;
         } catch {
@@ -6026,7 +6015,6 @@ const cellParaData = (
   paragraphs: ReadonlyArray<TableCellParagraph>,
   cell: Parameters<typeof getTableCellParagraphs>[0],
   pres: PresentationData,
-  shape: SlideShapeData,
 ): { paraData: ParaData[]; hasText: boolean } => {
   let hasText = false;
   const paraData = paragraphs.map((para, index): ParaData => {
@@ -6040,7 +6028,7 @@ const cellParaData = (
         continue;
       }
       if (el.text.trim()) hasText = true;
-      const href = el.clickAction ? clickActionHref(pres, shape, el.clickAction) : null;
+      const href = el.clickAction ? clickActionHref(pres, el.clickAction) : null;
       runs.push({
         text: el.text,
         fmt: el.format,
@@ -6093,7 +6081,7 @@ const renderTableCellText = (
     bottom: number | null;
   },
 ): string => {
-  const { paraData, hasText } = cellParaData(paragraphs, cell, pres, shape);
+  const { paraData, hasText } = cellParaData(paragraphs, cell, pres);
   if (!hasText) return '';
   const numberLabels = paragraphNumberLabels(paraData);
   // CT_TableCellProperties defaults: 0.1 inch horizontally, 0.05 vertically.
@@ -6985,7 +6973,7 @@ const renderShape = (
   if (isShapeHidden(shape)) return '';
   const inner = renderShapeContent(shape, pres, theme, ctx);
   if (!inner) return inner;
-  const href = clickActionHref(pres, shape, getShapeClickAction(shape));
+  const href = clickActionHref(pres, getShapeClickAction(shape));
   const tooltip = href === undefined ? null : getShapeHyperlinkTooltip(shape);
   const titleEl = tooltip ? `<title>${escapeXml(tooltip)}</title>` : '';
   const targetAttrs =

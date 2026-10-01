@@ -1,3 +1,12 @@
+## 2026-10-01: ショー内の相対リンクと全画面終了競合
+
+- next/prev/first/last のリンクを SVG 生成時の固定スライド番号から実行時アクションへ変更。再生中の custom show/range の順序・重複位置・非表示を反映する。明示的なスライドリンクは従来通り。通常プレビューでも非表示を飛ばす。
+- 全画面終了直後に発表者ビューを開始すると、遅延した fullscreenchange が新しい再生を止める不具合を再現し修正。新テストでは停止状態と位置を診断して原因を特定した。
+- 旧distでは相対リンクの意味が失われていることを新規テストで確認。最終ブラウザー12/12成功（/tmp/pptx-nav-final-browser.log、session77640正常終了）。通常/発表者、C→A→C→Bの重複順、非表示、終了、既存custom show/履歴を検証。
+- 全体テスト3106 passed / 109 skipped、format/lint/root types/dev types成功、依存順buildと最終dev rebuild成功。ZIP保存時刻差で失敗する既存atomicityテストは展開エントリ比較に修正し5/5再検証。レンダラーの旧固定リンクテストは実行時リンクと保存再読込の検証に統合したため総数は1減。
+- 実機PowerPointは今回も画面0×0で取得不能。操作・復元待ちはなし。全操作/UI完全一致は未達成。次はCIの描画差分（10546dc3 run36877616297: 05-preset-shapes fg-SSIM 0.6161 vs baseline0.7731）とkiosk restart/ナレーション等を追う。CI比較はLibreOffice基準なので、PowerPointの裏付けなしに閾値緩和しない。
+- 元のユーザープレビューは再読み込みしていない。引き続きPR #287へ一本化。
+
 ## 2026-10-01: カスタムショーへのリンク
 
 - customShow のクリックアクション（ID と returnToShow）を core、図形/文字/セルのリンク編集、SVG、通常再生と発表者ビューへ接続。OOXML 保存・再読込に対応。

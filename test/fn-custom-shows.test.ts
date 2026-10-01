@@ -1,4 +1,5 @@
 import { expect, it } from 'vitest';
+import { unzipSync } from 'fflate';
 import * as pptx from '../src/api/index.ts';
 import { INTERNAL_PACKAGE, SLIDE_PART_NAME } from '../src/api/_internal-symbols.ts';
 import { PRES_PART_NAME, decode, encode } from '../src/api/fn/_helpers.ts';
@@ -51,7 +52,7 @@ it('updates surviving metadata and rejects invalid replacements without partial 
   );
   pptx.setCustomShows(p, [{ id: 2, name: 'Renamed', slides: [slide, slide] }]);
   expect(decode(part.data)).toContain('<p:ext uri="test"');
-  const before = await pptx.savePresentation(p);
+  const before = unzipSync(await pptx.savePresentation(p));
   const other = pptx.addBlankSlide(pptx.createPresentation());
   for (const shows of [
     [{ id: -1, name: 'Invalid', slides: [slide] }],
@@ -62,7 +63,7 @@ it('updates surviving metadata and rejects invalid replacements without partial 
     [{ id: 3, name: 'Foreign', slides: [other] }],
   ]) {
     expect(() => pptx.setCustomShows(p, shows)).toThrow();
-    expect(await pptx.savePresentation(p)).toEqual(before);
+    expect(unzipSync(await pptx.savePresentation(p))).toEqual(before);
   }
   pptx.setCustomShows(p, []);
   expect(pptx.getCustomShows(p)).toEqual([]);
