@@ -2,12 +2,13 @@
   import { onMount, untrack } from 'svelte';
   import { layoutEditingTabs } from '../core/editing-tabs.ts';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', onfocus, onblur, oncontextmenu, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', onfocus, onblur, oncontextmenu, onpointerdown, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
     value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean; layout?: 'canvas' | 'outline';
     onfocus?: () => void; onblur?: () => void; oncontextmenu?: (event: MouseEvent) => void;
+    onpointerdown?: (event: PointerEvent) => void;
     oninput: (value: string) => void;
     onselect: (range: TextSelection) => void;
-    onbeforeinput: (range: TextSelection) => void;
+    onbeforeinput: (range: TextSelection, event?: InputEvent) => void;
     onkeydown: (event: KeyboardEvent) => void;
     onnewline: () => void;
     oncomposition: (active: boolean) => void;
@@ -30,9 +31,9 @@
   export function blur() { element?.blur(); }
   export function getElement() { return element; }
   export function select() { setSelectionRange(0, value.length); }
-  function capture() {
+  function capture(event?: InputEvent) {
     selection = getSelection();
-    onbeforeinput(selection);
+    onbeforeinput(selection, event);
   }
   function changed() {
     selection = getSelection();
@@ -92,7 +93,7 @@
       return;
     }
     if (busy) { event.preventDefault(); return; }
-    capture();
+    capture(event);
     if (!composing && (event.inputType === 'insertParagraph' || event.inputType === 'insertLineBreak')) {
       event.preventDefault();
       onnewline();
@@ -102,7 +103,7 @@
   oncompositionstart={() => { capture(); composing = true; oncomposition(true); }}
   oncompositionend={() => { composing = false; changed(); oncomposition(false); }}
   oncopy={oncopy} oncut={event => { if (busy) event.preventDefault(); else oncut(event); }} onpaste={event => { if (busy) event.preventDefault(); else onpaste(event); }}
-  onpointerdown={event => event.stopPropagation()} onpointerup={event => event.stopPropagation()} ondblclick={event => event.stopPropagation()}
+  onpointerdown={event => { event.stopPropagation(); onpointerdown?.(event); }} onpointerup={event => event.stopPropagation()} ondblclick={event => event.stopPropagation()}
   onkeydown={event => {
     if (!event.isComposing && (event.ctrlKey || event.metaKey) && ['z', 'y'].includes(event.key.toLowerCase())) {
       event.preventDefault(); event.stopPropagation();

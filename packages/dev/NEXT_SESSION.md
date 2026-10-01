@@ -1,3 +1,13 @@
+## 2026-10-01: ヘッダーと文字編集の統合検証
+
+- 最新プレビューのヘッダー40px、重複操作バー除去、保存状態のTopBar統合をChrome1494127186で目視確認。日英900/1500pxのブラウザーテスト成功。ユーザーの旧タブと4スライドの編集・競合通知は保持。
+- 共通selectRichTextのBR境界ずれを失敗するテストで再現して修正。BR・ブロック境界のUTF-16位置対応を共通化。
+- 統合検証: Svelte 0 errors / 0 warnings、site113件、lint、対象format、dev build成功。ヘッダー・既存インライン編集・既存アウトライン日英4/4成功（/tmp/pptx-compact-outline-integrated.log）。フォント候補と透明な編集背景2/2成功（/tmp/pptx-font-background-final.log）。
+- アウトライン跨ぎ選択の統合ブラウザー8/8成功（/tmp/pptx-outline-integrated-final.log）。コピー・カット・ペースト・通常入力・Shift+Enter・実IME確定とUndo・左右キーでの選択解除・並べ替え後の追加編集を検証。IMEは全スライドの文字列を照合。モデル再登録時の旧cleanupと古いcaret復元を修正。右クリックで選択が解除される不具合も修正し、実際のCopyメニューからOSクリップボードへ書き込む追加テスト1/1成功（/tmp/pptx-outline-context-corrected.log）。
+- c91c3363のCIはStatic/Node22/Node26/OOXML成功、Preview fidelity失敗、Node24確認時実行中（run36858403975）。fidelityの失敗は同じ05-preset-shapes slide1（fg-SSIM 0.7731→0.6161）。latinLnBrk false/省略時の長い単語の緊急折返しはPowerPoint実機未確認。基準値は変更していない。
+- 追加の選択ライフサイクル確認: 置換直後のrAFより先にRibbonへクリックした場合のフォーカス復元、跨ぎ選択へのRibbon書式適用は未検証。キーボード/クリップボードの成功と混同しない。
+- 最新PowerPoint画面取得はcgWindowNotFoundで失敗。実機変更・復元待ちはない。全操作一致は未完成。
+
 # 作業継続メモ（2026-10-01）
 
 ## 最新検証: Latin 改行の描画差分を調査中
