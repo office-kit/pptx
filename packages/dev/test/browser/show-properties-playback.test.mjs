@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { compile, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
+import { getSlideShapes, getSlides, savePresentation, setShapeAnimation } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
 async function makeDeck() {
@@ -12,6 +14,23 @@ async function makeDeck() {
   await writeFile(
     file,
     `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation>{['A','B','C'].map(text => <Slide><Text x={1} y={1} width={7} height={1}>{text}</Text></Slide>)}</Presentation>`,
+  );
+  return { dir, file };
+}
+
+async function makeAnimatedDeck() {
+  const dir = await mkdtemp(join(tmpdir(), 'office-show-animation-'));
+  const deck = await compile(
+    Presentation({
+      children: Slide({ children: Text({ x: 1, y: 1, width: 7, height: 1, children: 'A' }) }),
+    }),
+  );
+  setShapeAnimation(getSlideShapes(getSlides(deck)[0])[0], { effect: 'fadeIn', durationMs: 40 });
+  await writeFile(join(dir, 'source.pptx'), await savePresentation(deck));
+  const file = join(dir, 'deck.tsx');
+  await writeFile(
+    file,
+    `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(join(dir, 'source.pptx'))})} />;`,
   );
   return { dir, file };
 }
@@ -220,6 +239,46 @@ test(
         await page.locator('#slide').evaluate((node) => node.shadowRoot?.textContent ?? ''),
         /B/,
       );
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'restarting a consecutively repeated animated slide resets its build',
+  { timeout: 60000 },
+  async () => {
+    const { dir, file } = await makeAnimatedDeck();
+    let preview, browser;
+    try {
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+      await page.route('**/state*', async (route) => {
+        const response = await route.fetch();
+        const body = await response.json();
+        body.showProperties = {
+          mode: { kind: 'present' },
+          slides: { kind: 'customShow', id: 9 },
+          loop: false,
+          showNarration: false,
+          showAnimation: true,
+          useTimings: false,
+        };
+        body.customShows = [{ id: 9, name: 'Repeated animation', slideIndices: [0, 0] }];
+        await route.fulfill({ response, body: JSON.stringify(body) });
+      });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      await page.waitForFunction(() => animationPlayer?.cursor === 0);
+      await page.getByRole('button', { name: 'Next slide', exact: true }).click();
+      await page.waitForFunction(() => animationPlayer?.cursor === 1);
+      await page.getByRole('button', { name: 'Next slide', exact: true }).click();
+      await page.waitForFunction(() => animationPlayer?.cursor === 0);
     } finally {
       await browser?.close();
       await preview?.close();

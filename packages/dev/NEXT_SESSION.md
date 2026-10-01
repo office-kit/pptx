@@ -1,3 +1,10 @@
+## 2026-10-01: 追加回帰と残件の確認
+
+- 42f5b21d が PR #287 の remote HEAD に反映済み。最新 CI run36871528222 は Static / OOXML 成功、Node 22/24/26 と Preview fidelity は確認時実行中。
+- 同じアニメーション付きスライドが連続する custom show の専用回帰を追加。1回目の表示で animation cursor 0→1、次の出現で0へ戻ることを確認。show-properties-playback は6/6成功、対象format/lint成功。
+- 追加レビューで、再生対象の Custom Show を削除しても showProperties の参照 ID が残る問題を発見。未修正。削除後の設定・保存再読込・Undoの回帰を先に追加して修正すること。
+- PowerPoint の画面取得は引き続き0×0で失敗。変更・復元待ちはなし。ユーザーの元プレビューは再読み込みしていない。
+
 ## 2026-10-01: スライドショー統合検証
 
 - 旧 c433 ビルドの全ブラウザ検証 session9572 は終了: **244 passed / 0 failed**（`/tmp/pptx-browser-c433.log`）。このセッションを再 poll しない。
