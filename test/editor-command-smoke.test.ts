@@ -59,6 +59,9 @@ class FakeDoc {
   transact<T>(_label: string, fn: () => T): T {
     return fn();
   }
+  setDocumentSetting(fn: () => void): void {
+    fn();
+  }
 }
 
 function run(doc: FakeDoc, id: string, args: Record<string, unknown> = {}) {

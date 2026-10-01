@@ -5,11 +5,18 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  addBlankSlide,
+  addSlideTextBox,
+  createPresentation,
   getSlides,
   getSlideShapes,
   getShapeBounds,
   getShapeRotation,
+  inches,
+  isShapeAspectRatioLocked,
   loadPresentation,
+  savePresentation,
+  setShapeAspectRatioLocked,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
@@ -116,6 +123,123 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(getShapeBounds((await shapes())[1]), finalBounds);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'canvas resize follows the saved aspect-ratio lock for corners while side handles stay free',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-resize-aspect-lock-'));
+    let preview, browser;
+    try {
+      const deck = createPresentation();
+      const slide = addBlankSlide(deck);
+      const shape = addSlideTextBox(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(2),
+        text: 'Aspect lock',
+      });
+      setShapeAspectRatioLocked(shape, true);
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const read = async () => {
+        const savedDeck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getShapeBounds(getSlideShapes(getSlides(savedDeck)[0])[0]);
+      };
+      const readLock = async () => {
+        const savedDeck = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return isShapeAspectRatioLocked(getSlideShapes(getSlides(savedDeck)[0])[0]);
+      };
+      const select = async () => {
+        await editor.locator('.hit').first().click();
+        await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
+      };
+      const center = async (locator) => {
+        const box = await locator.boundingBox();
+        return { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+      };
+      const resize = async (direction, dx, dy) => {
+        const point = await center(
+          editor.getByRole('button', { name: `Resize ${direction}`, exact: true }),
+        );
+        await page.mouse.move(point.x, point.y);
+        await page.mouse.down();
+        await page.mouse.move(point.x + dx, point.y + dy, { steps: 8 });
+        await page.mouse.up();
+        await saved();
+      };
+
+      await saved();
+      await select();
+      const lock = editor.getByRole('checkbox', { name: 'Lock aspect ratio', exact: true });
+      assert.equal(await lock.isChecked(), true);
+      assert.equal(await readLock(), true);
+      const original = await read();
+
+      await resize('se', 60, 10);
+      const cornerLocked = await read();
+      assert.ok(
+        Math.abs(cornerLocked.w / cornerLocked.h - original.w / original.h) < 0.00001,
+        'saved aspect lock must preserve the original ratio during corner resize',
+      );
+      assert.ok(cornerLocked.w > original.w && cornerLocked.h > original.h);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), original);
+      assert.equal(await readLock(), true);
+
+      await select();
+      await resize('e', 60, 25);
+      const sideLocked = await read();
+      assert.ok(sideLocked.w > original.w);
+      assert.equal(sideLocked.x, original.x);
+      assert.equal(sideLocked.y, original.y);
+      assert.equal(sideLocked.h, original.h);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), original);
+      assert.equal(await readLock(), true);
+
+      await select();
+      await lock.uncheck();
+      await saved();
+      assert.equal(await readLock(), false);
+      await select();
+      await resize('se', 60, 10);
+      const cornerFree = await read();
+      assert.ok(cornerFree.w > original.w && cornerFree.h > original.h);
+      assert.notEqual(cornerFree.w / cornerFree.h, original.w / original.h);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await read(), original);
+      assert.equal(await readLock(), false);
       assert.deepEqual(errors, []);
     } finally {
       await browser?.close();
