@@ -1,3 +1,12 @@
+## 2026-10-02: アニメーション削除時の入れ子メディア保持
+
+- 最終format/lint/root typecheck/test/build成功。3128 passed / 109 skipped、依存順dev build成功。ログ `/tmp/pptx-clear-nested-gates.log`、`/tmp/pptx-clear-nested-tests.log`、`/tmp/pptx-clear-nested-dev-build.log`。
+- `clearSlideAnimations` がルート直下以外のaudio/video timingを消す不具合を修正。メディアの祖先と開始・終了条件、iterate等を保持し、図形効果とbldLstを除去。新しいルートへの移動やIDの再割当てはしない。
+- 保持した条件が削除対象のcTnを参照する場合は変更前に拒否。依存関係を保って効果を削除する完全対応は残件であり、成功扱いにしない。
+- 実メディア/図形を使うchildTnLst・subTnLst、endSync・iterate、保存再読込、schema/validator、拒否時の非変更をテスト。初期回帰失敗と修正途中の消失を確認（`/tmp/pptx-clear-nested-current.log`）、最終対象47件成功（`/tmp/pptx-clear-nested-target.log`）。
+- 根拠: childTnLstの開始は親に相対的（https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.childtimenodelist?view=openxml-2.19.0）。subTnLstのmasterRelは別の意味を持つため構造を維持。実機取得は今回も0×0で失敗し、Macの挙動完全一致は未検証。
+- PR287は開始時HEAD34aac056、OPEN、statusCheckRollup空。全体UI/全操作の一致・既存fidelity差分は引き続き未完了。ユーザーの元プレビューや資料は変更していない。
+
 ## 2026-10-02: メディア選択時の再生リボン
 
 - 単一のメディアを選択した場合に「再生」コンテキストタブを表示。自動/クリック開始、ループ、音量%、ミュート、動画の全画面、停止中非表示を直接設定。自動開始時は別Timingグループで秒単位の遅延を編集。既存API経由のtransactでUndo/保存対応。
