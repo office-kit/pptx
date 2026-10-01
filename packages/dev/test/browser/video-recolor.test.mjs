@@ -97,6 +97,13 @@ test(
       await color.click({ timeout: 3000 });
       const gallery = editor.getByRole('menu', { name: 'Recolor', exact: true });
       assert.equal(await gallery.getByRole('menuitemradio').count(), 21);
+      const thresholdSamples = await Promise.all(
+        [4, 5, 6].map((index) =>
+          gallery.getByRole('menuitemradio').nth(index).locator('.sample').screenshot(),
+        ),
+      );
+      assert.notDeepEqual(thresholdSamples[0], thresholdSamples[1]);
+      assert.notDeepEqual(thresholdSamples[1], thresholdSamples[2]);
       await gallery.getByRole('menuitemradio', { name: 'Grayscale', exact: true }).click();
       await saved();
       assert.equal(isShapeImageGrayscale((await read()).shape), true);
@@ -215,6 +222,41 @@ test(
         await gallery.getByRole('menuitemradio').nth(9).getAttribute('aria-checked'),
         'true',
       );
+      await gallery.getByRole('button', { name: 'More Variations...', exact: true }).click();
+      assert.equal(await variations.getByRole('menuitemradio').count(), 70);
+      await variations
+        .getByRole('menuitemradio', { name: 'Accent 1, Lighter 80%', exact: true })
+        .click();
+      await saved();
+      assert.match(
+        (await read()).xml,
+        /<a:schemeClr val="accent1"><a:lumMod val="20000"\/><a:lumOff val="80000"\/><a:tint val="45000"\/><a:satMod val="400000"\/><\/a:schemeClr>/,
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.match(
+        (await read()).xml,
+        /<a:schemeClr val="accent2"><a:tint val="45000"\/><a:satMod val="400000"\/><\/a:schemeClr>/,
+      );
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      await page.reload();
+      await saved();
+      assert.match((await read()).xml, /<a:lumMod val="20000"\/><a:lumOff val="80000"\/>/);
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
+      await color.click();
+      await gallery.getByRole('button', { name: 'More Variations...', exact: true }).click();
+      await variations
+        .getByRole('menuitemradio', { name: 'Accent 1, Darker 25%', exact: true })
+        .click();
+      await saved();
+      assert.match(
+        (await read()).xml,
+        /<a:schemeClr val="accent1"><a:lumMod val="75000"\/><a:tint val="45000"\/><a:satMod val="400000"\/><\/a:schemeClr>/,
+      );
+      await color.click();
+      await gallery.getByRole('button', { name: 'More Variations...', exact: true }).click();
       await page.screenshot({ path: '/tmp/pptx-video-recolor-pane.png' });
     } finally {
       await browser?.close();

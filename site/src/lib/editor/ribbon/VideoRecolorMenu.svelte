@@ -10,6 +10,7 @@
     isShapeImageGrayscale,
     resolveDrawingColor,
     type Color,
+    type ColorTransform,
     type ImageRecolor,
   } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
@@ -57,6 +58,7 @@
   let open = $state(false);
   let trigger = $state<HTMLButtonElement>();
   let menu = $state<HTMLDivElement>();
+  const componentId = $props.id();
   const theme = $derived.by(() => { doc.version; return getPresentationTheme(doc.pres); });
   const selected = $derived.by(() => {
     doc.version;
@@ -86,12 +88,12 @@
     close();
   }
 
-  function chooseVariation(color: Color): void {
+  function chooseVariation(color: Color, transforms: readonly ColorTransform[] = []): void {
     if (!selected || locked) return;
     editor.invoke('setShapeImageRecolor', {
       recolor: {
         kind: 'duotone',
-        colors: ['#000000', { color, colorTransforms: [{ kind: 'tint', value: 0.45 }, { kind: 'satMod', value: 4 }] }],
+        colors: ['#000000', { color, colorTransforms: [...transforms, { kind: 'tint', value: 0.45 }, { kind: 'satMod', value: 4 }] }],
       },
     });
     close(false);
@@ -205,18 +207,36 @@
     items[nextRow * 7 + nextColumn]?.focus();
   }
 
-  function paint(preset: RecolorPreset): string {
-    if (preset.kind === 'gray') return 'grayscale(1)';
-    if (preset.kind === 'sepia') return 'sepia(1)';
-    if (preset.kind === 'bw') return `grayscale(1) contrast(3)`;
-    if (preset.kind === 'washout') return 'brightness(1.55) saturate(.35)';
-    return '';
-  }
-
   function themePaint(preset: RecolorPreset): string | undefined {
     if (preset.kind !== 'theme' || !preset.theme || !theme) return undefined;
     const slot = preset.theme === 'tx2' ? 'dark2' : preset.theme === 'bg2' ? 'light2' : preset.theme;
     return theme[slot];
+  }
+
+  const luminanceMatrix = '0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0';
+
+  function duotoneColors(preset: RecolorPreset): readonly [string, string] | null {
+    if (preset.kind === 'sepia') {
+      return ['#000000', transformedColor('#D9C3A5', [0.5, 1.8]) ?? '#D9C3A5'];
+    }
+    if (preset.kind !== 'theme') return null;
+    const base = themePaint(preset);
+    if (!base) return null;
+    const color = transformedColor(base, preset.shade === 'light' ? [-0.45, 1.35] : [0.45, 4]);
+    if (!color) return null;
+    return preset.shade === 'light' ? [color, '#FFFFFF'] : ['#000000', color];
+  }
+
+  function channelTable(first: string, second: string, channel: number): string {
+    const value = (color: string) => {
+      const parsed = Number.parseInt(color.slice(1 + channel * 2, 3 + channel * 2), 16);
+      return Number.isFinite(parsed) ? parsed / 255 : 0;
+    };
+    return `${value(first)} ${value(second)}`;
+  }
+
+  function hasFilter(preset: RecolorPreset): boolean {
+    return preset.kind === 'gray' || preset.kind === 'sepia' || preset.kind === 'bw' || preset.kind === 'theme';
   }
 </script>
 
@@ -230,19 +250,47 @@
     <div class="heading">{t('Recolor')}</div>
     <div class="grid">
       {#each presets as preset (preset.id)}
-        {@const color = themePaint(preset)}
+        {@const filterId = `${componentId}-${preset.id}`}
+        {@const colors = duotoneColors(preset)}
         <button type="button" role="menuitemradio" aria-checked={isSelected(preset)} aria-label={t(preset.label)} title={t(preset.label)} onclick={() => apply(preset)}>
-          <span class="sample" class:none={preset.kind === 'none'} style:--theme-color={color ?? 'transparent'} style:--filter={paint(preset)}>
+          <span class="sample" class:none={preset.kind === 'none'}>
             <svg viewBox="0 0 80 45" preserveAspectRatio="none" aria-hidden="true">
-              <rect width="80" height="45" fill="#a9d9ef" /><circle cx="59" cy="12" r="7" fill="#f8d56a" /><path d="M0 36L20 17l14 12L50 9l30 27Z" fill="#557d55" /><path d="M0 41l16-10 11 6 14-9 20 11 19-6v12H0Z" fill="#2f543d" /><path d="M18 19l7 10-5-2-5 4-8-1Z" fill="#dbe8e9" opacity=".7" />
+              {#if hasFilter(preset)}
+                <defs><filter id={filterId}>
+                  {#if preset.kind === 'gray'}
+                    <feColorMatrix type="matrix" values={luminanceMatrix} />
+                  {:else if colors}
+                    <feColorMatrix type="matrix" values={luminanceMatrix} />
+                    <feComponentTransfer>
+                      <feFuncR type="table" tableValues={channelTable(colors[0], colors[1], 0)} />
+                      <feFuncG type="table" tableValues={channelTable(colors[0], colors[1], 1)} />
+                      <feFuncB type="table" tableValues={channelTable(colors[0], colors[1], 2)} />
+                    </feComponentTransfer>
+                  {:else if preset.kind === 'bw'}
+                    <feColorMatrix type="matrix" values={luminanceMatrix} />
+                    <feComponentTransfer>
+                      <feFuncR type="linear" slope="1" intercept={0.5 - (preset.threshold ?? 50) / 100} />
+                      <feFuncG type="linear" slope="1" intercept={0.5 - (preset.threshold ?? 50) / 100} />
+                      <feFuncB type="linear" slope="1" intercept={0.5 - (preset.threshold ?? 50) / 100} />
+                    </feComponentTransfer>
+                    <feComponentTransfer>
+                      <feFuncR type="discrete" tableValues="0 1" />
+                      <feFuncG type="discrete" tableValues="0 1" />
+                      <feFuncB type="discrete" tableValues="0 1" />
+                    </feComponentTransfer>
+                  {/if}
+                </filter></defs>
+              {/if}
+              <g style:filter={preset.kind === 'washout' ? 'brightness(1.55) saturate(.35)' : undefined} filter={hasFilter(preset) ? `url(#${filterId})` : undefined}>
+                <rect width="80" height="45" fill="#a9d9ef" /><circle cx="59" cy="12" r="7" fill="#f8d56a" /><path d="M0 36L20 17l14 12L50 9l30 27Z" fill="#557d55" /><path d="M0 41l16-10 11 6 14-9 20 11 19-6v12H0Z" fill="#2f543d" /><path d="M18 19l7 10-5-2-5 4-8-1Z" fill="#dbe8e9" opacity=".7" />
+              </g>
             </svg>
-            {#if preset.kind === 'theme'}<span class="theme-wash" class:light={preset.shade === 'light'}></span>{/if}
           </span>
         </button>
       {/each}
     </div>
     <div class="variation" role="none">
-      <ColorPicker label={t('More Variations...')} value="scheme:accent1" resolvedColor={theme?.accent1} disabled={!selected || locked} choose={chooseVariation} />
+      <ColorPicker label={t('More Variations...')} showThemeShades disabled={!selected || locked} choose={chooseVariation} />
       <span>{t('More Variations...')}</span>
     </div>
     <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat('video'); }}>{t('Movie Color Options...')}</button>
@@ -260,9 +308,7 @@
   .grid button { min-width:0; padding:3px; border:1px solid transparent; border-radius:4px; background:transparent; color:inherit; font:inherit; cursor:pointer; }
   .grid button:hover, .grid button:focus-visible { border-color:var(--ok-accent); background:var(--ok-hover); outline:none; }
   .sample { position:relative; display:block; height:32px; overflow:hidden; border:1px solid var(--ok-border); border-radius:2px; background:var(--ok-panel); }
-  .sample svg { display:block; width:100%; height:100%; filter:var(--filter); }
-  .theme-wash { position:absolute; inset:0; background:var(--theme-color); mix-blend-mode:color; opacity:.76; }
-  .theme-wash.light { mix-blend-mode:screen; opacity:.62; }
+  .sample svg { display:block; width:100%; height:100%; }
   .sample.none::after { content:'×'; position:absolute; inset:0; display:grid; place-items:center; color:#b3261e; font-size:26px; font-weight:600; background:#fff8; }
   .options { display:block; width:100%; margin-top:7px; padding:6px 4px 2px; border:0; border-top:1px solid var(--ok-border); background:transparent; color:inherit; font:inherit; font-size:11px; text-align:left; cursor:pointer; }
   .variation { display:flex; align-items:center; gap:7px; margin-top:7px; padding:6px 4px 2px; border-top:1px solid var(--ok-border); font-size:11px; }

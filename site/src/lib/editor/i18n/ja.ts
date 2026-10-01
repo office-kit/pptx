@@ -155,6 +155,8 @@ export const ja: Record<string, string> = {
   'Vertical ruler (centimeters)': '垂直ルーラー（センチメートル）',
   Style: 'スタイル',
   'Theme Colors': 'テーマの色',
+  Darker: '濃色',
+  Lighter: '淡色',
   'Standard Colors': '標準の色',
   'More Colors...': 'その他の色...',
   'Background 1': '背景 1',
