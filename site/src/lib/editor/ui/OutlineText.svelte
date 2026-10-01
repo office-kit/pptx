@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
-  import { getShapeText, getSlides, getSlideLayout, addSlideAt, setShapeText, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
+  import { getShapeText, getShapeParagraphCount, getShapeParagraphElements, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import { outlineShapes } from '../core/outline.ts';
   import { copyTextRange } from '../core/text-clipboard.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
@@ -50,6 +51,23 @@
       await (event.shiftKey || event.key.toLowerCase() === 'y' ? doc.redo() : doc.undo());
     } else if (mod && event.key.toLowerCase() === 's') commit();
     else if (event.key === 'Escape') { commit(); input.blur(); }
+    else if (event.key === 'Tab' && !event.shiftKey && !mod && !event.altKey && !title) {
+      event.preventDefault(); event.stopPropagation();
+      rememberRange(); commit();
+      const source = doc.shapeById(slideIndex, shapeId)!;
+      const lengths = Array.from({ length: getShapeParagraphCount(source) }, (_, index) =>
+        getShapeParagraphElements(source, index).reduce((length, element) => length + (element.kind === 'br' ? 1 : element.text.length), 0));
+      const indices = paragraphsInTextRange(lengths, range);
+      const levels = indices.map(index => ({ index, level: getParagraphLevel(source, index) }));
+      const maxLevel = 8;
+      if (levels.some(item => item.level < maxLevel)) {
+        doc.transact(t('Indent'), () => {
+          for (const { index, level } of levels) {
+            if (level < maxLevel) setParagraphLevel(source, index, level + 1);
+          }
+        });
+      }
+    }
     else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey && title) {
       const layout = getSlideLayout(slide);
       if (!layout) return;
