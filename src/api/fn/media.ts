@@ -379,6 +379,8 @@ export interface MediaPlayback {
   /** Number of slides across which the clip should keep playing (`numSld`).
    * When absent, OOXML defaults to one slide. */
   readonly slideCount?: number;
+  /** Returns playback to the beginning after natural completion (`fill="remove"`). */
+  readonly rewindAfterPlaying?: boolean;
 }
 
 const NAME_C_MEDIA_NODE = qname('p', 'cMediaNode', NS.pml);
@@ -388,6 +390,7 @@ const NAME_COND = qname('p', 'cond', NS.pml);
 const ATTR_VOL = qname('', 'vol', '');
 const ATTR_MUTE = qname('', 'mute', '');
 const ATTR_FULL_SCRN = qname('', 'fullScrn', '');
+const ATTR_FILL = qname('', 'fill', '');
 const ATTR_SHOW_WHEN_STOPPED = qname('', 'showWhenStopped', '');
 const ATTR_NUM_SLD = qname('', 'numSld', '');
 const MAX_MEDIA_SLIDE_COUNT = 0xffffffff;
@@ -511,13 +514,18 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
     parsedSlideCount <= MAX_MEDIA_SLIDE_COUNT
       ? parsedSlideCount
       : undefined;
+  const rewindAfterPlaying = cTn !== null && getAttrValue(cTn, ATTR_FILL) === 'remove';
+  const optionalPlayback = {
+    ...(slideCount === undefined ? {} : { slideCount }),
+    ...(rewindAfterPlaying ? { rewindAfterPlaying: true } : {}),
+  };
   // Zero is the ordinary immediate-start form and remains absent to preserve
   // the existing result shape. Only a finite, event-free start can carry this
   // user-facing delay.
   if (autoplay && delayMs > 0) {
-    return { ...playback, delayMs, ...(slideCount === undefined ? {} : { slideCount }) };
+    return { ...playback, delayMs, ...optionalPlayback };
   }
-  return slideCount === undefined ? playback : { ...playback, slideCount };
+  return { ...playback, ...optionalPlayback };
 };
 
 /**
@@ -567,7 +575,10 @@ export const setShapeMediaPlayback = (
   }
   if (
     cTn === null &&
-    (options.autoplay !== undefined || options.delayMs !== undefined || options.loop !== undefined)
+    (options.autoplay !== undefined ||
+      options.delayMs !== undefined ||
+      options.loop !== undefined ||
+      options.rewindAfterPlaying !== undefined)
   ) {
     throw new Error('setShapeMediaPlayback: media timing node has no cTn');
   }
@@ -644,6 +655,10 @@ export const setShapeMediaPlayback = (
   }
 
   if (cTn !== null) {
+    // Mac PowerPoint stores Rewind After Playing as remove (on) or hold (off).
+    if (options.rewindAfterPlaying !== undefined) {
+      setOrRemove(cTn, ATTR_FILL, options.rewindAfterPlaying ? 'remove' : 'hold');
+    }
     if (options.loop !== undefined) {
       setOrRemove(cTn, ATTR_REPEAT_COUNT, options.loop ? 'indefinite' : null);
     }

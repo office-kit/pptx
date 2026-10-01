@@ -115,6 +115,15 @@ for (const [kind, nested] of [
           await editor.getByText('Saved to this project', { exact: true }).waitFor();
           assert.equal((await readPlayback()).fullScreen, true);
         }
+        const rewind = panel.getByLabel('Rewind After Playing', { exact: true });
+        assert.equal(await rewind.isChecked(), false);
+        await rewind.check();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).rewindAfterPlaying, true);
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.equal((await readPlayback()).rewindAfterPlaying, undefined);
+        await rewind.check();
         const delay = panel.getByLabel('Start delay (seconds)', { exact: true });
         await delay.fill('1.001');
         await delay.press('Tab');
@@ -135,10 +144,13 @@ for (const [kind, nested] of [
         await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
         assert.equal(await panel.getByLabel('Start', { exact: true }).inputValue(), 'automatic');
         assert.equal(await delay.inputValue(), '1.001');
+        assert.equal(await rewind.isChecked(), true);
         await editor.locator('.lang select').selectOption('ja');
+        await panel.getByLabel('再生が終了したら巻き戻す', { exact: true }).uncheck();
         await panel.getByLabel('開始', { exact: true }).selectOption('click');
         await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
         assert.equal((await readPlayback()).autoplay, false);
+        assert.equal((await readPlayback()).rewindAfterPlaying, undefined);
         assert.equal(await panel.getByLabel('開始の遅延（秒）', { exact: true }).count(), 0);
         await page.screenshot({
           path: `/tmp/pptx-media-editor-${nested ? 'nested-' : ''}${kind}.png`,

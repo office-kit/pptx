@@ -220,6 +220,12 @@ export function createMediaPlayer(options: {
       element.addEventListener(name, () => {
         if (disposed || released) return;
         if (name === 'play') cancelStart();
+        if (!mirror && name === 'ended' && clip.playback?.rewindAfterPlaying) {
+          // PowerPoint rewinds after natural completion while keeping the
+          // stopped state. Keep the ended/focus handling below unchanged.
+          element.pause();
+          element.currentTime = 0;
+        }
         if (!mirror && name === 'ended' && clip.playback?.hideWhenStopped)
           host.style.visibility = 'hidden';
         if (!mirror && name === 'play') host.style.visibility = '';

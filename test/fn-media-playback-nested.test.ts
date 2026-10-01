@@ -135,6 +135,15 @@ describe('nested media playback timing', () => {
     });
   });
 
+  it('changes only the media timing fill when toggling rewind-after-playing', async () => {
+    const { pres, shape } = await nestedDeck({ attrs: 'delay="100"' }, { attrs: 'delay="250"' });
+    setShapeMediaPlayback(shape, { rewindAfterPlaying: true });
+    expect(slideXml(pres)).toContain('delay="100"');
+    expect(slideXml(pres)).toContain('delay="250"');
+    expect(slideXml(pres)).toContain('fill="remove"');
+    expect(getShapeMediaPlayback(shape)).toMatchObject({ rewindAfterPlaying: true });
+  });
+
   it('converts its own manual start while retaining an automatic parent delay', async () => {
     const { pres, shape } = await nestedDeck(
       { attrs: 'delay="100"' },

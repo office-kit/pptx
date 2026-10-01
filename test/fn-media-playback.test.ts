@@ -148,6 +148,24 @@ describe('media playback', () => {
     expect(slideXml(reloaded)).not.toContain('numSld=');
   });
 
+  it('reads and writes rewind-after-playing through the media timing fill', async () => {
+    const { pres, shape } = deckWith('audio');
+    expect(getShapeMediaPlayback(shape)).not.toHaveProperty('rewindAfterPlaying');
+
+    setShapeMediaPlayback(shape, { rewindAfterPlaying: true });
+    expect(getShapeMediaPlayback(shape)).toMatchObject({ rewindAfterPlaying: true });
+    expect(slideXml(pres)).toContain('fill="remove"');
+    expect(slideXml(pres)).toContain('display="0"');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const loadedShape = getSlideShapes(getSlides(reloaded)[0]!).at(0)!;
+    expect(getShapeMediaPlayback(loadedShape)).toMatchObject({ rewindAfterPlaying: true });
+
+    setShapeMediaPlayback(loadedShape, { rewindAfterPlaying: false });
+    expect(getShapeMediaPlayback(loadedShape)).not.toHaveProperty('rewindAfterPlaying');
+    expect(slideXml(reloaded)).toContain('fill="hold"');
+  });
+
   it.each([
     -1,
     1.5,

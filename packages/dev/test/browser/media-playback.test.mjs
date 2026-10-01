@@ -175,6 +175,65 @@ test(
   },
 );
 
+test('audio rewinds after natural playback when requested', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-media-rewind-'));
+  let preview;
+  let browser;
+  try {
+    const deck = await compile(
+      Presentation({
+        children: [
+          Slide({
+            children: Media({ kind: 'audio', data: wav(1000), x: 1, y: 1, width: 3, height: 1 }),
+          }),
+        ],
+      }),
+    );
+    const [audio] = getSlideShapes(getSlides(deck)[0]);
+    setShapeMediaPlayback(audio, {
+      autoplay: false,
+      muted: true,
+      rewindAfterPlaying: true,
+    });
+    const source = join(dir, 'source.pptx');
+    await writeFile(source, await savePresentation(deck));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+    );
+    preview = await startPreview(file);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await page.getByRole('button', { name: 'Present', exact: true }).click();
+    const audioElement = page.locator('foreignObject[data-pptx-media] audio');
+    await audioElement.waitFor({ state: 'attached' });
+    const ended = page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          const element = document.querySelector('#slide')?.shadowRoot?.querySelector('audio');
+          if (!(element instanceof HTMLAudioElement)) throw new Error('audio element not found');
+          element.addEventListener('ended', resolve, { once: true });
+        }),
+    );
+    await audioElement.evaluate((element) => element.play());
+    await page.waitForFunction(() => {
+      const element = document.querySelector('#slide')?.shadowRoot?.querySelector('audio');
+      return element !== null && element.currentTime > 0.05;
+    });
+    await ended;
+    await page.waitForTimeout(50);
+    assert.equal(await audioElement.evaluate((element) => element.paused), true);
+    assert.ok((await audioElement.evaluate((element) => element.currentTime)) < 0.05);
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
 test(
   'audio continues across its configured slides without mixing same-id media',
   { timeout: 60000 },
