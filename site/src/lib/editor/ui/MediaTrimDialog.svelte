@@ -20,6 +20,8 @@
   let paused = $state(true);
   let volume = $state(0.5);
   let error = $state('');
+  const progressIntervalMs = 25;
+  let progressTimer: number | undefined;
   const length = $derived(end - start);
   const valid = $derived(duration > 0 && start >= 0 && end <= duration && length > 0);
   const time = (ms: number) => `${Math.floor(ms / 60000)}:${(Math.max(0, ms) / 1000 % 60).toFixed(3).padStart(6, '0')}`;
@@ -28,7 +30,24 @@
     dialog.showModal();
     if (!media || media.kind === 'online') { error = t('The media could not be loaded'); return; }
     url = URL.createObjectURL(new Blob([new Uint8Array(media.bytes)], { type: media.contentType }));
-    return () => { player?.pause(); URL.revokeObjectURL(url); };
+    const handlePlay = () => {
+      paused = false;
+      scheduleProgress();
+    };
+    const handlePause = () => {
+      paused = true;
+      cancelProgress();
+      progress();
+    };
+    player.addEventListener('play', handlePlay);
+    player.addEventListener('pause', handlePause);
+    return () => {
+      cancelProgress();
+      player.removeEventListener('play', handlePlay);
+      player.removeEventListener('pause', handlePause);
+      player.pause();
+      URL.revokeObjectURL(url);
+    };
   });
   function loaded() {
     if (!Number.isFinite(player.duration)) { error = t('The media could not be loaded'); return; }
@@ -51,9 +70,29 @@
     const outgoing = fadeOut > 0 ? (end - position) / fadeOut : 1;
     player.volume = volume * Math.max(0, Math.min(1, incoming, outgoing));
   }
+  function cancelProgress() {
+    if (progressTimer === undefined) return;
+    window.clearTimeout(progressTimer);
+    progressTimer = undefined;
+  }
+  function scheduleProgress() {
+    cancelProgress();
+    const tick = () => {
+      progressTimer = undefined;
+      progress();
+      if (!player.paused && position < end) progressTimer = window.setTimeout(tick, progressIntervalMs);
+    };
+    progressTimer = window.setTimeout(tick, 0);
+  }
   function progress() {
-    position = player.currentTime * 1000;
-    if (position >= end) { player.pause(); position = end; }
+    const current = player.currentTime * 1000;
+    position = Math.max(start, Math.min(end, current));
+    if (current >= end) {
+      player.pause();
+      if (Math.abs(current - end) > 0.001) player.currentTime = end / 1000;
+      position = end;
+      cancelProgress();
+    }
     updateVolume();
   }
   async function play() {
@@ -81,7 +120,7 @@
       <!-- svelte-ignore a11y_media_has_caption -->
       <video bind:this={player} src={url} onloadedmetadata={loaded} ontimeupdate={progress} onplay={() => paused = false} onpause={() => paused = true} onerror={() => error = t('The media could not be loaded')}></video>
     {:else}
-      <span class="speaker" aria-hidden="true">♫</span>
+      <svg class="speaker" viewBox="0 0 100 100" aria-hidden="true"><path d="M12 38h20L52 20v60L32 62H12Z" fill="currentColor"/><path d="M64 33q20 17 0 34M76 21q33 29 0 58" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/></svg>
       <audio bind:this={player} src={url} onloadedmetadata={loaded} ontimeupdate={progress} onplay={() => paused = false} onpause={() => paused = true} onerror={() => error = t('The media could not be loaded')}></audio>
     {/if}
   </div>
@@ -110,7 +149,7 @@
   header { padding-bottom: 16px; border-bottom: 1px solid #444; }
   .preview { margin: 18px 0; height: min(42vh, 360px); background: black; display: grid; place-items: center; }
   video { width: 100%; height: 100%; object-fit: contain; }
-  .speaker { font-size: 80px; }
+  .speaker { width: 100px; height: 100px; color: #ddd; }
   .scrubber { display: flex; align-items: center; gap: 14px; font-variant-numeric: tabular-nums; }
   .ranges { flex: 1; min-width: 0; }
   .ranges > input { display: block; width: 100%; accent-color: #f7c52d; }
