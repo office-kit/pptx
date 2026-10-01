@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { getShapeKind, setSlideOutlineCollapsed } from '@office-kit/pptx';
+  import { getShapeKind, getSlideLayout, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
@@ -35,6 +35,20 @@
     }));
   }
 
+  function slideItems(): Item[] {
+    const outline = menu.source === 'outline';
+    return [
+      { label: 'New slide', run: () => {
+        const slide = doc.slideAt(doc.selection.slideIndex);
+        const layout = outline && slide ? getSlideLayout(slide) : null;
+        if (layout) editor.invoke('addSlide', { options: { layout } });
+        else editor.invoke('addBlankSlide');
+      } },
+      { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
+      { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
+    ];
+  }
+
   const hasShapes = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
 
   const items = $derived.by<Item[]>(() => {
@@ -45,6 +59,7 @@
         { label: 'Cut', accel: '⌘X', run: actions.cut, disabled: !actions.hasTextSelection },
         { label: 'Copy', accel: '⌘C', run: actions.copy, disabled: !actions.hasTextSelection },
         { label: 'Paste', accel: '⌘V', run: actions.paste, sep: true },
+        ...slideItems(),
         ...outlineCollapseItems(),
         { label: 'Promote', run: actions.promote, disabled: !actions.canPromote },
         { label: 'Demote', run: actions.demote, disabled: !actions.canDemote },
@@ -91,9 +106,7 @@
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
-        { label: 'New slide', run: () => editor.invoke('addBlankSlide') },
-        { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
-        { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
+        ...slideItems(),
       );
       if (menu.source === 'outline') {
         list.push(...outlineCollapseItems());

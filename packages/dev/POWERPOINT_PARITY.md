@@ -767,3 +767,8 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Native Command-Shift-N in Outline View added a second empty Title and Content slide using the same layout as the selected Title and Content slide. Saved XML confirmed the two placeholders and shared layout. The addition was undone; Normal view, 120%, one slide, disabled Undo and saved state were restored.
 
 - The new ordinary build passes all 13 targeted outline/clipboard browser tests (English/Japanese), root format/lint/TypeScript, DSL type checking and core/editor builds. Root unit results remain 3,072 passed / 109 skipped.
+
+## Outline text slide actions
+
+- Text context menus now expose New Slide, Duplicate Slide and Delete Slide through the existing undoable slide commands. Outline New Slide inherits the selected slide layout, matching the observed native Title and Content case; special handling after a Title Slide still needs native comparison.
+- English/Japanese browser tests verify insertion with empty placeholders, whole-slide duplication including extra objects, deletion of the last slide, saved content and one-step Undo for all three operations (2/2 passed).
