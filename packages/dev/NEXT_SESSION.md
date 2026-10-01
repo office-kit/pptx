@@ -1,3 +1,12 @@
+## 2026-10-02: メディアの再生スライド数
+
+- `MediaPlayback.slideCount` で `cMediaNode@numSld` を読み書き。省略時はOOXML既定の1枚。unsignedIntの0〜0xffffffffを受け付け、範囲外は音量など他の同時変更も適用する前に拒否。保存再読込・既定値への復元・schema境界値を検証。
+- 根拠: references/ecma-376-5th/ECMA-376/OfficeOpenXML-XMLSchema-Transitional/pml.xsd:601、および https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.commonmedianode 。
+- format/lint/typecheck/test/build成功。3158 passed / 109 skipped。ヘッダーの既存ブラウザー検証も日英900/1500pxで再実行成功。
+- 実際のスライド跨ぎ再生は未実装。`page.ts` のrender/syncMediaPlayerがスライド変更時にdisposeする。次は再生要素の保持、再生範囲終了・ショー終了時の破棄、同じshapeIdを持つ別スライドの区別、発表者ビュー同期を一体で実装する。API対応だけを再生機能完成としない。
+- PowerPoint AppleScriptのバージョン取得は16.113.3で成功。一時コピー `/tmp/pptx-native-wrap-oct2/preset-shapes.pptx` のPDF書出しは2回ともタイムアウト。比較用コピーは保存せず閉じた。ユーザー資料の変更・復元待ちはなし。latinLnBrkの描画差分は未解決。
+- CI 36897221430は静的検査、Node22/26、Open XML SDK成功。最終確認時Node24実行中、Preview fidelity失敗。完全一致は未達成。
+
 ## 2026-10-02: 入れ子メディアの再生設定
 
 - 入れ子のaudio/videoを再生リボンと既存APIで認識。単純な並列グループの親遅延を合算し、総遅延の編集ではメディア自身の遅延のみ変更する。音量・ミュート・繰り返し・停止時非表示は親条件を保持。

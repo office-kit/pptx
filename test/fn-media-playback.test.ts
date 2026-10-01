@@ -131,6 +131,47 @@ describe('media playback', () => {
     expect(slideXml(pres)).toContain('<p:cond delay="0"/>');
   });
 
+  it('reads and writes playback across slides through cMediaNode numSld', async () => {
+    const { pres, shape } = deckWith('audio');
+    expect(getShapeMediaPlayback(shape)).not.toHaveProperty('slideCount');
+
+    setShapeMediaPlayback(shape, { slideCount: 3 });
+    expect(getShapeMediaPlayback(shape)).toMatchObject({ slideCount: 3 });
+    expect(slideXml(pres)).toContain('numSld="3"');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const loadedShape = getSlideShapes(getSlides(reloaded)[0]!).at(0)!;
+    expect(getShapeMediaPlayback(loadedShape)).toMatchObject({ slideCount: 3 });
+
+    setShapeMediaPlayback(loadedShape, { slideCount: 1 });
+    expect(getShapeMediaPlayback(loadedShape)).not.toHaveProperty('slideCount');
+    expect(slideXml(reloaded)).not.toContain('numSld=');
+  });
+
+  it.each([
+    -1,
+    1.5,
+    0x100000000,
+    Number.MAX_SAFE_INTEGER + 1,
+    Number.POSITIVE_INFINITY,
+    Number.NaN,
+  ])('rejects invalid slide counts before changing the clip (%s)', (slideCount) => {
+    const { pres, shape } = deckWith('video');
+    const before = slideXml(pres);
+
+    expect(() => setShapeMediaPlayback(shape, { volume: 0.2, slideCount })).toThrow(/slideCount/);
+    expect(slideXml(pres)).toBe(before);
+  });
+
+  skipIfNoXmllint('writes schema-valid unsigned 32-bit slide-count boundaries', () => {
+    const { pres, shape } = deckWith('audio');
+    for (const slideCount of [0, 0xffffffff]) {
+      setShapeMediaPlayback(shape, { slideCount });
+      expect(getShapeMediaPlayback(shape)).toMatchObject({ slideCount });
+      expectSchemaValid(slideXml(pres), 'pml');
+    }
+  });
+
   it('drops an event trigger when switching event playback to automatic playback', async () => {
     const { pres } = deckWith('video');
     const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
