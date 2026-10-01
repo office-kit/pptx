@@ -32,6 +32,9 @@
     if (menu.outlineText) {
       const actions = menu.outlineText;
       list.push(
+        { label: 'Cut', accel: '⌘X', run: actions.cut, disabled: !actions.hasTextSelection },
+        { label: 'Copy', accel: '⌘C', run: actions.copy, disabled: !actions.hasTextSelection },
+        { label: 'Paste', accel: '⌘V', run: actions.paste, sep: true },
         { label: 'Promote', run: actions.promote, disabled: !actions.canPromote },
         { label: 'Demote', run: actions.demote, disabled: !actions.canDemote },
       );

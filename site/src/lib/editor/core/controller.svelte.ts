@@ -80,6 +80,10 @@ export interface ContextMenuState {
   readonly outlineText?: {
     promote: () => void;
     demote: () => void;
+    copy: () => void;
+    cut: () => void;
+    paste: () => void;
+    hasTextSelection: boolean;
     canPromote: boolean;
     canDemote: boolean;
   };

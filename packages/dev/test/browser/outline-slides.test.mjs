@@ -83,6 +83,33 @@ for (const locale of ['en', 'ja']) {
         );
         await change(() => menu.getByRole('menuitem', { name: labels.up, exact: true }).click());
         assert.deepEqual(await order(), expected(['B', 'A 日本語', 'C', 'D']));
+        await icon(1).click();
+        await icon(2).click({ modifiers: ['Shift'] });
+        const lastRow = outline.locator('[data-outline-slide="3"]');
+        const rowBounds = await lastRow.boundingBox();
+        await change(() =>
+          icon(1).dragTo(lastRow, { targetPosition: { x: 20, y: rowBounds.height - 2 } }),
+        );
+        assert.deepEqual(await order(), expected(['B', 'D', 'A 日本語', 'C']));
+        assert.equal(await icon(2).getAttribute('aria-pressed'), 'true');
+        assert.equal(await icon(3).getAttribute('aria-pressed'), 'true');
+        await change(() => icon(2).press('Control+z'));
+        assert.deepEqual(await order(), expected(['B', 'A 日本語', 'C', 'D']));
+        // Disjoint selections move together without disturbing the order of unselected slides.
+        await icon(0).click();
+        await icon(2).click({ modifiers: ['Meta'] });
+        assert.equal(await icon(0).getAttribute('aria-pressed'), 'true');
+        assert.equal(await icon(2).getAttribute('aria-pressed'), 'true');
+        const nextBounds = await lastRow.boundingBox();
+        await change(() =>
+          icon(0).dragTo(lastRow, { targetPosition: { x: 20, y: nextBounds.height - 2 } }),
+        );
+        assert.deepEqual(await order(), expected(['A 日本語', 'D', 'B', 'C']));
+        await change(() => icon(2).press('Control+z'));
+        assert.deepEqual(await order(), expected(['B', 'A 日本語', 'C', 'D']));
+        // Text/files dragged from outside this pane cannot reorder slides.
+        await icon(3).dispatchEvent('drop');
+        assert.deepEqual(await order(), expected(['B', 'A 日本語', 'C', 'D']));
         await page.reload();
         assert.deepEqual(await order(), expected(['B', 'A 日本語', 'C', 'D']));
         assert.deepEqual(errors, []);

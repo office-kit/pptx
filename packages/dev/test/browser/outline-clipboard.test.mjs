@@ -33,6 +33,7 @@ for (const locale of ['en', 'ja'])
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
         const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+        await page.context().grantPermissions(['clipboard-read', 'clipboard-write']);
         const errors = [];
         page.on('pageerror', (error) => errors.push(error.message));
         await page.addInitScript(
@@ -141,6 +142,55 @@ for (const locale of ['en', 'ja'])
         assert.equal(runs[0].format.bold, true);
         assert.equal(runs[0].format.color?.toLowerCase(), '#ff0000');
         assert.equal(runs.at(-1).format.italic, true);
+        const menuAction = async (node, name) => {
+          await node.dispatchEvent('contextmenu', { clientX: 140, clientY: 260 });
+          await editor.getByRole('menuitem', { name: new RegExp('^' + name) }).click();
+        };
+        const copyName = locale === 'en' ? 'Copy' : 'コピー';
+        const cutName = locale === 'en' ? 'Cut' : '切り取り';
+        const pasteName = locale === 'en' ? 'Paste' : '貼り付け';
+        await select(body, 0, 4);
+        await menuAction(body, copyName);
+        await page.waitForFunction(
+          async () => (await navigator.clipboard.readText()) === '赤い文字',
+        );
+        await change(() => menuAction(body, cutName));
+        assert.equal(getShapeText(await shape(1)), '');
+        await change(() => menuAction(body, pasteName));
+        assert.equal(getShapeText(await shape(1)), '赤い文字');
+        assert.equal(
+          getShapeParagraphElements(await shape(1), 0)[0].format.color?.toLowerCase(),
+          '#ff0000',
+        );
+        await change(() => body.press('Control+z'));
+        assert.equal(getShapeText(await shape(1)), '');
+        await change(() => body.press('Control+z'));
+        assert.equal(getShapeText(await shape(1)), '赤い文字');
+        // A delayed permission response must not paste into an editor the user has left.
+        await page.evaluate(() => navigator.clipboard.writeText('must not be inserted'));
+        await select(body, 0, 4);
+        await body.evaluate((input) => {
+          const win = input.ownerDocument.defaultView;
+          const clipboard = win.navigator.clipboard;
+          const read = clipboard.read.bind(clipboard);
+          clipboard.read = () =>
+            new Promise((resolve) => {
+              win.finishOutlinePaste = async () => {
+                clipboard.read = read;
+                resolve(await read());
+              };
+            });
+        });
+        await menuAction(body, pasteName);
+        await title.focus();
+        await title.evaluate(async (input) => {
+          const win = input.ownerDocument.defaultView;
+          await win.finishOutlinePaste();
+          delete win.finishOutlinePaste;
+        });
+        await page.waitForTimeout(700);
+        assert.equal(await body.inputValue(), '赤い文字');
+        assert.equal(getShapeText(await shape(1)), '赤い文字');
         await page.reload();
         await editor.locator('.slide-workspace').waitFor();
         assert.equal(getShapeText(await shape(1)), '赤い文字');
