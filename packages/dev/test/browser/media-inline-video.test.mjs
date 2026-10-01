@@ -161,7 +161,7 @@ test(
       );
       assert.notEqual(await secondVideo.getAttribute('src'), firstSource);
       const controlsInsideCanvas = async () =>
-        editor.locator('.media-preview .controls').evaluate((node) => {
+        editor.locator('[aria-label="Media controls"]').evaluate((node) => {
           const canvas = node.closest('.canvas-area').getBoundingClientRect();
           const controls = node.getBoundingClientRect();
           return {

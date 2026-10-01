@@ -1354,6 +1354,7 @@
   .canvas-viewport { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
   .canvas-viewport.with-rulers { padding-top: 22px; padding-left: 22px; }
   .canvas-area {
+    position: relative;
     flex: 1;
     background: var(--ok-canvas-bg);
     overflow: auto;

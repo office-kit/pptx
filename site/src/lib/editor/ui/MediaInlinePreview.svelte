@@ -51,16 +51,23 @@
     const area = node.closest<HTMLElement>('.canvas-area');
     const host = node.parentElement;
     if (!area || !host) return;
+    const minimumToolbarWidth = 380;
+    const toolbarGap = 4;
     let frame = 0;
+    // Mac PowerPoint keeps playback controls horizontal below the rotated media bounds.
+    // Render in canvas coordinates so group scaling and rotation affect only the media.
+    area.append(node);
     const position = () => {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
-        node.style.marginLeft = '0px';
-        node.style.maxWidth = `${area.clientWidth}px`;
         const bounds = area.getBoundingClientRect();
-        const controls = node.getBoundingClientRect();
-        const shift = Math.max(bounds.left - controls.left, Math.min(0, bounds.right - controls.right));
-        node.style.marginLeft = `${shift}px`;
+        const anchor = host.getBoundingClientRect();
+        const width = Math.min(area.clientWidth, Math.max(minimumToolbarWidth, anchor.width));
+        const centered = (anchor.left + anchor.right - width) / 2 - bounds.left;
+        const left = Math.max(0, Math.min(area.clientWidth - width, centered));
+        node.style.width = `${width}px`;
+        node.style.left = `${left + area.scrollLeft}px`;
+        node.style.top = `${anchor.bottom - bounds.top + area.scrollTop + toolbarGap}px`;
       });
     };
     const resize = new ResizeObserver(position);
@@ -78,6 +85,7 @@
       resize.disconnect();
       mutation.disconnect();
       area.removeEventListener('scroll', position);
+      node.remove();
     } };
   }
   function bookmarkSeek(index: number) {
@@ -155,7 +163,7 @@
   {:else}
     <audio bind:this={player} src={src} preload="metadata" onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></audio>
   {/if}
-  <div class="controls" use:positionControls aria-label={t('Media controls')}>
+  <div class="controls" use:positionControls role="presentation" aria-label={t('Media controls')} onclick={event => event.stopPropagation()} onpointerdown={event => event.stopPropagation()} onkeydown={event => event.stopPropagation()}>
     <button type="button" aria-label={preview.state.playing ? t('Pause') : t('Play')} onclick={togglePlay}><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">{#if preview.state.playing}<path fill="currentColor" d="M5 3h5v18H5zm9 0h5v18h-5z" />{:else}<path fill="currentColor" d="M5 2v20l16-10z" />{/if}</svg></button>
     <div class="seekbar" style={`--played:${trimEnd > trimStart ? Math.min(100, Math.max(0, (preview.state.currentTime - trimStart) / (trimEnd - trimStart) * 100)) : 0}%`}>
       <input aria-label={t('Media position')} type="range" min={trimStart} max={trimEnd || 0} step="any" value={preview.state.shapeId === shapeId ? preview.state.currentTime : trimStart} oninput={event => seek(event.currentTarget.valueAsNumber)} />
@@ -176,7 +184,7 @@
   .media-preview { position:absolute; inset:0; pointer-events:none; }
   video { width:100%; height:100%; object-fit:contain; pointer-events:none; }
   audio { display:none; }
-  .controls { position:absolute; left:50%; width:max(100%, 380px); transform:translateX(-50%); bottom:-42px; height:38px; box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:4px 8px; background:linear-gradient(#fff, #eff0f2); color:#303030; border:1px solid #c8c9cc; border-radius:4px; box-shadow:0 1px 2px #0001; pointer-events:auto; font-size:12px; }
+  .controls { position:absolute; z-index:1; height:38px; box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:4px 8px; background:linear-gradient(#fff, #eff0f2); color:#303030; border:1px solid #c8c9cc; border-radius:4px; box-shadow:0 1px 2px #0001; pointer-events:auto; font-size:12px; }
   .controls button { display:flex; align-items:center; justify-content:center; flex-shrink:0; color:inherit; background:transparent; border:0; padding:1px 3px; cursor:pointer; }
   .controls button:disabled { opacity:.4; cursor:default; }
   .controls button.muted { color:#efc451; }
