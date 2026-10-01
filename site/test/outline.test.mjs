@@ -31,6 +31,78 @@ import {
   promoteOutlineBody,
   outlineParagraphMove,
 } from '../src/lib/editor/core/outline.ts';
+import { OutlineSelectionModel } from '../src/lib/editor/core/outline-selection.ts';
+
+test('outline selection retains its anchor across fields and replaces as one transaction', () => {
+  const roots = [0, 1, 2].map((order) => ({
+    compareDocumentPosition(other) {
+      return order < other.order ? 4 : 2;
+    },
+    order,
+  }));
+  const values = ['Title', 'Body😀', 'Next'];
+  const applied = [];
+  let transactions = 0;
+  const model = new OutlineSelectionModel();
+  const fields = roots.map((root, index) =>
+    model.register({
+      key: String(index),
+      root,
+      text: () => values[index],
+      copy: (start, end) => ({ text: values[index].slice(start, end), formats: [] }),
+      flush: () => [],
+      apply: (edits) => applied.push({ index, edits }),
+      transact: (_label, fn) => {
+        transactions++;
+        fn();
+      },
+      focus: () => {},
+    }),
+  );
+  void fields;
+  const registered = model.fields();
+  model.update(registered[0], 4, 5);
+  assert.equal(model.extend(registered[0], 1), true);
+  model.update(registered[1], 0, values[1].length, true);
+  assert.equal(model.extend(registered[1], 1), true);
+  assert.deepEqual(model.copy(), { text: 'e\nBody😀\n', formats: [] });
+  assert.equal(model.replace('X', [], 'Cut'), true);
+  assert.equal(transactions, 1);
+  const edits = applied.filter(({ edits }) => edits.length);
+  assert.equal(edits.length, 3);
+  assert.equal(edits[0].index, 2);
+  assert.equal(edits[1].index, 1);
+  assert.equal(edits[2].index, 0);
+});
+
+test('outline selection extends backward across fields', () => {
+  const roots = [0, 1, 2].map((order) => ({
+    order,
+    compareDocumentPosition(other) {
+      return order < other.order ? 4 : 2;
+    },
+  }));
+  const values = ['A', 'B', 'C'];
+  const model = new OutlineSelectionModel();
+  roots.forEach((root, index) =>
+    model.register({
+      key: String(index),
+      root,
+      text: () => values[index],
+      copy: (start, end) => ({ text: values[index].slice(start, end), formats: [] }),
+      flush: () => [],
+      apply: () => {},
+      transact: (_label, fn) => fn(),
+      focus: () => {},
+    }),
+  );
+  const fields = model.fields();
+  model.update(fields[2], 0, 0);
+  assert.equal(model.extend(fields[2], -1), true);
+  assert.equal(model.extend(fields[1], -1), true);
+  assert.equal(model.extend(fields[1], -1), true);
+  assert.deepEqual(model.copy(), { text: '\nB\n', formats: [] });
+});
 
 test('outline keeps empty title/body placeholders but excludes ordinary text boxes', async () => {
   const pres = createPresentation();

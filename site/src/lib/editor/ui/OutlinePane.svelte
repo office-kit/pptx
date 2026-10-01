@@ -6,8 +6,10 @@
   import { selectedSlideIndices } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import OutlineText from './OutlineText.svelte';
+  import { OutlineSelectionModel } from '../core/outline-selection.ts';
   const editor = getEditor();
   const doc = editor.doc;
+  const selection = new OutlineSelectionModel();
   const selected = $derived(selectedSlideIndices(doc.selection));
   const entries = $derived.by(() => { doc.version; const collapsed = new Set(getCollapsedOutlineSlides(doc.pres)); return doc.slides.map(slide => ({shapes: outlineShapes(slide), collapsed: collapsed.has(slide)})); });
   let pane: HTMLElement;
@@ -69,7 +71,7 @@
       <div class="outline-slide" role="group" aria-label={`${t('Slide')} ${index + 1}`} class:insert-before={insertion?.index === index && !insertion.after} class:insert-after={insertion?.index === index && insertion.after} data-outline-slide={index} ondragover={event => dragOver(event, index)} ondragleave={() => insertion = null} ondrop={event => { void drop(event, index); }}>
         <button draggable="true" ondragstart={event => dragStart(event, index)} class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} aria-expanded={!entry.collapsed} ondblclick={() => toggleCollapse(index)} onclick={event => doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey })} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (doc.selection.kind !== 'slide' || !selected.includes(index)) doc.selectSlide(index); editor.openContextMenu(event.clientX, event.clientY, 'outline'); }}><span>{index + 1}</span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="13" /></svg></button>
         <div class="text">
-          {#each entry.shapes as shape (shape.id)}{#if shape.title || !entry.collapsed}<OutlineText slideIndex={index} shapeId={shape.id} title={shape.title} />{/if}{/each}
+          {#each entry.shapes as shape (shape.id)}{#if shape.title || !entry.collapsed}<OutlineText slideIndex={index} shapeId={shape.id} title={shape.title} {selection} />{/if}{/each}
         </div>
       </div>
     {/each}

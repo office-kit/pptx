@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onDestroy, tick, untrack } from 'svelte';
-  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
+  import { onDestroy, onMount, tick, untrack } from 'svelte';
+  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
@@ -10,9 +10,10 @@
   import RichTextInput from './RichTextInput.svelte';
   import { outlineTextHtml } from '../core/outline-text-html.ts';
   import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
+  import { OutlineSelectionModel, type OutlineSelectionField } from '../core/outline-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { slideIndex, shapeId, title }: { slideIndex: number; shapeId: number; title: boolean } = $props();
+  let { slideIndex, shapeId, title, selection }: { slideIndex: number; shapeId: number; title: boolean; selection: OutlineSelectionModel } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const presentation = untrack(() => doc.pres);
@@ -34,13 +35,26 @@
   let composing = false;
   let demotionDialog = $state<HTMLDialogElement>();
   let demotionVersion = 0;
+  let selectionField: OutlineSelectionField;
 
-  function commit() {
-    clearTimeout(timer);
-    if (!changes.length) return;
+  function flushDraft(): readonly TextEdit[] {
+    if (!changes.length) return [];
     const edits = changes;
     changes = [];
     draftVersion++;
+    return edits;
+  }
+
+  function commit() {
+    if (selection.transitioning()) {
+      // Keep the existing timer: a focus change across outline fields can
+      // blur a draft while the shared native selection is being installed,
+      // and clearing it here would strand that draft.
+      return;
+    }
+    clearTimeout(timer);
+    const edits = flushDraft();
+    if (!edits.length) return;
     // History restoration and external reloads replace the model; an old draft
     // must never be applied to a replacement that happens to reuse shape IDs.
     if (doc.pres !== presentation) return;
@@ -71,15 +85,13 @@
   }
   function copy(event: ClipboardEvent, cut = false) {
     if (!event.clipboardData || composing) return;
-    rememberRange();
-    if (range.start === range.end) return;
-    const shape = doc.shapeById(slideIndex, shapeId)!;
-    const copied = copyTextRange(projectTextEdits(shape, changes), range.start, range.end);
+    const copied = selection.copy();
+    if (!copied || copied.text.length === 0) return;
     event.clipboardData.setData('text/plain', copied.text);
     event.clipboardData.setData('text/html', textClipboardHtml(copied));
-    event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify(copied));
+    event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify({ version: 1, ...copied }));
     event.preventDefault(); event.stopPropagation();
-    if (cut) replaceSelection('');
+    if (cut) selection.replace('', [], t('Cut'));
   }
   function paste(event: ClipboardEvent) {
     if (!event.clipboardData || composing) return;
@@ -87,19 +99,19 @@
     const copied = parseTextClipboard(event.clipboardData.getData(TEXT_CLIPBOARD_TYPE), plain)
       ?? parseHtmlTextClipboard(event.clipboardData.getData('text/html'), plain);
     event.preventDefault(); event.stopPropagation();
-    replaceSelection(copied?.text ?? plain, copied?.formats);
+    if (copied) selection.replace(copied.text, copied.formats, t('Paste'));
+    else selection.replace(plain, [], t('Paste'));
   }
   async function menuClipboard(action: 'copy' | 'cut' | 'paste') {
     if (composing) return;
     const target = input.getElement()!;
-    rememberRange();
-    const selection = { ...range };
+    const selectedRange = { ...range };
     const version = doc.version;
     const original = value;
     // Clipboard permission may resolve after navigation, Undo or another edit.
     const current = () => target.isConnected && doc.pres === presentation && doc.version === version
       && target.ownerDocument.activeElement === target && value === original
-      && input.getSelection().start === selection.start && input.getSelection().end === selection.end;
+      && input.getSelection().start === selectedRange.start && input.getSelection().end === selectedRange.end;
     try {
       if (action === 'paste') {
         const items = await navigator.clipboard.read();
@@ -109,17 +121,17 @@
           item.types.includes(mimeType) ? (await item.getType(mimeType)).text() : ''));
         if (!current()) return;
         const copied = parseHtmlTextClipboard(html!, plain!);
-        replaceSelection(copied?.text ?? plain!, copied?.formats);
-        commit();
+        if (copied) selection.replace(copied.text, copied.formats, t('Paste'));
+        else selection.replace(plain!, [], t('Paste'));
       } else {
-        if (selection.start === selection.end) return;
-        const shape = doc.shapeById(slideIndex, shapeId)!;
-        const copied = copyTextRange(projectTextEdits(shape, changes), selection.start, selection.end);
+        if (selectedRange.start === selectedRange.end && !selection.current()) return;
+        const copied = selection.copy();
+        if (!copied) return;
         await navigator.clipboard.write([new ClipboardItem({
           'text/plain': new Blob([copied.text], { type: 'text/plain' }),
           'text/html': new Blob([textClipboardHtml(copied)], { type: 'text/html' }),
         })]);
-        if (action === 'cut' && current()) { replaceSelection(''); commit(); }
+        if (action === 'cut' && current()) selection.replace('', [], t('Cut'));
       }
     } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
   }
@@ -213,7 +225,7 @@
       copy: () => { void menuClipboard('copy'); },
       cut: () => { void menuClipboard('cut'); },
       paste: () => { void menuClipboard('paste'); },
-      hasTextSelection: range.start !== range.end,
+      hasTextSelection: range.start !== range.end || (() => { const selected = selection.current(); return !!selected && selected.start.key !== selected.end.key; })(),
       canPromote: !title,
       canDemote: !title || slideIndex > 0,
     });
@@ -223,6 +235,44 @@
     const mod = event.metaKey || event.ctrlKey;
     if (mod && event.key.toLowerCase() === 's') commit();
     else if (event.key === 'Escape') { commit(); input.blur(); }
+    else if (!mod && !event.shiftKey && !event.altKey &&
+      (event.key === 'ArrowLeft' || event.key === 'ArrowRight') &&
+      selection.current()?.start.key !== selection.current()?.end.key) {
+      // Horizontal arrows collapse a native multi-field selection to its
+      // corresponding edge. Clear the logical bridge so the next printable
+      // input edits the collapsed caret instead of replacing the old range.
+      event.preventDefault();
+      event.stopPropagation();
+      selection.collapse(event.key === 'ArrowLeft' ? -1 : 1);
+    }
+    else if ((event.key === 'Backspace' || event.key === 'Delete') && selection.current()?.start.key !== selection.current()?.end.key) {
+      event.preventDefault(); event.stopPropagation();
+      selection.replace('', [], t('Delete'));
+    }
+    else if (!mod && !event.altKey && event.key.length === 1 &&
+      selection.current()?.start.key !== selection.current()?.end.key) {
+      // The browser can only edit the focused contenteditable.  Route a
+      // cross-field replacement through the shared transaction instead of
+      // letting it insert into whichever field happens to own focus.
+      event.preventDefault(); event.stopPropagation();
+      selection.replace(event.key, [], t('Edit text'));
+    }
+    else if (event.shiftKey && !mod && !event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
+      const current = input.getSelection();
+      // A programmatic selection (including a selection restored after a
+      // draft render) may not have delivered selectionchange yet. Seed the
+      // shared anchor from the focused field before extending it.
+      if (selection.focusOffset(selectionField) === null) selection.update(selectionField, current.start, current.end);
+      const focus = selection.focusOffset(selectionField) ?? (event.key === 'ArrowUp' ? current.start : current.end);
+      const crossField = selection.current()?.start.key !== selection.current()?.end.key;
+      const boundary = event.key === 'ArrowUp'
+        ? focus === 0 || (crossField && focus === value.length)
+        : focus === value.length || (crossField && focus === 0);
+      const extendField = selection.focusedField() ?? selectionField;
+      if (boundary && selection.extend(extendField, event.key === 'ArrowUp' ? -1 : 1)) {
+        event.preventDefault(); event.stopPropagation();
+      }
+    }
     else if (
       !mod &&
       !event.shiftKey &&
@@ -242,6 +292,11 @@
     else if (event.key === 'Tab' && !mod && !event.altKey) {
       event.preventDefault(); event.stopPropagation();
       await changeLevel(event.shiftKey);
+    }
+    else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey &&
+      selection.current()?.start.key !== selection.current()?.end.key) {
+      event.preventDefault(); event.stopPropagation();
+      selection.replace('\n', [], t('Edit text'));
     }
     else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey && title) {
       const layout = getSlideLayout(slide);
@@ -282,14 +337,37 @@
       if (shape) value = getShapeText(shape);
     }
   });
+  onMount(() => {
+    selectionField = {
+      key: `${getSlidePartName(slide)}:${shapeId}`,
+      root: input.getElement()!,
+      text: () => value,
+      copy: (start, end) => {
+        const shape = doc.shapeById(slideIndex, shapeId)!;
+        return copyTextRange(projectTextEdits(shape, changes, undefined, doc.pres), start, end);
+      },
+      flush: flushDraft,
+      apply: edits => {
+        const shape = doc.shapeById(slideIndex, shapeId);
+        if (shape) replayTextEdits(shape, edits);
+      },
+      transact: (label, fn) => doc.transact(label, fn),
+      focus: offset => { input.focus(); input.setSelectionRange(offset, offset); },
+      setRange: offset => { range = { start: offset, end: offset }; },
+    };
+    return selection.register(selectionField);
+  });
   onDestroy(() => untrack(commit));
 </script>
 
 <RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
-  onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={selection => range = selection} onselect={selection => range = selection}
+  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) selection.clear(); }} onbeforeinput={(next, event) => { range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); selection.replace(event.data, [], t('Edit text')); } }} onselect={next => { range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}
-  onnewline={() => replaceSelection('\n')}
+  onnewline={() => {
+    if (selection.current()?.start.key !== selection.current()?.end.key) selection.replace('\n', [], t('Edit text'));
+    else replaceSelection('\n');
+  }}
   oncomposition={active => { composing = active; if (active) clearTimeout(timer); else timer = setTimeout(commit, 600); }}
   onhistory={backward => { commit(); void (backward ? doc.undo() : doc.redo()); }}
 />
