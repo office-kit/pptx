@@ -2,7 +2,7 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { outlineShapes, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove } from '../core/outline.ts';
+  import { outlineShapes, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
@@ -143,6 +143,14 @@
   async function moveParagraph(direction: -1 | 1) {
     rememberRange(); commit();
     const source = doc.shapeById(slideIndex, shapeId)!;
+    if (title) {
+      doc.transact(t(direction === -1 ? 'Move Up' : 'Move Down'), () => moveOutlineTitle(doc.pres, slide, direction));
+      await tick();
+      input.focus();
+      input.setSelectionRange(0, value.length);
+      rememberRange();
+      return;
+    }
     const move = outlineParagraphMove(source, range, direction);
     if (!move) return;
     doc.transact(t(direction === -1 ? 'Move Up' : 'Move Down'), () => setShapeParagraphs(source, { source, ranges: move.ranges }));
@@ -157,8 +165,8 @@
     editor.openContextMenu(event.clientX, event.clientY, 'outline', {
       moveUp: () => { void moveParagraph(-1); },
       moveDown: () => { void moveParagraph(1); },
-      canMoveUp: !title && outlineParagraphMove(doc.shapeById(slideIndex, shapeId)!, range, -1) !== null,
-      canMoveDown: !title && outlineParagraphMove(doc.shapeById(slideIndex, shapeId)!, range, 1) !== null,
+      canMoveUp: title ? outlineTitleMove(doc.pres, slide, -1) !== null : outlineParagraphMove(doc.shapeById(slideIndex, shapeId)!, range, -1) !== null,
+      canMoveDown: title ? outlineTitleMove(doc.pres, slide, 1) !== null : outlineParagraphMove(doc.shapeById(slideIndex, shapeId)!, range, 1) !== null,
       promote: () => { void changeLevel(true); },
       demote: () => { void changeLevel(false); },
       copy: () => { void menuClipboard('copy'); },
