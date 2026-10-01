@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -9,6 +9,7 @@ import {
   addBlankSlide,
   addSlideMedia,
   createPresentation,
+  getShapeId,
   getShapeMediaPlayback,
   getSlides,
   getSlideShapes,
@@ -163,6 +164,104 @@ for (const [kind, nested] of [
     },
   );
 }
+
+test(
+  'native background timing converts to editable start mode with save, reload, and undo',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-native-media-editor-'));
+    let browser;
+    let preview;
+    try {
+      const pres = createPresentation();
+      const slide = addBlankSlide(pres);
+      const ascii = (value) => Array.from(value, (char) => char.charCodeAt(0));
+      addSlideMedia(slide, {
+        kind: 'audio',
+        data: new Uint8Array([...ascii('ID3'), 3, 0, 0, 0, 0, 0, 0, 0xff, 0xfb]),
+        x: inches(1),
+        y: inches(1),
+        w: inches(4),
+        h: inches(2),
+      });
+      const [audio] = getSlideShapes(getSlides(pres)[0]);
+      const parts = unzipSync(await savePresentation(pres));
+      const slidePath = 'ppt/slides/slide1.xml';
+      const timing = (
+        await readFile(
+          new URL('../../../../test/fixtures/native-media-background-timing.xml', import.meta.url),
+          'utf8',
+        )
+      ).replaceAll('spid="2"', `spid="${getShapeId(audio)}"`);
+      const slideXml = strFromU8(parts[slidePath]);
+      parts[slidePath] = strToU8(
+        /<p:timing\b/.test(slideXml)
+          ? slideXml.replace(/<p:timing\b[\s\S]*?<\/p:timing>/, timing)
+          : slideXml.replace('</p:sld>', `${timing}</p:sld>`),
+      );
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, zipSync(parts));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 900 } });
+      page.setDefaultTimeout(5000);
+      await page.goto(preview.url);
+      const editor = page.frameLocator('#editor-frame');
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      const saveChange = async (action, autoplay) => {
+        const saved = page.waitForResponse(
+          (response) =>
+            response.url().endsWith('/editor/document') && response.request().method() === 'PUT',
+        );
+        await action();
+        assert.equal((await saved).ok(), true);
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        const document = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        assert.equal(
+          getShapeMediaPlayback(getSlideShapes(getSlides(document)[0])[0]).autoplay,
+          autoplay,
+        );
+      };
+      const start = editor.getByLabel('Start', { exact: true });
+      assert.equal(await start.locator('option[value="click"]').textContent(), 'When Clicked On');
+      assert.equal(await start.inputValue(), 'automatic');
+      await saveChange(() => start.selectOption('click'), false);
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      assert.equal(await editor.getByLabel('Start', { exact: true }).inputValue(), 'click');
+      await saveChange(
+        () => editor.getByLabel('Start', { exact: true }).selectOption('automatic'),
+        true,
+      );
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      assert.equal(await editor.getByLabel('Start', { exact: true }).inputValue(), 'automatic');
+      await saveChange(
+        () => editor.getByLabel('Start', { exact: true }).selectOption('click'),
+        false,
+      );
+      await saveChange(() => editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click(), true);
+      assert.equal(await editor.getByLabel('Start', { exact: true }).inputValue(), 'automatic');
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 test(
   'audio exposes Play Across Slides, persists the range, and hides it for video',

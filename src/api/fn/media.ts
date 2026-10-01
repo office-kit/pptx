@@ -426,7 +426,9 @@ const setOrRemove = (
   name: ReturnType<typeof qname>,
   value: string | null,
 ): void => {
-  el.attrs = el.attrs.filter((a) => a.name.localName !== name.localName);
+  el.attrs = el.attrs.filter(
+    (a) => a.name.localName !== name.localName || a.name.namespaceURI !== name.namespaceURI,
+  );
   if (value !== null) el.attrs.push(attr(name, value));
 };
 
@@ -441,7 +443,7 @@ const mediaNodeOf = (
 
 type MediaStart = { readonly automatic: boolean; readonly delayMs: number } | null;
 
-type MediaCommandTiming = 'background' | 'other' | null;
+type MediaCommandTiming = 'background' | 'interactive' | 'other' | null;
 
 const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
   const root = shape[SHAPE_SLIDE][SLIDE_DOCUMENT].root;
@@ -476,12 +478,18 @@ const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
   const mainSequenceIndex = ancestors.findIndex(
     (ancestor) => getAttrValue(ancestor, ATTR_NODE_TYPE) === 'mainSeq',
   );
-  const effectIndex = ancestors.findIndex(
-    (ancestor) => getAttrValue(ancestor, ATTR_NODE_TYPE) === 'afterEffect',
+  const interactiveSequenceIndex = ancestors.findIndex(
+    (ancestor) => getAttrValue(ancestor, ATTR_NODE_TYPE) === 'interactiveSeq',
   );
-  if (mainSequenceIndex < 0 || effectIndex <= mainSequenceIndex) return 'other';
-  const mainSequence = ancestors[mainSequenceIndex]!;
-  const startGroup = ancestors[mainSequenceIndex + 1];
+  const effectIndex = ancestors.findIndex(
+    (ancestor) =>
+      getAttrValue(ancestor, ATTR_NODE_TYPE) ===
+      (mainSequenceIndex >= 0 ? 'afterEffect' : 'clickEffect'),
+  );
+  const sequenceIndex = mainSequenceIndex >= 0 ? mainSequenceIndex : interactiveSequenceIndex;
+  if (sequenceIndex < 0 || effectIndex <= sequenceIndex) return 'other';
+  const mainSequence = ancestors[sequenceIndex]!;
+  const startGroup = ancestors[sequenceIndex + 1];
   if (startGroup === undefined) return 'other';
   const firstCtnIn = (element: XmlElement): XmlElement | null => {
     if (element.name.namespaceURI === NS.pml && element.name.localName === 'cTn') return element;
@@ -502,6 +510,14 @@ const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
       child.name.namespaceURI === NS.pml &&
       child.name.localName === 'cond',
   );
+  const sequenceStartList = firstChildElement(mainSequence, NAME_ST_COND_LST);
+  const sequenceStartConditions =
+    sequenceStartList?.children.filter(
+      (child): child is XmlElement =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'cond',
+    ) ?? [];
   const hasNativeStart = startConditions.some((condition) => {
     if (getAttrValue(condition, ATTR_EVT) !== 'onBegin') return false;
     if (getAttrValue(condition, ATTR_DELAY) !== '0') return false;
@@ -516,7 +532,29 @@ const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
       getAttrValue(condition, ATTR_EVT) === null &&
       getAttrValue(condition, ATTR_DELAY) === 'indefinite',
   );
-  if (startConditions.length !== 2 || !hasNativeStart || !hasIndefiniteStart) return 'other';
+  const interactiveTarget =
+    sequenceStartConditions.length === 1
+      ? firstChildElement(
+          firstChildElement(sequenceStartConditions[0]!, NAME_TGT_EL) ?? elem(NAME_TGT_EL),
+          NAME_SP_TGT,
+        )
+      : null;
+  const hasInteractiveStart =
+    sequenceStartConditions.length === 1 &&
+    getAttrValue(sequenceStartConditions[0]!, ATTR_EVT) === 'onClick' &&
+    getAttrValue(sequenceStartConditions[0]!, ATTR_DELAY) === '0' &&
+    getAttrValue(interactiveTarget ?? elem(NAME_SP_TGT), qname('', 'spid', '')) === spid;
+  if (
+    mainSequenceIndex >= 0 &&
+    (startConditions.length !== 2 || !hasNativeStart || !hasIndefiniteStart)
+  )
+    return 'other';
+  if (
+    interactiveSequenceIndex >= 0 &&
+    (!hasInteractiveStart ||
+      getAttrValue(ancestors[effectIndex]!, ATTR_NODE_TYPE) !== 'clickEffect')
+  )
+    return 'other';
   const zeroDelay = (cTn: XmlElement): boolean => {
     const list = firstChildElement(cTn, NAME_ST_COND_LST);
     if (list === null) return false;
@@ -533,10 +571,202 @@ const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
       conditions[0]!.children.every((child) => child.kind !== 'element')
     );
   };
-  if (!ancestors.slice(mainSequenceIndex + 2, effectIndex + 1).every((cTn) => zeroDelay(cTn))) {
+  if (interactiveSequenceIndex >= 0 && !zeroDelay(startGroup)) return 'other';
+  if (!ancestors.slice(sequenceIndex + 2, effectIndex + 1).every((cTn) => zeroDelay(cTn))) {
     return 'other';
   }
-  return getAttrValue(commandElement, ATTR_CMD) === 'playFrom(0.0)' ? 'background' : 'other';
+  if (getAttrValue(commandElement, ATTR_CMD) !== 'playFrom(0.0)') return 'other';
+  return mainSequenceIndex >= 0 ? 'background' : 'interactive';
+};
+
+// Mac PowerPoint uses these two dedicated command trees for background audio
+// and When Clicked On. Match the complete tree before replacing it: changing a
+// shared sequence's start condition would also change unrelated animations.
+const nativeMediaSequence = (
+  kind: 'background' | 'interactive',
+  ids: readonly string[],
+  spid: string,
+): XmlElement => {
+  const p = (
+    name: string,
+    attrs: Record<string, string> = {},
+    children: XmlElement[] = [],
+  ): XmlElement =>
+    elem(qname('p', name, NS.pml), {
+      attrs: Object.entries(attrs).map(([name, value]) => attr(qname('', name, ''), value)),
+      children,
+    });
+  const click = (): XmlElement =>
+    p('cond', { evt: 'onClick', delay: '0' }, [p('tgtEl', {}, [p('spTgt', { spid })])]);
+  const zero = (): XmlElement => p('stCondLst', {}, [p('cond', { delay: '0' })]);
+  const child = (node: XmlElement): XmlElement => p('childTnLst', {}, [node]);
+  const background = kind === 'background';
+  const effect = p('par', {}, [
+    p(
+      'cTn',
+      {
+        id: ids[3]!,
+        presetID: '1',
+        presetClass: 'mediacall',
+        presetSubtype: '0',
+        fill: 'hold',
+        nodeType: background ? 'afterEffect' : 'clickEffect',
+      },
+      [
+        zero(),
+        child(
+          p('cmd', { type: 'call', cmd: 'playFrom(0.0)' }, [
+            p('cBhvr', {}, [
+              p('cTn', { id: ids[4]!, dur: '1', fill: 'hold' }),
+              p('tgtEl', {}, [p('spTgt', { spid })]),
+            ]),
+          ]),
+        ),
+      ],
+    ),
+  ]);
+  const group = p('par', {}, [
+    p('cTn', { id: ids[1]!, fill: 'hold' }, [
+      background
+        ? p('stCondLst', {}, [
+            p('cond', { delay: 'indefinite' }),
+            p('cond', { evt: 'onBegin', delay: '0' }, [p('tn', { val: ids[0]! })]),
+          ])
+        : zero(),
+      child(p('par', {}, [p('cTn', { id: ids[2]!, fill: 'hold' }, [zero(), child(effect)])])),
+    ]),
+  ]);
+  const sequence = background
+    ? p('cTn', { id: ids[0]!, dur: 'indefinite', nodeType: 'mainSeq' }, [child(group)])
+    : p(
+        'cTn',
+        {
+          id: ids[0]!,
+          restart: 'whenNotActive',
+          fill: 'hold',
+          evtFilter: 'cancelBubble',
+          nodeType: 'interactiveSeq',
+        },
+        [
+          p('stCondLst', {}, [click()]),
+          p('endSync', { evt: 'end', delay: '0' }, [p('rtn', { val: 'all' })]),
+          child(group),
+        ],
+      );
+  const slideCondition = (name: string, evt: string): XmlElement =>
+    p(name, {}, [p('cond', { evt, delay: '0' }, [p('tgtEl', {}, [p('sldTgt')])])]);
+  return p('seq', { concurrent: '1', nextAc: 'seek' }, [
+    sequence,
+    ...(background
+      ? [slideCondition('prevCondLst', 'onPrev'), slideCondition('nextCondLst', 'onNext')]
+      : [p('nextCondLst', {}, [click()])]),
+  ]);
+};
+
+const sameTimingTree = (actual: XmlElement, expected: XmlElement): boolean => {
+  const sameName = (a: XmlElement['name'], b: XmlElement['name']): boolean =>
+    a.namespaceURI === b.namespaceURI && a.localName === b.localName;
+  if (!sameName(actual.name, expected.name) || actual.attrs.length !== expected.attrs.length)
+    return false;
+  const attrs = new Map(
+    actual.attrs.map(({ name, value }) => [`${name.namespaceURI}:${name.localName}`, value]),
+  );
+  if (
+    !expected.attrs.every(
+      ({ name, value }) => attrs.get(`${name.namespaceURI}:${name.localName}`) === value,
+    )
+  )
+    return false;
+  if (
+    actual.children.some((c) => c.kind !== 'element' && (c.kind !== 'text' || c.data.trim() !== ''))
+  )
+    return false;
+  const children = actual.children.filter((c): c is XmlElement => c.kind === 'element');
+  const expectedChildren = expected.children.filter((c): c is XmlElement => c.kind === 'element');
+  return (
+    children.length === expectedChildren.length &&
+    children.every((c, i) => sameTimingTree(c, expectedChildren[i]!))
+  );
+};
+
+const prepareDedicatedMediaTiming = (
+  shape: SlideShapeData,
+  from: 'background' | 'interactive',
+): (() => void) => {
+  const root = shape[SHAPE_SLIDE][SLIDE_DOCUMENT].root;
+  const candidates: Array<{ node: XmlElement; parent: XmlElement }> = [];
+  const walk = (node: XmlElement, visit: (node: XmlElement, parent: XmlElement) => void): void => {
+    for (const child of node.children) {
+      if (child.kind !== 'element') continue;
+      visit(child, node);
+      walk(child, visit);
+    }
+  };
+  const spid = String(shape[SHAPE_SNAPSHOT].id);
+  walk(root, (node, parent) => {
+    if (node.name.namespaceURI !== NS.pml || node.name.localName !== 'seq') return;
+    const cTn = firstChildElement(node, NAME_C_TN);
+    if (
+      cTn !== null &&
+      getAttrValue(cTn, ATTR_NODE_TYPE) === (from === 'background' ? 'mainSeq' : 'interactiveSeq')
+    ) {
+      candidates.push({ node, parent });
+    }
+  });
+  const timing = firstChildElement(root, qname('p', 'timing', NS.pml));
+  const list = timing && firstChildElement(timing, qname('p', 'tnLst', NS.pml));
+  const parallel = list && firstChildElement(list, qname('p', 'par', NS.pml));
+  const rootTime = parallel && firstChildElement(parallel, NAME_C_TN);
+  const rootChildren = rootTime && firstChildElement(rootTime, NAME_CHILD_TN_LST);
+  for (const { node, parent } of candidates) {
+    if (
+      parent !== rootChildren ||
+      rootTime === null ||
+      getAttrValue(rootTime, ATTR_NODE_TYPE) !== 'tmRoot'
+    )
+      continue;
+    const ids: string[] = [];
+    walk(node, (child) => {
+      if (child.name.namespaceURI === NS.pml && child.name.localName === 'cTn') {
+        const id = getAttrValue(child, ATTR_ID);
+        if (id !== null) ids.push(id);
+      }
+    });
+    if (
+      ids.length !== 5 ||
+      new Set(ids).size !== 5 ||
+      !sameTimingTree(node, nativeMediaSequence(from, ids, spid))
+    )
+      continue;
+    const idSet = new Set(ids);
+    let shared = false;
+    const inspectExternal = (element: XmlElement): void => {
+      if (element === node) return;
+      if (element.name.namespaceURI === NS.pml) {
+        if (element.name.localName === 'tn' && idSet.has(getAttrValue(element, ATTR_VAL) ?? ''))
+          shared = true;
+        if (
+          element.name.localName === 'cTn' &&
+          (idSet.has(getAttrValue(element, ATTR_ID) ?? '') ||
+            (from === 'interactive' && getAttrValue(element, ATTR_NODE_TYPE) === 'mainSeq'))
+        )
+          shared = true;
+      }
+      for (const child of element.children) if (child.kind === 'element') inspectExternal(child);
+    };
+    inspectExternal(root);
+    if (shared) break;
+    const replacement = nativeMediaSequence(
+      from === 'background' ? 'interactive' : 'background',
+      ids,
+      spid,
+    );
+    replacement.prefixDecls = new Map([['p', NS.pml]]);
+    return () => {
+      parent.children[parent.children.indexOf(node)] = replacement;
+    };
+  }
+  throw new Error('setShapeMediaPlayback: dedicated media command timing is unsupported or shared');
 };
 
 // Only the simple, event-free form can be reduced to an effective slide
@@ -658,6 +888,9 @@ export const setShapeMediaPlayback = (
   if (found === null) throw new Error('setShapeMediaPlayback: the shape has no media time node');
   const { node, media } = found;
   const commandTiming = mediaCommandTiming(shape);
+  const convertingCommand =
+    (commandTiming === 'background' && options.autoplay === false) ||
+    (commandTiming === 'interactive' && options.autoplay === true);
   const delayMs = options.delayMs;
   if (delayMs !== undefined && (!Number.isSafeInteger(delayMs) || delayMs < 0)) {
     throw new Error('setShapeMediaPlayback: delayMs must be a nonnegative safe integer');
@@ -700,8 +933,8 @@ export const setShapeMediaPlayback = (
     throw new Error('setShapeMediaPlayback: media command timing is unsupported');
   }
   if (
-    commandTiming === 'background' &&
-    (options.autoplay === false || options.delayMs !== undefined)
+    (commandTiming === 'background' || commandTiming === 'interactive') &&
+    delayMs !== undefined
   ) {
     throw new Error('setShapeMediaPlayback: background media timing cannot be changed');
   }
@@ -761,6 +994,14 @@ export const setShapeMediaPlayback = (
     throw new Error('setShapeMediaPlayback: slideCount must be an unsigned 32-bit integer');
   }
 
+  const applyCommandTiming = convertingCommand
+    ? prepareDedicatedMediaTiming(
+        shape,
+        commandTiming === 'background' ? 'background' : 'interactive',
+      )
+    : null;
+  applyCommandTiming?.();
+
   if (options.volume !== undefined) {
     setOrRemove(media, ATTR_VOL, String(Math.round(options.volume * 100000)));
   }
@@ -786,7 +1027,9 @@ export const setShapeMediaPlayback = (
       setOrRemove(cTn, ATTR_REPEAT_COUNT, options.loop ? 'indefinite' : null);
     }
     if (
+      !convertingCommand &&
       commandTiming !== 'background' &&
+      commandTiming !== 'interactive' &&
       (options.autoplay !== undefined || delayMs !== undefined)
     ) {
       // CT_TLCommonTimeNodeData is a sequence: `<p:stCondLst>` comes first.

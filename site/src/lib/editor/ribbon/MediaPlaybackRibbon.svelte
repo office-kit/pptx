@@ -60,7 +60,7 @@
         <span>{t('Start')}</span>
         <select aria-label={t('Start')} value={selected.playback.autoplay ? 'automatic' : 'click'} onchange={(event) => apply('Start', { autoplay: event.currentTarget.value === 'automatic' })}>
           <option value="automatic">{t('Automatically')}</option>
-          <option value="click">{t('When Clicked')}</option>
+          <option value="click">{t('When Clicked On')}</option>
         </select>
       </label>
       <label class="check">

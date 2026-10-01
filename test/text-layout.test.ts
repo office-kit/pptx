@@ -207,16 +207,16 @@ describe('layoutTextSvg', () => {
     expect(countText(svg)).toBe(1);
   });
 
-  it('honors latinLnBrk=false for an overlong Latin word', () => {
+  it('emergency-splits an overlong Latin word even when latinLnBrk is false', () => {
     const word = piece('ABCDE');
     const kept = layoutTextSvg(body([para([word])], { boxWpx: 20 }), stubMeasurer);
     const split = layoutTextSvg(
       body([para([word], { latinLineBreak: true })], { boxWpx: 20 }),
       stubMeasurer,
     );
-    // Office treats an omitted latinLnBrk as false. Explicit true enables the
-    // emergency character-level split for an overlong Latin word.
-    expect(countText(kept)).toBe(1);
+    // Office treats an omitted latinLnBrk as false for ordinary line fitting,
+    // but still splits a word that cannot fit on an empty line.
+    expect(countText(kept)).toBe(3);
     expect(countText(split)).toBe(3);
   });
 
@@ -274,14 +274,21 @@ describe('layoutTextSvg', () => {
     ]);
   });
 
-  it('keeps a styled overlong Latin word on the same line when Latin breaks are disabled', () => {
+  it('emergency-splits a styled overlong Latin word without losing run styles', () => {
     const result = layoutCore(
       body([para([piece('ABC'), piece('DEF', { italic: true })])], { boxWpx: 40 }),
       stubMeasurer,
     );
     expect(
       result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
-    ).toEqual(['ABCDEF']);
+    ).toEqual(['ABCD', 'EF']);
+    expect(result.placements[0]!.line.tokens.map((token) => token.piece.italic)).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ]);
+    expect(result.placements[1]!.line.tokens.every((token) => token.piece.italic)).toBe(true);
   });
 
   it('uses the remaining line space only when latinLnBrk is enabled', () => {
@@ -331,10 +338,9 @@ describe('layoutTextSvg', () => {
       body([para([word], { latinLineBreak: true })], { boxWpx: 15 }),
       stubMeasurer,
     );
-    // Existing East Asian tokenization remains active. The adjacent Latin
-    // runs stay intact by default, and become emergency-breakable only with
-    // the explicit Latin rule.
-    expect(countText(defaultRules)).toBe(3);
+    // Existing East Asian tokenization remains active. Overlong Latin
+    // segments are emergency-breakable even with the default flag.
+    expect(countText(defaultRules)).toBe(5);
     expect(countText(latinEnabled)).toBe(5);
   });
 

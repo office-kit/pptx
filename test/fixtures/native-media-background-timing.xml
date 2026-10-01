@@ -36,6 +36,8 @@
                 </p:par>
               </p:childTnLst>
             </p:cTn>
+            <p:prevCondLst><p:cond evt="onPrev" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:prevCondLst>
+            <p:nextCondLst><p:cond evt="onNext" delay="0"><p:tgtEl><p:sldTgt/></p:tgtEl></p:cond></p:nextCondLst>
           </p:seq>
           <p:audio>
             <p:cMediaNode vol="80000" numSld="999" showWhenStopped="0">
