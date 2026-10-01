@@ -1,5 +1,15 @@
 # 作業継続メモ（2026-10-01）
 
+## 最新検証: Latin 改行の描画差分を調査中
+
+- PR #287 の remote HEAD は `30b180ed`。CI run `36856771139` の Preview fidelity が失敗。`05-preset-shapes.pptx` slide 1 の fg-SSIM が 0.7731 → 0.6161。Static、Node 22/26、OOXML validator は成功（Node 24 は確認時 pending）。
+- 取得した画像 `/tmp/pptx-fidelity-30b/05-preset-shapes/slide-1.{ours,gt}.png` では、狭い図形の triangle / diamond / pentagon / star5 / leftRightArrow が ours で1行、LibreOffice で2行。直前の Latin 分割変更に対応する差。PowerPoint 一致の証拠として CI の LibreOffice 結果だけを使わない。基準値は変更していない。
+- `latinLnBrk=true` で全幅より短い単語が残り幅で分割されない不具合を修正。Latin 分割を有効にしても日本語の句点は前の文字と保持する回帰も追加。false/省略時の全幅を超える単語の緊急折り返しは実機未確認のため変更せず、fidelity の失敗は未解決として残す。
+- 今回の検証: 関連ユニット56件、全ユニット3089件成功（109 skipped）、root型検査・lint・対象format・dev依存込みbuild成功。ヘッダー日英900/1500px、フォント選択・Undo、透明な文字編集背景のブラウザー3件成功（`/tmp/pptx-header-current.log`）。
+- 実機の再接続は `cgWindowNotFound`。文書変更・復元待ちはなし。`hangingPunct` は既定値の根拠のみ確認でき、文字ごとの位置計算は未確認のため未実装。
+- 全ブラウザー実行 `70356` は終了（exit 1）。230件中228成功、フォント候補キー操作とノート splitter 高さの2件が失敗。旧 `16ae1bcc` ビルドに対する既知の失敗で、修正後の隔離テストは以前に成功済み。最新版一括成功とは扱わない。共有 dist の実行中制約は解除、以後のビルドは親担当で調整。
+- 未コミットのアウトライン選択は修正中。クリックによる解除、連続入力後のフォーカス、後方選択、BR/ブロック境界のオフセットを追加レビュー。完成済みとして取り込まない。
+
 ## 2026-10-01: ノートの書式保持と Latin 単語の改行
 
 - ノート欄の入力を範囲置換として記録し、編集していない run 書式・フィールドを保持。`setSlideNotes` に optional `range` / `preserveFormatting` を追加し、既定の全置換動作は維持。

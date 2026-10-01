@@ -220,6 +220,46 @@ describe('layoutTextSvg', () => {
     expect(countText(split)).toBe(3);
   });
 
+  it('uses the remaining line space only when latinLnBrk is enabled', () => {
+    const word = piece('ABC');
+    const defaultRules = layoutTextSvg(
+      body([para([piece('X '), word])], { boxWpx: 40 }),
+      stubMeasurer,
+    );
+    const latinEnabled = layoutTextSvg(
+      body([para([piece('X '), word], { latinLineBreak: true })], { boxWpx: 40 }),
+      stubMeasurer,
+    );
+    // The word fits the 40px line by itself, but not after the leading X.
+    // False moves it as a unit; true fills the remaining space character by
+    // character before continuing on the next line.
+    expect(countText(defaultRules)).toBe(2);
+    expect(countText(latinEnabled)).toBe(2);
+    expect(
+      layoutCore(body([para([piece('X '), word])], { boxWpx: 40 }), stubMeasurer)
+        .placements[0]!.line.tokens.map((t) => t.text)
+        .join(''),
+    ).toBe('X');
+    expect(
+      layoutCore(
+        body([para([piece('X '), word], { latinLineBreak: true })], { boxWpx: 40 }),
+        stubMeasurer,
+      )
+        .placements[0]!.line.tokens.map((t) => t.text)
+        .join(''),
+    ).toBe('X AB');
+  });
+
+  it('keeps East Asian closing punctuation attached when Latin wrapping is enabled', () => {
+    const result = layoutCore(
+      body([para([piece('日月。')], { latinLineBreak: true })], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    expect(
+      result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
+    ).toEqual(['日', '月。']);
+  });
+
   it('splits mixed-script words only when latinLnBrk is explicitly enabled', () => {
     const word = piece('AB日CD');
     const defaultRules = layoutTextSvg(body([para([word])], { boxWpx: 15 }), stubMeasurer);

@@ -422,17 +422,13 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
           const segments = isSpace ? [word] : splitEastAsianBreakables(word);
           for (const seg of segments) {
             const w = mWidth(seg, widthSpec);
-            // East Asian runs use the existing kinsoku tokenization. Latin
-            // words may be split only when the OOXML flag is explicitly true;
-            // Office treats an omitted `latinLnBrk` as false.
-            const canBreak = EAST_ASIAN_CHAR.test(seg) || para.latinLineBreak === true;
-            if (
-              input.wrap &&
-              canBreak &&
-              !isSpace &&
-              w > avail - bulletLead &&
-              [...seg].length > 1
-            ) {
+            // Explicit Latin wrapping can use the remaining line width, even
+            // when the word fits a whole line. Keep East Asian kinsoku tokens
+            // together unless they exceed the complete line width.
+            const canBreak = EAST_ASIAN_CHAR.test(seg)
+              ? w > avail - bulletLead
+              : para.latinLineBreak === true;
+            if (input.wrap && canBreak && !isSpace && [...seg].length > 1) {
               for (const ch of seg) {
                 tokens.push({
                   text: ch,
