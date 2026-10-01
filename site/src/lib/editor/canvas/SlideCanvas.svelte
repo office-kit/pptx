@@ -1,5 +1,6 @@
 <script lang="ts">
   import { lockedShapeIds } from '../core/shape-locks.ts';
+  import { editTabStops, type TabStopEdit } from '../core/paragraph-tabs.ts';
   import SlideRulers from './SlideRulers.svelte';
   import DrawingGuides from './DrawingGuides.svelte';
   // The editing surface. Paints the current slide with the preview renderer and
@@ -33,6 +34,7 @@
     setParagraphLineSpacing,
     setParagraphSpacing,
     setParagraphIndent,
+    setParagraphTabs,
     setParagraphBullet,
     getTableCells,
     getTableCellMargins,
@@ -965,8 +967,14 @@
       if (body.vert) return null;
     }
     const props = getParagraphPropertiesEffective(doc.pres, target.shape, target.indices[0]!);
-    return { left: props.marL ?? props.level * 32 * 9525, first: props.indent ?? 0, scale: editAutoFit };
+    return { left: props.marL ?? props.level * 32 * 9525, first: props.indent ?? 0, scale: editAutoFit, tabStops: props.tabStops ?? [] };
   });
+  function applyRulerTabs(edits: TabStopEdit[]) {
+    editInlineParagraphs((shape, index) => {
+      const props = getParagraphPropertiesEffective(doc.pres, shape, index);
+      setParagraphTabs(shape, index, { tabStops: editTabStops(props.tabStops ?? [], edits) });
+    });
+  }
   function applyRulerIndent(kind: 'first' | 'hanging' | 'left', delta: number) {
     const cur = editing;
     const box = boxes.find(b => b.id === cur?.id);
@@ -1163,7 +1171,7 @@
   <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
 {/if}
 <div class="canvas-viewport" class:with-rulers={editor.view.ruler}>
-{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} />{/if}
+{#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} />{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
     class="stage-wrap"

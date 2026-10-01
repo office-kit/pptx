@@ -567,3 +567,20 @@ The editor now displays first-line, hanging, and left-indent handles while editi
 Paragraph tab stops and default spacing now have public APIs, staged Tabs dialog editing, history, SVG/browser preview placement, and direct text editing support. Native Set/Clear/Clear All state and reset behavior were compared and temporary dialogs cancelled. Browser regressions cover left, center, right and decimal positions in preview and direct editing, including typing and Undo, plus default interval changes. Direct editing retains literal tab characters for selection and clipboard offsets.
 
 The user requested stopping at this checkpoint and resuming in a later session. See [NEXT_SESSION.md](NEXT_SESSION.md) for branch/PR instructions, implementation files, verification commands and remaining work. In particular, complex wrapping, multi-run/multi-tab layouts, locale decimal separators, complete ruler tab interactions and all-operation Mac parity are not established by this increment.
+
+## Resumed ruler tab interactions (2026-10-01)
+
+The user resumed implementation toward full Mac parity. The editor now adds left,
+center, right and decimal tab stops from the ruler, moves them by dragging and
+removes them by dragging away. Escape cancels without a document change; completed
+gestures apply only to selected paragraphs through the existing tab API and undo
+transaction. Keyboard arrows and Delete also edit the focused tab marker. Browser
+coverage checks all four types, unaffected paragraphs, preserved text selection,
+move/cancel/delete, Undo and save/reload. Existing indent coverage still passes.
+
+Native clicking in the ruler added a tab and Undo removed it. Native dragging
+failed through the accessibility bridge, so its snapping and movement behavior
+remain unverified. Ruler visibility was restored off with Undo disabled. Outline
+View was inspected and restored to Normal 120%; ordinary text boxes did not appear
+in its outline. Mixed tab marker display, live text reflow during dragging,
+rotated/vertical text and complete view/menu parity remain outstanding.
