@@ -93,6 +93,29 @@ describe('addSlidePlaceholder', () => {
     expect(addSlidePlaceholder(slide, 'ftr')).toBeNull();
   });
 
+  it('inherits a body directly from the master without changing Title Only layout', async () => {
+    const { pres, slide } = await templateSlide('Title Only');
+    expect(addSlidePlaceholder(slide, 'body')).toBeNull();
+    const body = addSlidePlaceholder(slide, 'body', { source: 'master' });
+    expect(body).not.toBeNull();
+    expect(getShapeXmlString(body!)).toContain('idx="4294967295"');
+    expect(getShapeXmlString(body!)).not.toContain('xfrm');
+    expect(getShapeBoundsResolved(pres, body!)).not.toBeNull();
+    setShapeText(body!, 'Demoted title');
+    const count = getSlideShapes(slide).length;
+    expect(getShapeId(addSlidePlaceholder(slide, 'body', { source: 'master' })!)).toBe(
+      getShapeId(body!),
+    );
+    expect(getSlideShapes(slide)).toHaveLength(count);
+    const restored = await loadPresentation(await savePresentation(pres));
+    const savedSlide = getSlides(restored).at(-1)!;
+    const savedBody = findSlidePlaceholder(savedSlide, 'body')!;
+    expect(getShapeText(savedBody)).toBe('Demoted title');
+    expect(getShapeBoundsResolved(restored, savedBody)).toEqual(
+      getShapeBoundsResolved(pres, body!),
+    );
+  });
+
   it('leaves the other shapes byte-identical and survives the round trip', async () => {
     const { pres, slide } = await templateSlide();
     const title = findSlidePlaceholder(slide, 'title')!;

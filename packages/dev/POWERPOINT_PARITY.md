@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Demotion with additional objects or missing body layouts, visual hierarchy/formatting, cross-slide text selection, remaining text menu commands and exact native drag gestures.                  |
+| Outline                  | Visual hierarchy/formatting, cross-slide text selection, remaining text menu commands and exact native drag gestures.                                                                            |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -741,3 +741,10 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Title-text Move Up/Down now transfers the adjacent body paragraph across the title boundary, following the native comparison above. The first title cannot move; operations require body placeholders on both slides and a nonempty source. The title remains selected and one Undo restores both bodies.
 - Uses the existing paragraph concatenation and distribution APIs, retaining paragraph XML and relationship targets. Tests cover both directions, paragraph levels, links and save/reload. Complex layouts and cross-slide text selection remain in the outstanding list.
 - Validation: full root suite 3,071 passed / 109 skipped; editor unit suite 91 passed; English/Japanese outline browser tests both passed, including empty preceding body, both movement directions, title selection, formatting persistence and Undo. Format, lint, root/DSL types and Svelte pass; core/editor builds pass.
+
+## Outline demotion confirmation and missing placeholders
+
+- Mac comparison confirmed that demoting a title with additional objects shows a Yes/No warning before deleting the slide and its objects. The editor now presents that warning; No preserves the document and Yes merges outline text with undo support.
+- A deleted body placeholder is restored from the existing layout. On Title Only, demotion preserves the layout and creates a body placeholder that inherits directly from the master, using an unmatched index as observed in native saved XML.
+- Core and editor round-trip tests cover both missing-body cases. Browser coverage exercises confirmation, cancellation and Undo in English/Japanese for both existing-body and Title Only slides.
+- The reference body.pptx was restored to one slide, Normal 120%, saved with Undo disabled after the comparison.

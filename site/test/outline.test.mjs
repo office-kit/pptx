@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import {
   addSlide,
+  removeShape,
+  getSlideLayout,
   addSlideTextBox,
   createPresentation,
   getSlideLayouts,
@@ -150,8 +153,9 @@ test('demotes a title and body into the previous slide while preserving paragrap
   assert.equal(getShapeRunHyperlink(body, 1, 0), 'https://example.com/heading');
 });
 
-test('rejects demotion with additional slide objects before changing either slide', async () => {
-  const { demoteOutlineTitle } = await import('../src/lib/editor/core/outline.ts');
+test('confirmed demotion removes additional objects while retaining outline text', async () => {
+  const { demoteOutlineTitle, outlineDemotionNeedsConfirmation } =
+    await import('../src/lib/editor/core/outline.ts');
   const pres = createPresentation();
   const layout = getSlideLayouts(pres).find(
     (item) => getSlideLayoutName(item) === 'Title and Content',
@@ -161,9 +165,18 @@ test('rejects demotion with additional slide objects before changing either slid
   const body = getSlideShapes(first)[1];
   setShapeText(body, 'Kept');
   addSlideTextBox(second, { x: 0, y: 0, w: 914400, h: 914400, text: 'Additional object' });
-  assert.throws(() => demoteOutlineTitle(pres, second), /additional objects/);
-  assert.equal(getShapeText(body), 'Kept');
-  assert.equal(getSlides(pres).length, 2);
+  setShapeText(getSlideShapes(second)[0], 'Merged title');
+  assert.equal(outlineDemotionNeedsConfirmation(first), false);
+  assert.equal(outlineDemotionNeedsConfirmation(second), true);
+  demoteOutlineTitle(pres, second);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  assert.equal(getSlides(loaded).length, 1);
+  const shapes = getSlideShapes(getSlides(loaded)[0]);
+  assert.equal(getShapeText(shapes[1]), 'Kept\nMerged title');
+  assert.equal(
+    shapes.some((shape) => getShapeText(shape).includes('Additional object')),
+    false,
+  );
 });
 
 test('outline paragraph movement uses whole selected paragraphs and leaves nested followers in place', () => {
@@ -236,5 +249,35 @@ for (const direction of [-1, 1]) {
     const movedIndex = direction === -1 ? 0 : 2;
     assert.equal(getParagraphLevel(target, movedIndex), 2);
     assert.equal(getShapeRunHyperlink(target, movedIndex, 0), 'https://example.com/moved');
+  });
+}
+
+for (const layoutName of ['Title and Content', 'Title Only']) {
+  test(`demotion restores a missing body on ${layoutName} without changing layout`, async () => {
+    const { demoteOutlineTitle } = await import('../src/lib/editor/core/outline.ts');
+    const pres = await loadPresentation(
+      await readFile(new URL('../../test/fixtures/minimal/blank.pptx', import.meta.url)),
+    );
+    const layout = getSlideLayouts(pres).find((item) => getSlideLayoutName(item) === layoutName);
+    assert.ok(layout);
+    const first = addSlide(pres, { layout });
+    for (const slot of outlineShapes(first).filter((item) => !item.title)) {
+      removeShape(getSlideShapes(first).find((shape) => getShapeId(shape) === slot.id));
+    }
+    const content = getSlideLayouts(pres).find(
+      (item) => getSlideLayoutName(item) === 'Title and Content',
+    );
+    const second = addSlide(pres, { layout: content });
+    setShapeText(getSlideShapes(second)[0], 'Second title');
+    setShapeText(getSlideShapes(second)[1], 'Child');
+    demoteOutlineTitle(pres, second);
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const slides = getSlides(loaded);
+    assert.equal(slides.length, 1);
+    assert.equal(getSlideLayoutName(getSlideLayout(slides[0])), layoutName);
+    const bodySlot = outlineShapes(slides[0]).find((item) => !item.title);
+    assert.ok(bodySlot);
+    const body = getSlideShapes(slides[0]).find((shape) => getShapeId(shape) === bodySlot.id);
+    assert.equal(getShapeText(body), 'Second title\nChild');
   });
 }
