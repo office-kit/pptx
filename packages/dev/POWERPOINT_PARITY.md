@@ -14,6 +14,21 @@ The earlier implementation remains preserved on `feat/mac-powerpoint-parity` at 
 
 Reconcile the remaining operations from the earlier branch. Continue native visual/interaction comparison. All-operation Mac PowerPoint UI parity remains incomplete. The older branch contains the detailed comparison history in its version of this file.
 
+Current unresolved areas (2026-10-01; the sections below retain the comparison history):
+
+| Area                     | Remaining work                                                                                                                                                                                   |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Outline                  | Promote/demote including slide splitting/merging, visual paragraph hierarchy and rich formatting, cross-slide text selection, text context menu and drag reordering.                             |
+| Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
+| Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
+| Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
+| Native verification      | Recheck remaining zoom/gallery/pane geometry and interaction cases with usable screenshots and reliable pointer/keyboard input. Keep bridge failures separate from observed PowerPoint behavior. |
+| Release review           | Verify subsequent changes against ordinary build artifacts and CI, and complete the whole-PR maintainer review before claiming readiness.                                                        |
+
+Historical statements that a feature is missing can be superseded by a later section;
+for example, outline collapse and ruler tab gestures are now implemented. This list
+does not define a percentage denominator for all PowerPoint operations.
+
 ## Current UI migration
 
 - Application grid/drawing/smart-guide visibility is stored independently of document undo/save state and synchronized on storage events.
@@ -660,3 +675,24 @@ Promote/Demote menu remain outstanding; this is not complete outline parity.
 - Title Enter now copies the existing paragraph XML and remaps its relationships. Hyperlinks, paragraph properties and untouched fields survive the split instead of being rebuilt from plain text and character formatting.
 - The existing `setShapeParagraphs` writer accepts `{ source, range? }` for a UTF-16 range (exclusive end) or all text. Destination body settings remain unchanged. Unit tests cover cross-slide and cross-presentation links, paragraph levels/tabs, partial runs, fields, self-copy, invalid ranges and save/reload. English/Japanese browser regressions verify split-title hyperlinks after saving.
 - Native comparison: promoting two selected level-zero body paragraphs creates two separate slide titles, retaining the preceding body on the original slide. This is observed behavior, not yet implemented. The disposable native document was restored to one slide, Normal 120%, Undo disabled, then saved.
+
+## Outline slide movement
+
+- Slide-icon context menus now expose Move Up / Move Down, sharing the existing multi-slide reordering command and history. Boundary commands disable at the first/last possible position.
+- English/Japanese browser coverage checks single and multiple slide moves, context-menu selection retention, Undo/Redo, saved PPTX order and reload. Both cases pass against isolated source and ordinary builds.
+- Native menu inspection confirmed Move Up is available for the second of two slides and Move Down is disabled there. Exact text-selection/movement behavior remains unverified; this implementation covers slide-icon selections. All temporary native operations were undone and the reference was saved at one slide, Normal 120%, Undo disabled.
+
+## Outline range updates and clipboard review
+
+- The canonical paragraph-level reader/writer now accepts UTF-16 ranges. Relative level changes clamp each selected paragraph independently and commit the text body once; the outline Tab action uses this batch path instead of repeatedly scanning and rewriting the whole body. Tests cover exclusive ends, carets, empty final paragraphs, surrogate boundaries, rich-text retention and table-cell persistence.
+- Clipboard metadata rejects unsupported underline/strike tokens, out-of-range sizes/spacing and invalid colors before text edits begin. Valid scheme-prefixed colors survive. HTML paste ignores sub-point font sizes that the OOXML writer cannot represent. Both defects were reproduced before fixing.
+- Verification so far: full core suite 3,061 passed / 109 skipped before the additional table-cell test; all 5 paragraph-range tests then passed. Editor unit suite 83 passed. The standalone HTML size browser regression passed. Subsequent ordinary-build integration results are recorded below.
+- Native audit of Command-[ through the accessibility bridge did not change the nested paragraph; this is not evidence that the shortcut is absent in PowerPoint. Reference body.pptx restored to Normal 120%, one slide, Undo disabled, and saved.
+
+## Verification checkpoint and outline selection lifecycle
+
+- A frozen ordinary build of `10e68754` completed all 212 Chromium integration tests with zero failures (38 minutes). This run predates the paragraph-range, slide-movement and clipboard changes described above.
+- CI on the same commit passed static checks, Node 22/26, preview fidelity and OOXML validation; its Node 24 browser run found an intermittent outline selection error (211 passed, 1 failed). A deterministic bilingual regression reproduces that error by delivering a queued selection event after switching views.
+- Outline selection handlers now read the event's textarea instead of a binding that Svelte has cleared during unmount. Title splitting captures the owner document before replacing its input. Both lifecycle regressions pass against the isolated source build.
+- The latest core/editor builds and DSL type check pass; Svelte reports zero errors and warnings. All 11 focused ordinary-build browser tests pass: bilingual outline editing, movement and selection lifecycle, formatted text clipboard, HTML clipboard and HTML font-size boundaries.
+- Native Shift+Tab delivered through the bridge again behaved as Tab and raised the level. This shortcut remains unverified. Both temporary edits were undone and saved; the reference is back in Normal view, 120%, one slide, Undo disabled.

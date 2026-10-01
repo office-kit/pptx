@@ -668,6 +668,18 @@ shown together.
 | Validation           | `validatePresentation(pres)` — invariant checks, returns `ValidationIssue[]`                                                                                                                                                                                                                                                                                                                                                                              |
 | Units                | `inches(n)`, `cm(n)`, `mm(n)`, `pt(n)`, `emu(n)` — return branded `Emu` numbers                                                                                                                                                                                                                                                                                                                                                                           |
 
+`setParagraphLevel` also accepts a UTF-16 text range and a relative level change,
+so a selection can be indented in one update without rebuilding its text or links:
+
+```ts
+setParagraphLevel(shape, { start: 0, end: 24 }, { offset: 1 });
+const levels = getParagraphLevel(shape, { start: 0, end: 24 });
+```
+
+The end offset is exclusive; a collapsed range selects the caret's paragraph.
+Relative levels clamp to 0–8. Passing a paragraph index and an absolute level
+continues to edit that single paragraph.
+
 ### Outline view state
 
 `getCollapsedOutlineSlides(presentation)` returns collapsed slides in deck order.

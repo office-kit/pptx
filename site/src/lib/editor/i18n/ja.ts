@@ -806,6 +806,8 @@ export const ja: Record<string, string> = {
   'Delete slide': 'スライドを削除',
   'Move slide up': 'スライドを上へ移動',
   'Move slide down': 'スライドを下へ移動',
+  'Move Up': '上へ移動',
+  'Move Down': '下へ移動',
   Move: '移動',
   Download: 'ダウンロード',
   'Preview unavailable': 'プレビューに接続できません',
