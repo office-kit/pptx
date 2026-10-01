@@ -17,6 +17,7 @@ import {
   inches,
   loadPresentation,
   savePresentation,
+  setCustomShows,
   setShapeHyperlink,
   setShapeTextFormat,
 } from '../src/api/index.ts';
@@ -102,6 +103,28 @@ describe('text range hyperlinks', () => {
     setShapeClickAction(shape, null, { range });
     expect(getShapeRunClickAction(shape, 0, 1)).toBeNull();
     expect(getShapeClickAction(shape)).toEqual({ kind: 'firstSlide' });
+  });
+
+  it('round-trips a custom-show action on a selected text range', async () => {
+    const { pres, shape } = await fixture();
+    const slides = getSlides(pres);
+    setCustomShows(pres, [{ id: 7, name: 'Details', slides: [slides[1]!] }]);
+    setShapeClickAction(
+      shape,
+      { kind: 'customShow', id: 7, returnToShow: true },
+      {
+        range: { start: 1, end: 5 },
+      },
+    );
+
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const result = getSlideShapes(getSlides(loaded)[0]!).at(-1)!;
+    expect(getShapeRunClickAction(result, 0, 1)).toEqual({
+      kind: 'customShow',
+      id: 7,
+      returnToShow: true,
+    });
+    expect(getShapeRunClickAction(result, 0, 0)).toBeNull();
   });
 
   it('rejects foreign targets and invalid ranges without losing an existing action', async () => {

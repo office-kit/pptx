@@ -15,7 +15,10 @@ import {
   getShapeHyperlinkTooltip,
   getShapeParagraphElements,
   loadPresentation,
+  setCustomShows,
+  savePresentation,
 } from '@office-kit/pptx';
+import { compile, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -122,6 +125,81 @@ test(
     } catch (error) {
       await page?.screenshot({ path: '/tmp/pptx-pr287-link-failure.png', fullPage: true });
       throw error;
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
+test(
+  'link dialog edits a custom show destination and return option through save, reload, and undo',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-custom-show-links-'));
+    let preview, browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: ['First', 'Second', 'Third'].map((text) =>
+            Slide({ children: Text({ x: 1, y: 1, width: 5, height: 1, children: text }) }),
+          ),
+        }),
+      );
+      const slides = getSlides(deck);
+      setCustomShows(deck, [{ id: 7, name: 'Demo show', slides: [slides[1], slides[2]] }]);
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const readAction = async () => {
+        const bytes = new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer());
+        return getShapeClickAction(getSlideShapes(getSlides(await loadPresentation(bytes))[0])[0]);
+      };
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
+      await editor.locator('button[title$="— setShapeHyperlink"]').click();
+      const dialog = editor.getByRole('dialog', { name: 'Edit link', exact: true });
+      await dialog.getByLabel('Link destination', { exact: true }).selectOption('customShow');
+      await dialog.getByLabel('Custom show', { exact: true }).selectOption('7');
+      await dialog.getByLabel('Return to show after custom show', { exact: true }).check();
+      await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(await readAction(), { kind: 'customShow', id: 7, returnToShow: true });
+      await page.reload();
+      await saved();
+      await editor.locator('.hit').nth(0).click();
+      await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
+      await editor.locator('button[title$="— setShapeHyperlink"]').click();
+      const reloaded = editor.getByRole('dialog', { name: 'Edit link', exact: true });
+      assert.equal(
+        await reloaded.getByLabel('Link destination', { exact: true }).inputValue(),
+        'customShow',
+      );
+      assert.equal(await reloaded.getByLabel('Custom show', { exact: true }).inputValue(), '7');
+      assert.equal(
+        await reloaded.getByLabel('Return to show after custom show', { exact: true }).isChecked(),
+        true,
+      );
+      await reloaded.getByLabel('Return to show after custom show', { exact: true }).uncheck();
+      await reloaded.getByRole('button', { name: 'Apply', exact: true }).click();
+      await saved();
+      assert.deepEqual(await readAction(), { kind: 'customShow', id: 7, returnToShow: false });
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await readAction(), { kind: 'customShow', id: 7, returnToShow: true });
     } finally {
       await browser?.close();
       await preview?.close();

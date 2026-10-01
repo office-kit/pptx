@@ -6,6 +6,7 @@ import {
 import { textBodyText } from '../../internal/drawingml/text-body.ts';
 // Shape click action.
 import { getSlides } from './slide-query.ts';
+import { getCustomShows } from './custom-shows.ts';
 
 import { emptyRels, nextRelId, partName, resolveTarget } from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
@@ -42,7 +43,8 @@ export type ShapeClickAction =
   | { readonly kind: 'firstSlide' }
   | { readonly kind: 'lastSlide' }
   | { readonly kind: 'lastSlideViewed' }
-  | { readonly kind: 'endShow' };
+  | { readonly kind: 'endShow' }
+  | { readonly kind: 'customShow'; readonly id: number; readonly returnToShow: boolean };
 
 export const NAME_HLINK_CLICK_FN = qname('a', 'hlinkClick', NS.dml);
 
@@ -87,6 +89,7 @@ const findExistingHyperlinkRel = (
  *   - `{ kind: 'slide', slide }` — `slide` rel + `ppaction://hlinksldjump`
  *   - `{ kind: 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' }`
  *     — preset show-navigation `ppaction`.
+ *   - `{ kind: 'customShow', id, returnToShow }` — a named custom show.
  *
  * For `kind: 'slide'`, the matching slide is resolved by part name.
  * Returns `null` for unknown `ppaction` strings.
@@ -111,6 +114,23 @@ export const readClickAction = (slide: SlideData, hlink: XmlElement): ShapeClick
   if (action === 'ppaction://hlinkshowjump?jump=lastslideviewed')
     return { kind: 'lastSlideViewed' };
   if (action === 'ppaction://hlinkshowjump?jump=endshow') return { kind: 'endShow' };
+  const customShow = /^ppaction:\/\/customshow\?id=(\d+)(?:&return=(true|false))?$/.exec(
+    action ?? '',
+  );
+  if (customShow) {
+    const id = Number(customShow[1]);
+    if (
+      Number.isSafeInteger(id) &&
+      id >= 0 &&
+      getCustomShows({ [INTERNAL_PACKAGE]: slide[INTERNAL_PACKAGE], _slidesCache: null }).some(
+        (show) => show.id === id,
+      )
+    ) {
+      return { kind: 'customShow', id, returnToShow: customShow[2] === 'true' };
+    }
+    return null;
+  }
+  if (action?.startsWith('ppaction://customshow')) return null;
 
   if (rId !== null && rId !== '') {
     const pkg = slide[INTERNAL_PACKAGE];
@@ -148,8 +168,8 @@ export const readClickAction = (slide: SlideData, hlink: XmlElement): ShapeClick
  *   - For `kind: 'slide'`, a `slide` rel is added pointing at the
  *     target slide's part. The `<a:hlinkClick>` carries
  *     `action="ppaction://hlinksldjump"`.
- *   - For the preset navigations (`nextSlide`, `prevSlide`, ...), no rel
- *     is allocated; just the `action` attribute carries the preset.
+ *   - For preset navigations and `customShow`, no rel is allocated; just the
+ *     `action` attribute carries the destination.
  *   - `null` removes any existing `<a:hlinkClick>`.
  *
  * Optional `range` applies the action to selected UTF-16 text offsets instead
@@ -260,6 +280,17 @@ export const buildClickAction = (slide: SlideData, action: ShapeClickAction): Xm
     case 'endShow':
       actionAttr = 'ppaction://hlinkshowjump?jump=endshow';
       break;
+    case 'customShow': {
+      if (!Number.isSafeInteger(action.id) || action.id < 0 || action.id > 0xffffffff) {
+        throw new Error('setShapeClickAction: custom show ID must be an unsigned integer');
+      }
+      const pres: PresentationData = { [INTERNAL_PACKAGE]: pkg, _slidesCache: null };
+      if (!getCustomShows(pres).some((show) => show.id === action.id)) {
+        throw new Error(`setShapeClickAction: custom show ${action.id} does not exist`);
+      }
+      actionAttr = `ppaction://customshow?id=${action.id}${action.returnToShow ? '&return=true' : ''}`;
+      break;
+    }
   }
 
   const attrs = [] as Array<ReturnType<typeof attr>>;

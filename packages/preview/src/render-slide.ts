@@ -212,6 +212,8 @@ const clickActionHref = (
 ): string | undefined => {
   if (!action) return undefined;
   if (action.kind === 'url') return action.url;
+  if (action.kind === 'customShow')
+    return `#pptx-custom-show?id=${action.id}&return=${action.returnToShow}`;
   if (action.kind === 'endShow') return '#pptx-end-show';
   if (action.kind === 'lastSlideViewed') return '#pptx-last-slide-viewed';
   if (action.kind === 'slide') {

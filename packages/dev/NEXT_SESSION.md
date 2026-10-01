@@ -1,3 +1,12 @@
+## 2026-10-01: カスタムショーへのリンク
+
+- customShow のクリックアクション（ID と returnToShow）を core、図形/文字/セルのリンク編集、SVG、通常再生と発表者ビューへ接続。OOXML 保存・再読込に対応。
+- リンク先ショーの順序・重複を保持し、入れ子から呼び出し元の位置とアニメーション進捗に戻る。タイマーによる終了、再開時の状態リセットも実装。
+- core 3107 passed / 109 skipped、format/lint/typecheck、Svelte 0 errors/warnings、依存順 build 成功。関連ブラウザー20件のうち19件が初回成功。残る1件は再読込後の消えたUndo履歴を使うテスト手順を修正し、単独再実行成功（/tmp/pptx-custom-ui-retest.log）。
+- Mac PowerPoint は今回も画面0×0で取得失敗。変更・復元待ちはなし。Esc/終了リンクで returnToShow に従う挙動は Microsoft ShowAndReturn の仕様に基づくが実機未検証。次/前/先頭/最後のプリセットリンクは現在グローバルなスライド番号へ解決され、カスタムショー内の順序への対応が残る。
+- 全操作の完全一致は未達成。kiosk restart、ナレーション等の残件も継続。ユーザーの元プレビューは再読み込みしていない。
+- 直前10546dc3のCIはStatic、Node22/26、OOXML成功。Node24は確認時実行中、Preview fidelityは失敗（今回のログ原因は未確認）。新しいpushのCIも要確認。
+
 ## 2026-10-01: 最後に表示したスライドと終了リンク
 
 - `lastSlideViewed` / `endShow` を OOXML のクリックアクション、図形・選択文字・セルのリンク編集、SVG、通常再生・発表者ビューへ接続。文字リンクの重複パーサーを共通化した。

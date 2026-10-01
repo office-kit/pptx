@@ -30,6 +30,7 @@ export const ja: Record<string, string> = {
   'To slide': '終了スライド',
   'Custom show:': 'カスタム ショー:',
   'Custom show': 'カスタム ショー',
+  'Return to show after custom show': 'カスタム ショーの後に元のショーへ戻る',
   'Advance slides': 'スライドの切り替え',
   Manually: '手動',
   'Using timings, if present': '保存済みのタイミングを使用',
