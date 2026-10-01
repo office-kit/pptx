@@ -618,6 +618,14 @@ setShapeParagraphs(destination, { source });
 setShapeParagraphs(destination, { source, range: { start: 6, end: 12 } });
 // Append whole paragraphs without flattening formatting, fields or hyperlinks.
 setShapeParagraphs(destination, { sources: [destination, source] });
+// Reorder ranges into one text body, retaining their paragraph formatting.
+setShapeParagraphs(destination, {
+  source,
+  ranges: [
+    { start: 6, end: 12 },
+    { start: 0, end: 5 },
+  ],
+});
 setShapeParagraphs([first, second], {
   source,
   ranges: [

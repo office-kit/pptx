@@ -81,6 +81,51 @@ for (const locale of ['en', 'ja'])
           name: `${locale === 'en' ? 'Outline text' : 'アウトラインのテキスト'} 1`,
           exact: true,
         });
+        const moveParagraph = async (up) => {
+          await body.click({ button: 'right', position: { x: 30, y: up ? 30 : 10 } });
+          await change(() =>
+            editor
+              .getByRole('menuitem', {
+                name:
+                  locale === 'en' ? (up ? 'Move Up' : 'Move Down') : up ? '上へ移動' : '下へ移動',
+                exact: true,
+              })
+              .click(),
+          );
+        };
+        await body.focus();
+        await body.evaluate((node) => node.setSelectionRange(15, 15));
+        await moveParagraph(true);
+        assert.equal(await body.inputValue(), 'Second point\nFirst point');
+        assert.equal(
+          getShapeText(getSlideShapes(getSlides(await read())[0])[1]),
+          'Second point\nFirst point',
+        );
+        assert.equal(
+          getShapeParagraphElements(getSlideShapes(getSlides(await read())[0])[1], 0)[0].format
+            .italic,
+          true,
+        );
+        assert.deepEqual(
+          await body.evaluate((node) => [node.selectionStart, node.selectionEnd]),
+          [0, 12],
+        );
+        await moveParagraph(false);
+        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        await change(() => body.press('Control+z'));
+        assert.equal(await body.inputValue(), 'Second point\nFirst point');
+        await change(() => body.press('Control+z'));
+        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        await body.focus();
+        await body.evaluate((node) => node.setSelectionRange(0, 0));
+        await body.click({ button: 'right', position: { x: 30, y: 10 } });
+        assert.equal(
+          await editor
+            .getByRole('menuitem', { name: locale === 'en' ? 'Move Up' : '上へ移動', exact: true })
+            .isDisabled(),
+          true,
+        );
+        await page.keyboard.press('Escape');
         await body.focus();
         await body.evaluate((node) => node.setSelectionRange(15, 15));
         await change(() => body.press('Tab'));

@@ -20,7 +20,11 @@ import {
   setShapeRunHyperlink,
   getShapeRunHyperlink,
 } from '@office-kit/pptx';
-import { outlineShapes, promoteOutlineBody } from '../src/lib/editor/core/outline.ts';
+import {
+  outlineShapes,
+  promoteOutlineBody,
+  outlineParagraphMove,
+} from '../src/lib/editor/core/outline.ts';
 
 test('outline keeps empty title/body placeholders but excludes ordinary text boxes', async () => {
   const pres = createPresentation();
@@ -160,4 +164,37 @@ test('rejects demotion with additional slide objects before changing either slid
   assert.throws(() => demoteOutlineTitle(pres, second), /additional objects/);
   assert.equal(getShapeText(body), 'Kept');
   assert.equal(getSlides(pres).length, 2);
+});
+
+test('outline paragraph movement uses whole selected paragraphs and leaves nested followers in place', () => {
+  const pres = createPresentation();
+  const slide = addSlide(pres, { layout: getSlideLayouts(pres)[0] });
+  const body = addSlideTextBox(slide, {
+    x: 0,
+    y: 0,
+    w: 914400,
+    h: 914400,
+    text: 'First\nSecond\nThird\n',
+  });
+  setParagraphLevel(body, 2, 1);
+  const up = outlineParagraphMove(body, { start: 7, end: 9 }, -1);
+  assert.deepEqual(up, {
+    ranges: [
+      { start: 6, end: 12 },
+      { start: 0, end: 5 },
+      { start: 13, end: 18 },
+      { start: 19, end: 19 },
+    ],
+    selection: { start: 0, end: 6 },
+  });
+  assert.equal(outlineParagraphMove(body, { start: 0, end: 6 }, -1), null);
+  assert.equal(outlineParagraphMove(body, { start: 19, end: 19 }, 1), null);
+  const down = outlineParagraphMove(body, { start: 0, end: 13 }, 1);
+  assert.deepEqual(down.selection, { start: 6, end: 18 });
+  assert.deepEqual(down.ranges, [
+    { start: 13, end: 18 },
+    { start: 0, end: 5 },
+    { start: 6, end: 12 },
+    { start: 19, end: 19 },
+  ]);
 });

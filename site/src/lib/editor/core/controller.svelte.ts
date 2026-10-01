@@ -78,6 +78,10 @@ export interface Toast {
 export interface ContextMenuState {
   readonly source?: 'outline';
   readonly outlineText?: {
+    readonly moveUp: () => void;
+    readonly moveDown: () => void;
+    readonly canMoveUp: boolean;
+    readonly canMoveDown: boolean;
     promote: () => void;
     demote: () => void;
     copy: () => void;

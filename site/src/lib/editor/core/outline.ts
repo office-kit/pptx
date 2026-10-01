@@ -150,3 +150,42 @@ export function promoteOutlineBody(
   setShapeText(source, '', { range: { start: Math.max(0, first.start - 1), end: text.length } });
   return added;
 }
+
+/** Move only the selected paragraphs, as the native outline menu does. */
+export function outlineParagraphMove(
+  source: SlideShapeData,
+  range: { start: number; end: number },
+  direction: -1 | 1,
+) {
+  getParagraphLevel(source, range);
+  let offset = 0;
+  const paragraphs = getShapeParagraphElements(source).map((elements) => {
+    const start = offset;
+    const end =
+      start +
+      elements.reduce(
+        (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
+        0,
+      );
+    offset = end + 1;
+    return { start, end };
+  });
+  const first = paragraphs.findIndex((paragraph) => paragraph.end >= range.start);
+  let last = first;
+  while (last + 1 < paragraphs.length && paragraphs[last + 1]!.start < range.end) last++;
+  const adjacent = direction === -1 ? first - 1 : last + 1;
+  if (first < 0 || adjacent < 0 || adjacent >= paragraphs.length) return null;
+  const moving = paragraphs.slice(first, last + 1);
+  const ranges = [...paragraphs];
+  ranges.splice(first, moving.length);
+  const destination = direction === -1 ? first - 1 : first + 1;
+  ranges.splice(destination, 0, ...moving);
+  const start =
+    direction === -1
+      ? paragraphs[adjacent]!.start
+      : paragraphs[first]!.start + paragraphs[adjacent]!.end - paragraphs[adjacent]!.start + 1;
+  return {
+    ranges,
+    selection: { start, end: start + moving[moving.length - 1]!.end - moving[0]!.start },
+  };
+}

@@ -858,6 +858,7 @@ export const setShapeTextFormat = (
  * is a target. Each target must have a corresponding range.
  * Pass `{ sources }` to concatenate complete paragraph sequences in order,
  * preserving fields, paragraph properties and relationships across slides.
+ * A single target with `{ source, ranges }` concatenates those ranges in order.
  * Target body properties and list styles remain unchanged.
  */
 export function setShapeParagraphs(
@@ -865,7 +866,8 @@ export function setShapeParagraphs(
   paragraphs:
     | ReadonlyArray<ParagraphSpec>
     | { source: SlideShapeData; range?: { start: number; end: number } }
-    | { sources: ReadonlyArray<SlideShapeData> },
+    | { sources: ReadonlyArray<SlideShapeData> }
+    | { source: SlideShapeData; ranges: ReadonlyArray<{ start: number; end: number }> },
 ): void;
 export function setShapeParagraphs(
   shapes: ReadonlyArray<SlideShapeData>,
@@ -880,7 +882,23 @@ export function setShapeParagraphs(
     | { source: SlideShapeData; ranges: ReadonlyArray<{ start: number; end: number }> },
 ): void {
   if ('ranges' in paragraphs) {
-    if (SHAPE_SLIDE in shape || shape.length !== paragraphs.ranges.length)
+    if (SHAPE_SLIDE in shape) {
+      if (!paragraphs.ranges.length) throw new RangeError('paragraph ranges must not be empty');
+      const target = requireTxBody(shape);
+      const copied = elem(NAME_TX_BODY, {
+        children: copyTextBodyRanges(requireTxBody(paragraphs.source), paragraphs.ranges).flat(),
+      });
+      copyShapeRelationships(
+        paragraphs.source[SHAPE_SLIDE],
+        shape[SHAPE_SLIDE],
+        copied,
+        'setShapeParagraphs',
+      );
+      replaceParagraphChildren(target, copied.children);
+      commitAndRefresh(shape);
+      return;
+    }
+    if (shape.length !== paragraphs.ranges.length)
       throw new RangeError('paragraph copy targets and ranges must have equal lengths');
     const targets = shape.map(requireTxBody);
     const copies = copyTextBodyRanges(requireTxBody(paragraphs.source), paragraphs.ranges);

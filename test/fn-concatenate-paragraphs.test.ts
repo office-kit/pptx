@@ -62,3 +62,39 @@ it('rejects empty or sparse sources before replacing the target', () => {
   expect(() => setShapeParagraphs(target, { sources })).toThrow(TypeError);
   expect(getShapeText(target)).toBe('Kept');
 });
+
+it('concatenates ranges of a source into itself without losing levels, formats or links', async () => {
+  const pres = createPresentation();
+  const source = addSlideTextBox(addBlankSlide(pres), {
+    x: inches(0),
+    y: inches(0),
+    w: inches(2),
+    h: inches(2),
+    text: '',
+  });
+  setShapeParagraphs(source, [
+    { runs: [{ text: 'First' }] },
+    { runs: [{ text: 'Second', format: { italic: true } }] },
+    { runs: [{ text: 'Third' }] },
+    { runs: [] },
+  ]);
+  setShapeRunHyperlink(source, 1, 0, 'https://example.com/second');
+  setParagraphLevel(source, 2, 2);
+  setShapeParagraphs(source, {
+    source,
+    ranges: [
+      { start: 6, end: 12 },
+      { start: 0, end: 5 },
+      { start: 13, end: 19 },
+    ],
+  });
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const result = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+  expect(getShapeText(result)).toBe('Second\nFirst\nThird\n');
+  expect(getShapeParagraphElements(result, 0)[0]?.format?.italic).toBe(true);
+  expect(getShapeRunHyperlink(result, 0, 0)).toBe('https://example.com/second');
+  expect(getParagraphLevel(result, 2)).toBe(2);
+  expect(() => setShapeParagraphs(source, { source, ranges: [] })).toThrow(RangeError);
+  expect(() => setShapeParagraphs(source, { source, ranges: [{ start: 0, end: 50 }] })).toThrow();
+  expect(getShapeText(source)).toBe('Second\nFirst\nThird\n');
+});

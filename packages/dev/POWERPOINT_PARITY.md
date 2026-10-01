@@ -721,3 +721,10 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - The outline text context menu now offers Cut, Copy and Paste. Rich HTML formatting survives menu clipboard operations; Cut changes the document only after a successful clipboard write. Delayed clipboard responses cannot edit a different input, selection or document revision.
 - Slide icons now drag single, contiguous or disjoint selections, show an insertion marker and retain selected slide order. Drops from outside the pane and stale document revisions are ignored. Undo and saved/reloaded order are covered.
 - Four English/Japanese browser cases passed against the ordinary editor build (clipboard and slide movement). Mac multi-selection uses Command-click; Control-click invokes the system context menu. Exact native drag scrolling and placement remain unverified.
+
+## Outline body paragraph movement
+
+- Native Mac PowerPoint Move Up/Down moves the selected body paragraphs without automatically moving subsequent nested paragraphs. Move Up is disabled for the first body paragraph. The disposable reference was restored to its original text/levels, Normal view at 120%, Undo disabled, and saved.
+- Body text context menus now provide Move Up/Down with boundary disabling, whole-paragraph selection after movement and one-step Undo. The existing `setShapeParagraphs` writer can concatenate ordered ranges into one target, retaining paragraph XML, fields and relationships.
+- Core tests cover self-reordering, formatting, links, paragraph levels, empty trailing paragraphs and rejected ranges without mutation. Cross-slide movement and title-text movement remain unverified.
+- Validation: 3,069 core tests passed / 109 skipped; 89 editor unit tests and both English/Japanese outline browser cases passed. Format, lint, root/DSL types and Svelte checks passed; core/editor builds passed. The full-browser checkpoint remains the older frozen build.
