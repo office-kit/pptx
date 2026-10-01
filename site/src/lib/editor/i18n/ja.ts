@@ -2,6 +2,12 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Yes: 'はい',
+  No: 'いいえ',
+
+  'This will delete the slide, its notes page and any graphics or media. Do you want to continue?':
+    'スライド、ノート ページ、および図形やメディアが削除されます。続行しますか？',
+
   Promote: 'レベル上げ',
   Demote: 'レベル下げ',
   'Outline View': 'アウトライン表示',

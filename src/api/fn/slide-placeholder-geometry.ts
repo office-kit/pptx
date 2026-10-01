@@ -19,6 +19,8 @@ import {
 } from '../../internal/presentationml/index.ts';
 import {
   NS,
+  elem,
+  attr,
   firstChildElement,
   parseXml,
   qname,
@@ -205,18 +207,52 @@ function insertShapes(slide: SlideData, additions: XmlElement[]): void {
  * there — or `null` when the layout reserves no such slot. Like the added slots
  * of `addMissingSlidePlaceholders`, it starts empty and inherits its geometry
  * and text style from the layout and master.
+ * Pass `source: 'master'` to create an unmatched slot that inherits directly
+ * from the master, without changing the layout (as PowerPoint does when
+ * demoting outline text into a Title Only slide). Returns null if absent there.
  */
 export const addSlidePlaceholder = (
   slide: SlideData,
   type: PlaceholderType,
+  options: { source?: 'layout' | 'master' } = {},
 ): SlideShapeData | null => {
   const existing = findSlidePlaceholder(slide, type);
   if (existing) return existing;
   const layout = getSlideLayout(slide);
   if (!layout) return null;
+  if (options.source === 'master') {
+    const pkg = slide[INTERNAL_PACKAGE];
+    const layoutName = partName(layout[LAYOUT_PART_NAME]);
+    const rel = pkg.getRels(layoutName)?.items.find((item) => item.type === REL_TYPES.slideMaster);
+    const part = rel && pkg.getPart(resolveTarget(layoutName, rel.target));
+    if (!part) return null;
+    const root = parseXml(decode(part.data)).root;
+    const elements = topLevelElements(root);
+    const found = readShapeTreeFromCsldRoot(root, 'sldMaster').shapes.some(
+      (shape) =>
+        elements.has(shape.element) &&
+        placeholderElement(shape) &&
+        shape.placeholderType === masterType(type),
+    );
+    if (!found) return null;
+    const used = new Set([
+      ...layout[LAYOUT_PART].shapes.map((shape) => shape.placeholderIdx ?? 0),
+      ...getSlideShapes(slide).map((shape) => shape[SHAPE_SNAPSHOT].placeholderIdx ?? 0),
+    ]);
+    // Native unmatched placeholders start at the maximum unsigned index so no
+    // layout slot overrides the master's geometry. Keep each added slot distinct.
+    const MAX_PLACEHOLDER_INDEX = 0xffffffff;
+    let index = MAX_PLACEHOLDER_INDEX;
+    while (used.has(index)) index--;
+    const ph = elem(qname('p', 'ph', NS.pml), {
+      attrs: [attr(qname('', 'type', ''), type), attr(qname('', 'idx', ''), String(index))],
+    });
+    insertShapes(slide, [buildPlaceholderStub(nextShapeId(slide), ph)]);
+    return findSlidePlaceholder(slide, type);
+  }
   const elements = topLevelElements(layout[LAYOUT_PART].root);
   for (const slot of layout[LAYOUT_PART].shapes) {
-    if (!elements.has(slot.element) || slot.placeholderType !== type) continue;
+    if (!elements.has(slot.element) || (slot.placeholderType ?? 'body') !== type) continue;
     const ph = placeholderElement(slot);
     if (!ph) continue;
     insertShapes(slide, [buildPlaceholderStub(nextShapeId(slide), ph)]);

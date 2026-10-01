@@ -1,6 +1,7 @@
 import {
   getShapeId,
   addSlideAt,
+  addSlidePlaceholder,
   getShapeText,
   getParagraphLevel,
   getShapeParagraphElements,
@@ -83,6 +84,16 @@ export function moveOutlineTitle(pres: PresentationData, slide: SlideData, direc
   return true;
 }
 
+/** Extra objects are discarded by title demotion after PowerPoint's confirmation. */
+export function outlineDemotionNeedsConfirmation(slide: SlideData): boolean {
+  const ids = new Set(outlineShapes(slide).map((item) => item.id));
+  return getSlideShapes(slide).some(
+    (shape) =>
+      !ids.has(getShapeId(shape)) &&
+      !['dt', 'ftr', 'sldNum'].includes(getShapePlaceholderType(shape) ?? ''),
+  );
+}
+
 /** Mac PowerPoint demotes a slide title into the preceding slide's body. */
 export function demoteOutlineTitle(
   pres: PresentationData,
@@ -92,23 +103,29 @@ export function demoteOutlineTitle(
   const index = slides.indexOf(slide);
   if (index <= 0) return null;
   const previous = slides[index - 1]!;
-  const previousById = new Map(getSlideShapes(previous).map((shape) => [getShapeId(shape), shape]));
   const bodySlot = outlineShapes(previous).find((item) => !item.title);
-  if (!bodySlot)
-    throw new Error('Outline demotion requires a body placeholder on the previous slide');
+  let target = bodySlot
+    ? getSlideShapes(previous).find((shape) => getShapeId(shape) === bodySlot.id)
+    : null;
+  if (!target) {
+    const layout = getSlideLayout(previous);
+    const slot =
+      layout &&
+      getSlideLayoutPlaceholders(layout).find((item) =>
+        ['body', 'obj', 'subTitle'].includes(item.type ?? 'obj'),
+      );
+    target = slot
+      ? addSlidePlaceholder(
+          previous,
+          slot.type === 'obj' || slot.type === 'subTitle' ? slot.type : 'body',
+        )
+      : addSlidePlaceholder(previous, 'body', { source: 'master' });
+  }
+  if (!target)
+    throw new Error('Outline demotion requires a body placeholder in the slide layout or master');
   const shapes = getSlideShapes(slide);
   const byId = new Map(shapes.map((shape) => [getShapeId(shape), shape]));
   const outline = outlineShapes(slide);
-  const ids = new Set(outline.map((item) => item.id));
-  if (
-    shapes.some(
-      (shape) =>
-        !ids.has(getShapeId(shape)) &&
-        !['dt', 'ftr', 'sldNum'].includes(getShapePlaceholderType(shape) ?? ''),
-    )
-  )
-    throw new Error('Outline demotion of slides with additional objects is not supported');
-  const target = previousById.get(bodySlot.id)!;
   const sources = [
     ...(getShapeText(target) ? [target] : []),
     ...outline.filter((item) => item.title).map((item) => byId.get(item.id)!),

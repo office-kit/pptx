@@ -2,7 +2,7 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { outlineShapes, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
+  import { outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
@@ -20,6 +20,8 @@
   let range = { start: 0, end: 0 };
   let timer: ReturnType<typeof setTimeout> | undefined;
   let composing = false;
+  let demotionDialog = $state<HTMLDialogElement>();
+  let demotionVersion = 0;
 
   function commit() {
     clearTimeout(timer);
@@ -111,13 +113,18 @@
       }
     } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
   }
-  async function changeLevel(promote: boolean) {
+  async function changeLevel(promote: boolean, confirmed = false) {
     rememberRange(); commit();
     const source = doc.shapeById(slideIndex, shapeId)!;
     const ownerDocument = input.ownerDocument;
     let focusIndex = slideIndex;
     let focusBody = false;
     if (title && (promote || slideIndex === 0)) return;
+    if (title && !confirmed && outlineDemotionNeedsConfirmation(slide)) {
+      demotionVersion = doc.version;
+      demotionDialog?.showModal();
+      return;
+    }
     if (title || promote || getParagraphLevel(source, range).some(level => level < 8)) {
       try { doc.transact(t(promote ? 'Promote' : 'Demote'), () => {
         if (title) {
@@ -139,6 +146,10 @@
     await tick();
     if (focusIndex !== slideIndex) ownerDocument.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${focusIndex}"] textarea${focusBody ? ':not(.title)' : ''}`)?.focus();
     else input?.focus();
+  }
+  function confirmDemotion() {
+    demotionDialog?.close();
+    if (doc.pres === presentation && doc.version === demotionVersion) void changeLevel(false, true);
   }
   async function moveParagraph(direction: -1 | 1) {
     rememberRange(); commit();
@@ -235,7 +246,21 @@
 
 <textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={event => rememberRange(event.currentTarget)} onselect={event => rememberRange(event.currentTarget)} oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context} oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
 
+{#if title}
+  <dialog bind:this={demotionDialog} aria-label={t('Demote')}>
+    <p>{t('This will delete the slide, its notes page and any graphics or media. Do you want to continue?')}</p>
+    <footer><button onclick={() => demotionDialog?.close()}>{t('No')}</button><button class="confirm" onclick={confirmDemotion}>{t('Yes')}</button></footer>
+  </dialog>
+{/if}
+
 <style>
+  dialog { width: 260px; box-sizing: border-box; border: 1px solid #777; border-radius: 18px; background: #555; color: #fff; padding: 24px 16px 16px; box-shadow: 0 15px 60px #0008; font: 13px/1.35 Arial, sans-serif; }
+  dialog::backdrop { background: #0003; }
+  dialog p { margin: 0 0 16px; }
+  dialog footer { display: flex; gap: 8px; }
+  dialog button { flex: 1; border: 0; border-radius: 16px; padding: 6px 12px; background: #666; color: inherit; font: inherit; }
+  dialog button.confirm { background: #b4440c; }
+
   textarea { display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 23px; padding: 2px 4px; border: 0; outline: none; color: var(--ok-text); background: transparent; font: 14px/1.4 Arial, sans-serif; }
   textarea.title { font-weight: bold; }
   textarea:not(.title) { padding-left: 20px; }
