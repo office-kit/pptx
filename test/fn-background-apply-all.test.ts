@@ -87,9 +87,9 @@ describe('apply background to all', () => {
   it('rejects a foreign source without changing the presentation', async () => {
     const { pres } = deck();
     const other = deck();
-    const before = await savePresentation(pres);
+    const before = unzipSync(await savePresentation(pres));
     expect(() => applySlideBackgroundToAll(pres, other.source)).toThrow('source must belong');
-    expect(await savePresentation(pres)).toEqual(before);
+    expect(unzipSync(await savePresentation(pres))).toEqual(before);
   });
   it('leaves backgrounds unchanged if an imported image relationship is missing', async () => {
     const { pres } = deck();
@@ -101,10 +101,10 @@ describe('apply background to all', () => {
       ),
     );
     const loaded = await loadPresentation(zipSync(parts));
-    const before = await savePresentation(loaded);
+    const before = unzipSync(await savePresentation(loaded));
     expect(() => applySlideBackgroundToAll(loaded, getSlides(loaded)[0]!)).toThrow(
       'missing relationship',
     );
-    expect(await savePresentation(loaded)).toEqual(before);
+    expect(unzipSync(await savePresentation(loaded))).toEqual(before);
   });
 });

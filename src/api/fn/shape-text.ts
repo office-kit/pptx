@@ -1,6 +1,12 @@
+import { copyShapeRelationships } from './_copy-shape-relationships.ts';
+import { textBodyText } from '../../internal/drawingml/text-body.ts';
 // Shape mutation: text body, autofit, margins, wrap, anchor.
 
-import { editTextBody, formatTextBodyRange } from '../../internal/drawingml/text-body-edit.ts';
+import {
+  copyTextBodyRange,
+  editTextBody,
+  formatTextBodyRange,
+} from '../../internal/drawingml/text-body-edit.ts';
 import { TEXT_ANCHORS, TEXT_DIRECTIONS } from '../../internal/enum-values.ts';
 import {
   getShapePlaceholderIdx,
@@ -840,11 +846,42 @@ export const setShapeTextFormat = (
  * per paragraph; use this when a paragraph mixes formats (a bold lead-in
  * followed by plain text, for example). Read back with
  * `getShapeParagraphElements`.
+ * Pass `{ source, range? }` to copy existing paragraph XML, including fields,
+ * run formatting, bullets and remapped relationships. The optional range uses
+ * UTF-16 offsets with an exclusive end; omitted range copies all source text.
+ * Target body properties and list styles remain unchanged.
  */
 export const setShapeParagraphs = (
   shape: SlideShapeData,
-  paragraphs: ReadonlyArray<ParagraphSpec>,
+  paragraphs:
+    | ReadonlyArray<ParagraphSpec>
+    | {
+        source: SlideShapeData;
+        range?: { start: number; end: number };
+      },
 ): void => {
-  setTextBodyParagraphs(requireTxBody(shape), paragraphs);
+  const target = requireTxBody(shape);
+  if ('source' in paragraphs) {
+    const source = requireTxBody(paragraphs.source);
+    const range = paragraphs.range ?? { start: 0, end: textBodyText(source).length };
+    const copied = elem(NAME_TX_BODY, { children: copyTextBodyRange(source, range) });
+    copyShapeRelationships(
+      paragraphs.source[SHAPE_SLIDE],
+      shape[SHAPE_SLIDE],
+      copied,
+      'setShapeParagraphs',
+    );
+    target.children = [
+      ...target.children.filter(
+        (child) =>
+          !(
+            child.kind === 'element' &&
+            child.name.namespaceURI === NS.dml &&
+            child.name.localName === 'p'
+          ),
+      ),
+      ...copied.children,
+    ];
+  } else setTextBodyParagraphs(target, paragraphs);
   commitAndRefresh(shape);
 };

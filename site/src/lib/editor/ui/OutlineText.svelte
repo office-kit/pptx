@@ -1,10 +1,9 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
-  import { getShapeText, getShapeParagraphCount, getShapeParagraphElements, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
+  import { getShapeText, getShapeParagraphCount, getShapeParagraphElements, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import { outlineShapes } from '../core/outline.ts';
-  import { copyTextRange } from '../core/text-clipboard.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -75,7 +74,6 @@
       const end = input.selectionEnd;
       event.preventDefault(); event.stopPropagation(); commit();
       const source = doc.shapeById(slideIndex, shapeId)!;
-      const tail = copyTextRange(source, end, value.length);
       const index = getSlides(doc.pres).indexOf(slide) + 1;
       doc.transact(t('New slide'), () => {
         const next = addSlideAt(doc.pres, index, { layout });
@@ -93,7 +91,7 @@
           setShapeText(body, '');
         }
         const heading = placeholders.find(item => item.title);
-        if (heading) replayTextEdits(findShapeById(next, heading.id)!, [{ start: 0, end: 0, text: tail.text, formats: tail.formats }]);
+        if (heading) setShapeParagraphs(findShapeById(next, heading.id)!, { source, range: { start: end, end: value.length } });
         setShapeText(source, '', { range: { start, end: value.length } });
         doc.selectSlide(index);
       });

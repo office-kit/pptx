@@ -11,6 +11,7 @@ import {
   getShapeText,
   getShapeParagraphElements,
   getParagraphLevel,
+  getShapeRunHyperlink,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
@@ -29,7 +30,7 @@ for (const locale of ['en', 'ja'])
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
-          `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill,Text} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}} format={{bold:true}}>Outline title</Fill><Fill target={{placeholder:{idx:1}}} format={{italic:true}}>{"First point\\nSecond point"}</Fill><Text x={1} y={5} width={5} height={1}>Ordinary text box</Text></Slide></Presentation>;`,
+          `import {readFileSync} from 'node:fs'; import {getSlideShapes,setShapeRunHyperlink} from '@office-kit/pptx'; import {Presentation,Slide,Fill,Text,Raw} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}} format={{bold:true}}>Outline title</Fill><Fill target={{placeholder:{idx:1}}} format={{italic:true}}>{"First point\\nSecond point"}</Fill><Text x={1} y={5} width={5} height={1}>Ordinary text box</Text><Raw scope="slide" apply={({slide}) => setShapeRunHyperlink(getSlideShapes(slide)[0],0,0,"https://example.com/outline")} /></Slide></Presentation>;`,
         );
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
@@ -204,6 +205,11 @@ for (const locale of ['en', 'ja'])
         assert.equal(
           getShapeParagraphElements(getSlideShapes(getSlides(pres)[1])[0], 0)[0].format.bold,
           true,
+        );
+        assert.equal(
+          getShapeRunHyperlink(getSlideShapes(getSlides(pres)[1])[0], 0, 0),
+          'https://example.com/outline',
+          'splitting an outline title retains its hyperlink after saving',
         );
         await change(() => second.press('Control+z'));
         assert.equal(getSlides(await read()).length, 1);
