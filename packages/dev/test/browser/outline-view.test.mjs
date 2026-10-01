@@ -28,7 +28,7 @@ for (const locale of ['en', 'ja'])
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
-          `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill,Text} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source}><Slide target={{index:0}}><Fill target={{placeholder:{type:'title'}}} format={{bold:true}}>Outline title</Fill><Text x={1} y={5} width={5} height={1}>Ordinary text box</Text></Slide></Presentation>;`,
+          `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill,Text} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}} format={{bold:true}}>Outline title</Fill><Fill target={{placeholder:{idx:1}}} format={{italic:true}}>{"First point\\nSecond point"}</Fill><Text x={1} y={5} width={5} height={1}>Ordinary text box</Text></Slide></Presentation>;`,
         );
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
@@ -59,7 +59,7 @@ for (const locale of ['en', 'ja'])
         const outline = editor.getByRole('navigation', { name: labels.outline, exact: true });
         const title = outline.getByRole('textbox', { name: `${labels.title} 1`, exact: true });
         assert.equal(await title.inputValue(), 'Outline title');
-        assert.equal(await outline.getByRole('textbox').count(), 1);
+        assert.equal(await outline.getByRole('textbox').count(), 2);
         const read = async () =>
           loadPresentation(
             new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
@@ -78,6 +78,13 @@ for (const locale of ['en', 'ja'])
         );
         await title.press('End');
         await change(() => title.press('Enter'));
+        pres = await read();
+        assert.equal(getShapeText(getSlideShapes(getSlides(pres)[0])[1]), '');
+        const movedBody = getSlideShapes(getSlides(pres)[1]).find(
+          (shape) => getShapeText(shape) === 'First point\nSecond point',
+        );
+        assert.ok(movedBody, 'title Enter moves the following body to the new slide');
+        assert.equal(getShapeParagraphElements(movedBody, 0)[0].format.italic, true);
         const second = outline.getByRole('textbox', { name: `${labels.title} 2`, exact: true });
         await second.waitFor();
         assert.equal(

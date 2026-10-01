@@ -605,3 +605,11 @@ ordinary text boxes.
 This is not complete outline parity. Collapse/expand, promote/demote, cross-slide
 text selection and drag reordering, rich formatting display, body outline levels,
 and the full native outline context menu remain outstanding.
+
+A follow-up comparison with a Title and Content slide confirmed that splitting
+the title also moves its following body paragraphs onto the new slide. The editor
+now copies the body placeholders with their formatting and relationships and
+clears the original body. Bilingual regression tests reproduce the prior failure
+and verify body movement, run formatting, Undo and saved reloads. The native
+comparison used `/private/tmp/pptx-outline-audit/body.pptx`; the temporary text
+edit was undone.
