@@ -1,6 +1,6 @@
 {
   "name": "@office-kit/pptx-dsl",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Typed TSX authoring for editable PowerPoint presentations",
   "license": "MIT",
   "repository": {
@@ -27,6 +27,10 @@
       "types": "./dist/jsx-runtime.d.ts",
       "import": "./dist/jsx-runtime.js"
     },
+    "./source-edit": {
+      "types": "./dist/source-edit.d.ts",
+      "import": "./dist/source-edit.js"
+    },
     "./package.json": "./package.json"
   },
   "publishConfig": {
@@ -44,7 +48,13 @@
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
-    "@office-kit/pptx": "^0.21.0"
+    "@office-kit/pptx": "^0.21.0",
+    "typescript": ">=5.0.0"
+  },
+  "peerDependenciesMeta": {
+    "typescript": {
+      "optional": true
+    }
   },
   "engines": {
     "node": ">=22.18.0"

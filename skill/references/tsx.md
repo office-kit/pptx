@@ -57,7 +57,7 @@ export default (
           ['Ben', 'Ship annual billing', 'Dec 1'],
         ]}
         columnWidths={[2.2, 7, 2.3]}
-        cellStyle={{ format: { size: 16, color: '#15171C' } }}
+        cellStyle={{ fill: '#FFFFFF', format: { size: 16, color: '#15171C' } }}
         headerStyle={{ fill: '#15171C', format: { color: '#FFFFFF', bold: true } }}
         stripeFill="#F3F4F7"
       />
@@ -68,6 +68,18 @@ export default (
 
 Use functions, fragments, arrays, conditions and `.map()` to compose content.
 Bounds (`x`, `y`, `width`, `height`) are required for new visual objects.
+
+Details that trip up type checking and layout:
+
+- `anchor` takes `'top' | 'center' | 'bottom'`.
+- Colors are the core `Color` type (`#RRGGBB` or a theme token); type your own helper
+  props with `Color` from `@office-kit/pptx`, not `string`.
+- The initialized project enables `exactOptionalPropertyTypes`; declare an optional helper
+  prop as `name?: T | undefined` when callers may pass `undefined`.
+- A newline in `Text` children starts a new paragraph. Use it to break a long headline at
+  a meaning boundary instead of letting the renderer wrap it anywhere.
+- `stripeFill` colors every second body row only. Set `cellStyle.fill` as well, or the
+  other rows keep the table style's default banding.
 
 | Element        | Inputs                                                                                                                                                                                                  |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -243,7 +255,9 @@ export default (
 ```
 
 Each function returns a `Slide`. Use `theme.ts` for shared palette/typography
-values; import only what the slide needs. Use descriptive filenames that stay
-stable when slides move. Patch text, props or the relevant data item for local
-changes; change a shared value only when all its consumers should change.
+values; import only what the slide needs. For page numbers, keep the slide order in one
+array in `deck.tsx` and pass the position: `{slides.map((S, i) => <S page={i + 1} />)}`.
+Use descriptive filenames that stay stable when slides move. Patch text, props or the
+relevant data item for local changes; change a shared value only when all its
+consumers should change.
 Existing inline slides and data-driven compositions remain valid.

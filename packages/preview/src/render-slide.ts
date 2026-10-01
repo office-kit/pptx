@@ -6254,7 +6254,7 @@ const renderTable = (
       }
       const cellTextColor = resolvedFill === headerFill ? '#FFFFFF' : textColor;
       out.push(
-        `<rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
+        `<g data-pptx-cell="${r},${c}"><rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
       );
       // Per-side borders override the default thin gray grid. Draw them
       // separately after the fills so they sit on top.
@@ -6355,6 +6355,7 @@ const renderTable = (
         textReflected && cellText
           ? `<g transform="translate(${px(2 * cx + cw)} 0) scale(-1 1)">${cellText}</g>`
           : cellText,
+        '</g>',
       );
     }
   }

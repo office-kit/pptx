@@ -1,5 +1,6 @@
 import * as api from '@office-kit/pptx';
 import {
+  bindJsxSources,
   created,
   textContent,
   literal,
@@ -12,7 +13,8 @@ import {
   type PresentationNode,
   type RawContext,
 } from './model.ts';
-export type { Child, Children, Node, PresentationNode, RawContext } from './model.ts';
+export { getShapeJsxSources } from './model.ts';
+export type { Child, Children, JsxSource, Node, PresentationNode, RawContext } from './model.ts';
 export { Fragment } from './jsx-runtime.ts';
 
 export type PresentationProps = Children &
@@ -44,6 +46,8 @@ export function Presentation(props: PresentationProps): PresentationNode {
         originals,
         mode: props.mode ?? (props.source === undefined ? 'compose' : 'edit'),
         scope: 'presentation',
+        sources: [],
+        shapeSources: new Map(),
         deferred: [],
       };
       await visit(props.children, context);
@@ -51,6 +55,7 @@ export function Presentation(props: PresentationProps): PresentationNode {
       if (context.mode === 'compose') {
         for (const slide of originals) api.removeSlide(presentation, slide);
       }
+      bindJsxSources(presentation, context.shapeSources);
       return presentation;
     },
   };

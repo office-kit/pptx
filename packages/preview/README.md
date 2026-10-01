@@ -151,6 +151,23 @@ the label text:
 Example: `svg.querySelectorAll('[data-pptx-fallback]')` lists every shape that
 did not fully render.
 
+### Mapping the SVG back to the deck
+
+Slide shapes, and the paragraphs and table cells inside them, carry attributes
+that tie a click on the SVG back to the presentation. Master and layout
+decoration carries none.
+
+| Attribute             | On                                                        | Value                                                |
+| --------------------- | --------------------------------------------------------- | ---------------------------------------------------- |
+| `data-pptx-shape-id`  | A `<g>` wrapping each shape; groups and each member alike | `getShapeId(shape)`                                  |
+| `data-pptx-paragraph` | `<p>` (foreignObject), each line's `<text>` (`svg` mode)  | 0-based paragraph index                              |
+| `data-pptx-cell`      | A `<g>` wrapping each table cell's fill and text          | `row,col`, 0-based; paragraphs count within the cell |
+
+```ts
+const shape = target.closest('[data-pptx-shape-id]')?.getAttribute('data-pptx-shape-id');
+const paragraph = target.closest('[data-pptx-paragraph]')?.getAttribute('data-pptx-paragraph');
+```
+
 ## License
 
 MIT (code). Bundled fonts: OFL-1.1 / Apache-2.0 — see `fonts/LICENSES.md`.
