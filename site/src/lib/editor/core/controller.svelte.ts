@@ -77,6 +77,7 @@ export interface Toast {
 
 export interface ContextMenuState {
   readonly source?: 'outline';
+  readonly outlineText?: { promote: () => void; demote: () => void };
   readonly x: number;
   readonly y: number;
 }
@@ -422,8 +423,13 @@ export class EditorController {
 
   // --- Context menu ------------------------------------------------------
   contextMenu = $state<ContextMenuState | null>(null);
-  openContextMenu(x: number, y: number, source?: 'outline'): void {
-    this.contextMenu = { x, y, source };
+  openContextMenu(
+    x: number,
+    y: number,
+    source?: 'outline',
+    outlineText?: ContextMenuState['outlineText'],
+  ): void {
+    this.contextMenu = { x, y, source, outlineText };
   }
   closeContextMenu(): void {
     this.contextMenu = null;

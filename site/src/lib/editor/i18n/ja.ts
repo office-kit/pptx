@@ -2,6 +2,8 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  Promote: 'レベル上げ',
+  Demote: 'レベル下げ',
   'Outline View': 'アウトライン表示',
   'Outline pane width': 'アウトライン ペインの幅',
   'Outline title': 'アウトラインのタイトル',

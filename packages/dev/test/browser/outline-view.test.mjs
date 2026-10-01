@@ -93,6 +93,10 @@ for (const locale of ['en', 'ja'])
           await body.evaluate((node) => node === node.ownerDocument.activeElement),
           true,
         );
+        await change(() => body.press('Shift+Tab'));
+        bodyShape = getSlideShapes(getSlides(await read())[0])[1];
+        assert.equal(getParagraphLevel(bodyShape, 1), 0);
+        await change(() => body.press('Control+z'));
         await change(() => body.press('Control+z'));
         bodyShape = getSlideShapes(getSlides(await read())[0])[1];
         assert.equal(getParagraphLevel(bodyShape, 1), 0);
@@ -107,6 +111,44 @@ for (const locale of ['en', 'ja'])
           'exclusive selection end excludes the next paragraph',
         );
         await change(() => body.press('Control+z'));
+        await body.focus();
+        await body.evaluate((node) => node.setSelectionRange(12, 24));
+        await change(() => body.press('Shift+Tab'));
+        const promotedTitle = outline.getByRole('textbox', {
+          name: `${labels.title} 2`,
+          exact: true,
+        });
+        assert.equal(await promotedTitle.inputValue(), 'Second point');
+        assert.equal(getShapeText(getSlideShapes(getSlides(await read())[0])[1]), 'First point');
+        await change(() => promotedTitle.press('Control+z'));
+        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        await change(() => body.press('Control+Shift+z'));
+        assert.equal(await promotedTitle.inputValue(), 'Second point');
+        await change(() => promotedTitle.press('Control+z'));
+        await body.focus();
+        await body.evaluate((node) => node.setSelectionRange(0, 24));
+        await body.click({ button: 'right' });
+        await change(() =>
+          editor
+            .getByRole('menuitem', {
+              name: locale === 'en' ? 'Promote' : 'レベル上げ',
+              exact: true,
+            })
+            .click(),
+        );
+        assert.equal(getSlides(await read()).length, 3);
+        assert.equal(await promotedTitle.inputValue(), 'First point');
+        assert.equal(
+          await outline
+            .getByRole('textbox', {
+              name: `${labels.title} 3`,
+              exact: true,
+            })
+            .inputValue(),
+          'Second point',
+        );
+        await change(() => promotedTitle.press('Control+z'));
+        assert.equal(await body.inputValue(), 'First point\nSecond point');
         await change(async () => {
           await title.fill('Outline title edited');
           await title.press('Meta+1');

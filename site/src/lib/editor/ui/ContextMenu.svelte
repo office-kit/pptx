@@ -29,7 +29,13 @@
 
   const items = $derived.by<Item[]>(() => {
     const list: Item[] = [];
-    if (doc.selection.kind === 'cell') {
+    if (menu.outlineText) {
+      const actions = menu.outlineText;
+      list.push(
+        { label: 'Promote', run: actions.promote },
+        { label: 'Demote', run: actions.demote },
+      );
+    } else if (doc.selection.kind === 'cell') {
       list.push(
         { label: 'Cut', accel: '⌘X', run: () => editor.cutSelection() },
         { label: 'Copy', accel: '⌘C', run: () => editor.copySelection() },

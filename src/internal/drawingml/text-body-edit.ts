@@ -52,17 +52,39 @@ export function copyTextBodyRange(
   txBody: XmlElement,
   range: { start: number; end: number },
 ): XmlElement[] {
-  validateTextRange(textBodyText(txBody), range, 'setShapeParagraphs');
-  const result: XmlElement[] = [];
+  return copyTextBodyRanges(txBody, [range])[0]!;
+}
+
+/** Index once when distributing a body's paragraphs across multiple shapes. */
+export function copyTextBodyRanges(
+  txBody: XmlElement,
+  ranges: ReadonlyArray<{ start: number; end: number }>,
+): XmlElement[][] {
+  const value = textBodyText(txBody);
+  for (const range of ranges) validateTextRange(value, range, 'setShapeParagraphs');
   let offset = 0;
-  for (const paragraph of paragraphsOf(txBody)) {
-    const length = paragraphText(paragraph).length;
-    const end = offset + length;
-    if (range.start <= end && range.end >= offset) {
-      const from = Math.max(0, range.start - offset);
-      const to = Math.min(length, range.end - offset);
+  const indexed = paragraphsOf(txBody).map((paragraph) => {
+    const start = offset;
+    const end = start + paragraphText(paragraph).length;
+    offset = end + 1;
+    return { paragraph, start, end };
+  });
+  return ranges.map((range) => {
+    const result: XmlElement[] = [];
+    let low = 0;
+    let high = indexed.length;
+    while (low < high) {
+      const mid = Math.floor((low + high) / 2);
+      if (indexed[mid]!.end < range.start) low = mid + 1;
+      else high = mid;
+    }
+    for (let index = low; index < indexed.length; index++) {
+      const { paragraph, start, end } = indexed[index]!;
+      if (start > range.end) break;
+      const from = Math.max(0, range.start - start);
+      const to = Math.min(end - start, range.end - start);
       const cloned = copy(paragraph);
-      if (from !== 0 || to !== length) {
+      if (from !== 0 || to !== end - start) {
         const contents = slice(paragraph, from, to);
         let inserted = false;
         cloned.children = cloned.children.flatMap((child) => {
@@ -75,9 +97,8 @@ export function copyTextBodyRange(
       }
       result.push(cloned);
     }
-    offset = end + 1;
-  }
-  return result;
+    return result;
+  });
 }
 
 function propertiesAt(paragraph: XmlElement, at: number, insertion: boolean): XmlElement | null {
