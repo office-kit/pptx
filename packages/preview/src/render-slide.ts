@@ -460,20 +460,25 @@ const renderPicture = (
       }
       if (biLevel !== null) {
         const t = biLevel / 100;
-        // discrete tables snap channels to 0 below `t` and to 1 at/above.
-        const table = `0 1`;
-        // Use a step function: tableValues with 2 entries split at thresh.
-        // feFuncR/G/B with type=discrete + 2-entry table snaps at the midpoint;
-        // for an arbitrary threshold we shift via tableValues with more samples.
-        const steps = 32;
-        const vals: string[] = [];
-        for (let i = 0; i < steps; i++) {
-          vals.push(i / (steps - 1) >= t ? '1' : '0');
-        }
-        void table;
-        const tableStr = vals.join(' ');
+        // DrawingML's biLevel effect compares the pixel luminance with the
+        // threshold, then emits an achromatic black or white pixel.  Reducing
+        // each channel independently would leave saturated colours (for
+        // example, pure red) partially coloured, which is not PowerPoint's
+        // "Black and White" picture recolour.
+        // Always reduce to luminance immediately before biLevel.  A preceding
+        // duotone can reintroduce saturated RGB values even when the source
+        // also carries grayscl, and biLevel must threshold that resulting
+        // luminance rather than each channel independently.
         prims.push(
-          `<feComponentTransfer><feFuncR type="discrete" tableValues="${tableStr}"/><feFuncG type="discrete" tableValues="${tableStr}"/><feFuncB type="discrete" tableValues="${tableStr}"/></feComponentTransfer>`,
+          `<feColorMatrix type="matrix" values="0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0.2126 0.7152 0.0722 0 0  0 0 0 1 0"/>`,
+        );
+        // A two-entry discrete transfer changes at 0.5. Shift the luminance
+        // by (0.5 - t) first, making that fixed split equivalent to the
+        // arbitrary DrawingML threshold t without quantising it to a table.
+        const shift = 0.5 - t;
+        prims.push(
+          `<feComponentTransfer><feFuncR type="linear" slope="1" intercept="${shift}"/><feFuncG type="linear" slope="1" intercept="${shift}"/><feFuncB type="linear" slope="1" intercept="${shift}"/></feComponentTransfer>`,
+          '<feComponentTransfer><feFuncR type="discrete" tableValues="0 1"/><feFuncG type="discrete" tableValues="0 1"/><feFuncB type="discrete" tableValues="0 1"/></feComponentTransfer>',
         );
       }
       clipDef += `<defs><filter id="${fid}">${prims.join('')}</filter></defs>`;

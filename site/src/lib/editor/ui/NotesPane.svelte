@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy, untrack } from 'svelte';
+  import { onDestroy, onMount, untrack } from 'svelte';
   import { getSlideNotes, getSlides, setSlideNotes } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -16,6 +16,19 @@
   let pane: HTMLElement;
   let drag: { id: number; y: number; height: number } | null = null;
   let maxHeight = $state(400);
+
+  function updateHeightLimit() {
+    maxHeight = Math.max(60, Math.min((pane.parentElement?.clientHeight ?? 600) - 100, pane.ownerDocument.defaultView!.innerHeight / 2));
+    editor.notesHeight = Math.min(maxHeight, Math.max(60, editor.notesHeight));
+  }
+  onMount(() => {
+    const observer = new ResizeObserver(updateHeightLimit);
+    observer.observe(pane.parentElement!);
+    const view = pane.ownerDocument.defaultView!;
+    view.addEventListener('resize', updateHeightLimit);
+    updateHeightLimit();
+    return () => { observer.disconnect(); view.removeEventListener('resize', updateHeightLimit); };
+  });
 
   function commit() {
     clearTimeout(timer);
@@ -52,7 +65,7 @@
   function resizeStart(event: PointerEvent) {
     if (event.button !== 0) return;
     event.preventDefault();
-    maxHeight = Math.max(60, (pane.parentElement?.clientHeight ?? 600) - 100);
+    updateHeightLimit();
     drag = { id: event.pointerId, y: event.clientY, height: pane.clientHeight };
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   }
@@ -63,7 +76,7 @@
   function resizeKeys(event: KeyboardEvent) {
     if (!['ArrowUp', 'ArrowDown', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
-    maxHeight = Math.max(60, (pane.parentElement?.clientHeight ?? 600) - 100);
+    updateHeightLimit();
     editor.notesHeight = event.key === 'Home' ? 60 : event.key === 'End' ? maxHeight : Math.min(maxHeight, Math.max(60, editor.notesHeight + (event.key === 'ArrowUp' ? 10 : -10)));
   }
 </script>
