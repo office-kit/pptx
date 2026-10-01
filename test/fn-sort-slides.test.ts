@@ -3,9 +3,11 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import {
   getShapeText,
   getSlideShapes,
+  moveSlide,
   getSlideText,
   getSlides,
   loadPresentation,
@@ -30,6 +32,28 @@ const seedTitle = (
 };
 
 describe('fn API: sortSlides', () => {
+  it.each(['sort', 'move'] as const)(
+    'retains absolute and normalized relationship targets during %s',
+    async (operation) => {
+      const parts = unzipSync(await readFile(fixture('two-slides.pptx')));
+      const rels = 'ppt/_rels/presentation.xml.rels';
+      parts[rels] = strToU8(
+        strFromU8(parts[rels]!)
+          .replace('Target="slides/slide1.xml"', 'Target="/ppt/slides/slide1.xml"')
+          .replace('Target="slides/slide2.xml"', 'Target="./slides/slide2.xml"'),
+      );
+      const pres = await loadPresentation(zipSync(parts));
+      const before = getSlides(pres);
+      expect(before).toHaveLength(2);
+      const rank = new Map(before.map((slide, index) => [slide, index]));
+      if (operation === 'sort') sortSlides(pres, (a, b) => rank.get(b)! - rank.get(a)!);
+      else moveSlide(pres, before[0]!, 1);
+      expect(getSlides(pres)).toEqual([...before].reverse());
+      const after = await loadPresentation(await savePresentation(pres));
+      expect(getSlides(after).map(getSlideText)).toEqual([...before].reverse().map(getSlideText));
+    },
+  );
+
   it('reorders slides per the comparator', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     seedTitle(pres, 0, 'B-Second');
