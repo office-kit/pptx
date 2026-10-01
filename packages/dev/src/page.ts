@@ -370,6 +370,7 @@ async function exitPresentation(){
 }
 byId('present').onclick=async()=>{
   setPresenting(true);
+  if(state.showProperties?.mode?.kind==='browse')return;
   try{await document.documentElement.requestFullscreen();}
   catch{byId('exit-present').textContent=pt('Exit view · Esc');}
 };

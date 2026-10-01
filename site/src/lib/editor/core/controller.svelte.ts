@@ -30,6 +30,8 @@ import {
   getSlides,
   getCustomShows,
   setCustomShows,
+  getSlideShowProperties,
+  setSlideShowProperties,
   getSlideShapes,
   getSlideSize,
   findShapeById,
@@ -191,6 +193,9 @@ export class EditorController {
 
   deleteCustomShow(id: number): void {
     this.doc.transact(t('Delete custom show'), () => {
+      const settings = getSlideShowProperties(this.doc.pres);
+      if (settings.slides.kind === 'customShow' && settings.slides.id === id)
+        setSlideShowProperties(this.doc.pres, { ...settings, slides: { kind: 'all' } });
       setCustomShows(
         this.doc.pres,
         getCustomShows(this.doc.pres).filter((show) => show.id !== id),
