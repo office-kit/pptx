@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getShapeImageBrightness, getShapeImageContrast, getShapeMedia } from '@office-kit/pptx';
+  import { getShapeImageBrightness, getShapeImageContrast, getShapeMedia, resetShapeImageColorEffects } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import VideoCorrectionsMenu from '../ribbon/VideoCorrectionsMenu.svelte';
@@ -16,6 +16,12 @@
   const brightness = $derived.by(() => { doc.version; return video ? Math.round((getShapeImageBrightness(video) ?? 0) * 100) : 0; });
   const contrast = $derived.by(() => { doc.version; return video ? Math.round((getShapeImageContrast(video) ?? 0) * 100) : 0; });
   const locked = $derived(editor.selectionLocked());
+
+  function resetColor(): void {
+    const shape = video;
+    if (!shape || locked) return;
+    doc.transact(t('Reset picture color'), () => resetShapeImageColorEffects(shape));
+  }
 
   function setValue(kind: 'brightness' | 'contrast', input: HTMLInputElement): void {
     if (!video || !input.reportValidity()) return;
@@ -47,6 +53,7 @@
             <span>%</span>
           </div>
         </div>
+        <button class="ok-btn reset" type="button" disabled={locked} onclick={resetColor}>{t('Reset')}</button>
       </div>
     </details>
   </section>
@@ -66,5 +73,6 @@
   .control-row { display: flex; align-items: center; gap: 7px; }
   input[type=range] { flex: 1 1 auto; width: 0; min-width: 0; accent-color: var(--ok-accent); }
   .value { flex: 0 0 54px; width: 54px; box-sizing: border-box; }
+  .reset { justify-self: start; }
   span { font-size: 11px; color: var(--ok-text-2); }
 </style>

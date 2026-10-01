@@ -5,12 +5,20 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   getShapeImageBrightness,
+  getShapeImageContrast,
+  getShapeImageOpacity,
   getShapeKind,
+  getSlideXmlString,
   getSlideShapes,
   getSlides,
   loadPresentation,
   setShapeImageBrightness,
+  setShapeImageContrast,
+  resetShapeImageColorEffects,
+  savePresentation,
 } from '../src/api/index.ts';
+import { SHAPE_ELEMENT } from '../src/api/_internal-symbols.ts';
+import { NS, attr, elem, firstChildElement, qname } from '../src/internal/xml/index.ts';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
@@ -41,5 +49,56 @@ describe('fn API: setShapeImageBrightness', () => {
     )!;
     expect(() => setShapeImageBrightness(picture, 1.5)).toThrow(RangeError);
     expect(() => setShapeImageBrightness(picture, -1.5)).toThrow(RangeError);
+  });
+
+  it('clears PowerPoint color corrections while preserving unrelated blip effects', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    setShapeImageBrightness(picture, 0.2);
+    setShapeImageContrast(picture, 0.3);
+    const blipFill = firstChildElement(picture[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml))!;
+    const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml))!;
+    blip.children.push(
+      elem(qname('a', 'grayscl', NS.dml)),
+      elem(qname('a', 'duotone', NS.dml), {
+        children: [
+          elem(qname('a', 'srgbClr', NS.dml), { attrs: [attr(qname('', 'val', ''), 'FF0000')] }),
+          elem(qname('a', 'srgbClr', NS.dml), { attrs: [attr(qname('', 'val', ''), '0000FF')] }),
+        ],
+      }),
+      elem(qname('a', 'biLevel', NS.dml), {
+        attrs: [attr(qname('', 'thresh', ''), '50000')],
+      }),
+      elem(qname('a', 'alphaModFix', NS.dml), {
+        attrs: [attr(qname('', 'amt', ''), '75000')],
+      }),
+      elem(qname('a', 'extLst', NS.dml), {
+        children: [
+          elem(qname('a', 'ext', NS.dml), {
+            attrs: [attr(qname('', 'uri', ''), '{00000000-0000-0000-0000-000000000001}')],
+          }),
+        ],
+      }),
+    );
+
+    resetShapeImageColorEffects(picture);
+
+    expect(getShapeImageBrightness(picture)).toBeNull();
+    expect(getShapeImageContrast(picture)).toBeNull();
+    const xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).not.toContain('<a:grayscl');
+    expect(xml).not.toContain('<a:duotone');
+    expect(xml).not.toContain('<a:biLevel');
+    expect(xml).toContain('<a:alphaModFix');
+    expect(xml).toContain('<a:extLst');
+
+    const restored = await loadPresentation(await savePresentation(pres));
+    const restoredPicture = getSlideShapes(getSlides(restored)[0]!).find(
+      (s) => getShapeKind(s) === 'picture',
+    )!;
+    expect(getShapeImageOpacity(restoredPicture)).toBeCloseTo(0.75);
+    const restoredXml = getSlideXmlString(getSlides(restored)[0]!);
+    expect(restoredXml).not.toContain('<a:biLevel');
+    expect(restoredXml).toContain('<a:extLst');
   });
 });

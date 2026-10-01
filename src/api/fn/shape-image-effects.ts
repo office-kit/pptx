@@ -599,6 +599,30 @@ export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
 export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'bright');
 
+// Mac PowerPoint's Video pane Reset clears these recolor/correction effects;
+// its ribbon Reset also clears shape formatting, which this operation preserves.
+const IMAGE_COLOR_EFFECT_NAMES = new Set(['grayscl', 'duotone', 'biLevel', 'lum']);
+
+/**
+ * Clears PowerPoint's image color corrections from a picture or image fill.
+ * This removes grayscale (`grayscl`), duotone, bi-level recolor, and
+ * brightness/contrast (`lum`) effects while preserving opacity, media
+ * references, and all other known or extension effects.
+ */
+export const resetShapeImageColorEffects = (shape: SlideShapeData): void => {
+  const blip = getImageOpacityBlip(shape);
+  if (!blip) {
+    throw new Error('resetShapeImageColorEffects requires a picture or a shape with an image fill');
+  }
+  blip.children = blip.children.filter(
+    (child) =>
+      child.kind !== 'element' ||
+      child.name.namespaceURI !== NS.dml ||
+      !IMAGE_COLOR_EFFECT_NAMES.has(child.name.localName),
+  );
+  commitAndRefresh(shape);
+};
+
 /**
  * Sets picture or image-fill opacity (0–1; `1` is fully opaque).
  * Pass `null` to restore PowerPoint's default opacity.

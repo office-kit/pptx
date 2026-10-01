@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 191,
+  "count": 192,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1075,6 +1075,16 @@
           "optional": false
         }
       ]
+    },
+    {
+      "id": "resetShapeImageColorEffects",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
     },
     {
       "id": "resetSlideLayout",

@@ -290,6 +290,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
     labelEn: 'Reset placeholder positions',
     labelJa: 'プレースホルダーの配置を戻す',
   },
+  resetShapeImageColorEffects: {
+    labelEn: 'Reset picture color',
+    labelJa: '図の色をリセット',
+    category: 'image',
+  },
   addSlide: { labelEn: 'New slide from layout', labelJa: 'レイアウトからスライドを追加' },
   addSlideAt: { labelJa: '指定位置にスライドを追加' },
   addSlideChart: { labelJa: 'グラフの挿入' },
