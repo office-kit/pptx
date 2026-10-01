@@ -226,16 +226,46 @@ test(
 
       await editor.locator('.hit').first().click();
       await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      const background = editor.getByRole('button', { name: 'Play in Background', exact: true });
+      assert.equal(await background.count(), 1);
+      await editor.getByLabel('Volume', { exact: true }).fill('25');
+      await editor.getByLabel('Volume', { exact: true }).press('Tab');
+      await editor.getByLabel('Rewind After Playing', { exact: true }).check();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await background.click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const backgroundPlayback = await readPlayback(0);
+      assert.equal(backgroundPlayback.autoplay, true);
+      assert.equal(backgroundPlayback.slideCount, 999);
+      assert.equal(backgroundPlayback.loop, true);
+      assert.equal(backgroundPlayback.hideWhenStopped, true);
+      assert.equal(backgroundPlayback.rewindAfterPlaying, true);
+      assert.equal(backgroundPlayback.volume, 0.25);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const undoneBackground = await readPlayback(0);
+      assert.equal(undoneBackground.autoplay, false);
+      assert.equal(undoneBackground.slideCount, undefined);
+      assert.equal(undoneBackground.loop, false);
+      assert.equal(undoneBackground.hideWhenStopped, false);
+      assert.equal(undoneBackground.rewindAfterPlaying, true);
+      assert.equal(undoneBackground.volume, 0.25);
+      await background.click();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await page.reload();
+      await editor.getByText('Saved to this project', { exact: true }).waitFor();
+      await editor.locator('.hit').first().click();
+      await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
+      assert.equal(
+        await editor.getByRole('button', { name: 'Play in Background', exact: true }).count(),
+        1,
+      );
       const across = editor.getByLabel('Play Across Slides', { exact: true });
       assert.equal(await across.count(), 1);
-      assert.equal(await across.isChecked(), false);
+      assert.equal(await across.isChecked(), true);
       assert.equal(await editor.getByLabel('Play Full Screen', { exact: true }).count(), 0);
 
-      await across.check();
-      await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      assert.equal((await readPlayback(0)).slideCount, 999);
-
-      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await across.uncheck();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.equal((await readPlayback(0)).slideCount, undefined);
 
@@ -257,11 +287,19 @@ test(
       const acrossJapanese = editor.getByLabel('スライド切り替え後も再生', { exact: true });
       assert.equal(await acrossJapanese.count(), 1);
       assert.equal(await acrossJapanese.isChecked(), true);
+      assert.equal(
+        await editor.getByRole('button', { name: 'バックグラウンドで再生', exact: true }).count(),
+        1,
+      );
 
       await editor.getByRole('button', { name: 'スライド 2', exact: true }).click();
       await editor.locator('.hit').first().click();
       await editor.getByRole('tab', { name: '再生', exact: true }).click();
       assert.equal(await editor.getByLabel('スライド切り替え後も再生', { exact: true }).count(), 0);
+      assert.equal(
+        await editor.getByRole('button', { name: 'バックグラウンドで再生', exact: true }).count(),
+        0,
+      );
     } finally {
       await browser?.close();
       await preview?.close();

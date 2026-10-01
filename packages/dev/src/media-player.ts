@@ -74,6 +74,10 @@ export function createMediaPlayer(options: {
       if (value !== null) host.setAttribute(name, value);
     }
     host.dataset.pptxMedia = String(clip.shapeId);
+    // PowerPoint's audio "Hide During Show" also hides the playing clip;
+    // video becomes visible during playback.
+    const hiddenAudio = clip.kind === 'audio' && clip.playback?.hideWhenStopped;
+    if (hiddenAudio) host.style.visibility = 'hidden';
     const box = document.createElementNS(HTML_NS, 'div');
     box.style.cssText = 'position:relative;width:100%;height:100%;';
     const fullScreen = clip.kind === 'video' && clip.playback?.fullScreen;
@@ -120,7 +124,7 @@ export function createMediaPlayer(options: {
     const playLocally = async () => {
       cancelStart();
       status.hidden = true;
-      host.style.visibility = '';
+      host.style.visibility = hiddenAudio ? 'hidden' : '';
       if (overlay) {
         overlay.hidden = false;
         if (start) start.hidden = true;
@@ -135,6 +139,8 @@ export function createMediaPlayer(options: {
           error instanceof DOMException && error.name === 'NotAllowedError'
             ? playLabel
             : retryLabel;
+        // Keep a way to recover when the browser blocks automatic playback.
+        host.style.visibility = '';
         status.hidden = false;
       }
     };
@@ -228,7 +234,7 @@ export function createMediaPlayer(options: {
         }
         if (!mirror && name === 'ended' && clip.playback?.hideWhenStopped)
           host.style.visibility = 'hidden';
-        if (!mirror && name === 'play') host.style.visibility = '';
+        if (!mirror && name === 'play') host.style.visibility = hiddenAudio ? 'hidden' : '';
         if (overlay) {
           const returnFocus = name === 'ended' && overlay.contains(document.activeElement);
           if (!mirror) overlay.hidden = name === 'ended';

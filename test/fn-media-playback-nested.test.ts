@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { expectSchemaValid, isSchemaValidationAvailable } from './lib/expect-schema-valid.ts';
 import {
@@ -142,6 +143,85 @@ describe('nested media playback timing', () => {
     expect(slideXml(pres)).toContain('delay="250"');
     expect(slideXml(pres)).toContain('fill="remove"');
     expect(getShapeMediaPlayback(shape)).toMatchObject({ rewindAfterPlaying: true });
+  });
+
+  it('recognizes native Play in Background command timing without rewriting it', async () => {
+    const { pres } = await nestedDeck({}, {});
+    const part = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const timing = await readFile(
+      new URL('./fixtures/native-media-background-timing.xml', import.meta.url),
+      'utf8',
+    );
+    part.data = new TextEncoder().encode(
+      new TextDecoder().decode(part.data).replace(/<p:timing[\s\S]*?<\/p:timing>/, timing),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const loadedShape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+
+    expect(getShapeMediaPlayback(loadedShape)).toMatchObject({
+      autoplay: true,
+      loop: true,
+      slideCount: 999,
+      hideWhenStopped: true,
+    });
+    setShapeMediaPlayback(loadedShape, { autoplay: true, volume: 0.25 });
+    expect(getShapeMediaPlayback(loadedShape)).toMatchObject({ autoplay: true, volume: 0.25 });
+    const before = slideXml(loaded);
+    expect(() => setShapeMediaPlayback(loadedShape, { autoplay: false })).toThrow(
+      /background media timing/,
+    );
+    expect(slideXml(loaded)).toBe(before);
+    expect(() => setShapeMediaPlayback(loadedShape, { delayMs: 250 })).toThrow(
+      /background media timing/,
+    );
+    expect(slideXml(loaded)).toBe(before);
+  });
+
+  it.each([
+    ['a nonzero playFrom offset', (xml: string) => xml.replace('playFrom(0.0)', 'playFrom(5.0)')],
+    [
+      'duplicate playFrom commands',
+      (xml: string) => xml.replace(/(<p:cmd type="call"[\s\S]*?<\/p:cmd>)/, '$1$1'),
+    ],
+    [
+      'a delayed intermediary group',
+      (xml: string) =>
+        xml.replace('<p:cond delay="0"/></p:stCondLst>', '<p:cond delay="100"/></p:stCondLst>'),
+    ],
+    [
+      'a referenced intermediary condition',
+      (xml: string) =>
+        xml.replace(
+          '<p:cond delay="0"/></p:stCondLst>',
+          '<p:cond delay="0"><p:tn val="9"/></p:cond></p:stCondLst>',
+        ),
+    ],
+    [
+      'a later main-sequence group',
+      (xml: string) =>
+        xml.replace(
+          '<p:childTnLst>\n                <p:par>',
+          '<p:childTnLst>\n                <p:par><p:cTn id="8"><p:stCondLst><p:cond delay="0"/></p:stCondLst></p:cTn></p:par>\n                <p:par>',
+        ),
+    ],
+  ])('keeps %s out of automatic playback recognition', async (_name, transform) => {
+    const { pres } = await nestedDeck({}, {});
+    const part = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const timing = await readFile(
+      new URL('./fixtures/native-media-background-timing.xml', import.meta.url),
+      'utf8',
+    );
+    part.data = new TextEncoder().encode(
+      new TextDecoder()
+        .decode(part.data)
+        .replace(/<p:timing[\s\S]*?<\/p:timing>/, transform(timing)),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const loadedShape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+    expect(getShapeMediaPlayback(loadedShape)?.autoplay).toBe(false);
+    expect(() => setShapeMediaPlayback(loadedShape, { autoplay: true })).toThrow(
+      /command timing is unsupported/,
+    );
   });
 
   it('converts its own manual start while retaining an automatic parent delay', async () => {

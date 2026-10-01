@@ -76,6 +76,7 @@
         <span>{t('Mute')}</span>
       </label>
       {#if selected.media.kind === 'audio'}
+        <button class="action" type="button" aria-label={t('Play in Background')} onclick={() => apply('Play in Background', { autoplay: true, slideCount: acrossSlidesCount, loop: true, hideWhenStopped: true })}>{t('Play in Background')}</button>
         <label class="check">
           <input type="checkbox" checked={(selected.playback.slideCount ?? 1) > 1} onchange={(event) => apply('Play Across Slides', { slideCount: event.currentTarget.checked ? acrossSlidesCount : 1 })} />
           <span>{t('Play Across Slides')}</span>
@@ -123,6 +124,7 @@
   .number { display: flex; align-items: center; gap: 3px; }
   .number input { width: 52px; min-width: 0; padding: 2px 4px; }
   .check { max-width: 125px; }
+  .action { padding: 3px 6px; border: 1px solid var(--ok-border); border-radius: 3px; background: var(--ok-surface, transparent); color: var(--ok-text); font: inherit; font-size: 11px; white-space: nowrap; }
   .check input { margin: 0; }
   .check span { white-space: normal; }
   .error { color: var(--ok-danger, #b42318); font-size: 11px; padding-top: 3px; }
