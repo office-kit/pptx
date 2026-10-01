@@ -152,12 +152,53 @@ export const mediaTimingNodes = (timing: XmlElement): XmlElement[] => {
   );
 };
 
-/** The media node targeting `spid`, or null when the slide has none. */
-export const findMediaTimingNode = (slide: SlideData, spid: number): XmlElement | null => {
+/** A media node together with every enclosing time-node `<p:cTn>`. */
+export interface MediaTimingPath {
+  readonly node: XmlElement;
+  /** cTns enclosing the media node, excluding its own cTn. */
+  readonly ancestors: ReadonlyArray<XmlElement>;
+  readonly hasDependentTimingAncestor: boolean;
+  readonly duplicateTarget: boolean;
+}
+
+/** Finds media anywhere in the timing tree without changing root-only callers. */
+export const findMediaTimingNodeWithAncestors = (
+  slide: SlideData,
+  spid: number,
+): MediaTimingPath | null => {
   const timing = findSlideTiming(slide);
   if (timing === null) return null;
-  for (const node of mediaTimingNodes(timing)) {
-    if (mediaTimingNodeTarget(node) === spid) return node;
-  }
-  return null;
+  const result: { first: MediaTimingPath | null } = { first: null };
+  let matchCount = 0;
+  const walk = (
+    element: XmlElement,
+    cTns: ReadonlyArray<XmlElement>,
+    hasDependentTimingAncestor: boolean,
+  ): void => {
+    const nextCtns =
+      element.name.namespaceURI === NS.pml && element.name.localName === 'cTn'
+        ? [...cTns, element]
+        : cTns;
+    const dependent =
+      hasDependentTimingAncestor ||
+      (element.name.namespaceURI === NS.pml &&
+        ['seq', 'excl', 'subTnLst'].includes(element.name.localName));
+    if (isMediaTimingNode(element) && mediaTimingNodeTarget(element) === spid) {
+      matchCount++;
+      if (result.first === null) {
+        result.first = {
+          node: element,
+          ancestors: nextCtns,
+          hasDependentTimingAncestor: dependent,
+          duplicateTarget: false,
+        };
+      }
+    }
+    for (const child of element.children) {
+      if (child.kind !== 'element') continue;
+      walk(child, nextCtns, dependent);
+    }
+  };
+  walk(timing, [], false);
+  return result.first === null ? null : { ...result.first, duplicateTarget: matchCount > 1 };
 };

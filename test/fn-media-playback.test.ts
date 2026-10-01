@@ -222,12 +222,18 @@ describe('media playback', () => {
     });
   });
 
-  it('refuses a volume outside the range, before changing anything', () => {
-    const { shape } = deckWith('video');
-
-    expect(() => setShapeMediaPlayback(shape, { volume: 1.5 })).toThrow(/between 0 and 1/);
-    expect(getShapeMediaPlayback(shape)?.volume).toBe(0.8);
-  });
+  it.each([1.5, -0.1, NaN, Infinity, -Infinity])(
+    'refuses invalid volume %s before changing anything',
+    (volume) => {
+      const { pres, shape } = deckWith('video');
+      const before = slideXml(pres);
+      expect(() => setShapeMediaPlayback(shape, { volume, muted: true })).toThrow(
+        /between 0 and 1/,
+      );
+      expect(slideXml(pres)).toBe(before);
+      expect(getShapeMediaPlayback(shape)?.volume).toBe(0.8);
+    },
+  );
 
   it('refuses full screen on an audio clip, which has no such attribute', () => {
     const { shape } = deckWith('audio');

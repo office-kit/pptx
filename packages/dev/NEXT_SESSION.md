@@ -1,3 +1,13 @@
+## 2026-10-02: 入れ子メディアの再生設定
+
+- 入れ子のaudio/videoを再生リボンと既存APIで認識。単純な並列グループの親遅延を合算し、総遅延の編集ではメディア自身の遅延のみ変更する。音量・ミュート・繰り返し・停止時非表示は親条件を保持。
+- seq/excl/subTnLst、masterRel、参照開始条件はスライド開始時の自動再生と誤判定しない。対応できない開始変更や重複メディア対象は変更前に拒否する。これらのタイミングを実際に再生・編集する完全対応は残件。
+- 非有限の音量入力も変更前に拒否。CIのNodeテストで不足していたxmllintをインストールするよう変更。既存Preview fidelity失敗（05-preset-shapes、slide1）は未解決で、基準値は変更していない。
+- 回帰再現: `/tmp/pptx-nested-browser-before.log`、`/tmp/pptx-media-volume-before.log`、`/tmp/pptx-subordinate-before.log`、`/tmp/pptx-media-reference-before.log`。最終対象ユニット46件成功。
+- 最終ブラウザー4/4成功（`/tmp/pptx-nested-final-browser.log`）。直接/入れ子の音声・動画についてUndo、保存、再読込、日英表示を確認。
+- 最終format/lint/typecheck/test/buildと依存順dev build成功。3150 passed / 109 skipped（`/tmp/pptx-nested-gates-final.log`、`/tmp/pptx-nested-build-final.log`）。
+- PowerPoint実機は再試行したがscreen capture 0×0で取得失敗。実機の変更なし、復元待ちなし。元のユーザープレビューも変更・再読み込みしていない。全体の完全一致は未達成。
+
 ## 2026-10-02: アニメーション削除時の入れ子メディア保持
 
 - 最終format/lint/root typecheck/test/build成功。3128 passed / 109 skipped、依存順dev build成功。ログ `/tmp/pptx-clear-nested-gates.log`、`/tmp/pptx-clear-nested-tests.log`、`/tmp/pptx-clear-nested-dev-build.log`。
