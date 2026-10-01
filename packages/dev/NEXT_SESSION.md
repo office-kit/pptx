@@ -1,3 +1,10 @@
+## 2026-10-02: 複数スライド音声の再生リボンと実機確認
+
+- 音声の再生リボンに Play Across Slides / スライド切り替え後も再生を追加。ONで999枚、OFFで既定の1枚。既存の有限範囲はチェック状態として読み取り、他のオプションを操作しても保持。詳細の再生オプションでもslideCountを編集可能。
+- Mac PowerPointの接続が復旧。以前の `pptx-native-wrap-oct2` アクセス要求2件をキャンセルし、専用の `/tmp/pptx-audio-across-audit/deck.tsx` をDSLで生成して比較。PowerPointのPlaybackタブのチェックを入れて保存すると `p:cMediaNode vol="80000" numSld="999"`、外して保存するとnumSld属性なしとなることをZIP内XMLで確認。サンプルはOFFで保存して閉じた。ユーザー文書の変更なし。
+- 旧ビルドでチェックボックスが存在せず回帰テスト失敗を確認（`/tmp/pptx-across-ui-regression.log`）。format/lint、Svelte 0 errors/warnings、site117件、依存順dev build成功。ブラウザー6/6成功（直接/入れ子の音声・動画、複数スライド設定のUndo/保存/再読込/日本語/動画非表示、ヘッダー）。最終ログは `/tmp/pptx-across-ui-final.log`。
+- 未完了: 実機のStartにある追加選択肢、Rewind After Playing、Play in Background、トリム・フェード・ブックマーク、入れ子の複雑な開始条件、Latin単語折返しのfidelity差分など。接続が使える間に実機比較を進める。全操作の完全一致は未達成。
+
 ## 2026-10-02: スライドをまたぐ音声再生
 
 - 再生中の音声を `slideCount` の範囲内で保持し、範囲外・元スライドへの戻り・ショー終了・メディア更新時に破棄する。同じshapeIdを持つ次スライドのメディアとは分離し、発表者ビューの古いコマンドを世代キーで拒否。

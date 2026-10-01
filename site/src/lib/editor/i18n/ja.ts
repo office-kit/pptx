@@ -532,6 +532,7 @@ export const ja: Record<string, string> = {
   Playback: '再生',
   'Delay must be a whole number of milliseconds': '遅延はミリ秒単位の整数で指定してください',
   Timing: 'タイミング',
+  'Play Across Slides': 'スライド切り替え後も再生',
   'Play Full Screen': '全画面再生',
   Volume: '音量',
   'Start delay': '開始の遅延',

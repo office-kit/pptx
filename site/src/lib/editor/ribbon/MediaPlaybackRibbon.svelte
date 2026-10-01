@@ -8,6 +8,8 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
+  // Mac PowerPoint writes numSld=999 when Play Across Slides is enabled.
+  const acrossSlidesCount = 999;
   const editor = getEditor();
   const doc = editor.doc;
   let error = $state('');
@@ -73,6 +75,12 @@
         <input type="checkbox" checked={selected.playback.muted} onchange={(event) => apply('Mute', { muted: event.currentTarget.checked })} />
         <span>{t('Mute')}</span>
       </label>
+      {#if selected.media.kind === 'audio'}
+        <label class="check">
+          <input type="checkbox" checked={(selected.playback.slideCount ?? 1) > 1} onchange={(event) => apply('Play Across Slides', { slideCount: event.currentTarget.checked ? acrossSlidesCount : 1 })} />
+          <span>{t('Play Across Slides')}</span>
+        </label>
+      {/if}
       {#if selected.media.kind === 'video'}
         <label class="check">
           <input type="checkbox" checked={selected.playback.fullScreen} onchange={(event) => apply('Play Full Screen', { fullScreen: event.currentTarget.checked })} />
