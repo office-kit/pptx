@@ -37,6 +37,8 @@
         { label: 'Paste', accel: '⌘V', run: actions.paste, sep: true },
         { label: 'Promote', run: actions.promote, disabled: !actions.canPromote },
         { label: 'Demote', run: actions.demote, disabled: !actions.canDemote },
+        { label: 'Move Up', run: actions.moveUp, disabled: !actions.canMoveUp },
+        { label: 'Move Down', run: actions.moveDown, disabled: !actions.canMoveDown },
       );
     } else if (doc.selection.kind === 'cell') {
       list.push(
