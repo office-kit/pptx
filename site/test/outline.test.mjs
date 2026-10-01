@@ -117,3 +117,47 @@ test('promotes mixed root and nested paragraphs like Mac PowerPoint and preserve
   assert.equal(getParagraphLevel(moved, 1), 0);
   assert.equal(getShapeText(body), 'First');
 });
+
+test('demotes a title and body into the previous slide while preserving paragraph levels and links', async () => {
+  const { demoteOutlineTitle } = await import('../src/lib/editor/core/outline.ts');
+  const pres = createPresentation();
+  const layout = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  const first = addSlide(pres, { layout });
+  const second = addSlide(pres, { layout });
+  const [firstTitle, firstBody] = getSlideShapes(first);
+  const [secondTitle, secondBody] = getSlideShapes(second);
+  setShapeText(firstTitle, 'First title');
+  setShapeText(firstBody, 'Existing body');
+  setShapeText(secondTitle, 'Second title');
+  setShapeText(secondBody, 'Child\nNested');
+  setParagraphLevel(secondBody, 1, 2);
+  setShapeRunHyperlink(secondTitle, 0, 0, 'https://example.com/heading');
+  assert.equal(demoteOutlineTitle(pres, first), null);
+  assert.equal(demoteOutlineTitle(pres, second), firstBody);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const slides = getSlides(loaded);
+  assert.equal(slides.length, 1);
+  const [title, body] = getSlideShapes(slides[0]);
+  assert.equal(getShapeText(title), 'First title');
+  assert.equal(getShapeText(body), 'Existing body\nSecond title\nChild\nNested');
+  assert.equal(getParagraphLevel(body, 3), 2);
+  assert.equal(getShapeRunHyperlink(body, 1, 0), 'https://example.com/heading');
+});
+
+test('rejects demotion with additional slide objects before changing either slide', async () => {
+  const { demoteOutlineTitle } = await import('../src/lib/editor/core/outline.ts');
+  const pres = createPresentation();
+  const layout = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  const first = addSlide(pres, { layout });
+  const second = addSlide(pres, { layout });
+  const body = getSlideShapes(first)[1];
+  setShapeText(body, 'Kept');
+  addSlideTextBox(second, { x: 0, y: 0, w: 914400, h: 914400, text: 'Additional object' });
+  assert.throws(() => demoteOutlineTitle(pres, second), /additional objects/);
+  assert.equal(getShapeText(body), 'Kept');
+  assert.equal(getSlides(pres).length, 2);
+});

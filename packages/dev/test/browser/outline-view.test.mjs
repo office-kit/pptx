@@ -124,6 +124,15 @@ for (const locale of ['en', 'ja'])
         assert.equal(await body.inputValue(), 'First point\nSecond point');
         await change(() => body.press('Control+Shift+z'));
         assert.equal(await promotedTitle.inputValue(), 'Second point');
+        await change(() => promotedTitle.press('Tab'));
+        assert.equal(getSlides(await read()).length, 1);
+        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        assert.equal(
+          await body.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+        );
+        await change(() => body.press('Control+z'));
+        assert.equal(await promotedTitle.inputValue(), 'Second point');
         await change(() => promotedTitle.press('Control+z'));
         await body.focus();
         await body.evaluate((node) => node.setSelectionRange(0, 24));

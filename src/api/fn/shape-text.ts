@@ -853,13 +853,16 @@ export const setShapeTextFormat = (
  * Pass an array of targets and `{ source, ranges }` to distribute ranges in one
  * batch. All ranges are read before any target changes, including when the source
  * is a target. Each target must have a corresponding range.
+ * Pass `{ sources }` to concatenate complete paragraph sequences in order,
+ * preserving fields, paragraph properties and relationships across slides.
  * Target body properties and list styles remain unchanged.
  */
 export function setShapeParagraphs(
   shape: SlideShapeData,
   paragraphs:
     | ReadonlyArray<ParagraphSpec>
-    | { source: SlideShapeData; range?: { start: number; end: number } },
+    | { source: SlideShapeData; range?: { start: number; end: number } }
+    | { sources: ReadonlyArray<SlideShapeData> },
 ): void;
 export function setShapeParagraphs(
   shapes: ReadonlyArray<SlideShapeData>,
@@ -870,6 +873,7 @@ export function setShapeParagraphs(
   paragraphs:
     | ReadonlyArray<ParagraphSpec>
     | { source: SlideShapeData; range?: { start: number; end: number } }
+    | { sources: ReadonlyArray<SlideShapeData> }
     | { source: SlideShapeData; ranges: ReadonlyArray<{ start: number; end: number }> },
 ): void {
   if ('ranges' in paragraphs) {
@@ -901,7 +905,30 @@ export function setShapeParagraphs(
   }
   if (!(SHAPE_SLIDE in shape)) throw new TypeError('batch targets require paragraph ranges');
   const target = requireTxBody(shape);
-  if ('source' in paragraphs) {
+  if ('sources' in paragraphs) {
+    if (!paragraphs.sources.length) throw new RangeError('paragraph sources must not be empty');
+    const groups = new Map<SlideShapeData[typeof SHAPE_SLIDE], XmlElement>();
+    const copies = Array.from(paragraphs.sources, (source) => {
+      const body = requireTxBody(source);
+      const copied = elem(NAME_TX_BODY, {
+        children: copyTextBodyRange(body, { start: 0, end: textBodyText(body).length }),
+      });
+      const slide = source[SHAPE_SLIDE];
+      let group = groups.get(slide);
+      if (!group) {
+        group = elem(NAME_TX_BODY);
+        groups.set(slide, group);
+      }
+      group.children.push(copied);
+      return copied;
+    });
+    for (const [slide, copied] of groups)
+      copyShapeRelationships(slide, shape[SHAPE_SLIDE], copied, 'setShapeParagraphs');
+    replaceParagraphChildren(
+      target,
+      copies.flatMap((copy) => copy.children),
+    );
+  } else if ('source' in paragraphs) {
     const source = requireTxBody(paragraphs.source);
     const range = paragraphs.range ?? { start: 0, end: textBodyText(source).length };
     const copied = elem(NAME_TX_BODY, { children: copyTextBodyRange(source, range) });

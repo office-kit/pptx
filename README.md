@@ -616,6 +616,8 @@ import { setShapeParagraphs } from '@office-kit/pptx';
 
 setShapeParagraphs(destination, { source });
 setShapeParagraphs(destination, { source, range: { start: 6, end: 12 } });
+// Append whole paragraphs without flattening formatting, fields or hyperlinks.
+setShapeParagraphs(destination, { sources: [destination, source] });
 setShapeParagraphs([first, second], {
   source,
   ranges: [

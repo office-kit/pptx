@@ -2,9 +2,11 @@
   import { onDestroy, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { outlineShapes, promoteOutlineBody } from '../core/outline.ts';
+  import { outlineShapes, promoteOutlineBody, demoteOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
-  import { replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
+  import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
+  import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
+  import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { slideIndex, shapeId, title }: { slideIndex: number; shapeId: number; title: boolean } = $props();
@@ -42,14 +44,56 @@
     clearTimeout(timer);
     if (!composing) timer = setTimeout(commit, 600);
   }
+  function replaceSelection(text: string, formats?: TextEdit['formats']) {
+    rememberRange();
+    const { start, end } = range;
+    changes.push({ start, end, text, formats });
+    value = value.slice(0, start) + text + value.slice(end);
+    // Update the native value and selection together, before another input event.
+    input.value = value;
+    input.setSelectionRange(start + text.length, start + text.length);
+    rememberRange();
+    clearTimeout(timer);
+    timer = setTimeout(commit, 600);
+  }
+  function copy(event: ClipboardEvent, cut = false) {
+    if (!event.clipboardData || composing) return;
+    rememberRange();
+    if (range.start === range.end) return;
+    const shape = doc.shapeById(slideIndex, shapeId)!;
+    const copied = copyTextRange(projectTextEdits(shape, changes), range.start, range.end);
+    event.clipboardData.setData('text/plain', copied.text);
+    event.clipboardData.setData('text/html', textClipboardHtml(copied));
+    event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify(copied));
+    event.preventDefault(); event.stopPropagation();
+    if (cut) replaceSelection('');
+  }
+  function paste(event: ClipboardEvent) {
+    if (!event.clipboardData || composing) return;
+    const plain = event.clipboardData.getData('text/plain');
+    const copied = parseTextClipboard(event.clipboardData.getData(TEXT_CLIPBOARD_TYPE), plain)
+      ?? parseHtmlTextClipboard(event.clipboardData.getData('text/html'), plain);
+    if (!copied) return;
+    event.preventDefault(); event.stopPropagation();
+    replaceSelection(copied.text, copied.formats);
+  }
   async function changeLevel(promote: boolean) {
     rememberRange(); commit();
     const source = doc.shapeById(slideIndex, shapeId)!;
     const ownerDocument = input.ownerDocument;
     let focusIndex = slideIndex;
-    if (promote || getParagraphLevel(source, range).some(level => level < 8)) {
+    let focusBody = false;
+    if (title && (promote || slideIndex === 0)) return;
+    if (title || promote || getParagraphLevel(source, range).some(level => level < 8)) {
       try { doc.transact(t(promote ? 'Promote' : 'Demote'), () => {
-        if (promote) {
+        if (title) {
+          const target = demoteOutlineTitle(doc.pres, slide);
+          if (target) {
+            focusIndex = slideIndex - 1;
+            focusBody = true;
+            doc.selectSlide(focusIndex);
+          }
+        } else if (promote) {
           const added = promoteOutlineBody(doc.pres, slide, source, range);
           if (added.length) {
             focusIndex = getSlides(doc.pres).indexOf(added[0]!);
@@ -59,16 +103,17 @@
       }); } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
     }
     await tick();
-    if (focusIndex !== slideIndex) ownerDocument.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${focusIndex}"] textarea`)?.focus();
+    if (focusIndex !== slideIndex) ownerDocument.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${focusIndex}"] textarea${focusBody ? ':not(.title)' : ''}`)?.focus();
     else input?.focus();
   }
   function context(event: MouseEvent) {
-    if (title) return;
     event.preventDefault(); event.stopPropagation();
     rememberRange(); commit();
     editor.openContextMenu(event.clientX, event.clientY, 'outline', {
       promote: () => { void changeLevel(true); },
       demote: () => { void changeLevel(false); },
+      canPromote: !title,
+      canDemote: !title || slideIndex > 0,
     });
   }
   async function keys(event: KeyboardEvent) {
@@ -79,7 +124,7 @@
       await (event.shiftKey || event.key.toLowerCase() === 'y' ? doc.redo() : doc.undo());
     } else if (mod && event.key.toLowerCase() === 's') commit();
     else if (event.key === 'Escape') { commit(); input.blur(); }
-    else if (event.key === 'Tab' && !mod && !event.altKey && !title) {
+    else if (event.key === 'Tab' && !mod && !event.altKey) {
       event.preventDefault(); event.stopPropagation();
       await changeLevel(event.shiftKey);
     }
@@ -127,7 +172,7 @@
   onDestroy(() => untrack(commit));
 </script>
 
-<textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={event => rememberRange(event.currentTarget)} onselect={event => rememberRange(event.currentTarget)} oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
+<textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={event => rememberRange(event.currentTarget)} onselect={event => rememberRange(event.currentTarget)} oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context} oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
 
 <style>
   textarea { display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 23px; padding: 2px 4px; border: 0; outline: none; color: var(--ok-text); background: transparent; font: 14px/1.4 Arial, sans-serif; }

@@ -77,7 +77,12 @@ export interface Toast {
 
 export interface ContextMenuState {
   readonly source?: 'outline';
-  readonly outlineText?: { promote: () => void; demote: () => void };
+  readonly outlineText?: {
+    promote: () => void;
+    demote: () => void;
+    canPromote: boolean;
+    canDemote: boolean;
+  };
   readonly x: number;
   readonly y: number;
 }
