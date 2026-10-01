@@ -1,3 +1,10 @@
+## 2026-10-02: トリム精度とブックマーク実測
+
+- トリムスライダーの step=50 による既存時刻の丸めを修正。step=any で小数時刻と非50ms倍数の終端を保持し、ドラッグ・矢印キーだけ50ms移動。Home/End、逆向きフェードアウトキー、反対側端点のクランプも検証。
+- 5033ms音声のブラウザー回帰で修正前の失敗を確認。修正後は500.25ms開始・250.125msフェードの保存/再読込/Undo、全ハンドルのドラッグ、再生終了・再開、日英ヘッダーが成功。ログ `/tmp/pptx-trim-precision-before.log`、`/tmp/pptx-precision-final-browser.log`。dev build/typecheck、Svelte0 errors/warningsも成功。
+- PowerPoint接続使用可。専用 `/tmp/pptx-audio-across-audit/converted-auto.pptx` でAdd Bookmarkを実測。2件はname="Bookmark 1" time="0"、name="Bookmark 2" time="6747.0924"。画面時刻0:06.74。選択中は黄色丸、未選択は白丸。Add/Removeの有効状態も記録。2回Undo・保存でブックマークなしに復元しXMLも確認。保留の一時変更なし。
+- Bookmark core とインラインプレビューUIは別agentが継続中。未コミット差分を消さず、coreの参照保護・並べ替えテストとUI検証を完了してから統合する。
+
 ## 2026-10-02: 統合トリムタイムライン
 
 - 開始・終端・再生位置・フェードを共通時間軸に配置。黄色のトリム、白のフェード、青の再生位置ハンドルをドラッグ/キーボード操作できる。実音声をオフラインでデコードして波形表示。対応しないコンテナは波形不可の表示にする。

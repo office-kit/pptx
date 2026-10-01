@@ -16,7 +16,7 @@ import {
   savePresentation,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
-const wav = (durationMs = 5000) => {
+const wav = (durationMs = 5033) => {
   const sampleRate = 8000;
   const samples = Math.floor((sampleRate * durationMs) / 1000);
   const bytes = new Uint8Array(44 + samples * 2);
@@ -107,6 +107,24 @@ test(
       assert.ok((await waveform.boundingBox()).width > (await dialog.boundingBox()).width / 2);
       const trace = await waveform.locator('path').getAttribute('d');
       assert.notEqual(trace.slice(0, trace.indexOf('M1 ')), 'M0 24V24');
+      const mediaDuration = Number(
+        await dialog.getByLabel('Start Trim', { exact: true }).getAttribute('max'),
+      );
+      assert.ok(mediaDuration > 5000 && mediaDuration % 50 !== 0);
+      assert.equal(
+        Number(await dialog.getByLabel('End Trim', { exact: true }).inputValue()),
+        mediaDuration,
+      );
+      await dialog.getByLabel('Start Trim', { exact: true }).fill('4999');
+      assert.equal(
+        Number(await dialog.getByLabel('Start Trim', { exact: true }).inputValue()),
+        mediaDuration - 50,
+      );
+      await dialog.getByLabel('End Trim', { exact: true }).fill('100');
+      assert.equal(
+        Number(await dialog.getByLabel('End Trim', { exact: true }).inputValue()),
+        mediaDuration,
+      );
       await dialog.getByLabel('Start Trim', { exact: true }).fill('500');
       await dialog.getByLabel('End Trim', { exact: true }).fill('4000');
       const dragHandle = async (label, from, to, min, max, reversed = false) => {
@@ -124,14 +142,24 @@ test(
         await page.mouse.up();
         assert.equal(Number(await control.inputValue()), to, label);
       };
-      await dragHandle('Start Trim', 500, 1000, 0, 5000);
-      await dragHandle('End Trim', 4000, 4500, 0, 5000);
+      await dragHandle('Start Trim', 500, 1000, 0, mediaDuration);
+      await dragHandle('End Trim', 4000, 4500, 0, mediaDuration);
       await dragHandle('Fade In', 0, 500, 0, 3500);
       await dragHandle('Fade Out', 0, 500, 0, 3500, true);
+      const fadeOut = dialog.getByLabel('Fade Out', { exact: true });
+      await fadeOut.press('ArrowLeft');
+      assert.equal(await fadeOut.inputValue(), '550');
+      await fadeOut.press('ArrowRight');
+      assert.equal(await fadeOut.inputValue(), '500');
+      await fadeOut.press('End');
+      assert.equal(await fadeOut.inputValue(), '3500');
+      await fadeOut.press('Home');
+      assert.equal(await fadeOut.inputValue(), '0');
+
       const current = Number(
         await dialog.getByLabel('Current Position', { exact: true }).inputValue(),
       );
-      await dragHandle('Current Position', current, 2000, 0, 5000);
+      await dragHandle('Current Position', current, 2000, 0, mediaDuration);
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal((await read()).trim, undefined);
       dialog = await open();
@@ -149,14 +177,16 @@ test(
       await dialog.getByRole('button', { name: 'Play', exact: true }).click();
       await dialog.getByRole('button', { name: 'Pause', exact: true }).waitFor();
       assert.ok(await dialog.locator('audio').evaluate((element) => element.currentTime < 1));
+      await dialog.getByLabel('Start Trim', { exact: true }).fill('500.25');
+      await dialog.getByLabel('Fade In', { exact: true }).fill('250.125');
       await dialog.getByRole('button', { name: 'Trim', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      assert.deepEqual((await read()).trim, { startMs: 500, endMs: 1000 });
-      assert.deepEqual((await read()).fade, { inMs: 250, outMs: 0 });
+      assert.deepEqual((await read()).trim, { startMs: 500.25, endMs: mediaDuration - 4000 });
+      assert.deepEqual((await read()).fade, { inMs: 250.125, outMs: 0 });
       dialog = await open();
-      assert.equal(await dialog.getByLabel('Start Trim', { exact: true }).inputValue(), '500');
+      assert.equal(await dialog.getByLabel('Start Trim', { exact: true }).inputValue(), '500.25');
       assert.equal(await dialog.getByLabel('End Trim', { exact: true }).inputValue(), '4000');
-      assert.equal(await dialog.getByLabel('Fade In', { exact: true }).inputValue(), '250');
+      assert.equal(await dialog.getByLabel('Fade In', { exact: true }).inputValue(), '250.125');
       await dialog.press('Escape');
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
