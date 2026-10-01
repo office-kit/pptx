@@ -20,6 +20,7 @@
   const doc = editor.doc;
 
   let activeTab = $state('home');
+  let collapsed = $state(false);
 
   const visibleTabs = $derived.by<RibbonTab[]>(() => {
     const sel = doc.selection;
@@ -44,6 +45,7 @@
     const index = visibleTabs.findIndex(tab => tab.id === activeTab);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? visibleTabs.length - 1 : (index + (event.key === 'ArrowLeft' ? -1 : 1) + visibleTabs.length) % visibleTabs.length;
     activeTab = visibleTabs[next]!.id;
+    collapsed = false;
     (event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('[role="tab"]')[next]?.focus();
   }
 
@@ -54,25 +56,29 @@
 </script>
 
 <div class="ribbon">
-  <div class="tabs" role="tablist" tabindex="-1" aria-label={t('Ribbon')} onkeydown={tabKeys}>
-    {#each visibleTabs as tab (tab.id)}
-      <button
-        class="tab"
-        role="tab"
-        id="ribbon-tab-{tab.id}"
-        aria-selected={activeTab === tab.id}
-        aria-controls="ribbon-panel"
-        tabindex={activeTab === tab.id ? 0 : -1}
-        class:active={activeTab === tab.id}
-        class:contextual={tab.contextual}
-        onclick={() => (activeTab = tab.id)}
-      >
-        {t(tab.title)}
-      </button>
-    {/each}
+  <div class="tab-row">
+    <div class="tabs" role="tablist" tabindex="-1" aria-label={t('Ribbon')} onkeydown={tabKeys}>
+      {#each visibleTabs as tab (tab.id)}
+        <button
+          class="tab"
+          role="tab"
+          id="ribbon-tab-{tab.id}"
+          aria-selected={activeTab === tab.id}
+          aria-controls="ribbon-panel"
+          tabindex={activeTab === tab.id ? 0 : -1}
+          class:active={activeTab === tab.id}
+          class:contextual={tab.contextual}
+          onclick={() => { activeTab = tab.id; collapsed = false; }}
+        >
+          {t(tab.title)}
+        </button>
+      {/each}
+    </div>
+
+    <button class="ribbon-toggle" aria-label={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} title={t(collapsed ? 'Expand ribbon' : 'Collapse ribbon')} aria-expanded={!collapsed} aria-controls="ribbon-panel" onclick={() => (collapsed = !collapsed)}>{collapsed ? '⌄' : '⌃'}</button>
   </div>
 
-  <div class="groups ok-scroll" id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
+  <div class="groups ok-scroll" hidden={collapsed} id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
     {#each current?.groups ?? [] as group (group.title)}
@@ -116,7 +122,14 @@
     display: flex;
     flex-direction: column;
   }
+  .tab-row { display: flex; min-width: 0; align-items: center; }
+  .ribbon-toggle { flex: none; width: 30px; height: 28px; margin: 0 4px; border: none; background: none; color: var(--ok-text-2); cursor: pointer; font-size: 18px; }
+  .ribbon-toggle:hover { background: var(--ok-hover); }
+  .groups[hidden] { display: none; }
   .tabs {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
     display: flex;
     gap: 2px;
     padding: 0 8px;
@@ -124,6 +137,7 @@
     align-items: flex-end;
   }
   .tab {
+    flex-shrink: 0;
     border: none;
     background: none;
     padding: 6px 14px;
