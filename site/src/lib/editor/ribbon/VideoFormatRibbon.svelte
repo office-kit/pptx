@@ -7,6 +7,7 @@
   import Icon from '../ui/Icon.svelte';
   import ArrangeMenu from './ArrangeMenu.svelte';
   import PosterFrameMenu from './PosterFrameMenu.svelte';
+  import VideoCorrectionsMenu from './VideoCorrectionsMenu.svelte';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -118,7 +119,7 @@
   </div>
 
   <div class="group">
-    <div class="items"><PosterFrameMenu /></div>
+    <div class="items"><VideoCorrectionsMenu /><PosterFrameMenu /></div>
     <span class="title">{t('Adjust')}</span>
   </div>
 

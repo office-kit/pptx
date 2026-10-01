@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte';
-  import { getShapeId, setShapeMediaPlayback, type MediaPlayback, type ShapeMedia, type SlideShapeData } from '@office-kit/pptx';
+  import { getShapeImageBrightness, getShapeImageContrast, getShapeId, setShapeMediaPlayback, type MediaPlayback, type ShapeMedia, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import { getMediaPreview } from '../core/media-preview.svelte.ts';
@@ -10,6 +10,15 @@
   const preview = getMediaPreview(editor);
   let player = $state<HTMLMediaElement>();
   const shapeId = $derived(getShapeId(shape));
+  const componentId = $props.id();
+  const correctionId = `${componentId}-correction`;
+  const correction = $derived.by(() => {
+    editor.doc.version;
+    const brightness = getShapeImageBrightness(shape) ?? 0;
+    const contrast = getShapeImageContrast(shape) ?? 0;
+    // Match the poster SVG transfer function while the HTML video paints over it.
+    return { active: brightness !== 0 || contrast !== 0, slope: 1 + contrast, intercept: brightness - contrast / 2 };
+  });
   const bookmarks = $derived([...(playback.bookmarks ?? [])].sort((a, b) => a.timeMs - b.timeMs));
   const selectedBookmark = $derived(preview.state.shapeId === shapeId ? preview.state.bookmarkIndex : null);
   const time = (seconds: number) => {
@@ -158,8 +167,17 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div class="media-preview" role="presentation" onclick={event => event.stopPropagation()} onpointerdown={event => event.stopPropagation()} onkeydown={event => event.stopPropagation()}>
   {#if media.kind === 'video'}
+    <svg class="correction-defs" aria-hidden="true" width="0" height="0">
+      <defs><filter id={correctionId}>
+        <feComponentTransfer>
+          <feFuncR type="linear" slope={correction.slope} intercept={correction.intercept} />
+          <feFuncG type="linear" slope={correction.slope} intercept={correction.intercept} />
+          <feFuncB type="linear" slope={correction.slope} intercept={correction.intercept} />
+        </feComponentTransfer>
+      </filter></defs>
+    </svg>
     <!-- svelte-ignore a11y_media_has_caption -->
-    <video style:visibility={preview.state.showVideoFrame ? undefined : 'hidden'} bind:this={player} src={src} preload="metadata" aria-label={t('Media preview')} onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></video>
+    <video style:filter={correction.active ? `url(#${correctionId})` : undefined} style:visibility={preview.state.showVideoFrame ? undefined : 'hidden'} bind:this={player} src={src} preload="metadata" aria-label={t('Media preview')} onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></video>
   {:else}
     <audio bind:this={player} src={src} preload="metadata" onloadedmetadata={loaded} ontimeupdate={timeUpdate} onplay={beginPlay} onended={finishPlay}></audio>
   {/if}
@@ -182,6 +200,7 @@
 
 <style>
   .media-preview { position:absolute; inset:0; pointer-events:none; }
+  .correction-defs { position: absolute; pointer-events: none; }
   video { width:100%; height:100%; object-fit:contain; pointer-events:none; }
   audio { display:none; }
   .controls { position:absolute; z-index:1; height:38px; box-sizing:border-box; display:flex; align-items:center; gap:8px; padding:4px 8px; background:linear-gradient(#fff, #eff0f2); color:#303030; border:1px solid #c8c9cc; border-radius:4px; box-shadow:0 1px 2px #0001; pointer-events:auto; font-size:12px; }
