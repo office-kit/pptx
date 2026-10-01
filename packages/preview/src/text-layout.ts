@@ -1002,8 +1002,8 @@ const tspan = (g: Group): string => {
 };
 
 // ---------------------------------------------------------------------------
-// Greedy first-fit line breaking. Over-long tokens are pre-split into chars by
-// the caller, so here a token always fits on an empty line.
+// Greedy first-fit line breaking. Latin words may overflow an empty line when
+// paragraph typography disables breaks inside them.
 
 const wrapTokens = (
   tokens: Token[],
@@ -1033,7 +1033,26 @@ const wrapTokens = (
     first = false;
   };
 
-  for (const tok of tokens) {
+  // A run boundary changes formatting, not the word's break opportunities.
+  // Measure adjacent Latin fragments as a group before placing the first one,
+  // preserving each token's formatting without repeatedly scanning ahead.
+  const wordWidths = tokens.map((token) => token.width);
+  const continuesWord = tokens.map(() => false);
+  if (para.latinLineBreak !== true) {
+    let nextLatin = false;
+    for (let index = tokens.length - 1; index >= 0; index--) {
+      const token = tokens[index]!;
+      const latin = !token.isSpace && !token.isBreak && !EAST_ASIAN_CHAR.test(token.text);
+      if (latin && nextLatin) {
+        wordWidths[index]! += wordWidths[index + 1]!;
+        continuesWord[index + 1] = true;
+      }
+      nextLatin = latin;
+    }
+  }
+
+  for (let index = 0; index < tokens.length; index++) {
+    const tok = tokens[index]!;
     if (tok.isBreak) {
       cur.push(tok);
       close();
@@ -1083,7 +1102,7 @@ const wrapTokens = (
     // LibreOffice's space-inclusive line measurement.
     const contentW = lineW - trailingSpaceW;
     const hasContent = contentW > 0;
-    if (wrap && hasContent && lineW + tok.width > limit + 0.5) {
+    if (wrap && hasContent && !continuesWord[index] && lineW + wordWidths[index]! > limit + 0.5) {
       close();
       cur.push(tok);
       lineW = tok.width;
