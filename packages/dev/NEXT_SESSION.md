@@ -1,3 +1,10 @@
+## 2026-10-02: メディア開始条件と削除時のタイミング保持
+
+- `evt="onClick" delay="0"` が自動再生と判定される不具合を回帰テストで再現し、イベント条件を自動再生から除外。OOXML の delay はイベント発生後の遅延であり、ゼロでもクリック待ちを意味する。根拠: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.condition?view=openxml-3.0.1 。
+- 入れ子のメディア timing 削除を修正。childTnLst/subTnLst/tnLst 内の対象を削除し、空になったリストのみ除去。親の開始条件、別のルート、対象外のメディアを保持。入れ子の開始条件を自動再生 boolean へ単純に変換すると親のクリック待ちを失うため、開始条件モデルとクリックシーケンスの実装は残件。
+- 検証: 修正前 helper は新規5件中4件失敗（`/tmp/pptx-media-timing-before.log`）。修正後関連50件、全体3114 passed / 109 skipped、format/lint/types/core build成功。入れ子削除はXSD検証も実行。全体ログ `/tmp/pptx-media-timing-full.log`。依存順dev buildも成功。レビューで指摘された最後のtop-level media削除について追加XSDテストを実行し、空のtimingはCT_SlideTimingの全子要素optionalにより有効と確認（新規6件通過）。ブラウザー音声・動画再生各1件成功（`/tmp/pptx-media-timing-browser.log`、`/tmp/pptx-media-timing-video.log`）、dev型検査成功。
+- PowerPoint 実機は今回も画面サイズ0×0で取得失敗。ネイティブ文書・設定の変更なし。全操作・UI完全一致は未完了。
+
 ## 2026-10-02: UI再確認と発表者メディア操作
 
 - ユーザーが指摘したヘッダーの省スペース化・文字編集の透明背景・フォント候補は既存実装済み。最新dev buildで3ブラウザーテスト成功（`/tmp/pptx-ui-current.log`）。ヘッダーは日英900/1500pxで検証。元のプレビューは再読み込みしていない。
