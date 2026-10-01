@@ -1,5 +1,13 @@
 # 作業継続メモ（2026-10-01）
 
+## 接続復旧と New Slide 比較（2026-10-01）
+
+- PowerPoint の完全終了後、CUA で起動・参照資料の読み込み・Layout メニュー操作が成功。直前の画面サイズ 0×0 エラーはこの比較では再発していない。
+- `/private/tmp/pptx-outline-audit/body.pptx`（Normal、129%）を開き、Title and Content から Title Slide に一時変更して Cmd+Shift+N を実行。追加された第 2 スライドの Layout は **Title and Content** が選択されていた。
+- Escape、Undo 2 回、保存で復元。1 スライド、Normal、129%、Undo disabled、Saved to my Mac を確認した。
+- `ContextMenu.svelte` のアウトライン New slide は現在の layout をそのまま使うため、タイトルレイアウト後の例外は未対応。通常表示の同メニューも `addBlankSlide` を呼ぶ。修正時は同じマスター内の適切な本文レイアウトを選ぶこと。複数マスターを無視して資料内の最初の本文レイアウトを選ばない。
+- `7b6d401c` の GitHub CI は Static、Node 22/24/26、Preview fidelity、OOXML、PR template が全て成功（run 36832667431）。全操作一致の完了を意味しない。
+
 ## 最新の追記: アウトライン入力中の継承書式
 
 - 複数マスターの資料で、書式表示を有効にしたアウトラインの入力直後に 20px の文字が 10.6667px になる問題をブラウザーテストで再現。入力プレビューの段落・run 書式解決へ元の shape を `inheritanceSource` として渡して修正した。
