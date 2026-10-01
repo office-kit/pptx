@@ -92,6 +92,33 @@
     preview.selectBookmark(null);
   }
 
+  function mediaFileName(media: Extract<NonNullable<ReturnType<typeof getShapeMedia>>, { kind: 'audio' | 'video' }>): string {
+    const name = media.partName.split('/').pop() || `${media.kind}1`;
+    if (/\.[a-z0-9]+$/i.test(name)) return name;
+    const extensionByType: Record<string, string> = {
+      'audio/mpeg': 'mp3',
+      'audio/mp4': 'm4a',
+      'audio/wav': 'wav',
+      'audio/x-wav': 'wav',
+      'video/quicktime': 'mov',
+      'video/webm': 'webm',
+      'video/mp4': 'mp4',
+    };
+    const extension = extensionByType[media.contentType.split(';', 1)[0]!.toLowerCase()];
+    return extension ? `${name}.${extension}` : name;
+  }
+
+  function saveMediaAs(): void {
+    const target = selected;
+    if (!target || target.media.kind === 'online') return;
+    const url = URL.createObjectURL(new Blob([new Uint8Array(target.media.bytes)], { type: target.media.contentType }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = mediaFileName(target.media);
+    anchor.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   function changeDelay(input: HTMLInputElement): void {
     if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) return;
     const milliseconds = Math.round(input.valueAsNumber * 1000);
@@ -148,6 +175,7 @@
   <div class="group">
     <div class="items">
       <button class="action" type="button" aria-label={t(playLabel)} disabled={selected.media.kind === 'online'} onclick={() => preview.command(preview.state.playing ? 'pause' : 'play', getShapeId(selected.shape))}>{t(playLabel)}</button>
+      <button class="action" type="button" aria-label={t('Save Media As')} disabled={selected.media.kind === 'online'} onclick={saveMediaAs}>{t('Save Media As')}</button>
       <button class="action" type="button" aria-label={t('Add Bookmark')} disabled={selected.media.kind === 'online' || currentBookmark !== null} onclick={addBookmark}>{t('Add Bookmark')}</button>
       <button class="action" type="button" aria-label={t('Remove Bookmark')} disabled={selectedBookmark === null} onclick={removeBookmark}>{t('Remove Bookmark')}</button>
     </div>

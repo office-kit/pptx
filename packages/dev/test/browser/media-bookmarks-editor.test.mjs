@@ -95,6 +95,10 @@ test(
           .evaluateAll((nodes) => nodes.map((node) => node.getAttribute('aria-label'))),
         ['Play', 'Back', 'Forward', 'Mute'],
       );
+      const controlsBox = await inline.locator('.controls').boundingBox();
+      const canvasBox = await editor.locator('.canvas-area').boundingBox();
+      assert.ok(controlsBox.x >= canvasBox.x - 1);
+      assert.ok(controlsBox.x + controlsBox.width <= canvasBox.x + canvasBox.width + 1);
       await page.screenshot({ path: '/tmp/pptx-inline-media-controls.png' });
       await editor.getByRole('tab', { name: 'Playback', exact: true }).click();
       const audio = editor.locator('audio');
@@ -297,19 +301,19 @@ test(
       assert.equal(await audio.evaluate((element) => element.paused), false);
       assert.ok((await audio.evaluate((element) => element.currentTime)) < 2);
       await audio.evaluate((element) => element.pause());
-      const volume = inline.getByRole('slider', { name: 'Volume', exact: true });
-      await volume.fill('0.42');
+      assert.equal(await inline.getByRole('slider', { name: 'Volume', exact: true }).count(), 0);
+      await inline.getByRole('button', { name: 'Mute', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      const readVolume = async () => {
+      const readMuted = async () => {
         const saved = await loadPresentation(
           new Uint8Array(await (await fetch(`${preview.url}/deck.pptx`)).arrayBuffer()),
         );
-        return getShapeMediaPlayback(getSlideShapes(getSlides(saved)[0])[0]).volume;
+        return getShapeMediaPlayback(getSlideShapes(getSlides(saved)[0])[0]).muted;
       };
-      assert.equal(await readVolume(), 0.42);
+      assert.equal(await readMuted(), true);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      assert.equal(await readVolume(), 1);
+      assert.equal(await readMuted(), false);
     } finally {
       await browser?.close();
       await preview?.close();

@@ -20,6 +20,7 @@ export const ja: Record<string, string> = {
   Pause: '一時停止',
   'Add Bookmark': 'ブックマークの追加',
   'Remove Bookmark': 'ブックマークの削除',
+  'Save Media As': 'メディアに名前を付けて保存',
   Bookmarks: 'ブックマーク',
   'Media preview': 'メディアのプレビュー',
   'Media controls': 'メディア コントロール',
