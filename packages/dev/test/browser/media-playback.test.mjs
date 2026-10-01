@@ -64,6 +64,7 @@ test(
       const [audio] = getSlideShapes(getSlides(deck)[0]);
       setShapeMediaPlayback(audio, {
         autoplay: true,
+        delayMs: 1200,
         loop: true,
         volume: 0.25,
         muted: true,
@@ -77,12 +78,20 @@ test(
       preview = await startPreview(file);
       browser = await chromium.launch({ headless: true });
       const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+      await page.addInitScript(() => {
+        const originalPlay = HTMLMediaElement.prototype.play;
+        HTMLMediaElement.prototype.play = function () {
+          this.dataset.playCalls = String(Number(this.dataset.playCalls ?? 0) + 1);
+          return originalPlay.call(this);
+        };
+      });
       await page.goto(preview.url);
       await page.getByRole('button', { name: 'Preview', exact: true }).click();
       await page.waitForFunction(() => state.slides.length === 2);
       const persistedMedia = await page
         .evaluate(async () => (await fetch('/state')).json())
         .then((current) => current.media[0]);
+      assert.equal(persistedMedia.playback.delayMs, 1200);
       assert.equal(persistedMedia.playback.loop, true);
       assert.equal(persistedMedia.playback.volume, 0.25);
       assert.equal(persistedMedia.playback.muted, true);
@@ -92,6 +101,9 @@ test(
       await audioElement.waitFor({ state: 'attached' });
       const oldAudio = await audioElement.elementHandle();
       assert.ok(oldAudio);
+      await page.waitForTimeout(300);
+      assert.equal(await oldAudio.evaluate((element) => element.paused), true);
+      assert.equal(await oldAudio.evaluate((element) => element.currentTime), 0);
       await page.waitForFunction(() => {
         const root = document.querySelector('#slide')?.shadowRoot;
         const element = root?.querySelector('foreignObject[data-pptx-media] audio');
@@ -134,10 +146,26 @@ test(
         return element?.readyState >= 2;
       });
       assert.ok((await revisited.evaluate((element) => element.currentTime)) < 0.5);
+      const pendingAudio = await revisited.elementHandle();
+      assert.ok(pendingAudio);
+      assert.equal(await pendingAudio.evaluate((element) => element.dataset.playCalls), undefined);
       await revisited.focus();
       await page.keyboard.press('Escape');
       await revisited.waitFor({ state: 'detached' });
       assert.equal(await page.evaluate(() => presenting), false);
+      await page.waitForTimeout(1300);
+      assert.equal(await pendingAudio.evaluate((element) => element.dataset.playCalls), undefined);
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      const manualAudio = page.locator('foreignObject[data-pptx-media] audio');
+      await manualAudio.waitFor({ state: 'attached' });
+      await manualAudio.evaluate(async (element) => {
+        await element.play();
+        element.pause();
+      });
+      await page.waitForTimeout(1300);
+      assert.equal(await manualAudio.evaluate((element) => element.paused), true);
+      assert.equal(await manualAudio.evaluate((element) => element.dataset.playCalls), '1');
+      assert.equal(await oldAudio.evaluate((element) => element.paused), true);
     } finally {
       await browser?.close();
       await preview?.close();

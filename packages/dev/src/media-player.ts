@@ -2,6 +2,7 @@ import type { PreviewMedia } from './media-manifest.ts';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 const HTML_NS = 'http://www.w3.org/1999/xhtml';
+const MAX_TIMEOUT_MS = 2_147_483_647;
 
 export type MediaCommand = {
   shapeId: number;
@@ -35,6 +36,7 @@ export function createMediaPlayer(options: {
     host: SVGForeignObjectElement;
     shapeId: number;
     play: () => void;
+    cancelStart: () => void;
     status: HTMLButtonElement;
     setTarget: (target: MediaProgress) => void;
     start?: HTMLButtonElement;
@@ -106,7 +108,13 @@ export function createMediaPlayer(options: {
     status.style.cssText =
       'position:absolute;inset:0;margin:auto;max-width:100%;height:fit-content;';
     let controls: { toggle: HTMLButtonElement; position: HTMLInputElement } | undefined;
+    let startTimer: ReturnType<typeof setTimeout> | undefined;
+    const cancelStart = () => {
+      clearTimeout(startTimer);
+      startTimer = undefined;
+    };
     const playLocally = async () => {
+      cancelStart();
       status.hidden = true;
       host.style.visibility = '';
       if (overlay) {
@@ -206,6 +214,7 @@ export function createMediaPlayer(options: {
     for (const name of ['play', 'ended']) {
       element.addEventListener(name, () => {
         if (disposed) return;
+        if (name === 'play') cancelStart();
         if (!mirror && name === 'ended' && clip.playback?.hideWhenStopped)
           host.style.visibility = 'hidden';
         if (!mirror && name === 'play') host.style.visibility = '';
@@ -242,6 +251,7 @@ export function createMediaPlayer(options: {
       host,
       shapeId: clip.shapeId,
       play,
+      cancelStart,
       status,
       ...(start ? { start } : {}),
       ...(controls ? { controls } : {}),
@@ -252,7 +262,19 @@ export function createMediaPlayer(options: {
     });
     // A mirror starts only after the first audience snapshot. Calling play
     // here would race that snapshot and can also violate autoplay policy.
-    if (!mirror && clip.playback?.autoplay) void playLocally();
+    if (!mirror && clip.playback?.autoplay) {
+      const deadline = performance.now() + (clip.playback.delayMs ?? 0);
+      const startWhenDue = () => {
+        if (disposed) return;
+        const remaining = deadline - performance.now();
+        // Browser timeouts use signed 32-bit milliseconds; longer OOXML
+        // delays must be scheduled in chunks instead of overflowing to zero.
+        if (remaining > 0) {
+          startTimer = setTimeout(startWhenDue, Math.min(remaining, MAX_TIMEOUT_MS));
+        } else void playLocally();
+      };
+      startWhenDue();
+    }
   }
   const entryByShape = new Map(entries.map((entry) => [entry.shapeId, entry]));
   return {
@@ -282,6 +304,7 @@ export function createMediaPlayer(options: {
       if (command.action === 'play') {
         entry.play();
       } else if (command.action === 'pause') {
+        entry.cancelStart();
         entry.element.pause();
       } else if (
         command.action === 'seek' &&
@@ -332,7 +355,8 @@ export function createMediaPlayer(options: {
     },
     dispose() {
       disposed = true;
-      for (const { element, image, host, overlay } of entries) {
+      for (const { element, image, host, overlay, cancelStart } of entries) {
+        cancelStart();
         if (!mirror && overlay?.contains(document.activeElement)) options.overlayRoot.focus();
         element.pause();
         element.removeAttribute('src');
