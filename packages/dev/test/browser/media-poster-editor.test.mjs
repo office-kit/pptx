@@ -45,6 +45,55 @@ const videoBytes = (page) =>
     return Array.from(new Uint8Array(await new Blob(parts).arrayBuffer()));
   });
 
+const firstVideoFrameBytes = (page, media) =>
+  page.evaluate(async (bytes) => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.preload = 'auto';
+    const url = URL.createObjectURL(new Blob([new Uint8Array(bytes)], { type: 'video/webm' }));
+    try {
+      await new Promise((resolve, reject) => {
+        const deadline = window.setTimeout(
+          () => reject(new Error('video did not decode its first frame')),
+          5000,
+        );
+        video.addEventListener(
+          'loadeddata',
+          () => {
+            window.clearTimeout(deadline);
+            resolve();
+          },
+          { once: true },
+        );
+        video.addEventListener(
+          'error',
+          () => {
+            window.clearTimeout(deadline);
+            reject(new Error('video failed to decode its first frame'));
+          },
+          { once: true },
+        );
+        video.src = url;
+        video.load();
+      });
+      const canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      const blob = await new Promise((resolve, reject) =>
+        canvas.toBlob(
+          (value) => (value ? resolve(value) : reject(new Error('failed to encode first frame'))),
+          'image/png',
+        ),
+      );
+      return Array.from(new Uint8Array(await blob.arrayBuffer()));
+    } finally {
+      video.removeAttribute('src');
+      video.load();
+      URL.revokeObjectURL(url);
+    }
+  }, Array.from(media));
+
 test(
   'video poster frame changes preserve media bytes, support file replacement, undo, and reload',
   { timeout: 60000 },
@@ -207,7 +256,13 @@ test(
           !poster.equals(original.poster) && persistedMedia.equals(original.media),
         'current-frame poster',
       );
+      assert.notDeepEqual(currentFrame.poster, original.poster);
       assert.deepEqual(await waitForPlayback(), originalPlayback);
+
+      // PowerPoint's Reset command replaces the poster with the video's first
+      // decoded frame. Decode a separate video element so the expected bytes
+      // do not depend on the editor's current playback position.
+      const firstFrame = Buffer.from(await firstVideoFrameBytes(page, media));
 
       const replacement = Buffer.from(
         await page.evaluate(() => {
@@ -240,14 +295,76 @@ test(
       assert.deepEqual(filePoster.media, original.media);
       assert.deepEqual(await waitForPlayback(), originalPlayback);
 
+      // Keep the earlier poster replacement undo path covered before testing
+      // Reset's own history entry.
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await waitForPersisted(
+        ({ poster, media: persistedMedia }) =>
+          poster.equals(currentFrame.poster) && persistedMedia.equals(original.media),
+        'undo file poster',
+      );
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await waitForPersisted(
+        ({ poster, media: persistedMedia }) =>
+          poster.equals(filePoster.poster) && persistedMedia.equals(original.media),
+        'redo file poster',
+      );
+
+      await video.evaluate(
+        (element) =>
+          new Promise((resolve, reject) => {
+            const target = Math.min(0.35, Math.max(0, element.duration - 0.05));
+            const deadline = window.setTimeout(
+              () => reject(new Error('video did not seek before poster reset')),
+              3000,
+            );
+            element.addEventListener(
+              'seeked',
+              () => {
+                window.clearTimeout(deadline);
+                element.pause();
+                resolve();
+              },
+              { once: true },
+            );
+            element.currentTime = target;
+          }),
+      );
+      await panel.getByRole('button', { name: /Poster Frame/i }).click();
+      const playbackPositionBeforeReset = await video.evaluate((element) => element.currentTime);
+      await panel.getByRole('menuitem', { name: 'Reset', exact: true }).click();
+      const reset = await waitForPersisted(
+        ({ poster, media: persistedMedia }) =>
+          poster.equals(firstFrame) && persistedMedia.equals(original.media),
+        'reset poster',
+      );
+      assert.deepEqual(reset.poster, firstFrame);
+      assert.deepEqual(reset.media, original.media);
+      assert.deepEqual(await waitForPlayback(), originalPlayback);
+      assert.ok(
+        Math.abs(
+          (await video.evaluate((element) => element.currentTime)) - playbackPositionBeforeReset,
+        ) < 0.01,
+      );
+
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       const undone = await waitForPersisted(
         ({ poster, media: persistedMedia }) =>
-          poster.equals(currentFrame.poster) && persistedMedia.equals(original.media),
+          poster.equals(filePoster.poster) && persistedMedia.equals(original.media),
         'undo poster',
       );
-      assert.deepEqual(undone.poster, currentFrame.poster);
+      assert.deepEqual(undone.poster, filePoster.poster);
       assert.deepEqual(undone.media, original.media);
+      assert.deepEqual(await waitForPlayback(), originalPlayback);
+
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      const redone = await waitForPersisted(
+        ({ poster, media: persistedMedia }) =>
+          poster.equals(firstFrame) && persistedMedia.equals(original.media),
+        'redo reset poster',
+      );
+      assert.deepEqual(redone.poster, firstFrame);
+      assert.deepEqual(redone.media, original.media);
       assert.deepEqual(await waitForPlayback(), originalPlayback);
 
       await page.reload();
@@ -256,16 +373,16 @@ test(
       await editor.getByRole('tab', { name: 'Video Format', exact: true }).click();
       const reloaded = await waitForPersisted(
         ({ poster, media: persistedMedia }) =>
-          poster.equals(currentFrame.poster) && persistedMedia.equals(original.media),
+          poster.equals(firstFrame) && persistedMedia.equals(original.media),
         'reloaded poster',
       );
-      assert.deepEqual(reloaded.poster, currentFrame.poster);
+      assert.deepEqual(reloaded.poster, firstFrame);
       assert.deepEqual(reloaded.media, original.media);
       assert.deepEqual(await waitForPlayback(), originalPlayback);
 
       await editor.locator('.lang select').selectOption('ja');
       await editor.getByRole('button', { name: '表紙画像', exact: true }).click();
-      await editor.getByRole('menuitem', { name: '現在のフレーム', exact: true }).press('Escape');
+      await editor.getByRole('menuitem', { name: 'リセット', exact: true }).press('Escape');
       assert.equal(await editor.getByRole('menu').count(), 0);
     } finally {
       await browser?.close();
