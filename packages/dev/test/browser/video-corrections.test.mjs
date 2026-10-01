@@ -207,6 +207,40 @@ test(
       assert.equal(await brightness.evaluate((input) => input.validity.rangeOverflow), true);
       assert.deepEqual(await readAdjustments(), [0, 0]);
 
+      // Inspect the preview before release so onchange-only rendering cannot pass.
+      const brightnessSlider = detail.getByRole('slider', { name: 'Brightness', exact: true });
+      const sliderBounds = await brightnessSlider.boundingBox();
+      assert.ok(sliderBounds, 'brightness slider must be measurable');
+      const sliderStart = sliderBounds.x + sliderBounds.width / 2;
+      const sliderTarget = sliderBounds.x + sliderBounds.width * 0.675;
+      const liveTransfer = editor
+        .locator('.media-preview:has(video) feComponentTransfer feFuncR')
+        .first();
+      await page.mouse.move(sliderStart, sliderBounds.y + sliderBounds.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(sliderTarget, sliderBounds.y + sliderBounds.height / 2, { steps: 8 });
+      const liveValue = Number(await brightnessSlider.inputValue());
+      assert.ok(liveValue >= 30, `brightness should update during drag, got ${liveValue}`);
+      await liveTransfer.waitFor({ state: 'attached' });
+      const liveIntercept = Number(await liveTransfer.getAttribute('intercept'));
+      assert.ok(
+        liveIntercept > 0.2,
+        `live transfer should update during drag, got ${liveIntercept}`,
+      );
+      await page.mouse.up();
+      await saved();
+      const draggedAdjustments = await readAdjustments();
+      assert.ok(
+        draggedAdjustments[0] >= 0.3,
+        `unexpected dragged brightness: ${draggedAdjustments[0]}`,
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await readAdjustments(), [0, 0]);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await readAdjustments(), draggedAdjustments);
+
       await brightness.fill('35');
       await brightness.press('Tab');
       await saved();

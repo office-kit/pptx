@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getShapeImageBrightness, getShapeImageContrast, getShapeMedia, resetShapeImageColorEffects } from '@office-kit/pptx';
+  import { onDestroy } from 'svelte';
+  import { getShapeImageBrightness, getShapeImageContrast, getShapeMedia, resetShapeImageColorEffects, setShapeImageBrightness, setShapeImageContrast, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import VideoCorrectionsMenu from '../ribbon/VideoCorrectionsMenu.svelte';
@@ -17,6 +18,34 @@
   const brightness = $derived.by(() => { doc.version; return video ? Math.round((getShapeImageBrightness(video) ?? 0) * 100) : 0; });
   const contrast = $derived.by(() => { doc.version; return video ? Math.round((getShapeImageContrast(video) ?? 0) * 100) : 0; });
   const locked = $derived(editor.selectionLocked());
+
+  let live: { shape: SlideShapeData; kind: 'brightness' | 'contrast' } | null = null;
+
+  function finishLive(): void {
+    const gesture = live;
+    live = null;
+    if (gesture && doc.liveEditing) doc.commit(t(gesture.kind === 'brightness' ? 'Brightness' : 'Contrast'));
+  }
+
+  function previewValue(kind: 'brightness' | 'contrast', input: HTMLInputElement): void {
+    const shape = video;
+    if (!shape || locked) return;
+    if (live && (live.shape !== shape || live.kind !== kind)) finishLive();
+    const value = input.valueAsNumber / 100;
+    const current = (kind === 'brightness' ? getShapeImageBrightness(shape) : getShapeImageContrast(shape)) ?? 0;
+    if (value === current) return;
+    live = { shape, kind };
+    doc.applyLive(() => (kind === 'brightness' ? setShapeImageBrightness : setShapeImageContrast)(shape, value || null));
+  }
+
+  function cancelLive(): void {
+    if (!live) return;
+    live = null;
+    void doc.cancelLive();
+  }
+
+  $effect(() => { const selected = video; const disabled = locked; if (live && (live.shape !== selected || disabled)) finishLive(); });
+  onDestroy(finishLive);
 
   function resetColor(): void {
     const shape = video;
@@ -42,7 +71,7 @@
         <div class="control">
           <div class="control-row">
             <label for="video-brightness-range">{t('Brightness')}</label>
-            <input id="video-brightness-range" type="range" min="-100" max="100" step="1" value={brightness} aria-label={t('Brightness')} disabled={locked} onchange={(e) => setValue('brightness', e.currentTarget)} />
+            <input id="video-brightness-range" type="range" min="-100" max="100" step="1" value={brightness} aria-label={t('Brightness')} disabled={locked} oninput={(e) => previewValue('brightness', e.currentTarget)} onchange={finishLive} onblur={finishLive} onpointercancel={cancelLive} />
             <input class="ok-input value" type="number" min="-100" max="100" step="1" required value={brightness} aria-label={t('Brightness')} disabled={locked} onchange={(e) => setValue('brightness', e.currentTarget)} />
             <span>%</span>
           </div>
@@ -50,7 +79,7 @@
         <div class="control">
           <div class="control-row">
             <label for="video-contrast-range">{t('Contrast')}</label>
-            <input id="video-contrast-range" type="range" min="-100" max="100" step="1" value={contrast} aria-label={t('Contrast')} disabled={locked} onchange={(e) => setValue('contrast', e.currentTarget)} />
+            <input id="video-contrast-range" type="range" min="-100" max="100" step="1" value={contrast} aria-label={t('Contrast')} disabled={locked} oninput={(e) => previewValue('contrast', e.currentTarget)} onchange={finishLive} onblur={finishLive} onpointercancel={cancelLive} />
             <input class="ok-input value" type="number" min="-100" max="100" step="1" required value={contrast} aria-label={t('Contrast')} disabled={locked} onchange={(e) => setValue('contrast', e.currentTarget)} />
             <span>%</span>
           </div>

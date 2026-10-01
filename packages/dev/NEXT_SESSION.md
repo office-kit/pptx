@@ -1,3 +1,10 @@
+## 2026-10-02: 動画修整スライダーのライブ反映
+
+- Videoペインの明るさ・コントラストをドラッグ中にも反映。確定は1回の履歴として保存し、pointercancel時は取り消す。
+- 修正前はmouseup前のSVG transferが0のままでブラウザー回帰失敗。修正後はライブ反映・保存・1回のUndo/Redoが成功。
+- format/lint/typecheck、Svelte 0 errors/warnings、site121件、editor build成功。coreは直前の3195件成功から変更なし。
+- PR #287を継続使用。ヘッダー省スペース化は反映済み。確認用プレビュー4175、4173の未保存編集には触れない。全体の完全一致は未達成。
+
 ## 2026-10-02: Washoutの白潰れ修正
 
 - 前項の描画式の差を修正。LibreOffice公式実装 `vcl/source/bitmap/bitmap.cxx` のMSO互換処理に基づき、明るさをコントラストの前後に半分ずつ適用。輝度補正のみsRGB指定。ポスター・再生動画・修整候補・Washout候補へ適用。
