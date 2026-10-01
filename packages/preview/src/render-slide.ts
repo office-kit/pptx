@@ -416,12 +416,21 @@ const renderPicture = (
       const fid = mintId();
       const prims: string[] = [];
       if (brightness !== 0 || contrast !== 0) {
-        // DrawingML contrast is a signed percentage change, with zero neutral.
-        // Scale channel distances from mid-gray; negative values reduce contrast.
-        const slope = 1 + contrast;
-        const intercept = brightness + (1 - slope) / 2;
+        // PowerPoint applies picture brightness in two halves: one before and
+        // one after contrast. This is the MSO-compatible branch of
+        // LibreOffice's Bitmap::Adjust (vcl/source/bitmap/bitmap.cxx), rather
+        // than the simpler CSS-style `slope = 1 + contrast` approximation.
+        // Values here are normalized sRGB channels (the source algorithm uses
+        // 0..255 channels and a midpoint of 128).
+        const midpoint = 128 / 255;
+        const msoBrightness = Math.max(-1, Math.min(1, brightness));
+        const slope =
+          contrast >= 0
+            ? 128 / (128 - 127 * Math.min(1, contrast))
+            : (128 + 127 * Math.max(-1, contrast)) / 128;
+        const intercept = (msoBrightness / 2 - midpoint) * slope + midpoint + msoBrightness / 2;
         prims.push(
-          `<feComponentTransfer><feFuncR type="linear" slope="${slope}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope}" intercept="${intercept}"/></feComponentTransfer>`,
+          `<feComponentTransfer color-interpolation-filters="sRGB"><feFuncR type="linear" slope="${slope}" intercept="${intercept}"/><feFuncG type="linear" slope="${slope}" intercept="${intercept}"/><feFuncB type="linear" slope="${slope}" intercept="${intercept}"/></feComponentTransfer>`,
         );
       }
       if (grayscale) {

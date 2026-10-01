@@ -117,8 +117,7 @@ test(
       assert.deepEqual(await readAdjustments(), [0.2, 0.2]);
 
       // The live canvas preview must use the same DrawingML transfer function
-      // as the exported picture. For +20/+20, contrast gives slope 1.2 and
-      // the combined brightness/contrast intercept is 0.1.
+      // as the exported picture, including the Office brightness/contrast order.
       const video = editor.locator('.media-preview video');
       const mediaPreview = editor.locator('.media-preview:has(video)');
       assert.match(await video.evaluate((node) => getComputedStyle(node).filter), /url\(/);
@@ -131,7 +130,11 @@ test(
         })),
       );
       assert.ok(
-        transferValues.some(({ slope, intercept }) => slope === '1.2' && intercept === '0.1'),
+        transferValues.some(
+          ({ slope, intercept }) =>
+            Math.abs(Number(slope) - 1.2475633528) < 1e-9 &&
+            Math.abs(Number(intercept) - 0.1004892405) < 1e-9,
+        ),
         `missing +20/+20 transfer function: ${JSON.stringify(transferValues)}`,
       );
 

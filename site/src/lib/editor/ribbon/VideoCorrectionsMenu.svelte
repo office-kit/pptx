@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { imageCorrections } from '../core/image-corrections.ts';
   import { tick } from 'svelte';
   import {
     getShapeImageBrightness,
@@ -106,8 +107,7 @@
     <div class="grid">
       {#each presets as preset (preset.brightness + ':' + preset.contrast)}
         {@const filterId = `${componentId}-${preset.brightness}-${preset.contrast}`}
-        {@const slope = 1 + preset.contrast / 100}
-        {@const intercept = preset.brightness / 100 - preset.contrast / 200}
+        {@const { slope, intercept } = imageCorrections(preset.brightness / 100, preset.contrast / 100)}
         <button
           type="button"
           role="menuitemradio"
@@ -119,7 +119,7 @@
         >
           <span class="sample" aria-hidden="true">
             <svg viewBox="0 0 80 45" preserveAspectRatio="none">
-              <defs><filter id={filterId}><feComponentTransfer>
+              <defs><filter id={filterId}><feComponentTransfer color-interpolation-filters="sRGB">
                 <feFuncR type="linear" {slope} {intercept} />
                 <feFuncG type="linear" {slope} {intercept} />
                 <feFuncB type="linear" {slope} {intercept} />

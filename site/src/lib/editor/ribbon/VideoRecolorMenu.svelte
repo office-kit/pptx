@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { imageCorrections } from '../core/image-corrections.ts';
   import { tick } from 'svelte';
   import {
     getPresentationTheme,
@@ -213,6 +214,7 @@
     return theme[slot];
   }
 
+  const washout = imageCorrections(0.7, -0.7);
   const luminanceMatrix = '0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0.2126 0.7152 0.0722 0 0 0 0 0 1 0';
 
   function duotoneColors(preset: RecolorPreset): readonly [string, string] | null {
@@ -236,7 +238,7 @@
   }
 
   function hasFilter(preset: RecolorPreset): boolean {
-    return preset.kind === 'gray' || preset.kind === 'sepia' || preset.kind === 'bw' || preset.kind === 'theme';
+    return preset.kind === 'washout' || preset.kind === 'gray' || preset.kind === 'sepia' || preset.kind === 'bw' || preset.kind === 'theme';
   }
 </script>
 
@@ -257,7 +259,13 @@
             <svg viewBox="0 0 80 45" preserveAspectRatio="none" aria-hidden="true">
               {#if hasFilter(preset)}
                 <defs><filter id={filterId}>
-                  {#if preset.kind === 'gray'}
+                  {#if preset.kind === 'washout'}
+                    <feComponentTransfer color-interpolation-filters="sRGB">
+                      <feFuncR type="linear" slope={washout.slope} intercept={washout.intercept} />
+                      <feFuncG type="linear" slope={washout.slope} intercept={washout.intercept} />
+                      <feFuncB type="linear" slope={washout.slope} intercept={washout.intercept} />
+                    </feComponentTransfer>
+                  {:else if preset.kind === 'gray'}
                     <feColorMatrix type="matrix" values={luminanceMatrix} />
                   {:else if colors}
                     <feColorMatrix type="matrix" values={luminanceMatrix} />
@@ -281,7 +289,7 @@
                   {/if}
                 </filter></defs>
               {/if}
-              <g style:filter={preset.kind === 'washout' ? 'brightness(1.55) saturate(.35)' : undefined} filter={hasFilter(preset) ? `url(#${filterId})` : undefined}>
+              <g filter={hasFilter(preset) ? `url(#${filterId})` : undefined}>
                 <rect width="80" height="45" fill="#a9d9ef" /><circle cx="59" cy="12" r="7" fill="#f8d56a" /><path d="M0 36L20 17l14 12L50 9l30 27Z" fill="#557d55" /><path d="M0 41l16-10 11 6 14-9 20 11 19-6v12H0Z" fill="#2f543d" /><path d="M18 19l7 10-5-2-5 4-8-1Z" fill="#dbe8e9" opacity=".7" />
               </g>
             </svg>

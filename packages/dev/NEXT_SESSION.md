@@ -1,3 +1,10 @@
+## 2026-10-02: Washoutの白潰れ修正
+
+- 前項の描画式の差を修正。LibreOffice公式実装 `vcl/source/bitmap/bitmap.cxx` のMSO互換処理に基づき、明るさをコントラストの前後に半分ずつ適用。輝度補正のみsRGB指定。ポスター・再生動画・修整候補・Washout候補へ適用。
+- 動画ブラウザー回帰は旧式の暗部279（白へクリップ）で失敗、新式217で成功。+20/+20修整の保存・Undoも成功。Svelte 0 errors/warnings、site121件成功。
+- 静止画の画素回帰（暗部217±1・白255）成功。core3195件、format/lint/typecheck、core/editor build成功。
+- 任意画像の画素完全一致は引き続き未証明。実機資料の新しい一時変更なし。PR #287を継続使用。
+
 ## 2026-10-02: 動画テーマ色の濃淡とサムネイル
 
 - More Variationsにテーマ色の濃淡5段を追加（基本10色＋濃淡50色＋標準10色）。schemeClrとlumMod/lumOffを保持し、動画用tint/satModを適用。実機Accent1の淡色80%・濃色25%の保存XMLと一致。カスタムテーマの濃淡規則は未検証。

@@ -119,6 +119,24 @@ test(
       assert.equal(isShapeImageGrayscale(current.shape), false);
       assert.equal(getShapeImageBrightness(current.shape), 0.7);
       assert.equal(getShapeImageContrast(current.shape), -0.7);
+      const washout = await editor
+        .locator('.media-preview feComponentTransfer')
+        .first()
+        .evaluate((node) => {
+          const channel = node.querySelector('feFuncR');
+          const slope = Number(channel.getAttribute('slope'));
+          const intercept = Number(channel.getAttribute('intercept'));
+          return {
+            dark: Math.round(38 * slope + 255 * intercept),
+            space: getComputedStyle(node).colorInterpolationFilters,
+          };
+        });
+      assert.equal(
+        washout.dark,
+        217,
+        'Washout must retain the dark poster detail seen in PowerPoint',
+      );
+      assert.equal(washout.space.toLowerCase(), 'srgb');
       await color.click();
       assert.equal(
         await gallery
