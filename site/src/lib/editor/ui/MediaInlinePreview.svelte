@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { imageCorrections } from '../core/image-corrections.ts';
   import { untrack } from 'svelte';
   import { getShapeImageBrightness, getShapeImageContrast, getShapeImageDuotone, getShapeImageBiLevelThreshold, isShapeImageGrayscale, getShapeId, setShapeMediaPlayback, type MediaPlayback, type ShapeMedia, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
@@ -30,7 +31,7 @@
       }) : null;
     // Keep the live clip's filter pipeline aligned with the poster renderer.
     return { active: brightness !== 0 || contrast !== 0 || grayscale || threshold !== null || channels !== null,
-      slope: 1 + contrast, intercept: brightness - contrast / 2, grayscale, threshold, channels };
+      ...imageCorrections(brightness, contrast), grayscale, threshold, channels };
 
   });
   const bookmarks = $derived([...(playback.bookmarks ?? [])].sort((a, b) => a.timeMs - b.timeMs));
@@ -183,7 +184,7 @@
   {#if media.kind === 'video'}
     <svg class="correction-defs" aria-hidden="true" width="0" height="0">
       <defs><filter id={correctionId}>
-        <feComponentTransfer>
+        <feComponentTransfer color-interpolation-filters="sRGB">
           <feFuncR type="linear" slope={correction.slope} intercept={correction.intercept} />
           <feFuncG type="linear" slope={correction.slope} intercept={correction.intercept} />
           <feFuncB type="linear" slope={correction.slope} intercept={correction.intercept} />
