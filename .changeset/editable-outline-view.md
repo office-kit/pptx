@@ -7,3 +7,5 @@ Add Outline View for editing slide title and body placeholders. Text edits prese
 Splitting an outline title also moves its body text to the new slide while preserving formatting.
 
 Tab in an outline body demotes the selected paragraphs while preserving text and run formatting, with Undo and saved paragraph levels.
+
+Use Command-4 to open Outline View and Command-1 to return to Normal, including while editing text. Pending outline edits are saved when switching views.

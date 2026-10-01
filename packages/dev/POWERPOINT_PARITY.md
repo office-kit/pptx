@@ -648,3 +648,9 @@ retaining text and run formatting, and supports saved persistence and Undo.
 Selection uses actual paragraph elements, so soft line breaks do not become
 separate paragraphs. Shift+Tab, title demotion, hierarchy display and the full
 Promote/Demote menu remain outstanding; this is not complete outline parity.
+
+## Outline view keyboard switching and native Promote audit
+
+- Native Mac PowerPoint on the reference deck confirms Command-4 opens Outline View and Command-1 returns to Normal. The editor now handles Command-4 and displays it in View > Outline View.
+- Browser coverage switches from outline text editing to Normal before the autosave delay, verifies saved text and formatting, and returns with Command-4 in English and Japanese.
+- Native Promote on the top-level body paragraph `Second point` creates a second slide titled `Second point`; the following `Third point` body moves to that slide, while `First point` stays on the original slide. This behavior is not implemented yet. A paragraph-level clamp alone would be incorrect. The native audit was undone, saved and returned to Normal at 120% with Undo disabled.

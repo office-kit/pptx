@@ -106,7 +106,14 @@ for (const locale of ['en', 'ja'])
           'exclusive selection end excludes the next paragraph',
         );
         await change(() => body.press('Control+z'));
-        await change(() => title.fill('Outline title edited'));
+        await change(async () => {
+          await title.fill('Outline title edited');
+          await title.press('Meta+1');
+          await outline.waitFor({ state: 'detached' });
+        });
+        await editor.getByRole('button', { name: labels.view, exact: true }).focus();
+        await page.keyboard.press('Meta+4');
+        await outline.waitFor();
         let pres = await read();
         assert.equal(getShapeText(getSlideShapes(getSlides(pres)[0])[0]), 'Outline title edited');
         assert.equal(

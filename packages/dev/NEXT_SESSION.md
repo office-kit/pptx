@@ -103,3 +103,8 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - 参照 `/private/tmp/pptx-outline-audit/body.pptx` は Normal 120%、Undo disabled に復元済み。Outline View に入り Return、Undo で AX の本文入力要素へ入れる。`selectText` で本文先頭/途中へ移動し Tab を押すと `a:pPr lvl="1"` が保存された。Shift+Tab は操作接続経由の結果が不確かで未確認。全メニュー一致、階層表示/編集、スライドをまたぐ選択は未実装。
 
 - 追加: OutlineText の本文 Tab は実段落の範囲を求めて `setParagraphLevel` を適用する。書式・文字列の保持、保存、Undo、選択終端をブラウザーテストで確認する。階層の表示、Shift+Tab、タイトルの降格、Promote/Demote メニューは引き続き未完成。
+
+## Outline shortcuts / Promote follow-up
+
+- Command-4 opens Outline View; Command-1 leaves it and commits pending text. The View menu includes the shortcut label.
+- Native Promote of a level-zero body paragraph splits the slide: promoted text becomes the new title and following body paragraphs move with it. Implement this separately from changing `a:pPr/@lvl`, preserving paragraph/run formatting and relationships. Native audit restored the reference document with Undo disabled.

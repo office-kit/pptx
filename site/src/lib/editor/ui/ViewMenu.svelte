@@ -67,7 +67,7 @@
   <button class="ok-btn" bind:this={trigger} aria-haspopup="menu" aria-expanded={open} onclick={() => { open = !open; submenu = null; if (open) void focusFirst(); }}>{t('View')}</button>
   {#if open}
     <div class="menu" use:place role="menu" tabindex="-1" onkeydown={keys} aria-label={t('View')}>
-      {#each [{ mode: 'normal' as const, label: 'Normal', key: '⌘1' }, { mode: 'outline' as const, label: 'Outline View', key: '' }, { mode: 'sorter' as const, label: 'Slide Sorter', key: '⌘2' }] as item}
+      {#each [{ mode: 'normal' as const, label: 'Normal', key: '⌘1' }, { mode: 'outline' as const, label: 'Outline View', key: '⌘4' }, { mode: 'sorter' as const, label: 'Slide Sorter', key: '⌘2' }] as item}
         <button role="menuitemradio" aria-label={t(item.label)} aria-checked={editor.viewMode === item.mode} onclick={() => choose(() => editor.setViewMode(item.mode))}><span>{editor.viewMode === item.mode ? '✓' : ''}</span>{t(item.label)}<kbd>{item.key}</kbd></button>
       {/each}
       <hr />

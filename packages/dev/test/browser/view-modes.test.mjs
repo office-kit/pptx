@@ -84,6 +84,11 @@ test(
       await sorter.waitFor();
       await page.keyboard.press('Meta+1');
       await sorter.waitFor({ state: 'detached' });
+      await page.keyboard.press('Meta+4');
+      const outline = editor.getByRole('navigation', { name: 'Outline View', exact: true });
+      await outline.waitFor({ timeout: 5000 });
+      await page.keyboard.press('Meta+1');
+      await outline.waitFor({ state: 'detached' });
       const openZoom = async () => {
         await editor.getByRole('button', { name: 'View', exact: true }).click();
         await editor.getByRole('menuitem', { name: 'Zoom', exact: true }).click();
