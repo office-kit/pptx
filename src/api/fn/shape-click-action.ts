@@ -46,7 +46,9 @@ export type ShapeClickAction =
   | { readonly kind: 'nextSlide' }
   | { readonly kind: 'prevSlide' }
   | { readonly kind: 'firstSlide' }
-  | { readonly kind: 'lastSlide' };
+  | { readonly kind: 'lastSlide' }
+  | { readonly kind: 'lastSlideViewed' }
+  | { readonly kind: 'endShow' };
 
 export const NAME_HLINK_CLICK_FN = qname('a', 'hlinkClick', NS.dml);
 
@@ -112,6 +114,9 @@ export const readClickAction = (slide: SlideData, hlink: XmlElement): ShapeClick
   if (action === 'ppaction://hlinkshowjump?jump=previousslide') return { kind: 'prevSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=firstslide') return { kind: 'firstSlide' };
   if (action === 'ppaction://hlinkshowjump?jump=lastslide') return { kind: 'lastSlide' };
+  if (action === 'ppaction://hlinkshowjump?jump=lastslideviewed')
+    return { kind: 'lastSlideViewed' };
+  if (action === 'ppaction://hlinkshowjump?jump=endshow') return { kind: 'endShow' };
 
   if (rId !== null && rId !== '') {
     const pkg = slide[INTERNAL_PACKAGE];
@@ -258,6 +263,12 @@ export const buildClickAction = (slide: SlideData, action: ShapeClickAction): Xm
       break;
     case 'lastSlide':
       actionAttr = 'ppaction://hlinkshowjump?jump=lastslide';
+      break;
+    case 'lastSlideViewed':
+      actionAttr = 'ppaction://hlinkshowjump?jump=lastslideviewed';
+      break;
+    case 'endShow':
+      actionAttr = 'ppaction://hlinkshowjump?jump=endshow';
       break;
   }
 

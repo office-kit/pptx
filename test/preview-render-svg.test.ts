@@ -504,6 +504,28 @@ describe('renderSlideToSvg', () => {
     expect(renderSlideToSvg(loaded, getSlides(loaded)[0]!)).toContain('href="#slide-3"');
   });
 
+  it('preserves runtime show actions for shape and text links', async () => {
+    const { pres, slide } = await blankSlide();
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+      text: 'Navigate',
+    });
+    for (const [kind, href] of [
+      ['endShow', '#pptx-end-show'],
+      ['lastSlideViewed', '#pptx-last-slide-viewed'],
+    ] as const) {
+      setShapeClickAction(shape, { kind });
+      expect(renderSlideToSvg(pres, slide)).toContain(`href="${href}"`);
+      setShapeClickAction(shape, null);
+      setShapeClickAction(shape, { kind }, { range: { start: 0, end: 4 } });
+      expect(renderSlideToSvg(pres, slide)).toContain(`href="${href}"`);
+      setShapeClickAction(shape, null, { range: { start: 0, end: 4 } });
+    }
+  });
+
   it('renders internal slide links using the current presentation order', async () => {
     const { pres, slide } = await blankSlide();
     const target = addSlide(pres, { layout: findSlideLayout(pres, 'Blank')! });

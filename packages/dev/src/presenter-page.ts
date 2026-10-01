@@ -48,7 +48,9 @@ function send(action,index){if(window.opener&&!window.opener.closed)window.opene
 for(const canvas of Object.values(canvases))canvas.addEventListener('click',event=>{
  const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
  const href=link?.getAttribute('href')??link?.getAttributeNS('http://www.w3.org/1999/xlink','href')??'';
- if(href.startsWith('#slide-')){
+ if(href==='#pptx-end-show'||href==='#pptx-last-slide-viewed'){
+  event.preventDefault();send(href==='#pptx-end-show'?'exit':'lastViewed');
+ }else if(href.startsWith('#slide-')){
   event.preventDefault();
   const number=Number(href.slice(7));
   if(Number.isInteger(number)&&number>=1)send('jump',number-1);

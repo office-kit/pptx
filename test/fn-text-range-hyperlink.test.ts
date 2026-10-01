@@ -82,7 +82,14 @@ describe('text range hyperlinks', () => {
     expect(internalAction?.kind).toBe('slide');
     if (internalAction?.kind === 'slide')
       expect(getSlideIndex(internalReloaded, internalAction.slide)).toBe(1);
-    for (const kind of ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide'] as const) {
+    for (const kind of [
+      'nextSlide',
+      'prevSlide',
+      'firstSlide',
+      'lastSlide',
+      'lastSlideViewed',
+      'endShow',
+    ] as const) {
       setShapeClickAction(shape, { kind }, { range });
       const loaded = await loadPresentation(await savePresentation(pres));
       const result = getSlideShapes(getSlides(loaded)[0]!).at(-1)!;

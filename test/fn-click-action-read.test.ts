@@ -80,7 +80,14 @@ describe('fn API: getShapeClickAction', () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;
     const shape = getSlideShapes(slide)[0]!;
-    for (const k of ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide'] as const) {
+    for (const k of [
+      'nextSlide',
+      'prevSlide',
+      'firstSlide',
+      'lastSlide',
+      'lastSlideViewed',
+      'endShow',
+    ] as const) {
       setShapeClickAction(shape, { kind: k });
       expect(getShapeClickAction(shape)).toEqual({ kind: k });
     }

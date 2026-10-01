@@ -34,7 +34,7 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 <div id="presentation-scrollbar" role="scrollbar" aria-label="Slide position" aria-controls="slide" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span></span></div><div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
-let showOrder=[],showCursor=0;
+let showOrder=[],showCursor=0,lastViewed=null;
 let displayedSvg;
 let presenterWindow;
 ${previewI18nScript}
@@ -307,7 +307,7 @@ function resize(){
   slide.style.width=slideWidth+'px';slide.style.height=slideWidth/ratio+'px';
 }
 function selectSlide(next,focusThumbnail=false,reveal=true,position='start',showPosition=-1){
- const previousIndex=index;
+ const previousIndex=index,previousCursor=showCursor;
  index=Math.max(0,Math.min(next,state.slides.length-1));
  if(showPosition>=0)showCursor=showPosition;
  else if(presenting){if(showOrder[showCursor]!==index){const naturalPosition=showOrder.indexOf(index);if(naturalPosition>=0)showCursor=naturalPosition;}}
@@ -317,6 +317,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true,position='start',show
     const position=forwardPosition>=0?forwardPosition:backwardPosition;
     if(position>=0){showCursor=position;index=showOrder[position];}
   }
+  if(presenting&&(previousIndex!==index||previousCursor!==showCursor))lastViewed={index:previousIndex,cursor:previousCursor};
   const count=slideCount();
   byId('chat-context').textContent=state.slides.length?count:pt('Whole project');
   byId('chat-context').dataset.focus=JSON.stringify({slide:state.slides.length?index:null,revision:state.revision??0});
@@ -377,6 +378,7 @@ function update(updated){
   selectSlide(index,focusedThumbnail,false,'keep');
 }
 function setPresenting(value){
+  lastViewed=null;
   cancelTransition();
   rebuildShowOrder();
   presenting=value&&firstShowSlide()>=0;document.body.classList.toggle('presenting',presenting);
@@ -386,6 +388,11 @@ function setPresenting(value){
     byId('present').focus();
     thumbnails.children[index]?.firstElementChild.scrollIntoView({block:'nearest'});
   }
+}
+function returnToLastViewed(){
+ if(!presenting||!lastViewed||lastViewed.index>=state.slides.length)return;
+ const target=lastViewed;
+ selectSlide(target.index,false,true,'start',showOrder[target.cursor]===target.index?target.cursor:-1);
 }
 async function exitPresentation(){
   setPresenting(false);
@@ -418,6 +425,7 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='next')moveSlide(1,true);
  else if(event.data.action==='previous')moveSlide(-1,true);
  else if(event.data.action==='exit')void exitPresentation();
+ else if(event.data.action==='lastViewed')returnToLastViewed();
  else if(event.data.action==='jump'&&Number.isInteger(event.data.index)&&event.data.index>=0&&event.data.index<state.slides.length)selectSlide(event.data.index);
 });
 byId('exit-present').onclick=exitPresentation;
@@ -471,6 +479,13 @@ stage.onclick=event=>{
   const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
   if(link){
     const href=link.getAttribute('href')??link.getAttributeNS('http://www.w3.org/1999/xlink','href')??'';
+    if(href==='#pptx-end-show'||href==='#pptx-last-slide-viewed'){
+      event.preventDefault();
+      if(!presenting)return;
+      if(href==='#pptx-end-show'){void exitPresentation();return;}
+      returnToLastViewed();
+      return;
+    }
     if(href.startsWith('#slide-')){
       event.preventDefault();
       const number=Number(href.slice(7));

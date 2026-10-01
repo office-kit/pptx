@@ -414,6 +414,8 @@ export const ja: Record<string, string> = {
   'Previous slide': '前のスライド',
   'First slide': '最初のスライド',
   'Last slide': '最後のスライド',
+  'Last slide viewed': '最後に表示したスライド',
+  'End show': 'スライド ショーを終了',
   'Link destination': 'リンク先の種類',
   'Web address': 'ウェブアドレス',
   'Slide in this presentation': 'このプレゼンテーション内のスライド',

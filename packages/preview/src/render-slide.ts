@@ -211,6 +211,8 @@ const clickActionHref = (
 ): string | undefined => {
   if (!action) return undefined;
   if (action.kind === 'url') return action.url;
+  if (action.kind === 'endShow') return '#pptx-end-show';
+  if (action.kind === 'lastSlideViewed') return '#pptx-last-slide-viewed';
   if (action.kind === 'slide') {
     const index = getSlideIndex(pres, action.slide);
     return index >= 0 ? `#slide-${index + 1}` : undefined;

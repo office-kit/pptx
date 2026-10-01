@@ -65,4 +65,18 @@ describe('fn API: setShapeClickAction', () => {
     const xml = await slideXml(await savePresentation(pres), 0);
     expect(xml).toContain('hlinkshowjump?jump=nextslide');
   });
+
+  it('emits end-show and last-viewed preset actions', async () => {
+    const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    for (const [kind, action] of [
+      ['endShow', 'endshow'],
+      ['lastSlideViewed', 'lastslideviewed'],
+    ] as const) {
+      setShapeClickAction(shape, { kind });
+      expect(await slideXml(await savePresentation(pres), 0)).toContain(
+        `hlinkshowjump?jump=${action}`,
+      );
+    }
+  });
 });

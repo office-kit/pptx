@@ -273,7 +273,14 @@ test(
       assert.equal(getShapeClickAction(text), null);
       assert.equal(getShapeHyperlink(text), 'https://example.com/text');
       assert.equal(getShapeParagraphElements(text, 0)[0].format.bold, true);
-      for (const kind of ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide']) {
+      for (const kind of [
+        'nextSlide',
+        'prevSlide',
+        'firstSlide',
+        'lastSlide',
+        'lastSlideViewed',
+        'endShow',
+      ]) {
         dialog = await open();
         await dialog.getByLabel('リンク先の種類', { exact: true }).selectOption(kind);
         await dialog.getByRole('button', { name: '適用', exact: true }).click();
@@ -294,7 +301,7 @@ test(
       dialog = await open();
       assert.equal(
         await dialog.getByLabel('Link destination', { exact: true }).inputValue(),
-        'lastSlide',
+        'endShow',
       );
       await dialog.getByLabel('Link destination', { exact: true }).selectOption('nextSlide');
       await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -303,7 +310,7 @@ test(
       await saved();
       assert.equal(
         getShapeClickAction(getSlideShapes(getSlides(await read())[0])[0]).kind,
-        'lastSlide',
+        'endShow',
       );
       assert.deepEqual(errors, []);
     } catch (error) {
@@ -469,7 +476,14 @@ for (const target of ['shape', 'cell'])
         await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
         await editor.locator('select').first().selectOption('en');
         ja = false;
-        for (const kind of ['nextSlide', 'prevSlide', 'firstSlide', 'lastSlide']) {
+        for (const kind of [
+          'nextSlide',
+          'prevSlide',
+          'firstSlide',
+          'lastSlide',
+          'lastSlideViewed',
+          'endShow',
+        ]) {
           dialog = await open(true);
           await dialog.getByLabel('Link destination', { exact: true }).selectOption(kind);
           await dialog.getByRole('button', { name: 'Apply', exact: true }).click();
@@ -484,7 +498,7 @@ for (const target of ['shape', 'cell'])
         dialog = await open();
         assert.equal(
           await dialog.getByLabel('Link destination', { exact: true }).inputValue(),
-          'lastSlide',
+          'endShow',
         );
         await dialog.getByRole('button', { name: 'Remove link', exact: true }).click();
         await saved();
