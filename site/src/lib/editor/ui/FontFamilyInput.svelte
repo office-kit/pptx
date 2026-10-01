@@ -38,7 +38,11 @@
     event.preventDefault();
     const items = [...menu!.querySelectorAll<HTMLButtonElement>('button')];
     const index = items.indexOf(event.target as HTMLButtonElement);
-    items[event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]?.focus();
+    const next = event.key === 'Home' ? 0
+      : event.key === 'End' ? items.length - 1
+      : index < 0 ? (event.key === 'ArrowDown' ? 0 : items.length - 1)
+      : (index + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
   }
 </script>
 

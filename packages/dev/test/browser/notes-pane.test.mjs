@@ -45,6 +45,26 @@ test(
       await resize.focus();
       await resize.press('ArrowUp');
       assert.equal(Number(await resize.getAttribute('aria-valuenow')), height + 10);
+      await resize.press('End');
+      assert.equal(
+        Math.round((await editor.locator('.notes-pane').boundingBox()).height),
+        Number(await resize.getAttribute('aria-valuenow')),
+        'notes splitter reports the visible height at its upper limit',
+      );
+      await page.setViewportSize({ width: 1500, height: 700 });
+      await editor
+        .locator('.notes-pane')
+        .evaluate(
+          () =>
+            new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+        );
+      assert.equal(
+        Math.round((await editor.locator('.notes-pane').boundingBox()).height),
+        Number(await resize.getAttribute('aria-valuenow')),
+        'shrinking the window also updates the splitter value',
+      );
+      await page.setViewportSize({ width: 1500, height: 1000 });
+      await resize.press('Home');
       assert.equal((await state()).revision, revision);
       await input.fill('First edited\n日本語');
       await editor.locator('.nav [data-slide-index="1"]').click();

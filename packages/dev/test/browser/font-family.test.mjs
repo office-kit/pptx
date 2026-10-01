@@ -47,6 +47,24 @@ test(
         await menu.getByRole('menuitemradio', { name: 'Brand Sans', exact: true }).count(),
         1,
       );
+      await menu.getByRole('textbox', { name: 'Search fonts', exact: true }).press('ArrowUp');
+      assert.equal(
+        await menu
+          .getByRole('menuitemradio')
+          .last()
+          .evaluate((node) => node === node.ownerDocument.activeElement),
+        true,
+        'Up from the search field should select the final font option',
+      );
+      await menu.getByRole('menuitemradio').last().press('ArrowDown');
+      assert.equal(
+        await menu
+          .getByRole('menuitemradio')
+          .first()
+          .evaluate((node) => node === node.ownerDocument.activeElement),
+        true,
+        'Down from the final font should wrap to the first option',
+      );
       await menu.getByRole('menuitemradio', { name: 'Arial', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       const readFonts = async () => {

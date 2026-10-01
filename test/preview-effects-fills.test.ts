@@ -29,6 +29,8 @@ import {
 } from '@office-kit/pptx';
 import { type ZipEntry, readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
+import { renderSlideToRgba } from '../packages/preview/src/node.ts';
+import { buildPng } from './lib/build-png.ts';
 
 const fixturePath = fileURLToPath(new URL('./fixtures/minimal/blank.pptx', import.meta.url));
 
@@ -322,4 +324,111 @@ describe('renderSlideToSvg: picture contrast', () => {
       }
     },
   );
+});
+
+describe('renderSlideToRgba: picture biLevel effect', () => {
+  it.each([
+    { threshold: 0, expected: [255, 255, 255] },
+    { threshold: 0.5, expected: [0, 0, 0] },
+    { threshold: 1, expected: [0, 0, 0] },
+  ])('thresholds luminance exactly at $threshold', async ({ threshold, expected }) => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    const redPng = buildPng(4, 4, () => [255, 0, 0]);
+    addSlideImage(slide, redPng, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    const { entries } = readZip(await savePresentation(pres));
+    const name = slideEntryName(entries);
+    const modified = editEntry(entries, name, (xml) =>
+      xml.replace(
+        /<a:blip\b([^>]*)\/>/,
+        `<a:blip$1><a:biLevel thresh="${threshold * 100000}"/></a:blip>`,
+      ),
+    );
+    const reloaded = await loadPresentation(writeZip(modified));
+    const target = getSlides(reloaded).at(-1)!;
+    const { image } = renderSlideToRgba(reloaded, target, { width: 960 });
+    const x = Math.round(image.width * 0.2);
+    const y = Math.round(image.height * 0.15);
+    const pixel = Array.from(
+      image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3),
+    );
+    expect(pixel).toEqual(expected);
+    const svg = renderSlideToSvg(reloaded, target, { textLayout: 'svg' });
+    expect(svg).toContain('0.2126 0.7152 0.0722 0 0');
+    expect(svg).toContain(`intercept="${0.5 - threshold}"`);
+  });
+
+  it('preserves the exact transition around an intermediate threshold', async () => {
+    const renderRed = async (threshold: number): Promise<number[]> => {
+      const pres = await loadPresentation(await readFile(fixturePath));
+      const layout = findSlideLayout(pres, 'Blank');
+      if (!layout) throw new Error('Blank layout missing');
+      const slide = addSlide(pres, { layout });
+      addSlideImage(
+        slide,
+        buildPng(4, 4, () => [255, 0, 0]),
+        {
+          x: inches(1),
+          y: inches(1),
+          w: inches(2),
+          h: inches(1),
+        },
+      );
+      const { entries } = readZip(await savePresentation(pres));
+      const name = slideEntryName(entries);
+      const modified = editEntry(entries, name, (xml) =>
+        xml.replace(
+          /<a:blip\b([^>]*)\/>/,
+          `<a:blip$1><a:biLevel thresh="${threshold * 100000}"/></a:blip>`,
+        ),
+      );
+      const restored = await loadPresentation(writeZip(modified));
+      const { image } = renderSlideToRgba(restored, getSlides(restored).at(-1)!, { width: 960 });
+      const x = Math.round(image.width * 0.2);
+      const y = Math.round(image.height * 0.15);
+      return Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3));
+    };
+
+    expect(await renderRed(0.2)).toEqual([255, 255, 255]);
+    expect(await renderRed(0.22)).toEqual([0, 0, 0]);
+  });
+
+  it('recomputes luminance when duotone follows grayscale', async () => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    addSlideImage(
+      slide,
+      buildPng(4, 4, () => [255, 255, 255]),
+      {
+        x: inches(1),
+        y: inches(1),
+        w: inches(2),
+        h: inches(1),
+      },
+    );
+    const { entries } = readZip(await savePresentation(pres));
+    const name = slideEntryName(entries);
+    const modified = editEntry(entries, name, (xml) =>
+      xml.replace(
+        /<a:blip\b([^>]*)\/>/,
+        '<a:blip$1><a:grayscl/><a:duotone><a:srgbClr val="000000"/><a:srgbClr val="FF0000"/></a:duotone><a:biLevel thresh="50000"/></a:blip>',
+      ),
+    );
+    const reloaded = await loadPresentation(writeZip(modified));
+    const { image } = renderSlideToRgba(reloaded, getSlides(reloaded).at(-1)!, { width: 960 });
+    const x = Math.round(image.width * 0.2);
+    const y = Math.round(image.height * 0.15);
+    expect(
+      Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3)),
+    ).toEqual([0, 0, 0]);
+  });
 });
