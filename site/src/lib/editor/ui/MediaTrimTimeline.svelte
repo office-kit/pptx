@@ -27,16 +27,47 @@
 
   const clamp = (value: number, minimum: number, maximum: number) => Math.max(minimum, Math.min(maximum, value));
   const trackPercent = (value: number) => duration > 0 ? `${clamp(value, 0, duration) / duration * 100}%` : '0%';
-  const trackValue = (event: Event) => (event.currentTarget as HTMLInputElement).valueAsNumber;
   // Short clips still need a valid range even though normal keyboard moves are 50 ms.
   const minimumRange = $derived(Math.min(STEP_MS, Math.max(1, duration)));
-  const length = $derived(Math.max(minimumRange, end - start));
+  const length = $derived(Math.max(0, end - start));
   const fadeInPosition = $derived(start + clamp(fadeIn, 0, length));
   const fadeOutPosition = $derived(end - clamp(fadeOut, 0, length));
+
+  let dragging = false;
+
+  // Native range steps round persisted OOXML times, including the media endpoint.
+  // Keep exact values and apply the PowerPoint 50 ms increment only to gestures.
+  function input(event: Event, change: (value: number) => number) {
+    const control = event.currentTarget as HTMLInputElement;
+    const value = control.valueAsNumber;
+    const maximum = Number(control.max);
+    const next = dragging && value !== maximum ? Math.round(value / STEP_MS) * STEP_MS : value;
+    control.value = String(change(clamp(next, 0, maximum)));
+  }
+
+  function key(event: KeyboardEvent, change: (value: number) => number, reversed = false) {
+    const control = event.currentTarget as HTMLInputElement;
+    const maximum = Number(control.max);
+    let next = control.valueAsNumber;
+    switch (event.key) {
+      case 'ArrowRight': next += reversed ? -STEP_MS : STEP_MS; break;
+      case 'ArrowLeft': next += reversed ? STEP_MS : -STEP_MS; break;
+      case 'ArrowUp': next += STEP_MS; break;
+      case 'ArrowDown': next -= STEP_MS; break;
+      case 'Home': next = 0; break;
+      case 'End': next = maximum; break;
+      case 'PageUp': next += STEP_MS * 10; break;
+      case 'PageDown': next -= STEP_MS * 10; break;
+      default: return;
+    }
+    event.preventDefault();
+    control.value = String(change(clamp(next, 0, maximum)));
+  }
 
   function seek(value: number) {
     const next = clamp(value, start, end);
     onseek?.(next);
+    return next;
   }
 
   function changeStart(value: number) {
@@ -45,6 +76,7 @@
     fadeIn = clamp(fadeIn, 0, end - next);
     fadeOut = clamp(fadeOut, 0, end - next);
     seek(position);
+    return next;
   }
 
   function changeEnd(value: number) {
@@ -53,16 +85,21 @@
     fadeIn = clamp(fadeIn, 0, next - start);
     fadeOut = clamp(fadeOut, 0, next - start);
     seek(position);
+    return next;
   }
 
   function changeFadeIn(value: number) {
-    fadeIn = clamp(value - start, 0, end - start);
+    fadeIn = clamp(value, 0, end - start);
+    return fadeIn;
   }
 
   function changeFadeOut(value: number) {
-    fadeOut = clamp(end - value, 0, end - start);
+    fadeOut = clamp(value, 0, end - start);
+    return fadeOut;
   }
 </script>
+
+<svelte:window onpointerup={() => dragging = false} onpointercancel={() => dragging = false} />
 
 <div class="timeline" style={`--start:${trackPercent(start)};--end:${trackPercent(end)};--fade-in:${trackPercent(fadeInPosition)};--fade-out:${trackPercent(fadeOutPosition)};--position:${trackPercent(position)}`}>
   <div class="track">
@@ -78,11 +115,11 @@
     <span aria-hidden="true" class="fade-handle out"></span>
     <span aria-hidden="true" class="playhead"></span>
   </div>
-  <input class="axis current" aria-label={t('Current Position')} type="range" min="0" max={duration} step={STEP_MS} value={position} disabled={duration <= 0 || end <= start} oninput={event => seek(trackValue(event))} />
-  <input class="axis trim start" aria-label={t('Start Trim')} type="range" min="0" max={duration} step={STEP_MS} value={start} disabled={duration <= 0} oninput={event => changeStart(trackValue(event))} />
-  <input class="axis trim end" aria-label={t('End Trim')} type="range" min="0" max={duration} step={STEP_MS} value={end} disabled={duration <= 0} oninput={event => changeEnd(trackValue(event))} />
-  <input class="axis fade in" aria-label={t('Fade In')} type="range" min="0" max={length} step={STEP_MS} value={fadeIn} disabled={duration <= 0} oninput={event => changeFadeIn(trackValue(event) + start)} />
-  <input class="axis fade out" aria-label={t('Fade Out')} type="range" min="0" max={length} step={STEP_MS} value={fadeOut} disabled={duration <= 0} oninput={event => changeFadeOut(end - trackValue(event))} />
+  <input class="axis current" aria-label={t('Current Position')} type="range" min="0" max={duration} step="any" onpointerdown={() => dragging = true} value={position} disabled={duration <= 0 || end <= start} oninput={event => input(event, seek)} onkeydown={event => key(event, seek)} />
+  <input class="axis trim start" aria-label={t('Start Trim')} type="range" min="0" max={duration} step="any" onpointerdown={() => dragging = true} value={start} disabled={duration <= 0} oninput={event => input(event, changeStart)} onkeydown={event => key(event, changeStart)} />
+  <input class="axis trim end" aria-label={t('End Trim')} type="range" min="0" max={duration} step="any" onpointerdown={() => dragging = true} value={end} disabled={duration <= 0} oninput={event => input(event, changeEnd)} onkeydown={event => key(event, changeEnd)} />
+  <input class="axis fade in" aria-label={t('Fade In')} type="range" min="0" max={length} step="any" onpointerdown={() => dragging = true} value={fadeIn} disabled={duration <= 0} oninput={event => input(event, changeFadeIn)} onkeydown={event => key(event, changeFadeIn)} />
+  <input class="axis fade out" aria-label={t('Fade Out')} type="range" min="0" max={length} step="any" onpointerdown={() => dragging = true} value={fadeOut} disabled={duration <= 0} oninput={event => input(event, changeFadeOut)} onkeydown={event => key(event, changeFadeOut, true)} />
 </div>
 
 <style>
