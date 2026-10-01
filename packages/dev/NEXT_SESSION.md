@@ -1,3 +1,12 @@
+## 2026-10-01: browse スクロールバーと kiosk 操作
+
+- browse/showScrollbar を再生画面右端の縦スクロールバーに接続。ドラッグ、トラッククリック、Arrow/Page/Home/End、現在位置同期に対応。スライドの重複順序を保持し hidden を除外。バーの幅は表示領域から確保する。UI はブラウザーで撮影・確認したが Mac 実機との一致は未検証。
+- kiosk では loop=false の入力でも自動再生をループさせ、空白クリックと通常の移動キーを無効化。明示的なスライドリンクと Escape は維持。旧ビルドで最終スライド停止を再現した。restart の再起動間隔、ナレーション、custom show のリンク起動/return は引き続き確認・実装が必要。
+- 根拠: https://support.microsoft.com/en-us/powerpoint/training/create-a-self-running-presentation と https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.kioskslidemode 。restart について SDK の規範文だけで現在の Office の動作を断定しない。
+- PowerPoint 実機は今回も画面サイズ0×0で取得失敗。ネイティブ操作や変更はしていない。ユーザーの元プレビューは再読み込みしていない。
+- 最終 format/lint/dev typecheck/build 成功。最終統合ブラウザー16/16成功（/tmp/pptx-browse-kiosk-final-browser.log、session93916正常終了）。途中14/16の失敗はテスト側の fullscreen 終了待ちと編集中変数参照を修正。
+- 056e82a7 の CI run36873233002 は確認時 Static 成功、他チェック実行中。全体の完全一致はまだ未達成。
+
 ## 2026-10-01: 再生対象の削除とウィンドウ表示
 
 - 再生対象の Custom Show を削除したとき、同じ Undo トランザクションで再生対象を all に戻すよう修正。他の設定は保持。旧ビルドで参照が残る回帰を再現し、保存した PPTX・Undo でのショー/選択 ID 復元・無関係なショー削除での選択維持を検証。

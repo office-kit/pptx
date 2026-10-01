@@ -8,7 +8,7 @@ const previewJapanese={
  'Download PPTX':'PPTXをダウンロード','Slides':'スライド','Slide viewer':'スライドビューアー','Presentation editor':'プレゼンテーション編集',
  'Slide chat':'スライドチャット','Chat width':'チャットの幅','Drag to resize · Double-click to reset':'ドラッグで幅を変更・ダブルクリックでリセット',
  'Previous slide':'前のスライド','Next slide':'次のスライド','Zoom':'ズーム','Fit':'画面に合わせる',
- 'Exit · Esc':'終了 · Esc','Exit view · Esc':'表示を終了 · Esc','No slides':'スライドがありません','Whole project':'プロジェクト全体',
+ 'Exit · Esc':'終了 · Esc','Exit view · Esc':'表示を終了 · Esc','Slide position':'スライドの位置','No slides':'スライドがありません','Whole project':'プロジェクト全体',
  'Waiting for slides…':'スライドを待っています…','Building…':'ビルド中…','Updating…':'更新中…','Reconnecting…':'再接続中…',
  'Build failed · showing last successful output':'ビルドに失敗しました・最後に成功した結果を表示中',
  'Changes appear automatically · Text can be selected and copied':'変更は自動的に反映されます・文字を選択してコピーできます',

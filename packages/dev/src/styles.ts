@@ -30,6 +30,10 @@ body.editing header{padding:0 14px;gap:10px}body.editing header .brand{font-size
 .presenting .workspace{grid-template-columns:minmax(0,1fr)}.presenting #stage{padding:0;background:#111}.presenting #slide{box-shadow:none}
 .presenting #presentation-controls{display:flex;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);align-items:center;gap:12px;background:#202735e8;color:white;padding:6px;border-radius:8px;opacity:0;transition:opacity .15s}
 .presenting #presentation-controls:hover,.presenting #presentation-controls:focus-within{opacity:1}
+.presenting.browse-scrollbar #stage{padding-right:18px}
+#presentation-scrollbar{position:fixed;z-index:4;top:0;bottom:0;right:0;width:16px;touch-action:none;border:1px solid #5d6575;background:#202735e8;cursor:pointer}
+#presentation-scrollbar span{position:absolute;left:3px;right:3px;min-height:8px;border-radius:5px;background:#9b87ff;pointer-events:none}
+.kiosk-presenting #present-prev,.kiosk-presenting #present-next{display:none}
 #presentation-controls button{background:transparent;color:white;border-color:#5d6575}
 #present-note{max-width:38ch;color:#ffd9a8;font-size:11px;line-height:1.35}#present-note[hidden],#animation-retry[hidden]{display:none}
 @media(max-width:700px){.workspace{grid-template-columns:140px minmax(0,1fr)}.filmstrip{padding:12px 5px}header{padding:0 12px;gap:10px}.badge,footer .hint{display:none}#stage{padding:16px}footer{gap:8px}#status{font-size:11px}.download{padding:7px 8px}}
