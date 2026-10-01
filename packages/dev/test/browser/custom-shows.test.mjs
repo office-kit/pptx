@@ -120,7 +120,7 @@ test(
         .getByLabel('Custom show', { exact: true })
         .selectOption({ label: 'Evening' });
       await setupDialog.getByLabel("Loop continuously until 'Esc'", { exact: true }).check();
-      await setupDialog.getByLabel('Show narration', { exact: true }).check();
+      await setupDialog.getByLabel('Show without narration', { exact: true }).uncheck();
       await setupDialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
       const selectedShow = await readShowProperties();

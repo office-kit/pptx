@@ -1,3 +1,15 @@
+## 2026-10-02: ショー設定の抑止チェックと kiosk restart
+
+- 日本語の「ナレーション/アニメーションを表示しない」が正の OOXML 属性へ直結していた逆転を再現・修正。英語も Show without ... に統一。チェックは属性の否定として保存し、キャンセル・Undo・保存後の再読込を検証した。
+- kiosk の正の restart ミリ秒を再生開始から計測し、現在のショー先頭へ戻す。自動ループで再計測し、終了時にタイマーを解除。ブラウザーのタイマー上限を超える期間も分割して待機する。
+- restart=0 の実機での意味、リンクで入れ子にした custom show の期限継承は未確認。現状は 0 をスケジュールせず、リンク中も全体の期限を継承し、その時点のショー先頭へ戻る。PowerPoint 完全一致と扱わない。
+- 発表者ビューでボタンにフォーカスがあると Esc が無視される不具合を新テストで再現して修正。初期の kiosk テストタイムアウトは再起動失敗の証拠ではなく、この終了操作によるものだった。
+- 検証: core 3106 passed / 109 skipped、site 117 passed、Svelte 0 errors/warnings。依存順 build、format/lint/root/dev 型検査成功。設定・custom show・ヘッダー6件成功、最終の再生/発表者/kiosk 9件成功（/tmp/pptx-kiosk-final.log）。
+- 実機取得は引き続き画面0×0で失敗。今回ネイティブ操作・文書変更はなく復元待ちはない。
+- メディア監査: core は埋め込み audio/video と再生属性を扱うが、preview はポスターのみ。dev の manifest/bytes 配信、video/audio プレイヤー、発表者ビュー同期、ナレーション識別・再生、Playback リボンは未実装。showNarration の保存対応を音声再生完了と扱わない。
+- 描画 CI の長い Latin 単語の折り返し差分は LibreOffice 基準。latinLnBrk=false を無視する変更は PowerPoint の裏付けがないため採用していない。fc23c22e の Static/Node22/Node26/OOXML は成功、Preview fidelity は 05-preset-shapes slide1 fg-SSIM 0.6161 vs baseline0.7731 で失敗（/tmp/pptx-fidelity-fc23.log）、Node24 は確認時進行中。
+- ユーザーの元プレビューは再読み込みしていない。ヘッダー最適化は既に PR #287 の654fa448に含まれる。全UI・全操作一致は未達成。
+
 ## 2026-10-01: ショー内の相対リンクと全画面終了競合
 
 - next/prev/first/last のリンクを SVG 生成時の固定スライド番号から実行時アクションへ変更。再生中の custom show/range の順序・重複位置・非表示を反映する。明示的なスライドリンクは従来通り。通常プレビューでも非表示を飛ばす。

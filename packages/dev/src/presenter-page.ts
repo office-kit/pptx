@@ -86,7 +86,7 @@ window.addEventListener('message',event=>{if(event.origin===location.origin&&eve
 byId('prev').onclick=()=>send('previous');byId('next-button').onclick=()=>send('next');byId('exit').onclick=()=>send('exit');
 byId('reset').onclick=()=>{started=performance.now();byId('elapsed').textContent='00:00';};
 document.addEventListener('keydown',event=>{
- if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('button'))return;
+ if(event.altKey||event.ctrlKey||event.metaKey||(event.key!=='Escape'&&event.target.closest('button')))return;
  const action=['ArrowRight','ArrowDown','PageDown',' '].includes(event.key)?'next':['ArrowLeft','ArrowUp','PageUp'].includes(event.key)?'previous':event.key==='Escape'?'exit':null;
  if(action){event.preventDefault();send(action);}
 });
