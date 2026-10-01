@@ -973,13 +973,14 @@ export const generatedOverrides: Record<string, CapabilityOverride> = {
         fields: [
           {
             name: 'kind',
-            type: "'url' | 'slide' | 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' | 'lastSlideViewed' | 'endShow'",
+            type: "'url' | 'slide' | 'customShow' | 'nextSlide' | 'prevSlide' | 'firstSlide' | 'lastSlide' | 'lastSlideViewed' | 'endShow'",
             kind: 'enum',
             optional: false,
             label: 'Action Type',
             enumValues: [
               'url',
               'slide',
+              'customShow',
               'nextSlide',
               'prevSlide',
               'firstSlide',
@@ -994,6 +995,20 @@ export const generatedOverrides: Record<string, CapabilityOverride> = {
             kind: 'string',
             optional: true,
             label: 'URL (when type is url)',
+          },
+          {
+            name: 'id',
+            type: 'number',
+            kind: 'number',
+            optional: true,
+            label: 'Custom Show ID (when type is customShow)',
+          },
+          {
+            name: 'returnToShow',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Return to Show (when type is customShow)',
           },
         ],
       },

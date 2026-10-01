@@ -34,7 +34,9 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 <div id="presentation-scrollbar" role="scrollbar" aria-label="Slide position" aria-controls="slide" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span></span></div><div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
-let showOrder=[],showCursor=0,lastViewed=null;
+let showOrder=[],showCursor=0,lastViewed=null,linkedShowId=null;
+let showReturns=[];
+function loopShow(){return showReturns.length===0&&(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk');}
 let displayedSvg;
 let presenterWindow;
 ${previewI18nScript}
@@ -42,7 +44,9 @@ function rebuildShowOrder(){
  const previousSlide=showOrder[showCursor];
  const settings=state.showProperties;
  let order;
- if(settings?.slides?.kind==='range'){
+ if(linkedShowId!==null){
+  order=state.customShows?.find(show=>show.id===linkedShowId)?.slideIndices??[];
+ }else if(settings?.slides?.kind==='range'){
   const start=Math.max(1,settings.slides.start),end=Math.min(state.slides.length,settings.slides.end);
   order=Array.from({length:Math.max(0,end-start+1)},(_,offset)=>start-1+offset);
  }else if(settings?.slides?.kind==='customShow'){
@@ -63,7 +67,7 @@ function showSlideAt(position,step=1,skipHidden=presenting){
  let cursor=position;
  for(let n=0;n<showOrder.length;n++){
   if(cursor<0||cursor>=showOrder.length){
-   if(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk')cursor=(cursor+showOrder.length)%showOrder.length;
+   if(loopShow())cursor=(cursor+showOrder.length)%showOrder.length;
    else return -1;
   }
   const candidate=showOrder[cursor];
@@ -78,7 +82,7 @@ function nextShowPosition(step){
  let cursor=showCursor+step;
  for(let n=0;n<showOrder.length;n++){
   if(cursor<0||cursor>=showOrder.length){
-   if(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk')cursor=(cursor+showOrder.length)%showOrder.length;
+   if(loopShow())cursor=(cursor+showOrder.length)%showOrder.length;
    else return -1;
   }
   if(!presenting||!state.hiddenSlides?.[showOrder[cursor]])return cursor;
@@ -128,6 +132,7 @@ function moveSlide(step,skipHidden=presenting,focusThumbnail=false){
  // Arriving backwards lands on a slide that has already played out, the way
  // PowerPoint shows it; arriving forwards starts its build from the top.
  if(next>=0)selectSlide(next,focusThumbnail,true,step<0?'end':'start',nextPosition);
+ else if(presenting&&step>0&&linkedShowId!==null)void exitPresentation();
 }
 let advanceTimer,advanceKey;
 function scheduleAdvance(){
@@ -136,7 +141,7 @@ function scheduleAdvance(){
   // playing out — is not finished, whatever its transition says about
   // advancing itself.
   const settled=!animationsWaiting()&&(!animationPlayer||!(animationPlayer.pending||animationPlayer.running));
-  const key=presenting&&state.showProperties?.useTimings!==false&&settled&&nextShowSlide(1)>=0&&Number.isFinite(delay)&&delay>=0?index+':'+showCursor+':'+delay:null;
+  const key=presenting&&state.showProperties?.useTimings!==false&&settled&&(nextShowSlide(1)>=0||linkedShowId!==null)&&Number.isFinite(delay)&&delay>=0?index+':'+showCursor+':'+delay:null;
   if(key===advanceKey)return;
   clearTimeout(advanceTimer);advanceKey=key;
   if(key===null)return;
@@ -160,7 +165,7 @@ function animationsPending(){return state.showProperties?.showAnimation!==false&
 function animationsBehind(){return Boolean(animationPlayer&&animationPlayer.cursor>0);}
 function updateNavigationButtons(){
   for(const id of ['prev','present-prev'])byId(id).disabled=presenting?nextShowSlide(-1)<0&&!animationsBehind():findSlide(index-1,-1)<0&&!animationsBehind();
-  for(const id of ['next','present-next'])byId(id).disabled=presenting?nextShowSlide(1)<0&&!animationsPending():findSlide(index+1,1)<0&&!animationsPending();
+  for(const id of ['next','present-next'])byId(id).disabled=presenting?nextShowSlide(1)<0&&linkedShowId===null&&!animationsPending():findSlide(index+1,1)<0&&!animationsPending();
   byId('present').disabled=firstShowSlide()<0;
   byId('presenter').disabled=byId('present').disabled;
 }
@@ -378,6 +383,7 @@ function update(updated){
   selectSlide(index,focusedThumbnail,false,'keep');
 }
 function setPresenting(value){
+  linkedShowId=null;showReturns=[];
   lastViewed=null;
   cancelTransition();
   rebuildShowOrder();
@@ -394,7 +400,35 @@ function returnToLastViewed(){
  const target=lastViewed;
  selectSlide(target.index,false,true,'start',showOrder[target.cursor]===target.index?target.cursor:-1);
 }
+function launchCustomShow(id,returnToShow){
+ if(!presenting)return;
+ const show=state.customShows?.find(show=>show.id===id);
+ const first=show?.slideIndices.find(slide=>slide>=0&&slide<state.slides.length&&!state.hiddenSlides?.[slide]);
+ if(first===undefined)return;
+ const caller={id:linkedShowId,index,cursor:showCursor,lastViewed,animation:animationPlayer?.progress};
+ if(returnToShow)showReturns.push(caller);else showReturns=[];
+ linkedShowId=id;showCursor=0;lastViewed=null;
+ rebuildShowOrder();
+ selectSlide(first,false,true,'start',showOrder.indexOf(first));
+ lastViewed=null;
+}
+function followCustomShowLink(href){
+ if(!href.startsWith('#pptx-custom-show?'))return false;
+ const params=new URLSearchParams(href.slice('#pptx-custom-show?'.length));
+ const id=params.get('id');
+ if(id!==null&&/^[0-9]+$/.test(id))launchCustomShow(Number(id),params.get('return')==='true');
+ return true;
+}
 async function exitPresentation(){
+  if(presenting&&showReturns.length){
+    const caller=showReturns.pop();
+    linkedShowId=caller.id;showCursor=caller.cursor;
+    rebuildShowOrder();
+    selectSlide(caller.index,false,true,'start',caller.cursor);
+    lastViewed=caller.lastViewed;
+    if(caller.animation&&animationPlayer)animationPlayer.resume(caller.animation.cursor,caller.animation.elapsed);
+    return;
+  }
   setPresenting(false);
   if(document.fullscreenElement)await document.exitFullscreen();
 }
@@ -411,7 +445,7 @@ function updatePresenter(){
  // is what the audience sees — including an effect still fading in.
  const progress=animationPlayer?animationPlayer.progress:null;
  const animationSteps=animationPlayer?animationStepsAt(index):null;
- presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[nextShowSlide(1)]??null,hasPrevious:nextShowSlide(-1)>=0||animationsBehind(),hasNext:nextShowSlide(1)>=0||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[nextShowSlide(1)]??null,hasPrevious:nextShowSlide(-1)>=0||animationsBehind(),hasNext:nextShowSlide(1)>=0||linkedShowId!==null||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
 }
 byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
@@ -426,6 +460,7 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='previous')moveSlide(-1,true);
  else if(event.data.action==='exit')void exitPresentation();
  else if(event.data.action==='lastViewed')returnToLastViewed();
+ else if(event.data.action==='customShow'&&typeof event.data.index==='string')followCustomShowLink(event.data.index);
  else if(event.data.action==='jump'&&Number.isInteger(event.data.index)&&event.data.index>=0&&event.data.index<state.slides.length)selectSlide(event.data.index);
 });
 byId('exit-present').onclick=exitPresentation;
@@ -479,6 +514,7 @@ stage.onclick=event=>{
   const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
   if(link){
     const href=link.getAttribute('href')??link.getAttributeNS('http://www.w3.org/1999/xlink','href')??'';
+    if(followCustomShowLink(href)){event.preventDefault();return;}
     if(href==='#pptx-end-show'||href==='#pptx-last-slide-viewed'){
       event.preventDefault();
       if(!presenting)return;
