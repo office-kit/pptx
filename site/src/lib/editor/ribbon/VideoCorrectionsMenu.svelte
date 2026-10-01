@@ -11,6 +11,8 @@
   import { t } from '../i18n/i18n.svelte.ts';
   import Icon from '../ui/Icon.svelte';
 
+  let { variant = 'ribbon' } = $props<{ variant?: 'ribbon' | 'pane' }>();
+
   const componentId = $props.id();
   const editor = getEditor();
   const doc = editor.doc;
@@ -95,8 +97,8 @@
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger?.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 
-<button class="trigger" type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t('Corrections')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
-  <Icon name="gradient" /><span>{t('Corrections')} ▾</span>
+<button class="trigger" class:compact={variant === 'pane'} type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t(variant === 'pane' ? 'Presets' : 'Corrections')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
+  {#if variant !== 'pane'}<Icon name="gradient" />{/if}<span>{t(variant === 'pane' ? 'Presets' : 'Corrections')} ▾</span>
 </button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Corrections')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
@@ -127,12 +129,13 @@
         </button>
       {/each}
     </div>
-    <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat('paint'); }}>{t('Movie Correction Options...')}</button>
+    <button class="options" type="button" role="menuitem" onclick={() => { close(false); editor.showShapeFormat('video'); }}>{t('Movie Correction Options...')}</button>
   </div>
 {/if}
 
 <style>
   .trigger { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; min-width:68px; min-height:48px; padding:4px 7px; background:transparent; border:1px solid transparent; border-radius:var(--ok-radius); color:var(--ok-text); font:inherit; font-size:10px; cursor:pointer; }
+  .trigger.compact { display: inline-flex; flex-direction: row; min-width: 0; min-height: 0; padding: 3px 8px; border: 1px solid var(--ok-border); font-size: 11px; }
   .trigger:hover:not(:disabled) { background:var(--ok-hover); border-color:var(--ok-border); }
   .trigger:disabled { opacity:.4; cursor:default; }
   .menu { position:fixed; z-index:400; width:270px; padding:8px; border:1px solid var(--ok-border); border-radius:6px; background:var(--ok-panel); color:var(--ok-text); box-shadow:var(--ok-shadow-lg); }

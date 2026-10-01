@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getShapeKind } from '@office-kit/pptx';
+  import { getShapeKind, getShapeMedia } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import {
     capabilities,
@@ -15,6 +15,7 @@
   import ChartSection from './ChartSection.svelte';
   import TableSection from './TableSection.svelte';
   import ImageSection from './ImageSection.svelte';
+  import VideoSection from './VideoSection.svelte';
   import ArrangeSection from './ArrangeSection.svelte';
   import AnimationSection from './AnimationSection.svelte';
   import ParagraphSection from './ParagraphSection.svelte';
@@ -23,18 +24,30 @@
 
   const editor = getEditor();
   const doc = editor.doc;
-  const formatTabs = [
+  const baseFormatTabs = [
     { id: 'paint', label: 'Fill & Line', icon: 'fill' },
     { id: 'effects', label: 'Effects', icon: 'shadow' },
     { id: 'size', label: 'Size & Properties', icon: 'resize' },
   ] as const;
+  const videoTab = { id: 'video', label: 'Video', icon: 'video' } as const;
+  const selectedVideo = $derived.by(() => {
+    doc.version;
+    const sel = doc.selection;
+    if (sel.kind !== 'shape' || sel.shapeIds.length !== 1) return false;
+    const shape = doc.shapeById(sel.slideIndex, sel.shapeIds[0]!);
+    return !!shape && getShapeMedia(shape)?.kind === 'video';
+  });
+  const formatTabs = $derived(selectedVideo ? [...baseFormatTabs, videoTab] : baseFormatTabs);
   const isShape = $derived.by(() => {
     if (editor.propertiesPaneMode === 'background') return false;
     doc.version;
     const shapes = editor.selectedShapes();
-    return shapes.length > 0 && shapes.every((shape) =>
+    return selectedVideo || (shapes.length > 0 && shapes.every((shape) =>
       ['shape', 'connector', 'group'].includes(getShapeKind(shape)),
-    );
+    ));
+  });
+  $effect(() => {
+    if (isShape && !formatTabs.some((tab) => tab.id === editor.formatPaneTab)) editor.formatPaneTab = 'paint';
   });
   function tabKeys(event: KeyboardEvent) {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -84,7 +97,7 @@
   const selLabel = $derived.by(() => {
     if (editor.propertiesPaneMode === 'background') return t('Format Background');
     const sel = doc.selection;
-    if (sel.kind === 'shape') return isShape ? t('Format Shape') : t('Shape');
+    if (sel.kind === 'shape') return selectedVideo ? t('Format Video') : isShape ? t('Format Shape') : t('Shape');
     if (sel.kind === 'cell') return t('Table cell');
     return t('Slide');
   });
@@ -100,7 +113,7 @@
   <div class="panel-head">
     <strong>{selLabel}</strong>
     {#if isShape || editor.propertiesPaneMode === 'background'}
-      <button class="close-pane" aria-label={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : 'Close Format Shape')} title={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : 'Close Format Shape')} onclick={(event) => {
+      <button class="close-pane" aria-label={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : selectedVideo ? 'Close Format Video' : 'Close Format Shape')} title={t(editor.propertiesPaneMode === 'background' ? 'Close Format Background' : selectedVideo ? 'Close Format Video' : 'Close Format Shape')} onclick={(event) => {
         editor.propertiesPaneVisible = false;
         const shell = event.currentTarget.closest('.ok-shell');
         const target = shell?.querySelector<HTMLElement>(editor.propertiesPaneMode === 'background' ? '.format-background-trigger' : '.hit.selected');
@@ -114,7 +127,7 @@
       class="format-tabs"
       role="tablist"
       tabindex="-1"
-      aria-label={t('Format Shape')}
+      aria-label={t(selectedVideo ? 'Format Video' : 'Format Shape')}
       onkeydown={tabKeys}
     >
       {#each formatTabs as tab}
@@ -143,18 +156,24 @@
     {:else}
       <SlideSection />
       <LayoutSection />
+      {#if selectedVideo && editor.formatPaneTab === 'video'}
+        <VideoSection />
+      {/if}
       <div hidden={isShape && editor.formatPaneTab !== 'size'}>
         <ChartSection />
         <TableSection />
         <ImageSection />
       </div>
-      <BespokeSections tab={isShape ? editor.formatPaneTab : 'all'} />
+      {#if !selectedVideo || editor.formatPaneTab !== 'video'}
+        <BespokeSections tab={isShape && editor.formatPaneTab !== 'video' ? editor.formatPaneTab : 'all'} />
+      {/if}
       <div hidden={isShape && editor.formatPaneTab !== 'size'}>
         <ParagraphSection />
         <ArrangeSection />
         <AnimationSection />
       </div>
 
+      {#if !selectedVideo || editor.formatPaneTab !== 'video'}
       <div class="all">
         <div class="all-title">{t('All applicable capabilities')}</div>
         {#each grouped as g (g.category)}
@@ -177,6 +196,7 @@
           </section>
         {/each}
       </div>
+      {/if}
     {/if}
   </div>
 </div>

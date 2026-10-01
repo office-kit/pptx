@@ -1,3 +1,11 @@
+## 2026-10-02: 動画書式の詳細ペイン
+
+- 検証: 動画修整・動画リボンのブラウザー2件、ヘッダー省スペース表示1件、site121件成功。Svelte 0 errors/warnings、format/lint、editor build成功。幅の狭いペインではみ出す数値欄も回帰テストで再現後修正し、画像 `/tmp/pptx-video-format-pane.png` を確認。確認用プレビュー4175の稼働を再確認。
+- Mac実機でFormat Videoの4タブと、Video内のBrightness/Contrastプリセット・スライダー・数値欄を再確認。専用Videoタブと修整オプションからの導線を実装。図形へ選択を移した際のタブ復帰も対応。
+- 回帰テストは変更前にFormat Videoタブリスト不在で失敗することを確認。保存値、Undo、スライダーと数値欄の同期、タブのキーボード操作、図形への選択切替を検証対象に追加。
+- 未完了: Recolor、Resetの意味、ドラッグ中の連続プレビュー、Cropの実機配置。Cropは実機でPicture position (Width/Height/Offset X/Offset Y) とCrop position (Width/Height/Left/Top)を確認。既存の4辺百分率UIとは異なる。
+- 今回実機は読み取りとCrop展開のみ。文書内容変更なし。完全一致は未達成。
+
 ## 2026-10-02: 動画の修整ギャラリー
 
 - 検証: 修正前はCorrectionsボタン不在で回帰失敗。修正後は動画修整（保存値・原子的Undo・Normalリセット・ライブ動画filter・キーボード・日本語）と既存動画リボンの2件成功。site121件、Svelte 0 errors/warnings、format/lint/typecheck、editor build成功。画像 `/tmp/pptx-video-corrections-gallery.png` を目視確認。

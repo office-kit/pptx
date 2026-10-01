@@ -131,7 +131,7 @@ export class EditorController {
   propertiesPaneMode = $state<'selection' | 'background'>('selection');
   alignmentReference = $state<'selection' | 'slide'>('selection');
   rotationFocusRequested = $state(false);
-  formatPaneTab = $state<'paint' | 'effects' | 'size'>('paint');
+  formatPaneTab = $state<'paint' | 'effects' | 'size' | 'video'>('paint');
   thumbnailWidth = $state<number | null>(null);
   outlineWidth = $state<number | null>(null);
   outlineShowFormatting = $state(false);
@@ -227,7 +227,7 @@ export class EditorController {
     this.propertiesPaneMode = 'background';
   }
 
-  showShapeFormat(tab: 'paint' | 'effects' | 'size' = 'paint'): void {
+  showShapeFormat(tab: 'paint' | 'effects' | 'size' | 'video' = 'paint'): void {
     this.setViewMode('normal');
     this.selectionPaneVisible = false;
     this.propertiesPaneVisible = true;

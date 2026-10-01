@@ -3,12 +3,17 @@
 
 export const ja: Record<string, string> = {
   'Video Format': 'ビデオの書式',
+  'Format Video': 'ビデオの書式',
+  'Close Format Video': 'ビデオの書式設定を閉じる',
+  Video: 'ビデオ',
+  'Video options': 'ビデオのオプション',
   Preview: 'プレビュー',
   Adjust: '調整',
   Corrections: '修整',
   'Set video corrections': 'ビデオの修整',
   Contrast: 'コントラスト',
   'Movie Correction Options...': 'ビデオの修整オプション...',
+  Presets: 'プリセット',
   'Video Styles': 'ビデオのスタイル',
   'Video Border': 'ビデオの枠線',
   'Video Effects': 'ビデオの効果',
