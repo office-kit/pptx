@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 192,
+  "count": 193,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1960,6 +1960,23 @@
           "name": "opacity",
           "type": "number | null",
           "kind": "number",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeImageRecolor",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "image",
+      "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "recolor",
+          "type": "ImageRecolor",
+          "kind": "object",
           "optional": false
         }
       ]

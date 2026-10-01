@@ -8,6 +8,7 @@
   import ArrangeMenu from './ArrangeMenu.svelte';
   import PosterFrameMenu from './PosterFrameMenu.svelte';
   import VideoCorrectionsMenu from './VideoCorrectionsMenu.svelte';
+  import VideoRecolorMenu from './VideoRecolorMenu.svelte';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -119,7 +120,7 @@
   </div>
 
   <div class="group">
-    <div class="items"><VideoCorrectionsMenu /><PosterFrameMenu /></div>
+    <div class="items"><VideoRecolorMenu /><VideoCorrectionsMenu /><PosterFrameMenu /></div>
     <span class="title">{t('Adjust')}</span>
   </div>
 

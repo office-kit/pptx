@@ -97,7 +97,7 @@
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger?.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 
-<button class="trigger" class:compact={variant === 'pane'} type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t(variant === 'pane' ? 'Presets' : 'Corrections')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
+<button class="trigger" class:compact={variant === 'pane'} type="button" bind:this={trigger} disabled={!selected || locked} aria-label={t(variant === 'pane' ? 'Corrections presets' : 'Corrections')} aria-haspopup="menu" aria-expanded={open} onclick={show}>
   {#if variant !== 'pane'}<Icon name="gradient" />{/if}<span>{t(variant === 'pane' ? 'Presets' : 'Corrections')} ▾</span>
 </button>
 {#if open}

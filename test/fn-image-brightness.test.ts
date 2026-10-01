@@ -11,10 +11,12 @@ import {
   getSlideXmlString,
   getSlideShapes,
   getSlides,
+  isShapeImageGrayscale,
   loadPresentation,
   setShapeImageBrightness,
   setShapeImageContrast,
   resetShapeImageColorEffects,
+  setShapeImageRecolor,
   savePresentation,
 } from '../src/api/index.ts';
 import { SHAPE_ELEMENT } from '../src/api/_internal-symbols.ts';
@@ -100,5 +102,85 @@ describe('fn API: setShapeImageBrightness', () => {
     const restoredXml = getSlideXmlString(getSlides(restored)[0]!);
     expect(restoredXml).not.toContain('<a:biLevel');
     expect(restoredXml).toContain('<a:extLst');
+  });
+});
+
+describe('fn API: setShapeImageRecolor', () => {
+  it('writes PowerPoint recolor effects and clears them without touching opacity', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    const blipFill = firstChildElement(picture[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml))!;
+    const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml))!;
+    blip.children.push(
+      elem(qname('a', 'alphaModFix', NS.dml), {
+        attrs: [attr(qname('', 'amt', ''), '75000')],
+      }),
+      elem(qname('a', 'extLst', NS.dml), {
+        children: [
+          elem(qname('a', 'ext', NS.dml), { attrs: [attr(qname('', 'uri', ''), 'test')] }),
+        ],
+      }),
+    );
+
+    setShapeImageRecolor(picture, { kind: 'grayscale' });
+    expect(getSlideXmlString(getSlides(pres)[0]!)).toContain('<a:grayscl');
+
+    setShapeImageRecolor(picture, {
+      kind: 'duotone',
+      colors: [
+        { color: 'accent1', colorTransforms: [{ kind: 'tint', value: 0.45 }] },
+        { color: '#D9C3A5', colorTransforms: [{ kind: 'satMod', value: 1.8 }] },
+      ],
+    });
+    let xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).toContain('<a:duotone>');
+    expect(xml).toContain('<a:schemeClr val="accent1"><a:tint val="45000"/></a:schemeClr>');
+    expect(xml).toContain('<a:srgbClr val="D9C3A5"><a:satMod val="180000"/></a:srgbClr>');
+    expect(xml.indexOf('<a:duotone>')).toBeLessThan(xml.indexOf('<a:extLst>'));
+    const roundTripped = await loadPresentation(await savePresentation(pres));
+    expect(getSlideXmlString(getSlides(roundTripped)[0]!)).toContain(
+      '<a:schemeClr val="accent1"><a:tint val="45000"/></a:schemeClr>',
+    );
+
+    setShapeImageRecolor(picture, { kind: 'threshold', threshold: 50 });
+    xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).toContain('<a:biLevel thresh="50000"/>');
+
+    setShapeImageRecolor(picture, { kind: 'washout' });
+    xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).toContain('<a:lum bright="70000" contrast="-70000"/>');
+
+    setShapeImageRecolor(picture, { kind: 'none' });
+    xml = getSlideXmlString(getSlides(pres)[0]!);
+    expect(xml).not.toContain('<a:grayscl');
+    expect(xml).not.toContain('<a:duotone');
+    expect(xml).not.toContain('<a:biLevel');
+    expect(xml).not.toContain('<a:lum');
+    expect(xml).toContain('<a:alphaModFix amt="75000"/>');
+    expect(xml).toContain('<a:extLst>');
+  });
+
+  it('validates duotone colors before replacing an existing effect', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    setShapeImageRecolor(picture, { kind: 'grayscale' });
+    expect(() =>
+      setShapeImageRecolor(picture, {
+        kind: 'duotone',
+        colors: ['#nothex', '#FFFFFF'],
+      }),
+    ).toThrow(/unrecognized color/);
+    expect(isShapeImageGrayscale(picture)).toBe(true);
+  });
+
+  it('rejects thresholds outside PowerPoint percent range', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    expect(() => setShapeImageRecolor(picture, { kind: 'threshold', threshold: -1 })).toThrow(
+      RangeError,
+    );
+    expect(() => setShapeImageRecolor(picture, { kind: 'threshold', threshold: 101 })).toThrow(
+      RangeError,
+    );
   });
 });

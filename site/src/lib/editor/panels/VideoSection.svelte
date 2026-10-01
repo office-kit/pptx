@@ -3,6 +3,7 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import VideoCorrectionsMenu from '../ribbon/VideoCorrectionsMenu.svelte';
+  import VideoRecolorMenu from '../ribbon/VideoRecolorMenu.svelte';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -36,6 +37,7 @@
     <details open>
       <summary>{t('Video')}</summary>
       <div class="video-body">
+        <div class="subheading"><span class="subheading-label">{t('Recolor')}</span> <VideoRecolorMenu variant="pane" /></div>
         <div class="subheading"><span class="subheading-label">{t('Brightness')} / {t('Contrast')}</span> <VideoCorrectionsMenu variant="pane" /></div>
         <div class="control">
           <div class="control-row">

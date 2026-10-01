@@ -864,3 +864,10 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 
 - Native pane Reset removes grayscale, duotone (including Sepia), bi-level black/white, and brightness/contrast from the poster blip. It preserves the poster relationship, media, geometry, border and 3D formatting. Ribbon Reset additionally removes shape formatting and remains unimplemented.
 - The pane now resets these color effects in one Undo action; opacity and unknown extensions remain intact. Core round-trip and browser tests cover reset, Undo/Redo and saved reload. The reference file was restored through named Undo operations and saved; its slide XML matches the baseline exactly. Native evidence is under `/tmp/pptx-video-reset-{before,after,ribbon,sepia-before,sepia-after,bilevel-before,bilevel-after}.xml`.
+
+### Video recolor gallery (2026-10-02)
+
+- Ribbon Color and pane Recolor presets share 21 choices with native grayscale, sepia, washout, threshold, and theme duotone values. More Variations exposes base theme and standard colors. Selection is resolved with the same DrawingML color-transform code as rendering.
+- Native saved XML confirms washout bright=70000/contrast=-70000, dark tint=45000/satMod=400000, and light shade=45000/satMod=135000. All temporary native document changes were undone and saved; the slide XML matches the baseline.
+- Browser coverage verifies saved values, Undo/Redo, reload, live video effects, and preserved media/shape formatting. Core tests cover invalid-input atomicity, effect ordering before extLst, and transformed-color round trips.
+- Remaining differences include the five-row theme shade palette, exact gallery thumbnail rendering, ribbon Reset, continuous slider preview, and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.

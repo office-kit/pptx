@@ -1,3 +1,11 @@
+## 2026-10-02: 動画の色変更ギャラリー
+
+- リボンColorと動画ペインから21プリセット、基本テーマ色・標準色を選択可能。保存、Undo/Redo、再読込、ライブ動画への反映を実装。詳細ペインの修整と色変更プリセットには別々のアクセシブル名を設定。
+- Mac実機で保存XMLを比較。Washoutはlum bright=70000/contrast=-70000、Darkはtint45000/satMod400000、Lightはshade45000/satMod135000。セピア、白黒、基本テーマ色も確認。参照資料はUndo後に保存し、baseline XMLとの完全一致を確認。復元待ちなし。
+- 検証: core3194件、site121件成功。format/lint/typecheck、Svelte 0 errors/warnings、core/editor build成功。ヘッダー日英900/1500pxと色変更のブラウザー回帰成功。
+- 確認用プレビュー http://127.0.0.1:4175 をChromeで表示。4173の未保存編集は触らない。引き続きPR #287に集約。
+- 未完了: More Variationsのテーマ濃淡5段、サムネイルの画素一致、リボンReset、スライダー操作中の連続反映、ネイティブCrop配置。全体の完全一致は未達成。
+
 ## 2026-10-02: 動画ペインの色リセット
 
 - VideoタブのResetを実装。grayscl/duotone/biLevel/lumのみ解除し、表紙・動画・図形書式・透明度・未知の拡張を保持。Undoは1操作。リボンResetは図形書式まで解除する別動作で未実装。
