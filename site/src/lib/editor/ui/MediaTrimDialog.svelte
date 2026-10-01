@@ -3,6 +3,8 @@
   import { getShapeMedia, getShapeMediaPlayback, setShapeMediaPlayback, type SlideShapeData } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import MediaTrimTimeline from './MediaTrimTimeline.svelte';
+  import MediaWaveform from './MediaWaveform.svelte';
 
   const { shape, onclose }: { shape: SlideShapeData; onclose: () => void } = $props();
   const editor = getEditor();
@@ -126,15 +128,9 @@
   </div>
   <div class="scrubber">
     <span>{time(position)}</span>
-    <div class="ranges">
-      <input aria-label={t('Start Trim')} type="range" min="0" max={Math.max(0, end - 1)} step="50" bind:value={start} disabled={!duration} oninput={() => seek(start)} />
-      <input aria-label={t('Current Position')} type="range" min={start} max={end} step="1" value={position} disabled={!valid} oninput={event => seek(event.currentTarget.valueAsNumber)} />
-      <input aria-label={t('End Trim')} type="range" min={0} max={duration} step="50" bind:value={end} disabled={!duration} oninput={() => seek(Math.min(position, end))} />
-      <div class="fades">
-        <label>{t('Fade In')}<input aria-label={t('Fade In')} type="range" min="0" max={Math.max(0, length, fadeIn)} step="50" bind:value={fadeIn} /></label>
-        <label>{t('Fade Out')}<input aria-label={t('Fade Out')} type="range" min="0" max={Math.max(0, length, fadeOut)} step="50" bind:value={fadeOut} /></label>
-      </div>
-    </div>
+    <MediaTrimTimeline bind:start bind:end bind:fadeIn bind:fadeOut {duration} {position} onseek={seek}>
+      {#if media && media.kind !== 'online'}<MediaWaveform bytes={media.bytes} />{/if}
+    </MediaTrimTimeline>
     <span>−{time(Math.max(0, end - position))}</span>
   </div>
   <div class="transport"><button aria-label={t('Nudge Backward')} disabled={!valid} onclick={() => seek(position - 50)}>◀|</button><button aria-label={t(paused ? 'Play' : 'Pause')} disabled={!valid} onclick={play}>{paused ? '▶' : 'Ⅱ'}</button><button aria-label={t('Nudge Forward')} disabled={!valid} onclick={() => seek(position + 50)}>|</button></div>
@@ -151,11 +147,6 @@
   video { width: 100%; height: 100%; object-fit: contain; }
   .speaker { width: 100px; height: 100px; color: #ddd; }
   .scrubber { display: flex; align-items: center; gap: 14px; font-variant-numeric: tabular-nums; }
-  .ranges { flex: 1; min-width: 0; }
-  .ranges > input { display: block; width: 100%; accent-color: #f7c52d; }
-  .fades { display: flex; gap: 12px; font-size: 11px; }
-  .fades label { width: 50%; }
-  .fades input { width: 100%; }
   .transport { display: flex; justify-content: center; gap: 12px; margin: 12px; }
   button { padding: 6px 16px; background: #353535; color: white; border: 0; border-radius: 6px; font: inherit; }
   button:disabled { opacity: .4; }

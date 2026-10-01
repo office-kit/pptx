@@ -6,6 +6,8 @@ export const ja: Record<string, string> = {
   'Nudge Forward': '少し進む',
   'Nudge Backward': '少し戻る',
   'Current Position': '現在の位置',
+  'Audio waveform': '音声の波形',
+  'Waveform unavailable': '波形を表示できません',
   'End Trim': 'トリミング終了位置',
   'Start Trim': 'トリミング開始位置',
   Trim: 'トリミング',

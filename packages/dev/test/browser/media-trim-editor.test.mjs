@@ -39,7 +39,9 @@ const wav = (durationMs = 5000) => {
   for (let index = 0; index < samples; index++) {
     view.setInt16(
       44 + index * 2,
-      Math.round(Math.sin((index * 2 * Math.PI * 440) / sampleRate) * 1000),
+      Math.round(
+        Math.sin((index * 2 * Math.PI * 440) / sampleRate) * (index < samples / 2 ? 16000 : 4000),
+      ),
       true,
     );
   }
@@ -100,14 +102,46 @@ test(
         return dialog;
       };
       let dialog = await open();
+      const waveform = dialog.getByRole('img', { name: 'Audio waveform', exact: true });
+      await waveform.locator('path[d*="M511"]').waitFor();
+      assert.ok((await waveform.boundingBox()).width > (await dialog.boundingBox()).width / 2);
+      const trace = await waveform.locator('path').getAttribute('d');
+      assert.notEqual(trace.slice(0, trace.indexOf('M1 ')), 'M0 24V24');
       await dialog.getByLabel('Start Trim', { exact: true }).fill('500');
       await dialog.getByLabel('End Trim', { exact: true }).fill('4000');
+      const dragHandle = async (label, from, to, min, max, reversed = false) => {
+        const control = dialog.getByLabel(label, { exact: true });
+        const box = await control.boundingBox();
+        assert.ok(box);
+        const x = (value) =>
+          box.x +
+          7 +
+          (reversed ? 1 - (value - min) / (max - min) : (value - min) / (max - min)) *
+            (box.width - 14);
+        await page.mouse.move(x(from), box.y + box.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(x(to), box.y + box.height / 2, { steps: 5 });
+        await page.mouse.up();
+        assert.equal(Number(await control.inputValue()), to, label);
+      };
+      await dragHandle('Start Trim', 500, 1000, 0, 5000);
+      await dragHandle('End Trim', 4000, 4500, 0, 5000);
+      await dragHandle('Fade In', 0, 500, 0, 3500);
+      await dragHandle('Fade Out', 0, 500, 0, 3500, true);
+      const current = Number(
+        await dialog.getByLabel('Current Position', { exact: true }).inputValue(),
+      );
+      await dragHandle('Current Position', current, 2000, 0, 5000);
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       assert.equal((await read()).trim, undefined);
       dialog = await open();
       await dialog.getByLabel('Start Trim', { exact: true }).fill('500');
       await dialog.getByLabel('End Trim', { exact: true }).fill('4000');
       await dialog.getByLabel('Fade In', { exact: true }).fill('250');
+      await dialog.getByLabel('Start Trim', { exact: true }).press('ArrowRight');
+      assert.equal(await dialog.getByLabel('Start Trim', { exact: true }).inputValue(), '550');
+      await dialog.getByLabel('Start Trim', { exact: true }).press('ArrowLeft');
+      await dialog.screenshot({ path: '/tmp/pptx-trim-timeline.png' });
       await dialog.getByRole('button', { name: 'Play', exact: true }).click();
       await dialog.getByRole('button', { name: 'Pause', exact: true }).waitFor();
       await dialog.getByRole('button', { name: 'Play', exact: true }).waitFor();
