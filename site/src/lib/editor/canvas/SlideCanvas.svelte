@@ -930,16 +930,18 @@
     return formats;
   });
   $effect(() => {
-    editor.inlineTextFormat = editing ? {
+    if (!editing) return;
+    const api = {
       formats: rangeFormats,
       paragraphs: inlineParagraph.properties,
       editParagraphs: editInlineParagraphs,
       alignment: inlineParagraph.align,
-      align: value => applyInlineParagraph('align', value),
+      align: (value: string) => applyInlineParagraph('align', value),
       apply: applyInlineFormat,
       toggle: toggleInlineFormat,
-    } : null;
-    return () => { editor.inlineTextFormat = null; };
+    };
+    editor.inlineTextFormat = api;
+    return () => { if (editor.inlineTextFormat?.apply === api.apply) editor.inlineTextFormat = null; };
   });
   function inlineParagraphTarget(shape = boxes.find(b => b.id === editing?.id)?.shape) {
     if (!shape || !editing) return null;

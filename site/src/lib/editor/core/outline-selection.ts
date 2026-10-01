@@ -1,5 +1,5 @@
 import type { TextEdit } from './text-edit-preview.ts';
-import type { TextFormat } from '@office-kit/pptx';
+import type { ParagraphProperties, SlideShapeData, TextFormat } from '@office-kit/pptx';
 import { richTextPoint } from './rich-text-dom.ts';
 
 export type OutlinePoint = { key: string; offset: number };
@@ -16,6 +16,14 @@ export type OutlineSelectionField = {
   copy: (start: number, end: number) => OutlineClipboard;
   flush: () => readonly TextEdit[];
   apply: (edits: readonly TextEdit[]) => void;
+  formats: (start: number, end: number) => TextFormat[];
+  applyFormat: (start: number, end: number, format: TextFormat, reset: boolean) => void;
+  paragraphs: (start: number, end: number) => ParagraphProperties[];
+  editParagraphs: (
+    start: number,
+    end: number,
+    edit: (shape: SlideShapeData, index: number) => void,
+  ) => void;
   transact: (label: string, fn: () => void) => void;
   focus: (offset: number) => void;
   setRange: (offset: number) => void;
@@ -36,6 +44,16 @@ export class OutlineSelectionModel {
   #preserveAnchor = false;
   #transitioning = false;
   #caretGeneration = 0;
+  #listeners = new Set<() => void>();
+
+  subscribe(listener: () => void): () => void {
+    this.#listeners.add(listener);
+    return () => this.#listeners.delete(listener);
+  }
+
+  #changed(): void {
+    for (const listener of this.#listeners) listener();
+  }
 
   register(field: OutlineSelectionField): () => void {
     const previous = this.#fields.get(field.key);
@@ -72,6 +90,7 @@ export class OutlineSelectionModel {
     this.#anchor = null;
     this.#focus = null;
     this.#preserveAnchor = false;
+    this.#changed();
   }
 
   update(field: OutlineSelectionField, start: number, end: number, extend = false): void {
@@ -90,15 +109,18 @@ export class OutlineSelectionModel {
     if (this.#preserveAnchor) {
       this.#focus = point;
       this.#preserveAnchor = false;
+      this.#changed();
       return;
     }
     if (!extend || !this.#anchor) this.#anchor = { key: field.key, offset: start };
     this.#focus = point;
+    this.#changed();
   }
 
   setCaret(field: OutlineSelectionField, offset: number): void {
     this.#anchor = { key: field.key, offset };
     this.#focus = { key: field.key, offset };
+    this.#changed();
   }
 
   transitioning(): boolean {
@@ -123,6 +145,7 @@ export class OutlineSelectionModel {
     this.#anchor = { ...point };
     this.#focus = { ...point };
     this.#preserveAnchor = false;
+    this.#changed();
     return true;
   }
 
@@ -133,6 +156,97 @@ export class OutlineSelectionModel {
 
   focusedField(): OutlineSelectionField | null {
     return this.#focus ? (this.#fields.get(this.#focus.key) ?? null) : null;
+  }
+
+  /** Formats intersecting the current ordered range, preserving field order. */
+  formats(): TextFormat[] {
+    const range = this.current();
+    if (!range) return [];
+    const fields = this.fields();
+    const from = fields.findIndex((field) => field.key === range.start.key);
+    const to = fields.findIndex((field) => field.key === range.end.key);
+    if (from < 0 || to < from) return [];
+    const result: TextFormat[] = [];
+    for (let index = from; index <= to; index++) {
+      const field = fields[index]!;
+      const start = index === from ? range.start.offset : 0;
+      const end = index === to ? range.end.offset : field.text().length;
+      result.push(...field.formats(start, end));
+    }
+    return result;
+  }
+
+  paragraphs(): ParagraphProperties[] {
+    const range = this.current();
+    if (!range) return [];
+    const fields = this.fields();
+    const from = fields.findIndex((field) => field.key === range.start.key);
+    const to = fields.findIndex((field) => field.key === range.end.key);
+    if (from < 0 || to < from) return [];
+    const result: ParagraphProperties[] = [];
+    for (let index = from; index <= to; index++) {
+      const field = fields[index]!;
+      result.push(
+        ...field.paragraphs(
+          index === from ? range.start.offset : 0,
+          index === to ? range.end.offset : field.text().length,
+        ),
+      );
+    }
+    return result;
+  }
+
+  editParagraphs(
+    edit: (shape: SlideShapeData, index: number) => void,
+    label = 'Format paragraphs',
+  ): boolean {
+    const range = this.current();
+    if (!range) return false;
+    const fields = this.fields();
+    const from = fields.findIndex((field) => field.key === range.start.key);
+    const to = fields.findIndex((field) => field.key === range.end.key);
+    if (from < 0 || to < from) return false;
+    const selected = fields.slice(from, to + 1).map((field, index) => ({
+      field,
+      start: index === 0 ? range.start.offset : 0,
+      end: index === to - from ? range.end.offset : field.text().length,
+    }));
+    const pending = selected.map((item) => ({ item, changes: item.field.flush() }));
+    selected[0]!.field.transact(label, () => {
+      for (const { item, changes } of pending) item.field.apply(changes);
+      for (const item of selected) item.field.editParagraphs(item.start, item.end, edit);
+    });
+    this.#changed();
+    return true;
+  }
+
+  /** Apply one character format transaction to every field touched by the range. */
+  format(
+    format: TextFormat | ((formats: TextFormat[]) => TextFormat),
+    reset = false,
+    label = 'Format selected text',
+  ): boolean {
+    const range = this.current();
+    if (!range) return false;
+    const fields = this.fields();
+    const from = fields.findIndex((field) => field.key === range.start.key);
+    const to = fields.findIndex((field) => field.key === range.end.key);
+    if (from < 0 || to < from) return false;
+    const edits = fields.slice(from, to + 1).map((field, index) => ({
+      field,
+      start: index === 0 ? range.start.offset : 0,
+      end: index === to - from ? range.end.offset : field.text().length,
+    }));
+    // Drafts must be part of the same history entry as formatting. This also
+    // ensures the format reader sees the committed shape runs below.
+    const pending = edits.map((edit) => ({ edit, changes: edit.field.flush() }));
+    edits[0]!.field.transact(label, () => {
+      for (const { edit, changes } of pending) edit.field.apply(changes);
+      const resolved = typeof format === 'function' ? format(this.formats()) : format;
+      for (const edit of edits) edit.field.applyFormat(edit.start, edit.end, resolved, reset);
+    });
+    this.#changed();
+    return true;
   }
 
   extend(field: OutlineSelectionField, direction: -1 | 1): boolean {
@@ -154,6 +268,7 @@ export class OutlineSelectionModel {
     ) {
       this.#focus = { key: field.key, offset: direction > 0 ? field.text().length : 0 };
       this.#preserveAnchor = true;
+      this.#changed();
       this.#selectNative();
       return true;
     }
@@ -162,6 +277,7 @@ export class OutlineSelectionModel {
     if (!this.#anchor) this.#anchor = { key: field.key, offset: current };
     this.#focus = { key: next.key, offset: direction < 0 ? next.text().length : 0 };
     this.#preserveAnchor = true;
+    this.#changed();
     this.#suppress = true;
     this.#transitioning = true;
     try {
@@ -243,13 +359,16 @@ export class OutlineSelectionModel {
     this.#anchor = { key: first.field.key, offset: destination.end };
     this.#focus = { key: first.field.key, offset: destination.end };
     this.#preserveAnchor = false;
+    this.#changed();
     // Keep the native caret in the replacement field.  Without this, the
     // next keystroke can still target the field that owned the old focus,
     // even though the logical range has already collapsed.
     // Svelte applies the transaction-driven DOM update on the next turn; a
     // synchronous focus targets the old editor node and is lost during that
     // update. Restore the caret after the replacement has rendered.
-    const view = first.field.root.ownerDocument?.defaultView;
+    const ownerDocument = first.field.root.ownerDocument;
+    const activeElementAtSchedule = ownerDocument?.activeElement;
+    const view = ownerDocument?.defaultView;
     const generation = ++this.#caretGeneration;
     const restoreCaret = () => {
       if (
@@ -258,6 +377,11 @@ export class OutlineSelectionModel {
         !first.field.root.isConnected
       )
         return;
+      // A ribbon command can take focus between the replacement transaction
+      // and this frame. Do not steal that focus back after the user has
+      // deliberately moved out of the outline editor.
+      const activeElement = ownerDocument?.activeElement;
+      if (activeElement !== activeElementAtSchedule) return;
       first.field.setRange(destination.end);
       first.field.focus(destination.end);
     };

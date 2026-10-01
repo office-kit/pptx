@@ -30,12 +30,64 @@ function createFields(values, { raf } = {}) {
       copy: (start, end) => ({ text: value.slice(start, end), formats: [] }),
       flush: () => [],
       apply: () => {},
+      formats: () => [],
+      applyFormat: () => {},
       transact: (_label, callback) => callback(),
       focus: () => {},
       setRange: () => {},
     };
   });
 }
+
+test('formats every selected field in one transaction and leaves the edges untouched', () => {
+  const transactions = [];
+  const ranges = [];
+  const fields = createFields(['abcd', 'EF']);
+  for (const field of fields) {
+    field.transact = (label, callback) => {
+      transactions.push(label);
+      callback();
+    };
+    field.applyFormat = (start, end, format, reset) =>
+      ranges.push({ key: field.key, start, end, format, reset });
+  }
+  const model = new OutlineSelectionModel();
+  register(model, fields);
+  model.update(fields[0], 2, 4);
+  assert.equal(model.extend(fields[0], 1), true);
+  assert.equal(model.extend(fields[1], 1), true);
+  assert.equal(model.format({ bold: true }), true);
+  assert.deepEqual(transactions, ['Format selected text']);
+  assert.deepEqual(ranges, [
+    { key: '0', start: 2, end: 4, format: { bold: true }, reset: false },
+    { key: '1', start: 0, end: 2, format: { bold: true }, reset: false },
+  ]);
+});
+
+test('format callback reads formats after pending edits are flushed', () => {
+  const transactions = [];
+  const seen = [];
+  const fields = createFields(['ab', 'cd']);
+  fields[0].formats = () => [{ italic: true }];
+  fields[1].formats = () => [{ bold: true }];
+  fields[0].transact = (_label, callback) => {
+    transactions.push(1);
+    callback();
+  };
+  fields[0].applyFormat = (_start, _end, format) => seen.push(format);
+  fields[1].applyFormat = (_start, _end, format) => seen.push(format);
+  const model = new OutlineSelectionModel();
+  register(model, fields);
+  model.update(fields[0], 1, 2);
+  assert.equal(model.extend(fields[0], 1), true);
+  assert.equal(model.extend(fields[1], 1), true);
+  assert.equal(
+    model.format((formats) => ({ bold: formats.some((format) => format.bold) })),
+    true,
+  );
+  assert.deepEqual(transactions, [1]);
+  assert.deepEqual(seen, [{ bold: true }, { bold: true }]);
+});
 
 function register(model, fields) {
   for (const field of fields) model.register(field);
@@ -96,6 +148,41 @@ test('clear invalidates a queued replacement caret restore', () => {
   model.clear();
   raf.splice(0).forEach((callback) => callback());
   assert.deepEqual(calls, []);
+});
+
+test('a ribbon focus change cancels a queued replacement caret restore', () => {
+  const raf = [];
+  const model = new OutlineSelectionModel();
+  const fields = register(model, createFields(['abc'], { raf }));
+  const calls = [];
+  fields[0].setRange = (offset) => calls.push(['range', offset]);
+  fields[0].focus = (offset) => calls.push(['focus', offset]);
+  model.setCaret(fields[0], 0);
+  assert.equal(model.replace('x'), true);
+  fields[0].root.ownerDocument.activeElement = { ribbon: true };
+  raf.splice(0).forEach((callback) => callback());
+  assert.deepEqual(calls, []);
+});
+
+test('a queued cross-field replacement restores while the old focus is unchanged', () => {
+  const raf = [];
+  const model = new OutlineSelectionModel();
+  const fields = register(model, createFields(['ab', 'cd'], { raf }));
+  const calls = [];
+  fields[0].setRange = (offset) => calls.push(['range', offset]);
+  fields[0].focus = (offset) => calls.push(['focus', offset]);
+  model.update(fields[0], 2, 2);
+  assert.equal(model.extend(fields[0], 1), true);
+  assert.equal(model.extend(fields[1], 1), true);
+  // Cross-field selection leaves the native active element on the end field
+  // while replacement is committed to the first field.
+  fields[0].root.ownerDocument.activeElement = fields[1].root;
+  assert.equal(model.replace('x'), true);
+  raf.splice(0).forEach((callback) => callback());
+  assert.deepEqual(calls, [
+    ['range', 3],
+    ['focus', 3],
+  ]);
 });
 
 test('replacement clears the bridge anchor preservation mode', () => {

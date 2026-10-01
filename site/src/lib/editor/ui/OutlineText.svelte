@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick, untrack } from 'svelte';
-  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName } from '@office-kit/pptx';
+  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
@@ -11,6 +11,8 @@
   import { outlineTextHtml } from '../core/outline-text-html.ts';
   import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
   import { OutlineSelectionModel, type OutlineSelectionField } from '../core/outline-selection.ts';
+  import { textFormatsInRange } from '../core/text-format-selection.ts';
+  import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   let { slideIndex, shapeId, title, selection }: { slideIndex: number; shapeId: number; title: boolean; selection: OutlineSelectionModel } = $props();
@@ -36,6 +38,7 @@
   let demotionDialog = $state<HTMLDialogElement>();
   let demotionVersion = 0;
   let selectionField: OutlineSelectionField;
+  let typingFormat: { format: TextFormat; reset: boolean } | undefined;
 
   function flushDraft(): readonly TextEdit[] {
     if (!changes.length) return [];
@@ -65,7 +68,10 @@
   function rememberRange() { range = input.getSelection(); }
   function changed(next: string) {
     const change = textEditDiff(value, next, range, input.getSelection().start);
-    if (change) { changes.push(change); draftVersion++; }
+    if (change) {
+      if (typingFormat && change.text.length) change.typing = typingFormat;
+      changes.push(change); draftVersion++;
+    }
     value = next;
     rememberRange();
     clearTimeout(timer);
@@ -351,6 +357,42 @@
         const shape = doc.shapeById(slideIndex, shapeId);
         if (shape) replayTextEdits(shape, edits);
       },
+      formats: (start, end) => {
+        const shape = doc.shapeById(slideIndex, shapeId);
+        const formats = shape ? textFormatsInRange(projectTextEdits(shape, changes, undefined, doc.pres), { start, end }, undefined, { pres: doc.pres, source: shape }) : [];
+        if (start === end && typingFormat) return [{ ...(typingFormat.reset ? {} : formats[0]), ...typingFormat.format }];
+        return formats;
+      },
+      applyFormat: (start, end, format, reset) => {
+        const shape = doc.shapeById(slideIndex, shapeId);
+        if (start === end) {
+          // Keep the same pending-format merge semantics as canvas editing:
+          // successive toolbar commands (for example Bold then Italic) apply
+          // to the same future input, while reset starts a fresh format.
+          typingFormat = {
+            format: { ...(reset ? {} : typingFormat?.format), ...format },
+            reset: reset || typingFormat?.reset || false,
+          };
+          draftVersion++;
+        } else if (shape) {
+          typingFormat = undefined;
+          setShapeTextFormat(shape, format, { range: { start, end }, reset });
+        }
+      },
+      paragraphs: (start, end) => {
+        const shape = doc.shapeById(slideIndex, shapeId);
+        if (!shape) return [];
+        const lengths = Array.from({ length: getShapeParagraphCount(shape) }, (_, index) =>
+          getShapeParagraphElements(shape, index).reduce((total, element) => total + (element.kind === 'br' ? 1 : element.text.length), 0));
+        return paragraphsInTextRange(lengths, { start, end }).map(index => getParagraphPropertiesEffective(doc.pres, shape, index));
+      },
+      editParagraphs: (start, end, edit) => {
+        const shape = doc.shapeById(slideIndex, shapeId);
+        if (!shape) return;
+        const lengths = Array.from({ length: getShapeParagraphCount(shape) }, (_, index) =>
+          getShapeParagraphElements(shape, index).reduce((total, element) => total + (element.kind === 'br' ? 1 : element.text.length), 0));
+        for (const index of paragraphsInTextRange(lengths, { start, end })) edit(shape, index);
+      },
       transact: (label, fn) => doc.transact(label, fn),
       focus: offset => { input.focus(); input.setSelectionRange(offset, offset); },
       setRange: offset => { range = { start: offset, end: offset }; },
@@ -361,7 +403,7 @@
 </script>
 
 <RichTextInput bind:this={input} {value} {html} layout="outline" label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} style={editor.outlineShowFormatting ? "line-height: normal; min-height: 0" : ""} textZoom={1}
-  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) selection.clear(); }} onbeforeinput={(next, event) => { range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); selection.replace(event.data, [], t('Edit text')); } }} onselect={next => { range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
+  onfocus={() => doc.selectShape(slideIndex, shapeId)} onpointerdown={event => { if (event.button === 0) { typingFormat = undefined; selection.clear(); } }} onbeforeinput={(next, event) => { range = next; selectionField && selection.update(selectionField, next.start, next.end); if (event?.inputType === 'insertText' && event.data && selection.current()?.start.key !== selection.current()?.end.key) { event.preventDefault(); selection.replace(event.data, [], t('Edit text')); } }} onselect={next => { const element = input.getElement(); if (!element || element.ownerDocument.activeElement !== element || doc.selection.kind !== 'shape' || doc.selection.slideIndex !== slideIndex || !doc.selection.shapeIds.includes(shapeId)) return; if (next.start !== range.start || next.end !== range.end) typingFormat = undefined; range = next; selectionField && selection.update(selectionField, next.start, next.end); }}
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}
   onnewline={() => {
