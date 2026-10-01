@@ -10,18 +10,19 @@
 <div class="group">
   <div class="items">
     <button aria-pressed={editor.viewMode === 'normal'} onclick={() => { editor.setViewMode('normal'); editor.thumbnailsVisible = true; }}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="1"/><path d="M8 4v16M2 9h6M2 14h6"/></svg>{t('Normal')}</button>
+    <button aria-pressed={editor.viewMode === 'outline'} onclick={() => editor.setViewMode('outline')}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="1"/><path d="M9 4v16M4 8h3M4 11h3M4 14h3M4 17h3"/></svg>{t('Outline View')}</button>
     <button aria-pressed={editor.viewMode === 'sorter'} onclick={() => editor.setViewMode('sorter')}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4h8v6H2zM14 4h8v6h-8zM2 14h8v6H2zM14 14h8v6h-8z"/></svg>{t('Slide Sorter')}</button>
   </div>
   <span>{t('Presentation views')}</span>
 </div>
 <div class="group">
   <div class="checks">
-    <label><input type="checkbox" checked={editor.view.ruler} disabled={editor.viewMode !== 'normal'} onchange={() => editor.view.save({ ruler: !editor.view.ruler })} />{t('Ruler')}</label>
-    <label><input type="checkbox" checked={editor.view.grid} disabled={editor.viewMode !== 'normal'} onchange={toggleGrid} />{t('Gridlines')}</label>
-    <label><input type="checkbox" checked={guides} disabled={editor.viewMode !== 'normal'} onchange={toggleGuides} />{t('Guides')}</label>
-    <label><input type="checkbox" bind:checked={editor.thumbnailsVisible} disabled={editor.viewMode !== 'normal'} />{t('Thumbnails')}</label>
-    <button class="options" aria-pressed={editor.viewMode === 'normal' && editor.notesVisible} disabled={editor.viewMode !== 'normal'} onclick={() => editor.notesVisible = !editor.notesVisible}>{t('Notes')}</button>
-    <button class="options" disabled={editor.viewMode !== 'normal'} onclick={() => editor.activeDialog = 'gridOptions'}>{t('Grid Options...')}</button>
+    <label><input type="checkbox" checked={editor.view.ruler} disabled={editor.viewMode === 'sorter'} onchange={() => editor.view.save({ ruler: !editor.view.ruler })} />{t('Ruler')}</label>
+    <label><input type="checkbox" checked={editor.view.grid} disabled={editor.viewMode === 'sorter'} onchange={toggleGrid} />{t('Gridlines')}</label>
+    <label><input type="checkbox" checked={guides} disabled={editor.viewMode === 'sorter'} onchange={toggleGuides} />{t('Guides')}</label>
+    <label><input type="checkbox" bind:checked={editor.thumbnailsVisible} disabled={editor.viewMode === 'sorter'} />{t('Thumbnails')}</label>
+    <button class="options" aria-pressed={editor.viewMode !== 'sorter' && editor.notesVisible} disabled={editor.viewMode === 'sorter'} onclick={() => editor.notesVisible = !editor.notesVisible}>{t('Notes')}</button>
+    <button class="options" disabled={editor.viewMode === 'sorter'} onclick={() => editor.activeDialog = 'gridOptions'}>{t('Grid Options...')}</button>
   </div>
   <span>{t('Show')}</span>
 </div>

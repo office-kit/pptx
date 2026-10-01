@@ -67,23 +67,23 @@
   <button class="ok-btn" bind:this={trigger} aria-haspopup="menu" aria-expanded={open} onclick={() => { open = !open; submenu = null; if (open) void focusFirst(); }}>{t('View')}</button>
   {#if open}
     <div class="menu" use:place role="menu" tabindex="-1" onkeydown={keys} aria-label={t('View')}>
-      {#each [{ mode: 'normal' as const, label: 'Normal', key: '⌘1' }, { mode: 'sorter' as const, label: 'Slide Sorter', key: '⌘2' }] as item}
+      {#each [{ mode: 'normal' as const, label: 'Normal', key: '⌘1' }, { mode: 'outline' as const, label: 'Outline View', key: '' }, { mode: 'sorter' as const, label: 'Slide Sorter', key: '⌘2' }] as item}
         <button role="menuitemradio" aria-label={t(item.label)} aria-checked={editor.viewMode === item.mode} onclick={() => choose(() => editor.setViewMode(item.mode))}><span>{editor.viewMode === item.mode ? '✓' : ''}</span>{t(item.label)}<kbd>{item.key}</kbd></button>
       {/each}
       <hr />
       <button role="menuitemcheckbox" aria-checked={editor.ribbonVisible} onclick={() => choose(() => editor.ribbonVisible = !editor.ribbonVisible)}><span>{editor.ribbonVisible ? '✓' : ''}</span>{t('Ribbon')}<kbd>⌥⌘R</kbd></button>
-      <button role="menuitemcheckbox" aria-label={t('Ruler')} disabled={editor.viewMode !== 'normal'} aria-checked={editor.view.ruler} onclick={() => choose(() => editor.view.save({ ruler: !editor.view.ruler }))}><span>{editor.view.ruler ? '✓' : ''}</span>{t('Ruler')}</button>
+      <button role="menuitemcheckbox" aria-label={t('Ruler')} disabled={editor.viewMode === 'sorter'} aria-checked={editor.view.ruler} onclick={() => choose(() => editor.view.save({ ruler: !editor.view.ruler }))}><span>{editor.view.ruler ? '✓' : ''}</span>{t('Ruler')}</button>
       <div class="branch">
         <button role="menuitem" aria-haspopup="menu" aria-expanded={submenu === 'grid'} aria-label={t('Grid and Guides')} data-submenu="grid" onclick={() => submenu = 'grid'} onpointerenter={() => submenu = 'grid'}><span></span>{t('Grid and Guides')}<kbd>›</kbd></button>
         {#if submenu === 'grid'}
           <div class="menu submenu" use:place={true} role="menu" aria-label={t('Grid and Guides')}>
             {#each [{ key: 'smart' as const, label: 'Smart Guides', value: editor.view.smart }, { key: 'drawing' as const, label: 'Guides', value: drawing }, { key: 'grid' as const, label: 'Gridlines', value: editor.view.grid }] as item}
-              <button role="menuitemcheckbox" disabled={editor.viewMode !== 'normal'} aria-checked={item.value} onclick={() => choose(() => toggle(item.key))}><span>{item.value ? '✓' : ''}</span>{t(item.label)}</button>
+              <button role="menuitemcheckbox" disabled={editor.viewMode === 'sorter'} aria-checked={item.value} onclick={() => choose(() => toggle(item.key))}><span>{item.value ? '✓' : ''}</span>{t(item.label)}</button>
             {/each}
             <hr />
-            <button role="menuitemcheckbox" disabled={editor.viewMode !== 'normal'} aria-checked={snapping} onclick={() => choose(() => doc.transact(t('Snap to Grid'), () => setSnapToGrid(doc.pres, !snapping)))}><span>{snapping ? '✓' : ''}</span>{t('Snap to Grid')}</button>
+            <button role="menuitemcheckbox" disabled={editor.viewMode === 'sorter'} aria-checked={snapping} onclick={() => choose(() => doc.transact(t('Snap to Grid'), () => setSnapToGrid(doc.pres, !snapping)))}><span>{snapping ? '✓' : ''}</span>{t('Snap to Grid')}</button>
             <hr />
-            <button role="menuitem" disabled={editor.viewMode !== 'normal'} onclick={() => choose(() => editor.activeDialog = 'gridOptions')}><span></span>{t('Grid Options...')}</button>
+            <button role="menuitem" disabled={editor.viewMode === 'sorter'} onclick={() => choose(() => editor.activeDialog = 'gridOptions')}><span></span>{t('Grid Options...')}</button>
           </div>
         {/if}
       </div>

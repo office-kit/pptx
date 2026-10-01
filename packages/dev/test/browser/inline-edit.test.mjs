@@ -55,6 +55,7 @@ const fs=require('node:fs');let input='';process.stdin.on('data',d=>input+=d);pr
       // inline editing, which lives behind the Preview toggle.
       await page.getByRole('button', { name: 'Preview', exact: true }).click();
       await page.locator('#slide p').first().waitFor();
+      await page.frameLocator('#agent-workspace iframe').locator('#chat-provider').waitFor();
       const agent = page.frames().find((f) => /\/agents\//.test(f.url()));
       await agent.selectOption('#chat-provider', 'codex');
       assert.equal(await page.getByRole('button', { name: 'Select area' }).count(), 0);

@@ -3,14 +3,17 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
   import SlideNavigator from './SlideNavigator.svelte';
+  import OutlinePane from './OutlinePane.svelte';
+  let { outline = false }: { outline?: boolean } = $props();
   const editor = getEditor();
+  function storeWidth(value: number) { if (outline) editor.outlineWidth = value; else editor.thumbnailWidth = value; }
   const MIN_WIDTH = 90;
   const MAX_WIDTH = 400;
   let pane: HTMLDivElement;
   let width = $state(200);
   let drag: { id: number; x: number; width: number } | null = null;
   function setWidth(value: number) {
-    editor.thumbnailWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, pane.parentElement!.clientWidth / 3, value));
+    storeWidth(Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, pane.parentElement!.clientWidth / 3, value)));
   }
   function start(event: PointerEvent) {
     if (event.button !== 0) return;
@@ -24,7 +27,7 @@
     if (drag?.id === event.pointerId) setWidth(drag.width + event.clientX - drag.x);
   }
   function keys(event: KeyboardEvent) {
-    if (event.key === 'Escape' && drag) { event.preventDefault(); event.stopPropagation(); editor.thumbnailWidth = drag.width; drag = null; return; }
+    if (event.key === 'Escape' && drag) { event.preventDefault(); event.stopPropagation(); storeWidth(drag.width); drag = null; return; }
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault(); event.stopPropagation();
     setWidth(event.key === 'Home' ? MIN_WIDTH : event.key === 'End' ? MAX_WIDTH : pane.clientWidth + (event.key === 'ArrowRight' ? 10 : -10));
@@ -37,10 +40,10 @@
 </script>
 
 <div class="thumbnail-pane" bind:this={pane}>
-  <SlideNavigator />
+  {#if outline}<OutlinePane />{:else}<SlideNavigator />{/if}
   <!-- A focusable separator implements the ARIA window-splitter pattern. -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
-  <div class="resize" role="separator" tabindex="0" aria-label={t('Thumbnail pane width')} aria-orientation="vertical" aria-valuemin={MIN_WIDTH} aria-valuemax={MAX_WIDTH} aria-valuenow={width} onpointerdown={start} onpointermove={move} onpointerup={() => drag = null} onlostpointercapture={() => drag = null} onpointercancel={() => { if (drag) editor.thumbnailWidth = drag.width; drag = null; }} onkeydown={keys}></div>
+  <div class="resize" role="separator" tabindex="0" aria-label={t(outline ? 'Outline pane width' : 'Thumbnail pane width')} aria-orientation="vertical" aria-valuemin={MIN_WIDTH} aria-valuemax={MAX_WIDTH} aria-valuenow={width} onpointerdown={start} onpointermove={move} onpointerup={() => drag = null} onlostpointercapture={() => drag = null} onpointercancel={() => { if (drag) storeWidth(drag.width); drag = null; }} onkeydown={keys}></div>
 </div>
 
 <style>

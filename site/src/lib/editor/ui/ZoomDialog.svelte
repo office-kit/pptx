@@ -6,7 +6,7 @@
   const initial = untrack(() => Math.round((editor.viewMode === 'sorter' ? editor.sorterZoom : editor.zoom) * 100));
   const presets = [400, 200, 100, 66, 50, 33];
   let value = $state(initial);
-  let selected = $state(untrack(() => editor.viewMode === 'normal' && editor.autoFitZoom) ? 'fit' : presets.includes(initial) ? String(initial) : '');
+  let selected = $state(untrack(() => editor.viewMode !== 'sorter' && editor.autoFitZoom) ? 'fit' : presets.includes(initial) ? String(initial) : '');
   let dialog: HTMLDialogElement;
   onMount(() => dialog.showModal());
   function submit(event: SubmitEvent) {
