@@ -3,6 +3,16 @@ import { fileURLToPath } from 'node:url';
 import { build, transform } from 'esbuild';
 import { compile, compileModule } from 'svelte/compiler';
 
+await build({
+  entryPoints: [fileURLToPath(new URL('./src/media-player.ts', import.meta.url))],
+  outfile: fileURLToPath(new URL('./dist/media-player.js', import.meta.url)),
+  bundle: true,
+  minify: true,
+  format: 'esm',
+  platform: 'browser',
+  target: 'es2022',
+});
+
 // The animation player is shared by three surfaces: the preview's presentation
 // mode, the presenter window and the editor's animation panel. The panel gets
 // it through the editor bundle below; the two pages load this build of it over

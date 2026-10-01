@@ -271,6 +271,35 @@ const animationKeyAt=i=>i+'\u0000'+(state.slides[i]??'')+'\u0000'+JSON.stringify
 // holding the slide being left — whose shapes carry ids of their own, from a
 // different slide's id space. Only the arriving one is this slide.
 const slideRoot=()=>canvas.querySelector('.transition-layer:not(.transition-old)')??canvas;
+let mediaPlayer,mediaPlayerKey,createMediaPlayer,mediaLoading=false;
+const mediaRetry=document.createElement('button');
+mediaRetry.hidden=true;
+byId('presentation-controls').append(mediaRetry);
+mediaRetry.onclick=()=>syncMediaPlayer();
+function disposeMediaPlayer(){
+  mediaPlayer?.dispose();mediaPlayer=undefined;mediaPlayerKey=undefined;
+}
+function syncMediaPlayer(){
+  const clips=(state.media??[]).filter(clip=>clip.slideIndex===index&&clip.kind!=='online');
+  if(!presenting||!clips.length){disposeMediaPlayer();mediaRetry.hidden=true;return;}
+  if(!createMediaPlayer){
+    if(mediaLoading)return;
+    mediaLoading=true;mediaRetry.hidden=true;
+    import('/media-player.js?attempt='+Date.now()).then(module=>{
+      createMediaPlayer=module.createMediaPlayer;mediaLoading=false;syncMediaPlayer();
+    },error=>{
+      mediaLoading=false;console.warn('Could not load the media player',error);
+      mediaRetry.textContent=previewLocale==='ja'?'メディアを読み込めませんでした · 再試行':'Media could not load · Retry';
+      mediaRetry.hidden=!presenting;
+    });
+    return;
+  }
+  const key=JSON.stringify([index,clips]);
+  if(mediaPlayerKey===key)return;
+  disposeMediaPlayer();
+  mediaPlayer=createMediaPlayer({root:slideRoot(),clips,locale:previewLocale});
+  mediaPlayerKey=key;
+}
 function updateAnimationNotice(){
   const note=byId('present-note'),retry=byId('animation-retry');
   const slideHasEffects=presenting&&state.showProperties?.showAnimation!==false&&animationStepsAt(index).length>0;
@@ -365,10 +394,12 @@ function selectSlide(next,focusThumbnail=false,reveal=true,position='start',show
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
+  if(svg!==displayedSvg||previousIndex!==index||previousCursor!==showCursor||position!=='keep')disposeMediaPlayer();
   if(svg!==displayedSvg||previousIndex!==index){
     renderSlide(svg,presenting&&previousIndex!==index?state.transitions?.[index]:null);
   }
   syncAnimationPlayer(position);
+  syncMediaPlayer();
   updateNavigationButtons();
   slide.setAttribute('aria-label',slideLabel(index));
   for(const [position,item] of Array.from(thumbnails.children).entries()){

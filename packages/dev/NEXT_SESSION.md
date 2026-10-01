@@ -1,3 +1,12 @@
+## 2026-10-02: 埋め込みメディアの実再生
+
+- dev の build manifest に audio/video/online のメディア情報を追加。HTTP state は埋め込みバイナリを含まず、SHA-256 URL に置換し、同じデータを共有。専用 endpoint は MIME / immutable cache / Range 206・416 を返す。
+- audience のショー中のみ SVG のポスター画像を HTML audio/video に置換。元画像の座標と親グループ変換を維持。autoplay / loop / volume / mute、終了時の hideWhenStopped、スライド移動・ショー終了時の停止と復元に対応。更新内容が同じなら再生要素を維持する。
+- 実 WAV の時間進行、保存属性、移動時停止、再訪時先頭復帰、更新時維持、メディアへフォーカス中の Escape を検証。ブラウザー生成 VP8 WebM を Space キーで再生し、実デコード寸法・終了時非表示を検証。配信の重複排除・部分/末尾 Range・416 も検証。最終3件成功（/tmp/pptx-media-final.log）。既存ショーと合わせた7件も成功（/tmp/pptx-media-browser.log）。dev unit19件、format/lint/dev型検査/build成功。
+- 未完了: fullScreen 属性、発表者ビューの動画同期・遠隔再生操作、PowerPoint と同じ再生コントロール、クリックシーケンス内でのメディア開始、スライドをまたぐ再生（numSld）、ナレーション識別、オンラインメディア、ブラウザー非対応 codec。今回をメディア完全一致とは扱わない。現状はブラウザー標準コントロールで再生し、失敗時に再試行を表示する。
+- PowerPoint の読み取り接続を再試行したが、画面サイズ0×0で失敗。文書・設定の変更なし。pause/waiting を showWhenStopped の終了と同一視する変更は、実機の裏付けなく行っていない。
+- PR #287 は OPEN、head feat/pptx-editor。bcfea96d の Static/Node22/Node26/OOXML は成功、Node24/Preview fidelity は確認時進行中。全UI・全操作一致は引き続き未完了。
+
 ## 2026-10-02: ショー設定の抑止チェックと kiosk restart
 
 - 日本語の「ナレーション/アニメーションを表示しない」が正の OOXML 属性へ直結していた逆転を再現・修正。英語も Show without ... に統一。チェックは属性の否定として保存し、キャンセル・Undo・保存後の再読込を検証した。
