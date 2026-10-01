@@ -1,3 +1,11 @@
+## 2026-10-02: 動画テーマ色の濃淡とサムネイル
+
+- More Variationsにテーマ色の濃淡5段を追加（基本10色＋濃淡50色＋標準10色）。schemeClrとlumMod/lumOffを保持し、動画用tint/satModを適用。実機Accent1の淡色80%・濃色25%の保存XMLと一致。カスタムテーマの濃淡規則は未検証。
+- グレースケール・セピア・テーマduotone・白黒閾値のサムネイルをSVGに変更。白黒3候補の表示差、保存、Undo/Redo、再読込をブラウザーで検証。修整→色のリボン順序も実機に合わせた。
+- 検証: format/lint/typecheck、Svelte 0 errors/warnings、site121件、editor build、動画recolor回帰成功。画像 `/tmp/pptx-video-recolor-pane.png` を確認。ヘッダー日英900/1500pxも再検証成功。
+- 未解決: 既存poster renderer / MediaInlinePreviewのbrightness/contrast式はWashout (.7,-.7)でslope=.3/intercept=1.05となり全白になる。実機では暗部#262626が約#D9D9D9、白は白のまま。正確な式は複数画素で実機比較が必要。Washoutサムネイルは従来のCSS近似を維持した。画素完全一致は未達成。
+- 実機操作はWashout適用後Undo/保存済み。trim-reset.pptxのslide XMLが `/tmp/pptx-video-reset-baseline.xml` と一致、復元待ちなし。PRは#287。4173の未保存編集には触れない。
+
 ## 2026-10-02: 動画の色変更ギャラリー
 
 - リボンColorと動画ペインから21プリセット、基本テーマ色・標準色を選択可能。保存、Undo/Redo、再読込、ライブ動画への反映を実装。詳細ペインの修整と色変更プリセットには別々のアクセシブル名を設定。

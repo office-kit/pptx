@@ -120,7 +120,7 @@
   </div>
 
   <div class="group">
-    <div class="items"><VideoRecolorMenu /><VideoCorrectionsMenu /><PosterFrameMenu /></div>
+    <div class="items"><VideoCorrectionsMenu /><VideoRecolorMenu /><PosterFrameMenu /></div>
     <span class="title">{t('Adjust')}</span>
   </div>
 

@@ -1,10 +1,18 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { asColor, getPresentationTheme, type Color } from '@office-kit/pptx';
+  import { asColor, getPresentationTheme, resolveDrawingColor, type Color, type ColorTransform } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { label, value, resolvedColor, disabled = false, choose }: { label: string; value?: string; resolvedColor?: string; disabled?: boolean; choose: (color: Color) => void } = $props();
+  let { label, value, resolvedColor, disabled = false, showThemeShades = false, selectedColorTransforms = [], choose }: {
+    label: string;
+    value?: string;
+    resolvedColor?: string;
+    disabled?: boolean;
+    showThemeShades?: boolean;
+    selectedColorTransforms?: readonly ColorTransform[];
+    choose: (color: Color, colorTransforms?: readonly ColorTransform[]) => void;
+  } = $props();
   const editor = getEditor();
   const theme = $derived.by(() => { editor.doc.version; return getPresentationTheme(editor.doc.pres); });
   const themeSlots = [
@@ -19,8 +27,63 @@
     ['#FFFF00', 'Yellow'], ['#92D050', 'Light Green'], ['#00B050', 'Green'],
     ['#00B0F0', 'Light Blue'], ['#0070C0', 'Blue'], ['#002060', 'Dark Blue'], ['#7030A0', 'Purple'],
   ] as const;
-  const colors = $derived([
-    ...(theme ? themeSlots.filter(([, slot]) => theme![slot]).map(([color, slot, name]) => ({ color, paint: theme![slot], name, theme: true })) : []),
+  type Swatch = { color: string; paint: string; name: string; theme: boolean; transforms?: readonly ColorTransform[]; shade?: 'Darker' | 'Lighter'; shadePercent?: number };
+  type ShadeTransform = Extract<ColorTransform, { value: number }>;
+  const shadeRows: readonly (readonly ShadeTransform[])[] = [
+    [{ kind: 'lumMod', value: 0.95 }], [{ kind: 'lumMod', value: 0.85 }], [{ kind: 'lumMod', value: 0.75 }],
+    [{ kind: 'lumMod', value: 0.65 }], [{ kind: 'lumMod', value: 0.5 }],
+  ];
+  const lightRows: readonly (readonly ShadeTransform[])[] = [
+    [{ kind: 'lumMod', value: 0.2 }, { kind: 'lumOff', value: 0.8 }],
+    [{ kind: 'lumMod', value: 0.4 }, { kind: 'lumOff', value: 0.6 }],
+    [{ kind: 'lumMod', value: 0.6 }, { kind: 'lumOff', value: 0.4 }],
+    [{ kind: 'lumMod', value: 0.75 }], [{ kind: 'lumMod', value: 0.5 }],
+  ];
+  const textRows: readonly (readonly ShadeTransform[])[] = [
+    [{ kind: 'lumMod', value: 0.5 }, { kind: 'lumOff', value: 0.5 }],
+    [{ kind: 'lumMod', value: 0.65 }, { kind: 'lumOff', value: 0.35 }],
+    [{ kind: 'lumMod', value: 0.75 }, { kind: 'lumOff', value: 0.25 }],
+    [{ kind: 'lumMod', value: 0.85 }, { kind: 'lumOff', value: 0.15 }],
+    [{ kind: 'lumMod', value: 0.95 }, { kind: 'lumOff', value: 0.05 }],
+  ];
+  const transformRowsFor = (color: string): readonly (readonly ShadeTransform[])[] =>
+    color === 'bg1' ? shadeRows : color === 'tx1' ? textRows : color === 'bg2' ? [
+      [{ kind: 'lumMod', value: 0.9 }], [{ kind: 'lumMod', value: 0.75 }], [{ kind: 'lumMod', value: 0.5 }],
+      [{ kind: 'lumMod', value: 0.25 }], [{ kind: 'lumMod', value: 0.1 }],
+    ] : lightRows;
+  function transformedPaint(schemeToken: string, transforms: readonly ShadeTransform[]): string {
+    const element: Parameters<typeof resolveDrawingColor>[0] = {
+      kind: 'element',
+      name: { prefix: 'a', localName: 'schemeClr', namespaceURI: 'http://schemas.openxmlformats.org/drawingml/2006/main' },
+      attrs: [{ name: { prefix: '', localName: 'val', namespaceURI: '' }, value: schemeToken }],
+      prefixDecls: new Map<string, string>(),
+      children: transforms.map(transform => ({
+        kind: 'element' as const,
+        name: { prefix: 'a', localName: transform.kind, namespaceURI: 'http://schemas.openxmlformats.org/drawingml/2006/main' },
+        attrs: [{ name: { prefix: '', localName: 'val', namespaceURI: '' }, value: String(Math.round(transform.value * 100000)) }],
+        prefixDecls: new Map<string, string>(), children: [],
+      })),
+    };
+    return resolveDrawingColor(element, theme) ?? '#000000';
+  }
+  const shadeInfo = (color: string, index: number): { shade: 'Darker' | 'Lighter'; shadePercent: number } => {
+    if (color === 'bg1') return { shade: 'Darker', shadePercent: [5, 15, 25, 35, 50][index]! };
+    if (color === 'tx1') return { shade: 'Lighter', shadePercent: [50, 35, 25, 15, 5][index]! };
+    if (color === 'bg2') return { shade: 'Darker', shadePercent: [10, 25, 50, 75, 90][index]! };
+    return index < 3 ? { shade: 'Lighter', shadePercent: [80, 60, 40][index]! } : { shade: 'Darker', shadePercent: [25, 50][index - 3]! };
+  };
+  const themeColors = $derived<Swatch[]>(theme ? (() => {
+    const base = themeSlots.flatMap(([color, slot, name]) => theme![slot] ? [{ color, paint: theme![slot], name, theme: true } satisfies Swatch] : []);
+    if (!showThemeShades) return base;
+    const shades = [0, 1, 2, 3, 4].flatMap(index => themeSlots.flatMap(([color, slot, name]) => {
+      if (!theme![slot]) return [];
+      const transforms = transformRowsFor(color)[index]!;
+      return [{ color, paint: transformedPaint(color, transforms), name, theme: true, transforms, ...shadeInfo(color, index) } satisfies Swatch];
+    }));
+    return [...base, ...shades];
+  })() : []);
+  const colors = $derived<Swatch[]>([
+    ...themeColors,
     ...standard.map(([color, name]) => ({ color, paint: color, name, theme: false })),
   ]);
   const paint = $derived(resolvedColor ?? colors.find(color => color.color.toLowerCase() === value?.replace(/^scheme:/, '').toLowerCase())?.paint ?? value);
@@ -33,6 +96,16 @@
     const parsed = asColor(color);
     if (parsed && !disabled && !trigger.matches(':disabled')) choose(parsed);
     close();
+  }
+  function selectTheme(swatch: Swatch): void {
+    const parsed = asColor(swatch.color);
+    if (parsed && !disabled && !trigger.matches(':disabled')) choose(parsed, swatch.transforms);
+    close();
+  }
+  function sameTransforms(left: readonly ColorTransform[] | undefined, right: readonly ColorTransform[] | undefined): boolean {
+    const a = left ?? [], b = right ?? [];
+    return a.length === b.length && a.every((transform, index) => transform.kind === b[index]?.kind &&
+      ('value' in transform ? 'value' in b[index]! && transform.value === b[index]!.value : !('value' in b[index]!)));
   }
   async function show() {
     if (open) { close(); return; }
@@ -69,7 +142,8 @@
         <div class="heading">{t(isTheme ? 'Theme Colors' : 'Standard Colors')}</div>
         <div class="colors" role="group" aria-label={t(isTheme ? 'Theme Colors' : 'Standard Colors')}>
           {#each colors.filter(color => color.theme === isTheme) as color}
-            <button type="button" role="menuitemradio" aria-label={t(color.name)} title={t(color.name)} aria-checked={value?.replace(/^scheme:/, '').toLowerCase() === color.color.toLowerCase()} style:background={color.paint} onclick={() => select(color.color)}></button>
+            {@const label = `${t(color.name)}${color.shade ? `, ${t(color.shade)} ${color.shadePercent}%` : ''}`}
+            <button type="button" role="menuitemradio" aria-label={label} title={label} aria-checked={value?.replace(/^scheme:/, '').toLowerCase() === color.color.toLowerCase() && sameTransforms(selectedColorTransforms, color.transforms)} style:background={color.paint} onclick={() => color.theme ? selectTheme(color) : select(color.color)}></button>
           {/each}
         </div>
       {/if}

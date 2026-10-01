@@ -867,7 +867,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 
 ### Video recolor gallery (2026-10-02)
 
-- Ribbon Color and pane Recolor presets share 21 choices with native grayscale, sepia, washout, threshold, and theme duotone values. More Variations exposes base theme and standard colors. Selection is resolved with the same DrawingML color-transform code as rendering.
+- Ribbon Color and pane Recolor presets share 21 choices with native grayscale, sepia, washout, threshold, and theme duotone values. More Variations exposes base theme colors, five rows of theme shades, and standard colors; native Accent 1 lighter 80% and darker 25% transforms are verified through saved XML. Selection is resolved with the same DrawingML color-transform code as rendering.
 - Native saved XML confirms washout bright=70000/contrast=-70000, dark tint=45000/satMod=400000, and light shade=45000/satMod=135000. All temporary native document changes were undone and saved; the slide XML matches the baseline.
 - Browser coverage verifies saved values, Undo/Redo, reload, live video effects, and preserved media/shape formatting. Core tests cover invalid-input atomicity, effect ordering before extLst, and transformed-color round trips.
-- Remaining differences include the five-row theme shade palette, exact gallery thumbnail rendering, ribbon Reset, continuous slider preview, and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.
+- Remaining differences include custom-theme shade rules, exact gallery thumbnail rendering, ribbon Reset, continuous slider preview, and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.
+
+- Known rendering mismatch: Washout currently clips the poster/live-video image to white; native PowerPoint retains detail (dark #262626 becomes approximately #D9D9D9). The precise brightness/contrast transfer is not yet verified. The gallery keeps its previous CSS approximation for this preset.
