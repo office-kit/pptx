@@ -50,7 +50,7 @@ test('switching away from a picture fill and back restores its media, placement,
     rotateWithShape: false,
   });
   setShapeImageOpacity(shape, 0.65);
-  setShapeImageCrop(shape, { left: 0.2, bottom: 0.1 });
+  setShapeImageCrop(shape, { left: 0.2, top: -0.25, bottom: 0.1 });
   const remembered = readRememberedImageFill(shape);
   assert.ok(remembered);
   const layout = getShapeImageFillLayout(shape);

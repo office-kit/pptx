@@ -615,9 +615,9 @@ export const setShapeImageOpacity = (shape: SlideShapeData, opacity: number | nu
 // ---------------------------------------------------------------------------
 // Picture cropping — `<a:srcRect>` inside the picture's `<p:blipFill>`.
 //
-// Percentages are 0-1 fractions per side, converted to ECMA-376's
+// Percentages are fractions per side, converted to ECMA-376's signed
 // `ST_Percentage` units (1/1000 of a percent, so 0.25 → "25000"). Pass
-// `null` to remove an existing crop.
+// `null` to remove an existing crop. Negative values are source outsets.
 
 /** Crop a picture by fraction of each side. Omitted sides default to 0. */
 export interface ImageCrop {
@@ -634,12 +634,16 @@ const ATTR_CROP_T = qname('', 't', '');
 const ATTR_CROP_R = qname('', 'r', '');
 const ATTR_CROP_B = qname('', 'b', '');
 
+const MIN_CROP_PERCENTAGE = -2147483648;
+const MAX_CROP_PERCENTAGE = 2147483647;
+
 const fractionToST = (n: number | undefined): string | null => {
   if (n === undefined || n === 0) return null;
-  if (!Number.isFinite(n) || n < 0 || n >= 1) {
-    throw new RangeError(`crop fraction must be in [0, 1), got ${n}`);
+  const scaled = Math.round(n * 100000);
+  if (!Number.isFinite(n) || scaled < MIN_CROP_PERCENTAGE || scaled > MAX_CROP_PERCENTAGE) {
+    throw new RangeError(`crop fraction exceeds signed ST_Percentage bounds, got ${n}`);
   }
-  return String(Math.round(n * 100000));
+  return String(scaled);
 };
 
 /**
@@ -647,8 +651,9 @@ const fractionToST = (n: number | undefined): string | null => {
  * embedded image by the given fraction on each side. Pass `null` to
  * remove an existing crop.
  *
- * Fractions are in `[0, 1)` per side. `{ left: 0.25 }` clips 25% off
- * the left edge. Stretch fills fit the remaining image to the frame;
+ * Fractions use the signed `ST_Percentage` range per side. `{ left: 0.25 }`
+ * clips 25% off the left edge; negative values extend the source rectangle.
+ * Stretch fills fit the remaining image to the frame;
  * tiled fills repeat the remaining image. The shape's geometry (`<a:xfrm>`) is unchanged.
  */
 export const setShapeImageCrop = (shape: SlideShapeData, crop: ImageCrop | null): void => {

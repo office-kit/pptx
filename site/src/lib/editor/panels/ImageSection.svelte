@@ -77,7 +77,7 @@
     </select></label>
     <div class="fields">
       {#each sides as [side, label]}
-        <label>{t(label)}<input class="ok-input" type="number" min="0" max="99.9" step="0.1" required value={Math.round((crop?.[side] ?? 0) * 1000) / 10} onchange={(e) => setCrop(side, e.currentTarget)} /></label>
+    <label>{t(label)}<input class="ok-input" type="number" min="-2147483.648" max="2147483.647" step="0.001" required value={Math.round((crop?.[side] ?? 0) * 1000) / 10} onchange={(e) => setCrop(side, e.currentTarget)} /></label>
       {/each}
     </div>
     <button class="ok-btn" disabled={!crop} onclick={() => editor.invoke('setShapeImageCrop', { crop: null })}>{t('Reset crop')}</button>
