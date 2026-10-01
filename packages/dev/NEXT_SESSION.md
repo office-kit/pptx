@@ -1,5 +1,13 @@
 # 作業継続メモ（2026-10-01）
 
+## 最新の追記: アウトライン入力中の継承書式
+
+- 複数マスターの資料で、書式表示を有効にしたアウトラインの入力直後に 20px の文字が 10.6667px になる問題をブラウザーテストで再現。入力プレビューの段落・run 書式解決へ元の shape を `inheritanceSource` として渡して修正した。
+- `outline-slide-menu.test.mjs` は独立した第 2 マスターを持つ資料を使い、自動保存前の表示、保存後の書式、Undo、New/Duplicate/Delete を英語・日本語で検証。2/2 通過。site ユニット 93/93、format/lint、Svelte 0 errors / 0 warnings、エディタ build が通過。
+- ログ: `/tmp/pptx-outline-inheritance-before.log`（修正前の再現）、`/tmp/pptx-outline-inheritance-after.log`、`/tmp/pptx-outline-inheritance-quality.log`。最終 HEAD の全ブラウザー一括成功を意味しない。
+- ユーザーの「開きました」後、PowerPoint `body` の画面取得に一度成功（Normal 160%、Undo disabled）。Layout を開く操作で再び `screen capture size invalid (0.0,0.0)` となり、全ウィンドウ一覧も取得不能。文書内容の変更はしていない。Title Slide 後の New Slide の例外確認は未完了。
+- PR 全体レビューは進行中。比較基準 `origin/main`、751 ファイル / +85,338 / -2,663、テスト 251 ファイル。公開 API とグループ・リンク・ページサイズ変更を確認中であり、全ファイルのレビュー済みとは扱わない。
+
 ## 再開時の指示
 
 2026-10-01 にユーザーが完成までの作業再開を明示した。以前の停止指示は解除済み。PR #287 を唯一の提出先として実装・実機比較・検証を続ける。
