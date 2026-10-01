@@ -36,6 +36,7 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
 let showOrder=[],showCursor=0,lastViewed=null,linkedShowId=null;
 let showReturns=[];
+let presentationFullscreen=false;
 function loopShow(){return showReturns.length===0&&(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk');}
 let displayedSvg;
 let presenterWindow;
@@ -383,6 +384,7 @@ function update(updated){
   selectSlide(index,focusedThumbnail,false,'keep');
 }
 function setPresenting(value){
+  if(!value)presentationFullscreen=false;
   linkedShowId=null;showReturns=[];
   lastViewed=null;
   cancelTransition();
@@ -399,6 +401,23 @@ function returnToLastViewed(){
  if(!presenting||!lastViewed||lastViewed.index>=state.slides.length)return;
  const target=lastViewed;
  selectSlide(target.index,false,true,'start',showOrder[target.cursor]===target.index?target.cursor:-1);
+}
+function followNavigationLink(href){
+ const directions={'#pptx-next-slide':1,'#pptx-prev-slide':-1,'#pptx-first-slide':0,'#pptx-last-slide':0};
+ if(!Object.hasOwn(directions,href))return false;
+ const step=directions[href];
+ let position=-1,target=-1;
+ if(step){
+  position=presenting?nextShowPosition(step):-1;
+  target=presenting?(position>=0?showOrder[position]:-1):findSlide(index+step,step,true);
+ }else{
+  const first=href==='#pptx-first-slide';
+  target=presenting?showSlideAt(first?0:showOrder.length-1,first?1:-1):findSlide(first?0:state.slides.length-1,first?1:-1,true);
+  if(presenting)position=first?showOrder.indexOf(target):showOrder.lastIndexOf(target);
+ }
+ if(target>=0)selectSlide(target,false,true,'start',position);
+ else if(presenting&&step>0)void exitPresentation();
+ return true;
 }
 function launchCustomShow(id,returnToShow){
  if(!presenting)return;
@@ -460,6 +479,7 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='previous')moveSlide(-1,true);
  else if(event.data.action==='exit')void exitPresentation();
  else if(event.data.action==='lastViewed')returnToLastViewed();
+ else if(event.data.action==='navigation'&&typeof event.data.index==='string')followNavigationLink(event.data.index);
  else if(event.data.action==='customShow'&&typeof event.data.index==='string')followCustomShowLink(event.data.index);
  else if(event.data.action==='jump'&&Number.isInteger(event.data.index)&&event.data.index>=0&&event.data.index<state.slides.length)selectSlide(event.data.index);
 });
@@ -506,7 +526,10 @@ browseScrollbar.onkeydown=event=>{
 };
 byId('animation-retry').onclick=()=>{loadAnimationPlayer();};
 loadAnimationPlayer();
-document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&presenting)setPresenting(false);});
+document.addEventListener('fullscreenchange',()=>{
+ if(document.fullscreenElement)presentationFullscreen=true;
+ else if(presentationFullscreen){presentationFullscreen=false;if(presenting)setPresenting(false);}
+});
 for(const id of ['prev','present-prev'])byId(id).onclick=()=>{if(!presenting||state.showProperties?.mode?.kind!=='kiosk')moveSlide(-1);};
 for(const id of ['next','present-next'])byId(id).onclick=()=>{if(!presenting||state.showProperties?.mode?.kind!=='kiosk')moveSlide(1);};
 byId('zoom').onchange=resize;
@@ -514,7 +537,7 @@ stage.onclick=event=>{
   const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
   if(link){
     const href=link.getAttribute('href')??link.getAttributeNS('http://www.w3.org/1999/xlink','href')??'';
-    if(followCustomShowLink(href)){event.preventDefault();return;}
+    if(followNavigationLink(href)||followCustomShowLink(href)){event.preventDefault();return;}
     if(href==='#pptx-end-show'||href==='#pptx-last-slide-viewed'){
       event.preventDefault();
       if(!presenting)return;
