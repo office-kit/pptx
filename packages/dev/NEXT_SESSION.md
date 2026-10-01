@@ -1,3 +1,12 @@
+## 2026-10-02: 動画の修整ギャラリー
+
+- 検証: 修正前はCorrectionsボタン不在で回帰失敗。修正後は動画修整（保存値・原子的Undo・Normalリセット・ライブ動画filter・キーボード・日本語）と既存動画リボンの2件成功。site121件、Svelte 0 errors/warnings、format/lint/typecheck、editor build成功。画像 `/tmp/pptx-video-corrections-gallery.png` を目視確認。
+
+- Mac実機のVideo Format > Correctionsは5×5の候補（列: 明るさ -40/-20/0/+20/+40%、行: コントラスト同値）。共通の風景サムネイルと選択枠、Movie Correction Options...を持つ。
+- +20/+20を一時適用して保存し、`a:blip/a:lum bright="20000" contrast="20000"`を確認。Undoして保存、lumが消えたこととUndo無効を確認済み。参照資料 `/tmp/pptx-poster-audit/trim-reset.pptx` に未復元の内容変更なし。
+- 修整ギャラリーを既存の明るさ・コントラストAPIへ接続。両値を1つのUndo操作で保存。編集中のHTML動画にも表紙SVGと同じ補正を適用。
+- 詳細ペインのネイティブUI（Videoタブ、スライダー等）、色/スタイル/Crop/独立Reset、補正後の画素レベルの実機一致は引き続き未検証。完全一致は未達成。
+
 ## 2026-10-02: キャンバスの縦横比固定
 
 - 検証: 修正前のブラウザー回帰で比率2→2.263851へ崩れることを再現。修正後のresize-geometry 2件、動画リボン1件、site121件、Svelte 0 errors/warnings、editor build成功。Undo後の再選択をテストに追加。全体型検査で前回のCommandDoc変更に対するFakeDocのsetDocumentSetting欠落を検出し、テスト用クラスも追従。
