@@ -110,6 +110,11 @@ test(
       await dialog.getByLabel('Fade In', { exact: true }).fill('250');
       await dialog.getByRole('button', { name: 'Play', exact: true }).click();
       await dialog.getByRole('button', { name: 'Pause', exact: true }).waitFor();
+      await dialog.getByRole('button', { name: 'Play', exact: true }).waitFor();
+      assert.equal(await dialog.locator('audio').evaluate((element) => element.currentTime), 4);
+      await dialog.getByRole('button', { name: 'Play', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Pause', exact: true }).waitFor();
+      assert.ok(await dialog.locator('audio').evaluate((element) => element.currentTime < 1));
       await dialog.getByRole('button', { name: 'Trim', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       assert.deepEqual((await read()).trim, { startMs: 500, endMs: 1000 });
