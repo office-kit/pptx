@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getShapeKind, getShapeText, type TextFormat } from '@office-kit/pptx';
+  import { getPresentationFonts, getShapeKind, getShapeText, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
@@ -16,6 +16,11 @@
     });
   });
   const formats = $derived(editor.inlineTextFormat?.formats ?? objectFormats ?? []);
+  const themeFonts = $derived.by(() => {
+    editor.doc.version;
+    const fonts = getPresentationFonts(editor.doc.pres);
+    return fonts ? [fonts.majorLatin, fonts.majorEastAsian, fonts.majorComplexScript, fonts.minorLatin, fonts.minorEastAsian, fonts.minorComplexScript].filter((font): font is string => !!font) : [];
+  });
   function apply(format: TextFormat, reset = false) {
     if (editor.inlineTextFormat) editor.inlineTextFormat.apply(format, reset);
     else editor.invoke('setShapeTextFormat', { format, options: { reset } });
@@ -26,4 +31,4 @@
   }
 </script>
 
-<TextFormatBar ribbon {formats} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} ontoggle={toggle} />
+<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} ontoggle={toggle} />

@@ -2,12 +2,13 @@
   import { tick } from 'svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { value, disabled = false, ribbon = false, choose }: { value?: string; disabled?: boolean; ribbon?: boolean; choose: (font: string) => void } = $props();
-  const families = [
+  let { value, disabled = false, ribbon = false, families: extraFamilies = [], choose }: { value?: string; disabled?: boolean; ribbon?: boolean; families?: readonly string[]; choose: (font: string) => void } = $props();
+  const commonFamilies = [
     'Aptos', 'Aptos Display', 'Arial', 'Calibri', 'Cambria', 'Candara',
     'Consolas', 'Courier New', 'Georgia', 'Helvetica', 'Meiryo', 'MS Gothic',
     'Noto Sans', 'Noto Sans CJK JP', 'Segoe UI', 'Times New Roman', '游ゴシック',
   ];
+  const families = $derived([...new Set([...extraFamilies, value ?? '', ...commonFamilies].filter(Boolean))]);
   let open = $state(false);
   let filter = $state('');
   let field: HTMLInputElement;

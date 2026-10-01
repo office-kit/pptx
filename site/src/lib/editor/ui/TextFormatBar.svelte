@@ -6,7 +6,7 @@
   import FontFamilyInput from './FontFamilyInput.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false }: {
+  let { formats, selected, typing = false, onformat, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
     selected: boolean;
     typing?: boolean;
@@ -23,11 +23,14 @@
     paragraph?: { align: string; bullet: string; level: string; lineKind: string; lineValue: string; before: string; after: string };
     onparagraph?: (kind: 'align' | 'bullet' | 'level' | 'lineKind' | 'lineValue' | 'before' | 'after', value: string) => void;
     context?: 'text' | 'cells' | 'objects';
+    /** Additional document/theme families to show in the picker. */
+    fontFamilies?: readonly string[];
   } = $props();
   function toggle(property: TextFormatToggle) {
     if (ontoggle) ontoggle(property);
     else onformat(toggleTextFormat(formats, property));
   }
+  const fontChoices = $derived([...new Set([...(fontFamilies ?? []), ...formats.flatMap((format) => [format.font, format.fontEastAsian, format.fontComplexScript].filter((family): family is string => !!family))])]);
   const font = $derived(formats.length && formats.every((f) => f.font === formats[0]?.font) ? formats[0]?.font ?? '' : '');
   const size = $derived(formats.length && formats.every((f) => f.size === formats[0]?.size) ? formats[0]?.size : undefined);
   const highlight = $derived(formats.length && formats.every(f => f.highlight === formats[0]?.highlight) && /^#[0-9a-f]{6}$/i.test(formats[0]?.highlight ?? '') ? formats[0]!.highlight! : null);
@@ -39,7 +42,7 @@
   {#if !hideFont}
   <div class="font-controls">
   <div class="font-fields">
-  <label><span>{t('Font')}</span><FontFamilyInput {ribbon} value={font} disabled={!(selected || typing)} choose={font => onformat({font, fontEastAsian: font, fontComplexScript: font})} /></label>
+  <label><span>{t('Font')}</span><FontFamilyInput {ribbon} families={fontChoices} value={font} disabled={!(selected || typing)} choose={font => onformat({font, fontEastAsian: font, fontComplexScript: font})} /></label>
   {#if ribbon}<FontSizeInput value={size} disabled={!(selected || typing)} choose={size => onformat({ size })} />
   {:else}
   <label><span>{t('Font size')}</span><input class="ok-input size" aria-label={t('Font size')} type="number" min="1" max="4000" step="0.5" disabled={!(selected || typing)} value={size ?? ''} placeholder="—" onchange={(e) => { if (e.currentTarget.value && e.currentTarget.reportValidity()) onformat({size:e.currentTarget.valueAsNumber}); }} /></label>

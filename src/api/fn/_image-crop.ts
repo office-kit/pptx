@@ -5,6 +5,7 @@ import {
   NS,
   type XmlElement,
 } from '../../internal/xml/index.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import type { ImageCrop } from './shape-image-effects.ts';
 
 export function readImageCrop(blipFill: XmlElement): ImageCrop | null {
@@ -12,9 +13,7 @@ export function readImageCrop(blipFill: XmlElement): ImageCrop | null {
   if (!srcRect) return null;
   const parseSide = (local: string): number => {
     const v = getAttrValue(srcRect, qname('', local, ''));
-    if (v === null) return 0;
-    const n = Number.parseInt(v, 10);
-    return Number.isFinite(n) ? n / 100000 : 0;
+    return readDrawingmlPercentage(v, 0);
   };
   return {
     left: parseSide('l'),

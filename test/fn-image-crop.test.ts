@@ -6,6 +6,7 @@
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { unzipSync, zipSync, strFromU8, strToU8 } from 'fflate';
 import {
   getShapeKind,
   getShapeImageCrop,
@@ -109,4 +110,34 @@ describe('fn API: setShapeImageCrop', () => {
     expect(() => setShapeImageCrop(picture, { left: 21474.83648 })).toThrow();
     expect(() => setShapeImageCrop(picture, { top: -21474.83649 })).toThrow();
   });
+});
+
+it('reads percentage-suffixed image crops without changing their magnitude', async () => {
+  const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+  const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+  setShapeImageCrop(picture, { left: -0.125, top: 0.25, right: 0.375, bottom: -0.5 });
+  const files = unzipSync(await savePresentation(pres));
+  const path = 'ppt/slides/slide1.xml';
+  files[path] = strToU8(
+    strFromU8(files[path]!).replace(
+      /<a:srcRect[^>]*\/>/,
+      '<a:srcRect l="-12.5%" t="25%" r="37.5%" b="-50%"/>',
+    ),
+  );
+  const loaded = await loadPresentation(zipSync(files));
+  const restored = getSlideShapes(getSlides(loaded)[0]!).find(
+    (s) => getShapeKind(s) === 'picture',
+  )!;
+  expect(getShapeImageCrop(restored)).toEqual({
+    left: -0.125,
+    top: 0.25,
+    right: 0.375,
+    bottom: -0.5,
+  });
+  const reloaded = await loadPresentation(await savePresentation(loaded));
+  expect(
+    getShapeImageCrop(
+      getSlideShapes(getSlides(reloaded)[0]!).find((s) => getShapeKind(s) === 'picture')!,
+    ),
+  ).toEqual(getShapeImageCrop(restored));
 });

@@ -1,3 +1,4 @@
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import { readImagePixelSize, readImageResolution } from '../../internal/opc/image-format.ts';
 import {
   NS,
@@ -32,12 +33,8 @@ export type ImageFillLayout = {
 
 const value = (element: XmlElement, name: string): string | null =>
   getAttrValue(element, qname('', name, ''));
-const percentage = (element: XmlElement, name: string, fallback: number): number => {
-  const raw = value(element, name)?.trim();
-  if (!raw) return fallback;
-  const parsed = Number(raw.endsWith('%') ? raw.slice(0, -1) : raw);
-  return Number.isFinite(parsed) ? parsed / (raw.endsWith('%') ? 100 : 100000) : fallback;
-};
+const percentage = (element: XmlElement, name: string, fallback: number): number =>
+  readDrawingmlPercentage(value(element, name), fallback);
 const coordinate = (element: XmlElement, name: string): Emu => {
   const raw = value(element, name)?.trim() ?? '0';
   // ST_Coordinate also permits physical units in Transitional documents.
