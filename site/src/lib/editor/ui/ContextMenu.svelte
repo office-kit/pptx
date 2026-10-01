@@ -17,6 +17,7 @@
     label: string;
     accel?: string;
     disabled?: boolean;
+    checked?: boolean;
     sep?: boolean;
   } & ({ run: () => void; children?: never } | { children: Item[]; run?: never });
   let submenu = $state<string | null>(null);
@@ -128,6 +129,10 @@
         { label: 'Grid Options...', run: () => editor.activeDialog = 'gridOptions' },
       );
     }
+    if (menu.source === 'outline') list.push({
+      label: 'Show Formatting', checked: editor.outlineShowFormatting,
+      run: () => editor.outlineShowFormatting = !editor.outlineShowFormatting,
+    });
     return list;
   });
 
@@ -229,8 +234,8 @@
         {/if}
       </div>
     {:else}
-      <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" disabled={item.disabled} onclick={() => activate(item)} onpointerenter={() => submenu = null}>
-        <span>{t(item.label)}</span>
+      <button class="ctx-item" class:sep={item.sep} role={item.checked === undefined ? "menuitem" : "menuitemcheckbox"} aria-checked={item.checked} aria-label={item.checked === undefined ? undefined : t(item.label)} tabindex="-1" disabled={item.disabled} onclick={() => activate(item)} onpointerenter={() => submenu = null}>
+        <span>{item.checked ? "✓ " : ""}{t(item.label)}</span>
         {#if item.accel}<span class="accel">{item.accel}</span>{/if}
       </button>
     {/if}

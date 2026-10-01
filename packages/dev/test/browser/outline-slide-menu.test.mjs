@@ -11,6 +11,7 @@ import {
   getSlideLayoutPartName,
   getSlideShapes,
   getShapeText,
+  getShapeRunFormatEffective,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
@@ -29,7 +30,7 @@ for (const locale of ['en', 'ja']) {
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
-          `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill,Text} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Menu title</Fill><Fill target={{placeholder:{idx:1}}}>Menu body</Fill><Text x={1} y={5} width={5} height={1}>Extra object</Text></Slide></Presentation>;`,
+          `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill,Text} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Menu title</Fill><Fill target={{placeholder:{idx:1}}} format={{bold:true,italic:true}}>Menu body</Fill><Text x={1} y={5} width={5} height={1}>Extra object</Text></Slide></Presentation>;`,
         );
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
@@ -69,6 +70,63 @@ for (const locale of ['en', 'ja']) {
           getSlides(pres).map((slide) => getSlideShapes(slide).map(getShapeText).filter(Boolean));
         const original = await read();
         const originalTexts = texts(original);
+        for (const enabled of [true, false]) {
+          const initialRevision = (await waitForState(preview.url, () => true)).revision;
+          await body.click({ button: 'right' });
+          const toggle = editor.getByRole('menuitemcheckbox', {
+            name: locale === 'en' ? 'Show Formatting' : '書式の表示',
+            exact: true,
+          });
+          assert.equal(await toggle.getAttribute('aria-checked'), String(!enabled));
+          await toggle.click();
+          if (enabled) {
+            await body.locator('span').first().waitFor();
+            assert.equal(
+              await body
+                .locator('span')
+                .first()
+                .evaluate((node) => getComputedStyle(node).fontWeight),
+              '700',
+            );
+            assert.equal(
+              await body
+                .locator('span')
+                .first()
+                .evaluate((node) => getComputedStyle(node).fontStyle),
+              'italic',
+            );
+          } else assert.equal(await body.locator('span').count(), 0);
+          assert.equal(await body.textContent(), 'Menu body');
+          assert.equal((await waitForState(preview.url, () => true)).revision, initialRevision);
+          await change(async () => {
+            await body.evaluate((node) => {
+              node.focus();
+              const range = document.createRange();
+              range.selectNodeContents(node);
+              range.collapse(false);
+              const selection = window.getSelection();
+              selection.removeAllRanges();
+              selection.addRange(range);
+            });
+            await body.press('!');
+            await editor.getByRole('tab', { name: view, exact: true }).click();
+          });
+          const edited = await read();
+          const editedBody = getSlideShapes(getSlides(edited)[0]).find(
+            (shape) => getShapeText(shape) === 'Menu body!',
+          );
+          assert.ok(editedBody, JSON.stringify(texts(edited)));
+          const format = getShapeRunFormatEffective(edited, editedBody, 0, 0);
+          assert.equal(format.bold, true);
+          assert.equal(format.italic, true);
+          const originalBody = getSlideShapes(getSlides(original)[0]).find(
+            (shape) => getShapeText(shape) === 'Menu body',
+          );
+          assert.equal(format.size, getShapeRunFormatEffective(original, originalBody, 0, 0).size);
+          await change(() => editor.locator('body').press('Control+z'));
+          assert.deepEqual(texts(await read()), originalTexts);
+        }
+
         for (const [en, ja, count] of [
           ['New slide', '新しいスライド', 2],
           ['Duplicate slide', 'スライドを複製', 2],

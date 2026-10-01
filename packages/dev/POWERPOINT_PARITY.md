@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Formatting display, cross-slide text selection, remaining text menu commands and exact native drag gestures.                                                                                     |
+| Outline                  | Exact formatting-display metrics/persistence, cross-slide text selection, remaining text menu commands and exact native drag gestures.                                                           |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -772,3 +772,11 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 
 - Text context menus now expose New Slide, Duplicate Slide and Delete Slide through the existing undoable slide commands. Outline New Slide inherits the selected slide layout, matching the observed native Title and Content case; special handling after a Title Slide still needs native comparison.
 - English/Japanese browser tests verify insertion with empty placeholders, whole-slide duplication including extra objects, deletion of the last slide, saved content and one-step Undo for all three operations (2/2 passed).
+
+## Outline formatting display (2026-10-01)
+
+- Add the English/Japanese Show Formatting checkbox to outline text and slide menus. It uses session view state, not a presentation transaction. Switching keeps literal text offsets and the original run formatting for editing, clipboard and saving.
+- Native comparison: temporarily bolding “First” in the reference body's first paragraph appeared on the slide. Toggling Show Formatting changed the outline between compact formatted text and uniform plain text; turning it back on and Undo restored the original. Normal view, 120%, saved document and disabled Undo were restored.
+- The formatted renderer resolves inherited run styles through the existing public reader and escaped HTML exporter. Foreground follows the UI, so dark appearance stays readable. Quarter-scale point sizes are an approximation of the observed compact view; exact font metrics, size limits, default state and persistence across native sessions remain to be compared. Do not call this pixel parity.
+- Browser coverage in English/Japanese checks checked state, bold/italic display, unchanged save revision on toggles, editing/saving with original point sizes, and one-step Undo. Existing outline slide actions remain in the same test.
+- Validation: final menu/formatting tests 2/2; existing clipboard, selection lifecycle and outline editing tests 6/6. The first expanded test used Control+End, which did not move the caret on this Mac; it now sets the insertion range explicitly. Site unit tests 93/93; format/lint, Svelte (0 errors/0 warnings) and editor build pass. No core behavior changed in this increment.
