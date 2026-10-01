@@ -57,6 +57,7 @@ import {
   firstChildElement,
   getAttrValue,
   qname,
+  walkElements,
 } from '../../internal/xml/index.ts';
 
 export type { AudioFormat, VideoFormat };
@@ -367,6 +368,12 @@ export interface MediaFade {
   readonly outMs: number;
 }
 
+/** A named position in an embedded media clip, measured from its beginning. */
+export interface MediaBookmark {
+  readonly name: string;
+  readonly timeMs: number;
+}
+
 /**
  * How a clip plays in the slide show — the attributes of its
  * `<p:cMediaNode>` and the start condition of its time node.
@@ -396,6 +403,8 @@ export interface MediaPlayback {
   readonly rewindAfterPlaying?: boolean;
   readonly trim?: MediaTrim;
   readonly fade?: MediaFade;
+  /** Named positions in the clip, in the order stored in the media extension. */
+  readonly bookmarks?: readonly MediaBookmark[];
 }
 
 const NAME_C_MEDIA_NODE = qname('p', 'cMediaNode', NS.pml);
@@ -429,11 +438,18 @@ const NAME_EXT = qname('p', 'ext', NS.pml);
 const NAME_P14_MEDIA = qname('p14', 'media', NS.p14);
 const NAME_P14_TRIM = qname('p14', 'trim', NS.p14);
 const NAME_P14_FADE = qname('p14', 'fade', NS.p14);
+const NAME_P14_BMK_LST = qname('p14', 'bmkLst', NS.p14);
+const NAME_P14_BMK = qname('p14', 'bmk', NS.p14);
+const NAME_P14_BMK_TGT = qname('p14', 'bmkTgt', NS.p14);
 const ATTR_URI = qname('', 'uri', '');
 const ATTR_ST = qname('', 'st', '');
 const ATTR_END = qname('', 'end', '');
 const ATTR_IN = qname('', 'in', '');
 const ATTR_OUT = qname('', 'out', '');
+const ATTR_NAME = qname('', 'name', '');
+const ATTR_TIME = qname('', 'time', '');
+const ATTR_SPID = qname('', 'spid', '');
+const ATTR_BMK_NAME = qname('', 'bmkName', '');
 const P14_MEDIA_EXT_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 
 // ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
@@ -457,6 +473,25 @@ const setOrRemove = (
     (a) => a.name.localName !== name.localName || a.name.namespaceURI !== name.namespaceURI,
   );
   if (value !== null) el.attrs.push(attr(name, value));
+};
+
+// Bookmark attributes are edited in place so unrelated attributes keep their
+// original order and any future PowerPoint metadata remains untouched.
+const setOrRemovePreservingOrder = (
+  el: XmlElement,
+  name: ReturnType<typeof qname>,
+  value: string | null,
+): void => {
+  const index = el.attrs.findIndex(
+    (a) => a.name.localName === name.localName && a.name.namespaceURI === name.namespaceURI,
+  );
+  if (value === null) {
+    if (index >= 0) el.attrs.splice(index, 1);
+  } else if (index >= 0) {
+    el.attrs[index] = attr(name, value);
+  } else {
+    el.attrs.push(attr(name, value));
+  }
 };
 
 const p14MediaOf = (shape: SlideShapeData): XmlElement | null => {
@@ -500,7 +535,9 @@ const universalTimeMs = (raw: string | null): number | null => {
   return Number.isFinite(result) ? result : null;
 };
 
-const mediaAdjustments = (shape: SlideShapeData): Pick<MediaPlayback, 'trim' | 'fade'> => {
+const mediaAdjustments = (
+  shape: SlideShapeData,
+): Pick<MediaPlayback, 'trim' | 'fade' | 'bookmarks'> => {
   const media = p14MediaOf(shape);
   if (media === null) return {};
   const trim = firstChildElement(media, NAME_P14_TRIM);
@@ -509,6 +546,25 @@ const mediaAdjustments = (shape: SlideShapeData): Pick<MediaPlayback, 'trim' | '
   const endMs = trim === null ? null : universalTimeMs(getAttrValue(trim, ATTR_END));
   const inMs = fade === null ? null : universalTimeMs(getAttrValue(fade, ATTR_IN));
   const outMs = fade === null ? null : universalTimeMs(getAttrValue(fade, ATTR_OUT));
+  const bookmarkList = firstChildElement(media, NAME_P14_BMK_LST);
+  const bookmarks =
+    bookmarkList === null
+      ? undefined
+      : bookmarkList.children
+          .filter(
+            (child): child is XmlElement =>
+              child.kind === 'element' && qnameSame(child.name, NAME_P14_BMK),
+          )
+          .map((bookmark) => {
+            const name = getAttrValue(bookmark, ATTR_NAME);
+            const timeMs = universalTimeMs(getAttrValue(bookmark, ATTR_TIME));
+            // Both attributes are required by CT_MediaBookmark. Do not turn
+            // malformed external XML into a plausible typed value: callers
+            // must repair the source before reading or editing playback.
+            if (name === null || timeMs === null || timeMs < 0)
+              throw new Error('getShapeMediaPlayback: malformed media bookmark');
+            return { name, timeMs };
+          });
   return {
     ...(trim === null || (startMs === null && endMs === null)
       ? {}
@@ -516,6 +572,7 @@ const mediaAdjustments = (shape: SlideShapeData): Pick<MediaPlayback, 'trim' | '
     ...(fade === null || (inMs === null && outMs === null)
       ? {}
       : { fade: { inMs: inMs ?? 0, outMs: outMs ?? 0 } }),
+    ...(bookmarks === undefined ? {} : { bookmarks }),
   };
 };
 
@@ -578,7 +635,15 @@ const clearMediaChild = (
 };
 
 const adjustmentRank = (name: ReturnType<typeof qname>): number =>
-  qnameSame(name, NAME_P14_TRIM) ? 0 : qnameSame(name, NAME_P14_FADE) ? 1 : 2;
+  qnameSame(name, NAME_P14_TRIM)
+    ? 0
+    : qnameSame(name, NAME_P14_FADE)
+      ? 1
+      : qnameSame(name, NAME_P14_BMK_LST)
+        ? 2
+        : qnameSame(name, NAME_EXT_LST)
+          ? 3
+          : 4;
 
 const upsertMediaChild = (
   media: XmlElement,
@@ -621,6 +686,179 @@ const setMediaAdjustments = (
         [ATTR_IN, universalTimeString(fade.inMs)],
         [ATTR_OUT, universalTimeString(fade.outMs)],
       ]);
+  }
+};
+
+const validateBookmarks = (value: readonly MediaBookmark[]): void => {
+  if (!Array.isArray(value)) {
+    throw new Error('setShapeMediaPlayback: bookmarks must be an array');
+  }
+  const names = new Set<string>();
+  const times = new Set<number>();
+  for (const bookmark of value) {
+    if (
+      typeof bookmark !== 'object' ||
+      bookmark === null ||
+      typeof bookmark.name !== 'string' ||
+      !Number.isFinite(bookmark.timeMs) ||
+      bookmark.timeMs < 0
+    ) {
+      throw new Error(
+        'setShapeMediaPlayback: bookmarks require a string name and finite nonnegative timeMs',
+      );
+    }
+    if (names.has(bookmark.name)) {
+      throw new Error('setShapeMediaPlayback: bookmark names must be unique');
+    }
+    if (times.has(bookmark.timeMs)) {
+      throw new Error('setShapeMediaPlayback: bookmark times must be unique');
+    }
+    names.add(bookmark.name);
+    times.add(bookmark.timeMs);
+  }
+};
+
+const validateBookmarkReferences = (
+  shape: SlideShapeData,
+  bookmarks: readonly MediaBookmark[],
+): void => {
+  const root = shape[SHAPE_SLIDE][SLIDE_DOCUMENT].root;
+  const spid = String(shape[SHAPE_SNAPSHOT].id);
+  const names = new Set(bookmarks.map((bookmark) => bookmark.name));
+  let dangling: string | null = null;
+  walkElements(root, (element) => {
+    if (!qnameSame(element.name, NAME_P14_BMK_TGT)) return;
+    if (getAttrValue(element, ATTR_SPID) !== spid) return;
+    const name = getAttrValue(element, ATTR_BMK_NAME);
+    if (name !== null && !names.has(name)) dangling = name;
+  });
+  if (dangling !== null) {
+    throw new Error(
+      `setShapeMediaPlayback: cannot remove or rename referenced bookmark ${JSON.stringify(dangling)}`,
+    );
+  }
+};
+
+const setMediaBookmarks = (media: XmlElement, bookmarks: readonly MediaBookmark[]): void => {
+  const list = firstChildElement(media, NAME_P14_BMK_LST);
+  if (list === null && bookmarks.length === 0) return;
+
+  if (list === null) {
+    const created = elem(NAME_P14_BMK_LST, {
+      children: bookmarks.map((bookmark) =>
+        elem(NAME_P14_BMK, {
+          attrs: [
+            attr(ATTR_NAME, bookmark.name),
+            attr(ATTR_TIME, universalTimeString(bookmark.timeMs)),
+          ],
+        }),
+      ),
+    });
+    const rank = adjustmentRank(NAME_P14_BMK_LST);
+    const index = media.children.findIndex(
+      (candidate) => candidate.kind === 'element' && adjustmentRank(candidate.name) > rank,
+    );
+    if (index < 0) media.children.push(created);
+    else media.children.splice(index, 0, created);
+    return;
+  }
+
+  const existing = list.children.filter(
+    (child): child is XmlElement => child.kind === 'element' && qnameSame(child.name, NAME_P14_BMK),
+  );
+  const byIdentity = new Map<string, XmlElement>();
+  const byName = new Map<string, XmlElement>();
+  const byTime = new Map<number, XmlElement>();
+  for (const candidate of existing) {
+    const name = getAttrValue(candidate, ATTR_NAME) ?? '';
+    if (!byName.has(name)) byName.set(name, candidate);
+    const rawTime = getAttrValue(candidate, ATTR_TIME);
+    const time = universalTimeMs(rawTime);
+    if (time === null) continue;
+    const key = `${name}\u0000${time}`;
+    if (!byIdentity.has(key)) byIdentity.set(key, candidate);
+    if (!byTime.has(time)) byTime.set(time, candidate);
+  }
+  const unused = new Set(existing);
+  const assignments: Array<XmlElement | undefined> = bookmarks.map(() => undefined);
+
+  // Reserve all strong matches before assigning positional fallbacks. This
+  // prevents a newly inserted bookmark at the front from stealing a source
+  // node that a later unchanged bookmark should retain.
+  bookmarks.forEach((bookmark, index) => {
+    const match = byIdentity.get(`${bookmark.name}\u0000${bookmark.timeMs}`);
+    if (match !== undefined && unused.has(match)) {
+      assignments[index] = match;
+      unused.delete(match);
+    }
+  });
+  bookmarks.forEach((bookmark, index) => {
+    if (assignments[index] !== undefined) return;
+    const match = byName.get(bookmark.name);
+    if (match !== undefined && unused.has(match)) {
+      assignments[index] = match;
+      unused.delete(match);
+    }
+  });
+  bookmarks.forEach((bookmark, index) => {
+    if (assignments[index] !== undefined) return;
+    const match = byTime.get(bookmark.timeMs);
+    if (match !== undefined && unused.has(match)) {
+      assignments[index] = match;
+      unused.delete(match);
+    }
+  });
+  let fallbackIndex = 0;
+  bookmarks.forEach((_, index) => {
+    if (assignments[index] !== undefined) return;
+    while (fallbackIndex < existing.length) {
+      const candidate = existing[fallbackIndex++];
+      if (candidate !== undefined && unused.has(candidate)) {
+        assignments[index] = candidate;
+        unused.delete(candidate);
+        return;
+      }
+    }
+  });
+
+  const next = bookmarks.map((bookmark, index) => {
+    const match = assignments[index];
+    if (match !== undefined) {
+      if (getAttrValue(match, ATTR_NAME) !== bookmark.name)
+        setOrRemovePreservingOrder(match, ATTR_NAME, bookmark.name);
+      const rawTime = getAttrValue(match, ATTR_TIME);
+      if (universalTimeMs(rawTime) !== bookmark.timeMs)
+        setOrRemovePreservingOrder(match, ATTR_TIME, universalTimeString(bookmark.timeMs));
+      return match;
+    }
+    return elem(NAME_P14_BMK, {
+      attrs: [
+        attr(ATTR_NAME, bookmark.name),
+        attr(ATTR_TIME, universalTimeString(bookmark.timeMs)),
+      ],
+    });
+  });
+  const unknownChildren = list.children.filter(
+    (child) => child.kind !== 'element' || !qnameSame(child.name, NAME_P14_BMK),
+  );
+  const firstUnknownElement = unknownChildren.findIndex((child) => child.kind === 'element');
+  if (firstUnknownElement < 0) list.children = [...unknownChildren, ...next];
+  else
+    list.children = [
+      ...unknownChildren.slice(0, firstUnknownElement),
+      ...next,
+      ...unknownChildren.slice(firstUnknownElement),
+    ];
+
+  // An empty, untouched list has no schema-visible purpose. Keep it when it
+  // carries an extension, attributes, or other future content.
+  if (
+    next.length === 0 &&
+    list.attrs.length === 0 &&
+    list.children.length === 0 &&
+    list.prefixDecls.size === 0
+  ) {
+    removeMediaChild(media, NAME_P14_BMK_LST);
   }
 };
 
@@ -1188,11 +1426,18 @@ export const setShapeMediaPlayback = (
   }
   if (options.trim !== undefined) validateAdjustment(options.trim, 'trim');
   if (options.fade !== undefined) validateAdjustment(options.fade, 'fade');
+  if (options.bookmarks !== undefined) validateBookmarks(options.bookmarks);
   const p14Media =
-    options.trim !== undefined || options.fade !== undefined ? p14MediaOf(shape) : null;
-  if ((options.trim !== undefined || options.fade !== undefined) && p14Media === null) {
-    throw new Error('setShapeMediaPlayback: trim and fade require embedded media');
+    options.trim !== undefined || options.fade !== undefined || options.bookmarks !== undefined
+      ? p14MediaOf(shape)
+      : null;
+  if (
+    (options.trim !== undefined || options.fade !== undefined || options.bookmarks !== undefined) &&
+    p14Media === null
+  ) {
+    throw new Error('setShapeMediaPlayback: trim, fade, and bookmarks require embedded media');
   }
+  if (options.bookmarks !== undefined) validateBookmarkReferences(shape, options.bookmarks);
 
   const applyCommandTiming = convertingCommand
     ? prepareDedicatedMediaTiming(
@@ -1218,6 +1463,8 @@ export const setShapeMediaPlayback = (
     setOrRemove(node, ATTR_FULL_SCRN, options.fullScreen ? '1' : '0');
   }
   if (p14Media !== null) setMediaAdjustments(p14Media, options.trim, options.fade);
+  if (p14Media !== null && options.bookmarks !== undefined)
+    setMediaBookmarks(p14Media, options.bookmarks);
 
   if (cTn !== null) {
     // Mac PowerPoint stores Rewind After Playing as remove (on) or hold (off).

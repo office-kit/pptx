@@ -391,6 +391,192 @@ describe('media playback', () => {
     });
   });
 
+  it('writes and reads named media bookmarks in schema order', async () => {
+    const { pres, shape } = deckWith('audio');
+    setShapeMediaPlayback(shape, {
+      bookmarks: [
+        { name: 'Intro', timeMs: 0 },
+        { name: 'Middle', timeMs: 1250.5 },
+      ],
+    });
+    const xml = slideXml(pres);
+    expect(xml).toContain(
+      '<p14:bmkLst><p14:bmk name="Intro" time="0"/><p14:bmk name="Middle" time="1250.5"/></p14:bmkLst>',
+    );
+    expect(xml.indexOf('<p14:bmkLst')).toBeGreaterThan(xml.indexOf('<p14:media'));
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const saved = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    expect(getShapeMediaPlayback(saved)?.bookmarks).toEqual([
+      { name: 'Intro', timeMs: 0 },
+      { name: 'Middle', timeMs: 1250.5 },
+    ]);
+  });
+
+  it('keeps trim, fade, bookmark list, and extension list in CT_Media order', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:trim st="1" end="2"/><p14:fade in="3" out="4"/><p:extLst/></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const loadedShape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    setShapeMediaPlayback(loadedShape, { bookmarks: [{ name: 'Intro', timeMs: 0 }] });
+    const xml = slideXml(loaded);
+    expect(xml.indexOf('<p14:trim')).toBeLessThan(xml.indexOf('<p14:fade'));
+    expect(xml.indexOf('<p14:fade')).toBeLessThan(xml.indexOf('<p14:bmkLst'));
+    expect(xml.indexOf('<p14:bmkLst')).toBeLessThan(xml.lastIndexOf('<p:extLst'));
+  });
+
+  it('rejects media bookmarks whose required time attribute is malformed', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:bmkLst><p14:bmk name="Bad" time="not-a-time"/><p14:bmk name="Good" time="1s"/></p14:bmkLst></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    expect(() => getShapeMediaPlayback(shape)).toThrow(/malformed media bookmark/);
+  });
+
+  it('preserves bookmark metadata and validates edits before changing XML', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:bmkLst mystery="keep"><p14:bmk name="Intro" time="1s" future="keep"><p14:unknown/></p14:bmk><p14:future/></p14:bmkLst></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    expect(getShapeMediaPlayback(shape)?.bookmarks).toEqual([{ name: 'Intro', timeMs: 1000 }]);
+    setShapeMediaPlayback(shape, { bookmarks: [{ name: 'Renamed', timeMs: 1500 }] });
+    const xml = slideXml(loaded);
+    expect(xml).toContain('mystery="keep"');
+    expect(xml).toContain('name="Renamed" time="1500" future="keep"');
+    expect(xml).toContain('<p14:unknown/>');
+    expect(xml).toContain('<p14:future/>');
+
+    const before = xml;
+    expect(() =>
+      setShapeMediaPlayback(shape, {
+        bookmarks: [
+          { name: 'Duplicate', timeMs: 1 },
+          { name: 'Duplicate', timeMs: 2 },
+        ],
+      }),
+    ).toThrow(/names must be unique/);
+    expect(slideXml(loaded)).toBe(before);
+  });
+
+  it('does not reuse one source node twice when bookmarks are reordered and renamed', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:bmkLst><p14:bmk name="A" time="1s" marker="a"/><p14:bmk name="B" time="2s" marker="b"/></p14:bmkLst></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    setShapeMediaPlayback(shape, {
+      bookmarks: [
+        { name: 'New', timeMs: 50 },
+        { name: 'Renamed B', timeMs: 2000 },
+        { name: 'Renamed A', timeMs: 1000 },
+      ],
+    });
+    const xml = slideXml(loaded);
+    expect(xml).toContain('name="Renamed B" time="2s" marker="b"');
+    expect(xml).toContain('name="Renamed A" time="1s" marker="a"');
+    expect(xml).toContain('name="New" time="50"');
+    expect((xml.match(/<p14:bmk /g) ?? []).length).toBe(3);
+  });
+
+  it('keeps same-name metadata when bookmark times move', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:bmkLst><p14:bmk name="A" time="1s" marker="a"/><p14:bmk name="B" time="2s" marker="b"/></p14:bmkLst></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    setShapeMediaPlayback(shape, {
+      bookmarks: [
+        { name: 'A', timeMs: 1500 },
+        { name: 'B', timeMs: 2500 },
+      ],
+    });
+    const xml = slideXml(loaded);
+    expect(xml).toContain('name="A" time="1500" marker="a"');
+    expect(xml).toContain('name="B" time="2500" marker="b"');
+  });
+
+  it('rejects edits that would leave a media bookmark animation target dangling', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    const spid = Array.from(source.matchAll(/<p:cNvPr id="([^"]+)"/g)).at(-1)?.[1];
+    expect(spid).toBeDefined();
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        `<p14:media $1><p14:bmkLst><p14:bmk name="Intro" time="1s"/></p14:bmkLst></p14:media>`,
+      ),
+    );
+    const withTarget = new TextDecoder()
+      .decode(slidePart.data)
+      .replace(
+        '<p:sld ',
+        '<p:sld xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" ',
+      )
+      .replace(
+        '<p:cond delay="indefinite"/>',
+        `<p:cond evt="onBegin" delay="0"><p:tgtEl><p14:bmkTgt spid="${spid}" bmkName="Intro"/></p:tgtEl></p:cond>`,
+      );
+    slidePart.data = new TextEncoder().encode(withTarget);
+    expect((withTarget.match(/<p:timing\b/g) ?? []).length).toBe(1);
+    expect(
+      new Set(Array.from(withTarget.matchAll(/<p:cTn id="([^"]+)"/g), (match) => match[1])).size,
+    ).toBe(Array.from(withTarget.matchAll(/<p:cTn id="([^"]+)"/g)).length);
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    const before = slideXml(loaded);
+    expect(() => setShapeMediaPlayback(shape, { bookmarks: [] })).toThrow(/referenced bookmark/);
+    expect(slideXml(loaded)).toBe(before);
+  });
+
+  it.each([
+    { bookmarks: [{ name: 'Bad', timeMs: -1 }] },
+    { bookmarks: [{ name: 'Bad', timeMs: Number.NaN }] },
+    {
+      bookmarks: [
+        { name: 'A', timeMs: 1 },
+        { name: 'B', timeMs: 1 },
+      ],
+    },
+  ])('rejects invalid bookmarks atomically', (options) => {
+    const { pres, shape } = deckWith('audio');
+    const before = slideXml(pres);
+    expect(() => setShapeMediaPlayback(shape, options)).toThrow(/bookmark/);
+    expect(slideXml(pres)).toBe(before);
+  });
+
   it('removes trim and fade when both durations are reset to zero', async () => {
     const { pres, shape } = deckWith('video');
     setShapeMediaPlayback(shape, {
