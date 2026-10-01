@@ -220,6 +220,28 @@ describe('layoutTextSvg', () => {
     expect(countText(split)).toBe(3);
   });
 
+  it('does not introduce a Latin word break at a formatting run boundary', () => {
+    const input = body([para([piece('X AB'), piece('CD', { bold: true })])], { boxWpx: 50 });
+    const result = layoutCore(input, stubMeasurer);
+    expect(
+      result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
+    ).toEqual(['X', 'ABCD']);
+    expect(result.placements[1]!.line.tokens.map((token) => token.piece.bold)).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('keeps a styled overlong Latin word on the same line when Latin breaks are disabled', () => {
+    const result = layoutCore(
+      body([para([piece('ABC'), piece('DEF', { italic: true })])], { boxWpx: 40 }),
+      stubMeasurer,
+    );
+    expect(
+      result.placements.map(({ line }) => line.tokens.map((token) => token.text).join('')),
+    ).toEqual(['ABCDEF']);
+  });
+
   it('uses the remaining line space only when latinLnBrk is enabled', () => {
     const word = piece('ABC');
     const defaultRules = layoutTextSvg(
