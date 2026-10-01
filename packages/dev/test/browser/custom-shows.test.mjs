@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
-import { getCustomShows, getSlides, loadPresentation } from '@office-kit/pptx';
+import {
+  getCustomShows,
+  getSlideShowProperties,
+  getSlides,
+  loadPresentation,
+} from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 
 test(
@@ -55,9 +60,15 @@ test(
           slides: show.slides.map((slide) => slides.indexOf(slide) + 1),
         }));
       };
+      const readShowProperties = async () => {
+        const pres = await loadPresentation(
+          new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+        );
+        return getSlideShowProperties(pres);
+      };
 
       await saved();
-      const dialog = await openShows();
+      let dialog = await openShows();
       await dialog.getByRole('button', { name: /New/ }).click();
       await dialog.getByLabel('Name', { exact: true }).fill('Morning');
       await dialog.getByRole('button', { name: 'Add slide 3', exact: true }).click();
@@ -101,7 +112,56 @@ test(
         { name: 'Edited', slides: [1, 3, 3] },
       ]);
 
-      await dialog.getByRole('button', { name: /Evening/ }).click();
+      await dialog.getByLabel('Close', { exact: true }).click();
+      await editor.getByRole('button', { name: 'Set Up Show', exact: true }).click();
+      const setupDialog = editor.getByRole('dialog', { name: 'Set Up Show', exact: true });
+      await setupDialog.getByLabel('Custom show:', { exact: true }).check();
+      await setupDialog
+        .getByLabel('Custom show', { exact: true })
+        .selectOption({ label: 'Evening' });
+      await setupDialog.getByLabel("Loop continuously until 'Esc'", { exact: true }).check();
+      await setupDialog.getByLabel('Show narration', { exact: true }).check();
+      await setupDialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await saved();
+      const selectedShow = await readShowProperties();
+      assert.equal(selectedShow.slides.kind, 'customShow');
+      assert.equal(selectedShow.loop, true);
+      assert.equal(selectedShow.showNarration, true);
+
+      dialog = await openShows();
+      await dialog.getByRole('button', { name: /^Evening 1 slides$/ }).click();
+      await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+      await saved();
+      await dialog.getByLabel('Close', { exact: true }).click();
+      const cleared = await readShowProperties();
+      assert.deepEqual(cleared.slides, { kind: 'all' });
+      assert.equal(cleared.loop, true);
+      assert.equal(cleared.showNarration, true);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      const restored = await readShowProperties();
+      assert.deepEqual(restored.slides, selectedShow.slides);
+      assert.equal(restored.loop, true);
+      assert.equal(restored.showNarration, true);
+      assert.equal(restored.slides.kind, 'customShow');
+      assert.equal(restored.slides.id, selectedShow.slides.id);
+      assert.equal(
+        (await readShows()).some((show) => show.name === 'Evening'),
+        true,
+      );
+
+      dialog = await openShows();
+      await dialog.getByRole('button', { name: /^Edited 3 slides$/ }).click();
+      await dialog.getByRole('button', { name: 'Delete', exact: true }).click();
+      await saved();
+      await dialog.getByLabel('Close', { exact: true }).click();
+      const afterUnrelatedDelete = await readShowProperties();
+      assert.deepEqual(afterUnrelatedDelete.slides, selectedShow.slides);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+
+      dialog = await openShows();
+      await dialog.getByRole('button', { name: /^Evening 1 slides$/ }).click();
       await dialog.getByRole('button', { name: 'Copy', exact: true }).click();
       await saved();
       assert.deepEqual(

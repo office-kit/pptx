@@ -1,3 +1,11 @@
+## 2026-10-01: 再生対象の削除とウィンドウ表示
+
+- 再生対象の Custom Show を削除したとき、同じ Undo トランザクションで再生対象を all に戻すよう修正。他の設定は保持。旧ビルドで参照が残る回帰を再現し、保存した PPTX・Undo でのショー/選択 ID 復元・無関係なショー削除での選択維持を検証。
+- browse モードの Present が fullscreen API を呼ぶ不具合も旧ビルドで再現し修正。スクロールバーの表示設定はまだ再生 UI へ未反映。Microsoft の ShowScrollbar 資料ではスライド間移動用とされるため、stage の overflow による近似は採用していない。次はスライド移動バーの実機動作を確認して実装する。
+- 根拠: https://learn.microsoft.com/en-us/previous-versions/office/office-12/ff763072(v=office.12) と https://support.microsoft.com/en-us/powerpoint/training/create-a-self-running-presentation 。ウィンドウ表示の対応だけで Mac 実機との完全一致とは扱わない。
+- format/lint、Svelte 0 errors / 0 warnings、site 117 tests、dev build/typecheck 成功。core の変更なし。統合ブラウザー16/16成功（Custom Shows、presentation、browse3件、設定dialog、再生6件）。ログ `/tmp/pptx-show-followup-browser.log`、session53924は正常終了。
+- PR #287 の 9b734b5a CI run36872039905 は確認時実行中。前の42f5b21dは後続pushでcancelled。全体の完全一致は未完成。ユーザーの元プレビューを再読み込みしない。
+
 ## 2026-10-01: 追加回帰と残件の確認
 
 - 42f5b21d が PR #287 の remote HEAD に反映済み。最新 CI run36871528222 は Static / OOXML 成功、Node 22/24/26 と Preview fidelity は確認時実行中。
