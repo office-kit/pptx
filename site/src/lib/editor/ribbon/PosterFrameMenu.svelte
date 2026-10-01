@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { decodeFirstVideoFrame } from '../core/video-frame.ts';
   import { tick } from 'svelte';
   import { getShapeMedia, setShapeImage } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
@@ -18,15 +19,17 @@
     open = true; await tick();
     menu?.querySelector<HTMLButtonElement>('button:not(:disabled)')?.focus();
   }
-  async function currentFrame() {
+  async function setPoster(reset = false) {
     close();
     const shape = editor.selectedShapes()[0];
-    if (!shape || getShapeMedia(shape)?.kind !== 'video') return;
+    if (!shape) return;
+    const media = getShapeMedia(shape);
+    if (media?.kind !== 'video') return;
     const version = doc.version;
     const selection = doc.selection;
     busy = true;
     try {
-      const bytes = await preview.captureFrame();
+      const bytes = reset ? await decodeFirstVideoFrame(media.bytes, media.contentType) : await preview.captureFrame();
       if (doc.version !== version || doc.selection !== selection) return;
       doc.transact(t('Poster Frame'), () => setShapeImage(shape, bytes));
       preview.showPoster();
@@ -56,8 +59,9 @@
 <button class="trigger" bind:this={trigger} disabled={busy} aria-label={t('Poster Frame')} aria-haspopup="menu" aria-expanded={open} onclick={show}><Icon name="image" /><span>{t('Poster Frame')} ▾</span></button>
 {#if open}
   <div class="menu" role="menu" aria-label={t('Poster Frame')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
-    <button role="menuitem" disabled={!preview.state.showVideoFrame} onclick={currentFrame}>{t('Current Frame')}</button>
+    <button role="menuitem" disabled={!preview.state.showVideoFrame} onclick={() => setPoster()}>{t('Current Frame')}</button>
     <button role="menuitem" onclick={fromFile}>{t('Image from File...')}</button>
+    <button role="menuitem" onclick={() => setPoster(true)}>{t('Reset')}</button>
   </div>
 {/if}
 <style>

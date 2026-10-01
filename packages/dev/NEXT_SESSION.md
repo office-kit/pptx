@@ -1,3 +1,11 @@
+## 2026-10-02: 表紙画像のリセットと省スペース表示の再確認
+
+- Mac PowerPoint の Poster Frame > Reset は先頭フレームで表紙PNGを置換し、動画本体・再生設定を保持する。`/private/tmp/pptx-poster-audit/{before-reset,after-reset}.pptx` が比較資料。Undoして保存済み。
+- 同じ操作をエディターに追加。独立した動画デコーダーで先頭フレームを取得し、選択や文書の変更があれば結果を破棄する。既存の setShapeImage とUndo履歴を利用。
+- 検証: Resetブラウザー1件（先頭フレーム画像・動画バイト列・再生設定・非ゼロ停止位置・Undo/Redo・再読込・日本語メニュー）成功。site120件、Svelte 0 errors/warnings、format/lint、editor build成功。
+- 未完了: トリム済み動画でのResetの実機比較、Video Format全体の配置/効果の一致。全体の完全一致は未達成。
+- ヘッダー、フォント選択、文字編集背景のブラウザー3件再検証成功。独立した確認プレビューは http://127.0.0.1:4175 （`/tmp/pptx-header-preview/deck.tsx`）。元の4173の編集データは変更していない。
+
 ## 2026-10-02: 動画の表紙画像
 
 - Video Format > Poster Frame から Current Frame / Image from File... を実装。既存 setShapeImage を利用し動画本体・再生設定を保持。再生/シークまで動画要素を隠して表紙画像を表示。
