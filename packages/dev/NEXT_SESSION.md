@@ -108,3 +108,6 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 
 - Command-4 opens Outline View; Command-1 leaves it and commits pending text. The View menu includes the shortcut label.
 - Native Promote of a level-zero body paragraph splits the slide: promoted text becomes the new title and following body paragraphs move with it. Implement this separately from changing `a:pPr/@lvl`, preserving paragraph/run formatting and relationships. Native audit restored the reference document with Undo disabled.
+
+- タイトル分割でリンクが消えるブラウザー回帰を再現し、既存 `setShapeParagraphs` に `{ source, range? }` 入力を追加して修正。文字範囲の段落 XML・フィールド・リンクをコピーし、宛先の本文設定は保持。英語/日本語のブラウザー検証が通過。
+- 実機 `/private/tmp/pptx-outline-audit/body.pptx` では、レベル 0 の本文を 2 段落選択して Promote すると、それぞれ別スライドのタイトルになる。単一段落では後続本文も新スライドへ移る。昇格操作は未実装。比較後は Undo、Normal 120%、1 スライド、Undo disabled に復元・保存済み。

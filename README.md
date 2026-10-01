@@ -605,6 +605,24 @@ for (const i of issues) console.error(i.severity, i.message);
 // Catches missing rels, dangling slide ids, layouts without masters, etc.
 ```
 
+### Copy formatted text between shapes
+
+`setShapeParagraphs` accepts either paragraph specifications or an existing text
+shape. Copying from a shape retains paragraph properties, run formatting, complete
+fields and hyperlink relationships, including across presentations:
+
+```ts
+import { setShapeParagraphs } from '@office-kit/pptx';
+
+setShapeParagraphs(destination, { source });
+setShapeParagraphs(destination, { source, range: { start: 6, end: 12 } });
+```
+
+Ranges use UTF-16 offsets with an exclusive end, including one character per
+paragraph separator. A partially selected field becomes literal text. The
+source stays unchanged; the destination retains its text-body settings and list
+styles.
+
 ### API surface (current state)
 
 Each row lists the free-function entry points. Read/write pairs are

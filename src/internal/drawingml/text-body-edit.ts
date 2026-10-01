@@ -47,6 +47,39 @@ function slice(paragraph: XmlElement, start: number, end: number): XmlElement[] 
   return result;
 }
 
+/** Copy a UTF-16 range without rebuilding paragraph properties or untouched runs. */
+export function copyTextBodyRange(
+  txBody: XmlElement,
+  range: { start: number; end: number },
+): XmlElement[] {
+  validateTextRange(textBodyText(txBody), range, 'setShapeParagraphs');
+  const result: XmlElement[] = [];
+  let offset = 0;
+  for (const paragraph of paragraphsOf(txBody)) {
+    const length = paragraphText(paragraph).length;
+    const end = offset + length;
+    if (range.start <= end && range.end >= offset) {
+      const from = Math.max(0, range.start - offset);
+      const to = Math.min(length, range.end - offset);
+      const cloned = copy(paragraph);
+      if (from !== 0 || to !== length) {
+        const contents = slice(paragraph, from, to);
+        let inserted = false;
+        cloned.children = cloned.children.flatMap((child) => {
+          if (child.kind !== 'element' || !['r', 'fld', 'br'].some((local) => is(child, local)))
+            return [child];
+          if (inserted) return [];
+          inserted = true;
+          return contents;
+        });
+      }
+      result.push(cloned);
+    }
+    offset = end + 1;
+  }
+  return result;
+}
+
 function propertiesAt(paragraph: XmlElement, at: number, insertion: boolean): XmlElement | null {
   let offset = 0;
   let previous: XmlElement | null = null;

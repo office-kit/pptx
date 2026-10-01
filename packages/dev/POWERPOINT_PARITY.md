@@ -654,3 +654,9 @@ Promote/Demote menu remain outstanding; this is not complete outline parity.
 - Native Mac PowerPoint on the reference deck confirms Command-4 opens Outline View and Command-1 returns to Normal. The editor now handles Command-4 and displays it in View > Outline View.
 - Browser coverage switches from outline text editing to Normal before the autosave delay, verifies saved text and formatting, and returns with Command-4 in English and Japanese.
 - Native Promote on the top-level body paragraph `Second point` creates a second slide titled `Second point`; the following `Third point` body moves to that slide, while `First point` stays on the original slide. This behavior is not implemented yet. A paragraph-level clamp alone would be incorrect. The native audit was undone, saved and returned to Normal at 120% with Undo disabled.
+
+## Outline title formatting and promotion comparison
+
+- Title Enter now copies the existing paragraph XML and remaps its relationships. Hyperlinks, paragraph properties and untouched fields survive the split instead of being rebuilt from plain text and character formatting.
+- The existing `setShapeParagraphs` writer accepts `{ source, range? }` for a UTF-16 range (exclusive end) or all text. Destination body settings remain unchanged. Unit tests cover cross-slide and cross-presentation links, paragraph levels/tabs, partial runs, fields, self-copy, invalid ranges and save/reload. English/Japanese browser regressions verify split-title hyperlinks after saving.
+- Native comparison: promoting two selected level-zero body paragraphs creates two separate slide titles, retaining the preceding body on the original slide. This is observed behavior, not yet implemented. The disposable native document was restored to one slide, Normal 120%, Undo disabled, then saved.
