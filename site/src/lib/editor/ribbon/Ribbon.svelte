@@ -3,7 +3,8 @@
   // tabs (Shape Format, Table) only appear when the matching selection is
   // active, mirroring PowerPoint. Buttons dispatch through runOrPrompt, so a
   // command needing arguments opens its (auto-generated or bespoke) dialog.
-  import { getShapeMediaPlayback } from '@office-kit/pptx';
+  import { getShapeMedia, getShapeMediaPlayback } from '@office-kit/pptx';
+  import PosterFrameMenu from './PosterFrameMenu.svelte';
   import MediaPlaybackRibbon from './MediaPlaybackRibbon.svelte';
   import { getEditor } from '../core/context.ts';
   import { RIBBON, type RibbonTab } from './config.ts';
@@ -29,13 +30,14 @@
     doc.version;
     const shapes = editor.selectedShapes();
     const media = shapes.length === 1 && getShapeMediaPlayback(shapes[0]!) !== null;
+    const kind = shapes.length === 1 ? getShapeMedia(shapes[0]!)?.kind : undefined;
     return RIBBON.filter((t) => {
       if (!t.contextual) return true;
       if (t.contextual === 'media') return media;
       if (t.contextual === 'shape') return sel.kind === 'shape';
       if (t.contextual === 'cell' || t.contextual === 'table') return sel.kind === 'cell';
       return false;
-    });
+    }).map(tab => tab.id === 'shape' && kind === 'video' ? { ...tab, title: 'Video Format' } : tab);
   });
 
   // If the active tab disappears (selection changed), fall back to Home.
@@ -85,6 +87,7 @@
   </div>
 
   <div class="groups ok-scroll" hidden={collapsed} id="ribbon-panel" role="tabpanel" aria-labelledby="ribbon-tab-{current?.id}">
+    {#if current?.title === 'Video Format'}<PosterFrameMenu />{/if}
     {#if current?.id === 'playback'}<MediaPlaybackRibbon />{/if}
     {#if current?.id === 'view'}<ViewRibbon />{/if}
     {#if current?.id === 'slideShow'}<SlideShowRibbon />{/if}
