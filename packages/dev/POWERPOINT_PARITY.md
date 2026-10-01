@@ -18,7 +18,7 @@ Current unresolved areas (2026-10-01; the sections below retain the comparison h
 
 | Area                     | Remaining work                                                                                                                                                                                   |
 | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Outline                  | Visual hierarchy/formatting, cross-slide text selection, remaining text menu commands and exact native drag gestures.                                                                            |
+| Outline                  | Formatting display, cross-slide text selection, remaining text menu commands and exact native drag gestures.                                                                                     |
 | Ruler and tabs           | Mixed markers, live reflow, rotated/vertical text, locale decimal separators and complex wrapping; native drag/snapping remains unverified.                                                      |
 | Menus and views          | Complete Mac menu/ribbon and pane geometry; additional native views and complete keyboard comparison. Implemented controls are not evidence of complete visual parity.                           |
 | Image/background effects | Texture presets, remaining image-effect rendering, native original/rendered-image correction handling and cross-document fill-memory behavior.                                                   |
@@ -748,3 +748,22 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - A deleted body placeholder is restored from the existing layout. On Title Only, demotion preserves the layout and creates a body placeholder that inherits directly from the master, using an unmatched index as observed in native saved XML.
 - Core and editor round-trip tests cover both missing-body cases. Browser coverage exercises confirmation, cancellation and Undo in English/Japanese for both existing-body and Title Only slides.
 - The reference body.pptx was restored to one slide, Normal 120%, saved with Undo disabled after the comparison.
+
+## Outline paragraph hierarchy
+
+- Outline editing now renders paragraph levels, bullets and numbering through the shared text input. Native comparison confirms the unformatted view uses fixed-size text, 24px body rows and approximately 10px indentation steps. Title text is bold in this view.
+- English/Japanese outline browser coverage passes 12 cases on an isolated build, including title splitting, movement, clipboard, demotion confirmation and paragraph geometry. Additional multiline paste coverage verifies empty paragraphs, literal markup, Japanese text, selection offsets, saving and Undo.
+- Shared canvas text-input regressions pass 12 cases; the standalone HTML parser test also passes after correcting the isolated test environment's source path. Native Show Formatting visibly changes the outline text sizes; its switch, formatted text rendering and cross-slide selection remain outstanding.
+- Native comparison used body.pptx; Show Formatting was toggled twice, Normal 120% restored and saved, with Undo disabled. No pending native document edits remain.
+- Guide read/write ID lookups now use a Set/Map, preserving first-match metadata without quadratic scans. The six guide API tests pass.
+
+- Outline text context menus now share the slide-icon Collapse/Expand submenus, including all-slide actions. Bilingual browser coverage checks text-origin actions, keyboard submenu navigation, Undo and persistence.
+- Latest root unit suite: 3,072 passed / 109 skipped. Svelte validation: zero errors and warnings.
+
+## Ordinary-build verification and native audit follow-up
+
+- The frozen ordinary build at `4b61cb1e` completed all **223 Chromium browser tests**, with no failures or skips. GitHub CI also passed static checks, Node 22/24/26, preview fidelity and OOXML validation for that commit. These results predate the paragraph-rendering changes above.
+- A follow-up attempt could not reliably activate Show Formatting through the accessibility bridge. The similarly named `showFormatting` OOXML attribute belongs to Slide Sorter, so it is not evidence that the outline preference is persisted. Outline formatting-display persistence remains unverified.
+- Native Command-Shift-N in Outline View added a second empty Title and Content slide using the same layout as the selected Title and Content slide. Saved XML confirmed the two placeholders and shared layout. The addition was undone; Normal view, 120%, one slide, disabled Undo and saved state were restored.
+
+- The new ordinary build passes all 13 targeted outline/clipboard browser tests (English/Japanese), root format/lint/TypeScript, DSL type checking and core/editor builds. Root unit results remain 3,072 passed / 109 skipped.

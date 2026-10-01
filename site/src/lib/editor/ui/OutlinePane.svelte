@@ -56,7 +56,7 @@
       pane.querySelector<HTMLButtonElement>(`[data-outline-slide="${doc.selection.slideIndex}"] button`)?.focus();
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      pane.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${index}"] textarea`)?.focus();
+      pane.querySelector<HTMLElement>(`[data-outline-slide="${index}"] [role="textbox"]`)?.focus();
     }
   }
 </script>

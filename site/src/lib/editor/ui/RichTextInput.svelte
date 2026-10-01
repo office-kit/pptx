@@ -2,8 +2,9 @@
   import { onMount, untrack } from 'svelte';
   import { layoutEditingTabs } from '../core/editing-tabs.ts';
   import { richTextValue, richTextSelection, selectRichText, type TextSelection } from '../core/rich-text-dom.ts';
-  let { value, html, label, style, textZoom, busy = false, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
-    value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean;
+  let { value, html, label, style, textZoom, busy = false, layout = 'canvas', onfocus, onblur, oncontextmenu, oninput, onselect, onbeforeinput, onkeydown, onnewline, oncomposition, onhistory, oncopy, oncut, onpaste }: {
+    value: string; html: string; label: string; style: string; textZoom: number; busy?: boolean; layout?: 'canvas' | 'outline';
+    onfocus?: () => void; onblur?: () => void; oncontextmenu?: (event: MouseEvent) => void;
     oninput: (value: string) => void;
     onselect: (range: TextSelection) => void;
     onbeforeinput: (range: TextSelection) => void;
@@ -26,6 +27,8 @@
     if (element && document.activeElement === element) selectRichText(element, start, end);
   }
   export function focus() { element?.focus(); }
+  export function blur() { element?.blur(); }
+  export function getElement() { return element; }
   export function select() { setSelectionRange(0, value.length); }
   function capture() {
     selection = getSelection();
@@ -74,13 +77,14 @@
   });
   onMount(() => {
     document.addEventListener('selectionchange', selectionChanged);
-    focus(); setSelectionRange(value.length, value.length);
+    if (layout === 'canvas') { focus(); setSelectionRange(value.length, value.length); }
     return () => { document.removeEventListener('selectionchange', selectionChanged); };
   });
 </script>
 
-<div class="inline-edit" bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${textZoom};`}
-  onfocus={() => { if (element) selectRichText(element, selection.start, selection.end); }}
+<div class="inline-edit" class:outline={layout === 'outline'} bind:this={element} contenteditable="true" role="textbox" tabindex="0" aria-multiline="true" aria-busy={busy} aria-label={label} style={`${style}; --text-zoom: ${textZoom};`}
+  onfocus={() => { if (element) selectRichText(element, selection.start, selection.end); onfocus?.(); }}
+  {onblur} {oncontextmenu}
   onbeforeinput={event => {
     if (!composing && (event.inputType === 'historyUndo' || event.inputType === 'historyRedo')) {
       event.preventDefault();
@@ -112,6 +116,11 @@
 
 <style>
   .inline-edit { position: absolute; pointer-events: auto; border: 0; background: #fff; font-family: var(--ok-font); font-size: calc(14px * var(--text-zoom)); padding: calc(4px * var(--text-zoom)); z-index: 7; white-space: pre-wrap; overflow-wrap: break-word; overflow: auto; outline: 1px solid var(--ok-selected-border); }
+
+  .inline-edit.outline { position: static; width: 100%; box-sizing: border-box; min-height: 24px; padding: 0 4px; background: transparent; color: var(--ok-text); font: 13px/24px Arial, sans-serif; outline: none; overflow: visible; }
+  .outline :global([data-outline-paragraph]) { position: relative; display: inline-block; box-sizing: border-box; width: 100%; padding-left: calc(10px + var(--outline-level) * 10px); vertical-align: top; }
+  .outline :global([data-outline-paragraph][data-outline-title]) { padding-left: 0; font-weight: bold; }
+  .outline :global([data-outline-marker]::before) { content: attr(data-outline-marker); position: absolute; left: calc(var(--outline-level) * 10px); user-select: none; }
 
   .inline-edit :global([data-list-marker]::before) {
     content: attr(data-list-marker);

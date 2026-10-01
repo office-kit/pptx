@@ -11,6 +11,7 @@ import {
   getShapeParagraphElements,
   getShapeText,
 } from '@office-kit/pptx';
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
 for (const locale of ['en', 'ja'])
@@ -40,6 +41,7 @@ for (const locale of ['en', 'ja'])
           (language) => localStorage.setItem('ok-editor-locale', language),
           locale,
         );
+        await installRichTextSelection(page);
         await page.goto(preview.url);
         await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
@@ -68,7 +70,10 @@ for (const locale of ['en', 'ja'])
           )[index];
         const select = async (node, start, end) => {
           await node.focus();
-          await node.evaluate((input, range) => input.setSelectionRange(...range), [start, end]);
+          await node.evaluate(
+            (input, range) => window.selectEditorText(input, ...range),
+            [start, end],
+          );
         };
         const paste = async (node, contents) =>
           node.evaluate((input, data) => {
@@ -81,7 +86,7 @@ for (const locale of ['en', 'ja'])
         // Copy before autosave: pending input must be present without creating a history entry.
         await title.focus();
         const copied = await title.evaluate((input) => {
-          input.setSelectionRange(input.value.length, input.value.length);
+          window.selectEditorText(input, input.textContent.length, input.textContent.length);
           input.dispatchEvent(
             new InputEvent('beforeinput', {
               bubbles: true,
@@ -89,12 +94,12 @@ for (const locale of ['en', 'ja'])
               data: '日本語',
             }),
           );
-          input.value += '日本語';
-          input.setSelectionRange(input.value.length, input.value.length);
+          input.textContent += '日本語';
+          window.selectEditorText(input, input.textContent.length, input.textContent.length);
           input.dispatchEvent(
             new InputEvent('input', { bubbles: true, inputType: 'insertText', data: '日本語' }),
           );
-          input.setSelectionRange(0, input.value.length);
+          window.selectEditorText(input, 0, input.textContent.length);
           const clipboardData = new DataTransfer();
           input.dispatchEvent(
             new ClipboardEvent('copy', { clipboardData, bubbles: true, cancelable: true }),
@@ -189,11 +194,39 @@ for (const locale of ['en', 'ja'])
           delete win.finishOutlinePaste;
         });
         await page.waitForTimeout(700);
-        assert.equal(await body.inputValue(), '赤い文字');
+        assert.equal(await body.textContent(), '赤い文字');
         assert.equal(getShapeText(await shape(1)), '赤い文字');
         await page.reload();
         await editor.locator('.slide-workspace').waitFor();
         assert.equal(getShapeText(await shape(1)), '赤い文字');
+        await editor.getByRole('tab', { name: view, exact: true }).click();
+        await editor
+          .getByRole('tabpanel', { name: view, exact: true })
+          .getByRole('button', { name: outlineName, exact: true })
+          .click();
+        await select(body, 0, 4);
+        await change(async () => {
+          await paste(body, { 'text/plain': '<plain>\n\n日本語\n' });
+          await body.press('Escape');
+        });
+        assert.equal(await body.textContent(), '<plain>\n\n日本語\n');
+        assert.equal(await body.locator('[data-outline-paragraph]').count(), 4);
+        assert.equal(
+          await body.locator('plain').count(),
+          0,
+          'plain clipboard text never becomes HTML',
+        );
+        assert.equal(getShapeText(await shape(1)), '<plain>\n\n日本語\n');
+        await select(body, 8, 8);
+        await change(async () => {
+          await body.press('Enter');
+          await page.keyboard.insertText('入力');
+          await body.press('Escape');
+        });
+        assert.equal(getShapeText(await shape(1)), '<plain>\n\n入力\n日本語\n');
+        assert.equal(await body.textContent(), '<plain>\n\n入力\n日本語\n');
+        await change(() => body.press('Control+z'));
+        assert.equal(getShapeText(await shape(1)), '<plain>\n\n日本語\n');
         assert.deepEqual(errors, []);
       } finally {
         await browser?.close();

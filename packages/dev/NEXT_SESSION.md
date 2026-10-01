@@ -168,3 +168,21 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - 前スライドの本文枠が削除済みならレイアウトから復元。Title Only ではレイアウトを維持し、マスター由来の本文枠を追加。実機保存 XML の unmatched idx を確認。
 - コア 3,072 成功 / 109 skip、site 93 成功、英日ブラウザー 4 件成功。型検査 0 errors / 0 warnings。実機の一時変更はすべて取り消して保存済み。
 - 全操作一致は未完成。残件は POWERPOINT_PARITY.md 冒頭を参照。
+
+## 最新追記: アウトラインの階層表示
+
+- textarea を共通 RichTextInput に置換し、段落レベル・箇条書き・連番を表示。書式非表示の実機で本文24px行高・約10pxレベル刻み・タイトル太字を確認。
+- blur とコンポーネント破棄が同時発生しても編集を二重適用しないよう、未確定編集キューは同期的に空にする。
+- 隔離ビルドで英日アウトライン12件、通常本文回帰12件、HTML解析1件が成功。追加の空段落・改行・日本語・文字列としてのHTML貼り付けも英日成功。通常ビルド全件結果は後続追記を参照。
+- Show Formatting の切替で実機の文字サイズが変わることを確認したが、この機能とスライド間選択は未実装。参照は2回切替で元に戻し、Normal 120%、Undo disabled、保存済み。
+- guides.ts の二重線形検索を Set/Map 化。既存ガイド6テスト成功。
+
+- 本文・タイトルの右クリックにも既存の Collapse/Expand サブメニューを共通化して追加。全スライド対象・キーボード移動・Undo を英日 browser で検証。最新 root は3,072成功 / 109 skip、Svelteは0 errors / 0 warnings。
+
+## 検証追記
+
+- `4b61cb1e` の通常ビルド全ブラウザテストは223件すべて成功。CIも全件成功。階層表示の差分はこの全件実行より後なので、最新差分の対象テスト結果と区別する。
+- Show Formatting の再監査ではアクセシビリティ経由の選択が安定せず、切替成功を再現できなかった。同名のOOXML属性はSlide Sorter用であり、アウトライン設定の保存方法は未確認。
+- 実機アウトラインのCommand-Shift-Nで、Title and Contentの後に同じレイアウトの空スライドが入ることを保存XMLで確認。追加をUndoし、Normal 120%、1枚、Undo disabledに戻して保存済み。
+
+- 階層表示・文字メニューの通常ビルド検証: アウトライン/クリップボード13件成功、format/lint/root型検査、DSL型検査、core/editorビルド成功。

@@ -68,6 +68,7 @@ export function getDrawingGuides(presentation: PresentationData): DrawingGuide[]
   const guides = extended ?? legacyList(presentation)?.guides;
   if (!guides) return null;
   const result: DrawingGuide[] = [];
+  const ids = new Set<number>();
   for (const [index, node] of allChildElements(
     guides,
     extended ? p15('guide') : p('guide'),
@@ -82,9 +83,10 @@ export function getDrawingGuides(presentation: PresentationData): DrawingGuide[]
       !Number.isInteger(position) ||
       position < -2147483648 ||
       position > 2147483647 ||
-      result.some((guide) => guide.id === id)
+      ids.has(id)
     )
       continue;
+    ids.add(id);
     const clr = firstChildElement(node, p15('clr'));
     const rgb = clr && firstChildElement(clr, a('srgbClr'));
     const hex = rgb ? value(rgb, 'val') : null;
@@ -146,11 +148,14 @@ export const setDrawingGuides = (
       );
   }
   target.prefixDecls.set('p15', namespace);
-  const old = allChildElements(target, p15('guide'));
+  const old = new Map<number, XmlElement>();
+  for (const node of allChildElements(target, p15('guide'))) {
+    const id = Number(value(node, 'id'));
+    if (!old.has(id)) old.set(id, node);
+  }
   const children = guides.map((guide) => {
     const node =
-      old.find((node) => Number(value(node, 'id')) === guide.id) ??
-      elem(p15('guide'), { attrs: [attr(attribute('userDrawn'), '1')] });
+      old.get(guide.id) ?? elem(p15('guide'), { attrs: [attr(attribute('userDrawn'), '1')] });
     for (const [key, val] of Object.entries({
       id: guide.id,
       orient: guide.axis === 'x' ? 'vert' : 'horz',

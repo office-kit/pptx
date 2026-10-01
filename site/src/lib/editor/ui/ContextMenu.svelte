@@ -25,6 +25,16 @@
     doc.transact(t(collapsed ? 'Collapse' : 'Expand'), () => setSlideOutlineCollapsed(slides, collapsed));
   }
 
+  function outlineCollapseItems(): Item[] {
+    return [true, false].map(collapsed => ({
+      label: collapsed ? 'Collapse' : 'Expand',
+      children: [
+        { label: collapsed ? 'Collapse' : 'Expand', run: () => collapse(collapsed, false) },
+        { label: collapsed ? 'Collapse All' : 'Expand All', run: () => collapse(collapsed, true) },
+      ],
+    }));
+  }
+
   const hasShapes = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
 
   const items = $derived.by<Item[]>(() => {
@@ -35,6 +45,7 @@
         { label: 'Cut', accel: '⌘X', run: actions.cut, disabled: !actions.hasTextSelection },
         { label: 'Copy', accel: '⌘C', run: actions.copy, disabled: !actions.hasTextSelection },
         { label: 'Paste', accel: '⌘V', run: actions.paste, sep: true },
+        ...outlineCollapseItems(),
         { label: 'Promote', run: actions.promote, disabled: !actions.canPromote },
         { label: 'Demote', run: actions.demote, disabled: !actions.canDemote },
         { label: 'Move Up', run: actions.moveUp, disabled: !actions.canMoveUp },
@@ -85,13 +96,7 @@
         { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
       );
       if (menu.source === 'outline') {
-        list.push(...[true, false].map(collapsed => ({
-          label: collapsed ? 'Collapse' : 'Expand',
-          children: [
-            { label: collapsed ? 'Collapse' : 'Expand', run: () => collapse(collapsed, false) },
-            { label: collapsed ? 'Collapse All' : 'Expand All', run: () => collapse(collapsed, true) },
-          ],
-        })));
+        list.push(...outlineCollapseItems());
       }
       list.push(
         { label: menu.source === 'outline' ? 'Move Up' : 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
