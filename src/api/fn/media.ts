@@ -376,6 +376,9 @@ export interface MediaPlayback {
   readonly fullScreen: boolean;
   /** Hides the clip once it has played (`showWhenStopped="0"`). */
   readonly hideWhenStopped: boolean;
+  /** Number of slides across which the clip should keep playing (`numSld`).
+   * When absent, OOXML defaults to one slide. */
+  readonly slideCount?: number;
 }
 
 const NAME_C_MEDIA_NODE = qname('p', 'cMediaNode', NS.pml);
@@ -386,6 +389,8 @@ const ATTR_VOL = qname('', 'vol', '');
 const ATTR_MUTE = qname('', 'mute', '');
 const ATTR_FULL_SCRN = qname('', 'fullScrn', '');
 const ATTR_SHOW_WHEN_STOPPED = qname('', 'showWhenStopped', '');
+const ATTR_NUM_SLD = qname('', 'numSld', '');
+const MAX_MEDIA_SLIDE_COUNT = 0xffffffff;
 const ATTR_REPEAT_COUNT = qname('', 'repeatCount', '');
 const ATTR_DELAY = qname('', 'delay', '');
 const ATTR_EVT = qname('', 'evt', '');
@@ -497,13 +502,22 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
     fullScreen: xsdBoolean(getAttrValue(node, ATTR_FULL_SCRN), false),
     hideWhenStopped: !xsdBoolean(getAttrValue(media, ATTR_SHOW_WHEN_STOPPED), true),
   };
+  const rawSlideCount = getAttrValue(media, ATTR_NUM_SLD);
+  const parsedSlideCount = rawSlideCount === null ? null : Number(rawSlideCount);
+  const slideCount =
+    parsedSlideCount !== null &&
+    Number.isSafeInteger(parsedSlideCount) &&
+    parsedSlideCount >= 0 &&
+    parsedSlideCount <= MAX_MEDIA_SLIDE_COUNT
+      ? parsedSlideCount
+      : undefined;
   // Zero is the ordinary immediate-start form and remains absent to preserve
   // the existing result shape. Only a finite, event-free start can carry this
   // user-facing delay.
   if (autoplay && delayMs > 0) {
-    return { ...playback, delayMs };
+    return { ...playback, delayMs, ...(slideCount === undefined ? {} : { slideCount }) };
   }
-  return playback;
+  return slideCount === undefined ? playback : { ...playback, slideCount };
 };
 
 /**
@@ -604,6 +618,14 @@ export const setShapeMediaPlayback = (
   if (options.fullScreen !== undefined && node.name.localName !== 'video') {
     throw new Error('setShapeMediaPlayback: fullScreen applies to video only');
   }
+  if (
+    options.slideCount !== undefined &&
+    (!Number.isSafeInteger(options.slideCount) ||
+      options.slideCount < 0 ||
+      options.slideCount > MAX_MEDIA_SLIDE_COUNT)
+  ) {
+    throw new Error('setShapeMediaPlayback: slideCount must be an unsigned 32-bit integer');
+  }
 
   if (options.volume !== undefined) {
     setOrRemove(media, ATTR_VOL, String(Math.round(options.volume * 100000)));
@@ -611,6 +633,11 @@ export const setShapeMediaPlayback = (
   if (options.muted !== undefined) setOrRemove(media, ATTR_MUTE, options.muted ? '1' : '0');
   if (options.hideWhenStopped !== undefined) {
     setOrRemove(media, ATTR_SHOW_WHEN_STOPPED, options.hideWhenStopped ? '0' : '1');
+  }
+  if (options.slideCount !== undefined) {
+    // One is the schema default; omit it so newly-authored files stay as
+    // compact as PowerPoint's ordinary single-slide playback form.
+    setOrRemove(media, ATTR_NUM_SLD, options.slideCount === 1 ? null : String(options.slideCount));
   }
   if (options.fullScreen !== undefined) {
     setOrRemove(node, ATTR_FULL_SCRN, options.fullScreen ? '1' : '0');
