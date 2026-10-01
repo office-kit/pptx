@@ -361,6 +361,8 @@ export const findShapesWithMedia = (slide: SlideData): ReadonlyArray<SlideShapeD
 export interface MediaPlayback {
   /** Starts with the slide instead of waiting for a click. */
   readonly autoplay: boolean;
+  /** Milliseconds to wait after the slide starts before automatic playback. */
+  readonly delayMs?: number;
   /** Plays again from the beginning until the slide moves on. */
   readonly loop: boolean;
   /** Playback volume, 0–1. PowerPoint's own default is 0.8. */
@@ -423,26 +425,40 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
   const cTn = firstChildElement(media, NAME_C_TN);
   const stCondLst = cTn && firstChildElement(cTn, NAME_ST_COND_LST);
   const start = stCondLst && firstChildElement(stCondLst, NAME_COND);
-  return {
+  const autoplay =
+    start !== null &&
+    getAttrValue(start, ATTR_EVT) === null &&
+    getAttrValue(start, ATTR_DELAY) !== 'indefinite';
+  const rawDelay = start === null ? null : getAttrValue(start, ATTR_DELAY);
+  const parsedDelay = rawDelay === null ? null : Number(rawDelay);
+  const playback: MediaPlayback = {
     // A delay is measured after the condition's trigger. An `evt` condition
     // (for example `onClick`) therefore remains event-triggered even when its
     // delay is zero; only an event-free condition starts with the slide.
-    autoplay:
-      start !== null &&
-      getAttrValue(start, ATTR_EVT) === null &&
-      getAttrValue(start, ATTR_DELAY) !== 'indefinite',
+    autoplay,
     loop: cTn !== null && getAttrValue(cTn, ATTR_REPEAT_COUNT) === 'indefinite',
     volume: percentFraction(getAttrValue(media, ATTR_VOL), 0.5),
     muted: xsdBoolean(getAttrValue(media, ATTR_MUTE), false),
     fullScreen: xsdBoolean(getAttrValue(node, ATTR_FULL_SCRN), false),
     hideWhenStopped: !xsdBoolean(getAttrValue(media, ATTR_SHOW_WHEN_STOPPED), true),
   };
+  // Zero is the ordinary immediate-start form and remains absent to preserve
+  // the existing result shape. Only a finite, event-free start can carry this
+  // user-facing delay.
+  if (autoplay && parsedDelay !== null && Number.isSafeInteger(parsedDelay) && parsedDelay > 0) {
+    return { ...playback, delayMs: parsedDelay };
+  }
+  return playback;
 };
 
 /**
  * Updates how the shape's clip plays. Omitted properties keep their current
  * value. Throws when the shape has no media time node — `addSlideMedia` writes
  * one, and a picture that is not a clip never plays.
+ *
+ * `delayMs` is a nonnegative safe integer and requires automatic playback.
+ * Setting `autoplay: true` alone preserves an existing automatic delay;
+ * switching from event playback starts immediately unless `delayMs` is supplied.
  *
  * `fullScreen` is a video attribute (`CT_TLMediaNodeVideo`); asking for it on
  * an audio clip throws rather than writing an attribute the schema rejects.
@@ -454,6 +470,23 @@ export const setShapeMediaPlayback = (
   const found = mediaNodeOf(shape);
   if (found === null) throw new Error('setShapeMediaPlayback: the shape has no media time node');
   const { node, media } = found;
+  const delayMs = options.delayMs;
+  if (delayMs !== undefined && (!Number.isSafeInteger(delayMs) || delayMs < 0)) {
+    throw new Error('setShapeMediaPlayback: delayMs must be a nonnegative safe integer');
+  }
+  if (delayMs !== undefined && options.autoplay === false) {
+    throw new Error('setShapeMediaPlayback: delayMs cannot be used with autoplay:false');
+  }
+  const cTn = firstChildElement(media, NAME_C_TN);
+  const stCondLst = cTn && firstChildElement(cTn, NAME_ST_COND_LST);
+  const currentStart = stCondLst && firstChildElement(stCondLst, NAME_COND);
+  const currentAutoplay =
+    currentStart !== null &&
+    getAttrValue(currentStart, ATTR_EVT) === null &&
+    getAttrValue(currentStart, ATTR_DELAY) !== 'indefinite';
+  if (delayMs !== undefined && options.autoplay === undefined && !currentAutoplay) {
+    throw new Error('setShapeMediaPlayback: delayMs requires autoplay');
+  }
   if (options.volume !== undefined && (options.volume < 0 || options.volume > 1)) {
     throw new Error('setShapeMediaPlayback: volume must be between 0 and 1');
   }
@@ -472,23 +505,34 @@ export const setShapeMediaPlayback = (
     setOrRemove(node, ATTR_FULL_SCRN, options.fullScreen ? '1' : '0');
   }
 
-  const cTn = firstChildElement(media, NAME_C_TN);
   if (cTn !== null) {
     if (options.loop !== undefined) {
       setOrRemove(cTn, ATTR_REPEAT_COUNT, options.loop ? 'indefinite' : null);
     }
-    if (options.autoplay !== undefined) {
+    if (options.autoplay !== undefined || delayMs !== undefined) {
       // CT_TLCommonTimeNodeData is a sequence: `<p:stCondLst>` comes first.
       let stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
       if (stCondLst === null) {
         stCondLst = elem(NAME_ST_COND_LST);
         cTn.children.unshift(stCondLst);
       }
-      stCondLst.children = [
-        elem(NAME_COND, {
-          attrs: [attr(ATTR_DELAY, options.autoplay ? '0' : 'indefinite')],
-        }),
-      ];
+      const nextDelay =
+        options.autoplay === false
+          ? 'indefinite'
+          : delayMs !== undefined
+            ? String(delayMs)
+            : currentAutoplay
+              ? (getAttrValue(currentStart!, ATTR_DELAY) ?? '0')
+              : '0';
+      if (currentAutoplay && currentStart !== null && options.autoplay !== false) {
+        setOrRemove(currentStart, ATTR_DELAY, nextDelay);
+      } else {
+        stCondLst.children = [
+          elem(NAME_COND, {
+            attrs: [attr(ATTR_DELAY, nextDelay)],
+          }),
+        ];
+      }
     }
   }
   commitSlideData(shape[SHAPE_SLIDE]);

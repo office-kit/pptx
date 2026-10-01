@@ -100,6 +100,99 @@ describe('media playback', () => {
     expect(xml).toContain('vol="25000"');
   });
 
+  it('reads and writes an automatic start delay in milliseconds', async () => {
+    const { pres, shape } = deckWith('video');
+
+    setShapeMediaPlayback(shape, { autoplay: true, delayMs: 1250 });
+    expect(getShapeMediaPlayback(shape)).toMatchObject({ autoplay: true, delayMs: 1250 });
+    expect(slideXml(pres)).toContain('<p:cond delay="1250"/>');
+
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const saved = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+    expect(getShapeMediaPlayback(saved)).toMatchObject({ autoplay: true, delayMs: 1250 });
+  });
+
+  it('preserves an automatic delay when autoplay is reaffirmed', () => {
+    const { shape } = deckWith('video');
+
+    setShapeMediaPlayback(shape, { autoplay: true, delayMs: 1250 });
+    setShapeMediaPlayback(shape, { autoplay: true });
+
+    expect(getShapeMediaPlayback(shape)).toMatchObject({ autoplay: true, delayMs: 1250 });
+  });
+
+  it('starts automatic playback immediately when switching from click playback', () => {
+    const { pres, shape } = deckWith('video');
+
+    setShapeMediaPlayback(shape, { autoplay: true });
+
+    expect(getShapeMediaPlayback(shape)).toMatchObject({ autoplay: true });
+    expect(getShapeMediaPlayback(shape)).not.toHaveProperty('delayMs');
+    expect(slideXml(pres)).toContain('<p:cond delay="0"/>');
+  });
+
+  it('drops an event trigger when switching event playback to automatic playback', async () => {
+    const { pres } = deckWith('video');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    slidePart.data = new TextEncoder().encode(
+      new TextDecoder()
+        .decode(slidePart.data)
+        .replace('<p:cond delay="indefinite"/>', '<p:cond evt="onClick" delay="0"/>'),
+    );
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const loadedShape = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+
+    setShapeMediaPlayback(loadedShape, { autoplay: true });
+
+    expect(getShapeMediaPlayback(loadedShape)).toMatchObject({ autoplay: true });
+    expect(getShapeMediaPlayback(loadedShape)).not.toHaveProperty('delayMs');
+    expect(
+      new TextDecoder().decode(
+        _internalPackageOf(reloaded).getPart(partName('/ppt/slides/slide1.xml'))!.data,
+      ),
+    ).toContain('<p:cond delay="0"/>');
+  });
+
+  it('preserves additional start conditions when changing an automatic delay', async () => {
+    const { pres } = deckWith('video');
+    const part = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    part.data = new TextEncoder().encode(
+      new TextDecoder()
+        .decode(part.data)
+        .replace(
+          '<p:cond delay="indefinite"/>',
+          '<p:cond delay="100"/><p:cond evt="onClick" delay="0"/>',
+        ),
+    );
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(reloaded)[0]!)[0]!;
+    setShapeMediaPlayback(shape, { delayMs: 250 });
+    expect(slideXml(reloaded)).toContain('<p:cond delay="250"/><p:cond evt="onClick" delay="0"/>');
+  });
+
+  it('rejects delay changes unless the clip already starts automatically', () => {
+    const { pres, shape } = deckWith('video');
+    const before = slideXml(pres);
+
+    expect(() => setShapeMediaPlayback(shape, { delayMs: 250 })).toThrow(/autoplay/);
+    expect(() => setShapeMediaPlayback(shape, { autoplay: false, delayMs: 250 })).toThrow(
+      /delayMs/,
+    );
+    expect(slideXml(pres)).toBe(before);
+  });
+
+  it.each([-1, 1.5, Number.POSITIVE_INFINITY, Number.NaN])(
+    'rejects invalid automatic delays before changing the clip (%s)',
+    (delayMs) => {
+      const { pres, shape } = deckWith('video');
+      setShapeMediaPlayback(shape, { autoplay: true });
+      const before = slideXml(pres);
+
+      expect(() => setShapeMediaPlayback(shape, { delayMs })).toThrow(/delayMs/);
+      expect(slideXml(pres)).toBe(before);
+    },
+  );
+
   it('goes back to waiting for a click, and stops repeating', () => {
     const { pres, shape } = deckWith('audio');
     setShapeMediaPlayback(shape, { autoplay: true, loop: true });
@@ -163,6 +256,7 @@ describe('media playback', () => {
     const { pres, shape } = deckWith('video');
     setShapeMediaPlayback(shape, {
       autoplay: true,
+      delayMs: 400,
       loop: true,
       volume: 0.4,
       muted: true,
@@ -181,6 +275,7 @@ describe('media playback', () => {
     const { pres, shape } = deckWith('video');
     setShapeMediaPlayback(shape, {
       autoplay: true,
+      delayMs: 400,
       loop: true,
       volume: 0.4,
       muted: true,

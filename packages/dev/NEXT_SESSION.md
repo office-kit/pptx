@@ -1,3 +1,12 @@
+## 2026-10-02: 自動メディアの開始遅延
+
+- `MediaPlayback.delayMs` を追加。イベントなしの自動開始条件の正の遅延を読み込み、保存・再読込で保持。ゼロは従来の戻り値形状を維持。setterは非負safe integerのみ許容し、非自動再生へのdelay単独指定やautoplay:false併用を変更前に拒否。
+- プレゼン再生で指定時間を待機。手動再生、pauseコマンド、disposeで予約を解除。大きな遅延はブラウザーの32bit timeout制限を超えない分割予約。発表者ミラーは独自に予約せず観客側に同期。
+- 修正前は1.2秒遅延を設定しても300ms時点で再生済みとなる回帰失敗を確認（`/tmp/pptx-delay-before.log`）。修正後ブラウザー音声/動画2件、発表者通常/全画面2件成功。終了後の予約解除、手動再生後のpause、再訪時のリセットも検証。
+- format/lint/root・dev型検査、core全3124 passed / 109 skipped、依存順dev build成功。ログ `/tmp/pptx-delay-gates.log`、`/tmp/pptx-delay-tests.log`、`/tmp/pptx-delay-browser.log`、`/tmp/pptx-delay-presenter.log`。
+- レビュー後、delay変更時に追加開始条件が消える問題を回帰失敗で再現し、既存の自動開始条件だけ更新するよう修正。最終対象24件、lint/types/core build成功。
+- 全UI・全操作の一致は未完了。クリックシーケンスと親タイミング条件、numSld、オンライン再生、PowerPoint実機比較、既存fidelity差分は残件。ユーザーの編集中プレビューは変更していない。
+
 ## 2026-10-02: メディア開始条件と削除時のタイミング保持
 
 - `evt="onClick" delay="0"` が自動再生と判定される不具合を回帰テストで再現し、イベント条件を自動再生から除外。OOXML の delay はイベント発生後の遅延であり、ゼロでもクリック待ちを意味する。根拠: https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.presentation.condition?view=openxml-3.0.1 。
