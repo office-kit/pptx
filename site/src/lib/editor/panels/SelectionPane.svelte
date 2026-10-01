@@ -13,7 +13,7 @@
   let renaming = $state<number | null>(null);
   let name = $state('');
   let anchor = $state<number | null>(null);
-  let dragging = $state<number | null>(null);
+  let dragging = $state<{ ids: Set<number>; parent: number | null; slideIndex: number } | null>(null);
   let insertion = $state<{ id: number; after: boolean } | null>(null);
   let list: HTMLDivElement;
   const SCROLL_EDGE = 32;
@@ -97,30 +97,34 @@
   }
   function focusName(input: HTMLInputElement) { input.focus(); input.select(); }
   function dragStart(event: DragEvent, row: Row) {
-    dragging = row.id;
-    doc.selectShape(doc.selection.slideIndex, row.id);
+    const members = selected.has(row.id) ? allRows.filter(item => selected.has(item.id) && item.parent === row.parent) : [row];
+    dragging = { ids: new Set(members.map(item => item.id)), parent: row.parent, slideIndex: doc.selection.slideIndex };
+    doc.selection = { kind: 'shape', slideIndex: doc.selection.slideIndex, shapeIds: members.map(item => item.id) };
     if (event.dataTransfer) {
       event.dataTransfer.effectAllowed = 'move';
-      event.dataTransfer.setData('text/plain', row.name);
+      event.dataTransfer.setData('text/plain', members.map(item => item.name).join('\n'));
     }
   }
   function dragOver(event: DragEvent, row: Row) {
-    const source = allRows.find(item => item.id === dragging);
-    if (!source || source.id === row.id || source.parent !== row.parent) { insertion = null; return; }
+    if (!dragging || dragging.slideIndex !== doc.selection.slideIndex || dragging.ids.has(row.id) || dragging.parent !== row.parent) { insertion = null; return; }
     event.preventDefault();
     if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
     const bounds = (event.currentTarget as HTMLElement).getBoundingClientRect();
     insertion = { id: row.id, after: event.clientY > bounds.top + bounds.height / 2 };
   }
   function drop(event: DragEvent, row: Row) {
-    const source = allRows.find(item => item.id === dragging);
-    if (!source || !insertion || insertion.id !== row.id || source.parent !== row.parent) return;
+    if (!dragging || dragging.slideIndex !== doc.selection.slideIndex || !insertion || insertion.id !== row.id || dragging.ids.has(row.id) || dragging.parent !== row.parent) return;
     event.preventDefault();
-    const siblings = allRows.filter(item => item.parent === row.parent && item.id !== source.id);
-    const index = siblings.indexOf(row) + (insertion.after ? 1 : 0);
-    const original = allRows.filter(item => item.parent === row.parent).indexOf(source);
+    const siblings = allRows.filter(item => item.parent === row.parent);
+    const members = siblings.filter(item => dragging!.ids.has(item.id));
+    const remaining = siblings.filter(item => !dragging!.ids.has(item.id));
+    const index = remaining.indexOf(row) + (insertion.after ? 1 : 0);
+    const ordered = [...remaining.slice(0, index), ...members, ...remaining.slice(index)];
     endDrag();
-    if (index !== original) doc.transact(t('Reorder object'), () => setShapeZIndex(source.shape, siblings.length - index));
+    if (ordered.some((item, index) => item !== siblings[index])) {
+      // The pane lists front to back; the public z-order API takes back to front.
+      doc.transact(t('Reorder object'), () => setShapeZIndex(members.map(item => item.shape).reverse(), remaining.length - index));
+    }
   }
   function key(event: KeyboardEvent, row: Row) {
     if (event.key === 'F2') {

@@ -552,3 +552,117 @@ test(
     }
   },
 );
+
+test(
+  'selection pane drags selected siblings together and preserves order, selection and history',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-selection-batch-'));
+    let preview, browser;
+    try {
+      const pres = createPresentation();
+      const slide = addBlankSlide(pres);
+      const shapes = ['A', 'B', 'C', 'D', 'E', 'F', 'G'].map((name, index) => {
+        const shape = addSlideTextBox(slide, {
+          x: inches(1),
+          y: inches(index / 2),
+          w: inches(2),
+          h: inches(0.4),
+          text: name,
+        });
+        renameShape(shape, name);
+        return shape;
+      });
+      renameShape(groupShapes(shapes.slice(4)), 'Group');
+      const source = join(dir, 'source.pptx');
+      const file = join(dir, 'deck.tsx');
+      await writeFile(source, await savePresentation(pres));
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      const errors = [];
+      page.on('pageerror', (error) => errors.push(error.message));
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = () => editor.getByText('Saved to this project', { exact: true }).waitFor();
+      const state = async () =>
+        getSlideShapes(
+          getSlides(
+            await loadPresentation(
+              new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+            ),
+          )[0],
+        );
+      await saved();
+      await editor.getByRole('button', { name: 'Arrange', exact: true }).click();
+      await editor
+        .getByRole('menuitemcheckbox', { name: 'Selection Pane...', exact: true })
+        .click();
+      const pane = editor.getByRole('region', { name: 'Selection Pane', exact: true });
+      const name = (value) => pane.getByRole('button', { name: value, exact: true });
+      const selected = () => pane.locator('.name[aria-pressed=true]').allTextContents();
+      const order = () => pane.locator('.name').allTextContents();
+      const drag = async (source, target, after = false) => {
+        const button = name(target);
+        const box = await button.boundingBox();
+        await name(source).dragTo(button, {
+          targetPosition: { x: 20, y: after ? box.height - 2 : 2 },
+        });
+        await saved();
+      };
+      const undo = async () => {
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await saved();
+      };
+      const original = ['Group', 'D', 'C', 'B', 'A'];
+      assert.deepEqual(await order(), original);
+      await name('A').click();
+      await name('C').click({ modifiers: ['Meta'] });
+      await drag('A', 'D');
+      assert.deepEqual(await order(), ['Group', 'C', 'A', 'D', 'B']);
+      assert.deepEqual(await selected(), ['C', 'A']);
+      assert.deepEqual(
+        (await state())
+          .filter((shape) => ['A', 'B', 'C', 'D'].includes(getShapeName(shape)))
+          .map(getShapeName),
+        ['B', 'D', 'A', 'C'],
+      );
+      await undo();
+      assert.deepEqual(await order(), original);
+      await editor.getByTitle('Redo (Ctrl+Y)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await order(), ['Group', 'C', 'A', 'D', 'B']);
+      await drag('C', 'B', true);
+      assert.deepEqual(await order(), ['Group', 'D', 'B', 'C', 'A']);
+      await undo();
+      await undo();
+      await name('Expand Group').click();
+      await name('G').click();
+      await name('F').click({ modifiers: ['Meta'] });
+      await drag('G', 'E', true);
+      assert.deepEqual(await order(), ['Group', 'E', 'G', 'F', 'D', 'C', 'B', 'A']);
+      assert.deepEqual(await selected(), ['G', 'F']);
+      assert.deepEqual(
+        (await state())
+          .filter((shape) => ['E', 'F', 'G'].includes(getShapeName(shape)))
+          .map(getShapeName),
+        ['F', 'G', 'E'],
+      );
+      await drag('G', 'D');
+      assert.deepEqual(await order(), ['Group', 'E', 'G', 'F', 'D', 'C', 'B', 'A']);
+      await undo();
+      await name('Expand Group').click();
+      assert.deepEqual(await order(), ['Group', 'G', 'F', 'E', 'D', 'C', 'B', 'A']);
+      assert.deepEqual(errors, []);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

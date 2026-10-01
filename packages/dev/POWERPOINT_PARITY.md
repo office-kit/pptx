@@ -784,3 +784,24 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 # アウトライン入力中の継承書式（2026-10-01 追記）
 
 複数マスターを持つ資料で、Show Formatting 有効時の入力プレビューが別マスターの文字サイズを参照する問題を修正。元の shape を段落・run の継承元として渡す。ブラウザーで入力直後の 20px → 10.6667px の変化を修正前に再現し、修正後は日英 2 ケースで表示保持・保存・Undo を確認した。これは継承元の修正であり、ネイティブとの表示倍率やメトリクスの完全一致を示すものではない。
+
+## Parallel implementation: insertion, outline navigation and batch ordering
+
+- Generic New Slide now follows the current layout, with the observed Title Slide
+  exception selecting a content layout from the same master. The context menus in
+  Normal and Outline views and Command/Control-Shift-N use this policy. Explicit
+  layout choice and the blank-slide API retain their existing meanings.
+- The Selection Pane moves selected siblings together, retaining relative stacking
+  order and selection. Group children stay within their group, and a whole batch
+  participates in a single undo step. Native batch-drag gesture comparison remains
+  outstanding.
+- Plain Up/Down at the start/end of an outline textbox moves into the neighboring
+  title or body after committing pending input. Modifier-key text navigation remains
+  available. This does not implement cross-slide text-range selection.
+- The native comparison connection failed again with a 0×0 capture error while
+  opening Arrange. No reference-document content was changed in this attempt.
+- Validation: 9/9 targeted browser tests pass across new-slide-layout, outline-view,
+  outline-slide-menu and selection-pane, including save/Undo and English/Japanese
+  outline cases. Core tests: 3,073 passed / 109 skipped; site tests: 96/96.
+  Format, lint, core/Svelte/DSL type checks and core/editor builds pass. This is not
+  a fresh full-browser run or a complete native parity audit.
