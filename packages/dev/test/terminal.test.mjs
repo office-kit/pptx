@@ -102,7 +102,9 @@ process.stdin.on('data',async data=>{
           const value = JSON.parse(await readFile(join(directory, name), 'utf8'));
           if (predicate(value)) return value;
         } catch (error) {
-          if (error.code !== 'ENOENT') throw error;
+          // The child rewrites these files in place. A read can observe the
+          // truncate before the complete JSON payload is written.
+          if (error.code !== 'ENOENT' && !(error instanceof SyntaxError)) throw error;
         }
         await pause();
       }

@@ -27,13 +27,7 @@ export function readRememberedImageFill(shape: SlideShapeData): RememberedImageF
   const format = getShapeImageFormat(shape);
   if (!bytes || !format) return undefined;
   const crop = getShapeImageCrop(shape);
-  // Imported outsets cannot yet be written by the public crop setter.
-  // Leave these fills uncached rather than partially restoring their image.
-  if (
-    crop &&
-    Object.values(crop).some((value) => !Number.isFinite(value) || value < 0 || value >= 1)
-  )
-    return undefined;
+  if (crop && Object.values(crop).some((value) => !Number.isFinite(value))) return undefined;
   return {
     bytes: bytes.slice(),
     format,

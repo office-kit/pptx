@@ -42,6 +42,22 @@ describe('fn API: setShapeImageCrop', () => {
     expect(xml).toContain('b="5000"');
   });
 
+  it('round-trips source outsets and signed percentage limits', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    for (const crop of [
+      { left: -0.25, top: -0.5, right: 0.1, bottom: 0 },
+      { left: -21474.83648, top: 0, right: 21474.83647, bottom: 1.5 },
+    ]) {
+      setShapeImageCrop(picture, crop);
+      const reloaded = await loadPresentation(await savePresentation(pres));
+      const restored = getSlideShapes(getSlides(reloaded)[0]!).find(
+        (s) => getShapeKind(s) === 'picture',
+      )!;
+      expect(getShapeImageCrop(restored)).toEqual(crop);
+    }
+  });
+
   it('omits sides that are zero', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const slide = getSlides(pres)[0]!;
@@ -90,7 +106,7 @@ describe('fn API: setShapeImageCrop', () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const slide = getSlides(pres)[0]!;
     const picture = getSlideShapes(slide).find((s) => getShapeKind(s) === 'picture')!;
-    expect(() => setShapeImageCrop(picture, { left: 1.5 })).toThrow();
-    expect(() => setShapeImageCrop(picture, { top: -0.1 })).toThrow();
+    expect(() => setShapeImageCrop(picture, { left: 21474.83648 })).toThrow();
+    expect(() => setShapeImageCrop(picture, { top: -21474.83649 })).toThrow();
   });
 });

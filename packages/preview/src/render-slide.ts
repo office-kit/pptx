@@ -383,10 +383,10 @@ const renderPicture = (
     const cropT = crop?.top ?? 0;
     const cropR = crop?.right ?? 0;
     const cropB = crop?.bottom ?? 0;
-    if (cropL > 0 || cropT > 0 || cropR > 0 || cropB > 0) {
+    if (cropL !== 0 || cropT !== 0 || cropR !== 0 || cropB !== 0) {
       // ECMA-376 <a:srcRect> sides are fractions of the source image;
       // PowerPoint crops by adjusting the visible region. We project
-      // the same effect by scaling the <image> larger and clipping it
+      // the same effect by scaling and positioning the <image>, clipping it
       // to the shape's bounds.
       const scaleX = 1 / Math.max(0.001, 1 - cropL - cropR);
       const scaleY = 1 / Math.max(0.001, 1 - cropT - cropB);

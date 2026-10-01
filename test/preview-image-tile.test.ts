@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import {
   addSlideShape,
+  addSlideImage,
   addSlide,
   findSlideLayout,
   getSlideSize,
@@ -156,3 +157,24 @@ it.each(['none', 'x', 'y', 'xy'] as const)(
     }
   },
 );
+
+it('preserves transparent outsets around stretched pictures after save/reload', async () => {
+  const { pres, slide, png } = await fixture();
+  const picture = addSlideImage(slide, png, {
+    x: inches(4),
+    y: inches(1),
+    w: inches(2),
+    h: inches(2),
+  });
+  setShapeImageCrop(picture, { left: -0.5, right: -0.5, top: -0.5, bottom: -0.5 });
+  const restored = await loadPresentation(await savePresentation(pres));
+  const { image } = renderSlideToRgba(restored, getSlides(restored)[0]!, {
+    width: Math.round(getSlideSize(restored)!.width / 9525),
+  });
+  const pixel = (x: number, y: number) =>
+    Array.from(image.data.slice((y * image.width + x) * 4, (y * image.width + x) * 4 + 3));
+  expect(pixel(400, 110)).toEqual([255, 255, 255]);
+  expect(pixel(440, 150)).toEqual([255, 255, 0]);
+  expect(pixel(510, 150)).toEqual([0, 255, 0]);
+  expect(pixel(510, 220)).toEqual([0, 0, 0]);
+});
