@@ -52,6 +52,17 @@ test(
             'none',
           );
 
+          const ribbon = editor.locator('.ribbon:has(> .tab-row)');
+          const expandedHeight = (await ribbon.boundingBox()).height;
+          await editor.getByRole('button', { name: 'Collapse ribbon', exact: true }).click();
+          await editor.locator('#ribbon-panel').waitFor({ state: 'hidden' });
+          assert.ok(expandedHeight - (await ribbon.boundingBox()).height >= 60);
+          await editor.getByRole('tab', { name: 'Insert', exact: true }).click();
+          await editor.locator('#ribbon-panel').waitFor({ state: 'visible' });
+          await editor.getByRole('button', { name: 'Collapse ribbon', exact: true }).click();
+          await editor.getByRole('button', { name: 'Expand ribbon', exact: true }).press('Enter');
+          await editor.locator('#ribbon-panel').waitFor({ state: 'visible' });
+
           await editor.locator('.lang select').selectOption('ja');
           await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
           const [jaHeader, jaStatus] = await Promise.all([

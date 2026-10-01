@@ -328,6 +328,8 @@ export const ja: Record<string, string> = {
   Guides: 'ガイド',
   'Smart Guides': 'スマート ガイド',
   Ribbon: 'リボン',
+  'Collapse ribbon': 'リボンを折りたたむ',
+  'Expand ribbon': 'リボンを展開',
   View: '表示',
   'Move guide': 'ガイドの移動',
   'Edit guides': 'ガイドの編集',
