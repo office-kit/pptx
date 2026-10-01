@@ -1,3 +1,11 @@
+## 2026-10-02: 再生終了後の巻き戻し
+
+- 音声・動画の `MediaPlayback.rewindAfterPlaying` と再生リボンの「再生が終了したら巻き戻す」を追加。ONはmediaのcTn@fill=remove、OFFはhold。入れ子のタイミングと無関係な属性を保持し、保存・Undo・再読込に対応。
+- Mac PowerPointで `/tmp/pptx-audio-across-audit/deck.pptx` のRewind After Playingを切り替えて保存し、上記XML差分を実測。OFFへ戻して保存し、閉じた。ユーザー資料の変更・復元待ちはなし。
+- プレビューは観客側の自然終了時だけ先頭へ戻して停止。発表者ミラーは観客側の同期に従う。OFFの動画は終端を保持。
+- 旧UIの回帰失敗を確認 `/tmp/pptx-rewind-ui-before.log`。UI6/6成功（音声/動画・直接/入れ子・Undo/保存/再読込/日本語・ヘッダー）、Svelte0 errors/warnings。core全3160 passed /109 skipped、format/lint/types/build成功。ログ `/tmp/pptx-rewind-tests.log`、`/tmp/pptx-rewind-ui-final.log`。最終runtime検証は `/tmp/pptx-rewind-final-runtime.log`、依存順ビルドは `/tmp/pptx-rewind-final-build.log`。
+- 未完了: ネイティブの再生位置・最終フレームの厳密な比較、Start追加選択肢、Play in Background、トリム・フェード・ブックマーク、複雑な開始条件、Latin折返しfidelity差分など。全UI・全操作の完全一致は未達成。PRは287に統合し続ける。
+
 ## 2026-10-02: 複数スライド音声の再生リボンと実機確認
 
 - 音声の再生リボンに Play Across Slides / スライド切り替え後も再生を追加。ONで999枚、OFFで既定の1枚。既存の有限範囲はチェック状態として読み取り、他のオプションを操作しても保持。詳細の再生オプションでもslideCountを編集可能。

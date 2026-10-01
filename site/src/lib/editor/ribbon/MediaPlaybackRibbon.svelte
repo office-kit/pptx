@@ -88,6 +88,10 @@
         </label>
       {/if}
       <label class="check">
+        <input type="checkbox" checked={selected.playback.rewindAfterPlaying ?? false} onchange={(event) => apply('Rewind After Playing', { rewindAfterPlaying: event.currentTarget.checked })} />
+        <span>{t('Rewind After Playing')}</span>
+      </label>
+      <label class="check">
         <input type="checkbox" checked={selected.playback.hideWhenStopped} onchange={(event) => apply('Hide when not playing', { hideWhenStopped: event.currentTarget.checked })} />
         <span>{t('Hide when not playing')}</span>
       </label>

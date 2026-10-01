@@ -129,6 +129,13 @@ const handOverrides: Record<string, CapabilityOverride> = {
             label: 'Loop until stopped',
           },
           {
+            name: 'rewindAfterPlaying',
+            type: 'boolean',
+            kind: 'boolean',
+            optional: true,
+            label: 'Rewind After Playing',
+          },
+          {
             name: 'slideCount',
             type: 'number',
             kind: 'number',
