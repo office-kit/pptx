@@ -10,6 +10,7 @@ import {
   getSlideShapes,
   getShapeText,
   getShapeParagraphElements,
+  getParagraphLevel,
 } from '@office-kit/pptx';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
@@ -75,6 +76,36 @@ for (const locale of ['en', 'ja'])
         assert.equal(await outline.getByRole('textbox').count(), 1);
         await change(() => slideIcon.press('Control+z'));
         assert.equal(await outline.getByRole('textbox').count(), 2);
+        const body = outline.getByRole('textbox', {
+          name: `${locale === 'en' ? 'Outline text' : 'アウトラインのテキスト'} 1`,
+          exact: true,
+        });
+        await body.focus();
+        await body.evaluate((node) => node.setSelectionRange(15, 15));
+        await change(() => body.press('Tab'));
+        let bodyShape = getSlideShapes(getSlides(await read())[0])[1];
+        assert.equal(getParagraphLevel(bodyShape, 0), 0);
+        assert.equal(getParagraphLevel(bodyShape, 1), 1);
+        assert.equal(getShapeText(bodyShape), 'First point\nSecond point');
+        assert.equal(getShapeParagraphElements(bodyShape, 1)[0].format.italic, true);
+        assert.equal(
+          await body.evaluate((node) => node === node.ownerDocument.activeElement),
+          true,
+        );
+        await change(() => body.press('Control+z'));
+        bodyShape = getSlideShapes(getSlides(await read())[0])[1];
+        assert.equal(getParagraphLevel(bodyShape, 1), 0);
+        await body.focus();
+        await body.evaluate((node) => node.setSelectionRange(0, 12));
+        await change(() => body.press('Tab'));
+        bodyShape = getSlideShapes(getSlides(await read())[0])[1];
+        assert.equal(getParagraphLevel(bodyShape, 0), 1);
+        assert.equal(
+          getParagraphLevel(bodyShape, 1),
+          0,
+          'exclusive selection end excludes the next paragraph',
+        );
+        await change(() => body.press('Control+z'));
         await change(() => title.fill('Outline title edited'));
         let pres = await read();
         assert.equal(getShapeText(getSlideShapes(getSlides(pres)[0])[0]), 'Outline title edited');

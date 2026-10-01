@@ -635,3 +635,16 @@ changing the package and updates the shared view part in one batch. Right-clicki
 after editing text now selects its slide before opening slide commands. The
 reference was restored to Normal 120% with Undo disabled. Other outline menu
 commands and right-click text editing still need comparison and implementation.
+
+## Outline body Tab (2026-10-01)
+
+Native Tab at the beginning or middle of a body paragraph changes its paragraph
+level instead of inserting a tab character. Saving the reference after Tab at
+“Second” produced `a:pPr lvl="1"` on the second paragraph only. All temporary
+changes were undone; Normal view, 120% zoom and disabled Undo were restored.
+
+Outline body Tab now updates the selected paragraphs through `setParagraphLevel`,
+retaining text and run formatting, and supports saved persistence and Undo.
+Selection uses actual paragraph elements, so soft line breaks do not become
+separate paragraphs. Shift+Tab, title demotion, hierarchy display and the full
+Promote/Demote menu remain outstanding; this is not complete outline parity.
