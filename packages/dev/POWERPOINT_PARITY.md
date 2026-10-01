@@ -858,7 +858,7 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 
 - Native Mac audit: brightness columns and contrast rows each use -40, -20, 0, +20, +40 percent. The gallery shows generic landscape thumbnails. +20/+20 saves `a:lum bright="20000" contrast="20000"`; one Undo restores both. The reference deck was restored and saved.
 - The editor applies both values in one transaction, and the inline video uses the same transfer function as the poster renderer. This does not establish pixel-level agreement with native PowerPoint.
-- Movie Correction Options opens the dedicated Format Video > Video tab. Brightness/contrast sliders and numeric fields share the existing OOXML commands; the correction preset gallery is shared with the ribbon. Recolor presets, ribbon Reset, live slider-drag rendering, and native Crop fields remain to be matched. Native Crop exposes picture width/height/offset X/Y plus crop width/height/left/top, rather than four crop percentages.
+- Movie Correction Options opens the dedicated Format Video > Video tab. Brightness/contrast sliders and numeric fields share the existing OOXML commands; the correction preset gallery is shared with the ribbon. Ribbon Reset and native Crop fields remain to be matched. Native Crop exposes picture width/height/offset X/Y plus crop width/height/left/top, rather than four crop percentages.
 
 ### Video pane color reset (2026-10-02)
 
@@ -870,6 +870,8 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Ribbon Color and pane Recolor presets share 21 choices with native grayscale, sepia, washout, threshold, and theme duotone values. More Variations exposes base theme colors, five rows of theme shades, and standard colors; native Accent 1 lighter 80% and darker 25% transforms are verified through saved XML. Selection is resolved with the same DrawingML color-transform code as rendering.
 - Native saved XML confirms washout bright=70000/contrast=-70000, dark tint=45000/satMod=400000, and light shade=45000/satMod=135000. All temporary native document changes were undone and saved; the slide XML matches the baseline.
 - Browser coverage verifies saved values, Undo/Redo, reload, live video effects, and preserved media/shape formatting. Core tests cover invalid-input atomicity, effect ordering before extLst, and transformed-color round trips.
-- Remaining differences include custom-theme shade rules, exact gallery thumbnail rendering, ribbon Reset, continuous slider preview, and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.
+- Remaining differences include custom-theme shade rules, exact gallery thumbnail rendering, ribbon Reset and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.
 
 - Washout rendering now uses the MS Office brightness/contrast order documented by LibreOffice Bitmap::Adjust: half brightness before contrast, half after. The native dark #262626 to approximately #D9D9D9 observation is covered by regression tests; arbitrary-image pixel parity still needs broader native comparison. Corrections and recolor thumbnails share the editor transfer calculation.
+
+- Video brightness/contrast sliders now update the canvas during dragging and commit one history entry on release. Browser regression reproduces the old unchanged transfer before release, then verifies live rendering, saved OOXML and one-step Undo/Redo. Pointer cancellation rolls back the live edit.
