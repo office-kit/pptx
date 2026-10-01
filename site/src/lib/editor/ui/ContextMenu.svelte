@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getShapeKind } from '@office-kit/pptx';
+  import { tick } from 'svelte';
+  import { getShapeKind, setSlideOutlineCollapsed } from '@office-kit/pptx';
   // Right-click menu. Items adapt to the current selection and dispatch through
   // the controller's actions (which go through the same undoable command path).
   import { getEditor } from '../core/context.ts';
@@ -12,12 +13,16 @@
   const firstSelected = $derived(selected[0] ?? 0);
   const menu = $derived(editor.contextMenu!);
 
-  interface Item {
+  type Item = {
     label: string;
     accel?: string;
-    run: () => void;
     disabled?: boolean;
     sep?: boolean;
+  } & ({ run: () => void; children?: never } | { children: Item[]; run?: never });
+  let submenu = $state<string | null>(null);
+  function collapse(collapsed: boolean, all: boolean) {
+    const slides = all ? doc.slides : selected.map(index => doc.slideAt(index)!);
+    doc.transact(t(collapsed ? 'Collapse' : 'Expand'), () => setSlideOutlineCollapsed(slides, collapsed));
   }
 
   const hasShapes = $derived(doc.selection.kind === 'shape' || doc.selection.kind === 'cell');
@@ -67,16 +72,28 @@
         { label: 'New slide', run: () => editor.invoke('addBlankSlide') },
         { label: 'Duplicate slide', accel: '⌘D', run: () => editor.invoke('duplicateSlide') },
         { label: 'Delete slide', accel: 'Del', run: () => editor.invoke('removeSlide'), sep: true },
-        { label: 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
-        { label: 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
       );
+      if (menu.source === 'outline') {
+        list.push(...[true, false].map(collapsed => ({
+          label: collapsed ? 'Collapse' : 'Expand',
+          children: [
+            { label: collapsed ? 'Collapse' : 'Expand', run: () => collapse(collapsed, false) },
+            { label: collapsed ? 'Collapse All' : 'Expand All', run: () => collapse(collapsed, true) },
+          ],
+        })));
+      } else {
+        list.push(
+          { label: 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
+          { label: 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
+        );
+      }
     } else {
       list.push(
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },
         { label: 'Select all', accel: '⌘A', run: () => editor.selectAllShapes() },
       );
     }
-    if (!hasShapes && editor.viewMode !== 'sorter') {
+    if (!hasShapes && editor.viewMode !== 'sorter' && menu.source !== 'outline') {
       list.push(
         { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
         { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
@@ -96,9 +113,21 @@
     event.stopPropagation();
     if (event.key === 'Escape') { event.preventDefault(); dismiss(); return; }
     if (event.key === 'Tab') { dismiss(); return; }
+    const target = event.target as HTMLElement;
+    if (event.key === 'ArrowRight' && target.dataset.submenu) {
+      event.preventDefault(); submenu = target.dataset.submenu;
+      void tick().then(() => menuNode?.querySelector<HTMLButtonElement>('.submenu button:not(:disabled)')?.focus());
+      return;
+    }
+    if (event.key === 'ArrowLeft' && target.closest('.submenu')) {
+      event.preventDefault();
+      target.closest('.branch')?.querySelector<HTMLButtonElement>(':scope > button')?.focus();
+      submenu = null; return;
+    }
     if (!menuNode || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const buttons = [...menuNode.querySelectorAll<HTMLButtonElement>('button:not(:disabled)')];
+    const activeMenu = target.closest('[role="menu"]') ?? menuNode;
+    const buttons = [...activeMenu.querySelectorAll<HTMLButtonElement>(':scope > button:not(:disabled), :scope > .branch > button:not(:disabled)')];
     if (!buttons.length) return;
     const current = buttons.findIndex(button => button === document.activeElement);
     const next = event.key === 'Home' ? 0 : event.key === 'End' ? buttons.length - 1 :
@@ -123,8 +152,21 @@
     };
   }
 
+  function placeSubmenu(node: HTMLDivElement) {
+    const parent = node.parentElement!.getBoundingClientRect();
+    const position = () => {
+      const margin = 8;
+      node.style.left = `${Math.max(margin, parent.right + node.offsetWidth < window.innerWidth - margin ? parent.right : parent.left - node.offsetWidth)}px`;
+      node.style.top = `${Math.max(margin, Math.min(parent.top, window.innerHeight - node.offsetHeight - margin))}px`;
+    };
+    position();
+    window.addEventListener('resize', dismiss);
+    return { destroy() { window.removeEventListener('resize', dismiss); } };
+  }
+
   function activate(item: Item) {
     if (item.disabled) return;
+    if (item.children) { submenu = item.label; return; }
     dismiss();
     item.run();
   }
@@ -145,10 +187,25 @@
   oncontextmenu={(e) => e.preventDefault()}
 >
   {#each items as item (item.label)}
-    <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" disabled={item.disabled} onclick={() => activate(item)}>
-      <span>{t(item.label)}</span>
-      {#if item.accel}<span class="accel">{item.accel}</span>{/if}
-    </button>
+    {#if item.children}
+      <div class="branch">
+        <button class="ctx-item" role="menuitem" tabindex="-1" aria-label={t(item.label)} aria-haspopup="menu" aria-expanded={submenu === item.label} data-submenu={item.label} onclick={() => activate(item)} onpointerenter={() => submenu = item.label}>
+          <span>{t(item.label)}</span><span>›</span>
+        </button>
+        {#if submenu === item.label}
+          <div class="ctx submenu" role="menu" aria-label={t(item.label)} use:placeSubmenu>
+            {#each item.children as child (child.label)}
+              <button class="ctx-item" role="menuitem" tabindex="-1" disabled={child.disabled} onclick={() => activate(child)}>{t(child.label)}</button>
+            {/each}
+          </div>
+        {/if}
+      </div>
+    {:else}
+      <button class="ctx-item" class:sep={item.sep} role="menuitem" tabindex="-1" disabled={item.disabled} onclick={() => activate(item)} onpointerenter={() => submenu = null}>
+        <span>{t(item.label)}</span>
+        {#if item.accel}<span class="accel">{item.accel}</span>{/if}
+      </button>
+    {/if}
   {/each}
 </div>
 

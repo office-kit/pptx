@@ -34,7 +34,7 @@
   {#key doc.pres}
     {#each entries as entry, index (doc.slides[index])}
       <div class="outline-slide" data-outline-slide={index}>
-        <button class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} aria-expanded={!entry.collapsed} ondblclick={() => toggleCollapse(index)} onclick={event => doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey })} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (!selected.includes(index)) doc.selectSlide(index); editor.openContextMenu(event.clientX, event.clientY); }}><span>{index + 1}</span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="13" /></svg></button>
+        <button class:selected={selected.includes(index)} aria-label={`${t('Slide')} ${index + 1}`} aria-pressed={selected.includes(index)} aria-expanded={!entry.collapsed} ondblclick={() => toggleCollapse(index)} onclick={event => doc.selectSlide(index, { additive: event.metaKey || event.ctrlKey, range: event.shiftKey })} onkeydown={event => keys(event, index)} oncontextmenu={event => { event.preventDefault(); if (doc.selection.kind !== 'slide' || !selected.includes(index)) doc.selectSlide(index); editor.openContextMenu(event.clientX, event.clientY, 'outline'); }}><span>{index + 1}</span><svg viewBox="0 0 20 16" aria-hidden="true"><rect x="1.5" y="1.5" width="17" height="13" /></svg></button>
         <div class="text">
           {#each entry.shapes as shape (shape.id)}{#if shape.title || !entry.collapsed}<OutlineText slideIndex={index} shapeId={shape.id} title={shape.title} />{/if}{/each}
         </div>

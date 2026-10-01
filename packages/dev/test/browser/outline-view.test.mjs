@@ -16,7 +16,7 @@ import { startPreview, waitForState } from '../helpers/server.mjs';
 for (const locale of ['en', 'ja'])
   test(
     `outline edits placeholder text, inserts slides, undoes and saves (${locale})`,
-    { timeout: 60000 },
+    { timeout: 90000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-outline-'));
       let preview, browser;
@@ -107,6 +107,43 @@ for (const locale of ['en', 'ja'])
           ),
           false,
         );
+        const secondIcon = outline.locator('[data-outline-slide="1"] > button');
+        const collapseLabel = locale === 'en' ? 'Collapse' : '折りたたむ';
+        const collapseAllLabel = locale === 'en' ? 'Collapse All' : 'すべて折りたたむ';
+        const expandLabel = locale === 'en' ? 'Expand' : '展開';
+        const expandAllLabel = locale === 'en' ? 'Expand All' : 'すべて展開';
+        await secondIcon.click({ button: 'right' });
+        const collapseMenu = editor.getByRole('menuitem', { name: collapseLabel, exact: true });
+        await collapseMenu.focus();
+        await collapseMenu.press('ArrowRight');
+        const collapseSubmenu = editor.getByRole('menu', { name: collapseLabel, exact: true });
+        await change(() =>
+          collapseSubmenu.getByRole('menuitem', { name: collapseAllLabel, exact: true }).click(),
+        );
+        assert.equal(await outline.getByRole('textbox').count(), 2);
+        await change(() => secondIcon.press('Control+z'));
+        assert.equal(await outline.getByRole('textbox').count(), 4);
+        await secondIcon.click({ button: 'right' });
+        await editor.getByRole('menuitem', { name: collapseLabel, exact: true }).click();
+        await change(() =>
+          editor
+            .getByRole('menu', { name: collapseLabel, exact: true })
+            .getByRole('menuitem', { name: collapseLabel, exact: true })
+            .click(),
+        );
+        assert.equal(await outline.getByRole('textbox').count(), 3);
+        assert.equal(await slideIcon.getAttribute('aria-expanded'), 'true');
+        await secondIcon.click({ button: 'right' });
+        await editor.getByRole('menuitem', { name: expandLabel, exact: true }).click();
+        await change(() =>
+          editor
+            .getByRole('menu', { name: expandLabel, exact: true })
+            .getByRole('menuitem', { name: expandAllLabel, exact: true })
+            .click(),
+        );
+        assert.equal(await outline.getByRole('textbox').count(), 4);
+        await change(() => secondIcon.press('Control+z'));
+        await change(() => secondIcon.press('Control+z'));
         await change(() => second.press('Control+z'));
         assert.equal(
           await outline

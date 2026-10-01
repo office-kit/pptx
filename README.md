@@ -655,11 +655,13 @@ shown together.
 `getCollapsedOutlineSlides(presentation)` returns collapsed slides in deck order.
 Use `setSlideOutlineCollapsed(slide, true)` to hide a slide's body in PowerPoint's
 outline view, or `false` to expand it. The setting survives a save/load round trip
-without changing the slide's text:
+without changing the slide's text. Pass an array of slides to update a selection
+or the whole deck in one operation:
 
 ```ts
 setSlideOutlineCollapsed(getSlides(presentation)[0]!, true);
 const collapsedSlides = getCollapsedOutlineSlides(presentation);
+setSlideOutlineCollapsed(getSlides(presentation), false);
 ```
 
 ### Ordered shape batches

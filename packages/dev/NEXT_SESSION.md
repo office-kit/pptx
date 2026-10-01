@@ -97,3 +97,7 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - ネイティブのドラッグは AXError.failure となり未確認。混在タブ表示・回転/縦書き・ライブ再配置・スナップは未完了。全操作・全 UI の一致は達成していない。
 - Outline View の文字編集・タイトル末尾/途中の Enter・Undo・保存・表示切替時の確定を実装。日本語/英語のブラウザーテストが通過。site ユニットは 81 件通過、Svelte は 0 errors / 0 warnings。
 - 全ブラウザー検証を再実行中。最初の実行は terminal-client.js/css のローカルビルド漏れで Agents 画面が開けず中止。`packages/dev` で `node build-terminal.mjs` を実行し、完全な成果物からやり直した。部分的な成功を全体成功と扱わない。
+- アウトラインのアイコン右クリックに折りたたみ/展開のサブメニューと全スライド操作を実装。バッチ操作は 1 回で Undo。本文編集後のアイコン右クリックで図形用メニューが出る不具合も修正。日本語/英語の独立ビルド検証 2 件、コア全 3,051 件が通過（109 skip）。
+- 全ブラウザー再実行は 212 件中 210 件成功、アウトライン 2 件失敗。実行中にテストを更新して共有ビルドとの差が生じたため、最新の通常ビルドでアウトラインと関連メニューを再検証する。これを全件成功と記載しない。
+- 最新の通常ビルドでアウトライン日本語/英語、既存 canvas context、context menu keyboard の計 4 件が成功。format/lint、型検査、Svelte 0 errors / 0 warnings、core/editor build も通過。
+- 参照 `/private/tmp/pptx-outline-audit/body.pptx` は Normal 120%、Undo disabled に復元済み。Outline View に入り Return、Undo で AX の本文入力要素へ入れる。`selectText` で本文先頭/途中へ移動し Tab を押すと `a:pPr lvl="1"` が保存された。Shift+Tab は操作接続経由の結果が不確かで未確認。全メニュー一致、階層表示/編集、スライドをまたぐ選択は未実装。

@@ -257,6 +257,8 @@ export const ja: Record<string, string> = {
   'Rename object': 'オブジェクト名の変更',
   'Reorder object': 'オブジェクトの順序変更',
   Expand: '展開',
+  'Expand All': 'すべて展開',
+  'Collapse All': 'すべて折りたたむ',
   Collapse: '折りたたむ',
   'Grid Settings': 'グリッドの設定',
   'Guide Settings': 'ガイドの設定',
