@@ -297,7 +297,7 @@ function syncMediaPlayer(){
   const key=JSON.stringify([index,clips]);
   if(mediaPlayerKey===key)return;
   disposeMediaPlayer();
-  mediaPlayer=createMediaPlayer({root:slideRoot(),clips,locale:previewLocale});
+  mediaPlayer=createMediaPlayer({root:slideRoot(),overlayRoot:stage,clips,locale:previewLocale});
   mediaPlayerKey=key;
 }
 function updateAnimationNotice(){

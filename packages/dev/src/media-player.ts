@@ -5,6 +5,7 @@ const HTML_NS = 'http://www.w3.org/1999/xhtml';
 
 export function createMediaPlayer(options: {
   root: ParentNode;
+  overlayRoot: HTMLElement;
   clips: readonly PreviewMedia[];
   locale: string;
 }) {
@@ -12,6 +13,7 @@ export function createMediaPlayer(options: {
     element: HTMLMediaElement;
     image: SVGImageElement;
     host: SVGForeignObjectElement;
+    overlay?: HTMLDivElement;
   }[] = [];
   let disposed = false;
   const retryLabel =
@@ -39,6 +41,15 @@ export function createMediaPlayer(options: {
     host.dataset.pptxMedia = String(clip.shapeId);
     const box = document.createElementNS(HTML_NS, 'div');
     box.style.cssText = 'position:relative;width:100%;height:100%;';
+    const fullScreen = clip.kind === 'video' && clip.playback?.fullScreen;
+    const overlay = fullScreen ? document.createElement('div') : undefined;
+    let start: HTMLButtonElement | undefined;
+    if (overlay) {
+      overlay.dataset.pptxMediaFullscreen = String(clip.shapeId);
+      overlay.style.cssText = 'position:fixed;inset:0;background:black;z-index:5;';
+      overlay.hidden = true;
+      options.overlayRoot.append(overlay);
+    }
     const element = document.createElement(clip.kind);
     element.src = clip.src;
     element.preload = 'metadata';
@@ -48,6 +59,7 @@ export function createMediaPlayer(options: {
     element.muted = clip.playback?.muted ?? false;
     element.setAttribute('aria-label', clip.kind === 'video' ? 'Video' : 'Audio');
     element.style.cssText = 'display:block;width:100%;height:100%;object-fit:fill;';
+    if (overlay) element.style.objectFit = 'contain';
     if (element instanceof HTMLVideoElement) {
       element.playsInline = true;
       element.poster = image.href.baseVal;
@@ -62,6 +74,10 @@ export function createMediaPlayer(options: {
     const play = async () => {
       status.hidden = true;
       host.style.visibility = '';
+      if (overlay) {
+        overlay.hidden = false;
+        element.focus();
+      }
       try {
         await element.play();
       } catch (error) {
@@ -78,9 +94,11 @@ export function createMediaPlayer(options: {
       void play();
     };
     for (const name of ['click', 'dblclick', 'pointerdown', 'keydown']) {
-      box.addEventListener(name, (event) => {
+      const stopNavigation = (event: Event) => {
         if (!(event instanceof KeyboardEvent) || event.key !== 'Escape') event.stopPropagation();
-      });
+      };
+      box.addEventListener(name, stopNavigation);
+      overlay?.addEventListener(name, stopNavigation);
     }
     element.addEventListener('error', () => {
       if (disposed) return;
@@ -92,22 +110,45 @@ export function createMediaPlayer(options: {
         if (disposed) return;
         if (name === 'ended' && clip.playback?.hideWhenStopped) host.style.visibility = 'hidden';
         if (name === 'play') host.style.visibility = '';
+        if (overlay) {
+          const returnFocus = name === 'ended' && overlay.contains(document.activeElement);
+          overlay.hidden = name === 'ended';
+          if (returnFocus) {
+            if (clip.playback?.hideWhenStopped) options.overlayRoot.focus();
+            else start?.focus();
+          }
+        }
       });
     }
-    box.append(element, status);
+    if (overlay) {
+      box.style.background = `center / contain no-repeat url("${image.href.baseVal}")`;
+      start = document.createElement('button');
+      start.type = 'button';
+      start.setAttribute('aria-label', playLabel);
+      start.title = playLabel;
+      start.style.cssText =
+        'position:absolute;inset:0;width:100%;height:100%;padding:0;border:0;background:transparent;cursor:pointer;';
+      start.onclick = () => {
+        void play();
+      };
+      box.append(start);
+      overlay.append(element, status);
+    } else box.append(element, status);
     host.append(box);
     image.replaceWith(host);
-    entries.push({ element, image, host });
+    entries.push({ element, image, host, ...(overlay ? { overlay } : {}) });
     if (clip.playback?.autoplay) void play();
   }
   return {
     dispose() {
       disposed = true;
-      for (const { element, image, host } of entries) {
+      for (const { element, image, host, overlay } of entries) {
+        if (overlay?.contains(document.activeElement)) options.overlayRoot.focus();
         element.pause();
         element.removeAttribute('src');
         element.load();
         host.replaceWith(image);
+        overlay?.remove();
       }
     },
   };
