@@ -15,8 +15,8 @@
   let mode = $state(initial.mode.kind);
   let scrollbar = $state(initial.mode.kind === 'browse' ? initial.mode.showScrollbar : true);
   let loop = $state(initial.loop);
-  let narration = $state(initial.showNarration);
-  let animation = $state(initial.showAnimation);
+  let withoutNarration = $state(!initial.showNarration);
+  let withoutAnimation = $state(!initial.showAnimation);
   let advance = $state(initial.useTimings ? 'timings' : 'manual');
   let slides = $state(initial.slides.kind);
   let start = $state(initial.slides.kind === 'range' ? initial.slides.start : 1);
@@ -44,8 +44,8 @@
       mode: mode === 'browse' ? { kind: 'browse', showScrollbar: scrollbar } : mode === 'kiosk' ? { kind: 'kiosk', restart: initial.mode.kind === 'kiosk' ? initial.mode.restart : 300000 } : { kind: 'present' },
       slides: slides === 'range' ? { kind: 'range', start, end } : slides === 'customShow' ? { kind: 'customShow', id: customId } : { kind: 'all' },
       loop: mode === 'kiosk' ? true : loop,
-      showNarration: narration,
-      showAnimation: animation,
+      showNarration: !withoutNarration,
+      showAnimation: !withoutAnimation,
       useTimings: advance === 'timings',
     };
     try {
@@ -69,8 +69,8 @@
     <div class="columns">
       <fieldset><legend>{t('Show options')}</legend>
         <label><input type="checkbox" checked={mode === 'kiosk' || loop} disabled={mode === 'kiosk'} onchange={(event) => { if (mode !== 'kiosk') loop = (event.currentTarget as HTMLInputElement).checked; }} />{t("Loop continuously until 'Esc'")}</label>
-        <label><input type="checkbox" bind:checked={narration} />{t('Show narration')}</label>
-        <label><input type="checkbox" bind:checked={animation} />{t('Show animation')}</label>
+        <label><input type="checkbox" bind:checked={withoutNarration} />{t('Show without narration')}</label>
+        <label><input type="checkbox" bind:checked={withoutAnimation} />{t('Show without animation')}</label>
       </fieldset>
       <fieldset><legend>{t('Show slides')}</legend>
         <label><input type="radio" name="slides" value="all" bind:group={slides} />{t('All')}</label>

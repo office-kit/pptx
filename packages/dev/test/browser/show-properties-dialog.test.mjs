@@ -55,10 +55,23 @@ test(
       const initial = await settings();
       assert.deepEqual((await state()).showProperties, initial);
 
+      await editor.locator('.lang select').selectOption('ja');
+      const japaneseDialog = await open('ja');
+      assert.equal(
+        await japaneseDialog.getByLabel('アニメーションを表示しない', { exact: true }).isChecked(),
+        !initial.showAnimation,
+      );
+      assert.equal(
+        await japaneseDialog.getByLabel('ナレーションを表示しない', { exact: true }).isChecked(),
+        !initial.showNarration,
+      );
+      await japaneseDialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      await editor.locator('.lang select').selectOption('en');
+
       // Cancel leaves both the file and the server snapshot untouched.
       let dialog = await open();
       await dialog.getByLabel("Loop continuously until 'Esc'", { exact: true }).check();
-      await dialog.getByLabel('Show narration', { exact: true }).check();
+      await dialog.getByLabel('Show without narration', { exact: true }).uncheck();
       await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
       await saved();
       assert.deepEqual(await settings(), initial);
@@ -83,7 +96,7 @@ test(
       await dialog.getByLabel('From slide', { exact: true }).fill('1');
       await dialog.getByLabel('To slide', { exact: true }).fill('2');
       await dialog.getByLabel("Loop continuously until 'Esc'", { exact: true }).check();
-      await dialog.getByLabel('Show narration', { exact: true }).check();
+      await dialog.getByLabel('Show without narration', { exact: true }).uncheck();
       await dialog.getByLabel('Using timings, if present', { exact: true }).check();
       await dialog.getByRole('button', { name: 'OK', exact: true }).click();
       await saved();
@@ -101,10 +114,28 @@ test(
       assert.deepEqual(await settings(), initial);
       assert.deepEqual((await state()).showProperties, initial);
 
-      // The same dialog and Cancel action remain available in Japanese.
+      // Japanese suppression controls persist the inverse OOXML flags.
       await editor.locator('.lang select').selectOption('ja');
       dialog = await open('ja');
-      await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+      await dialog.getByLabel('アニメーションを表示しない', { exact: true }).check();
+      await dialog.getByLabel('ナレーションを表示しない', { exact: true }).uncheck();
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
+      assert.equal((await settings()).showAnimation, false);
+      assert.equal((await settings()).showNarration, true);
+      dialog = await open('ja');
+      assert.equal(
+        await dialog.getByLabel('アニメーションを表示しない', { exact: true }).isChecked(),
+        true,
+      );
+      assert.equal(
+        await dialog.getByLabel('ナレーションを表示しない', { exact: true }).isChecked(),
+        false,
+      );
+      await dialog.getByLabel('アニメーションを表示しない', { exact: true }).uncheck();
+      await dialog.getByLabel('ナレーションを表示しない', { exact: true }).check();
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       assert.deepEqual(await settings(), initial);
       assert.deepEqual(errors, []);
     } catch (error) {

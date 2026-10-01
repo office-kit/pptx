@@ -128,14 +128,45 @@ function moveSlide(step,skipHidden=presenting,focusThumbnail=false){
  // A build comes before the slide: the click that would move on first plays
  // whatever the current slide still has to show, in either direction.
  if(animationPlayer&&(step>0?animationPlayer.advance():animationPlayer.back()))return;
+ const previousShowCursor=showCursor;
  const nextPosition=skipHidden&&presenting?nextShowPosition(step):-1;
  const next=skipHidden&&presenting?(nextPosition<0?-1:showOrder[nextPosition]):findSlide(index+step,step,skipHidden);
  // Arriving backwards lands on a slide that has already played out, the way
  // PowerPoint shows it; arriving forwards starts its build from the top.
- if(next>=0)selectSlide(next,focusThumbnail,true,step<0?'end':'start',nextPosition);
+ if(next>=0){
+  selectSlide(next,focusThumbnail,true,step<0?'end':'start',nextPosition);
+  if(presenting&&step>0&&nextPosition>=0&&nextPosition<=previousShowCursor&&loopShow())scheduleKioskRestart();
+ }
  else if(presenting&&step>0&&linkedShowId!==null)void exitPresentation();
 }
 let advanceTimer,advanceKey;
+let kioskRestartTimer,kioskRestartKey;
+function clearKioskRestart(){
+  clearTimeout(kioskRestartTimer);kioskRestartTimer=undefined;kioskRestartKey=null;
+}
+function scheduleKioskRestart(){
+  clearKioskRestart();
+  const restart=state.showProperties?.mode?.kind==='kiosk'?Number(state.showProperties.mode.restart):NaN;
+  // The OOXML attribute is an unsigned duration, but the schema does not
+  // define a special meaning for zero. Do not turn an unconfigured/zero value
+  // into a busy immediate restart loop; only a positive duration schedules it.
+  if(!presenting||!Number.isFinite(restart)||restart<=0)return;
+  const key={};kioskRestartKey=key;
+  const deadline=performance.now()+restart;
+  function tick(){
+    if(kioskRestartKey!==key||!presenting)return;
+    const remaining=deadline-performance.now();
+    if(remaining>0){kioskRestartTimer=setTimeout(tick,Math.min(remaining,2147483647));return;}
+    const first=firstShowSlide();
+    if(first>=0){
+      const position=showOrder.indexOf(first);
+      clearTimeout(advanceTimer);advanceTimer=undefined;advanceKey=null;
+      selectSlide(first,false,true,'start',position);
+      scheduleKioskRestart();
+    }else clearKioskRestart();
+  }
+  kioskRestartTimer=setTimeout(tick,Math.min(restart,2147483647));
+}
 function scheduleAdvance(){
   const delay=state.transitions?.[index]?.advanceAfterMs;
   // A slide that still has effects to play — or one whose last click is still
@@ -382,9 +413,11 @@ function update(updated){
   });
   if(presenting&&firstShowSlide()<0)void exitPresentation();
   selectSlide(index,focusedThumbnail,false,'keep');
+  if(presenting&&(previous.showProperties?.mode?.kind!==state.showProperties?.mode?.kind||previous.showProperties?.mode?.restart!==state.showProperties?.mode?.restart))scheduleKioskRestart();
 }
 function setPresenting(value){
   if(!value)presentationFullscreen=false;
+  clearKioskRestart();
   linkedShowId=null;showReturns=[];
   lastViewed=null;
   cancelTransition();
@@ -392,6 +425,7 @@ function setPresenting(value){
   presenting=value&&firstShowSlide()>=0;document.body.classList.toggle('presenting',presenting);
   if(presenting){const first=firstShowSlide();if(first>=0){index=first;showCursor=showOrder.findIndex(slide=>slide===first);}}
   selectSlide(index);
+  if(presenting)scheduleKioskRestart();
   if(presenting)stage.focus();else{
     byId('present').focus();
     thumbnails.children[index]?.firstElementChild.scrollIntoView({block:'nearest'});
