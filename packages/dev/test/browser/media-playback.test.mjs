@@ -292,6 +292,12 @@ test('audio rewinds after natural playback when requested', { timeout: 60000 }, 
     const page = await browser.newPage();
     await page.goto(preview.url);
     await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    const playback = await page
+      .evaluate(async () => (await fetch('/state')).json())
+      .then((value) => value.media[0].playback);
+    assert.deepEqual(playback.trim, { startMs: 200, endMs: 300 });
+    assert.deepEqual(playback.fade, { inMs: 200, outMs: 200 });
+    assert.equal(playback.volume, 0.8);
     await page.getByRole('button', { name: 'Present', exact: true }).click();
     const audioElement = page.locator('foreignObject[data-pptx-media] audio');
     await audioElement.waitFor({ state: 'attached' });
@@ -318,6 +324,128 @@ test('audio rewinds after natural playback when requested', { timeout: 60000 }, 
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test('preview honors media trim boundaries and fades', { timeout: 60000 }, async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'office-media-trim-fade-'));
+  let preview;
+  let browser;
+  try {
+    const deck = await compile(
+      Presentation({
+        children: [
+          Slide({
+            children: Media({ kind: 'audio', data: wav(2000), x: 1, y: 1, width: 3, height: 1 }),
+          }),
+        ],
+      }),
+    );
+    const [audio] = getSlideShapes(getSlides(deck)[0]);
+    setShapeMediaPlayback(audio, {
+      autoplay: false,
+      volume: 0.8,
+      muted: true,
+      trim: { startMs: 200, endMs: 300 },
+      fade: { inMs: 200, outMs: 200 },
+    });
+    const source = join(dir, 'source.pptx');
+    await writeFile(source, await savePresentation(deck));
+    const file = join(dir, 'deck.tsx');
+    await writeFile(
+      file,
+      `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+    );
+    preview = await startPreview(file);
+    browser = await chromium.launch({ headless: true });
+    const page = await browser.newPage();
+    await page.goto(preview.url);
+    await page.getByRole('button', { name: 'Preview', exact: true }).click();
+    await page.getByRole('button', { name: 'Present', exact: true }).click();
+    const element = page.locator('foreignObject[data-pptx-media] audio');
+    await element.waitFor({ state: 'attached' });
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('#slide')?.shadowRoot?.querySelector('audio');
+      return audio?.readyState >= 2;
+    });
+    assert.ok((await element.evaluate((node) => node.currentTime)) >= 0.19);
+    assert.ok((await element.evaluate((node) => node.volume)) < 0.05);
+    await element.evaluate((node) => node.play());
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('#slide')?.shadowRoot?.querySelector('audio');
+      return audio !== null && audio.currentTime > 0.3;
+    });
+    assert.ok(
+      (await element.evaluate((node) => node.volume)) > 0.2,
+      `volume=${await element.evaluate((node) => node.volume)} time=${await element.evaluate((node) => node.currentTime)} duration=${await element.evaluate((node) => node.duration)}`,
+    );
+    await page.waitForFunction(() => {
+      const audio = document.querySelector('#slide')?.shadowRoot?.querySelector('audio');
+      return audio?.paused === true && audio.currentTime > 1.68;
+    });
+    assert.ok((await element.evaluate((node) => node.currentTime)) < 1.75);
+    assert.ok((await element.evaluate((node) => node.volume)) < 0.05);
+  } finally {
+    await browser?.close();
+    await preview?.close();
+    await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test(
+  'trimmed media handles native ended fallback and reports completion after rewind',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-media-trim-ended-'));
+    let preview;
+    let browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: [
+            Slide({
+              children: Media({ kind: 'audio', data: wav(700), x: 1, y: 1, width: 3, height: 1 }),
+            }),
+          ],
+        }),
+      );
+      const [audio] = getSlideShapes(getSlides(deck)[0]);
+      setShapeMediaPlayback(audio, {
+        autoplay: false,
+        muted: true,
+        trim: { startMs: 200, endMs: 0 },
+        rewindAfterPlaying: true,
+      });
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, await savePresentation(deck));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      const element = page.locator('foreignObject[data-pptx-media] audio');
+      await element.waitFor({ state: 'attached' });
+      await element.evaluate((node) => node.play());
+      await page.waitForFunction(() => {
+        const audio = document.querySelector('#slide')?.shadowRoot?.querySelector('audio');
+        return audio?.paused === true && audio.currentTime > 0.18 && audio.currentTime < 0.25;
+      });
+      assert.equal(
+        await page.evaluate(() => mediaPlayer.progress[0]?.ended),
+        true,
+        'rewound trim remains reported as completed',
+      );
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
 
 test(
   'audio continues across its configured slides without mixing same-id media',

@@ -336,6 +336,112 @@ describe('media playback', () => {
     expect(getShapeMediaPlayback(saved)).toEqual(before);
   });
 
+  it('reads PowerPoint trim and fade offsets and preserves unknown extension children', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:trim st="1.5s" end="2500000ns"/><p14:fade in="2min" out="500µs"/><p14:future foo="bar"/></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+
+    expect(getShapeMediaPlayback(shape)).toMatchObject({
+      trim: { startMs: 1500, endMs: 2.5 },
+      fade: { inMs: 120000, outMs: 0.5 },
+    });
+
+    setShapeMediaPlayback(shape, {
+      trim: { startMs: 50, endMs: 25.25 },
+      fade: { inMs: 0, outMs: 75 },
+    });
+    const xml = slideXml(loaded);
+    expect(xml).toContain('<p14:trim st="50" end="25.25"/>');
+    expect(xml).toContain('<p14:fade in="0" out="75"/>');
+    expect(xml).toContain('<p14:future foo="bar"/>');
+    expect(xml.indexOf('<p14:trim')).toBeLessThan(xml.indexOf('<p14:fade'));
+    expect(xml.indexOf('<p14:fade')).toBeLessThan(xml.indexOf('<p14:future'));
+
+    const roundTripped = await loadPresentation(await savePresentation(loaded));
+    const saved = getSlideShapes(getSlides(roundTripped)[0]!).at(0)!;
+    expect(getShapeMediaPlayback(saved)).toMatchObject({
+      trim: { startMs: 50, endMs: 25.25 },
+      fade: { inMs: 0, outMs: 75 },
+    });
+  });
+
+  it('reads the native Mac PowerPoint trim/fade XML sample', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:trim st="50" end="50"/><p14:fade in="50" out="50"/></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    expect(getShapeMediaPlayback(shape)).toMatchObject({
+      trim: { startMs: 50, endMs: 50 },
+      fade: { inMs: 50, outMs: 50 },
+    });
+  });
+
+  it('removes trim and fade when both durations are reset to zero', async () => {
+    const { pres, shape } = deckWith('video');
+    setShapeMediaPlayback(shape, {
+      trim: { startMs: 40, endMs: 20 },
+      fade: { inMs: 10, outMs: 30 },
+    });
+    setShapeMediaPlayback(shape, {
+      trim: { startMs: 0, endMs: 0 },
+      fade: { inMs: 0, outMs: 0 },
+    });
+
+    expect(getShapeMediaPlayback(shape)).not.toHaveProperty('trim');
+    expect(getShapeMediaPlayback(shape)).not.toHaveProperty('fade');
+    expect(slideXml(pres)).not.toContain('<p14:trim');
+    expect(slideXml(pres)).not.toContain('<p14:fade');
+  });
+
+  it('keeps unknown trim metadata when resetting known duration attributes', async () => {
+    const { pres } = deckWith('audio');
+    const slidePart = _internalPackageOf(pres).getPart(partName('/ppt/slides/slide1.xml'))!;
+    const source = new TextDecoder().decode(slidePart.data);
+    slidePart.data = new TextEncoder().encode(
+      source.replace(
+        /<p14:media ([^>]+)\/>/,
+        '<p14:media $1><p14:trim st="50" end="25" mystery="keep"><p14:unknown/></p14:trim><p14:fade in="25" out="50" mystery="also-keep"><p14:unknownFade/></p14:fade></p14:media>',
+      ),
+    );
+    const loaded = await loadPresentation(await savePresentation(pres));
+    const shape = getSlideShapes(getSlides(loaded)[0]!).at(0)!;
+    setShapeMediaPlayback(shape, {
+      trim: { startMs: 0, endMs: 0 },
+      fade: { inMs: 0, outMs: 0 },
+    });
+    const xml = slideXml(loaded);
+    expect(xml).toContain('<p14:trim mystery="keep"><p14:unknown/></p14:trim>');
+    expect(xml).toContain('<p14:fade mystery="also-keep"><p14:unknownFade/></p14:fade>');
+    expect(xml).not.toContain('st="0"');
+    expect(xml).not.toContain('in="0"');
+  });
+
+  it.each([
+    { trim: { startMs: -1, endMs: 0 } },
+    { trim: { startMs: Number.NaN, endMs: 0 } },
+    { fade: { inMs: Number.POSITIVE_INFINITY, outMs: 0 } },
+  ])('rejects invalid trim/fade durations atomically', (options) => {
+    const { pres, shape } = deckWith('audio');
+    const before = slideXml(pres);
+    expect(() => setShapeMediaPlayback(shape, options)).toThrow(/durations/);
+    expect(slideXml(pres)).toBe(before);
+  });
+
   skipIfNoXmllint('the written timing tree validates', async () => {
     const { pres, shape } = deckWith('video');
     setShapeMediaPlayback(shape, {

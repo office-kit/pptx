@@ -355,13 +355,25 @@ export const getShapeMedia = (shape: SlideShapeData): ShapeMedia | null => {
 export const findShapesWithMedia = (slide: SlideData): ReadonlyArray<SlideShapeData> =>
   slide[SLIDE_SHAPES].filter((shape) => getShapeMedia(shape) !== null);
 
+/** Durations removed from the source clip, in milliseconds. */
+export interface MediaTrim {
+  readonly startMs: number;
+  /** Duration removed from the end of the source clip. */
+  readonly endMs: number;
+}
+
+export interface MediaFade {
+  readonly inMs: number;
+  readonly outMs: number;
+}
+
 /**
  * How a clip plays in the slide show — the attributes of its
  * `<p:cMediaNode>` and the start condition of its time node.
  *
- * Trimming (`p14:trim`) is not part of this: PowerPoint stores it in a 2010
- * extension rather than in the core schema, and a reader that does not know
- * the extension plays the whole clip.
+ * Trimming and fades are stored in the PowerPoint 2010 `p14:media` extension.
+ * `trim.endMs` is the duration removed from the end of the clip, matching the
+ * OOXML `p14:trim@end` meaning (it is not the playback end position).
  */
 export interface MediaPlayback {
   /** Starts with the slide instead of waiting for a click. */
@@ -382,6 +394,8 @@ export interface MediaPlayback {
   readonly slideCount?: number;
   /** Returns playback to the beginning after natural completion (`fill="remove"`). */
   readonly rewindAfterPlaying?: boolean;
+  readonly trim?: MediaTrim;
+  readonly fade?: MediaFade;
 }
 
 const NAME_C_MEDIA_NODE = qname('p', 'cMediaNode', NS.pml);
@@ -408,6 +422,19 @@ const NAME_TGT_EL = qname('p', 'tgtEl', NS.pml);
 const NAME_SP_TGT = qname('p', 'spTgt', NS.pml);
 const NAME_TN = qname('p', 'tn', NS.pml);
 const NAME_CHILD_TN_LST = qname('p', 'childTnLst', NS.pml);
+const NAME_NV_PIC_PR = qname('p', 'nvPicPr', NS.pml);
+const NAME_NV_PR = qname('p', 'nvPr', NS.pml);
+const NAME_EXT_LST = qname('p', 'extLst', NS.pml);
+const NAME_EXT = qname('p', 'ext', NS.pml);
+const NAME_P14_MEDIA = qname('p14', 'media', NS.p14);
+const NAME_P14_TRIM = qname('p14', 'trim', NS.p14);
+const NAME_P14_FADE = qname('p14', 'fade', NS.p14);
+const ATTR_URI = qname('', 'uri', '');
+const ATTR_ST = qname('', 'st', '');
+const ATTR_END = qname('', 'end', '');
+const ATTR_IN = qname('', 'in', '');
+const ATTR_OUT = qname('', 'out', '');
+const P14_MEDIA_EXT_URI = '{DAA4B4D4-6D71-4841-9C94-3DE7FCFB9230}';
 
 // ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
 // the integer form, and the schema's own default is spelled `50%`.
@@ -430,6 +457,171 @@ const setOrRemove = (
     (a) => a.name.localName !== name.localName || a.name.namespaceURI !== name.namespaceURI,
   );
   if (value !== null) el.attrs.push(attr(name, value));
+};
+
+const p14MediaOf = (shape: SlideShapeData): XmlElement | null => {
+  const nvPicPr = firstChildElement(shape[SHAPE_ELEMENT], NAME_NV_PIC_PR);
+  const nvPr = nvPicPr === null ? null : firstChildElement(nvPicPr, NAME_NV_PR);
+  const extLst = nvPr === null ? null : firstChildElement(nvPr, NAME_EXT_LST);
+  if (extLst === null) return null;
+  for (const child of extLst.children) {
+    if (child.kind !== 'element' || !qnameSame(child.name, NAME_EXT)) continue;
+    if (getAttrValue(child, ATTR_URI) !== P14_MEDIA_EXT_URI) continue;
+    const media = firstChildElement(child, NAME_P14_MEDIA);
+    if (media !== null) return media;
+  }
+  return null;
+};
+
+const qnameSame = (a: ReturnType<typeof qname>, b: ReturnType<typeof qname>): boolean =>
+  a.namespaceURI === b.namespaceURI && a.localName === b.localName;
+
+// ST_UniversalTimeOffset is expressed in milliseconds when no suffix is
+// present. PowerPoint commonly writes fractional milliseconds in this form.
+const universalTimeMs = (raw: string | null): number | null => {
+  if (raw === null) return null;
+  const match = /^([+]?(?:\d+(?:\.\d*)?|\.\d+))(ms|s|min|h|µs|ns)?$/.exec(raw);
+  if (match === null) return null;
+  const value = Number(match[1]);
+  if (!Number.isFinite(value)) return null;
+  const multiplier =
+    match[2] === 's'
+      ? 1000
+      : match[2] === 'min'
+        ? 60000
+        : match[2] === 'h'
+          ? 3600000
+          : match[2] === 'µs'
+            ? 0.001
+            : match[2] === 'ns'
+              ? 0.000001
+              : 1;
+  const result = value * multiplier;
+  return Number.isFinite(result) ? result : null;
+};
+
+const mediaAdjustments = (shape: SlideShapeData): Pick<MediaPlayback, 'trim' | 'fade'> => {
+  const media = p14MediaOf(shape);
+  if (media === null) return {};
+  const trim = firstChildElement(media, NAME_P14_TRIM);
+  const fade = firstChildElement(media, NAME_P14_FADE);
+  const startMs = trim === null ? null : universalTimeMs(getAttrValue(trim, ATTR_ST));
+  const endMs = trim === null ? null : universalTimeMs(getAttrValue(trim, ATTR_END));
+  const inMs = fade === null ? null : universalTimeMs(getAttrValue(fade, ATTR_IN));
+  const outMs = fade === null ? null : universalTimeMs(getAttrValue(fade, ATTR_OUT));
+  return {
+    ...(trim === null || (startMs === null && endMs === null)
+      ? {}
+      : { trim: { startMs: startMs ?? 0, endMs: endMs ?? 0 } }),
+    ...(fade === null || (inMs === null && outMs === null)
+      ? {}
+      : { fade: { inMs: inMs ?? 0, outMs: outMs ?? 0 } }),
+  };
+};
+
+const validateAdjustment = (value: MediaTrim | MediaFade, name: 'trim' | 'fade'): void => {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error(`setShapeMediaPlayback: ${name} durations must be finite and nonnegative`);
+  }
+  if (name === 'trim' && !('startMs' in value)) {
+    throw new Error(`setShapeMediaPlayback: ${name} durations must be finite and nonnegative`);
+  }
+  if (name === 'fade' && !('inMs' in value)) {
+    throw new Error(`setShapeMediaPlayback: ${name} durations must be finite and nonnegative`);
+  }
+  const values =
+    name === 'trim'
+      ? 'startMs' in value
+        ? [value.startMs, value.endMs]
+        : []
+      : 'inMs' in value
+        ? [value.inMs, value.outMs]
+        : [];
+  if (values.some((item) => !Number.isFinite(item) || item < 0)) {
+    throw new Error(`setShapeMediaPlayback: ${name} durations must be finite and nonnegative`);
+  }
+};
+
+// XML Schema decimals do not allow JavaScript's exponent notation. Preserve
+// the exact decimal spelling of finite values such as 0.0000001ms.
+const universalTimeString = (value: number): string => {
+  const raw = String(value);
+  if (!/[eE]/.test(raw)) return raw;
+  const match = /^([+-]?)(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/.exec(raw);
+  if (match === null) return raw;
+  const digits = `${match[2]}${match[3] ?? ''}`;
+  const point = match[2]!.length + Number(match[4]);
+  if (point <= 0) return `${match[1]}0.${'0'.repeat(-point)}${digits}`;
+  if (point >= digits.length) return `${match[1]}${digits}${'0'.repeat(point - digits.length)}`;
+  return `${match[1]}${digits.slice(0, point)}.${digits.slice(point)}`;
+};
+
+const removeMediaChild = (media: XmlElement, name: ReturnType<typeof qname>): void => {
+  media.children = media.children.filter(
+    (child) => child.kind !== 'element' || !qnameSame(child.name, name),
+  );
+};
+
+const clearMediaChild = (
+  media: XmlElement,
+  name: ReturnType<typeof qname>,
+  attrs: ReadonlyArray<ReturnType<typeof qname>>,
+): void => {
+  const child = firstChildElement(media, name);
+  if (child === null) return;
+  for (const attribute of attrs) setOrRemove(child, attribute, null);
+  // Unknown attributes, children, and namespace declarations belong to the
+  // source document. Keep the element when any of them remain.
+  if (child.attrs.length === 0 && child.children.length === 0 && child.prefixDecls.size === 0) {
+    removeMediaChild(media, name);
+  }
+};
+
+const adjustmentRank = (name: ReturnType<typeof qname>): number =>
+  qnameSame(name, NAME_P14_TRIM) ? 0 : qnameSame(name, NAME_P14_FADE) ? 1 : 2;
+
+const upsertMediaChild = (
+  media: XmlElement,
+  name: ReturnType<typeof qname>,
+  attrs: ReadonlyArray<[ReturnType<typeof qname>, string]>,
+): void => {
+  let child = firstChildElement(media, name);
+  if (child === null) {
+    // The containing `<p14:media>` owns the namespace declaration.
+    child = elem(name);
+    const rank = adjustmentRank(name);
+    const index = media.children.findIndex(
+      (candidate) => candidate.kind === 'element' && adjustmentRank(candidate.name) > rank,
+    );
+    if (index < 0) media.children.push(child);
+    else media.children.splice(index, 0, child);
+  }
+  for (const [attribute, value] of attrs) setOrRemove(child, attribute, value);
+};
+
+const setMediaAdjustments = (
+  media: XmlElement,
+  trim: MediaTrim | undefined,
+  fade: MediaFade | undefined,
+): void => {
+  if (trim !== undefined) {
+    if (trim.startMs === 0 && trim.endMs === 0)
+      clearMediaChild(media, NAME_P14_TRIM, [ATTR_ST, ATTR_END]);
+    else
+      upsertMediaChild(media, NAME_P14_TRIM, [
+        [ATTR_ST, universalTimeString(trim.startMs)],
+        [ATTR_END, universalTimeString(trim.endMs)],
+      ]);
+  }
+  if (fade !== undefined) {
+    if (fade.inMs === 0 && fade.outMs === 0)
+      clearMediaChild(media, NAME_P14_FADE, [ATTR_IN, ATTR_OUT]);
+    else
+      upsertMediaChild(media, NAME_P14_FADE, [
+        [ATTR_IN, universalTimeString(fade.inMs)],
+        [ATTR_OUT, universalTimeString(fade.outMs)],
+      ]);
+  }
 };
 
 const mediaNodeOf = (
@@ -858,6 +1050,7 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
   const optionalPlayback = {
     ...(slideCount === undefined ? {} : { slideCount }),
     ...(rewindAfterPlaying ? { rewindAfterPlaying: true } : {}),
+    ...mediaAdjustments(shape),
   };
   // Zero is the ordinary immediate-start form and remains absent to preserve
   // the existing result shape. Only a finite, event-free start can carry this
@@ -993,6 +1186,13 @@ export const setShapeMediaPlayback = (
   ) {
     throw new Error('setShapeMediaPlayback: slideCount must be an unsigned 32-bit integer');
   }
+  if (options.trim !== undefined) validateAdjustment(options.trim, 'trim');
+  if (options.fade !== undefined) validateAdjustment(options.fade, 'fade');
+  const p14Media =
+    options.trim !== undefined || options.fade !== undefined ? p14MediaOf(shape) : null;
+  if ((options.trim !== undefined || options.fade !== undefined) && p14Media === null) {
+    throw new Error('setShapeMediaPlayback: trim and fade require embedded media');
+  }
 
   const applyCommandTiming = convertingCommand
     ? prepareDedicatedMediaTiming(
@@ -1017,6 +1217,7 @@ export const setShapeMediaPlayback = (
   if (options.fullScreen !== undefined) {
     setOrRemove(node, ATTR_FULL_SCRN, options.fullScreen ? '1' : '0');
   }
+  if (p14Media !== null) setMediaAdjustments(p14Media, options.trim, options.fade);
 
   if (cTn !== null) {
     // Mac PowerPoint stores Rewind After Playing as remove (on) or hold (off).

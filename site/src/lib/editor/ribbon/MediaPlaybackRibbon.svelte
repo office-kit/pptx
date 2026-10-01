@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
+  import MediaTrimDialog from '../ui/MediaTrimDialog.svelte';
   import {
     getShapeMedia,
     getShapeMediaPlayback,
@@ -19,6 +20,7 @@
   const editor = getEditor();
   const doc = editor.doc;
   let error = $state('');
+  let trimOpen = $state(false);
   let volumeOpen = $state(false);
   let volumeTrigger = $state<HTMLButtonElement>();
   let volumeMenu = $state<HTMLDivElement>();
@@ -56,6 +58,14 @@
     apply('Start delay', { delayMs: milliseconds });
   }
 
+  function changeFade(input: HTMLInputElement, edge: 'inMs' | 'outMs'): void {
+    if (!input.reportValidity() || !Number.isFinite(input.valueAsNumber)) return;
+    const fade = selected?.playback.fade ?? { inMs: 0, outMs: 0 };
+    apply(edge === 'inMs' ? 'Fade In' : 'Fade Out', {
+      fade: { ...fade, [edge]: input.valueAsNumber * 1000 },
+    });
+  }
+
   function closeVolume(restore = true): void {
     volumeOpen = false;
     if (restore) volumeTrigger?.focus();
@@ -90,6 +100,19 @@
 <svelte:window onpointerdown={event => { if (volumeOpen && !volumeMenu?.contains(event.target as Node) && !volumeTrigger?.contains(event.target as Node)) closeVolume(false); }} onblur={() => { if (volumeOpen) closeVolume(false); }} onresize={() => { if (volumeOpen) closeVolume(false); }} />
 
 {#if selected}
+  {#if trimOpen}<MediaTrimDialog shape={selected.shape} onclose={() => trimOpen = false} />{/if}
+  <div class="group"><div class="items"><button class="action" disabled={selected.media.kind === 'online'} onclick={() => trimOpen = true}>{t(selected.media.kind === 'video' ? 'Trim Video' : 'Trim Audio')}</button></div><span class="title">{t('Editing')}</span></div>
+  <div class="group">
+    <div class="items">
+      {#each [{ key: 'inMs', label: 'Fade In' }, { key: 'outMs', label: 'Fade Out' }] as edge}
+        <label class="field number-field">
+          <span>{t(edge.label)}</span>
+          <span class="number"><input class="ok-input" type="number" min="0" step="0.05" required aria-label={t(edge.label)} value={(selected.playback.fade?.[edge.key as 'inMs' | 'outMs'] ?? 0) / 1000} onchange={event => changeFade(event.currentTarget, edge.key as 'inMs' | 'outMs')} /><span>s</span></span>
+        </label>
+      {/each}
+    </div>
+    <span class="title">{t('Fade Duration')}</span>
+  </div>
   <div class="group">
     <div class="items">
       <label class="field">
