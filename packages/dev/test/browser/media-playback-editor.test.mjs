@@ -125,6 +125,17 @@ for (const [kind, nested] of [
         await editor.getByText('Saved to this project', { exact: true }).waitFor();
         assert.equal((await readPlayback()).rewindAfterPlaying, undefined);
         await rewind.check();
+        const fadeIn = panel.getByLabel('Fade In', { exact: true });
+        const fadeOut = panel.getByLabel('Fade Out', { exact: true });
+        await fadeIn.fill('0.15');
+        await fadeIn.press('Tab');
+        await fadeOut.fill('0.25');
+        await fadeOut.press('Tab');
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.deepEqual((await readPlayback()).fade, { inMs: 150, outMs: 250 });
+        await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+        await editor.getByText('Saved to this project', { exact: true }).waitFor();
+        assert.deepEqual((await readPlayback()).fade, { inMs: 150, outMs: 0 });
         const delay = panel.getByLabel('Start delay (seconds)', { exact: true });
         await delay.fill('1.001');
         await delay.press('Tab');

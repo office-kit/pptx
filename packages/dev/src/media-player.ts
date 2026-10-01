@@ -40,6 +40,7 @@ export function createMediaPlayer(options: {
     shapeId: number;
     play: () => void;
     cancelStart: () => void;
+    isTrimEnded: () => boolean;
     status: HTMLButtonElement;
     setTarget: (target: MediaProgress) => void;
     start?: HTMLButtonElement;
@@ -91,12 +92,24 @@ export function createMediaPlayer(options: {
     }
     let released = false;
     const element = document.createElement(clip.kind);
+    const trimStart = Math.max(0, clip.playback?.trim?.startMs ?? 0) / 1000;
+    const trimEndRemoved = Math.max(0, clip.playback?.trim?.endMs ?? 0) / 1000;
+    const hasTrim = trimStart > 0 || trimEndRemoved > 0;
+    const fadeIn = Math.max(0, clip.playback?.fade?.inMs ?? 0) / 1000;
+    const fadeOut = Math.max(0, clip.playback?.fade?.outMs ?? 0) / 1000;
+    const baseVolume = clip.playback?.volume ?? 0.5;
+    let trimEnded = false;
+    let metadataReady = false;
+    let trimTimer: ReturnType<typeof setTimeout> | undefined;
     let latestTarget: MediaProgress | undefined;
     element.src = clip.src;
     element.preload = 'metadata';
     element.controls = !mirror;
-    element.loop = clip.playback?.loop ?? false;
-    element.volume = clip.playback?.volume ?? 0.5;
+    // Native HTML looping restarts the complete source. PowerPoint loops the
+    // trimmed interval, so the boundary is handled by the timeupdate path
+    // below whenever a trim is present.
+    element.loop = (clip.playback?.loop ?? false) && trimStart === 0 && trimEndRemoved === 0;
+    element.volume = baseVolume;
     // A presenter mirror decodes the same clip silently. Its controls send a
     // command to the audience, while sync() is the only source of playback
     // state, so it must never autoplay with sound.
@@ -121,9 +134,109 @@ export function createMediaPlayer(options: {
       clearTimeout(startTimer);
       startTimer = undefined;
     };
+    const cancelTrimTimer = () => {
+      clearTimeout(trimTimer);
+      trimTimer = undefined;
+    };
+    const playableEnd = () => {
+      const duration = element.duration;
+      if (!Number.isFinite(duration) || duration <= 0) return Number.POSITIVE_INFINITY;
+      return Math.max(trimStart, duration - trimEndRemoved);
+    };
+    const clampTime = (time: number) => Math.min(Math.max(time, trimStart), playableEnd());
+    const updateVolume = () => {
+      const end = playableEnd();
+      const time = Number.isFinite(element.currentTime) ? element.currentTime : trimStart;
+      let multiplier = 1;
+      if (fadeIn > 0) multiplier = Math.min(multiplier, Math.max(0, (time - trimStart) / fadeIn));
+      if (fadeOut > 0 && Number.isFinite(end))
+        multiplier = Math.min(multiplier, Math.max(0, (end - time) / fadeOut));
+      element.volume = Math.max(0, Math.min(1, baseVolume * multiplier));
+    };
+    const moveToTrimStart = () => {
+      trimEnded = false;
+      const target = Number.isFinite(element.duration) ? clampTime(trimStart) : trimStart;
+      if (Math.abs(element.currentTime - target) > 0.001) element.currentTime = target;
+      updateVolume();
+    };
+    const finishTrim = () => {
+      if (trimEnded || released) return;
+      trimEnded = true;
+      element.pause();
+      const end = playableEnd();
+      if (Number.isFinite(end) && Math.abs(element.currentTime - end) > 0.001)
+        element.currentTime = end;
+      updateVolume();
+      // The browser never emits `ended` when we stop at a PowerPoint trim
+      // boundary. Keep the same visibility and focus behavior as a native end.
+      if (clip.playback?.hideWhenStopped) host.style.visibility = 'hidden';
+      if (overlay) {
+        const returnFocus = overlay.contains(document.activeElement);
+        overlay.hidden = true;
+        if (start) start.hidden = false;
+        if (returnFocus && !mirror) {
+          if (clip.playback?.hideWhenStopped) options.overlayRoot.focus();
+          else start?.focus();
+        }
+      }
+      if (clip.playback?.loop) {
+        moveToTrimStart();
+        host.style.visibility = hiddenAudio ? 'hidden' : '';
+        if (overlay) {
+          overlay.hidden = false;
+          if (start) start.hidden = true;
+        }
+        void element.play().catch((error) => {
+          if (
+            disposed ||
+            released ||
+            (error instanceof DOMException && error.name === 'AbortError')
+          )
+            return;
+          status.textContent = retryLabel;
+          status.hidden = false;
+        });
+        return;
+      }
+      if (clip.playback?.rewindAfterPlaying) {
+        moveToTrimStart();
+        // PowerPoint reports the media as completed even though fill=remove
+        // has already moved its playhead back to the trimmed start.
+        trimEnded = true;
+      }
+    };
+    const keepWithinTrim = () => {
+      if (!metadataReady) return;
+      if (!hasTrim) {
+        updateVolume();
+        return;
+      }
+      if (element.currentTime < trimStart - 0.001) {
+        element.currentTime = trimStart;
+      } else if (element.currentTime >= playableEnd() - 0.001 && !element.paused) {
+        if (mirror) {
+          element.pause();
+        } else {
+          finishTrim();
+        }
+      }
+      updateVolume();
+    };
+    const scheduleTrimTick = () => {
+      cancelTrimTimer();
+      if (disposed || released || element.paused || (!hasTrim && fadeIn === 0 && fadeOut === 0))
+        return;
+      trimTimer = setTimeout(() => {
+        keepWithinTrim();
+        scheduleTrimTick();
+      }, 50);
+    };
     const playLocally = async () => {
       cancelStart();
       status.hidden = true;
+      if (trimEnded || (metadataReady && element.currentTime < trimStart - 0.001))
+        moveToTrimStart();
+      keepWithinTrim();
       host.style.visibility = hiddenAudio ? 'hidden' : '';
       if (overlay) {
         overlay.hidden = false;
@@ -211,8 +324,11 @@ export function createMediaPlayer(options: {
       status.hidden = false;
     });
     element.addEventListener('loadedmetadata', () => {
+      metadataReady = true;
+      if (!mirror && element.currentTime < trimStart - 0.001) moveToTrimStart();
+      updateVolume();
       if (!mirror || !latestTarget) return;
-      const targetTime = Math.max(0, latestTarget.currentTime);
+      const targetTime = clampTime(Math.max(0, latestTarget.currentTime));
       if (Math.abs(element.currentTime - targetTime) > 0.3) element.currentTime = targetTime;
       if (!latestTarget.paused && !latestTarget.ended) {
         void element.play().catch(() => {
@@ -222,15 +338,27 @@ export function createMediaPlayer(options: {
         });
       }
     });
+    element.addEventListener('timeupdate', keepWithinTrim);
+    element.addEventListener('seeking', () => {
+      if (!metadataReady) return;
+      const clamped = clampTime(element.currentTime);
+      if (Math.abs(element.currentTime - clamped) > 0.001) element.currentTime = clamped;
+      updateVolume();
+    });
     for (const name of ['play', 'ended']) {
       element.addEventListener(name, () => {
         if (disposed || released) return;
         if (name === 'play') cancelStart();
-        if (!mirror && name === 'ended' && clip.playback?.rewindAfterPlaying) {
+        if (name === 'play') scheduleTrimTick();
+        if (!mirror && name === 'ended' && hasTrim) {
+          finishTrim();
+          return;
+        }
+        if (!mirror && name === 'ended' && clip.playback?.rewindAfterPlaying && !trimEnded) {
           // PowerPoint rewinds after natural completion while keeping the
           // stopped state. Keep the ended/focus handling below unchanged.
           element.pause();
-          element.currentTime = 0;
+          moveToTrimStart();
         }
         if (!mirror && name === 'ended' && clip.playback?.hideWhenStopped)
           host.style.visibility = 'hidden';
@@ -246,6 +374,7 @@ export function createMediaPlayer(options: {
         }
       });
     }
+    element.addEventListener('pause', cancelTrimTimer);
     if (overlay) {
       box.style.background = `center / contain no-repeat url("${image.href.baseVal}")`;
       start = document.createElement('button');
@@ -267,6 +396,7 @@ export function createMediaPlayer(options: {
       release: () => {
         released = true;
         cancelStart();
+        cancelTrimTimer();
         if (!mirror && overlay?.contains(document.activeElement)) options.overlayRoot.focus();
         element.pause();
         element.removeAttribute('src');
@@ -290,6 +420,7 @@ export function createMediaPlayer(options: {
       shapeId: clip.shapeId,
       play,
       cancelStart,
+      isTrimEnded: () => trimEnded,
       status,
       ...(start ? { start } : {}),
       ...(controls ? { controls } : {}),
@@ -317,15 +448,18 @@ export function createMediaPlayer(options: {
   const entryByShape = new Map(entries.map((entry) => [entry.shapeId, entry]));
   return {
     get progress(): MediaProgress[] {
-      return entries.map(({ element, host, shapeId, overlay }) => ({
-        shapeId,
-        currentTime: Number.isFinite(element.currentTime) ? element.currentTime : 0,
-        duration: Number.isFinite(element.duration) ? element.duration : 0,
-        paused: element.paused,
-        ended: element.ended,
-        visible: host.style.visibility !== 'hidden',
-        fullScreen: Boolean(overlay && !overlay.hidden),
-      }));
+      return entries.map((entry) => {
+        const { element, host, shapeId, overlay } = entry;
+        return {
+          shapeId,
+          currentTime: Number.isFinite(element.currentTime) ? element.currentTime : 0,
+          duration: Number.isFinite(element.duration) ? element.duration : 0,
+          paused: element.paused,
+          ended: element.ended || entry.isTrimEnded(),
+          visible: host.style.visibility !== 'hidden',
+          fullScreen: Boolean(overlay && !overlay.hidden),
+        };
+      });
     },
     command(command: MediaCommand) {
       const entry = entryByShape.get(command.shapeId);
@@ -350,9 +484,13 @@ export function createMediaPlayer(options: {
         (command.time ?? 0) >= 0
       ) {
         const duration = entry.element.duration;
-        entry.element.currentTime = Number.isFinite(duration)
-          ? Math.min(command.time ?? 0, duration)
-          : (command.time ?? 0);
+        const trim = entry.clip.playback?.trim;
+        const start = Math.max(0, trim?.startMs ?? 0) / 1000;
+        const removed = Math.max(0, trim?.endMs ?? 0) / 1000;
+        const end = Number.isFinite(duration) ? Math.max(start, duration - removed) : duration;
+        entry.element.currentTime = Number.isFinite(end)
+          ? Math.min(Math.max(command.time ?? 0, start), end)
+          : Math.max(command.time ?? 0, start);
       }
     },
     sync(progress: readonly MediaProgress[]) {
@@ -373,8 +511,19 @@ export function createMediaPlayer(options: {
               ? String(Math.max(0, Math.min(100, (target.currentTime / duration) * 100)))
               : '0';
         }
-        const targetTime = Math.max(0, target.currentTime);
+        const trim = entry.clip.playback?.trim;
+        const start = Math.max(0, trim?.startMs ?? 0) / 1000;
+        const removed = Math.max(0, trim?.endMs ?? 0) / 1000;
+        const end = Number.isFinite(target.duration)
+          ? Math.max(start, target.duration - removed)
+          : target.duration;
+        const targetTime = Number.isFinite(end)
+          ? Math.min(Math.max(start, target.currentTime), end)
+          : Math.max(start, target.currentTime);
         if (Math.abs(element.currentTime - targetTime) > 0.3) element.currentTime = targetTime;
+        if (target.ended) {
+          element.pause();
+        }
         host.style.visibility = target.visible ? '' : 'hidden';
         if (overlay) overlay.hidden = !target.fullScreen;
         if (target.paused || target.ended) {

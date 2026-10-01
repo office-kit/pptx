@@ -88,7 +88,9 @@ export type { ImageCrop } from './fn.ts';
 export type { ImageFit } from './fn.ts';
 export type {
   AudioFormat,
+  MediaFade,
   MediaPlayback,
+  MediaTrim,
   ShapeMedia,
   SlideMediaOptions,
   SlideMediaSource,

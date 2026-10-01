@@ -2,6 +2,18 @@
 // Anything not listed falls back to its English key.
 
 export const ja: Record<string, string> = {
+  'The media could not be loaded': 'メディアを読み込めませんでした',
+  'Nudge Forward': '少し進む',
+  'Nudge Backward': '少し戻る',
+  'Current Position': '現在の位置',
+  'End Trim': 'トリミング終了位置',
+  'Start Trim': 'トリミング開始位置',
+  Trim: 'トリミング',
+  'Trim Video': 'ビデオのトリミング',
+  'Trim Audio': 'オーディオのトリミング',
+  'Fade In': 'フェードイン',
+  'Fade Out': 'フェードアウト',
+  'Fade Duration': 'フェードの継続時間',
   'Slide Show': 'スライド ショー',
   'Custom Shows': 'カスタム ショー',
   'Set Up': '設定',
