@@ -4,6 +4,7 @@ import {
   addSlideTable,
   addSlideImage,
   addSlideLine,
+  addSlideMedia,
   _internalPackageOf,
   addBlankSlide,
   addSlideTextBox,
@@ -13,7 +14,9 @@ import {
   getSlideShapes,
   getSlides,
   isShapeLocked,
+  isShapeAspectRatioLocked,
   setShapeLocked,
+  setShapeAspectRatioLocked,
   savePresentation,
   loadPresentation,
   getShapeText,
@@ -125,4 +128,105 @@ it('validates a whole batch before modifying any member', () => {
   shapes[1]![SHAPE_ELEMENT].name = { ...shapes[1]![SHAPE_ELEMENT].name, localName: 'unsupported' };
   expect(() => setShapeLocked(shapes, true)).toThrow(/nonvisual/);
   expect(isShapeLocked(shapes[0]!)).toBe(false);
+});
+
+it('reads missing and explicit aspect-ratio lock values', () => {
+  const { slide } = fixture();
+  const values = ['missing', 'false', '0', '1', 'true'];
+  const shapes = values.map((value, index) => {
+    const shape = addSlideTextBox(slide, {
+      x: inches(index + 1),
+      y: inches(1),
+      w: inches(1),
+      h: inches(1),
+      text: value,
+    });
+    if (value !== 'missing') {
+      const nv = shape[SHAPE_ELEMENT].children.find(
+        (e) => e.kind === 'element' && e.name.localName === 'nvSpPr',
+      );
+      if (!nv || nv.kind !== 'element') throw new Error('missing nvSpPr');
+      const props = nv.children.find((e) => e.kind === 'element' && e.name.localName === 'cNvSpPr');
+      if (!props || props.kind !== 'element') throw new Error('missing cNvSpPr');
+      props.children.unshift(
+        parseXml(`<a:spLocks xmlns:a="${NS.dml}" noChangeAspect="${value}"/>`).root,
+      );
+    }
+    return shape;
+  });
+  expect(shapes.map(isShapeAspectRatioLocked)).toEqual([false, false, false, true, true]);
+});
+
+it('toggles aspect-ratio locks for picture, video, group and graphic-frame shapes', async () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  const bounds = { x: inches(1), y: inches(2), w: inches(2), h: inches(1) };
+  const text = addSlideTextBox(slide, { ...bounds, text: 'text' });
+  const groupText = addSlideTextBox(slide, { ...bounds, text: 'group text' });
+  const groupText2 = addSlideTextBox(slide, { ...bounds, text: 'group text 2' });
+  const picture = addSlideImage(slide, buildPng(1, 1, [255, 0, 0]), bounds);
+  const video = addSlideMedia(slide, {
+    kind: 'video',
+    data: new Uint8Array([0, 0, 0, 0x18, 0x66, 0x74, 0x79, 0x70, 0x6d, 0x70, 0x34, 0x32]),
+    ...bounds,
+  });
+  const table = addSlideTable(slide, { ...bounds, rows: [['A']] });
+  const group = groupShapes([groupText, groupText2]);
+  const shapes = [text, picture, video, table, group];
+
+  setShapeAspectRatioLocked(shapes, false);
+  expect(shapes.every((shape) => !isShapeAspectRatioLocked(shape))).toBe(true);
+  setShapeAspectRatioLocked(shapes, true);
+  expect(shapes.every(isShapeAspectRatioLocked)).toBe(true);
+
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const loadedShapes = getSlideShapes(getSlides(loaded)[0]!);
+  expect(loadedShapes.filter(isShapeAspectRatioLocked)).toHaveLength(5);
+  const loadedGroup = loadedShapes.find((shape) => shape[SHAPE_ELEMENT].name.localName === 'grpSp');
+  expect(loadedGroup && getGroupChildren(loadedGroup).every(isShapeAspectRatioLocked)).toBe(false);
+  setShapeAspectRatioLocked(loadedShapes, false);
+  expect(loadedShapes.every((shape) => !isShapeAspectRatioLocked(shape))).toBe(true);
+});
+
+it('prevalidates an aspect-ratio lock batch before changing any member', () => {
+  const { shapes } = fixture();
+  shapes[1]![SHAPE_ELEMENT].name = { ...shapes[1]![SHAPE_ELEMENT].name, localName: 'unsupported' };
+  expect(() => setShapeAspectRatioLocked(shapes, true)).toThrow(/nonvisual/);
+  expect(isShapeAspectRatioLocked(shapes[0]!)).toBe(false);
+});
+
+it('round-trips aspect-ratio locks and preserves explicit false and unknown XML', async () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  const shape = addSlideTextBox(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(2),
+    h: inches(1),
+    text: 'A',
+  });
+  const nv = shape[SHAPE_ELEMENT].children.find(
+    (e) => e.kind === 'element' && e.name.localName === 'nvSpPr',
+  );
+  if (!nv || nv.kind !== 'element') throw new Error('missing nvSpPr');
+  const props = nv.children.find((e) => e.kind === 'element' && e.name.localName === 'cNvSpPr');
+  if (!props || props.kind !== 'element') throw new Error('missing cNvSpPr');
+  props.children.unshift(
+    parseXml(
+      `<a:spLocks xmlns:a="${NS.dml}" noChangeAspect="false"><a:extLst><a:ext uri="keep"/></a:extLst></a:spLocks>`,
+    ).root,
+  );
+  expect(isShapeAspectRatioLocked(shape)).toBe(false);
+  expect(serializeFragment(shape[SHAPE_ELEMENT])).toContain('noChangeAspect="false"');
+  expect(serializeFragment(shape[SHAPE_ELEMENT])).toContain('uri="keep"');
+  setShapeAspectRatioLocked(shape, true);
+  expect(isShapeAspectRatioLocked(shape)).toBe(true);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const roundTripped = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+  expect(isShapeAspectRatioLocked(roundTripped)).toBe(true);
+  setShapeAspectRatioLocked(roundTripped, false);
+  const xml = serializeFragment(roundTripped[SHAPE_ELEMENT]);
+  expect(isShapeAspectRatioLocked(roundTripped)).toBe(false);
+  expect(xml).not.toContain('noChangeAspect=');
+  expect(xml).toContain('uri="keep"');
 });

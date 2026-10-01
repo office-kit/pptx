@@ -1,3 +1,11 @@
+## 2026-10-02: 縦横比固定の保存
+
+- 検証: core全体3190 passed / 109 skipped、site121 passed、Svelte 0 errors/warnings、format/lint/typecheck、core/editor build成功。動画リボン・compact-editor・resize-geometryブラウザーテスト成功。
+
+- `isShapeAspectRatioLocked` / `setShapeAspectRatioLocked`でDrawingMLの`noChangeAspect`を読み書きし、動画リボンとサイズパネルを文書の設定に連動。固定解除後の幅変更では高さを維持する。
+- Mac実機の`/tmp/pptx-poster-audit/trim-reset.pptx`でチェック解除→保存を確認: `a:picLocks`の`noChangeAspect`属性が消え、チェックを戻すと`1`が復元。両操作でUndoは無効のまま。チェックを元に戻して保存・XML確認済み。
+- 設定変更自体はUndo項目を増やさず現在の履歴スナップショットを更新。次のサイズ変更のUndo後も設定を保持する。より古いUndo/Redo履歴をまたぐ設定の挙動、ドラッグハンドルとShift併用時の実機一致は追加確認が必要。
+
 ## 2026-10-02: 動画書式リボンの専用化
 
 - 検証: 専用リボンの実再生、サイズ保存・縦横比維持・Undo、メニューのキーボード操作のブラウザーテスト成功。既存のヘッダー、フォント、文字編集背景、表紙画像の4件も成功。site120件、format/lint/typecheck、Svelteチェック、editor build成功。

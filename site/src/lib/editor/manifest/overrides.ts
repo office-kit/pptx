@@ -63,6 +63,20 @@ const withCharacterEffects = (format: ParamSpec): ParamSpec => ({
 // Hand-authored refinements. Merged on top of `generatedOverrides` (the
 // workflow-enriched field schemas), so a hand entry wins for the same id.
 const handOverrides: Record<string, CapabilityOverride> = {
+  setShapeAspectRatioLocked: {
+    labelEn: 'Lock aspect ratio',
+    labelJa: '縦横比を固定',
+    params: [
+      {
+        name: 'locked',
+        type: 'boolean',
+        kind: 'boolean',
+        optional: false,
+        label: 'Locked',
+        default: 'true',
+      },
+    ],
+  },
   setShapeLocked: {
     labelEn: 'Lock object',
     labelJa: 'オブジェクトをロック',

@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 190,
+  "count": 191,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1612,6 +1612,23 @@
           "name": "opts",
           "type": "AnimationOptions",
           "kind": "object",
+          "optional": false
+        }
+      ]
+    },
+    {
+      "id": "setShapeAspectRatioLocked",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-locks.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": [
+        {
+          "name": "locked",
+          "type": "boolean",
+          "kind": "boolean",
           "optional": false
         }
       ]

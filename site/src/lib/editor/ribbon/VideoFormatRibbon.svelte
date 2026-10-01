@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { cm, emu, getShapeBoundsResolved, getShapeId, getShapeMedia, setShapeBounds } from '@office-kit/pptx';
+  import { isShapeAspectRatioLocked, setShapeAspectRatioLocked, cm, emu, getShapeBoundsResolved, getShapeId, getShapeMedia, setShapeBounds } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { getMediaPreview } from '../core/media-preview.svelte.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -14,7 +14,15 @@
   let effectsOpen = $state(false);
   let effectsTrigger = $state<HTMLButtonElement>();
   let effectsMenu = $state<HTMLDivElement>();
-  let sizeLock = $state(true);
+  const sizeLock = $derived.by(() => {
+    doc.version;
+    const values = geometry.map(item => isShapeAspectRatioLocked(item.shape));
+    return values.length && values.every(value => value === values[0]) ? values[0] : null;
+  });
+  function changeAspectLock(input: HTMLInputElement): void {
+    if (editor.selectionLocked()) return;
+    doc.setDocumentSetting(() => setShapeAspectRatioLocked(geometry.map(item => item.shape), input.checked));
+  }
   const maxDimension = 5963.92;
 
   const selected = $derived.by(() => {
@@ -57,7 +65,7 @@
     const value = input.valueAsNumber;
     const updates = geometry.map(item => {
       const next = { ...item.bounds, [field]: emu(cm(value)) };
-      if (sizeLock && canLockSize) {
+      if (isShapeAspectRatioLocked(item.shape) && canLockSize) {
         if (field === 'w') next.h = emu(item.bounds.h * next.w / item.bounds.w);
         else next.w = emu(item.bounds.w * next.h / item.bounds.h);
       }
@@ -153,7 +161,7 @@
     <div class="size-items">
       <label><span>{t('Height')}</span><input class="ok-input" type="number" min="0" max={maxDimension} step="any" disabled={editor.selectionLocked()} value={dimensions.h ?? ''} placeholder={dimensions.h === null ? t('Mixed') : undefined} onchange={event => changeDimension('h', event.currentTarget)} /><span>cm</span></label>
       <label><span>{t('Width')}</span><input class="ok-input" type="number" min="0" max={maxDimension} step="any" disabled={editor.selectionLocked()} value={dimensions.w ?? ''} placeholder={dimensions.w === null ? t('Mixed') : undefined} onchange={event => changeDimension('w', event.currentTarget)} /><span>cm</span></label>
-      <label class="check"><input type="checkbox" bind:checked={sizeLock} disabled={editor.selectionLocked() || !canLockSize} /><span>{t('Lock aspect ratio')}</span></label>
+      <label class="check"><input type="checkbox" checked={sizeLock === true} indeterminate={sizeLock === null} onchange={event => changeAspectLock(event.currentTarget)} disabled={editor.selectionLocked() || !canLockSize} /><span>{t('Lock aspect ratio')}</span></label>
     </div>
     <span class="title">{t('Size')}</span>
   </div>

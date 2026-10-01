@@ -40,6 +40,7 @@ export interface CommandDoc {
   selectShape(slideIndex: number, id: number): void;
   selectSlide(index: number): void;
   transact<T>(label: string, fn: () => T): T;
+  setDocumentSetting(fn: () => void): void;
 }
 
 export interface CommandContext {
@@ -508,21 +509,30 @@ class LockCommand extends ManifestCommand {
     return super.params.filter((param) => param.name !== 'shapes');
   }
   override canRun({ doc }: CommandContext): boolean {
-    return selectedSiblingShapes(doc).length > 0;
+    const shapes = selectedSiblingShapes(doc);
+    return (
+      shapes.length > 0 &&
+      (this.capability.id !== 'setShapeAspectRatioLocked' ||
+        shapes.every((shape) => !pptx.isShapeLocked(shape)))
+    );
   }
   override run({ doc }: CommandContext, args: Record<string, unknown>): void {
     if (typeof args.locked !== 'boolean') throw new CommandError('locked must be a boolean.');
     const locked = args.locked;
     const shapes = selectedSiblingShapes(doc);
     if (!shapes.length) throw new CommandError('Select an object first.');
-    doc.transact(this.capability.labelEn, () => pptx.setShapeLocked(shapes, locked));
+    if (this.capability.id === 'setShapeAspectRatioLocked') {
+      doc.setDocumentSetting(() => pptx.setShapeAspectRatioLocked(shapes, locked));
+    } else {
+      doc.transact(this.capability.labelEn, () => pptx.setShapeLocked(shapes, locked));
+    }
   }
 }
 
 const registry = new Map<string, Command>(
   capabilities.map((cap) => [
     cap.id,
-    cap.id === 'setShapeLocked'
+    cap.id === 'setShapeLocked' || cap.id === 'setShapeAspectRatioLocked'
       ? new LockCommand(cap)
       : activeSlideCommands.has(cap.id) || cap.id === 'addBlankSlide' || cap.id === 'addSlide'
         ? new SlideCommand(cap)
