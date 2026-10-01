@@ -1,3 +1,12 @@
+## 2026-10-02: ヘッダー確定・ネイティブ音声の開始方法変換
+
+- ヘッダー省スペース化を日英・900/1500pxで再検証。Studioバー40px、保存状態を同じ行、重複ツールバーなし、リボンを閉じると60px以上増える。ログ `/tmp/pptx-compact-oct2-final.log`。
+- ネイティブ背景音声の開始方法を「自動」「クリック時」で相互変換。PowerPointが保存した専用seqの完全一致を条件にし、外部参照や共有アニメーションは変更前に拒否。IDとメディア設定を保持。開始遅延の変更は未対応。
+- `/tmp/pptx-audio-across-audit/converted-click.pptx` と `converted-auto.pptx` をMac PowerPointで開き、修復要求なし、StartがWhen Clicked On / Automaticallyであることを確認。ループ・スライド跨ぎ・非表示も保持。両方とも編集せず、保存要求なしで閉じた。
+- Mac PowerPointのpreset-shapesで、latinLnBrk省略でも図形より長い英単語が折り返されることを確認。SVGにも緊急折返しを適用。通常の残り行幅での単語分割はフラグに従う。fidelity基準値は下げていない。LibreOfficeが応答せずローカル画像比較は未完了、CIで確認する。
+- 検証: core全3169 passed /109 skipped、最終音声28件、format/lint/typecheck、依存順dev build、preview/DSL/dev typecheck、Svelte 0 errors/warnings。ブラウザー7件成功後、最終変換の保存・再読込・Undoを再実行して成功。ログ `/tmp/pptx-native-convert-unit.log`、`/tmp/pptx-native-convert-target-final.log`、`/tmp/pptx-native-convert-browser-final.log`。
+- 未完了: In Click Sequence、トリム/フェード/ブックマーク、共有された複雑なタイミング、全UI/操作の完全一致。PR287に統合。4173のユーザープレビューは未保存編集があるため変更・再読込しない。
+
 ## 2026-10-02: 背景音声とヘッダーの再検証
 
 - ヘッダーはStudioバー40px、保存状態を同じ行へ統合、重複ツールバーを非表示、リボン折りたたみに対応済み。compact-editorの900/1500px・日英検証が成功。

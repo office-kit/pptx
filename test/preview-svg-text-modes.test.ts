@@ -46,7 +46,7 @@ const textXs = (svg: string): number[] =>
     .filter((a) => a['text-anchor'] !== undefined)
     .map((a) => Number(a.x));
 
-it('passes explicit latinLnBrk through the resolved SVG paragraph model', async () => {
+it('emergency-wraps overlong Latin words in SVG even with latinLnBrk disabled', async () => {
   const { pres, slide } = await blankSlide();
   const box = addSlideTextBox(slide, {
     x: inches(1),
@@ -55,14 +55,14 @@ it('passes explicit latinLnBrk through the resolved SVG paragraph model', async 
     h: inches(2),
     text: 'ABCDE',
   });
-  // MS-OI29500 §2.1.1406 specifies the Office default for latinLnBrk as
-  // false: https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/9b34280e-538e-4811-8af9-761d34f88f20
+  // Mac PowerPoint still splits words wider than the whole text box when
+  // latinLnBrk is false; that flag only keeps words intact when they can fit.
   setParagraphTypography(box, 0, { latinLineBreak: false });
   const kept = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
   setParagraphTypography(box, 0, { latinLineBreak: true });
   const split = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
-  expect(countTags(kept, 'text')).toBe(1);
-  expect(countTags(split, 'text')).toBeGreaterThan(countTags(kept, 'text'));
+  expect(countTags(kept, 'text')).toBeGreaterThan(1);
+  expect(countTags(split, 'text')).toBe(countTags(kept, 'text'));
 });
 
 describe('renderSlideToSvg — vertical text (svg mode)', () => {

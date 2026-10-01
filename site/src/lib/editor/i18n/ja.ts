@@ -539,7 +539,7 @@ export const ja: Record<string, string> = {
   Volume: '音量',
   'Start delay': '開始の遅延',
   'Start delay (seconds)': '開始の遅延（秒）',
-  'When Clicked': 'クリック時',
+  'When Clicked On': 'クリック時',
   Automatically: '自動',
   'Automatic start delay (ms)': '自動再生の開始遅延（ミリ秒）',
   'Start with the slide': 'スライドの表示と同時に再生',

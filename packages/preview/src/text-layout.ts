@@ -444,9 +444,13 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
               partOffset = 0;
             }
           }
+          // PowerPoint still breaks an overlong Latin word when the OOXML
+          // flag is omitted/false; the flag controls breaking a word merely
+          // because only part of the current line remains. Keep CJK clauses
+          // on their existing kinsoku path.
           const canBreak = EAST_ASIAN_CHAR.test(segment)
             ? width > avail - bulletLead
-            : para.latinLineBreak === true;
+            : para.latinLineBreak === true || width > avail - bulletLead;
           if (input.wrap && canBreak && [...segment].length > 1) {
             for (const fragment of fragments) {
               for (const ch of fragment.text) tokens.push(makeToken(ch, fragment.piece));
