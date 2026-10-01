@@ -850,7 +850,7 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 ## Video Format ribbon (2026-10-02)
 
 - The contextual tab now renders video controls instead of generic Shape Format groups: preview transport, poster frame, border/effects, alternative text, arrangement, inline dimensions, and the format pane.
-- Native Mac inspection confirmed the group order and inline Height / Width / Lock Aspect Ratio controls. Color, the video style gallery, Crop, standalone Reset, and individually exposed arrangement buttons remain incomplete. Corrections now exposes the native 5×5 brightness/contrast preset layout and a link to the dedicated Video tab with brightness/contrast sliders and numeric fields; recolor/crop pane controls and pixel-level correction rendering still require comparison. Border/effect/alternative-text dialogs still reuse the existing editor commands; this is not proof of native dialog parity.
+- Native Mac inspection confirmed the group order and inline Height / Width / Lock Aspect Ratio controls. Color, the video style gallery, Crop, and individually exposed arrangement buttons remain incomplete. Corrections now exposes the native 5×5 brightness/contrast preset layout and a link to the dedicated Video tab with brightness/contrast sliders and numeric fields; recolor/crop pane controls and pixel-level correction rendering still require comparison. Border/effect/alternative-text dialogs still reuse the existing editor commands; this is not proof of native dialog parity.
 - Aspect-ratio locking now reads and persists OOXML `noChangeAspect` in both the video ribbon and size pane. Native comparison confirms unchecking removes the attribute and checking writes `1`, without adding an Undo entry. Current-snapshot persistence matches this observed operation; behavior across older Undo/Redo snapshots and Shift-modified dragging still requires native comparison. Native video drag comparison confirmed that saved aspect locking constrains corner handles, while edge handles stretch only their corresponding axis. The canvas now uses that saved constraint for corner drags; unlocked corners remain freely resizable.
 - A trimmed-video Reset experiment produced a generic play-icon poster, so it did not resolve whether Reset uses the source start or trimmed start. Both temporary changes were undone and saved; the fixture no longer contains a trim element.
 
@@ -858,11 +858,11 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 
 - Native Mac audit: brightness columns and contrast rows each use -40, -20, 0, +20, +40 percent. The gallery shows generic landscape thumbnails. +20/+20 saves `a:lum bright="20000" contrast="20000"`; one Undo restores both. The reference deck was restored and saved.
 - The editor applies both values in one transaction, and the inline video uses the same transfer function as the poster renderer. This does not establish pixel-level agreement with native PowerPoint.
-- Movie Correction Options opens the dedicated Format Video > Video tab. Brightness/contrast sliders and numeric fields share the existing OOXML commands; the correction preset gallery is shared with the ribbon. Ribbon Reset and native Crop fields remain to be matched. Native Crop exposes picture width/height/offset X/Y plus crop width/height/left/top, rather than four crop percentages.
+- Movie Correction Options opens the dedicated Format Video > Video tab. Brightness/contrast sliders and numeric fields share the existing OOXML commands; the correction preset gallery is shared with the ribbon. Native Crop fields remain to be matched. Native Crop exposes picture width/height/offset X/Y plus crop width/height/left/top, rather than four crop percentages.
 
 ### Video pane color reset (2026-10-02)
 
-- Native pane Reset removes grayscale, duotone (including Sepia), bi-level black/white, and brightness/contrast from the poster blip. It preserves the poster relationship, media, geometry, border and 3D formatting. Ribbon Reset additionally removes shape formatting and remains unimplemented.
+- Native pane Reset removes grayscale, duotone (including Sepia), bi-level black/white, and brightness/contrast from the poster blip. It preserves the poster relationship, media, geometry, border and 3D formatting. Ribbon Reset additionally removes shape formatting and restores rectangular geometry.
 - The pane now resets these color effects in one Undo action; opacity and unknown extensions remain intact. Core round-trip and browser tests cover reset, Undo/Redo and saved reload. The reference file was restored through named Undo operations and saved; its slide XML matches the baseline exactly. Native evidence is under `/tmp/pptx-video-reset-{before,after,ribbon,sepia-before,sepia-after,bilevel-before,bilevel-after}.xml`.
 
 ### Video recolor gallery (2026-10-02)
@@ -870,8 +870,15 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Ribbon Color and pane Recolor presets share 21 choices with native grayscale, sepia, washout, threshold, and theme duotone values. More Variations exposes base theme colors, five rows of theme shades, and standard colors; native Accent 1 lighter 80% and darker 25% transforms are verified through saved XML. Selection is resolved with the same DrawingML color-transform code as rendering.
 - Native saved XML confirms washout bright=70000/contrast=-70000, dark tint=45000/satMod=400000, and light shade=45000/satMod=135000. All temporary native document changes were undone and saved; the slide XML matches the baseline.
 - Browser coverage verifies saved values, Undo/Redo, reload, live video effects, and preserved media/shape formatting. Core tests cover invalid-input atomicity, effect ordering before extLst, and transformed-color round trips.
-- Remaining differences include custom-theme shade rules, exact gallery thumbnail rendering, ribbon Reset and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.
+- Remaining differences include custom-theme shade rules, exact gallery thumbnail rendering and native Crop fields. This is partial Video Format coverage, not complete PowerPoint parity.
 
 - Washout rendering now uses the MS Office brightness/contrast order documented by LibreOffice Bitmap::Adjust: half brightness before contrast, half after. The native dark #262626 to approximately #D9D9D9 observation is covered by regression tests; arbitrary-image pixel parity still needs broader native comparison. Corrections and recolor thumbnails share the editor transfer calculation.
 
 - Video brightness/contrast sliders now update the canvas during dragging and commit one history entry on release. Browser regression reproduces the old unchanged transfer before release, then verifies live rendering, saved OOXML and one-step Undo/Redo. Pointer cancellation rolls back the live edit.
+
+### Video ribbon reset (2026-10-02)
+
+- Native saved XML confirms ribbon Reset removes shape fill, line, effects and 3D formatting, restores ellipse to rectangle, and retains crop, dimensions and media/poster relationships. Evidence: `/tmp/pptx-video-ribbon-reset-{styled,result,oval,oval-result,cropped,crop-result}.xml`. Temporary changes were undone and saved; the slide XML matches the baseline.
+- The Adjust group now exposes Reset as one Undo action. This is separate from Video pane color reset and Poster Frame reset.
+
+- Browser regression covers reset, one-step Undo/Redo, save/reload and preservation of playback settings and media bytes. Core coverage checks unknown XML preservation and rejects non-video input without mutation; the command registry disables reset for unsupported selections.

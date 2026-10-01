@@ -295,6 +295,11 @@ const handOverrides: Record<string, CapabilityOverride> = {
     labelJa: '図の色をリセット',
     category: 'image',
   },
+  resetShapeVideoFormatting: {
+    labelEn: 'Reset video formatting',
+    labelJa: '動画の書式をリセット',
+    category: 'shape',
+  },
   addSlide: { labelEn: 'New slide from layout', labelJa: 'レイアウトからスライドを追加' },
   addSlideAt: { labelJa: '指定位置にスライドを追加' },
   addSlideChart: { labelJa: 'グラフの挿入' },

@@ -1,3 +1,12 @@
+## 2026-10-02: 動画リボン Reset
+
+- Video Format > Adjust に Reset を追加。色補正・塗り・線・効果・3D書式を除去し矩形へ戻す。動画本体・ポスター・crop・寸法・再生設定は保持し、1回のUndo/Redoに対応。色補正のみを戻すペインのResetとは別操作。
+- PowerPoint実機でRotated WhiteとBeveled Oval Blackのリセット、cropの保持を保存XMLで確認。証拠 `/tmp/pptx-video-ribbon-reset-{styled,result,oval,oval-result,cropped,crop-result}.xml`。参照資料 `/private/tmp/pptx-poster-audit/trim-reset.pptx` はbaselineとバイト一致、復元待ちなし。
+- API `resetShapeVideoFormatting` は動画のみ対象。汎用コマンドも音声・オンライン動画・非メディア・ロック中は無効。未知の拡張XMLと保存再読込をユニット検証。
+- core3197件成功/109skip、format/lint/typecheck/core・editor build成功。最終ブラウザー3件成功（動画Reset2件・ヘッダー1件）。後続の汎用コマンド有効条件を含むfocused15件成功、Svelte0 errors/warnings。画像 `/tmp/pptx-video-ribbon-reset.png`。
+- ヘッダー要望は `24b84ffa` で対応済み。同一PR287を継続。確認プレビュー4175 HTTP200、4173の未保存編集には触らない。`.pnpm-store/`は触らない。
+- 次の動画関連の差分: native Cropの画像幅/高さ/offsetとcrop枠位置、動画スタイルギャラリー、配置ボタンの構成、任意画像の画素一致。全体のPowerPoint完全一致は未達成。
+
 ## 2026-10-02: 動画修整スライダーのライブ反映
 
 - Videoペインの明るさ・コントラストをドラッグ中にも反映。確定は1回の履歴として保存し、pointercancel時は取り消す。

@@ -13,6 +13,8 @@ import {
   isShapePlaceholder,
   getShapeChartSpec,
   addBlankSlide,
+  addSlideMedia,
+  addSlideShape,
   findShapeById,
   getShapeId,
   getShapeText,
@@ -22,6 +24,7 @@ import {
   inches,
   loadPresentation,
   savePresentation,
+  setShapeLocked,
 } from '@office-kit/pptx';
 import type { PresentationData, SlideData, SlideShapeData } from '@office-kit/pptx';
 import { RegroupHistory } from '../site/src/lib/editor/core/regroup-history.ts';
@@ -177,6 +180,57 @@ describe('editor command registry drives the library', () => {
     // createPresentation() yields 0 slides; addBlankSlide made the only slide.
     const reloadedShapes = getSlideShapes(getSlides(reloaded)[0]!);
     expect(reloadedShapes.some((s) => getShapeText(s) === 'Edited via registry')).toBe(true);
+  });
+
+  it('only enables video formatting reset for video media', () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const video = addSlideMedia(slide, {
+      kind: 'video',
+      data: new Uint8Array([0, 0, 0, 0x18, ...Array.from('ftypmp42', (c) => c.charCodeAt(0))]),
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+    });
+    const online = addSlideMedia(slide, {
+      kind: 'online',
+      url: 'https://example.com/video',
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+    });
+    const audio = addSlideMedia(slide, {
+      kind: 'audio',
+      format: 'mp3',
+      data: new Uint8Array([0x49, 0x44, 0x33, 3, 0]),
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(2),
+    });
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    const doc = new FakeDoc(pres);
+    const command = getCommand('resetShapeVideoFormatting')!;
+    for (const [target, expected] of [
+      [video, true],
+      [online, false],
+      [audio, false],
+      [shape, false],
+    ] as const) {
+      doc.select({ kind: 'shape', slideIndex: 0, shapeIds: [getShapeId(target)] });
+      expect(command.canRun({ doc })).toBe(expected);
+    }
+    setShapeLocked(video, true);
+    doc.select({ kind: 'shape', slideIndex: 0, shapeIds: [getShapeId(video)] });
+    expect(command.canRun({ doc })).toBe(false);
   });
 
   it('refuses shape commands when nothing is selected', () => {
