@@ -13,6 +13,7 @@ import {
   getParagraphLevel,
   getShapeRunHyperlink,
 } from '@office-kit/pptx';
+import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
 for (const locale of ['en', 'ja'])
@@ -30,7 +31,7 @@ for (const locale of ['en', 'ja'])
         const file = join(dir, 'deck.tsx');
         await writeFile(
           file,
-          `import {readFileSync} from 'node:fs'; import {getSlideShapes,setShapeRunHyperlink} from '@office-kit/pptx'; import {Presentation,Slide,Fill,Text,Raw} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}} format={{bold:true}}>Outline title</Fill><Fill target={{placeholder:{idx:1}}} format={{italic:true}}>{"First point\\nSecond point"}</Fill><Text x={1} y={5} width={5} height={1}>Ordinary text box</Text><Raw scope="slide" apply={({slide}) => setShapeRunHyperlink(getSlideShapes(slide)[0],0,0,"https://example.com/outline")} /></Slide></Presentation>;`,
+          `import {readFileSync} from 'node:fs'; import {getSlideShapes,setShapeRunHyperlink,setParagraphBullet} from '@office-kit/pptx'; import {Presentation,Slide,Fill,Text,Raw} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}} format={{bold:true}}>Outline title</Fill><Fill target={{placeholder:{idx:1}}} format={{italic:true}}>{"First point\\nSecond point"}</Fill><Text x={1} y={5} width={5} height={1}>Ordinary text box</Text><Raw scope="slide" apply={({slide}) => {setShapeRunHyperlink(getSlideShapes(slide)[0],0,0,"https://example.com/outline");setParagraphBullet(getSlideShapes(slide)[1],0,"bullet");setParagraphBullet(getSlideShapes(slide)[1],1,"bullet");}} /></Slide></Presentation>;`,
         );
         preview = await startPreview(file);
         browser = await chromium.launch({ headless: true });
@@ -41,6 +42,7 @@ for (const locale of ['en', 'ja'])
           (language) => localStorage.setItem('ok-editor-locale', language),
           locale,
         );
+        await installRichTextSelection(page);
         await page.goto(preview.url);
         await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
         const editor = page.frameLocator('#editor-frame');
@@ -60,7 +62,7 @@ for (const locale of ['en', 'ja'])
           .click();
         const outline = editor.getByRole('navigation', { name: labels.outline, exact: true });
         const title = outline.getByRole('textbox', { name: `${labels.title} 1`, exact: true });
-        assert.equal(await title.inputValue(), 'Outline title');
+        assert.equal(await title.textContent(), 'Outline title');
         assert.equal(await outline.getByRole('textbox').count(), 2);
         const read = async () =>
           loadPresentation(
@@ -81,6 +83,21 @@ for (const locale of ['en', 'ja'])
           name: `${locale === 'en' ? 'Outline text' : 'アウトラインのテキスト'} 1`,
           exact: true,
         });
+        const paragraphLayout = () =>
+          body.evaluate((node) =>
+            [...node.querySelectorAll('[data-outline-paragraph]')].map((paragraph) => ({
+              top: paragraph.getBoundingClientRect().top,
+              padding: parseFloat(getComputedStyle(paragraph).paddingLeft),
+              marker: paragraph.dataset.outlineMarker,
+            })),
+          );
+        const initialLayout = await paragraphLayout();
+        assert.equal(initialLayout.length, 2);
+        assert.equal(initialLayout[1].top - initialLayout[0].top, 24);
+        assert.deepEqual(
+          initialLayout.map((paragraph) => paragraph.marker),
+          ['•', '•'],
+        );
         const moveParagraph = async (up) => {
           await body.click({ button: 'right', position: { x: 30, y: up ? 30 : 10 } });
           await change(() =>
@@ -94,9 +111,9 @@ for (const locale of ['en', 'ja'])
           );
         };
         await body.focus();
-        await body.evaluate((node) => node.setSelectionRange(15, 15));
+        await body.evaluate((node) => window.selectEditorText(node, 15, 15));
         await moveParagraph(true);
-        assert.equal(await body.inputValue(), 'Second point\nFirst point');
+        assert.equal(await body.textContent(), 'Second point\nFirst point');
         assert.equal(
           getShapeText(getSlideShapes(getSlides(await read())[0])[1]),
           'Second point\nFirst point',
@@ -107,17 +124,26 @@ for (const locale of ['en', 'ja'])
           true,
         );
         assert.deepEqual(
-          await body.evaluate((node) => [node.selectionStart, node.selectionEnd]),
+          await body.evaluate((node) =>
+            (() => {
+              const selected = document.getSelection().getRangeAt(0);
+              const before = document.createRange();
+              before.selectNodeContents(node);
+              before.setEnd(selected.startContainer, selected.startOffset);
+              const start = before.toString().length;
+              return [start, start + selected.toString().length];
+            })(),
+          ),
           [0, 12],
         );
         await moveParagraph(false);
-        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        assert.equal(await body.textContent(), 'First point\nSecond point');
         await change(() => body.press('Control+z'));
-        assert.equal(await body.inputValue(), 'Second point\nFirst point');
+        assert.equal(await body.textContent(), 'Second point\nFirst point');
         await change(() => body.press('Control+z'));
-        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        assert.equal(await body.textContent(), 'First point\nSecond point');
         await body.focus();
-        await body.evaluate((node) => node.setSelectionRange(0, 0));
+        await body.evaluate((node) => window.selectEditorText(node, 0, 0));
         await body.click({ button: 'right', position: { x: 30, y: 10 } });
         assert.equal(
           await editor
@@ -127,11 +153,14 @@ for (const locale of ['en', 'ja'])
         );
         await page.keyboard.press('Escape');
         await body.focus();
-        await body.evaluate((node) => node.setSelectionRange(15, 15));
+        await body.evaluate((node) => window.selectEditorText(node, 15, 15));
         await change(() => body.press('Tab'));
         let bodyShape = getSlideShapes(getSlides(await read())[0])[1];
         assert.equal(getParagraphLevel(bodyShape, 0), 0);
         assert.equal(getParagraphLevel(bodyShape, 1), 1);
+        const indentedLayout = await paragraphLayout();
+        assert.equal(indentedLayout[1].padding - indentedLayout[0].padding, 10);
+        assert.equal(indentedLayout[1].top - indentedLayout[0].top, 24);
         assert.equal(getShapeText(bodyShape), 'First point\nSecond point');
         assert.equal(getShapeParagraphElements(bodyShape, 1)[0].format.italic, true);
         assert.equal(
@@ -146,7 +175,7 @@ for (const locale of ['en', 'ja'])
         bodyShape = getSlideShapes(getSlides(await read())[0])[1];
         assert.equal(getParagraphLevel(bodyShape, 1), 0);
         await body.focus();
-        await body.evaluate((node) => node.setSelectionRange(0, 12));
+        await body.evaluate((node) => window.selectEditorText(node, 0, 12));
         await change(() => body.press('Tab'));
         bodyShape = getSlideShapes(getSlides(await read())[0])[1];
         assert.equal(getParagraphLevel(bodyShape, 0), 1);
@@ -157,30 +186,30 @@ for (const locale of ['en', 'ja'])
         );
         await change(() => body.press('Control+z'));
         await body.focus();
-        await body.evaluate((node) => node.setSelectionRange(12, 24));
+        await body.evaluate((node) => window.selectEditorText(node, 12, 24));
         await change(() => body.press('Shift+Tab'));
         const promotedTitle = outline.getByRole('textbox', {
           name: `${labels.title} 2`,
           exact: true,
         });
-        assert.equal(await promotedTitle.inputValue(), 'Second point');
+        assert.equal(await promotedTitle.textContent(), 'Second point');
         assert.equal(getShapeText(getSlideShapes(getSlides(await read())[0])[1]), 'First point');
         await change(() => promotedTitle.press('Control+z'));
-        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        assert.equal(await body.textContent(), 'First point\nSecond point');
         await change(() => body.press('Control+Shift+z'));
-        assert.equal(await promotedTitle.inputValue(), 'Second point');
+        assert.equal(await promotedTitle.textContent(), 'Second point');
         await change(() => promotedTitle.press('Tab'));
         assert.equal(getSlides(await read()).length, 1);
-        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        assert.equal(await body.textContent(), 'First point\nSecond point');
         assert.equal(
           await body.evaluate((node) => node === node.ownerDocument.activeElement),
           true,
         );
         await change(() => body.press('Control+z'));
-        assert.equal(await promotedTitle.inputValue(), 'Second point');
+        assert.equal(await promotedTitle.textContent(), 'Second point');
         await change(() => promotedTitle.press('Control+z'));
         await body.focus();
-        await body.evaluate((node) => node.setSelectionRange(0, 24));
+        await body.evaluate((node) => window.selectEditorText(node, 0, 24));
         await body.click({ button: 'right' });
         await change(() =>
           editor
@@ -191,18 +220,18 @@ for (const locale of ['en', 'ja'])
             .click(),
         );
         assert.equal(getSlides(await read()).length, 3);
-        assert.equal(await promotedTitle.inputValue(), 'First point');
+        assert.equal(await promotedTitle.textContent(), 'First point');
         assert.equal(
           await outline
             .getByRole('textbox', {
               name: `${labels.title} 3`,
               exact: true,
             })
-            .inputValue(),
+            .textContent(),
           'Second point',
         );
         await change(() => promotedTitle.press('Control+z'));
-        assert.equal(await body.inputValue(), 'First point\nSecond point');
+        assert.equal(await body.textContent(), 'First point\nSecond point');
         await change(async () => {
           await title.fill('Outline title edited');
           await title.press('Meta+1');
@@ -261,20 +290,29 @@ for (const locale of ['en', 'ja'])
           assert.ok(savedBody);
           assert.equal(getShapeParagraphElements(savedBody, 0)[0].format.italic, true);
           assert.deepEqual(
-            await second.evaluate((node) => [node.selectionStart, node.selectionEnd]),
+            await second.evaluate((node) =>
+              (() => {
+                const selected = document.getSelection().getRangeAt(0);
+                const before = document.createRange();
+                before.selectNodeContents(node);
+                before.setEnd(selected.startContainer, selected.startOffset);
+                const start = before.toString().length;
+                return [start, start + selected.toString().length];
+              })(),
+            ),
             [0, 12],
           );
         }
         await change(() => second.press('Control+z'));
-        assert.equal(await body.inputValue(), 'First point');
+        assert.equal(await body.textContent(), 'First point');
         await change(() => second.press('Control+z'));
-        assert.equal(await body.inputValue(), '');
+        assert.equal(await body.textContent(), '');
         const secondIcon = outline.locator('[data-outline-slide="1"] > button');
         const collapseLabel = locale === 'en' ? 'Collapse' : '折りたたむ';
         const collapseAllLabel = locale === 'en' ? 'Collapse All' : 'すべて折りたたむ';
         const expandLabel = locale === 'en' ? 'Expand' : '展開';
         const expandAllLabel = locale === 'en' ? 'Expand All' : 'すべて展開';
-        await secondIcon.click({ button: 'right' });
+        await second.click({ button: 'right' });
         const collapseMenu = editor.getByRole('menuitem', { name: collapseLabel, exact: true });
         await collapseMenu.focus();
         await collapseMenu.press('ArrowRight');
@@ -285,7 +323,7 @@ for (const locale of ['en', 'ja'])
         assert.equal(await outline.getByRole('textbox').count(), 2);
         await change(() => secondIcon.press('Control+z'));
         assert.equal(await outline.getByRole('textbox').count(), 4);
-        await secondIcon.click({ button: 'right' });
+        await second.click({ button: 'right' });
         await editor.getByRole('menuitem', { name: collapseLabel, exact: true }).click();
         await change(() =>
           editor
@@ -295,7 +333,9 @@ for (const locale of ['en', 'ja'])
         );
         assert.equal(await outline.getByRole('textbox').count(), 3);
         assert.equal(await slideIcon.getAttribute('aria-expanded'), 'true');
-        await secondIcon.click({ button: 'right' });
+        await outline
+          .getByRole('textbox', { name: `${labels.title} 2`, exact: true })
+          .click({ button: 'right' });
         await editor.getByRole('menuitem', { name: expandLabel, exact: true }).click();
         await change(() =>
           editor
@@ -310,7 +350,7 @@ for (const locale of ['en', 'ja'])
         assert.equal(
           await outline
             .getByRole('textbox', { name: `${labels.title} 2`, exact: true })
-            .inputValue(),
+            .textContent(),
           '',
         );
         await change(() =>
@@ -320,7 +360,7 @@ for (const locale of ['en', 'ja'])
         );
         assert.equal(getSlides(await read()).length, 1);
         await title.focus();
-        await title.evaluate((node) => node.setSelectionRange(8, 8));
+        await title.evaluate((node) => window.selectEditorText(node, 8, 8));
         await change(() => title.press('Enter'));
         pres = await read();
         assert.equal(getShapeText(getSlideShapes(getSlides(pres)[0])[0]), 'Outline ');
