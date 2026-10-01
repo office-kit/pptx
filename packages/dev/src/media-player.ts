@@ -31,6 +31,9 @@ export function createMediaPlayer(options: {
 }) {
   const mirror = options.onCommand !== undefined;
   const entries: {
+    clip: PreviewMedia;
+    release: () => void;
+    retain: (root: HTMLElement) => void;
     element: HTMLMediaElement;
     image: SVGImageElement;
     host: SVGForeignObjectElement;
@@ -82,6 +85,7 @@ export function createMediaPlayer(options: {
       overlay.hidden = true;
       options.overlayRoot.append(overlay);
     }
+    let released = false;
     const element = document.createElement(clip.kind);
     let latestTarget: MediaProgress | undefined;
     element.src = clip.src;
@@ -125,7 +129,8 @@ export function createMediaPlayer(options: {
       try {
         await element.play();
       } catch (error) {
-        if (disposed || (error instanceof DOMException && error.name === 'AbortError')) return;
+        if (disposed || released || (error instanceof DOMException && error.name === 'AbortError'))
+          return;
         status.textContent =
           error instanceof DOMException && error.name === 'NotAllowedError'
             ? playLabel
@@ -195,7 +200,7 @@ export function createMediaPlayer(options: {
       overlay?.addEventListener(name, stopNavigation);
     }
     element.addEventListener('error', () => {
-      if (disposed) return;
+      if (disposed || released) return;
       status.textContent = retryLabel;
       status.hidden = false;
     });
@@ -205,7 +210,7 @@ export function createMediaPlayer(options: {
       if (Math.abs(element.currentTime - targetTime) > 0.3) element.currentTime = targetTime;
       if (!latestTarget.paused && !latestTarget.ended) {
         void element.play().catch(() => {
-          if (disposed) return;
+          if (disposed || released) return;
           status.textContent = retryLabel;
           status.hidden = false;
         });
@@ -213,7 +218,7 @@ export function createMediaPlayer(options: {
     });
     for (const name of ['play', 'ended']) {
       element.addEventListener(name, () => {
-        if (disposed) return;
+        if (disposed || released) return;
         if (name === 'play') cancelStart();
         if (!mirror && name === 'ended' && clip.playback?.hideWhenStopped)
           host.style.visibility = 'hidden';
@@ -246,6 +251,27 @@ export function createMediaPlayer(options: {
     host.append(box);
     image.replaceWith(host);
     entries.push({
+      clip,
+      release: () => {
+        released = true;
+        cancelStart();
+        if (!mirror && overlay?.contains(document.activeElement)) options.overlayRoot.focus();
+        element.pause();
+        element.removeAttribute('src');
+        element.load();
+        host.replaceWith(image);
+        overlay?.remove();
+        element.remove();
+      },
+      retain: (root) => {
+        cancelStart();
+        if (element.parentNode === root) return;
+        root.append(element);
+        host.replaceWith(image);
+        // Moving a media element can pause it in a browser. Resume the same
+        // element, preserving its decoder and playback position.
+        void playLocally();
+      },
       element,
       image,
       host,
@@ -265,7 +291,7 @@ export function createMediaPlayer(options: {
     if (!mirror && clip.playback?.autoplay) {
       const deadline = performance.now() + (clip.playback.delayMs ?? 0);
       const startWhenDue = () => {
-        if (disposed) return;
+        if (disposed || released) return;
         const remaining = deadline - performance.now();
         // Browser timeouts use signed 32-bit milliseconds; longer OOXML
         // delays must be scheduled in chunks instead of overflowing to zero.
@@ -353,17 +379,32 @@ export function createMediaPlayer(options: {
         }
       }
     },
+    retainAcrossSlides(distance: number, root: HTMLElement): boolean {
+      for (let index = entries.length - 1; index >= 0; index--) {
+        const entry = entries[index]!;
+        const count = entry.clip.playback?.slideCount ?? 1;
+        if (
+          !mirror &&
+          entry.clip.kind === 'audio' &&
+          distance > 0 &&
+          distance < count &&
+          !entry.element.paused &&
+          !entry.element.ended
+        ) {
+          entry.retain(root);
+        } else {
+          entry.release();
+          entryByShape.delete(entry.shapeId);
+          entries.splice(index, 1);
+        }
+      }
+      return entries.length > 0;
+    },
     dispose() {
       disposed = true;
-      for (const { element, image, host, overlay, cancelStart } of entries) {
-        cancelStart();
-        if (!mirror && overlay?.contains(document.activeElement)) options.overlayRoot.focus();
-        element.pause();
-        element.removeAttribute('src');
-        element.load();
-        host.replaceWith(image);
-        overlay?.remove();
-      }
+      for (const entry of entries) entry.release();
+      entries.length = 0;
+      entryByShape.clear();
     },
   };
 }

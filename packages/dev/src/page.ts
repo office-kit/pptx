@@ -271,17 +271,37 @@ const animationKeyAt=i=>i+'\u0000'+(state.slides[i]??'')+'\u0000'+JSON.stringify
 // holding the slide being left — whose shapes carry ids of their own, from a
 // different slide's id space. Only the arriving one is this slide.
 const slideRoot=()=>canvas.querySelector('.transition-layer:not(.transition-old)')??canvas;
-let mediaPlayer,mediaPlayerKey,createMediaPlayer,mediaLoading=false;
+let mediaPlayer,mediaPlayerKey,mediaPlayerConfigKey,createMediaPlayer,mediaLoading=false,mediaGeneration=0;
+const backgroundMedia=[];
+const backgroundMediaRoot=document.createElement('div');
+backgroundMediaRoot.hidden=true;
+stage.append(backgroundMediaRoot);
 const mediaRetry=document.createElement('button');
 mediaRetry.hidden=true;
 byId('presentation-controls').append(mediaRetry);
 mediaRetry.onclick=()=>syncMediaPlayer();
+function disposeCurrentMediaPlayer(){
+  mediaPlayer?.dispose();mediaPlayer=undefined;mediaPlayerKey=undefined;mediaPlayerConfigKey=undefined;
+}
 function disposeMediaPlayer(){
-  mediaPlayer?.dispose();mediaPlayer=undefined;mediaPlayerKey=undefined;
+  disposeCurrentMediaPlayer();
+  for(const retained of backgroundMedia)retained.player.dispose();
+  backgroundMedia.length=0;
+}
+function leaveMediaSlide(previousIndex,previousCursor){
+  if(!presenting){disposeMediaPlayer();return;}
+  if(mediaPlayer){backgroundMedia.push({player:mediaPlayer,index:previousIndex,cursor:previousCursor});mediaPlayer=undefined;mediaPlayerKey=undefined;mediaPlayerConfigKey=undefined;}
+  for(let i=backgroundMedia.length-1;i>=0;i--){
+    const retained=backgroundMedia[i];
+    if(index===retained.index||!retained.player.retainAcrossSlides(showCursor-retained.cursor,backgroundMediaRoot)){
+      retained.player.dispose();backgroundMedia.splice(i,1);
+    }
+  }
 }
 function syncMediaPlayer(){
   const clips=(state.media??[]).filter(clip=>clip.slideIndex===index&&clip.kind!=='online');
-  if(!presenting||!clips.length){disposeMediaPlayer();mediaRetry.hidden=true;return;}
+  if(!presenting){disposeMediaPlayer();mediaRetry.hidden=true;return;}
+  if(!clips.length){disposeCurrentMediaPlayer();mediaRetry.hidden=true;return;}
   if(!createMediaPlayer){
     if(mediaLoading)return;
     mediaLoading=true;mediaRetry.hidden=true;
@@ -295,10 +315,11 @@ function syncMediaPlayer(){
     return;
   }
   const key=JSON.stringify([index,clips]);
-  if(mediaPlayerKey===key)return;
-  disposeMediaPlayer();
+  if(mediaPlayerConfigKey===key)return;
+  disposeCurrentMediaPlayer();
   mediaPlayer=createMediaPlayer({root:slideRoot(),overlayRoot:stage,clips,locale:previewLocale});
-  mediaPlayerKey=key;
+  mediaPlayerConfigKey=key;
+  mediaPlayerKey=String(++mediaGeneration)+':'+key;
   updatePresenter();
 }
 function updateAnimationNotice(){
@@ -395,7 +416,8 @@ function selectSlide(next,focusThumbnail=false,reveal=true,position='start',show
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
-  if(svg!==displayedSvg||previousIndex!==index||previousCursor!==showCursor||position!=='keep')disposeMediaPlayer();
+  if(previousIndex!==index||previousCursor!==showCursor)leaveMediaSlide(previousIndex,previousCursor);
+  else if(svg!==displayedSvg||position!=='keep')disposeMediaPlayer();
   if(svg!==displayedSvg||previousIndex!==index){
     renderSlide(svg,presenting&&previousIndex!==index?state.transitions?.[index]:null);
   }
@@ -418,6 +440,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true,position='start',show
 function update(updated){
   const focusedThumbnail=thumbnails.contains(document.activeElement);
   const previous=state;
+  if(JSON.stringify(previous.media)!==JSON.stringify(updated.media))disposeMediaPlayer();
   state=updated;
   rebuildShowOrder();
   connectionLost=false;updatePreviewStatus();

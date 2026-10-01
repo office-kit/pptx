@@ -1,3 +1,11 @@
+## 2026-10-02: スライドをまたぐ音声再生
+
+- 再生中の音声を `slideCount` の範囲内で保持し、範囲外・元スライドへの戻り・ショー終了・メディア更新時に破棄する。同じshapeIdを持つ次スライドのメディアとは分離し、発表者ビューの古いコマンドを世代キーで拒否。
+- 旧実装でスライド移動時の停止を再現（`/tmp/pptx-across-before.log`）。音声、遅延、インライン動画、全画面動画、発表者ビューのブラウザー4件成功（`/tmp/pptx-across-browser.log`）。追加した古いコマンドの回帰も成功（`/tmp/pptx-across-final-browser.log`）。
+- format/lint/root・dev typecheck/test/build成功。3158 passed / 109 skipped。依存順dev buildも成功。ヘッダー日英900/1500pxの再検証も成功。
+- 未完了: 再生リボンへの複数スライド設定、動画の複数スライド挙動、途中へのジャンプ・戻り・custom showの実機比較、背景音声の発表者ビュー操作。現在の保持範囲はshowCursorと起点の差で判定。完全一致とはしない。
+- 元プレビュー4173は変更せず、確認コピー4174をChromeで開いた。保存競合の通知は保持。既存のPreview fidelity差分とPowerPoint実機比較も残る。
+
 ## 2026-10-02: メディアの再生スライド数
 
 - `MediaPlayback.slideCount` で `cMediaNode@numSld` を読み書き。省略時はOOXML既定の1枚。unsignedIntの0〜0xffffffffを受け付け、範囲外は音量など他の同時変更も適用する前に拒否。保存再読込・既定値への復元・schema境界値を検証。
