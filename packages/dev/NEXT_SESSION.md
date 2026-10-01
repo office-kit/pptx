@@ -1,3 +1,11 @@
+## 2026-10-02: 動画書式リボンの専用化
+
+- 検証: 専用リボンの実再生、サイズ保存・縦横比維持・Undo、メニューのキーボード操作のブラウザーテスト成功。既存のヘッダー、フォント、文字編集背景、表紙画像の4件も成功。site120件、format/lint/typecheck、Svelteチェック、editor build成功。
+
+- 実機で Video Format の順序を確認: Preview、Adjust (Corrections / Color / Poster Frame / Reset)、Video Styles、Alt Text、Arrange、Size、Format Pane。従来実装はタブ名だけ変更して図形用コマンドを表示していた。
+- 専用リボンにPlay/Pause、Poster Frame、Video Border / Effects、Alt Text、Arrange、直接Height / Width、Format Paneを実装。完全一致にはギャラリー、Corrections / Color / Crop / 独立Reset、配置操作の個別ボタンなどが残る。縦横比固定は既存SizePositionSectionと同様ローカル状態で、OOXML noChangeAspectとの同期は未実装。
+- トリム後Poster Frame Resetの実験資料は `/tmp/pptx-poster-audit/trim-{before,after}-reset.pptx`。開始100msのOOXML保存を確認したが、Reset後のPNGが汎用再生アイコンで、動画の先頭/トリム開始どちらのフレームかを判定できなかった。この実験をReset仕様の根拠には使わない。比較元 `trim-reset.pptx` はUndoを2回行い保存し、Undo無効・trim要素消滅を確認済み。
+
 ## 2026-10-02: 表紙画像のリセットと省スペース表示の再確認
 
 - Mac PowerPoint の Poster Frame > Reset は先頭フレームで表紙PNGを置換し、動画本体・再生設定を保持する。`/private/tmp/pptx-poster-audit/{before-reset,after-reset}.pptx` が比較資料。Undoして保存済み。

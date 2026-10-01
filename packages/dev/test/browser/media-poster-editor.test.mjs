@@ -230,7 +230,7 @@ test(
       const currentFrameItem = panel.getByRole('menuitem', { name: 'Current Frame', exact: true });
       assert.equal(await currentFrameItem.isDisabled(), true);
       await editor.locator('body').press('Escape');
-      await editor.getByRole('button', { name: 'Play', exact: true }).click();
+      await panel.getByRole('button', { name: 'Play', exact: true }).click();
       await video.evaluate(
         (element) =>
           new Promise((resolve, reject) => {
@@ -243,7 +243,7 @@ test(
             check();
           }),
       );
-      await editor.getByRole('button', { name: 'Pause', exact: true }).click();
+      await panel.getByRole('button', { name: 'Pause', exact: true }).click();
       await video.evaluate((element) => {
         if (!element.paused) throw new Error('video did not pause');
       });
