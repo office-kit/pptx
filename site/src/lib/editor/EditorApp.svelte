@@ -41,6 +41,7 @@
   const editor = untrack(() => initialEditor);
   setEditor(editor);
   const doc = editor.doc;
+  const navigationWidth = $derived(editor.viewMode === 'outline' ? editor.outlineWidth ?? 360 : editor.thumbnailWidth);
 
   const NUDGE = 18288; // 0.02in in EMU
   const NUDGE_BIG = 182880; // 0.2in
@@ -166,13 +167,13 @@
 
 <svelte:window on:storage={(event) => { if (event.key === null || event.key === 'office-guide-settings') editor.view.reload(); }} on:keydown={onKeydown} on:copy={onCellClipboard} on:cut={onCellClipboard} on:paste={onCellClipboard} />
 
-<div class="ok-editor ok-shell" style:--ok-nav-w={editor.thumbnailWidth === null ? undefined : `${editor.thumbnailWidth}px`}>
+<div class="ok-editor ok-shell" style:--ok-nav-w={navigationWidth === null ? undefined : `${navigationWidth}px`}>
   <TopBar {onsave} />
   {#if status}<div class="host-status">{@render status()}</div>{/if}
   <div>{#if editor.ribbonVisible}<Ribbon />{/if}</div>
-  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode === 'normal' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
-    {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane />{/if}
-    {#if editor.viewMode === 'normal'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
+  <div class="ok-body" class:sorter={editor.viewMode === 'sorter'} class:thumbnails-hidden={editor.viewMode !== 'sorter' && !editor.thumbnailsVisible} class:panel-hidden={!editor.selectionPaneVisible && !editor.propertiesPaneVisible}>
+    {#if editor.viewMode === 'sorter'}<SlideNavigator mode="sorter" />{:else if editor.thumbnailsVisible}<ThumbnailPane outline={editor.viewMode === 'outline'} />{/if}
+    {#if editor.viewMode !== 'sorter'}<div class="slide-workspace"><SlideCanvas />{#if editor.notesVisible && doc.currentSlide}{#key doc.currentSlide}<NotesPane />{/key}{/if}</div>{#if editor.selectionPaneVisible}{#key doc.currentSlide}<SelectionPane />{/key}{:else}<PropertiesPanel />{/if}{/if}
   </div>
   <StatusBar />
 

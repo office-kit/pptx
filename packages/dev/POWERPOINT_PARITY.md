@@ -584,3 +584,24 @@ remain unverified. Ruler visibility was restored off with Undo disabled. Outline
 View was inspected and restored to Normal 120%; ordinary text boxes did not appear
 in its outline. Mixed tab marker display, live text reflow during dragging,
 rotated/vertical text and complete view/menu parity remain outstanding.
+
+## Outline editing (2026-10-01)
+
+Native Mac Outline View shows title and body placeholders, excluding ordinary
+text boxes. Its status-bar Normal button remains selected. Enter at the end of a
+title inserts a slide using the same layout; Enter in the middle moves the suffix
+to the new slide's title. These operations were compared using
+`/private/tmp/pptx-outline-audit/reference.pptx`, undone, and the view restored to
+Normal 120% with Undo disabled.
+
+The editor now offers Outline View in the View ribbon and menu, with a separately
+resizable navigation pane. Placeholder text edits preserve existing run formats,
+save through the existing document history, and commit on leaving the view. Enter
+in a title splits it into a new slide. Browser tests cover both languages, empty
+new titles, formatted title splitting, Undo, switching views with pending input,
+and saved reloads. A round-trip test checks empty placeholders and exclusion of
+ordinary text boxes.
+
+This is not complete outline parity. Collapse/expand, promote/demote, cross-slide
+text selection and drag reordering, rich formatting display, body outline levels,
+and the full native outline context menu remain outstanding.

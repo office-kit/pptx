@@ -114,14 +114,15 @@ export class EditorController {
   rotationFocusRequested = $state(false);
   formatPaneTab = $state<'paint' | 'effects' | 'size'>('paint');
   thumbnailWidth = $state<number | null>(null);
-  viewMode = $state<'normal' | 'sorter'>('normal');
+  outlineWidth = $state<number | null>(null);
+  viewMode = $state<'normal' | 'outline' | 'sorter'>('normal');
   sorterZoom = $state(1);
   notesVisible = $state(false);
   notesHeight = $state(120);
   notesFocusRequest = $state(0);
 
   showNotes(): void {
-    this.setViewMode('normal');
+    if (this.viewMode === 'sorter') this.setViewMode('normal');
     this.notesVisible = true;
     this.notesFocusRequest++;
   }
@@ -146,8 +147,9 @@ export class EditorController {
     this.rotationFocusRequested = true;
   }
 
-  setViewMode(mode: 'normal' | 'sorter'): void {
+  setViewMode(mode: 'normal' | 'outline' | 'sorter'): void {
     this.contextMenu = null;
+    if (mode === 'outline') this.thumbnailsVisible = true;
     this.viewMode = mode;
   }
 

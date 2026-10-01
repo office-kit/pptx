@@ -76,7 +76,7 @@
         { label: 'Select all', accel: '⌘A', run: () => editor.selectAllShapes() },
       );
     }
-    if (!hasShapes && editor.viewMode === 'normal') {
+    if (!hasShapes && editor.viewMode !== 'sorter') {
       list.push(
         { label: 'Add Vertical Guide', run: () => editor.addDrawingGuide('x') },
         { label: 'Add Horizontal Guide', run: () => editor.addDrawingGuide('y') },
