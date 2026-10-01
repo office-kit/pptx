@@ -102,6 +102,8 @@
     <path d="M12 3l1.8 4.6L18.5 9l-4.7 1.4L12 15l-1.8-4.6L5.5 9l4.7-1.4z" /><circle cx="18" cy="17" r="1.4" /><circle cx="6" cy="16" r="1" />
   {:else if name === 'crop'}
     <path d="M6 2v14a2 2 0 0 0 2 2h14" /><path d="M2 6h14a2 2 0 0 1 2 2v14" />
+  {:else if name === 'reset'}
+    <path d="M4 8a8 8 0 1 1 0 9" /><polyline points="4,3 4,8 9,8" /><rect x="9" y="10" width="8" height="6" rx="1" />
   {:else if name === 'rotate'}
     <path d="M20 11a8 8 0 1 0-2.3 6.3" /><polyline points="20,5 20,11 14,11" />
   {:else if name === 'flip'}

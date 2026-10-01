@@ -1,6 +1,6 @@
 {
   "generatedFrom": "src/api/index.ts",
-  "count": 193,
+  "count": 194,
   "capabilities": [
     {
       "id": "addBlankSlide",
@@ -1082,6 +1082,16 @@
       "takesOperand": true,
       "category": "image",
       "file": "api/fn/shape-image-effects.ts",
+      "returns": "void",
+      "canvas": true,
+      "params": []
+    },
+    {
+      "id": "resetShapeVideoFormatting",
+      "operand": "shape",
+      "takesOperand": true,
+      "category": "shape",
+      "file": "api/fn/shape-video.ts",
       "returns": "void",
       "canvas": true,
       "params": []

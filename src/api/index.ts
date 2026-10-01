@@ -560,6 +560,7 @@ export {
   setShapeImageOpacity,
   setShapeImageRecolor,
   resetShapeImageColorEffects,
+  resetShapeVideoFormatting,
   setShapeClickAction,
   setShapeDescription,
   setShapeNoFill,

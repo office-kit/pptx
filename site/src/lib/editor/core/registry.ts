@@ -156,6 +156,7 @@ const geometryCommands = new Set([
   'setShapePreset',
   'setShapeAdjustValues',
   'setShapeCustomGeometry',
+  'resetShapeVideoFormatting',
 ]);
 
 class ManifestCommand implements Command {
@@ -177,7 +178,13 @@ class ManifestCommand implements Command {
       return false;
     if (!cap.takesOperand) return true; // factory/package ops always available
     if (!availableOperands(ctx.doc.selection).has(cap.operand)) return false;
-    return resolveOperand(ctx.doc, cap) != null || cap.operand === 'presentation';
+    const operand = resolveOperand(ctx.doc, cap);
+    if (cap.id === 'resetShapeVideoFormatting') {
+      if (operand == null) return false;
+      const media = pptx.getShapeMedia(operand as SlideShapeData);
+      return media?.kind === 'video';
+    }
+    return operand != null || cap.operand === 'presentation';
   }
 
   run(ctx: CommandContext, args: Record<string, unknown>): unknown {

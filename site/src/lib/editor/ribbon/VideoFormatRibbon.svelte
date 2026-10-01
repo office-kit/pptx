@@ -1,6 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte';
-  import { isShapeAspectRatioLocked, setShapeAspectRatioLocked, cm, emu, getShapeBoundsResolved, getShapeId, getShapeMedia, setShapeBounds } from '@office-kit/pptx';
+  import { resetShapeVideoFormatting, isShapeAspectRatioLocked, setShapeAspectRatioLocked, cm, emu, getShapeBoundsResolved, getShapeId, getShapeMedia, setShapeBounds } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { getMediaPreview } from '../core/media-preview.svelte.ts';
   import { t } from '../i18n/i18n.svelte.ts';
@@ -50,6 +50,12 @@
     return { w: common('w'), h: common('h') };
   });
   const canLockSize = $derived(geometry.length > 0 && geometry.every(item => item.bounds.w > 0 && item.bounds.h > 0));
+
+  function resetFormatting(): void {
+    const shape = selected;
+    if (!shape || editor.selectionLocked()) return;
+    doc.transact(t('Reset'), () => resetShapeVideoFormatting(shape));
+  }
 
   function togglePlayback(): void {
     const shape = selected;
@@ -120,7 +126,12 @@
   </div>
 
   <div class="group">
-    <div class="items"><VideoCorrectionsMenu /><VideoRecolorMenu /><PosterFrameMenu /></div>
+    <div class="items">
+      <VideoCorrectionsMenu /><VideoRecolorMenu /><PosterFrameMenu />
+      <button class="cmd" type="button" disabled={editor.selectionLocked()} aria-label={t('Reset')} onclick={resetFormatting}>
+        <Icon name="reset" /><span>{t('Reset')}</span>
+      </button>
+    </div>
     <span class="title">{t('Adjust')}</span>
   </div>
 
