@@ -157,7 +157,9 @@ describe('layoutTextSvg', () => {
   });
   it('splits highlights across wrapped lines and leaves plain text without backgrounds', () => {
     const svg = layoutTextSvg(
-      body([para([piece('ABCD', { highlightHex: '#00ff00' })])], { boxWpx: 20 }),
+      body([para([piece('ABCD', { highlightHex: '#00ff00' })], { latinLineBreak: true })], {
+        boxWpx: 20,
+      }),
       stubMeasurer,
     );
     expect((svg.match(/fill="#00ff00"/g) ?? []).length).toBe(2);
@@ -203,6 +205,33 @@ describe('layoutTextSvg', () => {
       stubMeasurer,
     );
     expect(countText(svg)).toBe(1);
+  });
+
+  it('honors latinLnBrk=false for an overlong Latin word', () => {
+    const word = piece('ABCDE');
+    const kept = layoutTextSvg(body([para([word])], { boxWpx: 20 }), stubMeasurer);
+    const split = layoutTextSvg(
+      body([para([word], { latinLineBreak: true })], { boxWpx: 20 }),
+      stubMeasurer,
+    );
+    // Office treats an omitted latinLnBrk as false. Explicit true enables the
+    // emergency character-level split for an overlong Latin word.
+    expect(countText(kept)).toBe(1);
+    expect(countText(split)).toBe(3);
+  });
+
+  it('splits mixed-script words only when latinLnBrk is explicitly enabled', () => {
+    const word = piece('AB日CD');
+    const defaultRules = layoutTextSvg(body([para([word])], { boxWpx: 15 }), stubMeasurer);
+    const latinEnabled = layoutTextSvg(
+      body([para([word], { latinLineBreak: true })], { boxWpx: 15 }),
+      stubMeasurer,
+    );
+    // Existing East Asian tokenization remains active. The adjacent Latin
+    // runs stay intact by default, and become emergency-breakable only with
+    // the explicit Latin rule.
+    expect(countText(defaultRules)).toBe(3);
+    expect(countText(latinEnabled)).toBe(5);
   });
 
   it('emits run styling as tspan attributes', () => {

@@ -1,5 +1,14 @@
 # 作業継続メモ（2026-10-01）
 
+## 2026-10-01: ノートの書式保持と Latin 単語の改行
+
+- ノート欄の入力を範囲置換として記録し、編集していない run 書式・フィールドを保持。`setSlideNotes` に optional `range` / `preserveFormatting` を追加し、既定の全置換動作は維持。
+- 正しい OOXML のフィクスチャで、旧 editor が italic run を消す失敗を再現。隔離ビルドでは離れた2か所の編集・保存・Undo と既存ノート欄操作が成功（`/tmp/pptx-notes-browser-red.log`、`/tmp/pptx-notes-browser-green.log`、`/tmp/pptx-notes-browser.log`）。ノートのリッチテキスト表示・書式ツールバー全体の対応ではない。
+- SVG 文字配置へ `latinLnBrk` を伝播。Microsoft MS-OI29500 §2.1.1406 の Office 偏差に従い、省略時 false、明示 true の場合に長い Latin 単語を途中で分割。`eaLnBrk` は禁則処理を指し、CJK 全体の分割禁止という近似実装は採用しない。hangingPunct 対応も未実装。
+- root 型検査、全ユニット3087件、Svelte0 errors/warnings、siteテスト、lint、対象ファイルのformat、隔離 core/preview/editor build 成功。共有distは旧ビルドで走る全ブラウザ検証のため上書きしていない。
+- アウトライン範囲選択は引き続き作業中。forward copy/cut/Undo に加え、通常入力・paste・backward のブラウザ検証を要求している。完成済みとして扱わない。
+- PowerPoint の最新接続試行も画面取得0×0で失敗。今回の実機変更・復元待ちはない。ユーザーのプレビュー資料とChromeタブは変更していない。
+
 ## 2026-10-01: フォントのキー操作・ノート高さ・白黒画像
 
 - フォント検索欄から ArrowUp で末尾候補、ArrowDown で先頭候補へ移動するよう修正。ノート欄の最大高さと splitter の値を実際の表示に揃え、画面縮小にも追従。

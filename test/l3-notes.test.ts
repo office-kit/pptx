@@ -92,3 +92,52 @@ it('reads soft line breaks and field results in the notes body', async () => {
   );
   expect(getSlideNotes(slide)).toBe('Body text\n2');
 });
+
+it('preserves untouched note runs and fields when replacing a text range', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const slide = getSlides(pres)[0]!;
+  setSlideNotes(slide, 'First');
+  const part = _internalPackageOf(pres).getPart(partName('/ppt/notesSlides/notesSlide1.xml'))!;
+  const suffix =
+    '<a:r><a:rPr i="1"/><a:t> suffix</a:t></a:r><a:fld id="{1E094120-CA74-4B4D-9FF5-C21A65F10F82}" type="slidenum"><a:t>2</a:t></a:fld>';
+  // Replace the existing run properties rather than inserting a second
+  // `<a:rPr>` child. DrawingML permits one run-properties element per run;
+  // keeping the fixture valid makes this test exercise format inheritance.
+  part.data = new TextEncoder().encode(
+    new TextDecoder()
+      .decode(part.data)
+      .replace('<a:rPr lang="en-US"/>', '<a:rPr b="1"/>')
+      .replace('</a:r>', '</a:r>' + suffix),
+  );
+  setSlideNotes(slide, 'New', { range: { start: 0, end: 5 } });
+  const reloaded = await loadPresentation(await savePresentation(pres));
+  expect(getSlideNotes(getSlides(reloaded)[0]!)).toBe('New suffix2');
+  const xml = new TextDecoder().decode(
+    _internalPackageOf(reloaded).getPart(partName('/ppt/notesSlides/notesSlide1.xml'))!.data,
+  );
+  expect(xml).toContain(suffix);
+  expect(xml).toContain('<a:rPr b="1"/>');
+});
+
+it('preserves run formatting for a common-prefix replacement', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const slide = getSlides(pres)[0]!;
+  setSlideNotes(slide, 'First suffix');
+  const part = _internalPackageOf(pres).getPart(partName('/ppt/notesSlides/notesSlide1.xml'))!;
+  part.data = new TextEncoder().encode(
+    new TextDecoder().decode(part.data).replace('<a:rPr lang="en-US"/>', '<a:rPr b="1"/>'),
+  );
+  setSlideNotes(slide, 'New suffix', { preserveFormatting: true });
+  expect(getSlideNotes(slide)).toBe('New suffix');
+  const xml = new TextDecoder().decode(part.data);
+  expect(xml).toContain('<a:rPr b="1"/>');
+});
+
+it('rejects invalid note ranges before creating a notes part', async () => {
+  const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
+  const slide = getSlides(pres)[0]!;
+  expect(() => setSlideNotes(slide, 'New', { range: { start: 1, end: 1 } })).toThrow(RangeError);
+  expect(getSlideNotes(slide)).toBeNull();
+  setSlideNotes(slide, 'First', { range: { start: 0, end: 0 } });
+  expect(getSlideNotes(slide)).toBe('First');
+});

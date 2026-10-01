@@ -169,6 +169,8 @@ export interface BulletInput {
 }
 
 export interface ParaInput {
+  /** OOXML `latinLnBrk`; Office's omitted/default value is false. */
+  readonly latinLineBreak?: boolean | undefined;
   readonly tabStops?: readonly {
     positionPx: number;
     alignment: 'left' | 'center' | 'right' | 'decimal';
@@ -417,9 +419,20 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
             continue;
           }
           const isSpace = /^\s+$/.test(word);
-          for (const seg of isSpace ? [word] : splitEastAsianBreakables(word)) {
+          const segments = isSpace ? [word] : splitEastAsianBreakables(word);
+          for (const seg of segments) {
             const w = mWidth(seg, widthSpec);
-            if (input.wrap && !isSpace && w > avail - bulletLead && [...seg].length > 1) {
+            // East Asian runs use the existing kinsoku tokenization. Latin
+            // words may be split only when the OOXML flag is explicitly true;
+            // Office treats an omitted `latinLnBrk` as false.
+            const canBreak = EAST_ASIAN_CHAR.test(seg) || para.latinLineBreak === true;
+            if (
+              input.wrap &&
+              canBreak &&
+              !isSpace &&
+              w > avail - bulletLead &&
+              [...seg].length > 1
+            ) {
               for (const ch of seg) {
                 tokens.push({
                   text: ch,

@@ -2389,6 +2389,7 @@ type RunData = {
   hrefTip?: string;
 };
 interface ParaData {
+  readonly latinLineBreak?: boolean | undefined;
   readonly tabStops?: ReturnType<typeof getParagraphPropertiesEffective>['tabStops'];
   readonly defaultTabSizeEmu?: number | undefined;
   readonly align: string;
@@ -2589,6 +2590,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
           : null;
 
     return {
+      latinLineBreak: para.latinLineBreak,
       align: alignOf(para.align),
       tabStops: (para.tabStops ?? []).map((stop) => ({
         positionPx: (stop.positionEmu / EMU_PER_PX) * scale,
@@ -2962,6 +2964,7 @@ export const resolveTextBodyModel = (
       });
     }
     paraData.push({
+      latinLineBreak: effective.latinLineBreak,
       tabStops: effective.tabStops,
       defaultTabSizeEmu: effective.defaultTabSizeEmu,
       align,
@@ -6043,6 +6046,7 @@ const cellParaData = (
       });
     }
     return {
+      latinLineBreak: properties.latinLineBreak,
       tabStops: properties.tabStops,
       defaultTabSizeEmu: properties.defaultTabSizeEmu,
       align: properties.align ?? 'left',
