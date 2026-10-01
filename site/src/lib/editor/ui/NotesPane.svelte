@@ -2,6 +2,8 @@
   import { onDestroy, onMount, untrack } from 'svelte';
   import { getSlideNotes, getSlides, setSlideNotes } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
+  import { textEditDiff } from '../core/text-edit-diff.ts';
+  import type { TextEdit } from '../core/text-edit-preview.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
   const editor = getEditor();
@@ -10,6 +12,8 @@
   const presentation = untrack(() => doc.pres);
   let value = $state(getSlideNotes(slide) ?? '');
   let pending = false;
+  let changes: TextEdit[] = [];
+  let range = { start: 0, end: 0 };
   let composing = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let input: HTMLTextAreaElement;
@@ -34,15 +38,23 @@
     clearTimeout(timer);
     if (!pending) return;
     pending = false;
+    const edits = changes;
+    changes = [];
     // An external replacement or deleted slide must never receive a stale draft.
     if (doc.pres !== presentation || !getSlides(presentation).includes(slide)) return;
     if (value !== (getSlideNotes(slide) ?? '')) {
-      try { doc.transact(t('Speaker notes'), () => setSlideNotes(slide, value)); }
+      try { doc.transact(t('Speaker notes'), () => {
+        for (const edit of edits) setSlideNotes(slide, edit.text, { range: { start: edit.start, end: edit.end } });
+      }); }
       catch (error) { editor.toast('error', String(error)); }
     }
   }
   function changed() {
-    pending = true;
+    const change = textEditDiff(value, input.value, range, input.selectionStart);
+    if (change) changes.push(change);
+    value = input.value;
+    range = { start: input.selectionStart, end: input.selectionEnd };
+    pending = changes.length > 0;
     clearTimeout(timer);
     if (!composing) timer = setTimeout(commit, 600);
   }
@@ -85,7 +97,7 @@
   <!-- A focusable separator implements the ARIA window-splitter pattern. -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex, a11y_no_noninteractive_element_interactions -->
   <div class="resize" role="separator" tabindex="0" aria-label={t('Notes pane height')} aria-orientation="horizontal" aria-valuemin={60} aria-valuemax={maxHeight} aria-valuenow={editor.notesHeight} onpointerdown={resizeStart} onpointermove={resizeMove} onpointerup={() => drag = null} onpointercancel={() => drag = null} onlostpointercapture={() => drag = null} onkeydown={resizeKeys}></div>
-  <textarea bind:this={input} bind:value aria-label={t('Notes content')} placeholder={t('Click to add notes')} oninput={changed} onblur={commit} onkeydown={keys} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
+  <textarea bind:this={input} {value} aria-label={t('Notes content')} placeholder={t('Click to add notes')} onbeforeinput={() => range = { start: input.selectionStart, end: input.selectionEnd }} oninput={changed} onblur={commit} onkeydown={keys} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
 </section>
 
 <style>

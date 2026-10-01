@@ -40,6 +40,8 @@ import {
 } from './embedded.ts';
 import type { ChartKind } from '../../internal/chartml/index.ts';
 
+import { editTextBody, validateTextRange } from '../../internal/drawingml/text-body-edit.ts';
+
 // ---------------------------------------------------------------------------
 // Speaker notes.
 
@@ -611,7 +613,17 @@ export const appendSlideNotes = (slide: SlideData, text: string): void => {
   setSlideNotes(slide, value);
 };
 
-export const setSlideNotes = (slide: SlideData, value: string): void => {
+/**
+ * Replaces speaker notes. With `range`, replaces that UTF-16 selection while
+ * retaining untouched run/paragraph XML and inheriting the insertion format.
+ * `preserveFormatting` infers one changed range from the common prefix/suffix;
+ * apply disjoint edits separately to retain the formatting between them.
+ */
+export const setSlideNotes = (
+  slide: SlideData,
+  value: string,
+  options: { preserveFormatting?: boolean; range?: { start: number; end: number } } = {},
+): void => {
   const pkg = slide[INTERNAL_PACKAGE];
   const notesPartName = findNotesPartName(slide);
   if (notesPartName !== null) {
@@ -633,12 +645,15 @@ export const setSlideNotes = (slide: SlideData, value: string): void => {
       if (!ph || getAttrValue(ph, qname('', 'type', '')) !== 'body') continue;
       const txBody = firstChildElement(child, qname('p', 'txBody', NS.pml));
       if (!txBody) continue;
-      setTextBody(txBody, value);
+      if (options.preserveFormatting || options.range) editTextBody(txBody, value, options.range);
+      else setTextBody(txBody, value);
       part.data = encode(serializeXml(doc));
       return;
     }
     throw new Error('notesSlide has no body placeholder to fill');
   }
+
+  if (options.range) validateTextRange('', options.range, 'setSlideNotes');
 
   // Create a new notesSlide part.
   const notesMasterPart = pkg.parts.find((p) => p.contentType.endsWith('notesMaster+xml'));

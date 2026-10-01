@@ -22,6 +22,7 @@ import {
   setShapeTextAnchor,
   setShapeTextColumns,
   setShapeTextDirection,
+  setParagraphTypography,
 } from '../src/api/index.ts';
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg, shapeTextAnchorOffset } from '../packages/preview/src/index.ts';
@@ -44,6 +45,25 @@ const textXs = (svg: string): number[] =>
   attrsOf(svg, 'text')
     .filter((a) => a['text-anchor'] !== undefined)
     .map((a) => Number(a.x));
+
+it('passes explicit latinLnBrk through the resolved SVG paragraph model', async () => {
+  const { pres, slide } = await blankSlide();
+  const box = addSlideTextBox(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(0.35),
+    h: inches(2),
+    text: 'ABCDE',
+  });
+  // MS-OI29500 §2.1.1406 specifies the Office default for latinLnBrk as
+  // false: https://learn.microsoft.com/en-us/openspecs/office_standards/ms-oi29500/9b34280e-538e-4811-8af9-761d34f88f20
+  setParagraphTypography(box, 0, { latinLineBreak: false });
+  const kept = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+  setParagraphTypography(box, 0, { latinLineBreak: true });
+  const split = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+  expect(countTags(kept, 'text')).toBe(1);
+  expect(countTags(split, 'text')).toBeGreaterThan(countTags(kept, 'text'));
+});
 
 describe('renderSlideToSvg — vertical text (svg mode)', () => {
   it('vert: emitted text is wrapped in a clockwise rotate() transform', async () => {
