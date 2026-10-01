@@ -115,6 +115,13 @@ const handOverrides: Record<string, CapabilityOverride> = {
             label: 'Start with the slide',
           },
           {
+            name: 'delayMs',
+            type: 'number',
+            kind: 'number',
+            optional: true,
+            label: 'Automatic start delay (ms)',
+          },
+          {
             name: 'loop',
             type: 'boolean',
             kind: 'boolean',

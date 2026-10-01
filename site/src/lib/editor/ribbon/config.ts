@@ -39,7 +39,7 @@ export interface RibbonTab {
   readonly id: string;
   readonly title: string;
   /** When set, the tab only shows for this selection kind (contextual tab). */
-  readonly contextual?: 'shape' | 'cell' | 'image' | 'table';
+  readonly contextual?: 'shape' | 'cell' | 'image' | 'table' | 'media';
   readonly groups: readonly RibbonGroup[];
 }
 
@@ -301,6 +301,7 @@ export const RIBBON: readonly RibbonTab[] = [
       },
     ],
   },
+  { id: 'playback', title: 'Playback', contextual: 'media', groups: [] },
 ];
 
 // Guard: every ribbon command id must be a real capability.
