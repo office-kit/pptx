@@ -796,7 +796,7 @@ test(
       await fontPanel.getByLabel('Font', { exact: true }).press('Tab');
       await fontPanel.getByLabel('Font size', { exact: true }).fill('18.5');
       await fontPanel.getByLabel('Font size', { exact: true }).press('Tab');
-      await fontPanel.getByLabel('Text color', { exact: true }).fill('#ffffff');
+      await fontPanel.getByLabel('Text color: More Colors...', { exact: true }).fill('#ffffff');
       await fontPanel.getByRole('button', { name: 'Underline', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       cells = getTableCells(await readTable());
@@ -816,7 +816,7 @@ test(
       await editor.locator('.hit').first().click();
       assert.equal(await fontPanel.getByLabel('Font size', { exact: true }).inputValue(), '18.5');
       assert.equal(
-        await fontPanel.getByLabel('Text color', { exact: true }).inputValue(),
+        await fontPanel.getByLabel('Text color: More Colors...', { exact: true }).inputValue(),
         '#ffffff',
       );
 
