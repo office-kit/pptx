@@ -186,3 +186,8 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - 実機アウトラインのCommand-Shift-Nで、Title and Contentの後に同じレイアウトの空スライドが入ることを保存XMLで確認。追加をUndoし、Normal 120%、1枚、Undo disabledに戻して保存済み。
 
 - 階層表示・文字メニューの通常ビルド検証: アウトライン/クリップボード13件成功、format/lint/root型検査、DSL型検査、core/editorビルド成功。
+
+## 最新追記: 本文メニューのスライド操作
+
+- アウトライン本文から追加・複製・削除を実装。追加は選択スライドのレイアウトを継承し、複製は本文以外の追加オブジェクトも保持。各操作と Undo、保存結果を英日2件で確認。
+- Title and Content は実機と一致。Title Slide の後の特殊なレイアウト選択は未検証。
