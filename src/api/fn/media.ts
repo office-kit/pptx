@@ -31,6 +31,7 @@ import {
   SHAPE_ELEMENT,
   SHAPE_SLIDE,
   SHAPE_SNAPSHOT,
+  SLIDE_DOCUMENT,
   SLIDE_PART_NAME,
   SLIDE_SHAPES,
   type SlideData,
@@ -398,6 +399,15 @@ const ATTR_REPEAT_COUNT = qname('', 'repeatCount', '');
 const ATTR_DELAY = qname('', 'delay', '');
 const ATTR_EVT = qname('', 'evt', '');
 const ATTR_MASTER_REL = qname('', 'masterRel', '');
+const ATTR_CMD = qname('', 'cmd', '');
+const ATTR_NODE_TYPE = qname('', 'nodeType', '');
+const ATTR_ID = qname('', 'id', '');
+const ATTR_VAL = qname('', 'val', '');
+const NAME_C_BHVR = qname('p', 'cBhvr', NS.pml);
+const NAME_TGT_EL = qname('p', 'tgtEl', NS.pml);
+const NAME_SP_TGT = qname('p', 'spTgt', NS.pml);
+const NAME_TN = qname('p', 'tn', NS.pml);
+const NAME_CHILD_TN_LST = qname('p', 'childTnLst', NS.pml);
 
 // ST_PositiveFixedPercentage accepts both `80000` and `80%`; PowerPoint writes
 // the integer form, and the schema's own default is spelled `50%`.
@@ -430,6 +440,104 @@ const mediaNodeOf = (
 };
 
 type MediaStart = { readonly automatic: boolean; readonly delayMs: number } | null;
+
+type MediaCommandTiming = 'background' | 'other' | null;
+
+const mediaCommandTiming = (shape: SlideShapeData): MediaCommandTiming => {
+  const root = shape[SHAPE_SLIDE][SLIDE_DOCUMENT].root;
+  const spid = String(shape[SHAPE_SNAPSHOT].id);
+  const matches: Array<{ element: XmlElement; ancestors: ReadonlyArray<XmlElement> }> = [];
+  const walk = (element: XmlElement, ancestors: ReadonlyArray<XmlElement>): void => {
+    const nextAncestors =
+      element.name.namespaceURI === NS.pml && element.name.localName === 'cTn'
+        ? [...ancestors, element]
+        : ancestors;
+    if (
+      element.name.namespaceURI === NS.pml &&
+      element.name.localName === 'cmd' &&
+      getAttrValue(element, ATTR_CMD)?.startsWith('playFrom(')
+    ) {
+      const behavior = firstChildElement(element, NAME_C_BHVR);
+      const target = behavior === null ? null : firstChildElement(behavior, NAME_TGT_EL);
+      const spTarget = target === null ? null : firstChildElement(target, NAME_SP_TGT);
+      if (spTarget !== null && getAttrValue(spTarget, qname('', 'spid', '')) === spid) {
+        matches.push({ element, ancestors: nextAncestors });
+      }
+    }
+    for (const child of element.children) {
+      if (child.kind === 'element') walk(child, nextAncestors);
+    }
+  };
+  walk(root, []);
+  if (matches.length === 0) return null;
+  if (matches.length !== 1) return 'other';
+
+  const { element: commandElement, ancestors } = matches[0]!;
+  const mainSequenceIndex = ancestors.findIndex(
+    (ancestor) => getAttrValue(ancestor, ATTR_NODE_TYPE) === 'mainSeq',
+  );
+  const effectIndex = ancestors.findIndex(
+    (ancestor) => getAttrValue(ancestor, ATTR_NODE_TYPE) === 'afterEffect',
+  );
+  if (mainSequenceIndex < 0 || effectIndex <= mainSequenceIndex) return 'other';
+  const mainSequence = ancestors[mainSequenceIndex]!;
+  const startGroup = ancestors[mainSequenceIndex + 1];
+  if (startGroup === undefined) return 'other';
+  const firstCtnIn = (element: XmlElement): XmlElement | null => {
+    if (element.name.namespaceURI === NS.pml && element.name.localName === 'cTn') return element;
+    for (const child of element.children) {
+      if (child.kind !== 'element') continue;
+      const first = firstCtnIn(child);
+      if (first !== null) return first;
+    }
+    return null;
+  };
+  const mainChildren = firstChildElement(mainSequence, NAME_CHILD_TN_LST);
+  if (mainChildren === null || firstCtnIn(mainChildren) !== startGroup) return 'other';
+  const startList = firstChildElement(startGroup, NAME_ST_COND_LST);
+  if (startList === null) return 'other';
+  const startConditions = startList.children.filter(
+    (child): child is XmlElement =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.pml &&
+      child.name.localName === 'cond',
+  );
+  const hasNativeStart = startConditions.some((condition) => {
+    if (getAttrValue(condition, ATTR_EVT) !== 'onBegin') return false;
+    if (getAttrValue(condition, ATTR_DELAY) !== '0') return false;
+    const reference = firstChildElement(condition, NAME_TN);
+    return (
+      reference !== null &&
+      getAttrValue(reference, ATTR_VAL) === getAttrValue(mainSequence, ATTR_ID)
+    );
+  });
+  const hasIndefiniteStart = startConditions.some(
+    (condition) =>
+      getAttrValue(condition, ATTR_EVT) === null &&
+      getAttrValue(condition, ATTR_DELAY) === 'indefinite',
+  );
+  if (startConditions.length !== 2 || !hasNativeStart || !hasIndefiniteStart) return 'other';
+  const zeroDelay = (cTn: XmlElement): boolean => {
+    const list = firstChildElement(cTn, NAME_ST_COND_LST);
+    if (list === null) return false;
+    const conditions = list.children.filter(
+      (child): child is XmlElement =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.pml &&
+        child.name.localName === 'cond',
+    );
+    return (
+      conditions.length === 1 &&
+      getAttrValue(conditions[0]!, ATTR_EVT) === null &&
+      getAttrValue(conditions[0]!, ATTR_DELAY) === '0' &&
+      conditions[0]!.children.every((child) => child.kind !== 'element')
+    );
+  };
+  if (!ancestors.slice(mainSequenceIndex + 2, effectIndex + 1).every((cTn) => zeroDelay(cTn))) {
+    return 'other';
+  }
+  return getAttrValue(commandElement, ATTR_CMD) === 'playFrom(0.0)' ? 'background' : 'other';
+};
 
 // Only the simple, event-free form can be reduced to an effective slide
 // start. A click or multiple-condition ancestor stays event-driven and is
@@ -484,16 +592,18 @@ export const getShapeMediaPlayback = (shape: SlideShapeData): MediaPlayback | nu
   if (found === null) return null;
   const { node, media } = found;
   const cTn = firstChildElement(media, NAME_C_TN);
+  const commandTiming = mediaCommandTiming(shape);
   const ownStart = cTn === null ? null : effectiveMediaStart([cTn], true);
   const parentStart = effectiveMediaStart(found.ancestors);
   const delayMs = (parentStart?.delayMs ?? 0) + (ownStart?.delayMs ?? 0);
   const autoplay =
-    cTn !== null &&
-    !found.duplicateTarget &&
-    !found.hasDependentTimingAncestor &&
-    parentStart?.automatic === true &&
-    ownStart?.automatic === true &&
-    Number.isSafeInteger(delayMs);
+    commandTiming === 'background' ||
+    (cTn !== null &&
+      !found.duplicateTarget &&
+      !found.hasDependentTimingAncestor &&
+      parentStart?.automatic === true &&
+      ownStart?.automatic === true &&
+      Number.isSafeInteger(delayMs));
   const playback: MediaPlayback = {
     // A delay is measured after the condition's trigger. An `evt` condition
     // (for example `onClick`) therefore remains event-triggered even when its
@@ -547,6 +657,7 @@ export const setShapeMediaPlayback = (
   const found = mediaNodeOf(shape);
   if (found === null) throw new Error('setShapeMediaPlayback: the shape has no media time node');
   const { node, media } = found;
+  const commandTiming = mediaCommandTiming(shape);
   const delayMs = options.delayMs;
   if (delayMs !== undefined && (!Number.isSafeInteger(delayMs) || delayMs < 0)) {
     throw new Error('setShapeMediaPlayback: delayMs must be a nonnegative safe integer');
@@ -581,6 +692,18 @@ export const setShapeMediaPlayback = (
       options.rewindAfterPlaying !== undefined)
   ) {
     throw new Error('setShapeMediaPlayback: media timing node has no cTn');
+  }
+  if (
+    commandTiming === 'other' &&
+    (options.autoplay !== undefined || options.delayMs !== undefined)
+  ) {
+    throw new Error('setShapeMediaPlayback: media command timing is unsupported');
+  }
+  if (
+    commandTiming === 'background' &&
+    (options.autoplay === false || options.delayMs !== undefined)
+  ) {
+    throw new Error('setShapeMediaPlayback: background media timing cannot be changed');
   }
   if (
     (options.autoplay !== undefined || delayMs !== undefined) &&
@@ -662,7 +785,10 @@ export const setShapeMediaPlayback = (
     if (options.loop !== undefined) {
       setOrRemove(cTn, ATTR_REPEAT_COUNT, options.loop ? 'indefinite' : null);
     }
-    if (options.autoplay !== undefined || delayMs !== undefined) {
+    if (
+      commandTiming !== 'background' &&
+      (options.autoplay !== undefined || delayMs !== undefined)
+    ) {
       // CT_TLCommonTimeNodeData is a sequence: `<p:stCondLst>` comes first.
       let stCondLst = firstChildElement(cTn, NAME_ST_COND_LST);
       if (stCondLst === null) {

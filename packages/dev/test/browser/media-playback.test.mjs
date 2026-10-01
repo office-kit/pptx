@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { compile, Media, Presentation, Slide, Text } from '@office-kit/pptx-dsl';
 import {
   getSlideShapes,
@@ -175,6 +176,90 @@ test(
   },
 );
 
+test(
+  'native background audio timing autoplays hidden audio across the next slide',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-native-media-background-'));
+    let preview;
+    let browser;
+    try {
+      const deck = await compile(
+        Presentation({
+          children: [
+            Slide({
+              children: Media({ kind: 'audio', data: wav(15000), x: 1, y: 1, width: 3, height: 1 }),
+            }),
+            Slide({ children: Text({ x: 1, y: 1, width: 5, height: 1, children: 'Second' }) }),
+          ],
+        }),
+      );
+      const parts = unzipSync(await savePresentation(deck));
+      const slidePath = 'ppt/slides/slide1.xml';
+      const [audioShape] = getSlideShapes(getSlides(deck)[0]);
+      const timing = (
+        await readFile(
+          new URL('../../../../test/fixtures/native-media-background-timing.xml', import.meta.url),
+          'utf8',
+        )
+      ).replaceAll('spid="2"', `spid="${getShapeId(audioShape)}"`);
+      const slideXml = strFromU8(parts[slidePath]);
+      parts[slidePath] = strToU8(
+        slideXml.includes('<p:timing')
+          ? slideXml.replace(/<p:timing\b[\s\S]*?<\/p:timing>/, timing)
+          : slideXml.replace('</p:sld>', `${timing}</p:sld>`),
+      );
+      const source = join(dir, 'source.pptx');
+      await writeFile(source, zipSync(parts));
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {readFile} from 'node:fs/promises';import {Presentation} from '@office-kit/pptx-dsl';export default <Presentation source={await readFile(${JSON.stringify(source)})} />;`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage();
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: 'Preview', exact: true }).click();
+      await page.waitForFunction(() => state.slides.length === 2);
+      const persistedMedia = await page
+        .evaluate(async () => (await fetch('/state')).json())
+        .then((current) => current.media[0]);
+      assert.equal(persistedMedia.playback.autoplay, true);
+      assert.equal(persistedMedia.playback.loop, true);
+      assert.equal(persistedMedia.playback.slideCount, 999);
+      assert.equal(persistedMedia.playback.hideWhenStopped, true);
+      await page.getByRole('button', { name: 'Present', exact: true }).click();
+      const audio = page.locator('foreignObject[data-pptx-media] audio');
+      await audio.waitFor({ state: 'attached' });
+      const original = await audio.elementHandle();
+      assert.ok(original);
+      await page.waitForFunction(() => {
+        const root = document.querySelector('#slide')?.shadowRoot;
+        const element = root?.querySelector('foreignObject[data-pptx-media] audio');
+        return element?.currentTime > 0.05;
+      });
+      assert.equal(
+        await audio.locator('xpath=..').evaluate((element) => getComputedStyle(element).visibility),
+        'hidden',
+      );
+      const initialTime = await audio.evaluate((element) => element.currentTime);
+      await page.locator('#stage').focus();
+      await page.keyboard.press('ArrowRight');
+      await page.waitForFunction(() => index === 1);
+      assert.equal(await original.evaluate((element) => element.isConnected), true);
+      await page.waitForFunction((time) => {
+        const element = document.querySelector('audio');
+        return element !== null && element.currentTime > time + 0.05;
+      }, initialTime);
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
+
 test('audio rewinds after natural playback when requested', { timeout: 60000 }, async () => {
   const dir = await mkdtemp(join(tmpdir(), 'office-media-rewind-'));
   let preview;
@@ -262,6 +347,7 @@ test(
       );
       setShapeMediaPlayback(getSlideShapes(slides[0])[0], {
         autoplay: true,
+        hideWhenStopped: true,
         slideCount: 2,
         muted: true,
       });
@@ -285,6 +371,11 @@ test(
       const first = await page.locator('#slide audio').elementHandle();
       assert.ok(first);
       await page.waitForFunction((element) => element.currentTime > 0.1 && !element.paused, first);
+      assert.equal(
+        await first.evaluate((element) => getComputedStyle(element).visibility),
+        'hidden',
+        'Hide During Show keeps background audio invisible while playing',
+      );
       const firstTime = await first.evaluate((element) => element.currentTime);
       const firstMediaKey = await page.evaluate(() => mediaPlayerKey);
       await presenter.getByRole('button', { name: 'Next', exact: true }).click();

@@ -1,3 +1,12 @@
+## 2026-10-02: 背景音声とヘッダーの再検証
+
+- ヘッダーはStudioバー40px、保存状態を同じ行へ統合、重複ツールバーを非表示、リボン折りたたみに対応済み。compact-editorの900/1500px・日英検証が成功。
+- 音声の「バックグラウンドで再生」を追加。自動開始・999枚・ループ・非表示を一度のUndo単位で設定し、音量・巻き戻しは保持。音声のHide During Showは再生中も非表示（ブラウザーによる自動再生拒否時は再試行UIを表示）。
+- Mac PowerPointの専用サンプルでPlay in Backgroundの4設定、既存Rewind ONの保持、スライドショーで音声アイコン非表示を確認。比較中の一時変更2件はUndoし、Undo無効・各設定OFFを確認して保存要求なしで閉じた。ユーザー文書の変更なし。
+- ネイティブ保存の背景音声はmedia自身のdelay=indefiniteのまま、mainSeqのonBeginからafterEffect/playFrom(0.0)で開始する。最小XML fixtureを追加して読み込みに対応。複雑なコマンド開始条件は未対応。ネイティブ背景音声の開始方法・遅延変更は、コマンドを壊さないよう原子的に拒否。No StyleのIn Click Sequenceは未実装であり、手動開始で代用しない。
+- 検証: format/lint/root・dev typecheck、core 3166 passed /109 skipped、依存順dev build、Svelte 0 errors/warningsが成功。編集UI・ヘッダー・音声ブラウザー9件成功。ネイティブfixtureを含む音声4件も追加検証。ログは `/tmp/pptx-background-unit.log`、`/tmp/pptx-background-browser.log`、`/tmp/pptx-background-native-final.log`。
+- 全操作の完全一致は未達。Start選択肢・トリム/フェード/ブックマーク・複雑なタイミング・Latin折返しfidelity差分などが残る。PR287に統合を継続。4173のユーザープレビューには未保存編集があるため変更・再読込しない。
+
 ## 2026-10-02: 再生終了後の巻き戻し
 
 - 音声・動画の `MediaPlayback.rewindAfterPlaying` と再生リボンの「再生が終了したら巻き戻す」を追加。ONはmediaのcTn@fill=remove、OFFはhold。入れ子のタイミングと無関係な属性を保持し、保存・Undo・再読込に対応。

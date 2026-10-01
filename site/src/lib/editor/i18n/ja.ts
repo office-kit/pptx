@@ -534,6 +534,7 @@ export const ja: Record<string, string> = {
   Timing: 'タイミング',
   'Rewind After Playing': '再生が終了したら巻き戻す',
   'Play Across Slides': 'スライド切り替え後も再生',
+  'Play in Background': 'バックグラウンドで再生',
   'Play Full Screen': '全画面再生',
   Volume: '音量',
   'Start delay': '開始の遅延',
