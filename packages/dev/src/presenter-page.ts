@@ -3,11 +3,11 @@ export const presenterPage = `<!doctype html>
 <html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>Presenter view — Office Kit</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#141929;color:#e4e8f0;font:15px system-ui,sans-serif;height:100vh;display:flex;flex-direction:column}header,footer{display:flex;align-items:center;gap:14px;padding:16px;flex-wrap:wrap}h1{font-size:18px;margin:0;flex:1}h2{font-size:13px;color:#b9c2d8;margin:0 0 10px}button{font:inherit;color:inherit;background:#29243e;border:1px solid #675487;border-radius:6px;padding:8px 12px;cursor:pointer}button:disabled{opacity:.4;cursor:default}button:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}main{display:grid;grid-template-columns:minmax(0,3fr) minmax(240px,2fr);gap:20px;padding:0 20px;flex:1;min-height:0;overflow:auto}section{min-width:0}#current,#next{background:#090c14;aspect-ratio:16/9}#current svg,#next svg{width:100%;height:100%}#notes{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;max-height:40vh;overflow:auto;padding:14px;background:#1e2538;border-radius:8px}#notes-title{margin-top:20px}#count{flex:1}#message{padding:0 20px;color:#ffc9bd}#elapsed{font-variant-numeric:tabular-nums}footer{justify-content:flex-end}@media(max-width:640px){main{grid-template-columns:1fr}#notes{max-height:none}}
+*{box-sizing:border-box}body{margin:0;background:#141929;color:#e4e8f0;font:15px system-ui,sans-serif;height:100vh;display:flex;flex-direction:column}header,footer{display:flex;align-items:center;gap:14px;padding:16px;flex-wrap:wrap}h1{font-size:18px;margin:0;flex:1}h2{font-size:13px;color:#b9c2d8;margin:0 0 10px}button{font:inherit;color:inherit;background:#29243e;border:1px solid #675487;border-radius:6px;padding:8px 12px;cursor:pointer}button:disabled{opacity:.4;cursor:default}button:focus-visible{outline:2px solid #bca3ff;outline-offset:3px}main{display:grid;grid-template-columns:minmax(0,3fr) minmax(240px,2fr);gap:20px;padding:0 20px;flex:1;min-height:0;overflow:auto}section{min-width:0}#current{position:relative}#current [hidden]{display:none!important}#current,#next{background:#090c14;aspect-ratio:16/9}#current svg,#next svg{width:100%;height:100%}#notes{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.6;max-height:40vh;overflow:auto;padding:14px;background:#1e2538;border-radius:8px}#notes-title{margin-top:20px}#count{flex:1}#message{padding:0 20px;color:#ffc9bd}#elapsed{font-variant-numeric:tabular-nums}footer{justify-content:flex-end}@media(max-width:640px){main{grid-template-columns:1fr}#notes{max-height:none}}
 </style>
 <header><h1 id="title">Presenter view</h1><span id="timer-label">Elapsed</span><output id="elapsed">00:00</output><button id="reset">Reset timer</button></header>
 <p id="message" role="status">Connecting to presentation…</p>
-<main><section><h2 id="current-title">Current slide</h2><div id="current"></div><h2 id="notes-title">Speaker notes</h2><div id="notes" tabindex="0"></div></section><section><h2 id="next-title">Next slide</h2><div id="next"></div><p id="end" hidden></p></section></main>
+<main><section><h2 id="current-title">Current slide</h2><div id="current"></div><button id="media-retry" hidden></button><h2 id="notes-title">Speaker notes</h2><div id="notes" tabindex="0"></div></section><section><h2 id="next-title">Next slide</h2><div id="next"></div><p id="end" hidden></p></section></main>
 <footer><span id="count" aria-live="polite"></span><button id="prev" disabled>Previous</button><button id="next-button" disabled>Next</button><button id="exit">Exit presentation</button></footer>
 <script>
 const byId=id=>document.getElementById(id);
@@ -44,6 +44,38 @@ function syncAnimation(data){
  animationGeneration=progress.generation;
  animationPlayer.resume(progress.cursor,progress.elapsed);
 }
+let makeMediaPlayer,mediaPlayer,mediaOverlay,mediaKey,mediaLoading=false;
+function disposeMedia(){mediaPlayer?.dispose();mediaOverlay?.remove();mediaPlayer=undefined;mediaOverlay=undefined;mediaKey=undefined;}
+function syncMedia(data){
+ const clips=(data.media??[]).filter(clip=>clip.kind!=='online');
+ if(!data.presenting||!data.mediaKey||!clips.length){disposeMedia();byId('media-retry').hidden=true;return;}
+ if(!makeMediaPlayer){
+  if(mediaLoading)return;
+  mediaLoading=true;byId('media-retry').hidden=true;
+  import('/media-player.js?attempt='+Date.now()).then(module=>{
+   makeMediaPlayer=module.createMediaPlayer;mediaLoading=false;if(lastState)syncMedia(lastState);
+  },error=>{
+   mediaLoading=false;console.warn('Could not load presenter media',error);
+   byId('media-retry').textContent=text('Media could not load · Retry','メディアを読み込めませんでした · 再試行');
+   byId('media-retry').hidden=!lastState?.presenting;
+  });
+  return;
+ }
+ const key=data.mediaKey+'\\u0000'+data.current;
+ if(key!==mediaKey){
+  disposeMedia();
+  // Overlays must live inside the canvas shadow tree; the host has no slot
+  // and would not render children appended to its light DOM.
+  mediaOverlay=document.createElement('div');canvases.current.append(mediaOverlay);
+  mediaPlayer=makeMediaPlayer({root:canvases.current,overlayRoot:mediaOverlay,clips,locale,
+   onCommand:command=>{
+    if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'presenter-command',action:'media',index:command,mediaKey:data.mediaKey},location.origin);
+   }});
+  mediaKey=key;
+ }
+ mediaPlayer.sync(data.mediaProgress??[]);
+}
+byId('media-retry').onclick=()=>{if(lastState)syncMedia(lastState);};
 function send(action,index){if(window.opener&&!window.opener.closed)window.opener.postMessage({type:'presenter-command',action,index},location.origin);}
 for(const canvas of Object.values(canvases))canvas.addEventListener('click',event=>{
  const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
@@ -71,7 +103,7 @@ function update(data){
  byId('count').textContent=data.count?text('Slide '+(data.index+1)+' of '+data.count,'スライド '+(data.index+1)+' / '+data.count)+animation:text('No slides','スライドがありません');
  for(const name of ['current','next']){
   const svg=data[name];
-  if(displayed[name]!==svg){displayed[name]=svg;canvases[name].innerHTML=svg?'<style>svg{display:block;width:100%;height:100%}</style>'+svg:'';}
+  if(displayed[name]!==svg){if(name==='current')disposeMedia();displayed[name]=svg;canvases[name].innerHTML=svg?'<style>svg{display:block;width:100%;height:100%}</style>'+svg:'';}
   byId(name).style.aspectRatio=String(data.aspectRatio);byId(name).hidden=!svg;
  }
  byId('notes').textContent=data.notes||text('No speaker notes.','発表者ノートはありません。');
@@ -80,9 +112,15 @@ function update(data){
  byId('next-button').disabled=!(data.hasNext??data.next);
  byId('exit').disabled=!data.presenting;
  byId('end').hidden=!!(data.hasNext??data.next);byId('end').textContent=text('End of presentation','プレゼンテーションの最後です');
- lastState=data;syncAnimation(data);
+ lastState=data;syncAnimation(data);syncMedia(data);
 }
-window.addEventListener('message',event=>{if(event.origin===location.origin&&event.source===window.opener&&event.data?.type==='presenter-state')update(event.data);});
+window.addEventListener('message',event=>{
+ if(event.origin!==location.origin||event.source!==window.opener)return;
+ if(event.data?.type==='presenter-state')update(event.data);
+ else if(event.data?.type==='presenter-media-state'&&lastState&&event.data.index===lastState.index&&event.data.mediaKey===lastState.mediaKey){
+  lastState.mediaProgress=event.data.mediaProgress;mediaPlayer?.sync(lastState.mediaProgress);
+ }
+});
 byId('prev').onclick=()=>send('previous');byId('next-button').onclick=()=>send('next');byId('exit').onclick=()=>send('exit');
 byId('reset').onclick=()=>{started=performance.now();byId('elapsed').textContent='00:00';};
 document.addEventListener('keydown',event=>{
@@ -92,7 +130,7 @@ document.addEventListener('keydown',event=>{
 });
 setInterval(()=>{
  const seconds=Math.floor((performance.now()-started)/1000);byId('elapsed').textContent=String(Math.floor(seconds/60)).padStart(2,'0')+':'+String(seconds%60).padStart(2,'0');
- if(!window.opener||window.opener.closed){byId('message').textContent=text('The presentation window is closed.','プレゼンテーションのウィンドウは閉じられています。');for(const id of ['prev','next-button','exit'])byId(id).disabled=true;}
+ if(!window.opener||window.opener.closed){disposeMedia();byId('message').textContent=text('The presentation window is closed.','プレゼンテーションのウィンドウは閉じられています。');for(const id of ['prev','next-button','exit'])byId(id).disabled=true;}
  else if(!connected)send('ready');
 },250);
 send('ready');

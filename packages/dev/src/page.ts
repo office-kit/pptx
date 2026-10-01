@@ -299,6 +299,7 @@ function syncMediaPlayer(){
   disposeMediaPlayer();
   mediaPlayer=createMediaPlayer({root:slideRoot(),overlayRoot:stage,clips,locale:previewLocale});
   mediaPlayerKey=key;
+  updatePresenter();
 }
 function updateAnimationNotice(){
   const note=byId('present-note'),retry=byId('animation-retry');
@@ -529,8 +530,12 @@ function updatePresenter(){
  // is what the audience sees — including an effect still fading in.
  const progress=animationPlayer?animationPlayer.progress:null;
  const animationSteps=animationPlayer?animationStepsAt(index):null;
- presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[nextShowSlide(1)]??null,hasPrevious:nextShowSlide(-1)>=0||animationsBehind(),hasNext:nextShowSlide(1)>=0||linkedShowId!==null||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting},location.origin);
+ presenterWindow.postMessage({type:'presenter-state',index,count:state.slides.length,animationSteps,current:state.slides[index]??null,next:state.slides[nextShowSlide(1)]??null,hasPrevious:nextShowSlide(-1)>=0||animationsBehind(),hasNext:nextShowSlide(1)>=0||linkedShowId!==null||animationsPending(),animation:progress,notes:state.notes?.[index]??'',aspectRatio:state.aspectRatio,locale:previewLocale,presenting,media:presenting?(state.media??[]).filter(clip=>clip.slideIndex===index):[],mediaKey:mediaPlayerKey,mediaProgress:mediaPlayer?.progress??[]},location.origin);
 }
+setInterval(()=>{
+ if(!presenterWindow||presenterWindow.closed||!mediaPlayer)return;
+ presenterWindow.postMessage({type:'presenter-media-state',index,mediaKey:mediaPlayerKey,mediaProgress:mediaPlayer.progress},location.origin);
+},250);
 byId('presenter').onclick=()=>{
  if(presenterWindow&&!presenterWindow.closed){setPresenting(true);presenterWindow.focus();return;}
  presenterWindow=window.open('/presenter','office-kit-presenter','popup,width=1100,height=800');
@@ -540,6 +545,12 @@ byId('presenter').onclick=()=>{
 window.addEventListener('message',event=>{
  if(event.origin!==location.origin||event.source!==presenterWindow||event.data?.type!=='presenter-command')return;
  if(event.data.action==='ready')updatePresenter();
+ else if(event.data.action==='media'){
+  const command=event.data.index;
+  if(!presenting||!mediaPlayer||event.data.mediaKey!==mediaPlayerKey||!command||!Number.isInteger(command.shapeId)||!['play','pause','seek'].includes(command.action))return;
+  if(command.action==='seek'&&(!Number.isFinite(command.time)||command.time<0))return;
+  mediaPlayer.command(command);updatePresenter();
+ }
  else if(event.data.action==='next')moveSlide(1,true);
  else if(event.data.action==='previous')moveSlide(-1,true);
  else if(event.data.action==='exit')void exitPresentation();
