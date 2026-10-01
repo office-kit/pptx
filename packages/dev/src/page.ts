@@ -30,8 +30,8 @@ body.editing:not(.presenting){grid-template-rows:40px minmax(0,1fr)}
 <div id="chat-resizer" role="separator" tabindex="0" aria-label="Chat width" aria-orientation="vertical" aria-controls="chat" title="Drag to resize · Double-click to reset"></div>
 <div class="workspace-heading"><span>✦ AI WORKSPACE</span><b>LOCAL</b></div><div id="agent-workspace"></div><div id="chat-context" hidden></div></aside>
 </div>
-<footer><span id="count" aria-live="polite">No slides</span><span class="hint">Changes appear automatically · Text can be selected and copied</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
-<div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
+<footer><span id="count" aria-live="polite">No slides</span><span class="hint">Select an area to ask AI · Edit text directly</span><button id="prev" aria-label="Previous slide" disabled>‹</button><button id="next" aria-label="Next slide" disabled>›</button><label for="zoom">Zoom</label><select id="zoom"><option value="fit">Fit</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></footer>
+<div id="presentation-scrollbar" role="scrollbar" aria-label="Slide position" aria-controls="slide" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" tabindex="0" hidden><span></span></div><div id="presentation-controls"><button id="present-prev" aria-label="Previous slide">‹</button><span id="present-count"></span><span id="present-note" role="status" hidden></span><button id="animation-retry" hidden></button><button id="present-next" aria-label="Next slide">›</button><button id="exit-present">Exit · Esc</button></div>
 <script>
 let state={slides:[],error:null,aspectRatio:16/9,showProperties:null,customShows:[]},index=0,urls=[],presenting=false;
 let showOrder=[],showCursor=0;
@@ -63,7 +63,7 @@ function showSlideAt(position,step=1,skipHidden=presenting){
  let cursor=position;
  for(let n=0;n<showOrder.length;n++){
   if(cursor<0||cursor>=showOrder.length){
-   if(state.showProperties?.loop)cursor=(cursor+showOrder.length)%showOrder.length;
+   if(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk')cursor=(cursor+showOrder.length)%showOrder.length;
    else return -1;
   }
   const candidate=showOrder[cursor];
@@ -78,7 +78,7 @@ function nextShowPosition(step){
  let cursor=showCursor+step;
  for(let n=0;n<showOrder.length;n++){
   if(cursor<0||cursor>=showOrder.length){
-   if(state.showProperties?.loop)cursor=(cursor+showOrder.length)%showOrder.length;
+   if(state.showProperties?.loop||state.showProperties?.mode?.kind==='kiosk')cursor=(cursor+showOrder.length)%showOrder.length;
    else return -1;
   }
   if(!presenting||!state.hiddenSlides?.[showOrder[cursor]])return cursor;
@@ -89,6 +89,27 @@ function nextShowPosition(step){
 function nextShowSlide(step){
  const position=nextShowPosition(step);
  return position<0?-1:showOrder[position];
+}
+function browsePositions(){
+ return showOrder.map((slide,position)=>({slide,position})).filter(({slide})=>!state.hiddenSlides?.[slide]);
+}
+function syncBrowseScrollbar(){
+ const scrollbar=byId('presentation-scrollbar');
+ const enabled=presenting&&state.showProperties?.mode?.kind==='browse'&&state.showProperties?.mode?.showScrollbar===true;
+ scrollbar.setAttribute('aria-label',pt('Slide position'));
+ scrollbar.hidden=!enabled;
+ document.body.classList.toggle('browse-scrollbar',enabled);
+ if(!enabled)return;
+ const positions=browsePositions();
+ const max=Math.max(0,positions.length-1);
+ scrollbar.setAttribute('aria-valuemax',String(max));
+ const current=positions.findIndex(({position})=>position===showCursor);
+ const value=Math.max(0,current);
+ scrollbar.setAttribute('aria-valuenow',String(value));
+ const thumbPercent=positions.length?Math.max(8,100/positions.length):100;
+ scrollbar.firstElementChild.style.height=thumbPercent+'%';
+ scrollbar.firstElementChild.style.top=(max?(value/max)*(100-thumbPercent):0)+'%';
+ scrollbar.setAttribute('aria-valuetext',positions.length?slideLabel(positions[value].slide):pt('No slides'));
 }
 function findSlide(start,step,skipHidden=presenting){
  if(skipHidden&&presenting)return showSlideAt(showCursor+step,step);
@@ -302,6 +323,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true,position='start',show
   window.dispatchEvent(new Event('agent-focus'));
   if(document.body.classList.contains('editing')&&editorFocus)applyEditorFocus();
   byId('count').textContent=count;byId('present-count').textContent=count;
+  document.body.classList.toggle('kiosk-presenting',presenting&&state.showProperties?.mode?.kind==='kiosk');
   byId('zoom').disabled=!state.slides.length;
   slide.hidden=!state.slides.length;byId('empty').hidden=!!state.slides.length;
   const svg=state.slides[index];
@@ -318,6 +340,7 @@ function selectSlide(next,focusThumbnail=false,reveal=true,position='start',show
     button.title=state.hiddenSlides?.[position]?pt('Skipped during presentation'):'';
     if(selected){if(reveal)button.scrollIntoView({block:'nearest'});if(focusThumbnail)button.focus({preventScroll:true});}
   }
+  syncBrowseScrollbar();
   resize();
   if(!transitionCleanup)scheduleAdvance();
   updatePresenter();
@@ -398,11 +421,51 @@ window.addEventListener('message',event=>{
  else if(event.data.action==='jump'&&Number.isInteger(event.data.index)&&event.data.index>=0&&event.data.index<state.slides.length)selectSlide(event.data.index);
 });
 byId('exit-present').onclick=exitPresentation;
+function scrollToBrowsePosition(value){
+ const positions=browsePositions();
+ const position=positions[Math.max(0,Math.min(positions.length-1,value))];
+ if(position&&position.position!==showCursor)selectSlide(position.slide,false,true,'start',position.position);
+}
+const browseScrollbar=byId('presentation-scrollbar');
+let scrollbarDragOffset;
+function dragBrowseScrollbar(event){
+ const rect=browseScrollbar.getBoundingClientRect();
+ const thumb=browseScrollbar.firstElementChild.getBoundingClientRect();
+ const travel=rect.height-thumb.height;
+ if(travel<=0)return;
+ const max=Number(browseScrollbar.getAttribute('aria-valuemax'));
+ scrollToBrowsePosition(Math.round(((event.clientY-rect.top-scrollbarDragOffset)/travel)*max));
+}
+browseScrollbar.onpointerdown=event=>{
+ if(event.button!==0)return;
+ event.preventDefault();browseScrollbar.focus();
+ const thumb=browseScrollbar.firstElementChild.getBoundingClientRect();
+ scrollbarDragOffset=event.clientY>=thumb.top&&event.clientY<=thumb.bottom?event.clientY-thumb.top:thumb.height/2;
+ browseScrollbar.setPointerCapture(event.pointerId);
+ dragBrowseScrollbar(event);
+};
+browseScrollbar.onpointermove=event=>{
+ if(browseScrollbar.hasPointerCapture(event.pointerId))dragBrowseScrollbar(event);
+};
+browseScrollbar.onpointerup=event=>{
+ if(browseScrollbar.hasPointerCapture(event.pointerId))browseScrollbar.releasePointerCapture(event.pointerId);
+};
+browseScrollbar.onkeydown=event=>{
+ const current=Number(browseScrollbar.getAttribute('aria-valuenow'));
+ const max=Number(browseScrollbar.getAttribute('aria-valuemax'));
+ let next;
+ if(event.key==='ArrowDown'||event.key==='PageDown')next=current+1;
+ else if(event.key==='ArrowUp'||event.key==='PageUp')next=current-1;
+ else if(event.key==='Home')next=0;
+ else if(event.key==='End')next=max;
+ else return;
+ event.preventDefault();event.stopPropagation();scrollToBrowsePosition(next);
+};
 byId('animation-retry').onclick=()=>{loadAnimationPlayer();};
 loadAnimationPlayer();
 document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&presenting)setPresenting(false);});
-for(const id of ['prev','present-prev'])byId(id).onclick=()=>moveSlide(-1);
-for(const id of ['next','present-next'])byId(id).onclick=()=>moveSlide(1);
+for(const id of ['prev','present-prev'])byId(id).onclick=()=>{if(!presenting||state.showProperties?.mode?.kind!=='kiosk')moveSlide(-1);};
+for(const id of ['next','present-next'])byId(id).onclick=()=>{if(!presenting||state.showProperties?.mode?.kind!=='kiosk')moveSlide(1);};
 byId('zoom').onchange=resize;
 stage.onclick=event=>{
   const link=event.composedPath().find(node=>node instanceof Element&&node.localName==='a');
@@ -415,13 +478,14 @@ stage.onclick=event=>{
     }
     return;
   }
-  if(!presenting||getSelection().toString())return;
+  if(!presenting||state.showProperties?.mode?.kind==='kiosk'||getSelection().toString())return;
   // 'advClick' says whether a click moves to the next *slide*. A build still
   // belongs to this one, so its remaining effects play either way.
   if(animationsPending()||state.transitions?.[index]?.advanceOnClick!==false)moveSlide(1);
 };
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape'&&presenting){event.preventDefault();void exitPresentation();return;}
+  if(presenting&&state.showProperties?.mode?.kind==='kiosk')return;
   if(event.altKey||event.ctrlKey||event.metaKey||event.target.closest('select,input,textarea,[contenteditable]'))return;
   const focusThumbnail=thumbnails.contains(document.activeElement);
   let step=0,jump=-1,jumpPosition=-1;
