@@ -2,7 +2,7 @@
 // visibility, and text replacement.
 
 import { replaceTextInTree, replaceTokensInTree } from '../../internal/drawingml/index.ts';
-import { type PartName, partName } from '../../internal/opc/index.ts';
+import { type PartName, resolveTarget } from '../../internal/opc/index.ts';
 import type { OpcPackage } from '../../internal/parts/index.ts';
 import {
   readPresentationPart,
@@ -151,8 +151,7 @@ export const refreshSlideOrder = (pres: PresentationData): ReadonlyArray<SlideDa
   for (const sld of presModel.slides) {
     const rel = relsById.get(sld.rId);
     if (!rel) throw new Error(`presentation.xml.rels missing entry for ${sld.rId}`);
-    const target = rel.target;
-    const slideName = partName(target.startsWith('/') ? target : `/ppt/${target}`);
+    const slideName = resolveTarget(PRES_PART_NAME, rel.target);
     const slidePart = pkg.getPart(slideName);
     if (slidePart === null) throw new Error(`slide part ${slideName} not found`);
     out.push(previous.get(slideName) ?? buildSlideData(pkg, slideName, slidePart.data));

@@ -728,3 +728,10 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - Body text context menus now provide Move Up/Down with boundary disabling, whole-paragraph selection after movement and one-step Undo. The existing `setShapeParagraphs` writer can concatenate ordered ranges into one target, retaining paragraph XML, fields and relationships.
 - Core tests cover self-reordering, formatting, links, paragraph levels, empty trailing paragraphs and rejected ranges without mutation. Cross-slide movement and title-text movement remain unverified.
 - Validation: 3,069 core tests passed / 109 skipped; 89 editor unit tests and both English/Japanese outline browser cases passed. Format, lint, root/DSL types and Svelte checks passed; core/editor builds passed. The full-browser checkpoint remains the older frozen build.
+
+## Slide ordering relationship fixes
+
+- Slide order reading, sorting and individual moves now resolve absolute and normalized relative relationship targets. Regression tests first reproduced a load error, dropped slides on sort, and a failed individual move; save/reload retains both slides after the fixes.
+- Editor multi-slide movement applies the final order in one canonical sort instead of repeatedly rewriting the deck. Bilingual browser tests pass for single, contiguous and disjoint selections, Undo and saved order.
+- Validation: full root suite 3,070 passed / 109 skipped before the individual-move extension; the extended ordering/deck suite passes 19 tests. Editor unit suite 89 passed. Format, lint, root types and core/editor builds pass.
+- Native title-text Move Up shifts the preceding slide's last body paragraph below the selected title. Move Down shifts the current slide's first body paragraph above the title onto the preceding slide. This is different from moving a slide icon. The reference was restored to one slide, Normal 120%, Undo disabled and saved. Title-text boundary movement is not implemented yet.

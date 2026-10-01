@@ -462,31 +462,23 @@ export const sortSlides = (
   const presRels = pkg.getRels(PRES_PART_NAME);
   if (!presRels) return;
 
-  // Build a map from rId → SlideData and from rId → its <p:sldId> element.
-  const slideByRId = new Map<string, SlideData>();
-  for (const slide of slides) {
-    const rel = presRels.items.find(
-      (r) =>
-        r.type === REL_TYPES.slide && r.target === `slides/${basename(slide[SLIDE_PART_NAME])}`,
-    );
-    if (rel) slideByRId.set(rel.id, slide);
+  const rIdByPart = new Map<PartName, string>();
+  for (const rel of presRels.items) {
+    if (rel.type === REL_TYPES.slide && rel.targetMode === 'Internal') {
+      rIdByPart.set(resolveTarget(PRES_PART_NAME, rel.target), rel.id);
+    }
   }
   const sldIdElements = sldIdLst.children.filter(
     (c): c is XmlElement =>
       c.kind === 'element' && c.name.namespaceURI === NS.pml && c.name.localName === 'sldId',
   );
+  const elementByRId = new Map(sldIdElements.map((el) => [getAttrValue(el, ATTR_R_ID), el]));
   const sortedSlides = [...slides].sort(compareFn);
   const newOrder: XmlElement[] = [];
   for (const slide of sortedSlides) {
-    let matchedRId: string | undefined;
-    for (const [rId, s] of slideByRId.entries()) {
-      if (s === slide) {
-        matchedRId = rId;
-        break;
-      }
-    }
+    const matchedRId = rIdByPart.get(slide[SLIDE_PART_NAME]);
     if (matchedRId === undefined) continue;
-    const el = sldIdElements.find((e) => getAttrValue(e, ATTR_R_ID) === matchedRId);
+    const el = elementByRId.get(matchedRId);
     if (el) newOrder.push(el);
   }
 
@@ -538,11 +530,13 @@ export const swapSlides = (pres: PresentationData, indexA: number, indexB: numbe
  */
 export const moveSlide = (pres: PresentationData, slide: SlideData, toIndex: number): void => {
   const pkg = pres[INTERNAL_PACKAGE];
-  const slideRelTarget = `slides/${basename(slide[SLIDE_PART_NAME])}`;
   const presRels = pkg.getRels(PRES_PART_NAME);
   if (!presRels) throw new Error('presentation.xml has no rels');
   const slideRel = presRels.items.find(
-    (r) => r.type === REL_TYPES.slide && r.target === slideRelTarget,
+    (r) =>
+      r.type === REL_TYPES.slide &&
+      r.targetMode === 'Internal' &&
+      resolveTarget(PRES_PART_NAME, r.target) === slide[SLIDE_PART_NAME],
   );
   if (!slideRel) throw new Error(`moveSlide: slide ${slide[SLIDE_PART_NAME]} has no rel`);
 

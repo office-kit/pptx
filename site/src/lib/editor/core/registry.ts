@@ -332,16 +332,16 @@ class SlideCommand extends ManifestCommand {
             throw new CommandError('Slide position must be an integer.');
           const start = Math.max(0, Math.min(at, doc.slides.length - selected.length));
           const names = selected.map(pptx.getSlidePartName);
+          const moving = new Set(names);
           const remaining = doc.slides
             .map(pptx.getSlidePartName)
-            .filter((name) => !names.includes(name));
+            .filter((name) => !moving.has(name));
           remaining.splice(start, 0, ...names);
-          for (let i = 0; i < remaining.length; i++) {
-            const source = pptx
-              .getSlides(doc.pres)
-              .find((item) => pptx.getSlidePartName(item) === remaining[i])!;
-            pptx.moveSlide(doc.pres, source, i);
-          }
+          const rank = new Map(remaining.map((name, index) => [name, index]));
+          pptx.sortSlides(
+            doc.pres,
+            (a, b) => rank.get(pptx.getSlidePartName(a))! - rank.get(pptx.getSlidePartName(b))!,
+          );
           doc.select({
             kind: 'slide',
             slideIndex: start,

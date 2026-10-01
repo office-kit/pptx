@@ -149,3 +149,9 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 - 本文右クリックの Move Up/Down を追加。選択段落を隣の段落と入れ替え、段落 XML・書式・リンクを保持する。既存 `setShapeParagraphs` の単一対象にも `{ source, ranges }` を追加。
 - 実機では後続の入れ子段落は自動で追従しない。先頭本文では Move Up が無効。比較後は元の本文・レベル、Normal 120%、Undo disabled に復元・保存済み。未復元変更なし。
 - コア 3,069 成功 / 109 skip、site 89 成功。タイトル文字やスライド境界をまたぐ移動は未検証。全操作一致は未完成。
+
+## 最新追記: スライド参照と並べ替え
+
+- 絶対参照と `./` を含む参照で、読み込み・並べ替え・単一移動が失敗する不具合を再現して修正。複数スライドの移動は一括 sort に変更。英日ブラウザー 2 件、site 89 件成功。詳細は POWERPOINT_PARITY.md。
+- 実機タイトル文字の Move Up は前スライド末尾の本文を現在スライド先頭へ、Move Down は現在スライド先頭の本文を前スライド末尾へ移す。スライドアイコンの移動とは違う。実装は残件。
+- 実機参照は Normal 120%、1 枚、Undo disabled に復元して保存済み。未復元変更なし。
