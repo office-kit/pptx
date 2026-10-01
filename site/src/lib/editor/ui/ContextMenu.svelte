@@ -81,12 +81,11 @@
             { label: collapsed ? 'Collapse All' : 'Expand All', run: () => collapse(collapsed, true) },
           ],
         })));
-      } else {
-        list.push(
-          { label: 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
-          { label: 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
-        );
       }
+      list.push(
+        { label: menu.source === 'outline' ? 'Move Up' : 'Move slide up', run: () => editor.invoke('moveSlide', { toIndex: firstSelected - 1 }), disabled: firstSelected === 0 },
+        { label: menu.source === 'outline' ? 'Move Down' : 'Move slide down', run: () => editor.invoke('moveSlide', { toIndex: firstSelected + 1 }), disabled: firstSelected >= doc.slides.length - selected.length },
+      );
     } else {
       list.push(
         { label: 'Paste', accel: '⌘V', run: () => editor.paste(), disabled: !editor.hasClipboard() },

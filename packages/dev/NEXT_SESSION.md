@@ -111,3 +111,10 @@ Svelte は `site` で `node node_modules/svelte-check/bin/svelte-check --tsconfi
 
 - タイトル分割でリンクが消えるブラウザー回帰を再現し、既存 `setShapeParagraphs` に `{ source, range? }` 入力を追加して修正。文字範囲の段落 XML・フィールド・リンクをコピーし、宛先の本文設定は保持。英語/日本語のブラウザー検証が通過。
 - 実機 `/private/tmp/pptx-outline-audit/body.pptx` では、レベル 0 の本文を 2 段落選択して Promote すると、それぞれ別スライドのタイトルになる。単一段落では後続本文も新スライドへ移る。昇格操作は未実装。比較後は Undo、Normal 120%、1 スライド、Undo disabled に復元・保存済み。
+
+- アウトラインのスライドアイコン右クリックに Move Up / Move Down を追加。英語/日本語の独立ビルドで複数選択・境界・Undo/Redo・保存順序・再読込が通過。全ブラウザー実行中の共有ビルドは変更していないため、完了後の通常ビルドでも `outline-slides.test.mjs` の英日 2 件が通過。
+
+- Paragraph-level range updates now use one text-body commit through the existing `getParagraphLevel` / `setParagraphLevel` APIs. Outline Tab no longer performs repeated whole-text scans/commits. Core range tests cover shapes and table cells.
+- Clipboard boundary review reproduced and fixed invalid format metadata and sub-point HTML font sizes. Editor unit suite: 83 passed; new HTML-size browser case passed. Frozen full-suite run `/tmp/pptx-browser-10e68754.log` finished: 212 passed, zero failures. Core/editor were then rebuilt and DSL/Svelte checks passed. Focused ordinary-build validation is recorded below.
+
+- CI `10e68754` の Node 24 はアウトラインの遅延 select イベントで 1 件失敗（211 件成功）。view 切替で破棄済みの textarea に select を配送する英日テストで再現し、イベントの currentTarget を読むよう修正。タイトル分割後のフォーカス処理も破棄前の ownerDocument を保持する。独立ビルド 2 件成功、通常ビルドの関連 11 件も全て成功（アウトライン編集・移動・選択イベント各英日、書式付き貼り付け、HTML 貼り付け・フォントサイズ境界）。

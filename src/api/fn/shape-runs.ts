@@ -1,3 +1,5 @@
+import { paragraphText, textBodyText } from '../../internal/drawingml/text-body.ts';
+import { validateTextRange } from '../../internal/drawingml/text-body-edit.ts';
 import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
 import { boundedInt } from '../../internal/bounds.ts';
 // Per-run text accessors.
@@ -480,6 +482,10 @@ export const setParagraphAlignment = (
  * Indents matching the previous level's default bullet pair follow the level;
  * other indent values are preserved.
  *
+ * A UTF-16 range selects all touched paragraphs (exclusive end; a caret selects
+ * its paragraph). Pass `{ offset }` to shift their existing levels, clamped to
+ * 0 through 8. Range updates preserve run XML and commit the text body once.
+ *
  * Used in tandem with bullets to author nested lists:
  *
  *   setShapeText(shape, 'Item 1\nNested\nItem 2');
@@ -488,20 +494,50 @@ export const setParagraphAlignment = (
  */
 export const setParagraphLevel = (
   shape: SlideShapeData | TableCellData,
-  paragraphIndex: number,
-  level: number,
+  paragraphIndex: number | { start: number; end: number },
+  level: number | { offset: number },
 ): void => {
-  if (!Number.isInteger(level) || level < 0 || level > 8) {
-    throw new RangeError(`paragraph level must be an integer in [0, 8], got ${level}`);
+  if (typeof level === 'number') {
+    if (!Number.isInteger(level) || level < 0 || level > 8) {
+      throw new RangeError(`paragraph level must be an integer in [0, 8], got ${level}`);
+    }
+  } else if (!Number.isSafeInteger(level.offset)) {
+    throw new RangeError('paragraph level offset must be a safe integer');
   }
-  const paragraph = requireParagraph(shape, paragraphIndex);
-  const pPr = ensurePPr(paragraph);
-  const previousLevel = Number.parseInt(getAttrValue(pPr, ATTR_LVL) ?? '0', 10);
-  pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
-  if (level > 0) pPr.attrs.push(attr(ATTR_LVL, String(level)));
-  updateBulletIndentForLevel(pPr, Number.isFinite(previousLevel) ? previousLevel : 0, level);
-  commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
+  const paragraphs = selectedLevelParagraphs(shape, paragraphIndex);
+  let changed = false;
+  for (const paragraph of paragraphs) {
+    const previousLevel = readParagraphLevel(paragraph);
+    const next =
+      typeof level === 'number' ? level : Math.max(0, Math.min(8, previousLevel + level.offset));
+    if (previousLevel === next) continue;
+    const pPr = ensurePPr(paragraph);
+    pPr.attrs = pPr.attrs.filter((a) => a.name.localName !== 'lvl');
+    if (next > 0) pPr.attrs.push(attr(ATTR_LVL, String(next)));
+    updateBulletIndentForLevel(pPr, previousLevel, next);
+    changed = true;
+  }
+  if (changed) commitAndRefresh(CELL_TABLE in shape ? shape[CELL_TABLE] : shape);
 };
+
+function selectedLevelParagraphs(
+  shape: SlideShapeData | TableCellData,
+  selection: number | { start: number; end: number },
+): XmlElement[] {
+  if (typeof selection === 'number') return [requireParagraph(shape, selection)];
+  const body = requireParagraphTextBody(shape);
+  validateTextRange(textBodyText(body), selection, 'paragraph level');
+  let offset = 0;
+  return paragraphsOf(body).filter((paragraph) => {
+    const end = offset + paragraphText(paragraph).length;
+    const selected =
+      selection.start === selection.end
+        ? selection.start >= offset && selection.start <= end
+        : selection.start < end + 1 && selection.end > offset;
+    offset = end + 1;
+    return selected;
+  });
+}
 
 /**
  * Reads the paragraph's own `algn` as its spec token (`l`, `ctr`, `r`,
@@ -523,21 +559,35 @@ export const getParagraphAlignment = (
 
 /**
  * Reads the paragraph's nesting level (`lvl` attribute), or `0` when
- * absent — PowerPoint's default. Returns `null` for non-existent
- * paragraphs.
+ * absent — PowerPoint's default. A UTF-16 range returns the levels of all
+ * touched paragraphs in order. Invalid indices or ranges throw RangeError.
  */
-export const getParagraphLevel = (
+export function getParagraphLevel(
   shape: SlideShapeData | TableCellData,
   paragraphIndex: number,
-): number => {
-  const paragraph = requireParagraph(shape, paragraphIndex);
+): number;
+export function getParagraphLevel(
+  shape: SlideShapeData | TableCellData,
+  range: { start: number; end: number },
+): number[];
+export function getParagraphLevel(
+  shape: SlideShapeData | TableCellData,
+  selection: number | { start: number; end: number },
+): number | number[] {
+  const paragraphs = selectedLevelParagraphs(shape, selection);
+  return typeof selection === 'number'
+    ? readParagraphLevel(paragraphs[0]!)
+    : paragraphs.map(readParagraphLevel);
+}
+
+function readParagraphLevel(paragraph: XmlElement): number {
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (pPr === null) return 0;
   const v = getAttrValue(pPr, ATTR_LVL);
   if (v === null) return 0;
   const n = Number.parseInt(v, 10);
   return Number.isFinite(n) ? n : 0;
-};
+}
 
 // CT_TextParagraphProperties (a:pPr) is an xsd:sequence: line spacing, then
 // before/after spacing, then the bullet-related groups, then tabLst/defRPr.

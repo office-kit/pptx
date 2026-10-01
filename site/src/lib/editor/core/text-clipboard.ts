@@ -1,4 +1,5 @@
 import {
+  asColor,
   getShapeParagraphCount,
   getShapeParagraphElements,
   getTableCellParagraphs,
@@ -11,6 +12,29 @@ import type { TextEdit } from './text-edit-preview.ts';
 
 export const TEXT_CLIPBOARD_TYPE = 'application/x-office-kit-text+json';
 type TextClipboard = { version: 1; text: string; formats: NonNullable<TextEdit['formats']> };
+
+// DrawingML ST_TextUnderlineType values accepted by the text writer.
+const underlineStyles = new Set([
+  'none',
+  'words',
+  'sng',
+  'dbl',
+  'heavy',
+  'dotted',
+  'dottedHeavy',
+  'dash',
+  'dashHeavy',
+  'dashLong',
+  'dashLongHeavy',
+  'dotDash',
+  'dotDashHeavy',
+  'dotDotDash',
+  'dotDotDashHeavy',
+  'wavy',
+  'wavyHeavy',
+  'wavyDbl',
+]);
+const strikeStyles = new Set(['noStrike', 'sngStrike', 'dblStrike']);
 
 export function copyTextRange(
   shape: SlideShapeData,
@@ -61,22 +85,20 @@ function validFormat(value: unknown): value is TextFormat {
         return typeof v === 'string' && v.length <= 256;
       case 'color':
       case 'highlight':
-        return (
-          v === null ||
-          (typeof v === 'string' &&
-            /^(#?[\da-f]{6}|dk[12]|lt[12]|tx[12]|bg[12]|accent[1-6]|hlink|folHlink)$/i.test(v))
-        );
+        return v === null || (typeof v === 'string' && asColor(v) !== null);
       case 'bold':
       case 'italic':
         return typeof v === 'boolean';
       case 'underline':
+        return typeof v === 'boolean' || (typeof v === 'string' && underlineStyles.has(v));
       case 'strike':
-        return typeof v === 'boolean' || (typeof v === 'string' && /^[a-zA-Z]{1,32}$/.test(v));
+        return typeof v === 'boolean' || (typeof v === 'string' && strikeStyles.has(v));
       case 'cap':
         return v === 'none' || v === 'small' || v === 'all';
       case 'size':
-        return typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= 4000;
+        return typeof v === 'number' && Number.isFinite(v) && v >= 1 && v <= 4000;
       case 'spc':
+        return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 400_000;
       case 'kern':
       case 'baseline':
         return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) <= 1_000_000;

@@ -71,7 +71,7 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
             : parent.size
               ? (parent.size * n) / (size[2] === '%' ? 100 : 1)
               : undefined;
-      if (points && points <= 4000) format.size = points;
+      if (points !== undefined && points >= 1 && points <= 4000) format.size = points;
     }
     const family = (style.fontFamily || element.getAttribute('face') || '')
       .split(',')[0]!

@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onDestroy, tick, untrack } from 'svelte';
-  import { getShapeText, getShapeParagraphCount, getShapeParagraphElements, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
+  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { paragraphsInTextRange } from '../core/paragraph-selection.ts';
   import { outlineShapes } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
@@ -32,7 +31,8 @@
     const shape = index < 0 ? null : doc.shapeById(index, shapeId);
     if (shape) doc.transact(t('Edit text'), () => replayTextEdits(shape, edits));
   }
-  function rememberRange() { range = { start: input.selectionStart, end: input.selectionEnd }; }
+  // Selection events can arrive after Svelte has detached this input on Undo or view changes.
+  function rememberRange(target: HTMLTextAreaElement = input) { range = { start: target.selectionStart, end: target.selectionEnd }; }
   function changed() {
     const next = input.value;
     const change = textEditDiff(value, next, range, input.selectionStart);
@@ -54,22 +54,15 @@
       event.preventDefault(); event.stopPropagation();
       rememberRange(); commit();
       const source = doc.shapeById(slideIndex, shapeId)!;
-      const lengths = Array.from({ length: getShapeParagraphCount(source) }, (_, index) =>
-        getShapeParagraphElements(source, index).reduce((length, element) => length + (element.kind === 'br' ? 1 : element.text.length), 0));
-      const indices = paragraphsInTextRange(lengths, range);
-      const levels = indices.map(index => ({ index, level: getParagraphLevel(source, index) }));
       const maxLevel = 8;
-      if (levels.some(item => item.level < maxLevel)) {
-        doc.transact(t('Indent'), () => {
-          for (const { index, level } of levels) {
-            if (level < maxLevel) setParagraphLevel(source, index, level + 1);
-          }
-        });
+      if (getParagraphLevel(source, range).some(level => level < maxLevel)) {
+        doc.transact(t('Indent'), () => setParagraphLevel(source, range, { offset: 1 }));
       }
     }
     else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey && title) {
       const layout = getSlideLayout(slide);
       if (!layout) return;
+      const ownerDocument = input.ownerDocument;
       const start = input.selectionStart;
       const end = input.selectionEnd;
       event.preventDefault(); event.stopPropagation(); commit();
@@ -96,7 +89,7 @@
         doc.selectSlide(index);
       });
       await tick();
-      input.ownerDocument.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${index}"] textarea`)?.focus();
+      ownerDocument.querySelector<HTMLTextAreaElement>(`[data-outline-slide="${index}"] textarea`)?.focus();
     }
   }
   $effect(() => {
@@ -110,7 +103,7 @@
   onDestroy(() => untrack(commit));
 </script>
 
-<textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={rememberRange} onselect={rememberRange} oninput={changed} onblur={commit} onkeydown={keys} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
+<textarea bind:this={input} {value} class:title aria-label={`${t(title ? 'Outline title' : 'Outline text')} ${slideIndex + 1}`} rows="1" spellcheck="false" onfocus={() => doc.selectShape(slideIndex, shapeId)} onbeforeinput={event => rememberRange(event.currentTarget)} onselect={event => rememberRange(event.currentTarget)} oninput={changed} onblur={commit} onkeydown={keys} oncompositionstart={() => { composing = true; clearTimeout(timer); }} oncompositionend={() => { composing = false; changed(); }}></textarea>
 
 <style>
   textarea { display: block; width: 100%; box-sizing: border-box; resize: none; overflow: hidden; min-height: 23px; padding: 2px 4px; border: 0; outline: none; color: var(--ok-text); background: transparent; font: 14px/1.4 Arial, sans-serif; }
