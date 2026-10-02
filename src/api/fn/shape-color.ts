@@ -458,9 +458,9 @@ export const parseRPrLikeElement = (
     if (Number.isFinite(n)) out.size = n / 100;
   }
   const b = getAttrValue(rPr, qname('', 'b', ''));
-  if (b !== null) out.bold = b !== '0';
+  if (b !== null) out.bold = b === '1' || b === 'true';
   const i = getAttrValue(rPr, qname('', 'i', ''));
-  if (i !== null) out.italic = i !== '0';
+  if (i !== null) out.italic = i === '1' || i === 'true';
   const u = getAttrValue(rPr, qname('', 'u', ''));
   if (u !== null) {
     if (u === 'none') out.underline = false;

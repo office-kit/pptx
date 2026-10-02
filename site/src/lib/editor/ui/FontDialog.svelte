@@ -118,7 +118,27 @@
       </div>
       <fieldset><legend>{t('Color & Underline')}</legend><div class="color-grid">
         <div><span>{t('Font color')}</span><ColorPicker label={t('Font color')} value={patch.color ?? common(f => f.color) ?? undefined} choose={color => { patch.color = color; }} /></div>
-        <label>{t('Underline style')}<select bind:value={underline} onchange={() => { if (underline) patch.underline = underline === 'none' ? false : underline; }}><option value="">{t('Mixed')}</option><option value="none">{t('(None)')}</option><option value="sng">{t('Single')}</option><option value="dbl">{t('Double')}</option><option value="wavy">{t('Wavy')}</option></select></label>
+        <label>{t('Underline style')}<select bind:value={underline} onchange={() => { if (underline) patch.underline = underline === 'none' ? false : underline; }}>
+          <option value="">{t('Mixed')}</option>
+          <option value="none">{t('(None)')}</option>
+          <option value="words">{t('Words only')}</option>
+          <option value="sng">{t('Single')}</option>
+          <option value="dbl">{t('Double')}</option>
+          <option value="heavy">{t('Heavy')}</option>
+          <option value="dotted">{t('Dotted')}</option>
+          <option value="dottedHeavy">{t('Dotted heavy')}</option>
+          <option value="dash">{t('Dashed')}</option>
+          <option value="dashHeavy">{t('Dashed heavy')}</option>
+          <option value="dashLong">{t('Long dashed')}</option>
+          <option value="dashLongHeavy">{t('Long dashed heavy')}</option>
+          <option value="dotDash">{t('Dash dot')}</option>
+          <option value="dotDashHeavy">{t('Dash dot heavy')}</option>
+          <option value="dotDotDash">{t('Dash dot dot')}</option>
+          <option value="dotDotDashHeavy">{t('Dash dot dot heavy')}</option>
+          <option value="wavy">{t('Wavy')}</option>
+          <option value="wavyHeavy">{t('Wavy heavy')}</option>
+          <option value="wavyDbl">{t('Double wavy')}</option>
+        </select></label>
       </div></fieldset>
       <fieldset><legend>{t('Effects')}</legend><div class="effects-grid">
         <div>

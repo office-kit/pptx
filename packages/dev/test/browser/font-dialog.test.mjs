@@ -55,6 +55,7 @@ test(
             font: run.format?.font,
             eastAsian: run.format?.fontEastAsian,
             complexScript: run.format?.fontComplexScript,
+            underline: run.format?.underline ?? false,
             size: run.format?.size,
             spc: run.format?.spc ?? 0,
             bold: run.format?.bold ?? false,
@@ -69,7 +70,6 @@ test(
       await page.keyboard.press('Control+T');
       const dialog = editor.getByRole('dialog', { name: 'Font', exact: true });
       await dialog.waitFor();
-      const latinFont = dialog.getByRole('textbox', { name: 'Latin text font', exact: true });
       await dialog.getByRole('button', { name: 'Font options', exact: true }).first().click();
       const fontMenu = editor.getByRole('menu', { name: 'Latin text font', exact: true });
       await fontMenu.waitFor();
@@ -83,6 +83,7 @@ test(
           font: undefined,
           eastAsian: undefined,
           complexScript: undefined,
+          underline: false,
           size: undefined,
           spc: 0,
           bold: false,
@@ -94,6 +95,7 @@ test(
           font: 'Arial',
           eastAsian: 'Asian Original',
           complexScript: 'Complex Original',
+          underline: false,
           size: 22,
           spc: 0,
           bold: true,
@@ -105,6 +107,7 @@ test(
           font: undefined,
           eastAsian: undefined,
           complexScript: undefined,
+          underline: false,
           size: undefined,
           spc: 0,
           bold: false,
@@ -112,6 +115,13 @@ test(
           kern: 0,
         },
       ]);
+      await select(7, 13);
+      await page.keyboard.press('Control+T');
+      await dialog.waitFor();
+      await dialog.getByLabel('Underline style').selectOption('wavyHeavy');
+      await dialog.getByRole('button', { name: 'OK', exact: true }).click();
+      await saved();
+      assert.equal((await readRuns())[1].underline, 'wavyHeavy');
       await select(0, 19);
       await page.keyboard.press('Control+T');
       await dialog.waitFor();

@@ -1,3 +1,12 @@
+## 2026-10-02: 下線選択・XML boolean・small caps
+
+- Font ダイアログから全18種類のDrawingML下線値を選択可能。wavyHeavyの選択・保存をブラウザー回帰で確認。描画側は依然一部スタイルを単線へ簡略化しており、全下線の見た目一致は未完了。
+- OOXMLの `b="false"` / `i="false"` をオンとして読む不具合を修正。1/true/0/falseと、継承元オンに対する明示オフの保存再読込を検証。
+- SVGのsmall capsは小文字由来の文字を小さな大文字として描画・計測し、元の大文字と行メトリクスを保持。縮小率0.8は近似であり、Mac実機の全フォント一致は未確認。
+- format/lint/core typecheck、core/preview/editor build、DSL typecheck、Svelte 0 errors/warnings、core3236件成功/109skip。結合文字・折返しの追加修正後はsmall caps/text layout/SVG modesの66件成功。FontDialogブラウザー回帰成功。
+- PowerPoint画面取得は復帰。reference.pptxはOutline title / 44pt、Undo disabledを実機確認。一時変更の復元待ちはなし。下線メニューを開くと画面取得0×0になる事象があったが、通常画面は取得できている。
+- 残件: 下線色、下線各種の実描画、Equalize character heightの実描画、表セルの継承書式表示など。同一PR #287を継続し、4173の未保存編集と.pnpm-storeは触らない。全操作一致は未完了。
+
 ## 2026-10-02: Font ダイアログ
 
 - Home の Font ボタンと Cmd/Ctrl+T で Font / Character Spacing の2タブを開く。Latin/Asian フォント、スタイル、サイズ、色、下線、二重取り消し線、上付き/下付きと位置、caps、文字高さ、文字間隔、カーニングを設定可能。

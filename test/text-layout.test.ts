@@ -80,6 +80,63 @@ describe('kerning propagation', () => {
   });
 });
 
+describe('small caps sizing', () => {
+  it('measures lowercase-derived capitals smaller while preserving authored line metrics', () => {
+    const seenSizes: number[] = [];
+    const measure: TextMeasurer = (text, s) => {
+      seenSizes.push(s.sizePx);
+      return {
+        widthPx: [...text].length * s.sizePx,
+        ascentPx: s.sizePx * 0.8,
+        descentPx: s.sizePx * 0.2,
+        lineGapPx: 0,
+      };
+    };
+    const result = layoutCore(
+      body([para([piece('ABC', { sizePx: 20 }), piece('DEF', { sizePx: 20, smallCaps: true })])]),
+      measure,
+    );
+
+    expect(seenSizes).toContain(20);
+    expect(seenSizes).toContain(16);
+    expect(result.placements[0]!.line.advance).toBeCloseTo(20, 5);
+  });
+
+  it('keeps a mixed-case word together across small-caps piece boundaries', () => {
+    const result = layoutCore(
+      body([para([piece('A', { sizePx: 20 }), piece('BCD', { sizePx: 20, smallCaps: true })])], {
+        boxWpx: 70,
+      }),
+      stubMeasurer,
+    );
+
+    expect(result.placements).toHaveLength(1);
+    expect(result.placements[0]!.line.tokens.map((token) => token.text).join('')).toBe('ABCD');
+  });
+
+  it('moves a mixed-case word as one unit when only the preceding word fits', () => {
+    const result = layoutCore(
+      body(
+        [
+          para([
+            piece('X '),
+            piece('A', { sizePx: 20 }),
+            piece('BCD', { sizePx: 20, smallCaps: true }),
+          ]),
+        ],
+        {
+          boxWpx: 70,
+        },
+      ),
+      stubMeasurer,
+    );
+
+    expect(result.placements).toHaveLength(2);
+    expect(result.placements[0]!.line.tokens.map((token) => token.text).join('')).toBe('X');
+    expect(result.placements[1]!.line.tokens.map((token) => token.text).join('')).toBe('ABCD');
+  });
+});
+
 // A deterministic measurer: every glyph is `sizePx` wide; fixed vertical metrics.
 const stubMeasurer: TextMeasurer = (text, s) => ({
   widthPx: [...text].length * s.sizePx,
