@@ -1,3 +1,11 @@
+## 2026-10-02: Adjacent character outlines in SVG
+
+- Fixed `samePiece` in preview text layout: outline color and width must participate in run grouping. Adjacent differently outlined letters previously inherited the first letter's outline (including losing or acquiring outlines).
+- Four failing layout regressions reproduced the issue before the fix. Added a save/load/render test with distinct colors, widths and a plain final run. All 67 tests across text-layout and preview-character-effects pass; lint and root typecheck pass.
+- Native connection was retried and still fails at startup. No additional native edits were made. Pending reference restoration remains as documented below.
+- Parallel-agent spawn was attempted but the thread limit is reached.
+- Audited `normalizeHeight` and locale decimal tabs: these remain unimplemented/unverified rendering work. No speculative approximation was added. Normalize height needs glyph metrics and native comparison; current decimal tabs recognize only a period.
+
 ## 2026-10-02: Pending outline drafts and merge confirmation
 
 - Reproduced: type into an outline title, immediately select through a later title containing an ordinary shape, then confirm deletion. The draft commit changed `doc.version` after the dialog captured it, so Yes silently did nothing.

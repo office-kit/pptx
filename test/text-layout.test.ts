@@ -770,3 +770,34 @@ describe('paragraph tab stops', () => {
     expect(lines.map((line) => line.tokens.find((token) => token.isTab)?.width)).toEqual([70, 60]);
   });
 });
+
+describe('adjacent character outlines', () => {
+  it.each([
+    [
+      { outlineHex: '#FF0000', outlineWidthPx: 1 },
+      { outlineHex: '#0000FF', outlineWidthPx: 1 },
+    ],
+    [
+      { outlineHex: '#FF0000', outlineWidthPx: 1 },
+      { outlineHex: '#FF0000', outlineWidthPx: 3 },
+    ],
+    [{}, { outlineHex: '#FF0000', outlineWidthPx: 1 }],
+    [{ outlineHex: '#FF0000', outlineWidthPx: 1 }, {}],
+  ])('preserves distinct run outlines %j and %j', (first, second) => {
+    const svg = layoutTextSvg(
+      body([para([piece('A', first), piece('B', second)])]),
+      defaultMeasurer,
+    );
+    for (const [text, format] of [
+      ['A', first],
+      ['B', second],
+    ] as const) {
+      const span = svg.match(new RegExp(`<tspan([^>]*)>${text}</tspan>`))?.[1];
+      expect(span).toBeDefined();
+      if ('outlineHex' in format) {
+        expect(span).toContain(`stroke="${format.outlineHex}"`);
+        expect(span).toContain(`stroke-width="${format.outlineWidthPx}"`);
+      } else expect(span).not.toContain('stroke=');
+    }
+  });
+});
