@@ -78,7 +78,9 @@ const readColorPercentage = (raw: string): number => {
 };
 
 const readColorAngleDegrees = (raw: string): number => {
-  const value = Number(raw.trim());
+  const trimmed = raw.trim();
+  if (!trimmed) return Number.NaN;
+  const value = Number(trimmed);
   return Number.isFinite(value) ? value / 60000 : Number.NaN;
 };
 
@@ -283,6 +285,25 @@ export const resolveDrawingColor = (
   if (local === 'srgbClr') {
     const v = getAttrValue(colorEl, qname('', 'val', ''));
     if (v) baseHex = `#${v.toUpperCase()}`;
+  } else if (local === 'scrgbClr') {
+    // ECMA-376 §20.1.2.3.30 defines these channels as linear-light
+    // percentages; convert them to the sRGB encoding used by this API.
+    const r = readColorPercentage(getAttrValue(colorEl, qname('', 'r', '')) ?? '');
+    const g = readColorPercentage(getAttrValue(colorEl, qname('', 'g', '')) ?? '');
+    const b = readColorPercentage(getAttrValue(colorEl, qname('', 'b', '')) ?? '');
+    if ([r, g, b].every(Number.isFinite)) {
+      baseHex = rgb01ToHex(linearToSrgb(r), linearToSrgb(g), linearToSrgb(b));
+    }
+  } else if (local === 'hslClr') {
+    // ECMA-376 §20.1.2.3.13 uses a positive fixed angle (1/60000 degree)
+    // plus percentage saturation and luminance attributes.
+    const hue = readColorAngleDegrees(getAttrValue(colorEl, qname('', 'hue', '')) ?? '');
+    const sat = readColorPercentage(getAttrValue(colorEl, qname('', 'sat', '')) ?? '');
+    const lum = readColorPercentage(getAttrValue(colorEl, qname('', 'lum', '')) ?? '');
+    if ([hue, sat, lum].every(Number.isFinite)) {
+      const [r, g, b] = hslToRgb((((hue / 360) % 1) + 1) % 1, sat, lum);
+      baseHex = rgb01ToHex(r, g, b);
+    }
   } else if (local === 'schemeClr') {
     const v = getAttrValue(colorEl, qname('', 'val', ''));
     if (v) baseHex = resolveSchemeToken(v, theme, clrMap);

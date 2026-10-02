@@ -137,6 +137,29 @@ export type SlideBackground =
   | { readonly kind: 'image' }
   | { readonly kind: 'inherit' };
 
+const readBackgroundColor = (
+  colorEl: XmlElement,
+  theme: ReturnType<typeof getPresentationTheme>,
+  colorMap?: Readonly<Record<string, string>> | null,
+): string | null => {
+  if (colorEl.name.namespaceURI !== NS.dml) return null;
+  if (colorEl.name.localName === 'schemeClr') {
+    const val = getAttrValue(colorEl, qname('', 'val', ''));
+    if (val === null) return null;
+    const hasColorTransform = colorEl.children.some(
+      (child) =>
+        child.kind === 'element' &&
+        child.name.namespaceURI === NS.dml &&
+        !['alpha', 'alphaMod', 'alphaOff'].includes(child.name.localName),
+    );
+    return hasColorTransform
+      ? (resolveDrawingColor(colorEl, theme, colorMap) ?? `scheme:${val}`)
+      : `scheme:${val}`;
+  }
+  if (!['srgbClr', 'sysClr', 'prstClr'].includes(colorEl.name.localName)) return null;
+  return resolveDrawingColor(colorEl, null);
+};
+
 /**
  * Reads the slide's color-map override (`<p:clrMapOvr><p:overrideClrMapping/>`).
  * The mapping remaps the eight stable ECMA-376 color tokens (`bg1`,
@@ -174,6 +197,8 @@ export const getSlideColorMapOverride = (slide: SlideData): Record<string, strin
 export const backgroundOfCSld = (
   cSld: XmlElement | null,
   properties?: XmlElement | null,
+  theme: ReturnType<typeof getPresentationTheme> = null,
+  colorMap?: Readonly<Record<string, string>> | null,
 ): SlideBackground => {
   if (cSld === null) return { kind: 'inherit' };
   const bg = firstChildElement(cSld, qname('p', 'bg', NS.pml));
@@ -188,29 +213,8 @@ export const backgroundOfCSld = (
     for (const inner of bgRef.children) {
       if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
       const opacity = resolveDrawingColorOpacity(inner);
-      if (inner.name.localName === 'srgbClr') {
-        const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null)
-          return {
-            kind: 'solid',
-            color: `#${val.toUpperCase()}`,
-            ...(opacity === null ? {} : { opacity }),
-          };
-      }
-      if (inner.name.localName === 'sysClr' || inner.name.localName === 'prstClr') {
-        const color = resolveDrawingColor(inner, null);
-        if (color !== null)
-          return { kind: 'solid', color, ...(opacity === null ? {} : { opacity }) };
-      }
-      if (inner.name.localName === 'schemeClr') {
-        const val = getAttrValue(inner, qname('', 'val', ''));
-        if (val !== null)
-          return {
-            kind: 'solid',
-            color: `scheme:${val}`,
-            ...(opacity === null ? {} : { opacity }),
-          };
-      }
+      const color = readBackgroundColor(inner, theme, colorMap);
+      if (color !== null) return { kind: 'solid', color, ...(opacity === null ? {} : { opacity }) };
     }
     return { kind: 'inherit' };
   }
@@ -223,29 +227,9 @@ export const backgroundOfCSld = (
         for (const inner of c.children) {
           if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
           const opacity = resolveDrawingColorOpacity(inner);
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null)
-              return {
-                kind: 'solid',
-                color: `#${val.toUpperCase()}`,
-                ...(opacity === null ? {} : { opacity }),
-              };
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null)
-              return {
-                kind: 'solid',
-                color: `scheme:${val}`,
-                ...(opacity === null ? {} : { opacity }),
-              };
-          }
-          if (inner.name.localName === 'sysClr' || inner.name.localName === 'prstClr') {
-            const color = resolveDrawingColor(inner, null);
-            if (color !== null)
-              return { kind: 'solid', color, ...(opacity === null ? {} : { opacity }) };
-          }
+          const color = readBackgroundColor(inner, theme, colorMap);
+          if (color !== null)
+            return { kind: 'solid', color, ...(opacity === null ? {} : { opacity }) };
         }
         return { kind: 'solid', color: '' };
       }
@@ -260,12 +244,19 @@ export const backgroundOfCSld = (
   return { kind: 'inherit' };
 };
 
-export const getSlideBackground = (slide: SlideData): SlideBackground =>
-  backgroundOfCSld(
-    firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD),
-    readBackgroundStyle(slide[INTERNAL_PACKAGE], slide[SLIDE_PART_NAME], slide[SLIDE_DOCUMENT].root)
-      .properties,
+export const getSlideBackground = (slide: SlideData): SlideBackground => {
+  const context = readBackgroundStyle(
+    slide[INTERNAL_PACKAGE],
+    slide[SLIDE_PART_NAME],
+    slide[SLIDE_DOCUMENT].root,
   );
+  return backgroundOfCSld(
+    firstChildElement(slide[SLIDE_DOCUMENT].root, NAME_CSLD),
+    context.properties,
+    context.theme,
+    context.colorMap,
+  );
+};
 
 /**
  * A simplified, render-ready view of one of the layout's non-placeholder
@@ -609,21 +600,28 @@ export const getSlideMasterBackground = (
   const masterPart = pkg.getPart(resolveTarget(layoutPartName, masterRel.target));
   if (!masterPart) return { kind: 'inherit' };
   const masterRoot = parseXml(decode(masterPart.data)).root;
+  const context = readBackgroundStyle(pkg, masterPart.name, masterRoot);
   return backgroundOfCSld(
     firstChildElement(masterRoot, NAME_CSLD),
-    readBackgroundStyle(pkg, masterPart.name, masterRoot).properties,
+    context.properties,
+    context.theme,
+    context.colorMap,
   );
 };
 
-export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground =>
-  backgroundOfCSld(
-    firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD),
-    readBackgroundStyle(
-      layout[INTERNAL_PACKAGE],
-      layout[LAYOUT_PART_NAME],
-      layout[LAYOUT_DOCUMENT].root,
-    ).properties,
+export const getSlideLayoutBackground = (layout: SlideLayoutData): SlideBackground => {
+  const context = readBackgroundStyle(
+    layout[INTERNAL_PACKAGE],
+    layout[LAYOUT_PART_NAME],
+    layout[LAYOUT_DOCUMENT].root,
   );
+  return backgroundOfCSld(
+    firstChildElement(layout[LAYOUT_DOCUMENT].root, NAME_CSLD),
+    context.properties,
+    context.theme,
+    context.colorMap,
+  );
+};
 
 /**
  * Returns the gradient stops + path when the slide carries a
