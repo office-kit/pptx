@@ -1,3 +1,11 @@
+## 2026-10-02: タイトル→本文の直接入力・IME 置換
+
+- beforeinput の insertText を通常入力・貼り付けと同じ構造置換へ接続。IME は同一スライドのタイトル→本文選択を変換中保持し、確定文字列を一度だけ適用する。キャンセルは文書・履歴を変更しない。
+- Chromium CDP による直接入力／変換確定の回帰は修正前に失敗（HeadingX / Heading、期待 HeadingXdy / Heading漢dy）。修正後は保存された本文末尾の結合と一回の Undo を確認。変換キャンセルの表示・revision 不変も追加検証。
+- PowerPoint の AX と画面取得が復旧。reference.pptx は reference-before-table-style.pptx と byte 比較一致。この作業では実機ファイルを変更していない。
+- 検証: format、lint、Svelte 型検査（0 errors / warnings）、単体 35 件、エディタービルド、範囲選択ブラウザ 20 件、共有文字入力ブラウザ 2 件成功。
+- 次: 複数段落タイトルの範囲削除、複数スライド間の構造置換・削除を実機比較する。複数スライド IME は既存経路を保持し、全面一致は未達成。
+
 ## 2026-10-02: タイトル→本文への貼り付け置換
 
 - reference.pptx の Outline title / Body から tline title + 改行 + Bo を選択。プレーン X 貼り付けで OuXdy、Undo 後 X\nY 貼り付けで OuX / Ydy、スライドは 1 枚。保存 XML はタイトル 2 a:p、本文空。証拠: /tmp/pptx-outline-audit/title-body-paste-multiline-native.pptx。

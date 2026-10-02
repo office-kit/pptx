@@ -11,7 +11,7 @@
     onbeforeinput: (range: TextSelection, event?: InputEvent) => void;
     onkeydown: (event: KeyboardEvent) => void;
     onnewline: (kind: 'paragraph' | 'break') => void;
-    oncomposition: (active: boolean) => void;
+    oncomposition: (active: boolean, text?: string) => void;
     onhistory: (backward: boolean) => void;
     oncopy: (event: ClipboardEvent) => void;
     oncut: (event: ClipboardEvent) => void;
@@ -103,7 +103,7 @@
   }}
   oninput={changed}
   oncompositionstart={() => { capture(); composing = true; oncomposition(true); }}
-  oncompositionend={() => { composing = false; changed(); oncomposition(false); }}
+  oncompositionend={event => { composing = false; changed(); oncomposition(false, event.data); }}
   oncopy={oncopy} oncut={event => { if (busy) event.preventDefault(); else oncut(event); }} onpaste={event => { if (busy) event.preventDefault(); else onpaste(event); }}
   onpointerdown={event => { event.stopPropagation(); onpointerdown?.(event); }} onpointerup={event => event.stopPropagation()} ondblclick={event => event.stopPropagation()}
   onkeydown={event => {
