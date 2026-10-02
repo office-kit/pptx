@@ -1118,6 +1118,8 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.letterSpacingPx === b.letterSpacingPx &&
   a.kerning === b.kerning &&
   a.fillHex === b.fillHex &&
+  a.outlineHex === b.outlineHex &&
+  a.outlineWidthPx === b.outlineWidthPx &&
   a.underlineHex === b.underlineHex &&
   a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&

@@ -7,6 +7,10 @@ import {
   createPresentation,
   inches,
   setShapeTextFormat,
+  setShapeParagraphs,
+  savePresentation,
+  loadPresentation,
+  getSlides,
 } from '@office-kit/pptx';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 
@@ -77,4 +81,40 @@ describe('renderSlideToSvg: character-level effects', () => {
     expect(svg).toContain('stroke="#FF0000"');
     expect(svg).toContain('paint-order="stroke fill"');
   });
+});
+
+it('preserves adjacent character outline colors and widths after saving and loading', async () => {
+  const pres = createPresentation();
+  const slide = addBlankSlide(pres);
+  const shape = addSlideTextBox(slide, {
+    x: inches(1),
+    y: inches(1),
+    w: inches(4),
+    h: inches(1),
+    text: '',
+  });
+  setShapeParagraphs(shape, [
+    {
+      runs: [
+        { text: 'A', format: { outline: { color: '#FF0000', widthEmu: 9525 } } },
+        { text: 'B', format: { outline: { color: '#0000FF', widthEmu: 9525 } } },
+        { text: 'C', format: { outline: { color: '#0000FF', widthEmu: 28575 } } },
+        { text: 'D' },
+      ],
+    },
+  ]);
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const svg = renderSlideToSvg(loaded, getSlides(loaded)[0]!, { textLayout: 'svg' });
+  for (const [text, color, width] of [
+    ['A', '#FF0000', '1'],
+    ['B', '#0000FF', '1'],
+    ['C', '#0000FF', '3'],
+  ]) {
+    const attrs = svg.match(new RegExp(`<tspan([^>]*)>${text}</tspan>`))?.[1];
+    expect(attrs).toContain(`stroke="${color}"`);
+    expect(attrs).toContain(`stroke-width="${width}"`);
+  }
+  const plain = svg.match(/<tspan([^>]*)>D<\/tspan>/)?.[1];
+  expect(plain).toBeDefined();
+  expect(plain).not.toContain('stroke=');
 });
