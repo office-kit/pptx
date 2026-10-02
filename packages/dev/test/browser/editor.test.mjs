@@ -7,6 +7,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import { unzipSync, strFromU8 } from 'fflate';
 import {
+  cm,
   getSlideNotes,
   getSlideTransition,
   getSlideSize,
@@ -133,7 +134,9 @@ test(
       assert.match(await editor.locator('.paint').textContent(), /日本語の編集/);
 
       // Clipboard snapshots must outlive deletion, editing and history restores.
-      await editor.locator('.hit').first().click();
+      const clipboardHit = await editor.locator('.hit').first().boundingBox();
+      assert.ok(clipboardHit);
+      await page.mouse.click(clipboardHit.x + 2, clipboardHit.y + 2);
       await page.keyboard.press('Control+x');
       await editor.locator('.hit').waitFor({ state: 'detached' });
       await page.keyboard.press('Control+v');
@@ -267,7 +270,9 @@ test(
       await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
       const editor = page.frameLocator('#editor-frame');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
-      await editor.locator('.hit').first().click();
+      const arrangeHit = await editor.locator('.hit').first().boundingBox();
+      assert.ok(arrangeHit);
+      await page.mouse.click(arrangeHit.x + 2, arrangeHit.y + 2);
       await page.keyboard.press('Control+a');
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
       const arrange = editor.getByRole('region', { name: 'Arrange', exact: true });
@@ -404,11 +409,20 @@ test(
       await dialog.getByRole('button', { name: 'Insert image', exact: true }).click();
       await dialog.waitFor({ state: 'hidden' });
       await editor.locator('.image-controls').waitFor();
+      await editor.getByRole('button', { name: 'Crop image', exact: true }).click();
+      const cropDialog = editor.getByRole('dialog', { name: 'Crop image', exact: true });
+      const leftCropHandle = cropDialog.getByRole('button', {
+        name: 'Crop left edge',
+        exact: true,
+      });
+      await leftCropHandle.press('Shift+ArrowRight');
+      await leftCropHandle.press('Shift+ArrowRight');
+      await cropDialog.getByRole('button', { name: 'Apply', exact: true }).click();
+      await cropDialog.waitFor({ state: 'hidden' });
       const change = async (label, value) => {
         await editor.getByLabel(label, { exact: true }).fill(value);
         await editor.getByLabel(label, { exact: true }).press('Tab');
       };
-      await change('Crop left (%)', '20');
       await change('Opacity (%)', '70');
       await change('Brightness (%)', '10');
       await change('Alternative text', '赤い画像 / Red image');
@@ -420,6 +434,7 @@ test(
       let deck = await download();
       let picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
       const bounds = getShapeBoundsResolved(deck, picture);
+      const expectedCropLeft = Math.round((bounds.x / cm(1)) * 100) / 100;
       assert.equal(bounds.w, bounds.h * 2);
       assert.equal(getShapeImageCrop(picture).left, 0.2);
       assert.equal(getShapeImageOpacity(picture), 0.7);
@@ -447,17 +462,24 @@ test(
       assert.deepEqual(Buffer.from(getShapeImageBytes(picture)), original);
       await page.reload();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
-      await editor.locator('.hit').click();
+      const imageHit = await editor.locator('.hit').boundingBox();
+      assert.ok(imageHit);
+      await page.mouse.click(imageHit.x + 2, imageHit.y + 2);
+      deck = await download();
+      picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
+      assert.equal(getShapeImageCrop(picture).left, 0.2);
+      const cropSection = editor.getByRole('region', { name: 'トリミング', exact: true });
+      await cropSection.getByLabel('トリミング左位置', { exact: true }).waitFor();
       assert.equal(
-        await editor.getByLabel('左のトリミング (%)', { exact: true }).inputValue(),
-        '20',
+        Number(await cropSection.getByLabel('トリミング左位置', { exact: true }).inputValue()),
+        expectedCropLeft,
       );
       assert.equal(
         await editor.getByLabel('代替テキスト', { exact: true }).inputValue(),
         '赤い画像 / Red image',
       );
       await page.screenshot({ path: '/tmp/pptx-pr287-image-ja.png', fullPage: true });
-      await editor.getByRole('button', { name: 'トリミングをリセット', exact: true }).click();
+      await cropSection.getByRole('button', { name: 'リセット', exact: true }).click();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       deck = await download();
       picture = getSlideShapes(getSlides(deck)[0]).find((s) => getShapeKind(s) === 'picture');
@@ -551,6 +573,7 @@ test(
         .getByRole('menuitemradio', { name: 'Red', exact: true })
         .click();
       await page.screenshot({ path: '/tmp/pptx-pr287-text-format-toolbar.png', fullPage: true });
+      await editor.locator('.floating-text-format-bar summary').click();
       await bar.getByRole('button', { name: 'Done', exact: true }).click();
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
       await editor.getByRole('tab', { name: 'Size & Properties', exact: true }).click();
@@ -603,6 +626,7 @@ test(
         'true',
       );
       await japanese.getByRole('button', { name: '太字', exact: true }).click();
+      await editor.locator('.floating-text-format-bar summary').click();
       await japanese.getByRole('button', { name: '完了', exact: true }).click();
       await editor.getByText('このプロジェクトに保存済み', { exact: true }).waitFor();
       result = await runs();
@@ -688,6 +712,7 @@ test(
         node.dispatchEvent(new Event('select', { bubbles: true }));
       });
       await editor.locator('.inline-edit').press('Control+u');
+      await editor.locator('.floating-text-format-bar summary').click();
       await editor
         .locator('.canvas-shell .text-format-bar')
         .getByRole('button', { name: 'Done', exact: true })

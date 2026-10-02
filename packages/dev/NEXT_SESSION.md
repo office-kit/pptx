@@ -1333,3 +1333,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Native retry after the user's availability reply failed both PowerPoint selection and app inventory with native pipe startup failure. No native changes were made. Reference restoration remains pending, and full parity is incomplete.
 
 - Reconciled stale Latin-word wrapping status in POWERPOINT_PARITY.md with native evidence and implementation in 76810d7a. Current text-layout and SVG text-mode tests pass (73 cases, `/tmp/latin-wrap-current.log`). This documents resolution of that specific regression without claiming full rendering equivalence.
+
+## 2026-10-03: Editor and paragraph regression review completed
+
+- Editor browser suite passes all 11 cases (`/tmp/editor-current-final.log`). Object operations select shape borders; crop editing uses the visible crop dialog and verifies the saved 0.2 crop after reload as well as the native position field. Existing formatting, bilingual, table, chart and history checks remain.
+- Inline paragraph suite passes all 7 cases (`/tmp/inline-paragraphs-final2.log`). Mixed-format and pending-edit inheritance assertions remain, including table list level and spacing after inserting a paragraph. Line-height verification measures the text span: paragraph font-size is intentionally zero to suppress the inherited line strut. No production fix was needed. Scoped formatter, lint, syntax and diff checks pass.
+- CI run 37033218920 on 4f59be35 has passed Static checks, Node 22, Node 26, Preview fidelity and OOXML validator; Node 24 was still running at the last observation. Do not claim a full CI pass yet.
+- Native PowerPoint retry still fails at pipe startup; no additional native mutations. Pending reference restoration and full native parity remain unresolved.
+- Next parallel audits: table_theme_refs owns locale decimal-tab evidence/code; table_band_edges owns outline cross-slide keyboard discrepancies. Their new work is separate from the completed browser-test migration.
