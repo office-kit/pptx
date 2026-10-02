@@ -32,6 +32,7 @@ function createFields(values, { raf } = {}) {
       apply: () => {},
       formats: () => [],
       applyFormat: () => {},
+      changeCase: (_start, end) => end,
       transact: (_label, callback) => callback(),
       focus: () => {},
       setRange: () => {},
@@ -62,6 +63,46 @@ test('formats every selected field in one transaction and leaves the edges untou
     { key: '0', start: 2, end: 4, format: { bold: true }, reset: false },
     { key: '1', start: 0, end: 2, format: { bold: true }, reset: false },
   ]);
+});
+
+test('change case expands a caret to the current word and restores the transformed caret', () => {
+  const model = new OutlineSelectionModel();
+  const fields = register(model, createFields(['one two']));
+  const calls = [];
+  fields[0].changeCase = (start, end, value, caret) => {
+    calls.push({ start, end, value, caret });
+    return end + 1;
+  };
+  model.setCaret(fields[0], 1);
+  assert.equal(model.changeCase('upper'), true);
+  assert.deepEqual(calls, [{ start: 0, end: 3, value: 'upper', caret: 1 }]);
+  assert.deepEqual(model.current(), {
+    start: { key: '0', offset: 4 },
+    end: { key: '0', offset: 4 },
+  });
+});
+
+test('change case applies one transaction across selected outline fields', () => {
+  const model = new OutlineSelectionModel();
+  const fields = register(model, createFields(['Heading', 'Body']));
+  const calls = [];
+  fields.forEach((field) => {
+    field.changeCase = (start, end, value) => {
+      calls.push({ key: field.key, start, end, value });
+      return end + 1;
+    };
+  });
+  model.setCaret(fields[0], 2);
+  model.update(fields[1], 0, 4, true);
+  assert.equal(model.changeCase('title'), true);
+  assert.deepEqual(calls, [
+    { key: '0', start: 2, end: 7, value: 'title' },
+    { key: '1', start: 0, end: 4, value: 'title' },
+  ]);
+  assert.deepEqual(model.current(), {
+    start: { key: '0', offset: 2 },
+    end: { key: '1', offset: 5 },
+  });
 });
 
 test('format callback reads formats after pending edits are flushed', () => {

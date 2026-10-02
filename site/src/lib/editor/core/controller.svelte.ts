@@ -44,6 +44,7 @@ import {
   type SlideShapeData,
   type ShapeBounds,
   type TextFormat,
+  type TextCase,
   type ParagraphProperties,
   setParagraphAlignment,
 } from '@office-kit/pptx';
@@ -122,6 +123,7 @@ export class EditorController {
     alignment: string;
     align: (alignment: string) => void;
     apply: (format: TextFormat, reset?: boolean) => void;
+    changeCase?: (value: TextCase) => void;
     fontSize?: (direction: 1 | -1) => void;
     toggle: (property: TextFormatToggle) => void;
   } | null>(null);

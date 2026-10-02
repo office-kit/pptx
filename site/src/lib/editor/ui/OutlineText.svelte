@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, onMount, tick, untrack } from 'svelte';
-  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextFormat } from '@office-kit/pptx';
+  import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
@@ -11,6 +11,7 @@
   import { outlineTextHtml } from '../core/outline-text-html.ts';
   import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
   import { OutlineSelectionModel, type OutlineSelectionField } from '../core/outline-selection.ts';
+  import { textCaseSelection } from '../core/text-case.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { stepFontSize, stepShapeFontSize } from '../core/font-size.ts';
   import { defaultTextMetrics } from '../core/text-layout-defaults.ts';
@@ -380,6 +381,24 @@
           typingFormat = undefined;
           setShapeTextFormat(shape, format, { range: { start, end }, reset });
         }
+      },
+      changeCase: (start, end, caseValue: TextCase, caret?: number) => {
+        const shape = doc.shapeById(slideIndex, shapeId);
+        if (!shape) return end;
+        typingFormat = undefined;
+        const before = getShapeText(shape);
+        setShapeText(shape, { case: caseValue }, { range: { start, end } });
+        const after = getShapeText(shape);
+        value = after;
+        const nextRange = textCaseSelection(
+          before,
+          after,
+          caret === undefined ? { start: end, end } : { start: caret, end: caret },
+          { start, end },
+        );
+        range = nextRange;
+        draftVersion++;
+        return range.end;
       },
       applyFontSize: (start, end, direction) => {
         const source = doc.shapeById(slideIndex, shapeId);

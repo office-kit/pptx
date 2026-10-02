@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getPresentationFonts, getShapeKind, getShapeText, type TextFormat } from '@office-kit/pptx';
+  import { getPresentationFonts, getShapeKind, getShapeText, setShapeText, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
@@ -31,6 +31,12 @@
     if (editor.inlineTextFormat) editor.inlineTextFormat.toggle(property);
     else apply(toggleTextFormat(formats, property));
   }
+  function changeCase(value: TextCase) {
+    if (editor.inlineTextFormat) { editor.inlineTextFormat.changeCase?.(value); return; }
+    editor.doc.transact(t('Change Case'), () => {
+      for (const shape of editor.selectedShapes()) if (getShapeKind(shape) === 'shape') setShapeText(shape, { case: value });
+    });
+  }
   function stepFontSize(direction: 1 | -1) {
     if (editor.inlineTextFormat?.fontSize) {
       editor.inlineTextFormat.fontSize(direction);
@@ -44,4 +50,4 @@
   }
 </script>
 
-<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} onfontsize={stepFontSize} ontoggle={toggle} />
+<TextFormatBar ribbon {formats} fontFamilies={themeFonts} selected={!!editor.inlineTextFormat || !!objectFormats} onformat={apply} oncase={changeCase} onfontsize={stepFontSize} ontoggle={toggle} />

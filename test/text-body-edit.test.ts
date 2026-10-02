@@ -1,6 +1,10 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { editTextBody, formatTextBodyRange } from '../src/internal/drawingml/text-body-edit.ts';
+import {
+  editTextBody,
+  formatTextBodyRange,
+  transformTextBodyCase,
+} from '../src/internal/drawingml/text-body-edit.ts';
 import { textBodyText } from '../src/internal/drawingml/text-body.ts';
 import { parseXml, serializeXml } from '../src/internal/xml/index.ts';
 
@@ -141,6 +145,60 @@ describe('text range formatting', () => {
       // @ts-expect-error Exercise the JavaScript boundary.
       formatTextBodyRange(doc.root, { bold: true, color: 'invalid' }, { start: 2, end: 5 }),
     ).toThrow();
+    expect(serializeXml(doc)).toBe(original);
+  });
+});
+
+describe('text case transformation', () => {
+  it('transforms mixed runs and paragraphs while retaining their XML', () => {
+    const doc = body(
+      '<a:p xmlns:x="urn:custom"><a:r><a:rPr b="1"/><a:t>hello </a:t><x:meta/></a:r><a:r><a:rPr i="1"/><a:t>world</a:t></a:r></a:p><a:p><a:r><a:t>second line</a:t></a:r></a:p>',
+    );
+    transformTextBodyCase(doc.root, 'title');
+    expect(textBodyText(doc.root)).toBe('Hello World\nSecond Line');
+    const xml = serializeXml(doc);
+    expect(xml).toContain('<a:rPr b="1"/>');
+    expect(xml).toContain('<a:rPr i="1"/>');
+    expect(xml).toContain('<x:meta/>');
+  });
+
+  it('uses contextual Unicode case mapping across run boundaries', () => {
+    const doc = body('<a:p><a:r><a:t>Ο</a:t></a:r><a:r><a:t>Σ</a:t></a:r></a:p>');
+    transformTextBodyCase(doc.root, 'lower');
+    expect(textBodyText(doc.root)).toBe('ος');
+    const toggle = body('<a:p><a:r><a:t>ΟΣ</a:t></a:r></a:p>');
+    transformTextBodyCase(toggle.root, 'toggle');
+    expect(textBodyText(toggle.root)).toBe('ος');
+  });
+
+  it('keeps UTF-16 ranges aligned across line breaks', () => {
+    const doc = body('<a:p><a:r><a:t>one</a:t></a:r><a:br/><a:r><a:t>two</a:t></a:r></a:p>');
+    transformTextBodyCase(doc.root, 'upper', { start: 4, end: 7 });
+    expect(textBodyText(doc.root)).toBe('one\nTWO');
+  });
+
+  it('keeps contextual lower casing for sentence and title modes', () => {
+    const sentence = body('<a:p><a:r><a:t>ΟΣ.</a:t></a:r></a:p>');
+    transformTextBodyCase(sentence.root, 'sentence');
+    expect(textBodyText(sentence.root)).toBe('Ος.');
+    const title = body('<a:p><a:r><a:t>ΟΣ</a:t></a:r></a:p>');
+    transformTextBodyCase(title.root, 'title');
+    expect(textBodyText(title.root)).toBe('Ος');
+    const dotted = body('<a:p><a:r><a:t>İSTANBUL</a:t></a:r></a:p>');
+    transformTextBodyCase(dotted.root, 'sentence');
+    expect(textBodyText(dotted.root)).toBe('İstanbul');
+  });
+
+  it('rejects invalid case and ranges without mutation', () => {
+    const doc = body('<a:p><a:r><a:t>Hello</a:t></a:r></a:p>');
+    const original = serializeXml(doc);
+    expect(() => transformTextBodyCase(doc.root, 'upper', { start: 1, end: 99 })).toThrow(
+      RangeError,
+    );
+    expect(() =>
+      // @ts-expect-error Exercise the JavaScript boundary.
+      transformTextBodyCase(doc.root, 'invalid'),
+    ).toThrow(RangeError);
     expect(serializeXml(doc)).toBe(original);
   });
 });

@@ -11,6 +11,7 @@ import { applyRunFormat, resetRunFormat, type TextFormat } from './text-format.t
 import { paragraphText, paragraphsOf, textBodyText } from './text-body.ts';
 
 const name = (local: string) => qname('a', local, NS.dml);
+export type TextCase = 'sentence' | 'lower' | 'upper' | 'title' | 'toggle';
 const is = (node: XmlElement, local: string) =>
   node.name.namespaceURI === NS.dml && node.name.localName === local;
 const copy = (node: XmlElement): XmlElement => structuredClone(node);
@@ -40,6 +41,162 @@ const textFragment = (source: XmlElement, value: string, materializeField = fals
   if (t) t.children = [text(value)];
   return result;
 };
+
+const isCased = (value: string): boolean => value.toLowerCase() !== value.toUpperCase();
+
+const casePointModes = (source: string, mode: TextCase): TextCase[] => {
+  const points = Array.from(source);
+  const pointModes: TextCase[] = points.map(() => mode);
+  if (mode === 'sentence') {
+    let capitalize = true;
+    points.forEach((point, index) => {
+      if (isCased(point)) {
+        pointModes[index] = capitalize ? 'upper' : 'lower';
+        capitalize = false;
+      }
+      if (point === '.' || point === '?' || point === '!' || point === '\n') capitalize = true;
+    });
+  } else if (mode === 'title') {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: 'word' });
+    let pointIndex = 0;
+    for (const { segment, isWordLike } of segmenter.segment(source)) {
+      const segmentPoints = Array.from(segment);
+      if (isWordLike) {
+        const first = segmentPoints.findIndex(isCased);
+        segmentPoints.forEach((point, index) => {
+          if (isCased(point)) pointModes[pointIndex + index] = index === first ? 'upper' : 'lower';
+        });
+      }
+      pointIndex += segmentPoints.length;
+    }
+  }
+  return pointModes;
+};
+
+const contextualCasePoints = (source: string, mode: TextCase): string[] => {
+  const points = Array.from(source);
+  const lowered = source.toLowerCase();
+  const lowerLengths = points.map((point) => point.toLowerCase().length);
+  const lowerTotal = lowerLengths.reduce((sum, length) => sum + length, 0);
+  if (lowerTotal !== lowered.length)
+    throw new Error('Unicode case mapping cannot be partitioned safely');
+  const modes = casePointModes(source, mode);
+  const result: string[] = [];
+  let lowerOffset = 0;
+  points.forEach((point, index) => {
+    const length = lowerLengths[index]!;
+    result.push(
+      modes[index] === 'upper'
+        ? point.toUpperCase()
+        : lowered.slice(lowerOffset, lowerOffset + length),
+    );
+    lowerOffset += length;
+  });
+  return result;
+};
+
+const toggleCasePoints = (source: string): string[] => {
+  const points = Array.from(source);
+  const lowered = source.toLowerCase();
+  const lowerLengths = points.map((point) => point.toLowerCase().length);
+  if (lowerLengths.reduce((sum, length) => sum + length, 0) !== lowered.length)
+    throw new Error('Unicode case mapping cannot be partitioned safely');
+  const result: string[] = [];
+  let lowerOffset = 0;
+  points.forEach((point, index) => {
+    const length = lowerLengths[index]!;
+    result.push(
+      isCased(point) && point === point.toUpperCase()
+        ? lowered.slice(lowerOffset, lowerOffset + length)
+        : isCased(point)
+          ? point.toUpperCase()
+          : lowered.slice(lowerOffset, lowerOffset + length),
+    );
+    lowerOffset += length;
+  });
+  return result;
+};
+
+const transformCaseText = (value: string, mode: TextCase): string => {
+  if (mode === 'lower') return value.toLowerCase();
+  if (mode === 'upper') return value.toUpperCase();
+  if (mode === 'toggle') return toggleCasePoints(value).join('');
+  return contextualCasePoints(value, mode).join('');
+};
+
+const caseBoundaryMap = (source: string, transformed: string, mode: TextCase): number[] => {
+  const points = Array.from(source);
+  const lengths =
+    mode === 'lower' || mode === 'sentence' || mode === 'title'
+      ? contextualCasePoints(source, mode).map((point) => point.length)
+      : mode === 'toggle'
+        ? toggleCasePoints(source).map((point) => point.length)
+        : points.map((point) => transformCaseText(point, mode).length);
+  if (lengths.reduce((sum, length) => sum + length, 0) !== transformed.length)
+    throw new Error('Unicode case mapping cannot be partitioned safely');
+  const boundaries = [0];
+  for (const length of lengths) boundaries.push(boundaries.at(-1)! + length);
+  return boundaries;
+};
+
+/** Changes cached text while retaining the original run/field XML structure. */
+export function transformTextBodyCase(
+  txBody: XmlElement,
+  mode: TextCase,
+  range?: { start: number; end: number },
+): void {
+  if (!['sentence', 'lower', 'upper', 'title', 'toggle'].includes(mode))
+    throw new RangeError(`text case must be one of sentence, lower, upper, title, toggle`);
+  const before = textBodyText(txBody);
+  const target = range ?? { start: 0, end: before.length };
+  validateTextRange(before, target, 'setText');
+  const selected = before.slice(target.start, target.end);
+  const transformed = transformCaseText(selected, mode);
+  if (selected === transformed) return;
+  const boundaries = caseBoundaryMap(selected, transformed, mode);
+  const utf16ToPoint = Array.from<number>({ length: selected.length + 1 });
+  let point = 0;
+  for (let index = 0; index < selected.length; ) {
+    utf16ToPoint[index] = point;
+    const width = selected.codePointAt(index)! > 0xffff ? 2 : 1;
+    if (width === 2) utf16ToPoint[index + 1] = point;
+    index += width;
+    point++;
+  }
+  utf16ToPoint[selected.length] = point;
+  const toOutputOffset = (offset: number): number =>
+    boundaries[utf16ToPoint[offset]!] ?? transformed.length;
+  let offset = 0;
+  for (const paragraph of paragraphsOf(txBody)) {
+    for (const child of paragraph.children) {
+      if (
+        child.kind !== 'element' ||
+        child.name.namespaceURI !== NS.dml ||
+        !['r', 'fld'].includes(child.name.localName)
+      ) {
+        if (child.kind === 'element' && is(child, 'br')) offset++;
+        continue;
+      }
+      const t = firstChildElement(child, name('t'));
+      if (!t) continue;
+      const content = textContent(t);
+      const nodeStart = offset;
+      const nodeEnd = nodeStart + content.length;
+      const from = Math.max(target.start, nodeStart);
+      const to = Math.min(target.end, nodeEnd);
+      if (from < to) {
+        const transformedFrom = toOutputOffset(from - target.start);
+        const transformedTo = toOutputOffset(to - target.start);
+        const prefix = content.slice(0, from - nodeStart);
+        const suffix = content.slice(to - nodeStart);
+        const replacement = transformed.slice(transformedFrom, transformedTo);
+        t.children = [text(prefix + replacement + suffix)];
+      }
+      offset = nodeEnd;
+    }
+    offset++;
+  }
+}
 
 /** Slice visible characters while retaining untouched fields, breaks and run XML. */
 function slice(paragraph: XmlElement, start: number, end: number): XmlElement[] {

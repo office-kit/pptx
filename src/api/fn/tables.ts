@@ -9,6 +9,8 @@ import {
   formatTextBodyParagraphEnd,
   formatTextBodyRange,
   mutateTextBodyRangeProperties,
+  transformTextBodyCase,
+  type TextCase,
   validateTextRange,
 } from '../../internal/drawingml/text-body-edit.ts';
 import { oneOf } from '../../internal/bounds.ts';
@@ -494,15 +496,18 @@ const ensureCellTcPr = (cell: TableCellData): XmlElement => {
  * format (`<a:endParaRPr>`) is not kept unless `preserveFormatting` is enabled.
  * That option preserves unaffected runs and paragraph properties during editing.
  * With `range`, `text` replaces exactly that UTF-16 selection, always preserving
- * the formatting of unaffected text.
+ * the formatting of unaffected text. Pass `{ case: 'upper' | 'lower' | 'sentence' |
+ * 'title' | 'toggle' }` to change case in the whole cell or `options.range`
+ * without rebuilding its runs, fields, or paragraph properties.
  */
 export const setTableCellText = (
   cell: TableCellData,
-  text: string,
+  text: string | { case: TextCase },
   options?: { preserveFormatting?: boolean; range?: { start: number; end: number } },
 ): void => {
   const txBody = ensureCellTxBody(cell);
-  if (options?.preserveFormatting || options?.range) editTextBody(txBody, text, options.range);
+  if (typeof text === 'object') transformTextBodyCase(txBody, text.case, options?.range);
+  else if (options?.preserveFormatting || options?.range) editTextBody(txBody, text, options.range);
   else setTextBody(txBody, text);
   commitTableCell(cell);
 };

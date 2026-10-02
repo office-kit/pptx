@@ -1,19 +1,21 @@
 <script lang="ts">
-  import { asColor, type TextFormat } from '@office-kit/pptx';
+  import { asColor, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { textFormatActive, toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
   import ColorPicker from './ColorPicker.svelte';
   import FontSizeInput from './FontSizeInput.svelte';
   import FontFamilyInput from './FontFamilyInput.svelte';
+  import ChangeCaseMenu from './ChangeCaseMenu.svelte';
   import CharacterSpacingMenu from './CharacterSpacingMenu.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { formats, selected, typing = false, onformat, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
+  let { formats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
     selected: boolean;
     typing?: boolean;
     hideFont?: boolean;
     ribbon?: boolean;
     onformat: (format: TextFormat, reset?: boolean) => void;
+    oncase?: (value: TextCase) => void;
     onfontsize?: (direction: 1 | -1) => void;
     ontoggle?: (property: TextFormatToggle) => void;
     ondone?: () => void;
@@ -68,6 +70,7 @@
   {/each}
   <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
   <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
+  {#if ribbon && oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
   {#if ribbon}<CharacterSpacingMenu {formats} disabled={!(selected || typing)} {onformat} />{/if}
   {#snippet highlightActions()}
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>

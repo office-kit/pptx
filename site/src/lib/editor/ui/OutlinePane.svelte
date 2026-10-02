@@ -8,7 +8,7 @@
   import OutlineText from './OutlineText.svelte';
   import { OutlineSelectionModel } from '../core/outline-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
-  import type { TextFormat } from '@office-kit/pptx';
+  import type { TextCase, TextFormat } from '@office-kit/pptx';
   const editor = getEditor();
   const doc = editor.doc;
   const selection = new OutlineSelectionModel();
@@ -91,6 +91,7 @@
       },
       apply: (format: TextFormat, reset = false) => selection.format(format, reset, t('Format selected text')),
       fontSize: (direction: 1 | -1) => selection.fontSize(direction, t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size')),
+      changeCase: (value: TextCase) => selection.changeCase(value, t('Change Case')),
       toggle: (property: TextFormatToggle) => selection.format(formats => toggleTextFormat(formats, property), false, t('Format selected text')),
     };
     editor.inlineTextFormat = api;
