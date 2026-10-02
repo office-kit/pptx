@@ -16,15 +16,21 @@ import {
   addSlideTable,
   findSlideLayout,
   getTableCell,
+  getTableCellRunFormatEffective,
   inches,
   emu,
   loadPresentation,
+  savePresentation,
   setTableCellAlignment,
   setTableCellMargins,
   setSlideSize,
   getSlideSize,
+  getSlides,
+  getSlideShapes,
+  isTableShape,
   setTableCellTextFormat,
 } from '../src/api/index.ts';
+import { readZip, writeZip } from '../src/internal/opc/index.ts';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import { attrsOf, countTags, textContentOf } from './lib/svg-query.ts';
 
@@ -202,4 +208,58 @@ describe('table cell text rendering', () => {
     expect(svg).toContain('font-weight:700');
     expect(svg).toMatch(/color:#[Cc][Cc]0+0+/);
   });
+
+  it.each(['svg', 'foreignObject'] as const)(
+    'table-cell paragraph defaults reach the renderer and explicit false wins (%s)',
+    async (textLayout) => {
+      const { pres, slide } = await blankSlide();
+      addSlideTable(slide, {
+        x: inches(1),
+        y: inches(1),
+        w: inches(6),
+        h: inches(2),
+        rows: [['Inherited']],
+      });
+      const { entries } = readZip(await savePresentation(pres));
+      const decoder = new TextDecoder();
+      const encoder = new TextEncoder();
+      const mutated = writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                ...entry,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    // The table cell's paragraph is the only paragraph in
+                    // this minimal slide. Its defRPr supplies the effective
+                    // size/weight/fill; the run's explicit b=0 must override
+                    // the inherited bold value without erasing the others.
+                    .replaceAll(
+                      '<a:pPr marL="0" indent="0">',
+                      '<a:pPr marL="0" indent="0"><a:defRPr sz="2400" b="1"><a:solidFill><a:srgbClr val="CC0000"/></a:solidFill></a:defRPr>',
+                    )
+                    .replaceAll('<a:r><a:rPr lang="en-US">', '<a:r><a:rPr lang="en-US" b="0">')
+                    .replace(/(<a:r><a:rPr[^>]*>)<a:solidFill>[\s\S]*?<\/a:solidFill>/, '$1'),
+                ),
+              }
+            : entry,
+        ),
+      );
+      const loaded = await loadPresentation(mutated);
+      const effective = getTableCellRunFormatEffective(
+        loaded,
+        getTableCell(getSlideShapes(getSlides(loaded)[0]!).find(isTableShape)!, 0, 0),
+        0,
+        0,
+      );
+      expect(effective).toMatchObject({ size: 24, bold: false, color: '#CC0000' });
+      const output = renderSlideToSvg(loaded, getSlides(loaded)[0]!, { textLayout });
+      expect(output).toContain(textLayout === 'svg' ? 'font-size="32"' : 'font-size:32.00px');
+      expect(output).toMatch(textLayout === 'svg' ? /fill="#CC0000"/ : /color:#CC0000/);
+      // Explicit b=0 overrides the paragraph default in both output modes.
+      expect(output).not.toMatch(/font-weight(?:=|:)\s*700/);
+      expect(textContentOf(output)).toContain('Inherited');
+    },
+  );
 });

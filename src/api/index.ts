@@ -467,6 +467,7 @@ export {
   getTableCellFill,
   getTableCellMargins,
   getTableCellParagraphs,
+  getTableCellRunFormatEffective,
   getTableCellPosition,
   getTableCellSpan,
   getTableCellText,

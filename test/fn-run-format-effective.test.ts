@@ -143,6 +143,43 @@ describe('fn API: getShapeRunFormatEffective', () => {
     expect(getShapeRunFormat(shape, 0, 0)?.underlineColor).toBeNull();
     expect(getShapeRunFormatEffective(pres, shape, 0, 0).underlineColor).toBeNull();
   });
+
+  it('resolves scheme colors through the slide master color map', async () => {
+    const original = createPresentation();
+    addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Mapped',
+    });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) => {
+          if (entry.name === 'ppt/slides/slide1.xml') {
+            const xml = decoder
+              .decode(entry.data)
+              .replace(
+                /<a:rPr([^>]*)\/>/,
+                '<a:rPr$1><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:rPr>',
+              );
+            return { ...entry, data: encoder.encode(xml) };
+          }
+          if (entry.name.startsWith('ppt/slideMasters/slideMaster')) {
+            const xml = decoder.decode(entry.data).replace(/tx1="[^"]*"/, 'tx1="lt1"');
+            return { ...entry, data: encoder.encode(xml) };
+          }
+          return entry;
+        }),
+      ),
+    );
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).color).toBe('#FFFFFF');
+  });
+
   it('returns the literal rPr value when one is set on the run', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

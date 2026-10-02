@@ -4,6 +4,7 @@ import {
   getShapeParagraphElements,
   getShapeRunFormatEffective,
   getTableCellParagraphs,
+  getTableCellRunFormatEffective,
   getTableCells,
   getEffectiveColorMap,
   getPresentationTheme,
@@ -68,8 +69,9 @@ export function inlineTextHtml(
       );
   const container = document.createElement('div');
   const scaled = (value: number, unit: string) => `calc(${value}${unit} * var(--text-zoom))`;
-  const resolve = cell
-    ? undefined
+  const resolve = tableCell
+    ? (paragraph: number, run: number) =>
+        getTableCellRunFormatEffective(pres, tableCell, paragraph, run)
     : (paragraph: number, run: number) =>
         getShapeRunFormatEffective(pres, shape, paragraph, run, { inheritanceSource: source });
   const properties = paragraphs.map((_, index) =>

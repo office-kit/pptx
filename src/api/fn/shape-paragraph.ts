@@ -56,6 +56,7 @@ import {
 } from '../_internal-symbols.ts';
 import { commitAndRefresh, decode, releaseUnusedLinkRels, requireTxBody } from './_helpers.ts';
 import { getPresentationFonts, getPresentationTheme } from './theme.ts';
+import { getEffectiveColorMap } from './color-map.ts';
 // -- Effective rPr cascade (ECMA-376 §21.1.2.4.7) ---------------------------
 //
 // A run's effective character properties are resolved by walking the
@@ -132,6 +133,72 @@ const lstStyleLevelDefRPr = (lstStyle: XmlElement | null, level: number): XmlEle
     return firstChildElement(defPPr, NAME_A_DEF_RPR);
   }
   return firstChildElement(lvlPPr, NAME_A_DEF_RPR);
+};
+
+/**
+ * Resolves the local DrawingML character-property cascade shared by shapes
+ * and table cells. Placeholder/master inheritance is intentionally handled by
+ * `getShapeRunFormatEffective`; cells have no placeholder chain, but their
+ * `pPr` and `lstStyle` defaults follow the same OOXML rules.
+ *
+ * @internal
+ */
+export const resolveTextBodyRunFormatEffective = (
+  context: {
+    readonly theme: ReturnType<typeof getPresentationTheme>;
+    readonly colorMap?: Readonly<Record<string, string>> | null;
+  },
+  textBody: XmlElement,
+  paragraphIndex: number,
+  runIndex: number,
+): ReadTextFormat => {
+  const paragraphs = textBody.children.filter(
+    (child): child is XmlElement =>
+      child.kind === 'element' &&
+      child.name.namespaceURI === NS.dml &&
+      child.name.localName === 'p',
+  );
+  const paragraph = paragraphs[paragraphIndex];
+  if (!paragraph) {
+    throw new RangeError(
+      `paragraph index ${paragraphIndex} out of range (have ${paragraphs.length})`,
+    );
+  }
+  const runs = runsOf(paragraph);
+  const run = runs[runIndex];
+  if (!run) {
+    throw new RangeError(
+      `run index ${runIndex} out of range in paragraph ${paragraphIndex} (have ${runs.length})`,
+    );
+  }
+
+  const result: Partial<ReadTextFormat> = {};
+  const ctx = context;
+  const pPr = firstChildElement(paragraph, NAME_A_PPR);
+  let level = 0;
+  if (pPr) {
+    const lvl = getAttrValue(pPr, ATTR_LVL);
+    if (lvl !== null) {
+      const parsed = Number.parseInt(lvl, 10);
+      if (Number.isFinite(parsed)) level = parsed;
+    }
+  }
+
+  const runRPr = firstChildElement(run, NAME_A_RPR);
+  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
+  if (runs[runs.length - 1] === run) {
+    const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
+    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
+  }
+  if (pPr) {
+    const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
+    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx));
+  }
+  const lstStyle = firstChildElement(textBody, NAME_A_LST_STYLE);
+  const lstDefRPr = lstStyleLevelDefRPr(lstStyle, level);
+  if (lstDefRPr) mergeRPrLayer(result, parseRPrLikeElement(lstDefRPr, ctx));
+
+  return result as ReadTextFormat;
 };
 
 // Companion to `lstStyleLevelDefRPr` but returns the `<a:lvlNpPr>` (or
@@ -229,15 +296,20 @@ export const getShapeRunFormatEffective = (
   options: { inheritanceSource?: SlideShapeData } = {},
 ): TextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);
-  const run = requireRun(shape, paragraphIndex, runIndex);
-  const result: Partial<ReadTextFormat> = {};
+  const txBody = firstChildElement(shape[SHAPE_ELEMENT], NAME_TX_BODY);
+  if (!txBody) throw new Error('shape has no <p:txBody>');
+  const inheritanceSource = options.inheritanceSource ?? shape;
+  const theme = getPresentationTheme(pres);
+  const colorMap = getEffectiveColorMap(inheritanceSource[SHAPE_SLIDE]);
+  const result: Partial<ReadTextFormat> = {
+    ...resolveTextBodyRunFormatEffective({ theme, colorMap }, txBody, paragraphIndex, runIndex),
+  };
 
   // Theme is consulted (a) at each layer to resolve scheme tokens and
   // color transforms eagerly, so the cascade can pick the innermost layer
   // that produces a concrete color, and (b) for typeface fallback at
   // layer 7. Reading once up-front keeps the per-layer cost flat.
-  const theme = getPresentationTheme(pres);
-  const ctx = { theme } as const;
+  const ctx = { theme, colorMap } as const;
 
   // Paragraph level (0..8). `<a:pPr lvl="..">`; absent = 0.
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
@@ -250,29 +322,6 @@ export const getShapeRunFormatEffective = (
     }
   }
 
-  // 1. Run's own rPr.
-  const runRPr = firstChildElement(run, NAME_A_RPR);
-  if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
-
-  // 2. endParaRPr — applies to the last run in the paragraph per the spec.
-  const runs = runsOf(paragraph);
-  if (runs.length > 0 && runs[runs.length - 1] === run) {
-    const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
-    if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
-  }
-
-  // 3. Paragraph-level defaults (pPr/defRPr).
-  if (pPr) {
-    const defRPr = firstChildElement(pPr, NAME_A_DEF_RPR);
-    if (defRPr) mergeRPrLayer(result, parseRPrLikeElement(defRPr, ctx));
-  }
-
-  // 4. Text-body lstStyle at the paragraph's level.
-  const shapeLstStyle = findShapeLstStyleElement(shape);
-  const shapeLvlDef = lstStyleLevelDefRPr(shapeLstStyle, level);
-  if (shapeLvlDef) mergeRPrLayer(result, parseRPrLikeElement(shapeLvlDef, ctx));
-
-  const inheritanceSource = options.inheritanceSource ?? shape;
   const phIdx = getShapePlaceholderIdx(inheritanceSource);
   const phType = getShapePlaceholderType(inheritanceSource);
   const isPlaceholder = shapeIsPlaceholder(inheritanceSource);

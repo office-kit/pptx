@@ -6,6 +6,7 @@ import {
   getShapeParagraphElements,
   getTableCells,
   getTableCellParagraphs,
+  getTableCellRunFormatEffective,
   type SlideShapeData,
   type TextFormat,
 } from '@office-kit/pptx';
@@ -19,8 +20,9 @@ export function textFormatsInRange(
 ): TextFormat[] {
   const formats: TextFormat[] = [];
   let offset = 0;
-  const paragraphs = cell
-    ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!)
+  const tableCell = cell ? getTableCells(shape)[cell.row]![cell.col]! : undefined;
+  const paragraphs = tableCell
+    ? getTableCellParagraphs(tableCell)
     : Array.from({ length: getShapeParagraphCount(shape) }, (_, i) => ({
         elements: getShapeParagraphElements(shape, i),
         endFormat: getParagraphEndFormat(shape, i),
@@ -31,12 +33,18 @@ export function textFormatsInRange(
     for (const element of elements) {
       const currentRun = runIndex;
       if (element.kind === 'r') runIndex++;
-      const format = () =>
-        context && !cell && element.kind === 'r'
-          ? getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
-              inheritanceSource: context.source ?? shape,
-            })
-          : (element.format ?? {});
+      // Readers widen colors to plain strings; the selection's format is fed
+      // straight back into writers, so it is converted once here.
+      const format = (): TextFormat =>
+        toWritableTextFormat(
+          context && element.kind === 'r'
+            ? tableCell
+              ? getTableCellRunFormatEffective(context.pres, tableCell, paragraphIndex, currentRun)
+              : getShapeRunFormatEffective(context.pres, shape, paragraphIndex, currentRun, {
+                  inheritanceSource: context.source ?? shape,
+                })
+            : (element.format ?? {}),
+        );
       const length = element.kind === 'br' ? 1 : element.text.length;
       if (range.start === range.end) {
         const caret = range.start;

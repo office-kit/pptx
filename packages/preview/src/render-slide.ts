@@ -135,6 +135,7 @@ import {
   getTableCellBorders,
   getTableCellFill,
   getTableCellParagraphs,
+  getTableCellRunFormatEffective,
   getTableCellSpan,
   getTableCells,
   getTableStyleFlags,
@@ -6107,6 +6108,7 @@ const cellParaData = (
     const bulletIsPicture = isParagraphBulletPicture(cell, index);
     const bulletImageBytes = bulletIsPicture ? getParagraphBulletImageBytes(cell, index) : null;
     const runs: RunData[] = [];
+    let rIdx = 0;
     for (const el of para.elements) {
       if (el.kind === 'br') {
         runs.push({ text: '\n', fmt: null, sizePt: DEFAULT_BODY_PT });
@@ -6114,10 +6116,16 @@ const cellParaData = (
       }
       if (el.text.trim()) hasText = true;
       const href = el.clickAction ? clickActionHref(pres, el.clickAction) : null;
+      // Table-cell readers expose the literal run format. Resolve the same
+      // paragraph/body defaults as PowerPoint applies before rendering so
+      // `pPr/defRPr` and `lstStyle` also affect SVG and foreignObject text.
+      let fmt: ReadTextFormat | null = el.format;
+      if (el.kind === 'r') fmt = getTableCellRunFormatEffective(pres, cell, index, rIdx);
+      if (el.kind === 'r') rIdx++;
       runs.push({
         text: el.text,
-        fmt: el.format,
-        sizePt: el.format?.size ?? DEFAULT_BODY_PT,
+        fmt,
+        sizePt: fmt?.size ?? DEFAULT_BODY_PT,
         ...(href ? { href, ...(el.tooltip !== undefined ? { hrefTip: el.tooltip } : {}) } : {}),
       });
     }

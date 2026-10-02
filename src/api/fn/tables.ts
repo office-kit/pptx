@@ -68,8 +68,10 @@ import {
   readParagraphElements,
   readParagraphEndFormat,
 } from './shape-runs.ts';
-import { ALIGN_TOKEN_MAP } from './shape-paragraph.ts';
+import { ALIGN_TOKEN_MAP, resolveTextBodyRunFormatEffective } from './shape-paragraph.ts';
 import { getPresentationTheme } from './package.ts';
+import { getEffectiveColorMap } from './color-map.ts';
+import { getPresentationFonts } from './theme.ts';
 import { resolveDrawingColor } from './shapes.ts';
 import { getSlides } from './slide-query.ts';
 
@@ -1188,6 +1190,65 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
     out.push({ align, elements, endFormat: readParagraphEndFormat(p) });
   }
   return out;
+};
+
+/**
+ * Reads a table-cell run's effective character format. The literal
+ * `getTableCellParagraphs` format only contains properties authored on the
+ * run; this resolver also applies the cell text body's paragraph defaults and
+ * outline-level defaults (`a:pPr/defRPr` and `a:lstStyle`).
+ */
+export const getTableCellRunFormatEffective = (
+  pres: PresentationData,
+  cell: TableCellData,
+  paragraphIndex: number,
+  runIndex: number,
+): ReadTextFormat => {
+  const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
+  if (!txBody) throw new Error('table cell has no <a:txBody>');
+  const format = resolveTextBodyRunFormatEffective(
+    {
+      theme: getPresentationTheme(pres),
+      colorMap: getEffectiveColorMap(cell[CELL_TABLE][SHAPE_SLIDE]),
+    },
+    txBody,
+    paragraphIndex,
+    runIndex,
+  );
+  const fonts = getPresentationFonts(pres);
+  if (fonts) {
+    const resolveToken = (
+      value: string | undefined,
+      fallback: string | null,
+    ): string | undefined => {
+      if (value === undefined) return fallback ?? undefined;
+      switch (value) {
+        case '+mn-lt':
+          return fonts.minorLatin ?? fallback ?? undefined;
+        case '+mj-lt':
+          return fonts.majorLatin ?? fallback ?? undefined;
+        case '+mn-ea':
+          return fonts.minorEastAsian ?? fallback ?? undefined;
+        case '+mj-ea':
+          return fonts.majorEastAsian ?? fallback ?? undefined;
+        case '+mn-cs':
+          return fonts.minorComplexScript ?? fallback ?? undefined;
+        case '+mj-cs':
+          return fonts.majorComplexScript ?? fallback ?? undefined;
+        default:
+          return value;
+      }
+    };
+    const resolved: Partial<ReadTextFormat> = {};
+    const font = resolveToken(format.font, fonts.minorLatin);
+    const fontEastAsian = resolveToken(format.fontEastAsian, fonts.minorEastAsian);
+    const fontComplexScript = resolveToken(format.fontComplexScript, fonts.minorComplexScript);
+    if (font !== undefined) resolved.font = font;
+    if (fontEastAsian !== undefined) resolved.fontEastAsian = fontEastAsian;
+    if (fontComplexScript !== undefined) resolved.fontComplexScript = fontComplexScript;
+    return { ...format, ...resolved };
+  }
+  return format;
 };
 
 /** Sets a solid background color on a cell (`<a:tcPr><a:solidFill>`). */
