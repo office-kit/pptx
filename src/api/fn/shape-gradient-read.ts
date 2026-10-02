@@ -29,6 +29,7 @@ import {
 } from '../../internal/drawingml/color-transforms.ts';
 import { getEffectiveColorMap } from './color-map.ts';
 import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
+import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
 import { getPresentationTheme, type PresentationTheme } from './theme.ts';
 // ---------------------------------------------------------------------------
 // Detailed gradient-fill reader. Companion to `getShapeFill`, which
@@ -66,6 +67,14 @@ export const readColorFromContainer = (parent: XmlElement): string | null => {
     if (c.name.localName === 'schemeClr') {
       const val = getAttrValue(c, qname('', 'val', ''));
       if (val !== null) return `scheme:${val}`;
+    }
+    if (c.name.localName === 'prstClr') {
+      const val = getAttrValue(c, qname('', 'val', ''));
+      if (val !== null) return resolveDrawingMLPresetColor(val);
+    }
+    if (c.name.localName === 'sysClr') {
+      const last = getAttrValue(c, qname('', 'lastClr', ''));
+      if (last !== null) return `#${last.toUpperCase()}`;
     }
   }
   return null;

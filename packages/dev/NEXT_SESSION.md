@@ -1406,3 +1406,10 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Public shape-fill/text import and save/reload checks, pixel rendering of red and its shade, preset coverage and color-transform regressions pass 27 tests. Scoped formatting, root lint/typecheck and core build pass (`/tmp/preset-final.log`). The initial root pixel test ran after the agent wired the resolver; its passing result is not a pre-fix reproduction.
 - Remaining color coverage: hslClr and scrgbClr are not handled by the shared resolver. Some gradient, inherited stroke and background readers restrict accepted color elements even further. Audit and reproduce those paths before changing them; this patch does not establish complete imported-color support.
 - Native retry still fails at pipe startup; reference-file restoration remains pending. CI 37035075036 is still live on remote 6bdd9276 with Node 24 Chromium running. Batch local commits into the existing PR #287 once that run finishes rather than cancelling its coverage.
+
+## 2026-10-03: Gradient and background preset-color consumers
+
+- Gradient readers now retain preset and system-color stops; background readers resolve these colors in solid fills and background references. Gradient base colors remain separate from transforms to avoid applying shade twice.
+- Root reproduced dropped gradient stops against the pre-fix source (`/tmp/gradient-preset-before-root.log`) and white background rendering (`/tmp/preset-consumers-before.log`). Public save/reload and shaded-color pixel regressions pass after correction.
+- Final verification: 41 tests across 8 files, scoped formatting, lint, typecheck and core build pass (`/tmp/preset-consumers-final.log`). Existing sRGB/scheme background-transform handling and hslClr/scrgbClr remain separate unresolved gaps.
+- On the user's latest connection check, PowerPoint still failed with `Sky Computer Use native pipe startup failed`, before screen capture. No native changes were made; restoring the reference document remains pending. CI 37035075036 still has Node 24 running; the other five jobs passed. Local changes await the batched push to PR #287.

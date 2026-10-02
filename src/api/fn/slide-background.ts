@@ -77,7 +77,7 @@ import {
 } from './_helpers.ts';
 import { getPresentationTheme } from './theme.ts';
 import { readBackgroundStyle } from './background-style-read.ts';
-import { resolveDrawingColorOpacity } from './shape-color.ts';
+import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
 import {
   getSlides,
   isSlideBackgroundGraphicsHidden,
@@ -87,7 +87,7 @@ import { getSlideLayouts } from './layouts.ts';
 import { clearSlideLayoutBackground } from './layout-edit.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import { parseGradFill } from './shape-gradient-read.ts';
-import { NAME_A_GRAD_FILL, type ShapeBounds, resolveDrawingColor } from './shapes.ts';
+import { NAME_A_GRAD_FILL, type ShapeBounds } from './shapes.ts';
 
 /**
  * Replaces the `<p:bg>` of any `<p:cSld>` with a freshly configured
@@ -197,6 +197,11 @@ export const backgroundOfCSld = (
             ...(opacity === null ? {} : { opacity }),
           };
       }
+      if (inner.name.localName === 'sysClr' || inner.name.localName === 'prstClr') {
+        const color = resolveDrawingColor(inner, null);
+        if (color !== null)
+          return { kind: 'solid', color, ...(opacity === null ? {} : { opacity }) };
+      }
       if (inner.name.localName === 'schemeClr') {
         const val = getAttrValue(inner, qname('', 'val', ''));
         if (val !== null)
@@ -235,6 +240,11 @@ export const backgroundOfCSld = (
                 color: `scheme:${val}`,
                 ...(opacity === null ? {} : { opacity }),
               };
+          }
+          if (inner.name.localName === 'sysClr' || inner.name.localName === 'prstClr') {
+            const color = resolveDrawingColor(inner, null);
+            if (color !== null)
+              return { kind: 'solid', color, ...(opacity === null ? {} : { opacity }) };
           }
         }
         return { kind: 'solid', color: '' };
