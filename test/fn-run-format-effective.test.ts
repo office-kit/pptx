@@ -19,6 +19,7 @@ import {
   getShapeRunFormat,
   getShapeRunFormatEffective,
   getSlides,
+  getSlideShapes,
   inches,
   loadPresentation,
   savePresentation,
@@ -31,6 +32,40 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: getShapeRunFormatEffective', () => {
+  it('inherits equalized character height and allows an explicit run override', async () => {
+    const original = createPresentation();
+    addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'AaBb',
+    });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                name: entry.name,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    .replace('<a:p>', '<a:p><a:pPr><a:defRPr normalizeH="1"/></a:pPr>'),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(getShapeRunFormat(shape, 0, 0)?.normalizeHeight).toBeUndefined();
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).normalizeHeight).toBe(true);
+    setShapeRunFormat(shape, 0, 0, { normalizeHeight: false });
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).normalizeHeight).toBe(false);
+  });
   it('returns the literal rPr value when one is set on the run', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

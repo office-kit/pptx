@@ -484,6 +484,9 @@ export const parseRPrLikeElement = (
     if (Number.isFinite(n)) out.kern = n;
   }
   const baselineAttr = getAttrValue(rPr, qname('', 'baseline', ''));
+  const normalizeHeight = getAttrValue(rPr, qname('', 'normalizeH', ''));
+  if (normalizeHeight !== null)
+    out.normalizeHeight = normalizeHeight === '1' || normalizeHeight === 'true';
   if (baselineAttr !== null) {
     // ST_Percentage: 100000 = 100%; tolerate bare floats.
     let n = Number.parseFloat(baselineAttr);

@@ -1,3 +1,10 @@
+## 2026-10-02: Equalize character height の OOXML 対応
+
+- `TextFormat.normalizeHeight` を追加。`normalizeH` の true/false/1/0 を読み、明示オン・オフを保存。実効書式の継承と解除、範囲書式リセットも対応。
+- Mac の reference.pptx で Equalize character height をオンにして保存すると `normalizeH="1"` を確認。Cmd+Zと保存後に属性が消え、Undo disabled。未復元の一時変更なし。
+- core 全体3228件成功/109skip、format/lint/typecheck/build成功。字形の高さを実際に揃えるプレビュー描画はまだ未実装。保存対応を視覚的な完全一致と混同しないこと。
+- Font ダイアログは font_dialog エージェントが作業中。変更した項目だけ適用し、混在する未編集書式を保持すること。Mac の2タブと各チェックボックス・offset・別Asian fontに合わせる。下線色API/プレビュー描画は残件。
+
 ## 2026-10-02: カーニング描画と文字サイズショートカット
 
 - OOXMLのkern閾値をSVG/HTML描画、fontkit/ブラウザ計測に反映。inline HTMLもサイズと閾値からfont-kerningを設定。SVGの結合判定・計測キャッシュにも反映する。閾値未満・境界・0・省略を検証。
