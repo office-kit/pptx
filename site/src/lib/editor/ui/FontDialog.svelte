@@ -145,6 +145,7 @@
           <option value="wavyHeavy">{t('Wavy heavy')}</option>
           <option value="wavyDbl">{t('Double wavy')}</option>
         </select></label>
+        <div><span>{t('Underline color')}</span><ColorPicker label={t('Underline color')} disabled={underline === 'none' || !underline} value={(patch.underlineColor !== undefined ? patch.underlineColor : common(f => f.underlineColor)) ?? undefined} automaticSelected={(patch.underlineColor !== undefined ? patch.underlineColor : common(f => f.underlineColor ?? null)) === null} automatic={() => { patch.underlineColor = null; }} choose={color => { patch.underlineColor = color; }} /></div>
       </div></fieldset>
       <fieldset><legend>{t('Effects')}</legend><div class="effects-grid">
         <div>
@@ -196,6 +197,7 @@
   fieldset { border: 0; border-top: 1px solid var(--ok-border); margin: 18px 0 0; padding: 10px 0 0; }
   legend { padding-right: 8px; }
   .color-grid, .effects-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  .color-grid { grid-template-columns: 1fr 1.4fr 1fr; }
   .offset { flex-direction: row; align-items: center; margin-top: 8px; }
   .offset input { width: 78px; }
   .spacing-row { display: flex; gap: 24px; margin: 22px 0; }

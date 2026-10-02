@@ -4,8 +4,10 @@
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { label, value, resolvedColor, disabled = false, showThemeShades = false, selectedColorTransforms = [], choose }: {
+  let { label, value, resolvedColor, disabled = false, showThemeShades = false, selectedColorTransforms = [], automatic, automaticSelected = false, choose }: {
     label: string;
+    automatic?: () => void;
+    automaticSelected?: boolean;
     value?: string;
     resolvedColor?: string;
     disabled?: boolean;
@@ -137,6 +139,9 @@
 <input class="custom" type="color" bind:this={custom} aria-label={`${label}: ${t('More Colors...')}`} tabindex="-1" {disabled} value={paint?.startsWith('#') ? paint : '#000000'} onchange={event => select(event.currentTarget.value)} />
 {#if open}
   <div class="palette" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
+    {#if automatic}
+      <button type="button" class="more" role="menuitemradio" aria-checked={automaticSelected} onclick={() => { if (!disabled) automatic?.(); close(); }}>{t('Automatic')}</button>
+    {/if}
     {#each [true, false] as isTheme}
       {#if !isTheme || theme}
         <div class="heading">{t(isTheme ? 'Theme Colors' : 'Standard Colors')}</div>

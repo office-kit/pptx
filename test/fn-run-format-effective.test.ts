@@ -106,6 +106,43 @@ describe('fn API: getShapeRunFormatEffective', () => {
     setShapeRunFormat(shape, 0, 0, { normalizeHeight: false });
     expect(getShapeRunFormatEffective(pres, shape, 0, 0).normalizeHeight).toBe(false);
   });
+
+  it('treats uFillTx as an explicit underline-color cascade stop', async () => {
+    const original = createPresentation();
+    const box = addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Underline',
+    });
+    setShapeRunFormat(box, 0, 0, { underlineColor: null });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                ...entry,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    .replace(
+                      '<a:p>',
+                      '<a:p><a:pPr><a:defRPr><a:uFill><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:uFill></a:defRPr></a:pPr>',
+                    ),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    const shape = getSlideShapes(getSlides(pres)[0]!)[0]!;
+    expect(getShapeRunFormat(shape, 0, 0)?.underlineColor).toBeNull();
+    expect(getShapeRunFormatEffective(pres, shape, 0, 0).underlineColor).toBeNull();
+  });
   it('returns the literal rPr value when one is set on the run', async () => {
     const pres = await loadPresentation(await readFile(fixture('two-slides.pptx')));
     const slide = getSlides(pres)[0]!;

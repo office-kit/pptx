@@ -2268,6 +2268,7 @@ const renderRun = (
   format: ReadTextFormat | null,
   theme: PresentationTheme | null,
   effectivePt: number,
+  defaultColor: string,
   /* unused but kept for forward compatibility */ _wasDefault = false,
 ): string => {
   if (text === '') return '';
@@ -2288,7 +2289,11 @@ const renderRun = (
   // Keep strike on the outer span so underline patterns never alter its style.
   if (hasStrike) styles.push('text-decoration:line-through');
   const underlineCss = hasUnderline
-    ? textUnderlineStyle(underline, resolveColor(format?.color ?? '#000000', theme, '#000000'))
+    ? textUnderlineStyle(
+        underline,
+        resolveColor(format?.underlineColor ?? format?.color, theme, defaultColor),
+        format?.underlineColor !== undefined && format.underlineColor !== null,
+      )
     : '';
   if (format?.color !== undefined && format.color !== null) {
     styles.push(`color:${resolveColor(format.color, theme, '#000000')}`);
@@ -2591,6 +2596,9 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
         letterSpacingPx,
         kerning,
         fillHex,
+        ...(fmt?.underlineColor !== undefined && fmt.underlineColor !== null
+          ? { underlineHex: resolveColor(fmt.underlineColor, a.theme, fillHex) }
+          : {}),
         underline: underlineStyleOf(fmt),
         strike: hasStrikeFmt(fmt),
         ...(fmt?.highlight
@@ -3227,6 +3235,7 @@ const renderHtmlParagraphs = (
         runFmt,
         theme,
         run.sizePt * autoFitScale,
+        defaultColor,
         run.fmt?.size === undefined,
       );
       if (!run.href) return span;

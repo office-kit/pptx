@@ -526,6 +526,23 @@ export const parseRPrLikeElement = (
     const color = colorOfFill(solidFill, ctx);
     if (color !== null) out.color = color;
   }
+  // Underline fill is a separate DrawingML choice from the run's text fill.
+  // `uFillTx` is meaningful even without a color child: it explicitly follows
+  // the text color and must therefore remain distinct from an omitted value.
+  const underlineFillText = firstChildElement(rPr, qname('a', 'uFillTx', NS.dml));
+  if (underlineFillText !== null) {
+    out.underlineColor = null;
+  } else {
+    const underlineFill = firstChildElement(rPr, qname('a', 'uFill', NS.dml));
+    const underlineSolidFill =
+      underlineFill === null
+        ? null
+        : firstChildElement(underlineFill, qname('a', 'solidFill', NS.dml));
+    if (underlineSolidFill !== null) {
+      const color = colorOfFill(underlineSolidFill, ctx);
+      if (color !== null) out.underlineColor = color;
+    }
+  }
   const latin = firstChildElement(rPr, qname('a', 'latin', NS.dml));
   if (latin !== null) {
     const t = getAttrValue(latin, qname('', 'typeface', ''));

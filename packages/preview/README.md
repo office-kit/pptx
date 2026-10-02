@@ -50,6 +50,8 @@ color (for example, `#154687`) because SVG background patterns cannot inherit
 the surrounding text color. Apply the style to an inline element; keep any
 strikethrough on an outer element. For `words`, apply it separately to each
 non-whitespace segment. `false`, `none`, and `undefined` return an empty string.
+Pass `false` as the third argument to let native CSS decorations inherit the
+text color; image-based patterns still use the supplied color.
 
 ### PNG / RGBA (Node, no browser)
 

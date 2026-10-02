@@ -16,13 +16,21 @@ const escapeXml = (value: string): string =>
  * CSS color for image-based patterns. For `words`, apply only to non-space
  * text segments; keep strikethrough on a separate outer box.
  */
-export function textUnderlineStyle(underline: TextFormat['underline'], color: string): string {
+export function textUnderlineStyle(
+  underline: TextFormat['underline'],
+  color: string,
+  includeDecorationColor = true,
+): string {
   if (underline === undefined || underline === false || underline === 'none') return '';
   const heavy = underline === 'heavy' || String(underline).endsWith('Heavy');
   const thickness = heavy ? ';text-decoration-thickness:0.1em' : '';
-  if (underline === 'dbl') return 'text-decoration:underline;text-decoration-style:double';
+  const decorationColor = includeDecorationColor
+    ? `;text-decoration-color:${escapeXml(color)}`
+    : '';
+  if (underline === 'dbl')
+    return `text-decoration:underline;text-decoration-style:double${decorationColor}`;
   if (underline === 'wavy' || underline === 'wavyHeavy')
-    return `text-decoration:underline;text-decoration-style:wavy${thickness}`;
+    return `text-decoration:underline;text-decoration-style:wavy${decorationColor}${thickness}`;
   const custom =
     typeof underline === 'string' &&
     (underline.startsWith('dash') ||
@@ -30,7 +38,7 @@ export function textUnderlineStyle(underline: TextFormat['underline'], color: st
       underline.startsWith('dotDash') ||
       underline.startsWith('dotDotDash') ||
       underline === 'wavyDbl');
-  if (!custom) return `text-decoration:underline${thickness}`;
+  if (!custom) return `text-decoration:underline${decorationColor}${thickness}`;
   const stroke = heavy ? 2 : 1;
   const dash = underline.startsWith('dotted')
     ? '1 2'

@@ -136,6 +136,8 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
       if (decoration.includes('underline')) {
         const decorationStyle = style.textDecorationStyle.toLowerCase() as CssUnderlineStyle;
         format.underline = cssUnderlineStyles[decorationStyle] ?? true;
+        const decorationColor = color(style.textDecorationColor);
+        if (decorationColor) format.underlineColor = decorationColor;
       }
       if (decoration.includes('line-through')) format.strike = true;
     }
@@ -246,11 +248,13 @@ export function textClipboardHtml(
     const decorations = [];
     const underline = format.underline;
     const editing = options.editing === true;
-    const underlineColor = cssColor(format.color || '#000000');
+    const explicitUnderlineColor =
+      format.underlineColor !== undefined && format.underlineColor !== null;
+    const underlineColor = cssColor(format.underlineColor ?? format.color ?? '#000000');
     if (editing && underline && underline !== 'none') {
       const strike = !!format.strike && format.strike !== 'noStrike';
       style.textDecorationLine = strike ? 'line-through' : 'none';
-      const underlineStyle = textUnderlineStyle(underline, underlineColor);
+      const underlineStyle = textUnderlineStyle(underline, underlineColor, explicitUnderlineColor);
       const words = underline === 'words' ? span.textContent!.split(/(\s+)/) : [span.textContent!];
       const underlineNodes = document.createDocumentFragment();
       for (const word of words) {
@@ -261,6 +265,7 @@ export function textClipboardHtml(
           const underlineElement = document.createElement('u');
           underlineElement.textContent = word;
           underlineElement.style.cssText += underlineStyle;
+          if (explicitUnderlineColor) underlineElement.style.textDecorationColor = underlineColor;
           underlineNodes.append(underlineElement);
         }
       }
@@ -282,7 +287,18 @@ export function textClipboardHtml(
             : underline === 'wavy' || underline === 'wavyHeavy'
               ? 'wavy'
               : undefined;
-    if (patternedUnderline && format.strike && format.strike !== 'noStrike') {
+    const separateUnderline =
+      format.strike &&
+      format.strike !== 'noStrike' &&
+      explicitUnderlineColor &&
+      underline !== undefined &&
+      underline !== false &&
+      underline !== 'none';
+    if (
+      (patternedUnderline || separateUnderline) &&
+      format.strike &&
+      format.strike !== 'noStrike'
+    ) {
       // CSS applies text-decoration-style to every line on the element. Keep
       // a patterned underline and a solid strike on separate inline boxes.
       style.textDecorationLine = 'line-through';
@@ -290,12 +306,15 @@ export function textClipboardHtml(
       underlineSpan.textContent = span.textContent;
       underlineSpan.style.textDecorationLine = 'underline';
       if (underlineStyle) underlineSpan.style.textDecorationStyle = underlineStyle;
+      if (explicitUnderlineColor) underlineSpan.style.textDecorationColor = underlineColor;
       span.replaceChildren(underlineSpan);
     } else {
       if (underline && underline !== 'none') decorations.push('underline');
       if (format.strike && format.strike !== 'noStrike') decorations.push('line-through');
       if (decorations.length) style.textDecorationLine = decorations.join(' ');
       if (underlineStyle) style.textDecorationStyle = underlineStyle;
+      if (explicitUnderlineColor && underline && underline !== 'none')
+        style.textDecorationColor = underlineColor;
     }
     if (format.baseline) style.verticalAlign = `${format.baseline * 100}%`;
     container.append(span);
