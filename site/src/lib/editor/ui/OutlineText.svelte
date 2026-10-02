@@ -92,6 +92,39 @@
     clearTimeout(timer);
     timer = setTimeout(commit, 600);
   }
+  async function replaceTitleBodyRange(text: string, label: string) {
+    const selected = selection.current();
+    if (!selected || selected.start.key === selected.end.key) {
+      selection.replace(text, [], label);
+      return;
+    }
+    const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
+      outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
+        key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
+    const start = slots.find(item => item.key === selected.start.key && item.title);
+    const end = slots.find(item => item.key === selected.end.key && !item.title);
+    if (start && end && start.slide === end.slide) {
+      const key = start.key;
+      doc.transact(label, () => {
+        for (const field of selection.fields()) {
+          if (field.key.startsWith(`${getSlidePartName(start.slide)}:`)) field.apply(field.flush());
+        }
+        deleteOutlineTitleBodyRange(start.slide,
+          { id: start.id, offset: selected.start.offset },
+          { id: end.id, offset: selected.end.offset });
+        if (text) setShapeText(findShapeById(start.slide, start.id)!, text,
+          { range: { start: selected.start.offset, end: selected.start.offset } });
+        doc.selectShape(start.index, start.id);
+      });
+      selection.clear();
+      await tick();
+      const field = selection.fields().find(item => item.key === key);
+      if (field) {
+        field.focus(selected.start.offset + text.length);
+        selection.setCaret(field, selected.start.offset + text.length);
+      }
+    } else selection.replace(text, [], label);
+  }
   function copy(event: ClipboardEvent, cut = false) {
     if (!event.clipboardData || composing) return;
     const copied = selection.copy();
@@ -100,7 +133,7 @@
     event.clipboardData.setData('text/html', textClipboardHtml(copied));
     event.clipboardData.setData(TEXT_CLIPBOARD_TYPE, JSON.stringify({ version: 1, ...copied }));
     event.preventDefault(); event.stopPropagation();
-    if (cut) selection.replace('', [], t('Cut'));
+    if (cut) void replaceTitleBodyRange('', t('Cut'));
   }
   function paste(event: ClipboardEvent) {
     if (!event.clipboardData || composing) return;
@@ -140,7 +173,7 @@
           'text/plain': new Blob([copied.text], { type: 'text/plain' }),
           'text/html': new Blob([textClipboardHtml(copied)], { type: 'text/html' }),
         })]);
-        if (action === 'cut' && current()) selection.replace('', [], t('Cut'));
+        if (action === 'cut' && current()) await replaceTitleBodyRange('', t('Cut'));
       }
     } catch (error) { editor.toast('error', error instanceof Error ? error.message : String(error)); }
   }
@@ -269,31 +302,7 @@
     }
     else if ((event.key === 'Backspace' || event.key === 'Delete') && selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
-      const selected = selection.current()!;
-      const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
-        outlineShapes(sourceSlide).map(item => ({ ...item, slide: sourceSlide, index,
-          key: `${getSlidePartName(sourceSlide)}:${item.id}` })));
-      const start = slots.find(item => item.key === selected.start.key && item.title);
-      const end = slots.find(item => item.key === selected.end.key && !item.title);
-      if (start && end && start.slide === end.slide) {
-        const key = start.key;
-        doc.transact(t('Delete'), () => {
-          for (const field of selection.fields()) {
-            if (field.key.startsWith(`${getSlidePartName(start.slide)}:`)) field.apply(field.flush());
-          }
-          deleteOutlineTitleBodyRange(start.slide,
-            { id: start.id, offset: selected.start.offset },
-            { id: end.id, offset: selected.end.offset });
-          doc.selectShape(start.index, start.id);
-        });
-        selection.clear();
-        await tick();
-        const field = selection.fields().find(item => item.key === key);
-        if (field) {
-          field.focus(selected.start.offset);
-          selection.setCaret(field, selected.start.offset);
-        }
-      } else selection.replace('', [], t('Delete'));
+      await replaceTitleBodyRange('', t('Delete'));
     }
     else if (!mod && !event.altKey && event.key.length === 1 &&
       selection.current()?.start.key !== selection.current()?.end.key) {
@@ -301,7 +310,7 @@
       // cross-field replacement through the shared transaction instead of
       // letting it insert into whichever field happens to own focus.
       event.preventDefault(); event.stopPropagation();
-      selection.replace(event.key, [], t('Edit text'));
+      await replaceTitleBodyRange(event.key, t('Edit text'));
     }
     else if (event.shiftKey && !mod && !event.altKey && (event.key === 'ArrowUp' || event.key === 'ArrowDown')) {
       const current = input.getSelection();
