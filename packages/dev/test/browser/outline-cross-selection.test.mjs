@@ -14,14 +14,14 @@ import {
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
-async function writeOutlineDeck(dir) {
+async function writeOutlineDeck(dir, title = 'Heading') {
   await copyFile(
     new URL('../../../../test/fixtures/minimal/one-text-slide.pptx', import.meta.url),
     join(dir, 'template.pptx'),
   );
   await writeFile(
     join(dir, 'deck.tsx'),
-    `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Heading</Fill><Fill target={{placeholder:{idx:1}}}>Body</Fill></Slide><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Next</Fill><Fill target={{placeholder:{idx:1}}}>Following</Fill></Slide></Presentation>;`,
+    `import {readFileSync} from 'node:fs'; import {Presentation,Slide,Fill} from '@office-kit/pptx-dsl'; const source = new Uint8Array(readFileSync(new URL('./template.pptx', import.meta.url))); export default <Presentation source={source} mode="compose"><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>{${JSON.stringify(title)}}</Fill><Fill target={{placeholder:{idx:1}}}>Body</Fill></Slide><Slide layout={{name:"Title and Content"}}><Fill target={{placeholder:{type:'title'}}}>Next</Fill><Fill target={{placeholder:{idx:1}}}>Following</Fill></Slide></Presentation>;`,
   );
 }
 
@@ -582,50 +582,51 @@ test(
   },
 );
 
-test(
-  'outline title-to-body deletion joins the suffix like PowerPoint',
-  { timeout: 60000 },
-  async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
-    let preview, browser, page, outline;
-    try {
-      await writeOutlineDeck(dir);
-      ({ preview, browser, page, outline } = await openOutline(dir));
-      const body = outline.getByRole('textbox').nth(1);
-      await body.focus();
-      await body.evaluate((input) => window.selectEditorText(input, 2));
-      await page.keyboard.press('Shift+ArrowUp');
-      await page.keyboard.press('Shift+ArrowUp');
-      const copied = await body.evaluate((input) => {
-        const data = new DataTransfer();
-        input.dispatchEvent(
-          new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }),
-        );
-        return data.getData('text/plain');
-      });
-      assert.equal(copied, '\nBo');
-      const before = (await waitForState(preview.url, () => true)).revision;
-      await page.keyboard.press('Backspace');
-      await waitForState(preview.url, (state) => state.revision !== before);
-      const slides = getSlides(await readDeck(preview));
-      assert.equal(slides.length, 2);
-      assert.equal(getShapeText(getSlideShapes(slides[0])[0]), 'Headingdy');
-      assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
-      assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
-      const revision = (await waitForState(preview.url, () => true)).revision;
-      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
-      await waitForState(preview.url, (state) => state.revision !== revision);
-      const restored = getSlides(await readDeck(preview));
-      assert.equal(restored.length, 2);
-      assert.equal(getShapeText(getSlideShapes(restored[0])[0]), 'Heading');
-      assert.equal(getShapeText(getSlideShapes(restored[0])[1]), 'Body');
-    } finally {
-      await browser?.close();
-      await preview?.close();
-      await rm(dir, { recursive: true, force: true });
-    }
-  },
-);
+for (const title of ['Heading', 'First\nSecond'])
+  test(
+    `outline title-to-body deletion joins the suffix (${JSON.stringify(title)})`,
+    { timeout: 60000 },
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
+      let preview, browser, page, outline;
+      try {
+        await writeOutlineDeck(dir, title);
+        ({ preview, browser, page, outline } = await openOutline(dir));
+        const body = outline.getByRole('textbox').nth(1);
+        await body.focus();
+        await body.evaluate((input) => window.selectEditorText(input, 2));
+        await page.keyboard.press('Shift+ArrowUp');
+        await page.keyboard.press('Shift+ArrowUp');
+        const copied = await body.evaluate((input) => {
+          const data = new DataTransfer();
+          input.dispatchEvent(
+            new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }),
+          );
+          return data.getData('text/plain');
+        });
+        assert.equal(copied, '\nBo');
+        const before = (await waitForState(preview.url, () => true)).revision;
+        await page.keyboard.press('Backspace');
+        await waitForState(preview.url, (state) => state.revision !== before);
+        const slides = getSlides(await readDeck(preview));
+        assert.equal(slides.length, 2);
+        assert.equal(getShapeText(getSlideShapes(slides[0])[0]), title + 'dy');
+        assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
+        assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
+        const revision = (await waitForState(preview.url, () => true)).revision;
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+        await waitForState(preview.url, (state) => state.revision !== revision);
+        const restored = getSlides(await readDeck(preview));
+        assert.equal(restored.length, 2);
+        assert.equal(getShapeText(getSlideShapes(restored[0])[0]), title);
+        assert.equal(getShapeText(getSlideShapes(restored[0])[1]), 'Body');
+      } finally {
+        await browser?.close();
+        await preview?.close();
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
 
 for (const action of ['cut', 'type', 'beforeinput', 'ime', 'ime-cancel'])
   test(

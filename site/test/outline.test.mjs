@@ -594,3 +594,40 @@ for (const bodyText of ['Body', 'Body\nFollowing']) {
     }
   });
 }
+
+for (const bodyText of ['Body', 'Body\nFollowing']) {
+  test(`outline deletion retains earlier title paragraphs (${JSON.stringify(bodyText)})`, async () => {
+    const { deleteOutlineTitleBodyRange } = await import('../src/lib/editor/core/outline.ts');
+    const pres = createPresentation();
+    const layout = getSlideLayouts(pres).find(
+      (item) => getSlideLayoutName(item) === 'Title and Content',
+    );
+    const slide = addSlide(pres, { layout });
+    const [title, body] = getSlideShapes(slide);
+    setShapeText(title, 'First\nSecond');
+    setShapeText(body, bodyText);
+    setShapeRunHyperlink(body, 0, 0, 'https://example.com/body');
+    if (bodyText.includes('\n')) {
+      setParagraphLevel(body, 1, 2);
+      setShapeRunHyperlink(body, 1, 0, 'https://example.com/following');
+    }
+    assert.equal(
+      deleteOutlineTitleBodyRange(
+        slide,
+        { id: getShapeId(title), offset: 8 },
+        { id: getShapeId(body), offset: 2 },
+      ),
+      true,
+    );
+    const slides = getSlides(await loadPresentation(await savePresentation(pres)));
+    assert.equal(slides.length, 1);
+    const [savedTitle, savedBody] = getSlideShapes(slides[0]);
+    assert.equal(getShapeText(savedTitle), 'First\nSedy');
+    assert.equal(getShapeRunHyperlink(savedTitle, 1, 1), 'https://example.com/body');
+    assert.equal(getShapeText(savedBody), bodyText.includes('\n') ? 'Following' : '');
+    if (bodyText.includes('\n')) {
+      assert.equal(getParagraphLevel(savedBody, 0), 2);
+      assert.equal(getShapeRunHyperlink(savedBody, 0, 0), 'https://example.com/following');
+    }
+  });
+}

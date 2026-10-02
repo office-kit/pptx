@@ -1,3 +1,11 @@
+## 2026-10-02: 複数段落タイトルから本文への範囲削除
+
+- Mac 実機で First / Second のタイトルと Body の本文を作り、cond + 段落境界 + Bo を削除。保存 XML はタイトル First / Sedy、本文空。証拠: /tmp/pptx-outline-audit/multititle-delete-native.pptx。
+- deleteOutlineTitleBodyRange の分配境界を、常に先頭段落ではなく削除開始位置の属する段落末尾へ修正。残るタイトル段落と後続本文段落、リンクを保存・再読み込みする単体回帰を追加。修正前はタイトルが First のみとなって失敗。
+- PowerPoint の画面と AX を再取得できた。reference.pptx は閉じた後 reference-before-table-style.pptx から復元し byte 比較一致。現在は reference-before-font が表示されており変更していない。
+- 検証: format、lint、Svelte 型検査（0 errors / warnings）、単体 37 件、エディタービルド、ブラウザー範囲編集 21 件成功。
+- 次: 複数スライド間の構造置換・削除、IME の実機比較。全面一致は未達成。
+
 ## 2026-10-02: タイトル→本文の直接入力・IME 置換
 
 - beforeinput の insertText を通常入力・貼り付けと同じ構造置換へ接続。IME は同一スライドのタイトル→本文選択を変換中保持し、確定文字列を一度だけ適用する。キャンセルは文書・履歴を変更しない。
