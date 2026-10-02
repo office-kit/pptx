@@ -50,11 +50,16 @@ export function deleteOutlineTitleBodyRange(
   setShapeParagraphs(title, { sources: [title, body] });
   setShapeText(title, '', { range: { start: start.offset, end: titleLength + 1 + end.offset } });
   const text = getShapeText(title);
-  const first = getShapeParagraphElements(title)[0]!;
-  const boundary = first.reduce(
-    (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
-    0,
-  );
+  // PowerPoint keeps all title paragraphs through the paragraph where deletion starts.
+  let boundary = 0;
+  for (const paragraph of getShapeParagraphElements(title)) {
+    boundary += paragraph.reduce(
+      (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
+      0,
+    );
+    if (boundary >= start.offset) break;
+    boundary += 1;
+  }
   setShapeParagraphs([title, body], {
     source: title,
     ranges: [
