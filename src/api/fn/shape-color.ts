@@ -14,6 +14,7 @@ import {
 import { type SlideShapeData } from '../_internal-symbols.ts';
 import { type PresentationTheme } from './theme.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
+import { resolveDrawingMLPresetColor } from '../../internal/drawingml/preset-colors.ts';
 // -- Color transforms (ECMA-376 §20.1.2.3.x) --------------------------------
 //
 // DrawingML color elements (`<a:srgbClr>`, `<a:schemeClr>`, `<a:sysClr>`,
@@ -289,11 +290,8 @@ export const resolveDrawingColor = (
     const last = getAttrValue(colorEl, qname('', 'lastClr', ''));
     if (last) baseHex = `#${last.toUpperCase()}`;
   } else if (local === 'prstClr') {
-    // Preset colors aren't worth a full lookup table in this pass —
-    // black / white cover most cases anyone reaches for in PresentationML.
     const v = getAttrValue(colorEl, qname('', 'val', ''));
-    if (v === 'black') baseHex = '#000000';
-    else if (v === 'white') baseHex = '#FFFFFF';
+    if (v) baseHex = resolveDrawingMLPresetColor(v);
   }
   if (!baseHex) return null;
   return applyColorTransforms(baseHex, parseColorTransforms(colorEl));
