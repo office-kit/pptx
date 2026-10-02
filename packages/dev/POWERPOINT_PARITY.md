@@ -838,8 +838,12 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
   runs and maps the segments back to their original styles. Regression coverage
   includes narrow boxes, explicit breaks, spaces, different character sizes and
   Latin wrapping. The root suite passes 3,093 tests (109 skipped) on 4ce7310d.
-- The preset-shape Latin-word fidelity regression remains unresolved. Neither the
-  Japanese fix nor successful editor interaction tests prove overall visual parity.
+- The preset-shape Latin-word fidelity regression was subsequently fixed in
+  76810d7a: Mac PowerPoint also splits words wider than the entire text area when
+  `latinLnBrk` is omitted/false. Normal word-boundary behavior is retained. Tests
+  cover both single and styled runs, and CI run 37032402762 passed Preview
+  fidelity without lowering the baseline. This resolves that regression, not
+  overall visual parity.
 
 ## Video poster frame editing (2026-10-02)
 
