@@ -23,6 +23,9 @@ import {
   loadPresentation,
   savePresentation,
   setShapeFill,
+  getSlideSize,
+  setShapeImageFill,
+  setShapeImageFillLayout,
   setShapeImageContrast,
   setShapeImageBrightness,
   setShapeStroke,
@@ -341,6 +344,60 @@ describe('renderSlideToSvg: picture contrast', () => {
     },
   );
 });
+
+it.each(['stretch', 'tile'] as const)(
+  'keeps %s picture and ordinary image-fill corrections pixel-consistent after reload',
+  async (mode) => {
+    const pres = await loadPresentation(await readFile(fixturePath));
+    const layout = findSlideLayout(pres, 'Blank');
+    if (!layout) throw new Error('Blank layout missing');
+    const slide = addSlide(pres, { layout });
+    const source = buildPng(4, 4, () => [80, 100, 120]);
+    const picture = addSlideImage(slide, source, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    const shape = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(4),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    setShapeImageFill(shape, source);
+    const control = addSlideShape(slide, {
+      preset: 'rect',
+      x: inches(7),
+      y: inches(1),
+      w: inches(2),
+      h: inches(1),
+    });
+    setShapeImageFill(control, source);
+    for (const image of [picture, shape, control]) {
+      setShapeImageFillLayout(image, { mode });
+    }
+    for (const image of [picture, shape]) {
+      setShapeImageBrightness(image, 0.2);
+      setShapeImageContrast(image, -0.3);
+    }
+    const reloaded = await loadPresentation(await savePresentation(pres));
+    const size = getSlideSize(reloaded)!;
+    const { image } = renderSlideToRgba(reloaded, getSlides(reloaded).at(-1)!, { width: 1280 });
+    const sampleCenter = (leftInches: number) => {
+      const x = Math.round((inches(leftInches + 1) / size.width) * image.width);
+      const y = Math.round((inches(1.5) / size.height) * image.height);
+      const offset = (y * image.width + x) * 4;
+      return Array.from(image.data.slice(offset, offset + 3));
+    };
+    const picturePixel = sampleCenter(1);
+    const shapePixel = sampleCenter(4);
+    const controlPixel = sampleCenter(7);
+    expect(shapePixel).toEqual(picturePixel);
+    expect(controlPixel).not.toEqual(picturePixel);
+  },
+);
 
 describe('renderSlideToRgba: MSO picture brightness and contrast', () => {
   it('renders Washout as a light watermark while preserving white', async () => {
