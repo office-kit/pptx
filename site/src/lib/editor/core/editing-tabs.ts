@@ -17,9 +17,16 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
     for (const node of nodes) {
       const style = getComputedStyle(node.parentElement!);
       context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      context.fontKerning =
+        style.fontKerning === 'normal' || style.fontKerning === 'none' ? style.fontKerning : 'auto';
       const spacing = parseFloat(style.letterSpacing) || 0;
-      const measure = (text: string) =>
-        context.measureText(text).width + Math.max(0, [...text].length - 1) * spacing;
+      const measure = (text: string) => {
+        // The model retains original case, but tab alignment follows painted glyphs.
+        const displayed = style.textTransform === 'uppercase' ? text.toUpperCase() : text;
+        return (
+          context.measureText(displayed).width + Math.max(0, [...displayed].length - 1) * spacing
+        );
+      };
       const fragment = document.createDocumentFragment();
       for (const text of node.data.split(/(\t|\n)/)) {
         if (text === '\t') {

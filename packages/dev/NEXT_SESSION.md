@@ -1,3 +1,9 @@
+## 2026-10-02: Editing tabs follow painted typography
+
+- Fixed custom tab widths ignoring all-caps display and disabled kerning. Reproduced a right-aligned all-caps field ending about 40px past its stop before the fix; canvas measurement now uses the displayed case and computed kerning without changing model text.
+- All three custom/default tab browser tests pass (`/tmp/tab-typography-suite.log`), including insertion and Undo. Updated their edit-entry actions for single-click editing and dialog focus restoration. Scoped lint/format, Svelte check (zero errors/warnings) and editor build pass.
+- Latest native retry still fails with `Sky Computer Use native pipe startup failed`; no native changes made. Reference restoration below remains pending. CI for 97b97d31 was still running before this commit; full parity is not complete.
+
 ## 2026-10-02: Font-relative HTML character spacing
 
 - Reproduced `letter-spacing:0.2em` being discarded even with a known font size. The parser now resolves em using the element's font size after resolving relative font-size.
