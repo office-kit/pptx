@@ -131,13 +131,11 @@ import {
   getSlideSize,
   getTableCellAnchor,
   getTableCellMargins,
-  getTableCellBorders,
-  getTableCellFill,
+  getTableCellAppearanceEffective,
   getTableCellParagraphs,
   getTableCellRunFormatEffective,
   getTableCellSpan,
   getTableCells,
-  getTableStyleFlags,
   getTableColumnWidths,
   getTableDimensions,
   getTableRowHeights,
@@ -6280,18 +6278,6 @@ const renderTable = (
     rowYs.push((rowYs[r] ?? yPx) + (heightsPx[r] ?? 0) * hScale);
   }
 
-  // A10 table style — header / footer / first-col / last-col / banded
-  // rows / banded columns. Project the boolean flags onto per-cell tints
-  // that approximate the theme-driven look in PowerPoint.
-  const flags = getTableStyleFlags(shape);
-  const accent = theme ? normalizeHex(theme.accent1) : '#4472C4';
-  const headerFill = accent;
-  // Pale tints for banded rows/cols/first-col/last-col — `t` is the accent's
-  // weight, so a *light* tint needs a *low* t (mostly white). PowerPoint/
-  // LibreOffice's built-in styles alternate TWO tints across body rows (no
-  // row is left unshaded), not one tint vs. no fill.
-  const bandFill = mixHex(accent, '#FFFFFF', 0.12);
-  const bandFill2 = mixHex(accent, '#FFFFFF', 0.27);
   // Fallback for cells with no authored color — the deck's body-text color
   // (an inverted map would paint the `tx1` token white-on-white).
   const textColor = activeDeckTextColor;
@@ -6300,12 +6286,8 @@ const renderTable = (
   const tableThemeFace = getPresentationFonts(pres)?.minorLatin ?? null;
   const out: string[] = [];
   out.push(`<g${transform}>`);
-  // Whole-table backdrop so cells with no explicit fill still
-  // contrast against whatever's behind.
-  out.push(
-    `<rect x="${px(xPx)}" y="${px(yPx)}" width="${px((colXs[widthsPx.length] ?? xPx) - xPx)}" height="${px((rowYs[heightsPx.length] ?? yPx) - yPx)}" fill="#FFFFFF"/>`,
-  );
   const borderEdges: string[] = [];
+  const borderEdgeCandidates = new Map<string, { index: number; width: number }>();
   for (let r = 0; r < dims.rows; r++) {
     for (let c = 0; c < dims.cols; c++) {
       const cell = cells[r]?.[c];
@@ -6321,37 +6303,29 @@ const renderTable = (
       const endRow = Math.min(dims.rows, r + span.rowSpan);
       const cw = (colXs[endCol] ?? cx) - cx;
       const ch = (rowYs[endRow] ?? cy) - cy;
-      const fill = getTableCellFill(cell as Parameters<typeof getTableCellFill>[0]);
+      const appearance = getTableCellAppearanceEffective(pres, typedCell);
+      const fill = appearance.fill;
       let resolvedFill: string;
-      if (fill) {
-        resolvedFill = resolveColor(fill, theme, '#FFFFFF');
-      } else if (flags.firstRow && r === 0) {
-        resolvedFill = headerFill;
-      } else if (flags.lastRow && r === dims.rows - 1) {
-        resolvedFill = headerFill;
-      } else if (flags.firstCol && c === 0) {
-        resolvedFill = bandFill;
-      } else if (flags.lastCol && c === dims.cols - 1) {
-        resolvedFill = bandFill;
-      } else if (flags.bandRow) {
-        // Alternation starts at the first body row (right after a header),
-        // not at the raw grid row index — otherwise a firstRow table shifts
-        // the whole band pattern by one row.
-        const bandIndex = r - (flags.firstRow ? 1 : 0);
-        resolvedFill = bandIndex % 2 === 0 ? bandFill : bandFill2;
-      } else if (flags.bandCol) {
-        const bandIndex = c - (flags.firstCol ? 1 : 0);
-        resolvedFill = bandIndex % 2 === 0 ? bandFill : bandFill2;
+      if (fill.kind === 'solid') {
+        resolvedFill = resolveColor(fill.color, theme, '#FFFFFF');
+      } else if (fill.kind === 'none') {
+        resolvedFill = 'none';
+      } else if (fill.kind !== 'inherit') {
+        // Unsupported table-style gradients/patterns/images remain
+        // transparent until the preview can rasterize those paints.
+        resolvedFill = 'none';
       } else {
         resolvedFill = 'none';
       }
-      const cellTextColor = resolvedFill === headerFill ? '#FFFFFF' : textColor;
+      const cellTextColor = textColor;
       out.push(
         `<g data-pptx-cell="${r},${c}"><rect x="${px(cx)}" y="${px(cy)}" width="${px(cw)}" height="${px(ch)}" fill="${resolvedFill}"/>`,
       );
-      // Per-side borders override the default thin gray grid. Draw them
-      // separately after the fills so they sit on top.
-      const borders = getTableCellBorders(pres, typedCell);
+      // Draw borders after the fills so they sit on top. Shared edges can
+      // receive two candidates; preserve the visually strongest line. Equal
+      // widths retain document order, while more involved OOXML precedence is
+      // a known limitation of the preview renderer.
+      const borders = appearance.borders;
       // Project the OOXML `<a:prstDash>` token onto an SVG stroke-dasharray.
       // Scaled by the border's width so the dash visually matches PowerPoint.
       const dashAttr = (dash: string | null | undefined, widthPx: number): string => {
@@ -6373,11 +6347,19 @@ const renderTable = (
       ): void => {
         const b = borders[side];
         if (!b) return;
+        const key = `${Math.round(Math.min(x1, x2) * 100)},${Math.round(Math.min(y1, y2) * 100)},${Math.round(Math.max(x1, x2) * 100)},${Math.round(Math.max(y1, y2) * 100)}`;
         const sw = b.widthEmu ? Math.max(0.4, b.widthEmu / EMU_PER_PX) : 0.5;
         const col = b.color ?? '#9CA3AF';
-        borderEdges.push(
-          `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"${dashAttr(b.dash, sw)}/>`,
-        );
+        const line = `<line x1="${px(x1)}" y1="${px(y1)}" x2="${px(x2)}" y2="${px(y2)}" stroke="${col}" stroke-width="${px(sw)}"${dashAttr(b.dash, sw)}/>`;
+        const existing = borderEdgeCandidates.get(key);
+        if (existing) {
+          if (sw <= existing.width) return;
+          borderEdges[existing.index] = line;
+          existing.width = sw;
+          return;
+        }
+        borderEdgeCandidates.set(key, { index: borderEdges.length, width: sw });
+        borderEdges.push(line);
       };
       edge('left', cx, cy, cx, cy + ch);
       edge('right', cx + cw, cy, cx + cw, cy + ch);
@@ -6399,25 +6381,6 @@ const renderTable = (
           `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${borders.blToTr.color ?? '#9CA3AF'}" stroke-width="${px(sw)}"${dashAttr(borders.blToTr.dash, sw)}/>`,
         );
       }
-      // Default thin grid for sides that didn't define a border.
-      const defaultColor = '#9CA3AF';
-      if (!borders.left)
-        borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-      if (!borders.right)
-        borderEdges.push(
-          `<line x1="${px(cx + cw)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-      if (!borders.top)
-        borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy)}" x2="${px(cx + cw)}" y2="${px(cy)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-      if (!borders.bottom)
-        borderEdges.push(
-          `<line x1="${px(cx)}" y1="${px(cy + ch)}" x2="${px(cx + cw)}" y2="${px(cy + ch)}" stroke="${defaultColor}" stroke-width="0.4" opacity="0.6"/>`,
-        );
-
       const cellParagraphs = getTableCellParagraphs(
         cell as Parameters<typeof getTableCellParagraphs>[0],
       );
