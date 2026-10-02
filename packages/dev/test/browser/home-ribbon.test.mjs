@@ -50,6 +50,16 @@ test(
               true,
               `${width}px ${locale} ribbon scrolls: ${JSON.stringify(groupMetrics)}`,
             );
+            await editor
+              .getByRole('button', { name: locale === 'ja' ? '配置' : 'Arrange', exact: true })
+              .click();
+            const selectionPane = editor.getByRole('menuitemcheckbox', {
+              name: locale === 'ja' ? '選択ウィンドウ...' : 'Selection Pane...',
+              exact: true,
+            });
+            await selectionPane.waitFor();
+            await page.keyboard.press('Escape');
+            await selectionPane.waitFor({ state: 'hidden' });
             const compact = editor.locator('.compact-groups');
             if (width > 2000) {
               assert.equal(await compact.isVisible(), false);

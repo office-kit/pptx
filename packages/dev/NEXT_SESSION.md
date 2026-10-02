@@ -1260,3 +1260,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Background-fill now covers editing to blank-area deselection, followed by selecting multiple shapes again. This and gesture cancellation pass (`/tmp/blank-edit-after.log`: 2 passed). Editor build, Svelte check, scoped format/lint, and diff checks pass.
 - CI 37024457579 on 87af64e1 had passed Static checks, OOXML validator, Preview fidelity, Node 22 and Node 26 when checked; Node 24 was still running. This does not cover the subsequent local selection fixes.
 - Native connection retry still fails at pipe startup; reference restoration remains pending.
+
+## 2026-10-03: Direct Arrange menu in compact Home ribbon
+
+- The format-pane failure reproduced on the current build: the compact Arrange group opened a wrapper containing a second Arrange button, requiring an extra click. Render the actual Arrange menu trigger directly in the compact toolbar.
+- Existing format-pane coverage now passes through selection-pane opening and rotation options (`/tmp/arrange-direct-after.log`). Home ribbon regression checks direct menu opening and Escape in both locales at 900, 1500, 1601, 1900 and 2100px, while retaining no-horizontal-scroll assertions (`/tmp/arrange-home-direct.log`).
+- Editor build, Svelte diagnostics (zero errors/warnings), scoped format/lint and diff checks pass. Full native parity and the remaining CI failures are still open.

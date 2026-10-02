@@ -138,7 +138,9 @@
     {#if current?.id === 'home'}
       <div class="compact-groups" role="toolbar" aria-label={t('Home ribbon groups')}>
         {#each current.groups as group (group.title)}
-          {#if group.title !== 'Font'}
+          {#if group.title === 'Arrange'}
+          <ArrangeMenu compact />
+          {:else if group.title !== 'Font'}
           <button class="group-menu-trigger" class:paragraph-trigger={group.title === 'Paragraph'} aria-haspopup="menu" aria-expanded={openGroup === group.title} onclick={() => openGroup = openGroup === group.title ? null : group.title}>
             <span>{t(group.title)}</span><span aria-hidden="true">⌄</span>
           </button>
@@ -150,8 +152,7 @@
         {#if group}
           <div class="group-menu" role="menu" tabindex="-1" aria-label={t(group.title)}>
             <div class="group-menu-items">
-              {#if group.title === 'Arrange'}<ArrangeMenu />
-              {:else if group.title === 'Font'}<FontRibbon />
+              {#if group.title === 'Font'}<FontRibbon />
               {:else}
                 {#each group.items as item (item.id + (item.label ?? ''))}
                   {@const cap = capabilityById.get(item.id)}
