@@ -1,3 +1,17 @@
+## 2026-10-02: コピー・貼り付け時の大文字書式保持
+
+- HTML clipboardでall caps / small caps / 明示的解除を読み書きする。CSSのtext-transformとfont-variant-capsは別々に継承し、子の片方の解除で親のもう片方の指定が消えないようにした。
+- Chromium回帰4件成功。入れ子・往復・shape/tableの貼り付けとUndo・all caps編集後の追加入力の保存を確認。site133件成功、Svelte 0 errors/warnings、format/lint/core typecheck成功。
+- 確認用4175はHTTP200。4173の未保存編集には触れていない。
+
+## 2026-10-02: Mac文字操作の追加実測
+
+- 実機の選択文字で⌘⇧.は44→48pt、⌘⇧,は44→40pt。各操作をUndoし44ptへ復元済み。
+- `hELLO wORLD. nEXT tEST` 全選択でSentence caseは `Hello world. Next test`、Capitalize Each Wordは `Hello World. Next Test`。句読点・Unicode一般の全一致を証明するものではない。
+- ⌘TでFontダイアログが開く。Font/Character Spacingの2タブ。Character SpacingにはNormal、By（0–1000pt）、Use kerning for fonts、閾値（1–1000pt）がある。参照ではカーニング有効・12pt以上。閲覧後Cancel済み。
+- 参照文書は `Outline title`、44pt、Undo disabledへ復元済み。画面取得も成功。未復元の変更はない。
+- Fontダイアログ、カーニング描画・計測は未対応。SVG側small capsも単なる大文字化に留まり、実機同等の字形サイズを未検証。これらを全操作一致の残件として扱う。
+
 ## 2026-10-02: Homeの文字種変換
 
 - HomeにChange Case（sentence/lower/upper/title/toggle）を追加。選択文字、caretの現在単語、図形全体、アウトラインから操作可能。setShapeText/setTableCellTextの既存APIへ `{ case: ... }` を追加し、元run/fieldのa:tだけを変更して書式・hyperlink・未知XMLを保持。Unicode展開（ß/İ）、Greek sigmaの文脈、改行位置を検証。

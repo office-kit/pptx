@@ -48,6 +48,34 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
         '<span style="letter-spacing:4px">Wide<span style="letter-spacing:normal">Reset</span></span>',
         'WideReset',
       );
+      const allCaps = parse(
+        '<span style="text-transform:uppercase">Mixed Case</span>',
+        'Mixed Case',
+      );
+      const allCapsWithNormalVariant = parse(
+        '<span style="text-transform:uppercase;font-variant-caps:normal">Mixed Case</span>',
+        'Mixed Case',
+      );
+      const smallCaps = parse(
+        '<span style="font-variant-caps:small-caps">Mixed Case</span>',
+        'Mixed Case',
+      );
+      const smallCapsWithNoneTransform = parse(
+        '<span style="text-transform:none;font-variant-caps:small-caps">Mixed Case</span>',
+        'Mixed Case',
+      );
+      const resetCaps = parse(
+        '<span style="text-transform:uppercase">LOUD<span style="text-transform:none">Quiet</span></span>',
+        'LOUDQuiet',
+      );
+      const inheritedAllCaps = parse(
+        '<span style="text-transform:uppercase">LOUD<span style="font-variant-caps:normal">Still Loud</span></span>',
+        'LOUDStill Loud',
+      );
+      const inheritedSmallCaps = parse(
+        '<span style="font-variant-caps:small-caps">Small<span style="text-transform:none">Still Small</span></span>',
+        'SmallStill Small',
+      );
       const hostile = parse(
         '<script>globalThis.clipboardExecuted=true</script><img src="https://clipboard.invalid/image" onerror="globalThis.clipboardExecuted=true"><iframe src="https://clipboard.invalid/frame"></iframe><style>@import "https://clipboard.invalid/style";</style><b>Safe</b>',
         'Safe',
@@ -76,7 +104,16 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
         negativeSpacing,
         zeroSpacing,
         resetSpacing,
+        allCaps,
+        allCapsWithNormalVariant,
+        smallCaps,
+        smallCapsWithNoneTransform,
+        resetCaps,
+        inheritedAllCaps,
+        inheritedSmallCaps,
         spacingRoundtrip: parse(serialize(spacing), spacing.text),
+        allCapsRoundtrip: parse(serialize(allCaps), allCaps.text),
+        smallCapsRoundtrip: parse(serialize(smallCaps), smallCaps.text),
         zeroSpacingRoundtrip: parse(serialize(zeroSpacing), zeroSpacing.text),
         hostile,
         executed: !!globalThis.clipboardExecuted,
@@ -106,7 +143,16 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.equal(result.negativeSpacing.formats[0].format.spc, -150);
     assert.equal(result.zeroSpacing.formats[0].format.spc, 0);
     assert.equal(result.resetSpacing.formats[1].format.spc, 0);
+    assert.equal(result.allCaps.formats[0].format.cap, 'all');
+    assert.equal(result.allCapsWithNormalVariant.formats[0].format.cap, 'all');
+    assert.equal(result.smallCaps.formats[0].format.cap, 'small');
+    assert.equal(result.smallCapsWithNoneTransform.formats[0].format.cap, 'small');
+    assert.equal(result.resetCaps.formats[1].format.cap, 'none');
+    assert.equal(result.inheritedAllCaps.formats[1].format.cap, 'all');
+    assert.equal(result.inheritedSmallCaps.formats[1].format.cap, 'small');
     assert.deepEqual(result.spacingRoundtrip, result.spacing);
+    assert.deepEqual(result.allCapsRoundtrip, result.allCaps);
+    assert.deepEqual(result.smallCapsRoundtrip, result.smallCaps);
     assert.deepEqual(result.zeroSpacingRoundtrip, result.zeroSpacing);
     assert.equal(result.hostile.text, 'Safe');
     assert.equal(result.executed, false);
@@ -212,3 +258,58 @@ for (const kind of ['shape', 'cell'])
       }
     },
   );
+
+test(
+  'inline editing preserves all caps for newly typed characters',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-cap-inline-'));
+    let browser;
+    let preview;
+    try {
+      const file = join(dir, 'deck.tsx');
+      await writeFile(
+        file,
+        `import {Presentation,Slide,Text} from '@office-kit/pptx-dsl';export default <Presentation><Slide><Text x={1} y={1} width={7} height={2} paragraphs={[{runs:[{text:'hello',format:{cap:'all',size:24}}]}]} /></Slide></Presentation>`,
+      );
+      preview = await startPreview(file);
+      browser = await chromium.launch({ headless: true });
+      const page = await browser.newPage({ viewport: { width: 1500, height: 1000 } });
+      await installRichTextSelection(page);
+      await page.goto(preview.url);
+      await page.getByRole('button', { name: '✦ Agents', exact: true }).click();
+      const editor = page.frameLocator('#editor-frame');
+      const saved = editor.getByText('Saved to this project', { exact: true });
+      await saved.waitFor();
+      await editor
+        .locator('.hit')
+        .first()
+        .dblclick({ position: { x: 30, y: 20 } });
+      const input = editor.locator('.inline-edit');
+      await input.waitFor();
+      assert.equal(
+        await input
+          .locator('span')
+          .first()
+          .evaluate((node) => getComputedStyle(node).textTransform),
+        'uppercase',
+      );
+      await input.focus();
+      await input.press('End');
+      await input.press('!');
+      await input.press('Control+Enter');
+      await saved.waitFor();
+      const pres = await loadPresentation(
+        new Uint8Array(await (await fetch(`${preview.url}/deck.pptx`)).arrayBuffer()),
+      );
+      const shape = getSlideShapes(getSlides(pres)[0])[0];
+      const runs = getShapeParagraphElements(shape, 0);
+      assert.equal(runs.map((run) => run.text).join(''), 'hello!');
+      assert.equal(runs.at(-1).format.cap, 'all');
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
