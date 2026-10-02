@@ -514,7 +514,12 @@ export const applyBulletToAllParagraphs = (txBody: XmlElement, style: BulletStyl
  *
  * The `bodyPr` and `lstStyle` children (if any) are preserved untouched.
  */
-export const setTextBody = (txBody: XmlElement, value: string, bullets?: BulletStyle): void => {
+export const setTextBody = (
+  txBody: XmlElement,
+  value: string,
+  bullets?: BulletStyle,
+  newlines: 'paragraph' | 'break' = 'paragraph',
+): void => {
   const normalized =
     bullets === undefined ? undefined : normalizeBulletStyle(bullets, 'setShapeText');
   const rPrTemplate = findFirstRunProperties(txBody);
@@ -522,20 +527,33 @@ export const setTextBody = (txBody: XmlElement, value: string, bullets?: BulletS
 
   removeAllParagraphs(txBody);
 
-  const lines = value.split('\n');
+  const lines = newlines === 'break' ? [value] : value.split('\n');
   for (const line of lines) {
     // Per the strict ECMA schema, `<a:t>` does NOT accept `xml:space`. We
     // split on `\n` so each `<a:t>` holds a single line and leading /
     // trailing whitespace is handled by the body / lst style, not by an
     // illegal attribute on the text element.
-    const t = elem(NAME_T, {
-      children: line.length > 0 ? [text(line)] : [],
-    });
-    const r = elem(NAME_R, {
-      children: rPrTemplate !== null ? [cloneElement(rPrTemplate), t] : [t],
-    });
+    const runs = line.split('\n').flatMap((part, index) => [
+      ...(index
+        ? [
+            elem(qname('a', 'br', NS.dml), {
+              children: rPrTemplate ? [cloneElement(rPrTemplate)] : [],
+            }),
+          ]
+        : []),
+      ...(part || !line
+        ? [
+            elem(NAME_R, {
+              children: [
+                ...(rPrTemplate ? [cloneElement(rPrTemplate)] : []),
+                elem(NAME_T, { children: part ? [text(part)] : [] }),
+              ],
+            }),
+          ]
+        : []),
+    ]);
     const p = elem(NAME_P, {
-      children: pPrTemplate !== null ? [cloneElement(pPrTemplate), r] : [r],
+      children: [...(pPrTemplate ? [cloneElement(pPrTemplate)] : []), ...runs],
     });
     if (normalized !== undefined) applyNormalizedBullet(p, normalized);
     txBody.children.push(p);

@@ -59,6 +59,12 @@ test(
           [start, end],
         );
       };
+      await select(1);
+      await input.press('Shift+Enter');
+      assert.equal(await input.textContent(), 'a\nbc');
+      assert.equal(await input.locator('[data-text-paragraph]').count(), 1);
+      await input.press('Control+z');
+      assert.equal(await input.textContent(), 'abc');
       await select(1, 2);
       assert.equal(
         await input
@@ -277,7 +283,11 @@ test(
       const savedTitle =
         findSlidePlaceholder(getSlides(saved)[0], 'title') ??
         findSlidePlaceholder(getSlides(saved)[0], 'ctrTitle');
-      assert.equal(getShapeParagraphElements(savedTitle, 1)[0].format?.size, undefined);
+      assert.deepEqual(
+        getShapeParagraphElements(savedTitle, 0).map((element) => element.kind),
+        ['r', 'br', 'r'],
+      );
+      assert.equal(getShapeParagraphElements(savedTitle, 0)[2].format?.size, undefined);
       await editor
         .locator('.hit')
         .first()
