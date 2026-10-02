@@ -1,3 +1,11 @@
+## 2026-10-02: 図形の空段落と編集開始時の位置
+
+- getShapeRunFormatEffective の null 指定で段落末尾の実効書式を取得。図形の空段落も表示・編集 HTML・カーソルの書式取得に同じ継承を使用する。
+- endParaRPr の 18pt / 36pt が同じ高さになる不具合を SVG / foreignObject で変更前に再現し、保存再読込も検証。ブラウザーで図形の空行の行間が normal になり約 5px ずれる追加原因を確認し、空段落の既定行間を既存 LINE_HEIGHT に合わせた。明示した段落行間は優先する。
+- 関連 browser 6 件成功。図形・表の空行後の文字位置差 2px 未満、36pt・Courier New・太字・色、Font ダイアログを検証。core 3296 成功 / 109 skip、site 135 件、Svelte check 0 errors/warnings、format/lint/typecheck/build と preview・DSL・dev の型検査/build 成功。最終行間修正後は関連 core 5 件・browser 6 件、format/lint/preview 型検査、preview/dev build を再実行。
+- PowerPoint の画面取得は成功。reference.pptx は Outline title / Ordinary text box、保存済み、Undo disabled。一時変更なし。この空段落ケースの Mac 実機比較自体は未実施。
+- 残件: 空文字 run・明示改行の書式、空段落の箇条書き、フィールド独自 pPr、表の共有辺/スタイル等。全操作一致は未完了。4173 と .pnpm-store を保持し、PR #287 のみに集約。
+
 ## 2026-10-02: 図形フィールドの実効文字書式
 
 - 図形の a:fld でも既存 getShapeRunFormatEffective に { fieldIndex } を指定できるようにし、通常 run と同じ段落・リスト・プレースホルダー・テーマ継承を適用。数値指定は従来どおり a:r のみを数える。

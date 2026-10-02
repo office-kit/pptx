@@ -296,7 +296,8 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
  *
  * Use `getShapeRunFormat` if you only want the literal `<a:rPr>` on
  * the run without inheritance. Numeric indices count only regular runs;
- * `{ fieldIndex }` counts fields separately. `inheritanceSource` supplies the original
+ * `{ fieldIndex }` counts fields separately; null resolves the paragraph end mark.
+ * `inheritanceSource` supplies the original
  * placeholder and slide context when reading a detached editing preview;
  * paragraph and run properties are still read from `shape`.
  */
@@ -304,7 +305,7 @@ export const getShapeRunFormatEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
   paragraphIndex: number,
-  runIndex: number | { readonly fieldIndex: number },
+  runIndex: number | null | { readonly fieldIndex: number },
   options: { inheritanceSource?: SlideShapeData } = {},
 ): ReadTextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);
