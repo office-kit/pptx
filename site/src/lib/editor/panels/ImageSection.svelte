@@ -1,7 +1,8 @@
 <script lang="ts">
+  import PictureCropSection from './PictureCropSection.svelte';
   import { getEditor } from '../core/context.ts';
   import { t } from '../i18n/i18n.svelte.ts';
-  import { setShapeImageOpacity, setShapeImageBrightness, setShapeImageContrast, getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeImageCrop, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
+  import { asColor, setShapeImageOpacity, setShapeImageBrightness, setShapeImageContrast, getShapeStrokeEffective, getShapeStrokeColorResolved, getShapeStrokeDash, setShapeStroke, setShapeStrokeDash, getShapePreset, type PresetShape, getShapeKind, getShapeMedia, getShapeImageOpacity, getShapeImageBrightness, getShapeImageContrast, getShapeDescription } from '@office-kit/pptx';
 
   const editor = getEditor();
   const doc = editor.doc;
@@ -38,9 +39,7 @@
     if (input.valueAsNumber === 0) editor.invoke('setShapeNoStroke');
     else editor.invoke('setShapeStroke', { options: { ...(border.visible ? {} : { color: border.color }), widthEmu: Math.round(input.valueAsNumber * 12700) } });
   }
-  const crop = $derived.by(() => { doc.version; return picture ? getShapeImageCrop(picture) : null; });
   const description = $derived.by(() => { doc.version; return picture ? getShapeDescription(picture) ?? '' : ''; });
-  const sides = [['left', 'Crop left (%)'], ['top', 'Crop top (%)'], ['right', 'Crop right (%)'], ['bottom', 'Crop bottom (%)']] as const;
   const effects = $derived.by(() => { doc.version; return picture ? [
     { id: 'setShapeImageOpacity', label: 'Opacity (%)', param: 'opacity', value: (getShapeImageOpacity(picture) ?? 1) * 100, min: 0 },
     { id: 'setShapeImageBrightness', label: 'Brightness (%)', param: 'value', value: (getShapeImageBrightness(picture) ?? 0) * 100, min: -100 },
@@ -55,15 +54,6 @@
       setShapeImageContrast(picture!, null);
     });
   }
-  function setCrop(side: 'left' | 'top' | 'right' | 'bottom', input: HTMLInputElement) {
-    const next = { ...crop, [side]: input.valueAsNumber / 100 };
-    if (!input.reportValidity() || (next.left ?? 0) + (next.right ?? 0) >= 1 || (next.top ?? 0) + (next.bottom ?? 0) >= 1) {
-      editor.toast('error', t('Crop must leave part of the image visible'));
-      input.value = String((crop?.[side] ?? 0) * 100);
-      return;
-    }
-    editor.invoke('setShapeImageCrop', { crop: next });
-  }
 </script>
 
 {#if picture}
@@ -75,12 +65,6 @@
       {#if !masks.some(([key]) => key === mask)}<option value={mask ?? ''}>{t('Custom shape')}</option>{/if}
       {#each masks as [key, label]}<option value={key}>{t(label)}</option>{/each}
     </select></label>
-    <div class="fields">
-      {#each sides as [side, label]}
-    <label>{t(label)}<input class="ok-input" type="number" min="-2147483.648" max="2147483.647" step="0.001" required value={Math.round((crop?.[side] ?? 0) * 1000) / 10} onchange={(e) => setCrop(side, e.currentTarget)} /></label>
-      {/each}
-    </div>
-    <button class="ok-btn" disabled={!crop} onclick={() => editor.invoke('setShapeImageCrop', { crop: null })}>{t('Reset crop')}</button>
     <div class="fields">
       <label>{t('Image border color')}<input type="color" value={/^#[0-9a-f]{6}$/i.test(border.color) ? border.color : '#000000'} onchange={e => editor.invoke('setShapeStroke', { options: { color: e.currentTarget.value, widthEmu: Math.round((border.width || 1) * 12700) } })} /></label>
       <label>{t('Image border width (points)')}<input class="ok-input" type="number" min="0" max="1584" step="0.25" required value={Math.round(border.width * 100) / 100} onchange={e => borderWidth(e.currentTarget)} /></label>
@@ -98,6 +82,7 @@
     <button class="ok-btn" disabled={!hasAdjustments} onclick={resetAdjustments}>{t('Reset image adjustments')}</button>
     <label>{t('Alternative text')}<textarea class="ok-input" rows="3" value={description} onchange={(e) => editor.invoke('setShapeDescription', { description: e.currentTarget.value })}></textarea></label>
   </section>
+  {#if !getShapeMedia(picture)}<PictureCropSection {picture} />{/if}
 {/if}
 
 <style>
