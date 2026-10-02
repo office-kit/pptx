@@ -61,11 +61,16 @@
       root.innerHTML = markup;
       const wrapper = root.firstElementChild;
       if (wrapper?.tagName === 'DIV') wrapper.replaceWith(...wrapper.childNodes);
-      // Clipboard sizes remain in points; only the editing view follows canvas zoom.
+      // Clipboard sizes remain in points; only the editing view applies autofit.
       for (const span of root.querySelectorAll('span')) {
         if (span.style.fontSize) span.style.fontSize = `calc(${span.style.fontSize} * var(--text-zoom))`;
         if (span.style.letterSpacing) span.style.letterSpacing = `calc(${span.style.letterSpacing} * var(--text-zoom))`;
         if (span.style.fontFamily) span.style.fontFamily += `, ${previewFontFallback}`;
+      }
+      // Fixed-line and empty paragraph struts must use the same fallback font
+      // as their runs, otherwise a missing font changes the baseline.
+      for (const paragraph of root.querySelectorAll<HTMLElement>('[data-text-paragraph]')) {
+        if (paragraph.style.fontFamily) paragraph.style.fontFamily += `, ${previewFontFallback}`;
       }
       if ((!value || value.endsWith('\n')) && !root.querySelector('[data-text-paragraph]')) {
         const end = document.createElement('br');
@@ -127,10 +132,14 @@
 
   .inline-edit :global([data-list-marker]::before) {
     content: attr(data-list-marker);
+    display: inline;
+    white-space: pre;
     font-size: var(--marker-size, inherit);
     font-family: var(--marker-font, var(--ok-font));
     color: var(--marker-color, inherit);
-    margin-inline-end: 0.4em;
+    line-height: var(--marker-line-height, normal);
+    vertical-align: baseline;
+    margin-inline-end: var(--marker-margin, 0.4em);
     user-select: none;
   }
 </style>

@@ -34,8 +34,8 @@ test('default tab spacing reaches preview and direct editing', { timeout: 90000 
           range.setStart(text, index);
           range.setEnd(text, index + 1);
           const box = paragraph.getBoundingClientRect();
-          const zoom = box.width / paragraph.offsetWidth;
-          return (range.getBoundingClientRect().left - box.left) / zoom;
+          const transformScale = box.width / paragraph.offsetWidth;
+          return (range.getBoundingClientRect().left - box.left) / transformScale;
         }
         throw new Error('Tab field not found');
       });
@@ -59,10 +59,12 @@ test('default tab spacing reaches preview and direct editing', { timeout: 90000 
     await editing.waitFor();
     const result = await editing.evaluate((element) => ({
       tab: getComputedStyle(element).tabSize,
-      zoom: getComputedStyle(element).getPropertyValue('--text-zoom'),
+      textZoom: Number(getComputedStyle(element).getPropertyValue('--text-zoom')),
     }));
-    assert.ok(Math.abs(parseFloat(result.tab) / Number(result.zoom) - 48) < 0.1);
-    assert.ok(Math.abs((await offset(editing)) / Number(result.zoom) - 48) < 1);
+    // tabSize is in the inline editor's layout space. `offset` already
+    // removes the canvas transform; only the text autofit scale remains.
+    assert.ok(Math.abs(parseFloat(result.tab) / result.textZoom - 48) < 0.1);
+    assert.ok(Math.abs((await offset(editing)) / result.textZoom - 48) < 1);
   } finally {
     await browser?.close();
     await preview?.close();

@@ -126,15 +126,20 @@ export function inlineTextHtml(
     const paragraph = document.createElement('section');
     paragraph.setAttribute('data-text-paragraph', '');
     const style = paragraph.style;
+    const firstFormat = formats[0]?.format;
+    const props = properties[index]!;
     style.display = 'inline-block';
     style.verticalAlign = 'top';
     style.inlineSize = '100%';
     style.boxSizing = 'border-box';
-    // Keep the paragraph strut at zero. A large inherited fallback here would
-    // enlarge line boxes containing smaller explicitly-sized runs; preview
-    // lays out each run at its own effective size instead.
+    // Fixed leading uses the first run's strut to position the baseline.
+    // Otherwise a fallback strut would enlarge smaller explicitly sized runs.
     const emptyFormat = elements.length === 0 ? resolve(index, null) : null;
-    style.fontSize = text ? '0px' : scaled(emptyFormat?.size ?? defaults.size, 'pt');
+    style.fontSize = text
+      ? props.lineSpacing?.kind === 'pts'
+        ? scaled(firstFormat?.size ?? defaults.size, 'pt')
+        : '0px'
+      : scaled(emptyFormat?.size ?? defaults.size, 'pt');
     style.fontFamily = emptyFormat?.font ?? defaults.family;
     if (emptyFormat?.bold !== undefined) style.fontWeight = emptyFormat.bold ? '700' : '400';
     if (emptyFormat?.italic !== undefined)
@@ -142,7 +147,6 @@ export function inlineTextHtml(
     if (emptyFormat?.color)
       style.color = resolveEditingTextColor(pres, shape, emptyFormat.color) ?? '';
     style.lineHeight = text ? '0' : '1.05';
-    const props = properties[index]!;
     style.tabSize = scaled((props.defaultTabSizeEmu ?? 914400) / 9525, 'px');
     if (props.tabStops?.length)
       paragraph.dataset.tabStops = props.tabStops
@@ -171,6 +175,7 @@ export function inlineTextHtml(
         props.lineSpacing.kind === 'pct'
           ? String(props.lineSpacing.value)
           : scaled(props.lineSpacing.value, 'pt');
+    if (props.lineSpacing) style.setProperty('--marker-line-height', style.lineHeight);
     if (props.spcBefPts !== null) style.marginTop = scaled(props.spcBefPts, 'pt');
     if (props.spcAftPts !== null) style.marginBottom = scaled(props.spcAftPts, 'pt');
     if (props.marL !== null || props.level > 0)
@@ -190,7 +195,11 @@ export function inlineTextHtml(
     for (const span of formatted.querySelectorAll('span')) {
       if (!span.style.fontSize) span.style.fontSize = `${defaults.size}pt`;
       if (!span.style.fontFamily) span.style.fontFamily = defaults.family;
-      if (!props.lineSpacing) span.style.lineHeight = '1.05';
+      span.style.lineHeight = props.lineSpacing
+        ? props.lineSpacing.kind === 'pct'
+          ? String(props.lineSpacing.value)
+          : '0'
+        : '1.05';
       // PowerPoint keeps a break's insertion format without enlarging the
       // preceding text line when only that break's font size changes.
       if (span.textContent === '\n' && /[^\n]$/.test(span.previousSibling?.textContent ?? '')) {
@@ -199,9 +208,16 @@ export function inlineTextHtml(
       }
     }
     const firstRun = formatted.querySelector('span');
+    if (props.lineSpacing?.kind === 'pts' && firstRun) {
+      style.fontFamily = firstRun.style.fontFamily;
+    }
     if (marker && firstRun) {
-      const bulletStyle = getParagraphBulletStyle(pres, target, index);
-      const firstFormat = formats[0]?.format;
+      const bulletStyle = properties[index].bulletDetail ?? {
+        ...getParagraphBulletStyle(pres, target, index),
+        colorFollowText: false,
+        sizeFollowText: false,
+        fontFollowText: false,
+      };
       const firstSize = firstFormat?.size ?? defaults.size;
       const markerSize =
         bulletStyle.sizePct !== null ? firstSize * bulletStyle.sizePct : bulletStyle.sizePts;
@@ -210,12 +226,14 @@ export function inlineTextHtml(
       } else if (firstRun.style.fontSize) {
         style.setProperty('--marker-size', `calc(${firstRun.style.fontSize} * var(--text-zoom))`);
       }
-      const markerFont =
-        bulletStyle.font === '+mj-lt'
+      style.setProperty('--marker-margin', `calc(${defaults.size * 0.4}pt * var(--text-zoom))`);
+      const markerFont = bulletStyle.fontFollowText
+        ? firstRun.style.fontFamily
+        : bulletStyle.font === '+mj-lt'
           ? (themeFonts?.majorLatin ?? firstRun.style.fontFamily)
           : bulletStyle.font === '+mn-lt'
             ? (themeFonts?.minorLatin ?? firstRun.style.fontFamily)
-            : (bulletStyle.font ?? firstRun.style.fontFamily);
+            : (bulletStyle.font ?? 'Arial');
       if (markerFont) style.setProperty('--marker-font', `${markerFont}, var(--ok-font)`);
       const markerColor = bulletStyle.color ?? firstRun.style.color;
       if (markerColor) style.setProperty('--marker-color', markerColor);

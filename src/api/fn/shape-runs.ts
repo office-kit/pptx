@@ -3,6 +3,7 @@ import { validateTextRange } from '../../internal/drawingml/text-body-edit.ts';
 import { applyHyperlinkToProperties } from '../../internal/drawingml/hyperlink.ts';
 import { boundedInt } from '../../internal/bounds.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
+import { readBulletStyleLayer } from './bullet-style.ts';
 // Per-run text accessors.
 
 import { parseRPrLikeElement, resolveDrawingColor } from './shape-color.ts';
@@ -760,9 +761,8 @@ export const getParagraphLineSpacing = (
   if (pct) {
     const v = getAttrValue(pct, qname('', 'val', ''));
     if (v !== null) {
-      let n = Number.parseFloat(v);
+      const n = readDrawingmlPercentage(v, Number.NaN);
       if (Number.isFinite(n)) {
-        if (Math.abs(n) > 1) n = n / 100000;
         return { kind: 'pct', value: n };
       }
     }
@@ -932,40 +932,13 @@ export const getParagraphBulletStyle = (
   const pPr = firstChildElement(paragraph, NAME_A_PPR);
   if (!pPr) return { color: null, sizePct: null, sizePts: null, font: null };
   const theme = getPresentationTheme(pres);
-  let color: string | null = null;
-  let sizePct: number | null = null;
-  let sizePts: number | null = null;
-  let font: string | null = null;
-  const buClr = firstChildElement(pPr, qname('a', 'buClr', NS.dml));
-  if (buClr) {
-    for (const c of buClr.children) {
-      if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
-      color = resolveDrawingColor(c, theme);
-      break;
-    }
-  }
-  const buSzPct = firstChildElement(pPr, qname('a', 'buSzPct', NS.dml));
-  if (buSzPct) {
-    const v = getAttrValue(buSzPct, qname('', 'val', ''));
-    if (v !== null) {
-      const n = readDrawingmlPercentage(v, Number.NaN);
-      if (Number.isFinite(n)) sizePct = n;
-    }
-  }
-  const buSzPts = firstChildElement(pPr, qname('a', 'buSzPts', NS.dml));
-  if (buSzPts) {
-    const v = getAttrValue(buSzPts, qname('', 'val', ''));
-    if (v !== null) {
-      const n = Number.parseInt(v, 10);
-      if (Number.isFinite(n)) sizePts = n / 100;
-    }
-  }
-  const buFont = firstChildElement(pPr, qname('a', 'buFont', NS.dml));
-  if (buFont) {
-    const t = getAttrValue(buFont, qname('', 'typeface', ''));
-    if (t !== null) font = t;
-  }
-  return { color, sizePct, sizePts, font };
+  const detail = readBulletStyleLayer(pPr, (element) => resolveDrawingColor(element, theme));
+  return {
+    color: detail.color ?? null,
+    sizePct: detail.sizePct ?? null,
+    sizePts: detail.sizePts ?? null,
+    font: detail.font ?? null,
+  };
 };
 
 /**
