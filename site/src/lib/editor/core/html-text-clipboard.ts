@@ -104,13 +104,23 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
               : undefined;
       if (points !== undefined && points >= 1 && points <= 4000) format.size = points;
     }
-    const letterSpacing = /^(-?\d+(?:\.\d+)?)(pt|px)$/.exec(style.letterSpacing);
+    const letterSpacing = /^(-?\d+(?:\.\d+)?)(pt|px|em)$/.exec(style.letterSpacing);
     if (letterSpacing) {
       const n = Number(letterSpacing[1]);
       // OOXML `spc` is hundredths of a point; CSS uses 96 pixels per inch and 72 points per inch.
-      const points = letterSpacing[2] === 'pt' ? n : n * 0.75;
-      const spc = points * 100;
-      if (Number.isFinite(spc) && Math.abs(spc) <= 400_000) format.spc = Math.round(spc);
+      // Resolve em against this element's size, including a relative font-size.
+      const points =
+        letterSpacing[2] === 'pt'
+          ? n
+          : letterSpacing[2] === 'px'
+            ? n * 0.75
+            : format.size !== undefined
+              ? n * format.size
+              : undefined;
+      if (points !== undefined) {
+        const spc = points * 100;
+        if (Number.isFinite(spc) && Math.abs(spc) <= 400_000) format.spc = Math.round(spc);
+      }
     } else if (style.letterSpacing === 'normal') {
       format.spc = 0;
     }
