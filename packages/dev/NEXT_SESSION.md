@@ -1,3 +1,11 @@
+## 2026-10-02: アウトライン本文の改行を実機確認
+
+- Mac PowerPoint の参照文書でタイトル末尾 Enter → Tab で本文を作り、Body before / Shift+Enter / Body after を入力して保存。本文は同一スライドの別々の a:p に保存され、a:br ではないことを確認。OutlineText の現在の段落挿入はこの点で実機と一致しており、onnewline の kind を無条件に接続してはいけない。
+- outline-view の英語・日本語テストに本文途中の Enter / Shift+Enter、保存後の段落構造と斜体保持、スライド数、Undo を追加。
+- 検証: outline-view ブラウザーテスト英語・日本語とも成功。format:check / lint 成功。動作変更はなく、コメントと回帰テストのみ追加。
+- 一時変更は Undo disabled まで取り消し、1 枚の Outline title に復元・保存済み。
+- 次: 複数欄選択の Shift+Enter の実機比較、表セルの Shift+Enter のブラウザー保存検証。全操作一致は未完了。4173 と .pnpm-store は保持。
+
 ## 2026-10-02: アウトラインの Shift+Enter
 
 - 実機比較で、アウトラインのタイトル欄は Shift+Enter でも新スライドを作ることを確認。末尾で Outline title / After の 2 枚が保存 XML に現れ、タイトル途中でも O / utline title に分割。キャンバスの段落内改行とは異なる。

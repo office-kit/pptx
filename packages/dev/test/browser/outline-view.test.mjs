@@ -98,6 +98,24 @@ for (const locale of ['en', 'ja'])
           initialLayout.map((paragraph) => paragraph.marker),
           ['•', '•'],
         );
+        // Mac PowerPoint outline body Shift+Enter creates a:p, unlike canvas a:br.
+        for (const key of ['Enter', 'Shift+Enter']) {
+          await body.focus();
+          await body.evaluate((node) => window.selectEditorText(node, 5, 5));
+          await change(() => body.press(key));
+          const savedSlides = getSlides(await read());
+          assert.equal(savedSlides.length, 1);
+          const savedBody = getSlideShapes(savedSlides[0])[1];
+          assert.equal(getShapeText(savedBody), 'First\n point\nSecond point');
+          for (const [index, text] of ['First', ' point', 'Second point'].entries()) {
+            const elements = getShapeParagraphElements(savedBody, index);
+            assert.equal(elements.map((element) => element.text ?? '').join(''), text);
+            assert.ok(elements.every((element) => element.kind === 'r'));
+            assert.equal(elements[0].format.italic, true);
+          }
+          await change(() => body.press('Control+z'));
+          assert.equal(await body.textContent(), 'First point\nSecond point');
+        }
         const moveParagraph = async (up) => {
           await body.click({ button: 'right', position: { x: 30, y: up ? 30 : 10 } });
           await change(() =>

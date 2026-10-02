@@ -457,6 +457,7 @@
   oninput={changed} onblur={commit} onkeydown={keys} oncontextmenu={context}
   oncopy={event => copy(event)} oncut={event => copy(event, true)} onpaste={paste}
   onnewline={() => {
+    // Mac PowerPoint outline bodies use paragraphs for both Enter and Shift+Enter.
     if (selection.current()?.start.key !== selection.current()?.end.key) selection.replace('\n', [], t('Edit text'));
     else replaceSelection('\n');
   }}
