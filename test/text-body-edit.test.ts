@@ -66,6 +66,28 @@ describe('incremental text replacement', () => {
     expect(serializeXml(doc)).toContain('<a:fld id="{id}" type="slidenum">');
     expect(serializeXml(doc)).toContain('<a:br/>');
   });
+
+  it('preserves metadata in partially replaced runs and materialized fields', () => {
+    const doc = body(
+      '<a:p xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x" xmlns:x="urn:custom" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><a:r><a:rPr><a:hlinkClick r:id="rId7"/></a:rPr><a:t>hello</a:t><x:meta value="run"/></a:r><a:fld id="{id}" type="datetime"><a:rPr i="1"/><a:t>2026</a:t><x:meta value="field"/></a:fld></a:p>',
+    );
+    editTextBody(doc.root, 'jello-2026', { start: 1, end: 5 });
+    const xml = serializeXml(doc);
+    expect(xml).toContain('<x:meta value="run"/>');
+    expect(xml).toContain('<a:hlinkClick r:id="rId7"/>');
+
+    const field = body(
+      '<a:p xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="x" xmlns:x="urn:custom"><a:r><a:t>hello</a:t></a:r><a:fld id="{id}" type="datetime" x:custom="field"><a:rPr i="1"/><a:pPr algn="ctr"/><a:t>2026</a:t><x:meta value="field"/></a:fld></a:p>',
+    );
+    editTextBody(field.root, 'XX', { start: 5, end: 7 });
+    const fieldXml = serializeXml(field);
+    expect(fieldXml).toContain('<x:meta value="field"/>');
+    expect(fieldXml).not.toContain('<a:fld');
+    expect(fieldXml).toContain('x:custom="field"');
+    expect(fieldXml).not.toContain('type="datetime"');
+    expect(fieldXml).not.toContain('id="{id}"');
+    expect(fieldXml).not.toContain('<a:pPr algn="ctr"/>');
+  });
 });
 
 describe('text range formatting', () => {

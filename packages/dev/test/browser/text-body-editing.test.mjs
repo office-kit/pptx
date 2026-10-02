@@ -65,11 +65,11 @@ for (const table of [false, true])
           await editor.locator('.hit').dblclick();
           const input = editor.locator('.inline-edit');
           await input.waitFor();
+          const floatingBar = editor.locator('.floating-text-format-bar');
+          await floatingBar.locator('summary').click();
+          const selectedBar = floatingBar.locator('.text-format-bar');
           assert.equal(
-            await editor
-              .locator('.canvas-shell > .text-format-bar')
-              .getByLabel('Paragraph alignment', { exact: true })
-              .inputValue(),
+            await selectedBar.getByLabel('Paragraph alignment', { exact: true }).inputValue(),
             'left',
           );
           assert.equal(
