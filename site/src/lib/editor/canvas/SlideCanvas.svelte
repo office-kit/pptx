@@ -6,7 +6,7 @@
   // The editing surface. Paints the current slide with the preview renderer and
   // manipulates it directly: click/marquee to select, drag to move (multi-shape,
   // with smart-guide snapping), handles to resize, a top handle to rotate,
-  // double-click to edit text. Gestures mutate the real model on every frame
+  // click inside text to edit; drag borders to move. Gestures mutate the real model on every frame
   // (so the shape moves for real, not a ghost) via `applyLive`, then commit a
   // single undo step on release. Zoom + right-click menu round out the feel.
   import { onMount, tick } from 'svelte';
@@ -14,6 +14,7 @@
   import { parseTableClipboard, canPasteTableCells, pasteTableCells, tableHasMergedCells } from '../core/table-clipboard.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { toggleTextFormat, type TextFormatToggle } from '../core/text-format-toggle.ts';
+  import { richTextValue } from '../core/rich-text-dom.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { applyTextFormat, readTextFormat } from '../core/format-clipboard.ts';
   import { parseHtmlTextClipboard, textClipboardHtml } from '../core/html-text-clipboard.ts';
@@ -443,7 +444,7 @@
     }
   }
 
-  function onPointerUp() {
+  function onPointerUp(event: PointerEvent) {
     gestureSelection = null;
     if (cellDrag) { cellDrag = null; return; }
     if (raf) {
@@ -457,6 +458,8 @@
     }
     if (drag) {
       const moved = drag.moved;
+      const clickedId = drag.ids[0];
+      const clicked = !moved && drag.mode === 'move' && drag.ids.length === 1 ? boxes.find(box => box.id === clickedId) : undefined;
       const label = drag.mode === 'move' ? 'Move' : drag.mode === 'resize' ? 'Resize' : 'Rotate';
       if (moved) {
         applyDragFrame();
@@ -464,7 +467,21 @@
       }
       drag = null;
       guides = [];
+      if (clicked && !event.metaKey && !event.ctrlKey && textInterior(event, clicked)) editAtPointer(event, clicked);
     }
+  }
+
+  function textInterior(event: MouseEvent, box: Box): boolean {
+    if (getShapeKind(box.shape) !== 'shape' || !getShapeText(box.shape)) return false;
+    const point = localPoint({ x: event.clientX, y: event.clientY });
+    const width = box.width / 100 * stageW, height = box.height / 100 * stageH;
+    const dx = point.x * pxPerEmuX() - (box.left / 100 * stageW + width / 2);
+    const dy = point.y * pxPerEmuY() - (box.top / 100 * stageH + height / 2);
+    const angle = box.rotation * Math.PI / 180;
+    const x = dx * Math.cos(angle) + dy * Math.sin(angle);
+    const y = -dx * Math.sin(angle) + dy * Math.cos(angle);
+    const borderHitWidth = 6;
+    return Math.abs(x) < width / 2 - borderHitWidth && Math.abs(y) < height / 2 - borderHitWidth;
   }
 
   function finishMarquee() {
@@ -785,15 +802,29 @@
     return tableCellBoxes(box.shape).find(c => x >= c.left && x <= c.left + c.width && y >= c.top && y <= c.top + c.height);
   }
 
-  function editAtPointer(event: MouseEvent, box: Box) {
+  async function editAtPointer(event: MouseEvent, box: Box) {
     if (getShapeKind(box.shape) === 'group') {
       const first = getGroupChildren(box.shape)[0];
       if (first) doc.selectShape(doc.selection.slideIndex, getShapeId(first));
       return;
     }
-    if (!isTableShape(box.shape)) { startEditing(box); return; }
-    const cell = cellAtPointer(event, box);
-    if (cell) startEditing(box, cell);
+    if (!isTableShape(box.shape)) startEditing(box);
+    else {
+      const cell = cellAtPointer(event, box);
+      if (cell) startEditing(box, cell);
+    }
+    await tick();
+    const root = textInput?.getElement();
+    if (!root || editing?.id !== box.id) return;
+    const owner = root.ownerDocument;
+    const caret = owner.caretPositionFromPoint?.(event.clientX, event.clientY);
+    const range = caret ? null : owner.caretRangeFromPoint?.(event.clientX, event.clientY);
+    const position = caret ? { node: caret.offsetNode, offset: caret.offset } : range ? { node: range.startContainer, offset: range.startOffset } : null;
+    if (position && root.contains(position.node)) {
+      const offset = richTextValue(root, position).length;
+      textRange = { start: offset, end: offset };
+      textInput?.setSelectionRange(offset, offset);
+    }
   }
 
   const editBox = $derived.by(() => {
@@ -1122,12 +1153,12 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.ribbon, .canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
+    if (target instanceof Element && target.closest('.ribbon, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
       queueMicrotask(() => {
-        if (editing === current && !document.activeElement?.closest('.ribbon, .canvas-shell .text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
+        if (editing === current && !document.activeElement?.closest('.ribbon, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
       });
       return;
     }
@@ -1191,10 +1222,13 @@
     <button class="ok-btn" onclick={exitGroup}>{t('Exit group')}</button>
   </div>
 {/if}
-{#if editing}
-  <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
-{/if}
 <div class="canvas-viewport" class:with-rulers={editor.view.ruler}>
+{#if editing}
+  <details class="floating-text-format-bar">
+    <summary class="ok-btn">{t('Selected text formatting')}</summary>
+    <TextFormatBar hideFont formats={rangeFormats} typing selected={textRange.start !== textRange.end} onformat={applyInlineFormat} ontoggle={toggleInlineFormat} paragraph={inlineParagraph} onparagraph={applyInlineParagraph} onlink={editSelectedTextLink} oncopyformat={copyInlineFormat} onpasteformat={pasteInlineFormat} canPasteFormat={!!editor.formatClipboard} ondone={commitEditing} />
+  </details>
+{/if}
 {#if editor.view.ruler && areaEl && stageEl}<SlideRulers area={areaEl} stage={stageEl} zoom={editor.zoom} text={rulerText} onindent={applyRulerIndent} ontabs={applyRulerTabs} />{/if}
 <div class="canvas-area" bind:this={areaEl} role="presentation">
   <div
@@ -1358,6 +1392,19 @@
   .group-navigation { display: flex; align-items: center; gap: 12px; padding: 4px 12px; background: var(--ok-panel); }
   .canvas-shell { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
   .canvas-viewport { position: relative; display: flex; flex: 1; min-width: 0; min-height: 0; }
+  .floating-text-format-bar {
+    position: absolute;
+    z-index: 20;
+    top: 4px;
+    right: 8px;
+    max-width: calc(100% - 16px);
+    pointer-events: auto;
+  }
+  .floating-text-format-bar > summary { width: max-content; margin-left: auto; cursor: pointer; }
+  .floating-text-format-bar :global(.text-format-bar) {
+    max-width: 560px;
+    box-shadow: var(--ok-shadow);
+  }
   .canvas-viewport.with-rulers { padding-top: 22px; padding-left: 22px; }
   .canvas-area {
     position: relative;

@@ -263,6 +263,8 @@ test(
         assert.ok(alignment.centerOffset < 1);
       };
       await checkStyle();
+      // Double-click selects a word; append at an explicit text offset.
+      await input.evaluate((node) => window.selectEditorText(node, node.textContent.length));
       await input.press('Enter');
       await page.keyboard.insertText('日本語');
       assert.equal(await input.textContent(), 'Theme title\n日本語');

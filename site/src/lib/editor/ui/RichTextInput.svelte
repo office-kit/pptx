@@ -27,7 +27,7 @@
     selection = { start, end };
     if (element && document.activeElement === element) selectRichText(element, start, end);
   }
-  export function focus() { element?.focus(); }
+  export function focus() { element?.focus({ preventScroll: true }); }
   export function blur() { element?.blur(); }
   export function getElement() { return element; }
   export function select() { setSelectionRange(0, value.length); }
