@@ -315,12 +315,13 @@
       event.preventDefault(); event.stopPropagation();
       await changeLevel(event.shiftKey);
     }
-    else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey &&
+    else if (event.key === 'Enter' && !mod && !event.altKey &&
       selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
       selection.replace('\n', [], t('Edit text'));
     }
-    else if (event.key === 'Enter' && !event.shiftKey && !mod && !event.altKey && title) {
+    // Mac PowerPoint splits outline titles into slides for both Enter and Shift+Enter.
+    else if (event.key === 'Enter' && !mod && !event.altKey && title) {
       const layout = getSlideLayout(slide);
       if (!layout) return;
       const ownerDocument = input.getElement()!.ownerDocument;

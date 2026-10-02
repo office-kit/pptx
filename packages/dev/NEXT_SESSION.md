@@ -1,3 +1,11 @@
+## 2026-10-02: アウトラインの Shift+Enter
+
+- 実機比較で、アウトラインのタイトル欄は Shift+Enter でも新スライドを作ることを確認。末尾で Outline title / After の 2 枚が保存 XML に現れ、タイトル途中でも O / utline title に分割。キャンバスの段落内改行とは異なる。
+- OutlineText のタイトル分割を Shift+Enter にも適用。複数欄をまたぐ選択は従来の一括置換へ先に分岐する。
+- outline-view の途中分割テストを Shift+Enter に変更（既存 Enter 末尾分割は維持）。修正前は同一スライド内の改行になり英語・日本語とも失敗。修正後は両言語成功し、書式・リンク・本文移動・Undo・保存を検証。cross-selection の Shift+Enter も成功。
+- format/lint/dev typecheck/build 成功。参照ファイルの一時変更は Undo disabled まで取り消し保存済み。PowerPoint は Outline View のまま。
+- 次: アウトライン本文の Shift+Enter と、複数欄選択時の実機比較（既存テストは自製期待値のため実機証拠が必要）。表セルの Shift+Enter のブラウザー保存検証も残る。全操作一致は未完了。
+
 ## 2026-10-02: Enter と段落内改行
 
 - setShapeText / setTableCellText に newlines: 'break' を追加。通常置換・範囲置換・preserveFormatting の全経路で a:br を生成。既定値は従来の段落分割。
