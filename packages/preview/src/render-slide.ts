@@ -3040,6 +3040,9 @@ export const resolveTextBodyModel = (
       });
     }
     paraData.push({
+      ...(runs.length === 0
+        ? { emptySizePt: getShapeRunFormatEffective(pres, shape, p, null).size ?? defaultPt }
+        : {}),
       latinLineBreak: effective.latinLineBreak,
       tabStops: effective.tabStops,
       defaultTabSizeEmu: effective.defaultTabSizeEmu,
@@ -3247,7 +3250,7 @@ const renderHtmlParagraphs = (
     // <a:lnSpc> — paragraph line spacing. spcPct multiplies, spcPts
     // sets a fixed point value. CSS line-height accepts both forms;
     // we project pts to px at the run's authored size.
-    let lineHeightCss = '';
+    let lineHeightCss = para.emptySizePt !== undefined ? `line-height:${LINE_HEIGHT}` : '';
     if (para.lineSpacing?.kind === 'pct') {
       lineHeightCss = `line-height:${para.lineSpacing.value.toFixed(3)}`;
     } else if (para.lineSpacing?.kind === 'pts') {

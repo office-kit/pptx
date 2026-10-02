@@ -70,9 +70,9 @@ export function inlineTextHtml(
   const container = document.createElement('div');
   const scaled = (value: number, unit: string) => `calc(${value}${unit} * var(--text-zoom))`;
   const resolve = tableCell
-    ? (paragraph: number, run: number | { readonly fieldIndex: number }) =>
+    ? (paragraph: number, run: number | null | { readonly fieldIndex: number }) =>
         getTableCellRunFormatEffective(pres, tableCell, paragraph, run)
-    : (paragraph: number, run: number | { readonly fieldIndex: number }) =>
+    : (paragraph: number, run: number | null | { readonly fieldIndex: number }) =>
         getShapeRunFormatEffective(pres, shape, paragraph, run, { inheritanceSource: source });
   const properties = paragraphs.map((_, index) =>
     getParagraphPropertiesEffective(pres, target, index, { inheritanceSource: source }),
@@ -124,10 +124,7 @@ export function inlineTextHtml(
     // Keep the paragraph strut at zero. A large inherited fallback here would
     // enlarge line boxes containing smaller explicitly-sized runs; preview
     // lays out each run at its own effective size instead.
-    const emptyFormat =
-      elements.length === 0 && tableCell
-        ? getTableCellRunFormatEffective(pres, tableCell, index, null)
-        : null;
+    const emptyFormat = elements.length === 0 ? resolve(index, null) : null;
     style.fontSize = text ? '0px' : scaled(emptyFormat?.size ?? defaults.size, 'pt');
     style.fontFamily = emptyFormat?.font ?? defaults.family;
     if (emptyFormat?.bold !== undefined) style.fontWeight = emptyFormat.bold ? '700' : '400';

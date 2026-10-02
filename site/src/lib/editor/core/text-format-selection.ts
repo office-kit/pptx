@@ -75,8 +75,12 @@ export function textFormatsInRange(
     if (offset === paragraphStart && range.start === offset && range.end === offset) {
       return [
         toWritableTextFormat(
-          context && tableCell && elements.length === 0
-            ? getTableCellRunFormatEffective(context.pres, tableCell, paragraphIndex, null)
+          context && elements.length === 0
+            ? tableCell
+              ? getTableCellRunFormatEffective(context.pres, tableCell, paragraphIndex, null)
+              : getShapeRunFormatEffective(context.pres, shape, paragraphIndex, null, {
+                  inheritanceSource: context.source ?? shape,
+                })
             : (endFormat ?? elements[0]?.format ?? {}),
         ),
       ];
