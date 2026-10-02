@@ -1,6 +1,7 @@
 <script lang="ts">
   import './ui/tokens.css';
   import { arrangeShortcut } from './core/arrange-shortcuts.ts';
+  import { getShapeKind, getShapeText } from '@office-kit/pptx';
   import { newSlideLayout } from './core/new-slide.ts';
   import { parseTableClipboard } from './core/table-clipboard.ts';
   import { t } from './i18n/i18n.svelte.ts';
@@ -33,6 +34,7 @@
   import SlideSizeDialog from './ui/SlideSizeDialog.svelte';
   import TableDialog from './ui/TableDialog.svelte';
   import CustomShowsDialog from './ui/CustomShowsDialog.svelte';
+  import FontDialog from './ui/FontDialog.svelte';
   import ContextMenu from './ui/ContextMenu.svelte';
   import ToastStack from './ui/ToastStack.svelte';
 
@@ -61,6 +63,16 @@
     const target = e.target as HTMLElement;
     const typing =
       target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName ?? '');
+
+    // PowerPoint opens the full Font dialog with Cmd/Ctrl+T while a text
+    // range is selected, including when the caret is in the inline editor.
+    const hasTextTarget = editor.inlineTextFormat || doc.selection.kind === 'cell' ||
+      (doc.selection.kind === 'shape' && editor.selectedShapes().some(shape => getShapeKind(shape) === 'shape' && getShapeText(shape).length > 0));
+    if (mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't' && hasTextTarget && !typing && !e.defaultPrevented) {
+      e.preventDefault();
+      editor.activeDialog = 'font';
+      return;
+    }
 
     if (mod && e.shiftKey && !e.altKey && e.code === 'KeyN' && !typing && !e.defaultPrevented) {
       e.preventDefault();
@@ -223,6 +235,8 @@
       <TableDialog />
     {:else if editor.activeDialog === 'customShows'}
       <CustomShowsDialog />
+    {:else if editor.activeDialog === 'font'}
+      <FontDialog />
     {:else}
       <CommandDialog id={editor.activeDialog} />
     {/if}

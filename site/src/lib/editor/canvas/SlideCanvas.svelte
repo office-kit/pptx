@@ -1243,12 +1243,12 @@
   }
   function onTextFocusOut(event: FocusEvent) {
     const target = event.relatedTarget;
-    if (target instanceof Element && target.closest('.ribbon, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
+    if (target instanceof Element && target.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) return;
     if (target === null) {
       // Some focus transfers briefly report no related target; inspect the settled focus.
       const current = editing;
       queueMicrotask(() => {
-        if (editing === current && !document.activeElement?.closest('.ribbon, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
+        if (editing === current && !document.activeElement?.closest('.ribbon, .font-dialog, .canvas-shell .floating-text-format-bar, .canvas-shell .rulers, .inline-edit')) commitEditing();
       });
       return;
     }
@@ -1438,6 +1438,12 @@
               oncut={(event) => copyEditingText(event, true)}
               onpaste={pasteEditingText}
               onkeydown={(e) => {
+                if (!e.isComposing && (e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 't') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  editor.activeDialog = 'font';
+                  return;
+                }
                 if (!e.isComposing && (e.ctrlKey || e.metaKey) && e.shiftKey && (e.key.toLowerCase() === 'v' || e.code === 'KeyV')) {
                   e.preventDefault();
                   e.stopPropagation();

@@ -2,7 +2,7 @@
   import { tick } from 'svelte';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { value, disabled = false, ribbon = false, families: extraFamilies = [], choose }: { value?: string; disabled?: boolean; ribbon?: boolean; families?: readonly string[]; choose: (font: string) => void } = $props();
+  let { value, label = t('Font'), disabled = false, ribbon = false, families: extraFamilies = [], choose }: { value?: string; label?: string; disabled?: boolean; ribbon?: boolean; families?: readonly string[]; choose: (font: string) => void } = $props();
   const commonFamilies = [
     'Aptos', 'Aptos Display', 'Arial', 'Calibri', 'Cambria', 'Candara',
     'Consolas', 'Courier New', 'Georgia', 'Helvetica', 'Meiryo', 'MS Gothic',
@@ -48,14 +48,14 @@
 
 <svelte:window onpointerdown={event => { if (open && !menu?.contains(event.target as Node) && !trigger.contains(event.target as Node)) close(false); }} onblur={() => { if (open) close(false); }} onresize={() => { if (open) close(false); }} />
 <div class="font-field" class:ribbon>
-  <input class="ok-input font" bind:this={field} aria-label={t('Font')} disabled={disabled} value={value ?? ''} placeholder={t('Mixed or inherited')} onchange={event => { const font = event.currentTarget.value.trim(); if (font) choose(font); }} onkeydown={event => { if (event.altKey && event.key === 'ArrowDown') { event.preventDefault(); void show(); } }} />
-  <button class="ok-input" bind:this={trigger} aria-label={t('Font options')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>▾</button>
+  <input class="ok-input font" bind:this={field} aria-label={label} disabled={disabled} value={value ?? ''} placeholder={t('Mixed or inherited')} onchange={event => { const font = event.currentTarget.value.trim(); if (font) choose(font); }} onkeydown={event => { if (event.altKey && event.key === 'ArrowDown') { event.preventDefault(); void show(); } }} />
+  <button type="button" class="ok-input" bind:this={trigger} aria-label={t('Font options')} aria-haspopup="menu" aria-expanded={open} {disabled} onclick={show}>▾</button>
 </div>
 {#if open}
-  <div class="font-menu" role="menu" aria-label={t('Font')} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
+  <div class="font-menu" role="menu" aria-label={label} tabindex="-1" bind:this={menu} use:place onkeydown={keys}>
     <input class="font-filter" aria-label={t('Search fonts')} placeholder={t('Search fonts')} bind:value={filter} />
     {#each matches as family}
-      <button role="menuitemradio" aria-checked={value === family} onclick={() => select(family)}>{family}</button>
+      <button type="button" role="menuitemradio" aria-checked={value === family} onclick={() => select(family)}>{family}</button>
     {/each}
     {#if !matches.length}<span class="empty">{t('No matching fonts')}</span>{/if}
   </div>
