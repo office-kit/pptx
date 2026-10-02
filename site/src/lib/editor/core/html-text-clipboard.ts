@@ -70,6 +70,16 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
               : undefined;
       if (points !== undefined && points >= 1 && points <= 4000) format.size = points;
     }
+    const letterSpacing = /^(-?\d+(?:\.\d+)?)(pt|px)$/.exec(style.letterSpacing);
+    if (letterSpacing) {
+      const n = Number(letterSpacing[1]);
+      // OOXML `spc` is hundredths of a point; CSS uses 96 pixels per inch and 72 points per inch.
+      const points = letterSpacing[2] === 'pt' ? n : n * 0.75;
+      const spc = points * 100;
+      if (Number.isFinite(spc) && Math.abs(spc) <= 400_000) format.spc = Math.round(spc);
+    } else if (style.letterSpacing === 'normal') {
+      format.spc = 0;
+    }
     const family = (style.fontFamily || element.getAttribute('face') || '')
       .split(',')[0]!
       .trim()
@@ -170,6 +180,7 @@ export function textClipboardHtml(copied: FormattedText): string {
     if (format.bold !== undefined) style.fontWeight = format.bold ? 'bold' : 'normal';
     if (format.italic !== undefined) style.fontStyle = format.italic ? 'italic' : 'normal';
     if (format.size !== undefined) style.fontSize = `${format.size}pt`;
+    if (format.spc !== undefined) style.letterSpacing = `${(format.spc / 100) * (96 / 72)}px`;
     const families = [format.font, format.fontEastAsian].filter((font): font is string => !!font);
     if (families.length) style.fontFamily = families.map((font) => JSON.stringify(font)).join(', ');
     if (format.color) style.color = cssColor(format.color);

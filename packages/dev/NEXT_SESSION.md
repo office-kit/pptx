@@ -1,3 +1,10 @@
+## 2026-10-02: 編集開始時の文字間隔保持
+
+- 正負の文字間隔が編集開始時に消えて文字幅が変わる不具合を再現（Wide:65.57px→53.77px）。HTMLへの書式変換でletter-spacingを保持し、編集ビューでズーム倍率を適用する修正。
+- Mac参照 `/tmp/pptx-outline-audit/reference.pptx` への一時変更と取り消しをユーザーが明示許可。実機でIncrease Font Size44→48pt、Character Spacing > Loose=Expanded3ptを確認。両変更はUndo済み（Undo disabled）。ディスク上の参照は `/tmp/pptx-outline-audit/reference-before-font.pptx` とバイト一致、復元待ちなし。
+- 検証: ブラウザー7件成功（正負文字間隔100%/200%、画面上のRange座標とstage不変、clipboard、既存編集、Home）。site121件、format/lint、Svelte 0 errors/warnings、editor build成功。確認用4175 HTTP200。
+- Homeの文字拡大・縮小、文字間隔メニュー、Change Caseの追加は未完了。全体完全一致を達成したとは扱わない。同一PR #287、4173の未保存編集を触らない。
+
 ## 2026-10-02: 小さい文字と混在サイズの編集位置
 
 - 10pt文字の編集開始時に約6px下へ移動する不具合をブラウザー実測で再現。段落の既定18ptによる行高への影響を除き、各runへ表示用既定サイズを適用。空段落のcaret用サイズは維持。フォント代替もpreviewへ統一。
