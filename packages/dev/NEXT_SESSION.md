@@ -1,3 +1,11 @@
+## 2026-10-02: 段落末尾書式を既存文字から分離
+
+- endParaRPr を既存の最終 run / field に継承していた共有 resolver を修正。null（段落末尾の入力位置）のみ適用する。根拠は ECMA-376 §21.1.2.2.3 と Microsoft SDK EndParagraphRunProperties remarks（新しい文字挿入用）。
+- 図形と通常文字・フィールド混在の表で、変更前に 48pt・太字が既存文字へ漏れることを再現。保存再読込と入力位置の書式保持を検証。
+- 既存の選択書式テストが endParaRPr を本文の太字として用いていたため、本文 rPr で太字を指定する fixture に訂正。前回の copyTextRange selector 拡張に追従していなかったテスト callback の型エラーも修正。
+- 検証: core 3292 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査・build 成功。関連 browser 4 件成功。
+- 今回ネイティブ参照文書に変更なし。このケース自体の Mac 実機比較は未実施。フィールド独自 pPr、図形フィールドの実効書式、空文字 run / 改行のみの段落、全操作一致は未完了。4173 と .pnpm-store を保持。PR #287 のみに集約。
+
 ## 2026-10-02: 表内フィールドの実効文字書式
 
 - 表内の a:fld が通常文字と違って段落既定のフォント・サイズ・太字を継承しない不具合を SVG / foreignObject の比較テストで再現し修正。

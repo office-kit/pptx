@@ -64,7 +64,7 @@ import { getEffectiveColorMap } from './color-map.ts';
 // supplied. First-wins per property:
 //
 //   1. The run's own `<a:rPr>`
-//   2. The paragraph's `<a:endParaRPr>` (last run only)
+//   2. For the insertion position only, the paragraph's `<a:endParaRPr>`
 //   3. The paragraph's `<a:pPr><a:defRPr>` (paragraph-level run defaults)
 //   4. The text body's `<a:lstStyle><a:lvl{N+1}pPr><a:defRPr>` (N = paragraph level)
 //   5. The same path on the matching placeholder in the slide's layout
@@ -195,7 +195,9 @@ export const resolveTextBodyRunFormatEffective = (
 
   const runRPr = run ? firstChildElement(run, NAME_A_RPR) : null;
   if (runRPr) mergeRPrLayer(result, parseRPrLikeElement(runRPr, ctx));
-  if (runIndex === null || runs[runs.length - 1] === run) {
+  // ECMA-376 §21.1.2.2.3: endParaRPr formats newly inserted text,
+  // not the existing final run (or the final field).
+  if (runIndex === null) {
     const endRPr = firstChildElement(paragraph, NAME_A_END_PARA_RPR);
     if (endRPr) mergeRPrLayer(result, parseRPrLikeElement(endRPr, ctx));
   }
@@ -280,7 +282,7 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
 
 /**
  * Resolves a run's effective character properties by walking the
- * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr → endParaRPr →
+ * ECMA-376 §21.1.2.4.7 inheritance chain — run rPr →
  * pPr defRPr → text-body lstStyle → layout placeholder lstStyle →
  * master placeholder lstStyle + master txStyles → theme fontScheme.
  *
