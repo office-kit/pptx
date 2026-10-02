@@ -62,6 +62,25 @@ const COLOR_TRANSFORM_LOCALS: ReadonlySet<string> = new Set([
   'comp',
 ]);
 
+const readColorPercentage = (raw: string): number => {
+  // DrawingML's canonical lexical forms are fixed-point integers and a
+  // percent-suffixed value. Preserve the historical bare-float tolerance for
+  // third-party files while delegating canonical forms to the shared reader.
+  const value = raw.trim();
+  if (!value.endsWith('%') && /[.eE]/.test(value)) {
+    const number = Number(value);
+    // Keep the historical compatibility form for bare fractions while
+    // retaining fixed-point semantics for decimal spellings of large values.
+    if (Number.isFinite(number) && Math.abs(number) <= 1) return number;
+  }
+  return readDrawingmlPercentage(value, Number.NaN);
+};
+
+const readColorAngleDegrees = (raw: string): number => {
+  const value = Number(raw.trim());
+  return Number.isFinite(value) ? value / 60000 : Number.NaN;
+};
+
 const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] => {
   const out: ColorTransformOp[] = [];
   for (const child of colorEl.children) {
@@ -74,11 +93,8 @@ const parseColorTransforms = (colorEl: XmlElement): readonly ColorTransformOp[] 
     }
     const raw = getAttrValue(child, qname('', 'val', ''));
     if (raw === null) continue;
-    let n = Number.parseFloat(raw);
+    const n = local === 'hueOff' ? readColorAngleDegrees(raw) : readColorPercentage(raw);
     if (!Number.isFinite(n)) continue;
-    // PowerPoint emits ST_Percentage (`100000` = 100%); tolerate the
-    // bare-float form some third-party tools emit.
-    if (Math.abs(n) > 1) n = n / 100000;
     out.push({ kind: local as Exclude<ColorTransformOp['kind'], 'gray' | 'inv' | 'comp'>, val: n });
   }
   return out;
@@ -335,11 +351,8 @@ export const parseEffectList = (
     if (alphaEl) {
       const a = getAttrValue(alphaEl, qname('', 'val', ''));
       if (a !== null) {
-        let n = Number.parseFloat(a);
-        if (Number.isFinite(n)) {
-          if (Math.abs(n) > 1) n = n / 100000;
-          opacity = n;
-        }
+        const n = readColorPercentage(a);
+        if (Number.isFinite(n)) opacity = n;
       }
     }
     const hex = resolveDrawingColor(inner, theme);
@@ -381,9 +394,8 @@ export const parseEffectList = (
       const pctFraction = (name: string): number | undefined => {
         const raw = getAttrValue(child, qname('', name, ''));
         if (raw === null) return undefined;
-        let n = Number.parseFloat(raw);
+        const n = readColorPercentage(raw);
         if (!Number.isFinite(n)) return undefined;
-        if (Math.abs(n) > 1) n = n / 100000;
         return n;
       };
       const opacity = pctFraction('endA');

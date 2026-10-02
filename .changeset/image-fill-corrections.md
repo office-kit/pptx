@@ -3,4 +3,6 @@
 '@office-kit/pptx-dev': patch
 ---
 
-The core image brightness and contrast accessors now accept image-filled shapes, preserve percent lexical brightness and contrast values, the editor preserves those corrections when an image fill is temporarily replaced and restored, and image recolor thresholds and opacity read both fixed-point and percent lexical DrawingML values consistently.
+Image brightness and contrast now work on image-filled shapes. The editor preserves these corrections when switching fill types and restoring the image.
+
+Image corrections, opacity, and DrawingML color transforms now read both fixed-point and percent-suffixed values correctly. Hue offsets use angle units, preventing incorrect colors in imported presentations.
