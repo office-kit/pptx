@@ -9,28 +9,30 @@ import {
   createPresentation,
   addBlankSlide,
   addSlideTable,
+  addSlideTextBox,
   inches,
   savePresentation,
 } from '@office-kit/pptx';
 import { startPreview } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
-for (const field of [false, true]) {
+for (const { kind, field } of [
+  { kind: 'table', field: false },
+  { kind: 'table', field: true },
+  { kind: 'shape', field: true },
+]) {
   test(
-    `table paragraph default font survives entering text editing (field: ${field})`,
+    `${kind} paragraph default font survives entering text editing (field: ${field})`,
     { timeout: 60000 },
     async () => {
       const dir = await mkdtemp(join(tmpdir(), 'office-table-inherited-font-'));
       let preview, browser;
       try {
         const pres = createPresentation();
-        addSlideTable(addBlankSlide(pres), {
-          x: inches(1),
-          y: inches(1),
-          w: inches(6),
-          h: inches(2),
-          rows: [['Inherited text']],
-        });
+        const slide = addBlankSlide(pres);
+        const bounds = { x: inches(1), y: inches(1), w: inches(6), h: inches(2) };
+        if (kind === 'table') addSlideTable(slide, { ...bounds, rows: [['Inherited text']] });
+        else addSlideTextBox(slide, { ...bounds, text: 'Inherited text' });
         const parts = unzipSync(await savePresentation(pres));
         const name = 'ppt/slides/slide1.xml';
         const xml = strFromU8(parts[name]);
@@ -41,6 +43,13 @@ for (const field of [false, true]) {
             .replace('</a:pPr>', `${defaults}</a:pPr>`)
             .replace(/<a:rPr[^>]*>[\s\S]*?<\/a:rPr>/, '<a:rPr/>'),
         );
+        if (kind === 'shape')
+          parts[name] = strToU8(
+            xml.replace(
+              /<a:p>[\s\S]*?<\/a:p>/,
+              `<a:p><a:pPr>${defaults}</a:pPr><a:r><a:rPr/><a:t>Inherited text</a:t></a:r></a:p>`,
+            ),
+          );
         if (field)
           parts[name] = strToU8(
             strFromU8(parts[name])

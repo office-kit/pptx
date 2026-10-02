@@ -1,3 +1,11 @@
+## 2026-10-02: 図形フィールドの実効文字書式
+
+- 図形の a:fld でも既存 getShapeRunFormatEffective に { fieldIndex } を指定できるようにし、通常 run と同じ段落・リスト・プレースホルダー・テーマ継承を適用。数値指定は従来どおり a:r のみを数える。
+- 図形の日付フィールドが段落の Courier New / 28pt / bold / 色を失うことを SVG と foreignObject の通常文字との比較で再現し修正。直接指定した italic との合成、範囲選択の書式、数値 run 指定の範囲エラーを検証。
+- 編集 HTML、選択書式、コピー経路も同じ resolver を使用。ブラウザーで図形フィールドの編集開始、書式付きコピー、Font ダイアログまで検証。
+- 検証: core 3294 成功 / 109 skip、format/lint/typecheck/build、preview・DSL・dev の型検査・build 成功。Svelte check 0 errors/warnings、site 135 件、関連 browser 5 件成功。
+- ネイティブ文書に変更なし。このフィールドケースの Mac 実機比較は未実施。フィールド独自 pPr とリンク、空文字 run / 改行のみの段落、空段落の箇条書き、表の共有辺/スタイル等は未確認。全操作一致は未完了。4173 と .pnpm-store を保持。PR #287 のみに集約。
+
 ## 2026-10-02: 段落末尾書式を既存文字から分離
 
 - endParaRPr を既存の最終 run / field に継承していた共有 resolver を修正。null（段落末尾の入力位置）のみ適用する。根拠は ECMA-376 §21.1.2.2.3 と Microsoft SDK EndParagraphRunProperties remarks（新しい文字挿入用）。
