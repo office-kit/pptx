@@ -71,6 +71,40 @@ export function deleteOutlineTitleBodyRange(
   return true;
 }
 
+/** Mac PowerPoint merges slides when deleting between their outline titles. */
+export function deleteOutlineTitleRange(
+  pres: PresentationData,
+  slide: SlideData,
+  start: { id: number; offset: number },
+  end: { id: number; offset: number; slide: SlideData },
+): boolean {
+  const slides = getSlides(pres);
+  const from = slides.indexOf(slide);
+  const to = slides.indexOf(end.slide);
+  if (
+    from < 0 ||
+    to <= from ||
+    !outlineShapes(slide).some((item) => item.id === start.id && item.title) ||
+    !outlineShapes(end.slide).some((item) => item.id === end.id && item.title)
+  )
+    return false;
+  const title = findShapeById(slide, start.id)!;
+  const lastTitle = findShapeById(end.slide, end.id)!;
+  const length = getShapeText(title).length;
+  const bodies = outlineShapes(end.slide)
+    .filter((item) => !item.title)
+    .map((item) => findShapeById(end.slide, item.id)!);
+  const target = bodies.length ? outlineBodyTarget(slide) : null;
+  setShapeParagraphs(title, { sources: [title, lastTitle] });
+  setShapeText(title, '', { range: { start: start.offset, end: length + 1 + end.offset } });
+  for (const item of outlineShapes(slide)) {
+    if (!item.title) setShapeText(findShapeById(slide, item.id)!, '');
+  }
+  if (target) setShapeParagraphs(target, { sources: bodies });
+  for (const removed of slides.slice(from + 1, to + 1)) removeSlide(pres, removed);
+  return true;
+}
+
 /** Preserve PowerPoint's slide boundary when replacing an outline title range. */
 export function splitOutlineTitleRange(
   pres: PresentationData,
@@ -206,6 +240,30 @@ export function outlineDemotionNeedsConfirmation(slide: SlideData): boolean {
   );
 }
 
+function outlineBodyTarget(slide: SlideData): SlideShapeData {
+  const bodySlot = outlineShapes(slide).find((item) => !item.title);
+  let target = bodySlot
+    ? getSlideShapes(slide).find((shape) => getShapeId(shape) === bodySlot.id)
+    : null;
+  if (!target) {
+    const layout = getSlideLayout(slide);
+    const slot =
+      layout &&
+      getSlideLayoutPlaceholders(layout).find((item) =>
+        ['body', 'obj', 'subTitle'].includes(item.type ?? 'obj'),
+      );
+    target = slot
+      ? addSlidePlaceholder(
+          slide,
+          slot.type === 'obj' || slot.type === 'subTitle' ? slot.type : 'body',
+        )
+      : addSlidePlaceholder(slide, 'body', { source: 'master' });
+  }
+  if (!target)
+    throw new Error('Outline editing requires a body placeholder in the slide layout or master');
+  return target;
+}
+
 /** Mac PowerPoint demotes a slide title into the preceding slide's body. */
 export function demoteOutlineTitle(
   pres: PresentationData,
@@ -215,26 +273,7 @@ export function demoteOutlineTitle(
   const index = slides.indexOf(slide);
   if (index <= 0) return null;
   const previous = slides[index - 1]!;
-  const bodySlot = outlineShapes(previous).find((item) => !item.title);
-  let target = bodySlot
-    ? getSlideShapes(previous).find((shape) => getShapeId(shape) === bodySlot.id)
-    : null;
-  if (!target) {
-    const layout = getSlideLayout(previous);
-    const slot =
-      layout &&
-      getSlideLayoutPlaceholders(layout).find((item) =>
-        ['body', 'obj', 'subTitle'].includes(item.type ?? 'obj'),
-      );
-    target = slot
-      ? addSlidePlaceholder(
-          previous,
-          slot.type === 'obj' || slot.type === 'subTitle' ? slot.type : 'body',
-        )
-      : addSlidePlaceholder(previous, 'body', { source: 'master' });
-  }
-  if (!target)
-    throw new Error('Outline demotion requires a body placeholder in the slide layout or master');
+  const target = outlineBodyTarget(previous);
   const shapes = getSlideShapes(slide);
   const byId = new Map(shapes.map((shape) => [getShapeId(shape), shape]));
   const outline = outlineShapes(slide);

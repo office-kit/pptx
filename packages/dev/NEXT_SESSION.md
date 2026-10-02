@@ -1,3 +1,10 @@
+## 2026-10-02: スライド間タイトル削除
+
+- 実機証拠 `/tmp/pptx-outline-audit/cross-slide-delete-native.pptx`: Outline title / Body → Next / Following のタイトル間範囲削除で、1 スライド Ouxt / Following になる。最初の普通のテキストボックスは保持。Body の有無いずれも確認済み。
+- core の deleteOutlineTitleRange と UI の削除・入力・貼り付け・IME 経路を追加。単体25件、lint、Svelte 型検査は成功。フォーカス回帰は requestAnimationFrame で復元し、移動済みフォーカスを奪わない修正で成功。IME は compositionstart でネイティブ選択を1編集欄に閉じ、モデル側に元範囲を保つことで確定イベントが届かない問題を解消。単独 IME 検証に加え、全21件のブラウザー回帰も成功。ログ `/tmp/pptx-cross-title-browser-final.log`。PR #287 の同一ブランチへ反映する。
+- **参照ファイルの復元が未完了**: PowerPoint 接続は native pipe startup failed。reference.pptx は最後に保存した Ouxt / Following、アプリ上は Undo 後の未保存状態。接続が戻ったら reference を閉じ、`reference-before-table-style.pptx` から復元し byte 比較する。証拠ファイルを上書きしない。
+- 未検証: 結合時に削除される図形の確認ダイアログ、複数本文プレースホルダー、本文から次タイトルなどの他の範囲。完全一致は未達成。
+
 ## 2026-10-02: 複数段落タイトルから本文への範囲削除
 
 - Mac 実機で First / Second のタイトルと Body の本文を作り、cond + 段落境界 + Bo を削除。保存 XML はタイトル First / Sedy、本文空。証拠: /tmp/pptx-outline-audit/multititle-delete-native.pptx。

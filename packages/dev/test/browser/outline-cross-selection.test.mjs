@@ -132,14 +132,8 @@ test(
       let shapes = getSlideShapes(slides[0]);
       assert.equal(getShapeText(shapes.find((shape) => getShapeText(shape) === 'He')), 'He');
       assert.ok(!shapes.some((shape) => getShapeText(shape) === 'Body'));
-      assert.ok(
-        !getSlideShapes(getSlides(await read())[1]).some((shape) => getShapeText(shape) === 'Next'),
-      );
-      assert.ok(
-        getSlideShapes(getSlides(await read())[1]).some(
-          (shape) => getShapeText(shape) === 'Following',
-        ),
-      );
+      assert.equal(slides.length, 1);
+      assert.ok(shapes.some((shape) => getShapeText(shape) === 'Following'));
       await body.press('Control+z');
       await waitForState(preview.url, (state) => state.revision !== cutState.revision);
       slides = getSlides(await read());
@@ -435,7 +429,9 @@ test('outline cross-field selection handles committed IME text', { timeout: 6000
     await cdp.send('Input.imeSetComposition', { text: '漢', selectionStart: 1, selectionEnd: 1 });
     await cdp.send('Input.insertText', { text: '漢' });
     await waitForState(preview.url, (state) => state.revision !== before);
-    const texts = getSlides(await readDeck(preview)).flatMap((slide) =>
+    const merged = getSlides(await readDeck(preview));
+    assert.equal(merged.length, 1);
+    const texts = merged.flatMap((slide) =>
       getSlideShapes(slide).map((shape) => getShapeText(shape)),
     );
     assert.deepEqual(
