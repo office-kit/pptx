@@ -1223,3 +1223,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Apply the same counter-rotation of resolved insets to both shapes and cells. Browser coverage of all six directions for both targets, edited PPTX retention, and existing body-margin/anchor cases: 18 passed (`/tmp/shape-direction-after.log`). Editor build, scoped formatting/lint, and Svelte check (zero errors/warnings) passed.
 - Native connection still fails at startup; reference restoration is pending. Run 37016600889 remains live on Node 24; the other five jobs passed. Local commits after f22021b7 have not yet been pushed to avoid cancelling this run.
 - Extended direction coverage to center/bottom anchors for all six directions on both shapes and cells: 24 additional browser cases passed (`/tmp/vertical-anchor-audit.log`), scoped format/lint passed. Together with the prior top-anchor run this covers all 36 combinations. Native equivalence and complex wrapping remain unverified. CI job 110869544849 is still executing `Test live preview in Chromium`; do not restart solely because it has taken longer than the other jobs.
+
+## 2026-10-02: Vertical editing tab stops
+
+- Reproduced a vertical custom tab aligned at roughly 161px instead of 600px: the editing helper used horizontal offsets and widths. It now uses logical inline sizing and vertical offsets, measuring upright glyph advances in an untransformed hidden vertical box instead of a horizontal canvas.
+- Browser regression covers vertical-rl/vertical-lr mixed text and upright text with left/center/right/decimal stops (12 combinations). All four custom-tab test cases pass, including the existing real-editor horizontal editing/Undo case (`/tmp/vertical-tabs-full.log`). Svelte check: zero errors/warnings; editor build and scoped format/lint pass.
+- This verifies the editing layout helper, not native PowerPoint equivalence or complex vertical wrapping, reverse inline flow, and SVG preview direction approximations. These remain open.
