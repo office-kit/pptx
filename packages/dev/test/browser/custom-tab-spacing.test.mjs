@@ -179,3 +179,53 @@ test('editing tab widths follow capitalization and kerning', async () => {
     await browser.close();
   }
 });
+
+test('browser preview measures tracked SVG text at its painted width', async () => {
+  const { build } = await import('esbuild');
+  const { fileURLToPath } = await import('node:url');
+  const bundle = await build({
+    entryPoints: [
+      fileURLToPath(new URL('../../../preview/src/browser-measure.ts', import.meta.url)),
+    ],
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    write: false,
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const results = await page.evaluate(async (code) => {
+      const module = await import(
+        URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+      );
+      const measure = module.browserTextMeasurer();
+      const results = [];
+      for (const text of ['Spacing', 'AVAV', 'e\u0301e\u0301']) {
+        for (const spacing of [4, -2, 0]) {
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          const run = document.createElementNS(svg.namespaceURI, 'text');
+          run.style.cssText = `font:40px Arial;font-kerning:normal;letter-spacing:${spacing}px`;
+          run.textContent = text;
+          svg.append(run);
+          document.body.append(svg);
+          const painted = run.getComputedTextLength();
+          const measured = measure(text, {
+            family: 'Arial',
+            sizePx: 40,
+            bold: false,
+            italic: false,
+            letterSpacingPx: spacing,
+          }).widthPx;
+          results.push({ text, spacing, painted, measured });
+          svg.remove();
+        }
+      }
+      return results;
+    }, bundle.outputFiles[0].text);
+    for (const result of results)
+      assert.ok(Math.abs(result.painted - result.measured) < 0.1, JSON.stringify(result));
+  } finally {
+    await browser.close();
+  }
+});
