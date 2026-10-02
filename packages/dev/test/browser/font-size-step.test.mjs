@@ -114,11 +114,15 @@ test(
       await saved();
       shapes = await readShapes();
       assert.equal(shapes[1][0].size, 14);
+      await page.keyboard.press('Control+Shift+Period');
+      await saved();
+      shapes = await readShapes();
+      assert.equal(shapes[1][0].size, 16);
 
       await editor.locator('.hit').nth(2).dblclick();
       await input.waitFor();
       await selectShapeRange(1, 1);
-      await increase.click();
+      await page.keyboard.press('Control+Shift+Period');
       await saved();
       await input.waitFor();
       await increase.click();
@@ -138,7 +142,7 @@ test(
         shapes[0].slice(8, 10).map((run) => run.size),
         [24, 48],
       );
-      assert.equal(shapes[1][0].size, 14);
+      assert.equal(shapes[1][0].size, 16);
       assert.equal(shapes[2].find((run) => run.text === 'x').size, 11);
     } finally {
       await browser?.close();

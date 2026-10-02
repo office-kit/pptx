@@ -242,6 +242,13 @@
   async function keys(event: KeyboardEvent) {
     if (event.isComposing) return;
     const mod = event.metaKey || event.ctrlKey;
+    if (mod && event.shiftKey && !event.altKey &&
+      (event.code === 'Period' || event.code === 'Comma' || event.key === '>' || event.key === '<')) {
+      event.preventDefault();
+      event.stopPropagation();
+      selection.fontSize(event.code === 'Comma' || event.key === '<' ? -1 : 1);
+      return;
+    }
     if (mod && event.key.toLowerCase() === 's') commit();
     else if (event.key === 'Escape') { commit(); input.blur(); }
     else if (!mod && !event.shiftKey && !event.altKey &&

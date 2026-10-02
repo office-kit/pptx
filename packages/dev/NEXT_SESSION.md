@@ -1,3 +1,16 @@
+## 2026-10-02: カーニング描画と文字サイズショートカット
+
+- OOXMLのkern閾値をSVG/HTML描画、fontkit/ブラウザ計測に反映。inline HTMLもサイズと閾値からfont-kerningを設定。SVGの結合判定・計測キャッシュにも反映する。閾値未満・境界・0・省略を検証。
+- 実ブラウザで本番browserTextMeasurerを使いAVの有効→無効→有効の幅を検証。HTML clipboard/inline CSS回帰4件成功。これは実機との全字形・全フォント一致を証明するものではない。
+- 全体単体テスト3221件成功/109skip、site133件成功、変更後preview101件成功。format/lint/core typecheck/core build/preview build/DSL typecheck/editor build成功、Svelte 0 errors/warnings。
+- FontダイアログUI、SVGの小文字を小さく描くsmall caps、Equalize character heightは残件。カーニング描画は対応したが、設定UIと実機比較の拡大を引き続き行う。全操作一致は未完了。
+
+## 2026-10-02: カーニング無効の実機保存形式
+
+- Mac PowerPoint の reference.pptx でタイトル全文44ptを選択し、Font > Character Spacing > Use kerning for fonts を解除して保存すると、該当 a:rPr に `kern="0"` が出力されることを確認。元はrun属性なしで12pt以上を継承。ゼロは無効として描画する根拠になる。
+- 検証後 Cmd+Z と保存を実行し、Undo disabledを確認。変更前バックアップは `/tmp/pptx-outline-audit/reference-before-kerning.pptx`。復元待ちなし。
+- 複数図形の⌘⇧. / ⌘⇧,、選択外保持、1回のUndo/Redo、保存OOXMLを確認するブラウザー回帰が成功（font-size-multiselect.test.mjs）。表セルは単独拡大18→20pt、矩形4セルの⌘⇧,による縮小18→16pt、選択外保持、Undo後の全セル書式復元を確認。Outlineを含めた最終ブラウザー回帰5件成功（`/tmp/font-shortcuts-final-browser.log`）。全操作一致は未完了。
+
 ## 2026-10-02: コピー・貼り付け時の大文字書式保持
 
 - HTML clipboardでall caps / small caps / 明示的解除を読み書きする。CSSのtext-transformとfont-variant-capsは別々に継承し、子の片方の解除で親のもう片方の指定が消えないようにした。

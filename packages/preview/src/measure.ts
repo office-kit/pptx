@@ -156,7 +156,7 @@ export const buildFontkitMeasurer = (options: FontkitMeasurerOptions = {}): Text
     const flush = (): void => {
       if (segment === '' || segmentFont === null) return;
       const scale = spec.sizePx / segmentFont.unitsPerEm;
-      widthPx += segmentFont.layout(segment).advanceWidth * scale;
+      widthPx += segmentFont.layout(segment, { kern: spec.kerning !== false }).advanceWidth * scale;
       metricsFont ??= segmentFont;
       segment = '';
     };

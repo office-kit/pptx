@@ -23,6 +23,8 @@ export interface FontSpec {
   readonly bold: boolean;
   readonly italic: boolean;
   readonly letterSpacingPx: number;
+  /** Whether the font's OpenType kerning pairs are active for this run. */
+  readonly kerning?: boolean;
 }
 
 /** Advance width of `text` in px, plus optional vertical metrics. A real
@@ -142,6 +144,7 @@ export interface PieceInput {
   readonly bold: boolean;
   readonly italic: boolean;
   readonly letterSpacingPx: number;
+  readonly kerning?: boolean;
   readonly fillHex: string;
   readonly highlightHex?: string;
   /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
@@ -317,6 +320,7 @@ const specOf = (piece: PieceInput): FontSpec => ({
   bold: piece.bold,
   italic: piece.italic,
   letterSpacingPx: piece.letterSpacingPx,
+  kerning: piece.kerning ?? true,
 });
 
 const bulletSpec = (b: BulletInput): FontSpec => ({
@@ -325,6 +329,7 @@ const bulletSpec = (b: BulletInput): FontSpec => ({
   bold: false,
   italic: false,
   letterSpacingPx: 0,
+  kerning: true,
 });
 
 const escapeXml = (s: string): string =>
@@ -352,7 +357,7 @@ export const layoutCore = (input: TextBodyInput, measure: TextMeasurer): LayoutC
   const widthCache = new Map<string, number>();
   const metricCache = new Map<string, { a: number; d: number; g: number }>();
   const key = (text: string, s: FontSpec): string =>
-    `${s.family}|${s.sizePx}|${s.bold}|${s.italic}|${s.letterSpacingPx}|${text}`;
+    `${s.family}|${s.sizePx}|${s.bold}|${s.italic}|${s.letterSpacingPx}|${s.kerning ?? true}|${text}`;
   const mWidth = (text: string, s: FontSpec): number => {
     const k = key(text, s);
     let w = widthCache.get(k);
@@ -1000,6 +1005,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.bold === b.bold &&
   a.italic === b.italic &&
   a.letterSpacingPx === b.letterSpacingPx &&
+  a.kerning === b.kerning &&
   a.fillHex === b.fillHex &&
   a.highlightHex === b.highlightHex &&
   a.underline === b.underline &&
@@ -1019,6 +1025,7 @@ const tspan = (g: Group): string => {
   ];
   if (p.bold) attrs.push('font-weight="700"');
   if (p.italic) attrs.push('font-style="italic"');
+  if (p.kerning !== undefined) attrs.push(`font-kerning="${p.kerning ? 'normal' : 'none'}"`);
   if (p.outlineHex !== undefined && (p.outlineWidthPx ?? 0) > 0) {
     // PowerPoint centres a text outline on the glyph edge but draws the fill
     // over it, which `paint-order` reproduces; without it the stroke would eat

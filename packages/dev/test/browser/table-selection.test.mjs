@@ -9,6 +9,7 @@ import {
   getSlideShapes,
   getTableCells,
   getTableCellText,
+  getTableCellParagraphs,
   getShapeBounds,
   isTableShape,
   loadPresentation,
@@ -58,6 +59,13 @@ test(
       const bounds = getShapeBounds(await table());
       await editor.locator('.hit').first().click();
       await cell(1, 1).click();
+      await cell(1, 1).press('Control+Shift+Period');
+      await saved();
+      const steppedCells = getTableCells(await table());
+      assert.equal(getTableCellParagraphs(steppedCells[0][0])[0]?.elements[0]?.format?.size, 20);
+      assert.notEqual(getTableCellParagraphs(steppedCells[1][1])[0]?.elements[0]?.format?.size, 20);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
       const tableBox = await editor.locator('.hit').first().boundingBox();
       const point = (row, col) => ({
         x: tableBox.x + (tableBox.width * (col + 0.5)) / 3,
@@ -117,6 +125,20 @@ test(
       await cell(1, 2).press('Shift+ArrowDown');
       await focused(2, 2);
       assert.equal(await editor.locator('.cell-grid button[aria-pressed="true"]').count(), 4);
+      const cellSizes = async () =>
+        getTableCells(await table()).map((row) =>
+          row.map((entry) => getTableCellParagraphs(entry)[0]?.elements[0]?.format?.size),
+        );
+      const beforeShrink = await cellSizes();
+      await cell(2, 2).press('Meta+Shift+Comma');
+      await saved();
+      assert.deepEqual(
+        await cellSizes(),
+        beforeShrink.map((row, r) => row.map((size, c) => (r < 2 && c < 2 ? 16 : size))),
+      );
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(await cellSizes(), beforeShrink);
       await cell(2, 2).press('Backspace');
       await saved();
       assert.deepEqual(await values(), [

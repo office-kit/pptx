@@ -5,6 +5,7 @@
   import { getEditor } from '../core/context.ts';
   import { selectedShapeId } from '../core/selection.ts';
   import { t } from '../i18n/i18n.svelte.ts';
+  import { stepTableCellFontSize } from '../core/font-size.ts';
   import { asColor, toWritableTextFormat, getTableCellMargins, setTableCellMargins, getTableCellPosition, setTableCellBorders, type TableCellData, type TextFormat, getTableCellParagraphs, setTableCellTextFormat, mergeTableCells, splitTableCell, getTableCells, isTableShape, getTableCellText, getTableCellSpan, getTableCellFill, getTableColumnWidths, getTableRowHeights, getTableCellAlignment, getTableCellAnchor, setTableCellText, setTableCellFill, setTableCellAlignment, setTableCellAnchor, setTableRowHeight, setTableColumnWidth, insertTableRow, insertTableColumn, removeTableRow, removeTableColumn, inches } from '@office-kit/pptx';
 
   const editor = getEditor();
@@ -99,7 +100,21 @@
     editor.openContextMenu(event.clientX, event.clientY);
   }
   async function onCellKeydown(event: KeyboardEvent, row: number, col: number) {
-    if (event.isComposing || event.ctrlKey || event.metaKey || event.altKey || !tableState) return;
+    if (event.isComposing || event.altKey || !tableState) return;
+    if ((event.ctrlKey || event.metaKey) && event.shiftKey &&
+      (event.code === 'Period' || event.code === 'Comma' || event.key === '>' || event.key === '<')) {
+      event.preventDefault();
+      event.stopPropagation();
+      const direction = event.code === 'Comma' || event.key === '<' ? -1 : 1;
+      const cells = [...selectedCells];
+      if (cells.length) {
+        doc.transact(t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size'), () => {
+          for (const cell of cells) stepTableCellFontSize(cell, direction, { start: 0, end: getTableCellText(cell).length });
+        });
+      }
+      return;
+    }
+    if (event.ctrlKey || event.metaKey) return;
     if (event.key === 'Delete' || event.key === 'Backspace') {
       if (doc.selection.kind !== 'cell') return;
       event.preventDefault();

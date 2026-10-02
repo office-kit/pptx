@@ -572,11 +572,44 @@
   // and simply typing a character enters edit mode replacing the text with it.
   function onTypeToEdit(e: KeyboardEvent) {
     if (editing || e.isComposing || editor.activeDialog) return;
-    if (selectedIds.size !== 1) return;
-    const t = e.target as HTMLElement;
-    if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    const target = e.target as HTMLElement;
+    if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
     // Table grid buttons deliberately forward typing into the selected cell.
-    if (t?.tagName === 'BUTTON' && !t.matches('.cell-grid [data-cell]')) return;
+    if (target?.tagName === 'BUTTON' && !target.matches('.cell-grid [data-cell]')) return;
+    const fontStep = e.shiftKey && !e.altKey && (e.ctrlKey || e.metaKey) &&
+      (e.code === 'Period' || e.code === 'Comma' || e.key === '>' || e.key === '<');
+    if (fontStep) {
+      e.preventDefault();
+      const direction = e.code === 'Comma' || e.key === '<' ? -1 : 1;
+      const selection = doc.selection;
+      if (selection.kind === 'cell') {
+        const shape = doc.shapeById(selection.slideIndex, selection.shapeId);
+        if (shape && isTableShape(shape)) {
+          doc.transact(t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size'), () => {
+            const cells = getTableCells(shape);
+            const targets = tableCellsInRange(cells, tableSelectionBlock(selection));
+            for (const cell of targets) {
+              const text = getTableCellText(cell);
+              stepTableCellFontSize(cell, direction, { start: 0, end: text.length });
+            }
+          });
+        }
+        return;
+      }
+      const selected = boxes.filter((box) => selectedIds.has(box.id));
+      if (selected.length) {
+        doc.transact(t(direction > 0 ? 'Increase Font Size' : 'Decrease Font Size'), () => {
+          for (const box of selected) {
+            if (getShapeKind(box.shape) === 'shape') {
+              const text = getShapeText(box.shape);
+              stepShapeFontSize(doc.pres, box.shape, direction, box.shape, { start: 0, end: text.length });
+            }
+          }
+        });
+      }
+      return;
+    }
+    if (selectedIds.size !== 1) return;
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     const box = boxes.find((b) => selectedIds.has(b.id));
     if (!box) return;
@@ -1418,6 +1451,12 @@
                 e.stopPropagation();
                 if (e.isComposing) return;
                 const formatKey = e.key.toLowerCase();
+                if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey &&
+                  (e.code === 'Period' || e.code === 'Comma' || e.key === '>' || e.key === '<')) {
+                  e.preventDefault();
+                  stepInlineFontSize(e.code === 'Comma' || e.key === '<' ? -1 : 1);
+                  return;
+                }
                 // Ctrl/Cmd+Alt+C / V, as PowerPoint and Google Slides paint
                 // formatting. `code` because Alt rewrites `key` on macOS.
                 if ((e.ctrlKey || e.metaKey) && e.altKey && (e.code === 'KeyC' || e.code === 'KeyV')) {
