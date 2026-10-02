@@ -1,3 +1,9 @@
+## 2026-10-02: Small caps and tracking in editing tabs
+
+- Added failing browser cases for small caps (right edge 594.52px at a 600px stop) and expanded tracking (604px). Tab measurement now includes the small-caps font variant and lets canvas apply CSS letter spacing to shaped glyphs rather than counting code points and omitting trailing spacing.
+- Positive/negative spacing, small caps, uppercase and disabled kerning cases pass. Svelte check has zero errors/warnings; editor build and scoped lint/format pass. Full custom/default tab browser suite is recorded in `/tmp/tab-font-variants-suite.log`.
+- PR CI run 37015653093 (d99fff6f) passed Static checks; remaining jobs were running during this work. Native comparison and pending reference restoration remain unresolved; no new native mutations.
+
 ## 2026-10-02: Editing tabs follow painted typography
 
 - Fixed custom tab widths ignoring all-caps display and disabled kerning. Reproduced a right-aligned all-caps field ending about 40px past its stop before the fix; canvas measurement now uses the displayed case and computed kerning without changing model text.

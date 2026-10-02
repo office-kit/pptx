@@ -16,16 +16,16 @@ export function layoutEditingTabs(root: HTMLElement, zoom: number): void {
     const parts: { text: string; width: number; decimal: number; tab?: HTMLElement }[] = [];
     for (const node of nodes) {
       const style = getComputedStyle(node.parentElement!);
-      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+      const variant = style.fontVariantCaps === 'small-caps' ? 'small-caps' : 'normal';
+      context.font = `${style.fontStyle} ${variant} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
       context.fontKerning =
         style.fontKerning === 'normal' || style.fontKerning === 'none' ? style.fontKerning : 'auto';
-      const spacing = parseFloat(style.letterSpacing) || 0;
+      // Canvas applies tracking to shaped glyphs, including the trailing spacing in CSS layout.
+      context.letterSpacing = `${parseFloat(style.letterSpacing) || 0}px`;
       const measure = (text: string) => {
         // The model retains original case, but tab alignment follows painted glyphs.
         const displayed = style.textTransform === 'uppercase' ? text.toUpperCase() : text;
-        return (
-          context.measureText(displayed).width + Math.max(0, [...displayed].length - 1) * spacing
-        );
+        return context.measureText(displayed).width;
       };
       const fragment = document.createDocumentFragment();
       for (const text of node.data.split(/(\t|\n)/)) {
