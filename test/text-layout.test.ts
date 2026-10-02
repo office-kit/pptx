@@ -155,7 +155,7 @@ const piece = (text: string, over: Partial<PieceInput> = {}): PieceInput => ({
   fillHex: '#000000',
   underline: 'none',
   strike: false,
-  superSub: 0,
+  baseline: 0,
   href: null,
   isBreak: false,
   ...over,
@@ -246,9 +246,16 @@ describe('layoutTextSvg', () => {
     const svg = layoutTextSvg(
       body(
         [
-          para([piece('A'), piece('B', { highlightHex: '#ffff00', superSub }), piece('C')], {
-            align: 'center',
-          }),
+          para(
+            [
+              piece('A'),
+              piece('B', { highlightHex: '#ffff00', baseline: superSub > 0 ? 0.33 : -0.16 }),
+              piece('C'),
+            ],
+            {
+              align: 'center',
+            },
+          ),
         ],
         { boxWpx: 100 },
       ),
@@ -533,7 +540,7 @@ describe('layoutTextSvg', () => {
       stubMeasurer,
     );
     const superscript = layoutTextSvg(
-      body([para([piece('wavy', { underline: 'wavy', sizePx: 20, superSub: 1 })])]),
+      body([para([piece('wavy', { underline: 'wavy', sizePx: 20, baseline: 0.33 })])]),
       stubMeasurer,
     );
     expect(strokeWidthOf(superscript)).toBeLessThan(strokeWidthOf(normal));

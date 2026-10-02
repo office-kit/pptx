@@ -1171,3 +1171,10 @@ Show Formatting の実機切り替えを再現し、英日メニューとセッ�
 書式付きアウトラインの文字サイズは現時点では 1/4 スケール近似。サイズ上限、正確な行高、ネイティブ初期値・設定の持続範囲は未検証なので、完全一致と扱わない。クロススライド選択、残るメニュー、全 PR レビューも未完了。
 
 pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。依存再配置が発生して取得先の DNS で停止したため、`install --frozen-lockfile --registry=https://registry.npmjs.org` で復元。ロックファイル変更なし。
+
+## 2026-10-02: Custom script baseline offsets
+
+- Reproduced positive/negative 10% and 50% offsets all rendering at fixed super/subscript positions. HTML and SVG now retain the numeric offset, including after PPTX save/load; SVG no longer merges adjacent runs whose offsets differ.
+- HTML script text also keeps its own effective font size when shrinking, instead of using the parent's size through em.
+- Scoped formatting/lint, preview typecheck/build and 76 text-layout/character-effect tests pass. The existing 65% script-size approximation remains uncalibrated against native PowerPoint; inline-editor baseline geometry still needs comparison. This does not establish native parity.
+- Latest native retry still fails at connection startup. Pending reference restoration below remains unresolved.

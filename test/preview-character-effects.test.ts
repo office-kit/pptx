@@ -29,6 +29,45 @@ const deck = (format: Parameters<typeof setShapeTextFormat>[1]) => {
 };
 
 describe('renderSlideToSvg: character-level effects', () => {
+  it('keeps adjacent runs with different baseline offsets separate', () => {
+    const pres = createPresentation();
+    const slide = addBlankSlide(pres);
+    const shape = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: '',
+    });
+    setShapeParagraphs(shape, [
+      {
+        runs: [
+          { text: 'A', format: { size: 30, baseline: 0.1 } },
+          { text: 'B', format: { size: 30, baseline: 0.5 } },
+        ],
+      },
+    ]);
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'svg' });
+    expect(svg).toContain('baseline-shift="4">A</tspan>');
+    expect(svg).toContain('baseline-shift="20">B</tspan>');
+  });
+
+  it.each([0.1, 0.5, -0.1, -0.5])(
+    'preserves baseline offset %s after save/load',
+    async (baseline) => {
+      const { pres } = deck({ baseline });
+      const loaded = await loadPresentation(await savePresentation(pres));
+      const slide = getSlides(loaded)[0]!;
+      // Offsets are fractions of the authored font size, before script shrinking.
+      const offsetPx = 40 * (96 / 72) * baseline;
+      expect(renderSlideToSvg(loaded, slide)).toContain(`vertical-align:${offsetPx.toFixed(2)}px`);
+      expect(renderSlideToSvg(loaded, slide)).toContain('font-size:34.67px');
+      expect(renderSlideToSvg(loaded, slide, { textLayout: 'svg' })).toContain(
+        `baseline-shift="${offsetPx.toFixed(2)}"`,
+      );
+    },
+  );
+
   it('strokes the glyphs behind their fill', () => {
     const { pres, slide } = deck({ outline: { color: '#FF0000', widthEmu: 19050 } });
     const svg = renderSlideToSvg(pres, slide);
