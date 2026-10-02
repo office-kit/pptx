@@ -47,3 +47,5 @@ export { textColumnsStyle, verticalTextStyle } from './text-body-style.ts';
 export type { VerticalTextStyle } from './text-body-style.ts';
 export { shapeAutoFitScale, shapeTextAnchorOffset } from './autofit.ts';
 export type { ShapeAutoFitScaleOptions } from './autofit.ts';
+
+export { textUnderlineStyle } from './text-underline-style.ts';

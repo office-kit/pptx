@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { build, transform } from 'esbuild';
+import { build } from 'esbuild';
 import { chromium } from 'playwright';
 import {
   getSlides,
@@ -23,13 +23,24 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     const page = await browser.newPage();
     const requests = [];
     page.on('request', (request) => requests.push(request.url()));
-    const module = await transform(
-      await readFile(
-        new URL('../../../../site/src/lib/editor/core/html-text-clipboard.ts', import.meta.url),
-        'utf8',
-      ),
-      { loader: 'ts', format: 'esm' },
-    );
+    const clipboardModule = await build({
+      stdin: {
+        contents: await readFile(
+          new URL('../../../../site/src/lib/editor/core/html-text-clipboard.ts', import.meta.url),
+          'utf8',
+        ),
+        loader: 'ts',
+        resolveDir: fileURLToPath(
+          new URL('../../../../site/src/lib/editor/core/', import.meta.url),
+        ),
+      },
+      bundle: true,
+      format: 'esm',
+      platform: 'browser',
+      write: false,
+    });
+    const clipboardCode = clipboardModule.outputFiles[0]?.text;
+    if (!clipboardCode) throw new Error('HTML clipboard bundle is empty');
     const measurer = await build({
       stdin: {
         contents: await readFile(
@@ -149,6 +160,51 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           formats: [{ start: 0, end: 1, format: { underline: 'wavy', strike: true } }],
         });
         const combinedPatternedStrikeRoundtrip = parse(combinedPatternedStrike, 'A');
+        const editingUnderlineStyles = [
+          true,
+          'none',
+          'words',
+          'sng',
+          'dbl',
+          'heavy',
+          'dotted',
+          'dottedHeavy',
+          'dash',
+          'dashHeavy',
+          'dashLong',
+          'dashLongHeavy',
+          'dotDash',
+          'dotDashHeavy',
+          'dotDotDash',
+          'dotDotDashHeavy',
+          'wavy',
+          'wavyHeavy',
+          'wavyDbl',
+        ];
+        const editingUnderlineHtml = editingUnderlineStyles.map((underline) =>
+          serialize(
+            {
+              text: 'A',
+              formats: [{ start: 0, end: 1, format: { underline } }],
+            },
+            { editing: true },
+          ),
+        );
+        const editingSpacesHtml = serialize(
+          { text: '  ', formats: [{ start: 0, end: 2, format: { underline: 'dashLong' } }] },
+          { editing: true },
+        );
+        const editingWordsHtml = serialize(
+          { text: 'A B', formats: [{ start: 0, end: 3, format: { underline: 'words' } }] },
+          { editing: true },
+        );
+        const editingPatternedStrikeHtml = serialize(
+          {
+            text: 'A',
+            formats: [{ start: 0, end: 1, format: { underline: 'wavyDbl', strike: true } }],
+          },
+          { editing: true },
+        );
         const underlineNone = parse('<u style="text-decoration:none">A</u>', 'A');
         const strikeNone = parse('<s style="text-decoration:none">A</s>', 'A');
         const inheritedDecorationNone = parse(
@@ -206,6 +262,10 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           serializedUnderlineStyles,
           combinedPatternedStrike,
           combinedPatternedStrikeRoundtrip,
+          editingUnderlineHtml,
+          editingWordsHtml,
+          editingSpacesHtml,
+          editingPatternedStrikeHtml,
           underlineNone,
           strikeNone,
           inheritedDecorationNone,
@@ -229,7 +289,7 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           exportedScript: !!markup.content.querySelector('script'),
         };
       },
-      { clipboardSource: module.code, measurerSource: measurerCode },
+      { clipboardSource: clipboardCode, measurerSource: measurerCode },
     );
     assert.equal(result.inherited.formats[0].format.bold, true);
     assert.equal(result.inherited.formats[0].format.italic, true);
@@ -275,6 +335,14 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.match(result.combinedPatternedStrike, /<u[^>]*text-decoration-line: underline/);
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.underline, 'wavy');
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.strike, true);
+    assert.equal(result.editingUnderlineHtml.length, 19);
+    assert.match(result.editingUnderlineHtml[0], /<u[^>]*text-decoration: underline/);
+    assert.doesNotMatch(result.editingUnderlineHtml[1], /<u|text-decoration/);
+    assert.match(result.editingUnderlineHtml[18], /background-image/);
+    assert.match(result.editingSpacesHtml, /<u[^>]*>  <\/u>/);
+    assert.match(result.editingWordsHtml, /<u[^>]*>A<\/u> <u[^>]*>B<\/u>/);
+    assert.match(result.editingPatternedStrikeHtml, /text-decoration-line: line-through/);
+    assert.match(result.editingPatternedStrikeHtml, /text-decoration: none/);
     assert.equal(result.underlineNone.formats[0].format.underline, undefined);
     assert.equal(result.strikeNone.formats[0].format.strike, undefined);
     assert.equal(result.inheritedDecorationNone.formats[1].format.underline, true);

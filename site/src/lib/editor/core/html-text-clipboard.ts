@@ -1,4 +1,5 @@
-import type { TextFormat } from '@office-kit/pptx';
+import type { Color, TextFormat } from '@office-kit/pptx';
+import { textUnderlineStyle } from '@office-kit/pptx-preview';
 import type { TextEdit } from './text-edit-preview.ts';
 
 type FormattedText = { text: string; formats: NonNullable<TextEdit['formats']> };
@@ -51,8 +52,9 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
       return undefined;
     colorContext.fillStyle = '#010203';
     colorContext.fillStyle = value;
-    const resolved = colorContext.fillStyle;
-    return /^#[\da-f]{6}$/i.test(resolved) ? resolved : undefined;
+    // The template literal preserves the checked HexColor type without a cast.
+    const hex = /^#([\da-f]{6})$/i.exec(colorContext.fillStyle);
+    return hex ? `#${hex[1]!}` : undefined;
   }
   function formatFor(
     element: HTMLElement,
@@ -212,7 +214,12 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
   return { text: normalizedPlain, formats: clipped };
 }
 
-export function textClipboardHtml(copied: FormattedText): string {
+export type TextClipboardHtmlOptions = { editing?: boolean };
+
+export function textClipboardHtml(
+  copied: FormattedText,
+  options: TextClipboardHtmlOptions = {},
+): string {
   const container = document.createElement('div');
   container.style.whiteSpace = 'pre-wrap';
   const cssColor = (value: string) => (/^[\da-f]{6}$/i.test(value) ? `#${value}` : value);
@@ -238,6 +245,31 @@ export function textClipboardHtml(copied: FormattedText): string {
       style.fontKerning = format.kern > 0 && format.size >= format.kern / 100 ? 'normal' : 'none';
     const decorations = [];
     const underline = format.underline;
+    const editing = options.editing === true;
+    const underlineColor = cssColor(format.color || '#000000');
+    if (editing && underline && underline !== 'none') {
+      const strike = !!format.strike && format.strike !== 'noStrike';
+      style.textDecorationLine = strike ? 'line-through' : 'none';
+      const underlineStyle = textUnderlineStyle(underline, underlineColor);
+      const words = underline === 'words' ? span.textContent!.split(/(\s+)/) : [span.textContent!];
+      const underlineNodes = document.createDocumentFragment();
+      for (const word of words) {
+        if (!word) continue;
+        if (underline === 'words' && /^\s+$/.test(word))
+          underlineNodes.append(document.createTextNode(word));
+        else {
+          const underlineElement = document.createElement('u');
+          underlineElement.textContent = word;
+          underlineElement.style.cssText += underlineStyle;
+          underlineNodes.append(underlineElement);
+        }
+      }
+      span.replaceChildren(underlineNodes);
+      if (strike) style.textDecorationStyle = 'solid';
+      if (format.baseline) style.verticalAlign = `${format.baseline * 100}%`;
+      container.append(span);
+      continue;
+    }
     const patternedUnderline =
       underline && underline !== 'none' && underline !== true && underline !== 'sng';
     const underlineStyle =

@@ -42,6 +42,15 @@ const svg = renderSlideToSvg(pres, getSlides(pres)[0]);
 // → '<svg …>…</svg>'  (text laid out via <foreignObject> — the browser wraps it)
 ```
 
+### Underlines in custom HTML editors
+
+`textUnderlineStyle(underline, color)` returns inline CSS for a DrawingML
+underline, using the same patterns as the HTML preview. Pass a resolved CSS
+color (for example, `#154687`) because SVG background patterns cannot inherit
+the surrounding text color. Apply the style to an inline element; keep any
+strikethrough on an outer element. For `words`, apply it separately to each
+non-whitespace segment. `false`, `none`, and `undefined` return an empty string.
+
 ### PNG / RGBA (Node, no browser)
 
 ```ts
