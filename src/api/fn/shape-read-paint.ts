@@ -1,6 +1,7 @@
 // Shape reads: fill and stroke.
 
 import { resolveDrawingColor, resolveDrawingColorOpacity } from './shape-color.ts';
+import { readColorFromContainer } from './shape-gradient-read.ts';
 import { getShapePlaceholderIdx, getShapePlaceholderType } from './shape-read-base.ts';
 import { getSlideLayout } from './shape-slide-read.ts';
 import { partName, resolveTarget } from '../../internal/opc/index.ts';
@@ -200,29 +201,9 @@ export const getShapeStrokeEffective = (
       if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
       if (c.name.localName === 'noFill') return { kind: 'none' };
       if (c.name.localName === 'solidFill') {
-        for (const inner of c.children) {
-          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) {
-              return {
-                kind: 'solid',
-                color: `#${val.toUpperCase()}`,
-                ...(widthEmu !== undefined ? { widthEmu } : {}),
-              };
-            }
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) {
-              return {
-                kind: 'solid',
-                color: `scheme:${val}`,
-                ...(widthEmu !== undefined ? { widthEmu } : {}),
-              };
-            }
-          }
-        }
+        const color = readColorFromContainer(c);
+        if (color !== null)
+          return { kind: 'solid', color, ...(widthEmu !== undefined ? { widthEmu } : {}) };
       }
     }
     return null;
@@ -276,29 +257,9 @@ export const getShapeStroke = (shape: SlideShapeData): ShapeStroke => {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
     if (c.name.localName === 'noFill') return { kind: 'none' };
     if (c.name.localName === 'solidFill') {
-      for (const inner of c.children) {
-        if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-        if (inner.name.localName === 'srgbClr') {
-          const val = getAttrValue(inner, qname('', 'val', ''));
-          if (val !== null) {
-            return {
-              kind: 'solid',
-              color: `#${val.toUpperCase()}`,
-              ...(widthEmu !== undefined ? { widthEmu } : {}),
-            };
-          }
-        }
-        if (inner.name.localName === 'schemeClr') {
-          const val = getAttrValue(inner, qname('', 'val', ''));
-          if (val !== null) {
-            return {
-              kind: 'solid',
-              color: `scheme:${val}`,
-              ...(widthEmu !== undefined ? { widthEmu } : {}),
-            };
-          }
-        }
-      }
+      const color = readColorFromContainer(c);
+      if (color !== null)
+        return { kind: 'solid', color, ...(widthEmu !== undefined ? { widthEmu } : {}) };
       return {
         kind: 'solid',
         color: '',
@@ -382,17 +343,8 @@ export const getShapeFillEffective = (pres: PresentationData, shape: SlideShapeD
         case 'noFill':
           return { kind: 'none' };
         case 'solidFill': {
-          for (const inner of c.children) {
-            if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-            if (inner.name.localName === 'srgbClr') {
-              const val = getAttrValue(inner, qname('', 'val', ''));
-              if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-            }
-            if (inner.name.localName === 'schemeClr') {
-              const val = getAttrValue(inner, qname('', 'val', ''));
-              if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-            }
-          }
+          const color = readColorFromContainer(c);
+          if (color !== null) return { kind: 'solid', color };
           return { kind: 'solid', color: '' };
         }
         case 'gradFill':
@@ -456,17 +408,8 @@ export const getShapeFill = (shape: SlideShapeData): ShapeFill => {
       case 'solidFill': {
         // Look for the immediate color choice; report sRGB verbatim,
         // scheme colors as "scheme:<token>".
-        for (const inner of c.children) {
-          if (inner.kind !== 'element' || inner.name.namespaceURI !== NS.dml) continue;
-          if (inner.name.localName === 'srgbClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `#${val.toUpperCase()}` };
-          }
-          if (inner.name.localName === 'schemeClr') {
-            const val = getAttrValue(inner, qname('', 'val', ''));
-            if (val !== null) return { kind: 'solid', color: `scheme:${val}` };
-          }
-        }
+        const color = readColorFromContainer(c);
+        if (color !== null) return { kind: 'solid', color };
         return { kind: 'solid', color: '' };
       }
       case 'gradFill':
