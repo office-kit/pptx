@@ -281,7 +281,9 @@ test(
         'true',
       );
       await editor.getByRole('tab', { name: 'Home', exact: true }).press('End');
-      assert.equal(await viewTab.getAttribute('aria-selected'), 'true');
+      const lastTab = editor.getByRole('tab', { name: 'Slide Show', exact: true });
+      assert.equal(await lastTab.getAttribute('aria-selected'), 'true');
+      assert.equal(await lastTab.evaluate((node) => node === document.activeElement), true);
       assert.equal((await waitForState(preview.url, () => true)).revision, beforeZoomRevision);
       await page.screenshot({ path: '/tmp/pptx-view-modes.png' });
     } finally {
