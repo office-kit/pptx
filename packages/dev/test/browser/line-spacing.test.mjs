@@ -54,14 +54,27 @@ test(
         .getByRole('button', { name: 'Line spacing', exact: true });
       const menu = editor.getByRole('menu', { name: 'Line spacing', exact: true });
       const dialog = editor.getByRole('dialog', { name: 'Paragraph', exact: true });
+      const openLineSpacing = async () => {
+        if (await trigger.count()) {
+          await trigger.click();
+          return;
+        }
+        await editor.getByRole('button', { name: 'Paragraph', exact: true }).click();
+        await editor
+          .getByRole('menu', { name: 'Paragraph', exact: true })
+          .getByRole('button', { name: 'Line spacing', exact: true })
+          .click();
+      };
       const options = async () => {
-        await trigger.click();
+        await openLineSpacing();
         await menu.getByRole('menuitem', { name: 'Line Spacing Options...', exact: true }).click();
         await dialog.waitFor();
       };
       await saved();
       const original = await read();
-      await editor.locator('.hit').first().click();
+      const textHit = await editor.locator('.hit').first().boundingBox();
+      assert.ok(textHit, 'the text hit target is visible');
+      await page.mouse.click(textHit.x + 2, textHit.y + 2);
       await trigger.click();
       assert.deepEqual(await menu.getByRole('menuitemradio').allTextContents(), [
         '✓1.0',
@@ -191,7 +204,14 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(await read(), data);
-      await editor.locator('.hit').first().click();
+      const textHitAfterReload = await editor.locator('.hit').first().boundingBox();
+      assert.ok(textHitAfterReload, 'the text hit target is visible after reload');
+      await editor.locator('.hit').first().dblclick();
+      const reloadedInput = editor.locator('.inline-edit');
+      await reloadedInput.evaluate((node) => {
+        window.selectEditorText(node, 0, node.textContent?.length ?? 0);
+        node.dispatchEvent(new Event('select', { bubbles: true }));
+      });
       await options();
       assert.equal(await dialog.getByLabel('Line spacing:', { exact: true }).inputValue(), '');
       await dialog.getByRole('tab', { name: 'Line Breaks and Alignment', exact: true }).click();

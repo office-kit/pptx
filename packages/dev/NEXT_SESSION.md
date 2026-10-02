@@ -1301,5 +1301,12 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - All four reset-placeholder-geometry cases reproduced obsolete Japanese direct Home-button lookups. Open Home > Layout and use its visible menu items, reopening the menu for the restore-idempotence check.
 - Four tests pass (`/tmp/reset-placeholder-menu.log`), preserving selected-slide isolation, geometry, text format, missing-slot restoration, Undo/Redo and saved/reloaded data. Scoped format/lint pass.
-- Root selection-appearance investigation is still running inside exec session 43278, log `/tmp/selection-reset-current.log`. That run began with the four old reset tests (all failed before the fixes above), then selection-appearance; first group-child paint case passed. Poll the live handle before deciding whether to restart. Current selection-appearance file is unchanged.
+- Selection-appearance finished unchanged: all four cases pass in `/tmp/selection-reset-current.log`. The combined run exited 1 only because it also included the four old reset tests, subsequently fixed and verified separately above. Exec session 43278 has ended.
 - Agents table_band_edges (font-dialog-table + line-spacing) and table_theme_refs (inline-paragraphs) remain active. Do not commit their in-progress files without reviewing final results.
+
+## 2026-10-03: Mixed table fonts and responsive paragraph controls
+
+- Font-dialog-table passes (1 case, `/tmp/font-dialog-table-current.log`): use border selection and explicitly set the fixture's non-bold header cell to bold:false, since unspecified bold inherits the table header style. No production changes were required.
+- Line-spacing passes (1 case, `/tmp/line-spacing-final-root.log`): use the visible compact Paragraph group when its direct trigger is absent and select the full text after reload before checking mixed paragraph settings. Paragraph selection, pending edits, saved data, and atomic Undo assertions remain.
+- Scoped format/lint and diff checks pass. Inline-paragraphs remains owned by table_theme_refs and is not included in this commit.
+- Native PowerPoint retry still fails at native pipe startup; no native mutations were performed and reference restoration remains pending. CI 37030970978 on 788e754b passed static checks and OOXML validation; other checks were still running when observed.
