@@ -425,7 +425,7 @@ describe('layoutTextSvg', () => {
   it('emits run styling as tspan attributes', () => {
     const svg = layoutTextSvg(
       body([
-        para([piece('B', { bold: true, italic: true, underline: 'single', fillHex: '#FF0000' })]),
+        para([piece('B', { bold: true, italic: true, underline: 'sng', fillHex: '#FF0000' })]),
       ]),
       stubMeasurer,
     );
@@ -443,6 +443,53 @@ describe('layoutTextSvg', () => {
     expect(svg).not.toContain('text-decoration');
     expect(svg).toContain('<path');
     expect(svg).toContain('stroke="#0000FF"');
+  });
+
+  it('preserves DrawingML underline styles as explicit SVG geometry', () => {
+    const svgOf = (underline: PieceInput['underline'], text = 'text'): string =>
+      layoutTextSvg(body([para([piece(text, { underline })])]), stubMeasurer);
+    expect(svgOf('dbl').match(/<line /g)).toHaveLength(2);
+    expect(svgOf('dotted')).toContain('stroke-dasharray="1.5 3"');
+    expect(svgOf('dash')).toContain('stroke-dasharray="5 3"');
+    expect(svgOf('dashLong')).toContain('stroke-dasharray="9 3"');
+    expect(svgOf('dotDash')).toContain('stroke-dasharray="1.5 3 6 3"');
+    expect(svgOf('dotDotDash')).toContain('stroke-dasharray="1.5 3 1.5 3 6 3"');
+    expect(svgOf('wavyHeavy')).toContain('<path');
+    const strokeWidthOf = (svg: string): number => Number(/stroke-width="([\d.]+)"/.exec(svg)?.[1]);
+    expect(strokeWidthOf(svgOf('heavy'))).toBeGreaterThan(strokeWidthOf(svgOf('dash')));
+    expect(svgOf('words', 'one two').match(/<line /g)).toHaveLength(2);
+    const proportionalWords = layoutTextSvg(
+      body([
+        para([
+          piece('WW', { underline: 'words' }),
+          piece(' ', { underline: 'words' }),
+          piece('ii', { underline: 'words' }),
+        ]),
+      ]),
+      (text, spec) => ({
+        widthPx: text === 'WW' ? 20 : text === 'ii' ? 8 : 2,
+        ascentPx: spec.sizePx * 0.8,
+        descentPx: spec.sizePx * 0.2,
+        lineGapPx: 0,
+      }),
+    );
+    const wordWidths = [...proportionalWords.matchAll(/<line x1="([\d.-]+)" x2="([\d.-]+)"/g)].map(
+      (match) => Number(match[2]) - Number(match[1]),
+    );
+    expect(wordWidths).toEqual([20, 8]);
+    const doubleWave = layoutTextSvg(
+      body([para([piece('text', { underline: 'wavyDbl', fillHex: '#0000FF' })])]),
+      stubMeasurer,
+    );
+    expect(doubleWave.match(/<path /g)).toHaveLength(2);
+    expect(strokeWidthOf(doubleWave)).toBe(strokeWidthOf(svgOf('wavy')));
+    expect(strokeWidthOf(svgOf('wavyHeavy'))).toBeGreaterThan(strokeWidthOf(svgOf('wavy')));
+  });
+
+  it('keeps strike-through as valid text decoration XML', () => {
+    const svg = layoutTextSvg(body([para([piece('struck', { strike: true })])]), stubMeasurer);
+    expect(svg).toContain('text-decoration="line-through"');
+    expect(svg).not.toMatch(/\sline-through(?:\s|>)/);
   });
 
   it('scales the wavy-underline path down for a superscript run, matching its shrunk glyph size', () => {

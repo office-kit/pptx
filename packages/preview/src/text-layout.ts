@@ -137,6 +137,26 @@ const GRID_NUDGE_X = -0.75;
 // Engine input model. render-slide.ts resolves the OOXML cascade and hands the
 // engine this already-normalized, px-native structure.
 
+export type UnderlineStyle =
+  | 'none'
+  | 'words'
+  | 'sng'
+  | 'dbl'
+  | 'heavy'
+  | 'dotted'
+  | 'dottedHeavy'
+  | 'dash'
+  | 'dashHeavy'
+  | 'dashLong'
+  | 'dashLongHeavy'
+  | 'dotDash'
+  | 'dotDashHeavy'
+  | 'dotDotDash'
+  | 'dotDotDashHeavy'
+  | 'wavy'
+  | 'wavyHeavy'
+  | 'wavyDbl';
+
 export interface PieceInput {
   readonly text: string;
   readonly family: string; // internal substituted name
@@ -150,10 +170,8 @@ export interface PieceInput {
   /** Character outline (`<a:rPr><a:ln>`), painted behind the glyph fill. */
   readonly outlineHex?: string;
   readonly outlineWidthPx?: number;
-  /** `'wavy'` covers every `ST_TextUnderlineType` wavy variant (`wavy`,
-   *  `wavyDbl`, `wavyHeavy`) — SVG/resvg has no `text-decoration-style`
-   *  support, so the engine draws it as an explicit path (see `wavyPath`). */
-  readonly underline: 'none' | 'single' | 'wavy';
+  /** DrawingML `ST_TextUnderlineType`; wavy variants use explicit SVG paths. */
+  readonly underline: UnderlineStyle;
   readonly strike: boolean;
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
   /** Lowercase source letters rendered as reduced-size capitals for small caps. */
@@ -858,13 +876,14 @@ const emitLine = (line: Line, baselineY: number, dx: number): string => {
   return (
     emitHighlights(groups, line.textAnchor, x0, baselineY) +
     text +
-    emitWavyUnderlines(groups, line.textAnchor, x0, baselineY)
+    emitUnderlineDecorations(groups, line.textAnchor, x0, baselineY)
   );
 };
 
 interface Group {
   isTab?: boolean;
   highlightMetrics?: { a: number; d: number };
+  parts: Array<{ text: string; width: number }>;
   text: string;
   piece: PieceInput;
   width: number;
@@ -878,9 +897,11 @@ const groupTokens = (toks: Token[]): Group[] => {
     if (last && !last.isTab && !t.isTab && samePiece(last.piece, t.piece)) {
       last.text += t.text;
       last.width += t.width;
+      last.parts.push({ text: t.text, width: t.width });
     } else {
       groups.push({
         text: t.text,
+        parts: [{ text: t.text, width: t.width }],
         isTab: t.isTab === true,
         piece: t.piece,
         width: t.width,
@@ -892,9 +913,8 @@ const groupTokens = (toks: Token[]): Group[] => {
 };
 
 // SVG baseline-shift sign convention: positive shifts the glyph UP (smaller
-// y), so superscript is positive and subscript is negative — tspan() below
-// applies this to the native text-decoration underline, and wavyPath reuses
-// it (as a y offset in the opposite direction) so a wavy-underlined
+// y), so superscript is positive and subscript is negative. Underline geometry
+// below reuses it (as a y offset in the opposite direction) so an underlined
 // super/subscript run draws under the shifted glyphs, not the line's plain
 // baseline.
 const SUPERSCRIPT_SHIFT_RATIO = 0.33;
@@ -921,31 +941,92 @@ const renderedSizePxOf = (p: PieceInput): number =>
   (p.superSub !== 0 ? SUPER_SUB_SIZE_RATIO : 1) *
   (p.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
 
-// resvg has no `text-decoration-style: wavy` support (nor does core SVG
-// define one), so a wavy underline is drawn as an explicit path under its
-// run(s) instead of relying on `tspan`'s CSS decoration. `x0` is the same
-// anchor point the caller's `<text>` element uses; since SVG resolves
-// text-anchor by centering/right-aligning the whole flowed text around it,
-// each group's actual start is `x0` shifted by the anchor's fraction of the
-// total width, then offset by the widths of the groups before it.
-const emitWavyUnderlines = (
+// resvg does not support patterned text decorations. Draw the special styles
+// as SVG geometry; ordinary single underlines still use the font's metrics.
+const underlineStrokeWidth = (piece: PieceInput): number => {
+  const size = renderedSizePxOf(piece);
+  const heavy = piece.underline === 'heavy' || piece.underline.endsWith('Heavy');
+  return Math.max(heavy ? 1 : 0.6, size * (heavy ? 0.09 : 0.06));
+};
+
+const underlineDashArray = (piece: PieceInput): string | null => {
+  const underline = piece.underline;
+  const scale = renderedSizePxOf(piece) / 10;
+  const pattern = (values: number[]): string => values.map((value) => fmt(value * scale)).join(' ');
+  switch (underline) {
+    case 'dotted':
+    case 'dottedHeavy':
+      return pattern([1.5, 3]);
+    case 'dash':
+    case 'dashHeavy':
+      return pattern([5, 3]);
+    case 'dashLong':
+    case 'dashLongHeavy':
+      return pattern([9, 3]);
+    case 'dotDash':
+    case 'dotDashHeavy':
+      return pattern([1.5, 3, 6, 3]);
+    case 'dotDotDash':
+    case 'dotDotDashHeavy':
+      return pattern([1.5, 3, 1.5, 3, 6, 3]);
+    default:
+      return null;
+  }
+};
+
+const underlineSegments = (group: Group, x: number): Array<{ x: number; width: number }> => {
+  if (group.piece.underline !== 'words' || !/\s/.test(group.text)) {
+    return [{ x, width: group.width }];
+  }
+  const segments: Array<{ x: number; width: number }> = [];
+  let offset = 0;
+  for (const part of group.parts) {
+    if (!/^\s+$/u.test(part.text) && part.text.length > 0) {
+      segments.push({ x: x + offset, width: part.width });
+    }
+    offset += part.width;
+  }
+  return segments;
+};
+
+// Account for text-anchor before advancing by each measured group's width.
+const emitUnderlineDecorations = (
   groups: readonly Group[],
   textAnchor: 'start' | 'middle' | 'end',
   x0: number,
   baselineY: number,
 ): string => {
-  if (!groups.some((g) => g.piece.underline === 'wavy')) return '';
   const totalWidth = groups.reduce((sum, g) => sum + g.width, 0);
   const lineStartX =
     textAnchor === 'middle' ? x0 - totalWidth / 2 : textAnchor === 'end' ? x0 - totalWidth : x0;
   let cursor = lineStartX;
   const parts: string[] = [];
   for (const g of groups) {
-    if (g.piece.underline === 'wavy' && g.width > 0) {
-      // Subtract the baseline-shift (positive = up = smaller y) so a wavy
-      // super/subscript run's wave tracks its raised/lowered glyphs.
-      const y = baselineY - baselineShiftPxOf(g.piece);
-      parts.push(wavyPath(cursor, cursor + g.width, y, g.piece));
+    if (g.piece.underline !== 'none' && g.piece.underline !== 'sng' && g.width > 0) {
+      const size = renderedSizePxOf(g.piece);
+      const baseline = baselineY - baselineShiftPxOf(g.piece);
+      const y = baseline + size * WAVY_BASELINE_OFFSET_RATIO;
+      const dash = underlineDashArray(g.piece);
+      for (const segment of underlineSegments(g, cursor)) {
+        if (g.piece.underline.startsWith('wavy')) {
+          if (g.piece.underline === 'wavyDbl') {
+            const offset = size * 0.08;
+            parts.push(wavyPath(segment.x, segment.x + segment.width, baseline, g.piece, -offset));
+            parts.push(wavyPath(segment.x, segment.x + segment.width, baseline, g.piece, offset));
+          } else {
+            parts.push(wavyPath(segment.x, segment.x + segment.width, baseline, g.piece));
+          }
+        } else {
+          const stroke = underlineStrokeWidth(g.piece);
+          const offsets = g.piece.underline === 'dbl' ? [-size * 0.08, size * 0.08] : [0];
+          for (const offset of offsets) {
+            const dashAttr = dash === null ? '' : ` stroke-dasharray="${dash}"`;
+            parts.push(
+              `<line x1="${fmt(segment.x)}" x2="${fmt(segment.x + segment.width)}" y1="${fmt(y + offset)}" y2="${fmt(y + offset)}" stroke="${g.piece.fillHex}" stroke-width="${fmt(stroke)}"${dashAttr}/>`,
+            );
+          }
+        }
+      }
     }
     cursor += g.width;
   }
@@ -988,14 +1069,18 @@ const WAVY_AMPLITUDE_MIN_PX = 0.6;
 const WAVY_PERIOD_RATIO = 0.18;
 const WAVY_PERIOD_MIN_PX = 2;
 const WAVY_BASELINE_OFFSET_RATIO = 0.12;
-const WAVY_STROKE_WIDTH_RATIO = 0.06;
-const WAVY_STROKE_WIDTH_MIN_PX = 0.6;
 
-const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput): string => {
+const wavyPath = (
+  x1: number,
+  x2: number,
+  baselineY: number,
+  piece: PieceInput,
+  yOffset = 0,
+): string => {
   const size = renderedSizePxOf(piece);
   const amp = Math.max(WAVY_AMPLITUDE_MIN_PX, size * WAVY_AMPLITUDE_RATIO);
   const period = Math.max(WAVY_PERIOD_MIN_PX, size * WAVY_PERIOD_RATIO);
-  const y = baselineY + size * WAVY_BASELINE_OFFSET_RATIO;
+  const y = baselineY + size * WAVY_BASELINE_OFFSET_RATIO + yOffset;
   let d = `M${fmt(x1)} ${fmt(y)}`;
   let cx = x1;
   let up = true;
@@ -1006,7 +1091,7 @@ const wavyPath = (x1: number, x2: number, baselineY: number, piece: PieceInput):
     cx = midX;
     up = !up;
   }
-  const strokeWidth = Math.max(WAVY_STROKE_WIDTH_MIN_PX, size * WAVY_STROKE_WIDTH_RATIO);
+  const strokeWidth = underlineStrokeWidth(piece);
   return `<path d="${d}" stroke="${piece.fillHex}" stroke-width="${fmt(strokeWidth)}" fill="none"/>`;
 };
 
@@ -1046,12 +1131,10 @@ const tspan = (g: Group): string => {
     attrs.push(`stroke-width="${fmt(p.outlineWidthPx!)}"`);
     attrs.push('paint-order="stroke fill"');
   }
-  const deco: string[] = [];
-  // 'wavy' is drawn as an explicit path by emitWavyUnderlines — resvg has no
-  // text-decoration-style support to lean on here.
-  if (p.underline === 'single') deco.push('underline');
-  if (p.strike) deco.push('line-through');
-  if (deco.length) attrs.push(`text-decoration="${deco.join(' ')}"`);
+  const decorations: string[] = [];
+  if (p.underline === 'sng') decorations.push('underline');
+  if (p.strike) decorations.push('line-through');
+  if (decorations.length) attrs.push(`text-decoration="${decorations.join(' ')}"`);
   if (p.letterSpacingPx !== 0) attrs.push(`letter-spacing="${fmt(p.letterSpacingPx)}"`);
   if (p.superSub !== 0) attrs.push(`baseline-shift="${fmt(baselineShiftPxOf(p))}"`);
   return `<tspan ${attrs.join(' ')}>${escapeXml(g.text)}</tspan>`;

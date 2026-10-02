@@ -16,6 +16,7 @@ import {
   inches,
   loadPresentation,
   setShapeFill,
+  setShapeRunFormat,
 } from '../src/api/index.ts';
 import { FONT_DIR, renderSlideToImage, renderSlideToRgba } from '../packages/preview/src/node.ts';
 
@@ -51,6 +52,44 @@ const isPng = (bytes: Uint8Array): boolean =>
   bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
 
 describe('renderSlideToRgba (Node)', () => {
+  it('rasterizes every underline style distinctly with strikethrough', async () => {
+    const { pres, slide } = await buildTestSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(3),
+      w: inches(8),
+      h: inches(1),
+      text: 'Underline words',
+    });
+    const images = new Set<string>();
+    for (const underline of [
+      'none',
+      'sng',
+      'dbl',
+      'heavy',
+      'dotted',
+      'dottedHeavy',
+      'dash',
+      'dashHeavy',
+      'dashLong',
+      'dashLongHeavy',
+      'dotDash',
+      'dotDashHeavy',
+      'dotDotDash',
+      'dotDotDashHeavy',
+      'wavy',
+      'wavyHeavy',
+      'wavyDbl',
+      'words',
+    ]) {
+      setShapeRunFormat(box, 0, 0, { underline, size: 36, strike: true });
+      const { png } = renderSlideToRgba(pres, slide, { width: 960 });
+      const encoded = Buffer.from(png).toString('base64');
+      expect(images.has(encoded), underline).toBe(false);
+      images.add(encoded);
+    }
+  });
+
   it('returns image with expected pixel dimensions and correct aspect ratio', async () => {
     const { pres, slide } = await buildTestSlide();
     const targetWidth = 320;

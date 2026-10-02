@@ -1,3 +1,13 @@
+## 2026-10-02: 下線描画と表セルのホーム Font 操作
+
+- 下線のDrawingML値をSVGへ渡す際の単線への丸めを撤去。二重線・太線・点線・長破線・鎖線・二重波線を明示的なSVG線/パスで描画。単語のみの下線は計測済みtoken幅で空白を除く。通常単線のフォント固有下線位置は従来のtext-decorationを保持。
+- HTML側はCSS下線とSVG背景パターンで描き分ける。Chromiumでは太い破線のtext-decoration-thicknessが表示に反映されないため、点線/破線系も背景パターンを利用。strikeは別spanで単線を維持。
+- ブラウザーの18設定で画像が区別でき、文字の位置・幅・高さが不変なことを確認。resvgでも18設定とstrike併用を実画像で検証。関連単体109件成功。線幅・波形寸法のMac完全一致を証明したものではない。
+- Mac PowerPointの下線選択メニューを取得できた。メニュー確認のみで文書変更なし。reference.pptxのUndo disabled、未復元変更なし。
+- 表セル選択時のホームFont操作を有効化。太字・サイズ・大文字小文字変更をセルへ適用し、ダイアログのセル書式取得を共通化。ホーム太字とダイアログ文字間隔、選択外保持、Undoをブラウザーで確認。表スタイル等の継承書式表示は未完了。
+- 品質確認: core3248件/109skip、site133件、format/lint/typecheck/core・preview・dev build/DSL typecheck、Svelte check成功。
+- 残件: inline編集中の特殊下線表示、下線色、Equalize character heightの実描画、表セルの完全な継承書式読取り、全操作の実機比較。全操作一致は未完了。
+
 ## 2026-10-02: 下線選択・XML boolean・small caps
 
 - Font ダイアログから全18種類のDrawingML下線値を選択可能。wavyHeavyの選択・保存をブラウザー回帰で確認。描画側は依然一部スタイルを単線へ簡略化しており、全下線の見た目一致は未完了。

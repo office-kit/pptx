@@ -191,6 +191,45 @@ describe('renderSlideToSvg', () => {
     );
   });
 
+  it.each([
+    ['dbl', 'text-decoration-style:double'],
+    ['dotted', 'background-image:url('],
+    ['dash', 'background-image:url('],
+    ['heavy', 'text-decoration-thickness:0.1em'],
+    ['dotDash', 'background-image:url('],
+    ['wavyDbl', 'background-image:url('],
+  ])('foreignObject preserves the %s underline appearance', async (underline, css) => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'both',
+    });
+    setShapeRunFormat(box, 0, 0, { strike: true, underline });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    expect(svg).toContain(css);
+    expect(svg).toContain('text-decoration:line-through');
+    expect(svg).not.toContain('text-decoration:underline line-through');
+  });
+
+  it('foreignObject words-only underline leaves spaces undecorated', async () => {
+    const { pres, slide } = await blankSlide();
+    const box = addSlideTextBox(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(4),
+      h: inches(1),
+      text: 'one two',
+    });
+    setShapeRunFormat(box, 0, 0, { underline: 'words' });
+    const svg = renderSlideToSvg(pres, slide, { textLayout: 'foreignObject' });
+    expect(svg).toContain(
+      '<span style="text-decoration:underline">one</span> <span style="text-decoration:underline">two</span>',
+    );
+  });
+
   it('foreignObject mode applies the OOXML kerning threshold per run', async () => {
     const render = async (
       size: number,

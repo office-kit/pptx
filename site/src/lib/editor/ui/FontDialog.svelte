@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
-    getShapeKind, getShapeText, getTableCells, getTableCellParagraphs,
-    getPresentationFonts, setTableCellTextFormat, toWritableTextFormat,
+    getShapeKind, getShapeText, getTableCells, getTableCellText,
+    getPresentationFonts, setTableCellTextFormat,
     type TextFormat,
   } from '@office-kit/pptx';
   import { onMount } from 'svelte';
@@ -37,10 +37,16 @@
     if (selection.kind === 'cell') {
       const table = doc.shapeById(selection.slideIndex, selection.shapeId);
       if (!table) return [];
-      const cells = tableCellsInRange(getTableCells(table), tableSelectionBlock(selection));
-      return [...cells].flatMap(cell => getTableCellParagraphs(cell).flatMap(p =>
-        p.elements.filter(e => e.kind === 'r').map(e => toWritableTextFormat(e.format ?? {})),
-      ));
+      const tableCells = getTableCells(table);
+      const block = tableSelectionBlock(selection);
+      const result: TextFormat[] = [];
+      for (let row = block.row; row < block.row + block.rowSpan; row++) {
+        for (let col = block.col; col < block.col + block.colSpan; col++) {
+          const cell = tableCells[row]?.[col];
+          if (cell) result.push(...textFormatsInRange(table, { start: 0, end: getTableCellText(cell).length }, { row, col }, { pres: doc.pres }));
+        }
+      }
+      return result;
     }
     return editor.selectedShapes().filter(shape => getShapeKind(shape) === 'shape').flatMap(shape =>
       textFormatsInRange(shape, { start: 0, end: getShapeText(shape).length }, undefined, { pres: doc.pres }),
