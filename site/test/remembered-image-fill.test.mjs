@@ -16,6 +16,9 @@ import {
   getShapeImageContrast,
   setShapeImageCrop,
   getShapeImageCrop,
+  isShapeImageGrayscale,
+  getShapeImageBiLevelThreshold,
+  setShapeImageRecolor,
   getShapeImageFillBytes,
   setShapeFill,
   getShapeFillOpacity,
@@ -92,6 +95,42 @@ test('restoring remembered stretch fills preserves empty effects and offsets', (
   assert.deepEqual(getShapeImageFillLayout(shape), remembered.layout);
   assert.equal(getShapeImageOpacity(shape), null);
   assert.equal(getShapeImageCrop(shape), null);
+});
+
+test('switching away from an image fill remembers its recolor correction', async () => {
+  const pres = createPresentation();
+  const shape = addSlideShape(addBlankSlide(pres), {
+    preset: 'rect',
+    x: inches(1),
+    y: inches(1),
+    w: inches(2),
+    h: inches(2),
+  });
+  setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+  setShapeImageRecolor(shape, { kind: 'threshold', threshold: 42 });
+  const remembered = readRememberedImageFill(shape);
+  assert.ok(remembered);
+  setShapeFill(shape, { color: 'accent1' });
+  restoreRememberedImageFill(shape, remembered);
+  assert.equal(getShapeImageBiLevelThreshold(shape), 42);
+  assert.equal(isShapeImageGrayscale(shape), false);
+  const thresholdReloaded = await loadPresentation(await savePresentation(pres));
+  assert.equal(
+    getShapeImageBiLevelThreshold(getSlideShapes(getSlides(thresholdReloaded)[0])[0]),
+    42,
+  );
+
+  setShapeImageRecolor(shape, { kind: 'grayscale' });
+  const grayscale = readRememberedImageFill(shape);
+  assert.deepEqual(grayscale?.recolor, { kind: 'grayscale' });
+  setShapeFill(shape, { color: 'accent1' });
+  restoreRememberedImageFill(shape, grayscale);
+  assert.equal(isShapeImageGrayscale(shape), true);
+
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const restored = getSlideShapes(getSlides(loaded)[0])[0];
+  assert.equal(isShapeImageGrayscale(restored), true);
+  assert.equal(getShapeImageBiLevelThreshold(restored), null);
 });
 
 test('tile and stretch settings survive mode changes while rotation remains shared', () => {
