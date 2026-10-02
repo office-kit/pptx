@@ -219,6 +219,24 @@ export function formatTextBodyRange(
   });
 }
 
+/** Format one paragraph's end mark without rebuilding its runs or paragraph XML. */
+export function formatTextBodyParagraphEnd(
+  txBody: XmlElement,
+  paragraphIndex: number,
+  format: TextFormat,
+  reset = false,
+): void {
+  const paragraph = paragraphsOf(txBody)[paragraphIndex];
+  if (!paragraph) throw new RangeError(`paragraph index out of range: ${paragraphIndex}`);
+  const existing = firstChildElement(paragraph, name('endParaRPr'));
+  // Apply to a copy so invalid formatting cannot partially change the document.
+  const properties = existing ? copy(existing) : elem(name('endParaRPr'));
+  if (reset) resetRunFormat(properties);
+  applyRunFormat(properties, format);
+  if (existing) paragraph.children[paragraph.children.indexOf(existing)] = properties;
+  else paragraph.children.push(properties);
+}
+
 /** Split boundary runs and mutate only the selected characters' properties. */
 export function mutateTextBodyRangeProperties(
   txBody: XmlElement,

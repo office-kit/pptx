@@ -5,6 +5,7 @@ import { replaceClickHyperlink } from '../../internal/drawingml/hyperlink.ts';
 import { textBodyText } from '../../internal/drawingml/text-body.ts';
 import {
   editTextBody,
+  formatTextBodyParagraphEnd,
   formatTextBodyRange,
   mutateTextBodyRangeProperties,
   validateTextRange,
@@ -1226,15 +1227,20 @@ export const getTableCellFill = (cell: TableCellData): string | null => {
  * in getTableCellText (exclusive end). Breaks count as one character; invalid
  * ranges and split-surrogate boundaries throw without changing the text.
  * `reset` restores inherited run appearance before applying `format`, retaining
- * links and language. Without a range, run-format defaults are also cleared. */
+ * links and language. Without either target, run-format defaults are also cleared.
+ * Pass a zero-based `paragraphEnd` instead of `range` to update a paragraph's end mark. */
 export const setTableCellTextFormat = (
   cell: TableCellData,
   format: TextFormat,
-  options?: { range?: { start: number; end: number }; reset?: boolean },
+  options?:
+    | { range?: { start: number; end: number }; reset?: boolean; paragraphEnd?: never }
+    | { paragraphEnd: number; reset?: boolean; range?: never },
 ): void => {
   validateFormatEnums(format, 'setTableCellTextFormat');
   const txBody = ensureCellTxBody(cell);
-  if (options?.range) formatTextBodyRange(txBody, format, options.range, options.reset);
+  if (options?.paragraphEnd !== undefined)
+    formatTextBodyParagraphEnd(txBody, options.paragraphEnd, format, options.reset);
+  else if (options?.range) formatTextBodyRange(txBody, format, options.range, options.reset);
   else applyValidatedFormatToAllRuns(txBody, format, options?.reset);
   commitTableCell(cell);
 };

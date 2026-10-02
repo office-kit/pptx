@@ -2,6 +2,7 @@ import {
   getShapeParagraphCount,
   getShapeParagraphElements,
   getShapeText,
+  getParagraphEndFormat,
   setShapeTextFormat,
   getTableCellParagraphs,
   setTableCellTextFormat,
@@ -62,14 +63,30 @@ export function stepShapeFontSize(
   const formats = textFormatsInRange(shape, { start: 0, end: total }, undefined, { pres, source });
   let formatIndex = 0;
   let changed = false;
-  if (total === 0 && (!range || (range.start <= 0 && range.end >= 0))) {
-    setShapeTextFormat(shape, {
-      size: stepFontSize(formats[0]?.size ?? defaultSize, direction),
-    });
-    return true;
-  }
   for (let paragraphIndex = 0; paragraphIndex < getShapeParagraphCount(shape); paragraphIndex++) {
-    for (const element of getShapeParagraphElements(shape, paragraphIndex)) {
+    const elements = getShapeParagraphElements(shape, paragraphIndex);
+    if (!elements.some((element) => (element.kind === 'br' ? 1 : element.text.length) > 0)) {
+      const selected =
+        !range ||
+        (range.start === range.end
+          ? range.start === offset
+          : range.start <= offset && range.end > offset);
+      if (selected) {
+        const endFormat = getParagraphEndFormat(shape, paragraphIndex);
+        const emptyRun = elements.find((element) => element.kind !== 'br');
+        const currentSize =
+          endFormat?.size ??
+          (emptyRun?.kind === 'r' ? emptyRun.format?.size : undefined) ??
+          defaultSize;
+        setShapeTextFormat(
+          shape,
+          { size: stepFontSize(currentSize, direction) },
+          { paragraphEnd: paragraphIndex },
+        );
+        changed = true;
+      }
+    }
+    for (const element of elements) {
       const length = element.kind === 'br' ? 1 : element.text.length;
       const elementStart = offset;
       const elementEnd = offset + length;
@@ -100,8 +117,27 @@ export function stepTableCellFontSize(
 ): boolean {
   let offset = 0;
   let changed = false;
-  for (const paragraph of getTableCellParagraphs(cell)) {
-    for (const element of paragraph.elements) {
+  for (const [paragraphIndex, paragraph] of getTableCellParagraphs(cell).entries()) {
+    const elements = paragraph.elements;
+    if (!elements.some((element) => (element.kind === 'br' ? 1 : element.text.length) > 0)) {
+      const selected =
+        !range ||
+        (range.start === range.end
+          ? range.start === offset
+          : range.start <= offset && range.end > offset);
+      if (selected) {
+        const emptyRun = elements.find((element) => element.kind !== 'br');
+        const currentSize =
+          paragraph.endFormat?.size ?? (emptyRun?.kind === 'r' ? emptyRun.format?.size : undefined);
+        setTableCellTextFormat(
+          cell,
+          { size: stepFontSize(currentSize ?? DEFAULT_BODY_PT, direction) },
+          { paragraphEnd: paragraphIndex },
+        );
+        changed = true;
+      }
+    }
+    for (const element of elements) {
       const length = element.kind === 'br' ? 1 : element.text.length;
       const start = offset;
       const end = offset + length;
