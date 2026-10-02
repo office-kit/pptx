@@ -4,7 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
-import { loadPresentation, getSlides, getSlideShapes, getShapeText } from '@office-kit/pptx';
+import {
+  loadPresentation,
+  getSlides,
+  getSlideShapes,
+  getShapeText,
+  getShapeParagraphElements,
+} from '@office-kit/pptx';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 import { startPreview, waitForState } from '../helpers/server.mjs';
 
@@ -664,6 +670,69 @@ for (const action of ['cut', 'type'])
           action === 'type' ? 'HeadingXdy' : 'Headingdy',
         );
         assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
+        assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
+        const revision = (await waitForState(preview.url, () => true)).revision;
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+        await waitForState(preview.url, (state) => state.revision !== revision);
+        const restored = getSlides(await readDeck(preview));
+        assert.equal(restored.length, 2);
+        assert.equal(getShapeText(getSlideShapes(restored[0])[0]), 'Heading');
+        assert.equal(getShapeText(getSlideShapes(restored[0])[1]), 'Body');
+      } finally {
+        await browser?.close();
+        await preview?.close();
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
+
+for (const action of ['paste', 'multiline', 'rich'])
+  test(
+    `outline title-to-body ${action} joins the suffix like PowerPoint`,
+    { timeout: 60000 },
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
+      let preview, browser, page, outline;
+      try {
+        await writeOutlineDeck(dir);
+        ({ preview, browser, page, outline } = await openOutline(dir));
+        const body = outline.getByRole('textbox').nth(1);
+        await body.focus();
+        await body.evaluate((input) => window.selectEditorText(input, 2));
+        await page.keyboard.press('Shift+ArrowUp');
+        await page.keyboard.press('Shift+ArrowUp');
+        const copied = await body.evaluate((input) => {
+          const data = new DataTransfer();
+          input.dispatchEvent(
+            new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }),
+          );
+          return data.getData('text/plain');
+        });
+        assert.equal(copied, '\nBo');
+        const before = (await waitForState(preview.url, () => true)).revision;
+        await body.evaluate((input, action) => {
+          const data = new DataTransfer();
+          data.setData('text/plain', action === 'multiline' ? 'X\nY' : 'X');
+          if (action === 'rich') data.setData('text/html', '<b>X</b>');
+          input.dispatchEvent(
+            new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
+          );
+        }, action);
+        await waitForState(preview.url, (state) => state.revision !== before);
+        const slides = getSlides(await readDeck(preview));
+        assert.equal(slides.length, 2);
+        assert.equal(
+          getShapeText(getSlideShapes(slides[0])[0]),
+          action === 'multiline' ? 'HeadingX\nYdy' : 'HeadingXdy',
+        );
+        assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
+        const paragraphs = getShapeParagraphElements(getSlideShapes(slides[0])[0]);
+        assert.equal(paragraphs.length, action === 'multiline' ? 2 : 1);
+        if (action === 'rich')
+          assert.ok(
+            paragraphs.flat().some((run) => run.kind !== 'br' && run.text === 'X' && run.format.bold),
+          );
+
         assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
         const revision = (await waitForState(preview.url, () => true)).revision;
         await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');

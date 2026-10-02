@@ -10,7 +10,7 @@
   import RichTextInput from './RichTextInput.svelte';
   import { outlineTextHtml } from '../core/outline-text-html.ts';
   import { richTextValue, selectRichText } from '../core/rich-text-dom.ts';
-  import { OutlineSelectionModel, type OutlineSelectionField } from '../core/outline-selection.ts';
+  import { OutlineSelectionModel, type OutlineSelectionField, type OutlineClipboard } from '../core/outline-selection.ts';
   import { textCaseSelection } from '../core/text-case.ts';
   import { textFormatsInRange } from '../core/text-format-selection.ts';
   import { stepFontSize, stepShapeFontSize } from '../core/font-size.ts';
@@ -92,10 +92,10 @@
     clearTimeout(timer);
     timer = setTimeout(commit, 600);
   }
-  async function replaceTitleBodyRange(text: string, label: string) {
+  async function replaceTitleBodyRange(text: string, label: string, formats: OutlineClipboard['formats'] = []) {
     const selected = selection.current();
     if (!selected || selected.start.key === selected.end.key) {
-      selection.replace(text, [], label);
+      selection.replace(text, formats, label);
       return;
     }
     const slots = getSlides(doc.pres).flatMap((sourceSlide, index) =>
@@ -112,8 +112,8 @@
         deleteOutlineTitleBodyRange(start.slide,
           { id: start.id, offset: selected.start.offset },
           { id: end.id, offset: selected.end.offset });
-        if (text) setShapeText(findShapeById(start.slide, start.id)!, text,
-          { range: { start: selected.start.offset, end: selected.start.offset } });
+        if (text) replayTextEdits(findShapeById(start.slide, start.id)!,
+          [{ start: selected.start.offset, end: selected.start.offset, text, formats }]);
         doc.selectShape(start.index, start.id);
       });
       selection.clear();
@@ -123,7 +123,7 @@
         field.focus(selected.start.offset + text.length);
         selection.setCaret(field, selected.start.offset + text.length);
       }
-    } else selection.replace(text, [], label);
+    } else selection.replace(text, formats, label);
   }
   function copy(event: ClipboardEvent, cut = false) {
     if (!event.clipboardData || composing) return;
@@ -141,8 +141,7 @@
     const copied = parseTextClipboard(event.clipboardData.getData(TEXT_CLIPBOARD_TYPE), plain)
       ?? parseHtmlTextClipboard(event.clipboardData.getData('text/html'), plain);
     event.preventDefault(); event.stopPropagation();
-    if (copied) selection.replace(copied.text, copied.formats, t('Paste'));
-    else selection.replace(plain, [], t('Paste'));
+    void replaceTitleBodyRange(copied?.text ?? plain, t('Paste'), copied?.formats);
   }
   async function menuClipboard(action: 'copy' | 'cut' | 'paste') {
     if (composing) return;
@@ -163,8 +162,7 @@
           item.types.includes(mimeType) ? (await item.getType(mimeType)).text() : ''));
         if (!current()) return;
         const copied = parseHtmlTextClipboard(html!, plain!);
-        if (copied) selection.replace(copied.text, copied.formats, t('Paste'));
-        else selection.replace(plain!, [], t('Paste'));
+        await replaceTitleBodyRange(copied?.text ?? plain!, t('Paste'), copied?.formats);
       } else {
         if (selectedRange.start === selectedRange.end && !selection.current()) return;
         const copied = selection.copy();
