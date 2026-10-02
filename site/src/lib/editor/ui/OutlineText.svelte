@@ -284,7 +284,9 @@
       // A programmatic selection (including a selection restored after a
       // draft render) may not have delivered selectionchange yet. Seed the
       // shared anchor from the focused field before extending it.
-      if (selection.focusOffset(selectionField) === null) selection.update(selectionField, current.start, current.end);
+      if (selection.focusOffset(selectionField) === null ||
+        selection.current()?.start.key === selection.current()?.end.key)
+        selection.update(selectionField, current.start, current.end);
       const focus = selection.focusOffset(selectionField) ?? (event.key === 'ArrowUp' ? current.start : current.end);
       const crossField = selection.current()?.start.key !== selection.current()?.end.key;
       const boundary = event.key === 'ArrowUp'

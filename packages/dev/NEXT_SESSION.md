@@ -1,3 +1,10 @@
+## 2026-10-02: Shift+Up で逆方向に選択を拡張する不具合を修正
+
+- Next の末尾から Shift+Up を連続 5 回押して Heading / Body / Next を選択する回帰ケースを追加。実装前はコピー文字列が空で失敗。既存の逆方向テストはプログラムによる範囲設定のため、このキー操作をカバーしていなかった。
+- OutlineSelectionModel.update は DOM の anchor/focus から方向を保持。OutlineText は同一欄内の Shift+Up/Down 時に現在の選択を同期し、selectionchange の遅延で逆方向拡張が止まるケースも修正。
+- 検証: cross-selection ブラウザ全 11 件成功（逆方向範囲のコピー、Enter、保存結果、Undo を含む）。選択モデル単体 14 件成功。Svelte 型検証 0 errors / warnings。エディターのビルド成功。
+- 参照文書への追加変更なし。次は非隣接範囲・本文からタイトル・削除/入力置換の実機比較。全面一致は未達成。
+
 ## 2026-10-02: 隣接スライドのタイトルをまたぐ改行
 
 - Mac PowerPoint の Outline title / Next / Following で tline title + 改行 + Ne を選択し Shift+Enter。2 枚を維持し、タイトルは Ou / xt、次の本文 Following は維持。保存 XML を /tmp/pptx-outline-audit/cross-title-native.pptx に保持。終了側タイトル全体を選択しても同じスライド境界を維持。
