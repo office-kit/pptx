@@ -61,7 +61,13 @@ export function textFormatsInRange(
     // Empty paragraphs have no character to sample. Their end mark carries
     // the format inherited by the next typed character.
     if (offset === paragraphStart && range.start === offset && range.end === offset) {
-      return [endFormat ?? elements[0]?.format ?? {}];
+      return [
+        toWritableTextFormat(
+          context && tableCell && elements.length === 0
+            ? getTableCellRunFormatEffective(context.pres, tableCell, paragraphIndex, null)
+            : (endFormat ?? elements[0]?.format ?? {}),
+        ),
+      ];
     }
     offset++;
   }

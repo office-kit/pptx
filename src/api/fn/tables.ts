@@ -1427,13 +1427,14 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
  * Reads a table-cell run's effective character format. The literal
  * `getTableCellParagraphs` format only contains properties authored on the
  * run; this resolver also applies the cell text body's paragraph defaults and
- * outline-level defaults (`a:pPr/defRPr` and `a:lstStyle`).
+ * outline-level defaults (`a:pPr/defRPr` and `a:lstStyle`). Pass `null` as
+ * `runIndex` to resolve the paragraph end mark, including empty paragraphs.
  */
 export const getTableCellRunFormatEffective = (
   pres: PresentationData,
   cell: TableCellData,
   paragraphIndex: number,
-  runIndex: number,
+  runIndex: number | null,
 ): ReadTextFormat => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
   if (!txBody) throw new Error('table cell has no <a:txBody>');

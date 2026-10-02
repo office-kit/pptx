@@ -2395,6 +2395,7 @@ type RunData = {
   hrefTip?: string;
 };
 interface ParaData {
+  readonly emptySizePt?: number;
   readonly latinLineBreak?: boolean | undefined;
   readonly tabStops?: ReturnType<typeof getParagraphPropertiesEffective>['tabStops'];
   readonly defaultTabSizeEmu?: number | undefined;
@@ -2681,7 +2682,7 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
       lineAdvanceScale: a.lineHeightScale,
       bullet: buildBullet(a, para, pi),
       pieces,
-      fallbackSizePx: a.defaultPt * scale * PX_PER_PT,
+      fallbackSizePx: (para.emptySizePt ?? a.defaultPt) * scale * PX_PER_PT,
     };
   });
 
@@ -3278,6 +3279,9 @@ const renderHtmlParagraphs = (
         : 0;
     const pStyles: string[] = [
       'margin:0',
+      ...(para.emptySizePt !== undefined
+        ? [`font-size:${(para.emptySizePt * PX_PER_PT * autoFitScale).toFixed(2)}px`]
+        : []),
       ...(para.runs.some((run) => run.text.includes('\t'))
         ? [
             `white-space:${wrap ? 'pre-wrap' : 'pre'}`,
@@ -6091,10 +6095,8 @@ const renderChart = (
 
 // Builds the per-paragraph layout model the shared text engine consumes from a
 // cell's structured paragraphs and shared DrawingML paragraph properties. A run's effective point
-// size resolves to its explicit `<a:rPr sz>` when present, else the table-cell
-// default: @office-kit/pptx doesn't model `<a:tblStyle>` text props, so unstyled cells
-// fall to PowerPoint's authored default cell size (18 pt — what it writes for a
-// freshly inserted table) in the theme's minor font and the cell's text color.
+// size resolves through the run, paragraph, and table-style cascade. Cells with
+// no authored size fall back to PowerPoint's default for a new table (18 pt).
 const cellParaData = (
   paragraphs: ReadonlyArray<TableCellParagraph>,
   cell: Parameters<typeof getTableCellParagraphs>[0],
@@ -6128,6 +6130,12 @@ const cellParaData = (
       });
     }
     return {
+      ...(runs.length === 0
+        ? {
+            emptySizePt:
+              getTableCellRunFormatEffective(pres, cell, index, null).size ?? DEFAULT_BODY_PT,
+          }
+        : {}),
       latinLineBreak: properties.latinLineBreak,
       tabStops: properties.tabStops,
       defaultTabSizeEmu: properties.defaultTabSizeEmu,
@@ -6227,7 +6235,7 @@ const renderTableCellText = (
   const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
     '',
   );
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:1.2;font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
 };
 
 const renderTable = (

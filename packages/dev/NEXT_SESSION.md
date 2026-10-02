@@ -1,3 +1,12 @@
+## 2026-10-02: 表の空段落の文字サイズと編集時の位置
+
+- `getTableCellRunFormatEffective` の runIndex に null を許容し、段落末尾の実効書式を既存の段落・リスト・表スタイル継承で解決。通常の数値インデックスの範囲検証は維持。
+- 空の `<a:p>` の endParaRPr を SVG の行高、foreignObject の文字サイズ、編集 HTML、空段落のカーソル位置でのフォント取得に反映。18pt と 36pt の空行が同じ高さになる不具合を変更前に再現。
+- ブラウザーで編集開始時に約 6px ずれる追加原因を確認。表の foreignObject コンテナーだけ残っていた line-height:1.2 を既存の文字描画・編集と同じ LINE_HEIGHT に統一。新規ブラウザー回帰で空行の後の文字位置差が 2px 未満、36pt・Courier New・太字・色の保持、Font ダイアログのサイズ・フォントを検証。
+- 検証: core 3287 成功 / 109 skip、format/lint/typecheck/build、preview・DSL・dev の型検査と build 成功。最終変更後の関連 core 26 件と browser 4 件成功。site 単体 135 件成功、Svelte check 0 errors/warnings。
+- 今回はネイティブ文書に変更なし。この空段落ケース自体の Mac 実機比較は未実施。フィールドの実効書式、空文字 run や改行のみの段落、空段落の箇条書き表示は引き続き確認が必要。表以外も含む全操作一致は未完了。
+- 4173 と .pnpm-store は保持。PR #287 のみに集約。
+
 ## 2026-10-02: 横結合セルの最終列を Mac 実機に合わせる
 
 - reference.pptx の 3×3 表で第 1 行を Select Row > Merge Cells により横結合し、Header Row を外して Last Column の on/off を比較。on では結合セル全体が青、off では帯の淡色になることを確認。
