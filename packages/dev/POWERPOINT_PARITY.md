@@ -888,3 +888,9 @@ Mac PowerPoint promotes a selected root paragraph into a new title and moves a s
 - The Video pane exposes picture width/height and center offsets separately from crop-frame width/height and absolute left/top, in centimeters. Picture edits hold the frame fixed; frame edits preserve the picture rectangle. Crop Reset expands the frame to the full picture.
 - Mac PowerPoint saved XML verified both axes and Reset. Browser regression covers all eight fields, negative offsets, signed-percentage overflow rejection, undo/redo, save/reload and media/poster/playback preservation. Locked selections disable the controls.
 - Rotated/grouped native coordinate behavior, crop drag handles, the ribbon crop menu and complete Video Format geometry remain unverified or incomplete. This is numeric Crop-pane coverage, not complete video UI parity.
+
+## Table-cell text direction
+
+- Preview now reads the existing cell `vert` property in both HTML and pure SVG paths, using the same direction mapping as shape text. Previously table cells always rendered horizontally despite preserving the property in OOXML.
+- Inline editing follows all six stored vertical directions. Logical paragraph sizing preserves upright RTL glyph positions; bottom-to-top editing counter-rotates asymmetric insets so its text rectangle matches the preview.
+- Browser comparisons cover per-character bounds on entry and editing/save retention in all six directions. Pure SVG tests verify saved clockwise/counterclockwise cells. Native direction calibration and existing pure-SVG upright/East-Asian approximations remain unverified; this is not evidence of full native parity.

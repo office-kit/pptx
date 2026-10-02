@@ -1209,3 +1209,10 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Regression test fails before the fix (`/tmp/font-size-default-before.log`) and passes afterward. Eleven browser cases covering edit entry, font stepping, mixed selections, empty paragraphs and inherited table/shape fonts pass (`/tmp/font-size-default-browser.log`). Site unit suite: 144 passed, then the expanded font-size unit file: 9 passed. Svelte check: zero errors/warnings; scoped format/lint and editor build passed.
 - Native connection retry still reports `Sky Computer Use native pipe startup failed`; pending reference restoration remains unresolved. Full parity is not achieved.
 - Prior commit f22021b7 CI run 37016600889 has passed static checks, Node 22/26, preview fidelity and OOXML validation; Node 24 still running at last inspection. Wait for that run before pushing this change to avoid cancelling its full browser coverage.
+
+## 2026-10-02: Table vertical text
+
+- Found table cell direction supported by core but explicitly ignored by preview and editing. Connected `getTableCellTextDirection` to existing HTML/SVG direction rendering and the editor.
+- Reproduced upright RTL text shifting on entry and fixed physical paragraph width to logical inline size. Reproduced bottom-to-top text shifting with asymmetric cell margins and counter-rotated those insets with the overlay.
+- New browser tests cover all six directions, character bounds within 2px, asymmetric margins and edited PPTX retention. Pure SVG round-trip tests cover clockwise/counterclockwise output. Existing direction approximations in the shared SVG engine remain; native comparison is still blocked.
+- Site unit suite 145 passed; preview targeted tests 6 passed; preview typecheck/build, Svelte check (0 errors/warnings), scoped format/lint and editor build passed. Browser run `/tmp/table-direction-final-browser.log`: all 21 passed, including existing table rotation/flip/group and text margins/edit entry.

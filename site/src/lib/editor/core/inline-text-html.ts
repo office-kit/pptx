@@ -124,7 +124,7 @@ export function inlineTextHtml(
     const style = paragraph.style;
     style.display = 'inline-block';
     style.verticalAlign = 'top';
-    style.width = '100%';
+    style.inlineSize = '100%';
     style.boxSizing = 'border-box';
     // Keep the paragraph strut at zero. A large inherited fallback here would
     // enlarge line boxes containing smaller explicitly-sized runs; preview

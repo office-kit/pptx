@@ -47,6 +47,7 @@
     toWritableTextFormat,
     getTableCellMargins,
     getTableCellAnchor,
+    getTableCellTextDirection,
     getShapeBodyPrEffective,
     getShapeBounds,
     getShapeCustomGeometry,
@@ -955,23 +956,28 @@
       const rect = resolveTextBodyRect(getShapePreset(shape), { x: 0, y: 0, w, h }, insets, shapeCustomTextRect(getShapeCustomGeometry(shape), getShapeBounds(shape)));
       insets = { left: rect.x, top: rect.y, right: w - rect.x - rect.w, bottom: h - rect.y - rect.h };
     }
+    // The preview turns the inner text rectangle; the edit overlay turns the
+    // whole cell, so counter-rotate its insets to keep that rectangle in place.
+    if (target && textBodyTurn) insets = { top: insets.bottom, right: insets.left, bottom: insets.top, left: insets.right };
     const padding = [insets.top, insets.right, insets.bottom, insets.left]
       .map(value => `${value / 9525 * editor.zoom}px`).join(' ');
     // Vertical writing and multi-column bodies are the renderer's own CSS, so
     // the caret follows the same reading direction as the painted glyphs. The
     // half turn `vert270` needs travels with the box transform instead, which
     // already carries the shape's rotation.
-    const vertical = target ? '' : verticalTextStyle(body!.vert ?? getShapeTextDirection(shape)).declarations;
+    const vertical = verticalTextStyle(target ? getTableCellTextDirection(target) : body!.vert ?? getShapeTextDirection(shape)).declarations;
     const columns = target ? '' : textColumnsStyle(body!.columns);
     // Block alignment keeps literal paragraph separators and selection offsets intact.
     return `padding:${padding}; align-content:${anchor === 'top' ? 'start' : anchor === 'bottom' ? 'safe end' : 'safe center'};${vertical ? ` ${vertical};` : ''}${columns ? ` ${columns};` : ''}`;
   });
 
-  // The half turn that `<a:bodyPr vert="vert270"/>` reads bottom-to-top with.
+  // The half turn for bottom-to-top text in a shape body or table cell.
   const textBodyTurn = $derived.by(() => {
     doc.version;
     const shape = editBox?.shape;
-    if (!shape || editing?.cell) return 0;
+    if (!shape) return 0;
+    const cell = editing?.cell;
+    if (cell) return verticalTextStyle(getTableCellTextDirection(getTableCells(shape)[cell.row]![cell.col]!)).transform ? 180 : 0;
     const body = getShapeBodyPrEffective(doc.pres, shape);
     return verticalTextStyle(body.vert ?? getShapeTextDirection(shape)).transform ? 180 : 0;
   });
