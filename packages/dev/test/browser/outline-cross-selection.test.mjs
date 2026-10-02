@@ -530,3 +530,48 @@ test('outline right-click preserves a cross-field range for copy', { timeout: 60
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+test(
+  'outline reverse keyboard selection retains its anchor across fields',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-outline-reverse-'));
+    let preview, browser, page, outline;
+    try {
+      await writeOutlineDeck(dir);
+      ({ preview, browser, page, outline } = await openOutline(dir));
+      const nextTitle = outline.getByRole('textbox').nth(2);
+      await nextTitle.focus();
+      await nextTitle.evaluate((input) => window.selectEditorText(input, input.textContent.length));
+      for (let step = 0; step < 5; step++) await page.keyboard.press('Shift+ArrowUp');
+      const copied = await nextTitle.evaluate((input) => {
+        const data = new DataTransfer();
+        input.dispatchEvent(
+          new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }),
+        );
+        return data.getData('text/plain');
+      });
+      assert.equal(copied, 'Heading\nBody\nNext');
+      const before = (await waitForState(preview.url, () => true)).revision;
+      await page.keyboard.press('Enter');
+      const changed = await waitForState(preview.url, (state) => state.revision !== before);
+      const slides = getSlides(await readDeck(preview));
+      assert.equal(slides.length, 2);
+      assert.equal(getShapeText(getSlideShapes(slides[0])[0]), '');
+      assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
+      assert.equal(getShapeText(getSlideShapes(slides[1])[0]), '');
+      assert.equal(getShapeText(getSlideShapes(slides[1])[1]), 'Following');
+      await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+      await waitForState(preview.url, (state) => state.revision !== changed.revision);
+      const restored = getSlides(await readDeck(preview));
+      assert.equal(restored.length, 2);
+      assert.equal(getShapeText(getSlideShapes(restored[0])[0]), 'Heading');
+      assert.equal(getShapeText(getSlideShapes(restored[0])[1]), 'Body');
+      assert.equal(getShapeText(getSlideShapes(restored[1])[0]), 'Next');
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);

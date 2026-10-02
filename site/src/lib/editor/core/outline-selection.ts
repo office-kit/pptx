@@ -1,6 +1,6 @@
 import type { TextEdit } from './text-edit-preview.ts';
 import type { ParagraphProperties, SlideShapeData, TextCase, TextFormat } from '@office-kit/pptx';
-import { richTextPoint } from './rich-text-dom.ts';
+import { richTextPoint, richTextValue } from './rich-text-dom.ts';
 import { textCaseRange } from './text-case.ts';
 
 export type OutlinePoint = { key: string; offset: number };
@@ -108,6 +108,23 @@ export class OutlineSelectionModel {
       field.key === this.#anchor.key
     )
       return;
+    // Ordered ranges lose the anchor when Shift+Up selects backwards inside a field.
+    const native = field.root.ownerDocument.getSelection();
+    if (
+      native?.anchorNode &&
+      native.focusNode &&
+      field.root.contains(native.anchorNode) &&
+      field.root.contains(native.focusNode)
+    ) {
+      start = richTextValue(field.root, {
+        node: native.anchorNode,
+        offset: native.anchorOffset,
+      }).length;
+      end = richTextValue(field.root, {
+        node: native.focusNode,
+        offset: native.focusOffset,
+      }).length;
+    }
     const point = { key: field.key, offset: end };
     if (this.#preserveAnchor) {
       this.#focus = point;
