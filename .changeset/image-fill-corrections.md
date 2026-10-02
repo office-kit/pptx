@@ -3,4 +3,4 @@
 '@office-kit/pptx-dev': patch
 ---
 
-The core image brightness and contrast accessors now accept image-filled shapes, and the editor preserves those corrections when an image fill is temporarily replaced and restored.
+The core image brightness and contrast accessors now accept image-filled shapes, the editor preserves those corrections when an image fill is temporarily replaced and restored, and image recolor thresholds read both fixed-point and percent lexical DrawingML values consistently.
