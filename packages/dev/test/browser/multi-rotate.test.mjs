@@ -127,7 +127,10 @@ test(
       await page.reload();
       await saved();
       assert.deepEqual(await geometry(), turned);
-      await editor.locator('.hit').nth(2).click();
+      await editor
+        .locator('.hit')
+        .nth(2)
+        .click({ position: { x: 2, y: 2 } });
       await beginTurn(45, true);
       await page.mouse.up();
       await saved();

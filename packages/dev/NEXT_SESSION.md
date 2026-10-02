@@ -1247,3 +1247,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Added coverage for rejected extreme picture offsets: the crop, frame, and Undo history survive rejection. Japanese Crop heading now translates to トリミング; editor build passes.
 - Existing agents table_band_edges and table_theme_refs were restarted to investigate group-transform-handles and preset-text-editing failures respectively. They must not commit; inspect their results before integrating. The other CI failures remain outstanding.
 - Native PowerPoint still fails at pipe startup; pending reference restoration remains unresolved. No additional native mutations.
+
+## 2026-10-03: Commit text drafts before another shape press
+
+- Reproduced two full-CI failures: while editing text, beginMove returned before handling a second shape press, so Shift-click silently failed to extend selection. Commit the draft before handling that press. No extra click is required.
+- Both background-fill and gradient-multiple regressions now pass; background-fill also types a draft and verifies its persisted text after Shift-click. Multi-resize passes. Gesture-cancel and multi-rotate tests now select the shape border for object-only operations, and both pass. Logs: `/tmp/edit-switch-before.log`, `/tmp/edit-switch-after.log`, `/tmp/edit-switch-draft.log`, `/tmp/edit-switch-gestures-fixed.log`.
+- Svelte diagnostics: zero errors/warnings; editor build passes. Svelte files are excluded from root oxfmt/oxlint; changed browser tests pass scoped checks. Other full-CI failures and native restoration remain outstanding.

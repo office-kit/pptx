@@ -6,6 +6,7 @@ import test from 'node:test';
 import { chromium } from 'playwright';
 import {
   getShapeFill,
+  getShapeText,
   getSlideShapes,
   getSlides,
   loadPresentation,
@@ -50,10 +51,16 @@ test(
       await saved();
       await editor.locator('.hit').first().click();
       const originals = await read();
+      await editor.locator('.inline-edit').fill('Edited first');
       await editor
         .locator('.hit')
         .nth(1)
         .click({ modifiers: ['Shift'] });
+      await saved();
+      const edited = await loadPresentation(
+        new Uint8Array(await (await fetch(preview.url + '/deck.pptx')).arrayBuffer()),
+      );
+      assert.equal(getShapeText(getSlideShapes(getSlides(edited)[0])[0]), 'Edited first');
       await editor.getByRole('radio', { name: 'Slide background fill', exact: true }).check();
       await saved();
       assert.deepEqual(await read(), [{ kind: 'background' }, { kind: 'background' }]);

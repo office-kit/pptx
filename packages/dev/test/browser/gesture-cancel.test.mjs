@@ -49,14 +49,14 @@ test(
       const hit = editor.locator('.hit');
       await saved();
       const original = getShapeBounds(await shape());
-      await hit.click();
+      await hit.click({ position: { x: 2, y: 2 } });
       await page.keyboard.press('ArrowRight');
       await saved();
       const nudged = getShapeBounds(await shape());
       assert.notDeepEqual(nudged, original);
       await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
       await saved();
-      await hit.click();
+      await hit.click({ position: { x: 2, y: 2 } });
       for (const mode of ['move', 'resize', 'rotate', 'interrupt', 'blur']) {
         const style = await hit.getAttribute('style');
         const target =
