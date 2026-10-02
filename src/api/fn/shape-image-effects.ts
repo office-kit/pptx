@@ -1,5 +1,6 @@
 import { readImageCrop } from './_image-crop.ts';
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
+import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
 import { type Color, buildColorElement } from '../../internal/drawingml/index.ts';
 import {
   buildColorTransforms,
@@ -324,10 +325,8 @@ export const getShapeImageBiLevelThreshold = (shape: SlideShapeData): number | n
   if (!biLevel) return null;
   const t = getAttrValue(biLevel, qname('', 'thresh', ''));
   if (t === null) return null;
-  let n = Number.parseFloat(t);
-  if (!Number.isFinite(n)) return null;
-  if (Math.abs(n) > 1) n = n / 100000;
-  return n * 100;
+  const fraction = readDrawingmlPercentage(t, Number.NaN);
+  return Number.isFinite(fraction) ? fraction * 100 : null;
 };
 
 /**

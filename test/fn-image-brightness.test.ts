@@ -2,9 +2,11 @@
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import {
   getShapeImageBrightness,
+  getShapeImageBiLevelThreshold,
   getShapeImageContrast,
   getShapeImageOpacity,
   getShapeKind,
@@ -153,6 +155,42 @@ describe('fn API: setShapeImageBrightness', () => {
 });
 
 describe('fn API: setShapeImageRecolor', () => {
+  it('reads fixed-point and percent lexical threshold values', async () => {
+    for (const [lexical, expected] of [
+      ['1', 0.001],
+      ['1%', 1],
+      ['50000', 50],
+    ] as const) {
+      const parts = unzipSync(await readFile(fixture('one-image-slide.pptx')));
+      const slidePart = 'ppt/slides/slide1.xml';
+      parts[slidePart] = strToU8(
+        strFromU8(parts[slidePart]!).replace(
+          '<a:blip r:embed="rId2"/>',
+          `<a:blip r:embed="rId2"><a:biLevel thresh="${lexical}"/></a:blip>`,
+        ),
+      );
+      const pres = await loadPresentation(zipSync(parts));
+      const picture = getSlideShapes(getSlides(pres)[0]!).find(
+        (s) => getShapeKind(s) === 'picture',
+      )!;
+      expect(getShapeImageBiLevelThreshold(picture)).toBeCloseTo(expected, 6);
+    }
+  });
+
+  it('round-trips the minimum fixed-point threshold', async () => {
+    const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
+    const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;
+    setShapeImageRecolor(picture, { kind: 'threshold', threshold: 0.001 });
+    expect(getShapeImageBiLevelThreshold(picture)).toBeCloseTo(0.001, 6);
+    expect(getSlideXmlString(getSlides(pres)[0]!)).toContain('<a:biLevel thresh="1"/>');
+
+    const roundTripped = await loadPresentation(await savePresentation(pres));
+    const roundTrippedPicture = getSlideShapes(getSlides(roundTripped)[0]!).find(
+      (s) => getShapeKind(s) === 'picture',
+    )!;
+    expect(getShapeImageBiLevelThreshold(roundTrippedPicture)).toBeCloseTo(0.001, 6);
+  });
+
   it('writes PowerPoint recolor effects and clears them without touching opacity', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const picture = getSlideShapes(getSlides(pres)[0]!).find((s) => getShapeKind(s) === 'picture')!;

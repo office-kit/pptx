@@ -1362,3 +1362,15 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Final regression covers both stretch and tile after save/reload: picture and ordinary image-fill center pixels agree, and the uncorrected control differs. Sample coordinates derive from the actual slide dimensions. All 23 preview-effects-fills tests pass; scoped lint, format and diff checks pass.
 - CI 37035075036 on 6bdd9276 still runs the Chromium step. Static checks, Node 22/26, Preview fidelity and OOXML validation passed; the Node 24 unit/authoring/history steps also passed. Avoid cancelling this whole-browser run with repeated pushes. fdeb1689 and this regression are local, awaiting the next batched push to the same PR #287.
 - Latest user-requested native retry failed at native pipe startup. Reference restoration remains pending; full PowerPoint parity is incomplete.
+
+## 2026-10-03: Background memory audit clarification
+
+- The documented cross-document difference concerns background image placement, not ordinary shape-image fills. Native valid fixtures reused stretch 25% despite a different document's initial 18%, and reused tile 60%; opacity kept its latest 40%. This is affirmative native evidence, not merely unverified cross-document behavior.
+- Current BackgroundSection and BackgroundPictureLayout use a per-slide background key; EditorDocument.loadBytes clears rememberedFills. The ordinary shape-image memory tests (5 passing) do not cover this difference.
+- Do not infer that document-local memory is correct because it avoids carrying state between documents. Also do not copy whole images or all formatting across documents: the observed shared state is placement. The exact native update/initialization trigger still needs reliable native comparison before implementing a session-wide rule.
+
+## 2026-10-03: Black-and-white threshold parsing
+
+- Replaced the bi-level getter's magnitude heuristic with the existing DrawingML percentage parser. Integer `1` means 0.001%, whereas `1%` means 1%; previously both were read as 100%.
+- Tests load real ZIP XML lexical values and exercise the public setter at 0.001 through immediate read and save/reload. Numeric assertions use six-digit precision. An earlier internal-tree-only test failed to commit XML; its reload-null result was a test setup error, not an additional production bug.
+- Brightness, contrast and preview-effects tests pass 36/36 (`/tmp/image-threshold-final-root.log`); core build passes (`/tmp/image-threshold-build.log`). Agent typecheck/lint and root format/diff checks passed. Changeset updated.
