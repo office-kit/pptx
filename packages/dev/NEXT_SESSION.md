@@ -1,9 +1,15 @@
+## 2026-10-02: Double strikethrough editing and clipboard
+
+- HTML parsing now retains CSS double line-through as `dblStrike`. Editing and clipboard HTML emit the double strike separately from underline styles.
+- Reproduced the parser dropping double strike before the fix. Browser coverage checks both editing/clipboard output with no underline, single, double and wavy underlines. Shape/cell HTML paste tests verify saved PPTX double strike and Undo. All four html-text-clipboard browser tests pass; Svelte check has zero errors/warnings, scoped lint and editor build pass.
+- Native geometry comparison and pending reference restoration remain blocked by the native connection. Full parity remains incomplete. Continue the open areas in POWERPOINT_PARITY.md; do not infer completion from these scoped tests.
+
 ## 2026-10-02: Double strikethrough preview
 
 - Fixed browser and pure-SVG preview collapsing OOXML `dblStrike` to a single line. SVG uses explicit strokes so rasterizers need not implement CSS double decorations; underline styling remains independent.
 - Save/load/render regression and mixed single/double/plain runs with left/center/right alignment pass. All 71 tests in text-layout and preview-character-effects pass; scoped lint, preview typecheck and preview build pass.
 - Native retry still fails at pipe startup. Strike geometry uses font-relative estimates and has NOT been calibrated against Mac PowerPoint. Reference restoration remains pending as below.
-- Next: `site/src/lib/editor/core/html-text-clipboard.ts` still collapses double strike during HTML parsing and editing/export. Add browser regressions before fixing; keep separate underline and strike styles independent. Full parity remains incomplete.
+- The subsequent entry above resolves HTML parsing and editing/export; native geometry remains unverified.
 
 ## 2026-10-02: Adjacent character outlines in SVG
 

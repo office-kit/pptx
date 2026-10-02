@@ -139,7 +139,8 @@ export function parseHtmlTextClipboard(html: string, plain: string): FormattedTe
         const decorationColor = color(style.textDecorationColor);
         if (decorationColor) format.underlineColor = decorationColor;
       }
-      if (decoration.includes('line-through')) format.strike = true;
+      if (decoration.includes('line-through'))
+        format.strike = style.textDecorationStyle === 'double' ? 'dblStrike' : true;
     }
     if (style.verticalAlign === 'super') format.baseline = 0.3;
     if (style.verticalAlign === 'sub') format.baseline = -0.25;
@@ -247,6 +248,7 @@ export function textClipboardHtml(
       style.fontKerning = format.kern > 0 && format.size >= format.kern / 100 ? 'normal' : 'none';
     const decorations = [];
     const underline = format.underline;
+    const strikeStyle = format.strike === 'dblStrike' ? 'double' : 'solid';
     const editing = options.editing === true;
     const explicitUnderlineColor =
       format.underlineColor !== undefined && format.underlineColor !== null;
@@ -270,7 +272,7 @@ export function textClipboardHtml(
         }
       }
       span.replaceChildren(underlineNodes);
-      if (strike) style.textDecorationStyle = 'solid';
+      if (strike) style.textDecorationStyle = strikeStyle;
       if (format.baseline) style.verticalAlign = `${format.baseline * 100}%`;
       container.append(span);
       continue;
@@ -290,7 +292,7 @@ export function textClipboardHtml(
     const separateUnderline =
       format.strike &&
       format.strike !== 'noStrike' &&
-      explicitUnderlineColor &&
+      (explicitUnderlineColor || format.strike === 'dblStrike') &&
       underline !== undefined &&
       underline !== false &&
       underline !== 'none';
@@ -300,8 +302,9 @@ export function textClipboardHtml(
       format.strike !== 'noStrike'
     ) {
       // CSS applies text-decoration-style to every line on the element. Keep
-      // a patterned underline and a solid strike on separate inline boxes.
+      // underline and strike styles on separate inline boxes.
       style.textDecorationLine = 'line-through';
+      style.textDecorationStyle = strikeStyle;
       const underlineSpan = document.createElement('u');
       underlineSpan.textContent = span.textContent;
       underlineSpan.style.textDecorationLine = 'underline';
@@ -313,6 +316,7 @@ export function textClipboardHtml(
       if (format.strike && format.strike !== 'noStrike') decorations.push('line-through');
       if (decorations.length) style.textDecorationLine = decorations.join(' ');
       if (underlineStyle) style.textDecorationStyle = underlineStyle;
+      else if (format.strike === 'dblStrike') style.textDecorationStyle = strikeStyle;
       if (explicitUnderlineColor && underline && underline !== 'none')
         style.textDecorationColor = underlineColor;
     }

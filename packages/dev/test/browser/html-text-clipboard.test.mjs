@@ -160,6 +160,36 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           formats: [{ start: 0, end: 1, format: { underline: 'wavy', strike: true } }],
         });
         const combinedPatternedStrikeRoundtrip = parse(combinedPatternedStrike, 'A');
+        const doubleStrikeCases = [false, true].flatMap((editing) =>
+          [undefined, 'sng', 'dbl', 'wavy'].map((underline) => {
+            const html = serialize(
+              {
+                text: 'A',
+                formats: [{ start: 0, end: 1, format: { strike: 'dblStrike', underline } }],
+              },
+              { editing },
+            );
+            const mount = document.createElement('div');
+            mount.innerHTML = html;
+            document.body.append(mount);
+            const outer = getComputedStyle(mount.querySelector('span'));
+            const inner = mount.querySelector('u');
+            const result = {
+              editing,
+              underline,
+              strikeLine: outer.textDecorationLine,
+              strikeStyle: outer.textDecorationStyle,
+              underlineStyle: inner ? getComputedStyle(inner).textDecorationStyle : undefined,
+              parsed: parse(html, 'A'),
+            };
+            mount.remove();
+            return result;
+          }),
+        );
+        const externalDoubleStrike = parse(
+          '<span style="text-decoration:line-through double">A</span>',
+          'A',
+        );
         const underlineColorHtml = serialize({
           text: 'A',
           formats: [
@@ -303,6 +333,8 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           serializedUnderlineStyles,
           combinedPatternedStrike,
           combinedPatternedStrikeRoundtrip,
+          doubleStrikeCases,
+          externalDoubleStrike,
           underlineColorHtml,
           underlineColorRoundtrip,
           underlineColorStrikeHtml,
@@ -382,6 +414,20 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.match(result.combinedPatternedStrike, /<u[^>]*text-decoration-line: underline/);
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.underline, 'wavy');
     assert.equal(result.combinedPatternedStrikeRoundtrip.formats[0].format.strike, true);
+    assert.equal(result.externalDoubleStrike.formats[0].format.strike, 'dblStrike');
+    for (const entry of result.doubleStrikeCases) {
+      assert.equal(entry.strikeLine, 'line-through');
+      assert.equal(entry.strikeStyle, 'double');
+      assert.equal(entry.parsed.formats[0].format.strike, 'dblStrike');
+      if (entry.underline) {
+        const expected = { sng: 'solid', dbl: 'double', wavy: 'wavy' }[entry.underline];
+        assert.equal(entry.underlineStyle, expected);
+        assert.equal(
+          entry.parsed.formats[0].format.underline,
+          entry.underline === 'sng' ? true : entry.underline,
+        );
+      } else assert.equal(entry.parsed.formats[0].format.underline, undefined);
+    }
     assert.match(result.underlineColorHtml, /text-decoration-color: rgb\(170, 187, 204\)/);
     assert.equal(result.underlineColorRoundtrip.formats[0].format.color, '#112233');
     assert.equal(result.underlineColorRoundtrip.formats[0].format.underlineColor, '#aabbcc');
@@ -474,7 +520,7 @@ for (const kind of ['shape', 'cell'])
           data.setData('text/plain', 'English日本語');
           data.setData(
             'text/html',
-            '<span style="font-size:24pt;color:#13579b"><b>English</b><i>日本語</i></span>',
+            '<span style="font-size:24pt;color:#13579b;text-decoration:line-through double"><b>English</b><i>日本語</i></span>',
           );
           node.dispatchEvent(
             new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
@@ -496,7 +542,9 @@ for (const kind of ['shape', 'cell'])
         assert.equal(result[0].format.bold, true);
         assert.equal(result[0].format.size, 24);
         assert.equal(result[0].format.color.toUpperCase(), '#13579B');
+        assert.equal(result[0].format.strike, 'dblStrike');
         assert.equal(result.at(-1).format.italic, true);
+        assert.equal(result.at(-1).format.strike, 'dblStrike');
         await editor
           .getByTitle(ja ? '元に戻す (Ctrl+Z)' : 'Undo (Ctrl+Z)', { exact: true })
           .click();
