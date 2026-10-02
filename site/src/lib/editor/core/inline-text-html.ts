@@ -86,9 +86,12 @@ export function inlineTextHtml(
     style.verticalAlign = 'top';
     style.width = '100%';
     style.boxSizing = 'border-box';
-    style.fontSize = scaled(defaults.size, 'pt');
+    // Keep the paragraph strut at zero. A large inherited fallback here would
+    // enlarge line boxes containing smaller explicitly-sized runs; preview
+    // lays out each run at its own effective size instead.
+    style.fontSize = text ? '0px' : scaled(defaults.size, 'pt');
     style.fontFamily = defaults.family;
-    style.lineHeight = '1.05';
+    style.lineHeight = text ? '0' : '1.05';
     const props = properties[index]!;
     style.tabSize = scaled((props.defaultTabSizeEmu ?? 914400) / 9525, 'px');
     if (props.tabStops?.length)
@@ -128,6 +131,11 @@ export function inlineTextHtml(
     const formatted = document.createElement('div');
     // The exporter only emits escaped text and allowlisted styles.
     formatted.innerHTML = textClipboardHtml({ text, formats });
+    for (const span of formatted.querySelectorAll('span')) {
+      if (!span.style.fontSize) span.style.fontSize = `${defaults.size}pt`;
+      if (!span.style.fontFamily) span.style.fontFamily = defaults.family;
+      if (!props.lineSpacing) span.style.lineHeight = '1.05';
+    }
     const firstRun = formatted.querySelector('span');
     if (marker && firstRun) {
       if (firstRun.style.fontSize)
