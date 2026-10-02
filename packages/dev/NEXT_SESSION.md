@@ -1448,3 +1448,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Root verification: 40 tests in four files (effect colors, opacity, percentage lexical forms, preview effects/fills) pass; scoped formatting/lint, root typecheck/build and diff checks pass. This is reader/render-path coverage, not a native pixel match claim.
 - Latest native retry still fails at `Sky Computer Use native pipe startup failed`. No native edits were made. Reference restoration remains pending; never overwrite the open reference document.
 - Ruler/inline audit passed 15 existing browser cases. Mixed-selection marker semantics and rotated/vertical ruler support still require native comparison; no speculative UI change was made.
+
+## 2026-10-03: Inline bullet styling and remembered duotone
+
+- Inline editing now retains directly authored bullet color, relative/point size, and font. Latin major/minor theme font tokens are resolved before becoming CSS. Browser regression covers `50%`, 20pt, distinct colors/fonts and the major theme font; it passes (`/tmp/inline-bullet-style-final.log`). This does not implement inherited bullet-style cascading or establish complete editing-layout parity.
+- Bullet percentage reading uses the shared DrawingML parser. Four percent-form cases failed before the fix (`/tmp/bullet-percentages-before.log`); import/save/reload tests cover 25%, 50%, 100%, 400% and fixed-point 50000.
+- `getShapeImageDuotone` supports `resolveColors: false` for read/edit/write. Image-fill memory now uses it, retaining scheme references and color transforms when switching fills. Alternate color models become base RGB with separate transforms, avoiding double shade application. Root strengthened tests to check resolved appearance and raw style after save/reload; editor memory persistence is also checked.
+- Root verification: 31 core tests across five files and six remembered-fill tests pass; scoped format/lint, core typecheck/build pass. Agent editor build/browser regression pass; site check reports zero errors/warnings. Full CI on previous pushed commit a4e3dfe2 has five successful jobs and Node 24 Chromium still in progress (run 37046520050); do not claim all CI passed.
+- User's latest connection retry still fails at native pipe startup. Reference restoration remains pending; no new native mutations. Full PowerPoint parity remains incomplete.

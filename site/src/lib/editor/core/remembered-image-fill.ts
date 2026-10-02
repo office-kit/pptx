@@ -7,6 +7,7 @@ import {
   getShapeImageContrast,
   getShapeImageCrop,
   getShapeImageBiLevelThreshold,
+  getShapeImageDuotone,
   isShapeImageGrayscale,
   setShapeImageRecolor,
   setShapeImageFill,
@@ -19,6 +20,7 @@ import {
   type ImageFillLayout,
   type ImageCrop,
   type ImageRecolor,
+  type PresentationData,
   type SlideShapeData,
 } from '@office-kit/pptx';
 
@@ -33,18 +35,22 @@ export interface RememberedImageFill {
   crop: ImageCrop | null;
 }
 
-export function readRememberedImageFill(shape: SlideShapeData): RememberedImageFill | undefined {
+export function readRememberedImageFill(
+  pres: PresentationData,
+  shape: SlideShapeData,
+): RememberedImageFill | undefined {
   const bytes = getShapeImageFillBytes(shape);
   const format = getShapeImageFormat(shape);
   if (!bytes || !format) return undefined;
   const crop = getShapeImageCrop(shape);
   if (crop && Object.values(crop).some((value) => !Number.isFinite(value))) return undefined;
   const threshold = getShapeImageBiLevelThreshold(shape);
+  const duotone = getShapeImageDuotone(pres, shape, { resolveColors: false });
   const recolor: ImageRecolor | null = isShapeImageGrayscale(shape)
     ? { kind: 'grayscale' }
     : threshold !== null
       ? { kind: 'threshold', threshold }
-      : null;
+      : duotone;
   return {
     bytes: bytes.slice(),
     format,

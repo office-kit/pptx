@@ -1,10 +1,11 @@
 import { readImageCrop } from './_image-crop.ts';
 import { readImageOpacity, writeImageOpacity } from './_image-opacity.ts';
 import { readDrawingmlPercentage } from './_drawingml-percentage.ts';
-import { type Color, buildColorElement } from '../../internal/drawingml/index.ts';
+import { asColor, type Color, buildColorElement } from '../../internal/drawingml/index.ts';
 import {
   buildColorTransforms,
   type ColorTransform,
+  readColorTransforms,
 } from '../../internal/drawingml/color-transforms.ts';
 // Picture opacity and cropping.
 import { getSlides } from './slide-query.ts';
@@ -333,12 +334,43 @@ export const getShapeImageBiLevelThreshold = (shape: SlideShapeData): number | n
  * Reads the picture's duotone color transform from `<a:blip><a:duotone>`.
  * PowerPoint emits two `<a:srgbClr>` (or scheme color) children for a
  * two-color duotone effect — typical "Picture Tools › Recolor".
- * Returns `null` when no duotone is set.
+ * By default colors are resolved to RGB for rendering. Pass
+ * `{ resolveColors: false }` to preserve authoring color models and
+ * transforms for a read-edit-write cycle. Only sRGB and scheme colors can
+ * retain their authoring model; other DrawingML models are returned as their
+ * resolved base color with the original transforms. Returns `null` when no
+ * duotone is set.
  */
-export const getShapeImageDuotone = (
+export function getShapeImageDuotone(
   pres: PresentationData,
   shape: SlideShapeData,
-): { firstColor: string | null; secondColor: string | null } | null => {
+): { firstColor: string | null; secondColor: string | null } | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: { readonly resolveColors: false },
+): Extract<ImageRecolor, { kind: 'duotone' }> | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: { readonly resolveColors: true },
+): { firstColor: string | null; secondColor: string | null } | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options: { readonly resolveColors: boolean },
+):
+  | { firstColor: string | null; secondColor: string | null }
+  | Extract<ImageRecolor, { kind: 'duotone' }>
+  | null;
+export function getShapeImageDuotone(
+  pres: PresentationData,
+  shape: SlideShapeData,
+  options?: { readonly resolveColors?: boolean },
+):
+  | { firstColor: string | null; secondColor: string | null }
+  | Extract<ImageRecolor, { kind: 'duotone' }>
+  | null {
   let blip: XmlElement | null = null;
   if (shape[SHAPE_SNAPSHOT].kind === 'picture') {
     const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
@@ -355,6 +387,7 @@ export const getShapeImageDuotone = (
   if (!duotone) return null;
   const theme = getPresentationTheme(pres);
   const colors: Array<string | null> = [];
+  const rawColors: ImageRecolorColor[] = [];
   for (const c of duotone.children) {
     if (c.kind !== 'element' || c.name.namespaceURI !== NS.dml) continue;
     if (
@@ -365,15 +398,38 @@ export const getShapeImageDuotone = (
       c.name.localName === 'sysClr' ||
       c.name.localName === 'prstClr'
     ) {
-      colors.push(resolveDrawingColor(c, theme));
+      if (options?.resolveColors === false) {
+        const value = getAttrValue(c, qname('', 'val', ''));
+        const raw =
+          c.name.localName === 'schemeClr' && value
+            ? asColor(`scheme:${value}`)
+            : c.name.localName === 'srgbClr' && value
+              ? asColor(`#${value}`)
+              : null;
+        const base = raw ?? asColor(resolveDrawingColor({ ...c, children: [] }, null) ?? '');
+        if (base) {
+          const transforms = readColorTransforms(c);
+          rawColors.push(
+            transforms.length === 0 ? base : { color: base, colorTransforms: transforms },
+          );
+        }
+      } else {
+        colors.push(resolveDrawingColor(c, theme));
+      }
       if (colors.length === 2) break;
+      if (rawColors.length === 2) break;
     }
   }
-  return {
+  if (options?.resolveColors === false)
+    return rawColors.length === 2
+      ? { kind: 'duotone', colors: [rawColors[0]!, rawColors[1]!] }
+      : null;
+  const resolved = {
     firstColor: colors[0] ?? null,
     secondColor: colors[1] ?? null,
   };
-};
+  return resolved;
+}
 
 export const getShapeImageLinkUrl = (shape: SlideShapeData): string | null => {
   const slide = shape[SHAPE_SLIDE];
