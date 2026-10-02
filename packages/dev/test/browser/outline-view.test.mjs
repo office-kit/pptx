@@ -417,7 +417,7 @@ for (const locale of ['en', 'ja'])
         assert.equal(getSlides(await read()).length, 1);
         await title.focus();
         await title.evaluate((node) => window.selectEditorText(node, 8, 8));
-        await change(() => title.press('Enter'));
+        await change(() => title.press('Shift+Enter'));
         pres = await read();
         assert.equal(getShapeText(getSlideShapes(getSlides(pres)[0])[0]), 'Outline ');
         assert.equal(getShapeText(getSlideShapes(getSlides(pres)[1])[0]), 'title edited');
