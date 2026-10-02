@@ -1413,3 +1413,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Root reproduced dropped gradient stops against the pre-fix source (`/tmp/gradient-preset-before-root.log`) and white background rendering (`/tmp/preset-consumers-before.log`). Public save/reload and shaded-color pixel regressions pass after correction.
 - Final verification: 41 tests across 8 files, scoped formatting, lint, typecheck and core build pass (`/tmp/preset-consumers-final.log`). Existing sRGB/scheme background-transform handling and hslClr/scrgbClr remain separate unresolved gaps.
 - On the user's latest connection check, PowerPoint still failed with `Sky Computer Use native pipe startup failed`, before screen capture. No native changes were made; restoring the reference document remains pending. CI 37035075036 still has Node 24 running; the other five jobs passed. Local changes await the batched push to PR #287.
+
+## 2026-10-03: Shape paint base-color readers
+
+- Raw shape fill and stroke readers now reuse the existing gradient base-color reader, retaining preset/system colors instead of returning an empty string. sRGB and scheme-token behavior is unchanged; shade is not baked into the raw preset base color.
+- Root reproduced two empty-color failures (`/tmp/shape-raw-color-before.log`). Six import/save/reload cases cover directly authored paint and layout/master placeholder inheritance. Related 30 tests, scoped formatting, lint, typecheck and core build pass (`/tmp/shape-raw-color-final.log`).
+- Parallel background-transform and hslClr/scrgbClr changes remain under review separately. Raw hslClr/scrgbClr readers and additional dispatch filters still need auditing; resolver support alone does not prove end-to-end coverage.
