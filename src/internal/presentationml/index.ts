@@ -41,6 +41,7 @@ export {
 } from './media-builder.ts';
 export type { TableOptions } from './table-builder.ts';
 export { buildTable, buildTableCell, buildTableRow } from './table-builder.ts';
+export { getBuiltinTableStyle } from './table-styles.ts';
 export { buildEmptyNotesSlide } from './notes-slide-builder.ts';
 export type { SlideTransition, TransitionEffect, TransitionOptions } from './transition-builder.ts';
 export { buildTransition } from './transition-builder.ts';

@@ -23,6 +23,7 @@ import {
   savePresentation,
   setTableCellAlignment,
   setTableCellMargins,
+  setTableStyleId,
   setTableStyleFlags,
   setSlideSize,
   getSlideSize,
@@ -334,4 +335,69 @@ describe('table cell text rendering', () => {
       expect(output).toMatch(textLayout === 'svg' ? /fill="#008800"/ : /color:#008800/);
     },
   );
+
+  it('renders embedded table-style cell fills and borders, preserving explicit noFill', async () => {
+    const { pres, slide } = await blankSlide();
+    const tableShape = addSlideTable(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(2),
+      rows: [['Header'], ['Transparent']],
+    });
+    setTableStyleFlags(tableShape, { firstRow: true, lastRow: true, bandRow: false });
+
+    const { entries } = readZip(await savePresentation(pres));
+    const decoder = new TextDecoder();
+    const encoder = new TextEncoder();
+    let mutatedSlideXml = '';
+    const styleId = '{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}';
+    const stylesXml = `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${styleId}"><a:tblStyle styleId="${styleId}" styleName="Appearance regression"><a:wholeTbl><a:tcStyle><a:tcBdr><a:left><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:left><a:right><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:right><a:top><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:top><a:bottom><a:ln w="12700"><a:solidFill><a:srgbClr val="FF0000"/></a:solidFill></a:ln></a:bottom></a:tcBdr><a:fill><a:solidFill><a:srgbClr val="123456"/></a:solidFill></a:fill></a:tcStyle></a:wholeTbl><a:firstRow><a:tcStyle><a:tcBdr><a:bottom><a:ln w="25400"><a:solidFill><a:srgbClr val="0000FF"/></a:solidFill></a:ln></a:bottom></a:tcBdr><a:fill><a:solidFill><a:srgbClr val="00AA00"/></a:solidFill></a:fill></a:tcStyle></a:firstRow><a:lastRow><a:tcStyle><a:tcBdr><a:top><a:ln w="38100"><a:solidFill><a:srgbClr val="00FFFF"/></a:solidFill></a:ln></a:top></a:tcBdr></a:tcStyle></a:lastRow></a:tblStyle></a:tblStyleLst>`;
+    const mutated = writeZip(
+      entries.map((entry) => {
+        if (entry.name === 'ppt/tableStyles.xml') {
+          return { ...entry, data: encoder.encode(stylesXml) };
+        }
+        if (entry.name !== 'ppt/slides/slide1.xml') return entry;
+        let tcPrIndex = 0;
+        const xml = decoder.decode(entry.data).replace(/<a:tcPr(?:\s[^>]*)?\/>/g, () => {
+          tcPrIndex += 1;
+          return tcPrIndex === 2 ? '<a:tcPr><a:noFill/></a:tcPr>' : '<a:tcPr/>';
+        });
+        mutatedSlideXml = xml;
+        return { ...entry, data: encoder.encode(xml) };
+      }),
+    );
+
+    expect(mutatedSlideXml).toContain('<a:tcPr><a:noFill/></a:tcPr>');
+    const loaded = await loadPresentation(mutated);
+    const loadedSlide = getSlides(loaded)[0]!;
+    const output = renderSlideToSvg(loaded, loadedSlide, { textLayout: 'svg' });
+    expect(output).toMatch(/<g data-pptx-cell="0,0"><rect[^>]*fill="#00AA00"/);
+    expect(output).toMatch(/<g data-pptx-cell="1,0"><rect[^>]*fill="none"/);
+    expect(output).toMatch(/x1="96\.00" y1="192\.00" x2="672\.00" y2="192\.00" stroke="#00FFFF"/);
+    expect(output).not.toMatch(
+      /x1="96\.00" y1="192\.00" x2="672\.00" y2="192\.00" stroke="#FF0000"/,
+    );
+    expect(output).not.toContain('stroke="#9CA3AF"');
+    expect(output).not.toMatch(
+      /<rect x="96\.00" y="96\.00" width="576\.00" height="192\.00" fill="#FFFFFF"/,
+    );
+  });
+
+  it('does not invent table paint when the referenced style is unavailable', async () => {
+    const { pres, slide } = await blankSlide();
+    const tableShape = addSlideTable(slide, {
+      x: inches(1),
+      y: inches(1),
+      w: inches(6),
+      h: inches(2),
+      rows: [['No style']],
+    });
+    setTableStyleId(tableShape, '{00000000-0000-0000-0000-000000000000}');
+    setTableStyleFlags(tableShape, { firstRow: true, bandRow: true });
+    const output = renderSlideToSvg(pres, getSlides(pres)[0]!, { textLayout: 'svg' });
+    expect(output).toMatch(/<g data-pptx-cell="0,0"><rect[^>]*fill="none"/);
+    expect(output).not.toContain('stroke="#9CA3AF"');
+  });
 });

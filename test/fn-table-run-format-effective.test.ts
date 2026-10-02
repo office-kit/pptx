@@ -7,7 +7,9 @@ import {
   getSlides,
   getSlideShapes,
   getTableCellRunFormatEffective,
+  getTableCellAppearanceEffective,
   getTableCells,
+  mergeTableCells,
   setTableStyleFlags,
   inches,
   loadPresentation,
@@ -166,7 +168,7 @@ describe('fn API: getTableCellRunFormatEffective', () => {
             return {
               ...entry,
               data: encoder.encode(
-                `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${styleId}"><a:tblStyle styleId="${styleId}" styleName="Test"><a:wholeTbl><a:tcTxStyle b="on"><a:fontRef idx="major"><a:schemeClr val="accent1"/></a:fontRef><a:srgbClr val="00FF00"/></a:tcTxStyle></a:wholeTbl><a:band1H><a:tcTxStyle i="off"/></a:band1H><a:firstCol><a:tcTxStyle b="off"/></a:firstCol><a:firstRow><a:tcTxStyle b="on" i="on"><a:font><a:latin typeface="Courier New"/><a:ea typeface="MS Gothic"/><a:cs typeface="Arial"/></a:font></a:tcTxStyle></a:firstRow></a:tblStyle></a:tblStyleLst>`,
+                `<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="${styleId}"><a:tblStyle styleId="${styleId}" styleName="Test"><a:wholeTbl><a:tcTxStyle b="on"><a:fontRef idx="major"><a:schemeClr val="accent1"/></a:fontRef><a:srgbClr val="00FF00"/></a:tcTxStyle><a:tcStyle><a:tcBdr><a:left><a:ln w="12700"><a:solidFill><a:srgbClr val="445566"/></a:solidFill></a:ln></a:left></a:tcBdr><a:fill><a:solidFill><a:srgbClr val="112233"/></a:solidFill></a:fill></a:tcStyle></a:wholeTbl><a:band1H><a:tcTxStyle i="off"/></a:band1H><a:firstCol><a:tcTxStyle b="off"/></a:firstCol><a:firstRow><a:tcTxStyle b="on" i="on"><a:font><a:latin typeface="Courier New"/><a:ea typeface="MS Gothic"/><a:cs typeface="Arial"/></a:font></a:tcTxStyle></a:firstRow></a:tblStyle></a:tblStyleLst>`,
               ),
             };
           }
@@ -188,7 +190,12 @@ describe('fn API: getTableCellRunFormatEffective', () => {
     );
     const table = getSlideShapes(getSlides(loaded)[0]!)[0]!;
     setTableStyleFlags(table, { firstRow: true, firstCol: true, bandRow: true });
+    mergeTableCells(table, { row: 0, col: 0, rowSpan: 1, colSpan: 2 });
     const cells = getTableCells(table);
+    expect(getTableCellAppearanceEffective(loaded, cells[0]![0]!)).toMatchObject({
+      fill: { kind: 'solid', color: '#112233' },
+      borders: { left: { widthEmu: 12700, color: '#445566' } },
+    });
     expect(getTableCellRunFormatEffective(loaded, cells[0]![0]!, 0, 0)).toMatchObject({
       bold: true,
       font: 'Courier New',

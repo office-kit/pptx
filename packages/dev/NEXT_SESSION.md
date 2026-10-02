@@ -1,3 +1,12 @@
+## 2026-10-02: 埋め込み表スタイルの外観
+
+- `getTableCellAppearanceEffective` で tcStyle の単色塗り、明示 noFill、外周・内部罫線を解決し、プレビューに統合。推測アクセント塗り、強制白背景、未指定の灰色グリッドを除去。
+- 実機の `tableStyles.xml` を `test/fixtures/native-table-style.xml` として保存。dml-main.xsd による xmllint 検証成功。見出し・帯の塗り、見出し下罫線、XML の保存保持を回帰テストに追加。
+- fillRef/lnRef のテーマ行列参照、背景塗り参照、phClr と色変換を解決。既定 Medium Style 2 – Accent 1 は GUID のみでも実機定義から解決する。他の組み込み GUID は未対応。表の寸法はキャッシュし、行列追加・削除時に無効化する回帰を追加。
+- 未完了: gradient/pattern/image の実描画、罫線競合の完全な優先順位、結合セルをまたぐ部分的な共有辺、結合領域の lastRow/lastCol スタイル選択、帯領域の辺解決、表背景 tblBg。
+- 最終 core 検証: 3280 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build、Svelte 0 errors/warnings。最終ビルドの表文字編集 browser 2 件成功。site/dev の単体 154 件成功。
+- PowerPoint の reference.pptx は画面取得・保存済み・Undo 無効を再確認。未復元変更なし。ユーザーの 4173 と .pnpm-store は保持。全 PowerPoint 操作一致は未完了。
+
 ## 2026-10-02: 埋め込み表スタイルの文字書式
 
 - 既存 `getTableCellRunFormatEffective` に `tableStyles.xml` の `tcTxStyle` 継承を統合。wholeTbl・帯・行列端・四隅の順序、直接フォント・テーマフォント・色・太字・斜体を扱う。セル側の明示書式を優先する。
