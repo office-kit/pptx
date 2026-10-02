@@ -1233,3 +1233,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 
 - Extended real-editor custom-tab coverage to `vert270`: compare the bottom glyph edge for reversed inline progression (top edges include differing glyph advances). Both directions pass edit-entry, typing/reflow and Undo assertions (`/tmp/vertical-tab-directions.log`: 2 passed). Native comparison remains pending.
 - Expanded both vertical directions to left/center/right/decimal stops in the real editor (8 cases): preview/edit-entry agreement, tab alignment after typing, and Undo all pass (`/tmp/vertical-tab-alignments.log`). This verifies the existing implementation across all four alignments; no production behavior was changed.
+
+## 2026-10-02: Shared picture crop position controls
+
+- Ordinary pictures still exposed four raw crop percentages while video used picture/frame position fields. Reused the numeric crop component for pictures and removed the percentage form. Renamed VideoCropSection to PictureCropSection; video keeps its existing location and no duplicate controls.
+- Reproduced the missing Offset X field before implementation (`/tmp/picture-crop-before.log`). Image adjustment/mask browser tests now exercise the position control; the adjustment test checks frame retention, source shift, reset to full picture, Undo, and persisted crop with original bytes retained. Both pass (`/tmp/picture-crop-after.log`). Video regression initially exposed duplicate fields because video is also a picture shape; restricted the image section to non-media pictures. Video crop/history/validation passes (`/tmp/shared-crop-video.log`). Svelte check: zero errors/warnings; editor build and scoped lint/format pass.
+- Native picture pane placement/geometry and inline crop handles remain unverified/incomplete; this shares the previously implemented numeric model, not proof of full native picture UI parity.

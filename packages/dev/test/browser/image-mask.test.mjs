@@ -79,8 +79,8 @@ test(
       await dialog.waitFor({ state: 'hidden' });
       await saved();
       const originalBounds = getShapeBounds(await picture());
-      await editor.getByLabel('Crop left (%)', { exact: true }).fill('10');
-      await editor.getByLabel('Crop left (%)', { exact: true }).press('Tab');
+      await editor.getByLabel('Offset X', { exact: true }).fill('0.5');
+      await editor.getByLabel('Offset X', { exact: true }).press('Tab');
       await saved();
       const crop = getShapeImageCrop(await picture());
       for (const [preset, tag] of [

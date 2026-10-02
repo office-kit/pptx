@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { chromium } from 'playwright';
 import {
+  cm,
   getSlides,
   getSlideShapes,
   getShapeKind,
@@ -90,7 +91,25 @@ test(
         await editor.getByLabel(label, { exact: true }).press('Tab');
         await saved();
       };
-      await change('Crop left (%)', '10');
+      const uncropped = await picture();
+      const initialBounds = getShapeBounds(uncropped);
+      await change('Offset X', '0.5');
+      const shifted = await picture();
+      const shiftedCrop = getShapeImageCrop(shifted);
+      assert.deepEqual(getShapeBounds(shifted), initialBounds);
+      assert.ok(Math.abs(shiftedCrop.left + cm(0.5) / initialBounds.w) < 0.00002);
+      assert.ok(Math.abs(shiftedCrop.right - cm(0.5) / initialBounds.w) < 0.00002);
+      const cropSection = editor.locator('section[aria-label="Crop"]');
+      await cropSection.getByRole('button', { name: 'Reset', exact: true }).click();
+      await saved();
+      const expanded = await picture();
+      assert.equal(getShapeImageCrop(expanded), null);
+      assert.ok(Math.abs(getShapeBounds(expanded).x - initialBounds.x - cm(0.5)) < cm(0.002));
+      assert.equal(getShapeBounds(expanded).w, initialBounds.w);
+      await editor.getByTitle('Undo (Ctrl+Z)', { exact: true }).click();
+      await saved();
+      assert.deepEqual(getShapeBounds(await picture()), initialBounds);
+      assert.deepEqual(getShapeImageCrop(await picture()), shiftedCrop);
       await editor.getByLabel('Image shape', { exact: true }).selectOption('ellipse');
       await saved();
       const before = await picture();

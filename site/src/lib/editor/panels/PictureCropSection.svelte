@@ -4,15 +4,15 @@
   import { editFrameCropGeometry, editPictureCropGeometry, getPictureCropGeometry, resetCropGeometry, type PictureCropGeometry } from '../core/crop-geometry.ts';
   import { t } from '../i18n/i18n.svelte.ts';
 
-  let { video }: { video: SlideShapeData } = $props();
+  let { picture }: { picture: SlideShapeData } = $props();
   const editor = getEditor();
   const doc = editor.doc;
   const maxDimension = 5963.92;
   const locked = $derived(editor.selectionLocked());
   const current = $derived.by(() => {
     doc.version;
-    const frame = getShapeBoundsResolved(doc.pres, video);
-    const crop = getShapeImageCrop(video);
+    const frame = getShapeBoundsResolved(doc.pres, picture);
+    const crop = getShapeImageCrop(picture);
     // Imported OOXML may have an empty source rectangle, which cannot be
     // represented by finite picture dimensions in the numeric crop controls.
     if (!frame || frame.w <= 0 || frame.h <= 0 ||
@@ -39,8 +39,8 @@
   function apply(next: ReturnType<typeof editPictureCropGeometry> | ReturnType<typeof resetCropGeometry>) {
     doc.transact(t('Crop'), () => {
       // Validate crop before mutating bounds: ST_Percentage has a signed limit.
-      setShapeImageCrop(video, next.crop);
-      setShapeBounds(video, { x: emu(next.frame.x), y: emu(next.frame.y), w: emu(next.frame.w), h: emu(next.frame.h) });
+      setShapeImageCrop(picture, next.crop);
+      setShapeBounds(picture, { x: emu(next.frame.x), y: emu(next.frame.y), w: emu(next.frame.w), h: emu(next.frame.h) });
     });
   }
 
