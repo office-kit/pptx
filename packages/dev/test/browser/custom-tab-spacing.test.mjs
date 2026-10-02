@@ -67,7 +67,9 @@ test('custom tab alignment uses painted browser font widths', { timeout: 90000 }
         Math.abs(placement.start + shift - 192) < 1,
         `${alignment}: ${JSON.stringify(placement)}`,
       );
-      await editor.locator('.hit').first().dblclick();
+      const textEditor = editor.getByRole('textbox', { name: 'Edit text', exact: true });
+      if (!(await textEditor.isVisible())) await editor.locator('.hit').first().click();
+      await textEditor.click();
       const input = editor.locator('[contenteditable="true"]');
       const editing = input.locator('[data-text-paragraph]').first();
       const measureEditing = () =>
@@ -124,5 +126,53 @@ test('custom tab alignment uses painted browser font widths', { timeout: 90000 }
     await browser?.close();
     await preview?.close();
     await rm(dir, { recursive: true, force: true });
+  }
+});
+
+test('editing tab widths follow capitalization and kerning', async () => {
+  const { build } = await import('esbuild');
+  const { fileURLToPath } = await import('node:url');
+  const bundle = await build({
+    stdin: {
+      contents: `export {layoutEditingTabs} from './editing-tabs.ts';`,
+      loader: 'ts',
+      resolveDir: fileURLToPath(new URL('../../../../site/src/lib/editor/core/', import.meta.url)),
+    },
+    bundle: true,
+    format: 'esm',
+    platform: 'browser',
+    write: false,
+  });
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage();
+    const results = await page.evaluate(async (code) => {
+      const module = await import(
+        URL.createObjectURL(new Blob([code], { type: 'text/javascript' }))
+      );
+      return [
+        { text: 'av av av', transform: 'uppercase', kerning: 'normal' },
+        { text: 'AVAVAVAV', transform: 'none', kerning: 'none' },
+      ].map((item) => {
+        const root = document.createElement('div');
+        root.style.cssText = `font:80px Arial;white-space:pre;`;
+        const paragraph = document.createElement('section');
+        paragraph.dataset.tabStops = '600:right';
+        paragraph.style.cssText = `text-transform:${item.transform};font-kerning:${item.kerning};tab-size:96px`;
+        paragraph.textContent = '\t' + item.text;
+        root.append(paragraph);
+        document.body.append(root);
+        module.layoutEditingTabs(root, 1);
+        const range = document.createRange();
+        range.selectNodeContents(paragraph.lastChild);
+        const right = range.getBoundingClientRect().right - paragraph.getBoundingClientRect().left;
+        root.remove();
+        return { ...item, right };
+      });
+    }, bundle.outputFiles[0].text);
+    for (const result of results)
+      assert.ok(Math.abs(result.right - 600) < 1, JSON.stringify(result));
+  } finally {
+    await browser.close();
   }
 });
