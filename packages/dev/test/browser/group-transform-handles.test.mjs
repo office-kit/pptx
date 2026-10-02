@@ -264,13 +264,17 @@ const dragBy = async (page, from, to) => {
 };
 
 /** Steps down into the group — one step per frame — and selects the child. */
-const selectChild = async (editor, depth, word) => {
+const selectChild = async (editor, depth, word, page) => {
   for (let step = 0; step < depth; step += 1) {
     await editor.locator('.hit').first().dblclick();
     await editor.getByText(word('Editing group'), { exact: true }).waitFor();
   }
   assert.equal(await editor.locator('.hit').count(), 2);
-  await editor.locator('.hit').first().click();
+  // Select the shape's empty edge without entering its text editor.
+  const target = editor.locator('.hit').first();
+  const box = await target.boundingBox();
+  assert.ok(box, 'the child hit target is visible');
+  await page.mouse.click(box.x + 2, box.y + 2);
 };
 
 const scenario = (name, options) =>
@@ -284,6 +288,11 @@ const scenario = (name, options) =>
         const { pres, depth, childId, siblingId, frameIds } = buildDeck(options);
         session = await openEditor(dir, pres, options.language ?? 'en');
         const { preview, page, editor, errors, word, reopen } = session;
+        // The nested transform sends the drag endpoint outside the viewport at fit zoom.
+        if (options.nested) {
+          const zoomOut = editor.getByTitle(word('Zoom out (Ctrl+-)'), { exact: true });
+          for (let step = 0; step < 3; step += 1) await zoomOut.click();
+        }
 
         const before = await geometryOf(preview, childId);
         const siblingBefore = await geometryOf(preview, siblingId);
@@ -309,7 +318,7 @@ const scenario = (name, options) =>
           assert.deepEqual(await geometryOf(preview, siblingId), siblingBefore, `sibling ${when}`);
         };
 
-        await selectChild(editor, depth, word);
+        await selectChild(editor, depth, word, page);
         const handle = (name) => editor.getByRole('button', { name: word(name), exact: true });
         const button = (name) => editor.getByTitle(word(name), { exact: true });
         await handle('Resize se').waitFor();
@@ -383,7 +392,9 @@ const scenario = (name, options) =>
         );
 
         // --- Rotating ------------------------------------------------------
-        await editor.locator('.hit').first().click();
+        const box = await editor.locator('.hit').first().boundingBox();
+        assert.ok(box, 'the child hit target is visible');
+        await page.mouse.click(box.x + 2, box.y + 2);
         await handle('Rotate').waitFor();
         const corners = {
           nw: centreOf(await handle('Resize nw').boundingBox()),
@@ -553,7 +564,7 @@ test(
       const before = await geometryOf(preview, childId);
       const framesBefore = [];
       for (const id of frameIds) framesBefore.push(await geometryOf(preview, id));
-      await selectChild(editor, depth, word);
+      await selectChild(editor, depth, word, page);
       const handle = (name) => editor.getByRole('button', { name, exact: true });
       await handle('Resize se').waitFor();
 
