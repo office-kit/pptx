@@ -2,12 +2,14 @@
 
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { strFromU8, strToU8, unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { renderSlideToSvg } from '../packages/preview/src/index.ts';
 import {
   getShapeKind,
   getShapeImageBytes,
   getShapeImageOpacity,
+  getSlideBackgroundImageOpacity,
   setShapeImageFill,
   getSlideShapes,
   getSlideXmlString,
@@ -26,6 +28,38 @@ const slideXml = async (bytes: Uint8Array, slideIndex: number): Promise<string> 
 };
 
 describe('fn API: setShapeImageOpacity', () => {
+  it('reads fixed-point and percent lexical opacity for shapes and backgrounds', async () => {
+    for (const lexical of ['50000', '50%']) {
+      const parts = unzipSync(await readFile(fixture('one-image-slide.pptx')));
+      const slidePart = 'ppt/slides/slide1.xml';
+      let xml = strFromU8(parts[slidePart]!);
+      xml = xml.replace(
+        '<a:blip r:embed="rId2"/>',
+        `<a:blip r:embed="rId2"><a:alphaModFix amt="${lexical}"/></a:blip>`,
+      );
+      xml = xml.replace(
+        '<p:cSld>',
+        '<p:cSld><p:bg><p:bgPr><a:blipFill><a:blip r:embed="rId2"><a:alphaModFix amt="' +
+          lexical +
+          '"/></a:blip><a:stretch><a:fillRect/></a:stretch></a:blipFill></p:bgPr></p:bg>',
+      );
+      parts[slidePart] = strToU8(xml);
+      const pres = await loadPresentation(zipSync(parts));
+      const slide = getSlides(pres)[0]!;
+      const picture = getSlideShapes(slide).find((s) => getShapeKind(s) === 'picture')!;
+      expect(getShapeImageOpacity(picture)).toBeCloseTo(0.5, 6);
+      expect(getSlideBackgroundImageOpacity(slide)).toBeCloseTo(0.5, 6);
+
+      const roundTripped = await loadPresentation(await savePresentation(pres));
+      const roundTrippedSlide = getSlides(roundTripped)[0]!;
+      const roundTrippedPicture = getSlideShapes(roundTrippedSlide).find(
+        (s) => getShapeKind(s) === 'picture',
+      )!;
+      expect(getShapeImageOpacity(roundTrippedPicture)).toBeCloseTo(0.5, 6);
+      expect(getSlideBackgroundImageOpacity(roundTrippedSlide)).toBeCloseTo(0.5, 6);
+    }
+  });
+
   it('writes <a:alphaModFix amt="..."/> with the converted ST_Percentage', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const slide = getSlides(pres)[0]!;

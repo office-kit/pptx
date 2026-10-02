@@ -554,8 +554,8 @@ const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number
   if (!lum) return null;
   const v = getAttrValue(lum, qname('', local, ''));
   if (v === null) return null;
-  const n = Number.parseInt(v, 10);
-  return Number.isFinite(n) ? n / 100000 : null;
+  const fraction = readDrawingmlPercentage(v, Number.NaN);
+  return Number.isFinite(fraction) ? fraction : null;
 };
 
 /**
