@@ -1,3 +1,9 @@
+## 2026-10-02: Semantic HTML decorations
+
+- Reproduced `<u style="text-decoration-style:double">` importing as single underline. The same problem affected `s`, `strike`, and `del` tags. The parser now resolves tag defaults before applying CSS decoration styles/colors, while explicit `none` remains authoritative.
+- Browser regression compares computed double decorations with the imported OOXML format for all four tags. Existing explicit-none and inherited-decoration tests remain in the same suite.
+- All four HTML clipboard browser tests pass; scoped format/lint, Svelte check (zero errors/warnings) and editor build pass. Log: `/tmp/semantic-decoration-full.log`.
+
 ## 2026-10-02: Double strikethrough edit-entry geometry
 
 - Extended the real inline-edit browser regression to both single and double strike across all 18 underline options. Click-to-edit preserves decoration styles and text bounds within the existing 2px tolerance; all three browser tests pass, including table theme-color coverage. Log: `/tmp/inline-double-strike-layout.log`.
