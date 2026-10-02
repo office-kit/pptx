@@ -1290,3 +1290,9 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - Uncommitted agent work on font-dialog-table, line-spacing, inline-paragraphs and FontRibbon remains under investigation. Verify table header inherited bold before treating unspecified run bold as normal; do not retain speculative FontRibbon changes without a reproduced regression and passing checks.
 
 - Resize-geometry now passes both tests (`/tmp/resize-geometry-final.log`). Initial object selection uses the border; after clicking the rotated text shape, Escape exits inline editing before resizing. Aspect ratio, opposite-corner anchoring, pointer tracking, saved rotation, Undo/Redo and reload assertions remain unchanged. Scoped format/lint and diff checks pass.
+
+## 2026-10-03: Group editing and rotated ungroup selection
+
+- Reproduced both failures (`/tmp/group-current.log`): initial text-center clicks entered inline editing, so Ctrl+A selected text instead of group children or slide objects.
+- Rotated-ungroup now starts with a border click. Group-editing exits the clicked child's text edit with Escape before Ctrl+A. Both pass (`/tmp/group-object-selection.log`), preserving group geometry, snapping/alignment, duplicate/delete, bilingual Undo/Redo, nested grouping and reload assertions. Scoped format/lint pass.
+- Agent font-dialog-table has a passing focused run (`/tmp/font-dialog-table-current.log`); its fixture explicitly marks the non-bold header run bold:false because table header bold is inherited. Speculative FontRibbon modifications were removed. Await final agent review before committing its file. Line-spacing and inline-paragraphs work remain active.

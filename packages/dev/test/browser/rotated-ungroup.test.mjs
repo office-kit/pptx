@@ -48,7 +48,9 @@ test(
           )[0],
         );
       await saved();
-      await editor.locator('.hit').first().click();
+      const firstBox = await editor.locator('.hit').first().boundingBox();
+      assert.ok(firstBox);
+      await page.mouse.click(firstBox.x + 2, firstBox.y + 2);
       await page.keyboard.press('Control+a');
       await editor.getByRole('tab', { name: 'Size & Properties' }).click();
       await editor

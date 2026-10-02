@@ -173,6 +173,7 @@ test(
         await editor.locator('.lang select').selectOption(language);
         ja = language === 'ja';
         await editor.locator('.hit.selected').click();
+        await editor.locator('.inline-edit').press('Escape');
         await page.keyboard.press('ControlOrMeta+a');
         assert.equal(await editor.locator('.hit.selected').count(), 2);
         const beforeGroup = (await state()).map((shape) => [
