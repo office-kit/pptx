@@ -104,11 +104,23 @@ for (const language of ['en', 'ja']) {
         const before = await savedShapes(preview);
 
         // Pick the formatting up off the first object, put it on the second.
-        await editor.locator('.hit').first().click();
-        await editor.locator('.hit').first().click({ button: 'right' });
+        await editor
+          .locator('.hit')
+          .first()
+          .click({ position: { x: 2, y: 2 } });
+        await editor
+          .locator('.hit')
+          .first()
+          .click({ button: 'right', position: { x: 2, y: 2 } });
         await editor.getByRole('menuitem', { name: word('Copy formatting') }).click();
-        await editor.locator('.hit').nth(1).click();
-        await editor.locator('.hit').nth(1).click({ button: 'right' });
+        await editor
+          .locator('.hit')
+          .nth(1)
+          .click({ position: { x: 2, y: 2 } });
+        await editor
+          .locator('.hit')
+          .nth(1)
+          .click({ button: 'right', position: { x: 2, y: 2 } });
         await editor.getByRole('menuitem', { name: word('Paste formatting') }).click();
         await editor.getByText(word('Saved to this project'), { exact: true }).waitFor();
 
@@ -164,20 +176,14 @@ test(
       const input = editor.locator('.inline-edit');
       await input.waitFor();
       await page.keyboard.press('ControlOrMeta+a');
-      await editor
-        .locator('.canvas-shell > .text-format-bar')
-        .getByRole('button', { name: 'Copy formatting', exact: true })
-        .click();
+      await input.press('ControlOrMeta+Alt+c');
       await page.keyboard.press('Escape');
 
       // …and paste it over the target's text.
       await editor.locator('.hit').nth(1).dblclick();
       await input.waitFor();
       await page.keyboard.press('ControlOrMeta+a');
-      await editor
-        .locator('.canvas-shell > .text-format-bar')
-        .getByRole('button', { name: 'Paste formatting', exact: true })
-        .click();
+      await input.press('ControlOrMeta+Alt+v');
       await page.keyboard.press('ControlOrMeta+Enter');
       await editor.getByText('Saved to this project', { exact: true }).waitFor();
 

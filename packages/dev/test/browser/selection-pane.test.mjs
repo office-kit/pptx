@@ -381,7 +381,10 @@ test(
       await pane.getByRole('button', { name: '選択ウィンドウを閉じる', exact: true }).click();
       assert.equal(await pane.count(), 0);
       await page.reload();
-      await editor.locator('button[aria-haspopup="menu"]').filter({ hasText: '配置' }).click();
+      await editor
+        .locator('button[aria-haspopup="menu"]:visible')
+        .filter({ hasText: '配置' })
+        .click();
       await editor
         .getByRole('menuitemcheckbox', { name: '選択ウィンドウ...', exact: true })
         .click();
