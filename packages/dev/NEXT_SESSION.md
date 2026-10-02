@@ -1,3 +1,10 @@
+## 2026-10-02: Pending outline drafts and merge confirmation
+
+- Reproduced: type into an outline title, immediately select through a later title containing an ordinary shape, then confirm deletion. The draft commit changed `doc.version` after the dialog captured it, so Yes silently did nothing.
+- `OutlineText.svelte` now flushes registered drafts into an Edit text transaction before capturing the confirmation version. External changes still invalidate stale confirmation.
+- Added browser regression `outline merge confirmation applies pending text drafts`; reproduced failure before fix. All three confirmation tests pass after fix. Site check reports zero errors/warnings; lint and editor build pass.
+- Native PowerPoint connection still fails with `Sky Computer Use native pipe startup failed`. Reference restoration remains pending; follow the restoration instructions below before further native edits.
+
 ## 2026-10-02: スライド間タイトル削除
 
 - 実機証拠 `/tmp/pptx-outline-audit/cross-slide-delete-native.pptx`: Outline title / Body → Next / Following のタイトル間範囲削除で、1 スライド Ouxt / Following になる。最初の普通のテキストボックスは保持。Body の有無いずれも確認済み。

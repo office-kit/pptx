@@ -111,6 +111,13 @@
     if (start && end && ((start.slide === end.slide && !end.title) || joinsSlides)) {
       const affected = getSlides(doc.pres).slice(start.index, end.index + 1);
       if (joinsSlides && !confirmed && affected.slice(1).some(outlineDemotionNeedsConfirmation)) {
+        // Opening the modal blurs the editor. Commit drafts before taking the
+        // version snapshot so that this blur cannot invalidate confirmation.
+        const drafts = selection.fields().map(field => ({ field, edits: field.flush() }))
+          .filter(draft => draft.edits.length);
+        if (drafts.length) doc.transact(t('Edit text'), () => {
+          for (const { field, edits } of drafts) field.apply(edits);
+        });
         const version = doc.version;
         pendingDeletion = () => {
           if (doc.pres === presentation && doc.version === version) void replaceOutlineRange(text, label, formats, true);
