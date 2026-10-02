@@ -41,6 +41,13 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
         '<p><strong>A</strong></p><p></p><p><sub>日本語</sub><br>End</p>',
         'A\n\n日本語\nEnd',
       );
+      const spacing = parse('<span style="letter-spacing:4px">Wide</span>', 'Wide');
+      const negativeSpacing = parse('<span style="letter-spacing:-2px">Tight</span>', 'Tight');
+      const zeroSpacing = parse('<span style="letter-spacing:0px">Default</span>', 'Default');
+      const resetSpacing = parse(
+        '<span style="letter-spacing:4px">Wide<span style="letter-spacing:normal">Reset</span></span>',
+        'WideReset',
+      );
       const hostile = parse(
         '<script>globalThis.clipboardExecuted=true</script><img src="https://clipboard.invalid/image" onerror="globalThis.clipboardExecuted=true"><iframe src="https://clipboard.invalid/frame"></iframe><style>@import "https://clipboard.invalid/style";</style><b>Safe</b>',
         'Safe',
@@ -65,6 +72,12 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
         ),
         mixed,
         multiline,
+        spacing,
+        negativeSpacing,
+        zeroSpacing,
+        resetSpacing,
+        spacingRoundtrip: parse(serialize(spacing), spacing.text),
+        zeroSpacingRoundtrip: parse(serialize(zeroSpacing), zeroSpacing.text),
         hostile,
         executed: !!globalThis.clipboardExecuted,
         mismatch: parse('<b>wrong</b>', 'right'),
@@ -89,6 +102,12 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.equal(result.mixed.formats[1].format.highlight, '#ffff00');
     assert.equal(result.multiline.text, 'A\n\n日本語\nEnd');
     assert.equal(result.multiline.formats.find((s) => s.format.baseline)?.format.baseline, -0.25);
+    assert.equal(result.spacing.formats[0].format.spc, 300);
+    assert.equal(result.negativeSpacing.formats[0].format.spc, -150);
+    assert.equal(result.zeroSpacing.formats[0].format.spc, 0);
+    assert.equal(result.resetSpacing.formats[1].format.spc, 0);
+    assert.deepEqual(result.spacingRoundtrip, result.spacing);
+    assert.deepEqual(result.zeroSpacingRoundtrip, result.zeroSpacing);
     assert.equal(result.hostile.text, 'Safe');
     assert.equal(result.executed, false);
     assert.equal(result.mismatch, null);
