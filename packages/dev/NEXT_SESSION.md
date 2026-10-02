@@ -1,3 +1,11 @@
+## 2026-10-02: 横結合セルの最終列を Mac 実機に合わせる
+
+- reference.pptx の 3×3 表で第 1 行を Select Row > Merge Cells により横結合し、Header Row を外して Last Column の on/off を比較。on では結合セル全体が青、off では帯の淡色になることを確認。
+- lastCol および右隅の列判定を gridSpan の終端へ変更。変更前の失敗を再現し、右端に届かない結合セル、on/off、保存再読込を回帰テストで検証。
+- 検証: core 3284 成功 / 109 skip、format/lint/typecheck/build 成功。preview・DSL・dev の型検査と build も成功。
+- 一時変更 5 操作を Undo して Undo disabled / Redo Table を確認し保存済み。接続再確認でも画面を取得でき、Outline title / Ordinary text box と Saved to my Mac を確認。未復元変更なし。
+- 残件: 結合セルの帯・共有辺・隅の優先順位、他の組み込み GUID、非単色塗り、tblBg。全操作一致は未完了。4173 と .pnpm-store は保持。
+
 ## 2026-10-02: 縦結合セルの集計行を Mac 実機に合わせる
 
 - Mac PowerPoint の reference.pptx で 3×3 表の第 1 列を Table Layout > Table > Select Column > Merge Cells により縦結合。Header Row を外し、Total Row の on/off を比較。on では結合セル全体が accent1 の青、off では帯の淡色になることを画面で確認した。結合セルの開始行ではなく終端が最終行に達することが集計行の条件。
