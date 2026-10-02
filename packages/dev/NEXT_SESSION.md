@@ -1,3 +1,12 @@
+## 2026-10-02: タイトル→本文の切り取り・文字入力置換
+
+- Mac 実機の reference.pptx で Outline title / Body の tline title + 改行 + Bo を選択。Cmd+X は Oudy、Undo 後の X 入力は OuXdy。削除と同じ本文末尾の結合を確認。
+- OutlineText の削除処理を replaceTitleBodyRange にまとめ、キーボード入力とイベント／メニューの切り取りに接続。後続本文とリンクを維持する既存コア処理を使用し、挿入後のカーソルはタイトル内へ戻す。
+- ブラウザー回帰 2 件は修正前 Heading / HeadingX（期待 Headingdy / HeadingXdy）で失敗。保存結果と Undo を検証。
+- 検証: format、lint、Svelte 型検査、関連単体 35 件、エディタービルド、ブラウザー範囲操作 14 件成功。選択準備の Shift+Up を 3 回から 2 回へ修正（3 回目はタイトル全体へ選択を広げ得る）。
+- 比較終了時に Undo、閉じる、Don't Save を実行。reference.pptx と reference-before-table-style.pptx の byte 比較一致。参照ファイルは閉じた状態。
+- 残り: Paste / beforeinput・IME、複数スライド間の置換・削除など。全面一致は未達成。
+
 ## 2026-10-02: 同一スライドのタイトル→本文の範囲削除を修正
 
 - Mac PowerPoint で Outline title / Body の tline title + 改行 + Bo を選択し Backspace → タイトル Oudy、本文は空。後続段落 Following がある場合は本文 Following を維持。保存 XML を title-body-delete-native.pptx / title-body-delete-paragraphs-native.pptx（/tmp/pptx-outline-audit）に保持。

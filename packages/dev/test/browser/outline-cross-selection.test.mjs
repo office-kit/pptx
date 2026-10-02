@@ -590,7 +590,6 @@ test(
       await body.evaluate((input) => window.selectEditorText(input, 2));
       await page.keyboard.press('Shift+ArrowUp');
       await page.keyboard.press('Shift+ArrowUp');
-      await page.keyboard.press('Shift+ArrowUp');
       const copied = await body.evaluate((input) => {
         const data = new DataTransfer();
         input.dispatchEvent(
@@ -621,3 +620,62 @@ test(
     }
   },
 );
+
+for (const action of ['cut', 'type'])
+  test(
+    `outline title-to-body ${action} joins the suffix like PowerPoint`,
+    { timeout: 60000 },
+    async () => {
+      const dir = await mkdtemp(join(tmpdir(), 'office-outline-native-enter-'));
+      let preview, browser, page, outline;
+      try {
+        await writeOutlineDeck(dir);
+        ({ preview, browser, page, outline } = await openOutline(dir));
+        const body = outline.getByRole('textbox').nth(1);
+        await body.focus();
+        await body.evaluate((input) => window.selectEditorText(input, 2));
+        await page.keyboard.press('Shift+ArrowUp');
+        await page.keyboard.press('Shift+ArrowUp');
+        const copied = await body.evaluate((input) => {
+          const data = new DataTransfer();
+          input.dispatchEvent(
+            new ClipboardEvent('copy', { clipboardData: data, bubbles: true, cancelable: true }),
+          );
+          return data.getData('text/plain');
+        });
+        assert.equal(copied, '\nBo');
+        const before = (await waitForState(preview.url, () => true)).revision;
+        if (action === 'type') await page.keyboard.press('X');
+        else
+          await body.evaluate((input) =>
+            input.dispatchEvent(
+              new ClipboardEvent('cut', {
+                clipboardData: new DataTransfer(),
+                bubbles: true,
+                cancelable: true,
+              }),
+            ),
+          );
+        await waitForState(preview.url, (state) => state.revision !== before);
+        const slides = getSlides(await readDeck(preview));
+        assert.equal(slides.length, 2);
+        assert.equal(
+          getShapeText(getSlideShapes(slides[0])[0]),
+          action === 'type' ? 'HeadingXdy' : 'Headingdy',
+        );
+        assert.equal(getShapeText(getSlideShapes(slides[0])[1]), '');
+        assert.equal(getShapeText(getSlideShapes(slides[1])[0]), 'Next');
+        const revision = (await waitForState(preview.url, () => true)).revision;
+        await page.keyboard.press(process.platform === 'darwin' ? 'Meta+z' : 'Control+z');
+        await waitForState(preview.url, (state) => state.revision !== revision);
+        const restored = getSlides(await readDeck(preview));
+        assert.equal(restored.length, 2);
+        assert.equal(getShapeText(getSlideShapes(restored[0])[0]), 'Heading');
+        assert.equal(getShapeText(getSlideShapes(restored[0])[1]), 'Body');
+      } finally {
+        await browser?.close();
+        await preview?.close();
+        await rm(dir, { recursive: true, force: true });
+      }
+    },
+  );
