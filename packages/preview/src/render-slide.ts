@@ -6108,6 +6108,7 @@ const cellParaData = (
     const bulletImageBytes = bulletIsPicture ? getParagraphBulletImageBytes(cell, index) : null;
     const runs: RunData[] = [];
     let rIdx = 0;
+    let fieldIndex = 0;
     for (const el of para.elements) {
       if (el.kind === 'br') {
         runs.push({ text: '\n', fmt: null, sizePt: DEFAULT_BODY_PT });
@@ -6118,9 +6119,12 @@ const cellParaData = (
       // Table-cell readers expose the literal run format. Resolve the same
       // paragraph/body defaults as PowerPoint applies before rendering so
       // `pPr/defRPr` and `lstStyle` also affect SVG and foreignObject text.
-      let fmt: ReadTextFormat | null = el.format;
-      if (el.kind === 'r') fmt = getTableCellRunFormatEffective(pres, cell, index, rIdx);
-      if (el.kind === 'r') rIdx++;
+      const fmt = getTableCellRunFormatEffective(
+        pres,
+        cell,
+        index,
+        el.kind === 'r' ? rIdx++ : { fieldIndex: fieldIndex++ },
+      );
       runs.push({
         text: el.text,
         fmt,

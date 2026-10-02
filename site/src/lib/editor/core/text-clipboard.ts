@@ -43,7 +43,10 @@ export function copyTextRange(
   start: number,
   end: number,
   cell?: { row: number; col: number },
-  resolveRunFormat?: (paragraphIndex: number, runIndex: number) => TextFormat,
+  resolveRunFormat?: (
+    paragraphIndex: number,
+    runIndex: number | { fieldIndex: number },
+  ) => TextFormat | undefined,
 ): TextClipboard {
   const paragraphs = cell
     ? getTableCellParagraphs(getTableCells(shape)[cell.row]![cell.col]!).map((p) => p.elements)
@@ -60,12 +63,13 @@ export function copyTextRange(
   paragraphs.forEach((elements, index) => {
     if (index) append('\n', {});
     let runIndex = 0;
+    let fieldIndex = 0;
     for (const element of elements) {
       let format = element.format;
-      if (element.kind === 'r') {
+      if (element.kind !== 'br') {
+        const selector = element.kind === 'r' ? runIndex++ : { fieldIndex: fieldIndex++ };
         if (resolveRunFormat && text.length < end && text.length + element.text.length > start)
-          format = resolveRunFormat(index, runIndex);
-        runIndex++;
+          format = resolveRunFormat(index, selector) ?? format;
       }
       // What the reader hands back widens colors to strings; the clipboard
       // carries a format that can be written straight into another shape.

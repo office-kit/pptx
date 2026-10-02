@@ -1,3 +1,13 @@
+## 2026-10-02: 表内フィールドの実効文字書式
+
+- 表内の a:fld が通常文字と違って段落既定のフォント・サイズ・太字を継承しない不具合を SVG / foreignObject の比較テストで再現し修正。
+- 既存 getTableCellRunFormatEffective に { fieldIndex } 指定を追加。数値は引き続き a:r のみを数える。直接書式優先、保存・再読込、範囲外の検証を追加。
+- 編集 HTML、選択範囲の書式取得、コピー処理も同じ実効書式を使用。ブラウザーで表示修正後もコピーにフォントが落ちるケースを検出し、その経路も修正した。
+- 検証: core 3290 成功 / 109 skip、format/lint/typecheck/build、preview・DSL・dev の型検査・build 成功。site 135 件成功、Svelte check 0 errors/warnings。browser 4 件成功（通常文字・フィールド・表スタイル・空段落）。
+- このターンはネイティブ参照文書に変更なし。直前の再接続で画面取得成功、Outline title / Ordinary text box と保存済み・Undo disabled を確認。
+- 未確認: フィールド独自 pPr、通常 run と field と改行の混在時の endParaRPr 継承、図形内フィールドの実効書式、空文字 run / 改行のみの段落。今回のフィールドケースの Mac 実機比較は未実施。全操作一致は未完了。
+- ユーザーの 4173 と .pnpm-store は保持。PR #287 のみに集約。
+
 ## 2026-10-02: 表の空段落の文字サイズと編集時の位置
 
 - `getTableCellRunFormatEffective` の runIndex に null を許容し、段落末尾の実効書式を既存の段落・リスト・表スタイル継承で解決。通常の数値インデックスの範囲検証は維持。

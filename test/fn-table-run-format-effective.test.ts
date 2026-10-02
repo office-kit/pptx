@@ -18,6 +18,54 @@ import {
 import { readZip, writeZip } from '../src/internal/opc/index.ts';
 
 describe('fn API: getTableCellRunFormatEffective', () => {
+  it('resolves field defaults and direct overrides without changing regular run indices', async () => {
+    const original = createPresentation();
+    addSlideTable(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(4),
+      h: inches(2),
+      rows: [['Regular']],
+    });
+    const { entries } = readZip(await savePresentation(original));
+    const loaded = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                ...entry,
+                data: new TextEncoder().encode(
+                  new TextDecoder()
+                    .decode(entry.data)
+                    .replace(
+                      '</a:pPr>',
+                      '<a:defRPr sz="2800" b="1"><a:latin typeface="Courier New"/></a:defRPr></a:pPr>',
+                    )
+                    .replace(
+                      '</a:p>',
+                      '<a:fld id="{AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA}" type="slidenum"><a:rPr b="0"/><a:t>7</a:t></a:fld></a:p>',
+                    ),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    for (const pres of [loaded, await loadPresentation(await savePresentation(loaded))]) {
+      const cell = getTableCells(getSlideShapes(getSlides(pres)[0]!)[0]!)[0]![0]!;
+      expect(getTableCellRunFormatEffective(pres, cell, 0, { fieldIndex: 0 })).toMatchObject({
+        size: 28,
+        bold: false,
+        font: 'Courier New',
+      });
+      expect(() => getTableCellRunFormatEffective(pres, cell, 0, 0)).not.toThrow();
+      expect(() => getTableCellRunFormatEffective(pres, cell, 0, 1)).toThrow(RangeError);
+      expect(() => getTableCellRunFormatEffective(pres, cell, 0, { fieldIndex: 1 })).toThrow(
+        RangeError,
+      );
+    }
+  });
+
   it('resolves cell paragraph defaults before outline defaults', async () => {
     const original = createPresentation();
     addSlideTable(addBlankSlide(original), {

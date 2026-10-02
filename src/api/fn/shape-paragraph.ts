@@ -150,7 +150,7 @@ export const resolveTextBodyRunFormatEffective = (
   },
   textBody: XmlElement,
   paragraphIndex: number,
-  runIndex: number | null,
+  runIndex: number | null | { readonly fieldIndex: number },
 ): ReadTextFormat => {
   const paragraphs = textBody.children.filter(
     (child): child is XmlElement =>
@@ -164,11 +164,20 @@ export const resolveTextBodyRunFormatEffective = (
       `paragraph index ${paragraphIndex} out of range (have ${paragraphs.length})`,
     );
   }
-  const runs = runsOf(paragraph);
-  const run = runIndex === null ? null : runs[runIndex];
+  const field = typeof runIndex === 'object' && runIndex !== null;
+  const runs = field
+    ? paragraph.children.filter(
+        (child): child is XmlElement =>
+          child.kind === 'element' &&
+          child.name.namespaceURI === NS.dml &&
+          child.name.localName === 'fld',
+      )
+    : runsOf(paragraph);
+  const index = field ? runIndex.fieldIndex : runIndex;
+  const run = index === null ? null : runs[index];
   if (runIndex !== null && !run) {
     throw new RangeError(
-      `run index ${runIndex} out of range in paragraph ${paragraphIndex} (have ${runs.length})`,
+      `run index ${index} out of range in paragraph ${paragraphIndex} (have ${runs.length})`,
     );
   }
 
