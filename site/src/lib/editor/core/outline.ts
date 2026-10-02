@@ -18,6 +18,9 @@ import {
   getShapeKind,
   isShapePlaceholder,
   removeSlide,
+  findShapeById,
+  copyShape,
+  removeShape,
   type SlideData,
 } from '@office-kit/pptx';
 
@@ -29,6 +32,59 @@ export function outlineShapes(slide: SlideData) {
     if (!['title', 'ctrTitle', 'subTitle', 'body', 'obj'].includes(type)) return [];
     return [{ id: getShapeId(shape), title: type === 'title' || type === 'ctrTitle' }];
   });
+}
+
+/** Split a title selection ending in the same slide's outline body. */
+export function splitOutlineTitleRange(
+  pres: PresentationData,
+  slide: SlideData,
+  start: { id: number; offset: number },
+  end: { id: number; offset: number },
+): number | null {
+  const layout = getSlideLayout(slide);
+  if (!layout) return null;
+  const shapes = outlineShapes(slide);
+  const from = shapes.findIndex((item) => item.id === start.id && item.title);
+  const to = shapes.findIndex((item) => item.id === end.id && !item.title);
+  if (from < 0 || to <= from) return null;
+  const source = findShapeById(slide, end.id)!;
+  const text = getShapeText(source);
+  // PowerPoint promotes the unselected end paragraph into the new title.
+  // Subsequent body paragraphs stay body paragraphs on the new slide.
+  const paragraphs = getShapeParagraphElements(source);
+  let boundary = 0;
+  for (const paragraph of paragraphs) {
+    boundary += paragraph.reduce(
+      (length, element) => length + (element.kind === 'br' ? 1 : element.text.length),
+      0,
+    );
+    if (boundary >= end.offset) break;
+    boundary++;
+  }
+  const index = getSlides(pres).indexOf(slide) + 1;
+  const next = addSlideAt(pres, index, { layout });
+  for (const item of outlineShapes(next)) {
+    const shape = findShapeById(next, item.id)!;
+    if (item.title)
+      setShapeParagraphs(shape, { source, range: { start: end.offset, end: boundary } });
+    else removeShape(shape);
+  }
+  for (const [position, item] of shapes.entries()) {
+    if (item.title) continue;
+    const body = findShapeById(slide, item.id)!;
+    if (position > to) copyShape(next, body);
+    else if (position === to && boundary < text.length) {
+      const copied = copyShape(next, body);
+      setShapeParagraphs(copied, {
+        source: body,
+        range: { start: boundary + 1, end: text.length },
+      });
+    }
+    setShapeText(body, '');
+  }
+  const title = findShapeById(slide, start.id)!;
+  setShapeText(title, '', { range: { start: start.offset, end: getShapeText(title).length } });
+  return index;
 }
 
 /** Moving title text moves the boundary between adjacent slides' bodies. */

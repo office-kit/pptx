@@ -27,6 +27,7 @@ import {
 } from '@office-kit/pptx';
 import { newSlideLayout } from '../src/lib/editor/core/new-slide.ts';
 import {
+  splitOutlineTitleRange,
   outlineShapes,
   promoteOutlineBody,
   outlineParagraphMove,
@@ -451,3 +452,38 @@ for (const layoutName of ['Title and Content', 'Title Only']) {
     assert.equal(getShapeText(body), 'Second title\nChild');
   });
 }
+
+test('title-to-body outline split promotes the suffix and preserves links through save/load', async () => {
+  const pres = createPresentation();
+  const layout = getSlideLayouts(pres).find(
+    (item) => getSlideLayoutName(item) === 'Title and Content',
+  );
+  const slide = addSlide(pres, { layout });
+  const title = getSlideShapes(slide).find((shape) => getShapePlaceholderType(shape) === 'title');
+  const body = getSlideShapes(slide).find((shape) => getShapePlaceholderType(shape) !== 'title');
+  setShapeText(title, 'Heading');
+  setShapeText(body, 'Body');
+  setShapeRunHyperlink(body, 0, 0, 'https://example.com/body');
+  assert.equal(
+    splitOutlineTitleRange(
+      pres,
+      slide,
+      { id: getShapeId(title), offset: 2 },
+      { id: getShapeId(body), offset: 2 },
+    ),
+    1,
+  );
+  const loaded = await loadPresentation(await savePresentation(pres));
+  const slides = getSlides(loaded);
+  assert.deepEqual(slides.map(getSlideTitle), ['He', 'dy']);
+  const heading = getSlideShapes(slides[1]).find(
+    (shape) => getShapePlaceholderType(shape) === 'title',
+  );
+  assert.equal(getShapeRunHyperlink(heading, 0, 0), 'https://example.com/body');
+  assert.equal(
+    getShapeText(
+      getSlideShapes(slides[0]).find((shape) => getShapePlaceholderType(shape) !== 'title'),
+    ),
+    '',
+  );
+});
