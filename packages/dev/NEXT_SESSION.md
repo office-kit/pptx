@@ -1,3 +1,18 @@
+## 2026-10-02: 同一スライドのタイトル→本文の改行分割を修正
+
+- splitOutlineTitleRange を OutlineText の Enter / Shift+Enter に接続。同一スライドのタイトルから本文まで選択して改行すると、新しいスライドが作られ、未選択の本文末尾がタイトルへ移る。ドラフトを同じトランザクションで確定する。
+- ブラウザー再現テストは修正前 2 枚（期待 3 枚）で失敗、修正後成功。Undo による元の 2 枚とタイトル・本文の復元も確認。範囲選択ブラウザー全 10 件、outline unit 全 17 件成功。suffix のリンク保持を保存・再読込で検証。
+- format:check / lint / site svelte-check（0 errors, 0 warnings）/ dev 依存込み build 成功。
+- 残る段落の扱いと逆方向の選択を実機で追加確認すること。複数スライドをまたぐ改行・削除は未修正。既存 cross-field replacement テストの期待値は実機証拠ではない。全面一致は未達成。
+- PowerPoint の画面取得が正常に復旧。reference.pptx の Outline title / Ordinary text box、1 枚、保存済みを画面で確認。今回の追加変更なし。4173 と .pnpm-store は保持。
+
+## 2026-10-02: 未修正 — タイトルから本文をまたぐ改行置換
+
+- 実機で新しい不一致を確認。1 枚の Outline title + Body で、タイトル offset 2 から本文末尾まで選択し Shift+Enter → 2 枚になり、slide1 title=Ou、slide2 title=空。通常テキストボックスは slide1 に残る。本文の Bo まで選択した場合は slide2 title=dy（保存 XML の p:ph type=title で確認）、slide1 の本文は空。
+- 現在 OutlineSelectionModel.replace は各欄を独立に削除し先頭へ改行を入れるだけ。OutlineText の複数欄 Enter 分岐を、通常のタイトル分割と同じスライド構造編集へ接続する必要がある。末尾本文の残りは新タイトルへ移り、書式・残り段落・Undo・選択方向を保持すること。複数スライドをまたぐ削除はネイティブで確認ダイアログが出るので、単純なキー条件変更では足りない。
+- 未コミットの outline-cross-selection.test.mjs に title-to-body Shift+Enter の回帰テストを追加。既存 handles Shift+Enter as one replacement は自製の誤った期待値の可能性が高く、実機の複数スライド範囲を確認して置き換える必要がある。
+- 参照文書の Undo 履歴が途中で消失。UI 復元でもフォーカスが安定せず、文書を閉じて確認済み reference-before-table-style.pptx から reference.pptx を復元し、正確なパスを指定して再度開いた。現在 reference は Normal View、1 枚、Outline title、保存済み、Undo disabled。元の文字列 2 つはバックアップ XML で確認済み。reference-before-font も誤って開いたが変更なし。4173 と .pnpm-store は保持。
+
 ## 2026-10-02: アウトライン本文の改行を実機確認
 
 - Mac PowerPoint の参照文書でタイトル末尾 Enter → Tab で本文を作り、Body before / Shift+Enter / Body after を入力して保存。本文は同一スライドの別々の a:p に保存され、a:br ではないことを確認。OutlineText の現在の段落挿入はこの点で実機と一致しており、onnewline の kind を無条件に接続してはいけない。

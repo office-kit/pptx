@@ -2,7 +2,7 @@
   import { onDestroy, onMount, tick, untrack } from 'svelte';
   import { getShapeText, getParagraphLevel, setParagraphLevel, getSlides, getSlideLayout, addSlideAt, setShapeText, setShapeParagraphs, findShapeById, copyShape, removeShape, getSlidePartName, setShapeTextFormat, getShapeParagraphCount, getShapeParagraphElements, getParagraphPropertiesEffective, type TextCase, type TextFormat } from '@office-kit/pptx';
   import { getEditor } from '../core/context.ts';
-  import { outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
+  import { splitOutlineTitleRange, outlineShapes, outlineDemotionNeedsConfirmation, promoteOutlineBody, demoteOutlineTitle, outlineParagraphMove, outlineTitleMove, moveOutlineTitle } from '../core/outline.ts';
   import { textEditDiff } from '../core/text-edit-diff.ts';
   import { projectTextEdits, replayTextEdits, type TextEdit } from '../core/text-edit-preview.ts';
   import { copyTextRange, parseTextClipboard, TEXT_CLIPBOARD_TYPE } from '../core/text-clipboard.ts';
@@ -318,7 +318,27 @@
     else if (event.key === 'Enter' && !mod && !event.altKey &&
       selection.current()?.start.key !== selection.current()?.end.key) {
       event.preventDefault(); event.stopPropagation();
-      selection.replace('\n', [], t('Edit text'));
+      const selected = selection.current()!;
+      const slots = outlineShapes(slide);
+      const prefix = `${getSlidePartName(slide)}:`;
+      const start = slots.find(item => `${prefix}${item.id}` === selected.start.key && item.title);
+      const end = slots.find(item => `${prefix}${item.id}` === selected.end.key && !item.title);
+      if (start && end && getSlideLayout(slide)) {
+        const ownerDocument = input.getElement()!.ownerDocument;
+        let index: number | null = null;
+        doc.transact(t('New slide'), () => {
+          for (const field of selection.fields()) {
+            if (field.key.startsWith(prefix)) field.apply(field.flush());
+          }
+          index = splitOutlineTitleRange(doc.pres, slide,
+            { id: start.id, offset: selected.start.offset },
+            { id: end.id, offset: selected.end.offset });
+          if (index !== null) doc.selectSlide(index);
+        });
+        selection.clear();
+        await tick();
+        ownerDocument.querySelector<HTMLElement>(`[data-outline-slide="${index}"] [role="textbox"]`)?.focus();
+      } else selection.replace('\n', [], t('Edit text'));
     }
     // Mac PowerPoint splits outline titles into slides for both Enter and Shift+Enter.
     else if (event.key === 'Enter' && !mod && !event.altKey && title) {
