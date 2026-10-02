@@ -7,6 +7,7 @@
   import ChangeCaseMenu from './ChangeCaseMenu.svelte';
   import CharacterSpacingMenu from './CharacterSpacingMenu.svelte';
   import { t } from '../i18n/i18n.svelte.ts';
+  import { getEditor } from '../core/context.ts';
 
   let { formats, selected, typing = false, onformat, oncase, onfontsize, ontoggle, ondone, onlink, oncopyformat, onpasteformat, canPasteFormat = false, paragraph, onparagraph, context = 'text', hideFont = false, ribbon = false, fontFamilies = [] }: {
     formats: TextFormat[];
@@ -30,6 +31,7 @@
     /** Additional document/theme families to show in the picker. */
     fontFamilies?: readonly string[];
   } = $props();
+  const editor = getEditor();
   function toggle(property: TextFormatToggle) {
     if (ontoggle) ontoggle(property);
     else onformat(toggleTextFormat(formats, property));
@@ -71,6 +73,7 @@
   <div class="color-field"><span>{t('Text color')}</span><ColorPicker label={t('Text color')} value={color ?? undefined} disabled={!(selected || typing)} choose={color => onformat({ color })} /></div>
   <label><span>{t('Highlight color')}</span><input aria-label={t('Highlight color')} type="color" value={highlight ?? '#ffff00'} title={highlight ?? t('Mixed or inherited')} disabled={!(selected || typing)} onchange={e => { const picked = asColor(e.currentTarget.value); if (picked) onformat({ highlight: picked }); }} /></label>
   {#if ribbon && oncase}<ChangeCaseMenu disabled={!(selected || typing)} onchange={oncase} />{/if}
+  {#if ribbon}<button class="ok-btn font-dialog-trigger" aria-label={t('Font dialog')} title={t('Font dialog')} disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => editor.activeDialog = 'font'}>A…</button>{/if}
   {#if ribbon}<CharacterSpacingMenu {formats} disabled={!(selected || typing)} {onformat} />{/if}
   {#snippet highlightActions()}
   <button class="ok-btn" disabled={!(selected || typing)} onmousedown={e => e.preventDefault()} onclick={() => onformat({ highlight: highlight ?? '#FFFF00' })}>{t('Apply highlight')}</button>

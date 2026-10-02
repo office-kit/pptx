@@ -242,6 +242,12 @@
   async function keys(event: KeyboardEvent) {
     if (event.isComposing) return;
     const mod = event.metaKey || event.ctrlKey;
+    if (mod && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 't') {
+      event.preventDefault();
+      event.stopPropagation();
+      editor.activeDialog = 'font';
+      return;
+    }
     if (mod && event.shiftKey && !event.altKey &&
       (event.code === 'Period' || event.code === 'Comma' || event.key === '>' || event.key === '<')) {
       event.preventDefault();

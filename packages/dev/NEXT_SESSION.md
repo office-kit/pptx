@@ -1,3 +1,12 @@
+## 2026-10-02: Font ダイアログ
+
+- Home の Font ボタンと Cmd/Ctrl+T で Font / Character Spacing の2タブを開く。Latin/Asian フォント、スタイル、サイズ、色、下線、二重取り消し線、上付き/下付きと位置、caps、文字高さ、文字間隔、カーニングを設定可能。
+- 変更した項目だけ適用し、未編集の混在書式と Complex Script フォントを保持。Escape 後に再表示できなくなる問題も修正。
+- 選択文字・表セル・アウトラインの保存OOXML、選択外保持、Cancel/Escape、Undoをブラウザー検証。ダイアログ内フォント一覧の選択、既存フォント選択、日英ホーム幅を含むブラウザー計5件成功。site133件、format/lint/core typecheck、Svelte 0 errors/warnings、editor build成功。coreは前回3228件成功から変更なし。
+- 実機の Font ダイアログ閲覧中に画面取得0×0が再発。今回は文書変更なし。以前の一時変更は取り消し済み。実機の設定画面は開いたままの可能性がある。
+- 残件: 下線色、全下線スタイルの選択、small caps のSVG字形サイズ、Equalize character heightの実描画、表セルの継承書式表示など。Macとの全操作一致は未完了。
+- 同一PR #287を継続。4173の未保存編集には触らず、確認用4175を使用。.pnpm-storeも変更しない。
+
 ## 2026-10-02: Equalize character height の OOXML 対応
 
 - `TextFormat.normalizeHeight` を追加。`normalizeH` の true/false/1/0 を読み、明示オン・オフを保存。実効書式の継承と解除、範囲書式リセットも対応。
