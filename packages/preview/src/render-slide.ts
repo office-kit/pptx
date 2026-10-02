@@ -130,6 +130,7 @@ import {
   isShapeHidden,
   getSlideSize,
   getTableCellAnchor,
+  getTableCellTextDirection,
   getTableCellMargins,
   getTableCellAppearanceEffective,
   getTableCellParagraphs,
@@ -6242,12 +6243,13 @@ const renderTableCellText = (
       innerH: innerH * EMU_PER_PX,
       measure: ctx.mode === 'svg' ? ctx.measure : (browserTextMeasurer() ?? ctx.measure),
       ...(ctx.mode === 'foreignObject' ? { resolveFamily: browserFontFamily } : {}),
-      // Cell-level vertical text (<a:tcPr vert>) isn't modeled yet; cells lay
-      // out horizontally, single-column.
-      vert: 'none',
+      vert: verticalLayoutOf(getTableCellTextDirection(cell)),
       columns: null,
     });
   }
+
+  const vertical = verticalTextStyle(getTableCellTextDirection(cell));
+  const directionStyle = `${vertical.declarations}${vertical.transform ? `;transform:${vertical.transform}` : ''}`;
 
   // foreignObject path (browser preview): one <p> per paragraph, each run
   // rendered through renderRun so the browser lays the styled text out.
@@ -6256,7 +6258,7 @@ const renderTableCellText = (
   const body = renderHtmlParagraphs(paraData, numberLabels, theme, 1, DEFAULT_BODY_PT, color).join(
     '',
   );
-  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word">${body}</div></foreignObject>`;
+  return `<foreignObject x="${px(innerX)}" y="${px(innerY)}" width="${px(innerW)}" height="${px(innerH)}"><div xmlns="http://www.w3.org/1999/xhtml" style="display:flex;flex-direction:column;justify-content:${justify};width:100%;height:100%;box-sizing:border-box;overflow:hidden;line-height:${LINE_HEIGHT};font-family:${familyFont};color:${color};word-break:break-word;${directionStyle}">${body}</div></foreignObject>`;
 };
 
 const renderTable = (
