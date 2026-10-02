@@ -1,3 +1,10 @@
+## 2026-10-02: Font-relative HTML character spacing
+
+- Reproduced `letter-spacing:0.2em` being discarded even with a known font size. The parser now resolves em using the element's font size after resolving relative font-size.
+- Browser regression compares positive, negative and zero spacing with computed CSS; nested 150% font-size resolves to 30pt. Shape and cell paste regressions confirm inherited spacing survives PPTX save/load and Undo.
+- All four HTML clipboard browser tests pass (`/tmp/em-spacing-final.log`); scoped format/lint, Svelte check (zero errors/warnings), and editor build pass.
+- Native connection still fails at startup. Pending reference restoration below is unresolved. Full parity remains incomplete.
+
 ## 2026-10-02: Semantic HTML decorations
 
 - Reproduced `<u style="text-decoration-style:double">` importing as single underline. The same problem affected `s`, `strike`, and `del` tags. The parser now resolves tag defaults before applying CSS decoration styles/colors, while explicit `none` remains authoritative.

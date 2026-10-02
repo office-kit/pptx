@@ -93,6 +93,22 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
         const spacing = parse('<span style="letter-spacing:4px">Wide</span>', 'Wide');
         const negativeSpacing = parse('<span style="letter-spacing:-2px">Tight</span>', 'Tight');
         const zeroSpacing = parse('<span style="letter-spacing:0px">Default</span>', 'Default');
+        const relativeSpacing = [0.2, -0.1, 0].map((spacing) => {
+          const html = `<span style="font-size:20pt"><span style="font-size:150%;letter-spacing:${spacing}em">Text</span></span>`;
+          const host = document.createElement('div');
+          host.innerHTML = html;
+          document.body.append(host);
+          const computedPoints =
+            Number.parseFloat(
+              getComputedStyle(host.firstElementChild.firstElementChild).letterSpacing,
+            ) * 0.75;
+          host.remove();
+          return {
+            parsed: parse(html, 'Text'),
+            computedPoints: Number.isNaN(computedPoints) ? 0 : computedPoints,
+          };
+        });
+
         const kerningOffHtml = serialize({
           text: 'AV',
           formats: [{ start: 0, end: 2, format: { size: 10, kern: 1200 } }],
@@ -335,6 +351,7 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
           multiline,
           spacing,
           negativeSpacing,
+          relativeSpacing,
           zeroSpacing,
           resetSpacing,
           allCaps,
@@ -401,6 +418,12 @@ test('HTML clipboard parsing preserves inline formats without executing markup o
     assert.equal(result.multiline.formats.find((s) => s.format.baseline)?.format.baseline, -0.25);
     assert.equal(result.spacing.formats[0].format.spc, 300);
     assert.equal(result.negativeSpacing.formats[0].format.spc, -150);
+    for (const [index, expected] of [600, -300, 0].entries()) {
+      const spacing = result.relativeSpacing[index];
+      assert.equal(spacing.parsed.formats[0].format.size, 30);
+      assert.equal(Math.round(spacing.computedPoints * 100), expected);
+      assert.equal(spacing.parsed.formats[0].format.spc, expected);
+    }
     assert.equal(result.zeroSpacing.formats[0].format.spc, 0);
     assert.match(result.kerningOffHtml, /font-kerning:\s*none/);
     assert.match(result.kerningOnHtml, /font-kerning:\s*normal/);
@@ -545,7 +568,7 @@ for (const kind of ['shape', 'cell'])
           data.setData('text/plain', 'English日本語');
           data.setData(
             'text/html',
-            '<span style="font-size:24pt;color:#13579b;text-decoration:line-through double"><b>English</b><i>日本語</i></span>',
+            '<span style="font-size:24pt;letter-spacing:0.25em;color:#13579b;text-decoration:line-through double"><b>English</b><i>日本語</i></span>',
           );
           node.dispatchEvent(
             new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }),
@@ -566,9 +589,11 @@ for (const kind of ['shape', 'cell'])
         const result = await runs();
         assert.equal(result[0].format.bold, true);
         assert.equal(result[0].format.size, 24);
+        assert.equal(result[0].format.spc, 600);
         assert.equal(result[0].format.color.toUpperCase(), '#13579B');
         assert.equal(result[0].format.strike, 'dblStrike');
         assert.equal(result.at(-1).format.italic, true);
+        assert.equal(result.at(-1).format.spc, 600);
         assert.equal(result.at(-1).format.strike, 'dblStrike');
         await editor
           .getByTitle(ja ? '元に戻す (Ctrl+Z)' : 'Undo (Ctrl+Z)', { exact: true })
