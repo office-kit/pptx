@@ -1266,3 +1266,11 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - The format-pane failure reproduced on the current build: the compact Arrange group opened a wrapper containing a second Arrange button, requiring an extra click. Render the actual Arrange menu trigger directly in the compact toolbar.
 - Existing format-pane coverage now passes through selection-pane opening and rotation options (`/tmp/arrange-direct-after.log`). Home ribbon regression checks direct menu opening and Escape in both locales at 900, 1500, 1601, 1900 and 2100px, while retaining no-horizontal-scroll assertions (`/tmp/arrange-home-direct.log`).
 - Editor build, Svelte diagnostics (zero errors/warnings), scoped format/lint and diff checks pass. Full native parity and the remaining CI failures are still open.
+
+## 2026-10-03: Formatting browser regressions after ribbon changes
+
+- Updated caret-formatting to commit with the supported keyboard shortcut, and explicitly start the table header fixture with normal weight so its normal-to-bold assertions remain meaningful. Both shape and cell tests pass (`/tmp/caret-current.log`).
+- Preset text editing now uses visible Home alignment buttons instead of removed text-format-bar controls. All eight cases pass, retaining paragraph rendering, Japanese/English state, and Undo/Redo assertions.
+- Reproduced character-effects failures where a center click entered text editing and blocked the following object context-menu click. Select and right-click the shape border for object formatting. Both locales pass, including saved outline/glow/shadow assertions (`/tmp/character-effects-current.log`, `/tmp/character-effects-border.log`).
+- Scoped format/lint and diff checks pass. These changes update regression interactions; they do not establish native parity. CI run 37027002229 on 8336db81 is still running Chromium; static checks passed. Use explicit `--repo office-kit/pptx` for GitHub commands.
+- Group transform testing remains in progress: the nested fixture sends a drag outside the viewport. This is not established as a production geometry bug. Preserve the fixture geometry and assertions while making the gesture visible.
