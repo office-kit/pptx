@@ -1,3 +1,11 @@
+## 2026-10-02: Homeの文字サイズ拡大・縮小
+
+- HomeにIncrease/Decrease Font Sizeを追加。選択範囲内の混在サイズをそれぞれ増減し、図形選択・キャレット入力・アウトライン・表セル編集から適用できる。
+- Mac参照で10→10.5、13→14/12、44→48/40、96→115、98→118、100→120/96、7.5→7、7→6、6→7、混在20+44→24+48を確認。96ptより上は丸めた20%刻み、8pt未満は整数刻み。参照文書への一時変更は全て取り消し済み、ディスク上もreference-before-font.pptxと一致。
+- 検証: site125件、ブラウザー7件成功（選択範囲・図形全体・キャレット連続増減・アウトライン複数項目・Undo/Redo・PPTX再読込、Home日英900/1500/1900px、編集位置）。format/lint/typecheck、Svelte 0 errors/warnings、editor build成功。最終ログ `/tmp/font-step-final-browser.log`。
+- 残件: 複数段落内の空段落のendParaRPrは図形全体の増減で更新されない（coreの範囲書式変更が段落終端を変更しない）。空段落のキャレットから次に入力する文字の増減は対応。文字サイズショートカット、Change Case、Fontダイアログ、カーニング描画なども未完了。全操作一致とは扱わない。
+- 同一PR #287を継続。確認プレビュー4175はHTTP200。4173の未保存編集と.pnpm-storeは触らない。
+
 ## 2026-10-02: Homeの文字間隔メニュー
 
 - HomeにCharacter Spacingを追加。Very Tight=-3pt、Tight=-1.5pt、Normal=0、Loose=3pt、Very Loose=6pt。More SpacingでExpanded/Condensedの数値を指定。混在選択の未変更値は保持し、既存kernも変更しない。

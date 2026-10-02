@@ -1216,6 +1216,8 @@ export const ja: Record<string, string> = {
   Superscript: '上付き',
   Subscript: '下付き',
   'Font size': '文字サイズ',
+  'Increase Font Size': 'フォント サイズを拡大',
+  'Decrease Font Size': 'フォント サイズを縮小',
   'Text color': '文字色',
   'Character Spacing': '文字間隔',
   'Very Tight': '極端に狭く',

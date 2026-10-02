@@ -18,6 +18,7 @@ export type OutlineSelectionField = {
   apply: (edits: readonly TextEdit[]) => void;
   formats: (start: number, end: number) => TextFormat[];
   applyFormat: (start: number, end: number, format: TextFormat, reset: boolean) => void;
+  applyFontSize?: (start: number, end: number, direction: 1 | -1) => void;
   paragraphs: (start: number, end: number) => ParagraphProperties[];
   editParagraphs: (
     start: number,
@@ -244,6 +245,32 @@ export class OutlineSelectionModel {
       for (const { edit, changes } of pending) edit.field.apply(changes);
       const resolved = typeof format === 'function' ? format(this.formats()) : format;
       for (const edit of edits) edit.field.applyFormat(edit.start, edit.end, resolved, reset);
+    });
+    this.#changed();
+    return true;
+  }
+
+  /** Apply PowerPoint's relative font-size step as one history entry. */
+  fontSize(
+    direction: 1 | -1,
+    label = direction > 0 ? 'Increase Font Size' : 'Decrease Font Size',
+  ): boolean {
+    const range = this.current();
+    if (!range) return false;
+    const fields = this.fields();
+    const from = fields.findIndex((field) => field.key === range.start.key);
+    const to = fields.findIndex((field) => field.key === range.end.key);
+    if (from < 0 || to < from) return false;
+    const edits = fields.slice(from, to + 1).map((field, index) => ({
+      field,
+      start: index === 0 ? range.start.offset : 0,
+      end: index === to - from ? range.end.offset : field.text().length,
+    }));
+    if (!edits.every((edit) => edit.field.applyFontSize)) return false;
+    const pending = edits.map((edit) => ({ edit, changes: edit.field.flush() }));
+    edits[0]!.field.transact(label, () => {
+      for (const { edit, changes } of pending) edit.field.apply(changes);
+      for (const edit of edits) edit.field.applyFontSize!(edit.start, edit.end, direction);
     });
     this.#changed();
     return true;

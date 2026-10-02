@@ -1,10 +1,10 @@
 <script lang="ts">
   import { tick } from 'svelte';
   import { t } from '../i18n/i18n.svelte.ts';
+  import { FONT_SIZE_GALLERY } from '../core/font-size.ts';
 
   let { value, disabled = false, choose }: { value?: number; disabled?: boolean; choose: (size: number) => void } = $props();
-  // The size gallery in Mac PowerPoint includes half-point 10.5 and extends to 96.
-  const sizes = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 40, 44, 48, 54, 60, 66, 72, 80, 88, 96];
+  const sizes = FONT_SIZE_GALLERY;
   let open = $state(false);
   let field: HTMLInputElement;
   let trigger: HTMLButtonElement;

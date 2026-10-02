@@ -162,3 +162,89 @@ test(
     }
   },
 );
+
+test(
+  'outline Ribbon increases selected spans and preserves the caret size',
+  { timeout: 60000 },
+  async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'office-outline-font-size-'));
+    let preview;
+    let browser;
+    let editor;
+    let outline;
+    let page;
+    try {
+      ({ preview, browser, page, outline, editor } = await openOutline(dir));
+      const readRuns = async () => {
+        const pres = await readDeck(preview);
+        return getSlides(pres).flatMap((slide) =>
+          getSlideShapes(slide).map((shape) => ({
+            text: getShapeText(shape),
+            runs: getShapeParagraphElements(shape, 0),
+          })),
+        );
+      };
+      const title = outline.getByRole('textbox').nth(0);
+      await title.focus();
+      await title.evaluate((input) => window.selectEditorText(input, 2, input.textContent.length));
+      await title.press('Shift+ArrowDown');
+      await page.keyboard.press('Shift+ArrowDown');
+      await page.keyboard.press('Shift+ArrowDown');
+      await page.keyboard.press('Shift+ArrowDown');
+      const before = await readRuns();
+      const increase = editor
+        .locator('.ribbon .font-ribbon')
+        .getByRole('button', { name: 'Increase Font Size', exact: true });
+      let revision = (await waitForState(preview.url, () => true)).revision;
+      await increase.click();
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      revision = (await waitForState(preview.url, () => true)).revision;
+      const after = await readRuns();
+      const beforeHeading = before.find(({ text }) => text === 'Heading');
+      const afterHeading = after.find(({ text }) => text === 'Heading');
+      const beforeFollowing = before.find(({ text }) => text === 'Following');
+      const afterFollowing = after.find(({ text }) => text === 'Following');
+      assert.deepEqual(afterFollowing.runs, beforeFollowing.runs);
+      assert.equal(afterHeading.runs[0].text, 'He');
+      assert.equal(afterHeading.runs[1].text, 'ading');
+      assert.equal(afterHeading.runs[0].format?.size, beforeHeading.runs[0].format?.size);
+      assert.equal(afterHeading.runs[1].format?.size, 48);
+      assert.equal(after.find((entry) => entry.text === 'Body').runs[0].format?.size, 36);
+      assert.equal(after.find((entry) => entry.text === 'Next').runs[0].format?.size, 48);
+
+      await page.keyboard.press('Control+z');
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      assert.deepEqual(await readRuns(), before);
+
+      await title.focus();
+      await title.evaluate((input) =>
+        window.selectEditorText(input, input.textContent.length, input.textContent.length),
+      );
+      revision = (await waitForState(preview.url, () => true)).revision;
+      await increase.click();
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      revision = (await waitForState(preview.url, () => true)).revision;
+      await increase.click();
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      revision = (await waitForState(preview.url, () => true)).revision;
+      await title.press('Z');
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      revision = (await waitForState(preview.url, () => true)).revision;
+      let shapes = await readRuns();
+      const typed = shapes.find(({ text }) => text === 'HeadingZ');
+      assert.ok(typed);
+      assert.equal(typed.runs.at(-1)?.format?.size, 54);
+      await page.keyboard.press('Control+z');
+      await waitForState(preview.url, (state) => state.revision !== revision);
+      shapes = await readRuns();
+      assert.equal(
+        shapes.find(({ text }) => text === 'HeadingZ'),
+        undefined,
+      );
+    } finally {
+      await browser?.close();
+      await preview?.close();
+      await rm(dir, { recursive: true, force: true });
+    }
+  },
+);
