@@ -1,3 +1,9 @@
+## 2026-10-02: Browser preview tracking matches SVG
+
+- Reproduced browserTextMeasurer undercounting the painted width with positive tracking (168.55px measured versus 172.56px painted). Like editing tabs, the browser preview now delegates tracking to canvas so glyph shaping and trailing CSS spacing agree with SVG.
+- Browser regression measures actual SVG text for positive, negative and zero spacing, kerning pairs and combining accents. All four custom/default tab browser tests pass (`/tmp/preview-tracking-suite.log`); scoped lint/format, preview typecheck/build and editor build pass.
+- PR #287 remains open at feat/pptx-editor. Prior CI run 37015653093 passed Static checks and OOXML validator; other jobs were cancelled by the subsequent push. This is not a full CI pass. Native restoration and remaining parity work stay outstanding.
+
 ## 2026-10-02: Small caps and tracking in editing tabs
 
 - Added failing browser cases for small caps (right edge 594.52px at a 600px stop) and expanded tracking (604px). Tab measurement now includes the small-caps font variant and lets canvas apply CSS letter spacing to shaped glyphs rather than counting code points and omitting trailing spacing.
