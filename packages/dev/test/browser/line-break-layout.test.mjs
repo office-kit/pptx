@@ -19,12 +19,13 @@ import {
 import { startPreview } from '../helpers/server.mjs';
 import { installRichTextSelection } from '../helpers/rich-text.mjs';
 
-for (const leading of [false, true])
+for (const placement of ['middle', 'leading', 'consecutive', 'empty-run'])
   for (const kind of ['table', 'shape'])
     test(
-      `oversized ${leading ? 'leading ' : ''}${kind} line break does not shift surrounding text when editing`,
+      `oversized ${placement} ${kind} line break does not shift surrounding text when editing`,
       { timeout: 60000 },
       async () => {
+        const leading = placement === 'leading';
         const dir = await mkdtemp(join(tmpdir(), 'office-line-break-layout-'));
         let preview, browser;
         try {
@@ -52,7 +53,9 @@ for (const leading of [false, true])
               leading ? '<a:r>' : '</a:r>',
               leading
                 ? '<a:br><a:rPr sz="8000"/></a:br><a:r>'
-                : '</a:r><a:br><a:rPr sz="8000"/></a:br>',
+                : '</a:r>' +
+                    (placement === 'empty-run' ? '<a:r><a:rPr sz="8000"/><a:t></a:t></a:r>' : '') +
+                    '<a:br><a:rPr sz="8000"/></a:br>'.repeat(placement === 'consecutive' ? 2 : 1),
             ),
           );
           const source = join(dir, 'source.pptx');
@@ -95,7 +98,7 @@ for (const leading of [false, true])
             Math.abs(after.y - before.y) < 2,
             `editing shifted text: ${JSON.stringify({ before, after })}`,
           );
-          if (leading) return;
+          if (placement !== 'middle') return;
           const copied = await input.evaluate((node) => {
             node.focus();
             window.selectEditorText(node, 6, 7);

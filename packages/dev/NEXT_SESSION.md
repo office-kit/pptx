@@ -1,3 +1,10 @@
+## 2026-10-02: 連続改行の空行を実機と比較
+
+- Mac PowerPoint で Before / Shift+Enter / Shift+Enter / After を入力し、空行を作る後方の改行だけを 80pt に変更。Before と After の間隔が広がることを確認（中央配置のため Before は上、After は下へ移動）。先頭空行と同様に空行の改行書式が高さへ影響する。一時変更を Undo disabled まで取り消し、Outline title / Ordinary text box を復元して保存済み。
+- 連続改行と、文字のない a:r が改行の直前にあるケースをブラウザー回帰へ追加。図形・表とも編集開始の位置差は 2px 未満。既存の先頭・途中改行と入力書式のテストを含め 8 件成功。
+- SVG / foreignObject の先頭空行サイズ比較を 2 個の連続改行にも拡張。今回はテストと比較記録のみで、本体実装の追加変更なし。
+- 残件: 末尾改行、空段落の箇条書き、表スタイル等。完全一致は未完了。参照ファイルは復元済み、4173 と .pnpm-store を保持し、PR #287 に集約。
+
 ## 2026-10-02: 先頭改行の高さと編集開始位置
 
 - Mac PowerPoint の先頭 Shift+Enter のみを 40pt → 80pt に変更すると、後続 After が下へ移動することを画面で確認。文字の直後の改行とは挙動が異なる。接続復旧後に Font Size / Typing を Undo disabled まで取り消し、Outline title / Ordinary text box に戻して保存済み。
