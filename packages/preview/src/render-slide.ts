@@ -2493,6 +2493,44 @@ export const verticalLayoutOf = (
   }
 };
 
+const graphemeSegmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+const graphemesOf = (text: string): string[] =>
+  Array.from(graphemeSegmenter.segment(text), ({ segment }) => segment);
+
+const isSmallCapsLowercase = (grapheme: string): boolean =>
+  grapheme.toLowerCase() === grapheme && grapheme.toUpperCase() !== grapheme;
+
+// DrawingML's small-caps flag changes the presentation of lowercase source
+// letters, while authored capitals retain the run's size. Keep those source
+// categories in separate pieces so the SVG layout engine can measure and paint
+// them independently without changing the paragraph's authored line metrics.
+const smallCapsParts = (
+  text: string,
+  base: Omit<PieceInput, 'text' | 'isBreak'>,
+): Array<Omit<PieceInput, 'isBreak'>> => {
+  const parts: Array<Omit<PieceInput, 'isBreak'>> = [];
+  let current = '';
+  let currentSmall = false;
+  const flush = (): void => {
+    if (current === '') return;
+    parts.push({
+      ...base,
+      text: current,
+      ...(currentSmall ? { smallCaps: true } : {}),
+    });
+    current = '';
+  };
+
+  for (const grapheme of graphemesOf(text)) {
+    const small = isSmallCapsLowercase(grapheme);
+    if (current !== '' && small !== currentSmall) flush();
+    currentSmall = small;
+    current += grapheme.toUpperCase();
+  }
+  flush();
+  return parts;
+};
+
 // Build the px-native engine input from the resolved paraData (at a.autoFitScale).
 export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
   const scale = a.autoFitScale;
@@ -2531,7 +2569,8 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
       // disables kerning.
       const kerning =
         fmt?.kern === undefined ? true : fmt.kern > 0 && sizePx / PX_PER_PT >= fmt.kern / 100;
-      const caps = fmt?.cap === 'all' || fmt?.cap === 'small';
+      const cap = fmt?.cap;
+      const caps = cap === 'all' || cap === 'small';
       const base: Omit<PieceInput, 'text' | 'isBreak'> = {
         family,
         sizePx,
@@ -2560,21 +2599,27 @@ export const buildSvgTextInput = (a: SvgTextArgs): TextBodyInput => {
       const segs = run.text.split('\n');
       segs.forEach((seg, i) => {
         const segText = caps ? seg.toUpperCase() : seg;
+        const segPieces =
+          cap === 'small' ? smallCapsParts(seg, base) : [{ ...base, text: segText }];
         if (a.vert === 'upright') {
-          // wordArtVert stacks one code point per line (spaces become blank
+          // wordArtVert stacks one grapheme per line (spaces become blank
           // rows). Reuse the calibrated horizontal engine with a break before
           // every glyph rather than rotating the run. The break goes BEFORE each
           // glyph (skipped only at the very start or right after an existing
           // break) so adjacent runs stack too — a trailing per-glyph break would
           // leave the last glyph of run N sharing a row with the first of run
           // N+1, diverging from the browser's text-orientation:upright path.
-          for (const g of Array.from(segText)) {
-            const last = pieces[pieces.length - 1];
-            if (last !== undefined && !last.isBreak) pieces.push(breakPiece());
-            pieces.push({ ...base, text: g, isBreak: false });
+          for (const segPiece of segPieces) {
+            for (const g of graphemesOf(segPiece.text)) {
+              const last = pieces[pieces.length - 1];
+              if (last !== undefined && !last.isBreak) pieces.push(breakPiece());
+              pieces.push({ ...segPiece, text: g, isBreak: false });
+            }
           }
         } else {
-          pieces.push({ ...base, text: segText, isBreak: false });
+          for (const segPiece of segPieces) {
+            pieces.push({ ...segPiece, isBreak: false });
+          }
         }
         if (i < segs.length - 1) pieces.push(breakPiece());
       });

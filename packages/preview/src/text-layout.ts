@@ -156,6 +156,8 @@ export interface PieceInput {
   readonly underline: 'none' | 'single' | 'wavy';
   readonly strike: boolean;
   readonly superSub: 0 | 1 | -1; // 1 superscript, -1 subscript
+  /** Lowercase source letters rendered as reduced-size capitals for small caps. */
+  readonly smallCaps?: boolean;
   readonly href: string | null;
   readonly hrefTip?: string;
   readonly isBreak: boolean; // <a:br>
@@ -909,8 +911,15 @@ const baselineShiftPxOf = (p: PieceInput): number =>
 // subscript run's wave is sized to the glyphs actually drawn, not the
 // pre-shrink font size.
 const SUPER_SUB_SIZE_RATIO = 0.65;
+// Small caps keep authored uppercase glyphs at the run size and draw lowercase
+// source letters as smaller capitals. OOXML leaves the exact face-specific
+// scale to the renderer, so this is an explicit preview approximation rather
+// than a claim about PowerPoint's font metrics.
+const SMALL_CAPS_LOWERCASE_RATIO = 0.8;
 const renderedSizePxOf = (p: PieceInput): number =>
-  p.superSub !== 0 ? p.sizePx * SUPER_SUB_SIZE_RATIO : p.sizePx;
+  p.sizePx *
+  (p.superSub !== 0 ? SUPER_SUB_SIZE_RATIO : 1) *
+  (p.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
 
 // resvg has no `text-decoration-style: wavy` support (nor does core SVG
 // define one), so a wavy underline is drawn as an explicit path under its
@@ -955,7 +964,9 @@ const emitHighlights = (
   for (const group of groups) {
     const metrics = group.highlightMetrics;
     if (group.piece.highlightHex && metrics && group.width > 0) {
-      const scale = group.piece.superSub === 0 ? 1 : SUPER_SUB_SIZE_RATIO;
+      const scale =
+        (group.piece.superSub === 0 ? 1 : SUPER_SUB_SIZE_RATIO) *
+        (group.piece.smallCaps === true ? SMALL_CAPS_LOWERCASE_RATIO : 1);
       const y = baselineY - baselineShiftPxOf(group.piece) - metrics.a * scale;
       backgrounds.push(
         `<rect x="${fmt(x)}" y="${fmt(y)}" width="${fmt(group.width)}" height="${fmt((metrics.a + metrics.d) * scale)}" fill="${escapeXml(group.piece.highlightHex)}"/>`,
@@ -1011,6 +1022,7 @@ const samePiece = (a: PieceInput, b: PieceInput): boolean =>
   a.underline === b.underline &&
   a.strike === b.strike &&
   a.superSub === b.superSub &&
+  a.smallCaps === b.smallCaps &&
   a.href === b.href &&
   a.hrefTip === b.hrefTip;
 

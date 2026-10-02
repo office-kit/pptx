@@ -24,6 +24,17 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: extended run-format properties', () => {
+  it.each([
+    ['1', true],
+    ['true', true],
+    ['0', false],
+    ['false', false],
+  ])('reads bold and italic XML boolean "%s"', (value, enabled) => {
+    const xml = parseXml(
+      `<a:rPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" b="${value}" i="${value}"/>`,
+    );
+    expect(parseRPrLikeElement(xml.root)).toMatchObject({ bold: enabled, italic: enabled });
+  });
   it.each([true, false])(
     'preserves equalized character height (%s) through save and reload',
     async (enabled) => {

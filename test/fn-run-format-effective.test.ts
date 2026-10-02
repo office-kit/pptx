@@ -32,6 +32,46 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: getShapeRunFormatEffective', () => {
+  it('honors XML false overrides of inherited bold and italic after saving', async () => {
+    const original = createPresentation();
+    const box = addSlideTextBox(addBlankSlide(original), {
+      x: inches(0),
+      y: inches(0),
+      w: inches(3),
+      h: inches(2),
+      text: 'Regular',
+    });
+    setShapeRunFormat(box, 0, 0, { bold: false, italic: false });
+    const { entries } = readZip(await savePresentation(original));
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    const pres = await loadPresentation(
+      writeZip(
+        entries.map((entry) =>
+          entry.name === 'ppt/slides/slide1.xml'
+            ? {
+                ...entry,
+                data: encoder.encode(
+                  decoder
+                    .decode(entry.data)
+                    .replace('<a:p>', '<a:p><a:pPr><a:defRPr b="true" i="true"/></a:pPr>')
+                    .replace('b="0"', 'b="false"')
+                    .replace('i="0"', 'i="false"'),
+                ),
+              }
+            : entry,
+        ),
+      ),
+    );
+    for (const loaded of [pres, await loadPresentation(await savePresentation(pres))]) {
+      const shape = getSlideShapes(getSlides(loaded)[0]!)[0]!;
+      expect(getShapeRunFormatEffective(loaded, shape, 0, 0)).toMatchObject({
+        bold: false,
+        italic: false,
+      });
+      expect(getShapeRunFormat(shape, 0, 0)).toMatchObject({ bold: false, italic: false });
+    }
+  });
   it('inherits equalized character height and allows an explicit run override', async () => {
     const original = createPresentation();
     addSlideTextBox(addBlankSlide(original), {
