@@ -521,17 +521,10 @@ export const getShapeImageCrop = (shape: SlideShapeData): ImageCrop | null => {
 // other, and removing the last attribute drops the `<a:lum>` element entirely.
 const NAME_LUM = qname('a', 'lum', NS.dml);
 
-const requirePictureBlip = (shape: SlideShapeData, fnName: string): XmlElement => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') {
-    throw new Error(
-      `${fnName} only works on picture shapes; ${shape[SHAPE_SNAPSHOT].kind} is not one`,
-    );
-  }
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) throw new Error('picture has no <p:blipFill>');
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
-  if (!blip) throw new Error('picture <p:blipFill> has no <a:blip>');
-  return blip;
+const requireImageBlip = (shape: SlideShapeData, fnName: string): XmlElement => {
+  const blip = getImageOpacityBlip(shape);
+  if (blip) return blip;
+  throw new Error(`${fnName} requires a picture or a shape with an image fill`);
 };
 
 const setLumAttr = (blip: XmlElement, local: 'bright' | 'contrast', value: number | null): void => {
@@ -556,10 +549,7 @@ const setLumAttr = (blip: XmlElement, local: 'bright' | 'contrast', value: numbe
 };
 
 const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number | null => {
-  if (shape[SHAPE_SNAPSHOT].kind !== 'picture') return null;
-  const blipFill = firstChildElement(shape[SHAPE_ELEMENT], qname('p', 'blipFill', NS.pml));
-  if (!blipFill) return null;
-  const blip = firstChildElement(blipFill, qname('a', 'blip', NS.dml));
+  const blip = getImageOpacityBlip(shape);
   if (!blip) return null;
   const lum = firstChildElement(blip, NAME_LUM);
   if (!lum) return null;
@@ -570,7 +560,7 @@ const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number
 };
 
 /**
- * Adjusts the picture's brightness via `<a:blip><a:lum bright="…"/>`. The value
+ * Adjusts a picture or image fill's brightness via `<a:blip><a:lum bright="…"/>`. The value
  * is a -1..1 fraction:
  *
  *   - `1`     → +100% brightness
@@ -578,10 +568,10 @@ const getLumAttr = (shape: SlideShapeData, local: 'bright' | 'contrast'): number
  *   - `-1`    → -100% brightness
  *
  * Brightness and contrast share the one `<a:lum>` element, so setting one keeps
- * the other. Throws for non-picture shapes and on values outside [-1, 1].
+ * the other. Throws for shapes without an image and on values outside [-1, 1].
  */
 export const setShapeImageBrightness = (shape: SlideShapeData, value: number | null): void => {
-  const blip = requirePictureBlip(shape, 'setShapeImageBrightness');
+  const blip = requireImageBlip(shape, 'setShapeImageBrightness');
   if (value !== null && value !== 0 && (!Number.isFinite(value) || value < -1 || value > 1)) {
     throw new RangeError(`brightness must be in [-1, 1], got ${value}`);
   }
@@ -590,7 +580,7 @@ export const setShapeImageBrightness = (shape: SlideShapeData, value: number | n
 };
 
 /**
- * Adjusts the picture's contrast via `<a:blip><a:lum contrast="…"/>`. The value
+ * Adjusts a picture or image fill's contrast via `<a:blip><a:lum contrast="…"/>`. The value
  * is a -1..1 fraction (ECMA-376 `ST_FixedPercentage`):
  *
  *   - `0` or `null` → no contrast change (the `contrast` attribute is removed)
@@ -598,10 +588,10 @@ export const setShapeImageBrightness = (shape: SlideShapeData, value: number | n
  *   - `-0.5`        → -50% contrast (washed out)
  *
  * Brightness and contrast share the one `<a:lum>` element, so setting one keeps
- * the other. Throws on non-picture shapes and on values outside [-1, 1].
+ * the other. Throws for shapes without an image and on values outside [-1, 1].
  */
 export const setShapeImageContrast = (shape: SlideShapeData, value: number | null): void => {
-  const blip = requirePictureBlip(shape, 'setShapeImageContrast');
+  const blip = requireImageBlip(shape, 'setShapeImageContrast');
   if (value !== null && value !== 0 && (!Number.isFinite(value) || value < -1 || value > 1)) {
     throw new RangeError(`contrast must be in [-1, 1], got ${value}`);
   }
@@ -610,14 +600,14 @@ export const setShapeImageContrast = (shape: SlideShapeData, value: number | nul
 };
 
 /**
- * Reads the picture's contrast (the `<a:lum contrast>` fraction in [-1, 1]).
+ * Reads a picture or image fill's contrast (the `<a:lum contrast>` fraction in [-1, 1]).
  * Returns `null` when no contrast adjustment is present.
  */
 export const getShapeImageContrast = (shape: SlideShapeData): number | null =>
   getLumAttr(shape, 'contrast');
 
 /**
- * Reads the picture's brightness (the `<a:lum bright>` fraction in [-1, 1]).
+ * Reads a picture or image fill's brightness (the `<a:lum bright>` fraction in [-1, 1]).
  * Returns `null` when no brightness adjustment is present.
  */
 export const getShapeImageBrightness = (shape: SlideShapeData): number | null =>

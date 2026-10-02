@@ -1341,3 +1341,16 @@ pnpm 12.5.1 の Node エントリは `bin/pnpm.mjs`（`.cjs` ではない）。�
 - CI run 37033218920 on 4f59be35 has passed Static checks, Node 22, Node 26, Preview fidelity and OOXML validator; Node 24 was still running at the last observation. Do not claim a full CI pass yet.
 - Native PowerPoint retry still fails at pipe startup; no additional native mutations. Pending reference restoration and full native parity remain unresolved.
 - Next parallel audits: table_theme_refs owns locale decimal-tab evidence/code; table_band_edges owns outline cross-slide keyboard discrepancies. Their new work is separate from the completed browser-test migration.
+
+## 2026-10-03: Outline and decimal-tab evidence audit
+
+- Outline cross-selection browser tests pass 24/24 (`/tmp/outline-cross-selection-current.log`); core/selection tests pass 39/39 (`/tmp/outline-core-audit.log`). The recorded native title-offset-2 through body Shift+Enter cases agree with the current title split implementation, including trailing paragraphs. This audit found no new reproduced mismatch; unobserved native gestures remain unverified.
+- Decimal tab locale behavior remains unresolved. Both preview and editing recognize ASCII period; absent a period, they align the field end, not its start. Do not infer the separator from run language or UI language without native evidence. Microsoft DrawingML [TabStop documentation](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.tabstop?view=openxml-3.0.1) identifies ST_TextTabAlignType; the separately investigated ST_TabJc implementation note is WordprocessingML and cannot prove PowerPoint behavior.
+- Root reproduced that setShapeImageBrightness rejects a regular shape with an image fill before testing fill-memory restoration. table_theme_refs now owns that pending regression and an audit of shared blip correction accessors; no production fix has been accepted yet.
+- PR #287 is pushed through 6bdd9276. CI run 37035075036 is active; prior run 37033218920 was cancelled by the push and must not be described as fully passing.
+
+## 2026-10-03: Image-fill corrections and restoration
+
+- Reproduced setShapeImageBrightness rejecting an ordinary shape with an image fill. The existing brightness/contrast accessors now use the shared image blip lookup, preserving independent correction clearing and rejecting shapes without images. The editor remembers both corrections when switching fill types.
+- Core brightness/contrast tests pass 11/11; remembered-image-fill tests pass 5/5 against rebuilt ordinary core dist. Core build/typecheck, scoped lint/format, and Svelte check (zero errors/warnings) pass. Changeset covers core and the bundled editor.
+- This does not establish corrected shape-fill preview rendering or full native parity. table_band_edges is independently reproducing/auditing that renderer path; do not include its work before review and verification. Native reference restoration remains pending.

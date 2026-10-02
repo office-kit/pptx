@@ -10,6 +10,10 @@ import {
   getShapeImageFillLayout,
   setShapeImageOpacity,
   getShapeImageOpacity,
+  setShapeImageBrightness,
+  getShapeImageBrightness,
+  setShapeImageContrast,
+  getShapeImageContrast,
   setShapeImageCrop,
   getShapeImageCrop,
   getShapeImageFillBytes,
@@ -50,6 +54,8 @@ test('switching away from a picture fill and back restores its media, placement,
     rotateWithShape: false,
   });
   setShapeImageOpacity(shape, 0.65);
+  setShapeImageBrightness(shape, 0.2);
+  setShapeImageContrast(shape, -0.3);
   setShapeImageCrop(shape, { left: 0.2, top: -0.25, bottom: 0.1 });
   const remembered = readRememberedImageFill(shape);
   assert.ok(remembered);
@@ -64,6 +70,8 @@ test('switching away from a picture fill and back restores its media, placement,
   assert.deepEqual(getShapeImageFillLayout(restored), layout);
   assert.deepEqual(getShapeImageCrop(restored), crop);
   assert.equal(getShapeImageOpacity(restored), 0.65);
+  assert.equal(getShapeImageBrightness(restored), 0.2);
+  assert.equal(getShapeImageContrast(restored), -0.3);
 });
 
 test('restoring remembered stretch fills preserves empty effects and offsets', () => {

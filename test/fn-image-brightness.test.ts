@@ -18,6 +18,11 @@ import {
   resetShapeImageColorEffects,
   setShapeImageRecolor,
   savePresentation,
+  createPresentation,
+  addBlankSlide,
+  addSlideShape,
+  inches,
+  setShapeImageFill,
 } from '../src/api/index.ts';
 import { SHAPE_ELEMENT } from '../src/api/_internal-symbols.ts';
 import { NS, attr, elem, firstChildElement, qname } from '../src/internal/xml/index.ts';
@@ -26,6 +31,48 @@ const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/minimal/${name}`, import.meta.url));
 
 describe('fn API: setShapeImageBrightness', () => {
+  it('supports image-filled shapes, preserves one correction when clearing the other, and round-trips', async () => {
+    const pres = createPresentation();
+    const shape = addSlideShape(addBlankSlide(pres), {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
+    });
+    setShapeImageFill(shape, new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]));
+    setShapeImageBrightness(shape, 0.2);
+    setShapeImageContrast(shape, -0.3);
+    expect(getShapeImageBrightness(shape)).toBeCloseTo(0.2);
+    expect(getShapeImageContrast(shape)).toBeCloseTo(-0.3);
+
+    setShapeImageBrightness(shape, null);
+    expect(getShapeImageBrightness(shape)).toBeNull();
+    expect(getShapeImageContrast(shape)).toBeCloseTo(-0.3);
+
+    const restoredPresentation = await loadPresentation(await savePresentation(pres));
+    const restored = getSlideShapes(getSlides(restoredPresentation)[0]!)[0]!;
+    expect(getShapeImageBrightness(restored)).toBeNull();
+    expect(getShapeImageContrast(restored)).toBeCloseTo(-0.3);
+  });
+
+  it('rejects shapes without an image fill', () => {
+    const pres = createPresentation();
+    const shape = addSlideShape(addBlankSlide(pres), {
+      preset: 'rect',
+      x: inches(1),
+      y: inches(1),
+      w: inches(2),
+      h: inches(2),
+    });
+    expect(() => setShapeImageBrightness(shape, 0.2)).toThrow(
+      /picture or a shape with an image fill/,
+    );
+    expect(() => setShapeImageContrast(shape, 0.2)).toThrow(
+      /picture or a shape with an image fill/,
+    );
+  });
+
   it('round-trips a brightness fraction', async () => {
     const pres = await loadPresentation(await readFile(fixture('one-image-slide.pptx')));
     const slide = getSlides(pres)[0]!;
