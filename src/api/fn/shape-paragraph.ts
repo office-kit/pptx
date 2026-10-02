@@ -150,7 +150,7 @@ export const resolveTextBodyRunFormatEffective = (
   },
   textBody: XmlElement,
   paragraphIndex: number,
-  runIndex: number | null | { readonly fieldIndex: number },
+  runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
 ): ReadTextFormat => {
   const paragraphs = textBody.children.filter(
     (child): child is XmlElement =>
@@ -164,16 +164,21 @@ export const resolveTextBodyRunFormatEffective = (
       `paragraph index ${paragraphIndex} out of range (have ${paragraphs.length})`,
     );
   }
-  const field = typeof runIndex === 'object' && runIndex !== null;
-  const runs = field
+  const inline = typeof runIndex === 'object' && runIndex !== null;
+  const inlineName = inline && 'breakIndex' in runIndex ? 'br' : 'fld';
+  const runs = inline
     ? paragraph.children.filter(
         (child): child is XmlElement =>
           child.kind === 'element' &&
           child.name.namespaceURI === NS.dml &&
-          child.name.localName === 'fld',
+          child.name.localName === inlineName,
       )
     : runsOf(paragraph);
-  const index = field ? runIndex.fieldIndex : runIndex;
+  const index = inline
+    ? 'fieldIndex' in runIndex
+      ? runIndex.fieldIndex
+      : runIndex.breakIndex
+    : runIndex;
   const run = index === null ? null : runs[index];
   if (runIndex !== null && !run) {
     throw new RangeError(
@@ -296,7 +301,8 @@ const NAME_TX_BODY = qname('p', 'txBody', NS.pml);
  *
  * Use `getShapeRunFormat` if you only want the literal `<a:rPr>` on
  * the run without inheritance. Numeric indices count only regular runs;
- * `{ fieldIndex }` counts fields separately; null resolves the paragraph end mark.
+ * `{ fieldIndex }` and `{ breakIndex }` count fields and line breaks separately;
+ * null resolves the paragraph end mark.
  * `inheritanceSource` supplies the original
  * placeholder and slide context when reading a detached editing preview;
  * paragraph and run properties are still read from `shape`.
@@ -305,7 +311,7 @@ export const getShapeRunFormatEffective = (
   pres: PresentationData,
   shape: SlideShapeData,
   paragraphIndex: number,
-  runIndex: number | null | { readonly fieldIndex: number },
+  runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
   options: { inheritanceSource?: SlideShapeData } = {},
 ): TextFormat => {
   const paragraph = requireParagraph(shape, paragraphIndex);

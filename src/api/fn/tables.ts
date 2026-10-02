@@ -1430,13 +1430,13 @@ export const getTableCellParagraphs = (cell: TableCellData): ReadonlyArray<Table
  * outline-level defaults (`a:pPr/defRPr` and `a:lstStyle`). Pass `null` as
  * `runIndex` to resolve the paragraph end mark, including empty paragraphs.
  * Pass `{ fieldIndex }` for a zero-based `a:fld` index; numeric indices count
- * regular `a:r` runs only.
+ * regular `a:r` runs only. Pass `{ breakIndex }` for a zero-based `a:br` index.
  */
 export const getTableCellRunFormatEffective = (
   pres: PresentationData,
   cell: TableCellData,
   paragraphIndex: number,
-  runIndex: number | null | { readonly fieldIndex: number },
+  runIndex: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
 ): ReadTextFormat => {
   const txBody = firstChildElement(cell[CELL_ELEMENT], NAME_A_TX_BODY_TBL);
   if (!txBody) throw new Error('table cell has no <a:txBody>');

@@ -70,10 +70,14 @@ export function inlineTextHtml(
   const container = document.createElement('div');
   const scaled = (value: number, unit: string) => `calc(${value}${unit} * var(--text-zoom))`;
   const resolve = tableCell
-    ? (paragraph: number, run: number | null | { readonly fieldIndex: number }) =>
-        getTableCellRunFormatEffective(pres, tableCell, paragraph, run)
-    : (paragraph: number, run: number | null | { readonly fieldIndex: number }) =>
-        getShapeRunFormatEffective(pres, shape, paragraph, run, { inheritanceSource: source });
+    ? (
+        paragraph: number,
+        run: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
+      ) => getTableCellRunFormatEffective(pres, tableCell, paragraph, run)
+    : (
+        paragraph: number,
+        run: number | null | { readonly fieldIndex: number } | { readonly breakIndex: number },
+      ) => getShapeRunFormatEffective(pres, shape, paragraph, run, { inheritanceSource: source });
   const properties = paragraphs.map((_, index) =>
     getParagraphPropertiesEffective(pres, target, index, { inheritanceSource: source }),
   );
@@ -87,6 +91,7 @@ export function inlineTextHtml(
     let text = '';
     let runIndex = 0;
     let fieldIndex = 0;
+    let breakIndex = 0;
     const formats = elements.map((element) => {
       const start = text.length;
       text += element.kind === 'br' ? '\n' : element.text;
@@ -95,7 +100,7 @@ export function inlineTextHtml(
           ? resolve(index, runIndex++)
           : element.kind === 'fld'
             ? resolve(index, { fieldIndex: fieldIndex++ })
-            : element.format;
+            : resolve(index, { breakIndex: breakIndex++ });
       const editingFormat =
         cell && rawFormat
           ? {
